@@ -1,36 +1,44 @@
 # Backend discovery
 
-## Repository state
+## Current repository state
 
-The active directory contains a static Metronic-style frontend and no Django project. The root `AGENTS.md` is present. The three higher-context backend files named by the instructions are absent. There is no `.git` directory in the active root, so Git diff checks cannot run.
+The active root is `Kariz-CRM`. It contains a Django modular-monolith backend, PostgreSQL production settings, migrations, tests, Docker Compose, Nginx configuration, a large static template tree, and local Git metadata with initial commit `ef1c7f4`.
 
-No backend, settings, migrations, tests, requirements, deployment files, or sanitized environment example existed at discovery time. This is disposable initial backend state, not an existing migration history.
+`BACKEND_SPEC.md` is now present and is the provisional authoritative business source. The older named backend prompt and frontend context files remain absent under canonical or obvious suffixed root names. Work must use the specification, durable goal, approved backend documents, current migrations, and tests without treating demo pages as business truth.
 
-Production settings are PostgreSQL-only. `config/test_settings.py` uses ephemeral in-memory SQLite solely for host-side logic tests when PostgreSQL is unavailable; it is not deployment or migration proof.
+The prior discovery statement that no backend, Git, or specification existed is obsolete. It described the earlier scaffold start, not the current tree.
 
-`config/postgres_test_settings.py` and `scripts/test-postgres.ps1` provide a fail-closed native PostgreSQL test path. See `docs/backend/POSTGRES_TESTING.md`. The current host still lacks the required native PostgreSQL tools, so this path is not yet runtime proof.
+## Backend structure
 
-## Frontend evidence
+- `accounts`: custom user, fixed roles, session endpoints, profile, and controlled user administration.
+- `sales`: Customer, CustomerPhone, Lead, assignment history, Interaction, Product, and Sale.
+- `auditlog`: sensitive activity records and safe change filtering.
+- `common`: timestamps, phone normalization, request context, permissions, strict serializer input, and health routes.
+- `reports`: installed app; report implementation is now unblocked for exact metrics named by the specification.
+- `config`: base, test, production, and isolated PostgreSQL-test settings plus versioned routing.
 
-Bounded checks found an email/password sign-in form and customer/user profile fields. The scripts mostly simulate success and contain commented form submissions. They are not network contracts or business truth. No business status, permission, assignment, or report rule was accepted from them.
+## Runtime topology
 
-## Chosen structure
+Compose defines PostgreSQL, a one-shot migration/static collection job, Gunicorn, and Nginx. The application service is not host-published. Nginx is the sole bundled public hop, overwrites forwarding headers, owns the edge request ID, and rate-limits login. Production settings require an environment secret and secure cookies.
 
-- `accounts`: custom user, fixed CRM roles, session endpoints, profile and controlled user administration.
-- `sales`: customer, phone, lead, assignment history, interaction, product, and sale.
-- `auditlog`: append-only sensitive action records.
-- `common`: timestamps, phone normalization, scoped-query helpers, and health check.
-- `reports`: reserved for approved report formulas; no ambiguous KPI is published.
-- `config`: settings and versioned routing.
+The root static template tree is excluded from the backend container by `.dockerignore`; no active template integration is yet proven. Phase 6 and Phase 7 must identify or create the actual active Kariz UI before any deletion-heavy cleanup.
 
-## Migration decision
+## Migration and test state
 
-Initial migrations and additive role, assignment, money, and Sale-state constraint migrations are safe because no backend or prior migration history exists. They must be applied only to a new PostgreSQL database. No production migration reset is authorized.
+Current migrations include the custom user and Sales migrations through `sales.0005_sale_integrity_constraints`. The isolated PostgreSQL harness is fail-closed and avoids Compose, port 5432, caller production variables, and persistent volumes.
 
-## Blockers
+Fast tests use in-memory SQLite only. Native PostgreSQL, Docker, and Nginx executables were absent in the last host probe. Those are external runtime proof gaps, not substitutes for repository checks.
 
-See `ASSUMPTIONS.md`. Reports/XLSX, lead transitions, fixed interaction enums, Company IT company scope, and optional support wait for `BACKEND_SPEC.md`.
+## Safety state
 
-Production settings require an explicit long secret. TLS redirect and HSTS are opt-in because this repository has no certificate or approved edge termination details. Enable them only with the real HTTPS path in place. The bundled layout has exactly one trusted application proxy. Nginx discards caller forwarding chains. Audit IP capture trusts `X-Real-IP` only when the direct peer belongs to an exact CIDR listed in `AUDIT_TRUSTED_PROXY_CIDRS`; the default trusts no proxy CIDR.
+Git exists and user identity is configured. The source and durable goal files are untracked at this checkpoint. `.gitignore` is being expanded before the new baseline commit. High-confidence tracked-secret and forbidden-path scans found no private-key or known live-token pattern; broader policy checks continue before staging.
 
-Compose uses a one-shot migration/static collection service before Gunicorn starts. Nginx serves collected static files, applies a login rate cap, and uses its own connection scheme for forwarded-protocol trust.
+## Main active gaps
+
+- Reconcile implementation authorization and phone identity rules against the now-present specification.
+- Build exact predefined reports and matching XLSX export.
+- Establish active Persian-only UI and Kariz branding boundaries.
+- Add backup, restore, log rotation, release, and incident operations.
+- Prove PostgreSQL, container, proxy, static, TLS, backup, and restore behavior when runtime inputs exist.
+
+See `PROJECT_ROADMAP.md`, `PRODUCTION_READINESS_CHECKLIST.md`, `BLOCKERS.md`, and `WORKLOG.md` for live status.
