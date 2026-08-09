@@ -1,7 +1,7 @@
 # Relationship catalog
 
 - User 1:N Customer through required, server-controlled `created_by`; PROTECT; creator affects agent visibility; indexed.
-- Customer 1:N CustomerPhone through required owner; PROTECT; phone does not own customer; active primary and per-customer normalized constraints apply.
+- Customer 1:N CustomerPhone through required owner; PROTECT; phone does not own customer; one active primary per Customer, global active normalized identity, and ASCII `+98[1-9][0-9]{9}` shape constraints apply.
 - User 1:N Lead through required `created_by`; PROTECT; server-controlled; creator alone does not grant agent visibility after assignment.
 - User 1:N Lead through nullable `assigned_to` and `assigned_by`; PROTECT; server-controlled; assignee controls Sales Agent visibility; indexed. Assignee, assigner, and assignment time are all set or all empty.
 - Customer 1:N Lead through required customer; PROTECT; historical leads prevent customer deletion.
@@ -10,6 +10,6 @@
 - User 1:N LeadAssignmentHistory through nullable prior user and required target/actor; PROTECT; server-controlled.
 - Lead 1:N Interaction; PROTECT; interaction is historical. User 1:N Interaction through required agent; PROTECT. Customer is required denormalized data and must equal `lead.customer`.
 - Lead 1:N Sale; PROTECT. User 1:N Sale through required seller; PROTECT. Product 1:N Sale through nullable product; PROTECT. Customer is required denormalized data and must equal `lead.customer`.
-- User 1:N ActivityLog through nullable actor; PROTECT; append-only. Null permits retained system events only.
+- User 1:N ActivityLog through nullable actor; PROTECT; append-only. Null permits retained system events only. `actor_role_snapshot` and account-target `object_role_snapshot` are stored role-at-action values, not extra foreign keys; append-only application flow prevents later role changes from widening Company IT audit visibility.
 
-No ordinary API can cascade-delete historical rows. User and business foreign keys use `PROTECT`.
+User foreign keys can structurally point at any User row, but CRM services/selectors exclude every row with a staff/superuser flag, group membership, or direct permission. Actors and assignment targets must also be active; approved reports may retain otherwise-clean inactive accounts for historical rows. The gate applies to login/routes, user administration, assignment targets, and report users. No ordinary API can cascade-delete historical rows. User and business foreign keys use `PROTECT`.

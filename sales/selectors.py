@@ -23,7 +23,7 @@ def phones_for(user):
 def leads_for(user):
     queryset = Lead.objects.all()
     if user.role == User.Role.SALES_AGENT:
-        return queryset.filter(assigned_to=user)
+        return queryset.filter(Q(assigned_to=user) | Q(created_by=user, assigned_to__isnull=True)).distinct()
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()

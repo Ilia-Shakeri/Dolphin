@@ -1,0 +1,77 @@
+from datetime import UTC
+
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from rest_framework import serializers
+
+from common.serializers import RejectServerFieldsMixin
+
+
+class OffsetAwareDateTimeField(serializers.DateTimeField):
+    def to_internal_value(self, value):
+        parsed = parse_datetime(value) if isinstance(value, str) else None
+        if parsed is None or timezone.is_naive(parsed):
+            raise serializers.ValidationError(
+                "Use an ISO 8601 timestamp with a timezone offset.",
+                code="invalid",
+            )
+        return parsed.astimezone(UTC)
+
+
+class UserPerformanceQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    period_start = OffsetAwareDateTimeField(
+        help_text="Inclusive ISO 8601 timestamp with a timezone offset.",
+    )
+    period_end = OffsetAwareDateTimeField(
+        help_text="Exclusive ISO 8601 timestamp with a timezone offset.",
+    )
+    user_id = serializers.IntegerField(
+        min_value=1,
+        required=False,
+        help_text="Optional user row. Sales Agents may select only themselves.",
+    )
+    sales_product_id = serializers.IntegerField(
+        min_value=1,
+        required=False,
+        help_text="Optional exact Product ID applied only to Sale metrics.",
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        getlist = getattr(self.initial_data, "getlist", None)
+        if getlist:
+            repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
+            if repeated:
+                raise serializers.ValidationError(
+                    {name: "Query parameter must appear once." for name in repeated}
+                )
+        if attrs["period_end"] <= attrs["period_start"]:
+            raise serializers.ValidationError(
+                {"period_end": "Must be later than period_start."}
+            )
+        return attrs
+
+
+class UserPerformanceRowSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    username = serializers.CharField()
+    customers_created_count = serializers.IntegerField(min_value=0)
+    sales_count = serializers.IntegerField(min_value=0)
+    sales_amount = serializers.DecimalField(
+        max_digits=38,
+        decimal_places=2,
+        coerce_to_string=True,
+    )
+    average_sale_amount = serializers.DecimalField(
+        max_digits=38,
+        decimal_places=2,
+        coerce_to_string=True,
+    )
+
+
+class UserPerformanceReportSerializer(serializers.Serializer):
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    user_id = serializers.IntegerField(allow_null=True)
+    sales_product_id = serializers.IntegerField(allow_null=True)
+    results = UserPerformanceRowSerializer(many=True)

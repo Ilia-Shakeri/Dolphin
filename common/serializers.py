@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 class RejectServerFieldsMixin:
     server_fields = set()
-    always_forbidden_fields = {"is_staff", "is_superuser", "groups", "user_permissions", "password_hash"}
+    always_forbidden_fields = {"id", "is_staff", "is_superuser", "groups", "user_permissions", "password_hash"}
 
     def validate(self, attrs):
         supplied = set(getattr(self, "initial_data", {}))

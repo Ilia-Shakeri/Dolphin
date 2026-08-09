@@ -8,4 +8,5 @@ DATABASES = {
     }
 }
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
-
+ENABLE_API_DOCS = True
+LOGGING["loggers"]["kariz.request"]["level"] = "WARNING"

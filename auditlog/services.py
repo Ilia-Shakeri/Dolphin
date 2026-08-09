@@ -35,17 +35,37 @@ def _clean_changes(changes):
     return cleaned
 
 
-def log_activity(*, actor, operation, instance, changes=None, request_id=_UNSET, ip_address=_UNSET):
+def _clean_role_snapshot(value):
+    return value if value in _ROLE_CODES else ""
+
+
+def log_activity(
+    *,
+    actor,
+    operation,
+    instance,
+    changes=None,
+    request_id=_UNSET,
+    ip_address=_UNSET,
+    actor_role_snapshot=_UNSET,
+    object_role_snapshot=_UNSET,
+):
     context = current_request_context()
     if request_id is _UNSET:
         request_id = context.request_id
     if ip_address is _UNSET:
         ip_address = context.ip_address
+    if actor_role_snapshot is _UNSET:
+        actor_role_snapshot = getattr(actor, "role", "") if actor is not None else ""
+    if object_role_snapshot is _UNSET:
+        object_role_snapshot = getattr(instance, "role", "") if instance._meta.label_lower == "accounts.user" else ""
     return ActivityLog.objects.create(
         actor=actor,
+        actor_role_snapshot=_clean_role_snapshot(actor_role_snapshot),
         operation=operation,
         object_type=instance._meta.label_lower,
         object_id=str(instance.pk),
+        object_role_snapshot=_clean_role_snapshot(object_role_snapshot),
         safe_changes=_clean_changes(changes or {}),
         request_id=clean_request_id(request_id),
         ip_address=clean_ip_address(ip_address),

@@ -1,0 +1,7 @@
+services:
+  nginx:
+    volumes:
+      - type: bind
+        source: ./nginx/write-stop-on.conf
+        target: /etc/nginx/write-stop.conf
+        read_only: true

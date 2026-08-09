@@ -1,4 +1,4 @@
-from common.exceptions import BusinessPermissionDenied, BusinessRuleError
+from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 
 
-__all__ = ["BusinessPermissionDenied", "BusinessRuleError"]
+__all__ = ["BusinessConflictError", "BusinessPermissionDenied", "BusinessRuleError"]

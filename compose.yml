@@ -1,63 +1,273 @@
+name: ${KARIZ_COMPOSE_PROJECT_NAME:?KARIZ_COMPOSE_PROJECT_NAME must name the approved stable Compose project}
+
+x-django-environment: &django-environment
+  DJANGO_SETTINGS_MODULE: config.production_settings
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS}
+  KARIZ_PUBLIC_HOST: ${KARIZ_PUBLIC_HOST}
+  AUDIT_TRUSTED_PROXY_CIDRS: ${AUDIT_TRUSTED_PROXY_CIDRS:-}
+  DJANGO_SECURE_SSL_REDIRECT: ${DJANGO_SECURE_SSL_REDIRECT}
+  DJANGO_SECURE_HSTS_SECONDS: ${DJANGO_SECURE_HSTS_SECONDS}
+  DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS: ${DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS:-false}
+  DJANGO_SECURE_HSTS_PRELOAD: ${DJANGO_SECURE_HSTS_PRELOAD:-false}
+  KARIZ_HSTS_HEADER: ${KARIZ_HSTS_HEADER}
+  POSTGRES_DB: ${POSTGRES_DB}
+  POSTGRES_HOST: db
+  POSTGRES_PORT: "5432"
+  POSTGRES_CONNECT_TIMEOUT: ${POSTGRES_CONNECT_TIMEOUT:-3}
+  POSTGRES_INIT_USER: ${POSTGRES_INIT_USER}
+  POSTGRES_MIGRATION_USER: ${POSTGRES_MIGRATION_USER}
+  POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+
 services:
   db:
-    image: postgres:17-alpine
+    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - log_statement=none
+      - -c
+      - log_min_duration_statement=-1
+      - -c
+      - log_min_duration_sample=-1
+      - -c
+      - log_transaction_sample_rate=0
+      - -c
+      - log_parameter_max_length=0
+      - -c
+      - log_min_error_statement=panic
+      - -c
+      - log_parameter_max_length_on_error=0
+      - -c
+      - log_error_verbosity=terse
+      - -c
+      - log_connections=off
+      - -c
+      - log_disconnections=off
+      - -c
+      - log_duration=off
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_INIT_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_INIT_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  migrate:
-    build: .
+  db-bootstrap:
+    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: "no"
-    env_file: .env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
-      DJANGO_SETTINGS_MODULE: config.production_settings
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INIT_USER: ${POSTGRES_INIT_USER}
+      POSTGRES_INIT_PASSWORD: ${POSTGRES_INIT_PASSWORD}
+      POSTGRES_MIGRATION_USER: ${POSTGRES_MIGRATION_USER}
+      POSTGRES_MIGRATION_PASSWORD: ${POSTGRES_MIGRATION_PASSWORD}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+      POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
+    command: ["sh", "/ops/bootstrap-postgres.sh"]
+    volumes:
+      - ./scripts/bootstrap-postgres.sh:/ops/bootstrap-postgres.sh:ro
+    networks:
+      - backend
+
+  migrate:
+    image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      KARIZ_DATABASE_ROLE: migration
+      POSTGRES_MIGRATION_PASSWORD: ${POSTGRES_MIGRATION_PASSWORD}
+    depends_on:
+      db-bootstrap:
+        condition: service_completed_successfully
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
     volumes:
       - static_data:/app/staticfiles
+    networks:
+      - backend
 
-  web:
-    build: .
-    restart: unless-stopped
-    env_file: .env
+  db-finalize:
+    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    restart: "no"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     environment:
-      DJANGO_SETTINGS_MODULE: config.production_settings
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INIT_USER: ${POSTGRES_INIT_USER}
+      POSTGRES_INIT_PASSWORD: ${POSTGRES_INIT_PASSWORD}
+      POSTGRES_MIGRATION_USER: ${POSTGRES_MIGRATION_USER}
+      POSTGRES_MIGRATION_PASSWORD: ${POSTGRES_MIGRATION_PASSWORD}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+      POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
     depends_on:
       migrate:
         condition: service_completed_successfully
+    command: ["sh", "/ops/bootstrap-postgres.sh"]
     volumes:
-      - static_data:/app/staticfiles
+      - ./scripts/bootstrap-postgres.sh:/ops/bootstrap-postgres.sh:ro
+    networks:
+      - backend
+
+  backup:
+    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["backup"]
+    restart: "no"
+    user: postgres
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      HOME: /tmp
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+      POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
+      POSTGRES_BACKUP_ROOT: /backups
+      POSTGRES_BACKUP_RETENTION_DAYS: ${POSTGRES_BACKUP_RETENTION_DAYS:?POSTGRES_BACKUP_RETENTION_DAYS must be an approved whole-day value}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "/ops/backup-postgres.sh"]
+    volumes:
+      - ./scripts/backup-postgres.sh:/ops/backup-postgres.sh:ro
+      - backup_data:/backups
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+
+  web:
+    image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    restart: unless-stopped
+    read_only: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      KARIZ_DATABASE_ROLE: app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    depends_on:
+      db-finalize:
+        condition: service_completed_successfully
+    volumes:
+      - static_data:/app/staticfiles:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    networks:
+      - backend
+      - frontend
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready/', timeout=3)"]
+      test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip(); request = urllib.request.Request('http://127.0.0.1:8000/api/v1/health/live/', headers={'Host': host, 'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3
 
   nginx:
-    image: nginx:1.27-alpine
+    image: ${KARIZ_NGINX_IMAGE:?KARIZ_NGINX_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     depends_on:
       web:
         condition: service_healthy
+    environment:
+      KARIZ_PUBLIC_HOST: ${KARIZ_PUBLIC_HOST}
+      KARIZ_HSTS_HEADER: ${KARIZ_HSTS_HEADER}
+      NGINX_ENVSUBST_FILTER: KARIZ_PUBLIC_HOST|KARIZ_HSTS_HEADER
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - static_data:/static:ro
+      - type: bind
+        source: ./nginx/default.conf
+        target: /etc/nginx/templates/default.conf.template
+        read_only: true
+      - type: bind
+        source: ./nginx/write-stop-off.conf
+        target: /etc/nginx/write-stop.conf
+        read_only: true
+      - type: bind
+        source: ${KARIZ_TLS_CERT_PATH:?KARIZ_TLS_CERT_PATH must name the approved certificate chain file}
+        target: /etc/nginx/tls/fullchain.pem
+        read_only: true
+      - type: bind
+        source: ${KARIZ_TLS_KEY_PATH:?KARIZ_TLS_KEY_PATH must name the approved private key file}
+        target: /etc/nginx/tls/privkey.pem
+        read_only: true
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health/live/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres_data:
+    external: true
+    name: ${POSTGRES_DATA_VOLUME:?POSTGRES_DATA_VOLUME must name the approved database volume}
+  backup_data:
+    external: true
+    name: ${POSTGRES_BACKUP_VOLUME:?POSTGRES_BACKUP_VOLUME must name the approved backup volume}
   static_data:
+
+networks:
+  backend:
+    internal: true
+  frontend: {}

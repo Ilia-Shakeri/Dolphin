@@ -1,0 +1,54 @@
+:root {
+    color-scheme: light;
+    font-family: Tahoma, Arial, sans-serif;
+    color: #17324d;
+    background: #f4f7fa;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    background: linear-gradient(145deg, #edf8f7, #f6f3ff);
+}
+
+.shell {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 2rem;
+}
+
+.brand-card {
+    width: min(100%, 42rem);
+    padding: clamp(2rem, 7vw, 5rem);
+    border: 1px solid #dce7ee;
+    border-radius: 1.5rem;
+    background: #ffffff;
+    box-shadow: 0 1.25rem 4rem rgb(23 50 77 / 10%);
+    text-align: center;
+}
+
+.brand-name {
+    margin: 0;
+    color: #087f73;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+h1 {
+    margin: 0.75rem 0 1.25rem;
+    font-size: clamp(2rem, 8vw, 4rem);
+    line-height: 1.2;
+}
+
+.summary,
+.scope {
+    margin: 0.5rem 0;
+    color: #496177;
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    line-height: 1.9;
+}

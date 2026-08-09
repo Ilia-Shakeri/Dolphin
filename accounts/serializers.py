@@ -3,6 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from accounts.access import is_crm_identity
 from accounts.models import User
 from accounts.services import change_user_role, create_crm_user, update_crm_user, update_own_profile
 from common.serializers import RejectServerFieldsMixin
@@ -13,8 +14,9 @@ class LoginSerializer(RejectServerFieldsMixin, serializers.Serializer):
     password = serializers.CharField(write_only=True, trim_whitespace=False)
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
         user = authenticate(request=self.context.get("request"), username=attrs["username"], password=attrs["password"])
-        if user is None or not user.is_active:
+        if not is_crm_identity(user):
             raise serializers.ValidationError("Invalid credentials.")
         attrs["user"] = user
         return attrs

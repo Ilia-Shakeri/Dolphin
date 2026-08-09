@@ -5,9 +5,14 @@ from django.core.exceptions import ValidationError
 
 _DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 
+_PHONE_TEXT = re.compile(r"[0-9+() \t\r\n-]+", flags=re.ASCII)
+
 
 def normalize_customer_phone(value: str) -> str:
-    digits = re.sub(r"\D", "", str(value).translate(_DIGITS))
+    translated = str(value).translate(_DIGITS)
+    if not _PHONE_TEXT.fullmatch(translated):
+        raise ValidationError("Enter a valid Iranian phone number.")
+    digits = re.sub(r"[^0-9]", "", translated)
     if digits.startswith("0098"):
         digits = digits[4:]
     elif digits.startswith("98"):
@@ -17,4 +22,3 @@ def normalize_customer_phone(value: str) -> str:
     if len(digits) != 10 or digits.startswith("0"):
         raise ValidationError("Enter a valid Iranian phone number.")
     return f"+98{digits}"
-

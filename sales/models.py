@@ -8,14 +8,19 @@ from django.db.models import Q
 from common.models import TimeStampedModel
 
 
+CUSTOMER_ADDRESS_MAX_LENGTH = 2000
+FREE_TEXT_MAX_LENGTH = 4000
+INTERACTION_OUTCOME_MAX_LENGTH = 80
+
+
 class Customer(TimeStampedModel):
     full_name = models.CharField(max_length=255, db_index=True)
     national_id = models.CharField(max_length=32, blank=True, db_index=True)
     email = models.EmailField(blank=True)
     province = models.CharField(max_length=100, blank=True)
     city = models.CharField(max_length=100, blank=True)
-    address = models.TextField(blank=True)
-    notes = models.TextField(blank=True)
+    address = models.CharField(max_length=CUSTOMER_ADDRESS_MAX_LENGTH, blank=True)
+    notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_customers")
     is_active = models.BooleanField(default=True, db_index=True)
 
@@ -35,23 +40,27 @@ class CustomerPhone(TimeStampedModel):
     class Meta:
         ordering = ["-is_primary", "id"]
         constraints = [
-            models.UniqueConstraint(fields=["customer", "normalized_phone"], condition=Q(is_active=True), name="uniq_active_phone_per_customer"),
+            models.UniqueConstraint(fields=["normalized_phone"], condition=Q(is_active=True), name="uniq_active_normalized_phone"),
             models.UniqueConstraint(fields=["customer"], condition=Q(is_active=True, is_primary=True), name="uniq_active_primary_phone"),
+            models.CheckConstraint(
+                condition=Q(normalized_phone__regex=r"\A\+98[1-9][0-9]{9}\Z"),
+                name="customer_phone_normalized_shape",
+            ),
         ]
 
 
 class Product(TimeStampedModel):
     sku = models.CharField(max_length=80, unique=True)
     name = models.CharField(max_length=255, db_index=True)
-    current_price = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
-    description = models.TextField(blank=True)
+    current_price = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    description = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_products")
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="updated_products")
 
     class Meta:
         ordering = ["name", "id"]
-        constraints = [models.CheckConstraint(condition=Q(current_price__gte=0), name="product_price_non_negative")]
+        constraints = [models.CheckConstraint(condition=Q(current_price__gt=0), name="product_price_positive")]
 
 
 class Lead(TimeStampedModel):
@@ -66,7 +75,7 @@ class Lead(TimeStampedModel):
     next_follow_up_at = models.DateTimeField(null=True, blank=True, db_index=True)
     closed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_leads")
-    notes = models.TextField(blank=True)
+    notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     source_payload = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -103,18 +112,32 @@ class LeadAssignmentHistory(models.Model):
 
 
 class Interaction(TimeStampedModel):
+    class Direction(models.TextChoices):
+        INBOUND = "inbound", "Inbound"
+        OUTBOUND = "outbound", "Outbound"
+
     lead = models.ForeignKey(Lead, on_delete=models.PROTECT, related_name="interactions")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="interactions")
     agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="interactions")
     phone = models.CharField(max_length=40)
-    direction = models.CharField(max_length=40, blank=True)
-    outcome = models.CharField(max_length=80, blank=True, db_index=True)
+    direction = models.CharField(max_length=20, choices=Direction.choices)
+    outcome = models.CharField(max_length=INTERACTION_OUTCOME_MAX_LENGTH, db_index=True)
     occurred_at = models.DateTimeField(db_index=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True)
-    notes = models.TextField(blank=True)
+    notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
 
     class Meta:
         ordering = ["-occurred_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(direction__in=["inbound", "outbound"]),
+                name="interaction_direction_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(outcome__regex=r"\S"),
+                name="interaction_outcome_nonblank",
+            ),
+        ]
         indexes = [models.Index(fields=["agent", "-occurred_at"]), models.Index(fields=["lead", "-occurred_at"])]
 
 
@@ -132,7 +155,7 @@ class Sale(TimeStampedModel):
     total_amount = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.CONFIRMED, db_index=True)
     sold_at = models.DateTimeField(db_index=True)
-    notes = models.TextField(blank=True)
+    notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
 
     class Meta:
         ordering = ["-sold_at", "-id"]

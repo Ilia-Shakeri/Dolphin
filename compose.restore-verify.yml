@@ -1,0 +1,35 @@
+name: ${KARIZ_COMPOSE_PROJECT_NAME:?KARIZ_COMPOSE_PROJECT_NAME must name the approved stable Compose project}-restore-verify
+
+services:
+  restore-verify:
+    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["restore-verify"]
+    restart: "no"
+    user: postgres
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    network_mode: none
+    environment:
+      HOME: /tmp
+    entrypoint: ["sh", "/ops/verify-postgres-restore.sh"]
+    command: []
+    volumes:
+      - ./scripts/verify-postgres-restore.sh:/ops/verify-postgres-restore.sh:ro
+      - ./scripts/verify-postgres-schema.sql:/ops/verify-postgres-schema.sql:ro
+      - backup_data:/backups:ro
+    tmpfs:
+      - /tmp:size=${POSTGRES_RESTORE_TMPFS_SIZE_BYTES:?POSTGRES_RESTORE_TMPFS_SIZE_BYTES must be an approved byte limit},mode=1777,noexec,nosuid,nodev
+
+volumes:
+  backup_data:
+    external: true
+    name: ${POSTGRES_BACKUP_VOLUME:?POSTGRES_BACKUP_VOLUME must name the approved backup volume}

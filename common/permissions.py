@@ -1,7 +1,8 @@
 from rest_framework.permissions import BasePermission
 
+from accounts.access import is_crm_identity
+
 
 class IsActiveAuthenticated(BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.is_active)
-
+        return is_crm_identity(request.user)

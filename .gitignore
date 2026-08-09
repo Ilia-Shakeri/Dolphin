@@ -16,6 +16,7 @@ media/
 uploads/
 exports/
 backups/
+.kariz-backup-root
 logs/
 *.log
 *.db
@@ -31,6 +32,12 @@ logs/
 *.tar.gz
 credentials.json
 service-account.json
+.pgpass
+pgpass.conf
+.netrc
+.npmrc
+pip.conf
+secrets/
 *.pem
 *.key
 *.p12

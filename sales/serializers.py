@@ -2,6 +2,7 @@ from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework import serializers
 
+from accounts.access import crm_identities
 from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
@@ -142,7 +143,9 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class ReassignSerializer(RejectServerFieldsMixin, serializers.Serializer):
-    to_user = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(role=User.Role.SALES_AGENT, is_active=True))
+    to_user = serializers.PrimaryKeyRelatedField(
+        queryset=crm_identities(User.objects.filter(role=User.Role.SALES_AGENT, is_active=True)),
+    )
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 

@@ -1,0 +1,9 @@
+# Human-maintained production dependency policy.
+# Resolve this file in a clean Python 3.13 Linux image and write exact pins to
+# requirements.txt. The container must install requirements.txt only.
+Django>=5.2,<5.3
+djangorestframework>=3.16,<3.17
+drf-spectacular>=0.28,<0.29
+psycopg[binary]>=3.2,<3.3
+gunicorn>=23,<24
+openpyxl>=3.1,<3.2
