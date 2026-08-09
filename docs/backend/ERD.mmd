@@ -1,0 +1,17 @@
+erDiagram
+    USER ||--o{ CUSTOMER : creates
+    USER ||--o{ LEAD : creates_or_owns
+    CUSTOMER ||--o{ CUSTOMER_PHONE : has
+    CUSTOMER ||--o{ LEAD : has
+    PRODUCT o|--o{ LEAD : interests
+    LEAD ||--o{ LEAD_ASSIGNMENT_HISTORY : records
+    USER ||--o{ LEAD_ASSIGNMENT_HISTORY : changes
+    LEAD ||--o{ INTERACTION : has
+    USER ||--o{ INTERACTION : records
+    CUSTOMER ||--o{ INTERACTION : concerns
+    LEAD ||--o{ SALE : produces
+    CUSTOMER ||--o{ SALE : buys
+    PRODUCT o|--o{ SALE : snapshots
+    USER ||--o{ SALE : sells
+    USER o|--o{ ACTIVITY_LOG : acts
+

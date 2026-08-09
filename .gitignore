@@ -1,0 +1,10 @@
+.env
+.env.test
+.env.test.local
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+staticfiles/
+media/
