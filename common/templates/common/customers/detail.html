@@ -1,0 +1,42 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات مشتری{% endblock %}
+{% block page_id %}customer-detail{% endblock %}
+{% block body_data %} data-customer-id="{{ customer_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">دفتر مشتری</p><h1>جزئیات مشتری</h1></div><a class="button button-muted" href="{% url 'common_ui:customers' %}">بازگشت به فهرست</a></section>
+<div id="customer-detail-loading" class="card state">در حال دریافت مشتری…</div>
+<section id="customer-detail-content" hidden>
+    <form id="edit-customer-form" action="/api/v1/customers/{{ customer_id }}/" method="post" class="card" novalidate>
+        {% csrf_token %}<h2>مشخصات مشتری</h2>
+        <div class="form-grid">
+            <div><label for="edit-customer-name">نام کامل</label><input id="edit-customer-name" name="full_name" required maxlength="255"><p class="field-error" data-error-for="full_name"></p></div>
+            <div><label for="edit-customer-national-id">کد ملی</label><input id="edit-customer-national-id" name="national_id" maxlength="32"><p class="field-error" data-error-for="national_id"></p></div>
+            <div><label for="edit-customer-email">ایمیل</label><input id="edit-customer-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
+            <div><label for="edit-customer-province">استان</label><input id="edit-customer-province" name="province" maxlength="100"><p class="field-error" data-error-for="province"></p></div>
+            <div><label for="edit-customer-city">شهر</label><input id="edit-customer-city" name="city" maxlength="100"><p class="field-error" data-error-for="city"></p></div>
+            <div><label for="customer-created-by">شناسه ثبت‌کننده</label><input id="customer-created-by" type="text" disabled></div>
+            <div><label for="customer-active">وضعیت</label><input id="customer-active" type="text" disabled></div>
+            <div class="full-field"><label for="edit-customer-address">نشانی</label><textarea id="edit-customer-address" name="address" maxlength="2000"></textarea><p class="field-error" data-error-for="address"></p></div>
+            <div class="full-field"><label for="edit-customer-notes">یادداشت</label><textarea id="edit-customer-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        </div>
+        <div class="form-actions"><button class="button" type="submit">ذخیره تغییرات</button></div>
+    </form>
+    <section class="card">
+        <div class="section-head"><h2>تلفن‌ها</h2><button id="open-create-phone" class="button" type="button">تلفن جدید</button></div>
+        <div id="phones-loading" class="state">در حال دریافت تلفن‌ها…</div><div id="phones-empty" class="state" hidden>تلفنی ثبت نشده است.</div>
+        <div id="phones-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره</th><th>نرمال‌شده</th><th>برچسب</th><th>اصلی</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="phones-table-body"></tbody></table></div>
+    </section>
+    {% if can_deactivate_customers %}<section class="card danger-zone"><h2>غیرفعال‌سازی</h2><p>سابقه مشتری نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="button button-danger" type="button">غیرفعال کردن مشتری</button></section>{% endif %}
+</section>
+<dialog id="phone-dialog" aria-labelledby="phone-dialog-title">
+    <form id="phone-form" action="/api/v1/customer-phones/" method="post" novalidate>
+        {% csrf_token %}<div class="dialog-head"><h2 id="phone-dialog-title">تلفن مشتری</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="form-grid">
+            <div><label for="phone-raw">شماره</label><input id="phone-raw" name="raw_phone" type="tel" required maxlength="40"><p class="field-error" data-error-for="raw_phone"></p></div>
+            <div><label for="phone-label">برچسب</label><input id="phone-label" name="label" maxlength="40"><p class="field-error" data-error-for="label"></p></div>
+            <div class="checkbox-field"><input id="phone-primary" name="is_primary" type="checkbox"><label for="phone-primary">شماره اصلی</label><p class="field-error" data-error-for="is_primary"></p></div>
+        </div>
+        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ذخیره تلفن</button></div>
+    </form>
+</dialog>
+{% endblock %}

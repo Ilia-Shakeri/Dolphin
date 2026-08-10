@@ -1,0 +1,58 @@
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="سامانه مدیریت ارتباط با مشتری کاریز">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <title>{% block title %}خانه{% endblock %} | Kariz CRM</title>
+    <link rel="icon" href="{% static 'kariz-brand/favicon.ico' %}" sizes="any">
+    <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
+    <script src="{% static 'common/kariz-app.js' %}" defer></script>
+</head>
+<body data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
+{% if request.user.is_authenticated %}
+<div class="app-shell">
+    <aside class="sidebar" id="app-sidebar" aria-label="راهبری اصلی">
+        <a class="brand" href="{% url 'common_ui:home' %}">Kariz CRM <span>کاریز</span></a>
+        <nav class="nav-list">
+            <a href="{% url 'common_ui:home' %}">خانه و پروفایل</a>
+            <a href="{% url 'common_ui:customers' %}">مشتریان</a>
+            <a href="{% url 'common_ui:leads' %}">سرنخ‌ها</a>
+            <a href="{% url 'common_ui:interactions' %}">تماس‌ها</a>
+            {% if can_manage_users %}<a href="{% url 'common_ui:users' %}">مدیریت کاربران</a>{% endif %}
+        </nav>
+        <form id="logout-form" action="/api/v1/auth/logout/" method="post">
+            {% csrf_token %}
+            <button class="button button-muted" type="submit">خروج</button>
+        </form>
+    </aside>
+    <div class="app-main">
+        <header class="topbar">
+            <button id="nav-toggle" class="icon-button" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="نمایش فهرست">☰</button>
+            <div>
+                <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                <span class="muted">{{ role_label }}</span>
+            </div>
+        </header>
+        <main class="content" id="main-content">
+            <div id="global-message" class="message" role="alert" hidden></div>
+            {% if error_status %}
+                <section class="card error-card" aria-labelledby="error-title">
+                    <p class="status-code">{{ error_status }}</p>
+                    <h1 id="error-title">{{ error_title }}</h1>
+                    <p>{{ error_message }}</p>
+                    <a class="button" href="{% url 'common_ui:home' %}">بازگشت به خانه</a>
+                </section>
+            {% else %}
+                {% block content %}{% endblock %}
+            {% endif %}
+        </main>
+    </div>
+</div>
+{% else %}
+    {% block public_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

@@ -1,0 +1,32 @@
+{% extends "common/base.html" %}
+{% block title %}فهرست تماس‌ها{% endblock %}
+{% block page_id %}interactions{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">ثبت دستی ارتباط</p><h1>تماس‌ها</h1></div><button id="open-create-interaction" class="button" type="button">ثبت تماس</button></section>
+<section class="card">
+    <form id="interaction-search-form" action="{% url 'common_ui:interactions' %}" method="get" class="toolbar">
+        <label class="sr-only" for="interaction-search">جستجوی تماس</label><input id="interaction-search" name="search" type="search" placeholder="شماره، نتیجه، یادداشت یا نام مشتری">
+        <label class="sr-only" for="interaction-ordering">مرتب‌سازی</label><select id="interaction-ordering" name="ordering"><option value="-occurred_at">جدیدترین تماس</option><option value="occurred_at">قدیمی‌ترین تماس</option><option value="next_follow_up_at">نزدیک‌ترین پیگیری</option><option value="-created_at">آخرین ثبت</option></select>
+        <button class="button button-muted" type="submit">اعمال</button>
+    </form>
+    <div id="interactions-loading" class="state">در حال دریافت تماس‌ها…</div><div id="interactions-empty" class="state" hidden>تماسی پیدا نشد.</div>
+    <div id="interactions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="interactions-table-body"></tbody></table></div>
+    <nav id="interactions-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="interactions-prev" class="button button-muted" type="button">قبلی</button><span id="interactions-page-label"></span><button id="interactions-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+<dialog id="create-interaction-dialog" aria-labelledby="create-interaction-title">
+    <form id="create-interaction-form" action="/api/v1/interactions/" method="post" novalidate>
+        {% csrf_token %}<div class="dialog-head"><h2 id="create-interaction-title">ثبت دستی تماس</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="form-grid">
+            <div><label for="create-interaction-lead">سرنخ</label><select id="create-interaction-lead" name="lead" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="lead"></p></div>
+            <div><label for="create-interaction-phone">شماره تماس</label><input id="create-interaction-phone" name="phone" type="tel" required maxlength="40"><p class="field-error" data-error-for="phone"></p></div>
+            <div><label for="create-interaction-direction">جهت</label><select id="create-interaction-direction" name="direction" required><option value="outbound">خروجی</option><option value="inbound">ورودی</option></select><p class="field-error" data-error-for="direction"></p></div>
+            <div><label for="create-interaction-outcome">نتیجه ثبت‌شده</label><input id="create-interaction-outcome" name="outcome" required maxlength="80"><p class="field-error" data-error-for="outcome"></p></div>
+            <div><label for="create-interaction-occurred">زمان تماس</label><input id="create-interaction-occurred" name="occurred_at" type="datetime-local" required><p class="field-error" data-error-for="occurred_at"></p></div>
+            <div><label for="create-interaction-follow-up">پیگیری بعدی</label><input id="create-interaction-follow-up" name="next_follow_up_at" type="datetime-local"><p class="field-error" data-error-for="next_follow_up_at"></p></div>
+            <div class="full-field"><label for="create-interaction-notes">یادداشت</label><textarea id="create-interaction-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        </div>
+        <p class="muted">فقط تماس دستی ورودی یا خروجی ثبت می‌شود. نتیجه، متن ثبت‌شده کاربر است و کد تازه‌ای تحمیل نمی‌شود.</p>
+        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت تماس</button></div>
+    </form>
+</dialog>
+{% endblock %}

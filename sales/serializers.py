@@ -6,7 +6,7 @@ from accounts.access import crm_identities
 from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Sale
+from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, Product, Sale
 from sales.selectors import customers_for, leads_for, products_for
 from sales.services import create_customer_phone, create_customer_with_phone, create_lead, create_product, mark_sale, record_interaction, update_customer, update_customer_phone, update_lead, update_product
 
@@ -27,14 +27,18 @@ class CustomerPhoneInlineSerializer(RejectServerFieldsMixin, serializers.Seriali
 
 
 class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"created_by", "is_active", "created_at", "updated_at"}
+    server_fields = {"created_by", "created_by_display", "is_active", "created_at", "updated_at"}
     phone = CustomerPhoneInlineSerializer(write_only=True, required=False)
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    created_by_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
-        fields = ["id", "full_name", "national_id", "email", "province", "city", "address", "notes", "created_by", "is_active", "phone", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_by", "is_active", "created_at", "updated_at"]
+        fields = ["id", "full_name", "national_id", "email", "province", "city", "address", "notes", "created_by", "created_by_display", "is_active", "phone", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_by", "created_by_display", "is_active", "created_at", "updated_at"]
+
+    def get_created_by_display(self, instance) -> str:
+        return instance.created_by.get_full_name() or instance.created_by.username
 
     def create(self, validated_data):
         phone = validated_data.pop("phone", None)
@@ -54,13 +58,13 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class CustomerPhoneSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"normalized_phone", "created_at", "updated_at"}
+    server_fields = {"normalized_phone", "is_active", "created_at", "updated_at"}
     normalized_phone = serializers.CharField(read_only=True)
 
     class Meta:
         model = CustomerPhone
         fields = ["id", "customer", "raw_phone", "normalized_phone", "label", "is_primary", "is_active", "created_at", "updated_at"]
-        read_only_fields = ["id", "normalized_phone", "created_at", "updated_at"]
+        read_only_fields = ["id", "normalized_phone", "is_active", "created_at", "updated_at"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -106,15 +110,22 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"status", "assigned_to", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
+    server_fields = {"customer_name", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    assigned_to_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Lead
-        fields = ["id", "customer", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "created_at", "updated_at"]
-        read_only_fields = ["id", "status", "assigned_to", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer_name", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+
+    def get_assigned_to_display(self, instance) -> str:
+        if instance.assigned_to is None:
+            return ""
+        return instance.assigned_to.get_full_name() or instance.assigned_to.username
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -149,20 +160,71 @@ class ReassignSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
+class LeadAssigneeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "first_name", "last_name"]
+        read_only_fields = fields
+
+
+class LeadAssignmentHistorySerializer(serializers.ModelSerializer):
+    from_user_display = serializers.SerializerMethodField()
+    to_user_display = serializers.SerializerMethodField()
+    changed_by_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeadAssignmentHistory
+        fields = [
+            "id",
+            "lead",
+            "from_user",
+            "from_user_display",
+            "to_user",
+            "to_user_display",
+            "changed_by",
+            "changed_by_display",
+            "reason",
+            "changed_at",
+        ]
+        read_only_fields = fields
+
+    @staticmethod
+    def _display(user) -> str:
+        if user is None:
+            return ""
+        return user.get_full_name() or user.username
+
+    def get_from_user_display(self, instance) -> str:
+        return self._display(instance.from_user)
+
+    def get_to_user_display(self, instance) -> str:
+        return self._display(instance.to_user)
+
+    def get_changed_by_display(self, instance) -> str:
+        return self._display(instance.changed_by)
+
+
 class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer", "agent", "created_at", "updated_at"}
+    server_fields = {"customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"}
     customer = serializers.PrimaryKeyRelatedField(read_only=True)
     agent = serializers.PrimaryKeyRelatedField(read_only=True)
+    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    agent_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Interaction
-        fields = ["id", "lead", "customer", "agent", "phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer", "agent", "created_at", "updated_at"]
+        fields = ["id", "lead", "customer", "customer_name", "agent", "agent_display", "phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"]
+
+    def get_agent_display(self, instance) -> str:
+        return instance.agent.get_full_name() or instance.agent.username
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
         queryset = leads_for(request.user) if request and request.user.is_authenticated else Lead.objects.none()
+        if request and request.user.is_authenticated and request.user.role == User.Role.SALES_AGENT:
+            queryset = queryset.filter(assigned_to=request.user)
         _scope_relation(self.fields["lead"], queryset)
 
     def create(self, validated_data):

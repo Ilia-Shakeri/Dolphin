@@ -5,13 +5,15 @@ from rest_framework.exceptions import ValidationError
 class StrictQueryParametersMixin:
     common_list_query_parameters = {"format", "ordering", "page", "search"}
     list_query_parameters = set()
+    action_query_parameters = {}
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
         if request.method not in {"GET", "HEAD"}:
             return
-        allowed = {"format"}
-        if getattr(self, "action", None) == "list":
+        action_name = getattr(self, "action", None)
+        allowed = {"format"} | set(self.action_query_parameters.get(action_name, set()))
+        if action_name == "list":
             allowed |= self.common_list_query_parameters | set(self.list_query_parameters)
         errors = {
             name: ["Unknown query parameter."]

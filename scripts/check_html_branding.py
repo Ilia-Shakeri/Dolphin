@@ -234,6 +234,8 @@ def normalize(path: Path) -> bool:
     raw = path.read_bytes()
     text = raw.decode("utf-8-sig")
     original = text
+    if re.search(r"{%\s*extends\b", text):
+        return False
     newline = "\r\n" if "\r\n" in text else "\n"
     title = f"{persian_title(path)} | Kariz CRM"
 
@@ -336,24 +338,26 @@ def validate(path: Path) -> list[str]:
     text = path.read_bytes().decode("utf-8-sig")
     relative = path.relative_to(ROOT).as_posix()
     errors: list[str] = []
-    html_tag = HTML_TAG_RE.search(text)
-    if not html_tag or not re.search(r'\blang=["\']fa["\']', html_tag.group(0), re.IGNORECASE):
-        errors.append("missing lang=fa")
-    if not html_tag or not re.search(r'\bdir=["\']rtl["\']', html_tag.group(0), re.IGNORECASE):
-        errors.append("missing dir=rtl")
-    title = TITLE_RE.search(text)
-    if not title or not re.fullmatch(r"<title>[^<]*[\u0600-\u06ff][^<]* \| Kariz CRM</title>", title.group(0)):
-        errors.append("invalid Persian Kariz title")
-    robots = ROBOTS_RE.search(text)
-    if not robots or not re.search(
-        rf'\bcontent=["\']{re.escape(ROBOTS_VALUE)}["\']', robots.group(0), re.IGNORECASE
-    ):
-        errors.append("invalid internal-app robots")
-    description = DESCRIPTION_RE.search(text)
-    if not description or not re.search(
-        rf'\bcontent=["\']{re.escape(DESCRIPTION)}["\']', description.group(0), re.IGNORECASE
-    ):
-        errors.append("invalid Kariz description")
+    inherited_template = bool(re.search(r"{%\s*extends\b", text))
+    if not inherited_template:
+        html_tag = HTML_TAG_RE.search(text)
+        if not html_tag or not re.search(r'\blang=["\']fa["\']', html_tag.group(0), re.IGNORECASE):
+            errors.append("missing lang=fa")
+        if not html_tag or not re.search(r'\bdir=["\']rtl["\']', html_tag.group(0), re.IGNORECASE):
+            errors.append("missing dir=rtl")
+        title = TITLE_RE.search(text)
+        if not title or not re.fullmatch(r"<title>[^<]*[\u0600-\u06ff][^<]* \| Kariz CRM</title>", title.group(0)):
+            errors.append("invalid Persian Kariz title")
+        robots = ROBOTS_RE.search(text)
+        if not robots or not re.search(
+            rf'\bcontent=["\']{re.escape(ROBOTS_VALUE)}["\']', robots.group(0), re.IGNORECASE
+        ):
+            errors.append("invalid internal-app robots")
+        description = DESCRIPTION_RE.search(text)
+        if not description or not re.search(
+            rf'\bcontent=["\']{re.escape(DESCRIPTION)}["\']', description.group(0), re.IGNORECASE
+        ):
+            errors.append("invalid Kariz description")
     if TOP_VENDOR_COMMENT_RE.search(text):
         errors.append("vendor header comment remains")
     if VENDOR_TEXT_RE.search(text):

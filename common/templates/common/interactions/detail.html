@@ -1,0 +1,23 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات تماس{% endblock %}
+{% block page_id %}interaction-detail{% endblock %}
+{% block body_data %} data-interaction-id="{{ interaction_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">ثبت دستی ارتباط</p><h1>جزئیات تماس</h1></div><a class="button button-muted" href="{% url 'common_ui:interactions' %}">بازگشت به فهرست</a></section>
+<div id="interaction-detail-loading" class="card state">در حال دریافت تماس…</div>
+<section id="interaction-detail-content" class="card" hidden>
+    <h2>اطلاعات ثبت‌شده</h2>
+    <div class="form-grid readonly-grid">
+        <div><label for="interaction-lead">سرنخ</label><input id="interaction-lead" type="text" disabled></div>
+        <div><label for="interaction-customer">مشتری</label><input id="interaction-customer" type="text" disabled></div>
+        <div><label for="interaction-agent">ثبت‌کننده</label><input id="interaction-agent" type="text" disabled></div>
+        <div><label for="interaction-phone">شماره</label><input id="interaction-phone" type="text" disabled></div>
+        <div><label for="interaction-direction">جهت</label><input id="interaction-direction" type="text" disabled></div>
+        <div><label for="interaction-outcome">نتیجه</label><input id="interaction-outcome" type="text" disabled></div>
+        <div><label for="interaction-occurred">زمان تماس</label><input id="interaction-occurred" type="text" disabled></div>
+        <div><label for="interaction-follow-up">پیگیری بعدی</label><input id="interaction-follow-up" type="text" disabled></div>
+        <div class="full-field"><label for="interaction-notes">یادداشت</label><textarea id="interaction-notes" disabled></textarea></div>
+    </div>
+    <p class="muted">تماس‌ها سابقه‌محور هستند و از این صفحه ویرایش یا حذف نمی‌شوند.</p>
+</section>
+{% endblock %}

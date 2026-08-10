@@ -1,22 +1,21 @@
-{% load static %}
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-    <meta charset="utf-8">
-    <meta name="description" content="سامانه مدیریت ارتباط با مشتری کاریز" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex,nofollow,noarchive" />
-    <title>خانه | Kariz CRM</title>
-    <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
-</head>
-<body>
-    <main class="shell" aria-labelledby="page-title">
-        <section class="brand-card">
-            <p class="brand-name">کاریز</p>
-            <h1 id="page-title">Kariz CRM | کاریز</h1>
-            <p class="summary">سامانه مدیریت ارتباط با مشتری</p>
-            <p class="scope">مدیریت مشتریان، سرنخ‌ها، تعاملات و فروش</p>
-        </section>
-    </main>
-</body>
-</html>
+{% extends "common/base.html" %}
+{% block title %}خانه{% endblock %}
+{% block page_id %}profile{% endblock %}
+{% block content %}
+<section class="page-head">
+    <div><p class="eyebrow">Kariz CRM | کاریز</p><h1>پروفایل من</h1></div>
+</section>
+<section class="card">
+    <div id="profile-loading" class="state">در حال دریافت پروفایل…</div>
+    <form id="profile-form" action="/api/v1/auth/me/" method="post" class="form-grid" hidden novalidate>
+        {% csrf_token %}
+        <div><label for="profile-username">نام کاربری</label><input id="profile-username" type="text" disabled></div>
+        <div><label for="profile-role">نقش</label><input id="profile-role" type="text" disabled></div>
+        <div><label for="profile-first-name">نام</label><input id="profile-first-name" name="first_name" type="text" maxlength="150"><p class="field-error" data-error-for="first_name"></p></div>
+        <div><label for="profile-last-name">نام خانوادگی</label><input id="profile-last-name" name="last_name" type="text" maxlength="150"><p class="field-error" data-error-for="last_name"></p></div>
+        <div><label for="profile-email">ایمیل</label><input id="profile-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
+        <div><label for="profile-phone">تلفن</label><input id="profile-phone" name="phone" type="tel" maxlength="32"><p class="field-error" data-error-for="phone"></p></div>
+        <div class="form-actions"><button class="button" type="submit">ذخیره پروفایل</button></div>
+    </form>
+</section>
+{% endblock %}

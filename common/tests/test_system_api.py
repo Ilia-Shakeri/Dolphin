@@ -68,6 +68,19 @@ class SystemApiTests(TestCase):
         self.assertIn("status", {parameter["name"] for parameter in lead_parameters})
         self.assertIn("status", {parameter["name"] for parameter in sale_parameters})
 
+    def test_schema_documents_phone_filter_and_assignment_reads(self):
+        client = APIClient()
+        client.force_authenticate(self.user)
+        response = client.get("/api/v1/schema/", HTTP_ACCEPT="application/vnd.oai.openapi+json")
+        self.assertEqual(response.status_code, 200)
+
+        phone_parameters = response.data["paths"]["/api/v1/customer-phones/"]["get"]["parameters"]
+        self.assertIn("customer", {parameter["name"] for parameter in phone_parameters})
+        self.assertIn("post", response.data["paths"]["/api/v1/customer-phones/{id}/deactivate/"])
+        self.assertIn("get", response.data["paths"]["/api/v1/leads/assignees/"])
+        history = response.data["paths"]["/api/v1/leads/{id}/assignment-history/"]["get"]
+        self.assertIn("page", {parameter["name"] for parameter in history["parameters"]})
+
     def test_schema_documents_exact_custom_action_contracts(self):
         client = APIClient()
         client.force_authenticate(self.user)

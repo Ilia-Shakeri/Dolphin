@@ -157,6 +157,21 @@ def update_customer_phone(*, actor, phone, **changes):
 
 
 @transaction.atomic
+def deactivate_customer_phone(*, actor, phone):
+    actor = _lock_operational_actor(actor)
+    locked = CustomerPhone.objects.select_for_update().select_related("customer").get(pk=phone.pk)
+    if not customers_for(actor).filter(pk=locked.customer_id).exists():
+        raise BusinessPermissionDenied("Customer is outside your scope.")
+    if not locked.is_active:
+        raise BusinessConflictError({"is_active": "Customer phone is already inactive."})
+    locked.is_active = False
+    locked.is_primary = False
+    locked.save(update_fields=["is_active", "is_primary", "updated_at"])
+    log_activity(actor=actor, operation="customer_phone.deactivated", instance=locked)
+    return locked
+
+
+@transaction.atomic
 def create_lead(*, actor, customer, **data):
     actor = _lock_operational_actor(actor)
     unknown = set(data) - LEAD_MUTABLE_FIELDS

@@ -1,6 +1,5 @@
 from django.http import JsonResponse
-from django.views import defaults
-from django.views.csrf import csrf_failure as django_csrf_failure
+from django.shortcuts import render
 
 from common.request_context import current_request_context
 
@@ -19,6 +18,15 @@ def _api_error(request, *, status, code, detail):
                 "request_id": request_id,
             },
         },
+        status=status,
+    )
+
+
+def _ui_error(request, *, status, title, message):
+    return render(
+        request,
+        "common/error.html",
+        {"status": status, "title": title, "message": message},
         status=status,
     )
 
@@ -42,7 +50,12 @@ def bad_request(request, exception):
             code="bad_request",
             detail="Bad request.",
         )
-    return defaults.bad_request(request, exception)
+    return _ui_error(
+        request,
+        status=400,
+        title="درخواست نامعتبر",
+        message="درخواست قابل پردازش نیست.",
+    )
 
 
 def permission_denied(request, exception):
@@ -53,7 +66,12 @@ def permission_denied(request, exception):
             code="permission_denied",
             detail="Permission denied.",
         )
-    return defaults.permission_denied(request, exception)
+    return _ui_error(
+        request,
+        status=403,
+        title="دسترسی مجاز نیست",
+        message="شما اجازه دیدن این بخش را ندارید.",
+    )
 
 
 def csrf_failure(request, reason="", template_name="403_csrf.html"):
@@ -64,7 +82,12 @@ def csrf_failure(request, reason="", template_name="403_csrf.html"):
             code="csrf_failed",
             detail="CSRF check failed.",
         )
-    return django_csrf_failure(request, reason=reason, template_name=template_name)
+    return _ui_error(
+        request,
+        status=403,
+        title="درخواست امن نبود",
+        message="صفحه را تازه کنید و دوباره تلاش کنید.",
+    )
 
 
 def page_not_found(request, exception):
@@ -75,7 +98,12 @@ def page_not_found(request, exception):
             code="not_found",
             detail="Not found.",
         )
-    return defaults.page_not_found(request, exception)
+    return _ui_error(
+        request,
+        status=404,
+        title="صفحه پیدا نشد",
+        message="نشانی واردشده در سامانه وجود ندارد.",
+    )
 
 
 def server_error(request):
@@ -86,4 +114,9 @@ def server_error(request):
             code="server_error",
             detail="Internal server error.",
         )
-    return defaults.server_error(request)
+    return _ui_error(
+        request,
+        status=500,
+        title="خطای سامانه",
+        message="خطایی رخ داد. کمی بعد دوباره تلاش کنید.",
+    )

@@ -95,10 +95,14 @@
 
 - [x] **V0 — Backend core:** schema، service، API، authorization، audit، report/XLSX و repository tests ساخته شد.
 - [x] **V1 — Truth consolidation:** status/spec/roadmap/blocker truth در همین handoff ادغام شد؛ دو سند موقت حذف و disclaimer قابلیت اصلاح شد.
-- [ ] **V2 — Connected application shell:** routeهای تاییدشده، API client same-origin/CSRF، navigation فارسی/RTL، brand cleanup و stateهای خطا/خالی ساخته شود.
-  - [x] **V2-A — HTML branding guard:** همه 202 فایل HTML/template first-party، شامل archive، پاک‌سازی و با scan خودکار guard شدند.
-  - [ ] **V2-B — Connected auth shell:** sign-in/logout/me واقعی و stateهای Session/CSRF به رابط منتخب وصل شود.
+- [x] **V2 — Connected application shell:** shell نگهداری‌شده فقط routeهای واقعی auth/profile/user را نشان می‌دهد؛ API client same-origin/CSRF، navigation فارسی/RTL، brand guard و stateهای خطا/خالی repository-complete است.
+  - [x] **V2-A — HTML branding guard:** همه 207 فایل HTML/template first-party فعلی، شامل archive و templateهای shell، با scan خودکار guard شدند؛ batch اولیه archive برابر 202 فایل بود.
+  - [x] **V2-B — Connected auth/user shell:** login/logout/me، user list/detail/create/edit/deactivate و change-role چهار نقش ثابت به API واقعی وصل شد؛ public signup، role builder، dead control و fake success ندارد.
 - [ ] **V3 — Core browser flows:** auth/user/customer/phone/Lead/Interaction/Product/Sale/report/audit به backend واقعی وصل و role/browser tests پاس شود.
+  - [x] auth و user در repository با unit/API و headless Chrome desktop/mobile پاس است؛ release-target browser proof هنوز `EXT-006` است.
+  - [x] Customer و CustomerPhone در repository به list/detail/create/edit/search/order/pagination/deactivate و چند تلفن واقعی وصل است؛ normalization، duplicate/primary conflict، چهار role، direct ID و headless Chrome پاس است.
+  - [x] Lead و Interaction در repository به list/detail/create/edit مجاز/filter/search/order/pagination، تخصیص/انتقال دستی، history و ثبت تماس دستی ورودی/خروجی وصل است؛ rule تازه برای status/outcome/team/auto-assignment ساخته نشد.
+  - [ ] Product، Sale، report و audit رابط واقعی و browser flow ندارند.
 - [ ] **V4 — Safe low-ambiguity completion:** filterهای دقیق، customer overview، assignment history read API، audit summary و bounded bulk deactivate فقط در صورت انطباق با spec اجرا شود.
 - [ ] **V5 — External core proof:** PostgreSQL، Compose، Nginx، TLS، static، health، write-stop، browser، backup/restore، load و scan روی release دقیق پاس شود.
 - [ ] **V6 — Scoped V1 UAT/cutover:** profile تحویل، migration/reconciliation در صورت نیاز، UAT، training، rollback و owner sign-off پاس شود.
@@ -140,7 +144,7 @@
 ### CURRENT CORE RELEASE
 
 - [x] repository-controlled schema/service/API/auth/audit/report work بدون P0/P1 شناخته‌شده.
-- [x] full local suite: 232 pass؛ 6 PostgreSQL-only روی SQLite عمدا skip.
+- [x] full local suite: 263 pass؛ 6 PostgreSQL-only روی SQLite عمدا skip؛ 3 flow در headless Chrome پاس.
 - [x] Django check، migration drift، OpenAPI، collectstatic dry run، dependency check، image-ref validator و script parsers طبق proof ثبت‌شده پاس.
 - [ ] native PostgreSQL migration/constraint/concurrency.
 - [ ] Compose boot/migrate/static/health/API/write-stop/restart/log proof.
@@ -164,10 +168,10 @@
 
 - Django + Django REST Framework + PostgreSQL؛ modular monolith؛ single-tenant و database جدا برای هر شرکت.
 - Same-origin Session Authentication + CSRF؛ API base برابر `/api/v1/`.
-- UI فعال فعلی: `/` و Django admin.
+- UI فعال فعلی: `/login/`، `/`، `/users/`، `/users/<id>/`، `/customers/`، `/customers/<id>/`، `/leads/`، `/leads/<id>/`، `/interactions/`، `/interactions/<id>/` و Django admin؛ navigation فقط routeهای واقعی داخل scope را نشان می‌دهد.
 - health: `/api/v1/health/live/` و `/api/v1/health/ready/`.
 - migration heads: `accounts.0002_user_role_constraint`، `auditlog.0002_activitylog_role_snapshots` و `sales.0010_interaction_contract`.
-- routeهای اصلی: auth login/logout/me، users/change-role، customers، customer-phones، leads/reassign، interactions، products، sales/cancel، activity-logs، user-performance JSON و XLSX.
+- routeهای اصلی: auth login/logout/me، users/change-role، customers/deactivate، customer-phones/deactivate، leads/assignees/reassign/assignment-history، interactions، products، sales/cancel، activity-logs، user-performance JSON و XLSX.
 - business history به شکل عادی hard-delete نمی‌شود؛ reassignment، role change و Sale create/cancel در service و audit انجام می‌شود.
 
 ## 10. تصمیم‌های کسب‌وکار باز
@@ -316,8 +320,145 @@
 - browser desktop/mobile، console/network و served-archive proof روی runtime واقعی هنوز در `EXT-006` باز است.
 - archive همچنان طبق `docs/backend/DISCOVERY.md` توسط Django serve نمی‌شود؛ پاک‌سازی آن ادعای قابلیت end-user نیست.
 
-## 15. اقدام دقیق بعدی
+## 15. evidence پوسته auth و مدیریت کاربر
 
-**V2-B، connected auth shell:** فقط فایل‌های allowlisted صفحه sign-in، home shell، auth API contract و testهای مرتبط بررسی شوند؛ login واقعی با `username`/`password`، Session + CSRF، logout و `me` به routeهای Django وصل شود؛ حالت‌های inactive، throttle، validation، 403/404 امن، متن فارسی/RTL و browser smoke اضافه شود؛ سپس evidence و capability state همین فایل به‌روز شود.
+### نتیجه و وضعیت قابلیت
 
-در این checkpoint کار متوقف می‌شود. توسعه V2 در این مرحله شروع نمی‌شود.
+- auth/user shell در repository کامل است: login با username/password، logout، me/profile، user list/detail/create/edit/deactivate و change-role کنترل‌شده به Session Authentication + CSRF واقعی وصل است.
+- roleها فقط `sales_agent`، `sales_manager`، `company_it` و `platform_admin` هستند؛ create/edit هیچ role یا server-owned field پنهان ارسال نمی‌کند و تغییر role فقط endpoint اختصاصی را می‌زند.
+- inactive session پاک و رد می‌شود؛ queryset/object authorization backend، جداسازی CRM role از server access و last-active-platform-admin guard تغییر نکرد.
+- رابط فقط routeهای واقعی `/login/`، `/`، `/users/` و `/users/<id>/` را نشان می‌دهد؛ public sign-up، generic role builder، file redirect، `action="#"`، fake success و dead module ندارد.
+- loading، empty، validation، 403، 404، 409، 429، network و generic error فارسی پیاده شد؛ success فقط پس از پاسخ موفق API نشان داده می‌شود.
+- desktop two-column و mobile drawer responsive در headless Chrome تست شد؛ Persian/RTL DOM، console و same-origin response status نیز بررسی شد.
+- capability state: `IN_PROGRESS`؛ repository و browser محلی پاس است ولی native PostgreSQL و release-target browser/runtime proof باز است، پس `VERIFIED_END_TO_END` نیست.
+
+### فایل‌های تغییرکرده این slice
+
+- `common/ui_views.py` و `common/ui_urls.py`: route و guard فعال CRM، scope مدیریت کاربر و 403/404 امن.
+- `common/error_views.py` و `common/templates/common/error.html`: صفحه‌های خطای فارسی و امن برای UI.
+- `common/templates/common/base.html`، `login.html`، `home.html`، `users/list.html` و `users/detail.html`: shell فارسی RTL نگهداری‌شده و فرم‌های واقعی.
+- `common/static/common/kariz.css` و `common/static/common/kariz-app.js`: responsive shell، fetch same-origin، CSRF، state و flowهای auth/user.
+- `config/settings.py`: مسیر static نام‌دار فقط برای logo/favicon موجود repository.
+- `common/tests/test_auth_shell.py`: unit، API و browser-contract desktop/mobile.
+- `common/tests/test_auth_shell_browser.py`: Selenium live-server flow واقعی desktop/mobile، Persian/RTL، console/network status و skip صریح در نبود browser driver.
+- `common/tests/test_ui.py`: home محافظت‌شده و brand contract.
+- `scripts/check_html_branding.py`: templateهای Django ارث‌بر را به‌عنوان fragment اسکن می‌کند و سند پایه را مرجع metadata می‌داند.
+- `KARIZ_PROJECT_HANDOFF.md`: phase، status، evidence، blocker و resume point جاری.
+
+### migration، endpoint و authorization
+
+- migration: ندارد.
+- API endpoint تازه: ندارد؛ endpointهای موجود auth/users مصرف شدند.
+- UI endpoint تازه: `/login/`، `/users/` و `/users/<int:user_id>/`؛ `/` از public brand page به profile shell محافظت‌شده تبدیل شد.
+- authorization: backend تغییر نکرد؛ UI همان active CRM identity و admin role boundary را پیش از render اعمال می‌کند. Company IT مدیر سامانه را نمی‌بیند و نمی‌تواند role بالاتر از خود بدهد.
+
+### تست‌های این slice
+
+- `python manage.py test common.tests.test_auth_shell common.tests.test_ui accounts.tests.test_accounts --settings=config.test_settings`: پاس؛ 41 تست.
+- `python manage.py check --settings=config.test_settings`: پاس؛ 0 issue.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings`: پاس؛ no changes.
+- `node --check common/static/common/kariz-app.js`: پاس.
+- `python scripts/check_html_branding.py`: پاس؛ 207 فایل HTML/template first-party.
+- `python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0`: پاس.
+- `python manage.py test --settings=config.test_settings -v 1`: پاس؛ 248 تست، 6 PostgreSQL-only skip؛ دو تست headless Chrome اجرا شد.
+- `python manage.py test common.tests.test_auth_shell_browser --settings=config.test_settings -v 2`: پاس؛ 2 headless Chrome test برای desktop login/profile/logout و mobile nav/user-list.
+- `git diff --check`: پاس.
+- browser محلی اجرا شد؛ release-target browser/edge/TLS proof در `EXT-006` باز می‌ماند.
+
+### self-correction loop
+
+- score نخست: `8/10`.
+- [common/templates/common/error.html]: title پویا scan را شکست. gate fail شد.
+- fix: title امن فارسی ثابت شد؛ inherited-template scan از document metadata جدا شد.
+- score دوم: `8/10`.
+- [active shell favicon]: favicon route نبود. Browser console و network خطای 404 داد.
+- fix: favicon موجود `assets/media/logos/favicon.ico` با static prefix محدود وصل شد و browser gate تکرار شد.
+- score سوم: `8/10`.
+- [common/tests/test_ui.py]: global finder cache از test دیگر اثر گرفت. Full suite fail شد.
+- fix: asset source و URL render مستقیم سنجیده شد؛ browser test همچنان served favicon را ثابت می‌کند.
+- score نهایی: `9/10`؛ shell/auth/user contract و gateهای repository defect باز ندارند.
+
+### blocker باقی‌مانده
+
+- `EXT-001`: PostgreSQL native migration/constraint/concurrency proof.
+- `EXT-006`: تکرار browser desktop/mobile و console/network/visual proof روی release target پشت edge/TLS.
+- سایر blockerهای deploy در بخش 11 برای production claim باز هستند.
+
+## 16. evidence رابط Customer، CustomerPhone، Lead و Interaction
+
+### نتیجه و وضعیت قابلیت
+
+- Customer list/detail/create/edit/search/order/pagination و deactivate بدون hard delete به API واقعی وصل شد؛ `created_by` و `is_active` در فرم قابل ارسال نیست.
+- CustomerPhone داخل جزئیات مشتری list/create/edit/deactivate واقعی دارد؛ `customer` در edit قابل تغییر نیست، `normalized_phone` و `is_active` server-owned هستند، deactivate اختصاصی row/history را نگه می‌دارد و primary را پاک می‌کند.
+- ورودی فارسی/عربی/ASCII تلفن به `+98` ASCII نرمال می‌شود؛ duplicate active و primary conflict با HTTP 409 نمایش داده می‌شود و 429 واقعی برای deactivate تست شد.
+- Lead list/detail/create/edit مجاز/search/order/pagination و status filter exact دارد. وضعیت فقط نمایش/filter می‌شود؛ هیچ transition، status list، Team boundary یا auto-assignment ساخته نشد.
+- assignee read API فقط حداقل فیلد active clean Sales Agent را به سه role مجاز می‌دهد؛ تخصیص/انتقال همچنان service تراکنشی موجود را می‌زند و history paginated از scope همان Lead خوانده می‌شود.
+- Sales Agent سرنخ ساخته‌شده ولی تخصیص‌نیافته را فقط می‌بیند و edit control غیرفعال است؛ پس از تخصیص edit و Interaction مجاز می‌شود. سه role بالاتر company-wide behavior موجود را دارند و Team حدس زده نشد.
+- Interaction list/detail/create/search/order/pagination به API append-only وصل است؛ فقط direction تاییدشده `inbound`/`outbound` انتخاب می‌شود و outcome همان متن bounded است، نه code حدسی.
+- همه صفحه‌ها فارسی/RTL و دارای loading، empty، validation، permission، not-found، conflict، throttle، network و generic error هستند؛ success فقط پس از پاسخ موفق API نشان داده می‌شود.
+- capability state: `IN_PROGRESS`؛ repository و headless Chrome محلی پاس است. PostgreSQL native و release-target browser/edge/TLS هنوز external است، پس `VERIFIED_END_TO_END` نیست.
+
+### فایل‌های بررسی‌شده
+
+- `AGENTS.md`، `BACKEND_SPEC.md`، `KARIZ_PROJECT_HANDOFF.md`، `manage.py`، `config/urls.py` و تنظیمات DRF.
+- `accounts/access.py`، model/permission/serializer/view نقش‌ها.
+- `sales/models.py`، `selectors.py`، `serializers.py`، `services.py`، `views.py`، `urls.py` و تست‌های workflow/scope.
+- `common/viewsets.py`، error/phone/throttle contract، route/view/template/CSS/JavaScript فعال و تست‌های auth/browser/schema.
+- `docs/backend/API_CONTRACT.md`.
+
+### فایل‌های تغییرکرده این slice
+
+- `common/ui_views.py` و `common/ui_urls.py`: route محافظت‌شده و direct-ID scope برای Customer، Lead و Interaction؛ edit guard سرنخ تخصیص‌نیافته.
+- `common/templates/common/base.html` و templateهای تازه `customers/`، `leads/` و `interactions/`: navigation و فرم/جدول واقعی فارسی.
+- `common/static/common/kariz-app.js` و `kariz.css`: same-origin/CSRF client، list/detail/create/edit/deactivate/reassign/history/call flows، state و responsive layout.
+- `common/viewsets.py`: query parameterهای strict برای actionهای paginated.
+- `sales/serializers.py`، `services.py` و `views.py`: display fieldهای read-only، phone filter/deactivate، assignee و assignment-history API و scope دقیق Interaction create.
+- `docs/backend/API_CONTRACT.md`: قرارداد endpoint/filter/throttle تازه.
+- `common/tests/test_sales_shell.py`، `test_sales_shell_browser.py` و `test_system_api.py`: unit/API/role/direct-ID/schema/headless browser proof.
+- `KARIZ_PROJECT_HANDOFF.md`: phase، evidence، blocker و resume point.
+
+### migration، endpoint و authorization
+
+- migration: ندارد؛ schema drift صفر.
+- UI endpoint تازه: `/customers/`، `/customers/<int:customer_id>/`، `/leads/`، `/leads/<int:lead_id>/`، `/interactions/` و `/interactions/<int:interaction_id>/`.
+- API endpoint تازه: `POST /api/v1/customer-phones/{id}/deactivate/`، `GET /api/v1/leads/assignees/` و `GET /api/v1/leads/{id}/assignment-history/`؛ `GET customer-phones/` فیلتر exact `customer` گرفت.
+- authorization: Sales Agent فقط Customer خود/assigned، Lead assigned یا own-unassigned برای view، فقط assigned برای Lead edit/Interaction و بدون deactivate Customer/reassign است؛ Sales Manager، Company IT و Platform Admin scope عملیاتی company-wide موجود را دارند. direct-ID و custom-action خارج scope برای agent برابر 404 است.
+- server-owned: customer identity در Lead edit، Customer/agent در Interaction، owner/assignment/status/source payload، normalized/active phone و همه timestampها قابل mass assignment نیستند.
+
+### تست‌های این slice
+
+- `python manage.py test --settings=config.test_settings -v 1`: پاس؛ 263 تست، 6 PostgreSQL-only skip؛ 3 headless Chrome test پاس.
+- `python manage.py test common.tests.test_sales_shell_browser --settings=config.test_settings -v 1`: پاس؛ Customer create/detail/phone، Lead create/reassign/history، Interaction create/detail و Customer deactivate در Chrome واقعی محلی.
+- `python manage.py test common.tests.test_system_api common.tests.test_sales_shell --settings=config.test_settings -v 1`: پاس؛ 28 تست.
+- `python manage.py check --settings=config.test_settings`: پاس؛ 0 issue.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings`: پاس؛ no changes.
+- `python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0`: پاس.
+- `node --check common/static/common/kariz-app.js`: پاس.
+- `python scripts/check_html_branding.py`: پاس؛ `HTML_BRANDING_PASS files=213`.
+- `git diff --check`: پاس.
+
+### self-correction loop
+
+- score نخست: `8/10`.
+- [browser test gate]: اجرای موازی timeout شد. proof گم شد.
+- fix: gateها مستقل و browser flow واقعی افزوده شد.
+- score دوم: `8/10`.
+- [lead detail]: کارشناس برای Lead تخصیص‌نیافته edit مرده می‌دید. API رد می‌کرد.
+- [lead product]: محصول inactive پنهان با edit یادداشت ممکن بود پاک شود. data drift می‌شد.
+- fix: edit browser با assignment scope قفل شد و شناسه محصول تاریخی بدون افشای نام حفظ شد.
+- score سوم: `8/10`.
+- [real browser test]: درخواست‌های موازی روی SQLite shared test connection خطای گذرا داد. full suite fail شد.
+- fix: بارگیری‌های وابسته UI ترتیبی شد؛ browser مستقل و full suite دوباره پاس شد.
+- score نهایی: `9/10`؛ defect repository-controlled باز در این slice نیست.
+
+### blocker باقی‌مانده
+
+- `EXT-001`: migration/constraint/concurrency روی PostgreSQL native.
+- `EXT-006`: تکرار desktop/mobile و console/network/visual proof روی release target پشت edge/TLS.
+- blockerهای deploy دیگر بخش 11 برای production claim باز هستند.
+
+## 17. اقدام دقیق بعدی
+
+**V3، connected Product/Sale browser flow:** Product list/detail/create/edit/deactivate و Sale list/detail/create/cancel را فقط به endpoint/serviceهای موجود وصل کن؛ price snapshot/total/status/owner را server-owned نگه دار؛ role/direct-ID/error/browser tests را اجرا و evidence همین فایل را به‌روز کن.
+
+در این checkpoint کار متوقف می‌شود.

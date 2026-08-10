@@ -1,8 +1,9 @@
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 
+from accounts.access import crm_identities
 from accounts.models import User
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
@@ -15,8 +16,8 @@ from common.throttles import SensitiveActionThrottleMixin
 from common.viewsets import NoDestroyModelViewSet
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Sale
 from sales.selectors import customers_for, interactions_for, leads_for, phones_for, products_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadSerializer, ProductSerializer, ReassignSerializer, SaleSerializer
-from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_product, reassign_lead
+from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, ProductSerializer, ReassignSerializer, SaleSerializer
+from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, reassign_lead
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -47,14 +48,41 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(self.get_serializer(customer).data)
 
 
-class CustomerPhoneViewSet(NoDestroyModelViewSet):
+class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     queryset = CustomerPhone.objects.none()
     serializer_class = CustomerPhoneSerializer
     search_fields = ["raw_phone", "normalized_phone", "customer__full_name"]
     ordering_fields = ["created_at", "is_primary"]
+    list_query_parameters = {"customer"}
+    sensitive_actions = frozenset({"deactivate"})
 
     def get_queryset(self):
-        return phones_for(self.request.user).select_related("customer")
+        queryset = phones_for(self.request.user).select_related("customer")
+        customer_id = self.request.query_params.get("customer")
+        if customer_id is not None:
+            if not customer_id.isdecimal() or int(customer_id) < 1:
+                raise ValidationError({"customer": "Enter a positive integer."})
+            queryset = queryset.filter(customer_id=int(customer_id))
+        return queryset
+
+    @extend_schema(parameters=[OpenApiParameter("customer", int, description="Exact positive Customer ID inside actor scope.")])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: CustomerPhoneSerializer,
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+            409: CONFLICT_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+    )
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        phone = deactivate_customer_phone(actor=request.user, phone=self.get_object())
+        return Response(self.get_serializer(phone).data)
 
 
 class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
@@ -64,6 +92,10 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     search_fields = ["customer__full_name", "source", "campaign_or_batch", "notes"]
     ordering_fields = ["created_at", "next_follow_up_at", "assigned_at"]
     list_query_parameters = {"status"}
+    action_query_parameters = {
+        "assignees": {"page"},
+        "assignment_history": {"page"},
+    }
 
     def get_queryset(self):
         queryset = leads_for(self.request.user).select_related("customer", "assigned_to", "assigned_by", "interested_product")
@@ -75,6 +107,35 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     @extend_schema(parameters=[OpenApiParameter("status", str, description="Exact backend-owned lead status value.")])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(responses={200: LeadAssigneeSerializer(many=True), 403: ACCESS_DENIED_RESPONSE})
+    @action(detail=False, methods=["get"])
+    def assignees(self, request):
+        if request.user.role not in ELEVATED_OPERATORS:
+            raise PermissionDenied("Lead reassignment is not allowed.")
+        queryset = crm_identities(
+            User.objects.filter(role=User.Role.SALES_AGENT, is_active=True)
+        ).order_by("username")
+        page = self.paginate_queryset(queryset)
+        serializer = LeadAssigneeSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        responses={
+            200: LeadAssignmentHistorySerializer(many=True),
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+        }
+    )
+    @action(detail=True, methods=["get"], url_path="assignment-history")
+    def assignment_history(self, request, pk=None):
+        lead = self.get_object()
+        queryset = lead.assignment_history.select_related(
+            "from_user", "to_user", "changed_by"
+        ).all()
+        page = self.paginate_queryset(queryset)
+        serializer = LeadAssignmentHistorySerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
     @extend_schema(
         request=ReassignSerializer,

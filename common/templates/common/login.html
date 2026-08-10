@@ -1,0 +1,23 @@
+{% extends "common/base.html" %}
+{% block title %}ورود{% endblock %}
+{% block page_id %}login{% endblock %}
+{% block public_content %}
+<main class="auth-shell">
+    <section class="card auth-card" aria-labelledby="login-title">
+        <p class="eyebrow">Kariz CRM | کاریز</p>
+        <h1 id="login-title">ورود به سامانه</h1>
+        <p class="muted">نام کاربری و گذرواژه سازمانی خود را وارد کنید.</p>
+        <div id="global-message" class="message" role="alert" hidden></div>
+        <form id="login-form" action="/api/v1/auth/login/" method="post" novalidate>
+            {% csrf_token %}
+            <label for="login-username">نام کاربری</label>
+            <input id="login-username" name="username" type="text" autocomplete="username" required maxlength="150">
+            <p class="field-error" data-error-for="username"></p>
+            <label for="login-password">گذرواژه</label>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+            <p class="field-error" data-error-for="password"></p>
+            <button class="button button-wide" type="submit">ورود</button>
+        </form>
+    </section>
+</main>
+{% endblock %}

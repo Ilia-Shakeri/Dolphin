@@ -18,11 +18,14 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 - `customers/`: scoped list/create/retrieve/update. Create accepts optional nested `phone`. Address permits at most 2,000 characters; notes permit at most 4,000. No DELETE.
 - `POST customers/{id}/deactivate/`: Sales Manager, Company IT, or Platform Admin. Sales Agents cannot deactivate Customers.
-- `customer-phones/`: scoped list/create/retrieve/update. Customer ownership is checked. `normalized_phone` is server-owned and must persist as ASCII `+98[1-9][0-9]{9}`; global active uniqueness and shape are database-backed. No DELETE.
+- `customer-phones/`: scoped list/create/retrieve/update. List accepts exact positive `customer` ID after role scope, plus standard search, ordering, and pagination. Customer ownership is checked. `normalized_phone` and `is_active` are server-owned and must persist as ASCII `+98[1-9][0-9]{9}`; global active uniqueness and shape are database-backed. No DELETE.
+- `POST customer-phones/{id}/deactivate/`: scoped safe transition. It clears active and primary state, preserves the row, audits the action, and returns HTTP 409 `conflict` when already inactive.
 
 ## Leads and assignment
 
 - `leads/`: scoped list/create/retrieve/update. Ownership/status fields are read-only. Notes permit at most 4,000 characters. No DELETE.
+- `GET leads/assignees/`: Sales Manager, Company IT, or Platform Admin only. Returns paginated minimal identity fields for active clean Sales Agent CRM identities; it does not expose user-administration fields or invent Team boundaries.
+- `GET leads/{id}/assignment-history/`: paginated append-oriented assignment history after the same role/object scope as Lead retrieve. Out-of-scope direct IDs return 404.
 - `POST leads/{id}/reassign/`: Sales Manager, Company IT, or Platform Admin; body has `to_user` and optional `reason`; target must be an active Sales Agent CRM identity, so staff/superuser/group/direct-permission rows cannot be assigned; atomic history and audit.
 
 ## Interactions, products, sales
@@ -56,4 +59,4 @@ Undefined Lead status actions, generic/conversion/call-outcome reports, final hu
 
 Unknown request keys and server-controlled keys are rejected. Collection/detail update routes use PATCH, not PUT. Validation remains field-shaped under the standard DRF error convention. The bundled Nginx edge discards caller-supplied forwarding chains and sends its direct peer address to the application. Production schema/docs routes stay absent even for Platform Admin.
 
-The application limits login to 10 attempts per minute. User create/update/role change, Customer deactivation, Product writes/deactivation, Lead reassignment, Sale create/cancel, performance report/XLSX, and ActivityLog reads use one combined 30 requests-per-minute authenticated-user scope. Production keeps this cache in bounded `/tmp` storage shared by all workers in the approved single web container. A multi-container web topology needs an approved shared throttle store and new runtime proof before scale-out.
+The application limits login to 10 attempts per minute. User create/update/role change, Customer and CustomerPhone deactivation, Product writes/deactivation, Lead reassignment, Sale create/cancel, performance report/XLSX, and ActivityLog reads use one combined 30 requests-per-minute authenticated-user scope. Production keeps this cache in bounded `/tmp` storage shared by all workers in the approved single web container. A multi-container web topology needs an approved shared throttle store and new runtime proof before scale-out.
