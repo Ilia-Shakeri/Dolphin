@@ -3,6 +3,7 @@ from django.http import Http404
 from rest_framework.exceptions import (
     AuthenticationFailed,
     MethodNotAllowed,
+    NotAcceptable,
     NotAuthenticated,
     NotFound,
     ParseError,
@@ -46,6 +47,8 @@ def _stable_error_code(exc):
         return "not_found"
     if isinstance(exc, MethodNotAllowed):
         return "method_not_allowed"
+    if isinstance(exc, NotAcceptable):
+        return "not_acceptable"
     if isinstance(exc, UnsupportedMediaType):
         return "unsupported_media_type"
     if isinstance(exc, ParseError):

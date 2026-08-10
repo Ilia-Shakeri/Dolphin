@@ -25,7 +25,7 @@ Status: `PASS`, `PARTIAL`, `PENDING`, `BLOCKED_EXTERNAL`, or `BLOCKED_DECISION`.
 | Ignore secret/key/database artifacts | PASS | Expanded ignores plus exact 134-path worktree policy/name-only high-confidence scan pass; a later reference-bound scan remains SRC-002 |
 | Allowed hosts/origins explicit | PASS | Validator accepts only one allowed-host value equal to `KARIZ_PUBLIC_HOST` and one origin exactly `https://KARIZ_PUBLIC_HOST`; wildcards, dot prefixes, siblings, ports, slashes, and extras fail |
 | Secure cookies and headers | PARTIAL | Secure cookies forced; direct TLS, fixed-host redirect, and exact edge HSTS config pass source tests; live proof external |
-| CSRF/session behavior | PASS | Login, own-profile write, logout, and API JSON CSRF tests pass in the fresh 226-test suite |
+| CSRF/session behavior | PASS | Login, own-profile write, logout, and API JSON CSRF tests pass in the fresh 232-test suite; the final real-CSRF content-type correction has its own three focused passing tests |
 | Inactive-user denial | PASS | Login and shared active-user gates pass; wider final route matrix still tracked separately |
 | Role/object isolation | PASS | Approved route/filter/direct-ID matrix passes; staff, superuser, group, and direct-permission identities are excluded from CRM scope |
 | Privilege fields blocked | PASS | Login extras, `id`, role, staff, superuser, groups, and direct permissions reject in tests |
@@ -81,20 +81,20 @@ Status: `PASS`, `PARTIAL`, `PENDING`, `BLOCKED_EXTERNAL`, or `BLOCKED_DECISION`.
 
 | Gate | Status | Evidence / next proof |
 |---|---|---|
-| Full tests pass | PASS | Fresh full fast suite completed 226 tests successfully; six PostgreSQL-only cases skipped on SQLite as designed |
+| Full tests pass | PASS | Fresh post-audit full fast suite found 232 tests and completed successfully; six PostgreSQL-only cases skipped on SQLite as designed |
 | Critical path tests pass alone | PARTIAL | Backend/report/UI source tests pass; real browser and stack paths remain external |
 | No schema drift | PASS | Fresh dry-run reports no changes at `accounts.0002`, `auditlog.0002`, and `sales.0010` |
 | Active-file ledger exactness | PASS | The settled ledger has 179 unique live goal-field rows, exact Phase 1 links, and zero missing, stale, or malformed row |
-| No forbidden tracked/shipped artifact | PASS | The exact settled worktree manifest has 134 unique paths: 47 modified, 87 added, zero deleted/renamed, zero forbidden path, zero high-confidence name-only secret match, and no temporary wheel path; reference-bound proof remains SRC-002 |
+| No forbidden tracked/shipped artifact | PASS | The pushed base-to-checkpoint delta has 134 unique paths: 47 modified and 87 added. The 25 modified overlay paths are all inside that set, so combined cardinality remains 134 with zero delete/rename, forbidden path, high-confidence name-only secret match, or temporary wheel path; final-ref proof remains SRC-002 |
 | Active UI is Persian/RTL only | PARTIAL | Root shell/admin source and render tests pass; real browser/edge proof absent |
 | Active UI uses Kariz brand | PARTIAL | Root shell/admin/schema checks pass; real browser/edge link/visual proof absent |
-| No open repository P0/P1 | PENDING | The prior audit predates the current backend/operations batches; rerun after full tests, schema, ledger, manifest, and durable-doc reconciliation |
+| No open repository P0/P1 | PASS | Independent final backend and operations audits each scored 9/10 and found no firm repository P0/P1 after their fixes; the post-audit 232-test and full local release gates also pass |
 | Known limitations explicit | PASS | The dual blocker register mirrors all 28 BIZ/SRC/EXT/OPS IDs with exact missing inputs and close proof, including BIZ-003 and BIZ-013 |
 | Capacity/load proof | BLOCKED_DECISION | Bounded GET-only argument, redirect, output, and loopback tests cover the harness/runbook; BIZ-010 still needs an approved target/tool/workload/threshold/window/owner/abort record |
-| Production candidate evidence | PARTIAL | Exact 134-path worktree source, release notes, local gates, and blocker proof exist; final independent P0/P1 audit is pending and SRC-002/OPS-001 still block an immutable deploy/rollback artifact |
+| Production candidate evidence | PASS | Pushed checkpoint `8f3c540`, exact 134-path base delta, exact final overlay manifest, release notes, two 9/10 audits, and all local release gates support State B. SRC-002/OPS-001 still block one immutable final deploy/rollback artifact |
 | Full production proof | BLOCKED_EXTERNAL | Phase 12 |
 
-Current allowed claim: **work in progress** until the independent final repository audits close the P0/P1 gate. If they pass, State B permits **production candidate; external verification pending** while SRC-002 and all explicit BIZ/EXT/OPS inputs remain blocked. Do not claim production ready or a deployable immutable artifact.
+Current achieved state: **production candidate; external verification pending**. This is State B only. SRC-002 and all explicit BIZ/EXT/OPS inputs remain blocked. Do not claim production ready, State A, or one deployable immutable final artifact.
 
 ## Complete blocker cross-check
 
@@ -116,14 +116,14 @@ Every business (`BIZ`), source (`SRC`), external (`EXT`), and human operations (
 | BIZ-012 | BLOCKED_DECISION | Legacy audit role source or permanent denial | Approved guarded backfill plus `C-PG`, or signed permanent denial; audit tests and `C-REPO` |
 | BIZ-013 | BLOCKED_DECISION | Rule for deactivating a user with active assigned Leads | Approved block/reassign/temporary-owner rule plus locked account/sales/API/audit/history tests and `C-REPO` |
 | SRC-001 | PASS | None for current served UI boundary | `C-UI` proof is recorded; reopen on served-topology change |
-| SRC-002 | BLOCKED_DECISION | User authorization for one immutable release ref | Run `C-REF`, regenerate/ref-review the source manifest, and run `C-REPO` from the exact artifact |
+| SRC-002 | BLOCKED_DECISION | User-created final reference containing the post-`8f3c540` audit/evidence overlay | Run `C-REF`, regenerate/ref-review the base-to-final manifest, and run `C-REPO` from the exact artifact |
 | EXT-001 | BLOCKED_EXTERNAL | PostgreSQL bin with compatible `initdb`, `pg_ctl`, `psql`, `createdb`, and `pg_dump`, plus compatible Bash | Run `C-PG`; retain full tests, 0004-to-0010 upgrade, bootstrap/finalizer, ACL/denial/dump/failure-rollback/constraint proof |
 | EXT-002 | BLOCKED_EXTERNAL | Docker, reviewed digests, and exact approved data/backup volumes | Run recovery-first deploy flow and `C-STACK`; retain config/pull/boot/health/static/API/volume/write-stop proof |
 | EXT-003 | BLOCKED_EXTERNAL | Nginx runtime | Run `C-EDGE`; retain redirect/static/rate/timeout/error/request-ID HTTP proof |
 | EXT-004 | BLOCKED_EXTERNAL | Hostname, certificate/key, renewal, HSTS choice, and scanner | Run Nginx syntax and exact TLS runbook curl/scanner steps; retain chain/protocol/HSTS/renewal proof |
 | EXT-005 | BLOCKED_EXTERNAL | Real backup pair and Docker/PostgreSQL runtime | Run `C-RESTORE`; retain one true nine-table/three-head/twelve-constraint/two-index result |
 | EXT-006 | BLOCKED_EXTERNAL | Browser and edge-served UI | Record exact `/` and `/admin/login/` desktop/mobile screenshots, Persian/RTL/Kariz checks, static responses, and clean console/network export |
-| EXT-007 | BLOCKED_EXTERNAL | Application/scanner digests, isolated scan host, restricted evidence root, public TLS target/client, owners, retention, and reviewer | Run `C-SCANS`; bind lock hash, tool databases/versions, reports, dispositions, hashes, sealed anchor, and TLS result to the exact release/artifact digests |
+| EXT-007 | BLOCKED_EXTERNAL | Application/PostgreSQL/Nginx runtime digests, Python build-base digest, five scanner digests, isolated scan/build host, restricted evidence root, public TLS target/client, owners, retention, and reviewer | Run `C-SCANS`; bind source/build identity, lock hash, per-runtime SBOM/findings, tool databases/versions, dispositions, sealed metadata/hashes/anchor, and TLS result to the exact release |
 | OPS-001 | BLOCKED_DECISION | Stored current and prior immutable artifacts | Record refs/digests, protected location, retrieval and compatibility owner; run `C-REF` for current |
 | OPS-002 | BLOCKED_DECISION | Named owners and release window/notice/success/abort rules | Signed change record with all owners, UTC window, notice, success/abort, HSTS/preload, and go/no-go authority |
 | OPS-003 | BLOCKED_DECISION | Backup scheduler/overlap/timeout/alerts/off-host/RTO/RPO policy | Signed policy, scheduled `C-RESTORE`, forced/missed alert proof, overlap denial, and owner acceptance |

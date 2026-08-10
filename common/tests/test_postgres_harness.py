@@ -10,6 +10,8 @@ from django.test import SimpleTestCase
 ROOT = Path(__file__).resolve().parents[2]
 HARNESS = ROOT / "scripts" / "test-postgres.ps1"
 PRIVILEGE_PROOF = ROOT / "scripts" / "verify-postgres-privileges.sql"
+SCHEMA_PROOF = ROOT / "scripts" / "verify-postgres-schema.sql"
+BOOTSTRAP = ROOT / "scripts" / "bootstrap-postgres.sh"
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
 
 
@@ -31,7 +33,7 @@ class PostgresHarnessContractTests(SimpleTestCase):
     def test_harness_runs_upgrade_races_acl_dump_and_rollback_proofs(self):
         source = HARNESS.read_text(encoding="utf-8")
         self.assertIn("manage.py test", source.replace("$managePath", "manage.py"))
-        self.assertEqual(source.count("& $bash $bootstrapPath"), 3)
+        self.assertEqual(source.count("& $bash $bootstrapPath"), 4)
         self.assertIn("verify-postgres-schema.sql", source)
         self.assertIn("verify-postgres-privileges.sql", source)
         self.assertIn("UPDATE auditlog_activitylog", source)
@@ -41,6 +43,15 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("--format=custom", source)
         self.assertIn("kariz_rollback_probe", source)
         self.assertIn("did not roll back after injected failure", source)
+        self.assertIn("reverse role-membership injection did not fail closed", source)
+        self.assertIn("privilege proof accepted reverse role membership", source)
+
+    def test_schema_proof_exits_nonzero_on_false_contract(self):
+        proof = SCHEMA_PROOF.read_text(encoding="utf-8")
+        self.assertIn("AS schema_contract_ok \\gset", proof)
+        self.assertIn("\\if :schema_contract_ok", proof)
+        self.assertIn("\\quit 6", proof)
+        self.assertNotIn("THEN 1 ELSE 0 END", proof)
 
     def test_privilege_proof_checks_exact_runtime_and_backup_denials(self):
         proof = PRIVILEGE_PROOF.read_text(encoding="utf-8")
@@ -61,6 +72,19 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("NOT has_function_privilege(:'backup_user'", proof)
         self.assertIn("NOT rolbypassrls", proof)
         self.assertIn("\\quit 5", proof)
+        self.assertIn("granted.oid = membership.roleid", proof)
+        self.assertIn(
+            "granted.rolname IN (:'migration_user', :'app_user', :'backup_user')",
+            proof,
+        )
+
+    def test_bootstrap_rejects_managed_roles_granted_to_other_members(self):
+        source = BOOTSTRAP.read_text(encoding="utf-8")
+        membership_guard = source.index("AS managed_roles_have_no_members \\gset")
+        first_managed_mutation = source.index("CREATE ROLE %I")
+        self.assertLess(membership_guard, first_managed_mutation)
+        self.assertIn("granted.oid = membership.roleid", source)
+        self.assertIn("A Kariz-managed PostgreSQL role is granted to another role.", source)
 
     @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
     def test_harness_has_valid_powershell_syntax(self):

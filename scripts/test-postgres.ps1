@@ -299,6 +299,43 @@ try {
     } finally {
         [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
     }
+
+    $rogueRole = "kariz_rogue_$runToken"
+    Invoke-ContractSql `
+        -User $databaseUser `
+        -Password $initPassword `
+        -Sql "CREATE ROLE $rogueRole LOGIN; GRANT $applicationUser TO $rogueRole"
+    & $bash $bootstrapPath
+    if ($LASTEXITCODE -eq 0) {
+        throw "PostgreSQL reverse role-membership injection did not fail closed."
+    }
+
+    $previousPassword = [Environment]::GetEnvironmentVariable("PGPASSWORD", "Process")
+    try {
+        $env:PGPASSWORD = $initPassword
+        & $psql `
+            --host=127.0.0.1 `
+            --port=$port `
+            --username=$databaseUser `
+            --dbname=$contractDatabaseName `
+            --no-password `
+            --quiet `
+            --set=ON_ERROR_STOP=1 `
+            --set="app_user=$applicationUser" `
+            --set="backup_user=$backupUser" `
+            --set="migration_user=$migrationUser" `
+            --output=NUL `
+            --file=$privilegeProofPath
+        if ($LASTEXITCODE -eq 0) {
+            throw "PostgreSQL privilege proof accepted reverse role membership."
+        }
+    } finally {
+        [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
+    }
+    Invoke-ContractSql `
+        -User $databaseUser `
+        -Password $initPassword `
+        -Sql "REVOKE $applicationUser FROM $rogueRole; DROP ROLE $rogueRole"
 } finally {
     if ($started) {
         & $pgCtl -D $dataPath -m fast -w stop

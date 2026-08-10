@@ -41,6 +41,12 @@ SELECT (
         JOIN pg_roles member ON member.oid = membership.member
         WHERE member.rolname IN (:'migration_user', :'app_user', :'backup_user')
     )
+    AND NOT EXISTS (
+        SELECT 1
+        FROM pg_auth_members membership
+        JOIN pg_roles granted ON granted.oid = membership.roleid
+        WHERE granted.rolname IN (:'migration_user', :'app_user', :'backup_user')
+    )
     AND has_database_privilege(:'app_user', current_database(), 'CONNECT')
     AND NOT has_database_privilege(:'app_user', current_database(), 'CREATE')
     AND NOT has_database_privilege(:'app_user', current_database(), 'TEMP')

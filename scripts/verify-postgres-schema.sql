@@ -1,4 +1,4 @@
-SELECT CASE WHEN
+SELECT (
     to_regclass('public.django_migrations') IS NOT NULL
     AND to_regclass('public.accounts_user') IS NOT NULL
     AND to_regclass('public.auditlog_activitylog') IS NOT NULL
@@ -85,4 +85,11 @@ SELECT CASE WHEN
               'g'
           ) = 'is_activeANDis_primary'
     )
-THEN 1 ELSE 0 END;
+) AS schema_contract_ok \gset
+
+\if :schema_contract_ok
+    SELECT 1;
+\else
+    \echo 'PostgreSQL schema contract failed.'
+    \quit 6
+\endif

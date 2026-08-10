@@ -2,7 +2,7 @@
 
 ## Release identity
 
-This source candidate is an uncommitted reviewed delta based on Git commit `50a978abc206e43032ce96b36dc0433366198e60` (`chore: establish durable production roadmap`). `docs/ops/SOURCE_MANIFEST.md` exactly records its 134-path working-tree set and proof boundary, but the worktree is not an immutable deploy or rollback artifact. Explicit user authorization is still required to create or name that reference. State B may use only `production candidate; external verification pending` after the final repository audit confirms no P0/P1; the immutable artifact remains an explicit human-input blocker.
+The user-created pushed checkpoint `8f3c540efe7c1e1f80f31e0a1d991d0328dfe62e` equals `origin/main` and exactly binds the 134-path delta from durable base `50a978abc206e43032ce96b36dc0433366198e60`. A later 25-path backend, operations, and durable-evidence audit overlay is listed in `docs/ops/SOURCE_MANIFEST.md`; the combined final candidate is therefore not yet one immutable deploy/rollback artifact. Local gates pass and State B is `production candidate; external verification pending`. A user-created final reference remains SRC-002 input.
 
 ## Main changes
 
@@ -17,6 +17,7 @@ This source candidate is an uncommitted reviewed delta based on Git commit `50a9
 - Added safe API CSRF and server-fault JSON responses with one request ID. Logs omit exception text, query strings, bodies, headers, and secrets.
 - Added typed OpenAPI error envelopes and exact request/no-body/400/403/404/409 contracts for custom actions.
 - Added stable user-keyed throttling and `429 throttled` contracts for user changes, Customer/Product deactivation, Lead reassignment, Sale create/cancel, audit reads, report JSON, and XLSX export.
+- Made versioned API negotiation JSON-only with typed safe `406 not_acceptable` and `415 unsupported_media_type` envelopes. XLSX endpoints keep binary success while all API/throttle errors, including `429`, stay JSON and schema-typed.
 
 ### CRM data and transitions
 
@@ -48,8 +49,9 @@ This source candidate is an uncommitted reviewed delta based on Git commit `50a9
 - Removed local builds from production Compose. Compose interpolation itself requires nonempty image inputs; the mandatory validator and release workflow reject missing, mutable, uppercase, or malformed refs and require version plus lowercase SHA-256 digest for all four images. The Docker build also verifies its base digest, Linux/amd64 platform, and Python 3.13 interpreter.
 - Added guarded native PostgreSQL test, backup, restore-verification, bootstrap, UAT seed, dependency, deployment, TLS, rollback, incident, and release procedures, including exact no-`down` full-stack stop/restart and application/edge/config rollback paths.
 - Expanded the guarded native PostgreSQL harness to run the full target-engine suite, a 0004-to-0010 upgrade, real role bootstrap/finalizer, exact ACL/denials, backup-role dump, and injected-failure rollback in one token-bound loopback temporary cluster.
+- Fixed the restored-schema SQL so a missing expected object cannot collapse into a false pass, and added exact reverse-membership denial so managed migration/application/backup roles cannot inherit another role's authority.
 - Added a bounded GET-only health load harness with strict target confirmation, no proxy/redirect/credential/body support, local loopback tests, and an exact approval/evidence runbook.
-- Added an exact external security-evidence runbook for digest-pinned source/dependency/SBOM/image/TLS scanners, reduced secret findings, restricted sealed reports, reviewer disposition, and an out-of-band integrity anchor.
+- Added an exact external security-evidence runbook for the application, PostgreSQL, and Nginx runtime digests, the Python build-base digest, five scanner digests, source/dependency proof, a source-to-image build record, per-runtime SBOM/vulnerability results, public TLS proof, restricted sealed metadata/reports, reviewer disposition, and an out-of-band integrity anchor.
 - Added an exact SHA-256 dependency lock and require-hash binary-only image install. Reviewed real image/scanner digests, SBOM, and current external scans remain blocked proof.
 
 ## Migrations and data impact
@@ -78,7 +80,7 @@ Sale correction, Team administration, optional after-sales, undefined KPI fields
 
 ## Local verification evidence
 
-- Full fast suite: 226 tests completed successfully; six PostgreSQL-only cases skipped on SQLite as designed.
+- Full fast suite: 232 tests found and completed successfully after all audit fixes; six PostgreSQL-only cases skipped on SQLite as designed.
 - Test-settings system check: passed.
 - Migration drift: no changes detected.
 - Non-production OpenAPI validation with warnings fatal: passed under UTF-8 output.
@@ -87,16 +89,17 @@ Sale correction, Team administration, optional after-sales, undefined KPI fields
 - Mandatory release-image reference validator: passed with non-secret test refs.
 - Strict safe-value production deploy check exited zero; only the deliberate HSTS subdomain/preload warnings remained.
 - PostgreSQL bootstrap, backup, restore, native-harness Bash/PowerShell, load, and scan-runbook syntax/source gates: passed.
-- Exact source manifest: 134 paths, comprising 47 modified and 87 added paths; no delete or rename.
+- Exact source manifest: pushed reference delta has 134 paths, comprising 47 modified and 87 added; the 25 modified overlay paths are all inside that set, so the combined candidate remains 134 paths with no delete or rename.
 - Changed/untracked path policy and high-confidence secret-pattern scans: 0 blocked paths and 0 matches.
 - Active-file ledger: 179 unique live first-party rows with exact Phase 1 links and no missing or stale path.
-- Final source re-review: pending the independent final backend and operations audit reports.
+- Independent backend audit: 9/10, no firm repository P0/P1; 60 focused tests and check/drift/schema/Bash/PowerShell/diff gates passed.
+- Independent operations audit: 9/10, no firm repository P0/P1; 31 focused tests plus compile/PowerShell/diff gates passed.
 
 ## Known limits and release state
 
-Current claim remains `work in progress` until the independent final repository audits confirm no P0/P1. If they pass, State B permits only `production candidate; external verification pending`; the unapproved immutable reference remains explicit SRC-002/OPS-001 human input and still blocks deployment, rollback identity, and State A.
+The independent backend and operations audits found no firm repository P0/P1, and the post-audit combined full/local release gates pass. Current achieved state is `production candidate; external verification pending`. This is State B only. The uncommitted final overlay keeps SRC-002/OPS-001 open and still blocks deployment, rollback identity, and State A.
 
-Business decisions and external proof gaps are listed in `BLOCKERS.md`. In particular, live PostgreSQL ACL/migration/backup proof, Docker/Nginx/write-stop boot, certificate/TLS scan, browser smoke, capacity/load proof, real application/scanner digests, SBOM/scans, backup policy, and an exact release reference remain open. The hashed dependency lock, Docker build gates, and mandatory image validator exist; Compose interpolation alone proves only nonempty refs. No real digest value is guessed here.
+Business decisions and external proof gaps are listed in `BLOCKERS.md`. In particular, live PostgreSQL ACL/migration/backup proof, Docker/Nginx/write-stop boot, certificate/TLS scan, browser smoke, capacity/load proof, real application/PostgreSQL/Nginx/build-base/scanner digests, per-runtime SBOM/scans, backup policy, and a final release reference remain open. The hashed dependency lock, Docker build gates, and mandatory image validator exist; Compose interpolation alone proves only nonempty refs. No real digest value is guessed here.
 
 ## Rollback boundary
 

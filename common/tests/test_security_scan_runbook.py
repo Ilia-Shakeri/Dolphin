@@ -30,6 +30,9 @@ class SecurityScanRunbookTests(SimpleTestCase):
     def test_all_artifact_and_scanner_images_are_digest_and_version_bound(self):
         for variable in (
             "$appImage",
+            "$postgresImage",
+            "$nginxImage",
+            "$pythonBaseImage",
             "$gitleaksImage",
             "$pipAuditImage",
             "$syftImage",
@@ -45,6 +48,13 @@ class SecurityScanRunbookTests(SimpleTestCase):
         )
         self.assertIn("docker pull --platform linux/amd64", self.powershell)
         self.assertIn("Assert-LocalDigest", self.powershell)
+        for image_name in ("application", "postgresql", "nginx"):
+            self.assertRegex(
+                self.powershell,
+                rf"(?m)^\s*{image_name}\s*=\s*\$[A-Za-z]+Image\s*$",
+            )
+        self.assertIn("python_build_base_image = $pythonBaseImage", self.powershell)
+        self.assertIn("runtime_images = $runtimeImages", self.powershell)
         self.assertNotRegex(self.powershell, r"(?i):latest(?:\s|@|$)")
         self.assertNotIn("docker login", self.powershell.lower())
 
@@ -76,8 +86,17 @@ class SecurityScanRunbookTests(SimpleTestCase):
         ):
             self.assertIn(option, self.powershell)
         self.assertNotIn("--ignore-vuln", self.powershell)
-        self.assertIn("cyclonedx-json=/evidence/application-sbom.cdx.json", self.powershell)
-        self.assertIn("syft-json=/evidence/application-sbom.syft.json", self.powershell)
+        self.assertIn('"cyclonedx-json=$cycloneContainerPath"', self.powershell)
+        self.assertIn('"syft-json=$syftContainerPath"', self.powershell)
+        self.assertIn('${artifactName}-sbom.cdx.json', self.powershell)
+        self.assertIn('${artifactName}-sbom.syft.json', self.powershell)
+        self.assertIn('${artifactName}-vulnerabilities.json', self.powershell)
+        self.assertIn("$syftExitCodes[$artifactName]", self.powershell)
+        self.assertIn("$grypeExitCodes[$artifactName]", self.powershell)
+        self.assertGreaterEqual(
+            self.powershell.count("foreach ($entry in $runtimeImages.GetEnumerator())"),
+            3,
+        )
         self.assertIn("GRYPE_DB_AUTO_UPDATE=false", self.powershell)
         self.assertIn("--fail-on high", self.powershell)
         self.assertNotIn("--only-fixed", self.powershell)

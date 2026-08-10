@@ -21,6 +21,9 @@ class ReleaseImageContractTests(SimpleTestCase):
         for variable in (
             "$approvedReleaseCommit",
             "$appImage",
+            "$postgresImage",
+            "$nginxImage",
+            "$pythonBaseImage",
             "$gitleaksImage",
             "$pipAuditImage",
             "$syftImage",
@@ -31,11 +34,17 @@ class ReleaseImageContractTests(SimpleTestCase):
         for artifact in (
             "source-secrets.redacted.json",
             "python-dependencies.json",
-            "application-sbom.cdx.json",
-            "application-vulnerabilities.json",
             "tls-public.json",
         ):
             self.assertIn(artifact, source)
+        for artifact_pattern in (
+            "${artifactName}-sbom.cdx.json",
+            "${artifactName}-sbom.syft.json",
+            "${artifactName}-vulnerabilities.json",
+        ):
+            self.assertIn(artifact_pattern, source)
+        self.assertIn("runtime_images = $runtimeImages", source)
+        self.assertIn("python_build_base_image = $pythonBaseImage", source)
         self.assertIn("repository@sha256", source)
         self.assertIn("--require-hashes --disable-pip --strict", source)
         self.assertIn("--redact=100", source)

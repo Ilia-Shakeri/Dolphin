@@ -119,7 +119,7 @@ Stop if the evidence owner has not checked the inherited access controls on the 
 
 ## Pull and prove immutable images
 
-Pull each exact reference for the production target. The registry validates the requested manifest digest. The later local check rejects an application reference that is not present under that digest.
+Pull each exact reference for the production target. The registry validates the requested manifest digest. The later local check rejects any runtime, build-base, or scanner reference that is not present under that digest.
 
 ```powershell
 $allImages = @($runtimeImages.Values) + @($pythonBaseImage) + @($scannerImages.Values)
@@ -256,30 +256,35 @@ $null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir 'python-dependenci
 
 Exit `0` means no known vulnerability was returned at that time. Exit `1` is no-go pending report review; it can mean a finding or a scan failure, so the report and command state must both be checked. Do not suppress a vulnerability ID in this command. A risk acceptance belongs in the separately approved release record.
 
-## Exact application-image SBOM
+## Exact runtime-image SBOMs
 
-The local digest proof above binds the Docker source to the exact application manifest. Syft scans the squashed deployable filesystem, not deleted content from older layers. It writes both a CycloneDX release SBOM and a native report for the image vulnerability scan.
+The local digest proof above binds each Docker source to its exact runtime manifest. Syft scans each squashed deployable filesystem, not deleted content from older layers. It writes a CycloneDX release SBOM and a native report for each runtime-image vulnerability scan. The application filesystem includes its Python base layers; the separately recorded base digest must still match the approved source-to-image build record.
 
 ```powershell
-docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges `
-    --tmpfs /tmp:rw,noexec,nosuid,size=128m `
-    --volume /var/run/docker.sock:/var/run/docker.sock `
-    --mount "type=bind,source=$evidenceDir,target=/evidence" `
-    $syftImage "docker:$appImage" --scope squashed `
-    --output cyclonedx-json=/evidence/application-sbom.cdx.json `
-    --output syft-json=/evidence/application-sbom.syft.json
-$syftExit = $LASTEXITCODE
-
-if ($syftExit -ne 0) { throw 'SBOM generation failed.' }
-$null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir 'application-sbom.cdx.json') | ConvertFrom-Json
-$null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir 'application-sbom.syft.json') | ConvertFrom-Json
+$syftExitCodes = [ordered]@{}
+foreach ($entry in $runtimeImages.GetEnumerator()) {
+    $artifactName = $entry.Key
+    $cycloneContainerPath = "/evidence/${artifactName}-sbom.cdx.json"
+    $syftContainerPath = "/evidence/${artifactName}-sbom.syft.json"
+    docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges `
+        --tmpfs /tmp:rw,noexec,nosuid,size=128m `
+        --volume /var/run/docker.sock:/var/run/docker.sock `
+        --mount "type=bind,source=$evidenceDir,target=/evidence" `
+        $syftImage "docker:$($entry.Value)" --scope squashed `
+        --output "cyclonedx-json=$cycloneContainerPath" `
+        --output "syft-json=$syftContainerPath"
+    $syftExitCodes[$artifactName] = $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0) { throw 'Runtime-image SBOM generation failed.' }
+    $null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir "${artifactName}-sbom.cdx.json") | ConvertFrom-Json
+    $null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir "${artifactName}-sbom.syft.json") | ConvertFrom-Json
+}
 ```
 
-An SBOM is inventory evidence, not vulnerability or license approval. The reviewer must confirm that the report identifies an image source and contains expected operating-system and Python package families before accepting it.
+An SBOM is inventory evidence, not vulnerability or license approval. The reviewer must confirm that each report identifies the expected exact image source and contains the expected operating-system and application package families before accepting it.
 
-## Exact application-image vulnerability scan
+## Exact runtime-image vulnerability scans
 
-Update the Grype database into this run directory, capture its schema, build time, checksum, and status, then disable updates for the actual scan. The scan consumes the SBOM made from the exact image. It reports fixed and unfixed findings; do not use `--only-fixed` and do not provide ignore or VEX input here.
+Update the Grype database into this run directory, capture its schema, build time, checksum, and status, then disable updates for the actual scans. Each scan consumes the SBOM made from one exact runtime image. It reports fixed and unfixed findings; do not use `--only-fixed` and do not provide ignore or VEX input here.
 
 ```powershell
 $grypeDbDir = Join-Path $evidenceDir 'grype-db'
@@ -307,21 +312,26 @@ if ($LASTEXITCODE -ne 0 -or $grypeDbStatus -notmatch '(?im)^Status:\s+valid\s*$'
 }
 Set-Content -LiteralPath (Join-Path $evidenceDir 'grype-db-status.txt') -Value $grypeDbStatus -Encoding utf8
 
-docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges `
-    --tmpfs /tmp:rw,noexec,nosuid,size=128m `
-    --mount "type=bind,source=$evidenceDir,target=/evidence" `
-    --env GRYPE_DB_CACHE_DIR=/evidence/grype-db `
-    --env GRYPE_DB_AUTO_UPDATE=false `
-    --env GRYPE_CHECK_FOR_APP_UPDATE=false `
-    $grypeImage sbom:/evidence/application-sbom.syft.json `
-    --output json --file /evidence/application-vulnerabilities.json `
-    --fail-on high
-$grypeExit = $LASTEXITCODE
-
-$null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir 'application-vulnerabilities.json') | ConvertFrom-Json
+$grypeExitCodes = [ordered]@{}
+foreach ($entry in $runtimeImages.GetEnumerator()) {
+    $artifactName = $entry.Key
+    $sbomContainerPath = "/evidence/${artifactName}-sbom.syft.json"
+    $vulnerabilityContainerPath = "/evidence/${artifactName}-vulnerabilities.json"
+    docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges `
+        --tmpfs /tmp:rw,noexec,nosuid,size=128m `
+        --mount "type=bind,source=$evidenceDir,target=/evidence" `
+        --env GRYPE_DB_CACHE_DIR=/evidence/grype-db `
+        --env GRYPE_DB_AUTO_UPDATE=false `
+        --env GRYPE_CHECK_FOR_APP_UPDATE=false `
+        $grypeImage "sbom:$sbomContainerPath" `
+        --output json --file $vulnerabilityContainerPath `
+        --fail-on high
+    $grypeExitCodes[$artifactName] = $LASTEXITCODE
+    $null = Get-Content -Raw -LiteralPath (Join-Path $evidenceDir "${artifactName}-vulnerabilities.json") | ConvertFrom-Json
+}
 ```
 
-Exit `0` means the pinned Grype version did not cross the High threshold. Any nonzero exit is no-go until the reviewer uses that exact pinned version's documented exit contract and the parsed report to distinguish a threshold match from execution failure. This avoids treating a changed scanner exit-code contract as a pass. Exit `0` does not waive lower-severity review, false-negative review, or the need to refresh an old vulnerability database.
+For each runtime image, exit `0` means the pinned Grype version did not cross the High threshold. Any nonzero exit is no-go for that image until the reviewer uses that exact pinned version's documented exit contract and the matching parsed report to distinguish a threshold match from execution failure. This avoids treating a changed scanner exit-code contract as a pass. Exit `0` does not waive lower-severity review, false-negative review, or the need to refresh an old vulnerability database.
 
 ## Real public TLS scan
 
@@ -353,12 +363,14 @@ Write factual run metadata from this PowerShell session. `COMPLETE_REVIEW_REQUIR
 ```powershell
 $runFinishedUtc = [DateTime]::UtcNow.ToString('o')
 $metadata = [ordered]@{
-    schema_version = 1
+    schema_version = 2
     state = 'COMPLETE_REVIEW_REQUIRED'
     release_commit = $approvedReleaseCommit
     requirements_sha256 = $requirementsSha256
-    application_image = $appImage
-    application_platform = $appPlatform
+    runtime_images = $runtimeImages
+    runtime_platforms = $imagePlatforms
+    python_build_base_image = $pythonBaseImage
+    python_build_base_platform = $pythonBasePlatform
     scanner_images = $scannerImages
     scanner_versions = $toolVersions
     dependency_advisory_service = 'pypi'
@@ -370,8 +382,8 @@ $metadata = [ordered]@{
     exit_codes = [ordered]@{
         gitleaks = $gitleaksExit
         pip_audit = $pipAuditExit
-        syft = $syftExit
-        grype = $grypeExit
+        syft = $syftExitCodes
+        grype = $grypeExitCodes
         testssl = $testsslExit
     }
 }
@@ -456,9 +468,9 @@ foreach ($file in $sealedFiles) {
 - Keep the sealed run under the approved security-evidence retention class. The end condition must cover the release lifetime, rollback window, vulnerability remediation, audit requirement, and any legal or incident hold. A calendar date alone must not shorten an active hold.
 - Encrypt evidence at rest and in transfer. Use named access, least privilege, multi-factor access where available, and access logging. Do not publish reports or use unrestricted ticket attachments or links.
 - Review access at release close and at each retention review. Remove access when an owner leaves the role. Preserve access-log and integrity-anchor history separately from the run directory.
-- Do not edit a finding out of a report. Store remediation, false-positive analysis, expiry, compensating control, owner, and approval as a separate record tied to the release commit, application digest, report hash, finding ID, and evidence anchor.
+- Do not edit a finding out of a report. Store remediation, false-positive analysis, expiry, compensating control, owner, and approval as a separate record tied to the release commit, affected runtime digest, report hash, finding ID, and evidence anchor.
 - Do not delete evidence while a release, rollback, investigation, audit, or hold still needs it. At approved expiry, the evidence custodian must verify the out-of-band anchor, record disposal approval, and use the storage system's exact-object disposal workflow. This runbook provides no broad or recursive delete command.
 - Any missing report, parse failure, unexpected scanner exit, invalid or stale Grype database, unreviewed result, High/Critical image finding, secret finding, vulnerable locked dependency, or release-blocking TLS result is no-go.
-- A passing record needs the exact commit, exact application digest, exact scanner digests and observed versions, requirements hash, Grype database status/checksum, public hostname and external-client label, UTC times, exit codes, report hashes, out-of-band evidence anchor, reviewer, and disposition of every finding.
+- A passing record needs the exact commit, all three runtime digests, Python build-base digest, approved source-to-image build record, exact scanner digests and observed versions, requirements hash, Grype database status/checksum, public hostname and external-client label, UTC times, per-image exit codes and report hashes, out-of-band evidence anchor, reviewer, and disposition of every finding.
 
 Repository parsing cannot close this gate. Only execution on the approved scan host against the exact release artifact and real public endpoint creates external scan proof.

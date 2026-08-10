@@ -1,6 +1,7 @@
 import re
 from unittest import mock
 
+from django.conf import settings
 from django.test import TestCase, override_settings
 from django.urls import path
 from rest_framework.permissions import AllowAny
@@ -155,15 +156,17 @@ class SystemApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
         operations = {
-            ("/api/v1/customers/", "get"): {"400", "403", "429", "500"},
-            ("/api/v1/customers/", "post"): {"400", "403", "409", "413", "429", "500"},
-            ("/api/v1/customers/{id}/", "get"): {"400", "403", "404", "429", "500"},
+            ("/api/v1/customers/", "get"): {"400", "403", "406", "429", "500"},
+            ("/api/v1/customers/", "post"): {"400", "403", "406", "409", "413", "415", "429", "500"},
+            ("/api/v1/customers/{id}/", "get"): {"400", "403", "404", "406", "429", "500"},
             ("/api/v1/customers/{id}/", "patch"): {
                 "400",
                 "403",
                 "404",
+                "406",
                 "409",
                 "413",
+                "415",
                 "429",
                 "500",
             },
@@ -181,6 +184,45 @@ class SystemApiTests(TestCase):
                             "#/components/schemas/ApiErrorEnvelope",
                         )
                         self.assertTrue(error_media["examples"])
+
+    def test_normal_api_is_json_only_for_request_and_response_media(self):
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"],
+            ["rest_framework.renderers.JSONRenderer"],
+        )
+        self.assertEqual(
+            settings.REST_FRAMEWORK["DEFAULT_PARSER_CLASSES"],
+            ["common.parsers.BoundedJSONParser"],
+        )
+
+        client = APIClient()
+        client.force_authenticate(self.user)
+        html = client.get("/api/v1/customers/", HTTP_ACCEPT="text/html")
+        self.assertEqual(html.status_code, 406)
+        self.assertEqual(html["Content-Type"], "application/json")
+        self.assertEqual(html.data["error"]["code"], "not_acceptable")
+
+        browsable_format = client.get("/api/v1/customers/?format=api")
+        self.assertEqual(browsable_format.status_code, 404)
+        self.assertEqual(browsable_format["Content-Type"], "application/json")
+        self.assertEqual(browsable_format.data["error"]["code"], "not_found")
+
+        for content_type in (
+            "application/x-www-form-urlencoded",
+            "multipart/form-data; boundary=kariz-boundary",
+        ):
+            with self.subTest(content_type=content_type):
+                response = client.post(
+                    "/api/v1/customers/",
+                    "full_name=WrongMedia",
+                    content_type=content_type,
+                )
+                self.assertEqual(response.status_code, 415)
+                self.assertEqual(response["Content-Type"], "application/json")
+                self.assertEqual(
+                    response.data["error"]["code"],
+                    "unsupported_media_type",
+                )
 
     def test_viewset_query_parameters_reject_unknown_and_repeated_keys(self):
         client = APIClient()

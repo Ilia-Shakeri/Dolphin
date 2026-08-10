@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,6 +17,11 @@ from reports.services import (
     build_user_performance_report,
 )
 from reports.xlsx import XLSX_CONTENT_TYPE, build_user_performance_workbook
+
+
+class XLSXNegotiationRenderer(JSONRenderer):
+    media_type = XLSX_CONTENT_TYPE
+    format = "xlsx"
 
 
 class UserPerformanceReportMixin:
@@ -61,6 +67,17 @@ class UserPerformanceReportView(UserPerformanceReportMixin, APIView):
 
 
 class UserPerformanceExportView(UserPerformanceReportMixin, APIView):
+    renderer_classes = [XLSXNegotiationRenderer]
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        if isinstance(response, Response) and response.status_code >= 400:
+            renderer = JSONRenderer()
+            response.accepted_renderer = renderer
+            response.accepted_media_type = renderer.media_type
+            response.content_type = renderer.media_type
+        return response
+
     @extend_schema(
         parameters=[UserPerformanceQuerySerializer],
         responses={
@@ -68,9 +85,9 @@ class UserPerformanceExportView(UserPerformanceReportMixin, APIView):
                 response=OpenApiTypes.BINARY,
                 description="Filtered user-performance XLSX workbook.",
             ),
-            400: VALIDATION_ERROR_RESPONSE,
-            403: ACCESS_DENIED_RESPONSE,
-            429: THROTTLED_RESPONSE,
+            (400, "application/json"): VALIDATION_ERROR_RESPONSE,
+            (403, "application/json"): ACCESS_DENIED_RESPONSE,
+            (429, "application/json"): THROTTLED_RESPONSE,
         },
         description="Exports the same scoped result and filters as the JSON report.",
     )

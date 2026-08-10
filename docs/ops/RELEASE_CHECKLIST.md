@@ -32,7 +32,7 @@ python -m pip check
 - [ ] No unexpected migration drift.
 - [ ] Schema validates with active routes.
 - [ ] Dependency/source/security scan evidence current; raw suspected secret values never copied into evidence.
-- [ ] The exact-commit source-secret scan, locked-dependency advisory scan, exact-image SBOM and vulnerability scan, and public TLS scan passed review through [SECURITY_SCANS.md](SECURITY_SCANS.md); all evidence is digest-bound and sealed.
+- [ ] The exact-commit source-secret scan, locked-dependency advisory scan, per-image SBOM and vulnerability scans for the exact application, PostgreSQL, and Nginx digests, recorded Python build-base digest, and public TLS scan passed review through [SECURITY_SCANS.md](SECURITY_SCANS.md); all evidence is digest-bound and sealed.
 - [ ] Diff and staged-file review has no forbidden secret, database, backup, generated, or excluded archive artifact.
 
 Repository gates do not prove PostgreSQL, containers, proxy, TLS, or browser behavior.

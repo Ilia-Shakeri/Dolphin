@@ -122,8 +122,10 @@ _COMMON_ERROR_DETAILS = {
     "400": ("validation_error", "Request validation failed."),
     "403": ("permission_denied", "Permission denied."),
     "404": ("not_found", "Not found."),
+    "406": ("not_acceptable", "Requested response media type is not available."),
     "409": ("conflict", "The requested state change conflicts with current state."),
     "413": ("payload_too_large", "Request body is too large."),
+    "415": ("unsupported_media_type", "Request media type is not supported."),
     "429": ("throttled", "Request was throttled."),
     "500": ("server_error", "Internal server error."),
 }
@@ -157,7 +159,7 @@ def _error_response_schema(status_code):
 
 
 def _response_codes_for(path, method):
-    codes = {"500"}
+    codes = {"406", "500"}
     if path.startswith("/api/v1/health/"):
         return codes
 
@@ -179,7 +181,7 @@ def _response_codes_for(path, method):
     if "{" in path:
         codes.add("404")
     if method in _BODY_METHODS:
-        codes.add("413")
+        codes.update({"413", "415"})
     if method in {"post", "put", "patch", "delete"} and not path.startswith("/api/v1/auth/"):
         codes.add("409")
     return codes

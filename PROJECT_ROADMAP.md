@@ -19,7 +19,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 | 8 | Production configuration and container stack | DONE | Prove digest pulls, boot, routing, static, write-stop, and health in Phase 12 |
 | 9 | Database operations, backup, restore, observability | DONE | Run the guarded backup/restore path and approve live policy |
 | 10 | Security, reliability, performance verification | DONE | Runtime/load proof remains Phase 12 |
-| 11 | Documentation, UAT, release candidate | IN_PROGRESS | Await final independent P0/P1 audit; immutable artifact remains SRC-002 human input |
+| 11 | Documentation, UAT, release candidate | DONE | State B reached; final immutable artifact remains SRC-002/OPS-001 human input |
 | 12 | Production environment proof | BLOCKED | Need native/runtime host, hostname, and certificate path |
 
 ## Phase 0 - Repository safety and reproducible baseline
@@ -92,7 +92,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: migration drift, full tests, `scripts/test-postgres.ps1` with native tools.
 - Rollback/recovery: Additive migration with reversible constraint operations; preflight invalid rows before apply.
 - Risks/blockers: Native PostgreSQL tools absent on current host; current data conflicts must never be auto-dropped.
-- Evidence: migration heads `accounts.0002_user_role_constraint`, `auditlog.0002_activitylog_role_snapshots`, and `sales.0010_interaction_contract`; fresh focused tests and migration-drift proof pass. The fresh full suite and PostgreSQL zero/upgrade proof remain pending.
+- Evidence: migration heads `accounts.0002_user_role_constraint`, `auditlog.0002_activitylog_role_snapshots`, and `sales.0010_interaction_contract`; fresh focused tests, no-drift proof, and the post-audit 232-test full suite pass. PostgreSQL zero/upgrade execution remains EXT-001.
 
 ## Phase 3 - Authentication, authorization, audit, and request security
 
@@ -120,7 +120,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: targeted account/sales/common tests, full suite, schema permission review.
 - Rollback/recovery: Small selector/permission/service changes with focused tests.
 - Risks/blockers: Sales Manager team-user scope and limited operational-audit scope remain unresolved; both stay denied rather than broad. BIZ-013 leaves assigned Leads on the exact inactive owner with history intact and forbids guessed implicit reassignment until an owner-deactivation rule is approved.
-- Evidence: request-context/logging tests, account security tests, audit/report scope tests, sales workflow/API tests, and the fresh 226-test full fast suite on 2026-08-10; six PostgreSQL-only tests skipped on SQLite.
+- Evidence: request-context/logging tests, account security tests, audit/report scope tests, sales workflow/API tests, and the fresh post-audit 232-test full fast suite on 2026-08-10; six PostgreSQL-only tests skipped on SQLite.
 
 ## Phase 4 - Services and versioned REST APIs
 
@@ -148,7 +148,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: full tests, schema validation, URL/method inspection, targeted workflow tests.
 - Rollback/recovery: Revert one route/service batch; migrations not expected.
 - Risks/blockers: Sale correction details and Sales Manager audit visibility granularity are explicit decision blocks; approved routes remain complete without them.
-- Evidence: `docs/backend/API_CONTRACT.md`, audit/report/error/request-limit tests, production docs-route removal tests, 97 focused backend tests, the fresh 226-test full suite, and UTF-8 warnings-fatal generated-schema validation.
+- Evidence: `docs/backend/API_CONTRACT.md`, audit/report/error/request-limit/media-negotiation tests, production docs-route removal tests, 60 post-fix focused tests, the fresh 232-test full suite, and UTF-8 warnings-fatal generated-schema validation.
 
 ## Phase 5 - Predefined reports and XLSX
 
@@ -170,7 +170,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: report test module, full suite, schema validation, workbook load.
 - Rollback/recovery: Remove isolated report routes/code; no business data mutation.
 - Risks/blockers: Generic customer count, conversion, outcome grouping, final human-facing columns/style, and Jalali display remain blocked and excluded. Current XLSX is a machine-readable foundation.
-- Evidence: `BACKEND_SPEC.md`, `docs/backend/API_CONTRACT.md`, `reports/`, report tests, the fresh 226-test suite, and current validated schema.
+- Evidence: `BACKEND_SPEC.md`, `docs/backend/API_CONTRACT.md`, `reports/`, report tests, the fresh 232-test suite, and current validated schema.
 
 ## Phase 6 - Persian-only active application cleanup
 
@@ -194,7 +194,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Rollback/recovery: Small exact deletion groups restored from Git if any reference breaks.
 - Risks/blockers: The excluded archive is unserved by the current stack but remains untouched; real browser/edge proof is external.
 - Evidence: `docs/codebase/LANGUAGE_CLEANUP.md`, UI tests, static dry run, full suite.
-- Repository completion checkpoint: 2026-08-09, Goal checkpoint 003; source/render proof passed again in the 226-test gate on 2026-08-10. Browser/edge proof remains external.
+- Repository completion checkpoint: 2026-08-09, Goal checkpoint 003; source/render proof passed again in the 232-test gate on 2026-08-10. Browser/edge proof remains external.
 
 ## Phase 7 - Kariz rebranding
 
@@ -218,7 +218,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Rollback/recovery: Reference-aware small edits; stable runtime symbols unchanged.
 - Risks/blockers: Excluded vendor/minified/archive files are not active in the current stack and were not edited; browser/edge proof is external.
 - Evidence: `docs/codebase/BRANDING_CLEANUP.md`, UI/admin/schema tests, static dry run.
-- Repository completion checkpoint: 2026-08-09, Goal checkpoint 003; source/render proof passed again in the 226-test gate on 2026-08-10. Browser/edge proof remains external.
+- Repository completion checkpoint: 2026-08-09, Goal checkpoint 003; source/render proof passed again in the 232-test gate on 2026-08-10. Browser/edge proof remains external.
 
 ## Phase 8 - Production configuration and container stack
 
@@ -273,7 +273,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: script guard tests, PostgreSQL harness, Compose job, restore smoke.
 - Rollback/recovery: Scripts never mutate source DB; retention deletes only validated backup files in exact root.
 - Risks/blockers: Live destination, schedule, retention, alert owner, recovery targets, and cutover authority are unresolved; native PostgreSQL client/runtime tools are absent.
-- Evidence: `compose.yml`, `compose.restore-verify.yml`, `nginx/default.conf`, `common/request_logging.py`, guarded database scripts, `docs/ops/`, guard/parser tests, and the fresh 226-test fast suite. Source has four database roles, seven base service definitions, one isolated restore service, and two required external volumes. No real dump or restore ran.
+- Evidence: `compose.yml`, `compose.restore-verify.yml`, `nginx/default.conf`, `common/request_logging.py`, guarded database scripts, `docs/ops/`, guard/parser tests, and the fresh 232-test fast suite. Source has four database roles, seven base service definitions, one isolated restore service, and two required external volumes. No real dump or restore ran.
 
 ## Phase 10 - Security, reliability, and performance verification
 
@@ -300,11 +300,11 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: targeted/full tests, PostgreSQL suite, dependency check/scanner, load script.
 - Rollback/recovery: Revert isolated hardening/index change if measured regression appears.
 - Risks/blockers: Capacity target, harness approval, target owners/abort rules, and live engine are needed for final tuning.
-- Evidence: Fresh 226-test full suite passes with six PostgreSQL-only tests skipped; dependency/hash/image/source/schema and targeted access/fault/input/query-growth/load/scan-runbook tests pass. PostgreSQL execution, approved load, and external scanners remain explicit external/decision gates. Final independent P0/P1 audit remains open.
+- Evidence: The post-audit 232-test full suite and dependency/hash/image/source/schema/static/package/deploy/syntax gates pass. Post-fix backend 60-test and operations 31-test suites also pass. Both independent audits scored 9/10 with no firm repository P0/P1. PostgreSQL execution, approved load, and external scanners remain explicit external/decision gates.
 
 ## Phase 11 - Documentation, UAT, and release candidate
 
-- Status: `IN_PROGRESS`
+- Status: `DONE`
 - Objective and scope: Operator/user docs, safe UAT data, release checklist, known limits, and production-candidate evidence.
 - Dependencies: Repository-controlled phases 0-10.
 - Files/modules: docs, management commands/fixtures, checklist, release notes.
@@ -314,7 +314,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
   - [x] Refresh OpenAPI validation and response assertions for sensitive-action `429` contracts.
   - [x] Release checklist, known limits, and clean source-level release evidence.
   - [x] Regenerate `docs/ops/SOURCE_MANIFEST.md` for the final settled 134-path current-worktree set and refresh release notes.
-  - [ ] Record a fresh final read audit with no open repository-controlled P0/P1 after the current backend/operations follow-up.
+  - [x] Record fresh independent backend and operations audits with no firm repository-controlled P0/P1 after their follow-up fixes.
   - [x] Mirror every `BIZ`, `SRC`, `EXT`, and human operations input in the blocker/readiness registers with exact close proof or command sets.
   - [ ] Record and review one exact commit/release artifact; complete repository checklist gates against that reference.
 - Migration/data impact: UAT seed isolated from production; no automatic live load.
@@ -325,7 +325,7 @@ Status values: `NOT_STARTED`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFIED`.
 - Verification commands: release checklist commands and UAT smoke suite.
 - Rollback/recovery: Release rollback runbook names image, migration, and backup paths.
 - Risks/blockers: External environment proof remains phase 12.
-- Evidence: Source/runbook/UAT work exists in `docs/ops/`, management-command tests, backend contract docs, this roadmap, `WORKLOG.md`, `PRODUCTION_READINESS_CHECKLIST.md`, and release notes. The exact 134-path manifest, fresh schema, 226-test suite, static/package/image/syntax/deploy checks pass. Final independent audit and immutable release identity remain pending.
+- Evidence: Source/runbook/UAT work exists in `docs/ops/`, management-command tests, backend contract docs, this roadmap, `WORKLOG.md`, `PRODUCTION_READINESS_CHECKLIST.md`, and release notes. The exact 134-path boundary, fresh schema, post-audit 232-test suite, static/package/image/syntax/deploy checks, and two final 9/10 audits pass. State B is reached. One final reference containing the overlay remains SRC-002/OPS-001 human input.
 
 ## Phase 12 - Production environment proof
 

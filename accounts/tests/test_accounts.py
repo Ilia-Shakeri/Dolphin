@@ -375,8 +375,20 @@ class AccountSecurityTests(TestCase):
         csrf_cookie = client.cookies.get("csrftoken")
         self.assertIsNotNone(csrf_cookie)
         payload = {"username": self.agent.username, "password": "strong-pass-1"}
-        self.assertEqual(client.post("/api/v1/auth/login/", payload).status_code, 403)
-        login_response = client.post("/api/v1/auth/login/", payload, HTTP_X_CSRFTOKEN=csrf_cookie.value)
+        self.assertEqual(
+            client.post(
+                "/api/v1/auth/login/",
+                payload,
+                content_type="application/json",
+            ).status_code,
+            403,
+        )
+        login_response = client.post(
+            "/api/v1/auth/login/",
+            payload,
+            content_type="application/json",
+            HTTP_X_CSRFTOKEN=csrf_cookie.value,
+        )
         self.assertEqual(login_response.status_code, 200)
         me_response = client.get("/api/v1/auth/me/")
         self.assertEqual(me_response.status_code, 200)
@@ -391,9 +403,22 @@ class AccountSecurityTests(TestCase):
         )
         self.assertEqual(profile_response.status_code, 200)
         self.assertTrue(ActivityLog.objects.filter(operation="user.profile_updated", actor=self.agent).exists())
-        self.assertEqual(client.post("/api/v1/auth/logout/").status_code, 403)
+        self.assertEqual(
+            client.post(
+                "/api/v1/auth/logout/",
+                content_type="application/json",
+            ).status_code,
+            403,
+        )
         csrf_cookie = client.cookies["csrftoken"]
-        self.assertEqual(client.post("/api/v1/auth/logout/", HTTP_X_CSRFTOKEN=csrf_cookie.value).status_code, 204)
+        self.assertEqual(
+            client.post(
+                "/api/v1/auth/logout/",
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=csrf_cookie.value,
+            ).status_code,
+            204,
+        )
 
     def test_api_csrf_failure_is_safe_json_and_ui_failure_stays_html(self):
         client = Client(enforce_csrf_checks=True)
@@ -401,6 +426,7 @@ class AccountSecurityTests(TestCase):
         api_response = client.post(
             "/api/v1/auth/login/",
             payload,
+            content_type="application/json",
             HTTP_X_REQUEST_ID="csrf-login-1",
         )
 
@@ -433,7 +459,12 @@ class AccountSecurityTests(TestCase):
         csrf_cookie = client.cookies["csrftoken"]
         payload = {"username": self.agent.username, "password": "wrong-password"}
         responses = [
-            client.post("/api/v1/auth/login/", payload, HTTP_X_CSRFTOKEN=csrf_cookie.value)
+            client.post(
+                "/api/v1/auth/login/",
+                payload,
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=csrf_cookie.value,
+            )
             for _ in range(11)
         ]
         self.assertEqual(responses[-1].status_code, 429)

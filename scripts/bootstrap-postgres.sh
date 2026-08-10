@@ -142,6 +142,18 @@ SELECT NOT EXISTS (
     \quit 3
 \endif
 
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM pg_auth_members membership
+    JOIN pg_roles granted ON granted.oid = membership.roleid
+    WHERE granted.rolname IN (:'migration_user', :'app_user', :'backup_user')
+) AS managed_roles_have_no_members \gset
+\if :managed_roles_have_no_members
+\else
+    \echo 'A Kariz-managed PostgreSQL role is granted to another role.'
+    \quit 3
+\endif
+
 SELECT format('CREATE ROLE %I', :'migration_user')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'migration_user') \gexec
 SELECT format('CREATE ROLE %I', :'app_user')

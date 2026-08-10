@@ -1,8 +1,10 @@
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
+from unittest import mock
 from urllib.parse import urlencode
 
+from django.core.cache import cache
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -10,6 +12,7 @@ from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from common.throttles import SensitiveRateThrottle
 from reports.services import (
     InvalidReportPeriod,
     ReportAccessDenied,
@@ -357,6 +360,75 @@ class UserPerformanceReportTests(TestCase):
             json_response.data["sales_product_id"],
         )
         workbook.close()
+
+    def test_export_accepts_xlsx_but_keeps_all_errors_json(self):
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        success = client.get(
+            self.export_url,
+            self._query(),
+            HTTP_ACCEPT=XLSX_CONTENT_TYPE,
+        )
+        self.assertEqual(success.status_code, 200)
+        self.assertEqual(success["Content-Type"], XLSX_CONTENT_TYPE)
+
+        invalid = client.get(
+            self.export_url,
+            {"period_start": "2026-01-01T00:00:00Z"},
+            HTTP_ACCEPT=XLSX_CONTENT_TYPE,
+            HTTP_X_REQUEST_ID="xlsx-error-1",
+        )
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid["Content-Type"], "application/json")
+        self.assertEqual(invalid.data["error"]["code"], "validation_error")
+        self.assertEqual(invalid.data["error"]["request_id"], "xlsx-error-1")
+
+        anonymous = APIClient().get(
+            self.export_url,
+            self._query(),
+            HTTP_ACCEPT=XLSX_CONTENT_TYPE,
+        )
+        self.assertEqual(anonymous.status_code, 403)
+        self.assertEqual(anonymous["Content-Type"], "application/json")
+        self.assertEqual(anonymous.data["error"]["code"], "authentication_failed")
+
+        unacceptable = client.get(
+            self.export_url,
+            self._query(),
+            HTTP_ACCEPT="text/html",
+        )
+        self.assertEqual(unacceptable.status_code, 406)
+        self.assertEqual(unacceptable["Content-Type"], "application/json")
+        self.assertEqual(unacceptable.data["error"]["code"], "not_acceptable")
+
+    @mock.patch.object(SensitiveRateThrottle, "get_rate", lambda self: "1/min")
+    def test_export_xlsx_throttle_error_is_json(self):
+        cache.clear()
+        try:
+            client = APIClient()
+            client.force_authenticate(self.manager)
+            first = client.get(
+                self.export_url,
+                self._query(),
+                HTTP_ACCEPT=XLSX_CONTENT_TYPE,
+            )
+            self.assertEqual(first.status_code, 200)
+
+            throttled = client.get(
+                self.export_url,
+                self._query(),
+                HTTP_ACCEPT=XLSX_CONTENT_TYPE,
+                HTTP_X_REQUEST_ID="xlsx-throttle-1",
+            )
+            self.assertEqual(throttled.status_code, 429)
+            self.assertEqual(throttled["Content-Type"], "application/json")
+            self.assertEqual(throttled.data["error"]["code"], "throttled")
+            self.assertEqual(
+                throttled.data["error"]["request_id"],
+                "xlsx-throttle-1",
+            )
+        finally:
+            cache.clear()
 
     def test_spreadsheet_text_guard_covers_formula_and_control_prefixes(self):
         unsafe_values = (
