@@ -13,9 +13,9 @@
 Every requirement in this document has one of these states:
 
 - **CONFIRMED:** explicitly stated or accepted; implement as the current requirement.
-- **WORKING ASSUMPTION:** a safe default that may be implemented only when it does not lock an unresolved business decision; record it in `ASSUMPTIONS.md`.
+- **WORKING ASSUMPTION:** a safe default that may be implemented only when it does not lock an unresolved business decision; record it in `KARIZ_PROJECT_HANDOFF.md`.
 - **RECOMMENDED:** technical/delivery guidance, not a contractual business rule.
-- **UNRESOLVED:** do not invent; isolate/defer the affected behavior and record it in `BLOCKERS.md`.
+- **UNRESOLVED:** do not invent; isolate/defer the affected behavior and record it in `KARIZ_PROJECT_HANDOFF.md`.
 - **BLOCKED:** implementation must not be claimed complete until the named decision/source exists.
 
 Frontend labels, badges, demo data, fake submit handlers, and template pages are never authoritative business rules.
@@ -600,7 +600,7 @@ Do not publish misleading generic metrics until approved:
 - conversion rate denominator and reassignment policy;
 - final answered/qualifying call outcome grouping.
 
-Implement the unambiguous report foundation, filters, role scoping, XLSX, OpenAPI, and deterministic tests while recording unresolved metrics in `BLOCKERS.md`.
+Implement the unambiguous report foundation, filters, role scoping, XLSX, OpenAPI, and deterministic tests while recording unresolved metrics in `KARIZ_PROJECT_HANDOFF.md`.
 
 ### 10.4 Candidate filters
 

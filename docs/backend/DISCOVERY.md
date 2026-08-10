@@ -46,4 +46,4 @@ Git exists, user identity is configured, and reviewed baseline commit `50a978a` 
 - Record one user-approved immutable release reference and regenerate proof against it.
 - Prove PostgreSQL role/grant/migration behavior, container boot, proxy/static/direct TLS, browser paths, backup/restore, alerts, and recovery on approved external runtimes.
 
-See `PROJECT_ROADMAP.md`, `PRODUCTION_READINESS_CHECKLIST.md`, `BLOCKERS.md`, and `WORKLOG.md` for live status.
+See `KARIZ_PROJECT_HANDOFF.md` for live status, completed work, assumptions, blockers, and exact continuation commands.

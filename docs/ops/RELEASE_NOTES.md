@@ -2,7 +2,7 @@
 
 ## Release identity
 
-The user-created pushed checkpoint `8f3c540efe7c1e1f80f31e0a1d991d0328dfe62e` equals `origin/main` and exactly binds the 134-path delta from durable base `50a978abc206e43032ce96b36dc0433366198e60`. A later 25-path backend, operations, and durable-evidence audit overlay is listed in `docs/ops/SOURCE_MANIFEST.md`; the combined final candidate is therefore not yet one immutable deploy/rollback artifact. Local gates pass and State B is `production candidate; external verification pending`. A user-created final reference remains SRC-002 input.
+The user-created pushed final commit `95dbc71ea3a3e773a620271f3d3fbe0e88646e8b` equals `origin/main` and exactly binds the 134-path delta from durable base `50a978abc206e43032ce96b36dc0433366198e60`. `C-REF` and `C-REPO` passed from that clean reference. State B is `production candidate; external verification pending`. SRC-002 is closed; runtime artifact storage and rollback ownership remain OPS-001.
 
 ## Main changes
 
@@ -89,7 +89,7 @@ Sale correction, Team administration, optional after-sales, undefined KPI fields
 - Mandatory release-image reference validator: passed with non-secret test refs.
 - Strict safe-value production deploy check exited zero; only the deliberate HSTS subdomain/preload warnings remained.
 - PostgreSQL bootstrap, backup, restore, native-harness Bash/PowerShell, load, and scan-runbook syntax/source gates: passed.
-- Exact source manifest: pushed reference delta has 134 paths, comprising 47 modified and 87 added; the 25 modified overlay paths are all inside that set, so the combined candidate remains 134 paths with no delete or rename.
+- Exact source manifest: final pushed reference delta has 134 paths, comprising 47 modified and 87 added, with no delete or rename.
 - Changed/untracked path policy and high-confidence secret-pattern scans: 0 blocked paths and 0 matches.
 - Active-file ledger: 179 unique live first-party rows with exact Phase 1 links and no missing or stale path.
 - Independent backend audit: 9/10, no firm repository P0/P1; 60 focused tests and check/drift/schema/Bash/PowerShell/diff gates passed.
@@ -97,10 +97,10 @@ Sale correction, Team administration, optional after-sales, undefined KPI fields
 
 ## Known limits and release state
 
-The independent backend and operations audits found no firm repository P0/P1, and the post-audit combined full/local release gates pass. Current achieved state is `production candidate; external verification pending`. This is State B only. The uncommitted final overlay keeps SRC-002/OPS-001 open and still blocks deployment, rollback identity, and State A.
+The independent backend and operations audits found no firm repository P0/P1. The final reference-bound full/local release gates pass. Current achieved state is `production candidate; external verification pending`. This is State B only. OPS-001 and the explicit business, operations, and external inputs still block deployment and State A.
 
-Business decisions and external proof gaps are listed in `BLOCKERS.md`. In particular, live PostgreSQL ACL/migration/backup proof, Docker/Nginx/write-stop boot, certificate/TLS scan, browser smoke, capacity/load proof, real application/PostgreSQL/Nginx/build-base/scanner digests, per-runtime SBOM/scans, backup policy, and a final release reference remain open. The hashed dependency lock, Docker build gates, and mandatory image validator exist; Compose interpolation alone proves only nonempty refs. No real digest value is guessed here.
+Business decisions and external proof gaps are listed in `KARIZ_PROJECT_HANDOFF.md`. In particular, live PostgreSQL ACL/migration/backup proof, Docker/Nginx/write-stop boot, certificate/TLS scan, browser smoke, capacity/load proof, real application/PostgreSQL/Nginx/build-base/scanner digests, per-runtime SBOM/scans, backup policy, and stored runtime rollback artifacts remain open. The hashed dependency lock, Docker build gates, and mandatory image validator exist; Compose interpolation alone proves only nonempty refs. No real digest value is guessed here.
 
 ## Rollback boundary
 
-This uncommitted source delta is not a deployable rollback point. Do not use a destructive Git reset or broad file cleanup. Create and review an exact release artifact first. Deployment rollback must then follow `docs/ops/ROLLBACK.md` with a prior artifact, compatibility review, approved recovery point, and no in-place restore or volume deletion.
+The final Git reference is an immutable source point, not a built or stored runtime rollback artifact. Do not use a destructive Git reset or broad file cleanup. Deployment rollback must follow `docs/ops/ROLLBACK.md` with current and prior reviewed image artifacts, compatibility review, an approved recovery point, and no in-place restore or volume deletion.

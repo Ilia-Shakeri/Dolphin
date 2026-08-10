@@ -4,17 +4,13 @@ Authority order
 
 BACKEND_SPEC.md
 
-Active durable Kariz production goal
+KARIZ_PROJECT_HANDOFF.md for live status, completed work, assumptions, blockers, and next commands
 
 Applicable AGENTS.md / AGENTS.override.md
 
-CODEX_KARIZ_BACKEND_PROMPT.md
-
-codex_backend_context.txt as frontend evidence only
-
 Existing code when it conforms to the sources above
 
-Never infer business rules, entities, statuses, permissions, financial behavior, or workflows from Metronic demo pages. Record unclear rules in ASSUMPTIONS.md.
+Never infer business rules, entities, statuses, permissions, financial behavior, or workflows from Metronic demo pages. Record unclear rules in `KARIZ_PROJECT_HANDOFF.md`.
 
 Working directory
 
@@ -25,8 +21,7 @@ Read scope
 Read first:
 
 BACKEND_SPEC.md
-CODEX_KARIZ_BACKEND_PROMPT.md
-codex_backend_context.txt
+KARIZ_PROJECT_HANDOFF.md
 manage.py
 backend/**/*.py
 config/**/*.py
@@ -40,7 +35,7 @@ compose*.yml
 nginx/**
 .env.example
 
-For frontend contracts, inspect only the exact auth, customer/contact, user-management, dashboard, and explicitly approved support files named in CODEX_KARIZ_BACKEND_PROMPT.md. Read large HTML/context files in bounded ranges after locating relevant forms, fields, tables, filters, and actions with rg -n.
+For frontend contracts, inspect only the exact auth, customer/contact, user-management, dashboard, and explicitly approved support files named in the specification or handoff. Read large HTML/context files in bounded ranges after locating relevant forms, fields, tables, filters, and actions with rg -n.
 
 Do not run unrestricted find ., tree, rg --files ., whole-repository indexing, or mass file reads.
 
@@ -171,7 +166,7 @@ docs/backend/RELATIONSHIPS.md
 docs/backend/ERD.mmd
 docs/backend/API_CONTRACT.md
 docs/backend/DISCOVERY.md
-ASSUMPTIONS.md
+KARIZ_PROJECT_HANDOFF.md
 
 Do not mix entity definitions with relationship definitions.
 
@@ -205,26 +200,17 @@ Continuous roadmap execution
 
 When the active task is the long-running Kariz completion and production-readiness goal:
 
-- Create and maintain `PROJECT_ROADMAP.md` in the repository root.
+- Maintain the live phase, evidence, blockers, and exact resume point in `KARIZ_PROJECT_HANDOFF.md`.
 - A task, slice, milestone, test report, or phase report is a checkpoint, not a stopping point.
-- After a successful checkpoint, update `WORKLOG.md` and immediately begin the highest-priority unblocked roadmap item.
+- After a successful checkpoint, update the handoff and immediately begin the highest-priority unblocked task.
 - Never ask the user to type `continue` for normal workspace edits, tests, documentation, safe refactors, or reviewed file deletions.
-- If one item is blocked, record it in `BLOCKERS.md` and continue independent unblocked work.
+- If one item is blocked, record it in the handoff and continue independent unblocked work.
 - Pause only for a real credential or secret, an irreversible external action, a data-semantic decision with no safe isolated fallback, a required sandbox approval, or when no independent unblocked work remains.
-- If the session is forced to stop, persist an exact resume point in `WORKLOG.md`: phase, task, files, commands, evidence, and next action.
+- If the session is forced to stop, persist an exact resume point in the handoff: phase, task, files, commands, evidence, and next action.
 
 Durable codebase understanding
 
-Maintain:
-
-```text
-CODEBASE_MAP.md
-FILE_REVIEW_LEDGER.md
-WORKLOG.md
-ASSUMPTIONS.md
-BLOCKERS.md
-PRODUCTION_READINESS_CHECKLIST.md
-```
+Maintain `KARIZ_PROJECT_HANDOFF.md` as the single root status document.
 
 Review active first-party code subsystem by subsystem in bounded batches. Record each file's purpose, dependencies, entry points, domain impact, security concerns, tests, and branding/language status. Do not recursively consume dependency, vendor, minified, generated, build, media, font, binary, or cache trees.
 
