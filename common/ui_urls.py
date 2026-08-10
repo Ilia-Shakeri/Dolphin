@@ -1,6 +1,8 @@
 from django.urls import path
 
 from common.ui_views import (
+    KarizActivityLogDetailView,
+    KarizActivityLogListView,
     KarizCustomerDetailView,
     KarizCustomerListView,
     KarizHomeView,
@@ -9,6 +11,11 @@ from common.ui_views import (
     KarizLeadDetailView,
     KarizLeadListView,
     KarizLoginView,
+    KarizProductDetailView,
+    KarizProductListView,
+    KarizSaleDetailView,
+    KarizSaleListView,
+    KarizUserPerformanceView,
     KarizUserDetailView,
     KarizUserListView,
 )
@@ -27,4 +34,11 @@ urlpatterns = [
     path("leads/<int:lead_id>/", KarizLeadDetailView.as_view(), name="lead-detail"),
     path("interactions/", KarizInteractionListView.as_view(), name="interactions"),
     path("interactions/<int:interaction_id>/", KarizInteractionDetailView.as_view(), name="interaction-detail"),
+    path("products/", KarizProductListView.as_view(), name="products"),
+    path("products/<int:product_id>/", KarizProductDetailView.as_view(), name="product-detail"),
+    path("sales/", KarizSaleListView.as_view(), name="sales"),
+    path("sales/<int:sale_id>/", KarizSaleDetailView.as_view(), name="sale-detail"),
+    path("reports/user-performance/", KarizUserPerformanceView.as_view(), name="user-performance"),
+    path("activity-logs/", KarizActivityLogListView.as_view(), name="activity-logs"),
+    path("activity-logs/<int:activity_log_id>/", KarizActivityLogDetailView.as_view(), name="activity-log-detail"),
 ]

@@ -1,0 +1,15 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات رویداد{% endblock %}
+{% block page_id %}activity-log-detail{% endblock %}
+{% block body_data %} data-activity-log-id="{{ activity_log_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">سابقه فقط‌خواندنی</p><h1>جزئیات رویداد</h1></div><a class="button button-muted" href="{% url 'common_ui:activity-logs' %}">بازگشت به فهرست</a></section>
+<div id="activity-log-detail-loading" class="card state">در حال دریافت رویداد…</div>
+<section id="activity-log-detail-content" class="card" hidden><div class="form-grid readonly-grid">
+    <div><label for="activity-operation">عملیات</label><input id="activity-operation" disabled></div><div><label for="activity-object-type">نوع مورد</label><input id="activity-object-type" disabled></div>
+    <div><label for="activity-object-id">شناسه مورد</label><input id="activity-object-id" disabled></div><div><label for="activity-actor">شناسه ثبت‌کننده</label><input id="activity-actor" disabled></div>
+    <div><label for="activity-actor-role">نقش ثبت‌کننده</label><input id="activity-actor-role" disabled></div><div><label for="activity-object-role">نقش مورد</label><input id="activity-object-role" disabled></div>
+    <div><label for="activity-request-id">شناسه درخواست</label><input id="activity-request-id" disabled></div><div><label for="activity-ip">نشانی شبکه</label><input id="activity-ip" disabled></div>
+    <div><label for="activity-created-at">زمان</label><input id="activity-created-at" disabled></div><div class="full-field"><label for="activity-changes">تغییرات امن</label><pre id="activity-changes" class="safe-json"></pre></div>
+</div></section>
+{% endblock %}

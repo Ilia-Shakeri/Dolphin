@@ -76,6 +76,10 @@ th { color: #496177; font-size: .85rem; }
 .status-active { color: #05603a; background: #e5f8ef; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1rem; }
 .danger-zone { border-color: #f0b4ae; }
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
+.metric { padding: 1rem; border: 1px solid var(--border); border-radius: .7rem; background: #f8fbfc; }
+.metric strong { display: block; margin-top: .35rem; font-size: 1.2rem; }
+.safe-json { overflow-wrap: anywhere; white-space: pre-wrap; }
 .status-code { margin-bottom: .25rem; color: var(--danger); font-size: 2rem; font-weight: 800; }
 .error-card { max-width: 36rem; margin: 3rem auto; text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
@@ -90,6 +94,7 @@ dialog::backdrop { background: rgb(15 31 46 / 55%); }
     body.nav-open .sidebar { transform: translateX(0); }
     #nav-toggle { display: inline-grid; place-items: center; }
     .form-grid { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: 1fr 1fr; }
     .page-head { align-items: stretch; flex-direction: column; }
     .toolbar { align-items: stretch; flex-direction: column; }
     th, td { padding: .75rem .55rem; }

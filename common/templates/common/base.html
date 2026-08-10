@@ -21,6 +21,10 @@
             <a href="{% url 'common_ui:customers' %}">مشتریان</a>
             <a href="{% url 'common_ui:leads' %}">سرنخ‌ها</a>
             <a href="{% url 'common_ui:interactions' %}">تماس‌ها</a>
+            <a href="{% url 'common_ui:products' %}">محصولات</a>
+            <a href="{% url 'common_ui:sales' %}">فروش‌ها</a>
+            <a href="{% url 'common_ui:user-performance' %}">گزارش عملکرد</a>
+            {% if can_view_audit %}<a href="{% url 'common_ui:activity-logs' %}">رویدادهای سامانه</a>{% endif %}
             {% if can_manage_users %}<a href="{% url 'common_ui:users' %}">مدیریت کاربران</a>{% endif %}
         </nav>
         <form id="logout-form" action="/api/v1/auth/logout/" method="post">

@@ -6,7 +6,8 @@ from django.views.generic import TemplateView
 
 from accounts.access import crm_identities, is_crm_identity
 from accounts.models import User
-from sales.selectors import customers_for, interactions_for, leads_for
+from auditlog.selectors import activity_logs_for
+from sales.selectors import customers_for, interactions_for, leads_for, products_for, sales_for
 
 
 ROLE_LABELS = {
@@ -51,6 +52,13 @@ class ActiveCrmView(TemplateView):
             User.Role.PLATFORM_ADMIN,
         }
         context["can_reassign_leads"] = context["can_deactivate_customers"]
+        context["can_manage_products"] = context["can_deactivate_customers"]
+        context["can_cancel_sales"] = context["can_deactivate_customers"]
+        context["can_view_company_reports"] = self.request.user.role != User.Role.SALES_AGENT
+        context["can_view_audit"] = self.request.user.role in {
+            User.Role.COMPANY_IT,
+            User.Role.PLATFORM_ADMIN,
+        }
         return context
 
 
@@ -191,3 +199,62 @@ class KarizInteractionDetailView(ScopedDetailView):
 
     def scoped_queryset(self):
         return interactions_for(self.request.user)
+
+
+class KarizProductListView(ActiveCrmView):
+    template_name = "common/products/list.html"
+
+
+class KarizProductDetailView(ScopedDetailView):
+    template_name = "common/products/detail.html"
+    object_id_kwarg = "product_id"
+    context_id_name = "product_id"
+
+    def scoped_queryset(self):
+        return products_for(self.request.user)
+
+
+class KarizSaleListView(ActiveCrmView):
+    template_name = "common/sales/list.html"
+
+
+class KarizSaleDetailView(ScopedDetailView):
+    template_name = "common/sales/detail.html"
+    object_id_kwarg = "sale_id"
+    context_id_name = "sale_id"
+
+    def scoped_queryset(self):
+        return sales_for(self.request.user)
+
+
+class KarizUserPerformanceView(ActiveCrmView):
+    template_name = "common/reports/user_performance.html"
+
+
+class AuditReaderView(ActiveCrmView):
+    def dispatch(self, request, *args, **kwargs):
+        if not is_crm_identity(request.user):
+            return super().dispatch(request, *args, **kwargs)
+        if request.user.role not in {User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}:
+            return self.render_to_response(
+                self.get_context_data(
+                    error_status=403,
+                    error_title="دسترسی مجاز نیست",
+                    error_message="شما اجازه مشاهده رویدادهای سامانه را ندارید.",
+                ),
+                status=403,
+            )
+        return super().dispatch(request, *args, **kwargs)
+
+
+class KarizActivityLogListView(AuditReaderView):
+    template_name = "common/activity_logs/list.html"
+
+
+class KarizActivityLogDetailView(AuditReaderView, ScopedDetailView):
+    template_name = "common/activity_logs/detail.html"
+    object_id_kwarg = "activity_log_id"
+    context_id_name = "activity_log_id"
+
+    def scoped_queryset(self):
+        return activity_logs_for(self.request.user)

@@ -1,0 +1,23 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات محصول{% endblock %}
+{% block page_id %}product-detail{% endblock %}
+{% block body_data %} data-product-id="{{ product_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">کاتالوگ فروش</p><h1>جزئیات محصول</h1></div><a class="button button-muted" href="{% url 'common_ui:products' %}">بازگشت به فهرست</a></section>
+<div id="product-detail-loading" class="card state">در حال دریافت محصول…</div>
+<section id="product-detail-content" class="card" hidden>
+    <form id="edit-product-form" action="/api/v1/products/{{ product_id }}/" method="post" novalidate>
+        {% csrf_token %}<div class="form-grid">
+            <div><label for="edit-product-sku">کد محصول</label><input id="edit-product-sku" name="sku" required maxlength="64"{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="sku"></p></div>
+            <div><label for="edit-product-name">نام</label><input id="edit-product-name" name="name" required maxlength="255"{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="name"></p></div>
+            <div><label for="edit-product-price">قیمت جاری</label><input id="edit-product-price" name="current_price" type="number" min="0.01" step="0.01" required{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="current_price"></p></div>
+            <div><label for="product-status">وضعیت</label><input id="product-status" disabled></div>
+            <div><label for="product-created-by">ایجادکننده</label><input id="product-created-by" disabled></div>
+            <div><label for="product-updated-by">آخرین ویرایش‌کننده</label><input id="product-updated-by" disabled></div>
+            <div class="full-field"><label for="edit-product-description">شرح</label><textarea id="edit-product-description" name="description" maxlength="4000"{% if not can_manage_products %} disabled{% endif %}></textarea><p class="field-error" data-error-for="description"></p></div>
+            {% if can_manage_products %}<div class="form-actions"><button class="button" type="submit">ذخیره تغییرات</button></div>{% endif %}
+        </div>
+    </form>
+</section>
+{% if can_manage_products %}<section class="card danger-zone"><h2>غیرفعال‌سازی امن</h2><p>سوابق فروش نگه داشته می‌شود. محصول غیرفعال دیگر برای فروش تازه قابل انتخاب نیست.</p><button id="deactivate-product" class="button button-danger" type="button">غیرفعال کردن محصول</button></section>{% endif %}
+{% endblock %}

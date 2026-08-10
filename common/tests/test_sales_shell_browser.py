@@ -1,11 +1,13 @@
 import importlib.util
 import json
 import unittest
+from decimal import Decimal
 from pathlib import Path
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 
 from accounts.models import User
+from sales.services import create_customer_with_phone, create_lead
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
@@ -139,4 +141,65 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "deactivate-customer").click()
         self.wait.until(expected_conditions.alert_is_present()).accept()
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "customer-active"), "غیرفعال"))
+        self.assert_browser_clean()
+
+    def test_product_sale_report_export_and_activity_log_flow(self):
+        customer = create_customer_with_phone(actor=self.platform, full_name="مشتری فروش مرورگر")
+        create_lead(actor=self.platform, customer=customer, source="ثبت مستقیم مرورگر")
+        self.browser.set_window_size(1440, 1000)
+        self.login()
+
+        self.browser.get(f"{self.live_server_url}/products/")
+        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "products-loading")))
+        self.browser.find_element(By.ID, "open-create-product").click()
+        self.browser.find_element(By.ID, "create-product-sku").send_keys("WEB-1")
+        self.browser.find_element(By.ID, "create-product-name").send_keys("محصول مرورگر")
+        self.browser.find_element(By.ID, "create-product-price").send_keys("12.50")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "product-detail-content")))
+        price = self.browser.find_element(By.ID, "edit-product-price")
+        price.clear()
+        price.send_keys("15.00")
+        self.browser.find_element(By.CSS_SELECTOR, "#edit-product-form button[type='submit']").click()
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "global-message"), "محصول ذخیره شد"))
+
+        self.browser.get(f"{self.live_server_url}/sales/")
+        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "sales-loading")))
+        self.browser.find_element(By.ID, "open-create-sale").click()
+        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sale-lead")).options) > 1)
+        Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("مشتری فروش مرورگر — ثبت مستقیم مرورگر")
+        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — 15.00")
+        quantity = self.browser.find_element(By.ID, "create-sale-quantity")
+        quantity.clear()
+        quantity.send_keys("2")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
+        self.assertEqual(Decimal(self.browser.find_element(By.ID, "sale-total").get_attribute("value")), Decimal("30.00"))
+        self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), self.platform.username)
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-cancel-section")))
+        self.browser.find_element(By.ID, "cancel-sale-reason").send_keys("لغو مجاز مرورگر")
+        self.browser.find_element(By.CSS_SELECTOR, "#cancel-sale-form button[type='submit']").click()
+        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "sale-detail-status"), "لغوشده"))
+
+        self.browser.get(f"{self.live_server_url}/reports/user-performance/")
+        self.browser.find_element(By.CSS_SELECTOR, "#performance-filter-form button[type='submit']").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "performance-content")))
+        self.assertIn(self.platform.username, self.browser.find_element(By.ID, "performance-table-body").text)
+        export_url = self.browser.find_element(By.ID, "performance-xlsx").get_attribute("href")
+        self.assertIn("period_start=", export_url)
+        self.assertIn("period_end=", export_url)
+        export = self.browser.execute_async_script(
+            "const done=arguments[0]; fetch(document.getElementById('performance-xlsx').href, {credentials:'same-origin'}).then(async r => done([r.status,r.headers.get('content-type'),(await r.arrayBuffer()).byteLength])).catch(e => done([0,String(e),0]));"
+        )
+        self.assertEqual(export[0], 200)
+        self.assertIn("spreadsheetml", export[1])
+        self.assertGreater(export[2], 1000)
+
+        self.browser.get(f"{self.live_server_url}/activity-logs/")
+        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "activity-logs-loading")))
+        self.assertIn("sale.cancelled", self.browser.find_element(By.ID, "activity-logs-table-body").text)
+        self.browser.find_element(By.CSS_SELECTOR, "#activity-logs-table-body a").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "activity-log-detail-content")))
         self.assert_browser_clean()

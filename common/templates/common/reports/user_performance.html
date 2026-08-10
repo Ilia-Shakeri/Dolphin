@@ -1,0 +1,22 @@
+{% extends "common/base.html" %}
+{% block title %}گزارش عملکرد کاربران{% endblock %}
+{% block page_id %}user-performance{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">گزارش همسان JSON و XLSX</p><h1>عملکرد کاربران</h1></div></section>
+<section class="card">
+    <form id="performance-filter-form" action="/api/v1/reports/user-performance/" method="get" novalidate>
+        <div class="form-grid">
+            <div><label for="report-period-start">شروع بازه</label><input id="report-period-start" name="period_start" type="datetime-local" required><p class="field-error" data-error-for="period_start"></p></div>
+            <div><label for="report-period-end">پایان بازه</label><input id="report-period-end" name="period_end" type="datetime-local" required><p class="field-error" data-error-for="period_end"></p></div>
+            {% if can_view_company_reports %}<div><label for="report-user">شناسه کاربر</label><input id="report-user" name="user_id" type="number" min="1" step="1" placeholder="همه کاربران مجاز"><p class="field-error" data-error-for="user_id"></p></div>{% endif %}
+            <div><label for="report-product">محصول فروش</label><select id="report-product" name="sales_product_id"><option value="">همه محصولات</option></select><p class="field-error" data-error-for="sales_product_id"></p></div>
+            <div class="form-actions"><a id="performance-xlsx" class="button button-muted" href="#" download>دریافت XLSX</a><button class="button" type="submit">نمایش گزارش</button></div>
+        </div>
+    </form>
+</section>
+<div id="performance-loading" class="card state" hidden>در حال دریافت گزارش…</div>
+<div id="performance-empty" class="card state" hidden>داده‌ای در این بازه پیدا نشد.</div>
+<section id="performance-content" class="card" hidden>
+    <div class="table-wrap"><table><thead><tr><th>کاربر</th><th>مشتری تازه</th><th>تعداد فروش</th><th>مبلغ فروش</th><th>میانگین فروش</th></tr></thead><tbody id="performance-table-body"></tbody></table></div>
+</section>
+{% endblock %}

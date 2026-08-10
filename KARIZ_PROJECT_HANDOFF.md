@@ -98,11 +98,11 @@
 - [x] **V2 — Connected application shell:** shell نگهداری‌شده فقط routeهای واقعی auth/profile/user را نشان می‌دهد؛ API client same-origin/CSRF، navigation فارسی/RTL، brand guard و stateهای خطا/خالی repository-complete است.
   - [x] **V2-A — HTML branding guard:** همه 207 فایل HTML/template first-party فعلی، شامل archive و templateهای shell، با scan خودکار guard شدند؛ batch اولیه archive برابر 202 فایل بود.
   - [x] **V2-B — Connected auth/user shell:** login/logout/me، user list/detail/create/edit/deactivate و change-role چهار نقش ثابت به API واقعی وصل شد؛ public signup، role builder، dead control و fake success ندارد.
-- [ ] **V3 — Core browser flows:** auth/user/customer/phone/Lead/Interaction/Product/Sale/report/audit به backend واقعی وصل و role/browser tests پاس شود.
+- [x] **V3 — Core browser flows:** auth/user/customer/phone/Lead/Interaction/Product/Sale/report/audit به backend واقعی وصل و role/browser tests پاس شود.
   - [x] auth و user در repository با unit/API و headless Chrome desktop/mobile پاس است؛ release-target browser proof هنوز `EXT-006` است.
   - [x] Customer و CustomerPhone در repository به list/detail/create/edit/search/order/pagination/deactivate و چند تلفن واقعی وصل است؛ normalization، duplicate/primary conflict، چهار role، direct ID و headless Chrome پاس است.
   - [x] Lead و Interaction در repository به list/detail/create/edit مجاز/filter/search/order/pagination، تخصیص/انتقال دستی، history و ثبت تماس دستی ورودی/خروجی وصل است؛ rule تازه برای status/outcome/team/auto-assignment ساخته نشد.
-  - [ ] Product، Sale، report و audit رابط واقعی و browser flow ندارند.
+  - [x] Product، Sale، report و audit رابط واقعی و browser flow دارند.
 - [ ] **V4 — Safe low-ambiguity completion:** filterهای دقیق، customer overview، assignment history read API، audit summary و bounded bulk deactivate فقط در صورت انطباق با spec اجرا شود.
 - [ ] **V5 — External core proof:** PostgreSQL، Compose، Nginx، TLS، static، health، write-stop، browser، backup/restore، load و scan روی release دقیق پاس شود.
 - [ ] **V6 — Scoped V1 UAT/cutover:** profile تحویل، migration/reconciliation در صورت نیاز، UAT، training، rollback و owner sign-off پاس شود.
@@ -457,8 +457,72 @@
 - `EXT-006`: تکرار desktop/mobile و console/network/visual proof روی release target پشت edge/TLS.
 - blockerهای deploy دیگر بخش 11 برای production claim باز هستند.
 
-## 17. اقدام دقیق بعدی
+## 17. evidence رابط Product، Sale، report و audit
 
-**V3، connected Product/Sale browser flow:** Product list/detail/create/edit/deactivate و Sale list/detail/create/cancel را فقط به endpoint/serviceهای موجود وصل کن؛ price snapshot/total/status/owner را server-owned نگه دار؛ role/direct-ID/error/browser tests را اجرا و evidence همین فایل را به‌روز کن.
+### نتیجه و وضعیت قابلیت
+
+- Product list/detail/create/edit/search/order/pagination/deactivate به API واقعی وصل شد. Sales Agent فقط Product فعال را می‌خواند و هیچ create/edit/deactivate control ندارد؛ سه role بالاتر مدیریت می‌کنند و سوابق با deactivate نگه داشته می‌شود.
+- Sale list/detail/create/search/order/status filter و cancel کنترل‌شده وصل شد. فرم فروش فقط Lead مجاز، Product فعال، quantity و notes می‌فرستد؛ Customer، seller، snapshot قیمت، total، status و timestamp را server تعیین می‌کند. correction و hard delete اضافه نشد.
+- Sales Agent فقط از Lead تخصیص‌یافته فروش می‌سازد و serializer هم relation خارج scope را قبل از service پنهان می‌کند. direct-ID Product غیرفعال و Sale دیگران در browser و API برای Agent برابر 404 است؛ سه role بالاتر company-wide behavior موجود را دارند.
+- گزارش user-performance با یک query مشترک JSON و XLSX اجرا می‌شود؛ همان period/user/product filter برای هر دو format استفاده می‌شود و metricها همان چهار metric قرارداد هستند. formula-injection defense موجود حفظ و دوباره تست شد.
+- ActivityLog list/detail/search/order/pagination کاملا read-only است. Company IT و Platform Admin همان selector API را در browser دارند؛ Sales Agent و Sales Manager برابر 403 و direct-ID پنهان Company IT برابر 404 است.
+- صفحه‌ها stateهای loading، empty، validation، permission، not-found، conflict، throttle، network و generic error دارند. Chrome واقعی create/edit Product، create/cancel Sale، JSON report، XLSX fetch و ActivityLog list/detail را بدون console/network error اجرا کرد.
+- capability state: `IN_PROGRESS`؛ V3 repository و headless Chrome محلی پاس است. PostgreSQL native و release-target browser/edge/TLS هنوز external است، پس `VERIFIED_END_TO_END` یا production-ready ادعا نمی‌شود.
+
+### فایل‌های بررسی‌شده
+
+- `AGENTS.md`، `BACKEND_SPEC.md`، `KARIZ_PROJECT_HANDOFF.md` و `docs/backend/API_CONTRACT.md`.
+- `sales/models.py`، `selectors.py`، `serializers.py`، `services.py`، `views.py` و `urls.py`.
+- `reports/serializers.py`، `services.py`، `views.py`، `xlsx.py`، `urls.py` و تست‌های user-performance.
+- `auditlog/models.py`، `permissions.py`، `selectors.py`، `serializers.py`، `views.py`، `urls.py` و تست‌های scope/read-only.
+- `common/ui_views.py`، `ui_urls.py`، template/CSS/JavaScript فعال و تست‌های shell/browser/system.
+
+### فایل‌های تغییرکرده این slice
+
+- `sales/serializers.py`: display fieldهای read-only Product/Sale و relation دقیق Lead تخصیص‌یافته برای Sale Agent.
+- `common/ui_views.py` و `common/ui_urls.py`: route، role guard و direct-ID scope برای Product، Sale، report و ActivityLog.
+- `common/templates/common/base.html` و templateهای تازه `products/`، `sales/`، `reports/` و `activity_logs/`: navigation و flow فارسی/RTL واقعی.
+- `common/static/common/kariz-app.js` و `kariz.css`: Product/Sale/report/XLSX/audit flow و stateها.
+- `docs/backend/API_CONTRACT.md`: قرارداد browser route و server-owned Sale fields.
+- `common/tests/test_commercial_shell.py` و `test_sales_shell_browser.py`: contract، role، object scope، CSRF، conflict، cancel، parity/XLSX و Chrome proof.
+- `KARIZ_PROJECT_HANDOFF.md`: V3، evidence، blocker و resume point.
+
+### migration، endpoint و authorization
+
+- migration: ندارد؛ schema drift صفر.
+- UI endpoint تازه: `/products/`، `/products/<int:product_id>/`، `/sales/`، `/sales/<int:sale_id>/`، `/reports/user-performance/`، `/activity-logs/` و `/activity-logs/<int:activity_log_id>/`.
+- API endpoint تازه ندارد؛ UI فقط endpointهای versioned موجود Product، Sale، report/export و ActivityLog را مصرف می‌کند.
+- Product read برای چهار role است؛ Sales Agent فقط active و read-only، سه role بالاتر create/update/deactivate. Sale Agent فقط Sale خود و Lead تخصیص‌یافته؛ سه role بالاتر Saleهای company-wide موجود. cancel فقط Sales Manager، Company IT و Platform Admin. ActivityLog فقط Company IT و Platform Admin با selector موجود.
+- server-owned: browser هیچ input یا payload برای snapshot قیمت، total، Customer، seller، Sale status/time، audit actor یا timestamp ندارد. ارسال total جعلی همراه Product در API نیز نتیجه را عوض نمی‌کند و service total را از snapshot قیمت ضربدر quantity می‌سازد.
+
+### تست‌های این slice
+
+- `python manage.py test --settings=config.test_settings -v 1`: پاس؛ 274 تست، 6 PostgreSQL-only skip؛ 4 headless Chrome test پاس.
+- `python manage.py test common.tests.test_commercial_shell common.tests.test_sales_shell common.tests.test_system_api sales.tests.test_workflows sales.tests.test_scope_attacks reports.tests.test_user_performance auditlog.tests.test_api --settings=config.test_settings -v 1`: پاس؛ 101 تست.
+- `python manage.py test common.tests.test_sales_shell_browser --settings=config.test_settings -v 2`: پاس؛ 2 Chrome test شامل Product/Sale/report/XLSX/audit و Customer/Lead/Interaction.
+- `python manage.py check --settings=config.test_settings`: پاس؛ 0 issue.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings`: پاس؛ no changes.
+- `python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0`: پاس.
+- `node --check common/static/common/kariz-app.js`: پاس.
+- `python scripts/check_html_branding.py`: پاس؛ `HTML_BRANDING_PASS files=220`.
+- `git diff --check`: پاس.
+
+### self-correction loop
+
+- score نخست: `8/10`.
+- [report error state]: خطای report loading را باز می‌گذاشت. کاربر state دروغ می‌دید.
+- [direct Product scope test]: browser proof بود ولی API direct-ID ماتریس چهار role کامل نبود. regression ممکن بود پنهان بماند.
+- fix: loading در finally بسته شد و Product/Sale direct-ID همزمان در browser و API برای هر چهار role تست شد.
+- score نهایی: `9/10`؛ defect repository-controlled باز در این slice نیست.
+
+### blocker باقی‌مانده
+
+- `EXT-001`: migration/constraint/concurrency روی PostgreSQL native.
+- `EXT-002` تا `EXT-007`: secret، backup/restore، static/TLS edge، rate/concurrency، release-target browser و operator evidence طبق بخش 11.
+- claim فعلی: `production candidate; external verification pending`.
+
+## 18. اقدام دقیق بعدی
+
+**V4، safe frontend cleanup و Persian/branding:** فقط active reachable first-party HTML را batch کوچک بررسی کن؛ candidate manifest و reference proof بساز؛ dead demo/vendor-visible link و unused non-Persian active locale را با safe deletion policy پاک کن؛ بعد template/static/browser gates و handoff evidence را اجرا کن.
 
 در این checkpoint کار متوقف می‌شود.

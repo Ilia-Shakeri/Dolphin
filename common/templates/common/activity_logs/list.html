@@ -1,0 +1,16 @@
+{% extends "common/base.html" %}
+{% block title %}رویدادهای سامانه{% endblock %}
+{% block page_id %}activity-logs{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">مشاهده فقط‌خواندنی</p><h1>رویدادهای سامانه</h1></div></section>
+<section class="card">
+    <form id="activity-log-search-form" action="{% url 'common_ui:activity-logs' %}" method="get" class="toolbar">
+        <label class="sr-only" for="activity-log-search">جستجوی رویداد</label><input id="activity-log-search" name="search" type="search" placeholder="عملیات، نوع مورد یا شناسه درخواست">
+        <label class="sr-only" for="activity-log-ordering">مرتب‌سازی</label><select id="activity-log-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option></select>
+        <button class="button button-muted" type="submit">اعمال</button>
+    </form>
+    <div id="activity-logs-loading" class="state">در حال دریافت رویدادها…</div><div id="activity-logs-empty" class="state" hidden>رویدادی پیدا نشد.</div>
+    <div id="activity-logs-table-wrap" class="table-wrap" hidden><table><thead><tr><th>عملیات</th><th>نوع مورد</th><th>شناسه</th><th>نقش ثبت‌کننده</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="activity-logs-table-body"></tbody></table></div>
+    <nav id="activity-logs-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="activity-logs-prev" class="button button-muted" type="button">قبلی</button><span id="activity-logs-page-label"></span><button id="activity-logs-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+{% endblock %}

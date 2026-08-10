@@ -1,0 +1,16 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات فروش{% endblock %}
+{% block page_id %}sale-detail{% endblock %}
+{% block body_data %} data-sale-id="{{ sale_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">سابقه فروش</p><h1>جزئیات فروش</h1></div><a class="button button-muted" href="{% url 'common_ui:sales' %}">بازگشت به فهرست</a></section>
+<div id="sale-detail-loading" class="card state">در حال دریافت فروش…</div>
+<section id="sale-detail-content" class="card" hidden><div class="form-grid readonly-grid">
+    <div><label for="sale-lead">سرنخ</label><input id="sale-lead" disabled></div><div><label for="sale-customer">مشتری</label><input id="sale-customer" disabled></div>
+    <div><label for="sale-product">محصول</label><input id="sale-product" disabled></div><div><label for="sale-seller">فروشنده</label><input id="sale-seller" disabled></div>
+    <div><label for="sale-quantity">تعداد</label><input id="sale-quantity" disabled></div><div><label for="sale-unit-price">قیمت لحظه فروش</label><input id="sale-unit-price" disabled></div>
+    <div><label for="sale-total">مبلغ کل</label><input id="sale-total" disabled></div><div><label for="sale-status">وضعیت</label><input id="sale-detail-status" disabled></div>
+    <div><label for="sale-time">زمان فروش</label><input id="sale-time" disabled></div><div class="full-field"><label for="sale-notes">یادداشت</label><textarea id="sale-notes" disabled></textarea></div>
+</div><p class="muted">این سابقه ویرایش یا حذف نمی‌شود.</p></section>
+{% if can_cancel_sales %}<section id="sale-cancel-section" class="card danger-zone" hidden><h2>لغو کنترل‌شده</h2><form id="cancel-sale-form" action="/api/v1/sales/{{ sale_id }}/cancel/" method="post" novalidate>{% csrf_token %}<label for="cancel-sale-reason">دلیل</label><textarea id="cancel-sale-reason" name="reason" maxlength="500"></textarea><p class="field-error" data-error-for="reason"></p><div class="form-actions"><button class="button button-danger" type="submit">لغو فروش</button></div></form></section>{% endif %}
+{% endblock %}

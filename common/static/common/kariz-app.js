@@ -813,6 +813,310 @@
         } catch (error) { loading.hidden = true; showError(error); }
     }
 
+    function productRow(product) {
+        const row = document.createElement("tr");
+        appendCell(row, product.sku);
+        appendCell(row, product.name);
+        appendCell(row, product.current_price);
+        appendCell(row, statusText(product.is_active));
+        appendDetailLink(row, `/products/${product.id}/`);
+        return row;
+    }
+
+    function setupProducts() {
+        const form = document.getElementById("product-search-form");
+        const controller = setupPagedList({
+            key: "products",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("product-search").value.trim();
+                if (search) query.set("search", search);
+                query.set("ordering", document.getElementById("product-ordering").value);
+                return `/api/v1/products/?${query}`;
+            },
+            renderRow: productRow,
+        });
+        const dialog = document.getElementById("create-product-dialog");
+        if (dialog) {
+            const createForm = document.getElementById("create-product-form");
+            document.getElementById("open-create-product").addEventListener("click", () => dialog.showModal());
+            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const product = await apiRequest(createForm.action, {method: "POST", body: formPayload(createForm, ["sku", "name", "current_price", "description"])});
+                    window.location.assign(`/products/${product.id}/`);
+                });
+            });
+        }
+        controller.load();
+    }
+
+    function fillProduct(product) {
+        document.getElementById("edit-product-sku").value = product.sku;
+        document.getElementById("edit-product-name").value = product.name;
+        document.getElementById("edit-product-price").value = product.current_price;
+        document.getElementById("edit-product-description").value = product.description || "";
+        document.getElementById("product-status").value = statusText(product.is_active);
+        document.getElementById("product-created-by").value = product.created_by_display || product.created_by;
+        document.getElementById("product-updated-by").value = product.updated_by_display || product.updated_by;
+        const deactivate = document.getElementById("deactivate-product");
+        if (deactivate) {
+            deactivate.disabled = !product.is_active;
+            deactivate.textContent = product.is_active ? "غیرفعال کردن محصول" : "محصول غیرفعال است";
+        }
+    }
+
+    async function setupProductDetail() {
+        const productId = document.body.dataset.productId;
+        const endpoint = `/api/v1/products/${productId}/`;
+        const loading = document.getElementById("product-detail-loading");
+        const content = document.getElementById("product-detail-content");
+        let product;
+        try {
+            product = await apiRequest(endpoint);
+            fillProduct(product);
+            loading.hidden = true;
+            content.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+            return;
+        }
+        const form = document.getElementById("edit-product-form");
+        if (form.querySelector("button[type='submit']")) {
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(form, async () => {
+                    product = await apiRequest(endpoint, {method: "PATCH", body: formPayload(form, ["sku", "name", "current_price", "description"])});
+                    fillProduct(product);
+                    globalMessage("محصول ذخیره شد.", true);
+                });
+            });
+        }
+        const deactivate = document.getElementById("deactivate-product");
+        deactivate?.addEventListener("click", async () => {
+            if (!window.confirm("این محصول غیرفعال شود؟")) return;
+            deactivate.disabled = true;
+            try {
+                product = await apiRequest(`${endpoint}deactivate/`, {method: "POST"});
+                fillProduct(product);
+                globalMessage("محصول غیرفعال شد.", true);
+            } catch (error) {
+                deactivate.disabled = false;
+                showError(error);
+            }
+        });
+    }
+
+    function saleStatusText(value) {
+        return value === "confirmed" ? "تأییدشده" : value === "cancelled" ? "لغوشده" : value;
+    }
+
+    function saleRow(sale) {
+        const row = document.createElement("tr");
+        appendCell(row, sale.customer_name || sale.customer);
+        appendCell(row, sale.product_name || sale.product);
+        appendCell(row, sale.quantity);
+        appendCell(row, sale.total_amount);
+        appendCell(row, saleStatusText(sale.status));
+        appendCell(row, sale.sold_by_display || sale.sold_by);
+        appendDetailLink(row, `/sales/${sale.id}/`);
+        return row;
+    }
+
+    async function setupSales() {
+        const form = document.getElementById("sale-search-form");
+        const controller = setupPagedList({
+            key: "sales",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page), ordering: document.getElementById("sale-ordering").value});
+                const search = document.getElementById("sale-search").value.trim();
+                const status = document.getElementById("sale-status").value;
+                if (search) query.set("search", search);
+                if (status) query.set("status", status);
+                return `/api/v1/sales/?${query}`;
+            },
+            renderRow: saleRow,
+        });
+        controller.load();
+        const dialog = document.getElementById("create-sale-dialog");
+        const createForm = document.getElementById("create-sale-form");
+        document.getElementById("open-create-sale").addEventListener("click", () => dialog.showModal());
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        try {
+            const me = await apiRequest("/api/v1/auth/me/");
+            let leads = await loadAllPages("/api/v1/leads/?ordering=-created_at");
+            const products = await loadAllPages("/api/v1/products/?ordering=name");
+            if (me.role === "sales_agent") leads = leads.filter((lead) => Number(lead.assigned_to) === Number(me.id));
+            fillSelect(document.getElementById("create-sale-lead"), leads, (lead) => `${lead.customer_name} — ${lead.source}`, "یک سرنخ انتخاب کنید");
+            fillSelect(document.getElementById("create-sale-product"), products.filter((product) => product.is_active), (product) => `${product.name} — ${product.current_price}`, "یک محصول انتخاب کنید");
+        } catch (error) {
+            showError(error);
+        }
+        createForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(createForm, async () => {
+                const payload = formPayload(createForm, ["lead", "product", "quantity", "notes"]);
+                const sale = await apiRequest(createForm.action, {method: "POST", body: payload});
+                window.location.assign(`/sales/${sale.id}/`);
+            });
+        });
+    }
+
+    function fillSale(sale) {
+        document.getElementById("sale-lead").value = sale.lead;
+        document.getElementById("sale-customer").value = sale.customer_name || sale.customer;
+        document.getElementById("sale-product").value = sale.product_name || sale.product || "—";
+        document.getElementById("sale-seller").value = sale.sold_by_display || sale.sold_by;
+        document.getElementById("sale-quantity").value = sale.quantity;
+        document.getElementById("sale-unit-price").value = sale.unit_price_snapshot || "—";
+        document.getElementById("sale-total").value = sale.total_amount;
+        document.getElementById("sale-detail-status").value = saleStatusText(sale.status);
+        document.getElementById("sale-time").value = displayDate(sale.sold_at);
+        document.getElementById("sale-notes").value = sale.notes || "";
+        const cancelSection = document.getElementById("sale-cancel-section");
+        if (cancelSection) cancelSection.hidden = sale.status !== "confirmed";
+    }
+
+    async function setupSaleDetail() {
+        const saleId = document.body.dataset.saleId;
+        const endpoint = `/api/v1/sales/${saleId}/`;
+        const loading = document.getElementById("sale-detail-loading");
+        const content = document.getElementById("sale-detail-content");
+        let sale;
+        try {
+            sale = await apiRequest(endpoint);
+            fillSale(sale);
+            loading.hidden = true;
+            content.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+            return;
+        }
+        const form = document.getElementById("cancel-sale-form");
+        form?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                sale = await apiRequest(form.action, {method: "POST", body: formPayload(form, ["reason"])});
+                fillSale(sale);
+                globalMessage("فروش لغو شد.", true);
+            });
+        });
+    }
+
+    function reportQuery(form) {
+        const data = new FormData(form);
+        const query = new URLSearchParams();
+        query.set("period_start", apiDateTime(String(data.get("period_start") || "")) || "");
+        query.set("period_end", apiDateTime(String(data.get("period_end") || "")) || "");
+        ["user_id", "sales_product_id"].forEach((name) => {
+            const value = String(data.get(name) || "").trim();
+            if (value) query.set(name, value);
+        });
+        return query;
+    }
+
+    async function setupUserPerformance() {
+        const form = document.getElementById("performance-filter-form");
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        document.getElementById("report-period-start").value = localDateTimeValue(start);
+        document.getElementById("report-period-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
+        try {
+            const products = await loadAllPages("/api/v1/products/?ordering=name");
+            fillSelect(document.getElementById("report-product"), products, (product) => product.name, "همه محصولات");
+        } catch (error) {
+            showError(error);
+        }
+        const exportLink = document.getElementById("performance-xlsx");
+        const updateExport = () => { exportLink.href = `/api/v1/exports/user-performance.xlsx?${reportQuery(form)}`; };
+        form.addEventListener("input", updateExport);
+        form.addEventListener("change", updateExport);
+        updateExport();
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const loading = document.getElementById("performance-loading");
+                const empty = document.getElementById("performance-empty");
+                const content = document.getElementById("performance-content");
+                loading.hidden = false;
+                empty.hidden = true;
+                content.hidden = true;
+                const query = reportQuery(form);
+                exportLink.href = `/api/v1/exports/user-performance.xlsx?${query}`;
+                let report;
+                try {
+                    report = await apiRequest(`/api/v1/reports/user-performance/?${query}`);
+                } finally {
+                    loading.hidden = true;
+                }
+                const rows = report.results.map((item) => {
+                    const row = document.createElement("tr");
+                    [item.username, item.customers_created_count, item.sales_count, item.sales_amount, item.average_sale_amount].forEach((value) => appendCell(row, value));
+                    return row;
+                });
+                document.getElementById("performance-table-body").replaceChildren(...rows);
+                if (!rows.length) empty.hidden = false;
+                else content.hidden = false;
+            });
+        });
+    }
+
+    function activityLogRow(item) {
+        const row = document.createElement("tr");
+        appendCell(row, item.operation);
+        appendCell(row, item.object_type);
+        appendCell(row, item.object_id);
+        appendCell(row, ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot);
+        appendCell(row, displayDate(item.created_at));
+        appendDetailLink(row, `/activity-logs/${item.id}/`);
+        return row;
+    }
+
+    function setupActivityLogs() {
+        const form = document.getElementById("activity-log-search-form");
+        const controller = setupPagedList({
+            key: "activity-logs",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page), ordering: document.getElementById("activity-log-ordering").value});
+                const search = document.getElementById("activity-log-search").value.trim();
+                if (search) query.set("search", search);
+                return `/api/v1/activity-logs/?${query}`;
+            },
+            renderRow: activityLogRow,
+        });
+        controller.load();
+    }
+
+    async function setupActivityLogDetail() {
+        const id = document.body.dataset.activityLogId;
+        const loading = document.getElementById("activity-log-detail-loading");
+        const content = document.getElementById("activity-log-detail-content");
+        try {
+            const item = await apiRequest(`/api/v1/activity-logs/${id}/`);
+            document.getElementById("activity-operation").value = item.operation;
+            document.getElementById("activity-object-type").value = item.object_type;
+            document.getElementById("activity-object-id").value = item.object_id || "";
+            document.getElementById("activity-actor").value = item.actor || "";
+            document.getElementById("activity-actor-role").value = ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot;
+            document.getElementById("activity-object-role").value = ROLE_LABELS[item.object_role_snapshot] || item.object_role_snapshot;
+            document.getElementById("activity-request-id").value = item.request_id || "";
+            document.getElementById("activity-ip").value = item.ip_address || "";
+            document.getElementById("activity-created-at").value = displayDate(item.created_at);
+            document.getElementById("activity-changes").textContent = JSON.stringify(item.safe_changes, null, 2);
+            loading.hidden = true;
+            content.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+        }
+    }
+
     setupNav();
     setupLogout();
     const page = document.body.dataset.page;
@@ -826,4 +1130,11 @@
     if (page === "lead-detail") setupLeadDetail();
     if (page === "interactions") setupInteractions();
     if (page === "interaction-detail") setupInteractionDetail();
+    if (page === "products") setupProducts();
+    if (page === "product-detail") setupProductDetail();
+    if (page === "sales") setupSales();
+    if (page === "sale-detail") setupSaleDetail();
+    if (page === "user-performance") setupUserPerformance();
+    if (page === "activity-logs") setupActivityLogs();
+    if (page === "activity-log-detail") setupActivityLogDetail();
 })();

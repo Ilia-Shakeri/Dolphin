@@ -93,14 +93,26 @@ class CustomerPhoneSerializer(RejectServerFieldsMixin, serializers.ModelSerializ
 
 
 class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"is_active", "created_by", "updated_by", "created_at", "updated_at"}
+    server_fields = {"is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"}
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     updated_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    created_by_display = serializers.SerializerMethodField()
+    updated_by_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ["id", "sku", "name", "current_price", "description", "is_active", "created_by", "updated_by", "created_at", "updated_at"]
-        read_only_fields = ["id", "is_active", "created_by", "updated_by", "created_at", "updated_at"]
+        fields = ["id", "sku", "name", "current_price", "description", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+
+    @staticmethod
+    def _display(user) -> str:
+        return user.get_full_name() or user.username
+
+    def get_created_by_display(self, instance) -> str:
+        return self._display(instance.created_by)
+
+    def get_updated_by_display(self, instance) -> str:
+        return self._display(instance.updated_by)
 
     def create(self, validated_data):
         return create_product(actor=self.context["request"].user, **validated_data)
@@ -238,24 +250,30 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
 
 
 class SaleSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer", "sold_by", "unit_price_snapshot", "status", "created_at", "updated_at"}
+    server_fields = {"customer", "customer_name", "sold_by", "sold_by_display", "product_name", "unit_price_snapshot", "status", "created_at", "updated_at"}
     customer = serializers.PrimaryKeyRelatedField(read_only=True)
+    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
     sold_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    sold_by_display = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source="product.name", read_only=True)
     unit_price_snapshot = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     status = serializers.CharField(read_only=True)
     sold_at = serializers.DateTimeField(required=False, default=timezone.now)
 
     class Meta:
         model = Sale
-        fields = ["id", "lead", "customer", "sold_by", "product", "quantity", "unit_price_snapshot", "total_amount", "status", "sold_at", "notes", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer", "sold_by", "unit_price_snapshot", "status", "created_at", "updated_at"]
+        fields = ["id", "lead", "customer", "customer_name", "sold_by", "sold_by_display", "product", "product_name", "quantity", "unit_price_snapshot", "total_amount", "status", "sold_at", "notes", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer", "customer_name", "sold_by", "sold_by_display", "product_name", "unit_price_snapshot", "status", "created_at", "updated_at"]
         extra_kwargs = {"total_amount": {"required": False}}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            _scope_relation(self.fields["lead"], leads_for(request.user))
+            leads = leads_for(request.user)
+            if request.user.role == User.Role.SALES_AGENT:
+                leads = leads.filter(assigned_to=request.user)
+            _scope_relation(self.fields["lead"], leads)
             _scope_relation(self.fields["product"], products_for(request.user))
         else:
             _scope_relation(self.fields["lead"], Lead.objects.none())
@@ -263,6 +281,9 @@ class SaleSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     def create(self, validated_data):
         return mark_sale(actor=self.context["request"].user, **validated_data)
+
+    def get_sold_by_display(self, instance) -> str:
+        return instance.sold_by.get_full_name() or instance.sold_by.username
 
 
 class CancelSaleSerializer(RejectServerFieldsMixin, serializers.Serializer):
