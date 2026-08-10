@@ -1,0 +1,1013 @@
+# Kariz CRM — Client 1 Step-by-Step Codex Roadmap
+
+## How to use this document
+
+Run only one phase at a time. Do not run the next prompt until the current phase is green and `KARIZ_PROJECT_HANDOFF.md` contains the exact resume point.
+
+Because the customer's final requirement list is expected tomorrow, run **C1-0 only today**. C1-0 is documentation and verification only; it must not create migrations, models, endpoints, or business rules.
+
+After the final list arrives, run **C1-1**. Functional implementation starts only after C1-1 has converted confirmed requirements into an approved capability/acceptance matrix.
+
+## Phase map
+
+| Phase | Purpose | May change production behavior? | Gate |
+|---|---|---:|---|
+| C1-0 | Baseline verification and provisional intake | No | Current repository truth recorded |
+| C1-1 | Reconcile the customer's final list and approve scope | No | Every requirement is approved or explicitly blocked |
+| C1-2 | Sales/after-sales operator separation | Yes | Identity and authorization matrix pass |
+| C1-3 | Operational sales document, geography, and postal workflow | Yes | Document/postal reports pass |
+| C1-4 | Contact-status reporting and detailed user performance | Yes | Definitions, scope, drill-down, and formulas pass |
+| C1-5 | After-sales panel | Yes | Case workflow and workstream isolation pass |
+| C1-6 | Inbound SMS foundation and report | Yes / external adapter may remain blocked | Idempotency, timezone, and provider security pass |
+| C1-7 | Unified dashboard and active-UI hardening | Yes | All seven client capabilities are integrated in repository |
+| C1-8 | PostgreSQL/Docker/Nginx/backup runtime proof | Runtime only | Production-like staging evidence passes |
+| C1-9 | Target-site deployment, UAT, and controlled cutover | External/production | Client sign-off and rollback evidence exist |
+
+---
+
+# C1-0 — Baseline verification and provisional intake
+
+**Run this today.**
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- docs/backend/API_CONTRACT.md
+- docs/backend/ENTITY_CATALOG.md
+- docs/backend/RELATIONSHIPS.md
+- docs/backend/ERD.mmd if it exists
+- relevant docs/ops runbooks only when needed for verification
+
+Do not inspect the parent Metronic/vendor archive. Do not recursively index vendor, node_modules, build, media, font, minified, generated, cache, or binary trees.
+
+Do not create another roadmap, status, worklog, blocker, readiness, or progress Markdown file. KARIZ_PROJECT_HANDOFF.md is the single live status document.
+
+Do not commit automatically. Do not run destructive Git commands. Do not delete or modify the user's untracked review bundle or code-dumper files.
+
+Goal:
+Verify the current repository baseline and record the first client's INITIAL requirements as provisional intake only. The final detailed customer list is expected later, so do not approve business semantics and do not implement functional code in this phase.
+
+Record these provisional Client-1 requirement IDs in a clearly named section of KARIZ_PROJECT_HANDOFF.md:
+
+- C1-REQ-001: Sales panel with no software-enforced account/seat limit.
+- C1-REQ-002: After-sales panel with no software-enforced account/seat limit.
+- C1-REQ-003: Management panel showing detailed user performance and drill-down.
+- C1-REQ-004: Inbound SMS count report grouped by day and hour.
+- C1-REQ-005: Invoice/sales-document count report grouped by city and province.
+- C1-REQ-006: Incoming-number report grouped by contact status.
+- C1-REQ-007: Registered invoice/sales-document report grouped by postal status.
+
+For every requirement above:
+- mark it PROVISIONAL and BLOCKED_DECISION;
+- state that the wording comes from the initial client list and is not yet an implementation contract;
+- map it to current repository capabilities and the exact missing domain decisions;
+- do not invent models, statuses, metrics, filters, roles, workflows, providers, or legal/accounting meaning.
+
+Create a concise decision checklist in KARIZ_PROJECT_HANDOFF.md for the final customer meeting/list. It must cover at least:
+
+1. Meaning of “unlimited users”: no application seat cap versus expected concurrent-user capacity.
+2. Exact sales and after-sales user types, manager boundaries, cross-panel access, and user lifecycle.
+3. Meaning of “invoice”: existing Sale, internal order/document, or legal/accounting invoice; line items, numbering, cancellation/correction, amount, and source of truth.
+4. Province/city source, required/optional values, historical snapshot behavior, and date basis for reporting.
+5. Exact postal statuses, who may change them, manual versus provider integration, tracking code, history, return, and cancellation behavior.
+6. Meaning of “incoming number”: Lead, unique phone, call, SMS sender, imported batch row, or another source; deduplication and date basis.
+7. Exact contact statuses, current-status derivation, qualifying interaction, no-contact behavior, and whether latest interaction wins.
+8. Exact user-performance metrics, denominators, drill-down rows, filters, export columns, and visibility by role.
+9. SMS provider, webhook/polling method, authentication/signature, idempotency key, retained fields, message-body retention, timezone, and Jalali/Gregorian presentation.
+10. Existing data/import needs, sample reports/documents, UAT users, target server, expected peak concurrency, backup owner, and acceptance sign-off.
+
+Reconcile the live handoff evidence with actual commands. Trust executed commands over stale counts. Do not change BACKEND_SPEC.md business contracts in this provisional phase unless correcting an objectively stale repository fact.
+
+Run:
+- git rev-parse HEAD
+- git status --short
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after each coherent subtask, not only at the end.
+- Record phase, task, files inspected, files changed, migrations, endpoints/UI routes, authorization impact, exact commands/results, assumptions, decisions, blockers, current commit, git status, and exact next action.
+- If any check fails, the session is interrupted, or a blocker is found, update the handoff before stopping with the exact resume command.
+- Do not write secrets, credentials, customer personal data, raw private payloads, or tokens into the handoff.
+
+This phase must have:
+- no functional feature implementation;
+- no model or migration changes;
+- no new API/UI route;
+- no approval of provisional statuses or entities.
+
+Stop after C1-0.
+
+Output exactly one concise line:
+DONE or FAILED | baseline tests | changed files | blockers | next phase C1-1
+```
+
+---
+
+# C1-1 — Final requirement reconciliation and approved delivery contract
+
+**Run after receiving the customer's final detailed list and placing it in the repository workspace or otherwise making it available to Codex.**
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- the customer's final requirement source supplied for Client 1
+- docs/backend/API_CONTRACT.md
+- docs/backend/ENTITY_CATALOG.md
+- docs/backend/RELATIONSHIPS.md
+- docs/backend/ERD.mmd if it exists
+- docs/ops/UAT.md
+
+Do not inspect the parent Metronic/vendor archive. Do not create another roadmap/status/worklog file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Convert the customer's final requirement source into an approved, testable Client-1 delivery contract before any schema or feature implementation.
+
+First compare:
+- the seven provisional C1 requirements in KARIZ_PROJECT_HANDOFF.md;
+- the customer's final detailed list;
+- current BACKEND_SPEC.md;
+- current implemented repository behavior.
+
+For each Client-1 requirement, create or update one stable capability ID in KARIZ_PROJECT_HANDOFF.md with these fields:
+- source wording;
+- approved normalized wording;
+- business owner;
+- target users/roles/workstreams;
+- trigger/input;
+- stored data and source of truth;
+- allowed state transitions;
+- filters/date basis/timezone;
+- report formula and grouping semantics;
+- UI route and API shape at a contract level;
+- authorization/object scope;
+- audit requirement;
+- migration/data-import impact;
+- acceptance examples, including empty and error cases;
+- dependency IDs;
+- status: APPROVED, BLOCKED_DECISION, BLOCKED_EXTERNAL, or OUT_OF_SCOPE.
+
+Resolve or explicitly block the following high-risk ambiguities. Never guess:
+
+A. User capacity
+- Confirm that “unlimited users” means no software-enforced seat cap.
+- Record that concurrent capacity is bounded by the approved server/load target and must not be marketed as infinite.
+
+B. Sales versus after-sales identity
+- Confirm whether the existing four CRM roles remain unchanged.
+- Confirm whether an additive workstream/profile is approved, or whether another explicit identity design is required.
+- Define manager visibility and whether Company IT/Platform Admin operate across both areas.
+
+C. Invoice/sales document
+- Decide whether the requirement maps to existing Sale, a new internal SalesOrder/document, or a legal/accounting invoice.
+- If legal/accounting semantics, numbering, tax, correction, payment, or fiscal requirements are not fully defined, mark that domain blocked and select only an explicitly approved internal operational document if the customer accepts it.
+- Define line items, one-to-one/one-to-many relationship with Sale, snapshots, cancellation, and report date.
+
+D. Province/city and postal workflow
+- Define the source and historical snapshot rule.
+- Define exact postal statuses and transitions.
+- Define whether current status only or append-only status history is required.
+- Define tracking code and manual/provider ownership.
+
+E. Incoming number/contact status
+- Define the counted unit exactly.
+- Define deduplication and time period.
+- Define whether current status is derived from the latest Interaction and the deterministic tie-break rule.
+- Define the no-interaction state.
+
+F. Detailed user performance
+- Define every metric and denominator.
+- Define drill-down records and permitted roles.
+- Define JSON/XLSX/UI parity and date/time behavior.
+
+G. Inbound SMS
+- Identify provider and official documentation.
+- Define signature/authentication, idempotency, replay handling, retained fields, body retention, and report timezone/calendar.
+- If provider documentation is unavailable, mark only the live adapter BLOCKED_EXTERNAL; do not invent a public webhook.
+
+Update BACKEND_SPEC.md only with confirmed decisions. Keep unresolved items explicitly UNRESOLVED/BLOCKED. Update technical contracts only where a confirmed decision requires it. Do not implement functional code, models, migrations, endpoints, or UI in this phase.
+
+Produce an implementation dependency order in KARIZ_PROJECT_HANDOFF.md. The expected default order is:
+1. identity/operator separation;
+2. operational sales document and postal/geography foundation;
+3. contact-status and performance reporting;
+4. after-sales workflow;
+5. inbound SMS core/adapter;
+6. unified dashboard/UI hardening;
+7. runtime proof;
+8. target deployment/UAT.
+Change this order only when the confirmed requirement dependencies justify it, and record why.
+
+Run documentation and baseline checks:
+- git diff --check
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python scripts/check_html_branding.py
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after each requirement group is reconciled.
+- Record files inspected/changed, confirmed decisions, unresolved questions, no-code status, exact command results, current commit/status, and the exact first implementation task.
+- If any source is ambiguous, mark BLOCKED_DECISION and continue all independent reconciliation work.
+- Before stopping, ensure there is one exact resume point and no provisional item is silently presented as approved.
+
+Stop after C1-1.
+
+Output exactly:
+DONE or BLOCKED_DECISION or FAILED | approved capabilities | unresolved decisions | changed files | next phase
+```
+
+---
+
+# C1-2 — Sales/after-sales operator separation
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- approved Client-1 capability/identity decisions from C1-1
+- accounts and sales models/services/selectors/permissions/serializers/views/tests
+- active first-party user-management and navigation files
+
+Do not inspect or modify unrelated vendor/minified files. Do not create another status/roadmap file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Implement the exact approved separation between sales operators and after-sales operators, with backend enforcement and no software seat cap.
+
+Fail closed:
+- If C1-1 did not approve the identity design, do not invent one. Update KARIZ_PROJECT_HANDOFF.md with BLOCKED_DECISION and stop.
+- Preserve the existing four fixed CRM roles unless C1-1 explicitly approved a change.
+- The preferred additive design is a bounded operator workstream/profile such as sales and after_sales, but implement it only if it is explicitly APPROVED in the handoff/spec.
+- Do not introduce a dynamic permission builder, Django-group-based CRM authorization, JWT, or a hidden support account.
+
+Implement the approved design end to end:
+- additive model field(s) and database constraints;
+- safe migration and default/backfill behavior for existing users;
+- reusable access helpers rather than scattered raw conditionals;
+- serializers/services for authorized user administration;
+- own-profile protection;
+- audit of identity/workstream changes without private payloads;
+- queryset, object, service, and custom-action authorization;
+- role/workstream-correct first-party navigation and pages;
+- no hard-coded maximum account count or licensing gate.
+
+Required behavior unless the approved matrix says otherwise:
+- sales operators keep only approved sales operations;
+- after-sales operators can sign in and edit their own permitted profile but cannot gain sales Lead/Interaction/Product/Sale/report access merely because they share a base role;
+- elevated roles retain only the approved cross-area visibility;
+- inactive users lose access immediately;
+- server-managed staff/superuser/group/direct-permission identities remain isolated from CRM identities;
+- frontend hiding is not authorization.
+
+Do not create the after-sales case model in this phase. If the after-sales panel does not yet exist, show no dead navigation link.
+
+Update:
+- model/migration;
+- services/selectors/permissions/serializers/views;
+- user-management UI and Persian labels;
+- OpenAPI/API contract;
+- entity/relationship/ERD documentation as applicable;
+- KARIZ_PROJECT_HANDOFF.md continuously.
+
+Tests must cover:
+- migration/default/backfill;
+- database constraint;
+- all four roles and every approved workstream/profile;
+- login/profile/inactive-user behavior;
+- own-profile identity mutation rejection;
+- authorized and unauthorized user administration;
+- direct-ID and custom-action access;
+- privilege escalation/server fields;
+- sales API isolation for after-sales operators;
+- browser navigation desktop/mobile;
+- audit safety;
+- no seat-limit behavior at application level.
+
+Run targeted tests first, then:
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after schema, backend authorization, UI, and test subtasks separately.
+- Record files, migration/data impact, endpoints/routes, authorization matrix, commands/results, assumptions, blockers, current commit/status, and exact next action.
+- If any test fails or the session stops, persist the exact failing command and resume point before stopping.
+
+Stop after C1-2 is green.
+
+Output exactly:
+DONE or BLOCKED_DECISION or FAILED | migration | authorization matrix | tests | blockers | next phase
+```
+
+---
+
+# C1-3 — Operational sales document, geography, and postal workflow
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- approved Client-1 invoice/order/postal decisions from C1-1
+- current Sale/Customer/Product/Lead services and authorization
+- relevant backend and UI contracts/tests
+
+Do not inspect unrelated vendor/minified files. Do not create another roadmap/status file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Implement the approved operational sales-document model and the city/province and postal-status reports without inventing legal/accounting semantics.
+
+Fail closed:
+- If C1-1 did not decide whether to extend Sale or create a separate internal order/document, stop with BLOCKED_DECISION.
+- Do not choose an entity architecture based on the initial screenshot alone.
+- Do not implement tax, fiscal invoice rules, payment, ledger, discount, inventory, carrier API, PDF, or accounting numbering unless they are explicitly approved with acceptance criteria.
+
+Implement exactly the approved contract, including as applicable:
+- relationship to existing Sale/Customer/Product;
+- line-item cardinality if approved;
+- server-owned customer/seller/geography values;
+- province/city snapshot for historical reporting when approved;
+- document date and cancellation/correction semantics;
+- exact bounded postal-status choices;
+- dedicated transactional status transition service;
+- tracking code rules;
+- append-only postal history only if approved, otherwise safe audit of current-status transitions;
+- no ordinary hard deletion;
+- indexes and database constraints for integrity and reporting.
+
+Authorization:
+- sales operators may access only documents in their approved Sale/Lead scope;
+- after-sales operators receive only the minimum approved read access, if any;
+- elevated roles receive only the approved company scope;
+- identity, snapshots, totals, ownership, state, and audit fields are server-controlled;
+- direct-ID access outside scope returns the established safe response.
+
+Expose versioned APIs and maintained Persian RTL pages using the existing first-party shell and same-origin CSRF client. Do not reuse demo JavaScript or fake success handlers.
+
+Implement predefined reports with exact approved semantics:
+- document count grouped by province and city;
+- document count grouped by current postal status;
+- approved date range and document-status filters;
+- identical authorization for UI/JSON/XLSX if export is approved;
+- bounded, deterministic results and explicit empty/error states.
+
+Update:
+- models/migrations/services/selectors/serializers/views/URLs;
+- first-party UI/navigation;
+- OpenAPI/API contract;
+- entity catalog/relationships/ERD;
+- BACKEND_SPEC only if implementation reveals a confirmed contract clarification;
+- KARIZ_PROJECT_HANDOFF.md after every coherent task.
+
+Tests must cover:
+- migration/preflight/backfill behavior;
+- database constraints;
+- transactional creation and rollback;
+- historical snapshot immutability;
+- cancellation/correction restrictions;
+- postal transition validation and audit;
+- role/workstream scope and direct-ID attacks;
+- server-field mass-assignment rejection;
+- city/province and postal report formulas/filters;
+- query bounds/query growth;
+- Persian desktop/mobile browser flows;
+- CSRF, conflict, throttle, 403/404, empty/loading/error states.
+
+Run targeted tests first, then the complete repository gates:
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after schema, services/API, reports, UI, and verification subtasks.
+- Record data impact, migrations, endpoints/routes, authorization, exact report semantics, tests/results, blockers, current commit/status, and exact next action.
+- Never mark the legal/accounting invoice domain complete unless that exact approved scope exists and passes.
+
+Stop after C1-3.
+
+Output exactly:
+DONE or BLOCKED_DECISION or FAILED | data model | migrations | reports | tests | blockers | next phase
+```
+
+---
+
+# C1-4 — Contact-status reporting and detailed user performance
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- approved Client-1 incoming-number/contact-status/performance definitions from C1-1
+- current Lead/Interaction/Customer/Sale/report selectors, services, APIs, UI, and tests
+
+Do not inspect unrelated vendor/minified files. Do not create another roadmap/status file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Implement the approved “incoming numbers by contact status” report and detailed management performance without publishing ambiguous metrics.
+
+Fail closed:
+- If the counted unit, deduplication rule, current-status derivation, time basis, outcome list, or metric formulas are not APPROVED, mark only that slice BLOCKED_DECISION and continue independent approved work.
+- Do not reinterpret “incoming number” as Lead, CustomerPhone, Interaction, SMS sender, or call unless the approved contract says so.
+- Do not silently convert existing free-text values to invented codes.
+
+Implement the approved contact-status contract:
+- bounded application choices and database constraint only if approved;
+- migration preflight that detects incompatible historical values and fails clearly without rewriting/deleting them;
+- deterministic current-status selector, including exact tie-break ordering and no-contact state if approved;
+- count each approved reporting unit exactly once;
+- approved date/source/campaign/product/user filters;
+- role/object scope identical across UI/API/export.
+
+Implement the approved detailed performance report while preserving existing canonical metrics unless the contract explicitly changes them. Add only approved metrics, for example:
+- customers_created_count;
+- interactions_count;
+- sales_count;
+- sales_amount;
+- average_sale_amount;
+- any other metric only with an exact numerator, denominator, period field, cancellation rule, and reassignment policy.
+
+Provide bounded drill-down to the exact approved underlying records. Reuse existing authorization selectors instead of duplicating scope logic.
+
+Authorization:
+- ordinary operators see only their approved own scope;
+- after-sales operators do not receive sales-performance data unless approved;
+- manager/IT/platform visibility follows the approved matrix;
+- query parameters cannot bypass scope;
+- direct IDs outside scope remain hidden safely.
+
+Build/update maintained Persian RTL management UI with:
+- summary table/cards;
+- contact-status distribution;
+- date/user/product/campaign filters only when approved;
+- drill-down;
+- loading/empty/validation/403/404/409/429/network states;
+- desktop/mobile/keyboard behavior.
+
+Preserve JSON/XLSX parity for every approved exported result. Maintain formula-injection defenses and deterministic column order.
+
+Update contracts/docs and KARIZ_PROJECT_HANDOFF.md continuously.
+
+Tests must cover:
+- migration preflight and incompatible legacy values;
+- deterministic latest/current-status behavior;
+- no-contact and tie cases;
+- deduplication/counting unit;
+- every metric formula, zero denominator, cancelled-record handling, and time boundary;
+- role/workstream/direct-ID/filter attacks;
+- JSON/XLSX parity and workbook validity;
+- query bounds/query growth;
+- browser flows and error states.
+
+Run targeted tests first, then:
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after contact contract, report selector/API, drill-down/export, UI, and tests.
+- Record exact formulas and counted units, migrations, endpoints, scope, commands/results, blockers, current commit/status, and exact next action.
+
+Stop after C1-4.
+
+Output exactly:
+DONE or PARTIAL_BLOCKED or FAILED | contact report | performance report | tests | blockers | next phase
+```
+
+---
+
+# C1-5 — After-sales panel
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- approved Client-1 after-sales contract from C1-1
+- approved identity/workstream implementation from C1-2
+- approved sales-document relationship from C1-3
+- current audit/error/request/authorization conventions
+
+Do not inspect unrelated vendor/minified files. Do not create another roadmap/status file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Implement the minimal approved after-sales workflow and panel with strict separation from sales operations.
+
+Fail closed:
+- If required fields, statuses, transitions, assignment rules, customer/order relationship, creator permissions, or manager scope are not approved, stop that slice with BLOCKED_DECISION.
+- Do not invent SLA, refund, return, attachment, notification, ticket, FAQ, payment, or automation behavior.
+
+Implement the approved domain, which may include:
+- required Customer;
+- optional/required approved sales document or Sale relationship;
+- subject and bounded description;
+- exact approved status choices;
+- assigned operator;
+- creator;
+- server-owned closed/resolved timestamps;
+- created/updated timestamps;
+- indexes and database constraints.
+
+Consistency:
+- when a sales document is supplied, derive and validate Customer according to the approved contract;
+- assigned operator must be an active eligible after-sales identity;
+- identity/assignment/status/timestamps are server-controlled;
+- multi-row transitions are transactional;
+- normal workflows do not hard-delete cases.
+
+Authorization:
+- after-sales operators see and change only approved assigned/created cases;
+- sales operators cannot access after-sales APIs unless approved;
+- manager/IT/platform scope follows the approved matrix;
+- reassignment uses a dedicated audited action/service;
+- status changes use a dedicated service/action;
+- direct-ID and filter attacks fail safely.
+
+Expose only the minimum approved Customer/document lookup to after-sales operators. Do not grant unrestricted sales Customer/Lead/Sale APIs as a shortcut.
+
+Build maintained Persian RTL pages for the approved flows, typically:
+- case list;
+- case create;
+- case detail;
+- status transition;
+- manager assignment/reassignment.
+
+Navigation must reflect real permissions and must not contain dead links.
+
+Audit safely:
+- create;
+- assignment/reassignment;
+- status transition;
+- close/reopen only if approved.
+Never log raw description/body/private payloads.
+
+Update models/migrations/services/selectors/serializers/views/URLs/UI/OpenAPI/contracts/entity docs/ERD and KARIZ_PROJECT_HANDOFF.md continuously.
+
+Tests must cover:
+- migration/constraints;
+- customer/document consistency;
+- eligible assignee rules;
+- every approved transition;
+- rollback and audit safety;
+- role/workstream/direct-ID/filter attacks;
+- server-field rejection;
+- inactive users;
+- CSRF/throttle/conflict/not-found;
+- Persian desktop/mobile browser flows and navigation.
+
+Run targeted tests first, then the complete repository gates:
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after schema, workflow services, authorization/API, UI, and tests.
+- Record migrations/data impact, endpoints/routes, transitions, scope, commands/results, blockers, current commit/status, and exact next action.
+
+Stop after C1-5.
+
+Output exactly:
+DONE or BLOCKED_DECISION or FAILED | migrations | workflow | authorization | tests | blockers | next phase
+```
+
+---
+
+# C1-6 — Inbound SMS foundation and reporting
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- approved Client-1 SMS contract from C1-1
+- official provider documentation supplied by the user, if available
+- existing phone normalization, request bounds, audit, logging, and security code
+
+Do not inspect unrelated vendor/minified files. Do not create another roadmap/status file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Implement a provider-neutral, secure inbound-SMS foundation and the approved count-by-day/hour report. Implement a live provider adapter only from official documentation.
+
+Fail closed:
+- If official provider authentication/signature and payload documentation are unavailable, do not invent a public webhook and do not expose an unsigned generic ingestion endpoint.
+- In that case, implement only the approved internal storage/service/report boundary, mark live integration BLOCKED_EXTERNAL, and continue repository-controlled work.
+- Do not implement outbound SMS unless explicitly approved.
+- Do not retain message body/content unless the approved contract requires it and defines retention/access.
+
+Implement the approved minimal record, typically including:
+- provider code;
+- provider message ID/idempotency key;
+- normalized sender number where applicable;
+- recipient/service identifier only if required;
+- received timestamp;
+- created timestamp;
+- optional approved metadata with strict allowlisting and bounds.
+
+Requirements:
+- transactional idempotent ingestion;
+- unique provider/message constraint;
+- replay protection according to provider docs;
+- exact signature/authentication verification for a live adapter;
+- bounded payload size/depth/fields;
+- timezone-aware received_at;
+- approved Asia/Tehran grouping and approved Jalali/Gregorian presentation;
+- no secrets, signatures, message body, or raw private payload in logs/audit;
+- safe synthetic fixtures only.
+
+Implement the approved management report:
+- inbound SMS count by local date and hour;
+- approved date range/provider/recipient filters;
+- deterministic timezone conversion, including day boundaries;
+- bounded results;
+- exact approved role access;
+- Persian RTL UI with loading/empty/error states.
+
+If provider docs are available, implement only the documented adapter and add authentication, replay, duplicate, malformed payload, clock-skew, and rate-limit tests. Never print or commit credentials.
+
+Update models/migrations/services/adapter boundary/API/UI/OpenAPI/contracts/entity docs and KARIZ_PROJECT_HANDOFF.md continuously.
+
+Tests must cover:
+- idempotency and concurrency-safe duplicate handling;
+- database uniqueness;
+- phone normalization;
+- timezone/date/hour aggregation and boundary cases;
+- role/direct-ID/filter scope;
+- payload limits;
+- signature/authentication/replay when adapter exists;
+- audit/log redaction;
+- browser report behavior.
+
+Run targeted tests first, then:
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after storage/service, provider boundary/adapter, report, UI, and verification.
+- Record provider status as PASS, BLOCKED_EXTERNAL, or FAILED; record no secret values.
+- Record migrations, endpoints/routes, authorization, commands/results, current commit/status, blockers, and exact next action.
+
+Stop after C1-6 repository work.
+
+Output exactly:
+DONE or BLOCKED_EXTERNAL or FAILED | storage/report | provider adapter | tests | blockers | next phase
+```
+
+---
+
+# C1-7 — Unified Client-1 dashboard and active-UI hardening
+
+```text
+Work directly in the curated Kariz CRM repository.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- every approved Client-1 capability and implementation evidence from C1-2 through C1-6
+- active first-party UI routes/templates/static files/tests
+
+Do not add new business domains. Do not inspect or mass-edit unrelated vendor/minified files. Do not create another roadmap/status file. Do not commit automatically. Do not run destructive Git commands.
+
+Goal:
+Integrate the seven approved Client-1 capabilities into one coherent Persian RTL application shell and management dashboard, then remove active dead/demo behavior.
+
+Build only from approved backend selectors/services/APIs. Every displayed number must use the same authorization and semantics as its API/export.
+
+The dashboard/navigation must expose only implemented, authorized capabilities, such as:
+- sales operations;
+- after-sales operations;
+- detailed user performance and drill-down;
+- inbound SMS by day/hour;
+- sales-document count by province/city;
+- incoming-number/contact-status distribution;
+- sales documents by postal status.
+
+Role/workstream navigation and direct URL access must match the approved matrix. Frontend hiding is never the only control.
+
+No application seat limit may be introduced. Do not claim infinite concurrency; show no such marketing claim in UI.
+
+Audit every active reachable first-party route and control. Remove or hide from the active application:
+- dead links/buttons;
+- action="#";
+- fake success;
+- demo records/notifications;
+- vendor purchase/preview/demo links;
+- public signup;
+- dynamic role builders;
+- future modules without real backend;
+- hard-delete wording where the workflow deactivates/cancels.
+
+Do not mass-delete theme/vendor resources. Do not rename KTMenu, KTDrawer, KTUtil, data-kt-* or stable runtime identifiers unless a bounded dependency removal has been proven and tested.
+
+Verify:
+- Persian and RTL;
+- desktop/mobile responsiveness;
+- keyboard/focus basics;
+- loading/empty/validation/conflict/throttle/permission/not-found/network states;
+- no browser console errors;
+- no failed first-party network requests;
+- no broken navigation;
+- no secret or customer data in client logs;
+- consistent branding.
+
+Create/update a Client-1 capability matrix in KARIZ_PROJECT_HANDOFF.md. For every capability, record:
+- contract status;
+- backend status;
+- UI status;
+- automated-test status;
+- PostgreSQL/runtime status;
+- target-site/UAT status;
+- remaining blocker.
+Do not mark VERIFIED_END_TO_END before C1-8/C1-9 evidence exists.
+
+Run:
+- targeted browser suites for every role/workstream and capability;
+- python manage.py check --settings=config.test_settings
+- python manage.py makemigrations --check --dry-run --settings=config.test_settings
+- python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
+- python manage.py test --settings=config.test_settings -v 1
+- python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
+- node --check common/static/common/kariz-app.js
+- python scripts/check_html_branding.py
+- applicable dependency/source/security checks documented in docs/ops
+- git diff --check
+- git diff --stat
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after navigation/dashboard, each capability UI integration, cleanup batches, browser verification, and final repository gate.
+- Record exact files/routes, capability matrix, commands/results, blockers, current commit/status, and exact next action.
+- If a cleanup candidate cannot be proven unused, leave it and record it; do not guess-delete.
+
+Stop after repository/UI completion.
+
+Output exactly:
+DONE or PARTIAL_BLOCKED or FAILED | capability matrix summary | tests | blockers | next phase C1-8
+```
+
+---
+
+# C1-8 — Production-like PostgreSQL/Docker/Nginx/backup proof
+
+```text
+Work directly in the curated Kariz CRM repository on an approved disposable/staging host with no production customer data.
+
+Read and obey first:
+- AGENTS.md
+- KARIZ_PROJECT_HANDOFF.md
+- docs/ops/DEPENDENCIES.md
+- docs/ops/DEPLOYMENT.md
+- docs/ops/DEPLOYMENT_BOOTSTRAP.md
+- docs/ops/DATABASE_ROLES.md
+- docs/ops/BACKUP_RESTORE.md
+- docs/ops/ROLLBACK.md
+- docs/ops/LOAD_TEST.md
+- docs/ops/SECURITY_SCANS.md
+- docs/ops/RELEASE_CHECKLIST.md
+- docs/ops/UAT.md
+
+Do not invent new release procedures when a reviewed runbook exists. Do not commit automatically. Do not run destructive Git commands.
+
+Safety boundary:
+- Use only an explicitly approved disposable database, volume, compose project, backup path, and host.
+- Never reset/delete/overwrite an unknown database, volume, backup, image, network, or customer data.
+- Start with read-only environment discovery.
+- If the environment identity or approval is unclear, update KARIZ_PROJECT_HANDOFF.md with BLOCKED_EXTERNAL and stop before mutation.
+
+Record the preflight:
+- OS/version and architecture;
+- CPU/RAM/free disk;
+- Docker Engine and Compose versions;
+- PostgreSQL client/server availability;
+- browser/driver availability;
+- ports in use;
+- exact Git commit;
+- exact reviewed image digests/config source;
+- disposable project/database/volume identities without secrets.
+
+If required tooling, image digests, secret inputs, hostname, or safe disposable resources are missing, do not fabricate them. Record the exact prerequisite and continue only independent read-only checks.
+
+Using existing scripts/runbooks, prove on the exact release as applicable:
+1. native PostgreSQL migration from empty database;
+2. migration upgrade/re-run behavior;
+3. PostgreSQL-specific constraints and concurrency tests;
+4. least-privilege database roles;
+5. compose config validation;
+6. reviewed image/digest validation;
+7. stack boot;
+8. one-shot migration behavior;
+9. collectstatic/static delivery;
+10. live and ready health endpoints;
+11. authenticated API smoke;
+12. every approved role/workstream smoke;
+13. all seven Client-1 workflows using synthetic data;
+14. write-stop on/off behavior;
+15. restart and readiness recovery;
+16. bounded/rotated logs;
+17. Nginx proxy/request-ID/header behavior;
+18. real PostgreSQL backup;
+19. checksum validation;
+20. restore into a new isolated disposable database with no application network access during restore verification;
+21. approved safe load test with explicit target and abort rule;
+22. applicable dependency/source/container/TLS scans.
+
+Do not claim TLS success without a real approved hostname and certificate path. Do not print secrets. Do not store customer personal data in test evidence.
+
+Run real browser smoke against the running stack for every approved role/workstream on desktop and mobile. Capture command-level evidence, not unsupported claims.
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after every runtime gate, not only at the end.
+- For each external gate use PASS, FAILED, or BLOCKED_EXTERNAL.
+- Record exact command, exit/result, artifact identifier/checksum/digest without secrets, rollback point, owner/blocker, and exact next action.
+- If a destructive risk or unexpected environment identity appears, stop and persist the resume point immediately.
+
+Do not label the release production ready unless all repository-controlled and required external gates genuinely pass. The correct intermediate label remains “production candidate; external verification pending”.
+
+Output exactly:
+STATUS | passed runtime gates | failed gates | external blockers | rollback point | exact next action
+```
+
+---
+
+# C1-9 — Target-site deployment, UAT, and controlled cutover
+
+```text
+Work from the exact tested Client-1 release and follow the repository runbooks.
+
+Read and obey first:
+- AGENTS.md
+- BACKEND_SPEC.md
+- KARIZ_PROJECT_HANDOFF.md
+- docs/ops/DEPLOYMENT.md
+- docs/ops/DEPLOYMENT_BOOTSTRAP.md
+- docs/ops/BACKUP_RESTORE.md
+- docs/ops/ROLLBACK.md
+- docs/ops/INCIDENT_RESPONSE.md
+- docs/ops/RELEASE_CHECKLIST.md
+- docs/ops/UAT.md
+- approved Client-1 acceptance matrix
+
+Do not commit automatically. Do not run destructive Git commands. Do not expose secrets in output or handoff.
+
+Start READ-ONLY on the client site.
+
+Collect and record:
+- exact server OS/version and architecture;
+- CPU/RAM/disk layout/free space;
+- virtualization/container support;
+- router/firewall/VPN topology;
+- static public IP or CGNAT condition;
+- production hostname/DNS ownership;
+- TLS certificate and renewal owner;
+- expected total and peak concurrent users;
+- UPS/power condition;
+- backup destination, off-host copy, retention, RPO/RTO, and owner;
+- SMS-provider network requirements;
+- maintenance/cutover/rollback owners and approved window.
+
+Do not change the client's router, firewall, network interfaces, production database, server services, or data until the target design, rollback point, and owner approval are recorded.
+
+Security target:
+- prefer individual VPN identity with MFA for remote administration/access where appropriate;
+- expose only approved HTTPS service through Nginx;
+- keep PostgreSQL, application server, SSH/RDP/admin/database ports private and restricted;
+- use protected environment secrets and least privilege.
+
+After explicit approval:
+- deploy the exact C1-8-tested commit/images/digests;
+- establish rollback point and pre-change backup;
+- configure secrets without printing them;
+- run migrations using the approved release procedure;
+- bootstrap/confirm the Platform Admin through the approved method;
+- verify health/readiness/static/auth/CSRF/cookies/request IDs;
+- verify TLS/redirect/HSTS and closed forbidden ports;
+- verify service restart/recovery;
+- run backup, off-host copy, checksum, and isolated restore;
+- verify logging/monitoring/alert ownership;
+- run production-shaped safe load smoke within the approved target/abort rule.
+
+Run formal UAT with approved non-secret or synthetic data for every Client-1 capability:
+- sales panel;
+- after-sales panel;
+- detailed user performance/drill-down;
+- inbound SMS day/hour report;
+- sales-document count by province/city;
+- incoming-number/contact-status report;
+- sales documents by postal status.
+
+Test every approved role/workstream, direct-ID isolation, desktop/mobile, errors, export if approved, and recovery/rollback procedures.
+
+Record in KARIZ_PROJECT_HANDOFF.md:
+- release commit and image digests;
+- migration heads;
+- environment/profile;
+- UAT cases and results;
+- backup identifier/checksum without secrets;
+- rollback point;
+- owners/sign-off;
+- training/handover status;
+- unresolved risks and exact remaining actions.
+
+Mark a capability VERIFIED_END_TO_END only when its target-site acceptance and required runtime evidence pass. Otherwise keep the exact capability blocked; never fake completion.
+
+Mandatory handoff protocol:
+- Update KARIZ_PROJECT_HANDOFF.md after survey, approval, backup/rollback point, deployment, each verification group, UAT, and sign-off.
+- If any safety or acceptance gate fails, record the exact failure and use the approved rollback/abort procedure.
+
+Output exactly:
+RELEASE STATUS | verified capabilities | blocked capabilities | UAT result | rollback point | exact remaining action
+```
+
+---
+
+## Files/information to collect
+
+### Needed for C1-1 tomorrow
+
+- The customer's final detailed requirement list.
+- Any customer annotations or examples that clarify the seven initial items.
+
+### Strongly useful before C1-3/C1-5
+
+- One redacted sample of the current invoice/order/sales document.
+- Exact postal statuses and who changes them.
+- One redacted sample of the desired detailed performance report.
+- Exact meaning and source of “incoming numbers”.
+- After-sales workflow example from opening through closing.
+
+### Needed for a live C1-6 provider adapter
+
+- SMS provider name.
+- Official API/webhook documentation or PDF.
+- Authentication/signature rules.
+- Idempotency/message identifier rules.
+- Sanitized sample request/response with no credentials or real customer content.
+
+### Needed for C1-8/C1-9
+
+- Approved staging/target OS and server specifications.
+- Expected peak concurrent users and load-test abort rule.
+- Domain/DNS/TLS plan.
+- Router/firewall/VPN information.
+- Backup destination, off-host destination, retention, owner, RPO/RTO.
+
+## Immediate instruction
+
+Run **C1-0 only** now. After the final customer list arrives, run **C1-1** before any schema-changing phase.
