@@ -196,7 +196,7 @@ git diff --stat
 
 End each session with files inspected/changed, migrations, endpoints, authorization rules, tests run, assumptions, blockers, and the next recommended phase.
 
-Continuous roadmap execution
+Continuous handoff execution
 
 When the active task is the long-running Kariz completion and production-readiness goal:
 
@@ -237,4 +237,4 @@ All user-visible and project-owned product branding must use `Kariz CRM` and the
 
 Verification and continuation
 
-After each batch, run the narrowest relevant checks, inspect the diff, update roadmap evidence, and continue. Run full backend, schema, and production-like checks at phase gates. Never claim production readiness without runtime and operational evidence; use `production candidate; external verification pending` when only external infrastructure proof remains.
+After each batch, run the narrowest relevant checks, inspect the diff, update handoff evidence, and continue. Run full backend, schema, and production-like checks at phase gates. Never claim production readiness without runtime and operational evidence; use `production candidate; external verification pending` when only external infrastructure proof remains.

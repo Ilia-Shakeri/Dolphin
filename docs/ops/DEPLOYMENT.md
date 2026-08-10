@@ -1,6 +1,8 @@
 # Deployment procedure
 
-Status: repository procedure complete; Docker, PostgreSQL, TLS, and browser execution proof remains external.
+> This document defines an operations procedure, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+
+Procedure snapshot: repository procedure was complete at its recorded release reference; use `KARIZ_PROJECT_HANDOFF.md` for the current proof state.
 
 This guide uses the current [Compose definition](../../compose.yml), [production settings](../../config/production_settings.py), [database-role guide](DATABASE_ROLES.md), health routes, and [backup guide](BACKUP_RESTORE.md). It does not prove that a host is ready.
 

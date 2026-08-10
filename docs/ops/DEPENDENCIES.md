@@ -1,5 +1,7 @@
 # Dependency lock
 
+> This document records the dependency contract and dated evidence, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+
 ## Files
 
 - `requirements-direct.txt` holds human-set compatibility ranges for direct production packages.

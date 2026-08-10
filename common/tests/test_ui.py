@@ -11,6 +11,8 @@ class KarizHomeTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('<html lang="fa" dir="rtl">', content)
+        self.assertIn('<title>خانه | Kariz CRM</title>', content)
+        self.assertIn('<meta name="robots" content="noindex,nofollow,noarchive" />', content)
         self.assertContains(response, "Kariz CRM | کاریز")
         self.assertContains(response, "سامانه مدیریت ارتباط با مشتری")
         self.assertNotContains(response, "Metronic")

@@ -1,5 +1,7 @@
 # Source manifest - final reference 2026-08-10
 
+> This is an immutable historical manifest for the named reference. It is not live project status or a list of current paths. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+
 ## Identity and boundary
 
 - Base commit: `50a978abc206e43032ce96b36dc0433366198e60`.

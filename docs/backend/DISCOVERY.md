@@ -1,6 +1,8 @@
 # Backend discovery
 
-## Current repository state
+> This document is a technical discovery snapshot, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+
+## Repository state at the discovery snapshot
 
 The active root is `Kariz-CRM`. It contains a Django modular-monolith backend, PostgreSQL production settings, migrations, tests, Docker Compose, Nginx configuration, a large static template tree, and local Git metadata with initial commit `ef1c7f4`.
 
@@ -39,7 +41,7 @@ Fast tests use in-memory SQLite only. Native PostgreSQL, Docker, and Nginx execu
 
 Git exists, user identity is configured, and reviewed baseline commit `50a978a` exists. The worktree contains ongoing reviewed implementation batches. The exact current-worktree source manifest has 117 paths, but no user-approved immutable release reference binds it yet. Ignore manifests exclude secret, certificate/key, database, backup, log, generated export, and inactive archive artifacts from the backend image or Git as applicable. Final immutable-reference and staged/deployment scans remain release gates.
 
-## Main active gaps
+## Gaps recorded at the discovery snapshot
 
 - Keep undefined Lead/report/presentation/after-sales behavior excluded until approved.
 - Finish the active operations follow-up, refresh exact release evidence, and run a fresh final repository audit.
