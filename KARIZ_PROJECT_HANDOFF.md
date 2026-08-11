@@ -526,3 +526,202 @@
 **V4، safe frontend cleanup و Persian/branding:** فقط active reachable first-party HTML را batch کوچک بررسی کن؛ candidate manifest و reference proof بساز؛ dead demo/vendor-visible link و unused non-Persian active locale را با safe deletion policy پاک کن؛ بعد template/static/browser gates و handoff evidence را اجرا کن.
 
 در این checkpoint کار متوقف می‌شود.
+
+## 19. Client-1 C1-0 live checkpoint
+
+### Checkpoint C1-0.1 - authority and baseline identity
+
+- Active phase: `C1-0` only.
+- Current task/subtask: required authority/roadmap read and baseline Git identity capture; next task is bounded contract/document inspection.
+- Files inspected: `AGENTS.md`, `BACKEND_SPEC.md`, `KARIZ_PROJECT_HANDOFF.md`, and the root Client-1 step-by-step roadmap.
+- Files changed: `KARIZ_PROJECT_HANDOFF.md` only.
+- Migrations: none expected; none created or changed.
+- API endpoints changed: none.
+- UI routes changed: none.
+- Authorization impact: none.
+- Exact commands executed:
+  - `git rev-parse HEAD` -> PASS, exit 0, `d5c120c1154b00fbd584fc0133aaaa96335eb3b4`.
+  - `git status --short` -> PASS, exit 0, clean output before this handoff edit.
+- Assumptions: the seven initial Client-1 items are intake text only; no item is an implementation contract.
+- Provisional requirements: pending the C1-0 contract mapping checkpoint; all seven will remain `PROVISIONAL` and `BLOCKED_DECISION`.
+- Unresolved decisions: all domain meanings, workflows, formulas, statuses, roles/workstreams, sources, date bases, filters, exports, and acceptance rules named by C1-0 remain unresolved.
+- Blockers: the customer's final detailed requirement source is unavailable; this blocks C1-1 and all functional Client-1 work, but does not block C1-0 documentation or repository verification.
+- Current Git commit: `d5c120c1154b00fbd584fc0133aaaa96335eb3b4`.
+- Current git status: clean before this handoff edit; after the edit, `KARIZ_PROJECT_HANDOFF.md` is expected modified.
+- Exact resume point: inspect `docs/backend/API_CONTRACT.md`, `docs/backend/ENTITY_CATALOG.md`, `docs/backend/RELATIONSHIPS.md`, `docs/backend/ERD.mmd` when present, and only verification-relevant `docs/ops` files.
+- Exact next action: complete the bounded current-capability mapping, then immediately update this section with all seven provisional requirements and the customer decision checklist.
+
+### Checkpoint C1-0.2 - bounded contract inspection and provisional intake
+
+- Active phase: `C1-0` only.
+- Current task/subtask: required backend/operations contract inspection complete; seven-item provisional intake and decision checklist recorded below.
+- Files inspected: `docs/backend/API_CONTRACT.md`, `docs/backend/ENTITY_CATALOG.md`, `docs/backend/RELATIONSHIPS.md`, `docs/backend/ERD.mmd`, `docs/ops/DEPENDENCIES.md`, and `docs/ops/RELEASE_CHECKLIST.md`. The two operations files were the only operations documents needed to interpret the requested repository gates and their evidence limits.
+- Files changed: `KARIZ_PROJECT_HANDOFF.md` only.
+- Migrations: none expected; none created or changed.
+- API endpoints changed: none.
+- UI routes changed: none.
+- Authorization impact: none.
+- Exact commands executed for this subtask:
+  - `Get-Content -LiteralPath AGENTS.md -Raw`
+  - `Get-Content -LiteralPath BACKEND_SPEC.md -Raw`, followed by bounded reads of lines 1-190, 191-380, 381-570, and 571-762 after combined output truncation.
+  - `Get-Content -LiteralPath KARIZ_PROJECT_HANDOFF.md -Raw`, followed by bounded reads of lines 1-180, 181-360, and 361-528 after combined output truncation.
+  - bounded full read of the root Client-1 step-by-step roadmap in lines 1-220, 221-440, 441-660, 661-880, and 881-1013 after combined output truncation.
+  - `Get-Content -LiteralPath docs/backend/API_CONTRACT.md -Raw`
+  - `Get-Content -LiteralPath docs/backend/ENTITY_CATALOG.md -Raw`
+  - `Get-Content -LiteralPath docs/backend/RELATIONSHIPS.md -Raw`
+  - `Get-Content -LiteralPath docs/backend/ERD.mmd -Raw`
+  - `Get-Content -LiteralPath docs/ops/DEPENDENCIES.md -Raw`
+  - `Get-Content -LiteralPath docs/ops/RELEASE_CHECKLIST.md -Raw`
+  - `git status --short` -> PASS, exit 0, output ` M KARIZ_PROJECT_HANDOFF.md`.
+- Assumptions: none of the source phrases below defines a model, enum, formula, date field, workflow, role/workstream, provider contract, legal meaning, or acceptance test. Existing repository behavior is only the closest comparison point.
+- Blocker: the final detailed customer source is missing. All seven items stay `PROVISIONAL` and `BLOCKED_DECISION`; C1-1 and every functional implementation phase remain blocked.
+- Current Git commit: `d5c120c1154b00fbd584fc0133aaaa96335eb3b4`.
+- Current git status: ` M KARIZ_PROJECT_HANDOFF.md`.
+- Exact resume point: run the C1-0 repository verification gates in the specified order, record the exact result of each gate immediately, then inspect the final diff for no-code/no-contract-promotion scope.
+- Exact next action: run `python manage.py check --settings=config.test_settings`.
+
+#### Client-1 initial requirements - provisional intake only
+
+Every entry in this subsection comes from the initial customer list. Each is `PROVISIONAL` and `BLOCKED_DECISION`. None is an implementation contract. No wording below approves a business entity, status, formula, workflow, role, route, or data source.
+
+##### C1-REQ-001
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: Sales panel with no software-enforced account/seat limit.
+- Closest existing repository capability: fixed-role CRM User administration plus the maintained sales shell over Customer, CustomerPhone, Lead, assignment history, Interaction, Product, Sale, user-performance report, and audit. Current contracts document no application seat-count field or licensing gate; this does not prove unlimited concurrency or target capacity.
+- Exact missing business decisions: confirm that "unlimited users" means no application seat cap; expected total and peak concurrent users; approved capacity/load target and abort rule; exact sales user types or workstreams; manager/team boundary; account create/reactivate/deactivate rules; cross-panel access; which sales pages and actions form the panel; target deployment profile and acceptance cases.
+
+##### C1-REQ-002
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: After-sales panel with no software-enforced account/seat limit.
+- Closest existing repository capability: current User lifecycle and fixed roles can authenticate clean CRM identities, while `AfterSalesRequest` is only optional schema-compatible scope in `BACKEND_SPEC.md`; no after-sales entity, API, UI route, workstream, or authorization contract exists.
+- Exact missing business decisions: confirm no application seat cap separately from concurrency; define after-sales user identity/workstream and manager boundary; cross-panel visibility for all four roles; case creator and eligible assignee; required fields; Customer and Sale/document relation; statuses and allowed transitions; reassignment, close/reopen, lifecycle, audit, visibility, filters, pages, errors, data retention, and acceptance cases.
+
+##### C1-REQ-003
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: Management panel showing detailed user performance and drill-down.
+- Closest existing repository capability: existing `/api/v1/reports/user-performance/`, XLSX export, and `/reports/user-performance/` UI provide scoped rows for `customers_created_count`, `sales_count`, `sales_amount`, and `average_sale_amount`; no approved detailed drill-down contract exists.
+- Exact missing business decisions: exact management users and object scope; every metric numerator, denominator, inclusion/cancellation rule, source timestamp, reassignment-history rule, timezone, calendar, date boundary, filters, grouping, sort, pagination/bounds, drill-down row types and fields, detail access, JSON/XLSX/UI parity, Persian labels/format, empty/zero rules, sample expected totals, and acceptance cases.
+
+##### C1-REQ-004
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: Inbound SMS count report grouped by day and hour.
+- Closest existing repository capability: CustomerPhone normalization and manual Interaction direction `inbound` exist, but Interaction is not an SMS record. No inbound SMS entity, provider adapter, webhook/polling route, stored message contract, or SMS report exists.
+- Exact missing business decisions: provider and official documentation; webhook versus polling; authentication/signature; replay window; provider message/idempotency key; sender/recipient meaning and normalization; retained fields and metadata bounds; whether message body may be stored, retention and access; authoritative received timestamp; timezone and day/hour boundary; Jalali/Gregorian display; counted unit and duplicate rule; filters; report roles/scope; backfill/import; error handling; sample payloads stripped of private data; acceptance cases.
+
+##### C1-REQ-005
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: Invoice/sales-document count report grouped by city and province.
+- Closest existing repository capability: Customer has optional current province/city and Sale is an operational success record with Customer/product/price snapshots. Sale is explicitly not a legal/accounting Invoice. No Invoice entity, sales-document contract, geography snapshot, or province/city count report exists.
+- Exact missing business decisions: whether the counted object is existing Sale, a new internal order/document, or legal/accounting invoice; source of truth; relationship and cardinality with Sale/Lead/Customer/Product; line items; numbering; amount/rounding/tax only if required; create/import source; cancellation/correction; counted statuses; report date field and half-open boundaries; province/city vocabulary and source; required/null/unknown handling; historical snapshot versus current Customer address; city-to-province validity; deduplication; filters; access; export; sample expected result and acceptance cases.
+
+##### C1-REQ-006
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: Incoming-number report grouped by contact status.
+- Closest existing repository capability: CustomerPhone stores normalized phone identity, Lead stores an opportunity, and Interaction stores manual inbound/outbound contact with bounded free-text outcome. None is approved as "incoming number" or "contact status", and no such grouped report exists.
+- Exact missing business decisions: counted unit among Lead, unique phone, call, SMS sender, imported row, or another source; ingestion/source of truth; date field and period; deduplication across Customer/Lead/campaign/time; exact contact statuses; whether status is stored or derived; qualifying interactions; no-contact state; latest-interaction rule and deterministic tie-break; effect of later contact/status change; inbound/outbound inclusion; free-text legacy mapping or refusal; filters; role/object scope; drill-down/export; sample rows and acceptance totals.
+
+##### C1-REQ-007
+
+- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Source authority: initial customer list only; not yet an implementation contract.
+- Source wording: Registered invoice/sales-document report grouped by postal status.
+- Closest existing repository capability: Sale provides an operational sales record and cancellation state, but it is not an Invoice. No postal status field, status history, tracking code, carrier/provider adapter, transition service, or postal report exists.
+- Exact missing business decisions: same document meaning/source-of-truth decisions as C1-REQ-005; meaning of "registered"; exact postal status codes and labels; initial status; allowed transitions and terminal states; who may change status; manual versus carrier/provider ownership; current status versus append-only history; effective timestamp and report date basis; tracking-code format/uniqueness/privacy; cancellation, return, failed-delivery and correction behavior; status at historical report time versus current status; filters; role scope; audit; export; sample expected totals and acceptance cases.
+
+#### C1-1 customer decision checklist
+
+- [ ] Confirm "unlimited users" as no application seat cap, separately record expected total users, peak concurrent users, production-shaped capacity target, and safe load-test abort rule.
+- [ ] Define exact sales and after-sales user types/workstreams, whether the four fixed CRM roles remain, manager/team boundaries, cross-panel access for each role, and account create/reactivate/deactivate lifecycle.
+- [ ] Define "invoice/sales document" as existing Sale, new internal operational order/document, or legal/accounting Invoice; define line items, numbering, source of truth, amounts/rounding, creation/import, correction, cancellation, and required relationships.
+- [ ] Define province/city source and vocabulary, required/optional/unknown behavior, city/province validation, historical snapshot versus current Customer values, and exact report date basis.
+- [ ] Define every postal status and transition, initial/terminal states, actor permissions, manual versus provider integration, tracking-code rule, current/history requirement, return, failure, cancellation, and correction behavior.
+- [ ] Define "incoming number" as Lead, unique normalized phone, call, SMS sender, imported row, or another unit; define source, deduplication key/window, and date basis.
+- [ ] Define every contact status, stored versus derived behavior, qualifying Interaction, no-contact behavior, latest-record/tie-break rule, and treatment of existing free-text outcomes.
+- [ ] Define every user-performance metric and denominator, cancelled-record and reassignment handling, timestamp/timezone/calendar, filters, drill-down source rows/fields, role visibility, output bounds, XLSX columns, and sample expected totals.
+- [ ] Identify the SMS provider and official webhook/polling documents; define authentication/signature, replay and idempotency, retained fields, message-body retention/access, timezone/day/hour grouping, calendar presentation, filters, and sample requests with no credentials or private customer content.
+- [ ] Provide existing-data/import needs, one redacted sales document, one redacted desired performance report, after-sales opening-to-close example, postal examples, and safe synthetic UAT cases.
+- [ ] Record target server/OS, expected load, domain/DNS/TLS owner, backup destination/off-host copy/retention/RPO/RTO owner, maintenance/rollback owner, UAT users, business owner, and final acceptance sign-off owner.
+- [ ] Reconcile each answer against the seven IDs, `BACKEND_SPEC.md`, current API/entity/relationship contracts, and implemented behavior; mark each result `APPROVED`, `BLOCKED_DECISION`, `BLOCKED_EXTERNAL`, or `OUT_OF_SCOPE` before any schema or feature work.
+
+### Checkpoint C1-0.3 - repository verification in progress
+
+- Active phase: `C1-0` only.
+- Current task/subtask: required repository gates, run in roadmap order.
+- Files inspected: all files recorded in C1-0.1 and C1-0.2 plus command-loaded Django settings and application modules.
+- Files changed: `KARIZ_PROJECT_HANDOFF.md` only.
+- Migrations: none expected; none created or changed.
+- API endpoints changed: none.
+- UI routes changed: none.
+- Authorization impact: none.
+- Verification evidence:
+  - `python manage.py check --settings=config.test_settings` -> PASS, exit 0; `System check identified no issues (0 silenced)`.
+  - `python manage.py makemigrations --check --dry-run --settings=config.test_settings` -> PASS, exit 0; `No changes detected`; migrations created: 0.
+  - `python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings` -> `BLOCKED_ENVIRONMENT` on first run, exit 1. Safe error summary: Windows `cp1252` stdout encoding raised `UnicodeEncodeError` while the command tried to print Persian schema text; no schema validation warning/error was reported before the output write failed. Repository state was not modified by the failed command.
+  - `$env:PYTHONUTF8='1'; python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings` -> PASS, exit 0; OpenAPI 3.0.3 schema generated and validation completed with fail-on-warn active. Direct requested invocation is therefore console-blocked on this host, while the UTF-8 retry proves schema validation.
+  - `python manage.py test --settings=config.test_settings -v 1` -> PASS, exit 0; 274 tests run in 76.183 seconds, 268 non-skipped passed, 6 PostgreSQL-only skipped, 0 failures, 0 errors. Local live-server shutdown emitted safe transient broken-pipe log lines; suite result remained `OK (skipped=6)`.
+  - `python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0` -> PASS, exit 0; quiet output, no files written because dry-run was used.
+  - `node --check common/static/common/kariz-app.js` -> PASS, exit 0; no syntax error output.
+  - `python scripts/check_html_branding.py` -> PASS, exit 0; `HTML_BRANDING_PASS files=220`.
+  - `git diff --check` -> PASS, exit 0; no whitespace error. Git emitted only the working-copy line-ending notice that LF will become CRLF when Git next touches `KARIZ_PROJECT_HANDOFF.md`.
+  - `git diff --stat` -> PASS, exit 0; at command time: `KARIZ_PROJECT_HANDOFF.md | 156` and `1 file changed, 156 insertions(+)`; Git emitted the same non-failing LF-to-CRLF notice.
+- Assumptions: none added.
+- Provisional requirements and unresolved decisions: unchanged from C1-0.2; all seven remain `PROVISIONAL` and `BLOCKED_DECISION`.
+- Blockers: final detailed customer source remains unavailable. Direct OpenAPI invocation remains `BLOCKED_ENVIRONMENT` by Windows `cp1252`; UTF-8 retry passed and no repository fix is required in C1-0.
+- Current Git commit: `d5c120c1154b00fbd584fc0133aaaa96335eb3b4`.
+- Current git status: expected ` M KARIZ_PROJECT_HANDOFF.md`; final status refresh pending.
+- Exact resume point: every requested C1-0 gate has executed; final diff/scope audit and refreshed Git identity remain.
+- Exact next action: inspect `git diff -- KARIZ_PROJECT_HANDOFF.md`, prove no functional/schema/route/authorization/semantic change, then refresh commit/status and write the final C1-0 checkpoint.
+
+### Checkpoint C1-0.4 - final C1-0 handoff
+
+- C1-0 status: `DONE`. Baseline repository truth, seven-item provisional intake, missing decisions, and tomorrow's reconciliation checklist are recorded. C1-0 stops here.
+- Active phase: `C1-0` complete; no C1-1 work started.
+- Current task/subtask: final diff and scope audit complete.
+- Files inspected: all files in C1-0.1/C1-0.2, the complete `git diff -- KARIZ_PROJECT_HANDOFF.md`, and final Git identity/status summaries.
+- Files changed: `KARIZ_PROJECT_HANDOFF.md` only.
+- Migrations: none created, changed, or approved; drift gate reports no changes.
+- API endpoints changed: none.
+- UI routes changed: none.
+- Authorization impact: none.
+- Functional feature implementation: none.
+- Models/schema: no change.
+- Business semantics: no provisional entity, status, formula, role/workstream, report meaning, or workflow was approved or promoted.
+- Exact final audit commands/results:
+  - `git diff -- KARIZ_PROJECT_HANDOFF.md` -> PASS, exit 0; full diff contains documentation-only additions in this handoff file. Post-final-update `git diff --check` also PASS, exit 0, with only the non-failing LF-to-CRLF notice.
+  - `git rev-parse HEAD` -> PASS, exit 0; `d5c120c1154b00fbd584fc0133aaaa96335eb3b4`.
+  - `git status --short` -> PASS, exit 0; ` M KARIZ_PROJECT_HANDOFF.md`.
+  - `git diff --name-status` -> PASS, exit 0; only `M KARIZ_PROJECT_HANDOFF.md`; non-failing LF-to-CRLF notice emitted.
+  - Final `git diff --stat` -> PASS, exit 0; `KARIZ_PROJECT_HANDOFF.md | 199`, `1 file changed, 199 insertions(+)`. Final `git diff --numstat` -> PASS, exit 0; `199 0 KARIZ_PROJECT_HANDOFF.md`. Both emitted only the non-failing LF-to-CRLF notice.
+- Exact baseline verification evidence: check PASS with 0 issues; migration drift PASS with 0 changes; direct OpenAPI command `BLOCKED_ENVIRONMENT` by Windows `cp1252` output encoding, then UTF-8 retry PASS with fail-on-warn active; Django suite PASS with 274 run, 268 non-skipped pass, 6 skip, 0 fail, 0 error; collectstatic dry-run PASS; JavaScript syntax PASS; HTML branding PASS for 220 files; diff whitespace PASS; diff stat PASS.
+- All seven provisional requirements:
+  - `C1-REQ-001` sales panel/no software seat cap: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+  - `C1-REQ-002` after-sales panel/no software seat cap: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+  - `C1-REQ-003` management performance/drill-down: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+  - `C1-REQ-004` inbound SMS count by day/hour: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+  - `C1-REQ-005` invoice/sales-document count by city/province: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+  - `C1-REQ-006` incoming-number count by contact status: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+  - `C1-REQ-007` registered invoice/sales-document count by postal status: `PROVISIONAL`, `BLOCKED_DECISION`, initial customer list only, not an implementation contract.
+- Tomorrow's decision checklist: the 12-item `C1-1 customer decision checklist` in C1-0.2 is the required systematic reconciliation gate. It covers seat cap versus capacity, identity/workstreams, document meaning, geography, postal workflow, incoming-number meaning, contact status, performance formulas/drill-down, SMS provider/security/retention/time, samples/import/UAT, target operations/owners, and final per-ID disposition.
+- Assumptions: only that the initial seven phrases are intake text. No business assumption is implementation-authoritative.
+- Blockers:
+  - `BLOCKED_DECISION`: customer's final detailed requirement source and annotations/examples are unavailable; all seven capability contracts remain blocked.
+  - `BLOCKED_ENVIRONMENT`: direct OpenAPI schema output uses Windows `cp1252` on this host; Python UTF-8 mode is the exact proven local prerequisite for this output-heavy gate.
+  - Existing PostgreSQL/Docker/Nginx/TLS/backup/target-browser external proof blockers remain unchanged and were not in C1-0 scope.
+- Current Git commit: `d5c120c1154b00fbd584fc0133aaaa96335eb3b4`.
+- Current git status: ` M KARIZ_PROJECT_HANDOFF.md`; no other tracked or untracked path is listed.
+- Self-correction score: `9/10`. C1-0 architecture/code scope remains unchanged, documentation contract is complete, verification evidence is honest, and no repository-controlled C1-0 defect remains.
+- Exact resume point: C1-0 is complete. Do not resume implementation from any provisional phrase.
+- Exact next phase: `C1-1`.
+- Exact next action: wait for the customer's final detailed requirement source and annotations/examples; once available, read them and execute C1-1 reconciliation only. **C1-1 must NOT start until that final detailed requirement source is available.**
