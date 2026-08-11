@@ -1179,3 +1179,99 @@ Run **C1-1 decision closure only** now for C1-DEC-GOV-001, SEAT-001, TEAM-001, a
 ### Resume rule
 
 - Resolve shared decisions and tax documentation first. Then build one approved module at a time with additive migrations, transactional services, audit, selectors/permissions, API/schema, maintained Persian RTL UI, database/concurrency/security/browser tests, and a roadmap/handoff update after that module.
+
+## Reporting expansion decision checkpoint (2026-08-11)
+
+### Shared authorization and delivery gate
+
+- State: `BLOCKED_DECISION`.
+- UI/API authorization parity is mandatory: one backend-scoped projection must feed API, UI cards/charts/tables, drill-downs, and any approved XLSX export.
+- Existing user-performance role scope and four metrics remain unchanged.
+- Approval must provide a role-by-report matrix for allowed records, aggregates, sensitive fields, filters, drill-downs, and exports. Any missing matrix cell denies access.
+- New report formulas, source states/events, time bounds, filters, groupings, role/object/field scope, drill-down, query bounds, freshness, and exact expected examples are not approved.
+- No dashboard shell, fake chart, dead filter, endpoint, model, migration, template, navigation activation, JavaScript, or CSS was added.
+
+### Dashboard checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: KPI names/formulas, chart series/types/intervals, filter/default contract, comparison rules, refresh/freshness, drill-down, empty/error behavior, and per-role examples.
+
+### Sales report checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Candidate data exists, but measures, confirmed/cancelled handling, date basis, dimensions, snapshot price use, visibility, and examples are missing.
+
+### Products report checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Candidate catalog/sale data exists, but catalog-versus-performance purpose, active/unsold handling, quantity/revenue formulas, price basis, grouping, visibility, and examples are missing. Inventory is not implied.
+
+### Returns report checkpoint
+
+- State: `BLOCKED_DEPENDENCY_AND_DECISION`.
+- Return entity, lifecycle, Sale relation, partial-return/value rules, effective date, refund/correction treatment, permissions, and examples do not exist.
+
+### Delivery report checkpoint
+
+- State: `BLOCKED_DEPENDENCY_AND_DECISION`.
+- Delivery/Shipment entity, status history, source, promised/delivered dates, partial delivery, SLA/failure rules, visibility, and examples do not exist.
+
+### Profit/loss report checkpoint
+
+- State: `FINAL_WAVE_LOW_BLOCKED_DEPENDENCY_AND_DECISION`.
+- Cost, inventory valuation, expenses, tax/discount/return accounting, recognition basis, period-close rules, scope, and examples do not exist.
+
+### Receivables report checkpoint
+
+- State: `FINAL_WAVE_LOW_BLOCKED_DEPENDENCY_AND_DECISION`.
+- Invoice, Payment, Customer Account/ledger, due date, allocation, outstanding equation, aging, correction rules, scope, and examples remain blocked.
+
+### Reporting resume rule
+
+- Named owners approve the shared contract and redacted expected output per role. Then implement one source-backed report end to end. Sales or products may be first only after business priority and semantics are approved.
+- Full decision record and exact resume point: `KARIZ_PROJECT_HANDOFF.md` section 31.
+
+## Support modules pre-implementation checkpoint (2026-08-11)
+
+### Shared policy gate
+
+- Requested target: file management, folders, documents, tasks, and projects.
+- State: `BLOCKED_DECISION`; file storage/scanner/backup recovery also `BLOCKED_EXTERNAL`; operational files remain `FINAL_WAVE_LOW` until delivery order is explicitly changed.
+- Security floor recorded: private server-authorized file access, server-generated opaque storage keys, quarantined validation/scanning, default-deny backend scope, bounded audit, metadata/blob recovery parity, checksum manifest, off-host backup, and isolated non-overwriting restore.
+- Missing approval: backend/location, types/sizes/quotas, scanner, encryption custody, versions/retention/hold/purge, entity graph/lifecycles, role/action matrix, destination/schedule/RPO/RTO/owners, and expected examples.
+- No app, model, migration, adapter, API, UI, navigation, permission, CSS, scheduler, or architecture change was made.
+
+### File management checkpoint
+
+- State: `BLOCKED_DECISION_AND_EXTERNAL`.
+- Missing: metadata/source, type/size/quota, checksum/deduplication, quarantine/scanner, version/archive/hold/purge, entity links, private download, idempotency, and storage migration.
+
+### Folder checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: root meaning, parent/depth/cycle/name rules, move/archive behavior, child behavior, permission inheritance/override, ordering, and concurrency.
+
+### Document checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: business meaning, fields/numbering, File/version relation, Customer/Lead/Sale/Project links, lifecycle/correction, retention/hold, and disposition.
+
+### Task checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: fields, links, owner/assignee, states/transitions, priority, due-time rules, complete/cancel/reopen, overdue/archive, inactive-user handling, concurrency, and audit. Automatic reminders remain excluded.
+
+### Project checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: purpose, fields, owner/membership, links, lifecycle, date bounds, Task relation, archive/reopen, visibility, inactive-member behavior, and audit.
+
+### Backup checkpoint
+
+- State: guarded database backup exists; file/blob backup is absent and `BLOCKED_EXTERNAL`.
+- A file release requires matching metadata/blob restore, an approved write-stop/snapshot/generation-cutoff protocol, in-flight upload/tombstone rules, manifest/checksums, orphan/missing checks, off-host copy, retention/hold safety, isolated restore, authorized-download proof, and approved destination/schedule/RPO/RTO/owners.
+
+### Support resume rule
+
+- Owners approve `C1-DEC-FILE-001`, `C1-DEC-CALENDAR-001`, the role/action matrix, live backup inputs, and two redacted expected examples. Then build metadata/schema, lifecycle services/audit, scoped API, private storage/scanner, backup/restore proof, and maintained Persian RTL UI in that order.
+- Full record and exact resume point: `KARIZ_PROJECT_HANDOFF.md` section 32.

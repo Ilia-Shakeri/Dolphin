@@ -2080,3 +2080,186 @@ This section is recorded before any Order, Quotation, Invoice, Payment, or Custo
 - Self-correction score 2: `9/10`. Separate-module intent, non-destructive lifecycle, financial audit, PDF deferral, tax gate, module blockers, roadmap checkpoints, and no-schema proof are now consistent.
 - Next action: named sales, accounting, finance, security, and UAT owners approve the shared decisions and one redacted example per module. Tax decisions must be approved before Invoice money/schema work. Then implement one module at a time with a handoff/roadmap update after each module.
 - Commit: none created.
+
+## 31. Reporting expansion decision gate (2026-08-11)
+
+### Requested scope and current result
+
+- Requested dashboard: KPI cards, charts, and filters.
+- Requested report families: sales, products, returns, delivery, profit/loss, and receivables.
+- State: `BLOCKED_DECISION`.
+- The request confirms target areas, but it does not define report formulas, source events, status inclusion, date bases, groupings, filter defaults, drill-down behavior, row/field scope, or acceptance examples. These rules must not be inferred from demo pages or labels.
+- Existing `/api/v1/reports/user-performance/`, `/api/v1/exports/user-performance.xlsx`, and the maintained Persian user-performance page remain the only approved report contract. Their existing four metrics and authorization stay unchanged.
+- No dashboard route, KPI card, chart, filter, report endpoint, export, model, migration, template, navigation activation, JavaScript, or CSS was added. Empty shells and dead controls were not added.
+
+### Shared decisions required before any new report
+
+- Metric names and exact formulas, including numerator, denominator, rounding, currency, quantity, sign, and zero/null behavior.
+- Authoritative source entity and event for every measure; included/excluded lifecycle states; cancel, correction, return, and reversal treatment.
+- Date field, timezone, Persian/Gregorian input contract, inclusive/exclusive boundaries, comparison period, and default range.
+- Grouping dimensions, ordering, tie-breaks, totals/subtotals, pagination, maximum range, and query-growth bounds.
+- Approved filters, defaults, multi-select behavior, unknown/out-of-scope identifier behavior, and filter combinations.
+- Role, company, row, object, and field visibility for each report and drill-down.
+- Dashboard freshness, cache policy if any, refresh trigger, chart series, axis, interval, empty/error/loading state, and card/chart click behavior.
+- JSON, maintained UI, and XLSX parity where export is approved; PDF remains deferred.
+- Redacted sample input and exact expected output for every metric and role.
+
+### UI and API authorization contract
+
+- UI and API must use the same authorized selector/service/report query object. UI filtering or hidden controls never widen or replace backend authorization.
+- Current user-performance scope stays unchanged: Sales Agent sees self only; Sales Manager, Company IT, and Platform Admin see approved company/user rows.
+- Every new report needs explicit row, object, aggregate, and sensitive-field scope. Until approved, its queryset is fail-closed and no UI route is exposed.
+- The approval artifact must contain one matrix row for each fixed CRM role and report family. Each row must state allowed company/user/customer/product records, aggregate visibility, sensitive fields, permitted filters, drill-down targets, and export permission. An omitted cell means deny.
+- Direct identifiers and drill-downs must be checked by the same backend scope as list/aggregate data; out-of-scope objects must not leak existence.
+- API response, UI totals/cards/charts, and any approved export must derive from one scoped projection so counts and money cannot diverge.
+
+### Dashboard decision
+
+- State: `BLOCKED_DECISION`.
+- Required: exact KPI cards and formulas; chart types and series; date/product/user/customer filters and defaults; comparison rules; refresh/freshness policy; drill-down targets; empty/error behavior; per-role visibility; sample expected dashboard for each role.
+- [dashboard]: KPI and chart contracts absent. Live dashboard cannot show trusted data.
+
+### Sales report decision
+
+- State: `BLOCKED_DECISION`.
+- Existing confirmed Sale data can be a candidate source only after approval.
+- Required: count versus quantity versus amount measures; confirmed/cancelled treatment; `sold_at` versus creation date; grouping by user/product/customer/campaign; snapshot price use; currency/rounding; role and Customer/Product visibility; drill-down and expected examples.
+- [sales report]: Measure, lifecycle, date, grouping, and scope rules absent. Sales totals may lie if guessed.
+
+### Products report decision
+
+- State: `BLOCKED_DECISION`.
+- Existing Product and Sale data can support only an approved catalog or sales-performance projection; inventory must not be implied.
+- Required: catalog versus performance purpose; active/inactive inclusion; sold quantity/revenue formulas; unsold-product treatment; current versus sale-snapshot price; category/grouping/order; date basis; scope and expected examples.
+- [products report]: Report purpose and product measures absent. Product chart meaning stays unknown.
+
+### Returns report decision
+
+- State: `BLOCKED_DEPENDENCY_AND_DECISION`.
+- No approved Return entity, return event, lifecycle, amount/quantity rule, or source relation exists.
+- Required: return domain approval first, then statuses/transitions, original Sale relation, partial return, effective date, quantity/value sign, refund relation, cancellation/reversal, permissions, and expected examples.
+- [returns report]: Return source data does not exist. Report cannot be computed.
+
+### Delivery report decision
+
+- State: `BLOCKED_DEPENDENCY_AND_DECISION`.
+- No approved Delivery/Shipment entity, status history, carrier/tracking source, promised date, or delivered date exists.
+- Required: delivery domain approval first, then lifecycle/history, source document, partial delivery, date/SLA rules, failure/cancel treatment, ownership/scope, and expected examples.
+- [delivery report]: Delivery source and states do not exist. Report cannot be computed.
+
+### Profit/loss report decision
+
+- State: `FINAL_WAVE_LOW_BLOCKED_DEPENDENCY_AND_DECISION`.
+- Purchase cost, inventory valuation, expenses, approved discounts/tax, return accounting, recognition basis, and currency rules do not exist as an approved contract.
+- Required: accounting owner, cash/accrual basis, revenue recognition, COGS/cost method, expense sources, tax/discount/return treatment, period close/correction, currency/rounding, access scope, and exact examples.
+- [profit/loss report]: Cost and accounting sources absent. Profit cannot be derived from sale price alone.
+
+### Receivables report decision
+
+- State: `FINAL_WAVE_LOW_BLOCKED_DEPENDENCY_AND_DECISION`.
+- Invoice, Payment, Customer Account/ledger, due-date, allocation, and aging contracts remain blocked in section 30.
+- Required: those approved modules first, then outstanding equation, as-of date, aging buckets, partial/overpayment and credit treatment, void/reversal/correction, customer statement scope, currency/rounding, and expected examples.
+- [receivables report]: Ledger and allocation sources absent. Outstanding balance cannot be computed.
+
+### Implementation result and exact next action
+
+- Files inspected: `BACKEND_SPEC.md`; `KARIZ_PROJECT_HANDOFF.md`; root roadmap report and finance sections; `reports/services.py`; `reports/selectors.py`; `reports/serializers.py`; `reports/views.py`; current report URLs, maintained report template, sidebar report links, Sale/Product models, and report authorization/tests.
+- Files changed: `KARIZ_PROJECT_HANDOFF.md` and the root roadmap only.
+- Models/migrations/endpoints/templates/navigation/CSS changed: none.
+- Blockers: approved metric contract, per-report scope, dashboard presentation contract, Return and Delivery domains, and financial source modules/rules.
+- Verification: Django system check PASS; migration drift PASS with no changes; existing `reports` suite PASS (`16` tests); requested report source/entity guard PASS; handoff sections ordered `1` through `31`; seven roadmap checkpoints present; `git diff --check` PASS.
+- Next phase: named business, sales, operations, accounting, security, and UAT owners approve the shared contract plus one redacted expected-output example per requested report and dashboard role. Then implement the smallest approved report end to end through one scoped projection, API, maintained UI, tests, and optional XLSX parity.
+- Exact resume point: start with the first approved report whose source data already exists; sales or products is the likely technical candidate, but priority and rules remain an owner decision.
+- Self-correction score 1: `8/10`.
+- [report authorization]: Shared UI/API parity was recorded, but the required per-role approval artifact was not explicit. A later report could receive an ambiguous aggregate or drill-down scope.
+- Fix: added a mandatory role-by-report matrix covering records, aggregates, sensitive fields, filters, drill-downs, and exports; omitted cells deny access.
+- Self-correction score 2: `9/10`. Source dependencies, decision boundaries, fail-closed authorization, no-dead-UI behavior, roadmap state, and exact resume input are now explicit.
+- Commit: none created.
+
+## 32. Support modules pre-implementation policy gate (2026-08-11)
+
+### Requested scope and gate result
+
+- Requested modules: file management, folders, documents, tasks, and projects.
+- The request confirms product inclusion. It does not supply the business lifecycle, ownership graph, storage backend, numeric limits, retention schedule, recovery targets, or role/object matrix needed for implementation.
+- Operational file/document management remains `FINAL_WAVE_LOW` under `C1-CAP-FILE` and `C1-DEC-FILE-001`. The request does not explicitly approve a delivery-order change.
+- Task/project work remains governed by `C1-DEC-CALENDAR-001` and section 28. Existing `Interaction.next_follow_up_at` is not silently converted into a Task or Project.
+- Overall state: `BLOCKED_DECISION`; storage/scanner/backup destination and live recovery proof also `BLOCKED_EXTERNAL`.
+- Application/Django app, model, migration, storage adapter, scanner adapter, endpoint, template, navigation, permission, task workflow, project workflow, CSS, and architecture changed: none.
+
+### Storage policy security floor
+
+The following floor is required before a file implementation may open:
+
+- Binary objects are private by default and never served from the static tree or a public directory. Every read must pass backend object scope before an application download or approved short-lived object-storage response is produced.
+- User input never selects a filesystem/object path. The server generates an opaque storage key; the original filename is bounded, sanitized display metadata only.
+- Binary content is not stored in ordinary relational columns. The database stores bounded metadata and a storage reference; the selected private filesystem or object-storage backend remains an explicit deployment decision.
+- An upload stays unavailable while type/signature validation and the approved malware scanner are pending. Extension-only trust is forbidden. Scanner failure is fail-closed.
+- Exact allowed types, per-file size, per-owner/project/folder quota, storage backend/location, encryption/key custody, checksum algorithm, scanner/product, and upload timeout are unresolved and require named security/deployment-owner approval.
+- Version, replace, archive, retention, legal hold, and purge behavior require an approved transition table. Until then, no replace or physical-delete/purge route is allowed.
+- Metadata must not contain secrets or raw private content in logs. Audit records use bounded identifiers and operation facts only.
+- [file storage]: Backend, limits, scanner, encryption custody, retention, and version rules absent. Binary upload cannot be enabled safely.
+
+### Permission policy security floor
+
+- Only active fixed-role CRM identities may enter the support-module API/UI. Django staff, superuser, group, direct-permission, or frontend visibility is not CRM authorization.
+- List, retrieve, metadata read, content download, upload, create-folder, rename/move, version, archive, permission change, Task change, and Project change each require backend queryset/object authorization.
+- Direct-ID access must use the same scope as list access and preserve the existing out-of-scope non-disclosure behavior. Download URLs or storage keys never bypass scope.
+- Default is deny. Folder inheritance, Project membership, uploader ownership, Customer/Lead/Sale/Document links, manager scope, cross-project sharing, and Company IT/Platform Admin data scope may not be inferred.
+- Approval must provide one matrix row per fixed role and action for File, Folder, Document, Task, and Project. Each row states allowed records, fields, links, create/change/archive/download/share actions, and audit visibility. An omitted cell means deny.
+- Upload, download, version, move, archive, permission/share, Task assignment/status, and Project membership/status actions require bounded audit. File bytes, document body, secret link/token, and full original path are not audit payload.
+- [support permissions]: Ownership, inheritance, sharing, and role/action matrix absent. Backend access cannot be opened safely.
+
+### File backup and recovery rules
+
+- The current guarded PostgreSQL backup covers database state only. It is not proof of backup for future file binaries.
+- A file-capable release needs application-consistent recovery of database metadata and matching binary versions. Backup success requires an immutable manifest, object checksums, missing/orphan detection, and a restore/reconciliation result; copying only a volume or database is insufficient.
+- Before release, owners must approve and prove one consistency protocol: bounded application write-stop, storage/database snapshot coordination, or a durable generation/cutoff marker. The contract must define uploads active at cutoff, staged/quarantined objects, completed versions, archive/purge tombstones, retries, and the point restored after partial failure. A database dump and an unrelated later blob copy do not form one backup.
+- File backups must use an approved destination outside the live application/storage failure domain, an approved off-host copy, protected encryption keys, bounded operator access, monitored schedule, overlap/timeout behavior, and failure/missed-run alerts.
+- Retention must preserve version history and legal holds. Automated deletion is forbidden until exact daily/weekly retention, purge scope, hold precedence, and rollback behavior are approved and tested.
+- Restore must target a new isolated disposable database and private disposable file store. It must not overwrite live metadata or blobs. Recovery proof must validate checksums, metadata-to-object links, denied public access, and a sample authorized download without exposing private content.
+- Exact destination, schedule, retention, backup owner, restore owner, RPO, RTO, key recovery, off-host rule, maximum dataset, and acceptance evidence remain `BLOCKED_EXTERNAL` under `C1-DEC-RUNTIME-001`.
+- [file backup]: Current runbook has no binary-store contract. A future file module would have incomplete recovery.
+
+### File management, Folder, and Document decisions still required
+
+- File management: metadata fields, uploader/source, accepted content classes, checksum/deduplication meaning, quarantine states, version relation, entity links, archive/hold/purge, and error/idempotency rules.
+- Folder: personal/shared/entity root meaning; parent cardinality; unique-name scope; maximum depth; cycle guard; create/rename/move/archive; child behavior; permission inheritance/override; ordering and concurrent move rules.
+- Document: business document versus uploaded binary meaning; whether one Document has many File versions; title/type/number fields; Customer/Lead/Sale/Project links; draft/final/archive lifecycle; immutable versions; correction; retention/hold; download disposition.
+- Storage migration: local-to-object or provider-to-provider copy, checksum proof, dual-read/write policy, rollback, orphan handling, and maintenance window.
+- Acceptance: safe sample files plus oversize, empty, malformed, type-spoof, malware, path, Unicode filename, duplicate, concurrent version, direct-ID leak, expired download, retention/hold, backup, and restore cases.
+- [folder]: Root, hierarchy, move, cycle, naming, and inheritance rules absent. Folder model cannot be built safely.
+- [document]: Business meaning, links, fields, lifecycle, and File-version relation absent. Document model cannot be built safely.
+
+### Task and Project decisions still required
+
+- Task: exact fields, relation to Project/Customer/Lead/Interaction, creator/owner/assignee, statuses and transitions, priority, due date/timezone, completion/cancel/reopen, overdue, archive, recurrence boundary, inactive assignee, correction, concurrency, and audit.
+- Project: purpose, fields, owner, members/roles, Customer or commercial links, statuses/transitions, date bounds, Task cardinality, move/remove behavior, archive/reopen, visibility, inactive member handling, and audit.
+- Cross-module links: whether files/folders/documents attach to Project, Task, or both; attachment ownership after move/archive; permission intersection; retention after parent archive; and direct-ID behavior.
+- Automatic reminders remain excluded unless separately approved. No scheduler, notification provider, or recurrence engine is implied by Task due dates.
+- Acceptance: one redacted Project with members, Tasks, state changes, due-date boundaries, inactive assignee, attachment links, direct-ID isolation, concurrent updates, archive/reopen, and exact expected audit.
+- [task]: Fields, lifecycle, time, assignment, and Project relation absent. Task model cannot be built safely.
+- [project]: Purpose, membership, lifecycle, scope, and Task relation absent. Project model cannot be built safely.
+
+### Implementation order after approval
+
+1. Approve `C1-DEC-FILE-001`, `C1-DEC-CALENDAR-001`, the role/action matrix, and the live storage/backup inputs with redacted acceptance examples.
+2. Add only the approved metadata entities and additive migrations; update entity/relationship/API documents separately.
+3. Add transactional lifecycle services and bounded audit before write endpoints.
+4. Add scoped selectors/permissions and direct-ID isolation tests before UI or download access.
+5. Add the private storage/scanner adapter and file backup/isolated restore proof before enabling binary upload in a release.
+6. Add versioned API, maintained Persian RTL UI, and browser tests without using template-only demo pages as implementation evidence.
+
+### Inspection, blockers, and exact resume point
+
+- Files inspected: `BACKEND_SPEC.md`; `KARIZ_PROJECT_HANDOFF.md`; root roadmap support/runtime sections; `config/settings.py`; `accounts/models.py`; `accounts/access.py`; `common/permissions.py`; `auditlog/services.py`; active model/config/sidebar/test references; `compose.yml`; `.env.example`; `docs/ops/BACKUP_RESTORE.md`.
+- Existing code finding: no File, Folder, Document, Task, or Project model; no `FileField`/`ImageField`; no `MEDIA_ROOT`, `MEDIA_URL`, application storage backend, binary upload parser, file-serving route, or binary-store backup contract. Current sidebar entries are disabled future placeholders.
+- Files changed for this request: `KARIZ_PROJECT_HANDOFF.md` and the root roadmap only.
+- Blockers: storage backend and numeric limits; scanner; retention/hold/version rules; five-module entity/lifecycle graph; role/action matrix; live destination/schedule/off-host/RPO/RTO/owners; safe samples and expected outcomes.
+- Exact next action: named business, records/data, security, deployment/backup, and UAT owners approve the two decision records and supply one redacted folder/document/file case plus one Project/Task case. Then start with metadata/schema only; keep binary upload closed until scanner and recovery proof pass.
+- Verification: Django system check PASS; migration drift PASS with no changes; focused permission/production-backup suite PASS (`61` tests); support model/storage-setting absence guard PASS; handoff sections ordered `1` through `32`; six roadmap module checkpoints present; `git diff --check` PASS.
+- Self-correction score 1: `8/10`.
+- [backup consistency]: Manifest and checksum rules existed, but no database/blob cutoff or in-flight upload rule was explicit. A restore could pair metadata with the wrong binary generation.
+- Fix: added a mandatory approved consistency protocol covering write-stop/snapshot/generation cutoff, active and quarantined uploads, completed versions, tombstones, retry, and partial failure.
+- Self-correction score 2: `9/10`. The security floor, unresolved business values, authorization matrix, recovery consistency, module blockers, proof, and exact resume path are now explicit without unsafe implementation.
+- Commit: none created.
