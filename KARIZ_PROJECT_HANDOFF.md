@@ -1916,3 +1916,91 @@ This section was created before any Lead Management expansion code. `BACKEND_SPE
 - Self-correction score 2: `9/10`. Decision boundary, carry-forward behavior, blockers, exact approval inputs, roadmap state, and proof are consistent without invented code.
 - Next phase after owner approval: data preflight/additive migration; models/constraints; transactional services/audit; selectors/permissions; serializers/actions/schema; Persian RTL UI; API/browser/concurrency/regression tests.
 - Commit: none created.
+
+## 28. Client-1 Interaction Management extension gate - 2026-08-11
+
+### Confirmed scope and preserved behavior
+
+- Target inclusion is confirmed for interaction timeline, follow-up tasks, meetings, calendar view, assigned responsible persons, and due dates.
+- Telephony integration, call recording, and automatic reminders are explicitly excluded. They require separate approved services.
+- Inclusion confirms product scope only. It does not define entity shape, lifecycle, authorization, calendar semantics, or acceptance behavior.
+- Existing `Interaction` stays an append-only manual record bound to an authorized Lead and Customer.
+- Server-owned `Interaction.agent` stays the recording actor, not an assumed responsible person. Optional `next_follow_up_at` stays follow-up information, not an assumed Task/Meeting/Reminder.
+- Existing role/object scope, direct-ID masking, pagination/search/order, and immutable API stay unchanged.
+
+### Decisions required before code
+
+- Data shape: unified Activity versus separate FollowUpTask/Meeting; fields; relation to Interaction, Lead, and Customer.
+- Timeline: event sources, immutable history, ordering/tie-break, pagination, edit/cancel representation.
+- Task: title/details, statuses, create/complete/cancel/reopen, overdue, recurrence, completion evidence, correction.
+- Meeting: start/end/due, timezone, location/channel, participants, statuses, reschedule/cancel/complete/no-show, outcome.
+- Responsible person: eligible roles, default, assign/reassign authority, self-assignment, inactive user, Lead-assignee/recorder relation, history.
+- Due date: date versus datetime, null rule, timezone and Jalali/Gregorian presentation, overdue boundary, edit/audit.
+- Calendar: month/week/day, range bounds, event types, filters, overlap/all-day, Persian display.
+- Authorization/audit: four-role object/write matrix, Lead-scope inheritance, no-hard-delete policy, archive/cancel, reasons, retention, concurrency/idempotency, safe audit.
+- Acceptance: task, meeting, timeline-order, calendar, direct-ID, inactive-user, timezone-boundary, and concurrent-change examples.
+
+### Result, blockers, and next action
+
+- Status: `BLOCKED_DECISION`. Model, migration, API, UI, CSS, permission, scheduler, provider adapter, and architecture changed: none.
+- Inspected: `BACKEND_SPEC.md`; handoff/roadmap contact sections; `sales/models.py`, `services.py`, `selectors.py`, `serializers.py`, `views.py`; current UI routes/views/templates and bounded test references.
+- [task model]: Entity and lifecycle absent. Task cannot be built safely.
+- [meeting model]: Time, participant, lifecycle, and reschedule rules absent. Meeting cannot be built safely.
+- [timeline]: Event sources and deterministic order absent. Timeline cannot be built safely.
+- [responsible person]: Eligibility, default, reassignment, and inactive-user rules absent. Assignment cannot be authorized safely.
+- [due date]: Type, timezone, overdue, edit, and audit rules absent. Due behavior cannot be built safely.
+- [calendar]: Timezone, Persian display, views, range, event types, and overlap absent. Calendar cannot be built safely.
+- [excluded services]: Telephony, recording, and automatic reminders stay out. No media, worker, retry, provider, or scheduler work is allowed here.
+- Verification: `python manage.py check --settings=config.test_settings` PASS; migration drift check PASS with no changes; extension-code absence guard PASS; handoff heading order PASS; `git diff --check` PASS.
+- Self-correction score 1: `8/10`.
+- [handoff order]: First append matched an older checkpoint and placed section 28 before section 21. Chronology was wrong.
+- Fix: moved section 28 after section 27 and rechecked the full heading order.
+- Self-correction score 2: `9/10`. Confirmed scope, exclusions, preserved behavior, decision gaps, proof, and exact unblock path are consistent without invented workflow code.
+- Next action: owner approves the decisions above with one task, meeting, timeline-order, and calendar example. Then implement additive schema, services/audit, selectors/permissions, API/schema, Persian RTL UI, and tests.
+- Commit: none created.
+
+## 29. Client-1 Product Management Phase 1 - 2026-08-11
+
+### Result and compatibility
+
+- Phase status: `PARTIAL`; existing Product behavior remains compatible.
+- Implemented exact Product active-state filtering on the existing list API and maintained Persian RTL list form.
+- Accepted values are only `is_active=true` and `is_active=false`. Invalid values return HTTP 400. The parameter composes with existing search, ordering, and pagination.
+- Backend role scope runs before the filter. Sales Agent still sees active Products only; asking for inactive Products returns an empty scoped list, not hidden rows. Elevated roles may filter active or inactive Products.
+- Corrected create/edit SKU controls from `maxlength=64` to the model/API bound `maxlength=80`. Existing SKU, name, current price, description, role guards, deactivate action, and Sale price snapshots stay unchanged.
+- No migration, new entity, new route, CSS change, layout change, inventory field, cost field, price variant, discount, or profit formula was added.
+
+### Category and expanded-form decision boundary
+
+- Category inclusion is confirmed for Product Phase 1, but its implementation contract is still `BLOCKED_DECISION`.
+- Required Category decisions: flat versus hierarchy; name/code fields; uniqueness and case/Unicode handling; parent/order behavior; active/inactive lifecycle; moving a Product; behavior when a linked Category deactivates; deletion rule; role/audit scope; legacy Product migration; exact list/form/filter labels and acceptance examples.
+- “Better product forms” confirms improvement scope but supplies no expanded field list. Current safe improvement is only validation-bound alignment. New catalog fields, required/null rules, choices, validation, ordering, and filters remain blocked until named.
+- [product category]: Shape, uniqueness, lifecycle, and linked-Product behavior absent. Category schema cannot be built safely.
+- [expanded product form]: Exact fields and validation absent. Form payload cannot be expanded safely.
+- [product filtering]: Active-state filter is done. Category and any other new filter wait for their field contracts.
+
+### FINAL_WAVE_LOW architecture boundary
+
+- Inventory, stock, purchase cost, multi-price, discount, profit calculation, and their reports remain required `FINAL_WAVE_LOW`; none is delivered in Phase 1.
+- Preparation is documentation-only. Current `Product` stays the catalog identity/current-sale-price boundary and is not polluted with guessed stock, warehouse, cost, discount, or profit columns.
+- Future design must preserve immutable Sale product/price snapshots. Stock should use approved movement/concurrency rules; cost and price need approved snapshot/effective-time rules; discount needs stacking/authorization rules; profit needs an approved formula and return/cancellation treatment.
+- No future model name, cardinality, formula, valuation method, endpoint, permission, or migration is approved by this boundary.
+
+### Files, API, authorization, and tests
+
+- Inspected: `BACKEND_SPEC.md`; Product/Inventory sections in handoff and root roadmap; `sales/models.py`, `services.py`, `selectors.py`, `serializers.py`, `views.py`; Product templates/client flow; bounded commercial/schema tests.
+- Changed application files: `sales/views.py`, `common/templates/common/products/list.html`, `common/templates/common/products/detail.html`, `common/static/common/kariz-app.js`, `common/tests/test_commercial_shell.py`, `common/tests/test_system_api.py`, and `common/tests/test_sales_shell_browser.py`.
+- Changed documentation: this handoff and the root Client-1 roadmap. Existing uncommitted section 28 changes were preserved.
+- API change: existing `GET /api/v1/products/` adds optional exact `is_active` filter. No endpoint was added.
+- Authorization: unchanged. Sales Agent remains read-only and active-only; Sales Manager, Company IT, and Platform Admin retain existing Product writes and inactive visibility.
+- Focused proof: `python manage.py test common.tests.test_commercial_shell common.tests.test_system_api --settings=config.test_settings -v 1` PASS, 25/25.
+- Static/system proof: JavaScript syntax PASS; Django check PASS; migration drift PASS with no changes.
+- Full proof: `python manage.py test --settings=config.test_settings -v 1` PASS, 283 run with 6 skips, 0 failure, 0 error.
+- Browser proof: first isolated attempt skipped because the local driver did not start; immediate verbose rerun PASS, 2/2, including the real inactive Product filter before the existing Product/Sale/report/audit flow.
+- Remaining gates: OpenAPI validation PASS with no warning; collectstatic dry-run PASS; HTML branding PASS for 220 files; FINAL_WAVE_LOW code-absence guard PASS; heading order and `git diff --check` PASS.
+- Self-correction score 1: `8/10`.
+- [product filter browser]: API, template, and contract tests passed, but the first slice had no real browser action for the new select. UI proof was incomplete.
+- Fix: added an inactive Product fixture and exercised `is_active=false` through the maintained filter form in the real browser test.
+- Self-correction score 2: `9/10`. Scope-first filtering, strict validation, schema/UI/browser proof, form-bound correction, compatibility, and FINAL_WAVE_LOW isolation now meet the approved slice.
+- Next action: approve the Category and expanded-field decisions above. Then implement Category in an additive migration/service/API/UI/test slice without touching FINAL_WAVE_LOW.
+- Commit: none created.

@@ -879,6 +879,8 @@
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("product-search").value.trim();
                 if (search) query.set("search", search);
+                const isActive = document.getElementById("product-status-filter").value;
+                if (isActive) query.set("is_active", isActive);
                 query.set("ordering", document.getElementById("product-ordering").value);
                 return `/api/v1/products/?${query}`;
             },

@@ -232,9 +232,28 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate"})
     search_fields = ["sku", "name", "description"]
     ordering_fields = ["sku", "name", "current_price", "created_at"]
+    list_query_parameters = {"is_active"}
 
     def get_queryset(self):
-        return products_for(self.request.user).select_related("created_by", "updated_by")
+        queryset = products_for(self.request.user).select_related("created_by", "updated_by")
+        is_active = self.request.query_params.get("is_active")
+        if is_active is not None:
+            if is_active not in {"true", "false"}:
+                raise ValidationError({"is_active": "Must be true or false."})
+            queryset = queryset.filter(is_active=is_active == "true")
+        return queryset
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "is_active",
+                bool,
+                description="Filter by the existing Product active state.",
+            )
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def _require_manager(self):
         if self.request.user.role not in ELEVATED_OPERATORS:

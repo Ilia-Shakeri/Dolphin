@@ -1112,3 +1112,25 @@ Run **C1-1 decision closure only** now for C1-DEC-GOV-001, SEAT-001, TEAM-001, a
 - Existing approved Lead CRUD/scope, manual reassignment/history, backend-owned opaque status, and no-hard-delete behavior stay unchanged.
 - Exact unblock input: named sales-process owner; final codes/labels and transition matrix; role/owner rules; conversion target/cardinality/idempotency/rollback; priority scale/default/order; archive/reopen/visibility rules; Opportunity fields/relations; Pipeline/stage order/history/forecast rules; legacy-value mapping; acceptance examples.
 - Next implementation order after approval: data preflight and additive migration; models/constraints; transactional services/audit; selectors/permissions; serializers/actions/schema; maintained Persian RTL UI; API/browser/concurrency/regression proof.
+
+## Interaction Management decision checkpoint - 2026-08-11
+
+- Included target: interaction timeline, follow-up tasks, meetings, calendar view, assigned responsible person, and due dates.
+- Explicitly excluded: telephony integration, call recording, and automatic reminders. These remain separate-service work.
+- Gate result: `BLOCKED_DECISION`; inclusion is confirmed, but entity shape, task/meeting lifecycle, responsible-user rules, due-date/timezone semantics, timeline sources/order, calendar contract, authorization, audit, and acceptance examples are not approved.
+- Existing append-only manual Interaction behavior, `agent` as recorder, optional `next_follow_up_at`, Lead-bound backend scope, and active APIs/UI remain unchanged.
+- No model, migration, endpoint, permission, UI route/template, CSS, scheduler, provider adapter, or architecture change was made.
+- Exact decisions and unblock examples are recorded in `KARIZ_PROJECT_HANDOFF.md` section 28.
+- Next implementation order after approval: additive models/migration; transactional services/audit; selectors/permissions; API/schema; maintained Persian RTL timeline/task/meeting/calendar UI; isolation/time-boundary/concurrency/browser regression proof.
+
+## Product Management Phase 1 checkpoint - 2026-08-11
+
+- Phase result: `PARTIAL`.
+- Done: optional exact `is_active=true|false` Product list filter; scope-first active/inactive isolation; Persian list filter; SKU form bound aligned to backend maximum 80; focused API/UI/schema tests.
+- Proof: focused suite 25/25 PASS; full suite 283 with 6 skips PASS; real Product browser filter flow 2/2 PASS on rerun; system/migration/schema/static/branding/diff gates PASS.
+- Compatibility: existing Product fields, create/edit/deactivate, role matrix, search/order/page, current price, and immutable Sale snapshots remain unchanged. No migration or new endpoint.
+- Blocked: Category entity and category filter need flat/tree, fields, uniqueness, lifecycle, linked-Product, migration, authorization, audit, UI, and acceptance decisions.
+- Blocked: “better product forms” needs an exact added-field list and validation contract. Only the proven SKU bound mismatch was changed.
+- `FINAL_WAVE_LOW`: inventory, stock, purchase cost, multi-price, discount, profit calculation, and reports remain required last-wave work. No schema or behavior was added.
+- Architecture boundary: keep Product as catalog/current-price identity; preserve Sale snapshots; design stock movement, cost/price history, discount policy, and profit formula only after their separate contracts are approved.
+- Next Phase 1 step after approval: Category additive model/lifecycle, scoped services/API/filter, maintained form/list UI, migration preflight, and role/direct-ID/browser regression tests.

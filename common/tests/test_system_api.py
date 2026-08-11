@@ -65,8 +65,10 @@ class SystemApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         lead_parameters = response.data["paths"]["/api/v1/leads/"]["get"]["parameters"]
         sale_parameters = response.data["paths"]["/api/v1/sales/"]["get"]["parameters"]
+        product_parameters = response.data["paths"]["/api/v1/products/"]["get"]["parameters"]
         self.assertIn("status", {parameter["name"] for parameter in lead_parameters})
         self.assertIn("status", {parameter["name"] for parameter in sale_parameters})
+        self.assertIn("is_active", {parameter["name"] for parameter in product_parameters})
 
     def test_schema_documents_phone_filter_and_assignment_reads(self):
         client = APIClient()
@@ -262,6 +264,7 @@ class SystemApiTests(TestCase):
 
         self.assertEqual(client.get("/api/v1/leads/?status=new").status_code, 200)
         self.assertEqual(client.get("/api/v1/sales/?status=confirmed").status_code, 200)
+        self.assertEqual(client.get("/api/v1/products/?is_active=true").status_code, 200)
 
     def test_api_errors_have_stable_code_and_matching_request_id(self):
         client = APIClient()

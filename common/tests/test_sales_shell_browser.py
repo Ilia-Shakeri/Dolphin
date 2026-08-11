@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from accounts.models import User
 from sales.models import Customer
-from sales.services import create_customer_with_phone, create_lead, mark_sale
+from sales.services import create_customer_with_phone, create_lead, create_product, mark_sale
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
@@ -174,11 +174,27 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
     def test_product_sale_report_export_and_activity_log_flow(self):
         customer = create_customer_with_phone(actor=self.platform, full_name="بازاریاب (کال سنتر) فروش مرورگر")
         create_lead(actor=self.platform, customer=customer, source="ثبت مستقیم مرورگر")
+        inactive_product = create_product(
+            actor=self.platform,
+            sku="WEB-INACTIVE",
+            name="محصول غیرفعال مرورگر",
+            current_price=Decimal("5.00"),
+        )
+        inactive_product.is_active = False
+        inactive_product.save(update_fields=["is_active", "updated_at"])
         self.browser.set_window_size(1440, 1000)
         self.login()
 
         self.browser.get(f"{self.live_server_url}/products/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-product")))
+        Select(self.browser.find_element(By.ID, "product-status-filter")).select_by_value("false")
+        self.browser.find_element(By.CSS_SELECTOR, "#product-search-form button[type='submit']").click()
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element(
+                (By.ID, "products-table-body"),
+                "محصول غیرفعال مرورگر",
+            )
+        )
         self.browser.find_element(By.ID, "open-create-product").click()
         self.browser.find_element(By.ID, "create-product-sku").send_keys("WEB-1")
         self.browser.find_element(By.ID, "create-product-name").send_keys("محصول مرورگر")
