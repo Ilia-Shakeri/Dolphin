@@ -5,12 +5,12 @@
 <section class="page-head"><div><p class="eyebrow">ثبت دستی ارتباط</p><h1>تماس‌ها</h1></div><button id="open-create-interaction" class="button" type="button">ثبت تماس</button></section>
 <section class="card">
     <form id="interaction-search-form" action="{% url 'common_ui:interactions' %}" method="get" class="toolbar">
-        <label class="sr-only" for="interaction-search">جستجوی تماس</label><input id="interaction-search" name="search" type="search" placeholder="شماره، نتیجه، یادداشت یا نام مشتری">
+        <label class="sr-only" for="interaction-search">جستجوی تماس</label><input id="interaction-search" name="search" type="search" placeholder="شماره، نتیجه، یادداشت یا نام بازاریاب (کال سنتر)">
         <label class="sr-only" for="interaction-ordering">مرتب‌سازی</label><select id="interaction-ordering" name="ordering"><option value="-occurred_at">جدیدترین تماس</option><option value="occurred_at">قدیمی‌ترین تماس</option><option value="next_follow_up_at">نزدیک‌ترین پیگیری</option><option value="-created_at">آخرین ثبت</option></select>
         <button class="button button-muted" type="submit">اعمال</button>
     </form>
     <div id="interactions-loading" class="state">در حال دریافت تماس‌ها…</div><div id="interactions-empty" class="state" hidden>تماسی پیدا نشد.</div>
-    <div id="interactions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="interactions-table-body"></tbody></table></div>
+    <div id="interactions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>بازاریاب (کال سنتر)</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="interactions-table-body"></tbody></table></div>
     <nav id="interactions-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="interactions-prev" class="button button-muted" type="button">قبلی</button><span id="interactions-page-label"></span><button id="interactions-next" class="button button-muted" type="button">بعدی</button></nav>
 </section>
 <dialog id="create-interaction-dialog" aria-labelledby="create-interaction-title">

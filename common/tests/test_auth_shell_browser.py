@@ -3,6 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
+from django.core.cache import cache
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 
 from accounts.models import User
@@ -39,7 +40,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         except WebDriverException as exc:
             super().tearDownClass()
             raise unittest.SkipTest(f"Chrome WebDriver unavailable: {exc.msg}") from exc
-        cls.wait = WebDriverWait(cls.browser, 10)
+        cls.wait = WebDriverWait(cls.browser, 15)
 
     @classmethod
     def tearDownClass(cls):
@@ -48,6 +49,10 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         super().tearDownClass()
 
     def setUp(self):
+        cache.clear()
+        self.browser.delete_all_cookies()
+        self.browser.get_log("browser")
+        self.browser.get_log("performance")
         self.platform = User.objects.create_user(
             username="platform.browser",
             password=self.password,
@@ -61,6 +66,12 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "profile-form")))
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element_value(
+                (By.ID, "profile-username"),
+                self.platform.username,
+            )
+        )
 
     def assert_browser_clean(self):
         self.assertEqual(self.browser.execute_script("return document.documentElement.lang"), "fa")

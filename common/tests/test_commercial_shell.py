@@ -60,10 +60,10 @@ class CommercialShellScopeTests(TestCase):
         self.agent = self.roles[User.Role.SALES_AGENT]
         self.other_agent = User.objects.create_user(username="commercial-other", password=self.password, role=User.Role.SALES_AGENT)
         self.manager = self.roles[User.Role.SALES_MANAGER]
-        self.customer = create_customer_with_phone(actor=self.agent, full_name="مشتری مجاز")
+        self.customer = create_customer_with_phone(actor=self.agent, full_name="بازاریاب (کال سنتر) مجاز")
         self.lead = create_lead(actor=self.agent, customer=self.customer, source="manual")
         assign_lead(actor=self.manager, lead=self.lead, to_user=self.agent, reason="scope")
-        self.other_customer = create_customer_with_phone(actor=self.other_agent, full_name="مشتری پنهان")
+        self.other_customer = create_customer_with_phone(actor=self.other_agent, full_name="بازاریاب (کال سنتر) پنهان")
         self.other_lead = create_lead(actor=self.other_agent, customer=self.other_customer, source="manual")
         assign_lead(actor=self.manager, lead=self.other_lead, to_user=self.other_agent, reason="scope")
         self.product = create_product(actor=self.manager, sku="CRM-1", name="محصول یک", current_price=Decimal("125.50"))

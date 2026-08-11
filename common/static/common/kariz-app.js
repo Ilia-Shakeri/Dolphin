@@ -508,7 +508,7 @@
             const deactivate = document.getElementById("deactivate-customer");
             if (deactivate) {
                 deactivate.disabled = !value.is_active;
-                deactivate.textContent = value.is_active ? "غیرفعال کردن مشتری" : "مشتری غیرفعال است";
+                deactivate.textContent = value.is_active ? "غیرفعال کردن بازاریاب (کال سنتر)" : "بازاریاب (کال سنتر) غیرفعال است";
             }
         }
 
@@ -623,7 +623,7 @@
             withSubmit(editForm, async () => {
                 customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"])});
                 fillCustomer(customer);
-                globalMessage("مشخصات مشتری ذخیره شد.", true);
+                globalMessage("مشخصات بازاریاب (کال سنتر) ذخیره شد.", true);
             });
         });
         document.getElementById("open-create-phone").addEventListener("click", () => openPhone());
@@ -643,13 +643,13 @@
         });
         const deactivateCustomer = document.getElementById("deactivate-customer");
         deactivateCustomer?.addEventListener("click", async () => {
-            if (!window.confirm("این مشتری غیرفعال شود؟")) return;
+            if (!window.confirm("این بازاریاب (کال سنتر) غیرفعال شود؟")) return;
             deactivateCustomer.disabled = true;
             clearMessages();
             try {
                 customer = await apiRequest(`${endpoint}deactivate/`, {method: "POST"});
                 fillCustomer(customer);
-                globalMessage("مشتری بدون حذف سابقه غیرفعال شد.", true);
+                globalMessage("بازاریاب (کال سنتر) بدون حذف سابقه غیرفعال شد.", true);
             } catch (error) {
                 deactivateCustomer.disabled = false;
                 showError(error);
@@ -689,7 +689,7 @@
             await controller.load();
             const customers = await loadAllPages("/api/v1/customers/?ordering=full_name");
             const products = await loadAllPages("/api/v1/products/?ordering=name");
-            fillSelect(document.getElementById("create-lead-customer"), customers.filter((item) => item.is_active), (item) => item.full_name, "انتخاب مشتری");
+            fillSelect(document.getElementById("create-lead-customer"), customers.filter((item) => item.is_active), (item) => item.full_name, "انتخاب بازاریاب (کال سنتر)");
             fillSelect(document.getElementById("create-lead-product"), products.filter((item) => item.is_active), (item) => item.name, "بدون محصول");
         } catch (error) { showError(error); }
         createForm.addEventListener("submit", (event) => {

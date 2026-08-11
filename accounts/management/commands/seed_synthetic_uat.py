@@ -105,7 +105,7 @@ class Command(BaseCommand):
             )
             customer = create_customer_with_phone(
                 actor=agent,
-                full_name="مشتری ساختگی آزمون پذیرش",
+                full_name="بازاریاب (کال سنتر) ساختگی آزمون پذیرش",
                 email="uat-customer@example.invalid",
                 province="استان ساختگی",
                 city="شهر ساختگی",

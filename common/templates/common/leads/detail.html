@@ -10,7 +10,7 @@
         {% csrf_token %}<h2>مشخصات سرنخ</h2>
         <fieldset{% if not can_edit_lead %} disabled{% endif %}>
         <div class="form-grid">
-            <div><label for="lead-customer">مشتری</label><input id="lead-customer" type="text" disabled></div>
+            <div><label for="lead-customer">بازاریاب (کال سنتر)</label><input id="lead-customer" type="text" disabled></div>
             <div><label for="lead-status">وضعیت سرور</label><input id="lead-status" type="text" disabled></div>
             <div><label for="lead-assigned-to">مسئول</label><input id="lead-assigned-to" type="text" disabled></div>
             <div><label for="lead-created-by">ثبت‌کننده</label><input id="lead-created-by" type="text" disabled></div>
@@ -20,7 +20,7 @@
             <div><label for="edit-lead-follow-up">پیگیری بعدی</label><input id="edit-lead-follow-up" name="next_follow_up_at" type="datetime-local"><p class="field-error" data-error-for="next_follow_up_at"></p></div>
             <div class="full-field"><label for="edit-lead-notes">یادداشت</label><textarea id="edit-lead-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
         </div>
-        <p class="muted">مشتری، وضعیت، مالکیت و اطلاعات تخصیص از این فرم تغییر نمی‌کنند.</p>
+        <p class="muted">بازاریاب (کال سنتر)، وضعیت، مالکیت و اطلاعات تخصیص از این فرم تغییر نمی‌کنند.</p>
         {% if can_edit_lead %}<div class="form-actions"><button class="button" type="submit">ذخیره تغییرات</button></div>{% else %}<p class="muted">ویرایش برای کارشناس فقط پس از تخصیص این سرنخ مجاز است.</p>{% endif %}
         </fieldset>
     </form>

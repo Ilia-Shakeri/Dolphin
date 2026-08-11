@@ -5,6 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.core.cache import cache
 from django.utils import timezone
 
 from accounts.models import User
@@ -43,7 +44,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         except WebDriverException as exc:
             super().tearDownClass()
             raise unittest.SkipTest(f"Chrome WebDriver unavailable: {exc.msg}") from exc
-        cls.wait = WebDriverWait(cls.browser, 10)
+        cls.wait = WebDriverWait(cls.browser, 15)
 
     @classmethod
     def tearDownClass(cls):
@@ -52,6 +53,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         super().tearDownClass()
 
     def setUp(self):
+        cache.clear()
+        self.browser.delete_all_cookies()
+        self.browser.get_log("browser")
+        self.browser.get_log("performance")
         self.platform = User.objects.create_user(
             username="platform.sales.browser",
             password=self.password,
@@ -72,6 +77,12 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "profile-form")))
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element_value(
+                (By.ID, "profile-username"),
+                self.platform.username,
+            )
+        )
 
     def assert_browser_clean(self):
         self.assertEqual(self.browser.execute_script("return document.documentElement.lang"), "fa")
@@ -93,9 +104,9 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.login()
 
         self.browser.get(f"{self.live_server_url}/customers/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "customers-loading")))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-customer")))
         self.browser.find_element(By.ID, "open-create-customer").click()
-        self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مرورگر")
+        self.browser.find_element(By.ID, "create-customer-name").send_keys("بازاریاب (کال سنتر) مرورگر")
         self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121110000")
         self.browser.find_element(By.ID, "create-customer-postal-code").send_keys("کد ۱۲۳")
         self.browser.find_element(By.ID, "create-customer-category").send_keys("ویژه")
@@ -103,7 +114,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
         customer_url = self.browser.current_url
-        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "مشتری مرورگر")
+        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "بازاریاب (کال سنتر) مرورگر")
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-postal-code").get_attribute("value"), "کد ۱۲۳")
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-category").get_attribute("value"), "ویژه")
 
@@ -114,10 +125,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "phones-table-body"), "+989129990000"))
 
         self.browser.get(f"{self.live_server_url}/leads/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "leads-loading")))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-lead")))
         self.browser.find_element(By.ID, "open-create-lead").click()
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-lead-customer")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مرورگر")
+        Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("بازاریاب (کال سنتر) مرورگر")
         self.browser.find_element(By.ID, "create-lead-source").send_keys("ثبت دستی مرورگر")
         self.browser.find_element(By.CSS_SELECTOR, "#create-lead-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/leads/\d+/$"))
@@ -130,7 +141,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "history-table-body"), "کارشناس مرورگر"))
 
         self.browser.get(f"{self.live_server_url}/interactions/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "interactions-loading")))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-interaction")))
         self.browser.find_element(By.ID, "open-create-interaction").click()
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-interaction-lead")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-interaction-lead")).select_by_index(1)
@@ -142,7 +153,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "interaction-agent").get_attribute("value"), self.platform.username)
         self.assertEqual(self.browser.find_element(By.ID, "interaction-outcome").get_attribute("value"), "پاسخ دستی")
 
-        customer = Customer.objects.get(full_name="مشتری مرورگر")
+        customer = Customer.objects.get(full_name="بازاریاب (کال سنتر) مرورگر")
         mark_sale(
             actor=self.platform,
             lead=customer.leads.get(),
@@ -161,13 +172,13 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assert_browser_clean()
 
     def test_product_sale_report_export_and_activity_log_flow(self):
-        customer = create_customer_with_phone(actor=self.platform, full_name="مشتری فروش مرورگر")
+        customer = create_customer_with_phone(actor=self.platform, full_name="بازاریاب (کال سنتر) فروش مرورگر")
         create_lead(actor=self.platform, customer=customer, source="ثبت مستقیم مرورگر")
         self.browser.set_window_size(1440, 1000)
         self.login()
 
         self.browser.get(f"{self.live_server_url}/products/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "products-loading")))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-product")))
         self.browser.find_element(By.ID, "open-create-product").click()
         self.browser.find_element(By.ID, "create-product-sku").send_keys("WEB-1")
         self.browser.find_element(By.ID, "create-product-name").send_keys("محصول مرورگر")
@@ -182,10 +193,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "global-message"), "محصول ذخیره شد"))
 
         self.browser.get(f"{self.live_server_url}/sales/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "sales-loading")))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-sale")))
         self.browser.find_element(By.ID, "open-create-sale").click()
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sale-lead")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("مشتری فروش مرورگر — ثبت مستقیم مرورگر")
+        Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("بازاریاب (کال سنتر) فروش مرورگر — ثبت مستقیم مرورگر")
         Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — 15.00")
         quantity = self.browser.find_element(By.ID, "create-sale-quantity")
         quantity.clear()

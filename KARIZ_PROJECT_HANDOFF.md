@@ -395,7 +395,7 @@
 ### نتیجه و وضعیت قابلیت
 
 - Customer list/detail/create/edit/search/order/pagination و deactivate بدون hard delete به API واقعی وصل شد؛ `created_by` و `is_active` در فرم قابل ارسال نیست.
-- CustomerPhone داخل جزئیات مشتری list/create/edit/deactivate واقعی دارد؛ `customer` در edit قابل تغییر نیست، `normalized_phone` و `is_active` server-owned هستند، deactivate اختصاصی row/history را نگه می‌دارد و primary را پاک می‌کند.
+- CustomerPhone داخل جزئیات بازاریاب (کال سنتر) list/create/edit/deactivate واقعی دارد؛ `customer` در edit قابل تغییر نیست، `normalized_phone` و `is_active` server-owned هستند، deactivate اختصاصی row/history را نگه می‌دارد و primary را پاک می‌کند.
 - ورودی فارسی/عربی/ASCII تلفن به `+98` ASCII نرمال می‌شود؛ duplicate active و primary conflict با HTTP 409 نمایش داده می‌شود و 429 واقعی برای deactivate تست شد.
 - Lead list/detail/create/edit مجاز/search/order/pagination و status filter exact دارد. وضعیت فقط نمایش/filter می‌شود؛ هیچ transition، status list، Team boundary یا auto-assignment ساخته نشد.
 - assignee read API فقط حداقل فیلد active clean Sales Agent را به سه role مجاز می‌دهد؛ تخصیص/انتقال همچنان service تراکنشی موجود را می‌زند و history paginated از scope همان Lead خوانده می‌شود.
@@ -1401,7 +1401,7 @@ This order reflects technical dependencies plus the customer's instruction to re
    - `محصولات` - real `/products/` route.
    - `دسته‌بندی‌ها` - future placeholder.
 4. `مرکز تماس` - expandable group shell:
-   - `مشتریان` - real `/customers/` route.
+   - `بازاریابان (کال سنتر)` - real `/customers/` route.
    - `سرنخ‌ها` - real `/leads/` route retained.
    - `تماس‌ها` - real `/interactions/` route retained.
 5. `فروش‌ها` - real `/sales/` route retained.

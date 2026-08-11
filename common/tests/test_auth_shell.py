@@ -108,7 +108,7 @@ class AuthShellBrowserTests(TestCase):
             "products": "محصولات",
             "categories": "دسته‌بندی‌ها",
             "call-center": "مرکز تماس",
-            "customers": "مشتریان",
+            "customers": "بازاریابان (کال سنتر)",
             "invoices": "فاکتورها",
             "reports": "گزارش‌ها",
             "finance": "امور مالی",

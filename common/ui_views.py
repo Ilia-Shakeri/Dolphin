@@ -148,8 +148,8 @@ class KarizCustomerDetailView(ScopedDetailView):
     template_name = "common/customers/detail.html"
     object_id_kwarg = "customer_id"
     context_id_name = "customer_id"
-    not_found_title = "مشتری پیدا نشد"
-    not_found_message = "مشتری در محدوده دسترسی شما وجود ندارد."
+    not_found_title = "بازاریاب (کال سنتر) پیدا نشد"
+    not_found_message = "بازاریاب (کال سنتر) در محدوده دسترسی شما وجود ندارد."
 
     def scoped_queryset(self):
         return customers_for(self.request.user)
