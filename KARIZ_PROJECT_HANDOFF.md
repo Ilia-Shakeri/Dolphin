@@ -1372,11 +1372,98 @@ This order reflects technical dependencies plus the customer's instruction to re
 - Current Git commit: `bc0233fe815f93aa51a775b381c3885402d2c6bf`.
 - Current git status: ` M BACKEND_SPEC.md`; ` M KARIZ_PROJECT_HANDOFF.md`; no other path listed.
 - Commit: none created.
+
+## 21. Sidebar hierarchy and future-module placeholders - 2026-08-11
+
+### Result and scope
+
+- Slice status: `DONE`; navigation structure only.
+- Goal met: active Kariz sidebar now follows a grouped reference-style hierarchy while keeping the existing theme, colors, typography, RTL shell, layout, and CSS architecture.
+- Backend implementation: none.
+- Models, migrations, serializers, services, selectors, API endpoints, UI routes, JavaScript, and CSS: unchanged.
+- Future modules use non-link `aria-disabled` placeholders or expandable group shells. No fake success and no dead `href="#"` control was added.
+
+### Files inspected and changed
+
+- Inspected: bounded sidebar section of `index.html`; `common/templates/common/base.html`; sidebar hooks in `common/static/common/kariz.css`; `setupNav()` in `common/static/common/kariz-app.js`; relevant navigation tests in `common/tests/test_auth_shell.py`, `test_sales_shell.py`, `test_commercial_shell.py`, and `test_ui.py`; current handoff and root Client-1 roadmap.
+- Changed template: `common/templates/common/base.html` only.
+- Changed test: `common/tests/test_auth_shell.py`.
+- Changed documentation: `KARIZ_PROJECT_HANDOFF.md` and the root Client-1 roadmap.
+- Unrelated templates, styles, scripts, routes, and application pages: unchanged.
+
+### Sidebar hierarchy
+
+1. `داشبورد` - future non-link placeholder.
+2. `پروفایل` - real `/` profile route.
+3. `فروشگاه` - expandable group shell:
+   - `انبار` - future placeholder.
+   - `حسابداری` - future placeholder.
+   - `محصولات` - real `/products/` route.
+   - `دسته‌بندی‌ها` - future placeholder.
+4. `مرکز تماس` - expandable group shell:
+   - `مشتریان` - real `/customers/` route.
+   - `سرنخ‌ها` - real `/leads/` route retained.
+   - `تماس‌ها` - real `/interactions/` route retained.
+5. `فروش‌ها` - real `/sales/` route retained.
+6. `فاکتورها` - future non-link placeholder.
+7. `گزارش‌ها` - expandable group shell with real `/reports/user-performance/` child.
+8. `امور مالی` - future non-link placeholder.
+9. `کارهای روزانه` - future non-link placeholder.
+10. `ارسال و تحویل` - future non-link placeholder.
+11. `اهداف` - future non-link placeholder.
+12. `اسناد` - future non-link placeholder.
+13. `مدیریت سامانه` - role-gated expandable group retaining real ActivityLog and user-management routes.
+
+### Future placeholder register and remaining backend work
+
+| Requested module | Sidebar state | Remaining backend work before activation |
+|---|---|---|
+| Dashboard | Non-link placeholder | Approve dashboard metrics, role scope, refresh/as-of rules, selectors, API, page, and tests. |
+| Profile | Real current route | Session inventory/revoke, avatar, and notification additions remain blocked; current own-profile edit stays live. |
+| Store | Expandable shell | Store landing/summary contract and route are absent; Product child is live. |
+| Inventory | Non-link placeholder | Warehouse, stock, movement, reservation, costing, concurrency, migration, API, and permissions are absent; `FINAL_WAVE_LOW`. |
+| Accounting | Non-link placeholder | Accounting document/ledger/source-of-truth, roles, corrections, reconciliation, API, and reports are absent. |
+| Products | Real current route | Category and expanded Product form remain blocked; current Product CRUD/deactivate stays live. |
+| Categories | Non-link placeholder | Category schema, hierarchy/lifecycle, Product relation, scope, API, migration, and tests are absent. |
+| Call Center | Expandable shell | Dedicated call-center dashboard, provider, duration/recording, consent, retention, and secure adapter are absent; Customer/Lead/manual Interaction children stay live. |
+| Customers | Real current route | Classification, postcode contract, export, bulk work, document link, and 360 profile remain blocked. |
+| Invoices | Non-link placeholder | Sale/Order/internal document/accounting Invoice meaning, lines, numbering, totals, tax, correction, migration, API, and permissions are absent. |
+| Reports | Expandable shell | Current performance report is live; detailed drill-down and Client-1 SMS/contact/geography/postal/domain reports remain blocked. |
+| Finance | Non-link placeholder | Payment, allocation, customer account, cheque, installment, receivable, profit/loss, reconciliation, API, and permissions are absent; advanced scope is `FINAL_WAVE_LOW`. |
+| Daily Tasks | Non-link placeholder | Task/project/calendar/reminder entities, states, assignment, recurrence, notifications, API, and scope are absent. |
+| Delivery | Non-link placeholder | Postal states/history, actor transitions, tracking, return/failure/cancel, provider choice, API, and report are absent. |
+| Targets | Non-link placeholder | Sales-target entity, period, metric/formula, assignment, visibility, progress, API, and acceptance examples are absent. |
+| Documents | Non-link placeholder | File storage, upload/download, scanner, type/size/version/retention, entity links, backup, scope, API, and tests are absent; `FINAL_WAVE_LOW`. |
+
+### Authorization and safety
+
+- Existing backend authorization did not change.
+- Real links keep their current scoped routes and role guards.
+- ActivityLog and user-management links stay inside the role-gated administration group.
+- Future entries cannot navigate or submit. They are marked `aria-disabled="true"` where they are leaf placeholders.
+- Expandable shells use native `details`/`summary`; no new script, plugin, or CSS selector exists.
+
+### Verification and self-correction
+
+- `python manage.py test common.tests.test_auth_shell common.tests.test_sales_shell common.tests.test_commercial_shell --settings=config.test_settings -v 1` -> PASS; 37 tests, 0 failures, 0 errors.
+- `python manage.py test common.tests.test_auth_shell_browser --settings=config.test_settings -v 1` -> PASS; 2 headless Chrome tests, 0 failures, 0 errors. Safe live-server shutdown broken-pipe lines did not change `OK`.
+- `python manage.py check --settings=config.test_settings` -> PASS; 0 issues.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings` -> PASS; no changes detected; 0 migrations created.
+- `python scripts/check_html_branding.py` -> PASS; `HTML_BRANDING_PASS files=220`.
+- `git diff --check` -> PASS; no whitespace error; only non-failing LF-to-CRLF working-copy notices.
+- New navigation test proves all 16 requested module labels/data slots, hierarchy order, Store/Call Center/Reports/Administration expandable groups, real Profile/Product/Customer links, future placeholder markers, and absence of fake `href="#"` links.
+- Self-correction score: `9/10`. The slice changes only sidebar hierarchy, keeps live route access, marks future work honestly, and introduces no backend or style drift.
+
+### Remaining blocker and next phase
+
+- [future module contracts]: Placeholder names do not approve business rules. Backend, route, and active page work stays blocked by the matching C1 decision register.
+- [C1-2 gate]: Role, seat/capacity, Team, and after-sales workstream rules still not approved. Identity work cannot start.
+- Exact next phase: C1-1 decision closure, then C1-2 preflight. Sidebar placeholders must stay non-operational until each module passes its own contract and implementation phase.
 - Exact resume point: C1-1 decision closure, before any schema, model, migration, endpoint, UI route, or authorization edit.
 - Exact next action: customer/business owner must resolve at least C1-DEC-GOV-001, SEAT-001, ROLE-001, TEAM-001, and AFTER-001 with an explicit role/workstream matrix. Then update C1-1 approvals and only after that start C1-2.
 - Exact next implementation phase: `C1-2`, currently `BLOCKED_DECISION`. Do not start C1-2 from the supplied source alone.
 
-### Checkpoint C1-2 preflight - blocked after C1-1 audit
+## 22. Client-1 C1-2 preflight - blocked after C1-1 audit
 
 - Request: check C1-1 and start C1-2 only if C1-1 is done.
 - C1-1 audit result: reconciliation work is complete, but status is `BLOCKED_DECISION`; approved identity/workstream design does not exist.
@@ -1409,3 +1496,259 @@ This order reflects technical dependencies plus the customer's instruction to re
 - Self-correction score: `9/10`; phase gate is explicit, current repository behavior is preserved, and no unsafe identity rule was inferred.
 - Exact resume point: C1-1 decision closure before C1-2.
 - Exact next action: approve the four blocking decisions with an explicit role/workstream/visibility matrix and seat-cap/capacity rule; then update C1-1 status and rerun this C1-2 preflight.
+
+## 23. Controlled implementation baseline - 2026-08-11
+
+### Assessment boundary and result
+
+- Assessment status: `DONE`; documentation only.
+- Repository start point: commit `31329cfbf74fef8ab17645a14f9ad8d297b2a26e`; working tree clean before this assessment.
+- Read scope: `BACKEND_SPEC.md`, this handoff, the root Client-1 roadmap, and only the relevant first-party Django app code, tests, active templates, and connected client file listed below.
+- Change scope: this handoff and the root Client-1 roadmap only.
+- Functional code, model, migration, endpoint, UI route, authorization, architecture, and UI style change: none.
+- Baseline verdict: the current Core V1 is a real connected modular Django/DRF implementation. The expanded Client-1 target is not implemented. C1-2 remains fail-closed until its identity and workstream decisions are approved.
+
+### Files inspected
+
+- Authority and phase documents: `BACKEND_SPEC.md`, `KARIZ_PROJECT_HANDOFF.md`, and the root Client-1 roadmap.
+- Accounts: `accounts/access.py`, `models.py`, `permissions.py`, `serializers.py`, `services.py`, `auth_urls.py`, `urls.py`, `views.py`; bounded test-name inspection in `accounts/tests/test_accounts.py` and `test_bootstrap_platform_admin.py`; migration manifest `0001_initial.py` and `0002_user_role_constraint.py`.
+- Sales core: `sales/models.py`, `selectors.py`, `serializers.py`, `services.py`, `urls.py`, `views.py`; bounded test-name inspection in `sales/tests/test_workflows.py`, `test_scope_attacks.py`, and `test_migration_preflights.py`; migration manifest `0001_initial.py` through `0010_interaction_contract.py`.
+- Reports: `reports/selectors.py`, `serializers.py`, `services.py`, `urls.py`, `views.py`, `xlsx.py`; bounded test-name inspection in `reports/tests/test_user_performance.py`.
+- Audit: `auditlog/models.py`, `permissions.py`, `selectors.py`, `serializers.py`, `services.py`, `urls.py`, `views.py`; bounded test-name inspection in `auditlog/tests/test_api.py` and `test_services.py`; migration manifest `0001_initial.py` and `0002_activitylog_role_snapshots.py`.
+- Active application layer: `common/permissions.py`, `views.py`, `viewsets.py`, `ui_urls.py`, `ui_views.py`, `common/static/common/kariz-app.js`; bounded test-name inspection in `common/tests/test_auth_shell.py`, `test_sales_shell.py`, `test_commercial_shell.py`, `test_system_api.py`, and `test_query_growth.py`.
+- Active templates: every one of the 19 files under `common/templates/common/`: `base.html`, `error.html`, `home.html`, `login.html`; list/detail templates for users, customers, leads, interactions, products, sales, and activity logs; `reports/user_performance.html`.
+- Deliberately not inspected: parent/vendor archive, forbidden dependency/media/build trees, unrelated demo pages, secrets, review bundle, code-dumper output, and unrelated Django/operations files.
+
+### 1. Existing completed modules
+
+| Module | Current implemented baseline | Current proof boundary |
+|---|---|---|
+| Identity and accounts | Custom `User`; four fixed CRM roles; clean CRM identity excludes staff, superuser, groups, and direct permissions; login/logout/me; own-profile edit; controlled user create/edit/deactivate; dedicated role change; last active Platform Admin guard. | Repository tests exist. Three-role Client-1 wording, sessions, avatar, notifications, export, team, and workstream are not implemented. |
+| Customer | Scoped create/list/retrieve/patch/search/order/page; safe deactivation; national ID, email, province, city, address, notes; server-owned creator/active/timestamps. | Core is connected. Category, postcode contract, document link, export, bulk actions, merge, and 360 view are absent. |
+| CustomerPhone | Many phones per Customer; Iranian normalization; global active normalized-phone uniqueness; one active primary phone; scoped create/edit/deactivate; Customer cannot be moved. | Core is connected. Shared-number override/import rules are not approved. |
+| Lead | Scoped create/list/retrieve/permitted patch; source, campaign/batch, interested Product, follow-up, notes; manual assignment/reassignment; append-only assignment history; safe audit. | Current raw status can be shown/filtered, but final enum/transitions, auto-assignment, Team, priority, archive, conversion, Opportunity, and Pipeline are absent. |
+| Interaction | Manual inbound/outbound append-only contact entry tied to an authorized Lead; server-derived Customer/agent; occurred/follow-up time, phone, outcome, notes. | Core is connected. Final outcome groups, contact status, timeline, task/calendar/reminder, specialist report, recording, and telephony are absent. |
+| Product | SKU, name, positive current price, description, active flag, creator/updater; search/order/page; elevated create/edit/deactivate; Sales Agent active read-only. | Core is connected. Category, variant, inventory, costing, multi-price, discount, and profit are absent. |
+| Sale | Authorized creation from Lead; Product/current-price snapshot when Product is supplied; direct `total_amount` is accepted only when Product is absent; quantity and total integrity; server-derived Customer/seller/status; confirmed/cancelled states; elevated dedicated cancel; no hard delete or guessed correction. | Operational Sale only. Order, quotation, legal/accounting Invoice, Payment, postal flow, and PDF are absent. API can accept optional `sold_at`; connected UI requires Product and sends only Lead, Product, quantity, and notes. |
+| Reporting | One predefined user-performance projection with four exact metrics; inclusive start/exclusive end; optional user and Product filters; same query for JSON/XLSX; safe spreadsheet text and stable columns. | No detailed drill-down, contact-status, city/province, postal, SMS, domain, profit/loss, receivable, PDF, or dynamic report. |
+| Audit and platform guard | Append-oriented safe `ActivityLog`; request ID and bounded IP; safe allowlisted changes; Company IT hides platform-level rows; Platform Admin sees all; live and database-ready health split; strict query keys. | Repository behavior exists. Target runtime, alerting, anomaly detection, and external operations proof remain open. |
+| Active Persian UI | Same-origin CSRF client and 19 maintained Persian RTL templates for auth/profile, users, Customer/phones, Leads/assignment history, Interactions, Products, Sales, performance/XLSX, and ActivityLog. | Connected local shell exists. It is not Client-1 full dashboard or target-site proof. |
+
+### 2. Existing API baseline
+
+All paths below are under `/api/v1/`, use the established session/CSRF and error/request-ID contract, and use trailing slash where shown.
+
+| API family | Existing methods/actions |
+|---|---|
+| Auth | `POST auth/login/`; `POST auth/logout/`; `GET/PATCH auth/me/`. |
+| Users | `GET/POST users/`; `GET/PATCH users/{id}/`; `POST users/{id}/change-role/`; no delete route. |
+| Customers | `GET/POST customers/`; `GET/PATCH customers/{id}/`; `POST customers/{id}/deactivate/`; search, order, page. |
+| Customer phones | `GET/POST customer-phones/`; `GET/PATCH customer-phones/{id}/`; `POST customer-phones/{id}/deactivate/`; exact scoped `customer` filter. |
+| Leads | `GET/POST leads/`; `GET/PATCH leads/{id}/`; `GET leads/assignees/`; `GET leads/{id}/assignment-history/`; `POST leads/{id}/reassign/`; exact raw `status` filter. |
+| Interactions | `GET/POST interactions/`; `GET interactions/{id}/`; append-only, no patch/delete route. |
+| Products | `GET/POST products/`; `GET/PATCH products/{id}/`; `POST products/{id}/deactivate/`; writes require elevated role. |
+| Sales | `GET/POST sales/`; `GET sales/{id}/`; `POST sales/{id}/cancel/`; exact confirmed/cancelled status filter; no patch/delete route. Create accepts optional Product, direct amount only without Product, and optional `sold_at`; the maintained UI uses Product and omits amount/time. |
+| Reports | `GET reports/user-performance/`; `GET exports/user-performance.xlsx`; same required period and optional user/Product filters. |
+| Audit | `GET activity-logs/`; `GET activity-logs/{id}/`; read-only. |
+| Health | `GET health/live/`; `GET health/ready/`; readiness checks the database. |
+
+Not present: any Client-1 API for after-sales, sessions, notifications, Customer export/bulk/360, Lead transition/pipeline, tasks/calendar, inventory, documents/invoices, postal history, finance, SMS, files, global search/import, automation, integrations, PWA, anomaly workflow, detailed drill-down, or new grouped reports.
+
+### 3. Existing template baseline
+
+| Template group | Files and live purpose |
+|---|---|
+| Shell/auth | `base.html` real navigation/logout; `login.html` session login; `home.html` own profile; `error.html` safe Persian error page. |
+| Users | `users/list.html` scoped directory and create dialog; `users/detail.html` edit, role change, and deactivate controls. |
+| Customers | `customers/list.html` search/order/page and create; `customers/detail.html` edit, phone list/create/edit/deactivate, and elevated Customer deactivate. |
+| Leads | `leads/list.html` search/status/order/page and create; `leads/detail.html` scoped edit, assignee selection, reassignment, and assignment history. |
+| Interactions | `interactions/list.html` search/order/page and manual create; `interactions/detail.html` read-only detail. |
+| Products | `products/list.html` search/order/page and elevated create; `products/detail.html` read-only for agent and edit/deactivate for elevated roles. |
+| Sales | `sales/list.html` search/status/order/page and create; `sales/detail.html` read-only snapshots and elevated cancel. |
+| Reports | `reports/user_performance.html` period/user/Product filters, result table, and XLSX link. |
+| Audit | `activity_logs/list.html` scoped search/order/page; `activity_logs/detail.html` read-only safe event detail. |
+
+No maintained active template exists for the missing Client-1 modules. Demo/template shells outside this list are not implementation evidence.
+
+### 4. Existing permission baseline
+
+| Capability | Sales Agent | Sales Manager | Company IT | Platform Admin |
+|---|---|---|---|---|
+| Login and own profile | Yes | Yes | Yes | Yes |
+| User directory/admin | No | No; fail closed until Team rule | Yes, but Platform Admin rows/role grants hidden | Yes |
+| Customer read/edit | Own-created or linked to assigned Lead | Company scope | Company scope | Company scope |
+| Customer deactivate | No | Yes | Yes | Yes |
+| CustomerPhone write/deactivate | Inside scoped Customer | Company scope | Company scope | Company scope |
+| Lead read | Assigned, plus own-created unassigned | Company scope | Company scope | Company scope |
+| Lead edit/Interaction/Sale create | Assigned Lead only | Company scope | Company scope | Company scope |
+| Lead reassignment | No | Yes, only to active clean Sales Agent | Yes, same | Yes, same |
+| Product read | Active only | All | All | All |
+| Product write/deactivate | No | Yes | Yes | Yes |
+| Sale read | Own sales only | Company scope | Company scope | Company scope |
+| Sale cancel | No | Yes | Yes | Yes |
+| Performance report | Own row only | All clean CRM user rows | All clean CRM user rows | All clean CRM user rows |
+| ActivityLog | No | No | Scoped; platform rows hidden | All rows |
+
+Common rules: only active clean CRM identities pass; server-owned identity, role, ownership, assignment, snapshot, status, and audit fields are blocked; direct out-of-scope IDs are masked by scoped querysets; sensitive actions are throttled; historical records use deactivate/cancel or append-only behavior instead of normal hard delete.
+
+Known deliberate fail-closed gaps: Sales Manager user administration is denied because Team scope is not defined; Sales Manager audit is denied because the limited operational audit boundary is not defined; no after-sales workstream permission exists. The later direct User Management instruction confirms the existing four fixed CRM roles and supersedes the earlier three-label ambiguity for this boundary.
+
+### 5. Missing Client-1 requirements
+
+#### Original seven
+
+| ID | Current coverage | Missing contract or implementation | State |
+|---|---|---|---|
+| C1-REQ-001 sales panel/no seat cap | Core sales shell exists; no hard-coded seat cap found in inspected apps. | Exact licensing wording, role/workstream/team matrix, panel acceptance list, peak concurrency, load target, and UAT. | `BLOCKED_DECISION` |
+| C1-REQ-002 after-sales panel/no seat cap | No after-sales model, service, API, permission, route, or maintained template. | Operator identity, case schema, Customer/Document link, assignment, states/transitions, manager scope, lifecycle, audit, capacity, and UAT. | `BLOCKED_DECISION` |
+| C1-REQ-003 detailed performance/drill-down | Four summary metrics and XLSX exist. | New metrics and denominators, drill-down rows, reassignment/cancel rules, timezone/calendar, bounds, access, sample totals, and UI/API/XLSX parity. | `BLOCKED_DECISION` |
+| C1-REQ-004 inbound SMS by day/hour | No SMS entity, secure receipt boundary, provider adapter, or report. Manual inbound Interaction is not SMS. | Provider docs, auth/signature, replay/idempotency, retained fields/body policy, received time, grouping timezone/calendar, scope, and samples. | `BLOCKED_DECISION`; live adapter `BLOCKED_EXTERNAL` |
+| C1-REQ-005 document count by city/province | Customer has current city/province; Sale exists. No approved counted document or historical geography snapshot/report. | Sale versus internal Document/Order/Invoice, line/number/state rules, snapshot source, date basis, null rules, scope, sample totals. | `BLOCKED_DECISION` |
+| C1-REQ-006 incoming number by contact status | Phone, Lead, and free-text Interaction outcome exist. No approved counted unit/status derivation/report. | Unit/source, dedupe window, status list, no-contact/latest tie-break, date basis, filters, scope, drill-down/export, samples. | `BLOCKED_DECISION` |
+| C1-REQ-007 document count by postal status | No document/postal model, history, transition service, tracking, provider, or report. | Document source, registered meaning, state table/transitions, actor, history/current grouping, return/failure/cancel, date basis, scope, samples. | `BLOCKED_DECISION` |
+
+#### Expanded target gaps
+
+- Accounts: session inventory/revocation, avatar, notifications, user export, approved Team, and approved sales/after-sales workstream.
+- Customer: classification, postcode contract, document relationship, export, bounded bulk operations, merge policy, and 360 profile/activity.
+- Lead/contact: final state machine, initial assignment, priority/archive/conversion, Opportunity/Pipeline, unified timeline, meetings/tasks/projects/calendar/reminders, and manual specialist report contract.
+- Product/inventory: category and expanded form; Warehouse, stock movements, purchase cost, multi-price, discount, valuation, profit, and inventory reports in `FINAL_WAVE_LOW`.
+- Commercial/finance: Order, internal document, quotation, accounting Invoice, line items, numbering, geography snapshot, postal workflow, Payment, ledger/customer account, cheque, installment, receivable, profit/loss, and operational PDF. Full financial set is `FINAL_WAVE_LOW`.
+- Reports: detailed drill-down, dashboard, contact/SMS/geography/postal/domain reports, P&L/receivable, PDF, and bounded dynamic report builder.
+- Collaboration/communications/files: activity timeline, calendar/task/project/reminder, provider-backed SMS/email/telephony, operational files, scanner/storage/version/retention/download policy.
+- Search/data: global search, saved filters, and bounded bulk XLSX import in `FINAL_WAVE_LOW`.
+- Platform/late: workflow automation, dynamic permission conflict resolution, website/store/gateway/accounting integrations, installable web application behavior, abnormal-activity detection, and full active-UI hardening.
+- Runtime: native PostgreSQL, Compose/Nginx/TLS, exact release browser proof, real scheduled backup plus isolated restore, load/scan, target deployment, UAT, and cutover evidence.
+
+### 6. Recommended implementation order
+
+1. Decision closure: approve governance, no-seat-cap/capacity, Team boundary, and sales/after-sales workstream visibility. The later direct User Management instruction fixes the role count at the existing four roles. No workstream schema change before the remaining gate.
+2. C1-2 identity/operator separation: additive workstream design, migration/backfill, service/selector permission reuse, user admin, UI, and full role/workstream tests.
+3. C1-3 minimum operational document/geography/postal base: only after document, geography, and postal contracts are approved.
+4. C1-4 contact-status and detailed performance: only after counted unit, status derivation, formulas, drill-down, and time rules are approved.
+5. C1-5 after-sales: only after case schema, states, assignment, Customer/Document relation, and scope are approved.
+6. C1-6 inbound SMS: provider-neutral core/report after data contract; live adapter only from official provider security docs.
+7. Approved normal-priority additions: Product category/form, Lead state/pipeline, collaboration/timeline, notifications, domain reports, PWA/anomaly work in dependency order set by C1-DEC-DELIVERY-001.
+8. `FINAL_WAVE_LOW`: Inventory/pricing/profit; full quotation/accounting/finance; files; global search/saved filters/XLSX import; PDF/dynamic reports; checked commerce/accounting integrations.
+9. C1-7 unified dashboard/navigation and active-UI hardening over implemented capabilities only.
+10. C1-8 production-like runtime proof, then C1-9 target deployment/UAT/cutover for the exact release.
+
+### Findings, blockers, and exact next phase
+
+- Finding: app structure already uses models, selectors, serializers, services, viewsets, constraints, audit, and tests in a coherent modular monolith. No architecture change is needed for the next approved additive slice.
+- Finding: active templates call real `/api/v1/` endpoints through the same-origin CSRF client. No missing Client-1 feature may be claimed from unrelated demo HTML.
+- Finding: current role scope is fail-closed where Team, manager audit, and after-sales rules are missing.
+- C1-DEC-ROLE-001 current User Management resolution: four fixed role codes remain authoritative; the existing Company IT and Platform Admin privilege boundary, grant custody, last-admin guard, audit visibility, and inactive-session behavior remain unchanged. Team and after-sales workstream rules are separate open decisions.
+- [C1-DEC-SEAT-001]: No app seat cap seems present. Capacity and load rule still unknown.
+- [C1-DEC-TEAM-001]: Team bound not set. Manager scope blocked.
+- [C1-DEC-AFTER-001]: After-sales user and case flow not set. C1-2 and C1-5 blocked.
+- [C1-DEC-DOC-001, C1-DEC-GEO-001, C1-DEC-POST-001]: Document and postal truth not set. C1-3 and two reports blocked.
+- [C1-DEC-CONTACT-001, C1-DEC-INCOMING-001, C1-DEC-PERF-001]: Contact unit, state, and report math not set. C1-4 blocked.
+- [C1-DEC-SMS-001]: Provider and safe receive rule not set. C1-6 live work blocked.
+- [C1-DEC-RUNTIME-001]: Target host, TLS, backup, load, and owner data absent. Release proof blocked.
+- Exact next phase: `C1-1 decision closure`, not feature build.
+- Exact next action: get an explicit future Team/after-sales workstream/visibility matrix plus no-seat-cap/capacity rule for C1-DEC-GOV-001, SEAT-001, TEAM-001, and AFTER-001. Update approvals. Then rerun C1-2 preflight without changing the four fixed role codes.
+
+### Assessment change and verification record
+
+- Files changed: `KARIZ_PROJECT_HANDOFF.md` and the root Client-1 roadmap.
+- Migrations: none created or changed.
+- API endpoints: none created or changed.
+- UI routes/templates/styles: none created or changed.
+- Authorization: none changed.
+- Tests and checks:
+  - `python manage.py check --settings=config.test_settings` -> PASS; 0 issues.
+  - `python manage.py makemigrations --check --dry-run --settings=config.test_settings` -> PASS; no changes detected; 0 migrations created.
+  - `python manage.py test accounts.tests.test_accounts sales.tests.test_workflows sales.tests.test_scope_attacks reports.tests.test_user_performance auditlog.tests.test_api auditlog.tests.test_services common.tests.test_auth_shell common.tests.test_sales_shell common.tests.test_commercial_shell common.tests.test_system_api common.tests.test_query_growth --settings=config.test_settings -v 1` -> PASS; 142 tests, 0 failures, 0 errors.
+  - active-template manifest check -> PASS; 19 maintained templates under `common/templates/common/`.
+  - baseline section/roadmap gate scan -> PASS; section 21, all six requested baseline parts, current roadmap baseline, and C1-1 decision-closure instruction found.
+  - `git diff --check` -> PASS; no whitespace error; only non-failing LF-to-CRLF working-copy notices.
+- Self-correction loop, score 1: `8/10`.
+- [Sale API baseline]: First draft did not state Product-less direct amount or optional `sold_at`. API and UI write boundary could blur.
+- [assessment evidence]: Verification record was pending. Baseline proof was not closed.
+- Fix: exact Sale API/UI boundary recorded; Django check, migration drift, 142 focused tests, template count, section/gate scan, and diff check passed.
+- Self-correction loop, score 2: `9/10`. Core architecture/code quality is strong for implemented scope; baseline is complete and honest; Client-1 feature coverage stays separately blocked and is not hidden by this score.
+- Current Git commit: `31329cfbf74fef8ab17645a14f9ad8d297b2a26e`.
+- Current git status: only the root Client-1 roadmap and `KARIZ_PROJECT_HANDOFF.md` modified by this documentation assessment.
+- Commit: none created.
+
+## 24. Client-1 User Management completion - 2026-08-11
+
+### Result
+
+- Requested boundary: `DONE`.
+- Existing production behavior already implemented login, logout, current-profile read/edit, user list/detail, create, edit, inactive-state deactivation/reactivation, dedicated role change, fixed role validation, backend authorization, safe audit, and last active Platform Admin protection.
+- Completion work added focused acceptance proof for the uncovered delete, inactive-session, permission-isolation, and escalation paths. No duplicate endpoint, service, model, or UI control was added.
+- The direct role list in this request confirms `sales_agent`, `sales_manager`, `company_it`, and `platform_admin`. It supersedes the earlier three-label ambiguity for current User Management.
+
+### Files inspected and changed
+
+- Authority/status inspected: `BACKEND_SPEC.md`, `KARIZ_PROJECT_HANDOFF.md`, and the root Client-1 roadmap.
+- Backend inspected: `accounts/access.py`, `models.py`, `permissions.py`, `serializers.py`, `services.py`, `views.py`; `common/serializers.py`, `viewsets.py`; `auditlog/services.py`.
+- Active application inspected: `common/templates/common/login.html`, `home.html`, `users/list.html`, `users/detail.html`; bounded user/auth handlers in `common/static/common/kariz-app.js`.
+- Tests inspected: `accounts/tests/test_accounts.py`, `common/tests/test_auth_shell.py`, and `common/tests/test_auth_shell_browser.py`.
+- Changed for this slice: `accounts/tests/test_accounts.py`, `KARIZ_PROJECT_HANDOFF.md`, and the root Client-1 roadmap.
+- Templates, client script, styles, models, migrations, serializers, services, views, routes, and architecture changed for this slice: none.
+- Pre-existing sidebar changes in `common/templates/common/base.html` and `common/tests/test_auth_shell.py` were preserved and verified; they were not widened by this slice.
+
+### Endpoint and behavior baseline
+
+- `POST /api/v1/auth/login/`: session login for active clean CRM identities only; CSRF and login throttle remain enforced.
+- `POST /api/v1/auth/logout/`: authenticated session logout; CSRF remains enforced.
+- `GET/PATCH /api/v1/auth/me/`: current profile read and bounded own-profile edit; role, username, active state, and server identity fields stay protected.
+- `GET/POST /api/v1/users/`: scoped user list and default Sales Agent creation.
+- `GET/PATCH /api/v1/users/{id}/`: scoped detail, profile-field edit, password change, deactivate, and reactivate.
+- `POST /api/v1/users/{id}/change-role/`: dedicated fixed-role transition.
+- `DELETE /api/v1/users/{id}/`: unavailable with HTTP 405; the user row remains. Historical identity uses `is_active=False`.
+- Deactivation writes a safe `user.updated` ActivityLog entry containing only the changed field name and password-change boolean. Passwords and private payloads are not stored.
+- Migrations: none created or changed.
+
+### Backend authorization matrix
+
+| Action | Sales Agent | Sales Manager | Company IT | Platform Admin |
+|---|---:|---:|---:|---:|
+| Login/logout/current profile | Yes | Yes | Yes | Yes |
+| User list/detail | No | No; Team scope undefined | Yes, excluding Platform Admin | Yes |
+| Create/edit/deactivate/reactivate | No | No | Yes, non-platform targets | Yes |
+| Grant Sales Agent/Manager/Company IT | No | No | Yes | Yes |
+| Grant or manage Platform Admin | No | No | No | Yes |
+| Hard delete user | No | No | No | No |
+
+- Backend permission and scoped queryset checks are authoritative. UI visibility is only presentation.
+- Staff, superuser, Django-group, and direct-permission identities remain outside CRM identity scope.
+- Inactive users lose current session/API access immediately and cannot log in again until an authorized reactivation.
+- Company IT escalation is rejected both when `role` is smuggled through general PATCH and when Platform Admin is requested through the dedicated action.
+
+### Tests and verification
+
+- `python manage.py test accounts.tests.test_accounts.AccountSecurityTests --settings=config.test_settings -v 1` -> PASS; 28/28.
+- `python manage.py test accounts.tests common.tests.test_auth_shell common.tests.test_auth_shell_browser --settings=config.test_settings -v 1` -> PASS; 61/61. Non-failing live-server broken-pipe shutdown lines did not change `OK`.
+- `python manage.py test --settings=config.test_settings -v 1` -> PASS; 279 run, 273 pass, 6 skip, 0 failure, 0 error.
+- `python manage.py check --settings=config.test_settings` -> PASS; 0 issues.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings` -> PASS; no changes detected.
+- `python -X utf8 manage.py spectacular --validate --fail-on-warn --settings=config.test_settings` -> PASS; schema valid with no warning. Initial default-code-page output failed only while printing Persian schema text; UTF-8 rerun passed.
+- `python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0` -> PASS.
+- `node --check common/static/common/kariz-app.js` -> PASS.
+- `python scripts/check_html_branding.py` -> PASS; `HTML_BRANDING_PASS files=220`.
+- `git diff --check` -> PASS; no whitespace error; only non-failing LF-to-CRLF working-copy notices.
+- `git diff --stat` -> PASS; cumulative working tree has 5 modified files, including preserved earlier sidebar work. This User Management slice changes one test file plus the two requested documents.
+
+### Self-correction loop
+
+- Score 1: `8/10`.
+- [user deletion proof]: No direct acceptance test proved DELETE 405 and row survival. No-delete rule could regress unseen.
+- [inactive user proof]: Existing tests split inactive access and audit. One full deactivation/session/login proof was absent.
+- [role access proof]: Existing checks covered parts. Sales-role admin denial and both Company IT escalation paths lacked one explicit completion gate.
+- [handoff structure]: New sections had wrong order and one C1-2 checkpoint was nested under sidebar work. Resume path could mislead.
+- Fix: added four focused account security tests; corrected handoff heading order; recorded the direct four-role decision and remaining separate blockers.
+- Score 2: `9/10`. Implementation, authorization, audit, inactive-state lifecycle, no-delete behavior, and regression proof now match the requested boundary without architecture or UI drift.
+
+### Blockers and next phase
+
+- Blockers for requested User Management boundary: none.
+- [Team scope]: Sales Manager user administration stays denied. Team member and company-wide exception rules still absent.
+- [after-sales workstream]: Operator identity and cross-workstream access still absent. Broad C1-2 stays blocked.
+- [account additions]: Session inventory/revoke, avatar, notifications, and user export lack approved contracts. Not part of this completion.
+- Next recommended phase: close C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001, then rerun C1-2 preflight while preserving the four fixed role codes.
+- Current Git commit at verification start: `31329cfbf74fef8ab17645a14f9ad8d297b2a26e`.
+- Commit: none created.

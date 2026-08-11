@@ -255,6 +255,119 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(client.get("/api/v1/users/").status_code, 403)
         self.assertEqual(client.get(f"/api/v1/users/{self.platform.pk}/").status_code, 403)
 
+    def test_sales_roles_cannot_admin_users(self):
+        manager = User.objects.create_user(
+            username="manager-user-admin",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.SALES_MANAGER,
+        )
+        for actor in (self.agent, manager):
+            with self.subTest(role=actor.role):
+                client = APIClient()
+                client.force_authenticate(actor)
+                self.assertEqual(client.get("/api/v1/users/").status_code, 403)
+                self.assertEqual(
+                    client.post(
+                        "/api/v1/users/",
+                        {
+                            "username": f"blocked-{actor.username}",
+                            "password": "Long-Safe-Pass-741!",
+                        },
+                        format="json",
+                    ).status_code,
+                    403,
+                )
+                self.assertEqual(
+                    client.patch(
+                        f"/api/v1/users/{self.company_it.pk}/",
+                        {"first_name": "Blocked"},
+                        format="json",
+                    ).status_code,
+                    403,
+                )
+                self.assertEqual(
+                    client.post(
+                        f"/api/v1/users/{self.company_it.pk}/change-role/",
+                        {"role": User.Role.SALES_AGENT},
+                        format="json",
+                    ).status_code,
+                    403,
+                )
+
+    def test_deactivation_is_audited_and_immediately_blocks_user(self):
+        active_session = Client()
+        self.assertTrue(
+            active_session.login(
+                username=self.agent.username,
+                password="strong-pass-1",
+            )
+        )
+        self.assertEqual(active_session.get("/api/v1/auth/me/").status_code, 200)
+
+        admin_client = APIClient()
+        admin_client.force_authenticate(self.platform)
+        response = admin_client.patch(
+            f"/api/v1/users/{self.agent.pk}/",
+            {"is_active": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["is_active"])
+        self.agent.refresh_from_db()
+        self.assertFalse(self.agent.is_active)
+        log = ActivityLog.objects.get(
+            operation="user.updated",
+            object_id=str(self.agent.pk),
+        )
+        self.assertEqual(
+            log.safe_changes,
+            {"fields": ["is_active"], "password_changed": False},
+        )
+        self.assertEqual(active_session.get("/api/v1/auth/me/").status_code, 403)
+        login = APIClient().post(
+            "/api/v1/auth/login/",
+            {"username": self.agent.username, "password": "strong-pass-1"},
+            format="json",
+        )
+        self.assertEqual(login.status_code, 400)
+
+    def test_company_it_cannot_escalate_role_through_user_update_or_role_action(self):
+        client = APIClient()
+        client.force_authenticate(self.company_it)
+
+        update = client.patch(
+            f"/api/v1/users/{self.agent.pk}/",
+            {"role": User.Role.PLATFORM_ADMIN},
+            format="json",
+        )
+        self.assertEqual(update.status_code, 400)
+        self.assertIn("role", update.data)
+
+        role_action = client.post(
+            f"/api/v1/users/{self.agent.pk}/change-role/",
+            {"role": User.Role.PLATFORM_ADMIN},
+            format="json",
+        )
+        self.assertEqual(role_action.status_code, 403)
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
+        self.assertFalse(
+            ActivityLog.objects.filter(
+                operation="user.role_changed",
+                object_id=str(self.agent.pk),
+            ).exists()
+        )
+
+    def test_user_delete_route_is_not_available(self):
+        client = APIClient()
+        client.force_authenticate(self.platform)
+
+        response = client.delete(f"/api/v1/users/{self.agent.pk}/")
+
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(User.objects.filter(pk=self.agent.pk, is_active=True).exists())
+
     def test_role_change_audit_has_safe_codes_only(self):
         change_user_role(actor=self.platform, target=self.agent, role=User.Role.SALES_MANAGER)
         log = ActivityLog.objects.get(operation="user.role_changed", object_id=str(self.agent.pk))

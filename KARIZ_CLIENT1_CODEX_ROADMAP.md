@@ -1,12 +1,12 @@
-# Kariz CRM — Client 1 Step-by-Step Codex Roadmap
+# Kariz CRM — Client 1 Step-by-Step Roadmap
 
 ## How to use this document
 
-Run only one phase at a time. Do not run the next prompt until the current phase is green and `KARIZ_PROJECT_HANDOFF.md` contains the exact resume point.
+Run only one phase at a time. Do not run the next phase until its gate is green and `KARIZ_PROJECT_HANDOFF.md` contains the exact resume point.
 
-Because the customer's final requirement list is expected tomorrow, run **C1-0 only today**. C1-0 is documentation and verification only; it must not create migrations, models, endpoints, or business rules.
+C1-0 is complete. C1-1 source reconciliation is complete, but decision closure is still `BLOCKED_DECISION`. The direct Client-1 User Management instruction dated 2026-08-11 confirms the existing four fixed CRM roles and current backend access matrix. C1-2 still must not start until seat/capacity, Team, and after-sales workstream decisions are approved.
 
-After the final list arrives, run **C1-1**. Functional implementation starts only after C1-1 has converted confirmed requirements into an approved capability/acceptance matrix.
+This roadmap gives phase steps. `KARIZ_PROJECT_HANDOFF.md` remains the only live status and evidence source.
 
 ## Phase map
 
@@ -22,6 +22,82 @@ After the final list arrives, run **C1-1**. Functional implementation starts onl
 | C1-7 | Unified dashboard and active-UI hardening | Yes | All seven client capabilities are integrated in repository |
 | C1-8 | PostgreSQL/Docker/Nginx/backup runtime proof | Runtime only | Production-like staging evidence passes |
 | C1-9 | Target-site deployment, UAT, and controlled cutover | External/production | Client sign-off and rollback evidence exist |
+
+## Controlled implementation baseline - 2026-08-11
+
+This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It records code truth without changing behavior, style, or architecture.
+
+### Current module and delivery truth
+
+| Area | Existing now | Client-1 gap |
+|---|---|---|
+| Accounts | Four fixed clean CRM roles; session login/logout/me; profile; controlled user lifecycle and role change. | Team/workstream, session inventory/revoke, avatar, notices, export, seat/capacity acceptance. |
+| Customer/phone | Scoped Customer CRUD/deactivate; many normalized phones; duplicate and primary guards. | Category, postcode contract, document link, export/bulk/360/merge. |
+| Lead/contact | Scoped Lead CRUD; manual reassignment/history; append-only manual Interaction. | Final statuses, Team/auto-assign, priority/archive/conversion/Pipeline, contact status, timeline/calendar/task/reminder, specialist report, telephony. |
+| Product/Sale | Elevated Product manage, agent read; operational Sale snapshot/create/cancel. | Category/form expansion, Inventory/pricing/profit, Order/quotation/Invoice, postal, Payment/finance/PDF. |
+| Reports/audit | Four exact performance metrics, JSON/XLSX parity, scoped read-only audit. | Drill-down, dashboard, SMS/contact/geography/postal/domain/P&L/receivable reports, dynamic builder. |
+| Active UI | 19 maintained Persian RTL templates connected to real APIs for current core. | No maintained after-sales, document/postal, SMS, expanded report, file, import, automation, or integration pages. |
+| Runtime | PostgreSQL/Compose/Nginx/backup-ready repository artifacts and local checks exist. | Native target stack, TLS/browser, real backup/restore, load/scan, UAT/cutover proof. |
+
+### Existing API and template boundary
+
+- Existing API families: auth; users plus change-role; customers plus deactivate; customer phones plus deactivate; leads plus assignees, assignment-history, and reassign; append-only interactions; products plus deactivate; sales plus cancel; user-performance JSON/XLSX; read-only activity logs; live/ready health.
+- Existing templates: shell/error/login/profile; user list/detail; Customer list/detail with phone work; Lead list/detail; Interaction list/detail; Product list/detail; Sale list/detail; performance report; ActivityLog list/detail.
+- Existing role boundary: Sales Agent gets own/assigned operational scope; Sales Manager gets company operational scope but no user admin or audit; Company IT manages non-platform CRM users and scoped audit; Platform Admin has full CRM user/audit scope. Product writes, reassignment, Customer deactivate, and Sale cancel are elevated-only.
+- Common guard: active clean CRM identity, backend queryset/object scope, direct-ID masking, server-owned fields, safe audit, sensitive throttles, and no normal hard delete of business history.
+
+### Original Client-1 requirement state
+
+| Requirement | State | Current gap |
+|---|---|---|
+| C1-REQ-001 sales panel/no seat cap | `BLOCKED_DECISION`; partial core exists | Seat meaning, role/workstream/team, panel acceptance, capacity/load/UAT. |
+| C1-REQ-002 after-sales panel/no seat cap | `BLOCKED_DECISION`; absent | Identity, case schema/workflow, scope, document link, capacity/UAT. |
+| C1-REQ-003 detailed performance/drill-down | `BLOCKED_DECISION`; summary only | Metrics, formulas, drill-down, scope, samples, time/export parity. |
+| C1-REQ-004 inbound SMS day/hour | `BLOCKED_DECISION` plus live `BLOCKED_EXTERNAL`; absent | Provider/security/idempotency/storage/time/report contract. |
+| C1-REQ-005 document count by city/province | `BLOCKED_DECISION`; absent | Counted document, geography snapshot, date/formula/scope. |
+| C1-REQ-006 incoming number by contact status | `BLOCKED_DECISION`; absent | Counted unit, dedupe, status derivation, time/scope. |
+| C1-REQ-007 document count by postal status | `BLOCKED_DECISION`; absent | Document, postal state/history/actor/date/report contract. |
+
+### Current gate and implementation order
+
+1. Close C1-DEC-GOV-001, SEAT-001, TEAM-001, and AFTER-001. The fixed four-role User Management matrix is confirmed; the future Team/after-sales workstream matrix and capacity rule remain open.
+2. Run C1-2 identity/operator separation.
+3. Approve and run C1-3 document/geography/postal base.
+4. Approve and run C1-4 contact-status and detailed performance.
+5. Approve and run C1-5 after-sales.
+6. Approve and run C1-6 SMS core/report; live adapter needs official provider docs.
+7. Build approved normal-priority Lead/Product/collaboration/report/platform additions.
+8. Build `FINAL_WAVE_LOW` Inventory/finance/files/search-import/PDF/dynamic-report/checked integrations.
+9. Run C1-7 unified active UI.
+10. Run C1-8 runtime proof, then C1-9 target UAT/cutover.
+
+Assessment changed only this roadmap and `KARIZ_PROJECT_HANDOFF.md`. No migration, endpoint, UI route/template/style, permission, or architecture changed.
+
+### Sidebar placeholder slice - 2026-08-11
+
+- Status: `DONE`; navigation hierarchy only.
+- Changed template: `common/templates/common/base.html`.
+- Theme, colors, typography, RTL, layout, CSS architecture, JavaScript, UI routes, APIs, authorization, models, and migrations: unchanged.
+- Expandable groups: Store, Call Center, Reports, and role-gated Administration.
+- Real links retained: Profile, Products, Customers, Leads, Interactions, Sales, user-performance report, ActivityLog, and user management under current role guards.
+- Future non-link placeholders: Dashboard, Inventory, Accounting, Categories, Invoices, Finance, Daily Tasks, Delivery, Targets, and Documents.
+- Future group shells with live children: Store, Call Center, and Reports. The group shell itself has no backend landing route.
+- Safety: future leaves use `aria-disabled`; no `href="#"`, fake success, backend call, or dead route was added.
+- Tests: focused auth/sales/commercial shell suite PASS with 37 tests; headless Chrome shell PASS with 2 tests; Django check, migration drift, HTML branding for 220 files, and diff whitespace gate PASS.
+- Remaining backend work: dashboard metrics; inventory/warehouse; accounting/document truth; Product category; provider-backed call-center work; Invoice/order model; detailed/domain reports; finance/ledger; task/calendar/reminders; postal delivery workflow; target formulas; secure file storage. Each remains blocked by its matching C1 decision and phase.
+- Next phase remains C1-1 decision closure for seat/capacity, Team, and after-sales workstream rules, then C1-2 preflight. Placeholder creation does not clear a feature gate.
+
+### Client-1 User Management completion - 2026-08-11
+
+- Status: `DONE` for the requested User Management boundary.
+- Confirmed roles: `sales_agent`, `sales_manager`, `company_it`, and `platform_admin`. This direct instruction supersedes the earlier three-label ambiguity for current User Management.
+- Existing live behavior verified: login, logout, current-profile read/edit, user list/detail, user create/edit/deactivate, dedicated role change, backend role scope, clean CRM identity isolation, last active Platform Admin guard, safe audit, and no user DELETE route.
+- Backend access: Sales Agent and Sales Manager cannot enter user administration; Company IT manages non-platform CRM users and cannot grant or target Platform Admin; Platform Admin manages all clean CRM users. Sales Manager stays denied until a Team contract exists.
+- Added acceptance proof in `accounts/tests/test_accounts.py`: sales-role permission isolation, immediate inactive-session/login rejection, safe deactivation audit, Company IT escalation rejection through general update and role action, and HTTP 405 with preserved row for DELETE.
+- Production code, templates, client script, style, architecture, models, migrations, endpoints, and routes: unchanged because the implementation already met the approved contract.
+- Verification: focused account class 28/28 PASS; accounts plus auth shell/browser 61/61 PASS; full suite 279 run with 273 pass and 6 skip; system check, migration drift, schema validation, static dry-run, JavaScript syntax, branding, and whitespace gates PASS.
+- Remaining account additions not approved by this slice: Team-aware Sales Manager administration, sales/after-sales workstream, session inventory/revoke, avatar, notifications, and user export.
+- Next phase: close seat/capacity, Team, and after-sales workstream decisions, then rerun C1-2 preflight. Do not alter the four fixed role codes.
 
 ---
 
@@ -117,7 +193,7 @@ DONE or FAILED | baseline tests | changed files | blockers | next phase C1-1
 
 # C1-1 — Final requirement reconciliation and approved delivery contract
 
-**Run after receiving the customer's final detailed list and placing it in the repository workspace or otherwise making it available to Codex.**
+**Run after receiving the customer's final detailed list and placing it in the repository workspace or otherwise making it available for repository assessment.**
 
 ```text
 Work directly in the curated Kariz CRM repository.
@@ -255,7 +331,7 @@ Implement the exact approved separation between sales operators and after-sales 
 
 Fail closed:
 - If C1-1 did not approve the identity design, do not invent one. Update KARIZ_PROJECT_HANDOFF.md with BLOCKED_DECISION and stop.
-- Preserve the existing four fixed CRM roles unless C1-1 explicitly approved a change.
+- Preserve the confirmed four fixed CRM roles. This role-count decision is closed for User Management.
 - The preferred additive design is a bounded operator workstream/profile such as sales and after_sales, but implement it only if it is explicitly APPROVED in the handoff/spec.
 - Do not introduce a dynamic permission builder, Django-group-based CRM authorization, JWT, or a hidden support account.
 
@@ -1010,4 +1086,4 @@ RELEASE STATUS | verified capabilities | blocked capabilities | UAT result | rol
 
 ## Immediate instruction
 
-Run **C1-0 only** now. After the final customer list arrives, run **C1-1** before any schema-changing phase.
+Run **C1-1 decision closure only** now for C1-DEC-GOV-001, SEAT-001, TEAM-001, and AFTER-001. The four fixed User Management roles are confirmed. Then rerun the C1-2 preflight. Do not create workstream/schema feature code before that gate is green.

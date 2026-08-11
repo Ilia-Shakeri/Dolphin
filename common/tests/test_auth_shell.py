@@ -94,6 +94,81 @@ class AuthShellBrowserTests(TestCase):
         self.assertNotIn("roles/list.html", content)
         self.assertNotIn("ثبت نام", content)
 
+    def test_sidebar_has_reference_hierarchy_and_safe_future_placeholders(self):
+        self.client.force_login(self.platform)
+
+        content = self.client.get("/").content.decode("utf-8")
+
+        module_labels = {
+            "dashboard": "داشبورد",
+            "profile": "پروفایل",
+            "store": "فروشگاه",
+            "inventory": "انبار",
+            "accounting": "حسابداری",
+            "products": "محصولات",
+            "categories": "دسته‌بندی‌ها",
+            "call-center": "مرکز تماس",
+            "customers": "مشتریان",
+            "invoices": "فاکتورها",
+            "reports": "گزارش‌ها",
+            "finance": "امور مالی",
+            "daily-tasks": "کارهای روزانه",
+            "delivery": "ارسال و تحویل",
+            "targets": "اهداف",
+            "documents": "اسناد",
+        }
+        for module, label in module_labels.items():
+            with self.subTest(module=module):
+                self.assertIn(f'data-module="{module}"', content)
+                self.assertIn(label, content)
+
+        for group in ("store", "call-center", "reports", "administration"):
+            self.assertIn(f'data-nav-group="{group}"', content)
+
+        for module in (
+            "dashboard",
+            "store",
+            "inventory",
+            "accounting",
+            "categories",
+            "call-center",
+            "invoices",
+            "reports",
+            "finance",
+            "daily-tasks",
+            "delivery",
+            "targets",
+            "documents",
+        ):
+            self.assertIn(f'data-future-module="{module}"', content)
+
+        self.assertIn('data-module="profile" href="/"', content)
+        self.assertIn('data-module="products" href="/products/"', content)
+        self.assertIn('data-module="customers" href="/customers/"', content)
+        self.assertNotIn('href="#"', content)
+        self.assertNotRegex(content, r"<a[^>]+data-future-module=")
+
+        ordered_modules = (
+            "dashboard",
+            "profile",
+            "store",
+            "inventory",
+            "accounting",
+            "products",
+            "categories",
+            "call-center",
+            "customers",
+            "invoices",
+            "reports",
+            "finance",
+            "daily-tasks",
+            "delivery",
+            "targets",
+            "documents",
+        )
+        positions = [content.index(f'data-module="{module}"') for module in ordered_modules]
+        self.assertEqual(positions, sorted(positions))
+
     def test_mobile_shell_has_accessible_navigation_control(self):
         self.client.force_login(self.platform)
 

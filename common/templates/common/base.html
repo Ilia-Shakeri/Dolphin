@@ -16,16 +16,54 @@
 <div class="app-shell">
     <aside class="sidebar" id="app-sidebar" aria-label="راهبری اصلی">
         <a class="brand" href="{% url 'common_ui:home' %}">Kariz CRM <span>کاریز</span></a>
-        <nav class="nav-list">
-            <a href="{% url 'common_ui:home' %}">خانه و پروفایل</a>
-            <a href="{% url 'common_ui:customers' %}">مشتریان</a>
-            <a href="{% url 'common_ui:leads' %}">سرنخ‌ها</a>
-            <a href="{% url 'common_ui:interactions' %}">تماس‌ها</a>
-            <a href="{% url 'common_ui:products' %}">محصولات</a>
+        <nav class="nav-list" aria-label="فهرست بخش‌های کاریز">
+            <span data-module="dashboard" data-future-module="dashboard" aria-disabled="true">داشبورد <small>به‌زودی</small></span>
+            <a data-module="profile" href="{% url 'common_ui:home' %}">پروفایل</a>
+
+            <details data-module="store" data-nav-group="store" data-future-module="store">
+                <summary>فروشگاه</summary>
+                <div class="nav-list">
+                    <span data-module="inventory" data-future-module="inventory" aria-disabled="true">انبار <small>به‌زودی</small></span>
+                    <span data-module="accounting" data-future-module="accounting" aria-disabled="true">حسابداری <small>به‌زودی</small></span>
+                    <a data-module="products" href="{% url 'common_ui:products' %}">محصولات</a>
+                    <span data-module="categories" data-future-module="categories" aria-disabled="true">دسته‌بندی‌ها <small>به‌زودی</small></span>
+                </div>
+            </details>
+
+            <details data-module="call-center" data-nav-group="call-center" data-future-module="call-center" open>
+                <summary>مرکز تماس</summary>
+                <div class="nav-list">
+                    <a data-module="customers" href="{% url 'common_ui:customers' %}">مشتریان</a>
+                    <a href="{% url 'common_ui:leads' %}">سرنخ‌ها</a>
+                    <a href="{% url 'common_ui:interactions' %}">تماس‌ها</a>
+                </div>
+            </details>
+
             <a href="{% url 'common_ui:sales' %}">فروش‌ها</a>
-            <a href="{% url 'common_ui:user-performance' %}">گزارش عملکرد</a>
-            {% if can_view_audit %}<a href="{% url 'common_ui:activity-logs' %}">رویدادهای سامانه</a>{% endif %}
-            {% if can_manage_users %}<a href="{% url 'common_ui:users' %}">مدیریت کاربران</a>{% endif %}
+            <span data-module="invoices" data-future-module="invoices" aria-disabled="true">فاکتورها <small>به‌زودی</small></span>
+
+            <details data-module="reports" data-nav-group="reports" data-future-module="reports" open>
+                <summary>گزارش‌ها</summary>
+                <div class="nav-list">
+                    <a href="{% url 'common_ui:user-performance' %}">گزارش عملکرد کاربران</a>
+                </div>
+            </details>
+
+            <span data-module="finance" data-future-module="finance" aria-disabled="true">امور مالی <small>به‌زودی</small></span>
+            <span data-module="daily-tasks" data-future-module="daily-tasks" aria-disabled="true">کارهای روزانه <small>به‌زودی</small></span>
+            <span data-module="delivery" data-future-module="delivery" aria-disabled="true">ارسال و تحویل <small>به‌زودی</small></span>
+            <span data-module="targets" data-future-module="targets" aria-disabled="true">اهداف <small>به‌زودی</small></span>
+            <span data-module="documents" data-future-module="documents" aria-disabled="true">اسناد <small>به‌زودی</small></span>
+
+            {% if can_view_audit or can_manage_users %}
+            <details data-nav-group="administration">
+                <summary>مدیریت سامانه</summary>
+                <div class="nav-list">
+                    {% if can_view_audit %}<a href="{% url 'common_ui:activity-logs' %}">رویدادهای سامانه</a>{% endif %}
+                    {% if can_manage_users %}<a href="{% url 'common_ui:users' %}">مدیریت کاربران</a>{% endif %}
+                </div>
+            </details>
+            {% endif %}
         </nav>
         <form id="logout-form" action="/api/v1/auth/logout/" method="post">
             {% csrf_token %}
