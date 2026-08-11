@@ -47,9 +47,9 @@ Kariz CRM is an internal sales and customer-operations CRM for companies that re
 
 `AfterSalesRequest` may be implemented only when explicitly selected for the delivery scope. It requires a Customer and may optionally reference a Sale and a future Invoice.
 
-### 2.4 Blocked modules
+### 2.4 Blocked implementation modules
 
-Do not implement or claim completion for the following until a newer explicit decision defines source, creator, workflow, statuses, permissions, and acceptance criteria:
+Do not implement or claim completion for the following until a newer explicit decision defines source, creator, workflow, statuses, permissions, and acceptance criteria. Section 2.6 confirms that several families now belong to the Client-1 end target; target inclusion does not clear these implementation blocks:
 
 - Full Invoice and InvoiceItem module.
 - Invoice count/amount by city or province.
@@ -61,12 +61,43 @@ Do not implement or claim completion for the following until a newer explicit de
 
 ### 2.5 Out of scope by default
 
-- Dynamic report builder.
 - Public multi-tenant SaaS.
 - Microservices, Kubernetes, Redis/Celery, or complex cloud infrastructure without a concrete requirement.
 - A company-facing dynamic role/permission designer.
 - Implementation of all template demos/plugins/pages.
 - 24/7 support or unlimited free maintenance.
+
+Dynamic report building and dynamic role/permission design are no longer silently out of the Client-1 end target: section 2.6 records their inclusion. Both remain blocked until bounded security, authorization, data-source, workflow, and acceptance contracts exist. The fixed-role contradiction in section 4 must be resolved before any dynamic permission work.
+
+### 2.6 Client-1 expanded target scope
+
+**CONFIRMED target inclusion, not implementation semantics:** the final Persian Client-1 list states that every named capability family must exist in the end target. Existing repository behavior remains authoritative only where it already conforms to this specification. Template-only pages remain non-operational evidence.
+
+Included target additions are:
+
+- session inventory/revocation, avatar, user notifications, and user export;
+- Customer classification, postal code, document relationship, export, bounded bulk operations, and aggregate profile/history;
+- final Lead workflow plus priority, archive, conversion, Opportunity, and Pipeline;
+- activity timeline, meetings, calendar, tasks/projects, reminders, manual specialist call reporting, and later provider-backed communication features;
+- Product classification/expanded forms plus the inventory/pricing/profit family;
+- Order, internal sales document, quotation, accounting Invoice, postal workflow, Payment, cheque, installment, customer account, and related reports;
+- detailed performance/drill-down, visual dashboard, domain reports, profit/loss, receivables, operational PDF, and a bounded dynamic report builder;
+- operational file/document management;
+- global search, saved filters, and bulk XLSX import;
+- workflow/automation, external website/store/gateway/accounting integrations, installable web application behavior, and abnormal-activity detection;
+- real target PostgreSQL/Compose/Nginx/TLS/browser/backup/restore/load/scan/UAT proof.
+
+The customer's explicitly marked later/low-importance additions are required but assigned to the final implementation wave:
+
+- inventory, stock, purchase cost, multi-price, discount, profit, and inventory reporting;
+- full quotation/accounting Invoice, Payment, cheque, installment, customer account, profit/loss, receivables, operational PDF, and dynamic report builder;
+- operational file/document management;
+- global search, saved filters, and bulk XLSX import;
+- checked website/store/gateway/accounting integrations.
+
+`FINAL_WAVE_LOW` means required and last in implementation order, not optional or delivered. Real backup scheduling/destination and recovery proof remain mandatory release gates and cannot be downgraded to optional feature work.
+
+All new entities, statuses, transitions, formulas, role/workstream rules, report units, provider adapters, integration directions, storage policies, migrations, routes, and acceptance criteria remain **UNRESOLVED/BLOCKED** until the exact decisions recorded in `KARIZ_PROJECT_HANDOFF.md` are approved. No model, endpoint, UI route, or authorization change is authorized by target inclusion alone.
 
 ---
 
@@ -117,6 +148,8 @@ platform_admin
 ```
 
 Legacy display levels 1–4 may remain only as display/backward-compatibility data. Permission checks use explicit role codes.
+
+The final Client-1 source also names three Persian roles (Sales Expert, Sales Manager, System Manager) while another line in the same source says four fixed roles. Mapping System Manager to `company_it`, `platform_admin`, or a customer-facing role while retaining a separate platform trust root is **UNRESOLVED**. Until an explicit privilege-custody, bootstrap/recovery, audit-visibility, migration, and last-admin decision exists, the four current codes and current authorization behavior remain unchanged.
 
 ### 4.1 Access matrix
 
@@ -568,6 +601,7 @@ Exact final Lead statuses, Interaction outcomes, decimal/rounding behavior, and 
 - Reports are visible inside Kariz CRM.
 - The same approved filtered result can be exported to XLSX.
 - V1 uses predefined reports, not a dynamic report builder.
+- Client-1 includes a bounded dynamic report builder in `FINAL_WAVE_LOW`, but its allowlisted sources/fields/joins/aggregates, ownership/sharing, authorization, query/export limits, audit, and acceptance rules remain **BLOCKED**. It does not alter the current predefined-report contract.
 - Authorization scope applies identically to JSON and XLSX.
 
 ### 10.2 Unambiguous metrics that may proceed when stronger rules are absent
@@ -737,6 +771,19 @@ Keep these explicit and do not silently convert them into confirmed rules:
 13. Backup destination and retention.
 14. External website data direction, credentials, and network path.
 15. Production hostname/certificate/TLS path.
+16. Client-1 role count/mapping: requested three Persian labels versus four current security codes, including platform privilege custody and migration.
+17. No-seat-cap meaning, total accounts, peak concurrency, capacity target, and load abort rule.
+18. Customer category/postal/address/history/export/bulk/360 contracts.
+19. Lead conversion/priority/archive/Opportunity/Pipeline contracts.
+20. Calendar/task/project/reminder/notification/manual specialist-call contracts.
+21. Product category, Inventory/stock/cost/multi-price/discount/profit contracts.
+22. Order/internal document/quotation/accounting Invoice/Payment/ledger/cheque/installment/customer-account contracts.
+23. Detailed/domain/P&L/receivable/PDF/dynamic-report formulas, sources, visibility, and examples.
+24. File storage/scanner/version/retention/download/backup policy.
+25. Global search/saved-filter/XLSX-import contracts.
+26. Automation/dynamic-permission/PWA/anomaly-detection contracts.
+27. Per external website/store/gateway/accounting/email/SMS/telephony integration direction, official documentation, security, idempotency, reconciliation, and owner.
+28. One all-capability release versus approved staged delivery, plus ordering among unmarked additions; explicitly low-priority additions remain last.
 
 Unresolved decisions block only the affected behavior. Continue all independent implementation and release-readiness work.
 
