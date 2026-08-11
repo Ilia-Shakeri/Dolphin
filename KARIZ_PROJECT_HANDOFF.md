@@ -1843,3 +1843,76 @@ Known deliberate fail-closed gaps: Sales Manager user administration is denied b
 - Next recommended phase: close C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001 before broad C1-2; close document/geography/postal-report rules before C1-3.
 - Repository start commit: `44ff2b0351df2b08faa3bda92bb5b3d91ca720cc`.
 - Commit: none created.
+
+## 26. Active terminology correction - 2026-08-11
+
+### Result and evidence
+
+- Active first-party UI labels changed without renaming models, fields, routes, API paths, template IDs, or JavaScript identifiers.
+- User-visible Contact wording maps to `مشتری` / `مشتریان`; Customer-domain wording maps to `بازاریاب (کال سنتر)` / `بازاریابان (کال سنتر)`.
+- Changed active shell, Customer/Lead/Interaction/Sale/report templates, `common/ui_views.py`, `common/static/common/kariz-app.js`, future maintained-page mapping, synthetic data, and matching tests.
+- Generic metadata `سامانه مدیریت ارتباط با مشتری کاریز` remains because it names the CRM product class, not the Customer entity.
+- Root `index.html` remains a read-only demo/reference. Its historical labels are outside the active Django UI.
+- `python manage.py test --settings=config.test_settings -v 1` -> PASS; 283 run, 277 pass, 6 skip, 0 failure, 0 error.
+- `python manage.py test common.tests.test_auth_shell_browser common.tests.test_sales_shell_browser --settings=config.test_settings -v 1` -> PASS; 4/4.
+- Score 1: `8/10`; old browser readiness waits were intermittent. Fix: isolate cache/cookies/logs and wait for actual loaded profile values/page actions. Score 2: `9/10`.
+
+## 27. Client-1 Lead Management decision gate - 2026-08-11
+
+This section was created before any Lead Management expansion code. `BACKEND_SPEC.md` sections 5.3 and 15 identify every requested expansion contract as unresolved. Existing Lead behavior remains unchanged.
+
+### Current approved carry-forward
+
+- Keep scoped Lead create/list/retrieve/permitted edit, manual reassignment, append-only assignment history, current Customer/Product relations, follow-up fields, backend-owned status, direct-ID masking, safe reassignment audit, and no ordinary hard delete.
+- Keep current role scope: Sales Agent sees assigned Leads plus own unassigned Leads and may edit only assigned Leads; Sales Manager, Company IT, and Platform Admin keep company-wide operational scope.
+- Keep `status` server-owned and opaque. The database permits blank or historical text values; the API may filter exact values but cannot set or transition them.
+
+### Decision: lead statuses
+
+- State: `UNRESOLVED`.
+- `new`, `assigned`, `contacted`, `no_answer`, `follow_up`, `not_interested`, `invalid_number`, `won`, and `lost` are provisional candidates only.
+- Required approval: final codes and Persian labels; initial/terminal states; archive/conversion state versus separate event; blank/unknown history handling; `closed_at`; filters; migration mapping/refusal.
+- No enum, constraint, default, rewrite, or transition endpoint may be added until approved.
+
+### Decision: allowed transitions
+
+- State: `UNRESOLVED`.
+- Required approval: complete from-to matrix; actor roles and owner rule; required reason/evidence; reopen; concurrency/idempotency; timestamps; stage sync; audit.
+- Current manual reassignment is the only approved Lead transition service. It does not change status.
+
+### Decision: conversion rules
+
+- State: `UNRESOLVED`.
+- Required approval: trigger and roles; whether conversion creates Opportunity, Sale, both, or only changes state; cardinality; Customer/Product ownership; required fields; repeat/idempotency; atomic rollback; timestamps; undo; archive interaction; audit and visibility.
+- Existing `mark_sale` must not be reinterpreted as conversion without approval.
+
+### Decision: priority and archive
+
+- Priority state: `UNRESOLVED`. Required: codes/scale, labels, default/null, change roles, ordering/tie-break, SLA/report meaning, audit, legacy migration.
+- Archive state: `UNRESOLVED`. Required: flag/event versus status, archive/reopen roles and reason, list visibility, allowed later work, timestamps/history, retention/export.
+- No priority/archive field, action, filter, sort, or control is approved.
+
+### Decision: Opportunity and Pipeline
+
+- State: `UNRESOLVED`.
+- Opportunity needs approved purpose, Lead/Customer/Product cardinality, owner/team, fields, lifecycle, Sale/Lead win-loss relation, duplicates, archive, scope, and audit.
+- Pipeline needs approved fixed/configurable model, stage codes/labels/order, transitions, entry/terminal stages, required data, forecast meaning, ownership, history, concurrency, API/UI/report contract.
+- No Opportunity/Pipeline/Stage model, migration, endpoint, permission, template, or metric is approved.
+
+### Result, blockers, and next action
+
+- Requested expansion: `BLOCKED_DECISION`. Lead application code, migration, endpoint, template/style, permission, and architecture changed: none.
+- Inspected: `BACKEND_SPEC.md`; Lead sections in handoff/roadmap; `sales/models.py`, `services.py`, `selectors.py`, `serializers.py`, `views.py`, `urls.py`; bounded workflow/scope tests; maintained Lead templates and active references.
+- [lead statuses]: Final list and historical mapping absent. State machine cannot be built safely.
+- [lead transitions]: From-to matrix and role rules absent. Authorization cannot be built safely.
+- [conversion]: Target, cardinality, trigger, repeat rule, and rollback absent. Workflow cannot be built safely.
+- [priority]: Values, default, owner, and ordering absent. Field meaning cannot be built safely.
+- [archive]: Storage, reopen, visibility, and allowed work absent. Archive cannot be built safely.
+- [opportunity pipeline]: Entity fields, owners, stages, transition rules, and Sale link absent. Schema cannot be built safely.
+- Verification: full suite PASS 283 with 6 skips; system check PASS; migration drift PASS; API schema validation PASS with no warning; static dry-run, JavaScript syntax, HTML branding, and diff whitespace checks PASS.
+- Self-correction score 1: `8/10`.
+- [handoff order]: First insertion matched an older checkpoint and placed sections 26/27 before section 21. Chronology became wrong.
+- Fix: moved both sections after section 25 and rechecked heading order.
+- Self-correction score 2: `9/10`. Decision boundary, carry-forward behavior, blockers, exact approval inputs, roadmap state, and proof are consistent without invented code.
+- Next phase after owner approval: data preflight/additive migration; models/constraints; transactional services/audit; selectors/permissions; serializers/actions/schema; Persian RTL UI; API/browser/concurrency/regression tests.
+- Commit: none created.

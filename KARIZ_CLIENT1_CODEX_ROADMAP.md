@@ -1102,3 +1102,13 @@ RELEASE STATUS | verified capabilities | blocked capabilities | UAT result | rol
 ## Immediate instruction
 
 Run **C1-1 decision closure only** now for C1-DEC-GOV-001, SEAT-001, TEAM-001, and AFTER-001. The four fixed User Management roles are confirmed. Then rerun the C1-2 preflight. Do not create workstream/schema feature code before that gate is green.
+
+## Lead Management decision checkpoint - 2026-08-11
+
+- Requested scope: priority, archive, conversion workflow, Opportunity, and Pipeline stages while preserving existing Lead behavior.
+- Gate result: `BLOCKED_DECISION`; no expansion code, migration, endpoint, permission, UI, or architecture change was made.
+- Authority evidence: `BACKEND_SPEC.md` marks the final Lead status list and the full conversion/priority/archive/Opportunity/Pipeline contracts unresolved. Provisional status candidates are not approved values.
+- The required pre-code decision section is recorded in `KARIZ_PROJECT_HANDOFF.md` section 27. It separates final status approval, allowed transition matrix, conversion rules, priority semantics, archive behavior, Opportunity schema, and Pipeline/stage lifecycle.
+- Existing approved Lead CRUD/scope, manual reassignment/history, backend-owned opaque status, and no-hard-delete behavior stay unchanged.
+- Exact unblock input: named sales-process owner; final codes/labels and transition matrix; role/owner rules; conversion target/cardinality/idempotency/rollback; priority scale/default/order; archive/reopen/visibility rules; Opportunity fields/relations; Pipeline/stage order/history/forecast rules; legacy-value mapping; acceptance examples.
+- Next implementation order after approval: data preflight and additive migration; models/constraints; transactional services/audit; selectors/permissions; serializers/actions/schema; maintained Persian RTL UI; API/browser/concurrency/regression proof.
