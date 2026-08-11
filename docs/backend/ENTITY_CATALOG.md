@@ -8,7 +8,7 @@ Authenticated CRM account. Extends Django's abstract user with nullable phone, f
 
 ## Customer
 
-Stable contact identity. Fields: full name, optional national ID/email/province/city/address, notes, creator, active flag, timestamps. Address is capped at 2,000 characters and notes at 4,000 in API validation, services, and the PostgreSQL column type. Creator is server-controlled and indexed. National ID is indexed but not unique because policy is absent. Normal flow deactivates. Customer deletion is not exposed. Deactivation is audited.
+Stable contact identity. Fields: full name, optional national ID/email/province/city/postal code/category/address, notes, creator, active flag, timestamps. Postal code is an opaque text value capped at 32 characters because no country-specific format is approved. Category is a plain text label capped at 100 characters because no category entity, hierarchy, fixed choices, or lifecycle is approved. Address is capped at 2,000 characters and notes at 4,000 in API validation, services, and the PostgreSQL column type. Creator is server-controlled and indexed. National ID is indexed but not unique because policy is absent. Normal flow deactivates. Customer deletion is not exposed. Deactivation is audited. The Customer API includes a read-only active primary-phone projection; related Lead, Interaction, and Sale reads reuse their existing actor scopes.
 
 ## CustomerPhone
 

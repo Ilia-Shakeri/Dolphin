@@ -5,9 +5,11 @@ from decimal import Decimal
 from pathlib import Path
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.utils import timezone
 
 from accounts.models import User
-from sales.services import create_customer_with_phone, create_lead
+from sales.models import Customer
+from sales.services import create_customer_with_phone, create_lead, mark_sale
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
@@ -95,11 +97,15 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "open-create-customer").click()
         self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مرورگر")
         self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121110000")
+        self.browser.find_element(By.ID, "create-customer-postal-code").send_keys("کد ۱۲۳")
+        self.browser.find_element(By.ID, "create-customer-category").send_keys("ویژه")
         self.browser.find_element(By.CSS_SELECTOR, "#create-customer-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
         customer_url = self.browser.current_url
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "مشتری مرورگر")
+        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-postal-code").get_attribute("value"), "کد ۱۲۳")
+        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-category").get_attribute("value"), "ویژه")
 
         self.browser.find_element(By.ID, "open-create-phone").click()
         self.browser.find_element(By.ID, "phone-raw").send_keys("۰۹۱۲۹۹۹۰۰۰۰")
@@ -136,8 +142,19 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "interaction-agent").get_attribute("value"), self.platform.username)
         self.assertEqual(self.browser.find_element(By.ID, "interaction-outcome").get_attribute("value"), "پاسخ دستی")
 
+        customer = Customer.objects.get(full_name="مشتری مرورگر")
+        mark_sale(
+            actor=self.platform,
+            lead=customer.leads.get(),
+            total_amount=Decimal("25.00"),
+            sold_at=timezone.now(),
+        )
+
         self.browser.get(customer_url)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-leads-table-body"), "ثبت دستی مرورگر"))
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-interactions-table-body"), "پاسخ دستی"))
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-sales-table-body"), "25.00"))
         self.browser.find_element(By.ID, "deactivate-customer").click()
         self.wait.until(expected_conditions.alert_is_present()).accept()
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "customer-active"), "غیرفعال"))

@@ -9,7 +9,7 @@
 <section class="card">
     <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="toolbar">
         <label class="sr-only" for="customer-search">جستجوی مشتری</label>
-        <input id="customer-search" name="search" type="search" placeholder="نام، کد ملی، ایمیل یا تلفن">
+        <input id="customer-search" name="search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی یا نشانی">
         <label class="sr-only" for="customer-ordering">مرتب‌سازی</label>
         <select id="customer-ordering" name="ordering">
             <option value="-created_at">جدیدترین</option>
@@ -22,7 +22,7 @@
     <div id="customers-loading" class="state">در حال دریافت مشتریان…</div>
     <div id="customers-empty" class="state" hidden>مشتری پیدا نشد.</div>
     <div class="table-wrap" id="customers-table-wrap" hidden>
-        <table><thead><tr><th>نام</th><th>شهر</th><th>وضعیت</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody id="customers-table-body"></tbody></table>
+        <table><thead><tr><th>نام</th><th>تلفن اصلی</th><th>دسته‌بندی</th><th>کد پستی</th><th>شهر</th><th>وضعیت</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody id="customers-table-body"></tbody></table>
     </div>
     <nav id="customers-pagination" class="pagination" aria-label="صفحه‌بندی" hidden>
         <button id="customers-prev" class="button button-muted" type="button">قبلی</button><span id="customers-page-label"></span><button id="customers-next" class="button button-muted" type="button">بعدی</button>
@@ -38,6 +38,8 @@
             <div><label for="create-customer-email">ایمیل</label><input id="create-customer-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
             <div><label for="create-customer-province">استان</label><input id="create-customer-province" name="province" maxlength="100"><p class="field-error" data-error-for="province"></p></div>
             <div><label for="create-customer-city">شهر</label><input id="create-customer-city" name="city" maxlength="100"><p class="field-error" data-error-for="city"></p></div>
+            <div><label for="create-customer-postal-code">کد پستی</label><input id="create-customer-postal-code" name="postal_code" maxlength="32"><p class="field-error" data-error-for="postal_code"></p></div>
+            <div><label for="create-customer-category">دسته‌بندی</label><input id="create-customer-category" name="category" maxlength="100"><p class="field-error" data-error-for="category"></p></div>
             <div><label for="create-customer-phone">تلفن آغازین</label><input id="create-customer-phone" name="phone_raw" type="tel" maxlength="40" placeholder="09121234567"><p class="field-error" data-error-for="phone"></p></div>
             <div><label for="create-customer-phone-label">برچسب تلفن</label><input id="create-customer-phone-label" name="phone_label" maxlength="40" placeholder="همراه"></div>
             <div class="checkbox-field"><input id="create-customer-phone-primary" name="phone_primary" type="checkbox" checked><label for="create-customer-phone-primary">شماره اصلی</label></div>

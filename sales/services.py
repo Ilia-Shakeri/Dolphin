@@ -10,6 +10,8 @@ from common.exceptions import BusinessConflictError, BusinessPermissionDenied, B
 from common.phones import normalize_customer_phone
 from sales.models import (
     CUSTOMER_ADDRESS_MAX_LENGTH,
+    CUSTOMER_CATEGORY_MAX_LENGTH,
+    CUSTOMER_POSTAL_CODE_MAX_LENGTH,
     FREE_TEXT_MAX_LENGTH,
     INTERACTION_OUTCOME_MAX_LENGTH,
     Customer,
@@ -27,13 +29,28 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 VALID_ROLES = {value for value, _ in User.Role.choices}
 OPERATIONAL_WRITERS = {User.Role.SALES_AGENT, *ELEVATED_OPERATORS}
 MAX_MONEY = Decimal("9999999999999999.99")
-CUSTOMER_MUTABLE_FIELDS = {"full_name", "national_id", "email", "province", "city", "address", "notes"}
+CUSTOMER_MUTABLE_FIELDS = {
+    "full_name",
+    "national_id",
+    "email",
+    "province",
+    "city",
+    "postal_code",
+    "category",
+    "address",
+    "notes",
+}
 LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes"}
 PHONE_MUTABLE_FIELDS = {"raw_phone", "label", "is_primary", "is_active"}
 PRODUCT_MUTABLE_FIELDS = {"sku", "name", "current_price", "description"}
 INTERACTION_CREATE_FIELDS = {"phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes"}
 SALE_CREATE_FIELDS = {"sold_at", "notes"}
-CUSTOMER_TEXT_LIMITS = {"address": CUSTOMER_ADDRESS_MAX_LENGTH, "notes": FREE_TEXT_MAX_LENGTH}
+CUSTOMER_TEXT_LIMITS = {
+    "postal_code": CUSTOMER_POSTAL_CODE_MAX_LENGTH,
+    "category": CUSTOMER_CATEGORY_MAX_LENGTH,
+    "address": CUSTOMER_ADDRESS_MAX_LENGTH,
+    "notes": FREE_TEXT_MAX_LENGTH,
+}
 LEAD_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
 PRODUCT_TEXT_LIMITS = {"description": FREE_TEXT_MAX_LENGTH}
 INTERACTION_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}

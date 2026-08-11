@@ -27,8 +27,23 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     queryset = Customer.objects.none()
     serializer_class = CustomerSerializer
     sensitive_actions = frozenset({"deactivate"})
-    search_fields = ["full_name", "national_id", "email", "phones__normalized_phone"]
+    search_fields = [
+        "full_name",
+        "national_id",
+        "email",
+        "province",
+        "city",
+        "postal_code",
+        "category",
+        "address",
+        "phones__normalized_phone",
+    ]
     ordering_fields = ["full_name", "created_at", "updated_at"]
+    action_query_parameters = {
+        "leads": {"page"},
+        "interactions": {"page"},
+        "sales": {"page"},
+    }
 
     def get_queryset(self):
         return customers_for(self.request.user).select_related("created_by").prefetch_related("phones")
@@ -46,6 +61,48 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     def deactivate(self, request, pk=None):
         customer = deactivate_customer(actor=request.user, customer=self.get_object())
         return Response(self.get_serializer(customer).data)
+
+    @extend_schema(
+        parameters=[OpenApiParameter("page", int, description="Related Lead result page.")],
+        responses={200: LeadSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
+    )
+    @action(detail=True, methods=["get"])
+    def leads(self, request, pk=None):
+        customer = self.get_object()
+        queryset = leads_for(request.user).filter(customer=customer).select_related(
+            "customer", "assigned_to", "assigned_by", "interested_product"
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = LeadSerializer(page, many=True, context=self.get_serializer_context())
+        return self.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        parameters=[OpenApiParameter("page", int, description="Related Interaction result page.")],
+        responses={200: InteractionSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
+    )
+    @action(detail=True, methods=["get"])
+    def interactions(self, request, pk=None):
+        customer = self.get_object()
+        queryset = interactions_for(request.user).filter(customer=customer).select_related(
+            "lead", "customer", "agent"
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = InteractionSerializer(page, many=True, context=self.get_serializer_context())
+        return self.get_paginated_response(serializer.data)
+
+    @extend_schema(
+        parameters=[OpenApiParameter("page", int, description="Related Sale result page.")],
+        responses={200: SaleSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
+    )
+    @action(detail=True, methods=["get"])
+    def sales(self, request, pk=None):
+        customer = self.get_object()
+        queryset = sales_for(request.user).filter(customer=customer).select_related(
+            "lead", "customer", "sold_by", "product"
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = SaleSerializer(page, many=True, context=self.get_serializer_context())
+        return self.get_paginated_response(serializer.data)
 
 
 class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):

@@ -14,6 +14,8 @@
             <div><label for="edit-customer-email">ایمیل</label><input id="edit-customer-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
             <div><label for="edit-customer-province">استان</label><input id="edit-customer-province" name="province" maxlength="100"><p class="field-error" data-error-for="province"></p></div>
             <div><label for="edit-customer-city">شهر</label><input id="edit-customer-city" name="city" maxlength="100"><p class="field-error" data-error-for="city"></p></div>
+            <div><label for="edit-customer-postal-code">کد پستی</label><input id="edit-customer-postal-code" name="postal_code" maxlength="32"><p class="field-error" data-error-for="postal_code"></p></div>
+            <div><label for="edit-customer-category">دسته‌بندی</label><input id="edit-customer-category" name="category" maxlength="100"><p class="field-error" data-error-for="category"></p></div>
             <div><label for="customer-created-by">شناسه ثبت‌کننده</label><input id="customer-created-by" type="text" disabled></div>
             <div><label for="customer-active">وضعیت</label><input id="customer-active" type="text" disabled></div>
             <div class="full-field"><label for="edit-customer-address">نشانی</label><textarea id="edit-customer-address" name="address" maxlength="2000"></textarea><p class="field-error" data-error-for="address"></p></div>
@@ -25,6 +27,24 @@
         <div class="section-head"><h2>تلفن‌ها</h2><button id="open-create-phone" class="button" type="button">تلفن جدید</button></div>
         <div id="phones-loading" class="state">در حال دریافت تلفن‌ها…</div><div id="phones-empty" class="state" hidden>تلفنی ثبت نشده است.</div>
         <div id="phones-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره</th><th>نرمال‌شده</th><th>برچسب</th><th>اصلی</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="phones-table-body"></tbody></table></div>
+    </section>
+    <section class="card">
+        <div class="section-head"><h2>سرنخ‌های مرتبط</h2></div>
+        <div id="customer-leads-loading" class="state">در حال دریافت سرنخ‌ها…</div><div id="customer-leads-empty" class="state" hidden>سرنخی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-leads-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>منبع</th><th>کمپین</th><th>وضعیت</th><th>مسئول</th><th>عملیات</th></tr></thead><tbody id="customer-leads-table-body"></tbody></table></div>
+        <nav id="customer-leads-pagination" class="pagination" aria-label="صفحه‌بندی سرنخ‌های مرتبط" hidden><button id="customer-leads-prev" class="button button-muted" type="button">قبلی</button><span id="customer-leads-page-label"></span><button id="customer-leads-next" class="button button-muted" type="button">بعدی</button></nav>
+    </section>
+    <section class="card">
+        <div class="section-head"><h2>تماس‌های مرتبط</h2></div>
+        <div id="customer-interactions-loading" class="state">در حال دریافت تماس‌ها…</div><div id="customer-interactions-empty" class="state" hidden>تماسی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-interactions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="customer-interactions-table-body"></tbody></table></div>
+        <nav id="customer-interactions-pagination" class="pagination" aria-label="صفحه‌بندی تماس‌های مرتبط" hidden><button id="customer-interactions-prev" class="button button-muted" type="button">قبلی</button><span id="customer-interactions-page-label"></span><button id="customer-interactions-next" class="button button-muted" type="button">بعدی</button></nav>
+    </section>
+    <section class="card">
+        <div class="section-head"><h2>فروش‌های مرتبط</h2></div>
+        <div id="customer-sales-loading" class="state">در حال دریافت فروش‌ها…</div><div id="customer-sales-empty" class="state" hidden>فروشی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-sales-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>فروشنده</th><th>عملیات</th></tr></thead><tbody id="customer-sales-table-body"></tbody></table></div>
+        <nav id="customer-sales-pagination" class="pagination" aria-label="صفحه‌بندی فروش‌های مرتبط" hidden><button id="customer-sales-prev" class="button button-muted" type="button">قبلی</button><span id="customer-sales-page-label"></span><button id="customer-sales-next" class="button button-muted" type="button">بعدی</button></nav>
     </section>
     {% if can_deactivate_customers %}<section class="card danger-zone"><h2>غیرفعال‌سازی</h2><p>سابقه مشتری نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="button button-danger" type="button">غیرفعال کردن مشتری</button></section>{% endif %}
 </section>

@@ -1752,3 +1752,94 @@ Known deliberate fail-closed gaps: Sales Manager user administration is denied b
 - Next recommended phase: close C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001, then rerun C1-2 preflight while preserving the four fixed role codes.
 - Current Git commit at verification start: `31329cfbf74fef8ab17645a14f9ad8d297b2a26e`.
 - Commit: none created.
+
+## 25. Client-1 Customer Management completion - 2026-08-11
+
+### Result and safe contract
+
+- Requested Customer Management boundary: `DONE`.
+- Existing `full_name` remains the name field to preserve existing clients. Added blank-safe `postal_code` and `category` fields without making old payloads invalid.
+- `postal_code` is bounded opaque text up to 32 characters. No country-specific format, normalization, or reporting meaning was invented.
+- `category` is a bounded plain-text label up to 100 characters. No category entity, hierarchy, fixed choices, ownership, or lifecycle was invented.
+- Customer responses add a read-only active `primary_phone` projection. Existing nested initial phone create and full CustomerPhone endpoints remain unchanged.
+- Existing CustomerPhone label, Iranian normalization, global active normalized-number uniqueness, one active primary phone per Customer, ownership guard, and inactive-state history remain unchanged.
+- The maintained Customer detail page is now a real profile with paged related Leads, Interactions, and Sales inside the actor's existing backend scopes.
+- No Customer or CustomerPhone hard-delete route or control exists. The existing dedicated deactivate actions remain authoritative.
+
+### Files inspected
+
+- Authority/status: `BACKEND_SPEC.md`, `KARIZ_PROJECT_HANDOFF.md`, and the root Client-1 roadmap.
+- Customer backend: `sales/models.py`, `selectors.py`, `serializers.py`, `services.py`, `views.py`, `urls.py`; migration manifest `sales/migrations/0001_initial.py` through `0010_interaction_contract.py`.
+- Active application: `common/ui_views.py`, `ui_urls.py`, `viewsets.py`, `serializers.py`, `common/static/common/kariz-app.js`, `common/templates/common/customers/list.html`, and `detail.html`.
+- Tests: relevant bounded sections of `sales/tests/test_workflows.py`, `test_scope_attacks.py`, `common/tests/test_sales_shell.py`, `test_sales_shell_browser.py`, `test_system_api.py`, and `test_query_growth.py`.
+- Backend documentation: `docs/backend/ENTITY_CATALOG.md`, `API_CONTRACT.md`, `RELATIONSHIPS.md`, and `ERD.mmd`.
+- Not inspected: vendor/demo/media/build/dependency trees, secrets, review bundle, and code-dumper output.
+
+### Files changed
+
+- Contract/status: `BACKEND_SPEC.md`, `KARIZ_PROJECT_HANDOFF.md`, and the root Client-1 roadmap.
+- Entity/API documentation: `docs/backend/ENTITY_CATALOG.md` and `docs/backend/API_CONTRACT.md`.
+- Backend: `sales/models.py`, `services.py`, `serializers.py`, `views.py`, and new migration `sales/migrations/0011_customer_profile_fields.py`.
+- Active UI: `common/templates/common/customers/list.html`, `common/templates/common/customers/detail.html`, and `common/static/common/kariz-app.js`.
+- Tests: `sales/tests/test_workflows.py`, `common/tests/test_sales_shell.py`, `common/tests/test_sales_shell_browser.py`, and `common/tests/test_system_api.py`.
+- Styles, shell layout, architecture, roles, existing route names, and existing field names: unchanged.
+
+### Migration and API
+
+- Migration: `sales.0011_customer_profile_fields` adds nullable-by-blank-semantics `category` and `postal_code` CharFields with empty-string defaults at the model/API boundary. It has no data rewrite, deletion, or relation change.
+- Existing `GET/POST /api/v1/customers/` and `GET/PATCH /api/v1/customers/{id}/` remain compatible. Responses add `postal_code`, `category`, and read-only `primary_phone`; old create/update payloads still work.
+- Existing search now also covers province, city, postal code, category, address, and normalized phone.
+- Existing `POST /api/v1/customers/{id}/deactivate/` remains unchanged. `DELETE` remains HTTP 405.
+- Existing `customer-phones/` and `customer-phones/{id}/deactivate/` contracts remain unchanged.
+- New `GET /api/v1/customers/{id}/leads/`: paginated related Leads.
+- New `GET /api/v1/customers/{id}/interactions/`: paginated related Interactions.
+- New `GET /api/v1/customers/{id}/sales/`: paginated related Sales.
+- New related routes accept only `page` and `format`; unknown query keys fail with HTTP 400.
+
+### Authorization and UI
+
+- Customer direct ID is resolved through `customers_for(actor)` first. Out-of-scope IDs return 404 for detail and all three related routes.
+- Each related route then applies `leads_for(actor)`, `interactions_for(actor)`, or `sales_for(actor)`. A visible Customer does not grant wider related-record access.
+- Sales Agent keeps own/assigned Customer scope and existing relation-specific scope. Sales Manager, Company IT, and Platform Admin keep existing company operational scope.
+- Customer deactivation remains limited to Sales Manager, Company IT, and Platform Admin. Sales Agent cannot deactivate.
+- `primary_phone`, normalized number, creator, active state, and timestamps are server-owned in Customer payloads.
+- Persian RTL create/edit forms now include postal code and category. Customer list adds primary phone, category, and postal code. Detail adds paged related tables using existing table/card/button classes.
+- Existing danger-zone button says deactivate and calls the real deactivate endpoint. No delete button, fake success, new CSS, layout replacement, or theme change exists.
+
+### Tests and evidence
+
+- New backend proof covers: new field create/read/update/search, old payload compatibility, length guard, primary-phone projection, server-field rejection, related pagination, relation scope, out-of-scope 404, and unknown-query rejection.
+- Existing and retained proof covers: phone label, normalization, Unicode bypass rejection, global active duplicate prevention, one active primary phone, phone owner immutability, phone/customer deactivate, no DELETE, direct-ID masking, and four-role scope.
+- New UI proof covers: create/edit fields, three relation sections, deactivate-only control, and real desktop browser data for postal code, category, Lead, Interaction, and Sale rows.
+- `python manage.py test sales.tests.test_workflows.CoreWorkflowTests common.tests.test_sales_shell common.tests.test_system_api common.tests.test_query_growth --settings=config.test_settings -v 1` -> PASS; 72/72.
+- `python manage.py test common.tests.test_sales_shell_browser --settings=config.test_settings -v 1` -> PASS; 2/2. Non-failing live-server broken-pipe shutdown lines did not change `OK`.
+- `python manage.py test --settings=config.test_settings -v 1` -> PASS; 282 run, 276 pass, 6 skip, 0 failure, 0 error.
+- `python manage.py check --settings=config.test_settings` -> PASS; 0 issues.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings` -> PASS; no changes detected beyond committed migration state.
+- `python manage.py sqlmigrate sales 0011 --settings=config.test_settings` -> PASS; SQL proof copies every existing row with `''` for both new non-null text columns and preserves IDs/relations.
+- `python -X utf8 manage.py spectacular --validate --fail-on-warn --settings=config.test_settings` -> PASS; schema valid, no warning.
+- `python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0` -> PASS.
+- `node --check common/static/common/kariz-app.js` -> PASS.
+- `python scripts/check_html_branding.py` -> PASS; `HTML_BRANDING_PASS files=220`.
+- `git diff --check` -> PASS; no whitespace error; only non-failing LF-to-CRLF working-copy notices.
+- `git diff --stat` -> PASS; 16 tracked modified paths plus the new untracked migration file. No unrelated dirty file existed at task start.
+
+### Self-correction loop
+
+- Score 1: `8/10`.
+- [primary phone schema]: Runtime projection worked, but first schema saw it as string. Generated client contract was wrong.
+- [customer detail load]: First page version fired five database reads together. Live browser test exposed a connection failure and hidden page.
+- Fix: added an explicit nullable primary-phone schema component; changed profile fetches to stable sequential reads; extended real browser proof across all related sections.
+- Score 2: `9/10`. Additive migration, backward-compatible API, scoped relation reads, real RTL profile, phone integrity, deactivate-only lifecycle, and regression proof now meet this slice without style or architecture drift.
+
+### Assumptions, blockers, and next phase
+
+- Assumption: because no taxonomy was supplied, `category` is a plain optional label, not a new entity. This is the smallest backward-compatible implementation of the direct request.
+- Assumption: because no postal format was supplied, `postal_code` preserves bounded user text and does not silently normalize or reject country-specific forms.
+- Blockers for the requested Customer Management boundary: none.
+- [category governance]: Fixed categories, hierarchy, merge, and lifecycle not set. Plain label works; governed taxonomy waits.
+- [postal governance]: Country format, normalization, and report snapshot rules not set. Current field stores bounded text only.
+- [customer expansion]: Document relation, export, bounded bulk operations, and merge rules not set. They remain outside this slice.
+- Next recommended phase: close C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001 before broad C1-2; close document/geography/postal-report rules before C1-3.
+- Repository start commit: `44ff2b0351df2b08faa3bda92bb5b3d91ca720cc`.
+- Commit: none created.

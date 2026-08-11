@@ -16,8 +16,9 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 ## Customers and phones
 
-- `customers/`: scoped list/create/retrieve/update. Create accepts optional nested `phone`. Address permits at most 2,000 characters; notes permit at most 4,000. No DELETE.
+- `customers/`: scoped list/create/retrieve/update. Existing payloads remain valid. Create accepts optional nested `phone`; responses add read-only `primary_phone`. Optional `postal_code` permits at most 32 characters and optional plain-text `category` permits at most 100. Address permits at most 2,000 characters; notes permit at most 4,000. Search also covers province, city, postal code, category, address, and normalized phone. No DELETE.
 - `POST customers/{id}/deactivate/`: Sales Manager, Company IT, or Platform Admin. Sales Agents cannot deactivate Customers.
+- `GET customers/{id}/leads/`, `GET customers/{id}/interactions/`, `GET customers/{id}/sales/`: paginated Customer-profile relations. The Customer ID is first masked through Customer scope, then each related queryset reuses the actor's existing Lead, Interaction, or Sale scope. Only `page` and `format` query keys are accepted.
 - `customer-phones/`: scoped list/create/retrieve/update. List accepts exact positive `customer` ID after role scope, plus standard search, ordering, and pagination. Customer ownership is checked. `normalized_phone` and `is_active` are server-owned and must persist as ASCII `+98[1-9][0-9]{9}`; global active uniqueness and shape are database-backed. No DELETE.
 - `POST customer-phones/{id}/deactivate/`: scoped safe transition. It clears active and primary state, preserves the row, audits the action, and returns HTTP 409 `conflict` when already inactive.
 

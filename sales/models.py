@@ -9,6 +9,8 @@ from common.models import TimeStampedModel
 
 
 CUSTOMER_ADDRESS_MAX_LENGTH = 2000
+CUSTOMER_CATEGORY_MAX_LENGTH = 100
+CUSTOMER_POSTAL_CODE_MAX_LENGTH = 32
 FREE_TEXT_MAX_LENGTH = 4000
 INTERACTION_OUTCOME_MAX_LENGTH = 80
 
@@ -19,6 +21,8 @@ class Customer(TimeStampedModel):
     email = models.EmailField(blank=True)
     province = models.CharField(max_length=100, blank=True)
     city = models.CharField(max_length=100, blank=True)
+    postal_code = models.CharField(max_length=CUSTOMER_POSTAL_CODE_MAX_LENGTH, blank=True)
+    category = models.CharField(max_length=CUSTOMER_CATEGORY_MAX_LENGTH, blank=True)
     address = models.CharField(max_length=CUSTOMER_ADDRESS_MAX_LENGTH, blank=True)
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_customers")

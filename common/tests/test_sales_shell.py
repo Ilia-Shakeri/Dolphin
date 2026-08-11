@@ -42,6 +42,22 @@ class SalesShellContractTests(SimpleTestCase):
         for field in ("customer", "agent"):
             self.assertNotIn(f'name="{field}"', interaction_form)
 
+    def test_customer_profile_has_new_fields_relations_and_deactivate_only(self):
+        customer_list = (ROOT / "common" / "templates" / "common" / "customers" / "list.html").read_text(encoding="utf-8")
+        customer_detail = (ROOT / "common" / "templates" / "common" / "customers" / "detail.html").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+
+        for field in ("postal_code", "category"):
+            self.assertIn(f'name="{field}"', customer_list)
+            self.assertIn(f'name="{field}"', customer_detail)
+            self.assertIn(f'"{field}"', script)
+        for relation in ("leads", "interactions", "sales"):
+            self.assertIn(f'id="customer-{relation}-table-body"', customer_detail)
+            self.assertIn(f'"{relation}", "{relation}"', script)
+        self.assertIn('id="deactivate-customer"', customer_detail)
+        self.assertNotIn('id="delete-customer"', customer_detail)
+        self.assertIn("حذف سخت انجام نمی‌شود", customer_detail)
+
 
 class SalesShellScopeTests(TestCase):
     password = "Strong-pass-983!"
@@ -103,6 +119,9 @@ class SalesShellScopeTests(TestCase):
     def test_api_direct_ids_apply_all_four_role_scopes(self):
         paths = (
             f"/api/v1/customers/{self.hidden_customer.pk}/",
+            f"/api/v1/customers/{self.hidden_customer.pk}/leads/",
+            f"/api/v1/customers/{self.hidden_customer.pk}/interactions/",
+            f"/api/v1/customers/{self.hidden_customer.pk}/sales/",
             f"/api/v1/customer-phones/{self.hidden_customer.phones.get().pk}/",
             f"/api/v1/leads/{self.hidden_lead.pk}/",
             f"/api/v1/interactions/{self.hidden_interaction.pk}/",

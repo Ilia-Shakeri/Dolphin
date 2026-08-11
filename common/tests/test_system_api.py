@@ -80,6 +80,9 @@ class SystemApiTests(TestCase):
         self.assertIn("get", response.data["paths"]["/api/v1/leads/assignees/"])
         history = response.data["paths"]["/api/v1/leads/{id}/assignment-history/"]["get"]
         self.assertIn("page", {parameter["name"] for parameter in history["parameters"]})
+        for relation in ("leads", "interactions", "sales"):
+            related = response.data["paths"][f"/api/v1/customers/{{id}}/{relation}/"]["get"]
+            self.assertIn("page", {parameter["name"] for parameter in related["parameters"]})
 
     def test_schema_documents_exact_custom_action_contracts(self):
         client = APIClient()

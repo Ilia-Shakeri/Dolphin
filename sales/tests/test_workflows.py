@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from auditlog.models import ActivityLog
-from sales.models import CUSTOMER_ADDRESS_MAX_LENGTH, FREE_TEXT_MAX_LENGTH, Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, Product, Sale
+from sales.models import CUSTOMER_ADDRESS_MAX_LENGTH, CUSTOMER_CATEGORY_MAX_LENGTH, CUSTOMER_POSTAL_CODE_MAX_LENGTH, FREE_TEXT_MAX_LENGTH, Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, Product, Sale
 from sales.selectors import customers_for, leads_for
 from sales.services import assign_lead, cancel_or_correct_sale, cancel_sale, create_customer_phone, create_customer_with_phone, create_lead, deactivate_product, mark_sale, reassign_lead, record_interaction, update_customer, update_customer_phone, update_lead, update_product
 from sales.exceptions import BusinessPermissionDenied, BusinessRuleError
@@ -203,6 +203,119 @@ class CoreWorkflowTests(TestCase):
     def test_customer_can_have_multiple_leads(self):
         create_lead(actor=self.agent, customer=self.customer, source="repeat")
         self.assertEqual(self.customer.leads.count(), 2)
+
+    def test_customer_profile_fields_and_primary_phone_are_backward_compatible(self):
+        client = APIClient()
+        client.force_authenticate(self.agent)
+        response = client.post(
+            "/api/v1/customers/",
+            {
+                "full_name": "Profile Customer",
+                "postal_code": "Postal text 123",
+                "category": "Priority customer",
+                "address": "Profile address",
+                "phone": {
+                    "raw_phone": "09125556666",
+                    "label": "mobile",
+                    "is_primary": True,
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["postal_code"], "Postal text 123")
+        self.assertEqual(response.data["category"], "Priority customer")
+        self.assertEqual(
+            response.data["primary_phone"],
+            {
+                "id": response.data["primary_phone"]["id"],
+                "raw_phone": "09125556666",
+                "normalized_phone": "+989125556666",
+                "label": "mobile",
+            },
+        )
+
+        legacy = client.post(
+            "/api/v1/customers/",
+            {"full_name": "Legacy Payload Customer"},
+            format="json",
+        )
+        self.assertEqual(legacy.status_code, 201)
+        self.assertEqual(legacy.data["postal_code"], "")
+        self.assertEqual(legacy.data["category"], "")
+        self.assertIsNone(legacy.data["primary_phone"])
+
+        updated = client.patch(
+            f"/api/v1/customers/{response.data['id']}/",
+            {"postal_code": "Updated postal", "category": "Updated category"},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["postal_code"], "Updated postal")
+        self.assertEqual(updated.data["category"], "Updated category")
+        server_owned = client.patch(
+            f"/api/v1/customers/{response.data['id']}/",
+            {"primary_phone": None},
+            format="json",
+        )
+        self.assertEqual(server_owned.status_code, 400)
+        self.assertIn("primary_phone", server_owned.data)
+        searched = client.get("/api/v1/customers/?search=Updated+category")
+        self.assertEqual(searched.status_code, 200)
+        self.assertEqual([row["id"] for row in searched.data["results"]], [response.data["id"]])
+
+        self.assertEqual(Customer._meta.get_field("postal_code").max_length, CUSTOMER_POSTAL_CODE_MAX_LENGTH)
+        self.assertEqual(Customer._meta.get_field("category").max_length, CUSTOMER_CATEGORY_MAX_LENGTH)
+        with self.assertRaises(BusinessRuleError):
+            update_customer(
+                actor=self.agent,
+                customer=Customer.objects.get(pk=response.data["id"]),
+                category="x" * (CUSTOMER_CATEGORY_MAX_LENGTH + 1),
+            )
+
+    def test_customer_related_views_are_paginated_and_keep_existing_scope(self):
+        own_interaction = record_interaction(
+            actor=self.agent,
+            lead=self.lead,
+            phone="09121234567",
+            direction=Interaction.Direction.OUTBOUND,
+            outcome="answered",
+            occurred_at=timezone.now(),
+        )
+        own_sale = mark_sale(
+            actor=self.agent,
+            lead=self.lead,
+            total_amount=Decimal("125.00"),
+            sold_at=timezone.now(),
+        )
+        hidden_customer, hidden_lead, hidden_interaction, hidden_sale = self._create_other_private_sales_objects()
+        client = APIClient()
+        client.force_authenticate(self.agent)
+
+        expected = {
+            "leads": (self.lead.pk, hidden_lead.pk),
+            "interactions": (own_interaction.pk, hidden_interaction.pk),
+            "sales": (own_sale.pk, hidden_sale.pk),
+        }
+        for action_name, (visible_id, hidden_id) in expected.items():
+            with self.subTest(action=action_name):
+                response = client.get(
+                    f"/api/v1/customers/{self.customer.pk}/{action_name}/?page=1"
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["count"], 1)
+                self.assertEqual([row["id"] for row in response.data["results"]], [visible_id])
+                self.assertNotIn(hidden_id, [row["id"] for row in response.data["results"]])
+                hidden = client.get(
+                    f"/api/v1/customers/{hidden_customer.pk}/{action_name}/?page=1"
+                )
+                self.assertEqual(hidden.status_code, 404)
+
+        unknown_query = client.get(
+            f"/api/v1/customers/{self.customer.pk}/leads/?search=blocked"
+        )
+        self.assertEqual(unknown_query.status_code, 400)
+        self.assertIn("search", unknown_query.data)
 
     def test_phone_duplicate_and_primary_constraints(self):
         with self.assertRaises(BusinessRuleError):

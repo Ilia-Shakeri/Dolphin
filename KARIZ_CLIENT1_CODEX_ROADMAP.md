@@ -32,7 +32,7 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 | Area | Existing now | Client-1 gap |
 |---|---|---|
 | Accounts | Four fixed clean CRM roles; session login/logout/me; profile; controlled user lifecycle and role change. | Team/workstream, session inventory/revoke, avatar, notices, export, seat/capacity acceptance. |
-| Customer/phone | Scoped Customer CRUD/deactivate; many normalized phones; duplicate and primary guards. | Category, postcode contract, document link, export/bulk/360/merge. |
+| Customer/phone | Scoped Customer CRUD/deactivate; optional postal code and plain-text category; read-only primary-phone projection; many normalized phones; duplicate and primary guards; paged scoped Lead/Interaction/Sale profile relations. | Governed category taxonomy, country-specific postal validation, document link, export/bulk/merge. |
 | Lead/contact | Scoped Lead CRUD; manual reassignment/history; append-only manual Interaction. | Final statuses, Team/auto-assign, priority/archive/conversion/Pipeline, contact status, timeline/calendar/task/reminder, specialist report, telephony. |
 | Product/Sale | Elevated Product manage, agent read; operational Sale snapshot/create/cancel. | Category/form expansion, Inventory/pricing/profit, Order/quotation/Invoice, postal, Payment/finance/PDF. |
 | Reports/audit | Four exact performance metrics, JSON/XLSX parity, scoped read-only audit. | Drill-down, dashboard, SMS/contact/geography/postal/domain/P&L/receivable reports, dynamic builder. |
@@ -41,8 +41,8 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 
 ### Existing API and template boundary
 
-- Existing API families: auth; users plus change-role; customers plus deactivate; customer phones plus deactivate; leads plus assignees, assignment-history, and reassign; append-only interactions; products plus deactivate; sales plus cancel; user-performance JSON/XLSX; read-only activity logs; live/ready health.
-- Existing templates: shell/error/login/profile; user list/detail; Customer list/detail with phone work; Lead list/detail; Interaction list/detail; Product list/detail; Sale list/detail; performance report; ActivityLog list/detail.
+- Existing API families: auth; users plus change-role; customers plus deactivate and paged related Lead/Interaction/Sale reads; customer phones plus deactivate; leads plus assignees, assignment-history, and reassign; append-only interactions; products plus deactivate; sales plus cancel; user-performance JSON/XLSX; read-only activity logs; live/ready health.
+- Existing templates: shell/error/login/profile; user list/detail; Customer list/detail profile with fields, phone work, and scoped related records; Lead list/detail; Interaction list/detail; Product list/detail; Sale list/detail; performance report; ActivityLog list/detail.
 - Existing role boundary: Sales Agent gets own/assigned operational scope; Sales Manager gets company operational scope but no user admin or audit; Company IT manages non-platform CRM users and scoped audit; Platform Admin has full CRM user/audit scope. Product writes, reassignment, Customer deactivate, and Sale cancel are elevated-only.
 - Common guard: active clean CRM identity, backend queryset/object scope, direct-ID masking, server-owned fields, safe audit, sensitive throttles, and no normal hard delete of business history.
 
@@ -98,6 +98,21 @@ Assessment changed only this roadmap and `KARIZ_PROJECT_HANDOFF.md`. No migratio
 - Verification: focused account class 28/28 PASS; accounts plus auth shell/browser 61/61 PASS; full suite 279 run with 273 pass and 6 skip; system check, migration drift, schema validation, static dry-run, JavaScript syntax, branding, and whitespace gates PASS.
 - Remaining account additions not approved by this slice: Team-aware Sales Manager administration, sales/after-sales workstream, session inventory/revoke, avatar, notifications, and user export.
 - Next phase: close seat/capacity, Team, and after-sales workstream decisions, then rerun C1-2 preflight. Do not alter the four fixed role codes.
+
+### Client-1 Customer Management completion - 2026-08-11
+
+- Status: `DONE` for the requested Customer Management boundary.
+- Existing `full_name` remains the API name field so old clients do not break. Added optional `postal_code` with 32-character bound and optional plain-text `category` with 100-character bound. Old payloads remain valid and receive blank values.
+- No category entity, hierarchy, fixed list, or lifecycle was invented. No postal country/format rule was invented. Those values stay bounded text until a later approved contract.
+- Customer responses now add read-only `primary_phone` with ID, raw number, normalized number, and label. Existing nested create phone and `customer-phones/` API remain unchanged.
+- Existing phone label, Iranian normalization, database-backed global active duplicate prevention, one active primary phone per Customer, scoped update, and deactivate behavior remain authoritative.
+- Added paginated read-only profile routes: `GET customers/{id}/leads/`, `GET customers/{id}/interactions/`, and `GET customers/{id}/sales/`. Customer direct IDs are scoped first; each relation then reuses its existing backend selector.
+- Maintained Persian RTL list/detail pages now create/edit postal code and category, show primary phone in the list, and show paged related Leads, Interactions, and Sales. Existing classes and CSS architecture are unchanged.
+- Delete control remains absent. Existing `POST customers/{id}/deactivate/` stays the only Customer removal-like UI action and preserves history.
+- Migration: `sales.0011_customer_profile_fields`; additive blank-safe columns only, no data rewrite.
+- Tests: focused backend/UI/schema/query suite 72/72 PASS; headless browser 2/2 PASS; full suite 282 run, 276 pass, 6 skip; system check, migration drift, UTF-8 schema validation, and no-warning gate PASS.
+- Remaining Customer work outside this slice: governed category taxonomy if wanted, approved postal normalization, document relation, export, bounded bulk operations, and merge rules.
+- Next recommended phase remains closure of seat/capacity, Team, and after-sales workstream decisions before broad C1-2. Customer document/geography/postal-report work still needs its separate C1-3 contract.
 
 ---
 

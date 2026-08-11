@@ -210,6 +210,8 @@ national_id nullable
 email nullable
 province nullable
 city nullable
+postal_code nullable
+category nullable
 address nullable
 notes
 created_by
@@ -223,6 +225,9 @@ Rules:
 - Customer represents contact identity, not one sales cycle.
 - Sales Agents may create Customers and edit permitted fields only when the Customer is in their own/assigned visibility scope.
 - Normal UI deactivates rather than hard-deletes Customers.
+- Client-1 `postal_code` is an optional bounded text value; no country-specific normalization or validation rule is approved.
+- Client-1 `category` is an optional bounded text label; no category entity, hierarchy, fixed choice list, or lifecycle is approved.
+- The maintained Customer detail profile may show only Leads, Interactions, and Sales already visible to the actor through their existing backend scopes.
 
 ### 5.2 CustomerPhone
 

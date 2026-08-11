@@ -1,5 +1,6 @@
 from django.db import IntegrityError
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts.access import crm_identities
@@ -26,19 +27,46 @@ class CustomerPhoneInlineSerializer(RejectServerFieldsMixin, serializers.Seriali
         return value
 
 
+class CustomerPrimaryPhoneSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    raw_phone = serializers.CharField(read_only=True)
+    normalized_phone = serializers.CharField(read_only=True)
+    label = serializers.CharField(read_only=True)
+
+
 class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"created_by", "created_by_display", "is_active", "created_at", "updated_at"}
+    server_fields = {"created_by", "created_by_display", "is_active", "primary_phone", "created_at", "updated_at"}
     phone = CustomerPhoneInlineSerializer(write_only=True, required=False)
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     created_by_display = serializers.SerializerMethodField()
+    primary_phone = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
-        fields = ["id", "full_name", "national_id", "email", "province", "city", "address", "notes", "created_by", "created_by_display", "is_active", "phone", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_by", "created_by_display", "is_active", "created_at", "updated_at"]
+        fields = ["id", "full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_by", "created_by_display", "is_active", "primary_phone", "created_at", "updated_at"]
 
     def get_created_by_display(self, instance) -> str:
         return instance.created_by.get_full_name() or instance.created_by.username
+
+    @extend_schema_field(CustomerPrimaryPhoneSerializer(allow_null=True))
+    def get_primary_phone(self, instance):
+        phone = next(
+            (
+                candidate
+                for candidate in instance.phones.all()
+                if candidate.is_active and candidate.is_primary
+            ),
+            None,
+        )
+        if phone is None:
+            return None
+        return {
+            "id": phone.pk,
+            "raw_phone": phone.raw_phone,
+            "normalized_phone": phone.normalized_phone,
+            "label": phone.label,
+        }
 
     def create(self, validated_data):
         phone = validated_data.pop("phone", None)

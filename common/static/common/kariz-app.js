@@ -419,6 +419,9 @@
     function customerRow(customer) {
         const row = document.createElement("tr");
         appendCell(row, customer.full_name);
+        appendCell(row, customer.primary_phone?.normalized_phone || customer.primary_phone?.raw_phone || "—");
+        appendCell(row, customer.category);
+        appendCell(row, customer.postal_code);
         appendCell(row, customer.city);
         appendCell(row, statusText(customer.is_active));
         appendCell(row, customer.created_by_display || customer.created_by);
@@ -447,7 +450,7 @@
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(createForm, async () => {
-                const payload = formPayload(createForm, ["full_name", "national_id", "email", "province", "city", "address", "notes"]);
+                const payload = formPayload(createForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"]);
                 const rawPhone = String(new FormData(createForm).get("phone_raw") || "").trim();
                 if (rawPhone) payload.phone = {
                     raw_phone: rawPhone,
@@ -497,7 +500,7 @@
         let editingPhoneId = null;
 
         function fillCustomer(value) {
-            ["full_name", "national_id", "email", "province", "city", "address", "notes"].forEach((name) => {
+            ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
                 document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`).value = value[name] || "";
             });
             document.getElementById("customer-created-by").value = value.created_by_display || value.created_by;
@@ -561,9 +564,53 @@
             }
         }
 
+        function setupCustomerRelatedList(key, path, renderRow) {
+            const listLoading = document.getElementById(`customer-${key}-loading`);
+            const listEmpty = document.getElementById(`customer-${key}-empty`);
+            const listWrap = document.getElementById(`customer-${key}-table-wrap`);
+            const listBody = document.getElementById(`customer-${key}-table-body`);
+            const listPagination = document.getElementById(`customer-${key}-pagination`);
+            const previous = document.getElementById(`customer-${key}-prev`);
+            const next = document.getElementById(`customer-${key}-next`);
+            let currentPage = 1;
+
+            async function load(page = 1) {
+                listLoading.hidden = false;
+                listEmpty.hidden = true;
+                listWrap.hidden = true;
+                listPagination.hidden = true;
+                try {
+                    const data = await apiRequest(`${endpoint}${path}/?page=${page}`);
+                    listBody.replaceChildren(...data.results.map(renderRow));
+                    listLoading.hidden = true;
+                    if (!data.results.length) { listEmpty.hidden = false; return; }
+                    listWrap.hidden = false;
+                    currentPage = page;
+                    previous.disabled = !data.previous;
+                    next.disabled = !data.next;
+                    document.getElementById(`customer-${key}-page-label`).textContent = `صفحه ${page}`;
+                    listPagination.hidden = !data.previous && !data.next;
+                } catch (error) {
+                    listLoading.hidden = true;
+                    showError(error);
+                }
+            }
+
+            previous.addEventListener("click", () => load(currentPage - 1));
+            next.addEventListener("click", () => load(currentPage + 1));
+            return {load};
+        }
+
+        const relatedLists = [
+            setupCustomerRelatedList("leads", "leads", leadRow),
+            setupCustomerRelatedList("interactions", "interactions", interactionRow),
+            setupCustomerRelatedList("sales", "sales", saleRow),
+        ];
+
         try {
             await loadCustomer();
             await loadPhones();
+            for (const list of relatedLists) await list.load();
             loading.hidden = true;
             content.hidden = false;
         } catch (error) {
@@ -574,7 +621,7 @@
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
-                customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "email", "province", "city", "address", "notes"])});
+                customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"])});
                 fillCustomer(customer);
                 globalMessage("مشخصات مشتری ذخیره شد.", true);
             });
