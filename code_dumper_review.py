@@ -15,6 +15,7 @@ INCLUDE_ROOT_FILES = {
     "AGENTS.md",
     "BACKEND_SPEC.md",
     "KARIZ_PROJECT_HANDOFF.md",
+    "KARIZ_CLIENT1_CODEX_ROADMAP.md",
     ".env.example",
     ".gitignore",
     ".dockerignore",
