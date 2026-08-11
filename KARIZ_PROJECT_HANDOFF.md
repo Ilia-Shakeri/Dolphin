@@ -2004,3 +2004,79 @@ This section was created before any Lead Management expansion code. `BACKEND_SPE
 - Self-correction score 2: `9/10`. Scope-first filtering, strict validation, schema/UI/browser proof, form-bound correction, compatibility, and FINAL_WAVE_LOW isolation now meet the approved slice.
 - Next action: approve the Category and expanded-field decisions above. Then implement Category in an additive migration/service/API/UI/test slice without touching FINAL_WAVE_LOW.
 - Commit: none created.
+
+## 30. Client-1 Sales expansion business-decision gate - 2026-08-11
+
+This section is recorded before any Order, Quotation, Invoice, Payment, or Customer Account model. No schema work may start until the unresolved contracts below are approved.
+
+### Confirmed business decisions
+
+- Order, Quotation, Invoice, Payment, and Customer Account are separate domain modules. Existing `Sale` remains a separate operational success record and is not renamed or silently reused as any new module.
+- Ordinary hard deletion is forbidden for all five modules and their historical child records. Cancellation, void, reversal, correction, archive, or another approved non-destructive transition must preserve history.
+- Every financial mutation must create safe audit evidence. Audit must record actor, operation, object identity, approved state/value deltas, request trace, and time without secrets or private provider payloads.
+- PDF export is deferred. No PDF route, artifact, layout, storage, signing, numbering, or download policy belongs to the first implementation slice.
+- Tax behavior must be documented and explicitly approved before any taxable amount, tax field, tax-inclusive/exclusive calculation, rounding, invoice total, report, or fiscal behavior is implemented.
+- Existing Sale quantity/unit-price/total snapshots and audited cancellation remain unchanged.
+
+### Shared unresolved decisions
+
+- Cross-module graph: allowed links and cardinality among Lead, Sale, Customer, Product, Quotation, Order, Invoice, Payment, and Customer Account.
+- Conversion path: whether Quotation becomes Order, Order becomes Invoice, Sale creates any document, and whether one source may produce many targets; repeat/idempotency and rollback rules.
+- Line items: required fields, Product optionality, description, quantity/unit, price source, immutable snapshots, line ordering, edits after issue, and partial fulfillment/invoicing.
+- Money: currency, maximums, decimal scale, rounding point/mode, subtotal/total equations, tax-disabled behavior before tax approval, discount boundary, and negative/zero rules.
+- Identity/numbering: human document numbers, uniqueness scope, generation time, gaps, concurrency, import, and correction/void references.
+- Roles/scope: creator, issuer, approver, canceller, corrector, payer/cashier, account viewer, manager boundary, direct-ID masking, and field-level financial visibility.
+- Time: draft/issue/due/payment/value/effective dates, timezone/calendar presentation, period boundaries, and backdating permissions.
+- Lifecycle: final status codes and full transition matrix for every module; reason/evidence requirements; concurrency, idempotency, reversal, correction, reopen, and immutable states.
+- Migration/import: legacy sources, opening balances, preflight, reconciliation totals, owner sign-off, rollback, and refusal on unknown data.
+- Acceptance: redacted examples, expected totals, transition cases, permission attacks, concurrent writes, duplicate requests, audit rows, and cancellation/reversal outcomes.
+- Delivery priority: the existing specification places full Quotation/Invoice/Payment/Customer Account work in `FINAL_WAVE_LOW`; this request does not explicitly approve a priority change. Exact scheduling remains unresolved.
+
+### Tax precondition before Invoice or money implementation
+
+- State: `BLOCKED_DECISION`; tax is not assumed to be zero, absent, included, or excluded.
+- Required approval: jurisdiction and legal owner; seller registration/fiscal identity; taxable document types; taxable line/base; rate codes and effective dates; inclusive versus exclusive pricing; exemptions; per-line versus document calculation; discount-before/after-tax treatment; currency/decimal/rounding rule; immutable rate/base snapshots; correction/credit/void treatment; numbering/fiscal reporting fields; example input with expected line/subtotal/tax/grand-total values.
+- Until approved, no `tax_*` field, rate table, default zero tax, subtotal/grand-total formula, invoice issuance calculation, tax report, or fiscal integration may be created.
+
+### Module decision: Order
+
+- State: `BLOCKED_DECISION`.
+- Required: operational versus commercial meaning; Customer/Lead/Sale relation; line items; owner; status/transition table; approval; fulfillment; partial/cancel/correct; numbering; total source; whether it affects stock later.
+- [order]: Entity fields, source, lifecycle, and downstream relations absent. Order model cannot be built safely.
+
+### Module decision: Quotation
+
+- State: `BLOCKED_DECISION`.
+- Required: Customer/Lead relation; revision/version model; validity/expiry; line snapshots; accept/reject/withdraw; approval; numbering; conversion target; repeat conversion and stale-revision behavior.
+- [quotation]: Revision, acceptance, expiry, and conversion rules absent. Quotation model cannot be built safely.
+
+### Module decision: Invoice
+
+- State: `BLOCKED_DECISION`.
+- Required: internal versus legal/accounting meaning; source Order/Sale relation; line items; issue/void/correct; numbering; due date; amount equations; tax contract; fiscal fields only if approved; payment allocation; historical Customer/address/Product snapshots.
+- [invoice]: Legal meaning, numbering, totals, tax, correction, and source relation absent. Invoice model cannot be built safely.
+
+### Module decision: Payment
+
+- State: `BLOCKED_DECISION`.
+- Required: manual versus provider source; methods; currency/amount; payer/payee; Invoice allocation cardinality; partial/overpayment; pending/confirmed/failed/reversed/refunded states; idempotency; receipt/reference; reversal/refund and reconciliation.
+- [payment]: Source, methods, allocation, states, idempotency, and reversal absent. Payment model cannot be built safely.
+
+### Module decision: Customer Account
+
+- State: `BLOCKED_DECISION`.
+- Required: immutable ledger versus derived view; debit/credit convention; authoritative event sources; opening balance; currency; allocation; adjustment/reversal; outstanding/credit balance equation; close/reopen; statement date and visibility.
+- [customer account]: Ledger authority, balance equation, event sources, and correction rules absent. Account model cannot be built safely.
+
+### Implementation result and exact next action
+
+- Application code, Django app/module, model, migration, API, UI route/template, navigation, permission, PDF, tax, payment provider, and architecture changed for this request: none.
+- Inspected: `BACKEND_SPEC.md`; current Sale/Document/Finance decision sections; root roadmap C1-3 contract; current Sale model/services/selectors/serializers/views/UI/test references; audit boundary.
+- The five roadmap checkpoints were updated after reviewing each requested module; every checkpoint remains fail-closed.
+- Verification: Django system check PASS; migration drift PASS with no changes; requested-model absence guard PASS; handoff sections ordered 1 through 30; five roadmap module checkpoints present; `git diff --check` PASS.
+- Self-correction score 1: `8/10`.
+- [tax gate]: The first decision section stated tax approval was required but did not enumerate the minimum tax contract. Invoice work could still reopen from an ambiguous rule.
+- Fix: added the explicit tax jurisdiction, base, rate, effective-date, inclusion, exemption, rounding, snapshot, correction, fiscal, and acceptance prerequisites above.
+- Self-correction score 2: `9/10`. Separate-module intent, non-destructive lifecycle, financial audit, PDF deferral, tax gate, module blockers, roadmap checkpoints, and no-schema proof are now consistent.
+- Next action: named sales, accounting, finance, security, and UAT owners approve the shared decisions and one redacted example per module. Tax decisions must be approved before Invoice money/schema work. Then implement one module at a time with a handoff/roadmap update after each module.
+- Commit: none created.

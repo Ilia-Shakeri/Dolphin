@@ -1134,3 +1134,48 @@ Run **C1-1 decision closure only** now for C1-DEC-GOV-001, SEAT-001, TEAM-001, a
 - `FINAL_WAVE_LOW`: inventory, stock, purchase cost, multi-price, discount, profit calculation, and reports remain required last-wave work. No schema or behavior was added.
 - Architecture boundary: keep Product as catalog/current-price identity; preserve Sale snapshots; design stock movement, cost/price history, discount policy, and profit formula only after their separate contracts are approved.
 - Next Phase 1 step after approval: Category additive model/lifecycle, scoped services/API/filter, maintained form/list UI, migration preflight, and role/direct-ID/browser regression tests.
+
+## Sales expansion pre-model checkpoint - 2026-08-11
+
+### Shared gate
+
+- Confirmed: separate Order, Quotation, Invoice, Payment, and Customer Account modules; no ordinary hard delete; audited financial mutations; PDF deferred; tax contract required before tax/Invoice calculation implementation.
+- Existing Sale remains separate and unchanged.
+- Gate result: `BLOCKED_DECISION`; shared relations, line items, money/rounding, numbering, roles, dates, lifecycles, import/reconciliation, acceptance, and phase-priority decisions are missing.
+- Tax precondition: jurisdiction, taxable base, rates/effective dates, included/excluded behavior, exemptions, discount order, rounding, immutable snapshots, corrections, fiscal fields, and expected totals must be approved before Invoice/money schema or formulas.
+- No app/module scaffold, model, migration, API, UI, permission, PDF, tax, or provider code was created.
+- Full pre-model decision record is in `KARIZ_PROJECT_HANDOFF.md` section 30.
+
+### Order module checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: meaning/source, Customer/Lead/Sale links, items, statuses/transitions, approval, fulfillment, partial/cancel/correct, numbering, totals, future stock effect.
+- Roadmap update complete; implementation not started.
+
+### Quotation module checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: relation, revisions, validity/expiry, item snapshots, accept/reject/withdraw, approval, numbering, conversion/idempotency.
+- Roadmap update complete; implementation not started.
+
+### Invoice module checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: legal/accounting meaning, source relation, items, issue/void/correct, numbering, due date, amount equations, approved tax rules, allocation, historical snapshots.
+- PDF remains later. Roadmap update complete; implementation not started.
+
+### Payment module checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: source/methods, currency, Invoice allocation, partial/overpayment, states, idempotency, reference, reversal/refund, reconciliation.
+- Roadmap update complete; implementation not started.
+
+### Customer Account module checkpoint
+
+- State: `BLOCKED_DECISION`.
+- Missing: ledger versus derived view, debit/credit convention, event sources, opening balance, currency, adjustment/reversal, balance equation, statements, visibility.
+- Roadmap update complete; implementation not started.
+
+### Resume rule
+
+- Resolve shared decisions and tax documentation first. Then build one approved module at a time with additive migrations, transactional services, audit, selectors/permissions, API/schema, maintained Persian RTL UI, database/concurrency/security/browser tests, and a roadmap/handoff update after that module.
