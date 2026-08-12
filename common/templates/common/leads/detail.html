@@ -10,7 +10,7 @@
         {% csrf_token %}<h2>مشخصات سرنخ</h2>
         <fieldset{% if not can_edit_lead %} disabled{% endif %}>
         <div class="form-grid">
-            <div><label for="lead-customer">مشتری</label><input id="lead-customer" type="text" disabled></div>
+            <div><label for="lead-customer">مشتری</label><input id="lead-customer" type="text" disabled><a id="lead-customer-profile" class="inline-link" href="#">باز کردن پروفایل مشتری</a></div>
             <div><label for="lead-status">وضعیت سرور</label><input id="lead-status" type="text" disabled></div>
             <div><label for="lead-assigned-to">مسئول</label><input id="lead-assigned-to" type="text" disabled></div>
             <div><label for="lead-created-by">ثبت‌کننده</label><input id="lead-created-by" type="text" disabled></div>

@@ -390,7 +390,9 @@ FROM (
         ('sales_lead', 'SELECT, INSERT, UPDATE'),
         ('sales_leadassignmenthistory', 'SELECT, INSERT'),
         ('sales_product', 'SELECT, INSERT, UPDATE'),
-        ('sales_sale', 'SELECT, INSERT, UPDATE')
+        ('sales_sale', 'SELECT, INSERT, UPDATE'),
+        ('sales_salesdocument', 'SELECT, INSERT, UPDATE'),
+        ('sales_postalstatushistory', 'SELECT, INSERT')
 ) AS table_grant(table_name, privileges)
 WHERE to_regclass(format('%I.%I', 'public', table_grant.table_name)) IS NOT NULL
 ORDER BY table_grant.table_name

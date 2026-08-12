@@ -25,7 +25,15 @@ class SalesShellContractTests(SimpleTestCase):
             self.assertIn(f'{status}: "', script)
         self.assertIn("loadAllPages", script)
         self.assertIn("setupPagedList", script)
+        self.assertIn("/api/v1/leads/work-queue/", script)
+        self.assertIn('`/customers/${lead.customer}/`', script)
+        self.assertIn('`/interactions/?lead=${lead.id}`', script)
+        self.assertIn('`/sales/?lead=${lead.id}`', script)
         self.assertIn('credentials: "same-origin"', script)
+        for page in ("sales-documents", "sales-document-detail", "sales-document-report"):
+            self.assertIn(f'page === "{page}"', script)
+        self.assertIn("/api/v1/sales-documents/", script)
+        self.assertIn("/api/v1/reports/sales-documents/", script)
 
     def test_forms_do_not_offer_server_managed_fields(self):
         customer_detail = (ROOT / "common" / "templates" / "common" / "customers" / "detail.html").read_text(encoding="utf-8")

@@ -58,10 +58,21 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
             password=self.password,
             role=User.Role.PLATFORM_ADMIN,
         )
+        self.manager = User.objects.create_user(
+            username="manager.browser",
+            password=self.password,
+            role=User.Role.SALES_MANAGER,
+        )
+        self.agent = User.objects.create_user(
+            username="agent.browser",
+            password=self.password,
+            role=User.Role.SALES_AGENT,
+        )
 
-    def login(self):
+    def login(self, user=None):
+        user = user or self.platform
         self.browser.get(f"{self.live_server_url}/login/")
-        self.browser.find_element(By.ID, "login-username").send_keys(self.platform.username)
+        self.browser.find_element(By.ID, "login-username").send_keys(user.username)
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
@@ -69,7 +80,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(
             expected_conditions.text_to_be_present_in_element_value(
                 (By.ID, "profile-username"),
-                self.platform.username,
+                user.username,
             )
         )
 
@@ -111,3 +122,40 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "users-loading")))
         self.assertIn(self.platform.username, self.browser.find_element(By.ID, "users-table-body").text)
         self.assert_browser_clean()
+
+    def test_role_aware_landing_and_menus_for_three_experiences(self):
+        self.browser.set_window_size(1440, 1000)
+        cases = (
+            (self.platform, "پنل مدیر پلتفرم", {"users", "audit"}, set()),
+            (self.manager, "پنل مدیر فروشگاه", {"users"}, {"audit"}),
+            (self.agent, "میز کار بازاریاب", set(), {"users", "audit"}),
+        )
+        for user, title, visible, hidden in cases:
+            with self.subTest(role=user.role):
+                self.browser.delete_all_cookies()
+                self.login(user)
+                self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "dashboard-title"), title))
+                modules = {
+                    item.get_attribute("data-module")
+                    for item in self.browser.find_elements(By.CSS_SELECTOR, "#app-sidebar [data-module]")
+                }
+                self.assertTrue(visible.issubset(modules))
+                self.assertTrue(hidden.isdisjoint(modules))
+                if user.role == User.Role.SALES_MANAGER:
+                    self.browser.get(f"{self.live_server_url}/users/")
+                    self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "users-loading")))
+                    rows = self.browser.find_element(By.ID, "users-table-body").text
+                    self.assertIn(self.agent.username, rows)
+                    self.assertNotIn(self.platform.username, rows)
+                    self.assertNotIn(self.manager.username, rows)
+                    self.browser.get(f"{self.live_server_url}/users/{self.agent.pk}/")
+                    self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "user-detail-content")))
+                    toggle = self.browser.find_element(By.ID, "toggle-user-active")
+                    self.assertEqual(toggle.text, "غیرفعال کردن کاربر")
+                    toggle.click()
+                    self.wait.until(expected_conditions.alert_is_present()).accept()
+                    self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "فعال کردن دوباره کاربر"))
+                    self.browser.find_element(By.ID, "toggle-user-active").click()
+                    self.wait.until(expected_conditions.alert_is_present()).accept()
+                    self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "غیرفعال کردن کاربر"))
+                self.assert_browser_clean()

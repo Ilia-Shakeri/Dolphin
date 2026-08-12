@@ -19,7 +19,7 @@
         </div>
         <div class="form-actions"><button class="button" type="submit">ذخیره تغییرات</button></div>
     </form>
-    <form id="change-role-form" action="/api/v1/users/{{ target_user_id }}/change-role/" method="post" class="card" novalidate>
+    {% if can_change_roles %}<form id="change-role-form" action="/api/v1/users/{{ target_user_id }}/change-role/" method="post" class="card" novalidate>
         {% csrf_token %}
         <h2>تغییر نقش کنترل‌شده</h2>
         <label for="edit-role">نقش</label>
@@ -31,11 +31,11 @@
         </select>
         <p class="field-error" data-error-for="role"></p>
         <div class="form-actions"><button class="button" type="submit">تغییر نقش</button></div>
-    </form>
+    </form>{% endif %}
     <section class="card danger-zone">
-        <h2>غیرفعال‌سازی</h2>
-        <p>کاربر غیرفعال دیگر اجازه ورود ندارد. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>
-        <button id="deactivate-user" class="button button-danger" type="button">غیرفعال کردن کاربر</button>
+        <h2>وضعیت دسترسی</h2>
+        <p>کاربر غیرفعال اجازه ورود ندارد و بعدا می‌تواند در همین صفحه دوباره فعال شود. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>
+        <button id="toggle-user-active" class="button button-danger" type="button">تغییر وضعیت کاربر</button>
     </section>
 </section>
 {% endblock %}

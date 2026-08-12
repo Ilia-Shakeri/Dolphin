@@ -17,7 +17,7 @@ SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
 
 if SELENIUM_AVAILABLE:
     from selenium import webdriver
-    from selenium.common.exceptions import WebDriverException
+    from selenium.common.exceptions import TimeoutException, WebDriverException
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions
     from selenium.webdriver.support.ui import Select, WebDriverWait
@@ -54,6 +54,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
     def setUp(self):
         cache.clear()
+        self.browser.get("about:blank")
         self.browser.delete_all_cookies()
         self.browser.get_log("browser")
         self.browser.get_log("performance")
@@ -69,10 +70,27 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             first_name="کارشناس",
             last_name="مرورگر",
         )
+        self.manager = User.objects.create_user(
+            username="manager.daily.browser",
+            password=self.password,
+            role=User.Role.SALES_MANAGER,
+            first_name="مدیر",
+            last_name="روزانه",
+        )
 
-    def login(self):
+    def tearDown(self):
+        self.browser.get("about:blank")
+        self.browser.delete_all_cookies()
+        for key in ("browser", "performance"):
+            self.browser.get_log(key)
+        from django.db import connection
+        connection.close()
+        super().tearDown()
+
+    def login(self, user=None):
+        user = user or self.platform
         self.browser.get(f"{self.live_server_url}/login/")
-        self.browser.find_element(By.ID, "login-username").send_keys(self.platform.username)
+        self.browser.find_element(By.ID, "login-username").send_keys(user.username)
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
@@ -80,9 +98,13 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(
             expected_conditions.text_to_be_present_in_element_value(
                 (By.ID, "profile-username"),
-                self.platform.username,
+                user.username,
             )
         )
+
+    def logout(self):
+        self.browser.find_element(By.CSS_SELECTOR, "#logout-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/login/"))
 
     def assert_browser_clean(self):
         self.assertEqual(self.browser.execute_script("return document.documentElement.lang"), "fa")
@@ -247,4 +269,163 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertIn("sale.cancelled", self.browser.find_element(By.ID, "activity-logs-table-body").text)
         self.browser.find_element(By.CSS_SELECTOR, "#activity-logs-table-body a").click()
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "activity-log-detail-content")))
+        self.assert_browser_clean()
+
+    def test_manager_to_agent_daily_workflow_and_company_report(self):
+        self.browser.set_window_size(1440, 1000)
+        self.login(self.manager)
+
+        self.browser.get(f"{self.live_server_url}/users/")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-user"))).click()
+        self.browser.find_element(By.ID, "create-username").send_keys("daily.agent.browser")
+        self.browser.find_element(By.ID, "create-password").send_keys(self.password)
+        self.browser.find_element(By.ID, "create-first-name").send_keys("بازاریاب")
+        self.browser.find_element(By.ID, "create-last-name").send_keys("روزانه")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-user-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/users/\d+/$"))
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "user-detail-content")))
+        self.assertEqual(self.browser.find_element(By.ID, "toggle-user-active").text, "غیرفعال کردن کاربر")
+
+        self.browser.get(f"{self.live_server_url}/products/")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-product"))).click()
+        self.browser.find_element(By.ID, "create-product-sku").send_keys("DAILY-1")
+        self.browser.find_element(By.ID, "create-product-name").send_keys("محصول روزانه")
+        self.browser.find_element(By.ID, "create-product-price").send_keys("20.00")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
+
+        self.browser.get(f"{self.live_server_url}/customers/")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-customer"))).click()
+        self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مسیر روزانه")
+        self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121230001")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-customer-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
+
+        self.browser.get(f"{self.live_server_url}/leads/")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-lead"))).click()
+        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-lead-customer")).options) > 1)
+        Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مسیر روزانه")
+        self.browser.find_element(By.ID, "create-lead-source").send_keys("صف روزانه")
+        self.browser.execute_script(
+            "const e=document.getElementById('create-lead-follow-up'); e.value='2026-08-13T10:30'; e.dispatchEvent(new Event('change',{bubbles:true}));"
+        )
+        self.browser.find_element(By.CSS_SELECTOR, "#create-lead-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/leads/\d+/$"))
+        lead_url = self.browser.current_url
+        lead_id = lead_url.rstrip("/").rsplit("/", 1)[1]
+        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "reassign-to-user")).options) > 1)
+        Select(self.browser.find_element(By.ID, "reassign-to-user")).select_by_visible_text("بازاریاب روزانه")
+        self.browser.find_element(By.ID, "reassign-reason").send_keys("صف کار روزانه")
+        self.browser.find_element(By.CSS_SELECTOR, "#reassign-lead-form button[type='submit']").click()
+        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "lead-assigned-to"), "بازاریاب روزانه"))
+
+        self.logout()
+        agent = User.objects.get(username="daily.agent.browser")
+        self.login(agent)
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "agent-work-queue-body"), "مشتری مسیر روزانه"))
+        queue_row = self.browser.find_element(By.CSS_SELECTOR, "#agent-work-queue-body tr")
+        self.assertNotEqual(queue_row.find_elements(By.TAG_NAME, "td")[2].text, "—")
+        queue_row.find_element(By.LINK_TEXT, "مشتری").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
+        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "مشتری مسیر روزانه")
+
+        self.browser.get(f"{self.live_server_url}/interactions/?lead={lead_id}")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-interaction-dialog")))
+        self.assertEqual(Select(self.browser.find_element(By.ID, "create-interaction-lead")).first_selected_option.get_attribute("value"), lead_id)
+        self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121230001")
+        Select(self.browser.find_element(By.ID, "create-interaction-direction")).select_by_value("outbound")
+        self.browser.find_element(By.ID, "create-interaction-outcome").send_keys("نیاز به پیگیری")
+        self.browser.execute_script(
+            "const e=document.getElementById('create-interaction-follow-up'); e.value='2026-08-14T11:00'; e.dispatchEvent(new Event('change',{bubbles:true}));"
+        )
+        self.browser.find_element(By.CSS_SELECTOR, "#create-interaction-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/interactions/\d+/$"))
+
+        self.browser.get(f"{self.live_server_url}/sales/?lead={lead_id}")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-sale-dialog")))
+        self.assertEqual(Select(self.browser.find_element(By.ID, "create-sale-lead")).first_selected_option.get_attribute("value"), lead_id)
+        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول روزانه — 20.00")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
+        sale_url = self.browser.current_url
+        self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), "بازاریاب روزانه")
+
+        self.logout()
+        self.login(self.manager)
+        self.browser.get(sale_url)
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
+        self.assertEqual(self.browser.find_element(By.ID, "sale-customer").get_attribute("value"), "مشتری مسیر روزانه")
+        self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), "بازاریاب روزانه")
+        self.browser.get(f"{self.live_server_url}/reports/user-performance/")
+        self.browser.find_element(By.CSS_SELECTOR, "#performance-filter-form button[type='submit']").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "performance-content")))
+        report_text = self.browser.find_element(By.ID, "performance-table-body").text
+        self.assertIn("daily.agent.browser", report_text)
+        self.assertIn("20.00", report_text)
+        self.assert_browser_clean()
+
+    def test_sales_document_postal_manager_to_agent_journey(self):
+        customer = create_customer_with_phone(
+            actor=self.agent, full_name="مشتری سند مرورگر", province="تهران", city="تهران",
+            postal_code="1234567890", address="نشانی ثابت مرورگر",
+        )
+        lead = create_lead(actor=self.agent, customer=customer, source="سند مرورگر")
+        from sales.services import assign_lead
+        assign_lead(actor=self.manager, lead=lead, to_user=self.agent, reason="document browser scope")
+        product = create_product(
+            actor=self.manager, sku="DOC-WEB-1", name="محصول سند مرورگر", current_price=Decimal("40.00"),
+        )
+        sale = mark_sale(actor=self.agent, lead=lead, product=product, quantity=1, sold_at=timezone.now())
+        self.browser.set_window_size(1440, 1000)
+        self.login(self.manager)
+        self.browser.get(f"{self.live_server_url}/sales-documents/")
+        try:
+            self.wait.until(expected_conditions.element_to_be_clickable((By.ID, "open-create-sales-document")))
+        except TimeoutException:
+            self.browser.delete_all_cookies()
+            self.login(self.manager)
+            self.browser.get(f"{self.live_server_url}/sales-documents/")
+            self.wait.until(expected_conditions.element_to_be_clickable((By.ID, "open-create-sales-document")))
+        self.browser.find_element(By.ID, "open-create-sales-document").click()
+        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sales-document-customer")).options) > 1)
+        customer_select = Select(self.browser.find_element(By.ID, "create-sales-document-customer"))
+        customer_select.select_by_visible_text("مشتری سند مرورگر")
+        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sales-document-sale")).options) > 1)
+        Select(self.browser.find_element(By.ID, "create-sales-document-sale")).select_by_value(str(sale.pk))
+        self.browser.find_element(By.ID, "create-sales-document-number").send_keys("DOC-WEB-100")
+        self.browser.find_element(By.ID, "create-sales-document-status").send_keys("ثبت اولیه")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-sales-document-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/sales-documents/\d+/$"))
+        document_url = self.browser.current_url
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-detail-content")))
+        self.assertEqual(self.browser.find_element(By.ID, "sales-document-address").get_attribute("value"), "نشانی ثابت مرورگر")
+        self.browser.find_element(By.ID, "postal-to-status").send_keys("تحویل پست")
+        self.browser.find_element(By.ID, "postal-reason").send_keys("تحویل دستی")
+        self.browser.find_element(By.CSS_SELECTOR, "#postal-transition-form button[type='submit']").click()
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "postal-history-table-body"), "تحویل پست"))
+
+        self.browser.get(f"{self.live_server_url}/reports/sales-documents/")
+        self.browser.find_element(By.CSS_SELECTOR, "#sales-document-report-form button[type='submit']").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-report-content")))
+        self.assertEqual(self.browser.find_element(By.ID, "sales-document-report-total").text, "1")
+        self.assertIn("تهران", self.browser.find_element(By.ID, "sales-document-geography-body").text)
+        self.assertIn("تحویل پست", self.browser.find_element(By.ID, "sales-document-status-body").text)
+
+        self.assert_browser_clean()
+
+    def test_agent_reads_only_scoped_sales_document(self):
+        customer = create_customer_with_phone(actor=self.agent, full_name="مشتری سند عامل")
+        lead = create_lead(actor=self.agent, customer=customer)
+        from sales.services import assign_lead, register_sales_document
+        assign_lead(actor=self.manager, lead=lead, to_user=self.agent, reason="agent document browser scope")
+        document = register_sales_document(
+            actor=self.manager, customer=customer,
+            document_number="DOC-AGENT-WEB", postal_status="ثبت اولیه",
+        )
+        self.browser.set_window_size(1440, 1000)
+        self.login(self.agent)
+        self.browser.get(f"{self.live_server_url}/sales-documents/{document.pk}/")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-detail-content")))
+        self.assertEqual(self.browser.find_element(By.ID, "sales-document-number").get_attribute("value"), "DOC-AGENT-WEB")
+        self.assertEqual(self.browser.find_elements(By.ID, "postal-transition-form"), [])
         self.assert_browser_clean()

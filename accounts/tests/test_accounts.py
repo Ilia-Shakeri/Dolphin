@@ -244,55 +244,91 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(user_update.status_code, 400)
         self.assertIn("id", user_update.data)
 
-    def test_sales_manager_user_directory_fails_closed_without_team_scope(self):
+    def test_sales_manager_lists_and_manages_sales_agents_only(self):
         manager = User.objects.create_user(
             username="manager-user-reader",
             password="Long-Safe-Pass-741!",
             role=User.Role.SALES_MANAGER,
         )
+        other_agent = User.objects.create_user(
+            username="manager-visible-agent",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.SALES_AGENT,
+        )
         client = APIClient()
         client.force_authenticate(manager)
-        self.assertEqual(client.get("/api/v1/users/").status_code, 403)
-        self.assertEqual(client.get(f"/api/v1/users/{self.platform.pk}/").status_code, 403)
 
-    def test_sales_roles_cannot_admin_users(self):
+        listed = client.get("/api/v1/users/")
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(
+            {item["id"] for item in listed.data["results"]},
+            {self.agent.pk, other_agent.pk},
+        )
+        created = client.post(
+            "/api/v1/users/",
+            {"username": "manager-created-agent", "password": "Long-Safe-Pass-741!"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.data["role"], User.Role.SALES_AGENT)
+        target_path = f"/api/v1/users/{created.data['id']}/"
+        edited = client.patch(target_path, {"first_name": "Edited"}, format="json")
+        self.assertEqual(edited.status_code, 200)
+        deactivated = client.patch(target_path, {"is_active": False}, format="json")
+        self.assertEqual(deactivated.status_code, 200)
+        reactivated = client.patch(target_path, {"is_active": True}, format="json")
+        self.assertEqual(reactivated.status_code, 200)
+        self.assertTrue(reactivated.data["is_active"])
+
+    def test_sales_manager_direct_ids_and_escalation_fail_closed(self):
         manager = User.objects.create_user(
             username="manager-user-admin",
             password="Long-Safe-Pass-741!",
             role=User.Role.SALES_MANAGER,
         )
-        for actor in (self.agent, manager):
-            with self.subTest(role=actor.role):
-                client = APIClient()
-                client.force_authenticate(actor)
-                self.assertEqual(client.get("/api/v1/users/").status_code, 403)
+        client = APIClient()
+        client.force_authenticate(manager)
+
+        for target in (manager, self.company_it, self.platform):
+            with self.subTest(target=target.role):
+                path = f"/api/v1/users/{target.pk}/"
+                self.assertEqual(client.get(path).status_code, 404)
+                self.assertEqual(client.patch(path, {"first_name": "Blocked"}, format="json").status_code, 404)
                 self.assertEqual(
-                    client.post(
-                        "/api/v1/users/",
-                        {
-                            "username": f"blocked-{actor.username}",
-                            "password": "Long-Safe-Pass-741!",
-                        },
-                        format="json",
-                    ).status_code,
-                    403,
+                    client.post(f"{path}change-role/", {"role": User.Role.SALES_AGENT}, format="json").status_code,
+                    404,
                 )
-                self.assertEqual(
-                    client.patch(
-                        f"/api/v1/users/{self.company_it.pk}/",
-                        {"first_name": "Blocked"},
-                        format="json",
-                    ).status_code,
-                    403,
-                )
-                self.assertEqual(
-                    client.post(
-                        f"/api/v1/users/{self.company_it.pk}/change-role/",
-                        {"role": User.Role.SALES_AGENT},
-                        format="json",
-                    ).status_code,
-                    403,
-                )
+
+        update_escalation = client.patch(
+            f"/api/v1/users/{self.agent.pk}/",
+            {"role": User.Role.SALES_MANAGER},
+            format="json",
+        )
+        role_escalation = client.post(
+            f"/api/v1/users/{self.agent.pk}/change-role/",
+            {"role": User.Role.SALES_MANAGER},
+            format="json",
+        )
+        delete = client.delete(f"/api/v1/users/{self.agent.pk}/")
+        self.assertEqual(update_escalation.status_code, 400)
+        self.assertEqual(role_escalation.status_code, 403)
+        self.assertEqual(delete.status_code, 405)
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
+
+    def test_sales_agent_has_no_user_administration(self):
+        client = APIClient()
+        client.force_authenticate(self.agent)
+        self.assertEqual(client.get("/api/v1/users/").status_code, 403)
+        self.assertEqual(
+            client.post(
+                "/api/v1/users/",
+                {"username": "blocked-agent-create", "password": "Long-Safe-Pass-741!"},
+                format="json",
+            ).status_code,
+            403,
+        )
+        self.assertEqual(client.get(f"/api/v1/users/{self.agent.pk}/").status_code, 403)
 
     def test_deactivation_is_audited_and_immediately_blocks_user(self):
         active_session = Client()

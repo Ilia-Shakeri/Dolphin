@@ -242,6 +242,8 @@ try {
         -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('$sessionKey', '', CURRENT_TIMESTAMP + INTERVAL '1 hour'); UPDATE django_session SET session_data = 'x' WHERE session_key = '$sessionKey'; DELETE FROM django_session WHERE session_key = '$sessionKey'; SELECT COUNT(*) FROM django_migrations"
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE auditlog_activitylog SET operation = operation WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM sales_interaction WHERE FALSE" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE sales_postalstatushistory SET reason = reason WHERE FALSE" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM sales_salesdocument WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "CREATE TABLE public.kariz_forbidden_table (id integer)" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.kariz_contract_probe()" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT * FROM public.kariz_future_table" -ShouldPass $false

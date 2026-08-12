@@ -1,0 +1,34 @@
+{% extends "common/base.html" %}
+{% block title %}اسناد فروش داخلی{% endblock %}
+{% block page_id %}sales-documents{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">سند عملیاتی؛ نه فاکتور حسابداری</p><h1>اسناد فروش داخلی</h1></div>{% if can_manage_sales_documents %}<button id="open-create-sales-document" class="button" type="button">ثبت سند</button>{% endif %}</section>
+<section class="card">
+    <form id="sales-document-search-form" action="{% url 'common_ui:sales-documents' %}" method="get" class="toolbar">
+        <label class="sr-only" for="sales-document-search">جستجو</label><input id="sales-document-search" name="search" type="search" placeholder="شماره سند، مشتری، نشانی یا وضعیت">
+        <label class="sr-only" for="sales-document-postal-status">وضعیت پستی</label><input id="sales-document-postal-status" name="postal_status" maxlength="80" placeholder="وضعیت پستی دقیق">
+        <label class="sr-only" for="sales-document-province">استان</label><input id="sales-document-province" name="province" maxlength="100" placeholder="استان دقیق">
+        <label class="sr-only" for="sales-document-city">شهر</label><input id="sales-document-city" name="city" maxlength="100" placeholder="شهر دقیق">
+        <label class="sr-only" for="sales-document-active">حالت</label><select id="sales-document-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select>
+        <label class="sr-only" for="sales-document-ordering">مرتب‌سازی</label><select id="sales-document-ordering" name="ordering"><option value="-registered_at">تازه‌ترین</option><option value="registered_at">قدیمی‌ترین</option><option value="document_number">شماره سند</option></select>
+        <button class="button button-muted" type="submit">اعمال</button>
+    </form>
+    <div id="sales-documents-loading" class="state">در حال دریافت اسناد…</div><div id="sales-documents-empty" class="state" hidden>سندی پیدا نشد.</div>
+    <div id="sales-documents-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره سند</th><th>مشتری</th><th>فروش</th><th>استان / شهر</th><th>وضعیت پستی</th><th>حالت</th><th>عملیات</th></tr></thead><tbody id="sales-documents-table-body"></tbody></table></div>
+    <nav id="sales-documents-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="sales-documents-prev" class="button button-muted" type="button">قبلی</button><span id="sales-documents-page-label"></span><button id="sales-documents-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+{% if can_manage_sales_documents %}<dialog id="create-sales-document-dialog" aria-labelledby="create-sales-document-title">
+    <form id="create-sales-document-form" action="/api/v1/sales-documents/" method="post" novalidate>{% csrf_token %}
+        <div class="dialog-head"><h2 id="create-sales-document-title">ثبت سند فروش داخلی</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="form-grid">
+            <div><label for="create-sales-document-customer">مشتری</label><select id="create-sales-document-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="customer"></p></div>
+            <div><label for="create-sales-document-sale">فروش مرتبط (اختیاری)</label><select id="create-sales-document-sale" name="sale"><option value="">بدون فروش مرتبط</option></select><p class="field-error" data-error-for="sale"></p></div>
+            <div><label for="create-sales-document-number">شماره داخلی سند</label><input id="create-sales-document-number" name="document_number" maxlength="64" required><p class="field-error" data-error-for="document_number"></p></div>
+            <div><label for="create-sales-document-status">وضعیت پستی آغازین</label><input id="create-sales-document-status" name="postal_status" maxlength="80" required><p class="field-error" data-error-for="postal_status"></p></div>
+            <div class="full-field"><label for="create-sales-document-notes">یادداشت</label><textarea id="create-sales-document-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        </div>
+        <p class="muted">استان، شهر، کدپستی و نشانی مشتری هنگام ثبت ثابت می‌شود. این سند فاکتور حسابداری نیست.</p>
+        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت سند</button></div>
+    </form>
+</dialog>{% endif %}
+{% endblock %}

@@ -1,11 +1,31 @@
 {% extends "common/base.html" %}
-{% block title %}خانه{% endblock %}
-{% block page_id %}profile{% endblock %}
+{% block title %}{{ dashboard_title }}{% endblock %}
+{% block page_id %}dashboard{% endblock %}
 {% block content %}
-<section class="page-head">
-    <div><p class="eyebrow">Kariz CRM | کاریز</p><h1>پروفایل من</h1></div>
+<section class="page-head" data-dashboard-capability="{{ dashboard_capability }}">
+    <div><p class="eyebrow">Kariz CRM | کاریز</p><h1 id="dashboard-title">{{ dashboard_title }}</h1><p>{{ dashboard_summary }}</p></div>
 </section>
-<section class="card">
+<section class="metric-grid dashboard-grid" aria-label="نمای کلی دسترسی مجاز">
+    {% for widget in dashboard_widgets %}
+    <a class="metric dashboard-widget" data-capability="{{ widget.capability }}" href="{% url widget.url_name %}">
+        <span>{{ widget.label }}</span>
+        <strong>{{ widget.value }}</strong>
+    </a>
+    {% endfor %}
+</section>
+{% if request.user.role == "sales_agent" %}
+<section class="card work-queue-card" id="agent-work-queue" aria-labelledby="agent-work-queue-title">
+    <div class="section-head"><div><h2 id="agent-work-queue-title">صف کار امروز</h2><p class="muted">سرنخ‌های تخصیص‌یافته؛ پیگیری زمان‌دار زودتر دیده می‌شود.</p></div><a class="button button-muted" href="{% url 'common_ui:leads' %}">همه سرنخ‌های من</a></div>
+    <div id="agent-work-queue-loading" class="state">در حال دریافت صف کار…</div>
+    <div id="agent-work-queue-empty" class="state" hidden>سرنخ تخصیص‌یافته‌ای ندارید.</div>
+    <div id="agent-work-queue-table-wrap" class="table-wrap" hidden>
+        <table><thead><tr><th>مشتری</th><th>منبع</th><th>پیگیری بعدی</th><th>کار سریع</th></tr></thead><tbody id="agent-work-queue-body"></tbody></table>
+    </div>
+    <nav id="agent-work-queue-pagination" class="pagination" aria-label="صفحه‌بندی صف کار" hidden><button id="agent-work-queue-prev" class="button button-muted" type="button">قبلی</button><span id="agent-work-queue-page-label"></span><button id="agent-work-queue-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+{% endif %}
+<section class="card" id="profile-card">
+    <h2>پروفایل من</h2>
     <div id="profile-loading" class="state">در حال دریافت پروفایل…</div>
     <form id="profile-form" action="/api/v1/auth/me/" method="post" class="form-grid" hidden novalidate>
         {% csrf_token %}

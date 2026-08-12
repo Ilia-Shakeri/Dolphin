@@ -156,7 +156,9 @@ The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 - `company_it`: `مدیر فنی مشتری`; optional client technical administrator and never permitted to grant, target, or manage `platform_admin`.
 - `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz platform owner/developer/admin, highest CRM application privilege, and holder of Platform Admin custody.
 
-Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged. Team boundaries, seat/capacity, and after-sales workstream scope remain separate unresolved decisions.
+Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged.
+
+For the single-tenant Client-1 deployment, Sales Manager scope is confirmed as company-wide for business records and all clean `sales_agent` accounts in that deployment. No Team model is created. Sales Manager may list, create, edit, deactivate, and reactivate Sales Agent accounts only; it cannot target elevated-role users or change/grant roles. Company IT manages clean non-platform identities under the existing Platform Admin ceiling. Platform Admin manages every clean CRM identity and fixed CRM role. Seat/capacity and after-sales workstream scope remain separate unresolved decisions.
 
 ### 4.1 Access matrix
 
@@ -180,10 +182,10 @@ Customer remains the actual store/customer/client contact and is displayed as `�
 | View company/user KPIs | No | Yes | Yes | Yes |
 | Export own report | Yes | Yes | Yes | Yes |
 | Export company report | No | Yes | Yes | Yes |
-| Manage ordinary users | No | Limited team users only | Yes | Yes |
+| Manage ordinary users | No | Sales Agent accounts only | All clean non-platform users | Every clean CRM identity |
 | Assign CRM roles | No | No | Up to `company_it`; never `platform_admin` | Yes |
 | Grant platform admin/superuser | No | No | No | Yes |
-| View audit log | No | Limited operational audit | Yes | Yes |
+| View audit log | No | No | Non-platform-safe audit | All CRM audit |
 | Django admin/server operations | No | No | No by default | Separately controlled |
 
 ### 4.2 Mandatory backend enforcement
@@ -427,6 +429,20 @@ Rules:
 - Manager-or-higher correction/cancellation is a dedicated audited service/action.
 - Normal workflows do not hard-delete Sales.
 
+### 5.7A SalesDocument and PostalStatusHistory
+
+`SalesDocument` is the minimal Client-1 internal operational sales document. It is not an Order, quotation, legal/accounting Invoice, Payment, or ledger row. Sale remains the operational success record.
+
+Fields: required Customer; optional Sale; unique bounded human-readable internal document number; immutable server-owned province, city, postal-code, and address snapshots; required bounded current postal status; registration actor/time; active flag; notes; timestamps.
+
+Rules:
+
+- A linked Sale must belong to the selected Customer. Registration copies the current Customer geography/address and later Customer edits do not rewrite it.
+- Sales Manager, Company IT, and Platform Admin may register, deactivate, and transition postal state through atomic audited services. Sales Agent has read-only access only through its scoped Customer or own Sale relationship.
+- PostalStatusHistory is append-only and stores prior status, new status, actor, reason, and time. No ordinary hard deletion or generic document update exists.
+- Exact postal choices and allowed transition graph remain unresolved. Until approved, the system accepts a required bounded single-line explicit status, blocks blank/same-state transitions, and does not infer carrier, return, tracking, or cancellation meaning.
+- Tax, payment, ledger, legal numbering, fiscal correction, PDF, carrier integration, and full Invoice remain outside this phase.
+
 ### 5.8 ActivityLog
 
 Fields:
@@ -496,6 +512,11 @@ User 1 -> N Interaction(agent)
 Lead 1 -> 0..N Sale
 User 1 -> N Sale(sold_by)
 Product 1 -> N Sale(product, optional)
+Customer 1 -> N SalesDocument
+Sale 0..1 -> N SalesDocument
+User 1 -> N SalesDocument(registered_by)
+SalesDocument 1 -> N PostalStatusHistory
+User 1 -> N PostalStatusHistory(changed_by)
 Customer 1 -> N AfterSalesRequest
 Sale 0..1 -> N AfterSalesRequest
 User 1 -> N ActivityLog(actor)
@@ -533,6 +554,13 @@ Use database constraints and transactional services to protect cross-field consi
 - Sale creation snapshots quantity/price/amount and creates audit evidence as required.
 - Full Invoice creation is not part of the confirmed Sales Agent workflow.
 
+### 7.4A Internal document and postal transition
+
+- Elevated roles register a SalesDocument from a scoped Customer and optional same-Customer Sale.
+- Registration atomically creates the document, immutable location/address snapshot, first postal-history row, and safe audit row.
+- Elevated roles change current postal status only through the dedicated service; each successful change appends history and audit in the same transaction.
+- Sales Agent access is read-only and derives only from the existing Customer/Sale selector scope.
+
 ### 7.5 Deletion policy
 
 - Users, Customers, Products, Leads, Sales, and support records are normally deactivated/cancelled rather than physically deleted.
@@ -566,8 +594,12 @@ POST /api/v1/leads/{id}/reassign/
 /api/v1/interactions/
 /api/v1/products/
 /api/v1/sales/
+/api/v1/sales-documents/
+/api/v1/sales-documents/{id}/transition-postal-status/
+/api/v1/sales-documents/{id}/postal-history/
 /api/v1/after-sales/                         # only when approved
 /api/v1/reports/user-performance/
+/api/v1/reports/sales-documents/
 /api/v1/exports/user-performance.xlsx
 ```
 
@@ -784,6 +816,7 @@ Keep these explicit and do not silently convert them into confirmed rules:
 14. External website data direction, credentials, and network path.
 15. Production hostname/certificate/TLS path.
 16. **RESOLVED 2026-08-11:** four fixed role codes and Persian labels are mapped in section 4; Platform Admin custody stays with `platform_admin`, and `company_it` cannot grant or manage it. Team/workstream scope remains a separate open decision.
+17. **RESOLVED 2026-08-12 for Client-1:** no Team model; Sales Manager has company-wide business scope and may administer Sales Agent accounts only. Elevated-role direct IDs are masked and role grants remain denied. A future multi-team product still needs a separate decision.
 17. No-seat-cap meaning, total accounts, peak concurrency, capacity target, and load abort rule.
 18. Customer category/postal/address/history/export/bulk/360 contracts.
 19. Lead conversion/priority/archive/Opportunity/Pipeline contracts.

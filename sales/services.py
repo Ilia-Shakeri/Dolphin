@@ -21,8 +21,10 @@ from sales.models import (
     LeadAssignmentHistory,
     Product,
     Sale,
+    SalesDocument,
+    PostalStatusHistory,
 )
-from sales.selectors import customers_for
+from sales.selectors import customers_for, sales_for
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -55,6 +57,11 @@ LEAD_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
 PRODUCT_TEXT_LIMITS = {"description": FREE_TEXT_MAX_LENGTH}
 INTERACTION_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
 SALE_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
+SALES_DOCUMENT_TEXT_LIMITS = {
+    "document_number": 64,
+    "postal_status": 80,
+    "notes": FREE_TEXT_MAX_LENGTH,
+}
 
 
 def _validate_text_lengths(values, limits):
@@ -313,7 +320,12 @@ def record_interaction(*, actor, lead, **data):
     locked_lead = Lead.objects.select_for_update().get(pk=lead.pk)
     if actor.role == User.Role.SALES_AGENT and locked_lead.assigned_to_id != actor.pk:
         raise BusinessPermissionDenied("Lead is outside your scope.")
-    return Interaction.objects.create(lead=locked_lead, customer=locked_lead.customer, agent=actor, **data)
+    interaction = Interaction.objects.create(lead=locked_lead, customer=locked_lead.customer, agent=actor, **data)
+    next_follow_up_at = data.get("next_follow_up_at")
+    if next_follow_up_at is not None and locked_lead.next_follow_up_at != next_follow_up_at:
+        locked_lead.next_follow_up_at = next_follow_up_at
+        locked_lead.save(update_fields=["next_follow_up_at", "updated_at"])
+    return interaction
 
 
 @transaction.atomic
@@ -375,6 +387,111 @@ def cancel_or_correct_sale(*, actor, sale, operation="cancel", reason="", correc
     if operation != "cancel" or correction:
         raise BusinessRuleError({"operation": "Sale correction rules are not approved."})
     return cancel_sale(actor=actor, sale=sale, reason=reason)
+
+
+def _clean_required_text(value, *, field, limit):
+    value = value.strip() if isinstance(value, str) else ""
+    if not value:
+        raise BusinessRuleError({field: "This field is required."})
+    if any(character in value for character in "\r\n\t"):
+        raise BusinessRuleError({field: "Use a single-line value."})
+    if len(value) > limit:
+        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+    return value
+
+
+@transaction.atomic
+def register_sales_document(*, actor, customer, document_number, postal_status, sale=None, notes=""):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Sales document registration is not allowed.")
+    locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
+    if not customers_for(actor).filter(pk=locked_customer.pk).exists():
+        raise BusinessPermissionDenied("Customer is outside your scope.")
+    locked_sale = None
+    if sale is not None:
+        locked_sale = Sale.objects.select_for_update().get(pk=sale.pk)
+        if not sales_for(actor).filter(pk=locked_sale.pk).exists():
+            raise BusinessPermissionDenied("Sale is outside your scope.")
+        if locked_sale.customer_id != locked_customer.pk:
+            raise BusinessRuleError({"sale": "Sale must belong to the selected customer."})
+    document_number = _clean_required_text(document_number, field="document_number", limit=64)
+    postal_status = _clean_required_text(postal_status, field="postal_status", limit=80)
+    _validate_text_lengths({"notes": notes}, SALES_DOCUMENT_TEXT_LIMITS)
+    try:
+        document = SalesDocument.objects.create(
+            customer=locked_customer,
+            sale=locked_sale,
+            document_number=document_number,
+            province_snapshot=locked_customer.province,
+            city_snapshot=locked_customer.city,
+            postal_code_snapshot=locked_customer.postal_code,
+            address_snapshot=locked_customer.address,
+            postal_status=postal_status,
+            registered_by=actor,
+            notes=notes,
+        )
+    except IntegrityError as exc:
+        raise BusinessConflictError({"document_number": "Document number already exists or data is invalid."}) from exc
+    PostalStatusHistory.objects.create(
+        document=document,
+        from_status="",
+        to_status=postal_status,
+        changed_by=actor,
+    )
+    log_activity(
+        actor=actor,
+        operation="sales_document.registered",
+        instance=document,
+        changes={"fields": ["customer", "sale", "document_number", "postal_status", "address_snapshot"]},
+    )
+    return document
+
+
+@transaction.atomic
+def transition_postal_status(*, actor, document, to_status, reason=""):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Postal status transition is not allowed.")
+    locked = SalesDocument.objects.select_for_update().get(pk=document.pk)
+    if not locked.is_active:
+        raise BusinessConflictError({"is_active": "Inactive document cannot change postal status."})
+    to_status = _clean_required_text(to_status, field="to_status", limit=80)
+    if len(reason) > 500:
+        raise BusinessRuleError({"reason": "Ensure this field has no more than 500 characters."})
+    if locked.postal_status == to_status:
+        raise BusinessConflictError({"to_status": "Postal status is already set to this value."})
+    previous = locked.postal_status
+    locked.postal_status = to_status
+    locked.save(update_fields=["postal_status", "updated_at"])
+    PostalStatusHistory.objects.create(
+        document=locked,
+        from_status=previous,
+        to_status=to_status,
+        changed_by=actor,
+        reason=reason,
+    )
+    log_activity(
+        actor=actor,
+        operation="sales_document.postal_status_changed",
+        instance=locked,
+        changes={"postal_from": previous, "postal_to": to_status, "reason_provided": bool(reason)},
+    )
+    return locked
+
+
+@transaction.atomic
+def deactivate_sales_document(*, actor, document):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Sales document deactivation is not allowed.")
+    locked = SalesDocument.objects.select_for_update().get(pk=document.pk)
+    if not locked.is_active:
+        raise BusinessConflictError({"is_active": "Sales document is already inactive."})
+    locked.is_active = False
+    locked.save(update_fields=["is_active", "updated_at"])
+    log_activity(actor=actor, operation="sales_document.deactivated", instance=locked)
+    return locked
 
 
 @transaction.atomic

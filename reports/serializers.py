@@ -75,3 +75,45 @@ class UserPerformanceReportSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(allow_null=True)
     sales_product_id = serializers.IntegerField(allow_null=True)
     results = UserPerformanceRowSerializer(many=True)
+
+
+class SalesDocumentReportQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    period_start = OffsetAwareDateTimeField(help_text="Inclusive registration timestamp.")
+    period_end = OffsetAwareDateTimeField(help_text="Exclusive registration timestamp.")
+    province = serializers.CharField(max_length=100, required=False)
+    city = serializers.CharField(max_length=100, required=False)
+    postal_status = serializers.CharField(max_length=80, required=False)
+    is_active = serializers.BooleanField(required=False, allow_null=True, default=None)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        getlist = getattr(self.initial_data, "getlist", None)
+        if getlist:
+            repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
+            if repeated:
+                raise serializers.ValidationError(
+                    {name: "Query parameter must appear once." for name in repeated}
+                )
+        if attrs["period_end"] <= attrs["period_start"]:
+            raise serializers.ValidationError({"period_end": "Must be later than period_start."})
+        return attrs
+
+
+class SalesDocumentGeographyRowSerializer(serializers.Serializer):
+    province = serializers.CharField(allow_blank=True)
+    city = serializers.CharField(allow_blank=True)
+    count = serializers.IntegerField(min_value=0)
+
+
+class SalesDocumentPostalStatusRowSerializer(serializers.Serializer):
+    postal_status = serializers.CharField()
+    count = serializers.IntegerField(min_value=0)
+
+
+class SalesDocumentReportSerializer(serializers.Serializer):
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    filters = serializers.DictField()
+    total = serializers.IntegerField(min_value=0)
+    by_geography = SalesDocumentGeographyRowSerializer(many=True)
+    by_postal_status = SalesDocumentPostalStatusRowSerializer(many=True)

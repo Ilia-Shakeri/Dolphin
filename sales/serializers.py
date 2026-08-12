@@ -7,9 +7,9 @@ from accounts.access import crm_identities
 from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
-from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, Product, Sale
-from sales.selectors import customers_for, leads_for, products_for
-from sales.services import create_customer_phone, create_customer_with_phone, create_lead, create_product, mark_sale, record_interaction, update_customer, update_customer_phone, update_lead, update_product
+from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, Sale, SalesDocument
+from sales.selectors import customers_for, leads_for, products_for, sales_for
+from sales.services import create_customer_phone, create_customer_with_phone, create_lead, create_product, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product
 
 
 def _scope_relation(field, queryset):
@@ -316,3 +316,62 @@ class SaleSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 class CancelSaleSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class SalesDocumentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    server_fields = {
+        "customer_name", "province_snapshot", "city_snapshot", "postal_code_snapshot",
+        "address_snapshot", "registered_at", "registered_by", "registered_by_display",
+        "is_active", "created_at", "updated_at",
+    }
+    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    document_number = serializers.CharField(max_length=64, validators=[])
+    registered_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    registered_by_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SalesDocument
+        fields = [
+            "id", "customer", "customer_name", "sale", "document_number",
+            "province_snapshot", "city_snapshot", "postal_code_snapshot", "address_snapshot",
+            "postal_status", "registered_at", "registered_by", "registered_by_display",
+            "is_active", "notes", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "customer_name", "province_snapshot", "city_snapshot", "postal_code_snapshot",
+            "address_snapshot", "registered_at", "registered_by", "registered_by_display",
+            "is_active", "created_at", "updated_at",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            _scope_relation(self.fields["customer"], customers_for(request.user))
+            _scope_relation(self.fields["sale"], sales_for(request.user))
+        else:
+            _scope_relation(self.fields["customer"], Customer.objects.none())
+            _scope_relation(self.fields["sale"], Sale.objects.none())
+
+    def get_registered_by_display(self, instance) -> str:
+        return instance.registered_by.get_full_name() or instance.registered_by.username
+
+    def create(self, validated_data):
+        return register_sales_document(actor=self.context["request"].user, **validated_data)
+
+
+class PostalStatusTransitionSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    to_status = serializers.CharField(max_length=80, trim_whitespace=True)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class PostalStatusHistorySerializer(serializers.ModelSerializer):
+    changed_by_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostalStatusHistory
+        fields = ["id", "document", "from_status", "to_status", "changed_by", "changed_by_display", "reason", "changed_at"]
+        read_only_fields = fields
+
+    def get_changed_by_display(self, instance) -> str:
+        return instance.changed_by.get_full_name() or instance.changed_by.username

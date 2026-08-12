@@ -15,7 +15,7 @@ ROLE_RANK = {
     User.Role.COMPANY_IT: 3,
     User.Role.PLATFORM_ADMIN: 4,
 }
-USER_ADMINS = {User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
+USER_ADMINS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
 USER_MUTABLE_FIELDS = {"username", "first_name", "last_name", "email", "phone", "is_active"}
 PROFILE_MUTABLE_FIELDS = {"first_name", "last_name", "email", "phone"}
 
@@ -53,6 +53,8 @@ def _locked_users(actor, target=None):
         raise BusinessRuleError({"user": "User does not exist."})
     if locked_target is not None and not is_crm_account(locked_target):
         raise BusinessPermissionDenied("User administration is not allowed.")
+    if locked_actor.role == User.Role.SALES_MANAGER and locked_target is not None and locked_target.role != User.Role.SALES_AGENT:
+        raise BusinessPermissionDenied("Sales Manager may manage Sales Agent accounts only.")
     if locked_actor.role == User.Role.COMPANY_IT and locked_target is not None and locked_target.role == User.Role.PLATFORM_ADMIN:
         raise BusinessPermissionDenied("Company IT cannot manage Platform Admin access.")
     return locked_actor, locked_target
@@ -150,6 +152,8 @@ def change_user_role(*, actor, target, role):
     actor_role_at_action = actor.role
     if role not in ROLE_RANK:
         raise BusinessRuleError({"role": "Unknown CRM role."})
+    if actor.role == User.Role.SALES_MANAGER:
+        raise BusinessPermissionDenied("Sales Manager cannot change CRM roles.")
     if actor.role == User.Role.COMPANY_IT:
         if target.role == User.Role.PLATFORM_ADMIN or ROLE_RANK[role] > ROLE_RANK[User.Role.COMPANY_IT]:
             raise BusinessPermissionDenied("Company IT cannot manage Platform Admin access.")

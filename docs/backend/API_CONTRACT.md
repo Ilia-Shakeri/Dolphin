@@ -26,16 +26,26 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 - `leads/`: scoped list/create/retrieve/update. Ownership/status fields are read-only. Notes permit at most 4,000 characters. No DELETE.
 - `GET leads/assignees/`: Sales Manager, Company IT, or Platform Admin only. Returns paginated minimal identity fields for active clean Sales Agent CRM identities; it does not expose user-administration fields or invent Team boundaries.
+- `GET leads/work-queue/`: Sales Agent only. Returns only Leads currently assigned to the authenticated agent; dated follow-ups sort first by nearest `next_follow_up_at`, then assigned records without a date. Managers use the company Lead list, not this personal endpoint.
 - `GET leads/{id}/assignment-history/`: paginated append-oriented assignment history after the same role/object scope as Lead retrieve. Out-of-scope direct IDs return 404.
 - `POST leads/{id}/reassign/`: Sales Manager, Company IT, or Platform Admin; body has `to_user` and optional `reason`; target must be an active Sales Agent CRM identity, so staff/superuser/group/direct-permission rows cannot be assigned; atomic history and audit.
 
 ## Interactions, products, sales
 
-- `interactions/`: scoped list/create/retrieve. Create requires exact `direction` (`inbound` or `outbound`) and a nonblank `outcome` of at most 80 characters. Notes permit at most 4,000 characters. Interaction records are append-only through the API. No update or DELETE.
+- `interactions/`: scoped list/create/retrieve. Create requires exact `direction` (`inbound` or `outbound`) and a nonblank `outcome` of at most 80 characters. Notes permit at most 4,000 characters. A non-null `next_follow_up_at` updates the locked assigned Lead through the Interaction service in the same transaction. Interaction records are append-only through the API. No update or DELETE.
 - `products/`: authenticated read. Sales Manager, Company IT, or Platform Admin create/update. Description permits at most 4,000 characters.
 - `POST products/{id}/deactivate/`: Sales Manager, Company IT, or Platform Admin.
 - `sales/`: scoped list/create/retrieve. Notes permit at most 4,000 characters. Creation snapshots product price and amount. No generic update/delete.
 - `POST sales/{id}/cancel/`: Sales Manager, Company IT, or Platform Admin; optional reason; audited without raw reason text. The central cancel/correct service rejects correction until correction rules are approved.
+
+## Internal sales documents and postal status
+
+- `GET/POST sales-documents/`, `GET sales-documents/{id}/`: internal operational document only; never an accounting Invoice. Sales Manager, Company IT, and Platform Admin register. Sales Agent reads only rows reachable through its scoped Customer or own Sale. No PATCH, PUT, or DELETE.
+- Registration requires Customer, unique bounded single-line internal document number, and bounded single-line initial postal status; Sale is optional and must belong to Customer. Province, city, postal code, address, registration actor/time, and active state are server-owned snapshots/state.
+- List filters: exact `postal_status`, `province`, `city`, `is_active`; plus search, ordering, and pagination.
+- `POST sales-documents/{id}/transition-postal-status/`: elevated roles only. Requires a different nonblank status, appends history, updates current status, and writes safe audit atomically. No unapproved fixed status vocabulary or transition graph is claimed.
+- `GET sales-documents/{id}/postal-history/`: paginated append-only history after the same document scope. `POST sales-documents/{id}/deactivate/` is elevated-only and preserves all rows.
+- `GET reports/sales-documents/`: required half-open registration period plus optional exact province/city/current-postal-status/active filters. Returns total, counts by snapshotted province/city, and counts by current postal status. Deactivated rows remain included unless `is_active` is supplied. Scope matches document API. No XLSX was approved.
 
 ## User-performance report and XLSX
 
@@ -53,7 +63,7 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 - `GET activity-logs/`, `GET activity-logs/{id}/`: read-only. Platform Admin sees all safe rows. Company IT scope uses stored actor/account-object role snapshots from action time, hides Platform Admin actor/target and protected role-change rows, and fails closed on legacy non-system-actor or account-target rows with blank snapshots. Sales Manager limited-audit semantics remain unresolved, so Manager and Sales Agent fail closed. No create/update/delete route.
 
-Browser routes use the same queryset and object guards as the API: `/products/`, `/products/{id}/`, `/sales/`, `/sales/{id}/`, `/reports/user-performance/`, `/activity-logs/`, and `/activity-logs/{id}/`. Sales Agent Product pages are read-only and hide inactive Products. Sale creation requires an active Product and sends only Lead, Product, quantity, and notes; price snapshot, total, Customer, seller, status, and timestamps remain server-derived. The report page builds JSON and XLSX requests from one query object. ActivityLog pages are read-only and limited to Company IT and Platform Admin with the same direct-ID hiding rules as the API.
+Browser routes use the same queryset and object guards as the API: `/products/`, `/products/{id}/`, `/sales/`, `/sales/{id}/`, `/sales-documents/`, `/sales-documents/{id}/`, `/reports/user-performance/`, `/reports/sales-documents/`, `/activity-logs/`, and `/activity-logs/{id}/`. Sales Agent Product pages are read-only and hide inactive Products. Sale creation requires an active Product and sends only Lead, Product, quantity, and notes; price snapshot, total, Customer, seller, status, and timestamps remain server-derived. Report pages build requests from their maintained filter forms. ActivityLog pages are read-only and limited to Company IT and Platform Admin with the same direct-ID hiding rules as the API.
 - `GET health/live/`: public process liveness.
 - `GET health/ready/`: public PostgreSQL readiness; 503 on database failure. `health/` remains a readiness compatibility route.
 - `GET schema/`, `GET docs/`: mapped only when `ENABLE_API_DOCS` is true and then limited to active authenticated users. Base settings follow `DEBUG`, test settings enable the flag, and production forces it false. Production therefore removes both URL patterns, so the interactive documentation and its remote browser assets cannot render there. Controlled schema generation remains a build/test command.

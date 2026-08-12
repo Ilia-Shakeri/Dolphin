@@ -1,5 +1,6 @@
 from decimal import Decimal
 from importlib import import_module
+from datetime import timedelta
 from unittest import mock
 
 from django.apps import apps as django_apps
@@ -1069,6 +1070,66 @@ class CoreWorkflowTests(TestCase):
         for path in hidden_paths:
             with self.subTest(path=path):
                 self.assertEqual(client.get(path).status_code, 404)
+
+    def test_agent_work_queue_is_assigned_only_and_follow_up_ordered(self):
+        later = timezone.now() + timedelta(days=2)
+        sooner = timezone.now() + timedelta(hours=2)
+        self.lead.next_follow_up_at = later
+        self.lead.save(update_fields=["next_follow_up_at", "updated_at"])
+        second_customer = create_customer_with_phone(actor=self.agent, full_name="Soon Customer")
+        second_lead = create_lead(actor=self.agent, customer=second_customer, source="soon", next_follow_up_at=sooner)
+        assign_lead(actor=self.manager, lead=second_lead, to_user=self.agent)
+        private_customer, private_lead, _interaction, _sale = self._create_other_private_sales_objects()
+
+        client = APIClient()
+        client.force_authenticate(self.agent)
+        response = client.get("/api/v1/leads/work-queue/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row["id"] for row in response.data["results"]], [second_lead.pk, self.lead.pk])
+        self.assertNotIn(private_lead.pk, [row["id"] for row in response.data["results"]])
+        self.assertNotIn(private_customer.pk, [row["customer"] for row in response.data["results"]])
+
+        client.force_authenticate(self.manager)
+        self.assertEqual(client.get("/api/v1/leads/work-queue/").status_code, 403)
+
+    def test_manual_interaction_follow_up_updates_assigned_lead_queue(self):
+        next_follow_up = timezone.now() + timedelta(days=1)
+        client = APIClient()
+        client.force_authenticate(self.agent)
+        response = client.post(
+            "/api/v1/interactions/",
+            {
+                "lead": self.lead.pk,
+                "phone": "09121234567",
+                "direction": Interaction.Direction.INBOUND,
+                "outcome": "follow up",
+                "occurred_at": timezone.now().isoformat(),
+                "next_follow_up_at": next_follow_up.isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.lead.refresh_from_db()
+        self.assertEqual(self.lead.next_follow_up_at, next_follow_up)
+        queue = client.get("/api/v1/leads/work-queue/")
+        self.assertEqual(queue.status_code, 200)
+        self.assertEqual(queue.data["results"][0]["next_follow_up_at"], response.data["next_follow_up_at"])
+
+    def test_manager_sees_all_agent_operational_records(self):
+        other_customer, other_lead, interaction, sale = self._create_other_private_sales_objects()
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        paths_and_ids = (
+            ("/api/v1/customers/", other_customer.pk),
+            ("/api/v1/leads/", other_lead.pk),
+            ("/api/v1/interactions/", interaction.pk),
+            ("/api/v1/sales/", sale.pk),
+        )
+        for path, object_id in paths_and_ids:
+            with self.subTest(path=path):
+                response = client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(object_id, [row["id"] for row in response.data["results"]])
 
     def test_interaction_lead_cannot_be_changed(self):
         other_customer = create_customer_with_phone(actor=self.other, full_name="Private")

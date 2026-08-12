@@ -3,7 +3,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from accounts.access import is_crm_identity
+from accounts.access import capabilities_for, is_crm_identity
 from accounts.models import User
 from accounts.services import change_user_role, create_crm_user, update_crm_user, update_own_profile
 from common.serializers import RejectServerFieldsMixin
@@ -23,12 +23,16 @@ class LoginSerializer(RejectServerFieldsMixin, serializers.Serializer):
 
 
 class MeSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"username", "role", "is_active", "last_login", "created_at", "updated_at"}
+    server_fields = {"username", "role", "capabilities", "is_active", "last_login", "created_at", "updated_at"}
+    capabilities = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email", "phone", "role", "is_active", "last_login", "created_at", "updated_at"]
-        read_only_fields = ["id", "username", "role", "is_active", "last_login", "created_at", "updated_at"]
+        fields = ["id", "username", "first_name", "last_name", "email", "phone", "role", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
+        read_only_fields = ["id", "username", "role", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
+
+    def get_capabilities(self, obj) -> list[str]:
+        return sorted(capabilities_for(obj))
 
     def update(self, instance, validated_data):
         return update_own_profile(actor=self.context["request"].user, **validated_data)

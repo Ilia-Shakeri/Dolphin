@@ -13,6 +13,8 @@ CUSTOMER_CATEGORY_MAX_LENGTH = 100
 CUSTOMER_POSTAL_CODE_MAX_LENGTH = 32
 FREE_TEXT_MAX_LENGTH = 4000
 INTERACTION_OUTCOME_MAX_LENGTH = 80
+SALES_DOCUMENT_NUMBER_MAX_LENGTH = 64
+POSTAL_STATUS_MAX_LENGTH = 80
 
 
 class Customer(TimeStampedModel):
@@ -187,3 +189,45 @@ class Sale(TimeStampedModel):
             models.Index(fields=["sold_by", "status", "-sold_at"]),
             models.Index(fields=["product", "-sold_at"]),
         ]
+
+
+class SalesDocument(TimeStampedModel):
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="sales_documents")
+    sale = models.ForeignKey(Sale, null=True, blank=True, on_delete=models.PROTECT, related_name="sales_documents")
+    document_number = models.CharField(max_length=SALES_DOCUMENT_NUMBER_MAX_LENGTH, unique=True)
+    province_snapshot = models.CharField(max_length=100, blank=True)
+    city_snapshot = models.CharField(max_length=100, blank=True)
+    postal_code_snapshot = models.CharField(max_length=CUSTOMER_POSTAL_CODE_MAX_LENGTH, blank=True)
+    address_snapshot = models.CharField(max_length=CUSTOMER_ADDRESS_MAX_LENGTH, blank=True)
+    postal_status = models.CharField(max_length=POSTAL_STATUS_MAX_LENGTH, db_index=True)
+    registered_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    registered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="registered_sales_documents")
+    is_active = models.BooleanField(default=True, db_index=True)
+    notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
+
+    class Meta:
+        ordering = ["-registered_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(document_number__regex=r"\S"), name="sales_document_number_nonblank"),
+            models.CheckConstraint(condition=Q(postal_status__regex=r"\S"), name="sales_document_postal_status_nonblank"),
+        ]
+        indexes = [
+            models.Index(fields=["customer", "-registered_at"]),
+            models.Index(fields=["province_snapshot", "city_snapshot", "-registered_at"]),
+        ]
+
+
+class PostalStatusHistory(models.Model):
+    document = models.ForeignKey(SalesDocument, on_delete=models.PROTECT, related_name="postal_history")
+    from_status = models.CharField(max_length=POSTAL_STATUS_MAX_LENGTH, blank=True)
+    to_status = models.CharField(max_length=POSTAL_STATUS_MAX_LENGTH)
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="postal_status_changes")
+    reason = models.CharField(max_length=500, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-changed_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(to_status__regex=r"\S"), name="postal_history_to_status_nonblank"),
+        ]
+        indexes = [models.Index(fields=["document", "-changed_at"])]

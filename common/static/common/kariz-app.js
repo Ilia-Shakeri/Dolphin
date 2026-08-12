@@ -154,6 +154,61 @@
         });
     }
 
+    function workQueueRow(lead) {
+        const row = document.createElement("tr");
+        appendCell(row, lead.customer_name || lead.customer);
+        appendCell(row, lead.source);
+        appendCell(row, displayDate(lead.next_follow_up_at));
+        const actions = document.createElement("td");
+        actions.className = "row-actions";
+        [
+            [`/customers/${lead.customer}/`, "مشتری"],
+            [`/leads/${lead.id}/`, "سرنخ"],
+            [`/interactions/?lead=${lead.id}`, "ثبت تماس"],
+            [`/sales/?lead=${lead.id}`, "ثبت فروش"],
+        ].forEach(([href, label]) => {
+            const link = document.createElement("a");
+            link.className = "button button-muted";
+            link.href = href;
+            link.textContent = label;
+            actions.appendChild(link);
+        });
+        row.appendChild(actions);
+        return row;
+    }
+
+    async function setupWorkQueue() {
+        const loading = document.getElementById("agent-work-queue-loading");
+        if (!loading) return;
+        const empty = document.getElementById("agent-work-queue-empty");
+        const wrap = document.getElementById("agent-work-queue-table-wrap");
+        const body = document.getElementById("agent-work-queue-body");
+        const pager = document.getElementById("agent-work-queue-pagination");
+        const previous = document.getElementById("agent-work-queue-prev");
+        const next = document.getElementById("agent-work-queue-next");
+        let currentPage = 1;
+        async function load(page = 1) {
+            loading.hidden = false; empty.hidden = true; wrap.hidden = true; pager.hidden = true;
+            try {
+                const data = await apiRequest(`/api/v1/leads/work-queue/?page=${page}`);
+                body.replaceChildren(...data.results.map(workQueueRow));
+                loading.hidden = true;
+                if (!data.results.length) { empty.hidden = false; return; }
+                wrap.hidden = false; currentPage = page;
+                previous.disabled = !data.previous; next.disabled = !data.next;
+                document.getElementById("agent-work-queue-page-label").textContent = `صفحه ${page}`;
+                pager.hidden = !data.previous && !data.next;
+            } catch (error) { loading.hidden = true; showError(error); }
+        }
+        previous.addEventListener("click", () => load(currentPage - 1));
+        next.addEventListener("click", () => load(currentPage + 1));
+        await load();
+    }
+
+    async function setupDashboard() {
+        await Promise.all([setupProfile(), setupWorkQueue()]);
+    }
+
     function userRow(user) {
         const row = document.createElement("tr");
         const displayName = [user.first_name, user.last_name].filter(Boolean).join(" ") || "—";
@@ -241,10 +296,13 @@
         ["username", "first_name", "last_name", "email", "phone"].forEach((name) => {
             document.getElementById(`edit-${name.replaceAll("_", "-")}`).value = user[name] || "";
         });
-        document.getElementById("edit-role").value = user.role;
-        const deactivate = document.getElementById("deactivate-user");
-        deactivate.disabled = !user.is_active;
-        deactivate.textContent = user.is_active ? "غیرفعال کردن کاربر" : "کاربر غیرفعال است";
+        const role = document.getElementById("edit-role");
+        if (role) role.value = user.role;
+        const toggle = document.getElementById("toggle-user-active");
+        toggle.disabled = false;
+        toggle.dataset.nextActive = String(!user.is_active);
+        toggle.classList.toggle("button-danger", user.is_active);
+        toggle.textContent = user.is_active ? "غیرفعال کردن کاربر" : "فعال کردن دوباره کاربر";
     }
 
     async function setupUserDetail() {
@@ -278,26 +336,29 @@
         });
 
         const roleForm = document.getElementById("change-role-form");
-        roleForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(roleForm, async () => {
-                user = await apiRequest(roleForm.action, {method: "POST", body: formPayload(roleForm, ["role"])});
-                fillUser(user);
-                globalMessage("نقش کاربر تغییر کرد.", true);
+        if (roleForm) {
+            roleForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(roleForm, async () => {
+                    user = await apiRequest(roleForm.action, {method: "POST", body: formPayload(roleForm, ["role"])});
+                    fillUser(user);
+                    globalMessage("نقش کاربر تغییر کرد.", true);
+                });
             });
-        });
+        }
 
-        const deactivate = document.getElementById("deactivate-user");
-        deactivate.addEventListener("click", async () => {
-            if (!window.confirm("این کاربر غیرفعال شود؟")) return;
+        const toggle = document.getElementById("toggle-user-active");
+        toggle.addEventListener("click", async () => {
+            const nextActive = toggle.dataset.nextActive === "true";
+            if (!window.confirm(nextActive ? "این کاربر دوباره فعال شود؟" : "این کاربر غیرفعال شود؟")) return;
             clearMessages();
-            deactivate.disabled = true;
+            toggle.disabled = true;
             try {
-                user = await apiRequest(endpoint, {method: "PATCH", body: {is_active: false}});
+                user = await apiRequest(endpoint, {method: "PATCH", body: {is_active: nextActive}});
                 fillUser(user);
-                globalMessage("کاربر غیرفعال شد.", true);
+                globalMessage(nextActive ? "کاربر دوباره فعال شد." : "کاربر غیرفعال شد.", true);
             } catch (error) {
-                deactivate.disabled = false;
+                toggle.disabled = false;
                 showError(error);
             }
         });
@@ -664,6 +725,7 @@
         appendCell(row, lead.campaign_or_batch);
         appendCell(row, lead.status);
         appendCell(row, lead.assigned_to_display || lead.assigned_to);
+        appendCell(row, displayDate(lead.next_follow_up_at));
         appendDetailLink(row, `/leads/${lead.id}/`);
         return row;
     }
@@ -717,6 +779,7 @@
 
         function fillLead(value) {
             document.getElementById("lead-customer").value = value.customer_name || value.customer;
+            document.getElementById("lead-customer-profile").href = `/customers/${value.customer}/`;
             document.getElementById("lead-status").value = value.status || "ثبت نشده";
             document.getElementById("lead-assigned-to").value = value.assigned_to_display || value.assigned_to || "تخصیص نیافته";
             document.getElementById("lead-created-by").value = value.created_by;
@@ -800,6 +863,7 @@
         appendCell(row, directionText(interaction.direction));
         appendCell(row, interaction.outcome);
         appendCell(row, displayDate(interaction.occurred_at));
+        appendCell(row, displayDate(interaction.next_follow_up_at));
         appendDetailLink(row, `/interactions/${interaction.id}/`);
         return row;
     }
@@ -825,7 +889,13 @@
             const me = await apiRequest("/api/v1/auth/me/");
             const leads = await loadAllPages("/api/v1/leads/?ordering=-created_at");
             const allowed = me.role === "sales_agent" ? leads.filter((item) => item.assigned_to === me.id) : leads;
-            fillSelect(document.getElementById("create-interaction-lead"), allowed, (item) => `${item.customer_name || item.customer} — ${item.source || `#${item.id}`}`, "انتخاب سرنخ");
+            const leadSelect = document.getElementById("create-interaction-lead");
+            fillSelect(leadSelect, allowed, (item) => `${item.customer_name || item.customer} — ${item.source || `#${item.id}`}`, "انتخاب سرنخ");
+            const requestedLead = new URLSearchParams(window.location.search).get("lead");
+            if (requestedLead && allowed.some((item) => String(item.id) === requestedLead)) {
+                leadSelect.value = requestedLead;
+                dialog.showModal();
+            }
         } catch (error) { showError(error); }
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -1000,8 +1070,14 @@
             let leads = await loadAllPages("/api/v1/leads/?ordering=-created_at");
             const products = await loadAllPages("/api/v1/products/?ordering=name");
             if (me.role === "sales_agent") leads = leads.filter((lead) => Number(lead.assigned_to) === Number(me.id));
-            fillSelect(document.getElementById("create-sale-lead"), leads, (lead) => `${lead.customer_name} — ${lead.source}`, "یک سرنخ انتخاب کنید");
+            const leadSelect = document.getElementById("create-sale-lead");
+            fillSelect(leadSelect, leads, (lead) => `${lead.customer_name} — ${lead.source}`, "یک سرنخ انتخاب کنید");
             fillSelect(document.getElementById("create-sale-product"), products.filter((product) => product.is_active), (product) => `${product.name} — ${product.current_price}`, "یک محصول انتخاب کنید");
+            const requestedLead = new URLSearchParams(window.location.search).get("lead");
+            if (requestedLead && leads.some((lead) => String(lead.id) === requestedLead)) {
+                leadSelect.value = requestedLead;
+                dialog.showModal();
+            }
         } catch (error) {
             showError(error);
         }
@@ -1053,6 +1129,153 @@
                 sale = await apiRequest(form.action, {method: "POST", body: formPayload(form, ["reason"])});
                 fillSale(sale);
                 globalMessage("فروش لغو شد.", true);
+            });
+        });
+    }
+
+    function salesDocumentRow(item) {
+        const row = document.createElement("tr");
+        appendCell(row, item.document_number);
+        appendCell(row, item.customer_name || item.customer);
+        appendCell(row, item.sale || "—");
+        appendCell(row, [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ") || "—");
+        appendCell(row, item.postal_status);
+        appendCell(row, item.is_active ? "فعال" : "غیرفعال");
+        appendDetailLink(row, `/sales-documents/${item.id}/`);
+        return row;
+    }
+
+    async function setupSalesDocuments() {
+        const form = document.getElementById("sales-document-search-form");
+        const controller = setupPagedList({
+            key: "sales-documents",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page), ordering: document.getElementById("sales-document-ordering").value});
+                const search = document.getElementById("sales-document-search").value.trim();
+                if (search) query.set("search", search);
+                [["postal_status", "sales-document-postal-status"], ["province", "sales-document-province"], ["city", "sales-document-city"], ["is_active", "sales-document-active"]].forEach(([name, id]) => {
+                    const value = document.getElementById(id).value.trim();
+                    if (value) query.set(name, value);
+                });
+                return `/api/v1/sales-documents/?${query}`;
+            },
+            renderRow: salesDocumentRow,
+        });
+        controller.load();
+        const dialog = document.getElementById("create-sales-document-dialog");
+        if (!dialog) return;
+        const createForm = document.getElementById("create-sales-document-form");
+        const customerSelect = document.getElementById("create-sales-document-customer");
+        const saleSelect = document.getElementById("create-sales-document-sale");
+        document.getElementById("open-create-sales-document").addEventListener("click", () => dialog.showModal());
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        let sales = [];
+        try {
+            const [customers, loadedSales] = await Promise.all([
+                loadAllPages("/api/v1/customers/?ordering=full_name"),
+                loadAllPages("/api/v1/sales/?ordering=-sold_at"),
+            ]);
+            sales = loadedSales;
+            fillSelect(customerSelect, customers, (customer) => customer.full_name, "یک مشتری انتخاب کنید");
+        } catch (error) { showError(error); }
+        function refreshSales() {
+            const customerId = Number(customerSelect.value);
+            fillSelect(saleSelect, sales.filter((sale) => Number(sale.customer) === customerId), (sale) => `فروش ${sale.id} — ${sale.product_name || sale.product}`, "بدون فروش مرتبط");
+        }
+        customerSelect.addEventListener("change", refreshSales);
+        createForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(createForm, async () => {
+                const payload = formPayload(createForm, ["customer", "sale", "document_number", "postal_status", "notes"]);
+                if (!payload.sale) delete payload.sale;
+                const item = await apiRequest(createForm.action, {method: "POST", body: payload});
+                window.location.assign(`/sales-documents/${item.id}/`);
+            });
+        });
+    }
+
+    function fillSalesDocument(item) {
+        document.getElementById("sales-document-number").value = item.document_number;
+        document.getElementById("sales-document-customer").value = item.customer_name || item.customer;
+        document.getElementById("sales-document-sale").value = item.sale || "—";
+        document.getElementById("sales-document-registered-by").value = item.registered_by_display || item.registered_by;
+        document.getElementById("sales-document-province").value = item.province_snapshot || "—";
+        document.getElementById("sales-document-city").value = item.city_snapshot || "—";
+        document.getElementById("sales-document-postal-code").value = item.postal_code_snapshot || "—";
+        document.getElementById("sales-document-address").value = item.address_snapshot || "—";
+        document.getElementById("sales-document-status").value = item.postal_status;
+        document.getElementById("sales-document-notes").value = item.notes || "";
+        document.getElementById("sales-document-active-state").textContent = item.is_active ? "سند فعال است." : "سند غیرفعال است؛ تاریخچه حفظ شده است.";
+        const section = document.getElementById("postal-transition-section");
+        if (section) section.hidden = !item.is_active;
+    }
+
+    async function loadPostalHistory(id) {
+        const loading = document.getElementById("postal-history-loading");
+        const empty = document.getElementById("postal-history-empty");
+        const wrap = document.getElementById("postal-history-table-wrap");
+        const rows = await loadAllPages(`/api/v1/sales-documents/${id}/postal-history/`);
+        const nodes = rows.map((item) => {
+            const row = document.createElement("tr");
+            [item.from_status || "آغاز", item.to_status, item.changed_by_display || item.changed_by, item.reason || "—", displayDate(item.changed_at)].forEach((value) => appendCell(row, value));
+            return row;
+        });
+        document.getElementById("postal-history-table-body").replaceChildren(...nodes);
+        loading.hidden = true; empty.hidden = Boolean(nodes.length); wrap.hidden = !nodes.length;
+    }
+
+    async function setupSalesDocumentDetail() {
+        const id = document.body.dataset.salesDocumentId;
+        const endpoint = `/api/v1/sales-documents/${id}/`;
+        const loading = document.getElementById("sales-document-detail-loading");
+        const content = document.getElementById("sales-document-detail-content");
+        let item;
+        try {
+            [item] = await Promise.all([apiRequest(endpoint), loadPostalHistory(id)]);
+            fillSalesDocument(item); loading.hidden = true; content.hidden = false;
+        } catch (error) { loading.hidden = true; document.getElementById("postal-history-loading").hidden = true; showError(error); return; }
+        const form = document.getElementById("postal-transition-form");
+        form?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                item = await apiRequest(form.action, {method: "POST", body: formPayload(form, ["to_status", "reason"])});
+                fillSalesDocument(item); form.reset(); await loadPostalHistory(id); globalMessage("وضعیت پستی ثبت شد.", true);
+            });
+        });
+        document.getElementById("deactivate-sales-document")?.addEventListener("click", async () => {
+            if (!window.confirm("این سند غیرفعال شود؟ تاریخچه پاک نمی‌شود.")) return;
+            try { item = await apiRequest(`${endpoint}deactivate/`, {method: "POST"}); fillSalesDocument(item); globalMessage("سند غیرفعال شد.", true); } catch (error) { showError(error); }
+        });
+    }
+
+    function salesDocumentReportQuery(form) {
+        const data = new FormData(form);
+        const query = new URLSearchParams();
+        query.set("period_start", apiDateTime(String(data.get("period_start") || "")) || "");
+        query.set("period_end", apiDateTime(String(data.get("period_end") || "")) || "");
+        ["province", "city", "postal_status", "is_active"].forEach((name) => { const value = String(data.get(name) || "").trim(); if (value) query.set(name, value); });
+        return query;
+    }
+
+    async function setupSalesDocumentReport() {
+        const form = document.getElementById("sales-document-report-form");
+        const now = new Date();
+        document.getElementById("document-report-start").value = localDateTimeValue(new Date(now.getFullYear(), now.getMonth(), 1));
+        document.getElementById("document-report-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const loading = document.getElementById("sales-document-report-loading");
+                const empty = document.getElementById("sales-document-report-empty");
+                const content = document.getElementById("sales-document-report-content");
+                loading.hidden = false; empty.hidden = true; content.hidden = true;
+                let report;
+                try { report = await apiRequest(`/api/v1/reports/sales-documents/?${salesDocumentReportQuery(form)}`); } finally { loading.hidden = true; }
+                document.getElementById("sales-document-report-total").textContent = report.total;
+                document.getElementById("sales-document-geography-body").replaceChildren(...report.by_geography.map((item) => { const row = document.createElement("tr"); [item.province || "ثبت‌نشده", item.city || "ثبت‌نشده", item.count].forEach((value) => appendCell(row, value)); return row; }));
+                document.getElementById("sales-document-status-body").replaceChildren(...report.by_postal_status.map((item) => { const row = document.createElement("tr"); [item.postal_status, item.count].forEach((value) => appendCell(row, value)); return row; }));
+                if (report.total) content.hidden = false; else empty.hidden = false;
             });
         });
     }
@@ -1170,7 +1393,7 @@
     setupLogout();
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();
-    if (page === "profile") setupProfile();
+    if (page === "dashboard") setupDashboard();
     if (page === "users") setupUsers();
     if (page === "user-detail") setupUserDetail();
     if (page === "customers") setupCustomers();
@@ -1183,7 +1406,10 @@
     if (page === "product-detail") setupProductDetail();
     if (page === "sales") setupSales();
     if (page === "sale-detail") setupSaleDetail();
+    if (page === "sales-documents") setupSalesDocuments();
+    if (page === "sales-document-detail") setupSalesDocumentDetail();
     if (page === "user-performance") setupUserPerformance();
+    if (page === "sales-document-report") setupSalesDocumentReport();
     if (page === "activity-logs") setupActivityLogs();
     if (page === "activity-log-detail") setupActivityLogDetail();
 })();

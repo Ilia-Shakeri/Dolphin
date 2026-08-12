@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
-from sales.views import CustomerPhoneViewSet, CustomerViewSet, InteractionViewSet, LeadViewSet, ProductViewSet, SaleViewSet
+from sales.views import CustomerPhoneViewSet, CustomerViewSet, InteractionViewSet, LeadViewSet, ProductViewSet, SaleViewSet, SalesDocumentViewSet
 
 
 router = DefaultRouter()
@@ -10,5 +10,5 @@ router.register("leads", LeadViewSet, basename="lead")
 router.register("interactions", InteractionViewSet, basename="interaction")
 router.register("products", ProductViewSet, basename="product")
 router.register("sales", SaleViewSet, basename="sale")
+router.register("sales-documents", SalesDocumentViewSet, basename="sales-document")
 urlpatterns = router.urls
-

@@ -9,11 +9,17 @@ from rest_framework.views import APIView
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
-from reports.serializers import UserPerformanceQuerySerializer, UserPerformanceReportSerializer
+from reports.serializers import (
+    SalesDocumentReportQuerySerializer,
+    SalesDocumentReportSerializer,
+    UserPerformanceQuerySerializer,
+    UserPerformanceReportSerializer,
+)
 from reports.services import (
     InvalidReportPeriod,
     InvalidReportUser,
     ReportAccessDenied,
+    build_sales_document_report,
     build_user_performance_report,
 )
 from reports.xlsx import XLSX_CONTENT_TYPE, build_user_performance_workbook
@@ -62,6 +68,37 @@ class UserPerformanceReportView(UserPerformanceReportMixin, APIView):
     def get(self, request):
         report = self.get_report(request)
         response = Response(UserPerformanceReportSerializer(report).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class SalesDocumentReportView(APIView):
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [SensitiveRateThrottle]
+
+    @extend_schema(
+        parameters=[SalesDocumentReportQuerySerializer],
+        responses={
+            200: SalesDocumentReportSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description=(
+            "Counts scoped internal sales documents by snapshotted geography "
+            "and current postal status. Registration start is inclusive and end is exclusive."
+        ),
+    )
+    def get(self, request):
+        serializer = SalesDocumentReportQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        try:
+            report = build_sales_document_report(actor=request.user, **serializer.validated_data)
+        except InvalidReportPeriod as exc:
+            raise ValidationError({"period_end": "Invalid report period."}) from exc
+        except ReportAccessDenied as exc:
+            raise PermissionDenied("Report access is not allowed.") from exc
+        response = Response(SalesDocumentReportSerializer(report).data)
         response["Cache-Control"] = "private, no-store"
         return response
 

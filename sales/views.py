@@ -14,10 +14,10 @@ from common.openapi import (
 )
 from common.throttles import SensitiveActionThrottleMixin
 from common.viewsets import NoDestroyModelViewSet
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Sale
-from sales.selectors import customers_for, interactions_for, leads_for, phones_for, products_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, ProductSerializer, ReassignSerializer, SaleSerializer
-from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, reassign_lead
+from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Sale, SalesDocument
+from sales.selectors import customers_for, interactions_for, lead_work_queue_for, leads_for, phones_for, products_for, sales_documents_for, sales_for
+from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer
+from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, deactivate_sales_document, reassign_lead, transition_postal_status
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -152,6 +152,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     action_query_parameters = {
         "assignees": {"page"},
         "assignment_history": {"page"},
+        "work_queue": {"page"},
     }
 
     def get_queryset(self):
@@ -164,6 +165,21 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     @extend_schema(parameters=[OpenApiParameter("status", str, description="Exact backend-owned lead status value.")])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        responses={200: LeadSerializer(many=True), 403: ACCESS_DENIED_RESPONSE},
+        description="Returns the authenticated Sales Agent's assigned Leads, with dated follow-ups first.",
+    )
+    @action(detail=False, methods=["get"], url_path="work-queue")
+    def work_queue(self, request):
+        if request.user.role != User.Role.SALES_AGENT:
+            raise PermissionDenied("The work queue is available only to Sales Agents.")
+        queryset = lead_work_queue_for(request.user).select_related(
+            "customer", "assigned_to", "assigned_by", "interested_product"
+        )
+        page = self.paginate_queryset(queryset)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
     @extend_schema(responses={200: LeadAssigneeSerializer(many=True), 403: ACCESS_DENIED_RESPONSE})
     @action(detail=False, methods=["get"])
@@ -321,3 +337,75 @@ class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         serializer.is_valid(raise_exception=True)
         sale = cancel_or_correct_sale(actor=request.user, sale=self.get_object(), operation="cancel", **serializer.validated_data)
         return Response(self.get_serializer(sale).data)
+
+
+class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    queryset = SalesDocument.objects.none()
+    serializer_class = SalesDocumentSerializer
+    sensitive_actions = frozenset({"create", "transition_postal_status", "deactivate"})
+    http_method_names = ["get", "post", "head", "options"]
+    search_fields = ["document_number", "customer__full_name", "province_snapshot", "city_snapshot", "postal_code_snapshot", "address_snapshot", "postal_status"]
+    ordering_fields = ["registered_at", "document_number", "province_snapshot", "city_snapshot", "postal_status"]
+    list_query_parameters = {"postal_status", "province", "city", "is_active"}
+    action_query_parameters = {"postal_history": {"page"}}
+
+    def get_queryset(self):
+        queryset = sales_documents_for(self.request.user).select_related("customer", "sale", "registered_by")
+        filters = {
+            "postal_status": "postal_status",
+            "province": "province_snapshot",
+            "city": "city_snapshot",
+        }
+        for parameter, field in filters.items():
+            value = self.request.query_params.get(parameter)
+            if value is not None:
+                queryset = queryset.filter(**{field: value})
+        is_active = self.request.query_params.get("is_active")
+        if is_active is not None:
+            if is_active not in {"true", "false"}:
+                raise ValidationError({"is_active": "Must be true or false."})
+            queryset = queryset.filter(is_active=is_active == "true")
+        return queryset
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("postal_status", str, description="Exact current postal status."),
+            OpenApiParameter("province", str, description="Exact snapshotted province."),
+            OpenApiParameter("city", str, description="Exact snapshotted city."),
+            OpenApiParameter("is_active", bool, description="Exact active state."),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role not in ELEVATED_OPERATORS:
+            raise PermissionDenied("Sales document registration is not allowed.")
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        if self.request.user.role not in ELEVATED_OPERATORS:
+            raise PermissionDenied("Sales document registration is not allowed.")
+        serializer.save()
+
+    @extend_schema(request=PostalStatusTransitionSerializer, responses={200: SalesDocumentSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE})
+    @action(detail=True, methods=["post"], url_path="transition-postal-status")
+    def transition_postal_status(self, request, pk=None):
+        serializer = PostalStatusTransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document = transition_postal_status(actor=request.user, document=self.get_object(), **serializer.validated_data)
+        return Response(self.get_serializer(document).data)
+
+    @extend_schema(responses={200: PostalStatusHistorySerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
+    @action(detail=True, methods=["get"], url_path="postal-history")
+    def postal_history(self, request, pk=None):
+        document = self.get_object()
+        queryset = document.postal_history.select_related("changed_by").all()
+        page = self.paginate_queryset(queryset)
+        return self.get_paginated_response(PostalStatusHistorySerializer(page, many=True).data)
+
+    @extend_schema(request=None, responses={200: SalesDocumentSerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE})
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        document = deactivate_sales_document(actor=request.user, document=self.get_object())
+        return Response(self.get_serializer(document).data)

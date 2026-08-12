@@ -9,12 +9,14 @@ SELECT (
     AND to_regclass('public.sales_interaction') IS NOT NULL
     AND to_regclass('public.sales_product') IS NOT NULL
     AND to_regclass('public.sales_sale') IS NOT NULL
+    AND to_regclass('public.sales_salesdocument') IS NOT NULL
+    AND to_regclass('public.sales_postalstatushistory') IS NOT NULL
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'accounts') = 2
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'accounts') = '0002_user_role_constraint'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'auditlog') = 2
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'auditlog') = '0002_activitylog_role_snapshots'
-    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'sales') = 10
-    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'sales') = '0010_interaction_contract'
+    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'sales') = 12
+    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'sales') = '0012_sales_document_postal_foundation'
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -30,7 +32,10 @@ SELECT (
                 ('sales_sale', 'sale_unit_price_non_negative'),
                 ('sales_sale', 'sale_status_valid'),
                 ('sales_sale', 'sale_product_snapshot_pair'),
-                ('sales_sale', 'sale_product_total_matches_snapshot')
+                ('sales_sale', 'sale_product_total_matches_snapshot'),
+                ('sales_salesdocument', 'sales_document_number_nonblank'),
+                ('sales_salesdocument', 'sales_document_postal_status_nonblank'),
+                ('sales_postalstatushistory', 'postal_history_to_status_nonblank')
         ) AS required_constraint(table_name, constraint_name)
         WHERE NOT EXISTS (
             SELECT 1

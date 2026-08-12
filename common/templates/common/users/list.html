@@ -3,7 +3,7 @@
 {% block page_id %}users{% endblock %}
 {% block content %}
 <section class="page-head">
-    <div><p class="eyebrow">مدیریت دسترسی</p><h1>کاربران</h1></div>
+    <div><p class="eyebrow">مدیریت دسترسی</p><h1>{{ user_admin_label }}</h1></div>
     <button id="open-create-user" class="button" type="button">کاربر جدید</button>
 </section>
 <section class="card">
@@ -38,7 +38,7 @@
             <div><label for="create-email">ایمیل</label><input id="create-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
             <div><label for="create-phone">تلفن</label><input id="create-phone" name="phone" type="tel" maxlength="32"><p class="field-error" data-error-for="phone"></p></div>
         </div>
-        <p class="muted">نقش آغازین کاربر، بازاریاب (کال سنتر) است و فقط از صفحه جزئیات تغییر می‌کند.</p>
+        <p class="muted">نقش آغازین کاربر، بازاریاب (کال سنتر) است.{% if can_change_roles %} تغییر نقش فقط از صفحه جزئیات و در محدوده مجاز انجام می‌شود.{% else %} مدیر فروشگاه اجازه تغییر نقش ندارد.{% endif %}</p>
         <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ساخت کاربر</button></div>
     </form>
 </dialog>

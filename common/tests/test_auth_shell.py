@@ -4,6 +4,7 @@ from pathlib import Path
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from accounts.models import User
+from accounts.access import ROLE_CAPABILITIES
 from common.ui_views import ROLE_LABELS
 
 
@@ -46,6 +47,11 @@ class AuthShellBrowserTests(TestCase):
             username="it.shell",
             password=self.password,
             role=User.Role.COMPANY_IT,
+        )
+        self.manager = User.objects.create_user(
+            username="manager.shell",
+            password=self.password,
+            role=User.Role.SALES_MANAGER,
         )
         self.agent = User.objects.create_user(
             username="agent.shell",
@@ -94,80 +100,39 @@ class AuthShellBrowserTests(TestCase):
         self.assertNotIn("roles/list.html", content)
         self.assertNotIn("ثبت نام", content)
 
-    def test_sidebar_has_reference_hierarchy_and_safe_future_placeholders(self):
-        self.client.force_login(self.platform)
-
-        content = self.client.get("/").content.decode("utf-8")
-
-        module_labels = {
-            "dashboard": "داشبورد",
-            "profile": "پروفایل",
-            "store": "فروشگاه",
-            "inventory": "انبار",
-            "accounting": "حسابداری",
-            "products": "محصولات",
-            "categories": "دسته‌بندی‌ها",
-            "call-center": "مرکز تماس",
-            "customers": "مشتریان",
-            "invoices": "فاکتورها",
-            "reports": "گزارش‌ها",
-            "finance": "امور مالی",
-            "daily-tasks": "کارهای روزانه",
-            "delivery": "ارسال و تحویل",
-            "targets": "اهداف",
-            "documents": "اسناد",
+    def test_role_aware_landing_and_navigation_match_backend_capabilities(self):
+        expected = {
+            User.Role.PLATFORM_ADMIN: ("پنل مدیر پلتفرم", {"users", "audit", "customers", "leads", "interactions", "sales", "products", "performance"}),
+            User.Role.SALES_MANAGER: ("پنل مدیر فروشگاه", {"users", "customers", "leads", "interactions", "sales", "products", "performance"}),
+            User.Role.SALES_AGENT: ("میز کار بازاریاب", {"customers", "leads", "interactions", "sales", "products", "performance"}),
         }
-        for module, label in module_labels.items():
-            with self.subTest(module=module):
-                self.assertIn(f'data-module="{module}"', content)
-                self.assertIn(label, content)
-
-        for group in ("store", "call-center", "reports", "administration"):
-            self.assertIn(f'data-nav-group="{group}"', content)
-
-        for module in (
-            "dashboard",
-            "store",
-            "inventory",
-            "accounting",
-            "categories",
-            "call-center",
-            "invoices",
-            "reports",
-            "finance",
-            "daily-tasks",
-            "delivery",
-            "targets",
-            "documents",
-        ):
-            self.assertIn(f'data-future-module="{module}"', content)
-
-        self.assertIn('data-module="profile" href="/"', content)
-        self.assertIn('data-module="products" href="/products/"', content)
-        self.assertIn('data-module="customers" href="/customers/"', content)
-        self.assertNotIn('href="#"', content)
-        self.assertNotRegex(content, r"<a[^>]+data-future-module=")
-
-        ordered_modules = (
-            "dashboard",
-            "profile",
-            "store",
-            "inventory",
-            "accounting",
-            "products",
-            "categories",
-            "call-center",
-            "customers",
-            "invoices",
-            "reports",
-            "finance",
-            "daily-tasks",
-            "delivery",
-            "targets",
-            "documents",
-        )
-        positions = [content.index(f'data-module="{module}"') for module in ordered_modules]
-        self.assertEqual(positions, sorted(positions))
+        for role, (title, modules) in expected.items():
+            actor = {
+                User.Role.PLATFORM_ADMIN: self.platform,
+                User.Role.SALES_MANAGER: self.manager,
+                User.Role.SALES_AGENT: self.agent,
+            }[role]
+            self.client.force_login(actor)
+            content = self.client.get("/").content.decode("utf-8")
+            with self.subTest(role=role):
+                self.assertIn(title, content)
+                self.assertIn(f'data-dashboard-capability="dashboard.{"platform" if role == User.Role.PLATFORM_ADMIN else "store" if role == User.Role.SALES_MANAGER else "agent"}"', content)
+                for module in modules:
+                    self.assertIn(f'data-module="{module}"', content)
+                self.assertNotIn('href="#"', content)
+                self.assertNotIn('data-future-module=', content)
+                if role == User.Role.PLATFORM_ADMIN:
+                    self.assertIn('data-platform-navigation="true"', content)
+                else:
+                    self.assertNotIn('data-platform-navigation="true"', content)
+                if role == User.Role.SALES_AGENT:
+                    self.assertNotIn('data-module="users"', content)
+                    self.assertNotIn('data-module="audit"', content)
+                    self.assertIn("محصولات (فقط خواندنی)", content)
+                    self.assertIn('id="agent-work-queue"', content)
+                    self.assertIn("پیگیری بعدی", content)
+                else:
+                    self.assertNotIn('id="agent-work-queue"', content)
 
     def test_mobile_shell_has_accessible_navigation_control(self):
         self.client.force_login(self.platform)
@@ -197,7 +162,7 @@ class AuthShellBrowserTests(TestCase):
                 self.assertContains(self.client.get("/"), label)
                 self.client.logout()
 
-    def test_sales_roles_cannot_open_user_management_shell(self):
+    def test_agent_cannot_open_user_management_but_manager_can_manage_agents(self):
         self.client.force_login(self.agent)
 
         home = self.client.get("/")
@@ -207,6 +172,16 @@ class AuthShellBrowserTests(TestCase):
         self.assertNotContains(home, "مدیریت کاربران")
         self.assertEqual(denied.status_code, 403)
         self.assertContains(denied, "اجازه مدیریت کاربران را ندارید", status_code=403)
+
+        self.client.force_login(self.manager)
+        manager_list = self.client.get("/users/")
+        manager_agent = self.client.get(f"/users/{self.agent.pk}/")
+        manager_platform = self.client.get(f"/users/{self.platform.pk}/")
+        self.assertEqual(manager_list.status_code, 200)
+        self.assertContains(manager_list, "مدیریت بازاریابان")
+        self.assertEqual(manager_agent.status_code, 200)
+        self.assertNotContains(manager_agent, 'id="change-role-form"')
+        self.assertEqual(manager_platform.status_code, 404)
 
     def test_company_it_cannot_open_or_select_platform_admin(self):
         self.client.force_login(self.company_it)
@@ -309,3 +284,9 @@ class AuthShellApiFlowTests(TestCase):
         self.assertNotIn('name="is_active"', create_form)
         self.assertNotIn('name="role"', edit_form)
         self.assertNotIn('name="is_active"', edit_form)
+
+    def test_me_returns_backend_authorized_capabilities(self):
+        self.client.force_login(self.platform)
+        response = self.client.get("/api/v1/auth/me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["capabilities"], sorted(ROLE_CAPABILITIES[User.Role.PLATFORM_ADMIN]))

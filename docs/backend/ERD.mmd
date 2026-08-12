@@ -13,5 +13,9 @@ erDiagram
     CUSTOMER ||--o{ SALE : buys
     PRODUCT o|--o{ SALE : snapshots
     USER ||--o{ SALE : sells
+    CUSTOMER ||--o{ SALES_DOCUMENT : owns
+    SALE o|--o{ SALES_DOCUMENT : references
+    USER ||--o{ SALES_DOCUMENT : registers
+    SALES_DOCUMENT ||--o{ POSTAL_STATUS_HISTORY : records
+    USER ||--o{ POSTAL_STATUS_HISTORY : changes
     USER o|--o{ ACTIVITY_LOG : acts
-

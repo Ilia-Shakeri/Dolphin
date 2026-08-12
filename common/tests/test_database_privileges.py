@@ -329,6 +329,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_leadassignmenthistory": "SELECT, INSERT",
             "sales_product": "SELECT, INSERT, UPDATE",
             "sales_sale": "SELECT, INSERT, UPDATE",
+            "sales_salesdocument": "SELECT, INSERT, UPDATE",
+            "sales_postalstatushistory": "SELECT, INSERT",
         }
         grant_block = re.search(
             r"FROM \(\s*VALUES(?P<rows>.*?)\) AS table_grant",
@@ -355,6 +357,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "auditlog_activitylog",
             "sales_leadassignmenthistory",
             "sales_interaction",
+            "sales_postalstatushistory",
             "django_admin_log",
         ):
             with self.subTest(append_only=table_name):

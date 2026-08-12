@@ -103,12 +103,14 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
     def get_queryset(self):
         queryset = crm_identities(User.objects.all()).order_by("username")
-        if self.request.user.role == User.Role.COMPANY_IT:
+        if self.request.user.role == User.Role.SALES_MANAGER:
+            queryset = queryset.filter(role=User.Role.SALES_AGENT)
+        elif self.request.user.role == User.Role.COMPANY_IT:
             queryset = queryset.exclude(role=User.Role.PLATFORM_ADMIN)
         return queryset
 
     def _require_admin(self):
-        if self.request.user.role not in {User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}:
+        if self.request.user.role not in {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("User administration is not allowed.")
 
@@ -118,6 +120,9 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
     def perform_update(self, serializer):
         self._require_admin()
+        if self.request.user.role == User.Role.SALES_MANAGER and serializer.instance.role != User.Role.SALES_AGENT:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Sales Manager may manage Sales Agent accounts only.")
         if self.request.user.role == User.Role.COMPANY_IT and serializer.instance.role == User.Role.PLATFORM_ADMIN:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Company IT cannot manage Platform Admin access.")
@@ -134,7 +139,7 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
             429: THROTTLED_RESPONSE,
         },
         examples=[OpenApiExample("Role change", value={"role": User.Role.SALES_MANAGER}, request_only=True)],
-        description="Company IT may grant roles through company_it. Platform Admin may grant any fixed CRM role.",
+        description="Sales Manager cannot change roles. Company IT may grant roles through company_it. Platform Admin may grant any fixed CRM role.",
     )
     @action(detail=True, methods=["post"], url_path="change-role")
     def change_role(self, request, pk=None):
