@@ -93,6 +93,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.login()
 
         self.assertEqual(self.browser.find_element(By.ID, "profile-username").get_attribute("value"), self.platform.username)
+        self.assertEqual(self.browser.find_element(By.ID, "profile-role").get_attribute("value"), "مدیر پلتفرم")
         self.assertTrue(self.browser.find_element(By.ID, "app-sidebar").is_displayed())
         self.browser.find_element(By.CSS_SELECTOR, "#logout-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/login/"))

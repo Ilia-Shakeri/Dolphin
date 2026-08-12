@@ -167,6 +167,16 @@ class SeedSyntheticUatTests(TestCase):
             {username: user.role for username, user in users.items()},
             expected_roles,
         )
+        expected_names = {
+            "uat_sales_agent": "بازاریاب ساختگی",
+            "uat_sales_manager": "مدیر فروشگاه ساختگی",
+            "uat_company_it": "مدیر فنی مشتری ساختگی",
+            "uat_platform_admin": "مدیر پلتفرم ساختگی",
+        }
+        self.assertEqual(
+            {username: user.get_full_name() for username, user in users.items()},
+            expected_names,
+        )
         for user in users.values():
             self.assertTrue(user.is_active)
             self.assertFalse(user.is_staff)
@@ -177,6 +187,7 @@ class SeedSyntheticUatTests(TestCase):
         agent = users["uat_sales_agent"]
         manager = users["uat_sales_manager"]
         customer = Customer.objects.get()
+        self.assertEqual(customer.full_name, "مشتری ساختگی آزمون پذیرش")
         phone = CustomerPhone.objects.get()
         product = Product.objects.get()
         lead = Lead.objects.get()

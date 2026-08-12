@@ -4,7 +4,7 @@
 
 Run only one phase at a time. Do not run the next phase until its gate is green and `KARIZ_PROJECT_HANDOFF.md` contains the exact resume point.
 
-C1-0 is complete. C1-1 source reconciliation is complete, but decision closure is still `BLOCKED_DECISION`. The direct Client-1 User Management instruction dated 2026-08-11 confirms the existing four fixed CRM roles and current backend access matrix. C1-2 still must not start until seat/capacity, Team, and after-sales workstream decisions are approved.
+C1-0 is complete. C1-1 source reconciliation is complete, but decision closure is still `BLOCKED_DECISION`. The direct Client-1 foundation decision dated 2026-08-11 resolves C1-DEC-ROLE-001: `sales_agent` = `بازاریاب (کال سنتر)`, `sales_manager` = `مدیر فروشگاه`, `company_it` = `مدیر فنی مشتری`, and `platform_admin` = `مدیر پلتفرم`. C1-2 still must not start until governance/owner, seat/capacity, Team, and after-sales workstream decisions are approved.
 
 This roadmap gives phase steps. `KARIZ_PROJECT_HANDOFF.md` remains the only live status and evidence source.
 
@@ -1275,3 +1275,16 @@ Run **C1-1 decision closure only** now for C1-DEC-GOV-001, SEAT-001, TEAM-001, a
 
 - Owners approve `C1-DEC-FILE-001`, `C1-DEC-CALENDAR-001`, the role/action matrix, live backup inputs, and two redacted expected examples. Then build metadata/schema, lifecycle services/audit, scoped API, private storage/scanner, backup/restore proof, and maintained Persian RTL UI in that order.
 - Full record and exact resume point: `KARIZ_PROJECT_HANDOFF.md` section 32.
+
+## Client-1 foundation correction checkpoint (2026-08-11)
+
+- State: `DONE` locally on 2026-08-12; external release/runtime proof remains separate.
+- Customer is the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. Customer backend/API/database/stable identifiers are unchanged.
+- Fixed role labels: Sales Agent `بازاریاب (کال سنتر)`; Sales Manager `مدیر فروشگاه`; Company IT `مدیر فنی مشتری`; Platform Admin `مدیر پلتفرم`.
+- C1-DEC-ROLE-001 is resolved. Platform Admin custody stays with `platform_admin`; Company IT cannot grant, target, see, or manage Platform Admin through user administration. Team/workstream scope remains separately blocked.
+- Active sidebar, Customer, Lead, Interaction, Sale, report, user-role UI, UI errors, client messages, synthetic UAT data, and matching tests were corrected. No model, API path, database field/table, permission behavior, migration, CSS architecture, or new business module changed.
+- `AGENTS.md` now permits bounded read-only inspection of exact curated reference HTML files for active screens while retaining all dependency/plugin/media/font/minified/generated/vendor-internal/secret exclusions.
+- `docs/frontend/FRONTEND_REFERENCE_MAP.md` maps every maintained page to its template, JS handler, real API, role scope, exact inspected reference when available, and major UX gap.
+- Old terminology checkpoint 26 and old role-ambiguity/24-open-decision counts are historical/superseded. Current count: C1-DEC-ROLE-001 resolved; `23` consolidated decision IDs remain wholly open.
+- Verification: Django check PASS; migration drift PASS; focused auth/browser shell `17/17` PASS; full suite `284` PASS with `6` intentional skips; OpenAPI PASS; JavaScript syntax PASS; active browser suite `4/4` PASS; branding guard `220` files PASS; collectstatic dry-run `179` files PASS; active terminology guards PASS; diff checks PASS.
+- Exact next phase: close C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001; then run C1-2.

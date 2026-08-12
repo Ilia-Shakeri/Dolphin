@@ -108,7 +108,7 @@ class AuthShellBrowserTests(TestCase):
             "products": "محصولات",
             "categories": "دسته‌بندی‌ها",
             "call-center": "مرکز تماس",
-            "customers": "بازاریابان (کال سنتر)",
+            "customers": "مشتریان",
             "invoices": "فاکتورها",
             "reports": "گزارش‌ها",
             "finance": "امور مالی",
@@ -177,6 +177,25 @@ class AuthShellBrowserTests(TestCase):
         self.assertContains(response, 'id="nav-toggle"')
         self.assertContains(response, 'aria-controls="app-sidebar"')
         self.assertContains(response, 'aria-expanded="false"')
+
+    def test_home_renders_authoritative_label_for_each_fixed_role(self):
+        role_labels = {
+            User.Role.SALES_AGENT: "بازاریاب (کال سنتر)",
+            User.Role.SALES_MANAGER: "مدیر فروشگاه",
+            User.Role.COMPANY_IT: "مدیر فنی مشتری",
+            User.Role.PLATFORM_ADMIN: "مدیر پلتفرم",
+        }
+
+        for role, label in role_labels.items():
+            with self.subTest(role=role):
+                user = User.objects.create_user(
+                    username=f"role-label-{role}",
+                    password=self.password,
+                    role=role,
+                )
+                self.client.force_login(user)
+                self.assertContains(self.client.get("/"), label)
+                self.client.logout()
 
     def test_sales_roles_cannot_open_user_management_shell(self):
         self.client.force_login(self.agent)

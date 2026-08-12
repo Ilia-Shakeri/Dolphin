@@ -85,7 +85,7 @@ ENTITY_NAMES = {
     "category": "دسته‌بندی محصول",
     "chat": "گفتگو",
     "contacts": "مشتریان",
-    "customers": "بازاریابان (کال سنتر)",
+    "customers": "مشتریان",
     "documents": "اسناد",
     "ecommerce": "فروش",
     "faq": "پرسش‌های متداول",

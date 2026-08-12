@@ -30,10 +30,10 @@ SQLITE_MEMORY_TEST_NAME = re.compile(
 SEED_LOCK_KEY = 5422700358370087253
 GUARDED_MODELS = (User, Customer, Product, Lead, Interaction, Sale, ActivityLog)
 USER_FIXTURES = (
-    ("uat_sales_agent", "کارشناس", "ساختگی", User.Role.SALES_AGENT),
-    ("uat_sales_manager", "مدیر فروش", "ساختگی", User.Role.SALES_MANAGER),
-    ("uat_company_it", "فناوری", "ساختگی", User.Role.COMPANY_IT),
-    ("uat_platform_admin", "مدیر سامانه", "ساختگی", User.Role.PLATFORM_ADMIN),
+    ("uat_sales_agent", "بازاریاب", "ساختگی", User.Role.SALES_AGENT),
+    ("uat_sales_manager", "مدیر فروشگاه", "ساختگی", User.Role.SALES_MANAGER),
+    ("uat_company_it", "مدیر فنی مشتری", "ساختگی", User.Role.COMPANY_IT),
+    ("uat_platform_admin", "مدیر پلتفرم", "ساختگی", User.Role.PLATFORM_ADMIN),
 )
 
 
@@ -105,7 +105,7 @@ class Command(BaseCommand):
             )
             customer = create_customer_with_phone(
                 actor=agent,
-                full_name="بازاریاب (کال سنتر) ساختگی آزمون پذیرش",
+                full_name="مشتری ساختگی آزمون پذیرش",
                 email="uat-customer@example.invalid",
                 province="استان ساختگی",
                 city="شهر ساختگی",

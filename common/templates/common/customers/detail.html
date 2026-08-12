@@ -1,13 +1,13 @@
 {% extends "common/base.html" %}
-{% block title %}جزئیات بازاریاب (کال سنتر){% endblock %}
+{% block title %}جزئیات مشتری{% endblock %}
 {% block page_id %}customer-detail{% endblock %}
 {% block body_data %} data-customer-id="{{ customer_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">دفتر بازاریاب (کال سنتر)</p><h1>جزئیات بازاریاب (کال سنتر)</h1></div><a class="button button-muted" href="{% url 'common_ui:customers' %}">بازگشت به فهرست</a></section>
-<div id="customer-detail-loading" class="card state">در حال دریافت بازاریاب (کال سنتر)…</div>
+<section class="page-head"><div><p class="eyebrow">دفتر مشتریان</p><h1>جزئیات مشتری</h1></div><a class="button button-muted" href="{% url 'common_ui:customers' %}">بازگشت به فهرست</a></section>
+<div id="customer-detail-loading" class="card state">در حال دریافت مشتری…</div>
 <section id="customer-detail-content" hidden>
     <form id="edit-customer-form" action="/api/v1/customers/{{ customer_id }}/" method="post" class="card" novalidate>
-        {% csrf_token %}<h2>مشخصات بازاریاب (کال سنتر)</h2>
+        {% csrf_token %}<h2>مشخصات مشتری</h2>
         <div class="form-grid">
             <div><label for="edit-customer-name">نام کامل</label><input id="edit-customer-name" name="full_name" required maxlength="255"><p class="field-error" data-error-for="full_name"></p></div>
             <div><label for="edit-customer-national-id">کد ملی</label><input id="edit-customer-national-id" name="national_id" maxlength="32"><p class="field-error" data-error-for="national_id"></p></div>
@@ -30,27 +30,27 @@
     </section>
     <section class="card">
         <div class="section-head"><h2>سرنخ‌های مرتبط</h2></div>
-        <div id="customer-leads-loading" class="state">در حال دریافت سرنخ‌ها…</div><div id="customer-leads-empty" class="state" hidden>سرنخی برای این بازاریاب (کال سنتر) در محدوده دسترسی شما نیست.</div>
-        <div id="customer-leads-table-wrap" class="table-wrap" hidden><table><thead><tr><th>بازاریاب (کال سنتر)</th><th>منبع</th><th>کمپین</th><th>وضعیت</th><th>مسئول</th><th>عملیات</th></tr></thead><tbody id="customer-leads-table-body"></tbody></table></div>
+        <div id="customer-leads-loading" class="state">در حال دریافت سرنخ‌ها…</div><div id="customer-leads-empty" class="state" hidden>سرنخی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-leads-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>منبع</th><th>کمپین</th><th>وضعیت</th><th>مسئول</th><th>عملیات</th></tr></thead><tbody id="customer-leads-table-body"></tbody></table></div>
         <nav id="customer-leads-pagination" class="pagination" aria-label="صفحه‌بندی سرنخ‌های مرتبط" hidden><button id="customer-leads-prev" class="button button-muted" type="button">قبلی</button><span id="customer-leads-page-label"></span><button id="customer-leads-next" class="button button-muted" type="button">بعدی</button></nav>
     </section>
     <section class="card">
         <div class="section-head"><h2>تماس‌های مرتبط</h2></div>
-        <div id="customer-interactions-loading" class="state">در حال دریافت تماس‌ها…</div><div id="customer-interactions-empty" class="state" hidden>تماسی برای این بازاریاب (کال سنتر) در محدوده دسترسی شما نیست.</div>
-        <div id="customer-interactions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>بازاریاب (کال سنتر)</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="customer-interactions-table-body"></tbody></table></div>
+        <div id="customer-interactions-loading" class="state">در حال دریافت تماس‌ها…</div><div id="customer-interactions-empty" class="state" hidden>تماسی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-interactions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="customer-interactions-table-body"></tbody></table></div>
         <nav id="customer-interactions-pagination" class="pagination" aria-label="صفحه‌بندی تماس‌های مرتبط" hidden><button id="customer-interactions-prev" class="button button-muted" type="button">قبلی</button><span id="customer-interactions-page-label"></span><button id="customer-interactions-next" class="button button-muted" type="button">بعدی</button></nav>
     </section>
     <section class="card">
         <div class="section-head"><h2>فروش‌های مرتبط</h2></div>
-        <div id="customer-sales-loading" class="state">در حال دریافت فروش‌ها…</div><div id="customer-sales-empty" class="state" hidden>فروشی برای این بازاریاب (کال سنتر) در محدوده دسترسی شما نیست.</div>
-        <div id="customer-sales-table-wrap" class="table-wrap" hidden><table><thead><tr><th>بازاریاب (کال سنتر)</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>فروشنده</th><th>عملیات</th></tr></thead><tbody id="customer-sales-table-body"></tbody></table></div>
+        <div id="customer-sales-loading" class="state">در حال دریافت فروش‌ها…</div><div id="customer-sales-empty" class="state" hidden>فروشی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-sales-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>ثبت‌کننده فروش</th><th>عملیات</th></tr></thead><tbody id="customer-sales-table-body"></tbody></table></div>
         <nav id="customer-sales-pagination" class="pagination" aria-label="صفحه‌بندی فروش‌های مرتبط" hidden><button id="customer-sales-prev" class="button button-muted" type="button">قبلی</button><span id="customer-sales-page-label"></span><button id="customer-sales-next" class="button button-muted" type="button">بعدی</button></nav>
     </section>
-    {% if can_deactivate_customers %}<section class="card danger-zone"><h2>غیرفعال‌سازی</h2><p>سابقه بازاریاب (کال سنتر) نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="button button-danger" type="button">غیرفعال کردن بازاریاب (کال سنتر)</button></section>{% endif %}
+    {% if can_deactivate_customers %}<section class="card danger-zone"><h2>غیرفعال‌سازی</h2><p>سابقه مشتری نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="button button-danger" type="button">غیرفعال کردن مشتری</button></section>{% endif %}
 </section>
 <dialog id="phone-dialog" aria-labelledby="phone-dialog-title">
     <form id="phone-form" action="/api/v1/customer-phones/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="phone-dialog-title">تلفن بازاریاب (کال سنتر)</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        {% csrf_token %}<div class="dialog-head"><h2 id="phone-dialog-title">تلفن مشتری</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
         <div class="form-grid">
             <div><label for="phone-raw">شماره</label><input id="phone-raw" name="raw_phone" type="tel" required maxlength="40"><p class="field-error" data-error-for="raw_phone"></p></div>
             <div><label for="phone-label">برچسب</label><input id="phone-label" name="label" maxlength="40"><p class="field-error" data-error-for="label"></p></div>

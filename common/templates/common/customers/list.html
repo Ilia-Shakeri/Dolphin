@@ -1,14 +1,14 @@
 {% extends "common/base.html" %}
-{% block title %}فهرست بازاریابان (کال سنتر){% endblock %}
+{% block title %}فهرست مشتریان{% endblock %}
 {% block page_id %}customers{% endblock %}
 {% block content %}
 <section class="page-head">
-    <div><p class="eyebrow">دفتر بازاریاب (کال سنتر)</p><h1>بازاریابان (کال سنتر)</h1></div>
-    <button id="open-create-customer" class="button" type="button">بازاریاب (کال سنتر) جدید</button>
+    <div><p class="eyebrow">دفتر مشتریان</p><h1>مشتریان</h1></div>
+    <button id="open-create-customer" class="button" type="button">مشتری جدید</button>
 </section>
 <section class="card">
     <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="toolbar">
-        <label class="sr-only" for="customer-search">جستجوی بازاریاب (کال سنتر)</label>
+        <label class="sr-only" for="customer-search">جستجوی مشتری</label>
         <input id="customer-search" name="search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی یا نشانی">
         <label class="sr-only" for="customer-ordering">مرتب‌سازی</label>
         <select id="customer-ordering" name="ordering">
@@ -19,8 +19,8 @@
         </select>
         <button class="button button-muted" type="submit">اعمال</button>
     </form>
-    <div id="customers-loading" class="state">در حال دریافت بازاریابان (کال سنتر)…</div>
-    <div id="customers-empty" class="state" hidden>بازاریاب (کال سنتر) پیدا نشد.</div>
+    <div id="customers-loading" class="state">در حال دریافت مشتریان…</div>
+    <div id="customers-empty" class="state" hidden>مشتری پیدا نشد.</div>
     <div class="table-wrap" id="customers-table-wrap" hidden>
         <table><thead><tr><th>نام</th><th>تلفن اصلی</th><th>دسته‌بندی</th><th>کد پستی</th><th>شهر</th><th>وضعیت</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody id="customers-table-body"></tbody></table>
     </div>
@@ -31,7 +31,7 @@
 <dialog id="create-customer-dialog" aria-labelledby="create-customer-title">
     <form id="create-customer-form" action="/api/v1/customers/" method="post" novalidate>
         {% csrf_token %}
-        <div class="dialog-head"><h2 id="create-customer-title">ساخت بازاریاب (کال سنتر)</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="dialog-head"><h2 id="create-customer-title">ساخت مشتری</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
         <div class="form-grid">
             <div><label for="create-customer-name">نام کامل</label><input id="create-customer-name" name="full_name" required maxlength="255"><p class="field-error" data-error-for="full_name"></p></div>
             <div><label for="create-customer-national-id">کد ملی</label><input id="create-customer-national-id" name="national_id" maxlength="32"><p class="field-error" data-error-for="national_id"></p></div>
@@ -46,7 +46,7 @@
             <div class="full-field"><label for="create-customer-address">نشانی</label><textarea id="create-customer-address" name="address" maxlength="2000"></textarea><p class="field-error" data-error-for="address"></p></div>
             <div class="full-field"><label for="create-customer-notes">یادداشت</label><textarea id="create-customer-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
         </div>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ساخت بازاریاب (کال سنتر)</button></div>
+        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ساخت مشتری</button></div>
     </form>
 </dialog>
 {% endblock %}

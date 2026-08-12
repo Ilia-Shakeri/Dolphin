@@ -101,6 +101,35 @@ poetry.lock
 
 The specifically allowlisted authentication page under authentication/layouts/corporate/ is an exception to the generic layouts/ exclusion.
 
+Curated frontend reference exceptions
+
+The following exact first-party theme HTML files may be inspected read-only, in bounded ranges, only as visual/layout/UX references for their named maintained screens. They do not define business rules, permissions, data contracts, statuses, or workflows:
+
+index.html
+authentication/layouts/corporate/sign-in.html
+apps/user-management/users/list.html
+apps/user-management/users/view.html
+dashboards/store-analytics.html
+dashboards/call-center.html
+apps/customers/list.html
+apps/customers/view.html
+apps/contacts/getting-started.html
+apps/contacts/add-contact.html
+apps/contacts/edit-contact.html
+apps/contacts/view-contact.html
+apps/ecommerce/catalog/products.html
+apps/ecommerce/catalog/add-product.html
+apps/ecommerce/catalog/edit-product.html
+apps/ecommerce/sales/listing.html
+apps/ecommerce/sales/details.html
+apps/ecommerce/sales/add-order.html
+apps/ecommerce/sales/edit-order.html
+dashboards/finance-performance.html
+apps/ecommerce/reports/sales.html
+apps/ecommerce/reports/view.html
+
+These exact files are narrow exceptions to the `dashboards/` and `apps/ecommerce/` exclusions above. No containing directory is generally allowlisted. All plugin, media, font, minified/bundled, generated/build, dependency, vendor-internal, and secret exclusions remain in force. If no exact reference is allowlisted for a maintained screen, record that gap instead of inspecting another theme tree or redesigning the screen.
+
 Never read or commit:
 
 .env

@@ -58,34 +58,53 @@ class SalesShellContractTests(SimpleTestCase):
         self.assertNotIn('id="delete-customer"', customer_detail)
         self.assertIn("حذف سخت انجام نمی‌شود", customer_detail)
 
-    def test_active_terminology_uses_marketer_for_customer_domain(self):
-        active_paths = (
-            ROOT / "common" / "ui_views.py",
-            ROOT / "common" / "static" / "common" / "kariz-app.js",
+    def test_active_terminology_keeps_customers_and_user_roles_distinct(self):
+        customer_paths = (
             ROOT / "common" / "templates" / "common" / "customers" / "list.html",
             ROOT / "common" / "templates" / "common" / "customers" / "detail.html",
             ROOT / "common" / "templates" / "common" / "leads" / "list.html",
-            ROOT / "common" / "templates" / "common" / "leads" / "detail.html",
             ROOT / "common" / "templates" / "common" / "interactions" / "list.html",
             ROOT / "common" / "templates" / "common" / "interactions" / "detail.html",
             ROOT / "common" / "templates" / "common" / "sales" / "list.html",
             ROOT / "common" / "templates" / "common" / "sales" / "detail.html",
             ROOT / "common" / "templates" / "common" / "reports" / "user_performance.html",
         )
-        for path in active_paths:
+        for path in customer_paths:
             with self.subTest(path=path.relative_to(ROOT)):
                 text = path.read_text(encoding="utf-8")
-                self.assertIn("بازاریاب (کال سنتر)", text)
-                self.assertNotRegex(text, r"مخاطب|مشتری")
+                self.assertIn("مشتری", text)
+                self.assertNotIn("بازاریاب (کال سنتر)", text)
+                self.assertNotRegex(text, r"مخاطب|مخاطبین")
+
+        lead_detail = (ROOT / "common" / "templates" / "common" / "leads" / "detail.html").read_text(encoding="utf-8")
+        self.assertIn('<label for="lead-customer">مشتری</label>', lead_detail)
+        self.assertIn('<label for="reassign-to-user">بازاریاب (کال سنتر)</label>', lead_detail)
+
+        role_labels = {
+            "sales_agent": "بازاریاب (کال سنتر)",
+            "sales_manager": "مدیر فروشگاه",
+            "company_it": "مدیر فنی مشتری",
+            "platform_admin": "مدیر پلتفرم",
+        }
+        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        views = (ROOT / "common" / "ui_views.py").read_text(encoding="utf-8")
+        user_detail = (ROOT / "common" / "templates" / "common" / "users" / "detail.html").read_text(encoding="utf-8")
+        for role, label in role_labels.items():
+            with self.subTest(role=role):
+                self.assertIn(f'{role}: "{label}"', script)
+                self.assertIn(label, views)
+                self.assertIn(f'value="{role}">{label}</option>', user_detail)
+        self.assertIn('not_found_title = "مشتری پیدا نشد"', views)
+        self.assertNotIn("مشخصات بازاریاب (کال سنتر) ذخیره شد", script)
 
         base = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
         self.assertIn(
-            'data-module="customers" href="{% url \'common_ui:customers\' %}">بازاریابان (کال سنتر)</a>',
+            'data-module="customers" href="{% url \'common_ui:customers\' %}">مشتریان</a>',
             base,
         )
         branding = (ROOT / "scripts" / "check_html_branding.py").read_text(encoding="utf-8")
         self.assertIn('"contacts": "مشتریان"', branding)
-        self.assertIn('"customers": "بازاریابان (کال سنتر)"', branding)
+        self.assertIn('"customers": "مشتریان"', branding)
         self.assertIn('"add-contact": "افزودن مشتری"', branding)
         self.assertIn('"edit-contact": "ویرایش مشتری"', branding)
 
@@ -106,10 +125,10 @@ class SalesShellScopeTests(TestCase):
         )
         self.manager = self.roles[User.Role.SALES_MANAGER]
         self.own_customer, self.own_lead, self.own_interaction = self._graph(
-            self.agent, "بازاریاب (کال سنتر) مجاز", "09121112222"
+            self.agent, "مشتری مجاز", "09121112222"
         )
         self.hidden_customer, self.hidden_lead, self.hidden_interaction = self._graph(
-            self.other_agent, "بازاریاب (کال سنتر) پنهان", "09123334444"
+            self.other_agent, "مشتری پنهان", "09123334444"
         )
 
     def _graph(self, actor, name, phone):
@@ -132,7 +151,7 @@ class SalesShellScopeTests(TestCase):
 
     def test_browser_direct_ids_apply_all_four_role_scopes(self):
         paths = (
-            (f"/customers/{self.hidden_customer.pk}/", "بازاریاب (کال سنتر) پیدا نشد"),
+            (f"/customers/{self.hidden_customer.pk}/", "مشتری پیدا نشد"),
             (f"/leads/{self.hidden_lead.pk}/", "سرنخ پیدا نشد"),
             (f"/interactions/{self.hidden_interaction.pk}/", "تماس پیدا نشد"),
         )
@@ -233,7 +252,7 @@ class SalesShellApiTests(TestCase):
         )
         self.customer = create_customer_with_phone(
             actor=self.agent,
-            full_name="بازاریاب (کال سنتر) تست رابط",
+            full_name="مشتری تست رابط",
             phone={"raw_phone": "09125556666", "is_primary": True},
         )
         self.lead = create_lead(actor=self.agent, customer=self.customer)
@@ -301,19 +320,19 @@ class SalesShellApiTests(TestCase):
 
     def test_customer_search_sort_and_pagination_are_real(self):
         for index in range(25):
-            create_customer_with_phone(actor=self.agent, full_name=f"بازاریاب (کال سنتر) تست {index:02d}")
+            create_customer_with_phone(actor=self.agent, full_name=f"مشتری تست {index:02d}")
         self.client.force_authenticate(self.manager)
-        page = self.client.get("/api/v1/customers/?search=بازاریاب&ordering=full_name&page=1")
+        page = self.client.get("/api/v1/customers/?search=مشتری&ordering=full_name&page=1")
         self.assertEqual(page.status_code, 200)
         self.assertEqual(page.data["count"], 26)
         self.assertIsNotNone(page.data["next"])
         self.assertEqual(len(page.data["results"]), 25)
-        second_page = self.client.get("/api/v1/customers/?search=بازاریاب&ordering=full_name&page=2")
+        second_page = self.client.get("/api/v1/customers/?search=مشتری&ordering=full_name&page=2")
         self.assertEqual(second_page.status_code, 200)
         self.assertEqual(len(second_page.data["results"]), 1)
         names = [row["full_name"] for row in page.data["results"] + second_page.data["results"]]
         self.assertEqual(names, sorted(names))
-        self.assertIn("بازاریاب (کال سنتر) تست رابط", names)
+        self.assertIn("مشتری تست رابط", names)
 
     def test_server_managed_customer_agent_and_ownership_fields_are_rejected(self):
         self.client.force_authenticate(self.agent)

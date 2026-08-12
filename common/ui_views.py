@@ -11,10 +11,10 @@ from sales.selectors import customers_for, interactions_for, leads_for, products
 
 
 ROLE_LABELS = {
-    User.Role.SALES_AGENT: "کارشناس فروش",
-    User.Role.SALES_MANAGER: "مدیر فروش",
-    User.Role.COMPANY_IT: "فناوری اطلاعات شرکت",
-    User.Role.PLATFORM_ADMIN: "مدیر سامانه",
+    User.Role.SALES_AGENT: "بازاریاب (کال سنتر)",
+    User.Role.SALES_MANAGER: "مدیر فروشگاه",
+    User.Role.COMPANY_IT: "مدیر فنی مشتری",
+    User.Role.PLATFORM_ADMIN: "مدیر پلتفرم",
 }
 
 
@@ -148,8 +148,8 @@ class KarizCustomerDetailView(ScopedDetailView):
     template_name = "common/customers/detail.html"
     object_id_kwarg = "customer_id"
     context_id_name = "customer_id"
-    not_found_title = "بازاریاب (کال سنتر) پیدا نشد"
-    not_found_message = "بازاریاب (کال سنتر) در محدوده دسترسی شما وجود ندارد."
+    not_found_title = "مشتری پیدا نشد"
+    not_found_message = "مشتری در محدوده دسترسی شما وجود ندارد."
 
     def scoped_queryset(self):
         return customers_for(self.request.user)

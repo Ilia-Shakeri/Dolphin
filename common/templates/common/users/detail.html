@@ -24,17 +24,17 @@
         <h2>تغییر نقش کنترل‌شده</h2>
         <label for="edit-role">نقش</label>
         <select id="edit-role" name="role" required>
-            <option value="sales_agent">کارشناس فروش</option>
-            <option value="sales_manager">مدیر فروش</option>
-            <option value="company_it">فناوری اطلاعات شرکت</option>
-            {% if request.user.role == 'platform_admin' %}<option value="platform_admin">مدیر سامانه</option>{% endif %}
+            <option value="sales_agent">بازاریاب (کال سنتر)</option>
+            <option value="sales_manager">مدیر فروشگاه</option>
+            <option value="company_it">مدیر فنی مشتری</option>
+            {% if request.user.role == 'platform_admin' %}<option value="platform_admin">مدیر پلتفرم</option>{% endif %}
         </select>
         <p class="field-error" data-error-for="role"></p>
         <div class="form-actions"><button class="button" type="submit">تغییر نقش</button></div>
     </form>
     <section class="card danger-zone">
         <h2>غیرفعال‌سازی</h2>
-        <p>کاربر غیرفعال دیگر اجازه ورود ندارد. آخرین مدیر فعال سامانه قابل غیرفعال‌سازی نیست.</p>
+        <p>کاربر غیرفعال دیگر اجازه ورود ندارد. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>
         <button id="deactivate-user" class="button button-danger" type="button">غیرفعال کردن کاربر</button>
     </section>
 </section>

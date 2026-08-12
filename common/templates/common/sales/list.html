@@ -5,13 +5,13 @@
 <section class="page-head"><div><p class="eyebrow">ثبت فروش از سرنخ مجاز</p><h1>فروش‌ها</h1></div><button id="open-create-sale" class="button" type="button">ثبت فروش</button></section>
 <section class="card">
     <form id="sale-search-form" action="{% url 'common_ui:sales' %}" method="get" class="toolbar">
-        <label class="sr-only" for="sale-search">جستجوی فروش</label><input id="sale-search" name="search" type="search" placeholder="بازاریاب (کال سنتر)، محصول یا یادداشت">
+        <label class="sr-only" for="sale-search">جستجوی فروش</label><input id="sale-search" name="search" type="search" placeholder="مشتری، محصول یا یادداشت">
         <label class="sr-only" for="sale-status">وضعیت</label><select id="sale-status" name="status"><option value="">همه وضعیت‌ها</option><option value="confirmed">تأییدشده</option><option value="cancelled">لغوشده</option></select>
         <label class="sr-only" for="sale-ordering">مرتب‌سازی</label><select id="sale-ordering" name="ordering"><option value="-sold_at">تازه‌ترین</option><option value="sold_at">قدیمی‌ترین</option><option value="-total_amount">بیشترین مبلغ</option><option value="total_amount">کمترین مبلغ</option></select>
         <button class="button button-muted" type="submit">اعمال</button>
     </form>
     <div id="sales-loading" class="state">در حال دریافت فروش‌ها…</div><div id="sales-empty" class="state" hidden>فروشی پیدا نشد.</div>
-    <div id="sales-table-wrap" class="table-wrap" hidden><table><thead><tr><th>بازاریاب (کال سنتر)</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>فروشنده</th><th>عملیات</th></tr></thead><tbody id="sales-table-body"></tbody></table></div>
+    <div id="sales-table-wrap" class="table-wrap" hidden><table><thead><tr><th>مشتری</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>ثبت‌کننده فروش</th><th>عملیات</th></tr></thead><tbody id="sales-table-body"></tbody></table></div>
     <nav id="sales-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="sales-prev" class="button button-muted" type="button">قبلی</button><span id="sales-page-label"></span><button id="sales-next" class="button button-muted" type="button">بعدی</button></nav>
 </section>
 <dialog id="create-sale-dialog" aria-labelledby="create-sale-title">
@@ -23,7 +23,7 @@
             <div><label for="create-sale-quantity">تعداد</label><input id="create-sale-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="field-error" data-error-for="quantity"></p></div>
             <div class="full-field"><label for="create-sale-notes">یادداشت</label><textarea id="create-sale-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
         </div>
-        <p class="muted">قیمت لحظه فروش، مبلغ کل، بازاریاب (کال سنتر)، فروشنده و زمان ثبت را سامانه تعیین می‌کند.</p>
+        <p class="muted">قیمت لحظه فروش، مبلغ کل، مشتری، ثبت‌کننده فروش و زمان ثبت را سامانه تعیین می‌کند.</p>
         <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت فروش</button></div>
     </form>
 </dialog>

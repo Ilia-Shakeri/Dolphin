@@ -2,6 +2,21 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد، تصمیم باز و اقدام دقیق بعدی پروژه است. `BACKEND_SPEC.md` قرارداد پیاده‌سازی است؛ اسناد `docs/backend/` قراردادهای فنی و اسناد `docs/ops/` runbookهای عملیاتی هستند و هیچ‌کدام جایگزین وضعیت زنده این فایل نیستند.
 
+## CURRENT SNAPSHOT — 2026-08-12
+
+- Active phase: Client-1 foundation correction — terminology, frontend reference, and current truth; `DONE` locally. External release/runtime proof remains separate.
+- Git HEAD: `fa32e5287e8caa10eba688f2d84efe23a6cc9947`.
+- Git status: dirty working tree; no commit created. This slice changes `AGENTS.md`, `BACKEND_SPEC.md`, this handoff, the root roadmap, synthetic-UAT command/test, maintained UI views/templates/script/tests, branding guard, and adds `docs/frontend/FRONTEND_REFERENCE_MAP.md`. Exact final status is recorded in the foundation checkpoint below.
+- Implemented core: session login/logout/current profile; fixed-role user management/deactivation/role-change; Customer/CustomerPhone create/read/edit/deactivate and scoped related records; Lead CRUD/manual assignment/history; append-only manual Interaction; Product CRUD/deactivate/filter; operational Sale create/cancel; four-metric user-performance JSON/XLSX; scoped read-only ActivityLog; Persian RTL maintained UI connected to real APIs.
+- Current role map: `sales_agent` = `بازاریاب (کال سنتر)`; `sales_manager` = `مدیر فروشگاه`; `company_it` = `مدیر فنی مشتری`; `platform_admin` = `مدیر پلتفرم`. `platform_admin` keeps highest CRM custody. `company_it` cannot grant, target, see, or manage Platform Admin through user administration.
+- Current Customer meaning: actual store/customer/client contact; visible label `مشتری` / `مشتریان`. `Customer` model/API/table/field/stable identifiers stay unchanged. A Sales Agent is a User, never a Customer.
+- Active frontend architecture: 19 maintained templates under `common/templates/common/`; one inherited Persian RTL shell; `common/ui_urls.py` and `common/ui_views.py`; one `body[data-page]` handler map in `common/static/common/kariz-app.js`; one maintained stylesheet `common/static/common/kariz.css`; same-origin Session/CSRF calls to real `/api/v1/` endpoints; relevant API/UI/browser tests under active first-party apps.
+- Frontend reference policy: exact curated theme HTML files are read-only visual/layout/UX references only. The allowlist and page-to-reference/API/role/gap map are in `AGENTS.md` and `docs/frontend/FRONTEND_REFERENCE_MAP.md`. Plugin/media/font/minified/generated/vendor-internal trees remain excluded.
+- Resolved decisions: Customer-versus-marketer terminology; all four Persian role labels; fixed role-code retention; Platform Admin custody; Company IT privilege ceiling; C1-DEC-ROLE-001. The old section 26 reverse mapping and old C1-1 role-ambiguity/24-open-decision counts are historical and superseded.
+- Still open: `23` consolidated decision IDs remain wholly open. Highest gate: C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001. Lead workflow, calendar/task, document/postal, detailed reports, SMS/provider, inventory/finance/files/search/integrations/late platform work, runtime proof, and delivery staging remain blocked by their recorded contracts.
+- Verification truth: Django check, migration drift, 284-test full suite, OpenAPI validation, JavaScript syntax, 4 browser tests, branding guard, collectstatic dry-run, active terminology guards, and diff checks pass. Exact evidence and Git status are in section 33.
+- Exact next phase: close GOV/SEAT/TEAM/AFTER decisions and run C1-2. Do not add a new business model before its remaining semantic gate is approved.
+
 ## 1. مرز وضعیت و تحویل
 
 | جریان | وضعیت زنده | معنی |
@@ -356,7 +371,7 @@
 - migration: ندارد.
 - API endpoint تازه: ندارد؛ endpointهای موجود auth/users مصرف شدند.
 - UI endpoint تازه: `/login/`، `/users/` و `/users/<int:user_id>/`؛ `/` از public brand page به profile shell محافظت‌شده تبدیل شد.
-- authorization: backend تغییر نکرد؛ UI همان active CRM identity و admin role boundary را پیش از render اعمال می‌کند. Company IT مدیر سامانه را نمی‌بیند و نمی‌تواند role بالاتر از خود بدهد.
+- authorization: backend تغییر نکرد؛ UI همان active CRM identity و admin role boundary را پیش از render اعمال می‌کند. مدیر فنی مشتری، مدیر پلتفرم را نمی‌بیند و نمی‌تواند آن نقش را بدهد یا مدیریت کند.
 
 ### تست‌های این slice
 
@@ -395,7 +410,7 @@
 ### نتیجه و وضعیت قابلیت
 
 - Customer list/detail/create/edit/search/order/pagination و deactivate بدون hard delete به API واقعی وصل شد؛ `created_by` و `is_active` در فرم قابل ارسال نیست.
-- CustomerPhone داخل جزئیات بازاریاب (کال سنتر) list/create/edit/deactivate واقعی دارد؛ `customer` در edit قابل تغییر نیست، `normalized_phone` و `is_active` server-owned هستند، deactivate اختصاصی row/history را نگه می‌دارد و primary را پاک می‌کند.
+- CustomerPhone داخل جزئیات مشتری list/create/edit/deactivate واقعی دارد؛ `customer` در edit قابل تغییر نیست، `normalized_phone` و `is_active` server-owned هستند، deactivate اختصاصی row/history را نگه می‌دارد و primary را پاک می‌کند.
 - ورودی فارسی/عربی/ASCII تلفن به `+98` ASCII نرمال می‌شود؛ duplicate active و primary conflict با HTTP 409 نمایش داده می‌شود و 429 واقعی برای deactivate تست شد.
 - Lead list/detail/create/edit مجاز/search/order/pagination و status filter exact دارد. وضعیت فقط نمایش/filter می‌شود؛ هیچ transition، status list، Team boundary یا auto-assignment ساخته نشد.
 - assignee read API فقط حداقل فیلد active clean Sales Agent را به سه role مجاز می‌دهد؛ تخصیص/انتقال همچنان service تراکنشی موجود را می‌زند و history paginated از scope همان Lead خوانده می‌شود.
@@ -1209,7 +1224,7 @@ Every entry in this subsection comes from the initial customer list. Each is `PR
 |---|---|---|---|
 | C1-DEC-GOV-001 | Name business owner, security owner, UAT owner, and final sign-off authority. | `BLOCKED_DECISION` | Approval of every new capability and final acceptance. |
 | C1-DEC-SEAT-001 | Confirm no application seat cap, licensed-account meaning, expected total users, peak concurrency, load target, and abort rule. | `BLOCKED_DECISION` | C1-REQ-001/002 acceptance and capacity proof. |
-| C1-DEC-ROLE-001 | Resolve source contradiction: four fixed roles versus three named Persian roles; map `company_it` and `platform_admin`, privilege-grant custody, bootstrap/recovery, last-admin guard, audit visibility, session effect, and migration. | `BLOCKED_DECISION` | C1-2 and every new authorization matrix. |
+| C1-DEC-ROLE-001 | Four fixed codes; Persian display mapping; Platform Admin custody; Company IT ceiling. | `RESOLVED 2026-08-11` | Codes stay stable. `platform_admin` keeps highest custody; `company_it` cannot grant, target, or manage it. Team/workstream scope stays in C1-DEC-TEAM-001/AFTER-001. |
 | C1-DEC-TEAM-001 | Define Sales Manager team boundary, team membership/lifecycle, and company-wide exceptions. | `BLOCKED_DECISION` | Manager user admin, assignment, reporting, pipeline, and bulk operations. |
 | C1-DEC-AFTER-001 | Define after-sales identity/workstream, case fields, Customer/Document link, assignee, states/transitions, manager scope, close/reopen, retention, and sample. | `BLOCKED_DECISION` | C1-REQ-002 and C1-5. |
 | C1-DEC-LEAD-001 | Final Lead statuses/transitions, initial assignment, conversion target, priority, archive, Opportunity/Pipeline model, reassignment KPI policy. | `BLOCKED_DECISION` | Lead expansion, contact status, pipeline, performance. |
@@ -1238,7 +1253,7 @@ No row below is `VERIFIED_END_TO_END`. `APPROVED` means the named current contra
 
 | Capability | Contract | Backend/UI now | Automated proof now | Runtime/UAT | Priority | Main blocker |
 |---|---|---|---|---|---|---|
-| C1-CAP-ACC | mixed; overall `BLOCKED_DECISION` | current auth/user real; sessions/avatar/notices/export absent | current suite exists | external pending | core | C1-DEC-ROLE-001/SEAT/TEAM |
+| C1-CAP-ACC | mixed; overall `BLOCKED_DECISION` | current auth/user real; sessions/avatar/notices/export absent | current suite exists | external pending | core | C1-DEC-SEAT/TEAM plus later session/avatar/notices/export contracts |
 | C1-CAP-CUSTOMER | mixed; overall `BLOCKED_DECISION` | core/phone real; category/postcode/export/bulk/360 absent | current suite exists | external pending | core + later additions | category/geography/document/scope |
 | C1-CAP-LEAD | mixed; overall `BLOCKED_DECISION` | core assignment/history real; status/pipeline expansion absent | current suite exists | external pending | core + later additions | C1-DEC-LEAD-001 |
 | C1-CAP-CONTACT | mixed; overall `BLOCKED_DECISION` | manual Interaction real; timeline/calendar/report/telephony absent | current suite exists | provider/target pending | core + later additions | C1-DEC-CONTACT/CALENDAR/INTEGRATION |
@@ -1267,7 +1282,7 @@ No row below is `VERIFIED_END_TO_END`. `APPROVED` means the named current contra
 
 This order reflects technical dependencies plus the customer's instruction to retain marked low-priority work at the end. It does not approve blocked semantics.
 
-1. Resolve C1-DEC-GOV/SEAT/ROLE/TEAM and approve the identity/workstream matrix; only then run C1-2.
+1. Resolve C1-DEC-GOV/SEAT/TEAM/AFTER and approve the remaining identity/workstream matrix; C1-DEC-ROLE-001 is resolved; only then run C1-2.
 2. Resolve C1-DEC-DOC/GEO/POST and implement the minimum approved operational document/geography/postal foundation required by original reports; only then run C1-3.
 3. Resolve C1-DEC-INCOMING/CONTACT/PERF and implement contact-status plus detailed performance/drill-down; only then run C1-4.
 4. Resolve C1-DEC-AFTER and the approved Customer/Document relation; only then run C1-5.
@@ -1278,13 +1293,15 @@ This order reflects technical dependencies plus the customer's instruction to re
 9. Run C1-8 against the exact complete chosen release. Real scheduled backup remains a mandatory release gate, not optional low-priority scope.
 10. Run C1-9 target deployment/UAT/cutover and sign-off. If staged delivery is approved, repeat runtime/UAT proof for each exact release slice; do not treat a later target item as delivered early.
 
-- C1-2 start gate: `BLOCKED_DECISION` until C1-DEC-ROLE-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and after-sales workstream visibility are approved.
+- C1-2 start gate: `BLOCKED_DECISION` until C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001 are approved. C1-DEC-ROLE-001 is resolved.
 - Files changed at this checkpoint: `KARIZ_PROJECT_HANDOFF.md` only.
 - Migrations/endpoints/UI routes/authorization behavior: none changed.
 - Exact resume point: decision register/matrix/order complete; `BACKEND_SPEC.md` still states several now-included families as default-out/blocked without the new Client-1 scope distinction.
 - Exact next action: add a narrow confirmed Client-1 scope/prioritization section to `BACKEND_SPEC.md`; keep every detailed unresolved rule blocked and do not change current role behavior.
 
-### Checkpoint C1-1.6 - authoritative specification scope truth updated
+### Checkpoint C1-1.6 - authoritative specification scope truth updated — HISTORICAL
+
+This checkpoint predates the 2026-08-11 foundation correction. Its role-ambiguity and Git-status statements are superseded by `CURRENT SNAPSHOT`.
 
 - Status: C1-1 reconciliation documentation complete; verification pending.
 - Files inspected: bounded complete diff of `BACKEND_SPEC.md` after the edit.
@@ -1307,7 +1324,9 @@ This order reflects technical dependencies plus the customer's instruction to re
 - Exact resume point: C1-1 documentation edits complete; run documentation and baseline gates from the C1-1 phase.
 - Exact next action: run `git diff --check`, then Django check, migration drift, UTF-8 OpenAPI validation, full suite, and branding scan; record exact results and self-correct until score 9 or higher.
 
-### Checkpoint C1-1.7 - verification in progress
+### Checkpoint C1-1.7 - verification in progress — HISTORICAL
+
+This checkpoint predates the 2026-08-11 foundation correction. Its counts and Git status are historical evidence only.
 
 - Active phase: `C1-1`; verification only.
 - Files changed: `BACKEND_SPEC.md` and `KARIZ_PROJECT_HANDOFF.md` only.
@@ -1323,7 +1342,9 @@ This order reflects technical dependencies plus the customer's instruction to re
 - Exact resume point: all requested C1-1 gates passed; live-summary consistency fix pending.
 - Exact next action: mark old V1 summary as current-core baseline, promote Client-1 expanded target truth at the top, mark old V4 next action superseded, then rerun diff/coverage checks and score again.
 
-### Checkpoint C1-1.8 - final C1-1 handoff
+### Checkpoint C1-1.8 - final C1-1 handoff — HISTORICAL
+
+This checkpoint predates the 2026-08-11 foundation correction. The old `24`-open-decision count and role contradiction are superseded by `CURRENT SNAPSHOT` and the updated decision register.
 
 - C1-1 status: `BLOCKED_DECISION`; reconciliation is complete, but implementation contracts are not fully approved.
 - Active phase: `C1-1` complete; no C1-2 work started.
@@ -1401,7 +1422,7 @@ This order reflects technical dependencies plus the customer's instruction to re
    - `محصولات` - real `/products/` route.
    - `دسته‌بندی‌ها` - future placeholder.
 4. `مرکز تماس` - expandable group shell:
-   - `بازاریابان (کال سنتر)` - real `/customers/` route.
+   - `مشتریان` - real `/customers/` route.
    - `سرنخ‌ها` - real `/leads/` route retained.
    - `تماس‌ها` - real `/interactions/` route retained.
 5. `فروش‌ها` - real `/sales/` route retained.
@@ -1468,7 +1489,7 @@ This order reflects technical dependencies plus the customer's instruction to re
 - Request: check C1-1 and start C1-2 only if C1-1 is done.
 - C1-1 audit result: reconciliation work is complete, but status is `BLOCKED_DECISION`; approved identity/workstream design does not exist.
 - C1-2 status: `BLOCKED_DECISION`; phase not started.
-- Blocking decisions: C1-DEC-ROLE-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001.
+- Blocking decisions: C1-DEC-GOV-001, C1-DEC-SEAT-001, C1-DEC-TEAM-001, and C1-DEC-AFTER-001. C1-DEC-ROLE-001 is resolved.
 - Exact blocking facts:
   - final source says four fixed roles and later names only three; mapping/custody of `company_it` and `platform_admin` is unresolved;
   - no-seat-cap acceptance and real concurrency/load target are unresolved;
@@ -1844,12 +1865,14 @@ Known deliberate fail-closed gaps: Sales Manager user administration is denied b
 - Repository start commit: `44ff2b0351df2b08faa3bda92bb5b3d91ca720cc`.
 - Commit: none created.
 
-## 26. Active terminology correction - 2026-08-11
+## 26. Active terminology correction - 2026-08-11 — HISTORICAL / SUPERSEDED
+
+This checkpoint recorded the reversed Customer/marketer mapping. It is superseded by `CURRENT SNAPSHOT` and the foundation correction checkpoint; its old user-visible mapping must not be used.
 
 ### Result and evidence
 
 - Active first-party UI labels changed without renaming models, fields, routes, API paths, template IDs, or JavaScript identifiers.
-- User-visible Contact wording maps to `مشتری` / `مشتریان`; Customer-domain wording maps to `بازاریاب (کال سنتر)` / `بازاریابان (کال سنتر)`.
+- Historical result was incorrect: this checkpoint inverted Customer and marketer labels. The active mapping is defined only by `CURRENT SNAPSHOT` and the later foundation correction checkpoint.
 - Changed active shell, Customer/Lead/Interaction/Sale/report templates, `common/ui_views.py`, `common/static/common/kariz-app.js`, future maintained-page mapping, synthetic data, and matching tests.
 - Generic metadata `سامانه مدیریت ارتباط با مشتری کاریز` remains because it names the CRM product class, not the Customer entity.
 - Root `index.html` remains a read-only demo/reference. Its historical labels are outside the active Django UI.
@@ -2263,3 +2286,63 @@ The following floor is required before a file implementation may open:
 - Fix: added a mandatory approved consistency protocol covering write-stop/snapshot/generation cutoff, active and quarantined uploads, completed versions, tombstones, retry, and partial failure.
 - Self-correction score 2: `9/10`. The security floor, unresolved business values, authorization matrix, recovery consistency, module blockers, proof, and exact resume path are now explicit without unsafe implementation.
 - Commit: none created.
+
+## 33. Client-1 foundation correction — completed 2026-08-12
+
+### Result and current role truth
+
+- Local state: `DONE`; no external release/runtime claim is added.
+- Customer means the actual store/customer/client contact. Active Persian labels are `مشتری` / `مشتریان`. The `Customer` model, API path, database table, fields, and stable identifiers remain unchanged.
+- `sales_agent` = `بازاریاب (کال سنتر)`; this is a User, never a Customer.
+- `sales_manager` = `مدیر فروشگاه`.
+- `company_it` = `مدیر فنی مشتری`; it cannot grant, target, see, or manage Platform Admin through user administration.
+- `platform_admin` = `مدیر پلتفرم`; it retains highest CRM application custody.
+- Existing backend queryset/object authorization remains authoritative. No permission behavior was weakened or moved to frontend-only hiding.
+
+### Files inspected
+
+- Authority/status: `BACKEND_SPEC.md`; `KARIZ_PROJECT_HANDOFF.md`; root roadmap; `AGENTS.md`.
+- Backend/API: `config/urls.py`; `accounts/urls.py`; `accounts/views.py`; `accounts/serializers.py`; `accounts/models.py`; `accounts/access.py`; `accounts/management/commands/seed_synthetic_uat.py`; `sales/urls.py`; `sales/views.py`; `sales/serializers.py`; `sales/selectors.py`; `reports/urls.py`; `reports/views.py`; `reports/serializers.py`; `reports/selectors.py`; `auditlog/urls.py`; `auditlog/views.py`; `auditlog/serializers.py`; `auditlog/selectors.py`; relevant account, customer, sale, report, audit, and synthetic-UAT tests.
+- Active frontend: `common/templates/common/base.html`; `home.html`; `login.html`; all maintained `users/`, `customers/`, `leads/`, `interactions/`, `products/`, `sales/`, `reports/`, and `activity_logs/` templates; `common/static/common/kariz-app.js`; `common/static/common/kariz.css`; `common/ui_views.py`; `common/ui_urls.py`; `common/tests/test_auth_shell.py`; `common/tests/test_auth_shell_browser.py`; `common/tests/test_sales_shell.py`; `common/tests/test_sales_shell_browser.py`; `common/tests/test_commercial_shell.py`.
+- Exact curated visual references inspected: `authentication/layouts/corporate/sign-in.html`; `index.html`; `dashboards/store-analytics.html`; `dashboards/call-center.html`; `dashboards/finance-performance.html`; `apps/user-management/users/list.html`; `apps/user-management/users/view.html`; `apps/customers/list.html`; `apps/customers/view.html`; `apps/contacts/getting-started.html`; `apps/contacts/add-contact.html`; `apps/contacts/edit-contact.html`; `apps/contacts/view-contact.html`; `apps/ecommerce/catalog/products.html`; `apps/ecommerce/catalog/add-product.html`; `apps/ecommerce/catalog/edit-product.html`; `apps/ecommerce/sales/listing.html`; `apps/ecommerce/sales/details.html`; `apps/ecommerce/sales/add-order.html`; `apps/ecommerce/reports/sales.html`; `apps/ecommerce/reports/view.html`.
+- Reference finding: no exact curated Lead, Interaction, or Audit page exists. Contact pages are visual analogues only. Demo content supplied no business rule.
+
+### Files changed
+
+- Policy/contracts/status: `AGENTS.md`; `BACKEND_SPEC.md`; `KARIZ_PROJECT_HANDOFF.md`; root roadmap; new `docs/frontend/FRONTEND_REFERENCE_MAP.md`.
+- Active UI: `common/ui_views.py`; `common/static/common/kariz-app.js`; `common/templates/common/base.html`; Customer, Lead, Interaction, Sale, Report, and User list/detail templates.
+- Data/guards/tests: `accounts/management/commands/seed_synthetic_uat.py`; `accounts/tests/test_seed_synthetic_uat.py`; `scripts/check_html_branding.py`; `common/tests/test_auth_shell.py`; `common/tests/test_auth_shell_browser.py`; `common/tests/test_commercial_shell.py`; `common/tests/test_sales_shell.py`; `common/tests/test_sales_shell_browser.py`.
+- Unchanged by design: models, migrations, API paths, database identifiers, CSS, architecture, and permissions. No Lead pipeline, Task, Invoice, SMS, finance, inventory, file, or other business model was added.
+
+### Terminology and frontend-reference result
+
+- Sidebar, Customer create/list/detail/edit/deactivate, Lead, Interaction, Sale, report, user-role UI, UI errors, client messages, synthetic UAT data, and active UI/browser tests now use the authoritative terms.
+- Customer screens no longer render `بازاریاب (کال سنتر)`. Lead reassignment uses that label only for the responsible User.
+- `docs/frontend/FRONTEND_REFERENCE_MAP.md` maps every maintained page to business screen, template, JavaScript handler, real endpoint, allowed role/scope, exact reference, and major UX gap.
+- The frontend read policy now has a narrow exact-file reference allowlist. Dependency, plugin, media, font, minified, generated, build, vendor-internal, and secret trees remain excluded.
+
+### Verification evidence
+
+- `python manage.py check --settings=config.test_settings`: PASS.
+- `python manage.py makemigrations --check --dry-run --settings=config.test_settings`: PASS; no migration drift.
+- Focused auth/browser shell: PASS, `17/17`.
+- Full Django suite: PASS, `284/284`; `6` intentional skips.
+- OpenAPI validation: PASS.
+- `node --check common/static/common/kariz-app.js`: PASS.
+- Active browser suites: PASS, `4/4`.
+- `python scripts/check_html_branding.py`: PASS, `220` files.
+- Collectstatic dry-run: PASS, `179` files.
+- Active `مخاطب` / `مخاطبین` guard: PASS; only the negative regression assertion contains those words.
+- Customer-as-marketer regression guard: PASS.
+- `git diff --check`: PASS after final documentation update.
+
+### Self-correction and resume point
+
+- Score 1: `8/10`.
+- [role shell test]: Source mapping and one browser role were covered, but all four rendered role labels lacked one direct shell regression test. A future label drift could escape.
+- Fix: added one server-rendered shell test covering all four fixed roles; focused and full suites pass.
+- Score 2: `9/10`.
+- Remaining decision blockers: `C1-DEC-GOV-001`, `C1-DEC-SEAT-001`, `C1-DEC-TEAM-001`, and `C1-DEC-AFTER-001`; `23` consolidated IDs remain wholly open.
+- Exact next phase: approve GOV/SEAT/TEAM/AFTER, then run C1-2 with backend authorization, maintained Persian RTL UI, API tests, and browser tests in the same slice.
+- Git HEAD: `fa32e5287e8caa10eba688f2d84efe23a6cc9947`.
+- Git status: dirty; exact changed paths are the files listed in this checkpoint plus untracked `docs/frontend/FRONTEND_REFERENCE_MAP.md`. No commit created.

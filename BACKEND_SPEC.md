@@ -149,7 +149,14 @@ platform_admin
 
 Legacy display levels 1–4 may remain only as display/backward-compatibility data. Permission checks use explicit role codes.
 
-The final Client-1 source also names three Persian roles (Sales Expert, Sales Manager, System Manager) while another line in the same source says four fixed roles. Mapping System Manager to `company_it`, `platform_admin`, or a customer-facing role while retaining a separate platform trust root is **UNRESOLVED**. Until an explicit privilege-custody, bootstrap/recovery, audit-visibility, migration, and last-admin decision exists, the four current codes and current authorization behavior remain unchanged.
+The Client-1 role identity and Persian display mapping is **CONFIRMED**:
+
+- `sales_agent`: `بازاریاب (کال سنتر)`; a User and never a Customer.
+- `sales_manager`: `مدیر فروشگاه`; the first client's store/sales manager.
+- `company_it`: `مدیر فنی مشتری`; optional client technical administrator and never permitted to grant, target, or manage `platform_admin`.
+- `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz platform owner/developer/admin, highest CRM application privilege, and holder of Platform Admin custody.
+
+Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged. Team boundaries, seat/capacity, and after-sales workstream scope remain separate unresolved decisions.
 
 ### 4.1 Access matrix
 
@@ -776,7 +783,7 @@ Keep these explicit and do not silently convert them into confirmed rules:
 13. Backup destination and retention.
 14. External website data direction, credentials, and network path.
 15. Production hostname/certificate/TLS path.
-16. Client-1 role count/mapping: requested three Persian labels versus four current security codes, including platform privilege custody and migration.
+16. **RESOLVED 2026-08-11:** four fixed role codes and Persian labels are mapped in section 4; Platform Admin custody stays with `platform_admin`, and `company_it` cannot grant or manage it. Team/workstream scope remains a separate open decision.
 17. No-seat-cap meaning, total accounts, peak concurrency, capacity target, and load abort rule.
 18. Customer category/postal/address/history/export/bulk/360 contracts.
 19. Lead conversion/priority/archive/Opportunity/Pipeline contracts.

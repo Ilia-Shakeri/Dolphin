@@ -2,10 +2,10 @@
     "use strict";
 
     const ROLE_LABELS = Object.freeze({
-        sales_agent: "کارشناس فروش",
-        sales_manager: "مدیر فروش",
-        company_it: "فناوری اطلاعات شرکت",
-        platform_admin: "مدیر سامانه",
+        sales_agent: "بازاریاب (کال سنتر)",
+        sales_manager: "مدیر فروشگاه",
+        company_it: "مدیر فنی مشتری",
+        platform_admin: "مدیر پلتفرم",
     });
     const STATUS_MESSAGES = Object.freeze({
         400: "داده‌های واردشده درست نیست. موارد مشخص‌شده را اصلاح کنید.",
@@ -508,7 +508,7 @@
             const deactivate = document.getElementById("deactivate-customer");
             if (deactivate) {
                 deactivate.disabled = !value.is_active;
-                deactivate.textContent = value.is_active ? "غیرفعال کردن بازاریاب (کال سنتر)" : "بازاریاب (کال سنتر) غیرفعال است";
+                deactivate.textContent = value.is_active ? "غیرفعال کردن مشتری" : "مشتری غیرفعال است";
             }
         }
 
@@ -623,7 +623,7 @@
             withSubmit(editForm, async () => {
                 customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"])});
                 fillCustomer(customer);
-                globalMessage("مشخصات بازاریاب (کال سنتر) ذخیره شد.", true);
+                globalMessage("مشخصات مشتری ذخیره شد.", true);
             });
         });
         document.getElementById("open-create-phone").addEventListener("click", () => openPhone());
@@ -643,13 +643,13 @@
         });
         const deactivateCustomer = document.getElementById("deactivate-customer");
         deactivateCustomer?.addEventListener("click", async () => {
-            if (!window.confirm("این بازاریاب (کال سنتر) غیرفعال شود؟")) return;
+            if (!window.confirm("این مشتری غیرفعال شود؟")) return;
             deactivateCustomer.disabled = true;
             clearMessages();
             try {
                 customer = await apiRequest(`${endpoint}deactivate/`, {method: "POST"});
                 fillCustomer(customer);
-                globalMessage("بازاریاب (کال سنتر) بدون حذف سابقه غیرفعال شد.", true);
+                globalMessage("مشتری بدون حذف سابقه غیرفعال شد.", true);
             } catch (error) {
                 deactivateCustomer.disabled = false;
                 showError(error);
@@ -689,7 +689,7 @@
             await controller.load();
             const customers = await loadAllPages("/api/v1/customers/?ordering=full_name");
             const products = await loadAllPages("/api/v1/products/?ordering=name");
-            fillSelect(document.getElementById("create-lead-customer"), customers.filter((item) => item.is_active), (item) => item.full_name, "انتخاب بازاریاب (کال سنتر)");
+            fillSelect(document.getElementById("create-lead-customer"), customers.filter((item) => item.is_active), (item) => item.full_name, "انتخاب مشتری");
             fillSelect(document.getElementById("create-lead-product"), products.filter((item) => item.is_active), (item) => item.name, "بدون محصول");
         } catch (error) { showError(error); }
         createForm.addEventListener("submit", (event) => {
@@ -763,7 +763,7 @@
             const reassignForm = document.getElementById("reassign-lead-form");
             if (reassignForm) {
                 const assignees = await loadAllPages("/api/v1/leads/assignees/");
-                fillSelect(document.getElementById("reassign-to-user"), assignees, (item) => [item.first_name, item.last_name].filter(Boolean).join(" ") || item.username, "انتخاب کارشناس");
+                fillSelect(document.getElementById("reassign-to-user"), assignees, (item) => [item.first_name, item.last_name].filter(Boolean).join(" ") || item.username, "انتخاب بازاریاب (کال سنتر)");
             }
             loading.hidden = true; content.hidden = false;
         } catch (error) { loading.hidden = true; showError(error); return; }
