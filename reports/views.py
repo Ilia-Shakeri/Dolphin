@@ -3,6 +3,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.renderers import JSONRenderer
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -14,6 +15,8 @@ from reports.serializers import (
     SalesDocumentReportQuerySerializer,
     SalesDocumentReportSerializer,
     UserPerformanceQuerySerializer,
+    UserPerformanceDetailQuerySerializer,
+    UserPerformanceDetailRowSerializer,
     UserPerformanceReportSerializer,
 )
 from reports.services import (
@@ -22,6 +25,7 @@ from reports.services import (
     ReportAccessDenied,
     build_sales_document_report,
     build_user_performance_report,
+    user_performance_details,
 )
 from reports.xlsx import XLSX_CONTENT_TYPE, build_user_performance_workbook
 
@@ -71,6 +75,55 @@ class UserPerformanceReportView(UserPerformanceReportMixin, APIView):
     def get(self, request):
         report = self.get_report(request)
         response = Response(UserPerformanceReportSerializer(report).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class UserPerformanceDetailView(UserPerformanceReportMixin, APIView):
+    @extend_schema(
+        parameters=[UserPerformanceDetailQuerySerializer],
+        responses={200: UserPerformanceDetailRowSerializer(many=True), 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
+        description="Returns paginated Customer or confirmed Sale rows behind one authorized performance metric.",
+    )
+    def get(self, request):
+        if not has_any_capability(request.user, "reports.own", "reports.company"):
+            raise PermissionDenied("Report access is not allowed.")
+        serializer = UserPerformanceDetailQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        values = dict(serializer.validated_data)
+        values.pop("page", None)
+        try:
+            record_type, queryset = user_performance_details(actor=request.user, **values)
+        except InvalidReportUser as exc:
+            raise ValidationError({"user_id": "Invalid user."}) from exc
+        except InvalidReportPeriod as exc:
+            raise ValidationError({"period_end": "Invalid report period."}) from exc
+        except ReportAccessDenied as exc:
+            raise PermissionDenied("Report access is not allowed.") from exc
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        if record_type == "customer":
+            rows = [
+                {
+                    "record_type": "customer", "id": item.id, "title": item.full_name,
+                    "owner": item.created_by.username, "occurred_at": item.created_at,
+                    "amount": None, "product_name": "",
+                    "detail_url": f"/customers/{item.id}/",
+                }
+                for item in page
+            ]
+        else:
+            rows = [
+                {
+                    "record_type": "sale", "id": item.id, "title": item.customer.full_name,
+                    "owner": item.sold_by.username, "occurred_at": item.sold_at,
+                    "amount": item.total_amount,
+                    "product_name": item.product.name if item.product else "",
+                    "detail_url": f"/sales/{item.id}/",
+                }
+                for item in page
+            ]
+        response = paginator.get_paginated_response(UserPerformanceDetailRowSerializer(rows, many=True).data)
         response["Cache-Control"] = "private, no-store"
         return response
 

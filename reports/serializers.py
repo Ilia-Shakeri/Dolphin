@@ -52,6 +52,30 @@ class UserPerformanceQuerySerializer(RejectServerFieldsMixin, serializers.Serial
         return attrs
 
 
+class UserPerformanceDetailQuerySerializer(UserPerformanceQuerySerializer):
+    metric = serializers.ChoiceField(
+        choices=(
+            "customers_created_count",
+            "sales_count",
+            "sales_amount",
+            "average_sale_amount",
+        ),
+        required=True,
+    )
+    page = serializers.IntegerField(min_value=1, required=False, default=1)
+
+
+class UserPerformanceDetailRowSerializer(serializers.Serializer):
+    record_type = serializers.ChoiceField(choices=("customer", "sale"))
+    id = serializers.IntegerField(min_value=1)
+    title = serializers.CharField()
+    owner = serializers.CharField()
+    occurred_at = serializers.DateTimeField()
+    amount = serializers.DecimalField(max_digits=38, decimal_places=2, allow_null=True, coerce_to_string=True)
+    product_name = serializers.CharField(allow_blank=True)
+    detail_url = serializers.CharField()
+
+
 class UserPerformanceRowSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     username = serializers.CharField()
@@ -69,11 +93,19 @@ class UserPerformanceRowSerializer(serializers.Serializer):
     )
 
 
+class UserPerformanceSummarySerializer(serializers.Serializer):
+    customers_created_count = serializers.IntegerField(min_value=0)
+    sales_count = serializers.IntegerField(min_value=0)
+    sales_amount = serializers.DecimalField(max_digits=38, decimal_places=2, coerce_to_string=True)
+    average_sale_amount = serializers.DecimalField(max_digits=38, decimal_places=2, coerce_to_string=True)
+
+
 class UserPerformanceReportSerializer(serializers.Serializer):
     period_start = serializers.CharField()
     period_end = serializers.CharField()
     user_id = serializers.IntegerField(allow_null=True)
     sales_product_id = serializers.IntegerField(allow_null=True)
+    summary = UserPerformanceSummarySerializer()
     results = UserPerformanceRowSerializer(many=True)
 
 

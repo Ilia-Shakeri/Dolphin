@@ -30,6 +30,7 @@ from sales.models import Customer, Lead, Product, Sale
 
 class UserPerformanceReportTests(TestCase):
     report_url = "/api/v1/reports/user-performance/"
+    detail_url = "/api/v1/reports/user-performance/details/"
     export_url = "/api/v1/exports/user-performance.xlsx"
     period_start = datetime(2026, 1, 1, tzinfo=UTC)
     period_end = datetime(2026, 2, 1, tzinfo=UTC)
@@ -181,6 +182,15 @@ class UserPerformanceReportTests(TestCase):
                 }
             ],
         )
+        self.assertEqual(
+            response.data["summary"],
+            {
+                "customers_created_count": 1,
+                "sales_count": 2,
+                "sales_amount": "150.00",
+                "average_sale_amount": "75.00",
+            },
+        )
 
     def test_product_filter_changes_only_confirmed_sale_metrics(self):
         response = self._get(self.agent, sales_product_id=self.product_a.pk)
@@ -271,6 +281,46 @@ class UserPerformanceReportTests(TestCase):
         self.assertEqual(hidden_export.data["user_id"], hidden.data["user_id"])
         self.assertEqual(hidden.data["error"]["code"], "validation_error")
 
+    def test_detail_rows_match_aggregate_scope_and_product_filter(self):
+        company_customers = self._get(
+            self.manager,
+            self.detail_url,
+            metric="customers_created_count",
+        )
+        self.assertEqual(company_customers.status_code, 200)
+        self.assertEqual(company_customers.data["count"], 3)
+        self.assertEqual({row["record_type"] for row in company_customers.data["results"]}, {"customer"})
+
+        agent_sales = self._get(
+            self.agent,
+            self.detail_url,
+            metric="sales_count",
+            user_id=self.agent.pk,
+            sales_product_id=self.product_a.pk,
+        )
+        self.assertEqual(agent_sales.status_code, 200)
+        self.assertEqual(agent_sales.data["count"], 1)
+        self.assertEqual(agent_sales.data["results"][0]["amount"], "100.00")
+        self.assertEqual(agent_sales.data["results"][0]["owner"], self.agent.username)
+        self.assertEqual(agent_sales.data["results"][0]["detail_url"], f"/sales/{self.agent_customer.sales.get(status=Sale.Status.CONFIRMED, product=self.product_a).pk}/")
+
+    def test_detail_user_id_is_fail_closed_for_agent(self):
+        hidden = self._get(
+            self.agent,
+            self.detail_url,
+            metric="sales_count",
+            user_id=self.manager.pk,
+        )
+        missing = self._get(
+            self.agent,
+            self.detail_url,
+            metric="sales_count",
+            user_id=999999,
+        )
+        self.assertEqual(hidden.status_code, 400)
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(hidden.data["user_id"], missing.data["user_id"])
+
     def test_query_contract_rejects_unknown_repeated_naive_and_bad_ranges(self):
         client = APIClient()
         client.force_authenticate(self.agent)
@@ -350,6 +400,13 @@ class UserPerformanceReportTests(TestCase):
         self.assertEqual(sheet["F2"].value, json_row["average_sale_amount"])
         self.assertEqual(sheet["E2"].data_type, "s")
         self.assertEqual(sheet["F2"].data_type, "s")
+
+        summary = dict(workbook["summary"].iter_rows(min_row=2, values_only=True))
+        json_summary = json_response.data["summary"]
+        self.assertEqual(summary["customers_created_count"], json_summary["customers_created_count"])
+        self.assertEqual(summary["sales_count"], json_summary["sales_count"])
+        self.assertEqual(summary["sales_amount"], json_summary["sales_amount"])
+        self.assertEqual(summary["average_sale_amount"], json_summary["average_sale_amount"])
 
         filters = dict(workbook["filters"].iter_rows(min_row=2, values_only=True))
         self.assertEqual(filters["period_start"], json_response.data["period_start"])
@@ -490,6 +547,20 @@ class UserPerformanceReportTests(TestCase):
         self.assertEqual(len(select_queries), 4)
         self.assertEqual(len(report.results), 5)
 
+    def test_company_summary_uses_exact_totals_and_weighted_average(self):
+        response = self._get(self.manager)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["summary"],
+            {
+                "customers_created_count": 3,
+                "sales_count": 3,
+                "sales_amount": "180.00",
+                "average_sale_amount": "60.00",
+            },
+        )
+
     def test_service_scope_uses_fresh_locked_actor_state(self):
         stale_manager = self.manager
         User.objects.filter(pk=stale_manager.pk).update(role=User.Role.SALES_AGENT)
@@ -591,4 +662,12 @@ class UserPerformanceReportTests(TestCase):
         self.assertIn(
             XLSX_CONTENT_TYPE,
             export_operation["responses"]["200"]["content"],
+        )
+        detail_parameters = {
+            item["name"]
+            for item in response.data["paths"][self.detail_url]["get"]["parameters"]
+        }
+        self.assertEqual(
+            detail_parameters,
+            {"period_start", "period_end", "user_id", "sales_product_id", "metric", "page"},
         )

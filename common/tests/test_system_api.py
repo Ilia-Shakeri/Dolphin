@@ -146,6 +146,7 @@ class SystemApiTests(TestCase):
             ("/api/v1/auth/logout/", "post"): {"403"},
             ("/api/v1/auth/me/", "patch"): {"400", "403"},
             ("/api/v1/reports/user-performance/", "get"): {"400", "403"},
+            ("/api/v1/reports/user-performance/details/", "get"): {"400", "403"},
             ("/api/v1/exports/user-performance.xlsx", "get"): {"400", "403"},
         }
         for (route, method), codes in declared_errors.items():

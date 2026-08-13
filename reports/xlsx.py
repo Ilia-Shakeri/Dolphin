@@ -52,6 +52,15 @@ def build_user_performance_workbook(report: UserPerformanceReport) -> bytes:
                 cell.number_format = "@"
     sheet.auto_filter.ref = sheet.dimensions
 
+    summary = workbook.create_sheet("summary")
+    summary.append(("metric", "value"))
+    summary.append(("customers_created_count", report.summary.customers_created_count))
+    summary.append(("sales_count", report.summary.sales_count))
+    summary.append(("sales_amount", format(report.summary.sales_amount, ".2f")))
+    summary.append(("average_sale_amount", format(report.summary.average_sale_amount, ".2f")))
+    summary["B4"].number_format = "@"
+    summary["B5"].number_format = "@"
+
     filters = workbook.create_sheet("filters")
     filters.append(("field", "value"))
     filters.append(("period_start", report.period_start))

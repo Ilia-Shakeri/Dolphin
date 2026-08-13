@@ -131,8 +131,12 @@ class AuthShellBrowserTests(TestCase):
                     self.assertIn("محصولات (فقط خواندنی)", content)
                     self.assertIn('id="agent-work-queue"', content)
                     self.assertIn("پیگیری بعدی", content)
+                    self.assertIn('data-performance-panel="dashboard"', content)
+                    self.assertNotIn('id="dashboard-user"', content)
                 else:
                     self.assertNotIn('id="agent-work-queue"', content)
+                    self.assertIn('data-performance-panel="dashboard"', content)
+                    self.assertIn('id="dashboard-user"', content)
 
     def test_mobile_shell_has_accessible_navigation_control(self):
         self.client.force_login(self.platform)

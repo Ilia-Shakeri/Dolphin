@@ -16,7 +16,7 @@ This roadmap gives phase steps. `KARIZ_PROJECT_HANDOFF.md` remains the only live
 | C1-1 | Reconcile the customer's final list and approve scope | No | Every requirement is approved or explicitly blocked |
 | C1-2 | Sales/after-sales operator separation | Yes | Identity and authorization matrix pass |
 | C1-3 | Operational sales document, geography, and postal workflow | Yes | Document/postal reports pass |
-| C1-4 | Contact-status reporting and detailed user performance | Yes | Definitions, scope, drill-down, and formulas pass |
+| C1-4 | Contact-status reporting and detailed user performance | Yes | Performance dashboard/drill-down done; contact-status contract still blocked |
 | C1-5 | After-sales panel | Yes | Case workflow and workstream isolation pass |
 | C1-6 | Inbound SMS foundation and report | Yes / external adapter may remain blocked | Idempotency, timezone, and provider security pass |
 | C1-7 | Unified dashboard and active-UI hardening | Yes | All seven client capabilities are integrated in repository |
@@ -35,7 +35,7 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 | Customer/phone | Scoped Customer CRUD/deactivate; optional postal code and plain-text category; read-only primary-phone projection; many normalized phones; duplicate and primary guards; paged scoped Lead/Interaction/Sale profile relations. | Governed category taxonomy, country-specific postal validation, document link, export/bulk/merge. |
 | Lead/contact | Scoped Lead CRUD; manual reassignment/history; append-only manual Interaction. | Final statuses, Team/auto-assign, priority/archive/conversion/Pipeline, contact status, timeline/calendar/task/reminder, specialist report, telephony. |
 | Product/Sale | Elevated Product manage, agent read; operational Sale snapshot/create/cancel. | Category/form expansion, Inventory/pricing/profit, Order/quotation/Invoice, postal, Payment/finance/PDF. |
-| Reports/audit | Four exact performance metrics, JSON/XLSX parity, scoped read-only audit. | Drill-down, dashboard, SMS/contact/geography/postal/domain/P&L/receivable reports, dynamic builder. |
+| Reports/audit | Four exact performance metrics, role-aware dashboard, same-scope paged drill-down, JSON/UI/XLSX parity, scoped read-only audit, document geography/postal report. | Contact/SMS/domain reports, P&L/receivable source modules, dynamic builder. |
 | Active UI | Maintained Persian RTL core, document/postal, and after-sales list/detail pages connected to real APIs. | No SMS, file, import, automation, integration, or unapproved expanded-report pages. |
 | Runtime | PostgreSQL/Compose/Nginx/backup-ready repository artifacts and local checks exist. | Native target stack, TLS/browser, real backup/restore, load/scan, UAT/cutover proof. |
 
@@ -52,7 +52,7 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 |---|---|---|
 | C1-REQ-001 sales panel/no seat cap | `BLOCKED_DECISION`; partial core exists | Seat meaning, role/workstream/team, panel acceptance, capacity/load/UAT. |
 | C1-REQ-002 after-sales panel/no seat cap | `IMPLEMENTED_BACKEND` plus maintained UI/browser proof for narrow panel | Exact status graph/reopen/SLA/retention, capacity target, external UAT. |
-| C1-REQ-003 detailed performance/drill-down | `BLOCKED_DECISION`; summary only | Metrics, formulas, drill-down, scope, samples, time/export parity. |
+| C1-REQ-003 detailed performance/drill-down | `DONE` locally for the four approved metrics | External Client-1 UAT/runtime proof only; new formulas need separate approval. |
 | C1-REQ-004 inbound SMS day/hour | `BLOCKED_DECISION` plus live `BLOCKED_EXTERNAL`; absent | Provider/security/idempotency/storage/time/report contract. |
 | C1-REQ-005 document count by city/province | `BLOCKED_DECISION`; absent | Counted document, geography snapshot, date/formula/scope. |
 | C1-REQ-006 incoming number by contact status | `BLOCKED_DECISION`; absent | Counted unit, dedupe, status derivation, time/scope. |
@@ -63,7 +63,7 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 1. Close C1-DEC-GOV-001 and SEAT-001 plus remaining AFTER status/reopen/UAT semantics. Client-1 TEAM-001 is resolved without a Team model; future multi-team behavior remains separate.
 2. C1-2 bounded identity/operator separation: implemented locally; external UAT remains.
 3. C1-3 minimal document/geography/postal base: implemented locally; full legal/accounting/carrier scope stays blocked.
-4. Approve and run C1-4 contact-status and detailed performance.
+4. C1-4 detailed performance is implemented locally; contact-status reporting remains blocked by its missing contact-status contract.
 5. C1-5 narrow after-sales panel: implemented locally; exact status/reopen/SLA/retention and external UAT remain blocked.
 6. Approve and run C1-6 SMS core/report; live adapter needs official provider docs.
 7. Build approved normal-priority Lead/Product/collaboration/report/platform additions.

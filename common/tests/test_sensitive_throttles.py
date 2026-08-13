@@ -20,6 +20,7 @@ class SensitiveReadThrottleTests(TestCase):
         urls = (
             "/api/v1/activity-logs/",
             f"/api/v1/reports/user-performance/?{period}",
+            f"/api/v1/reports/user-performance/details/?{period}&metric=sales_count",
             f"/api/v1/exports/user-performance.xlsx?{period}",
         )
 

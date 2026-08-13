@@ -4,18 +4,35 @@
 
 ## CURRENT SNAPSHOT — 2026-08-14
 
-- Active phase: first Client-1 after-sales panel; `DONE` locally. External release/runtime proof remains separate.
-- Git HEAD: `f6cf67eaa60fb00c5034588c53a6926ea4d1f9cf`.
-- Git status: dirty working tree; no commit created. It contains prior foundation/panel/daily-workflow changes plus this additive document slice. Exact current status is recorded in the latest checkpoint below.
-- Implemented core: session login/logout/current profile; backend capability map; role-aware shared dashboard/navigation; controlled user custody; Customer/CustomerPhone; Lead assignment/history and agent work queue; manual Interaction/follow-up; Product; operational Sale; internal SalesDocument/postal history/report; additive AfterSalesRequest with Customer required, optional same-Customer Sale/operational Document, assigned operator, safe create/assign/status/close services, append-only history, no hard delete, filters, Persian RTL list/detail forms, and browser journey; performance JSON/XLSX; scoped ActivityLog.
+- Active phase: authoritative Client-1 dashboard/reporting; `DONE` locally. External release/runtime proof remains separate.
+- Git HEAD: `0878344779ed62015df0e9e00838ee072b5c77c4`.
+- Git status: dirty working tree with `19` tracked modified paths and `1` untracked first-party include (`20` porcelain entries); no commit created. Exact paths are recorded in the latest checkpoint below.
+- Implemented core: session login/logout/current profile; backend capability map; shared role-aware dashboard/navigation; controlled user custody; Customer/CustomerPhone; Lead assignment/history and agent work queue; manual Interaction/follow-up; Product; operational Sale; internal SalesDocument/postal history/report; additive AfterSalesRequest; scoped ActivityLog; and authoritative performance JSON/UI/XLSX. The four unchanged metrics now have a weighted company summary, role-scoped date/user/Product filters, real confirmed-Sale amount chart, paged same-scope Customer/Sale drill-down, and explicit loading/empty/error states.
 - Current role map: four role codes stay fixed: `sales_agent` = `بازاریاب (کال سنتر)`; `sales_manager` = `مدیر فروشگاه`; `company_it` = `مدیر فنی مشتری`; `platform_admin` = `مدیر پلتفرم`. Sales Agent workstream is bounded to `sales` or `after_sales`; elevated roles must remain `sales`. This is not a fifth role or dynamic permission builder. Manager manages all company cases and Sales Agent accounts; after-sales operator sees assigned cases only and gets no unrelated sales-domain/report API scope.
 - Current Customer meaning: actual store/customer/client contact; visible label `مشتری` / `مشتریان`. `Customer` model/API/table/field/stable identifiers stay unchanged. A Sales Agent is a User, never a Customer.
 - Active frontend architecture: one shared inherited Persian RTL application, not role forks. Backend capability codes feed route guards, navigation, dashboard mode/widgets, and `/api/v1/auth/me/`; `common/ui_urls.py`/`ui_views.py`, maintained templates, one `body[data-page]` JavaScript handler map, and one maintained stylesheet call real same-origin Session/CSRF `/api/v1/` APIs.
 - Frontend reference policy: exact curated theme HTML files are read-only visual/layout/UX references only. The allowlist and page-to-reference/API/role/gap map are in `AGENTS.md` and `docs/frontend/FRONTEND_REFERENCE_MAP.md`. Plugin/media/font/minified/generated/vendor-internal trees remain excluded.
-- Resolved decisions: prior role/terminology/document decisions plus the narrow C1-DEC-AFTER slice: bounded Sales Agent workstream; required Customer; optional same-Customer Sale/operational Document; nullable eligible after-sales assignee; elevated company management; assigned-operator status work; close without delete; safe history/audit. Older claims that after-sales entity/workstream/routes are absent or wholly blocked are historical/superseded.
-- Still open: exact after-sales business status vocabulary/transition graph, reopen rules, SLA, refund/return, attachment, notice, retention policy, capacity/seat acceptance, and UAT owner/sample remain open. No such rule was invented. Accounting Invoice, Payment, Finance, SMS, Files, Inventory, Opportunity, or Team was added.
-- Verification truth: focused after-sales/accounts suite `41/41`; combined seed/browser regression `18/18`; all three real-browser classes `9/9`; full Django suite `314` run, `308` pass and `6` intentional PostgreSQL-only skips. Django check, migration drift, OpenAPI fail-on-warn, JavaScript syntax, HTML branding `225`, static dry-run, PostgreSQL contract tests, and `git diff --check` pass. Older counts are historical.
-- Exact next phase: close the remaining GOV/SEAT/after-sales status/reopen/UAT decisions or run external runtime gates. Do not add another business domain without its approved contract.
+- Resolved decisions: prior role/terminology/document/after-sales decisions plus the four approved performance definitions. `customers_created_count`, `sales_count`, `sales_amount`, and `average_sale_amount` remain unchanged; summary average is total confirmed-Sale amount divided by total confirmed-Sale count. Customer count ignores Product filter by contract. Aggregate/table/chart/drill-down share the same actor, date, selected-user, Product, confirmed-Sale, and half-open-period scope. Older claims that dashboard/drill-down or all detailed-performance semantics remain wholly blocked are historical/superseded.
+- Still open: contact-status derivation, SMS, P&L/receivable financial sources, new KPI formulas/comparisons/targets, exact after-sales status/reopen/SLA, governance/seat/UAT, and external runtime proof. No fake KPI, accounting Invoice, Payment, Finance, Files, Inventory, Opportunity, Team, or profit calculation was added.
+- Verification truth: dashboard/report focused backend/UI/schema suite `50/50`; all three real-browser classes `10/10`; full Django suite `318` run, `312` pass and `6` intentional PostgreSQL-only skips. OpenAPI fail-on-warn, Django check, migration drift, JavaScript syntax, branding, sensitive-read throttle, and diff whitespace pass. Older counts are historical.
+- Exact next phase: close the contact-status report contract or run external runtime gates. Do not build P&L/receivables before authoritative finance modules exist.
+
+### Authoritative dashboard/reporting checkpoint — 2026-08-14
+
+- Inspected backend/contracts: `BACKEND_SPEC.md`; current handoff/roadmap; `docs/backend/API_CONTRACT.md`; `reports/selectors.py`, `services.py`, `serializers.py`, `views.py`, `urls.py`, `xlsx.py`; performance/system/throttle/query tests; Customer/Product/Sale views/serializers/models/selectors.
+- Inspected maintained frontend: `common/templates/common/base.html`, `home.html`, `reports/user_performance.html`, `reports/sales_documents.html`; `common/static/common/kariz-app.js`, `kariz.css`; `common/ui_views.py`, `ui_urls.py`; auth shell/browser tests; `docs/frontend/FRONTEND_REFERENCE_MAP.md`.
+- Exact visual references inspected read-only and bounded: `dashboards/store-analytics.html`, `dashboards/call-center.html`, `dashboards/finance-performance.html`, `apps/ecommerce/reports/sales.html`, and `apps/ecommerce/reports/view.html`. Only card/filter/chart/table layout rhythm was used; no metric or business rule came from theme HTML.
+- Backend/API: existing four KPI row definitions stay unchanged. JSON adds the same four-field exact summary. `/api/v1/reports/user-performance/details/` returns paginated underlying Customer or confirmed-Sale records using the identical role/date/user/Product scope. Agent self-only scope masks another user and a missing user alike. No migration.
+- UI: the dashboard and report page share one Persian RTL performance include and one handler. Platform/manager/technical company scope gets authorized user/date/Product filters; Sales Agent gets self/date/Product only; after-sales Sales Agent remains denied. Real KPI cards, confirmed-Sale amount bars, scoped table/drill-down, responsive layout, loading/empty/error, and actual detail links replace no control with fake data.
+- Parity: JSON, dashboard/report UI, and XLSX use one report service and query. XLSX now has the same four-value `summary`, per-user rows, and normalized `filters`. Product continues to affect Sale metrics/details only.
+- Excluded: P&L, receivable, accounting Invoice/Payment/ledger/tax, SMS, Files, Inventory, fake comparison, target, and placeholder chart.
+- Self-correction score 1: `8/10`. Fixed dead initial XLSX `#` link and invalid browser fixtures.
+- Self-correction score 2: `8.5/10`. Replaced summary pseudo-user fields with a four-metric summary contract.
+- Self-correction score 3: `8.5/10`. Added same-scope paged Customer/Sale drill-down and direct-ID fail-closed tests.
+- Self-correction score 4: `9/10`. Focused backend/schema and manager-versus-agent real-browser proof passed. First full run caught partial-template branding classification, stale browser selectors, and template-local terminology coverage; all were fixed and the exact four regressions passed `4/4`.
+- Self-correction score 5: `9/10`. Final full suite passes `318` with `6` intentional PostgreSQL-only skips; all three real-browser classes pass `10/10`; Django check, zero migration drift, OpenAPI fail-on-warn, JavaScript syntax, sensitive-read throttle, branding, and `git diff --check` pass. No repository P0/P1 is known in this slice.
+- Final Git truth: HEAD `0878344779ed62015df0e9e00838ee072b5c77c4`; `19` tracked modified paths plus untracked `common/templates/common/includes/performance_panel.inc`; no commit created.
+- This checkpoint supersedes older live statements that C1-REQ-003 is summary-only or that dashboards/charts/drill-down are absent. Historical after-sales and earlier verification checkpoints remain evidence, not current truth.
 
 ### After-sales implementation checkpoint — 2026-08-14
 
@@ -638,11 +655,10 @@ Every entry in this subsection comes from the initial customer list. Each is `PR
 
 ##### C1-REQ-003
 
-- Status: `PROVISIONAL`; `BLOCKED_DECISION`.
+- Historical intake status: `PROVISIONAL`; `BLOCKED_DECISION`. Superseded on 2026-08-14 for the four approved metrics and their same-scope dashboard/drill-down.
 - Source authority: initial customer list only; not yet an implementation contract.
 - Source wording: Management panel showing detailed user performance and drill-down.
-- Closest existing repository capability: existing `/api/v1/reports/user-performance/`, XLSX export, and `/reports/user-performance/` UI provide scoped rows for `customers_created_count`, `sales_count`, `sales_amount`, and `average_sale_amount`; no approved detailed drill-down contract exists.
-- Exact missing business decisions: exact management users and object scope; every metric numerator, denominator, inclusion/cancellation rule, source timestamp, reassignment-history rule, timezone, calendar, date boundary, filters, grouping, sort, pagination/bounds, drill-down row types and fields, detail access, JSON/XLSX/UI parity, Persian labels/format, empty/zero rules, sample expected totals, and acceptance cases.
+- Current truth: the four existing metrics now have role-scoped summary/cards/chart/table, paged Customer/Sale drill-down, date/user/Product filters, and JSON/UI/XLSX parity. New metrics, reassignment/return semantics, comparisons, targets, and external Client-1 UAT remain unapproved.
 
 ##### C1-REQ-004
 
@@ -1178,12 +1194,12 @@ Every entry in this subsection comes from the initial customer list. Each is `PR
 ##### C1-REQ-003 - detailed management performance and drill-down
 
 - Final-source comparison: 7.1-7.4 confirm current performance baseline; final source does not define extra metrics or drill-down rows.
-- Normalized contract: current four metrics/filters/XLSX remain approved; detailed extension remains blocked.
-- Owner/users: report owner and exact management roles unresolved.
-- Trigger/data/formulas: Customer/Sale current formulas stay; new numerator/denominator, cancellation/reassignment, interaction/outcome and drill-down record types unresolved.
-- Filters/time/UI/API/auth/audit: timezone/calendar, half-open ranges for new sources, filters, row limits, drill-down routes, JSON/XLSX/UI parity, scope, and export audit unresolved.
+- Current normalized contract: the four metrics, half-open period, authorized user/Product filters, self/company role scope, Customer/Sale drill-down, and JSON/UI/XLSX parity are implemented. This supersedes the historical summary-only checkpoint.
+- Owner/users: Sales Agent self scope; Sales Manager/Company IT/Platform Admin company scope. External UAT owner remains unresolved.
+- Trigger/data/formulas: existing Customer.created_by and confirmed Sale.sold_by formulas stay. New numerator/denominator, cancellation/reassignment, interaction/outcome, comparison and target rules remain unresolved.
+- Filters/time/UI/API/auth/audit: current UTC-normalized half-open range, paged drill-down, direct-ID mask and shared projection are approved. New timezone/calendar presentation or sources need approval.
 - Migration/acceptance/dependencies: projection preferred; any snapshot entity needs approval. Need redacted desired report and exact expected totals. Depends on role, Lead status/outcome, Document/Finance domains as used.
-- Status: `BLOCKED_DECISION`; current baseline is `APPROVED` only.
+- Status: current four-metric dashboard/report/drill-down `DONE` locally; any expanded metric/domain report remains `BLOCKED_DECISION`.
 
 ##### C1-REQ-004 - inbound SMS count by day and hour
 
@@ -1249,7 +1265,7 @@ Every entry in this subsection comes from the initial customer list. Each is `PR
 | C1-DEC-GEO-001 | **PARTIALLY RESOLVED 2026-08-13:** snapshot Customer province/city/postal/address at document registration; report by snapshot and registration time. Geography taxonomy, normalization, validity, and multiple addresses remain blocked. | `APPROVED` minimal slice; remainder `BLOCKED_DECISION` | C1-3 minimum complete; broader Customer geography blocked. |
 | C1-DEC-POST-001 | **PARTIALLY RESOLVED 2026-08-13:** explicit bounded current status, elevated dedicated transition, append-only history, group report by current state. Exact enum/graph, tracking, provider, return/failure/cancel meaning remain blocked and were not invented. | `APPROVED` minimal slice; remainder `BLOCKED_DECISION` | C1-3 minimum complete; carrier/full shipping blocked. |
 | C1-DEC-INCOMING-001 | Define incoming-number counted unit/source, dedupe key/window, date basis, and link to phone/Lead/call/SMS/import. | `BLOCKED_DECISION` | C1-REQ-006. |
-| C1-DEC-PERF-001 | Exact detailed metrics/denominators, reassignment/cancel/return treatment, drill-down rows, filters, timezone/calendar, columns, bounds, visibility, sample totals. | `BLOCKED_DECISION` | C1-REQ-003, dashboard, extended reports. |
+| C1-DEC-PERF-001 | **PARTIALLY RESOLVED 2026-08-14:** four existing metrics stay exact; authorized self/company scope; half-open date and Product/user filters; confirmed-Sale amount chart; paged Customer/Sale drill-down; JSON/UI/XLSX parity. New metrics, reassignment/return, comparisons, targets and external samples/UAT remain blocked. | `APPROVED` current slice; remainder `BLOCKED_DECISION` | Current C1-REQ-003 complete locally; extended reports still blocked. |
 | C1-DEC-SMS-001 | Provider, official docs, webhook/polling, signature/auth, replay/idempotency, retained fields/body, received time, timezone/calendar, filters, roles, sanitized samples. | `BLOCKED_DECISION` plus `BLOCKED_EXTERNAL` | C1-REQ-004 and live SMS adapter. |
 | C1-DEC-PRODUCT-001 | Category taxonomy/lifecycle and exact expanded Product fields/form rules. | `BLOCKED_DECISION` | Product category/full form. |
 | C1-DEC-INVENTORY-001 | Warehouse/stock movement/reservation/concurrency, units/variants, costing, multi-price, discount, profit, returns, reporting, opening balances. | `BLOCKED_DECISION` | C1-CAP-INVENTORY; final wave. |
@@ -1277,7 +1293,7 @@ No row below is `VERIFIED_END_TO_END`. `APPROVED` means the named current contra
 | C1-CAP-SALE | `APPROVED` carry-forward | real | current suite exists | external pending | core | final role/runtime proof |
 | C1-CAP-DOCUMENT | mixed; minimal slice `IMPLEMENTED_BACKEND` + active UI | SalesDocument/postal history/report real; accounting Invoice absent | focused/API/browser pass | external pending | minimal C1-3 complete; full scope `FINAL_WAVE_LOW` | remaining C1-DEC-DOC/GEO/POST |
 | C1-CAP-FINANCE | `BLOCKED_DECISION` | absent; template shells only | none | not run | `FINAL_WAVE_LOW` | C1-DEC-FINANCE/DOC |
-| C1-CAP-REPORT | mixed; overall `BLOCKED_DECISION` | four metrics/XLSX real; detailed/domain/advanced absent | current suite exists | external pending | core + advanced `FINAL_WAVE_LOW` | C1-DEC-PERF/REPORT/domains |
+| C1-CAP-REPORT | mixed; four-metric slice `DONE` locally, expansion blocked | role-aware dashboard, JSON/UI/XLSX and same-scope drill-down real; domain/advanced absent | backend/browser/full suite pass | external pending | core + advanced `FINAL_WAVE_LOW` | remaining C1-DEC-PERF/REPORT/domains |
 | C1-CAP-COLLAB | `BLOCKED_DECISION` | template shells only | none | not run | order TBD | C1-DEC-CALENDAR-001 |
 | C1-CAP-FILE | `BLOCKED_DECISION`/`BLOCKED_EXTERNAL` | absent; template shells only | none | storage not available | `FINAL_WAVE_LOW` | C1-DEC-FILE-001 |
 | C1-CAP-COMMS | `BLOCKED_DECISION`/`BLOCKED_EXTERNAL` | absent; manual Interaction is separate | none | providers absent | SMS core priority; other order TBD | C1-DEC-SMS/INTEGRATION |
@@ -1287,7 +1303,7 @@ No row below is `VERIFIED_END_TO_END`. `APPROVED` means the named current contra
 | C1-CAP-LATE | `BLOCKED_DECISION`/`BLOCKED_EXTERNAL` | absent/template only | none | not run | checked integrations `FINAL_WAVE_LOW`; rest TBD | C1-DEC-LATE/INTEGRATION |
 | C1-REQ-001 | `BLOCKED_DECISION` | partial sales shell exists | partial current proof | capacity/UAT absent | original Client-1 core | role/seat/capacity |
 | C1-REQ-002 | `BLOCKED_DECISION` | absent | none | absent | original Client-1 core | after-sales contract |
-| C1-REQ-003 | `BLOCKED_DECISION` | baseline report exists; drill-down absent | baseline proof only | UAT absent | original Client-1 core | metric/drill-down contract |
+| C1-REQ-003 | `DONE` locally for four approved metrics | dashboard/report/drill-down and parity real | backend/browser/full suite pass | UAT absent | original Client-1 core | external UAT; new formulas separate |
 | C1-REQ-004 | `BLOCKED_DECISION`/`BLOCKED_EXTERNAL` | absent | none | provider absent | original Client-1 core | SMS contract/docs |
 | C1-REQ-005 | `BLOCKED_DECISION` | absent | none | absent | original Client-1 core | document/geography contract |
 | C1-REQ-006 | `BLOCKED_DECISION` | absent | none | absent | original Client-1 core | unit/contact-status contract |
@@ -1637,7 +1653,7 @@ Known deliberate fail-closed gaps: Sales Manager user administration is denied b
 |---|---|---|---|
 | C1-REQ-001 sales panel/no seat cap | Core sales shell exists; no hard-coded seat cap found in inspected apps. | Exact licensing wording, role/workstream/team matrix, panel acceptance list, peak concurrency, load target, and UAT. | `BLOCKED_DECISION` |
 | C1-REQ-002 after-sales panel/no seat cap | No after-sales model, service, API, permission, route, or maintained template. | Operator identity, case schema, Customer/Document link, assignment, states/transitions, manager scope, lifecycle, audit, capacity, and UAT. | `BLOCKED_DECISION` |
-| C1-REQ-003 detailed performance/drill-down | Four summary metrics and XLSX exist. | New metrics and denominators, drill-down rows, reassignment/cancel rules, timezone/calendar, bounds, access, sample totals, and UI/API/XLSX parity. | `BLOCKED_DECISION` |
+| C1-REQ-003 detailed performance/drill-down | Four exact metrics, role-aware cards/chart/table, same-scope paged Customer/Sale drill-down, filters and JSON/UI/XLSX parity exist. | New metrics, reassignment/return semantics, comparison/targets, new calendar presentation and external Client-1 UAT. | current slice `DONE` locally; expansion `BLOCKED_DECISION` |
 | C1-REQ-004 inbound SMS by day/hour | No SMS entity, secure receipt boundary, provider adapter, or report. Manual inbound Interaction is not SMS. | Provider docs, auth/signature, replay/idempotency, retained fields/body policy, received time, grouping timezone/calendar, scope, and samples. | `BLOCKED_DECISION`; live adapter `BLOCKED_EXTERNAL` |
 | C1-REQ-005 document count by city/province | Customer has current city/province; Sale exists. No approved counted document or historical geography snapshot/report. | Sale versus internal Document/Order/Invoice, line/number/state rules, snapshot source, date basis, null rules, scope, sample totals. | `BLOCKED_DECISION` |
 | C1-REQ-006 incoming number by contact status | Phone, Lead, and free-text Interaction outcome exist. No approved counted unit/status derivation/report. | Unit/source, dedupe window, status list, no-contact/latest tie-break, date basis, filters, scope, drill-down/export, samples. | `BLOCKED_DECISION` |
@@ -2153,9 +2169,9 @@ This section is recorded before any Order, Quotation, Invoice, Payment, or Custo
 
 ### Dashboard decision
 
-- State: `BLOCKED_DECISION`.
-- Required: exact KPI cards and formulas; chart types and series; date/product/user/customer filters and defaults; comparison rules; refresh/freshness policy; drill-down targets; empty/error behavior; per-role visibility; sample expected dashboard for each role.
-- [dashboard]: KPI and chart contracts absent. Live dashboard cannot show trusted data.
+- State: `PARTIALLY RESOLVED 2026-08-14`; current four-metric dashboard is `DONE` locally. Expanded formulas remain `BLOCKED_DECISION`.
+- Approved current slice: unchanged four KPI formulas; month-to-now default; authorized date/user/Product filters; confirmed-Sale amount bars; Customer/Sale drill-down; self/company role scope; responsive loading/empty/error states; same JSON/UI/XLSX projection.
+- [dashboard expansion]: Comparison, targets, customer filter, new chart series, P&L/receivable, refresh policy beyond page/filter reload, and external expected samples remain unapproved. No such value is shown.
 
 ### Sales report decision
 

@@ -5,8 +5,10 @@ from pathlib import Path
 
 from django.core.cache import cache
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
+from django.utils import timezone
 
 from accounts.models import User
+from sales.models import Customer, Lead, Product, Sale
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
@@ -67,6 +69,32 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
             username="agent.browser",
             password=self.password,
             role=User.Role.SALES_AGENT,
+        )
+        self.product = Product.objects.create(
+            sku="BROWSER-DASHBOARD",
+            name="محصول آزمون داشبورد",
+            current_price="100.00",
+            created_by=self.manager,
+            updated_by=self.manager,
+        )
+        agent_customer = Customer.objects.create(full_name="مشتری بازاریاب", created_by=self.agent)
+        manager_customer = Customer.objects.create(full_name="مشتری مدیر", created_by=self.manager)
+        agent_lead = Lead.objects.create(
+            customer=agent_customer,
+            assigned_to=self.agent,
+            assigned_by=self.manager,
+            assigned_at=timezone.now(),
+            created_by=self.manager,
+        )
+        manager_lead = Lead.objects.create(customer=manager_customer, created_by=self.manager)
+        sold_at = timezone.now()
+        Sale.objects.create(
+            lead=agent_lead, customer=agent_customer, sold_by=self.agent, product=self.product,
+            quantity=1, unit_price_snapshot="100.00", total_amount="100.00", sold_at=sold_at,
+        )
+        Sale.objects.create(
+            lead=manager_lead, customer=manager_customer, sold_by=self.manager, product=self.product,
+            quantity=1, unit_price_snapshot="200.00", total_amount="200.00", sold_at=sold_at,
         )
 
     def login(self, user=None):
@@ -159,3 +187,31 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
                     self.wait.until(expected_conditions.alert_is_present()).accept()
                     self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "غیرفعال کردن کاربر"))
                 self.assert_browser_clean()
+
+    def test_manager_and_agent_dashboard_data_stay_role_scoped(self):
+        self.browser.set_window_size(1440, 1000)
+
+        self.login(self.manager)
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "dashboard-performance-content")))
+        self.assertEqual(
+            self.browser.find_element(By.CSS_SELECTOR, '[data-performance-panel="dashboard"] [data-kpi="sales_count"]').text,
+            "2",
+        )
+        self.assertTrue(self.browser.find_element(By.ID, "dashboard-user").is_displayed())
+        manager_chart = self.browser.find_element(By.ID, "dashboard-performance-chart").text
+        self.assertIn(self.manager.username, manager_chart)
+        self.assertIn(self.agent.username, manager_chart)
+        self.assert_browser_clean()
+
+        self.browser.delete_all_cookies()
+        self.login(self.agent)
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "dashboard-performance-content")))
+        self.assertEqual(
+            self.browser.find_element(By.CSS_SELECTOR, '[data-performance-panel="dashboard"] [data-kpi="sales_count"]').text,
+            "1",
+        )
+        self.assertEqual(self.browser.find_elements(By.ID, "dashboard-user"), [])
+        agent_chart = self.browser.find_element(By.ID, "dashboard-performance-chart").text
+        self.assertIn(self.agent.username, agent_chart)
+        self.assertNotIn(self.manager.username, agent_chart)
+        self.assert_browser_clean()

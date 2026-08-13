@@ -250,14 +250,14 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "sale-detail-status"), "لغوشده"))
 
         self.browser.get(f"{self.live_server_url}/reports/user-performance/")
-        self.browser.find_element(By.CSS_SELECTOR, "#performance-filter-form button[type='submit']").click()
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "performance-content")))
-        self.assertIn(self.platform.username, self.browser.find_element(By.ID, "performance-table-body").text)
-        export_url = self.browser.find_element(By.ID, "performance-xlsx").get_attribute("href")
+        self.browser.find_element(By.CSS_SELECTOR, "#report-performance-filter-form button[type='submit']").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "report-performance-content")))
+        self.assertIn(self.platform.username, self.browser.find_element(By.ID, "report-performance-table-body").text)
+        export_url = self.browser.find_element(By.ID, "report-performance-xlsx").get_attribute("href")
         self.assertIn("period_start=", export_url)
         self.assertIn("period_end=", export_url)
         export = self.browser.execute_async_script(
-            "const done=arguments[0]; fetch(document.getElementById('performance-xlsx').href, {credentials:'same-origin'}).then(async r => done([r.status,r.headers.get('content-type'),(await r.arrayBuffer()).byteLength])).catch(e => done([0,String(e),0]));"
+            "const done=arguments[0]; fetch(document.getElementById('report-performance-xlsx').href, {credentials:'same-origin'}).then(async r => done([r.status,r.headers.get('content-type'),(await r.arrayBuffer()).byteLength])).catch(e => done([0,String(e),0]));"
         )
         self.assertEqual(export[0], 200)
         self.assertIn("spreadsheetml", export[1])
@@ -356,9 +356,9 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "sale-customer").get_attribute("value"), "مشتری مسیر روزانه")
         self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), "بازاریاب روزانه")
         self.browser.get(f"{self.live_server_url}/reports/user-performance/")
-        self.browser.find_element(By.CSS_SELECTOR, "#performance-filter-form button[type='submit']").click()
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "performance-content")))
-        report_text = self.browser.find_element(By.ID, "performance-table-body").text
+        self.browser.find_element(By.CSS_SELECTOR, "#report-performance-filter-form button[type='submit']").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "report-performance-content")))
+        report_text = self.browser.find_element(By.ID, "report-performance-table-body").text
         self.assertIn("daily.agent.browser", report_text)
         self.assertIn("20.00", report_text)
         self.assert_browser_clean()

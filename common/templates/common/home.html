@@ -13,6 +13,9 @@
     </a>
     {% endfor %}
 </section>
+{% if 'reports.own' in capabilities or 'reports.company' in capabilities %}
+    {% include "common/includes/performance_panel.inc" with panel_prefix="dashboard" %}
+{% endif %}
 {% if request.user.role == "sales_agent" and request.user.workstream == "sales" %}
 <section class="card work-queue-card" id="agent-work-queue" aria-labelledby="agent-work-queue-title">
     <div class="section-head"><div><h2 id="agent-work-queue-title">صف کار امروز</h2><p class="muted">سرنخ‌های تخصیص‌یافته؛ پیگیری زمان‌دار زودتر دیده می‌شود.</p></div><a class="button button-muted" href="{% url 'common_ui:leads' %}">همه سرنخ‌های من</a></div>

@@ -28,10 +28,26 @@ class ReportAccessDenied(PermissionError):
     pass
 
 
+PERFORMANCE_METRICS = {
+    "customers_created_count",
+    "sales_count",
+    "sales_amount",
+    "average_sale_amount",
+}
+
+
 @dataclass(frozen=True)
 class UserPerformanceRow:
     user_id: int
     username: str
+    customers_created_count: int
+    sales_count: int
+    sales_amount: Decimal
+    average_sale_amount: Decimal
+
+
+@dataclass(frozen=True)
+class UserPerformanceSummary:
     customers_created_count: int
     sales_count: int
     sales_amount: Decimal
@@ -45,6 +61,26 @@ class UserPerformanceReport:
     user_id: int | None
     sales_product_id: int | None
     results: tuple[UserPerformanceRow, ...]
+
+    @property
+    def summary(self) -> UserPerformanceSummary:
+        customers_created_count = sum(row.customers_created_count for row in self.results)
+        sales_count = sum(row.sales_count for row in self.results)
+        sales_amount = sum(
+            (row.sales_amount for row in self.results),
+            start=Decimal("0.00"),
+        ).quantize(MONEY_QUANTUM)
+        average_sale_amount = (
+            (sales_amount / sales_count).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
+            if sales_count
+            else Decimal("0.00")
+        )
+        return UserPerformanceSummary(
+            customers_created_count=customers_created_count,
+            sales_count=sales_count,
+            sales_amount=sales_amount,
+            average_sale_amount=average_sale_amount,
+        )
 
 
 @dataclass(frozen=True)
@@ -61,15 +97,7 @@ def format_utc_timestamp(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-@transaction.atomic
-def build_user_performance_report(
-    *,
-    actor,
-    period_start: datetime,
-    period_end: datetime,
-    user_id: int | None = None,
-    sales_product_id: int | None = None,
-) -> UserPerformanceReport:
+def _performance_scope(*, actor, period_start, period_end, user_id=None):
     current_actor = crm_identities(
         User.objects.select_for_update().filter(
             pk=getattr(actor, "pk", None),
@@ -81,22 +109,34 @@ def build_user_performance_report(
         raise ReportAccessDenied
     if current_actor.role == User.Role.SALES_AGENT and current_actor.workstream == User.Workstream.AFTER_SALES:
         raise ReportAccessDenied
-    if (
-        timezone.is_naive(period_start)
-        or timezone.is_naive(period_end)
-        or period_end <= period_start
-    ):
+    if timezone.is_naive(period_start) or timezone.is_naive(period_end) or period_end <= period_start:
         raise InvalidReportPeriod
-
     period_start = period_start.astimezone(UTC)
     period_end = period_end.astimezone(UTC)
-
     users_queryset = users_for_performance_report(current_actor)
     if user_id is not None:
         users_queryset = users_queryset.filter(pk=user_id)
     users = list(users_queryset.values("id", "username"))
     if not users and user_id is not None:
         raise InvalidReportUser
+    return period_start, period_end, users
+
+
+@transaction.atomic
+def build_user_performance_report(
+    *,
+    actor,
+    period_start: datetime,
+    period_end: datetime,
+    user_id: int | None = None,
+    sales_product_id: int | None = None,
+) -> UserPerformanceReport:
+    period_start, period_end, users = _performance_scope(
+        actor=actor,
+        period_start=period_start,
+        period_end=period_end,
+        user_id=user_id,
+    )
     user_ids = [user["id"] for user in users]
     customer_counts = {
         row["created_by_id"]: row["value"]
@@ -157,6 +197,36 @@ def build_user_performance_report(
         sales_product_id=sales_product_id,
         results=tuple(rows),
     )
+
+
+@transaction.atomic
+def user_performance_details(
+    *, actor, period_start, period_end, metric, user_id=None, sales_product_id=None,
+):
+    period_start, period_end, users = _performance_scope(
+        actor=actor,
+        period_start=period_start,
+        period_end=period_end,
+        user_id=user_id,
+    )
+    if metric not in PERFORMANCE_METRICS:
+        raise ValueError("Invalid performance metric.")
+    user_ids = [user["id"] for user in users]
+    if metric == "customers_created_count":
+        return "customer", Customer.objects.filter(
+            created_by_id__in=user_ids,
+            created_at__gte=period_start,
+            created_at__lt=period_end,
+        ).select_related("created_by").order_by("-created_at", "-id")
+    queryset = Sale.objects.filter(
+        sold_by_id__in=user_ids,
+        status=Sale.Status.CONFIRMED,
+        sold_at__gte=period_start,
+        sold_at__lt=period_end,
+    ).select_related("customer", "product", "sold_by").order_by("-sold_at", "-id")
+    if sales_product_id is not None:
+        queryset = queryset.filter(product_id=sales_product_id)
+    return "sale", queryset
 
 
 def build_sales_document_report(
