@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
+from accounts.access import has_any_capability
 from reports.serializers import (
     SalesDocumentReportQuerySerializer,
     SalesDocumentReportSerializer,
@@ -35,6 +36,8 @@ class UserPerformanceReportMixin:
     throttle_classes = [SensitiveRateThrottle]
 
     def get_report(self, request):
+        if not has_any_capability(request.user, "reports.own", "reports.company"):
+            raise PermissionDenied("Report access is not allowed.")
         serializer = UserPerformanceQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         try:
@@ -90,6 +93,8 @@ class SalesDocumentReportView(APIView):
         ),
     )
     def get(self, request):
+        if not has_any_capability(request.user, "reports.own", "reports.company"):
+            raise PermissionDenied("Report access is not allowed.")
         serializer = SalesDocumentReportQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         try:

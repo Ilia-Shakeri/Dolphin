@@ -1,0 +1,24 @@
+{% extends "common/base.html" %}
+{% block title %}خدمات پس از فروش{% endblock %}
+{% block page_id %}after-sales{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">پیگیری کنترل‌شده درخواست مشتری</p><h1>{% if can_manage_after_sales %}خدمات پس از فروش{% else %}پرونده‌های خدمات من{% endif %}</h1></div>{% if can_manage_after_sales %}<button id="open-create-after-sales" class="button" type="button">پرونده جدید</button>{% endif %}</section>
+<section class="card"><form id="after-sales-search-form" action="{% url 'common_ui:after-sales' %}" method="get" class="toolbar">
+    <label class="sr-only" for="after-sales-search">جستجو</label><input id="after-sales-search" name="search" type="search" placeholder="موضوع، مشتری یا وضعیت">
+    <label class="sr-only" for="after-sales-status">وضعیت</label><input id="after-sales-status" name="status" maxlength="80" placeholder="وضعیت دقیق">
+    {% if can_manage_after_sales %}<label class="sr-only" for="after-sales-assignee">شناسه مسئول</label><input id="after-sales-assignee" name="assigned_to" type="number" min="1" placeholder="شناسه مسئول">{% endif %}
+    <label class="sr-only" for="after-sales-closed">حالت</label><select id="after-sales-closed" name="is_closed"><option value="">همه</option><option value="false">باز</option><option value="true">بسته</option></select>
+    <label class="sr-only" for="after-sales-ordering">مرتب‌سازی</label><select id="after-sales-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option><option value="status">وضعیت</option></select><button class="button button-muted" type="submit">اعمال</button>
+</form>
+<div id="after-sales-loading" class="state">در حال دریافت پرونده‌ها…</div><div id="after-sales-empty" class="state" hidden>پرونده‌ای پیدا نشد.</div><div id="after-sales-table-wrap" class="table-wrap" hidden><table><thead><tr><th>موضوع</th><th>مشتری</th><th>وضعیت</th><th>مسئول</th><th>حالت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="after-sales-table-body"></tbody></table></div>
+<nav id="after-sales-pagination" class="pagination" hidden><button id="after-sales-prev" class="button button-muted" type="button">قبلی</button><span id="after-sales-page-label"></span><button id="after-sales-next" class="button button-muted" type="button">بعدی</button></nav></section>
+{% if can_manage_after_sales %}<dialog id="create-after-sales-dialog" aria-labelledby="create-after-sales-title"><form id="create-after-sales-form" action="/api/v1/after-sales/" method="post" novalidate>{% csrf_token %}<div class="dialog-head"><h2 id="create-after-sales-title">ثبت پرونده خدمات</h2><button class="icon-button" type="button" data-close-dialog>×</button></div><div class="form-grid">
+    <div><label for="create-after-sales-customer">مشتری</label><select id="create-after-sales-customer" name="customer" required></select><p class="field-error" data-error-for="customer"></p></div>
+    <div><label for="create-after-sales-sale">فروش اختیاری</label><select id="create-after-sales-sale" name="sale"></select><p class="field-error" data-error-for="sale"></p></div>
+    <div><label for="create-after-sales-document">سند عملیاتی اختیاری</label><select id="create-after-sales-document" name="document"></select><p class="field-error" data-error-for="document"></p></div>
+    <div><label for="create-after-sales-assigned">مسئول اختیاری</label><select id="create-after-sales-assigned" name="assigned_to"></select><p class="field-error" data-error-for="assigned_to"></p></div>
+    <div><label for="create-after-sales-subject">موضوع</label><input id="create-after-sales-subject" name="subject" maxlength="200" required><p class="field-error" data-error-for="subject"></p></div>
+    <div><label for="create-after-sales-status">وضعیت آغازین</label><input id="create-after-sales-status" name="status" maxlength="80" required><p class="field-error" data-error-for="status"></p></div>
+    <div class="full-field"><label for="create-after-sales-description">شرح</label><textarea id="create-after-sales-description" name="description" maxlength="4000" required></textarea><p class="field-error" data-error-for="description"></p></div>
+</div><p class="muted">واژگان وضعیت آزاد ولی محدود است؛ قانون SLA، بازپرداخت، مرجوعی یا اعلان خودکار ساخته نشده.</p><div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت پرونده</button></div></form></dialog>{% endif %}
+{% endblock %}

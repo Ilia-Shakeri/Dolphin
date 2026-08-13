@@ -11,17 +11,27 @@ SELECT (
     AND to_regclass('public.sales_sale') IS NOT NULL
     AND to_regclass('public.sales_salesdocument') IS NOT NULL
     AND to_regclass('public.sales_postalstatushistory') IS NOT NULL
-    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'accounts') = 2
-    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'accounts') = '0002_user_role_constraint'
+    AND to_regclass('public.aftersales_aftersalesrequest') IS NOT NULL
+    AND to_regclass('public.aftersales_aftersaleshistory') IS NOT NULL
+    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'accounts') = 3
+    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'accounts') = '0003_after_sales_foundation'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'auditlog') = 2
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'auditlog') = '0002_activitylog_role_snapshots'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'sales') = 12
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'sales') = '0012_sales_document_postal_foundation'
+    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'aftersales') = 1
+    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'aftersales') = '0001_after_sales_foundation'
     AND NOT EXISTS (
         SELECT 1
         FROM (
             VALUES
                 ('accounts_user', 'accounts_user_role_valid'),
+                ('accounts_user', 'accounts_user_workstream_valid'),
+                ('accounts_user', 'accounts_user_elevated_workstream_sales'),
+                ('aftersales_aftersalesrequest', 'after_sales_subject_nonblank'),
+                ('aftersales_aftersalesrequest', 'after_sales_description_nonblank'),
+                ('aftersales_aftersalesrequest', 'after_sales_status_nonblank'),
+                ('aftersales_aftersaleshistory', 'after_sales_history_event_valid'),
                 ('sales_customerphone', 'customer_phone_normalized_shape'),
                 ('sales_interaction', 'interaction_direction_valid'),
                 ('sales_interaction', 'interaction_outcome_nonblank'),

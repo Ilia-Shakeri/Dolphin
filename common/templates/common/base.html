@@ -32,6 +32,7 @@
 
             {% if "sales.own" in capabilities or "sales.company" in capabilities %}<a data-module="sales" href="{% url 'common_ui:sales' %}">{% if request.user.role == 'sales_agent' %}فروش‌های من{% else %}فروش‌ها{% endif %}</a>{% endif %}
             {% if "sales_documents.scoped" in capabilities or "sales_documents.company" in capabilities %}<a data-module="sales-documents" href="{% url 'common_ui:sales-documents' %}">اسناد فروش داخلی</a>{% endif %}
+            {% if "after_sales.assigned" in capabilities or "after_sales.company" in capabilities %}<a data-module="after-sales" href="{% url 'common_ui:after-sales' %}">{% if request.user.role == 'sales_agent' %}پرونده‌های خدمات من{% else %}خدمات پس از فروش{% endif %}</a>{% endif %}
             {% if "products.read" in capabilities or "products.manage" in capabilities %}<a data-module="products" href="{% url 'common_ui:products' %}">محصولات{% if request.user.role == 'sales_agent' %} (فقط خواندنی){% endif %}</a>{% endif %}
 
             {% if "reports.own" in capabilities or "reports.company" in capabilities %}

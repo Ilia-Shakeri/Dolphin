@@ -23,13 +23,13 @@ class LoginSerializer(RejectServerFieldsMixin, serializers.Serializer):
 
 
 class MeSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"username", "role", "capabilities", "is_active", "last_login", "created_at", "updated_at"}
+    server_fields = {"username", "role", "workstream", "capabilities", "is_active", "last_login", "created_at", "updated_at"}
     capabilities = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email", "phone", "role", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
-        read_only_fields = ["id", "username", "role", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
+        fields = ["id", "username", "first_name", "last_name", "email", "phone", "role", "workstream", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
+        read_only_fields = ["id", "username", "role", "workstream", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
 
     def get_capabilities(self, obj) -> list[str]:
         return sorted(capabilities_for(obj))
@@ -44,7 +44,7 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "password", "first_name", "last_name", "email", "phone", "role", "is_active", "last_login", "created_at", "updated_at"]
+        fields = ["id", "username", "password", "first_name", "last_name", "email", "phone", "role", "workstream", "is_active", "last_login", "created_at", "updated_at"]
         read_only_fields = ["id", "role", "last_login", "created_at", "updated_at"]
 
     def validate(self, attrs):

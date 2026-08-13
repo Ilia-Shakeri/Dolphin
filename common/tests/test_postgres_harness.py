@@ -38,6 +38,8 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("verify-postgres-privileges.sql", source)
         self.assertIn("UPDATE auditlog_activitylog", source)
         self.assertIn("DELETE FROM sales_interaction", source)
+        self.assertIn("UPDATE aftersales_aftersaleshistory", source)
+        self.assertIn("DELETE FROM aftersales_aftersalesrequest", source)
         self.assertIn("SELECT public.kariz_contract_probe()", source)
         self.assertIn("kariz_future_table", source)
         self.assertIn("--format=custom", source)

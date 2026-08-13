@@ -1,6 +1,8 @@
 import os
+import tempfile
 from decimal import Decimal
 from io import StringIO
+from pathlib import Path
 from unittest.mock import patch
 
 from django.core.management import call_command
@@ -38,7 +40,11 @@ class SeedSyntheticUatTests(TestCase):
         environment = {
             "KARIZ_ALLOW_UAT_SEED": "1",
             "KARIZ_UAT_PASSWORD": password,
+            "TEMP": tempfile.gettempdir(),
+            "TMP": tempfile.gettempdir(),
         }
+        if os.environ.get("SystemRoot"):
+            environment["SystemRoot"] = os.environ["SystemRoot"]
         with patch.dict(os.environ, environment, clear=True):
             call_command(
                 "seed_synthetic_uat",
@@ -67,11 +73,13 @@ class SeedSyntheticUatTests(TestCase):
         allowed = (
             ("sqlite", ":memory:", True),
             ("sqlite", "file:memorydb_default?mode=memory&cache=shared", True),
+            ("sqlite", str(Path(tempfile.gettempdir()) / f"test_kariz_{os.getpid()}.sqlite3"), True),
             ("postgresql", "uat_kariz_team_1", False),
         )
         denied = (
             ("sqlite", ":memory:", False),
             ("sqlite", "kariz.sqlite3", True),
+            ("sqlite", str(Path(tempfile.gettempdir()) / "test_kariz_999999.sqlite3"), True),
             ("postgresql", "kariz", False),
             ("postgresql", "uat_kariz_", False),
             ("postgresql", "uat_kariz_BAD", False),

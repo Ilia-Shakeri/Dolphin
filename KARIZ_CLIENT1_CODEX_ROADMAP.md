@@ -4,7 +4,7 @@
 
 Run only one phase at a time. Do not run the next phase until its gate is green and `KARIZ_PROJECT_HANDOFF.md` contains the exact resume point.
 
-C1-0 is complete. C1-1 source reconciliation is complete, with remaining decisions still blocked. Direct decisions resolve C1-DEC-ROLE-001, the Client-1 part of C1-DEC-TEAM-001, and the minimal C1-3 SalesDocument/geography/postal slice. The full accounting/legal document and carrier semantics remain blocked. C1-2 still needs governance/owner, seat/capacity, and after-sales workstream decisions.
+C1-0 and source reconciliation are complete. Direct decisions resolve C1-DEC-ROLE-001, the Client-1 Team boundary without a Team model, the minimal C1-3 SalesDocument/geography/postal slice, and the narrow C1-2/C1-5 after-sales workstream/case boundary. Full accounting/legal document, carrier, after-sales status graph/reopen/SLA, governance/owner, seat/capacity, and external UAT semantics remain blocked.
 
 This roadmap gives phase steps. `KARIZ_PROJECT_HANDOFF.md` remains the only live status and evidence source.
 
@@ -31,12 +31,12 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 
 | Area | Existing now | Client-1 gap |
 |---|---|---|
-| Accounts | Four fixed clean CRM roles; session login/logout/me; profile; controlled user lifecycle and role change. | Team/workstream, session inventory/revoke, avatar, notices, export, seat/capacity acceptance. |
+| Accounts | Four fixed clean CRM roles; session login/logout/me; profile; controlled user lifecycle/role; bounded Sales Agent `sales`/`after_sales` workstream. | Session inventory/revoke, avatar, notices, export, seat/capacity acceptance. |
 | Customer/phone | Scoped Customer CRUD/deactivate; optional postal code and plain-text category; read-only primary-phone projection; many normalized phones; duplicate and primary guards; paged scoped Lead/Interaction/Sale profile relations. | Governed category taxonomy, country-specific postal validation, document link, export/bulk/merge. |
 | Lead/contact | Scoped Lead CRUD; manual reassignment/history; append-only manual Interaction. | Final statuses, Team/auto-assign, priority/archive/conversion/Pipeline, contact status, timeline/calendar/task/reminder, specialist report, telephony. |
 | Product/Sale | Elevated Product manage, agent read; operational Sale snapshot/create/cancel. | Category/form expansion, Inventory/pricing/profit, Order/quotation/Invoice, postal, Payment/finance/PDF. |
 | Reports/audit | Four exact performance metrics, JSON/XLSX parity, scoped read-only audit. | Drill-down, dashboard, SMS/contact/geography/postal/domain/P&L/receivable reports, dynamic builder. |
-| Active UI | 19 maintained Persian RTL templates connected to real APIs for current core. | No maintained after-sales, document/postal, SMS, expanded report, file, import, automation, or integration pages. |
+| Active UI | Maintained Persian RTL core, document/postal, and after-sales list/detail pages connected to real APIs. | No SMS, file, import, automation, integration, or unapproved expanded-report pages. |
 | Runtime | PostgreSQL/Compose/Nginx/backup-ready repository artifacts and local checks exist. | Native target stack, TLS/browser, real backup/restore, load/scan, UAT/cutover proof. |
 
 ### Existing API and template boundary
@@ -51,7 +51,7 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 | Requirement | State | Current gap |
 |---|---|---|
 | C1-REQ-001 sales panel/no seat cap | `BLOCKED_DECISION`; partial core exists | Seat meaning, role/workstream/team, panel acceptance, capacity/load/UAT. |
-| C1-REQ-002 after-sales panel/no seat cap | `BLOCKED_DECISION`; absent | Identity, case schema/workflow, scope, document link, capacity/UAT. |
+| C1-REQ-002 after-sales panel/no seat cap | `IMPLEMENTED_BACKEND` plus maintained UI/browser proof for narrow panel | Exact status graph/reopen/SLA/retention, capacity target, external UAT. |
 | C1-REQ-003 detailed performance/drill-down | `BLOCKED_DECISION`; summary only | Metrics, formulas, drill-down, scope, samples, time/export parity. |
 | C1-REQ-004 inbound SMS day/hour | `BLOCKED_DECISION` plus live `BLOCKED_EXTERNAL`; absent | Provider/security/idempotency/storage/time/report contract. |
 | C1-REQ-005 document count by city/province | `BLOCKED_DECISION`; absent | Counted document, geography snapshot, date/formula/scope. |
@@ -60,11 +60,11 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 
 ### Current gate and implementation order
 
-1. Close C1-DEC-GOV-001, SEAT-001, and AFTER-001. Client-1 TEAM-001 is resolved without a Team model; future multi-team product behavior remains separate.
-2. Run C1-2 identity/operator separation.
+1. Close C1-DEC-GOV-001 and SEAT-001 plus remaining AFTER status/reopen/UAT semantics. Client-1 TEAM-001 is resolved without a Team model; future multi-team behavior remains separate.
+2. C1-2 bounded identity/operator separation: implemented locally; external UAT remains.
 3. C1-3 minimal document/geography/postal base: implemented locally; full legal/accounting/carrier scope stays blocked.
 4. Approve and run C1-4 contact-status and detailed performance.
-5. Approve and run C1-5 after-sales.
+5. C1-5 narrow after-sales panel: implemented locally; exact status/reopen/SLA/retention and external UAT remain blocked.
 6. Approve and run C1-6 SMS core/report; live adapter needs official provider docs.
 7. Build approved normal-priority Lead/Product/collaboration/report/platform additions.
 8. Build `FINAL_WAVE_LOW` Inventory/finance/files/search-import/PDF/dynamic-report/checked integrations.

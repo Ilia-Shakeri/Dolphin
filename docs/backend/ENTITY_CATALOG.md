@@ -4,7 +4,7 @@ The user-performance JSON and XLSX outputs are read-only projections over User, 
 
 ## User
 
-Authenticated CRM account. Extends Django's abstract user with nullable phone, fixed `role`, and timestamps. Username and password behavior follow Django, including configured password validators. Role defaults to `sales_agent`; a database check permits only the four fixed role codes. A login-capable CRM identity must be active, have one fixed CRM role, have both `is_staff` and `is_superuser` false, and have no Django group membership or direct permission. A row with any staff/superuser/group/direct-permission state is a server identity, not a CRM identity: it cannot use CRM login/routes and is excluded from user, report, and assignment querysets. An otherwise clean inactive CRM account cannot authenticate but remains visible to Company IT/Platform Admin account management for audited reactivation and to approved historical reporting. Inactive actors still fail every route and service gate. Role is server-controlled. Ordinary deletion is not exposed. Creation, profile/password/account changes, and role changes are safely audited without password values. Locked services return a conflict instead of demoting or deactivating the last active Platform Admin CRM identity. The terminal bootstrap is first-ever only and refuses any prior Platform Admin row, active or inactive.
+Authenticated CRM account. Extends Django's abstract user with nullable phone, fixed `role`, bounded fixed `workstream`, and timestamps. Role defaults to `sales_agent`; a database check permits only the four fixed role codes. Workstream is exactly `sales` or `after_sales`; elevated roles must remain in `sales`, while only a clean Sales Agent may use `after_sales`. This is not a fifth role or a dynamic permission builder. A login-capable CRM identity must be active, have one fixed CRM role, have both `is_staff` and `is_superuser` false, and have no Django group membership or direct permission. A row with any staff/superuser/group/direct-permission state is a server identity, not a CRM identity. Inactive actors fail every route and service gate but remain visible to approved account administrators for audited reactivation and historical links. Role is server-controlled; workstream is administrator-controlled within the role constraint. Ordinary deletion is not exposed. Creation, profile/password/account/workstream changes, and role changes are safely audited without password values. Promotion to an elevated role resets workstream to `sales`. Locked services protect the last active Platform Admin.
 
 ## Customer
 
@@ -41,6 +41,14 @@ Internal operational sales document, not an accounting/legal Invoice. Fields: re
 ## PostalStatusHistory
 
 Append-only status evidence for one SalesDocument. Fields: prior status, new status, actor, optional reason, and time. Registration creates the first row with an empty prior value. Later rows are created only by the postal transition service. Foreign keys use PROTECT. No mutation endpoint exists.
+
+## AfterSalesRequest
+
+Non-destructive Client-1 service case. Fields: required Customer; optional same-Customer Sale; optional same-Customer operational SalesDocument; required bounded subject, description, and status; nullable assigned after-sales operator; required creator; nullable server-owned close time; timestamps. Exact business status choices and transition graph were not supplied, so status is bounded single-line text and only dedicated create/transition/close services may change lifecycle state. Close is final until reopen rules are explicitly approved. Sales Manager, Company IT, and Platform Admin manage company cases. A Sales Agent in the fixed `after_sales` workstream sees and changes status only on assigned open cases; it receives no sales-domain API scope as a shortcut. No update or deletion endpoint exists.
+
+## AfterSalesHistory
+
+Append-only case evidence. Event type is constrained to `created`, `assigned`, `status_changed`, or `closed`. It stores actor, bounded prior/new status, nullable prior/new assignee, optional bounded reason, and time. All foreign keys use PROTECT. Rows are created only inside atomic after-sales services. No mutation endpoint exists, and raw case subject/description/reason is not copied to ActivityLog.
 
 ## ActivityLog
 

@@ -158,7 +158,7 @@ The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 
 Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged.
 
-For the single-tenant Client-1 deployment, Sales Manager scope is confirmed as company-wide for business records and all clean `sales_agent` accounts in that deployment. No Team model is created. Sales Manager may list, create, edit, deactivate, and reactivate Sales Agent accounts only; it cannot target elevated-role users or change/grant roles. Company IT manages clean non-platform identities under the existing Platform Admin ceiling. Platform Admin manages every clean CRM identity and fixed CRM role. Seat/capacity and after-sales workstream scope remain separate unresolved decisions.
+For the single-tenant Client-1 deployment, Sales Manager scope is confirmed as company-wide for business records and all clean `sales_agent` accounts in that deployment. No Team model is created. Sales Manager may list, create, edit, deactivate, and reactivate Sales Agent accounts only; it cannot target elevated-role users or change/grant roles. Company IT manages clean non-platform identities under the existing Platform Admin ceiling. Platform Admin manages every clean CRM identity and fixed CRM role. Client-1 uses a bounded `sales` / `after_sales` workstream on Sales Agent accounts only; it does not add a fifth role or dynamic permission builder. Elevated roles must remain in `sales`. Seat/capacity remains a separate unresolved decision.
 
 ### 4.1 Access matrix
 
@@ -465,33 +465,25 @@ Rules:
 - Never store passwords, password hashes, tokens, API keys, cookies, authorization headers, raw secrets, `.env` values, or unsafe serializer payloads.
 - Proxy-derived IPs are trusted only under explicit trusted-proxy CIDR configuration.
 
-### 5.9 Optional AfterSalesRequest
+### 5.9 Client-1 AfterSalesRequest
 
-Only when approved:
+Approved additive boundary:
 
 ```text
 customer required
 sale nullable
-future_invoice nullable
+operational_document nullable
 subject
 description
 status
 assigned_to nullable
+created_by
 closed_at nullable
 created_at
 updated_at
 ```
 
-Provisional statuses:
-
-```text
-open
-in_progress
-resolved
-closed
-```
-
-Whether every request must reference an Invoice is unresolved; schema-safe default is Customer required, Sale optional, future Invoice optional.
+No exact status vocabulary or transition graph was supplied. Status therefore remains required bounded single-line text. Create, assignment, status change, and close use dedicated atomic services and append-only history. Close is final until reopen semantics are approved. Sales Manager, Company IT, and Platform Admin manage company cases. Only an active clean Sales Agent in `after_sales` may be assigned and may view/change status on assigned cases. It gets no unrelated Customer, Lead, Interaction, Product, Sale, operational-document, or report scope.
 
 ---
 
@@ -519,6 +511,8 @@ SalesDocument 1 -> N PostalStatusHistory
 User 1 -> N PostalStatusHistory(changed_by)
 Customer 1 -> N AfterSalesRequest
 Sale 0..1 -> N AfterSalesRequest
+SalesDocument 0..1 -> N AfterSalesRequest
+AfterSalesRequest 1 -> N AfterSalesHistory
 User 1 -> N ActivityLog(actor)
 ```
 
@@ -597,7 +591,11 @@ POST /api/v1/leads/{id}/reassign/
 /api/v1/sales-documents/
 /api/v1/sales-documents/{id}/transition-postal-status/
 /api/v1/sales-documents/{id}/postal-history/
-/api/v1/after-sales/                         # only when approved
+/api/v1/after-sales/
+/api/v1/after-sales/{id}/assign/
+/api/v1/after-sales/{id}/transition-status/
+/api/v1/after-sales/{id}/close/
+/api/v1/after-sales/{id}/history/
 /api/v1/reports/user-performance/
 /api/v1/reports/sales-documents/
 /api/v1/exports/user-performance.xlsx

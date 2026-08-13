@@ -212,7 +212,8 @@
     function userRow(user) {
         const row = document.createElement("tr");
         const displayName = [user.first_name, user.last_name].filter(Boolean).join(" ") || "—";
-        const cells = [user.username, displayName, ROLE_LABELS[user.role] || "—"];
+        const workstream = user.workstream === "after_sales" ? "خدمات پس از فروش" : "فروش و مرکز تماس";
+        const cells = [user.username, displayName, `${ROLE_LABELS[user.role] || "—"} — ${workstream}`];
         cells.forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell); });
         const statusCell = document.createElement("td");
         const status = document.createElement("span");
@@ -284,7 +285,7 @@
             withSubmit(createForm, async () => {
                 const user = await apiRequest(createForm.action, {
                     method: "POST",
-                    body: formPayload(createForm, ["username", "password", "first_name", "last_name", "email", "phone"]),
+                    body: formPayload(createForm, ["username", "password", "first_name", "last_name", "email", "phone", "workstream"]),
                 });
                 window.location.assign(`/users/${user.id}/`);
             });
@@ -298,6 +299,10 @@
         });
         const role = document.getElementById("edit-role");
         if (role) role.value = user.role;
+        const workstream = document.getElementById("edit-workstream");
+        const afterSalesOption = workstream.querySelector('option[value="after_sales"]');
+        afterSalesOption.disabled = user.role !== "sales_agent";
+        workstream.value = user.role === "sales_agent" ? (user.workstream || "sales") : "sales";
         const toggle = document.getElementById("toggle-user-active");
         toggle.disabled = false;
         toggle.dataset.nextActive = String(!user.is_active);
@@ -327,7 +332,7 @@
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
-                const payload = formPayload(editForm, ["username", "first_name", "last_name", "email", "phone", "password"]);
+                const payload = formPayload(editForm, ["username", "first_name", "last_name", "email", "phone", "password", "workstream"]);
                 if (!payload.password) delete payload.password;
                 user = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 fillUser(user);
@@ -1280,6 +1285,91 @@
         });
     }
 
+    function afterSalesRow(item) {
+        const row = document.createElement("tr");
+        [item.subject, item.customer_name || item.customer, item.status, item.assigned_to_display || "تخصیص‌نیافته", item.closed_at ? "بسته" : "باز", displayDate(item.created_at)].forEach((value) => appendCell(row, value));
+        appendDetailLink(row, `/after-sales/${item.id}/`);
+        return row;
+    }
+
+    async function setupAfterSales() {
+        const form = document.getElementById("after-sales-search-form");
+        const controller = setupPagedList({key: "after-sales", form, endpoint: (page) => {
+            const query = new URLSearchParams({page: String(page), ordering: document.getElementById("after-sales-ordering").value});
+            const search = document.getElementById("after-sales-search").value.trim(); if (search) query.set("search", search);
+            [["status", "after-sales-status"], ["assigned_to", "after-sales-assignee"], ["is_closed", "after-sales-closed"]].forEach(([name, id]) => { const node = document.getElementById(id); const value = node?.value.trim(); if (value) query.set(name, value); });
+            return `/api/v1/after-sales/?${query}`;
+        }, renderRow: afterSalesRow});
+        controller.load();
+        const dialog = document.getElementById("create-after-sales-dialog");
+        if (!dialog) return;
+        const customerSelect = document.getElementById("create-after-sales-customer");
+        const saleSelect = document.getElementById("create-after-sales-sale");
+        const documentSelect = document.getElementById("create-after-sales-document");
+        const assigneeSelect = document.getElementById("create-after-sales-assigned");
+        let sales = [], documents = [];
+        try {
+            const [customers, loadedSales, loadedDocuments, assignees] = await Promise.all([
+                loadAllPages("/api/v1/customers/?ordering=full_name"), loadAllPages("/api/v1/sales/?ordering=-sold_at"),
+                loadAllPages("/api/v1/sales-documents/?ordering=-registered_at"), loadAllPages("/api/v1/after-sales/assignees/"),
+            ]);
+            sales = loadedSales; documents = loadedDocuments;
+            fillSelect(customerSelect, customers, (item) => item.full_name, "یک مشتری انتخاب کنید");
+            fillSelect(assigneeSelect, assignees, (item) => item.display, "فعلا تخصیص ندهید");
+        } catch (error) { showError(error); }
+        function refreshRelations() {
+            const id = Number(customerSelect.value);
+            fillSelect(saleSelect, sales.filter((item) => Number(item.customer) === id), (item) => `فروش ${item.id}`, "بدون فروش");
+            fillSelect(documentSelect, documents.filter((item) => Number(item.customer) === id), (item) => item.document_number, "بدون سند");
+        }
+        customerSelect.addEventListener("change", refreshRelations);
+        document.getElementById("open-create-after-sales").addEventListener("click", () => dialog.showModal());
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        const createForm = document.getElementById("create-after-sales-form");
+        createForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(createForm, async () => {
+            const payload = formPayload(createForm, ["customer", "sale", "document", "assigned_to", "subject", "description", "status"]);
+            ["sale", "document", "assigned_to"].forEach((name) => { if (!payload[name]) delete payload[name]; });
+            const item = await apiRequest(createForm.action, {method: "POST", body: payload}); window.location.assign(`/after-sales/${item.id}/`);
+        }); });
+    }
+
+    function fillAfterSales(item) {
+        document.getElementById("after-sales-subject-detail").value = item.subject;
+        document.getElementById("after-sales-customer-detail").value = item.customer_name || item.customer;
+        document.getElementById("after-sales-sale-detail").value = item.sale || "—";
+        document.getElementById("after-sales-document-detail").value = item.document || "—";
+        document.getElementById("after-sales-status-detail").value = item.status;
+        document.getElementById("after-sales-assigned-detail").value = item.assigned_to_display || "تخصیص‌نیافته";
+        document.getElementById("after-sales-created-by-detail").value = item.created_by_display || item.created_by;
+        document.getElementById("after-sales-closed-detail").value = displayDate(item.closed_at);
+        document.getElementById("after-sales-description-detail").value = item.description;
+        document.getElementById("after-sales-actions").hidden = Boolean(item.closed_at);
+    }
+
+    async function loadAfterSalesHistory(id) {
+        const rows = await loadAllPages(`/api/v1/after-sales/${id}/history/`);
+        const eventLabels = {created: "ایجاد", assigned: "تخصیص", status_changed: "تغییر وضعیت", closed: "بستن"};
+        const nodes = rows.map((item) => { const row = document.createElement("tr"); [eventLabels[item.event] || item.event, `${item.from_status || "—"} / ${item.to_status || "—"}`, `${item.from_user_display || "—"} / ${item.to_user_display || "—"}`, item.actor_display, item.reason || "—", displayDate(item.created_at)].forEach((value) => appendCell(row, value)); return row; });
+        document.getElementById("after-sales-history-body").replaceChildren(...nodes);
+        document.getElementById("after-sales-history-loading").hidden = true;
+        document.getElementById("after-sales-history-empty").hidden = Boolean(nodes.length);
+        document.getElementById("after-sales-history-wrap").hidden = !nodes.length;
+    }
+
+    async function setupAfterSalesDetail() {
+        const id = document.body.dataset.afterSalesId, endpoint = `/api/v1/after-sales/${id}/`;
+        let item;
+        try { [item] = await Promise.all([apiRequest(endpoint), loadAfterSalesHistory(id)]); fillAfterSales(item); document.getElementById("after-sales-detail-loading").hidden = true; document.getElementById("after-sales-detail-content").hidden = false; } catch (error) { document.getElementById("after-sales-detail-loading").hidden = true; showError(error); return; }
+        const statusForm = document.getElementById("after-sales-status-form");
+        statusForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(statusForm, async () => { item = await apiRequest(statusForm.action, {method: "POST", body: formPayload(statusForm, ["to_status", "reason"])}); fillAfterSales(item); statusForm.reset(); await loadAfterSalesHistory(id); globalMessage("وضعیت پرونده ثبت شد.", true); }); });
+        const assignForm = document.getElementById("after-sales-assign-form");
+        if (assignForm) {
+            try { fillSelect(document.getElementById("after-sales-to-user"), await loadAllPages("/api/v1/after-sales/assignees/"), (user) => user.display, "مسئول را انتخاب کنید"); } catch (error) { showError(error); }
+            assignForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(assignForm, async () => { item = await apiRequest(assignForm.action, {method: "POST", body: formPayload(assignForm, ["to_user", "reason"])}); fillAfterSales(item); assignForm.reset(); await loadAfterSalesHistory(id); globalMessage("پرونده تخصیص یافت.", true); }); });
+            document.getElementById("close-after-sales").addEventListener("click", async () => { if (!window.confirm("پرونده بسته شود؟ بازگشایی هنوز تصویب نشده.")) return; try { item = await apiRequest(`${endpoint}close/`, {method: "POST", body: {}}); fillAfterSales(item); await loadAfterSalesHistory(id); globalMessage("پرونده بسته شد.", true); } catch (error) { showError(error); } });
+        }
+    }
+
     function reportQuery(form) {
         const data = new FormData(form);
         const query = new URLSearchParams();
@@ -1410,6 +1500,8 @@
     if (page === "sales-document-detail") setupSalesDocumentDetail();
     if (page === "user-performance") setupUserPerformance();
     if (page === "sales-document-report") setupSalesDocumentReport();
+    if (page === "after-sales") setupAfterSales();
+    if (page === "after-sales-detail") setupAfterSalesDetail();
     if (page === "activity-logs") setupActivityLogs();
     if (page === "activity-log-detail") setupActivityLogDetail();
 })();

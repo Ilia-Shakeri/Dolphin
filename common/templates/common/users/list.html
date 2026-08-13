@@ -37,8 +37,9 @@
             <div><label for="create-last-name">نام خانوادگی</label><input id="create-last-name" name="last_name" maxlength="150"><p class="field-error" data-error-for="last_name"></p></div>
             <div><label for="create-email">ایمیل</label><input id="create-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
             <div><label for="create-phone">تلفن</label><input id="create-phone" name="phone" type="tel" maxlength="32"><p class="field-error" data-error-for="phone"></p></div>
+            <div><label for="create-workstream">حوزه کاری</label><select id="create-workstream" name="workstream"><option value="sales">فروش و مرکز تماس</option><option value="after_sales">خدمات پس از فروش</option></select><p class="field-error" data-error-for="workstream"></p></div>
         </div>
-        <p class="muted">نقش آغازین کاربر، بازاریاب (کال سنتر) است.{% if can_change_roles %} تغییر نقش فقط از صفحه جزئیات و در محدوده مجاز انجام می‌شود.{% else %} مدیر فروشگاه اجازه تغییر نقش ندارد.{% endif %}</p>
+        <p class="muted">نقش آغازین کاربر، بازاریاب (کال سنتر) است. حوزه خدمات پس از فروش همین نقش ثابت را نگه می‌دارد و فقط پرونده تخصیص‌یافته را می‌بیند.{% if can_change_roles %} تغییر نقش فقط از صفحه جزئیات و در محدوده مجاز انجام می‌شود.{% else %} مدیر فروشگاه اجازه تغییر نقش ندارد.{% endif %}</p>
         <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ساخت کاربر</button></div>
     </form>
 </dialog>

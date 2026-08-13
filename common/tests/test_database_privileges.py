@@ -314,6 +314,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "accounts_user": "SELECT, INSERT, UPDATE",
             "accounts_user_groups": "SELECT, INSERT, DELETE",
             "accounts_user_user_permissions": "SELECT, INSERT, DELETE",
+            "aftersales_aftersaleshistory": "SELECT, INSERT",
+            "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE",
             "auditlog_activitylog": "SELECT, INSERT",
             "auth_group": "SELECT, INSERT, UPDATE, DELETE",
             "auth_group_permissions": "SELECT, INSERT, DELETE",
@@ -358,6 +360,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_leadassignmenthistory",
             "sales_interaction",
             "sales_postalstatushistory",
+            "aftersales_aftersaleshistory",
             "django_admin_log",
         ):
             with self.subTest(append_only=table_name):

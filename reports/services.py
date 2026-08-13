@@ -79,6 +79,8 @@ def build_user_performance_report(
     ).first()
     if current_actor is None:
         raise ReportAccessDenied
+    if current_actor.role == User.Role.SALES_AGENT and current_actor.workstream == User.Workstream.AFTER_SALES:
+        raise ReportAccessDenied
     if (
         timezone.is_naive(period_start)
         or timezone.is_naive(period_end)
@@ -170,6 +172,8 @@ def build_sales_document_report(
         )
     ).first()
     if current_actor is None:
+        raise ReportAccessDenied
+    if current_actor.role == User.Role.SALES_AGENT and current_actor.workstream == User.Workstream.AFTER_SALES:
         raise ReportAccessDenied
     if timezone.is_naive(period_start) or timezone.is_naive(period_end) or period_end <= period_start:
         raise InvalidReportPeriod

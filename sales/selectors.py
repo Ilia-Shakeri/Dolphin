@@ -10,6 +10,8 @@ ELEVATED_OPERATIONAL = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role
 def customers_for(user):
     queryset = Customer.objects.all()
     if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(Q(created_by=user) | Q(leads__assigned_to=user)).distinct()
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
@@ -23,6 +25,8 @@ def phones_for(user):
 def leads_for(user):
     queryset = Lead.objects.all()
     if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(Q(assigned_to=user) | Q(created_by=user, assigned_to__isnull=True)).distinct()
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
@@ -49,6 +53,8 @@ def lead_work_queue_for(user):
 def interactions_for(user):
     queryset = Interaction.objects.all()
     if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(lead__assigned_to=user)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
@@ -58,6 +64,8 @@ def interactions_for(user):
 def products_for(user):
     queryset = Product.objects.all()
     if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(is_active=True)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
@@ -67,6 +75,8 @@ def products_for(user):
 def sales_for(user):
     queryset = Sale.objects.all()
     if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(sold_by=user)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
@@ -76,6 +86,8 @@ def sales_for(user):
 def sales_documents_for(user):
     queryset = SalesDocument.objects.all()
     if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(
             Q(customer__in=customers_for(user)) | Q(sale__in=sales_for(user))
         ).distinct()

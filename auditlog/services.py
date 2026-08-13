@@ -8,6 +8,7 @@ _FIELD_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _MONEY = re.compile(r"^\d{1,16}(?:\.\d{1,2})?$")
 _ROLE_CODES = {"sales_agent", "sales_manager", "company_it", "platform_admin"}
 _POSTAL_STATUS = re.compile(r"^\S(?:.{0,78}\S)?$")
+_CASE_STATUS = re.compile(r"^\S(?:.{0,78}\S)?$")
 _UNSET = object()
 
 
@@ -33,6 +34,10 @@ def _clean_changes(changes):
     for key in ("postal_from", "postal_to"):
         value = changes.get(key)
         if isinstance(value, str) and (value == "" or _POSTAL_STATUS.fullmatch(value)):
+            cleaned[key] = value
+    for key in ("case_from", "case_to"):
+        value = changes.get(key)
+        if isinstance(value, str) and (value == "" or _CASE_STATUS.fullmatch(value)):
             cleaned[key] = value
     total_amount = changes.get("total_amount")
     if total_amount is not None and _MONEY.fullmatch(str(total_amount)):

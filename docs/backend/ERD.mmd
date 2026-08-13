@@ -18,4 +18,10 @@ erDiagram
     USER ||--o{ SALES_DOCUMENT : registers
     SALES_DOCUMENT ||--o{ POSTAL_STATUS_HISTORY : records
     USER ||--o{ POSTAL_STATUS_HISTORY : changes
+    CUSTOMER ||--o{ AFTER_SALES_REQUEST : owns
+    SALE o|--o{ AFTER_SALES_REQUEST : references
+    SALES_DOCUMENT o|--o{ AFTER_SALES_REQUEST : references
+    USER o|--o{ AFTER_SALES_REQUEST : assigned_or_creates
+    AFTER_SALES_REQUEST ||--o{ AFTER_SALES_HISTORY : records
+    USER ||--o{ AFTER_SALES_HISTORY : changes
     USER o|--o{ ACTIVITY_LOG : acts

@@ -158,20 +158,29 @@ class BackupScriptTests(SimpleTestCase):
             "sales_sale",
             "sales_salesdocument",
             "sales_postalstatushistory",
+            "aftersales_aftersalesrequest",
+            "aftersales_aftersaleshistory",
         ):
             with self.subTest(table=table):
                 self.assertIn(f"to_regclass('public.{table}') IS NOT NULL", schema)
 
         for migration in (
-            "0002_user_role_constraint",
+            "0003_after_sales_foundation",
             "0002_activitylog_role_snapshots",
             "0012_sales_document_postal_foundation",
+            "0001_after_sales_foundation",
         ):
             with self.subTest(migration=migration):
                 self.assertIn(migration, schema)
 
         for constraint in (
             "accounts_user_role_valid",
+            "accounts_user_workstream_valid",
+            "accounts_user_elevated_workstream_sales",
+            "after_sales_subject_nonblank",
+            "after_sales_description_nonblank",
+            "after_sales_status_nonblank",
+            "after_sales_history_event_valid",
             "customer_phone_normalized_shape",
             "interaction_direction_valid",
             "interaction_outcome_nonblank",

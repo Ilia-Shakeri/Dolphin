@@ -280,6 +280,57 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(reactivated.status_code, 200)
         self.assertTrue(reactivated.data["is_active"])
 
+    def test_sales_manager_may_create_bounded_after_sales_operator_only(self):
+        manager = User.objects.create_user(
+            username="manager-after-sales-admin",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.SALES_MANAGER,
+        )
+        client = APIClient()
+        client.force_authenticate(manager)
+        created = client.post(
+            "/api/v1/users/",
+            {
+                "username": "bounded-after-sales-operator",
+                "password": "Long-Safe-Pass-741!",
+                "workstream": User.Workstream.AFTER_SALES,
+            },
+            format="json",
+        )
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["role"], User.Role.SALES_AGENT)
+        self.assertEqual(created.data["workstream"], User.Workstream.AFTER_SALES)
+        self.assertEqual(
+            set(created.data) & {"groups", "user_permissions", "is_staff", "is_superuser"},
+            set(),
+        )
+
+    def test_elevated_role_cannot_keep_after_sales_workstream(self):
+        client = APIClient()
+        client.force_authenticate(self.platform)
+        blocked = client.patch(
+            f"/api/v1/users/{self.company_it.pk}/",
+            {"workstream": User.Workstream.AFTER_SALES},
+            format="json",
+        )
+        self.assertEqual(blocked.status_code, 400)
+        self.company_it.refresh_from_db()
+        self.assertEqual(self.company_it.workstream, User.Workstream.SALES)
+
+        agent = User.objects.create_user(
+            username="promoted-after-sales",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.SALES_AGENT,
+            workstream=User.Workstream.AFTER_SALES,
+        )
+        promoted = client.post(
+            f"/api/v1/users/{agent.pk}/change-role/",
+            {"role": User.Role.SALES_MANAGER},
+            format="json",
+        )
+        self.assertEqual(promoted.status_code, 200, promoted.data)
+        self.assertEqual(promoted.data["workstream"], User.Workstream.SALES)
+
     def test_sales_manager_direct_ids_and_escalation_fail_closed(self):
         manager = User.objects.create_user(
             username="manager-user-admin",

@@ -80,11 +80,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
     def tearDown(self):
         self.browser.get("about:blank")
+        self.wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
         self.browser.delete_all_cookies()
         for key in ("browser", "performance"):
             self.browser.get_log(key)
-        from django.db import connection
-        connection.close()
         super().tearDown()
 
     def login(self, user=None):

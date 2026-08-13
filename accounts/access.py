@@ -24,6 +24,8 @@ ROLE_CAPABILITIES = {
         "sales.company",
         "sales_documents.company",
         "sales_documents.manage",
+        "after_sales.company",
+        "after_sales.manage",
         "products.manage",
         "reports.company",
         "users.manage_agents",
@@ -36,6 +38,8 @@ ROLE_CAPABILITIES = {
         "sales.company",
         "sales_documents.company",
         "sales_documents.manage",
+        "after_sales.company",
+        "after_sales.manage",
         "products.manage",
         "reports.company",
         "users.manage_non_platform",
@@ -49,12 +53,20 @@ ROLE_CAPABILITIES = {
         "sales.company",
         "sales_documents.company",
         "sales_documents.manage",
+        "after_sales.company",
+        "after_sales.manage",
         "products.manage",
         "reports.company",
         "users.manage_all",
         "audit.all",
     }),
 }
+
+AFTER_SALES_AGENT_CAPABILITIES = frozenset({
+    "dashboard.after_sales",
+    "after_sales.assigned",
+    "after_sales.work",
+})
 
 
 def crm_identities(queryset=None):
@@ -96,6 +108,8 @@ def is_crm_identity(user):
 def capabilities_for(user):
     if not is_crm_identity(user):
         return frozenset()
+    if user.role == User.Role.SALES_AGENT and user.workstream == User.Workstream.AFTER_SALES:
+        return AFTER_SALES_AGENT_CAPABILITIES
     return ROLE_CAPABILITIES.get(user.role, frozenset())
 
 

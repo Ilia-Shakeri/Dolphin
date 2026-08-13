@@ -14,6 +14,8 @@ def users_for_performance_report(actor):
     valid_roles = [value for value, _ in User.Role.choices]
     queryset = crm_identities(User.objects.filter(role__in=valid_roles)).order_by("id")
     if actor.role == User.Role.SALES_AGENT:
+        if actor.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
         return queryset.filter(pk=actor.pk)
     if actor.role in REPORT_BROAD_ROLES:
         return queryset

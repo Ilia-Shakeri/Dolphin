@@ -99,7 +99,7 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     permission_classes = [IsUserReader]
     sensitive_actions = frozenset({"create", "update", "partial_update", "change_role"})
     search_fields = ["username", "first_name", "last_name", "email", "phone"]
-    ordering_fields = ["username", "role", "is_active", "created_at"]
+    ordering_fields = ["username", "role", "workstream", "is_active", "created_at"]
 
     def get_queryset(self):
         queryset = crm_identities(User.objects.all()).order_by("username")

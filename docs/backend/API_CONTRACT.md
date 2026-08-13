@@ -10,7 +10,7 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 ## Users
 
-- `GET/POST users/`, `GET/PATCH users/{id}/`: Company IT or Platform Admin. Lists and direct IDs contain clean CRM account rows, including inactive rows so approved administrators can reactivate them; staff/superuser/group/direct-permission identities remain hidden. Inactive actors still fail every API gate. Sales Manager user-directory access fails closed until a Team model and exact team scope are approved. New and reset passwords pass Django password validators.
+- `GET/POST users/`, `GET/PATCH users/{id}/`: Sales Manager lists and manages Sales Agent accounts only; Company IT manages clean non-platform accounts; Platform Admin manages every clean CRM identity. Inactive rows remain visible to their approved administrator for reactivation; staff/superuser/group/direct-permission identities remain hidden. New and reset passwords pass Django password validators. `workstream` is exactly `sales` or `after_sales`, is allowed as `after_sales` only for Sales Agent, and resets to `sales` on promotion.
 - `POST users/{id}/change-role/`: Company IT can grant through `company_it`; Platform Admin can grant any fixed CRM role. Staff/superuser/groups/permissions are never writable. Demoting the last active Platform Admin CRM identity returns HTTP 409 `conflict`.
 - `PATCH users/{id}/` with `is_active=false`: deactivating the last active Platform Admin CRM identity returns HTTP 409 `conflict`. A second active Platform Admin counts only when it also passes the CRM-identity guard.
 
@@ -47,6 +47,16 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - `GET sales-documents/{id}/postal-history/`: paginated append-only history after the same document scope. `POST sales-documents/{id}/deactivate/` is elevated-only and preserves all rows.
 - `GET reports/sales-documents/`: required half-open registration period plus optional exact province/city/current-postal-status/active filters. Returns total, counts by snapshotted province/city, and counts by current postal status. Deactivated rows remain included unless `is_active` is supplied. Scope matches document API. No XLSX was approved.
 
+## After-sales requests
+
+- `GET/POST after-sales/`, `GET after-sales/{id}/`: Sales Manager, Company IT, and Platform Admin see/manage all company cases. A Sales Agent in the fixed `after_sales` workstream lists and retrieves assigned cases only. Normal sales-workstream agents get an empty collection and direct IDs return 404. No PATCH, PUT, or DELETE.
+- Create requires Customer, subject, description, and bounded single-line initial status. Sale and operational SalesDocument are optional and each must belong to Customer. Creator, close time, timestamps, and history are server-owned. Only an active clean after-sales Sales Agent may be assigned.
+- List filters are exact `status`, positive `assigned_to`, and boolean `is_closed`, plus search, ordering, and pagination. Standard unknown/repeated query guards apply.
+- `GET after-sales/assignees/` and `POST after-sales/{id}/assign/` are elevated-only. Assignment/reassignment locks the case and eligible operator, rejects closed/same assignment, and atomically appends safe history/audit.
+- `POST after-sales/{id}/transition-status/` is allowed to elevated roles and the currently assigned after-sales operator. It rejects closed/same/blank/multiline status and appends history/audit atomically. Exact status vocabulary and graph remain unresolved; no enum is claimed.
+- `POST after-sales/{id}/close/` is elevated-only and final because reopen semantics were not supplied. `GET after-sales/{id}/history/` reuses the case selector and is append-only.
+- After-sales operators get no Customer, Lead, Interaction, Product, Sale, sales-document, performance, or postal-report API scope. The case response embeds only the bounded relation labels needed by its panel.
+
 ## User-performance report and XLSX
 
 - `GET reports/user-performance/`: returns exact per-user `customers_created_count`, `sales_count`, `sales_amount`, and `average_sale_amount` rows.
@@ -68,8 +78,8 @@ Browser routes use the same queryset and object guards as the API: `/products/`,
 - `GET health/ready/`: public PostgreSQL readiness; 503 on database failure. `health/` remains a readiness compatibility route.
 - `GET schema/`, `GET docs/`: mapped only when `ENABLE_API_DOCS` is true and then limited to active authenticated users. Base settings follow `DEBUG`, test settings enable the flag, and production forces it false. Production therefore removes both URL patterns, so the interactive documentation and its remote browser assets cannot render there. Controlled schema generation remains a build/test command.
 
-Undefined Lead status actions, generic/conversion/call-outcome reports, final human-facing XLSX presentation, and after-sales routes remain absent until authoritative rules are complete.
+Undefined Lead status actions, generic/conversion/call-outcome reports, final human-facing XLSX presentation, and exact after-sales business status transitions remain absent until authoritative rules are complete.
 
 Unknown request keys and server-controlled keys are rejected. Collection/detail update routes use PATCH, not PUT. Validation remains field-shaped under the standard DRF error convention. The bundled Nginx edge discards caller-supplied forwarding chains and sends its direct peer address to the application. Production schema/docs routes stay absent even for Platform Admin.
 
-The application limits login to 10 attempts per minute. User create/update/role change, Customer and CustomerPhone deactivation, Product writes/deactivation, Lead reassignment, Sale create/cancel, performance report/XLSX, and ActivityLog reads use one combined 30 requests-per-minute authenticated-user scope. Production keeps this cache in bounded `/tmp` storage shared by all workers in the approved single web container. A multi-container web topology needs an approved shared throttle store and new runtime proof before scale-out.
+The application limits login to 10 attempts per minute. User create/update/role change, Customer and CustomerPhone deactivation, Product writes/deactivation, Lead reassignment, Sale create/cancel, after-sales create/assignment/status/close, performance report/XLSX, and ActivityLog reads use one combined 30 requests-per-minute authenticated-user scope. Production keeps this cache in bounded `/tmp` storage shared by all workers in the approved single web container. A multi-container web topology needs an approved shared throttle store and new runtime proof before scale-out.

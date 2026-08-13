@@ -3,6 +3,8 @@ from django.urls import path
 from common.ui_views import (
     KarizActivityLogDetailView,
     KarizActivityLogListView,
+    KarizAfterSalesDetailView,
+    KarizAfterSalesListView,
     KarizCustomerDetailView,
     KarizCustomerListView,
     KarizHomeView,
@@ -43,6 +45,8 @@ urlpatterns = [
     path("sales/<int:sale_id>/", KarizSaleDetailView.as_view(), name="sale-detail"),
     path("sales-documents/", KarizSalesDocumentListView.as_view(), name="sales-documents"),
     path("sales-documents/<int:document_id>/", KarizSalesDocumentDetailView.as_view(), name="sales-document-detail"),
+    path("after-sales/", KarizAfterSalesListView.as_view(), name="after-sales"),
+    path("after-sales/<int:request_id>/", KarizAfterSalesDetailView.as_view(), name="after-sales-detail"),
     path("reports/user-performance/", KarizUserPerformanceView.as_view(), name="user-performance"),
     path("reports/sales-documents/", KarizSalesDocumentReportView.as_view(), name="sales-document-report"),
     path("activity-logs/", KarizActivityLogListView.as_view(), name="activity-logs"),

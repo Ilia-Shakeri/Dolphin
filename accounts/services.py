@@ -16,7 +16,7 @@ ROLE_RANK = {
     User.Role.PLATFORM_ADMIN: 4,
 }
 USER_ADMINS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
-USER_MUTABLE_FIELDS = {"username", "first_name", "last_name", "email", "phone", "is_active"}
+USER_MUTABLE_FIELDS = {"username", "first_name", "last_name", "email", "phone", "workstream", "is_active"}
 PROFILE_MUTABLE_FIELDS = {"first_name", "last_name", "email", "phone"}
 
 
@@ -66,6 +66,8 @@ def create_crm_user(*, actor, password, **data):
     unknown = set(data) - USER_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+    if data.get("workstream", User.Workstream.SALES) not in User.Workstream.values:
+        raise BusinessRuleError({"workstream": "Unknown workstream."})
     try:
         validate_password(password, user=User(**data))
     except DjangoValidationError as exc:
@@ -91,6 +93,11 @@ def update_crm_user(*, actor, target, **changes):
     unknown = set(changes) - USER_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+    if "workstream" in changes:
+        if changes["workstream"] not in User.Workstream.values:
+            raise BusinessRuleError({"workstream": "Unknown workstream."})
+        if target.role != User.Role.SALES_AGENT and changes["workstream"] != User.Workstream.SALES:
+            raise BusinessRuleError({"workstream": "Only Sales Agent accounts may use the after-sales workstream."})
     _protect_last_active_platform_admin(
         target=target,
         next_is_active=changes.get("is_active", target.is_active),
@@ -164,7 +171,11 @@ def change_user_role(*, actor, target, role):
     if previous == role:
         raise BusinessConflictError({"role": "User already has this role."})
     target.role = role
-    target.save(update_fields=["role", "updated_at"])
+    update_fields = ["role", "updated_at"]
+    if role != User.Role.SALES_AGENT and target.workstream != User.Workstream.SALES:
+        target.workstream = User.Workstream.SALES
+        update_fields.append("workstream")
+    target.save(update_fields=update_fields)
     log_activity(
         actor=actor,
         operation="user.role_changed",
