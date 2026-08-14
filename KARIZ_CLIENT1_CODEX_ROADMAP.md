@@ -8,11 +8,18 @@ C1-0 and source reconciliation are complete. Direct decisions resolve C1-DEC-ROL
 
 This roadmap gives phase steps. `KARIZ_PROJECT_HANDOFF.md` remains the only live status and evidence source.
 
-## FINAL_WAVE_LOW current progress — 2026-08-14
+## Release freeze current progress — 2026-08-14
+
+- Newest decision: feature scope is frozen at the implemented Client-1 core through Product Category/final Product form. `C1-8` production-readiness proof is active. Inventory and all later `FINAL_WAVE_LOW` modules remain target backlog but are outside this chosen release.
+- Current release decision: `NO-GO`. Repository checks and supported local Persian RTL Chrome flows pass, but no immutable application image exists and this host has no Docker or PostgreSQL tools. Exact PostgreSQL, Compose/Nginx/TLS, backup/restore, target load/security scan/UAT, rollback and sign-off proof is not available.
+- Repository correction: synthetic UAT now covers Platform Admin, Store Manager, call-center Sales Agent, and bounded after-sales operator separately while preserving the four fixed role codes. Full current evidence and exact blockers are only in `KARIZ_PROJECT_HANDOFF.md`.
+- Resume only on an approved disposable/staging host with exact image digests, protected runtime/TLS/database inputs, stable project/volume names, owners, thresholds, and prior rollback artifact. Do not resume feature modules until this release decision is closed or explicitly superseded.
+
+## FINAL_WAVE_LOW progress before release freeze — 2026-08-14
 
 - [x] Module 1: flat Product Category and final Product form. Additive migration `sales.0013` adds Category, optional Product relation, brand, and canonical unique nonblank barcode. Locked services, safe audit, scoped API/OpenAPI, Persian RTL Category list/detail/forms, Product Category filter/form fields, direct-ID/privilege tests, and browser manager-versus-agent proof are implemented.
 - Verification: focused module/infrastructure `46/46`, affected workflows `58/58`, API/system `31/31`, real Chrome journey `1/1`, and full suite `338` run with `331` pass plus `7` intentional PostgreSQL-only skips. Check, drift, OpenAPI, JS, branding, static, script parse, and diff gates pass.
-- [ ] Module 2: Inventory/stock movement and concurrency. Not started. Exact unit, warehouse/location, opening balance, movement types, reservation, negative-stock, adjustment, cancellation/reversal, and legacy opening-stock semantics must be contracted before its migration.
+- [ ] Module 2: Inventory/stock movement and concurrency. Not started and not part of the frozen release. Exact unit, warehouse/location, opening balance, movement types, reservation, negative-stock, adjustment, cancellation/reversal, and legacy opening-stock semantics must be contracted before its future migration.
 - Later modules remain in the user-supplied order. No financial, file, import, integration, PWA, automation, or anomaly model was bundled into module 1.
 
 ## Phase map

@@ -12,13 +12,16 @@ from django.db import connection, transaction
 from django.utils import timezone
 
 from accounts.models import User
+from aftersales.models import AfterSalesRequest
+from aftersales.services import create_after_sales_request
 from auditlog.models import ActivityLog
 from auditlog.services import log_activity
-from sales.models import Customer, Interaction, Lead, Product, Sale
+from sales.models import Customer, Interaction, Lead, Product, ProductCategory, Sale
 from sales.services import (
     create_customer_with_phone,
     create_lead,
     create_product,
+    create_product_category,
     mark_sale,
     reassign_lead,
     record_interaction,
@@ -30,12 +33,29 @@ SQLITE_MEMORY_TEST_NAME = re.compile(
     r"\Afile:memorydb_[A-Za-z0-9_]+\?mode=memory&cache=shared\Z"
 )
 SEED_LOCK_KEY = 5422700358370087253
-GUARDED_MODELS = (User, Customer, Product, Lead, Interaction, Sale, ActivityLog)
+GUARDED_MODELS = (
+    User,
+    Customer,
+    ProductCategory,
+    Product,
+    Lead,
+    Interaction,
+    Sale,
+    AfterSalesRequest,
+    ActivityLog,
+)
 USER_FIXTURES = (
-    ("uat_sales_agent", "بازاریاب", "ساختگی", User.Role.SALES_AGENT),
-    ("uat_sales_manager", "مدیر فروشگاه", "ساختگی", User.Role.SALES_MANAGER),
-    ("uat_company_it", "مدیر فنی مشتری", "ساختگی", User.Role.COMPANY_IT),
-    ("uat_platform_admin", "مدیر پلتفرم", "ساختگی", User.Role.PLATFORM_ADMIN),
+    ("uat_sales_agent", "بازاریاب", "ساختگی", User.Role.SALES_AGENT, User.Workstream.SALES),
+    (
+        "uat_after_sales_operator",
+        "اپراتور خدمات پس از فروش",
+        "ساختگی",
+        User.Role.SALES_AGENT,
+        User.Workstream.AFTER_SALES,
+    ),
+    ("uat_sales_manager", "مدیر فروشگاه", "ساختگی", User.Role.SALES_MANAGER, User.Workstream.SALES),
+    ("uat_company_it", "مدیر فنی مشتری", "ساختگی", User.Role.COMPANY_IT, User.Workstream.SALES),
+    ("uat_platform_admin", "مدیر پلتفرم", "ساختگی", User.Role.PLATFORM_ADMIN, User.Workstream.SALES),
 )
 
 
@@ -84,7 +104,7 @@ class Command(BaseCommand):
             for user in users:
                 user.set_password(password)
                 user.save(force_insert=True)
-                created_users[user.role] = user
+                created_users[user.username] = user
                 log_activity(
                     actor=None,
                     operation="user.uat_seeded",
@@ -98,12 +118,23 @@ class Command(BaseCommand):
                 )
             password = None
 
-            agent = created_users[User.Role.SALES_AGENT]
-            manager = created_users[User.Role.SALES_MANAGER]
+            agent = created_users["uat_sales_agent"]
+            after_sales_operator = created_users["uat_after_sales_operator"]
+            manager = created_users["uat_sales_manager"]
+            category = create_product_category(
+                actor=manager,
+                code="uat-synthetic",
+                name="دسته ساختگی آزمون پذیرش",
+                description="فقط داده ساختگی آزمون پذیرش",
+                display_order=1,
+            )
             product = create_product(
                 actor=manager,
                 sku="UAT-SYNTHETIC-001",
                 name="محصول ساختگی آزمون پذیرش",
+                category=category,
+                brand="برند ساختگی",
+                barcode="UAT-SYNTHETIC-001",
                 current_price=Decimal("125000.00"),
                 description="فقط داده ساختگی آزمون پذیرش",
             )
@@ -145,13 +176,22 @@ class Command(BaseCommand):
                 occurred_at=event_time,
                 notes="تعامل ساختگی آزمون پذیرش",
             )
-            mark_sale(
+            sale = mark_sale(
                 actor=agent,
                 lead=lead,
                 product=product,
                 quantity=2,
                 sold_at=event_time,
                 notes="فروش ساختگی آزمون پذیرش",
+            )
+            create_after_sales_request(
+                actor=manager,
+                customer=customer,
+                sale=sale,
+                assigned_to=after_sales_operator,
+                subject="پرونده ساختگی خدمات پس از فروش",
+                description="فقط داده ساختگی آزمون پذیرش",
+                status="جدید",
             )
 
         self.stdout.write(self.style.SUCCESS("Synthetic UAT data created."))
@@ -173,12 +213,13 @@ class Command(BaseCommand):
     def _build_and_validate_users(password):
         users = []
         try:
-            for username, first_name, last_name, role in USER_FIXTURES:
+            for username, first_name, last_name, role, workstream in USER_FIXTURES:
                 user = User(
                     username=username,
                     first_name=first_name,
                     last_name=last_name,
                     role=role,
+                    workstream=workstream,
                     is_active=True,
                     is_staff=False,
                     is_superuser=False,

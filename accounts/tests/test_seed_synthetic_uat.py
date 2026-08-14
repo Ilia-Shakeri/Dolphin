@@ -14,6 +14,7 @@ from accounts.management.commands.seed_synthetic_uat import (
     database_identity_is_allowed,
 )
 from accounts.models import User
+from aftersales.models import AfterSalesHistory, AfterSalesRequest
 from auditlog.models import ActivityLog
 from sales.models import (
     Customer,
@@ -22,6 +23,7 @@ from sales.models import (
     Lead,
     LeadAssignmentHistory,
     Product,
+    ProductCategory,
     Sale,
 )
 
@@ -166,6 +168,7 @@ class SeedSyntheticUatTests(TestCase):
 
         expected_roles = {
             "uat_sales_agent": User.Role.SALES_AGENT,
+            "uat_after_sales_operator": User.Role.SALES_AGENT,
             "uat_sales_manager": User.Role.SALES_MANAGER,
             "uat_company_it": User.Role.COMPANY_IT,
             "uat_platform_admin": User.Role.PLATFORM_ADMIN,
@@ -177,6 +180,7 @@ class SeedSyntheticUatTests(TestCase):
         )
         expected_names = {
             "uat_sales_agent": "بازاریاب ساختگی",
+            "uat_after_sales_operator": "اپراتور خدمات پس از فروش ساختگی",
             "uat_sales_manager": "مدیر فروشگاه ساختگی",
             "uat_company_it": "مدیر فنی مشتری ساختگی",
             "uat_platform_admin": "مدیر پلتفرم ساختگی",
@@ -191,24 +195,40 @@ class SeedSyntheticUatTests(TestCase):
             self.assertFalse(user.is_superuser)
             self.assertTrue(user.check_password(TEST_PASSWORD))
             self.assertNotEqual(user.password, TEST_PASSWORD)
+        self.assertEqual(
+            users["uat_after_sales_operator"].workstream,
+            User.Workstream.AFTER_SALES,
+        )
+        self.assertEqual(users["uat_sales_agent"].workstream, User.Workstream.SALES)
+        for username in ("uat_sales_manager", "uat_company_it", "uat_platform_admin"):
+            self.assertEqual(users[username].workstream, User.Workstream.SALES)
 
         agent = users["uat_sales_agent"]
+        after_sales_operator = users["uat_after_sales_operator"]
         manager = users["uat_sales_manager"]
         customer = Customer.objects.get()
         self.assertEqual(customer.full_name, "مشتری ساختگی آزمون پذیرش")
         phone = CustomerPhone.objects.get()
+        category = ProductCategory.objects.get()
         product = Product.objects.get()
         lead = Lead.objects.get()
         assignment = LeadAssignmentHistory.objects.get()
         interaction = Interaction.objects.get()
         sale = Sale.objects.get()
+        after_sales_request = AfterSalesRequest.objects.get()
+        after_sales_history = AfterSalesHistory.objects.get()
 
         self.assertEqual(customer.created_by, agent)
         self.assertIn("ساختگی", customer.full_name)
         self.assertEqual(phone.customer, customer)
         self.assertEqual(phone.normalized_phone, "+989000000000")
         self.assertTrue(phone.is_primary)
+        self.assertEqual(category.code, "uat-synthetic")
+        self.assertEqual(category.created_by, manager)
         self.assertEqual(product.created_by, manager)
+        self.assertEqual(product.category, category)
+        self.assertEqual(product.brand, "برند ساختگی")
+        self.assertEqual(product.barcode, "UAT-SYNTHETIC-001")
         self.assertEqual(product.current_price, Decimal("125000.00"))
         self.assertEqual(lead.customer, customer)
         self.assertEqual(lead.interested_product, product)
@@ -230,6 +250,16 @@ class SeedSyntheticUatTests(TestCase):
         self.assertEqual(sale.unit_price_snapshot, Decimal("125000.00"))
         self.assertEqual(sale.total_amount, Decimal("250000.00"))
         self.assertEqual(sale.status, Sale.Status.CONFIRMED)
+        self.assertEqual(after_sales_request.customer, customer)
+        self.assertEqual(after_sales_request.sale, sale)
+        self.assertEqual(after_sales_request.assigned_to, after_sales_operator)
+        self.assertEqual(after_sales_request.created_by, manager)
+        self.assertEqual(after_sales_request.subject, "پرونده ساختگی خدمات پس از فروش")
+        self.assertEqual(after_sales_request.status, "جدید")
+        self.assertEqual(after_sales_history.request, after_sales_request)
+        self.assertEqual(after_sales_history.event, AfterSalesHistory.Event.CREATED)
+        self.assertEqual(after_sales_history.actor, manager)
+        self.assertEqual(after_sales_history.to_user, after_sales_operator)
 
         serialized_audit = str(
             list(ActivityLog.objects.values("operation", "safe_changes"))
@@ -239,11 +269,13 @@ class SeedSyntheticUatTests(TestCase):
         self.assertNotIn(TEST_PASSWORD, serialized_audit)
         self.assertEqual(
             ActivityLog.objects.filter(operation="user.uat_seeded").count(),
-            4,
+            5,
         )
+        self.assertTrue(ActivityLog.objects.filter(operation="product_category.created").exists())
         self.assertTrue(ActivityLog.objects.filter(operation="product.created").exists())
         self.assertTrue(ActivityLog.objects.filter(operation="lead.reassigned").exists())
         self.assertTrue(ActivityLog.objects.filter(operation="sale.created").exists())
+        self.assertTrue(ActivityLog.objects.filter(operation="after_sales.created").exists())
 
     def test_rerun_refuses_without_changing_rows(self):
         self.run_seed()
@@ -265,3 +297,4 @@ class SeedSyntheticUatTests(TestCase):
         self.assert_guarded_tables_empty()
         self.assertFalse(CustomerPhone.objects.exists())
         self.assertFalse(LeadAssignmentHistory.objects.exists())
+        self.assertFalse(AfterSalesHistory.objects.exists())
