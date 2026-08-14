@@ -1,6 +1,6 @@
 # Kariz CRM — Backend Specification
 
-**Document status:** Provisional authoritative implementation specification assembled from the established Kariz CRM conversation context and confirmed decisions. Newer explicit user decisions override this document.
+**Document status:** Provisional authoritative implementation specification assembled from the established Kariz CRM conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit, 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `KARIZ_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. Sections 2.3/2.4 were corrected in this pass because they contradicted this document's own §5.7A/§5.9 and the actual implemented code (verified by direct code inspection, not by re-reading old prose).
 
 **Product:** Kariz CRM / کاریز
 **Architecture:** Django + Django REST Framework + PostgreSQL + Docker Compose + Nginx, modular monolith, Linux target
@@ -45,19 +45,22 @@ Kariz CRM is an internal sales and customer-operations CRM for companies that re
 
 ### 2.3 Optional schema-compatible scope
 
-`AfterSalesRequest` may be implemented only when explicitly selected for the delivery scope. It requires a Customer and may optionally reference a Sale and a future Invoice.
+`AfterSalesRequest` is implemented. It requires a Customer and may optionally reference a Sale and a `SalesDocument` (the internal operational document defined in §5.7A) — not an Invoice, which does not exist in this codebase. See §5.9 for the exact field/authorization contract.
 
 ### 2.4 Blocked implementation modules
 
 Do not implement or claim completion for the following until a newer explicit decision defines source, creator, workflow, statuses, permissions, and acceptance criteria. Section 2.6 confirms that several families now belong to the Client-1 end target; target inclusion does not clear these implementation blocks:
 
 - Full Invoice and InvoiceItem module.
-- Invoice count/amount by city or province.
-- Postal/shipping status and history.
-- External SMS provider integration and trustworthy inbound SMS reporting.
+- Invoice count/amount by city or province (this requires the Invoice module above; it is distinct from the already-implemented `SalesDocument` province/city/postal-status report, see §5.7A).
+- External SMS provider integration: the live adapter/webhook only. **Correction (P0 audit, 2026-08-14):** provider-neutral internal storage and reporting over inbound SMS is implemented (see §5's InboundSMS contract in `docs/backend/ENTITY_CATALOG.md` and `docs/backend/API_CONTRACT.md`); only the live provider adapter, webhook, and outbound SMS remain blocked pending the exact material listed in `docs/backend/SMS_PROVIDER_ADAPTER_REQUIREMENTS.md`.
 - Automatic call-center/telephony integration.
 - Ecommerce/order/shipping/payment/inventory/tax/return/refund modules.
 - External website synchronization.
+
+**Correction (P0 audit, 2026-08-14):** "Postal/shipping status and history" was removed from this list. The internal operational `SalesDocument`/`PostalStatusHistory` pair is implemented per §5.7A/§6/§7.4A of this same document and verified against the actual code; it was stale here since that feature shipped. It is not an accounting/legal Invoice and does not clear any Invoice-related block above.
+
+**Note (P0 audit, 2026-08-14):** `ProductCategory` and `InboundSMS` are implemented entities that were added after this document's §5 was last extended. Their field/authorization contracts are maintained only in `docs/backend/ENTITY_CATALOG.md`, `docs/backend/RELATIONSHIPS.md`, and `docs/backend/API_CONTRACT.md` to avoid a second drift-prone copy; this document's business-rule authority (this section, §4, §9) still applies to them.
 
 ### 2.5 Out of scope by default
 
@@ -796,37 +799,12 @@ Use deterministic factories/fixtures and avoid real personal data.
 
 ## 15. Open unresolved decisions
 
-Keep these explicit and do not silently convert them into confirmed rules:
+**Correction (P0 audit, 2026-08-14):** this section previously duplicated a numbered decision list (with a numbering bug — two items both labeled "17") that drifts out of sync with the live register. There is now exactly one live, numbered register of open decisions: `KARIZ_PROJECT_HANDOFF.md` §14. This document does not maintain a second copy.
 
-1. Invoice/postal V1 decision: manager/IT manual entry, import, external API, or phase-two deferral.
-2. Exact mandatory pages/modules for accepted V1.
-3. Initial Lead assignment method.
-4. Final Lead status list.
-5. Final Interaction/call outcome list and qualifying call groupings.
-6. Exact “number of customers” KPI semantics.
-7. Conversion-rate denominator and reassignment-history policy.
-8. After-sales workflow, statuses, and Invoice requirement.
-9. Inbound SMS source/workflow.
-10. UI/XLSX calendar/timezone/Jalali presentation rule.
-11. Exact XLSX columns and formatting.
-12. Server resources and concurrent-user target.
-13. Backup destination and retention.
-14. External website data direction, credentials, and network path.
-15. Production hostname/certificate/TLS path.
-16. **RESOLVED 2026-08-11:** four fixed role codes and Persian labels are mapped in section 4; Platform Admin custody stays with `platform_admin`, and `company_it` cannot grant or manage it. Team/workstream scope remains a separate open decision.
-17. **RESOLVED 2026-08-12 for Client-1:** no Team model; Sales Manager has company-wide business scope and may administer Sales Agent accounts only. Elevated-role direct IDs are masked and role grants remain denied. A future multi-team product still needs a separate decision.
-17. No-seat-cap meaning, total accounts, peak concurrency, capacity target, and load abort rule.
-18. Customer category/postal/address/history/export/bulk/360 contracts.
-19. Lead conversion/priority/archive/Opportunity/Pipeline contracts.
-20. Calendar/task/project/reminder/notification/manual specialist-call contracts.
-21. Product category, Inventory/stock/cost/multi-price/discount/profit contracts.
-22. Order/internal document/quotation/accounting Invoice/Payment/ledger/cheque/installment/customer-account contracts.
-23. Detailed/domain/P&L/receivable/PDF/dynamic-report formulas, sources, visibility, and examples.
-24. File storage/scanner/version/retention/download/backup policy.
-25. Global search/saved-filter/XLSX-import contracts.
-26. Automation/dynamic-permission/PWA/anomaly-detection contracts.
-27. Per external website/store/gateway/accounting/email/SMS/telephony integration direction, official documentation, security, idempotency, reconciliation, and owner.
-28. One all-capability release versus approved staged delivery, plus ordering among unmarked additions; explicitly low-priority additions remain last.
+Two decisions affecting this document's own rules are resolved and stay recorded here as provenance:
+
+- **RESOLVED 2026-08-11:** four fixed role codes and Persian labels are mapped in §4; Platform Admin custody stays with `platform_admin`, and `company_it` cannot grant or manage it. Team/workstream scope was a separate decision, resolved next.
+- **RESOLVED 2026-08-12 for Client-1:** no Team model; Sales Manager has company-wide business scope and may administer Sales Agent accounts only. Elevated-role direct IDs are masked and role grants remain denied. A future multi-team product still needs a separate decision.
 
 Unresolved decisions block only the affected behavior. Continue all independent implementation and release-readiness work.
 
