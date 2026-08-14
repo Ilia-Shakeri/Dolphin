@@ -26,9 +26,13 @@ Append-only ownership change. Fields: lead, optional prior user, target user, ac
 
 Manual contact record. Fields: lead, denormalized customer, agent, phone, required direction, required outcome, occurrence time, optional next follow-up, notes, timestamps. Direction is exactly `inbound` or `outbound`. Outcome is nonblank and capped at 80 characters; final outcome codes wait for authority. Notes are capped at 4,000 characters. Customer and agent are server-controlled and checked against the lead and actor. Migration `sales.0010_interaction_contract` rejects invalid legacy row IDs before adding database direction/outcome checks. The API is append-only: no update or deletion endpoint.
 
+## ProductCategory
+
+Flat sellable taxonomy. Fields: immutable unique lowercase ASCII code; required display name; unique server-normalized name; optional bounded description; non-negative display order; active flag; creator/updater; timestamps. Name normalization applies Unicode NFKC, Arabic-to-Persian Yeh/Kaf mapping, whitespace collapse, trim, and casefold. Code and normalized name uniqueness plus code/name shapes are database-backed. Normal flow deactivates or explicitly reactivates; hard deletion is absent. A Category with an active linked Product cannot deactivate. Sales Agent reads active rows only; Sales Manager, Company IT, and Platform Admin manage active/inactive rows through locked audited services.
+
 ## Product
 
-Sellable reference. Fields: unique SKU, name, current decimal price, optional description, active flag, creator/updater, timestamps. Description is capped at 4,000 characters. Current price is greater than zero in validation and the database. Creator/updater are server-controlled. Normal flow deactivates. Product changes are limited to Sales Manager, Company IT, and Platform Admin, locked, and audited.
+Sellable reference. Fields: unique SKU, name, optional ProductCategory, optional plain brand, optional canonical barcode, current decimal price, optional description, active flag, creator/updater, timestamps. Product has zero or one Category; legacy rows remain null. Brand is capped at 120 characters. Barcode is absent when blank; otherwise it is uppercase ASCII `A-Z0-9._-`, capped at 64 characters, and globally unique through a partial database constraint. Description is capped at 4,000 characters. Current price is greater than zero in validation and the database. Creator/updater are server-controlled. Inactive Category assignment is rejected. Normal flow deactivates. Product changes are limited to Sales Manager, Company IT, and Platform Admin, locked, and audited. No stock, cost, multi-price, discount, tax, media, unit, or profit field is part of this contract.
 
 ## Sale
 

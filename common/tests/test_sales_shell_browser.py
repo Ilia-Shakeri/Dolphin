@@ -270,6 +270,102 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "activity-log-detail-content")))
         self.assert_browser_clean()
 
+    def test_manager_category_product_form_and_agent_read_only_browser_flow(self):
+        self.browser.set_window_size(1440, 1000)
+        self.login(self.manager)
+
+        self.browser.get(f"{self.live_server_url}/product-categories/")
+        self.wait.until(
+            expected_conditions.visibility_of_element_located(
+                (By.ID, "open-create-product-category")
+            )
+        ).click()
+        self.browser.find_element(By.ID, "create-product-category-code").send_keys("browser-goods")
+        self.browser.find_element(By.ID, "create-product-category-name").send_keys("کالای مرورگر")
+        order = self.browser.find_element(By.ID, "create-product-category-order")
+        order.clear()
+        order.send_keys("3")
+        self.browser.find_element(
+            By.CSS_SELECTOR, "#create-product-category-form button[type='submit']"
+        ).click()
+        self.wait.until(expected_conditions.url_matches(r"/product-categories/\d+/$"))
+        category_url = self.browser.current_url
+        self.wait.until(
+            expected_conditions.visibility_of_element_located(
+                (By.ID, "product-category-detail-content")
+            )
+        )
+        self.assertEqual(
+            self.browser.find_element(By.ID, "edit-product-category-code").get_attribute("value"),
+            "browser-goods",
+        )
+        self.browser.find_element(By.ID, "toggle-product-category").click()
+        self.wait.until(expected_conditions.alert_is_present()).accept()
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element_value(
+                (By.ID, "product-category-status"), "غیرفعال"
+            )
+        )
+        self.browser.find_element(By.ID, "toggle-product-category").click()
+        self.wait.until(expected_conditions.alert_is_present()).accept()
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element_value(
+                (By.ID, "product-category-status"), "فعال"
+            )
+        )
+
+        self.browser.get(f"{self.live_server_url}/products/")
+        self.wait.until(
+            lambda driver: len(Select(driver.find_element(By.ID, "product-category-filter")).options) > 1
+        )
+        self.browser.find_element(By.ID, "open-create-product").click()
+        self.browser.find_element(By.ID, "create-product-sku").send_keys("CAT-WEB-1")
+        self.browser.find_element(By.ID, "create-product-name").send_keys("محصول دسته‌دار مرورگر")
+        Select(self.browser.find_element(By.ID, "create-product-category")).select_by_visible_text("کالای مرورگر")
+        self.browser.find_element(By.ID, "create-product-brand").send_keys("برند مرورگر")
+        self.browser.find_element(By.ID, "create-product-barcode").send_keys("web-bar-1")
+        self.browser.find_element(By.ID, "create-product-price").send_keys("18.50")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
+        self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
+        product_url = self.browser.current_url
+        self.wait.until(
+            expected_conditions.visibility_of_element_located((By.ID, "product-detail-content"))
+        )
+        self.assertEqual(
+            Select(self.browser.find_element(By.ID, "edit-product-category")).first_selected_option.text,
+            "کالای مرورگر",
+        )
+        self.assertEqual(
+            self.browser.find_element(By.ID, "edit-product-barcode").get_attribute("value"),
+            "WEB-BAR-1",
+        )
+
+        self.logout()
+        self.login(self.agent)
+        self.browser.get(f"{self.live_server_url}/product-categories/")
+        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "product-categories-loading")))
+        self.assertFalse(self.browser.find_elements(By.ID, "open-create-product-category"))
+        self.assertIn("کالای مرورگر", self.browser.find_element(By.ID, "product-categories-table-body").text)
+        self.browser.get(category_url)
+        self.wait.until(
+            expected_conditions.visibility_of_element_located(
+                (By.ID, "product-category-detail-content")
+            )
+        )
+        self.assertFalse(self.browser.find_elements(By.ID, "toggle-product-category"))
+        self.assertFalse(
+            self.browser.find_elements(
+                By.CSS_SELECTOR, "#edit-product-category-form button[type='submit']"
+            )
+        )
+        self.browser.get(product_url)
+        self.wait.until(
+            expected_conditions.visibility_of_element_located((By.ID, "product-detail-content"))
+        )
+        self.assertFalse(self.browser.find_elements(By.ID, "deactivate-product"))
+        self.assertTrue(self.browser.find_element(By.ID, "edit-product-category").get_attribute("disabled"))
+        self.assert_browser_clean()
+
     def test_manager_to_agent_daily_workflow_and_company_report(self):
         self.browser.set_window_size(1440, 1000)
         self.login(self.manager)

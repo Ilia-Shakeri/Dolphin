@@ -15,6 +15,10 @@ FREE_TEXT_MAX_LENGTH = 4000
 INTERACTION_OUTCOME_MAX_LENGTH = 80
 SALES_DOCUMENT_NUMBER_MAX_LENGTH = 64
 POSTAL_STATUS_MAX_LENGTH = 80
+PRODUCT_CATEGORY_DESCRIPTION_MAX_LENGTH = 2000
+PRODUCT_CATEGORY_NAME_MAX_LENGTH = 120
+PRODUCT_BRAND_MAX_LENGTH = 120
+PRODUCT_BARCODE_MAX_LENGTH = 64
 
 
 class Customer(TimeStampedModel):
@@ -55,9 +59,46 @@ class CustomerPhone(TimeStampedModel):
         ]
 
 
+class ProductCategory(TimeStampedModel):
+    code = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=PRODUCT_CATEGORY_NAME_MAX_LENGTH)
+    normalized_name = models.CharField(max_length=PRODUCT_CATEGORY_NAME_MAX_LENGTH, unique=True, editable=False)
+    description = models.CharField(max_length=PRODUCT_CATEGORY_DESCRIPTION_MAX_LENGTH, blank=True)
+    display_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_product_categories")
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="updated_product_categories")
+
+    class Meta:
+        ordering = ["display_order", "name", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(code__regex=r"\A[a-z0-9][a-z0-9_-]{0,63}\Z"),
+                name="product_category_code_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(name__regex=r"\S"),
+                name="product_category_name_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(normalized_name__regex=r"\S"),
+                name="product_category_normalized_name_nonblank",
+            ),
+        ]
+
+
 class Product(TimeStampedModel):
     sku = models.CharField(max_length=80, unique=True)
     name = models.CharField(max_length=255, db_index=True)
+    category = models.ForeignKey(
+        ProductCategory,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="products",
+    )
+    brand = models.CharField(max_length=PRODUCT_BRAND_MAX_LENGTH, blank=True)
+    barcode = models.CharField(max_length=PRODUCT_BARCODE_MAX_LENGTH, blank=True, default="")
     current_price = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     description = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
@@ -66,7 +107,19 @@ class Product(TimeStampedModel):
 
     class Meta:
         ordering = ["name", "id"]
-        constraints = [models.CheckConstraint(condition=Q(current_price__gt=0), name="product_price_positive")]
+        constraints = [
+            models.CheckConstraint(condition=Q(current_price__gt=0), name="product_price_positive"),
+            models.CheckConstraint(
+                condition=Q(barcode="") | Q(barcode__regex=r"\A[A-Z0-9][A-Z0-9._-]{0,63}\Z"),
+                name="product_barcode_shape",
+            ),
+            models.UniqueConstraint(
+                fields=["barcode"],
+                condition=~Q(barcode=""),
+                name="uniq_product_nonblank_barcode",
+            ),
+        ]
+        indexes = [models.Index(fields=["category", "is_active", "name"])]
 
 
 class Lead(TimeStampedModel):

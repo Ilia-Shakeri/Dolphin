@@ -8,6 +8,7 @@ SELECT (
     AND to_regclass('public.sales_leadassignmenthistory') IS NOT NULL
     AND to_regclass('public.sales_interaction') IS NOT NULL
     AND to_regclass('public.sales_product') IS NOT NULL
+    AND to_regclass('public.sales_productcategory') IS NOT NULL
     AND to_regclass('public.sales_sale') IS NOT NULL
     AND to_regclass('public.sales_salesdocument') IS NOT NULL
     AND to_regclass('public.sales_postalstatushistory') IS NOT NULL
@@ -18,8 +19,8 @@ SELECT (
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'accounts') = '0003_after_sales_foundation'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'auditlog') = 2
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'auditlog') = '0002_activitylog_role_snapshots'
-    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'sales') = 12
-    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'sales') = '0012_sales_document_postal_foundation'
+    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'sales') = 13
+    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'sales') = '0013_product_barcode_product_brand_productcategory_and_more'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'aftersales') = 1
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'aftersales') = '0001_after_sales_foundation'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'communications') = 1
@@ -49,6 +50,10 @@ SELECT (
                 ('sales_interaction', 'interaction_outcome_nonblank'),
                 ('sales_lead', 'lead_assignment_fields_consistent'),
                 ('sales_product', 'product_price_positive'),
+                ('sales_product', 'product_barcode_shape'),
+                ('sales_productcategory', 'product_category_code_shape'),
+                ('sales_productcategory', 'product_category_name_nonblank'),
+                ('sales_productcategory', 'product_category_normalized_name_nonblank'),
                 ('sales_sale', 'sale_quantity_positive'),
                 ('sales_sale', 'sale_total_non_negative'),
                 ('sales_sale', 'sale_unit_price_non_negative'),
@@ -111,6 +116,41 @@ SELECT (
               '',
               'g'
           ) = 'is_activeANDis_primary'
+    )
+    AND EXISTS (
+        SELECT 1
+        FROM pg_class index_relation
+        JOIN pg_namespace index_namespace
+          ON index_namespace.oid = index_relation.relnamespace
+        JOIN pg_index index_info
+          ON index_info.indexrelid = index_relation.oid
+        WHERE index_namespace.nspname = 'public'
+          AND index_relation.relname = 'uniq_product_nonblank_barcode'
+          AND index_info.indrelid = to_regclass('public.sales_product')
+          AND index_info.indisunique
+          AND index_info.indisvalid
+          AND index_info.indisready
+          AND index_info.indislive
+          AND index_info.indnkeyatts = 1
+          AND pg_get_indexdef(index_relation.oid, 1, true) = 'barcode'
+          AND pg_get_expr(index_info.indpred, index_info.indrelid, true) IS NOT NULL
+    )
+    AND 2 = (
+        SELECT COUNT(*)
+        FROM pg_class index_relation
+        JOIN pg_namespace index_namespace
+          ON index_namespace.oid = index_relation.relnamespace
+        JOIN pg_index index_info
+          ON index_info.indexrelid = index_relation.oid
+        WHERE index_namespace.nspname = 'public'
+          AND index_info.indrelid = to_regclass('public.sales_productcategory')
+          AND index_info.indisunique
+          AND index_info.indisvalid
+          AND index_info.indisready
+          AND index_info.indislive
+          AND index_info.indnkeyatts = 1
+          AND pg_get_indexdef(index_relation.oid, 1, true) IN ('code', 'normalized_name')
+          AND index_info.indpred IS NULL
     )
 ) AS schema_contract_ok \gset
 

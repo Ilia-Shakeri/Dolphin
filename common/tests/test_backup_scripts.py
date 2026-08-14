@@ -155,6 +155,7 @@ class BackupScriptTests(SimpleTestCase):
             "sales_leadassignmenthistory",
             "sales_interaction",
             "sales_product",
+            "sales_productcategory",
             "sales_sale",
             "sales_salesdocument",
             "sales_postalstatushistory",
@@ -168,7 +169,7 @@ class BackupScriptTests(SimpleTestCase):
         for migration in (
             "0003_after_sales_foundation",
             "0002_activitylog_role_snapshots",
-            "0012_sales_document_postal_foundation",
+            "0013_product_barcode_product_brand_productcategory_and_more",
             "0001_after_sales_foundation",
             "0001_initial",
         ):
@@ -188,6 +189,10 @@ class BackupScriptTests(SimpleTestCase):
             "interaction_outcome_nonblank",
             "lead_assignment_fields_consistent",
             "product_price_positive",
+            "product_barcode_shape",
+            "product_category_code_shape",
+            "product_category_name_nonblank",
+            "product_category_normalized_name_nonblank",
             "sale_quantity_positive",
             "sale_total_non_negative",
             "sale_unit_price_non_negative",
@@ -205,12 +210,15 @@ class BackupScriptTests(SimpleTestCase):
                 "customer_id",
                 "is_activeANDis_primary",
             ),
+            ("uniq_product_nonblank_barcode", "barcode", ""),
         ):
             with self.subTest(index=index_name):
                 self.assertIn(index_name, schema)
                 self.assertIn(f"= '{column}'", schema)
-                self.assertIn(f"= '{predicate}'", schema)
+                if predicate:
+                    self.assertIn(f"= '{predicate}'", schema)
         self.assertIn("regexp_replace(", schema)
+        self.assertIn("IN ('code', 'normalized_name')", schema)
         self.assertEqual(schema.count("AS schema_contract_ok \\gset"), 1)
         self.assertEqual(restore.count("$verificationOutput = & $psql"), 1)
         self.assertIn("\\if :schema_contract_ok", schema)

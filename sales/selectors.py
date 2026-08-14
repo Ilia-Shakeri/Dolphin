@@ -1,7 +1,7 @@
 from django.db.models import Case, IntegerField, Q, Value, When
 
 from accounts.models import User
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Sale, SalesDocument
+from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument
 
 
 ELEVATED_OPERATIONAL = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -63,6 +63,17 @@ def interactions_for(user):
 
 def products_for(user):
     queryset = Product.objects.all()
+    if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
+        return queryset.filter(is_active=True)
+    if user.role in ELEVATED_OPERATIONAL:
+        return queryset
+    return queryset.none()
+
+
+def product_categories_for(user):
+    queryset = ProductCategory.objects.all()
     if user.role == User.Role.SALES_AGENT:
         if user.workstream == User.Workstream.AFTER_SALES:
             return queryset.none()

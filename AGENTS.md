@@ -120,6 +120,9 @@ apps/contacts/view-contact.html
 apps/ecommerce/catalog/products.html
 apps/ecommerce/catalog/add-product.html
 apps/ecommerce/catalog/edit-product.html
+apps/ecommerce/catalog/categories.html
+apps/ecommerce/catalog/add-category.html
+apps/ecommerce/catalog/edit-category.html
 apps/ecommerce/sales/listing.html
 apps/ecommerce/sales/details.html
 apps/ecommerce/sales/add-order.html

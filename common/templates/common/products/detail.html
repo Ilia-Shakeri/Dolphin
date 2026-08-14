@@ -10,6 +10,9 @@
         {% csrf_token %}<div class="form-grid">
             <div><label for="edit-product-sku">کد محصول</label><input id="edit-product-sku" name="sku" required maxlength="80"{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="sku"></p></div>
             <div><label for="edit-product-name">نام</label><input id="edit-product-name" name="name" required maxlength="255"{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="name"></p></div>
+            <div><label for="edit-product-category">دسته‌بندی</label><select id="edit-product-category" name="category"{% if not can_manage_products %} disabled{% endif %}><option value="">بدون دسته‌بندی</option></select><p class="field-error" data-error-for="category"></p></div>
+            <div><label for="edit-product-brand">برند</label><input id="edit-product-brand" name="brand" maxlength="120"{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="brand"></p></div>
+            <div><label for="edit-product-barcode">بارکد داخلی</label><input id="edit-product-barcode" name="barcode" maxlength="64" dir="ltr"{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="barcode"></p></div>
             <div><label for="edit-product-price">قیمت جاری</label><input id="edit-product-price" name="current_price" type="number" min="0.01" step="0.01" required{% if not can_manage_products %} disabled{% endif %}><p class="field-error" data-error-for="current_price"></p></div>
             <div><label for="product-status">وضعیت</label><input id="product-status" disabled></div>
             <div><label for="product-created-by">ایجادکننده</label><input id="product-created-by" disabled></div>

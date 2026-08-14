@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
@@ -20,6 +22,7 @@ from sales.models import (
     Lead,
     LeadAssignmentHistory,
     Product,
+    ProductCategory,
     Sale,
     SalesDocument,
     PostalStatusHistory,
@@ -44,7 +47,9 @@ CUSTOMER_MUTABLE_FIELDS = {
 }
 LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes"}
 PHONE_MUTABLE_FIELDS = {"raw_phone", "label", "is_primary", "is_active"}
-PRODUCT_MUTABLE_FIELDS = {"sku", "name", "current_price", "description"}
+PRODUCT_MUTABLE_FIELDS = {"sku", "name", "category", "brand", "barcode", "current_price", "description"}
+PRODUCT_CATEGORY_CREATE_FIELDS = {"code", "name", "description", "display_order"}
+PRODUCT_CATEGORY_UPDATE_FIELDS = {"name", "description", "display_order"}
 INTERACTION_CREATE_FIELDS = {"phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes"}
 SALE_CREATE_FIELDS = {"sold_at", "notes"}
 CUSTOMER_TEXT_LIMITS = {
@@ -54,7 +59,12 @@ CUSTOMER_TEXT_LIMITS = {
     "notes": FREE_TEXT_MAX_LENGTH,
 }
 LEAD_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
-PRODUCT_TEXT_LIMITS = {"description": FREE_TEXT_MAX_LENGTH}
+PRODUCT_TEXT_LIMITS = {
+    "brand": 120,
+    "barcode": 64,
+    "description": FREE_TEXT_MAX_LENGTH,
+}
+PRODUCT_CATEGORY_TEXT_LIMITS = {"description": 2000}
 INTERACTION_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
 SALE_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
 SALES_DOCUMENT_TEXT_LIMITS = {
@@ -102,6 +112,41 @@ def _lock_operational_actor(actor):
     if locked.role not in OPERATIONAL_WRITERS:
         raise BusinessPermissionDenied("Operational changes are not allowed.")
     return locked
+
+
+_CATEGORY_CODE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$", flags=re.ASCII)
+_PRODUCT_BARCODE = re.compile(r"^[A-Z0-9][A-Z0-9._-]{0,63}$", flags=re.ASCII)
+_PERSIAN_LETTERS = str.maketrans({"ي": "ی", "ى": "ی", "ك": "ک"})
+
+
+def _clean_category_name(value):
+    name = " ".join(unicodedata.normalize("NFKC", str(value)).translate(_PERSIAN_LETTERS).split())
+    if not name:
+        raise BusinessRuleError({"name": "Category name is required."})
+    if len(name) > 120:
+        raise BusinessRuleError({"name": "Ensure this field has no more than 120 characters."})
+    return name, name.casefold()
+
+
+def _clean_category_code(value):
+    code = unicodedata.normalize("NFKC", str(value)).strip().lower()
+    if not _CATEGORY_CODE.fullmatch(code):
+        raise BusinessRuleError({"code": "Use lowercase ASCII letters, digits, underscore, or hyphen."})
+    return code
+
+
+def _clean_product_barcode(value):
+    barcode = unicodedata.normalize("NFKC", str(value or "")).strip().upper()
+    if barcode and not _PRODUCT_BARCODE.fullmatch(barcode):
+        raise BusinessRuleError({"barcode": "Use ASCII letters, digits, dot, underscore, or hyphen."})
+    return barcode
+
+
+def _clean_single_line(value, *, field, limit):
+    cleaned = " ".join(unicodedata.normalize("NFKC", str(value or "")).split())
+    if len(cleaned) > limit:
+        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+    return cleaned
 
 
 @transaction.atomic
@@ -238,6 +283,97 @@ def update_lead(*, actor, lead, **changes):
 
 
 @transaction.atomic
+def create_product_category(*, actor, **data):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Product category management is not allowed.")
+    unknown = set(data) - PRODUCT_CATEGORY_CREATE_FIELDS
+    if unknown:
+        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+    _validate_text_lengths(data, PRODUCT_CATEGORY_TEXT_LIMITS)
+    name, normalized_name = _clean_category_name(data.get("name", ""))
+    code = _clean_category_code(data.get("code", ""))
+    display_order = data.get("display_order", 0)
+    if isinstance(display_order, bool) or not isinstance(display_order, int) or display_order < 0:
+        raise BusinessRuleError({"display_order": "Display order must be a non-negative integer."})
+    try:
+        category = ProductCategory.objects.create(
+            code=code,
+            name=name,
+            normalized_name=normalized_name,
+            description=data.get("description", ""),
+            display_order=display_order,
+            created_by=actor,
+            updated_by=actor,
+        )
+    except IntegrityError as exc:
+        raise BusinessConflictError({
+            "code": "Category code must be unique.",
+            "name": "Normalized category name must be unique.",
+        }) from exc
+    log_activity(
+        actor=actor,
+        operation="product_category.created",
+        instance=category,
+        changes={"fields": sorted(PRODUCT_CATEGORY_CREATE_FIELDS.intersection(data))},
+    )
+    return category
+
+
+@transaction.atomic
+def update_product_category(*, actor, category, **changes):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Product category management is not allowed.")
+    locked = ProductCategory.objects.select_for_update().get(pk=category.pk)
+    unknown = set(changes) - PRODUCT_CATEGORY_UPDATE_FIELDS
+    if unknown:
+        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+    _validate_text_lengths(changes, PRODUCT_CATEGORY_TEXT_LIMITS)
+    if "name" in changes:
+        changes["name"], changes["normalized_name"] = _clean_category_name(changes["name"])
+    if "display_order" in changes:
+        display_order = changes["display_order"]
+        if isinstance(display_order, bool) or not isinstance(display_order, int) or display_order < 0:
+            raise BusinessRuleError({"display_order": "Display order must be a non-negative integer."})
+    changed_fields = []
+    for field, value in changes.items():
+        if getattr(locked, field) != value:
+            setattr(locked, field, value)
+            changed_fields.append(field)
+    if changed_fields:
+        locked.updated_by = actor
+        try:
+            locked.save(update_fields=[*changed_fields, "updated_by", "updated_at"])
+        except IntegrityError as exc:
+            raise BusinessConflictError({"name": "Normalized category name already exists."}) from exc
+        log_activity(
+            actor=actor,
+            operation="product_category.updated",
+            instance=locked,
+            changes={"fields": sorted(changed_fields)},
+        )
+    return locked
+
+
+def _prepare_product_values(data):
+    prepared = dict(data)
+    if "category" in prepared and prepared["category"] is not None:
+        category = ProductCategory.objects.select_for_update().filter(
+            pk=prepared["category"].pk,
+            is_active=True,
+        ).first()
+        if category is None:
+            raise BusinessRuleError({"category": "Select an active category."})
+        prepared["category"] = category
+    if "brand" in prepared:
+        prepared["brand"] = _clean_single_line(prepared["brand"], field="brand", limit=120)
+    if "barcode" in prepared:
+        prepared["barcode"] = _clean_product_barcode(prepared["barcode"])
+    return prepared
+
+
+@transaction.atomic
 def create_product(*, actor, **data):
     actor = _lock_active_actor(actor)
     if actor.role not in ELEVATED_OPERATORS:
@@ -246,10 +382,14 @@ def create_product(*, actor, **data):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
     _validate_text_lengths(data, PRODUCT_TEXT_LIMITS)
+    data = _prepare_product_values(data)
     try:
         product = Product.objects.create(created_by=actor, updated_by=actor, **data)
     except IntegrityError as exc:
-        raise BusinessConflictError({"sku": "SKU already exists or product data is invalid."}) from exc
+        raise BusinessConflictError({
+            "sku": "SKU already exists or product data is invalid.",
+            "barcode": "Nonblank barcode must be unique.",
+        }) from exc
     log_activity(actor=actor, operation="product.created", instance=product, changes={"fields": sorted(data)})
     return product
 
@@ -264,9 +404,12 @@ def update_product(*, actor, product, **changes):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
     _validate_text_lengths(changes, PRODUCT_TEXT_LIMITS)
+    changes = _prepare_product_values(changes)
     changed_fields = []
     for field, value in changes.items():
-        if getattr(locked, field) != value:
+        current = getattr(locked, f"{field}_id") if field == "category" else getattr(locked, field)
+        incoming = value.pk if field == "category" and value is not None else value
+        if current != incoming:
             setattr(locked, field, value)
             changed_fields.append(field)
     if changed_fields:
@@ -274,7 +417,10 @@ def update_product(*, actor, product, **changes):
         try:
             locked.save(update_fields=[*changed_fields, "updated_by", "updated_at"])
         except IntegrityError as exc:
-            raise BusinessConflictError({"sku": "SKU already exists or product data is invalid."}) from exc
+            raise BusinessConflictError({
+                "sku": "SKU already exists or product data is invalid.",
+                "barcode": "Nonblank barcode must be unique.",
+            }) from exc
         log_activity(actor=actor, operation="product.updated", instance=locked, changes={"fields": sorted(changed_fields)})
     return locked
 
@@ -523,3 +669,37 @@ def deactivate_product(*, actor, product):
     product.save(update_fields=["is_active", "updated_by", "updated_at"])
     log_activity(actor=actor, operation="product.deactivated", instance=product)
     return product
+
+
+@transaction.atomic
+def deactivate_product_category(*, actor, category):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Product category management is not allowed.")
+    category = ProductCategory.objects.select_for_update().get(pk=category.pk)
+    if not category.is_active:
+        raise BusinessConflictError({"is_active": "Product category is already inactive."})
+    if Product.objects.select_for_update().filter(category=category, is_active=True).exists():
+        raise BusinessConflictError({
+            "category": "Move or deactivate active products before deactivating this category."
+        })
+    category.is_active = False
+    category.updated_by = actor
+    category.save(update_fields=["is_active", "updated_by", "updated_at"])
+    log_activity(actor=actor, operation="product_category.deactivated", instance=category)
+    return category
+
+
+@transaction.atomic
+def reactivate_product_category(*, actor, category):
+    actor = _lock_active_actor(actor)
+    if actor.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Product category management is not allowed.")
+    category = ProductCategory.objects.select_for_update().get(pk=category.pk)
+    if category.is_active:
+        raise BusinessConflictError({"is_active": "Product category is already active."})
+    category.is_active = True
+    category.updated_by = actor
+    category.save(update_fields=["is_active", "updated_by", "updated_at"])
+    log_activity(actor=actor, operation="product_category.reactivated", instance=category)
+    return category

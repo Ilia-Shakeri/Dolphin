@@ -5,6 +5,7 @@
 - User 1:N Lead through required `created_by`; PROTECT; server-controlled; creator alone does not grant agent visibility after assignment.
 - User 1:N Lead through nullable `assigned_to` and `assigned_by`; PROTECT; server-controlled; assignee controls Sales Agent visibility; indexed. Assignee, assigner, and assignment time are all set or all empty.
 - Customer 1:N Lead through required customer; PROTECT; historical leads prevent customer deletion.
+- ProductCategory 1:N Product through nullable category; PROTECT; Product has zero or one Category. Active Category assignment is service-locked. A Category cannot deactivate while an active Product references it; inactive Products preserve historical links.
 - Product 1:N Lead through nullable interested product; PROTECT; product deactivation preserves links.
 - Lead 1:N LeadAssignmentHistory; PROTECT; append-only; history cannot own/delete lead.
 - User 1:N LeadAssignmentHistory through nullable prior user and required target/actor; PROTECT; server-controlled.

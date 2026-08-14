@@ -8,7 +8,15 @@ from accounts.access import capabilities_for, crm_identities, has_any_capability
 from accounts.models import User
 from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
-from sales.selectors import customers_for, interactions_for, leads_for, products_for, sales_documents_for, sales_for
+from sales.selectors import (
+    customers_for,
+    interactions_for,
+    leads_for,
+    product_categories_for,
+    products_for,
+    sales_documents_for,
+    sales_for,
+)
 
 
 ROLE_LABELS = {
@@ -289,6 +297,21 @@ class KarizInteractionDetailView(ScopedDetailView):
 
 class KarizProductListView(ActiveCrmView):
     template_name = "common/products/list.html"
+
+
+class KarizProductCategoryListView(ActiveCrmView):
+    template_name = "common/product_categories/list.html"
+
+
+class KarizProductCategoryDetailView(ScopedDetailView):
+    template_name = "common/product_categories/detail.html"
+    object_id_kwarg = "category_id"
+    context_id_name = "category_id"
+    not_found_title = "دسته‌بندی پیدا نشد"
+    not_found_message = "دسته‌بندی در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return product_categories_for(self.request.user)
 
 
 class KarizProductDetailView(ScopedDetailView):

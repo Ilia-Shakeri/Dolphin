@@ -1,0 +1,31 @@
+{% extends "common/base.html" %}
+{% block title %}دسته‌بندی محصولات{% endblock %}
+{% block page_id %}product-categories{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">کاتالوگ فروش</p><h1>دسته‌بندی محصولات</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:products' %}">محصولات</a>{% if can_manage_products %}<button id="open-create-product-category" class="button" type="button">دسته‌بندی تازه</button>{% endif %}</div></section>
+<section class="card">
+    <form id="product-category-search-form" action="{% url 'common_ui:product-categories' %}" method="get" class="toolbar">
+        <label class="sr-only" for="product-category-search">جستجوی دسته‌بندی</label><input id="product-category-search" name="search" type="search" placeholder="نام، کد یا شرح دسته‌بندی">
+        <label class="sr-only" for="product-category-status-filter">وضعیت</label><select id="product-category-status-filter" name="is_active"><option value="">همه دسته‌بندی‌ها</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
+        <label class="sr-only" for="product-category-ordering">مرتب‌سازی</label><select id="product-category-ordering" name="ordering"><option value="display_order">ترتیب نمایش</option><option value="name">نام</option><option value="code">کد</option><option value="-created_at">تازه‌ترین</option></select>
+        <button class="button button-muted" type="submit">اعمال</button>
+    </form>
+    <div id="product-categories-loading" class="state">در حال دریافت دسته‌بندی‌ها…</div><div id="product-categories-empty" class="state" hidden>دسته‌بندی پیدا نشد.</div>
+    <div id="product-categories-table-wrap" class="table-wrap" hidden><table><thead><tr><th>ترتیب</th><th>کد</th><th>نام</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="product-categories-table-body"></tbody></table></div>
+    <nav id="product-categories-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="product-categories-prev" class="button button-muted" type="button">قبلی</button><span id="product-categories-page-label"></span><button id="product-categories-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+{% if can_manage_products %}
+<dialog id="create-product-category-dialog" aria-labelledby="create-product-category-title">
+    <form id="create-product-category-form" action="/api/v1/product-categories/" method="post" novalidate>
+        {% csrf_token %}<div class="dialog-head"><h2 id="create-product-category-title">دسته‌بندی تازه</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="form-grid">
+            <div><label for="create-product-category-code">کد پایدار</label><input id="create-product-category-code" name="code" required maxlength="64" dir="ltr" pattern="[a-z0-9][a-z0-9_-]*"><p class="field-error" data-error-for="code"></p></div>
+            <div><label for="create-product-category-name">نام</label><input id="create-product-category-name" name="name" required maxlength="120"><p class="field-error" data-error-for="name"></p></div>
+            <div><label for="create-product-category-order">ترتیب نمایش</label><input id="create-product-category-order" name="display_order" type="number" min="0" step="1" value="0" required><p class="field-error" data-error-for="display_order"></p></div>
+            <div class="full-field"><label for="create-product-category-description">شرح</label><textarea id="create-product-category-description" name="description" maxlength="2000"></textarea><p class="field-error" data-error-for="description"></p></div>
+        </div>
+        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت دسته‌بندی</button></div>
+    </form>
+</dialog>
+{% endif %}
+{% endblock %}

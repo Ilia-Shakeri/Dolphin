@@ -40,6 +40,7 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("UPDATE communications_inboundsms", source)
         self.assertIn("DELETE FROM communications_inboundsms", source)
         self.assertIn("DELETE FROM sales_interaction", source)
+        self.assertIn("DELETE FROM sales_productcategory", source)
         self.assertIn("UPDATE aftersales_aftersaleshistory", source)
         self.assertIn("DELETE FROM aftersales_aftersalesrequest", source)
         self.assertIn("SELECT public.kariz_contract_probe()", source)
@@ -68,6 +69,7 @@ class PostgresHarnessContractTests(SimpleTestCase):
             "communications_inboundsms",
             "sales_interaction",
             "sales_leadassignmenthistory",
+            "sales_productcategory",
             "django_admin_log",
             "django_migrations",
         ):

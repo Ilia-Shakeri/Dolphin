@@ -8,6 +8,13 @@ C1-0 and source reconciliation are complete. Direct decisions resolve C1-DEC-ROL
 
 This roadmap gives phase steps. `KARIZ_PROJECT_HANDOFF.md` remains the only live status and evidence source.
 
+## FINAL_WAVE_LOW current progress — 2026-08-14
+
+- [x] Module 1: flat Product Category and final Product form. Additive migration `sales.0013` adds Category, optional Product relation, brand, and canonical unique nonblank barcode. Locked services, safe audit, scoped API/OpenAPI, Persian RTL Category list/detail/forms, Product Category filter/form fields, direct-ID/privilege tests, and browser manager-versus-agent proof are implemented.
+- Verification: focused module/infrastructure `46/46`, affected workflows `58/58`, API/system `31/31`, real Chrome journey `1/1`, and full suite `338` run with `331` pass plus `7` intentional PostgreSQL-only skips. Check, drift, OpenAPI, JS, branding, static, script parse, and diff gates pass.
+- [ ] Module 2: Inventory/stock movement and concurrency. Not started. Exact unit, warehouse/location, opening balance, movement types, reservation, negative-stock, adjustment, cancellation/reversal, and legacy opening-stock semantics must be contracted before its migration.
+- Later modules remain in the user-supplied order. No financial, file, import, integration, PWA, automation, or anomaly model was bundled into module 1.
+
 ## Phase map
 
 | Phase | Purpose | May change production behavior? | Gate |
@@ -34,15 +41,15 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 | Accounts | Four fixed clean CRM roles; session login/logout/me; profile; controlled user lifecycle/role; bounded Sales Agent `sales`/`after_sales` workstream. | Session inventory/revoke, avatar, notices, export, seat/capacity acceptance. |
 | Customer/phone | Scoped Customer CRUD/deactivate; optional postal code and plain-text category; read-only primary-phone projection; many normalized phones; duplicate and primary guards; paged scoped Lead/Interaction/Sale profile relations. | Governed category taxonomy, country-specific postal validation, document link, export/bulk/merge. |
 | Lead/contact | Scoped Lead CRUD; manual reassignment/history; append-only manual Interaction. | Final statuses, Team/auto-assign, priority/archive/conversion/Pipeline, contact status, timeline/calendar/task/reminder, specialist report, telephony. |
-| Product/Sale | Elevated Product manage, agent read; operational Sale snapshot/create/cancel. | Category/form expansion, Inventory/pricing/profit, Order/quotation/Invoice, postal, Payment/finance/PDF. |
-| Reports/audit | Four exact performance metrics, role-aware dashboard, same-scope paged drill-down, JSON/UI/XLSX parity, scoped read-only audit, document geography/postal report. | Contact/SMS/domain reports, P&L/receivable source modules, dynamic builder. |
-| Active UI | Maintained Persian RTL core, document/postal, and after-sales list/detail pages connected to real APIs. | No SMS, file, import, automation, integration, or unapproved expanded-report pages. |
+| Product/Sale | Flat Product Category; optional Category/brand/canonical barcode Product form; scoped Category filter; elevated Product/Category manage and agent active read-only; operational Sale snapshot/create/cancel. | Inventory/pricing/profit, Order/quotation/accounting Invoice, Payment/finance/PDF. |
+| Reports/audit | Four exact performance metrics, role-aware dashboard, same-scope paged drill-down, JSON/UI/XLSX parity, scoped read-only audit, document geography/postal report, and provider-neutral inbound SMS date/hour report. | Contact-status/domain reports, P&L/receivable source modules, dynamic builder, live provider adapter. |
+| Active UI | Maintained Persian RTL core, Product Category/final Product form, document/postal, after-sales, and SMS report pages connected to real APIs. | No file, import, automation, integration, or unapproved expanded-report pages. |
 | Runtime | PostgreSQL/Compose/Nginx/backup-ready repository artifacts and local checks exist. | Native target stack, TLS/browser, real backup/restore, load/scan, UAT/cutover proof. |
 
 ### Existing API and template boundary
 
-- Existing API families: auth; users plus change-role; customers plus deactivate and paged related Lead/Interaction/Sale reads; customer phones plus deactivate; leads plus assignees, assignment-history, and reassign; append-only interactions; products plus deactivate; sales plus cancel; user-performance JSON/XLSX; read-only activity logs; live/ready health.
-- Existing templates: shell/error/login/profile; user list/detail; Customer list/detail profile with fields, phone work, and scoped related records; Lead list/detail; Interaction list/detail; Product list/detail; Sale list/detail; performance report; ActivityLog list/detail.
+- Existing API families: auth; users plus change-role; customers plus deactivate and paged related Lead/Interaction/Sale reads; customer phones plus deactivate; leads plus assignees, assignment-history, and reassign; append-only interactions; Product Categories plus lifecycle; Products plus Category filter/deactivate; sales plus cancel; user-performance JSON/XLSX; read-only activity logs; live/ready health.
+- Existing templates: shell/error/login/profile; user list/detail; Customer list/detail profile with fields, phone work, and scoped related records; Lead list/detail; Interaction list/detail; Product Category list/detail; expanded Product list/detail; Sale list/detail; performance report; ActivityLog list/detail.
 - Existing role boundary: Sales Agent gets own/assigned operational scope; Sales Manager gets company operational scope but no user admin or audit; Company IT manages non-platform CRM users and scoped audit; Platform Admin has full CRM user/audit scope. Product writes, reassignment, Customer deactivate, and Sale cancel are elevated-only.
 - Common guard: active clean CRM identity, backend queryset/object scope, direct-ID masking, server-owned fields, safe audit, sensitive throttles, and no normal hard delete of business history.
 
@@ -53,10 +60,10 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 | C1-REQ-001 sales panel/no seat cap | `BLOCKED_DECISION`; partial core exists | Seat meaning, role/workstream/team, panel acceptance, capacity/load/UAT. |
 | C1-REQ-002 after-sales panel/no seat cap | `IMPLEMENTED_BACKEND` plus maintained UI/browser proof for narrow panel | Exact status graph/reopen/SLA/retention, capacity target, external UAT. |
 | C1-REQ-003 detailed performance/drill-down | `DONE` locally for the four approved metrics | External Client-1 UAT/runtime proof only; new formulas need separate approval. |
-| C1-REQ-004 inbound SMS day/hour | `BLOCKED_DECISION` plus live `BLOCKED_EXTERNAL`; absent | Provider/security/idempotency/storage/time/report contract. |
-| C1-REQ-005 document count by city/province | `BLOCKED_DECISION`; absent | Counted document, geography snapshot, date/formula/scope. |
+| C1-REQ-004 inbound SMS day/hour | `DONE` locally for provider-neutral storage/report; live adapter `BLOCKED_EXTERNAL` | Official provider authentication/signature/replay/payload docs and credentials; external runtime/UAT. |
+| C1-REQ-005 document count by city/province | `DONE` locally for operational SalesDocument snapshots/report | External runtime/UAT; full accounting document remains separate. |
 | C1-REQ-006 incoming number by contact status | `BLOCKED_DECISION`; absent | Counted unit, dedupe, status derivation, time/scope. |
-| C1-REQ-007 document count by postal status | `BLOCKED_DECISION`; absent | Document, postal state/history/actor/date/report contract. |
+| C1-REQ-007 document count by postal status | `DONE` locally for bounded operational postal state/history/report | Exact business status vocabulary/graph and carrier integration remain separate. |
 
 ### Current gate and implementation order
 
@@ -65,9 +72,9 @@ This is the phase-planning mirror of `KARIZ_PROJECT_HANDOFF.md` section 23. It r
 3. C1-3 minimal document/geography/postal base: implemented locally; full legal/accounting/carrier scope stays blocked.
 4. C1-4 detailed performance is implemented locally; contact-status reporting remains blocked by its missing contact-status contract.
 5. C1-5 narrow after-sales panel: implemented locally; exact status/reopen/SLA/retention and external UAT remain blocked.
-6. Approve and run C1-6 SMS core/report; live adapter needs official provider docs.
-7. Build approved normal-priority Lead/Product/collaboration/report/platform additions.
-8. Build `FINAL_WAVE_LOW` Inventory/finance/files/search-import/PDF/dynamic-report/checked integrations.
+6. C1-6 provider-neutral SMS core/report is implemented locally; live adapter still needs official provider docs.
+7. Product Category/final Product form is implemented locally as `FINAL_WAVE_LOW` module 1.
+8. Next is the separate Inventory/stock-movement contract and migration; finance/files/search-import/PDF/dynamic-report/checked integrations stay later.
 9. Run C1-7 unified active UI.
 10. Run C1-8 runtime proof, then C1-9 target UAT/cutover.
 

@@ -935,18 +935,134 @@
         } catch (error) { loading.hidden = true; showError(error); }
     }
 
+    function productCategoryRow(category) {
+        const row = document.createElement("tr");
+        appendCell(row, category.display_order);
+        appendCell(row, category.code);
+        appendCell(row, category.name);
+        appendCell(row, statusText(category.is_active));
+        appendDetailLink(row, `/product-categories/${category.id}/`);
+        return row;
+    }
+
+    function setupProductCategories() {
+        const form = document.getElementById("product-category-search-form");
+        const controller = setupPagedList({
+            key: "product-categories",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("product-category-search").value.trim();
+                if (search) query.set("search", search);
+                const isActive = document.getElementById("product-category-status-filter").value;
+                if (isActive) query.set("is_active", isActive);
+                query.set("ordering", document.getElementById("product-category-ordering").value);
+                return `/api/v1/product-categories/?${query}`;
+            },
+            renderRow: productCategoryRow,
+        });
+        const dialog = document.getElementById("create-product-category-dialog");
+        if (dialog) {
+            const createForm = document.getElementById("create-product-category-form");
+            document.getElementById("open-create-product-category").addEventListener("click", () => dialog.showModal());
+            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const payload = formPayload(createForm, ["code", "name", "description"]);
+                    payload.display_order = Number(new FormData(createForm).get("display_order"));
+                    const category = await apiRequest(createForm.action, {method: "POST", body: payload});
+                    window.location.assign(`/product-categories/${category.id}/`);
+                });
+            });
+        }
+        controller.load();
+    }
+
+    function fillProductCategory(category) {
+        document.getElementById("edit-product-category-code").value = category.code;
+        document.getElementById("edit-product-category-name").value = category.name;
+        document.getElementById("edit-product-category-order").value = category.display_order;
+        document.getElementById("edit-product-category-description").value = category.description || "";
+        document.getElementById("product-category-status").value = statusText(category.is_active);
+        document.getElementById("product-category-created-by").value = category.created_by_display || category.created_by;
+        document.getElementById("product-category-updated-by").value = category.updated_by_display || category.updated_by;
+        const toggle = document.getElementById("toggle-product-category");
+        if (toggle) {
+            toggle.textContent = category.is_active ? "غیرفعال کردن دسته‌بندی" : "فعال کردن دوباره دسته‌بندی";
+            toggle.classList.toggle("button-danger", category.is_active);
+        }
+    }
+
+    async function setupProductCategoryDetail() {
+        const categoryId = document.body.dataset.categoryId;
+        const endpoint = `/api/v1/product-categories/${categoryId}/`;
+        const loading = document.getElementById("product-category-detail-loading");
+        const content = document.getElementById("product-category-detail-content");
+        let category;
+        try {
+            category = await apiRequest(endpoint);
+            fillProductCategory(category);
+            loading.hidden = true;
+            content.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+            return;
+        }
+        const form = document.getElementById("edit-product-category-form");
+        if (form.querySelector("button[type='submit']")) {
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(form, async () => {
+                    const payload = formPayload(form, ["name", "description"]);
+                    payload.display_order = Number(new FormData(form).get("display_order"));
+                    category = await apiRequest(endpoint, {method: "PATCH", body: payload});
+                    fillProductCategory(category);
+                    globalMessage("دسته‌بندی ذخیره شد.", true);
+                });
+            });
+        }
+        const toggle = document.getElementById("toggle-product-category");
+        toggle?.addEventListener("click", async () => {
+            const action = category.is_active ? "deactivate" : "reactivate";
+            const prompt = category.is_active ? "این دسته‌بندی غیرفعال شود؟" : "این دسته‌بندی دوباره فعال شود؟";
+            if (!window.confirm(prompt)) return;
+            toggle.disabled = true;
+            try {
+                category = await apiRequest(`${endpoint}${action}/`, {method: "POST"});
+                fillProductCategory(category);
+                globalMessage(category.is_active ? "دسته‌بندی فعال شد." : "دسته‌بندی غیرفعال شد.", true);
+            } catch (error) {
+                showError(error);
+            } finally {
+                toggle.disabled = false;
+            }
+        });
+    }
+
     function productRow(product) {
         const row = document.createElement("tr");
         appendCell(row, product.sku);
         appendCell(row, product.name);
+        appendCell(row, product.category_name || "بدون دسته‌بندی");
+        appendCell(row, product.brand || "—");
         appendCell(row, product.current_price);
         appendCell(row, statusText(product.is_active));
         appendDetailLink(row, `/products/${product.id}/`);
         return row;
     }
 
-    function setupProducts() {
+    async function setupProducts() {
         const form = document.getElementById("product-search-form");
+        try {
+            const categories = await loadAllPages("/api/v1/product-categories/?is_active=true&ordering=display_order");
+            fillSelect(document.getElementById("product-category-filter"), categories, (category) => category.name, "همه دسته‌بندی‌ها");
+            const createCategory = document.getElementById("create-product-category");
+            if (createCategory) fillSelect(createCategory, categories, (category) => category.name, "بدون دسته‌بندی");
+        } catch (error) {
+            showError(error);
+        }
         const controller = setupPagedList({
             key: "products",
             form,
@@ -956,6 +1072,8 @@
                 if (search) query.set("search", search);
                 const isActive = document.getElementById("product-status-filter").value;
                 if (isActive) query.set("is_active", isActive);
+                const category = document.getElementById("product-category-filter").value;
+                if (category) query.set("category", category);
                 query.set("ordering", document.getElementById("product-ordering").value);
                 return `/api/v1/products/?${query}`;
             },
@@ -969,7 +1087,9 @@
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(createForm, async () => {
-                    const product = await apiRequest(createForm.action, {method: "POST", body: formPayload(createForm, ["sku", "name", "current_price", "description"])});
+                    const payload = formPayload(createForm, ["sku", "name", "brand", "barcode", "current_price", "description"]);
+                    payload.category = new FormData(createForm).get("category") ? Number(new FormData(createForm).get("category")) : null;
+                    const product = await apiRequest(createForm.action, {method: "POST", body: payload});
                     window.location.assign(`/products/${product.id}/`);
                 });
             });
@@ -980,6 +1100,9 @@
     function fillProduct(product) {
         document.getElementById("edit-product-sku").value = product.sku;
         document.getElementById("edit-product-name").value = product.name;
+        document.getElementById("edit-product-category").value = product.category || "";
+        document.getElementById("edit-product-brand").value = product.brand || "";
+        document.getElementById("edit-product-barcode").value = product.barcode || "";
         document.getElementById("edit-product-price").value = product.current_price;
         document.getElementById("edit-product-description").value = product.description || "";
         document.getElementById("product-status").value = statusText(product.is_active);
@@ -999,7 +1122,15 @@
         const content = document.getElementById("product-detail-content");
         let product;
         try {
-            product = await apiRequest(endpoint);
+            const [productValue, categories] = await Promise.all([
+                apiRequest(endpoint),
+                loadAllPages("/api/v1/product-categories/?is_active=true&ordering=display_order"),
+            ]);
+            product = productValue;
+            if (product.category && !categories.some((category) => category.id === product.category)) {
+                categories.push({id: product.category, name: `${product.category_name || "دسته‌بندی"} (غیرفعال)`});
+            }
+            fillSelect(document.getElementById("edit-product-category"), categories, (category) => category.name, "بدون دسته‌بندی");
             fillProduct(product);
             loading.hidden = true;
             content.hidden = false;
@@ -1013,7 +1144,9 @@
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(form, async () => {
-                    product = await apiRequest(endpoint, {method: "PATCH", body: formPayload(form, ["sku", "name", "current_price", "description"])});
+                    const payload = formPayload(form, ["sku", "name", "brand", "barcode", "current_price", "description"]);
+                    payload.category = new FormData(form).get("category") ? Number(new FormData(form).get("category")) : null;
+                    product = await apiRequest(endpoint, {method: "PATCH", body: payload});
                     fillProduct(product);
                     globalMessage("محصول ذخیره شد.", true);
                 });
@@ -1824,6 +1957,8 @@
     if (page === "interaction-detail") setupInteractionDetail();
     if (page === "products") setupProducts();
     if (page === "product-detail") setupProductDetail();
+    if (page === "product-categories") setupProductCategories();
+    if (page === "product-category-detail") setupProductCategoryDetail();
     if (page === "sales") setupSales();
     if (page === "sale-detail") setupSaleDetail();
     if (page === "sales-documents") setupSalesDocuments();

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class CommercialShellContractTests(SimpleTestCase):
     def test_real_pages_states_and_identical_report_query_are_wired(self):
         script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
-        for page in ("products", "product-detail", "sales", "sale-detail", "user-performance", "activity-logs", "activity-log-detail"):
+        for page in ("products", "product-detail", "product-categories", "product-category-detail", "sales", "sale-detail", "user-performance", "activity-logs", "activity-log-detail"):
             self.assertIn(f'page === "{page}"', script)
         self.assertIn("function reportQuery(form)", script)
         self.assertIn("/api/v1/reports/user-performance/?${query}", script)
@@ -46,8 +46,24 @@ class CommercialShellContractTests(SimpleTestCase):
         self.assertIn('id="product-status-filter" name="is_active"', list_template)
         self.assertIn('name="sku" required maxlength="80"', list_template)
         self.assertIn('name="sku" required maxlength="80"', detail_template)
+        self.assertIn('id="product-category-filter" name="category"', list_template)
+        self.assertIn('name="brand" maxlength="120"', list_template)
+        self.assertIn('name="barcode" maxlength="64"', list_template)
         script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
         self.assertIn('query.set("is_active", isActive)', script)
+        self.assertIn('query.set("category", category)', script)
+        self.assertNotIn('method: "DELETE"', script)
+
+    def test_category_templates_have_real_states_and_no_hard_delete(self):
+        list_template = (ROOT / "common" / "templates" / "common" / "product_categories" / "list.html").read_text(encoding="utf-8")
+        detail_template = (ROOT / "common" / "templates" / "common" / "product_categories" / "detail.html").read_text(encoding="utf-8")
+        self.assertIn('id="product-categories-loading"', list_template)
+        self.assertIn('id="product-categories-empty"', list_template)
+        self.assertIn("{% if can_manage_products %}", list_template)
+        self.assertIn("{% if can_manage_products %}", detail_template)
+        self.assertIn('id="toggle-product-category"', detail_template)
+        self.assertNotIn('type="submit">حذف', list_template + detail_template)
+        self.assertNotIn('/delete/', list_template + detail_template)
 
     def test_formula_injection_protection_stays_active(self):
         self.assertEqual(safe_spreadsheet_text("=2+2"), "'=2+2")

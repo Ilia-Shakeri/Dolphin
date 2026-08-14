@@ -7,9 +7,9 @@ from accounts.access import crm_identities
 from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
-from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, Sale, SalesDocument
-from sales.selectors import customers_for, leads_for, products_for, sales_for
-from sales.services import create_customer_phone, create_customer_with_phone, create_lead, create_product, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product
+from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument
+from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for
+from sales.services import create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
 
 
 def _scope_relation(field, queryset):
@@ -120,17 +120,25 @@ class CustomerPhoneSerializer(RejectServerFieldsMixin, serializers.ModelSerializ
             raise serializers.ValidationError("Active phone or primary-phone constraint failed.") from exc
 
 
-class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"}
+class ProductCategorySerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    server_fields = {"normalized_name", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"}
+    code = serializers.CharField(max_length=64, validators=[])
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     updated_by = serializers.PrimaryKeyRelatedField(read_only=True)
     created_by_display = serializers.SerializerMethodField()
     updated_by_display = serializers.SerializerMethodField()
 
     class Meta:
-        model = Product
-        fields = ["id", "sku", "name", "current_price", "description", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
-        read_only_fields = ["id", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+        model = ProductCategory
+        fields = [
+            "id", "code", "name", "description", "display_order", "is_active",
+            "created_by", "created_by_display", "updated_by", "updated_by_display",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "is_active", "created_by", "created_by_display", "updated_by",
+            "updated_by_display", "created_at", "updated_at",
+        ]
 
     @staticmethod
     def _display(user) -> str:
@@ -141,6 +149,52 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     def get_updated_by_display(self, instance) -> str:
         return self._display(instance.updated_by)
+
+    def create(self, validated_data):
+        return create_product_category(actor=self.context["request"].user, **validated_data)
+
+    def update(self, instance, validated_data):
+        return update_product_category(
+            actor=self.context["request"].user,
+            category=instance,
+            **validated_data,
+        )
+
+
+class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    server_fields = {"category_name", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"}
+    barcode = serializers.CharField(max_length=64, required=False, allow_blank=True, validators=[])
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    updated_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    created_by_display = serializers.SerializerMethodField()
+    updated_by_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ["id", "sku", "name", "category", "category_name", "brand", "barcode", "current_price", "description", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "category_name", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+
+    @staticmethod
+    def _display(user) -> str:
+        return user.get_full_name() or user.username
+
+    def get_created_by_display(self, instance) -> str:
+        return self._display(instance.created_by)
+
+    def get_updated_by_display(self, instance) -> str:
+        return self._display(instance.updated_by)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            _scope_relation(
+                self.fields["category"],
+                product_categories_for(request.user).filter(is_active=True),
+            )
+        else:
+            _scope_relation(self.fields["category"], ProductCategory.objects.none())
 
     def create(self, validated_data):
         return create_product(actor=self.context["request"].user, **validated_data)

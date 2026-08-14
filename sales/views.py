@@ -14,10 +14,10 @@ from common.openapi import (
 )
 from common.throttles import SensitiveActionThrottleMixin
 from common.viewsets import NoDestroyModelViewSet
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Sale, SalesDocument
-from sales.selectors import customers_for, interactions_for, lead_work_queue_for, leads_for, phones_for, products_for, sales_documents_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer
-from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, deactivate_sales_document, reassign_lead, transition_postal_status
+from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument
+from sales.selectors import customers_for, interactions_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
+from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer
+from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -242,21 +242,82 @@ class InteractionViewSet(NoDestroyModelViewSet):
         return interactions_for(self.request.user).select_related("lead", "customer", "agent")
 
 
-class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
-    queryset = Product.objects.none()
-    serializer_class = ProductSerializer
-    sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate"})
-    search_fields = ["sku", "name", "description"]
-    ordering_fields = ["sku", "name", "current_price", "created_at"]
+class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    queryset = ProductCategory.objects.none()
+    serializer_class = ProductCategorySerializer
+    sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate", "reactivate"})
+    search_fields = ["code", "name", "description"]
+    ordering_fields = ["display_order", "name", "code", "created_at"]
     list_query_parameters = {"is_active"}
 
     def get_queryset(self):
-        queryset = products_for(self.request.user).select_related("created_by", "updated_by")
+        queryset = product_categories_for(self.request.user).select_related("created_by", "updated_by")
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if is_active not in {"true", "false"}:
                 raise ValidationError({"is_active": "Must be true or false."})
             queryset = queryset.filter(is_active=is_active == "true")
+        return queryset
+
+    @extend_schema(parameters=[OpenApiParameter("is_active", bool, description="Exact Category active state.")])
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def _require_manager(self):
+        if self.request.user.role not in ELEVATED_OPERATORS:
+            raise PermissionDenied("Product category management is not allowed.")
+
+    def create(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(request=None, responses={200: ProductCategorySerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE})
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        self._require_manager()
+        category = deactivate_product_category(actor=request.user, category=self.get_object())
+        return Response(self.get_serializer(category).data)
+
+    @extend_schema(request=None, responses={200: ProductCategorySerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE})
+    @action(detail=True, methods=["post"])
+    def reactivate(self, request, pk=None):
+        self._require_manager()
+        category = reactivate_product_category(actor=request.user, category=self.get_object())
+        return Response(self.get_serializer(category).data)
+
+
+class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    queryset = Product.objects.none()
+    serializer_class = ProductSerializer
+    sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate"})
+    search_fields = ["sku", "name", "brand", "barcode", "category__name", "description"]
+    ordering_fields = ["sku", "name", "brand", "current_price", "created_at"]
+    list_query_parameters = {"is_active", "category"}
+
+    def get_queryset(self):
+        queryset = products_for(self.request.user).select_related("category", "created_by", "updated_by")
+        is_active = self.request.query_params.get("is_active")
+        if is_active is not None:
+            if is_active not in {"true", "false"}:
+                raise ValidationError({"is_active": "Must be true or false."})
+            queryset = queryset.filter(is_active=is_active == "true")
+        category = self.request.query_params.get("category")
+        if category is not None:
+            try:
+                category_id = int(category)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"category": "Must be a positive integer."}) from exc
+            if category_id < 1 or str(category_id) != category:
+                raise ValidationError({"category": "Must be a positive integer."})
+            queryset = queryset.filter(category_id=category_id)
         return queryset
 
     @extend_schema(
@@ -265,7 +326,8 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
                 "is_active",
                 bool,
                 description="Filter by the existing Product active state.",
-            )
+            ),
+            OpenApiParameter("category", int, description="Exact Category ID after Product scope."),
         ]
     )
     def list(self, request, *args, **kwargs):
@@ -274,6 +336,18 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     def _require_manager(self):
         if self.request.user.role not in ELEVATED_OPERATORS:
             raise PermissionDenied("Product management is not allowed.")
+
+    def create(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().partial_update(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         self._require_manager()

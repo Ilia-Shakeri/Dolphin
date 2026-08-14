@@ -393,6 +393,7 @@ FROM (
         ('sales_lead', 'SELECT, INSERT, UPDATE'),
         ('sales_leadassignmenthistory', 'SELECT, INSERT'),
         ('sales_product', 'SELECT, INSERT, UPDATE'),
+        ('sales_productcategory', 'SELECT, INSERT, UPDATE'),
         ('sales_sale', 'SELECT, INSERT, UPDATE'),
         ('sales_salesdocument', 'SELECT, INSERT, UPDATE'),
         ('sales_postalstatushistory', 'SELECT, INSERT')

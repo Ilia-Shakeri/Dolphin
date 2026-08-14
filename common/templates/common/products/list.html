@@ -2,16 +2,17 @@
 {% block title %}محصولات{% endblock %}
 {% block page_id %}products{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">کاتالوگ فروش</p><h1>محصولات</h1></div>{% if can_manage_products %}<button id="open-create-product" class="button" type="button">محصول تازه</button>{% endif %}</section>
+<section class="page-head"><div><p class="eyebrow">کاتالوگ فروش</p><h1>محصولات</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a>{% if can_manage_products %}<button id="open-create-product" class="button" type="button">محصول تازه</button>{% endif %}</div></section>
 <section class="card">
     <form id="product-search-form" action="{% url 'common_ui:products' %}" method="get" class="toolbar">
-        <label class="sr-only" for="product-search">جستجوی محصول</label><input id="product-search" name="search" type="search" placeholder="نام، کد یا شرح محصول">
+        <label class="sr-only" for="product-search">جستجوی محصول</label><input id="product-search" name="search" type="search" placeholder="نام، کد، برند، بارکد یا شرح">
+        <label class="sr-only" for="product-category-filter">دسته‌بندی</label><select id="product-category-filter" name="category"><option value="">همه دسته‌بندی‌ها</option></select>
         <label class="sr-only" for="product-status-filter">وضعیت محصول</label><select id="product-status-filter" name="is_active"><option value="">همه محصولات</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
         <label class="sr-only" for="product-ordering">مرتب‌سازی</label><select id="product-ordering" name="ordering"><option value="name">نام</option><option value="sku">کد</option><option value="current_price">کمترین قیمت</option><option value="-current_price">بیشترین قیمت</option><option value="-created_at">تازه‌ترین</option></select>
         <button class="button button-muted" type="submit">اعمال</button>
     </form>
     <div id="products-loading" class="state">در حال دریافت محصولات…</div><div id="products-empty" class="state" hidden>محصولی پیدا نشد.</div>
-    <div id="products-table-wrap" class="table-wrap" hidden><table><thead><tr><th>کد</th><th>نام</th><th>قیمت جاری</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="products-table-body"></tbody></table></div>
+    <div id="products-table-wrap" class="table-wrap" hidden><table><thead><tr><th>کد</th><th>نام</th><th>دسته‌بندی</th><th>برند</th><th>قیمت جاری</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="products-table-body"></tbody></table></div>
     <nav id="products-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="products-prev" class="button button-muted" type="button">قبلی</button><span id="products-page-label"></span><button id="products-next" class="button button-muted" type="button">بعدی</button></nav>
 </section>
 {% if can_manage_products %}
@@ -21,6 +22,9 @@
         <div class="form-grid">
             <div><label for="create-product-sku">کد محصول</label><input id="create-product-sku" name="sku" required maxlength="80"><p class="field-error" data-error-for="sku"></p></div>
             <div><label for="create-product-name">نام</label><input id="create-product-name" name="name" required maxlength="255"><p class="field-error" data-error-for="name"></p></div>
+            <div><label for="create-product-category">دسته‌بندی</label><select id="create-product-category" name="category"><option value="">بدون دسته‌بندی</option></select><p class="field-error" data-error-for="category"></p></div>
+            <div><label for="create-product-brand">برند</label><input id="create-product-brand" name="brand" maxlength="120"><p class="field-error" data-error-for="brand"></p></div>
+            <div><label for="create-product-barcode">بارکد داخلی</label><input id="create-product-barcode" name="barcode" maxlength="64" dir="ltr"><p class="field-error" data-error-for="barcode"></p></div>
             <div><label for="create-product-price">قیمت جاری</label><input id="create-product-price" name="current_price" type="number" min="0.01" step="0.01" required><p class="field-error" data-error-for="current_price"></p></div>
             <div class="full-field"><label for="create-product-description">شرح</label><textarea id="create-product-description" name="description" maxlength="4000"></textarea><p class="field-error" data-error-for="description"></p></div>
         </div>
