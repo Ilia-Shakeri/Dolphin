@@ -2,7 +2,39 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
-## ۱. عکس فوری وضعیت فعلی — ۲۰۲۶/۰۸/۱۴ — فاز اصلاحی P0R
+## ۰. عکس فوری — ۲۰۲۶/۰۸/۱۵ — اجرای موازی P0R.1 تا P0R.4 و P1
+
+- HEAD پایه این فاز: `7a4ca14f6417c325440e117a9576481ce5dac4ba` («Refactor project documentation and introduce repository rules» — commit فاز P0R، که پس از بازبینی انسانی ثبت شد). شاخه `main`. درخت کاری پیش از این فاز تمیز بود.
+- پنج فاز موازی آغاز شدند. وضعیت واقعی هرکدام:
+
+| فاز | وضعیت | خروجی |
+|---|---|---|
+| `P0R.4` سخت‌سازی build-context | **تکمیل تا سقف این هاست** | `.dockerignore` اصلاح‌شده، `scripts/validate_image_content.py`، `common/tests/test_image_content.py` |
+| `P0R.3` طراحی deployment-profile | **مقایسه تکمیل شد؛ منتظر انتخاب مالک محصول** | `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` |
+| `P0R.1` survey زیرساخت | `BLOCKED_EXTERNAL` — ابزار پرسش آماده شد | `docs/ops/TARGET_SITE_SURVEY.md` |
+| `P0R.2` PostgreSQL زودهنگام | `RUNTIME_UNPROVED` — blocker دقیق تایید و ثبت شد | بخش جدید در `docs/backend/POSTGRES_TESTING.md` |
+| `P1` بستن تصمیم‌ها | منتظر پاسخ مالک محصول — پرسش‌ها دقیق و پاسخ‌پذیر شدند | `docs/backend/OPEN_BUSINESS_DECISIONS.md` |
+
+### نتیجه P0R.4 — نشتی build-context بسته شد (با شاهد اجراشده)
+
+اندازه‌گیری واقعی با شبیه‌سازی `COPY . .` روی همین مخزن:
+
+```text
+.dockerignore قبلی (در HEAD)  → 408 فایل، 142 مورد ممنوعه → IMAGE_CONTENT_FAIL
+.dockerignore اصلاح‌شده        → 147 فایل، صفر مورد ممنوعه → IMAGE_CONTENT_PASS
+```
+
+۶۳٪ کاهش محتوای ارسالی. آنچه اکنون داخل context می‌ماند دقیقا این است: هفت اپ first-party + `config` + `manage.py` + `requirements.txt` + ۲۰ فایل migration. هیچ `docs/`، هیچ `*.md` ریشه، هیچ `*/tests/`، هیچ `scripts/`، `nginx/`، `compose*.yml`، `requirements-direct.txt`، source map یا bytecode.
+
+**یافته دوم (از پیش موجود، تازه کشف‌شده):** الگوهای `__pycache__`، `*.pyc` و `*.log` در `.dockerignore` قبلی فقط root-anchored بودند — در معنای Docker یک `*` هرگز از `/` عبور نمی‌کند، پس `accounts/__pycache__/...` اصلا exclude نمی‌شد و bytecode ماشین توسعه‌دهنده وارد ایمیج می‌شد. فرم‌های بازگشتی `**/__pycache__`، `**/*.pyc`، `**/*.log` اضافه شدند (این تنها دلیل کاهش ۲۶۴ → ۱۴۷ است).
+
+**مرز صداقت این نتیجه:** این proof مربوط به **تعریف build** است، از راه شبیه‌سازی قواعد `.dockerignore` روی درخت واقعی مخزن. هیچ ایمیج Docker ساخته یا extract نشد (Docker روی این هاست نیست). validator برای همین حالت دوم هم آماده است (`--listing`) و باید در اولین هاست دارای Docker روی ایمیج واقعی اجرا شود. همچنین این کار **منطق کسب‌وکار پایتون خوانا را پنهان نمی‌کند** — بسته‌بندی/کامپایل backend همچنان گیت جدای P12 است.
+
+### وضعیت انتشار پس از این فاز
+
+`NO-GO` بدون تغییر. اما یک مانع مشخص برداشته شد: پیش از این، تعریف build به‌گونه‌ای بود که هیچ ایمیجی نباید ساخته می‌شد؛ اکنون تعریف build از گیت محتوای خودش عبور می‌کند و ساخت یک ایمیج آزمایشی روی هاست دارای Docker مجاز است — مشروط به اجرای `--listing` روی همان ایمیج.
+
+## ۱. عکس فوری وضعیت — ۲۰۲۶/۰۸/۱۴ — فاز اصلاحی P0R
 
 - ریشه مخزن: `C:\Users\Dear-OTCamp-User\Desktop\Kariz-CRM`. شاخه: `main`. **HEAD واقعی الان: `122b4707bbdd92c095fe85917cdb4ed72c66083d`** («chore: remove AGENTS.md as part of repository cleanup»)، یک commit جلوتر از `fde384a`.
 - `fde384a` («docs: reconcile client 1 scope and repository truth») commit مستندسازی فاز P0 است — همان فازی که این سند، Roadmap، و اصلاح هدفمند `BACKEND_SPEC.md` را نوشت. آن commit سه فایل را تغییر داد: `BACKEND_SPEC.md` (+۵۰/-)، `KARIZ_CLIENT1_CODEX_ROADMAP.md` (۱۵۹۰ خط کاهش خالص)، `KARIZ_PROJECT_HANDOFF.md` (۲۷۸۸ خط کاهش خالص) — جمعا ۴۶۳ افزوده و ۳۹۶۵ کاسته نسبت به نسخه پیشین.
@@ -174,7 +206,8 @@ Architecture discovery برای deployment profile تایید شده است.
 
 | # | نقص | شدت | محل | اقدام |
 |---|---|---|---|---|
-| 1 | نشتی محتوای ایمیج Docker (بخش ۸) | **P0** | `Dockerfile:15`, `.dockerignore` | افزودن exclude برای `docs/`, `*.md` ریشه، `*/tests/`, `scripts/`, `nginx/`, `compose*.yml`, `requirements-direct.txt`، یا مهاجرت به multi-stage build که فقط artifact لازم را کپی کند. **این فاز آن را اصلاح نکرد** چون تغییر `Dockerfile`/`.dockerignore` تغییر رفتار build/deployment است، نه مستندسازی؛ برای فاز بعدی (Roadmap P12) ثبت شد. |
+| 1 | نشتی محتوای ایمیج Docker (بخش ۸) | **P0 — برطرف شد در سطح تعریف build** | `.dockerignore` | **در فاز P0R.4 اصلاح شد.** ۴۰۸ → ۱۴۷ فایل، ۱۴۲ → ۰ مورد ممنوعه (بخش ۰). گیت رگرسیون: `common/tests/test_image_content.py`. باقی‌مانده: اجرای `python scripts/validate_image_content.py --listing` روی یک ایمیج واقعی روی هاست دارای Docker. |
+| 1ب | الگوهای `__pycache__`/`*.pyc`/`*.log` در `.dockerignore` root-anchored بودند و bytecode توسعه‌دهنده وارد ایمیج می‌شد | P1 — برطرف شد | `.dockerignore` | فرم‌های `**/` اضافه شدند (بخش ۰). |
 | 2 | تناقض داخلی `BACKEND_SPEC.md` بخش ۲.۳/۲.۴ (وضعیت پستی و گزارش پیامک ورودی را «blocked» می‌گفت درحالی‌که در همان سند بخش ۵.۷A/۵.۹ و در کد واقعی پیاده شده‌اند) | P1 مستندات | `BACKEND_SPEC.md` | در همین فاز اصلاح شد (بخش زیر). |
 | 3 | خطای HTML: `common/templates/common/sales_documents/detail.html:16` — attribute `maxlength="500` بدون quote بسته؛ باعث می‌شود پاراگراف خطای فیلد «reason» در فرم انتقال وضعیت پستی هیچ‌وقت در DOM ساخته نشود (فقط نمایش خطای per-field تحت تاثیر است؛ ثبت واقعی وضعیت پستی درست کار می‌کند و به endpoint واقعی می‌رود) | P1 (نه امنیتی، نه از کار انداختن جریان) | `common/templates/common/sales_documents/detail.html:16` | **در این فاز اصلاح نشد** چون ویرایش template کد اپلیکیشن است، نه مستندسازی؛ برای اولین فاز مجاز اصلاح کد (P2) ثبت شد. |
 | 4 | `docs/KARIZ_CAPABILITIES_FOR_INVOICE_FA.txt` (پیوست فاکتور مشتری، تاریخ ۲۰۲۶/۰۸/۱۰) نسبت به قابلیت‌های تکمیل‌شده بعدی (ProductCategory، گزارش پیامک ورودی، پنل خدمات پس از فروش) بروز نیست | P2 اسنادی | همان فایل | باید پیش از استفاده تجاری بعدی بازبینی شود؛ در این فاز تغییر نکرد چون سند دو-فایل زنده مصوب (Handoff/Roadmap) نیست. |
@@ -265,7 +298,7 @@ PROFILE-001 PARTIALLY RESOLVED
 11. `BIZ-012` سیاست backfill یا رد دائمی رکوردهای audit قدیمی.
 12. `BIZ-013` رفتار Lead فعال هنگام غیرفعال‌سازی کاربر مالک آن.
 
-باز — دامنه‌های بزرگ (هرکدام باید قبل از کد شروع شود؛ ترتیب اولویت اجرا در Roadmap P5-P8):
+باز — دامنه‌های بزرگ (هرکدام باید قبل از کد شروع شود؛ ترتیب اولویت اجرا در Roadmap P5-P8). **پرسش‌های دقیق و پاسخ‌پذیر هر خانواده در `docs/backend/OPEN_BUSINESS_DECISIONS.md` باز شده‌اند؛ همین بخش رجیستر معتبر است و آن سند تابع آن.** پاسخ جزئی هم مفید است: هر خانواده که کامل پاسخ بگیرد، فاز خودش را فورا آزاد می‌کند.
 
 13. Inventory/انبار: واحد، مکان انبار، موجودی اول دوره، رزرو، منفی‌شدن، اصلاح/برگشت.
 14. Order و Quotation: چرخه، منبع، تبدیل، شماره‌گذاری، تاییدها (نمونه‌های چرخه ممکن، نه تصویب‌شده، در Roadmap §۷.۴).
@@ -290,4 +323,5 @@ PROFILE-001 PARTIALLY RESOLVED
 
 باز — معماری (تولید همین فاز):
 
-30. کدام گزینه طراحی deployment-profile تایید می‌شود — Option A (manifest امضاشده بیرونی)، Option B (مدل دیتابیسی `DeploymentProfile`)، یا Option C (ترکیب manifest + کش رانتایم دیتابیس)؟ مقایسه کامل در `KARIZ_CLIENT1_CODEX_ROADMAP.md` §P0R.3.
+30. کدام گزینه طراحی deployment-profile تایید می‌شود — Option A (manifest امضاشده بیرونی)، Option B (مدل دیتابیسی `DeploymentProfile`)، یا Option C (ترکیب manifest + کش رانتایم دیتابیس)؟ **مقایسه کامل روی هر ۱۴ معیار اکنون در `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` آماده است.** ارزیابی مهندسی: Option C توصیه می‌شود، Option A جایگزین کوچک‌تر قابل‌قبول، Option B توصیه نمی‌شود (کنترل entitlement داخل ذخیره‌ای که مشتری می‌تواند ویرایش کند، و restore از backup قدیمی می‌تواند feature حذف‌شده را بی‌صدا برگرداند). انتخاب نهایی با مالک محصول است.
+31. آیا نصب PostgreSQL روی همین ماشین توسعه مجاز است تا گیت `P0R.2` باز شود، یا یک هاست staging جدا تامین می‌شود؟ (این فاز چیزی نصب نکرد — نصب نرم‌افزار سیستمی بدون اجازه صریح انجام نمی‌شود.)

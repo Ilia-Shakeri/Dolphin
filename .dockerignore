@@ -60,3 +60,38 @@ authentication
 index.html
 landing.html
 code_dumper*.py
+
+# --- P0R.4 build-context hardening ---
+# The runtime image only needs manage.py, config/, and the first-party app
+# packages (models/services/selectors/views/urls/templates/static). Everything
+# below is developer-, ops-, or documentation-only material that must never be
+# shipped inside the application image. Ops scripts and Nginx config are
+# bind-mounted from the host by compose.yml, so excluding them here does not
+# affect any running service. Verified against compose.yml service commands.
+# NOTE: this reduces shipped file count only. It does NOT hide readable Python
+# business logic — backend packaging/compilation remains a separate P12 gate.
+docs
+*.md
+**/tests
+scripts
+nginx
+compose*.yml
+requirements-direct.txt
+# The bare `__pycache__`/`*.pyc`/`*.log` entries near the top of this file are
+# root-anchored only: a .dockerignore `*` never crosses `/`, so they do not
+# exclude nested directories. These recursive forms are what actually keep
+# developer bytecode and logs out of the image.
+**/__pycache__
+**/*.pyc
+**/*.log
+# The build recipe is read by the builder itself and is not needed at runtime.
+Dockerfile
+.dockerignore
+.gitignore
+.gitattributes
+.editorconfig
+.vscode
+.idea
+*.swp
+.DS_Store
+**/*.map
