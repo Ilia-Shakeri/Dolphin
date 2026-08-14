@@ -130,7 +130,10 @@ runtime نگه‌داری می‌شود ولی هرگز منبع حقیقت نی
 - **stop condition:** **هیچ مدل `DeploymentProfile`، migration، یا کد feature-gate نباید پیش از این انتخاب شروع شود** (`PROFILE-001`، بخش ۷ Handoff).
 - **تحویل دقیق:** سند مقایسه + تصمیم مکتوب.
 
-### P0R.4 — سخت‌سازی زودهنگام build-context ایمیج
+### P0R.4 — سخت‌سازی زودهنگام build-context ایمیج — ✅ انجام‌شده (commit `5efe1c8`)
+
+**وضعیت:** تعریف build اصلاح شد و گیت رگرسیون دارد. اندازه‌گیری واقعی: ۴۰۸ → ۱۴۷ فایل، ۱۴۲ → ۰ مورد ممنوعه. ابزار: `scripts/validate_image_content.py` (دو حالت `--context` و `--listing`)، تست: `common/tests/test_image_content.py`. باقی‌مانده تنها یک کار است: اجرای `--listing` روی یک ایمیج **واقعی** روی هاستی که Docker دارد. متن زیر به‌عنوان قرارداد فاز حفظ شده است.
+
 
 - **هدف:** پیش از هر build یا توزیع ایمیج Docker، `.dockerignore`/`Dockerfile` را طوری اصلاح کن که `docs/`, فایل‌های `*.md` ریشه (`BACKEND_SPEC.md`, `KARIZ_PROJECT_HANDOFF.md`, `KARIZ_CLIENT1_CODEX_ROADMAP.md`), `*/tests/**`, `scripts/`, `nginx/`, `compose*.yml`, `requirements-direct.txt`, فایل‌های IDE محلی، source map، و سورس vendor/demo غیرضروری در ایمیج نهایی نباشند؛ یک validator allowlist/denylist محتوای ایمیج اضافه کن.
 - **اصلاح:** این باید **زودتر** از بسته‌بندی نهایی release (P12) اتفاق بیفتد، نه هم‌زمان با آن — چون هر تلاش build قبل از این فاز، محتوای ممنوعه را می‌شیپد، حتی یک build آزمایشی.

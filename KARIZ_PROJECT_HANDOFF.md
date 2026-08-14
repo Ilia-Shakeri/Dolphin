@@ -2,7 +2,130 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
-## ۰. عکس فوری — ۲۰۲۶/۰۸/۱۵ — اجرای موازی P0R.1 تا P0R.4 و P1
+## ۰. ممیزی حقیقت رانتایم و اتصال UI↔backend — ۲۰۲۶/۰۸/۱۵
+
+هدف این فاز پاسخ به یک پرسش مشخص مالک محصول بود: آیا فرانت واقعا به backend وصل است و آنچه ادعا شده واقعا کار می‌کند؟ پاسخ با **اجرای واقعی** به‌دست آمد، نه با خواندن کد یا اعتماد به prose.
+
+- HEAD: `5efe1c8f9ba2b083268cbb006208bd294807ed97`، شاخه `main`، درخت کاری در شروع و پایان **تمیز**. (HEAD مورد انتظار در درخواست `7a4ca14` بود؛ آن اکنون والد HEAD فعلی است — کار فاز قبلی commit و push شده است.)
+
+### شاهد قاطع: تست مرورگر واقعی اجرا شد و **۱۷/۱۷ pass** شد
+
+برخلاف فرض «BROWSER_RUNTIME_UNPROVED»، هارنس Selenium روی همین هاست کار می‌کند (Selenium 4.21.0 + Chrome نصب). هر پنج ماژول تست مرورگر اجرا شد:
+
+```text
+test_auth_shell_browser        4/4 ok
+test_sales_shell_browser       6/6 ok
+test_after_sales_browser       1/1 ok
+test_sms_shell_browser         2/2 ok
+test_synthetic_uat_browser     4/4 ok   (هر چهار پرسونای UAT)
+Ran 17 tests in 67.057s — OK
+```
+
+این پوشش شامل ورود/خروج، ناوبری موبایل، داشبورد نقش‌محور، چرخه مشتری→lead→تخصیص→تماس، دسته/کالا، فروش، سند پستی، خدمات پس از فروش، گزارش پیامک و drill-down است. **بنابراین ادعای «UI متصل است» دیگر ادعای مستند نیست، شاهد اجراشده است.**
+
+### ممیزی authorization با probe اجراشده (نه خواندن کد)
+
+یک probe موقت نوشته و اجرا شد، سپس حذف شد (درخت تمیز ماند). نتایج دقیق:
+
+```text
+PROBE manager_create              status=201  created_role=sales_agent
+PROBE manager_reset_password      status=200  password_changed=True
+PROBE manager_change_workstream   status=200  workstream=after_sales
+PROBE manager_deactivate          status=200  is_active=False
+PROBE manager_vs_platform         get=404 patch=404 change_role=404  platform_still_active=True
+PROBE manager_self_escalation     status=404  role_now=sales_manager
+
+PROBE agent_a_reads_customer_of_agent_b   status=404
+PROBE agent_a_reads_lead_of_agent_b       status=404
+PROBE agent_a_reads_sale_of_agent_b       status=404
+PROBE agent_a_edits_customer_of_agent_b   status=404  name_now='B customer'
+PROBE agent_a_customer_list  count=0  contains_b_customer=False
+PROBE agent_gets_users=403  activity_logs=403  inbound_sms_report=403
+PROBE after_sales_operator_gets customers/leads/sales = 200 با rows=0؛ direct-ID = 404
+```
+
+نتیجه‌گیری دقیق:
+
+- **هیچ IDOR و هیچ privilege escalation پیدا نشد.** دسترسی با ID مستقیم بین دو بازاریاب کاملا ۴۰۴ است، هم خواندن هم نوشتن. مدیر فروشگاه نه می‌تواند platform admin را ببیند، نه تغییر دهد، نه نقش خودش را ارتقا دهد.
+- **ساخت کاربر توسط مدیر فروشگاه امن است:** نقش کاربر ساخته‌شده همیشه `sales_agent` است. `role` در چهار لایه مسدود است (`server_fields`، `read_only_fields`، `USER_MUTABLE_FIELDS`، و default مدل). این یک مسیر escalation **نیست**.
+- **شکاف واقعی `BIZ-005` دقیقا این است و نه بیشتر:** مدیر فروشگاه می‌تواند حساب `sales_agent` بسازد، ویرایش کند، **رمز را reset کند**، **workstream را تغییر دهد**، و غیرفعال/فعال کند. این‌ها با سیاست بسته Client 1 مغایرند و کار فاز `P1.7` هستند.
+
+### یافته جدید — Django Admin در شبکه باز است (MEDIUM)
+
+`config/urls.py:11` مسیر `admin/` را **بدون هیچ شرطی** ثبت می‌کند — برخلاف `ENABLE_API_DOCS` که پشت گیت تنظیمات است. `nginx/default.conf:111` هم `/admin/login/` را (با rate limit) proxy می‌کند نه مسدود.
+
+probe اجراشده:
+
+```text
+PROBE admin_login_page_anonymous       status=200
+PROBE platform_admin is_staff=False is_superuser=False
+PROBE platform_admin_django_login=True admin_index_status=302
+PROBE platform_admin_admin_login_post  status=200 (رد شد، redirect نشد)
+```
+
+تفسیر صادقانه: صفحه ورود ادمین در دسترس شبکه است، **اما هیچ هویت CRM نمی‌تواند وارد آن شود** چون همه `is_staff=False` هستند و این در `crm_identities` اجبار شده. پس این یک نشت داده نیست؛ یک سطح حمله اضافی و fingerprinting نسخه Django است. سیاست مستند Client 1 («Django Admin نباید در معرض کاربر مشتری باشد») هنوز کاملا در کد اجرا نشده است.
+
+### نقص فعال UI — همچنان موجود، با اثر دوم کشف‌نشده
+
+`common/templates/common/sales_documents/detail.html:16` هنوز `maxlength="500` بدون کوتیشن بسته دارد. این **تنها خط با کوتیشن نامتوازن در کل UI served** است. تجزیه با پارسر HTML اثر دقیق را نشان داد:
+
+```text
+<input ... maxlength='500><p class=' field-error"=None data-error-for='reason'>
+```
+
+دو اثر واقعی، نه یکی:
+
+1. عنصر `<p class="field-error" data-error-for="reason">` **اصلا ساخته نمی‌شود**؛ صفت `data-error-for` روی خودِ `<input>` می‌نشیند. `showError` آن را با `querySelectorAll` پیدا می‌کند و `textContent` می‌نویسد — ولی `textContent` روی `<input>` هیچ چیز نمایش نمی‌دهد. پس خطای فیلد «دلیل» هرگز دیده نمی‌شود.
+2. **`maxlength` عملا از کار می‌افتد** (مقدارش رشته نامعتبر می‌شود)، پس محدودیت ۵۰۰ کاراکتری سمت مرورگر اعمال نمی‌شود. اعتبارسنجی سمت سرور همچنان برقرار است، پس این نقص امنیتی نیست ولی تجربه کاربر را خراب می‌کند.
+
+طبق دستور این فاز اصلاح نشد؛ کار `P2` است.
+
+### وضعیت کنترل‌های مرده/نمایشی — تمیز
+
+جست‌وجوی الگویی در کل `common/templates/common/**`:
+
+```text
+href="#"            → 1 مورد، و مرده نیست (kariz-app.js:787 آن را مقداردهی می‌کند)
+javascript:void(0)  → صفر
+form بدون action    → صفر
+action=""           → صفر
+data-kt-* / KTMenu / KTDrawer / KTUtil → صفر در UI served
+```
+
+یعنی UI نگهداری‌شده هیچ ارثی از کنترل‌های نمایشی Metronic ندارد؛ کاملا first-party است. درخت vendor فقط مرجع بصری است و در `.dockerignore` هم exclude شده.
+
+### Persian/RTL
+
+`common/templates/common/base.html:3` = `<html lang="fa" dir="rtl">`. اسکن متن انگلیسی قابل‌مشاهده در templateهای served: صفر مورد. `check_html_branding.py` روی ۲۲۸ فایل pass.
+
+### ماتریس اتصال UI↔backend
+
+سند `docs/frontend/FRONTEND_REFERENCE_MAP.md` از قبل ماتریس کامل (route → template → JS handler → endpoint واقعی → نقش/scope) را برای هر ۲۵ صفحه دارد و با بررسی این فاز مطابقت داشت. **سند جدیدی ساخته نشد** تا رجیستر دوم به وجود نیاید؛ همان سند مرجع ثابت است و این فایل تنها منبع وضعیت زنده.
+
+شمارش مسیرهای ثبت‌شده: ۱۵۲ کل = ۱۱۱ زیر `/api/`، ۲۵ صفحه UI اول‌شخص، ۱۶ مسیر `/admin/`.
+
+### گیت‌های اجراشده این فاز
+
+```text
+python manage.py check                                  exit=0  no issues
+python manage.py makemigrations --check --dry-run       exit=0  No changes detected
+python manage.py spectacular --validate --fail-on-warn  exit=0
+python manage.py collectstatic --dry-run --noinput      exit=0
+python scripts/check_html_branding.py                   exit=0  files=228
+node --check common/static/common/kariz-app.js          exit=0
+python scripts/validate_image_content.py --context      exit=0  files=147 PASS
+git diff --check                                        exit=0
+python manage.py test                                   Ran 356 tests — OK (skipped=7)
+تست‌های مرورگر (۵ ماژول)                                 Ran 17 tests — OK
+```
+
+هر ۷ skip تاییدا PostgreSQL-only هستند («PostgreSQL concurrency proof runs in the isolated PostgreSQL harness»). PostgreSQL/Docker روی این هاست نیست → `RUNTIME_UNPROVED`، نه شکست محصول.
+
+### تغییر وضعیت نسبت به قبل
+
+ردیف‌های `UI_CONNECTED_LOCAL` در بخش ۵ اکنون شاهد مرورگر واقعی هم دارند. با این حال هیچ‌کدام `VERIFIED_END_TO_END` نمی‌شوند، چون آن برچسب طبق تعریف خودِ این سند نیازمند proof روی رانتایم هدف (PostgreSQL/Compose/TLS/هاست واقعی) است که هنوز وجود ندارد. وضعیت انتشار `NO-GO` بدون تغییر است.
+
+## ۰.۱ عکس فوری — ۲۰۲۶/۰۸/۱۵ — اجرای موازی P0R.1 تا P0R.4 و P1
 
 - HEAD پایه این فاز: `7a4ca14f6417c325440e117a9576481ce5dac4ba` («Refactor project documentation and introduce repository rules» — commit فاز P0R، که پس از بازبینی انسانی ثبت شد). شاخه `main`. درخت کاری پیش از این فاز تمیز بود.
 - پنج فاز موازی آغاز شدند. وضعیت واقعی هرکدام:
@@ -211,6 +334,8 @@ Architecture discovery برای deployment profile تایید شده است.
 | 2 | تناقض داخلی `BACKEND_SPEC.md` بخش ۲.۳/۲.۴ (وضعیت پستی و گزارش پیامک ورودی را «blocked» می‌گفت درحالی‌که در همان سند بخش ۵.۷A/۵.۹ و در کد واقعی پیاده شده‌اند) | P1 مستندات | `BACKEND_SPEC.md` | در همین فاز اصلاح شد (بخش زیر). |
 | 3 | خطای HTML: `common/templates/common/sales_documents/detail.html:16` — attribute `maxlength="500` بدون quote بسته؛ باعث می‌شود پاراگراف خطای فیلد «reason» در فرم انتقال وضعیت پستی هیچ‌وقت در DOM ساخته نشود (فقط نمایش خطای per-field تحت تاثیر است؛ ثبت واقعی وضعیت پستی درست کار می‌کند و به endpoint واقعی می‌رود) | P1 (نه امنیتی، نه از کار انداختن جریان) | `common/templates/common/sales_documents/detail.html:16` | **در این فاز اصلاح نشد** چون ویرایش template کد اپلیکیشن است، نه مستندسازی؛ برای اولین فاز مجاز اصلاح کد (P2) ثبت شد. |
 | 4 | `docs/KARIZ_CAPABILITIES_FOR_INVOICE_FA.txt` (پیوست فاکتور مشتری، تاریخ ۲۰۲۶/۰۸/۱۰) نسبت به قابلیت‌های تکمیل‌شده بعدی (ProductCategory، گزارش پیامک ورودی، پنل خدمات پس از فروش) بروز نیست | P2 اسنادی | همان فایل | باید پیش از استفاده تجاری بعدی بازبینی شود؛ در این فاز تغییر نکرد چون سند دو-فایل زنده مصوب (Handoff/Roadmap) نیست. |
+| 6 | Django Admin بدون گیت تنظیمات ثبت شده و در شبکه قابل دسترسی است؛ nginx هم `/admin/login/` را proxy می‌کند. هیچ هویت CRM نمی‌تواند وارد شود (`is_staff=False`) پس نشت داده نیست، ولی سطح حمله و fingerprinting اضافه است و با سیاست مستند Client 1 کامل منطبق نیست | **MEDIUM** | `config/urls.py:11`, `nginx/default.conf:111` | پشت گیت تنظیمات بردن (مثل `ENABLE_API_DOCS`) و/یا مسدودسازی در nginx برای پروفایل Client 1. کار فاز `P1.7`. شواهد در بخش ۰. |
+| 7 | عملگر after-sales روی `customers`/`leads`/`sales` پاسخ `200` با صفر ردیف می‌گیرد، درحالی‌که `users`/`activity-logs`/`inbound-sms` برای بازاریاب `403` می‌دهند | LOW (ناسازگاری، نه نشت — مرز داده برقرار است و direct-ID = 404) | selector/permission لایه sales | یکسان‌سازی به `403` برای نبود capability. اختیاری، در `P1.7` یا `P2`. |
 | 5 | عدم‌تطابق نسخه Python: هاست توسعه فعلی `Python 3.14.5` دارد؛ `Dockerfile` فقط base image با `sys.version_info[:2] == (3, 13)` را می‌پذیرد | اطلاع‌رسانی، نه نقص | `Dockerfile:12` | تست‌های محلی روی 3.14.5 pass شدند ولی رفتار دقیق production روی 3.13 محلی proof نشده؛ در build واقعی هدف تایید شود. |
 
 ## ۱۰. blockerهای بیرونی deployment (ورودی گزارش‌شده، نه fact اثبات‌شده)
