@@ -10,6 +10,7 @@ from common.ui_views import (
     KarizHomeView,
     KarizInteractionDetailView,
     KarizInteractionListView,
+    KarizInboundSMSReportView,
     KarizLeadDetailView,
     KarizLeadListView,
     KarizLoginView,
@@ -49,6 +50,7 @@ urlpatterns = [
     path("after-sales/<int:request_id>/", KarizAfterSalesDetailView.as_view(), name="after-sales-detail"),
     path("reports/user-performance/", KarizUserPerformanceView.as_view(), name="user-performance"),
     path("reports/sales-documents/", KarizSalesDocumentReportView.as_view(), name="sales-document-report"),
+    path("reports/inbound-sms/", KarizInboundSMSReportView.as_view(), name="inbound-sms-report"),
     path("activity-logs/", KarizActivityLogListView.as_view(), name="activity-logs"),
     path("activity-logs/<int:activity_log_id>/", KarizActivityLogDetailView.as_view(), name="activity-log-detail"),
 ]

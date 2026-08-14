@@ -160,6 +160,7 @@ class BackupScriptTests(SimpleTestCase):
             "sales_postalstatushistory",
             "aftersales_aftersalesrequest",
             "aftersales_aftersaleshistory",
+            "communications_inboundsms",
         ):
             with self.subTest(table=table):
                 self.assertIn(f"to_regclass('public.{table}') IS NOT NULL", schema)
@@ -169,6 +170,7 @@ class BackupScriptTests(SimpleTestCase):
             "0002_activitylog_role_snapshots",
             "0012_sales_document_postal_foundation",
             "0001_after_sales_foundation",
+            "0001_initial",
         ):
             with self.subTest(migration=migration):
                 self.assertIn(migration, schema)

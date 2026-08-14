@@ -37,6 +37,8 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("verify-postgres-schema.sql", source)
         self.assertIn("verify-postgres-privileges.sql", source)
         self.assertIn("UPDATE auditlog_activitylog", source)
+        self.assertIn("UPDATE communications_inboundsms", source)
+        self.assertIn("DELETE FROM communications_inboundsms", source)
         self.assertIn("DELETE FROM sales_interaction", source)
         self.assertIn("UPDATE aftersales_aftersaleshistory", source)
         self.assertIn("DELETE FROM aftersales_aftersalesrequest", source)
@@ -63,6 +65,7 @@ class PostgresHarnessContractTests(SimpleTestCase):
             "accounts_user",
             "django_session",
             "auditlog_activitylog",
+            "communications_inboundsms",
             "sales_interaction",
             "sales_leadassignmenthistory",
             "django_admin_log",

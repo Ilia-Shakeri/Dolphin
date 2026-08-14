@@ -813,6 +813,13 @@ Output exactly:
 DONE or BLOCKED_EXTERNAL or FAILED | storage/report | provider adapter | tests | blockers | next phase
 ```
 
+## C1-6 provider-neutral foundation checkpoint — 2026-08-14
+
+- `DONE_LOCAL`: additive `communications.InboundSMS`, unique provider/message idempotency, E.164 envelope, provider/system timestamps, inbound-only direction, bounded scalar metadata, fixed `not_retained` body policy, deterministic Customer/Lead resolution, safe audit, and PostgreSQL least-privilege/schema contracts.
+- `DONE_LOCAL`: manager/technical/platform JSON plus maintained Persian RTL report, `Asia/Tehran` date/hour grouping, provider/recipient/state filters, same-scope paged drill-down, read-only direct row, chart and explicit loading/empty/error states. Sales Agent fails closed in UI and API.
+- `BLOCKED_EXTERNAL`: public webhook, provider adapter implementation, live/sandbox delivery, official signature/replay proof, and credentials. Exact activation inputs are in `docs/backend/SMS_PROVIDER_ADAPTER_REQUIREMENTS.md`.
+- No outbound SMS, raw provider payload, message body, unsigned ingest, fake live provider, or provider-specific claim was added. This checkpoint supersedes older statements that the provider-neutral internal/reporting portion is wholly open; live integration remains blocked.
+
 ---
 
 # C1-7 — Unified Client-1 dashboard and active-UI hardening

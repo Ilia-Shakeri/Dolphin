@@ -72,6 +72,7 @@ class ActiveCrmView(TemplateView):
         context["can_manage_sales_documents"] = context["can_deactivate_customers"]
         context["can_manage_after_sales"] = "after_sales.manage" in capabilities
         context["can_view_company_reports"] = "reports.company" in capabilities
+        context["can_view_sms_report"] = "sms.company" in capabilities
         context["can_view_audit"] = bool({"audit.non_platform", "audit.all"}.intersection(capabilities))
         context["is_platform_navigation"] = "dashboard.platform" in capabilities
         return context
@@ -347,6 +348,18 @@ class KarizSalesDocumentReportView(ActiveCrmView):
             return self.render_to_response(self.get_context_data(
                 error_status=403, error_title="دسترسی مجاز نیست",
                 error_message="شما اجازه مشاهده این گزارش را ندارید.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class KarizInboundSMSReportView(ActiveCrmView):
+    template_name = "common/reports/inbound_sms.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and not has_any_capability(request.user, "sms.company"):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="شما اجازه مشاهده گزارش پیامک ورودی را ندارید.",
             ), status=403)
         return super().dispatch(request, *args, **kwargs)
 

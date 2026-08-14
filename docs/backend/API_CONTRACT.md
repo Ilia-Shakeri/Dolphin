@@ -70,6 +70,14 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - Unknown keys, repeated query keys, naive timestamps, reversed/empty periods, non-positive IDs, and out-of-scope users return the standard safe validation envelope. Positive Product IDs with no scoped match return a normal zero-Sale result. Both successful formats return `Cache-Control: private, no-store`.
 - XLSX uses stable machine identifiers for columns, exact two-decimal money text cells, a four-metric `summary` sheet, a `filters` sheet with the normalized query, frozen headers, an autofilter, and formula-prefix escaping for user text. Text preserves cents at the maximum supported money range instead of accepting Excel binary-number loss. Final Persian labels, numeric-cell/style choice, and Jalali presentation are not claimed.
 
+## Provider-neutral inbound SMS reporting
+
+- `GET reports/inbound-sms/`: Sales Manager, Company IT, and Platform Admin only. Requires a half-open offset-aware provider-received period of at most 366 days. Optional exact filters are provider code, E.164 recipient, and processing state. It returns authoritative inbound counts grouped by `Asia/Tehran` local date and hour. Sales Agents receive no count, filter, or identifier inference.
+- `GET reports/inbound-sms/drilldown/`: same role, period, and exact filters plus required local date/hour. It returns only the paginated canonical rows behind that aggregate. Aggregate and drill-down start from the same backend selector and filter function.
+- `GET reports/inbound-sms/messages/{id}/`: same company capability and selector; read-only direct-row detail. It exposes only the validated bounded metadata and normalized envelope. No SMS body exists in the model or response.
+- Successful report/detail responses use `Cache-Control: private, no-store`. Unknown/repeated query keys, naive/reversed/overlong periods, invalid provider/number/state, and invalid local hour fail validation. POST/PUT/PATCH/DELETE are absent.
+- There is no public or authenticated provider webhook, raw-payload archive, live adapter, outbound SMS route, or provider credential setting. Normalized storage is an internal Python service and adapter protocol only. Provider activation stays `BLOCKED_EXTERNAL` until the exact authentication, signature, replay, payload, delivery, and credential material in `docs/backend/SMS_PROVIDER_ADAPTER_REQUIREMENTS.md` is approved and verified.
+
 ## System and schema
 
 - `GET activity-logs/`, `GET activity-logs/{id}/`: read-only. Platform Admin sees all safe rows. Company IT scope uses stored actor/account-object role snapshots from action time, hides Platform Admin actor/target and protected role-change rows, and fails closed on legacy non-system-actor or account-target rows with blank snapshots. Sales Manager limited-audit semantics remain unresolved, so Manager and Sales Agent fail closed. No create/update/delete route.

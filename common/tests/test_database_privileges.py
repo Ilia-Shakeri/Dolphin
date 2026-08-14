@@ -317,6 +317,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "aftersales_aftersaleshistory": "SELECT, INSERT",
             "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE",
             "auditlog_activitylog": "SELECT, INSERT",
+            "communications_inboundsms": "SELECT, INSERT",
             "auth_group": "SELECT, INSERT, UPDATE, DELETE",
             "auth_group_permissions": "SELECT, INSERT, DELETE",
             "auth_permission": "SELECT",
@@ -357,6 +358,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
 
         for table_name in (
             "auditlog_activitylog",
+            "communications_inboundsms",
             "sales_leadassignmenthistory",
             "sales_interaction",
             "sales_postalstatushistory",

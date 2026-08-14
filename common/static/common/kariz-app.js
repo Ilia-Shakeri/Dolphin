@@ -1285,6 +1285,180 @@
         });
     }
 
+    function inboundSMSReportQuery(form) {
+        const data = new FormData(form);
+        const query = new URLSearchParams();
+        query.set("period_start", apiDateTime(String(data.get("period_start") || "")) || "");
+        query.set("period_end", apiDateTime(String(data.get("period_end") || "")) || "");
+        ["provider_code", "recipient_normalized", "processing_state"].forEach((name) => {
+            const value = String(data.get(name) || "").trim();
+            if (value) query.set(name, value);
+        });
+        return query;
+    }
+
+    function renderInboundSMSChart(rows) {
+        const chart = document.getElementById("inbound-sms-chart");
+        const empty = document.getElementById("inbound-sms-chart-empty");
+        chart.replaceChildren();
+        if (!rows.length) {
+            chart.hidden = true;
+            empty.hidden = false;
+            return;
+        }
+        const maximum = Math.max(...rows.map((item) => Number(item.inbound_sms_count)));
+        const nodes = rows.map((item) => {
+            const row = document.createElement("div");
+            row.className = "performance-chart-row";
+            const label = document.createElement("span");
+            label.className = "performance-chart-label";
+            label.textContent = `${item.local_date} — ساعت ${String(item.local_hour).padStart(2, "0")}`;
+            const track = document.createElement("span");
+            track.className = "performance-chart-track";
+            const bar = document.createElement("span");
+            bar.className = "performance-chart-bar";
+            bar.style.width = `${Math.max(2, (Number(item.inbound_sms_count) / maximum) * 100)}%`;
+            track.appendChild(bar);
+            const value = document.createElement("strong");
+            value.textContent = String(item.inbound_sms_count);
+            row.append(label, track, value);
+            return row;
+        });
+        chart.replaceChildren(...nodes);
+        chart.hidden = false;
+        empty.hidden = true;
+    }
+
+    async function showInboundSMSMessage(messageId) {
+        try {
+            const item = await apiRequest(`/api/v1/reports/inbound-sms/messages/${messageId}/`);
+            document.getElementById("inbound-sms-detail-external").textContent = item.external_message_id;
+            document.getElementById("inbound-sms-detail-system-time").textContent = displayDate(item.system_received_at);
+            document.getElementById("inbound-sms-detail-lead").textContent = item.lead_label || "بدون تطبیق قطعی";
+            document.getElementById("inbound-sms-detail-metadata").textContent = JSON.stringify(item.metadata, null, 2);
+            const detail = document.getElementById("inbound-sms-message-detail");
+            detail.hidden = false;
+            detail.scrollIntoView({behavior: "smooth", block: "start"});
+        } catch (error) {
+            showError(error);
+        }
+    }
+
+    async function loadInboundSMSDrilldown(localDate, localHour, page = 1) {
+        const section = document.getElementById("inbound-sms-drilldown");
+        const loading = document.getElementById("inbound-sms-drilldown-loading");
+        const errorNode = document.getElementById("inbound-sms-drilldown-error");
+        const empty = document.getElementById("inbound-sms-drilldown-empty");
+        const wrap = document.getElementById("inbound-sms-drilldown-wrap");
+        const pager = document.getElementById("inbound-sms-drilldown-pagination");
+        const query = inboundSMSReportQuery(document.getElementById("inbound-sms-report-form"));
+        query.set("local_date", localDate);
+        query.set("local_hour", String(localHour));
+        query.set("page", String(page));
+        section.hidden = false;
+        loading.hidden = false;
+        errorNode.hidden = true;
+        empty.hidden = true;
+        wrap.hidden = true;
+        pager.hidden = true;
+        document.getElementById("inbound-sms-drilldown-title").textContent = `جزئیات ${localDate} — ساعت ${String(localHour).padStart(2, "0")}`;
+        try {
+            const data = await apiRequest(`/api/v1/reports/inbound-sms/drilldown/?${query}`);
+            const rows = data.results.map((item) => {
+                const row = document.createElement("tr");
+                [
+                    item.provider_code,
+                    item.sender_normalized,
+                    item.recipient_normalized,
+                    displayDate(item.provider_received_at),
+                    item.customer_name || "بدون تطبیق قطعی",
+                    item.processing_state === "linked" ? "متصل" : "بدون تطبیق",
+                ].forEach((value) => appendCell(row, value));
+                const actions = document.createElement("td");
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "button button-muted";
+                button.textContent = "نمایش";
+                button.addEventListener("click", () => showInboundSMSMessage(item.id));
+                actions.appendChild(button);
+                row.appendChild(actions);
+                return row;
+            });
+            document.getElementById("inbound-sms-drilldown-body").replaceChildren(...rows);
+            loading.hidden = true;
+            if (!rows.length) {
+                empty.hidden = false;
+                return;
+            }
+            wrap.hidden = false;
+            const previous = document.getElementById("inbound-sms-drilldown-prev");
+            const next = document.getElementById("inbound-sms-drilldown-next");
+            previous.disabled = !data.previous;
+            next.disabled = !data.next;
+            previous.onclick = () => loadInboundSMSDrilldown(localDate, localHour, page - 1);
+            next.onclick = () => loadInboundSMSDrilldown(localDate, localHour, page + 1);
+            document.getElementById("inbound-sms-drilldown-page").textContent = `صفحه ${page}`;
+            pager.hidden = !data.previous && !data.next;
+        } catch (error) {
+            loading.hidden = true;
+            errorNode.textContent = errorText(error);
+            errorNode.hidden = false;
+        }
+    }
+
+    async function setupInboundSMSReport() {
+        const form = document.getElementById("inbound-sms-report-form");
+        const now = new Date();
+        document.getElementById("inbound-sms-start").value = localDateTimeValue(new Date(now.getFullYear(), now.getMonth(), 1));
+        document.getElementById("inbound-sms-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
+        const load = async () => {
+            clearMessages(form);
+            const loading = document.getElementById("inbound-sms-loading");
+            const errorNode = document.getElementById("inbound-sms-error");
+            const content = document.getElementById("inbound-sms-content");
+            const empty = document.getElementById("inbound-sms-empty");
+            const wrap = document.getElementById("inbound-sms-table-wrap");
+            const button = form.querySelector("button[type='submit']");
+            loading.hidden = false;
+            errorNode.hidden = true;
+            content.hidden = true;
+            document.getElementById("inbound-sms-drilldown").hidden = true;
+            document.getElementById("inbound-sms-message-detail").hidden = true;
+            button.disabled = true;
+            try {
+                const report = await apiRequest(`/api/v1/reports/inbound-sms/?${inboundSMSReportQuery(form)}`);
+                document.getElementById("inbound-sms-total").textContent = String(report.total);
+                const rows = report.results.map((item) => {
+                    const row = document.createElement("tr");
+                    [item.local_date, String(item.local_hour).padStart(2, "0"), item.inbound_sms_count].forEach((value) => appendCell(row, value));
+                    const actions = document.createElement("td");
+                    const drill = document.createElement("button");
+                    drill.type = "button";
+                    drill.className = "button button-muted";
+                    drill.textContent = "جزئیات";
+                    drill.addEventListener("click", () => loadInboundSMSDrilldown(item.local_date, item.local_hour));
+                    actions.appendChild(drill);
+                    row.appendChild(actions);
+                    return row;
+                });
+                document.getElementById("inbound-sms-table-body").replaceChildren(...rows);
+                renderInboundSMSChart(report.results);
+                empty.hidden = Boolean(rows.length);
+                wrap.hidden = !rows.length;
+                content.hidden = false;
+            } catch (error) {
+                errorNode.textContent = errorText(error);
+                errorNode.hidden = false;
+                showError(error, form);
+            } finally {
+                loading.hidden = true;
+                button.disabled = false;
+            }
+        };
+        form.addEventListener("submit", (event) => { event.preventDefault(); load(); });
+        await load();
+    }
+
     function afterSalesRow(item) {
         const row = document.createElement("tr");
         [item.subject, item.customer_name || item.customer, item.status, item.assigned_to_display || "تخصیص‌نیافته", item.closed_at ? "بسته" : "باز", displayDate(item.created_at)].forEach((value) => appendCell(row, value));
@@ -1656,6 +1830,7 @@
     if (page === "sales-document-detail") setupSalesDocumentDetail();
     if (page === "user-performance") setupUserPerformance();
     if (page === "sales-document-report") setupSalesDocumentReport();
+    if (page === "inbound-sms-report") setupInboundSMSReport();
     if (page === "after-sales") setupAfterSales();
     if (page === "after-sales-detail") setupAfterSalesDetail();
     if (page === "activity-logs") setupActivityLogs();

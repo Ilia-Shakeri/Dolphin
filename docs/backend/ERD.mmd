@@ -25,3 +25,5 @@ erDiagram
     AFTER_SALES_REQUEST ||--o{ AFTER_SALES_HISTORY : records
     USER ||--o{ AFTER_SALES_HISTORY : changes
     USER o|--o{ ACTIVITY_LOG : acts
+    CUSTOMER o|--o{ INBOUND_SMS : deterministically_matches
+    LEAD o|--o{ INBOUND_SMS : deterministically_matches

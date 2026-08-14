@@ -28,6 +28,7 @@ ROLE_CAPABILITIES = {
         "after_sales.manage",
         "products.manage",
         "reports.company",
+        "sms.company",
         "users.manage_agents",
     }),
     User.Role.COMPANY_IT: frozenset({
@@ -42,6 +43,7 @@ ROLE_CAPABILITIES = {
         "after_sales.manage",
         "products.manage",
         "reports.company",
+        "sms.company",
         "users.manage_non_platform",
         "audit.non_platform",
     }),
@@ -57,6 +59,7 @@ ROLE_CAPABILITIES = {
         "after_sales.manage",
         "products.manage",
         "reports.company",
+        "sms.company",
         "users.manage_all",
         "audit.all",
     }),

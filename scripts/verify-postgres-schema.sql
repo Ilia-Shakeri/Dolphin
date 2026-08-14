@@ -13,6 +13,7 @@ SELECT (
     AND to_regclass('public.sales_postalstatushistory') IS NOT NULL
     AND to_regclass('public.aftersales_aftersalesrequest') IS NOT NULL
     AND to_regclass('public.aftersales_aftersaleshistory') IS NOT NULL
+    AND to_regclass('public.communications_inboundsms') IS NOT NULL
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'accounts') = 3
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'accounts') = '0003_after_sales_foundation'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'auditlog') = 2
@@ -21,6 +22,8 @@ SELECT (
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'sales') = '0012_sales_document_postal_foundation'
     AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'aftersales') = 1
     AND (SELECT MAX(name) FROM django_migrations WHERE app = 'aftersales') = '0001_after_sales_foundation'
+    AND (SELECT COUNT(*) FROM django_migrations WHERE app = 'communications') = 1
+    AND (SELECT MAX(name) FROM django_migrations WHERE app = 'communications') = '0001_initial'
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -32,6 +35,15 @@ SELECT (
                 ('aftersales_aftersalesrequest', 'after_sales_description_nonblank'),
                 ('aftersales_aftersalesrequest', 'after_sales_status_nonblank'),
                 ('aftersales_aftersaleshistory', 'after_sales_history_event_valid'),
+                ('communications_inboundsms', 'uniq_inbound_sms_provider_message'),
+                ('communications_inboundsms', 'inbound_sms_provider_code_shape'),
+                ('communications_inboundsms', 'inbound_sms_external_id_nonblank'),
+                ('communications_inboundsms', 'inbound_sms_sender_e164'),
+                ('communications_inboundsms', 'inbound_sms_recipient_e164'),
+                ('communications_inboundsms', 'inbound_sms_direction_only'),
+                ('communications_inboundsms', 'inbound_sms_body_not_retained'),
+                ('communications_inboundsms', 'inbound_sms_processing_state_valid'),
+                ('communications_inboundsms', 'inbound_sms_lead_requires_customer'),
                 ('sales_customerphone', 'customer_phone_normalized_shape'),
                 ('sales_interaction', 'interaction_direction_valid'),
                 ('sales_interaction', 'interaction_outcome_nonblank'),

@@ -241,6 +241,8 @@ try {
         -Password $applicationPassword `
         -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('$sessionKey', '', CURRENT_TIMESTAMP + INTERVAL '1 hour'); UPDATE django_session SET session_data = 'x' WHERE session_key = '$sessionKey'; DELETE FROM django_session WHERE session_key = '$sessionKey'; SELECT COUNT(*) FROM django_migrations"
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE auditlog_activitylog SET operation = operation WHERE FALSE" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE communications_inboundsms SET processing_state = processing_state WHERE FALSE" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM communications_inboundsms WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM sales_interaction WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE sales_postalstatushistory SET reason = reason WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM sales_salesdocument WHERE FALSE" -ShouldPass $false

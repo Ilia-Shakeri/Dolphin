@@ -41,6 +41,7 @@
                 <div class="nav-list">
                     <a data-module="performance" href="{% url 'common_ui:user-performance' %}">{% if request.user.role == 'sales_agent' %}عملکرد من{% else %}گزارش شرکت{% endif %}</a>
                     <a data-module="sales-document-report" href="{% url 'common_ui:sales-document-report' %}">گزارش اسناد و پست</a>
+                    {% if can_view_sms_report %}<a data-module="inbound-sms-report" href="{% url 'common_ui:inbound-sms-report' %}">گزارش پیامک ورودی</a>{% endif %}
                 </div>
             </details>
             {% endif %}
