@@ -2,11 +2,13 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
-## ۱. عکس فوری وضعیت فعلی — ۲۰۲۶/۰۸/۱۴ — ممیزی P0
+## ۱. عکس فوری وضعیت فعلی — ۲۰۲۶/۰۸/۱۴ — فاز اصلاحی P0R
 
-- ریشه مخزن: `C:\Users\Dear-OTCamp-User\Desktop\Kariz-CRM`. شاخه: `main`. HEAD واقعی: `58b25a18cf8fe538710ac03521b256ca18fe3f81` («feat: enhance synthetic UAT data generation with after-sales support and browser testing»).
-- `git status --short` قبل از این ممیزی فقط یک خط داشت: `D AGENTS.md` — حذف تغییرنیافته و pre-existing از قبل این نشست؛ جزو کار P0 نیست و در commit مستندسازی این فاز stage نشد.
-- عکس فوری قبلی این فایل (مربوط به HEAD `d491f1d...`) و ادعای «۶ مسیر porcelain باقیمانده» اکنون منسوخ است: commit بعدی (`58b25a1`) همان تغییرات را ثبت کرد و درخت کاری اکنون تمیز است (به‌جز `AGENTS.md`). این خودش نمونه دقیق «prose قدیمی در برابر شاهد اجراشده» است که این ممیزی موظف به اصلاح آن بود.
+- ریشه مخزن: `C:\Users\Dear-OTCamp-User\Desktop\Kariz-CRM`. شاخه: `main`. **HEAD واقعی الان: `122b4707bbdd92c095fe85917cdb4ed72c66083d`** («chore: remove AGENTS.md as part of repository cleanup»)، یک commit جلوتر از `fde384a`.
+- `fde384a` («docs: reconcile client 1 scope and repository truth») commit مستندسازی فاز P0 است — همان فازی که این سند، Roadmap، و اصلاح هدفمند `BACKEND_SPEC.md` را نوشت. آن commit سه فایل را تغییر داد: `BACKEND_SPEC.md` (+۵۰/-)، `KARIZ_CLIENT1_CODEX_ROADMAP.md` (۱۵۹۰ خط کاهش خالص)، `KARIZ_PROJECT_HANDOFF.md` (۲۷۸۸ خط کاهش خالص) — جمعا ۴۶۳ افزوده و ۳۹۶۵ کاسته نسبت به نسخه پیشین.
+- **فاز فعلی: `P0R` — اصلاح مستندات پیش از هر پیاده‌سازی feature.** این فاز فقط مستندات را اصلاح می‌کند (`BACKEND_SPEC.md`، همین فایل، Roadmap، و افزودن `CLAUDE.md`)؛ هیچ کد اپلیکیشن، migration، وابستگی، تست، Dockerfile یا Compose تغییر نکرد؛ هیچ `git add`/`commit`/`push` در این فاز اجرا نشد — کل diff برای بازبینی انسانی در working tree باقی می‌ماند.
+- `git status --short` فعلی (بعد از commit مستقل `AGENTS.md`) **خالی است** — درخت پیش از این فاز کاملا تمیز بود؛ حذف `AGENTS.md` کار از پیش موجود و عمدی کاربر بود و در این فاز بازگردانده نشد.
+- **اصلاح:** عکس فوری قبلی این بخش HEAD `58b25a1` را به‌عنوان HEAD «فعلی» معرفی می‌کرد. آن دیگر درست نیست — `58b25a1` والد `fde384a` است و `fde384a` خودش والد HEAD فعلی (`122b470`) است. این خودش یک نمونه دیگر از «prose در برابر شاهد اجراشده» است که این فاز اصلاحی موظف به رفع آن بود.
 - `docs/ops/SOURCE_MANIFEST.md` و `docs/ops/RELEASE_NOTES.md` یک reference منجمد و تاریخی روی commitهای بسیار قدیمی‌تر (`50a978a`، `95dbc71e`) دارند؛ هر دو commit در تاریخچه واقعی مخزن موجودند ولی به‌شدت عقب‌تر از HEAD فعلی هستند. آن دو سند صریحا خود را «historical, not live status» اعلام می‌کنند؛ به‌عنوان شاهد وضعیت فعلی استفاده نشوند. از زمان آن reference هیچ immutable release reference تازه‌ای تولید نشده است.
 
 ## ۲. تصمیم‌های مستقیم کاربر که اکنون معتبرند
@@ -15,7 +17,7 @@
 
 - محصول Kariz CRM / کاریز؛ رابط کاربر نهایی نگهداری‌شده فارسی-only، RTL، responsive و same-origin است. Monolith ماژولار می‌ماند مگر کد موجود خلاف آن را ثابت کند (کد فعلی این‌طور است: یک Django project با appهای `accounts/sales/aftersales/communications/auditlog/reports/common`، بدون microservice).
 - یک کدبیس مشترک برای چند استقرار مشتری؛ فورک یا شاخه دائمی مشتری‌محور ممنوع؛ هر استقرار DB/secret/runtime identity/backup/branding/feature-profile جدا دارد؛ `if client_name == ...` در کد پخش نشود؛ فعال/غیرفعال بودن feature از role permission و object scope جدا است؛ غیرفعال‌کردن feature داده تاریخی را پاک نمی‌کند؛ profile یا dependency ناشناخته fail-closed است. **وضعیت فعلی کد: هیچ مدل/مکانیزم DeploymentProfile یا FeatureFlag در کد وجود ندارد (تایید شد — هیچ چنین کلاسی در هیچ app پیدا نشد). این یک اصل تاییدشده برای طراحی آینده است، نه یک قابلیت پیاده‌سازی‌شده.** به بخش ۷.
-- نقش‌های ثابت Client 1 (کد فعلی دقیقا همین چهار نقش را دارد؛ تایید شد در `accounts/models.py`): `platform_admin` (فقط تیم مالک/توسعه)، `sales_manager` (مدیر فروشگاه مشتری)، `sales_agent` (بازاریاب/فروشنده، حساب کاربری جدا برای هرکس، بدون حساب اشتراکی)، `company_it` (برای Client 1 غیرفعال یا حداکثر یک حساب فنی محدود بعدی). `platform_admin` تنها نقش مجاز به ساخت/غیرفعال‌سازی کاربر، تغییر نقش و reset رمز است؛ `sales_manager` مدیریت کاربر ندارد مگر تصمیم مستقیم بعدی. احراز هویت فعلی نام‌کاربری/رمز است؛ دسترسی فقط از سیستم‌های کنترل‌شده شرکت در دفتر تهران روی مسیر شبکه خصوصی درنظر گرفته می‌شود. Django Admin نباید به کاربر عادی یا شبکه عمومی افشا شود.
+- **نقش‌های ثابت Client 1 — سیاست نهایی، بسته (`BIZ-005` resolved، ۲۰۲۶/۰۸/۱۴):** کد فعلی دقیقا همین چهار نقش را دارد (تایید شد در `accounts/models.py`): `platform_admin` (فقط تیم مالک/توسعه کاریز)، `sales_manager` (مدیر فروشگاه مشتری)، `sales_agent` (بازاریاب/فروشنده، حساب کاربری جدا برای هرکس، حساب اشتراکی ممنوع)، `company_it` (**غیرفعال به‌صورت پیش‌فرض برای Client 1**؛ یک حساب فنی محدود آینده نیازمند قرارداد تصویب‌شده جداست و هرگز نباید `platform_admin` را اعطا/هدف‌گیری/مدیریت کند). **فقط `platform_admin` مجاز به ساخت، ویرایش، غیرفعال‌سازی، فعال‌سازی مجدد، یا reset رمز کاربران است؛ فقط `platform_admin` مجاز به تغییر نقش یا workstream عملیاتی است. `sales_manager` هیچ قابلیت مدیریت کاربر ندارد** — فقط داده/گزارش عملیاتی کسب‌وکار. این یک تصمیم بسته است، نه یک گزینه مشروط به تصمیم بعدی؛ ببینید بخش ۶ برای شکاف دقیق بین این سیاست و رفتار فعلی کد. Django Admin و مدیریت سرور/دیتابیس هرگز به کاربر مشتری افشا نمی‌شود. احراز هویت فعلی نام‌کاربری/رمز است؛ دسترسی فقط از سیستم‌های کنترل‌شده شرکت در دفتر تهران روی مسیر شبکه خصوصی درنظر گرفته می‌شود.
 - هدف کامل محصول Client 1 (بخش ۴) شامل موجودی/مالی/حسابداری هم می‌شود؛ جمله قدیمی «Inventory و مالی همیشه خارج از هدف Client-1 هستند» دیگر معتبر نیست، ولی این ماژول‌ها تا عبور از gate خودشان `ABSENT`/`BLOCKED_DECISION` علامت می‌مانند.
 - محدودیت‌های deployment گزارش‌شده توسط مشتری (بخش ۱۰) ورودی بیرونی تاییدنشده هستند، نه fact اثبات‌شده؛ تا شواهد `winver`/`systeminfo` واقعی، Windows Server 2008 هدف تولید تلقی نمی‌شود.
 - مدل تهدید حفاظت سورس (بخش ۸): مالک فیزیکی هاست دسترسی Administrator دارد؛ رازداری مطلق سورس از مالک فیزیکی خصمانه فنی تضمین‌شدنی نیست؛ هدف واقعی نبود repo/toolchain/تست/مستندات توسعه در محیط تحویل و کنترل توزیع/rollback فقط توسط مالک پلتفرم است.
@@ -37,9 +39,17 @@
 - API نسخه‌دار `/api/v1/`، OpenAPI معتبر، health live/ready، error envelope پایدار.
 - **تایید غیاب صریح:** grep برای `class\s+(Invoice|InvoiceItem|Payment|Order|Quotation|Inventory|Stock|Warehouse|Cheque|Installment|CustomerAccount|Ledger|Task|Project)` و `FileField|ImageField` و `pdf|reportlab|weasyprint` در کل appهای first-party صفر نتیجه داد. این ماژول‌ها و ذخیره فایل/PDF در کد وجود ندارند — نه partial، نه HTML shell به‌تنهایی بدون backend.
 
-## ۴. هدف کامل موردنیاز Client 1
+## ۴. هدف کامل موردنیاز Client 1 — سه رده صریح (اصلاح P0R)
 
-فهرست کامل خواسته‌شده در پرامپت مالک محصول (احراز هویت…backup/restore…یکپارچگی بیرونی) به بخش ۵ (ماتریس قابلیت) نگاشت شده است. هیچ ماژول جدید فقط به‌خاطر «هدف است» implemented اعلام نمی‌شود؛ هرکدام باید gate تصمیم و acceptance مخصوص خودش را در `KARIZ_CLIENT1_CODEX_ROADMAP.md` بگذراند. یکپارچگی‌های بیرونی (وب‌سایت، درگاه پرداخت، حسابداری، پیامک، ایمیل، تلفنی) تا مستندات رسمی provider + credential + owner برسد `BLOCKED_EXTERNAL` می‌مانند.
+**اصلاح:** نسخه قبلی این بخش هر capability نام‌برده در هر سند/prompt را به‌طور یکسان «هدف تاییدشده Client 1» معرفی می‌کرد. این یک گسترش دامنه بدون پشتوانه تصمیم مستقیم بود. جایگزین آن سه رده صریح زیر است که اکنون در `BACKEND_SPEC.md` §2.6 هم به‌طور کامل ثبت شده؛ اینجا فقط خلاصه عملیاتی است.
+
+**رده A — پایه پیاده‌سازی‌شده.** فقط مواردی که با model/migration/service/API/UI نگهداری‌شده/تست واقعی ثابت شده‌اند (جزئیات کامل در بخش ۳ و ۵): احراز هویت/نشست/پروفایل؛ نقش‌های ثابت و object scope؛ کاربران؛ مشتری و شماره تلفن؛ Lead/تخصیص/تاریخچه؛ Interaction/پیگیری؛ ProductCategory/Product؛ Sale عملیاتی؛ SalesDocument و گزارش وضعیت پستی داخلی؛ AfterSalesRequest؛ ذخیره/گزارش داخلی InboundSMS (provider-neutral)؛ داشبورد عملکرد فعلی و XLSX؛ ActivityLog؛ API نسخه‌دار، OpenAPI، health و کنترل‌های امنیتی فعلی.
+
+**رده B — هدف تاییدشده Client 1.** مالک محصول صراحتا این خانواده‌های غایب را اولویت‌دار کرده؛ هرکدام قبل از کد به gate تصمیم/acceptance مخصوص خودش نیاز دارد: انبار و موجودی؛ حرکت انبار؛ بهای تمام‌شده خرید؛ قیمت‌گذاری/تخفیف/سود تاییدشده؛ Order و Quotation (چرخه باید تصویب شود)؛ Invoice/InvoiceItem حسابداری-حقوقی؛ مالیات/شماره‌گذاری/رُند‌کردن/اصلاح/ابطال تاییدشده؛ Payment؛ چک؛ قسط؛ حساب/دفتر مشتری؛ مطالبات؛ گزارش سود/زیان تاییدشده؛ PDF و چاپ عملیاتی (**انتظار می‌رود در اولین تحویل عملیاتی باشد، ولی تا رسیدن معنای دقیق سند و یک نمونه ردشده تاییدشده مسدود می‌ماند** — اولویت آن در Roadmap زودتر از سایر موارد رده B است)؛ فایل/سند عملیاتی امن؛ یکپارچگی‌های تاییدشده وب‌سایت/فروشگاه/پرداخت/حسابداری فقط پس از رسیدن provider دقیق و مستندات رسمی.
+
+**رده C — کاندید یا backlog کم‌اولویت.** تا تصمیم مستقیم تازه، اینها را تحویل تاییدشده Client 1 اعلام نکن: طراح پویای نقش/مجوز؛ Opportunity/Pipeline کامل؛ موتور automation عمومی؛ PWA نصب‌شدنی؛ تشخیص فعالیت غیرعادی؛ مجموعه کامل Task/Project/Meeting؛ جستجوی سراسری بین‌ماژولی؛ فیلتر ذخیره‌شده؛ import گروهی XLSX؛ report builder پویا فراتر از گزارش‌های تاییدشده؛ هر صفحه نمایشی Metronic/vendor؛ هر توسعه آواتار/اعلان/مدیریت نشست؛ هر provider ارتباطی فراتر از پیامک قراردادشده؛ عملکرد دلبخواه دیگر از قالب.
+
+هیچ ماژول جدید فقط به‌خاطر عضویت در رده B implemented اعلام نمی‌شود؛ عضویت رده B یعنی «باید نهایتا تصمیم‌گیری و ساخته شود»، نه «همین حالا مجاز به پیاده‌سازی». یکپارچگی‌های بیرونی (وب‌سایت، درگاه پرداخت، حسابداری، پیامک، ایمیل، تلفنی) تا مستندات رسمی provider + credential + owner برسد `BLOCKED_EXTERNAL` می‌مانند.
 
 ## ۵. ماتریس قابلیت فعلی
 
@@ -92,28 +102,69 @@
 
 | قابلیت | Sales Agent | Sales Manager | Company IT | Platform Admin |
 |---|---|---|---|---|
-| ورود/پروفایل خود | بله | بله | بله | بله |
-| مدیریت کاربر | خیر | خیر (تا تصمیم مستقیم بعدی) | حساب‌های غیر-platform | همه هویت‌های تمیز CRM |
-| اعطای نقش | خیر | خیر | تا `company_it`؛ هرگز `platform_admin` | بله، هر نقش ثابت |
-| Customer/Lead/Interaction | فقط assigned/created خود | همه شرکت | همه شرکت | همه شرکت |
-| Product/Category مدیریت | فقط خواندن (active) | بله | بله | بله |
-| Sale ثبت/لغو | assigned Lead خود / لغو ندارد | ثبت+لغو، audited | ثبت+لغو، audited | ثبت+لغو، audited |
-| After-Sales | فقط اگر workstream=`after_sales`، فقط پرونده تخصیص‌یافته | همه پرونده شرکت | همه پرونده شرکت | همه پرونده شرکت |
-| گزارش عملکرد | فقط خودش | شرکت | شرکت | شرکت |
-| Audit log | خیر | خیر (BIZ-011 باز) | audit غیر-platform | audit کامل |
-| Django Admin/سرور | خیر | خیر | خیر (پیش‌فرض) | مسیر مدیریت جدا |
+| ورود/پروفایل خود | بله | بله | بله (اگر فعال شود) | بله |
+| مدیریت کاربر (ساخت/ویرایش/غیرفعال/فعال‌سازی/reset رمز/role/workstream) — **سیاست Client 1، بسته** | خیر | **خیر — قطعی** | غیرفعال به‌صورت پیش‌فرض | همه هویت‌های تمیز CRM |
+| اعطای نقش | خیر | خیر | تا `company_it`؛ هرگز `platform_admin` (نقش غیرفعال پیش‌فرض) | بله، هر نقش ثابت |
+| Customer/Lead/Interaction | فقط assigned/created خود | همه شرکت | همه شرکت (اگر فعال شود) | همه شرکت |
+| Product/Category مدیریت | فقط خواندن (active) | بله | بله (اگر فعال شود) | بله |
+| Sale ثبت/لغو | assigned Lead خود / لغو ندارد | ثبت+لغو، audited | ثبت+لغو، audited (اگر فعال شود) | ثبت+لغو، audited |
+| After-Sales | فقط اگر workstream=`after_sales`، فقط پرونده تخصیص‌یافته | همه پرونده شرکت | همه پرونده شرکت (اگر فعال شود) | همه پرونده شرکت |
+| گزارش عملکرد | فقط خودش | شرکت | شرکت (اگر فعال شود) | شرکت |
+| Audit log | خیر | خیر (BIZ-011 باز) | audit غیر-platform؛ غیرفعال پیش‌فرض | audit کامل |
+| Django Admin/سرور | خیر | خیر | خیر (پیش‌فرض) | مسیر مدیریت جدا، هرگز به کاربر مشتری افشا نمی‌شود |
 
-این ماتریس با enforcement واقعی در `sales/selectors.py`، `aftersales/selectors.py`، `auditlog/selectors.py` تایید شد؛ frontend فقط نمایش است و مرز امنیتی نیست.
+این ماتریس ستون‌های Customer/Lead/Product/Sale/After-Sales/گزارش/audit را با enforcement واقعی در `sales/selectors.py`، `aftersales/selectors.py`، `auditlog/selectors.py` تایید می‌کند؛ frontend فقط نمایش است و مرز امنیتی نیست. **ردیف «مدیریت کاربر» تنها ردیفی است که سیاست Client 1 (ستون بالا) با رفتار فعلی کد فرق دارد — بلوک زیر را ببینید.**
+
+```text
+CURRENT CODE BEHAVIOR
+accounts/access.py role sales_manager دارای capability "users.manage_agents" است.
+accounts/views.py UserViewSet + accounts/services.py (create_crm_user،
+update_crm_user، _locked_users) به sales_manager احرازشده اجازه می‌دهند
+حساب‌هایی با role دقیقا sales_agent را بسازد، ویرایش کند (شامل reset رمز
+از طریق فیلد قابل‌نوشتن "password" و تغییر workstream از طریق فیلد
+قابل‌نوشتن "workstream")، غیرفعال و دوباره فعال کند. نمی‌تواند به حساب
+company_it/platform_admin دست بزند و نمی‌تواند change-role را صدا بزند
+(در change_user_role صریحا مسدود شده). این رفتار عمومی role-based است،
+بدون گیت deployment-profile — امروز روی هر استقراری با همین کدبیس اعمال
+می‌شود، نه فقط Client 1.
+
+CLIENT-1 TARGET BEHAVIOR
+فقط platform_admin مجاز به ساخت/ویرایش/غیرفعال‌سازی/فعال‌سازی مجدد/reset
+رمز کاربران است؛ فقط platform_admin مجاز به تغییر role یا workstream است.
+sales_manager هیچ قابلیت مدیریت کاربر ندارد.
+
+IMPLEMENTATION GAP
+capability "users.manage_agents" و enforcement آن در views.py/services.py
+فراتر از هدف تاییدشده Client 1 است و باید در یک فاز پیاده‌سازی آینده حذف
+یا پشت یک مکانیزم deployment-profile تاییدشده gate شود. در P0R تغییر
+نکرد (فاز فقط-مستندات)؛ تسک محدود آینده و تست‌های لازم آن در
+KARIZ_CLIENT1_CODEX_ROADMAP.md بخش «شکاف Authorization» ثبت شده است.
+```
 
 ## ۷. اصول deployment profile چندمشتری
 
-اصول تصمیم‌شده در بخش ۲ باید در آینده به یک مدل صریح (مثلا `DeploymentProfile`/feature-flag با fail-closed روی profile ناشناخته) تبدیل شود. **این مکانیزم امروز در کد وجود ندارد** — تنها جداسازی امروز از طریق دیتابیس/تنظیمات جدا در سطح deployment (نه کد) قابل انجام است. طراحی دقیق profile، منبع feature flag، و تضمین «غیرفعال‌سازی feature داده را حذف نمی‌کند» یک آیتم Roadmap (P3) است، نه یک نقص باگ‌مانند.
+اصول تصمیم‌شده در بخش ۲ باید در آینده به یک مکانیزم صریح تبدیل شود. **این مکانیزم امروز در کد وجود ندارد** — تنها جداسازی امروز از طریق دیتابیس/تنظیمات جدا در سطح deployment (نه کد) قابل انجام است. جدا از نبود کد، یعنی امروز حتی «غیرفعال به‌صورت پیش‌فرض» بودن `company_it` برای Client 1 (بخش ۲/۶) فقط یک سیاست عملیاتی است (هرگز چنین حسابی نساز/فعال نکن)، نه یک قفل فنی.
+
+```text
+PROFILE-001 PARTIALLY RESOLVED
+Architecture discovery برای deployment profile تایید شده است.
+پیاده‌سازی (مدل/migration/کد) تایید نشده تا یکی از گزینه‌های طراحی
+(Option A/B/C — بخش P0R.3 در KARIZ_CLIENT1_CODEX_ROADMAP.md) رسما
+انتخاب شود. هیچ مدل DeploymentProfile یا migration نباید قبل از آن
+انتخاب شروع شود.
+```
+
+مقایسه دقیق سه گزینه طراحی (manifest امضاشده بیرونی / مدل دیتابیسی / ترکیب manifest+cache) و معیارهای مقایسه در Roadmap ثبت شده؛ اینجا تکرار نمی‌شود تا duplicate-prone نشود.
 
 ## ۸. مدل تهدید حفاظت از سورس و تضمین واقع‌بینانه
 
 مالک فیزیکی هاست (مشتری) طبق تصمیم مستقیم ممکن است دسترسی Administrator داشته باشد؛ رازداری مطلق سورس از چنین مالکی تضمین فنی ندارد. وضعیت فعلی واقعی، نه فرضی:
 
-- **یافته پرریسک تاییدشده:** `Dockerfile` با `COPY . .` (خط ۱۵) کل build context را کپی می‌کند. `.dockerignore` مسیرهای vendor/demo، `.git`، `.env*` و فایل‌های secret-shaped را exclude می‌کند اما **`docs/**`، فایل‌های ریشه `*.md` (شامل `BACKEND_SPEC.md`، همین `KARIZ_PROJECT_HANDOFF.md` با حجم حدود ۳۰۰ کیلوبایت، `KARIZ_CLIENT1_CODEX_ROADMAP.md`)، کل `*/tests/**`، `scripts/**`، `nginx/**`، `compose*.yml`، `requirements-direct.txt` را exclude نمی‌کند.** یعنی اگر ایمیج طبق دستور مستند در `docs/ops/DEPENDENCIES.md` ساخته شود، سورس پایتون کامل خوانا (نه compiled)، کل تست‌ها، و کل اسناد برنامه‌ریزی داخلی داخل ایمیج نهایی قرار می‌گیرند و برای هرکس که ایمیج یا فایل‌سیستم هاست را ببیند قابل خواندن است.
+- **یافته: ریسک تاییدشده در سطح تعریف build، نه یک artifact ساخته‌شده و بازرسی‌شده.** `Dockerfile` با `COPY . .` (خط ۱۵) کل build context را کپی می‌کند. `.dockerignore` مسیرهای vendor/demo، `.git`، `.env*` و فایل‌های secret-shaped را exclude می‌کند اما **`docs/**`، فایل‌های ریشه `*.md` (شامل `BACKEND_SPEC.md`، همین `KARIZ_PROJECT_HANDOFF.md`، `KARIZ_CLIENT1_CODEX_ROADMAP.md`)، کل `*/tests/**`، `scripts/**`، `nginx/**`، `compose*.yml`، `requirements-direct.txt` را exclude نمی‌کند.** دقت لازم درباره این یافته (اصلاح P0R):
+  - این نتیجه از **بازرسی ایستای تعریف build** (`Dockerfile` + `.dockerignore`) به‌دست آمده — اثبات می‌کند که تعریف فعلی build، محتوای ممنوعه را وارد می‌کند.
+  - P0/P0R هیچ ایمیج Docker واقعی build و extract نکردند (Docker روی این هاست نصب نیست، تایید شد در بخش ۱۱)؛ بنابراین این یافته **اثبات نمی‌کند** که هر نشتی ممکن دیگر هم فهرست شده — فقط همین gap مشخص در همین دو فایل تایید شده است.
+  - سخت‌سازی `.dockerignore` به‌تنهایی منطق کسب‌وکار پایتون خوانا را پنهان نمی‌کند؛ حتی با `.dockerignore` کامل، سورس `.py` غیر-compiled همچنان در ایمیج باقی می‌ماند و برای هرکس با دسترسی به ایمیج/هاست قابل خواندن است.
+  - کامپایل/بسته‌بندی backend (تا حدی که readable Python source شیپ نشود) یک فاز feasibility جداست (Roadmap P12)، نه یک تغییر کوچک کنار `.dockerignore`.
 - این نشتی توسط هیچ gate موجود پوشش داده نمی‌شود: `docs/ops/SECURITY_SCANS.md` فقط secret (Gitleaks)، آسیب‌پذیری بسته (pip-audit/Grype/SBOM) و TLS خارجی را چک می‌کند، نه محتوای فایل ایمیج. `docs/ops/RELEASE_CHECKLIST.md` فقط diff مخزن Git را review می‌کند، نه محتوای ایمیج ساخته‌شده. `docs/ops/SOURCE_MANIFEST.md` فقط تغییرات commit به commit را classify می‌کند، نه خروجی `docker build`. این یک gap مستندنشده است، نه ریسک شناخته‌شده قبلی.
 - نکته مثبت تاییدشده: خود `compose.yml`/`compose.restore-verify.yml`/`compose.write-stop.yml` هیچ `build:` context ندارند (فقط `image: repo@sha256:digest` pull می‌کنند)؛ هیچ پورت PostgreSQL یا اپ مستقیما به هاست/شبکه عمومی publish نمی‌شود (فقط Nginx 80/443)؛ `restore-verify` با `network_mode: none` اجرا می‌شود. نشتی فقط در لحظه build ایمیج رخ می‌دهد، نه در هر بار اجرای Compose.
 - هدف واقع‌بینانه طبق تصمیم مالک محصول: نبود repo/toolchain/تست/مستندات توسعه در تحویل، backend کامپایل/بسته‌بندی‌شده در جایی که عملی است، فرانت بدون source map، بدون کلید امضا روی هاست مشتری، بروزرسانی/rollback فقط از مسیر مالک پلتفرم. **هیچ‌کدام از این‌ها امروز پیاده نشده؛ فقط feasibility ممیزی و gate برنامه‌ریزی شد (طبق دستور صریح P0، هیچ packaging/license enforcement در این فاز اجرا نشد).**
@@ -137,18 +188,11 @@
 - هدف شبکه ترجیحی: VPN سایت-به-سایت روتر-به-روتر با HTTPS روی تونل خصوصی برای کاربران ثابت تهران؛ VPN فردی فقط برای مدیریت یا کاربران واقعا خارج از دفتر. PostgreSQL، پورت اپ، Django Admin، SSH، RDP، مدیریت کانتینر و backup service علنی نمی‌شوند (این محدودیت آخر با تنظیمات فعلی Compose تایید شد — بخش ۸).
 - این‌ها همگی `BLOCKED_EXTERNAL` هستند؛ سوالات دقیق در بخش ۱۴.
 
-## ۱۱. دستورهای دقیق و شواهد فعلی (اجراشده در همین فاز، همین هاست)
+## ۱۱. دستورهای دقیق و شواهد فعلی
+
+بخش الف — اجراشده در فاز P0 (شواهد پایه، همچنان معتبر چون هیچ کد اپلیکیشنی از آن زمان تغییر نکرده):
 
 ```text
-git rev-parse --show-toplevel        → C:/Users/Dear-OTCamp-User/Desktop/Kariz-CRM
-git rev-parse HEAD                   → 58b25a18cf8fe538710ac03521b256ca18fe3f81
-git branch --show-current            → main
-git status --short                   → " D AGENTS.md" (pre-existing، جزو P0 نیست)
-git diff --check                     → pass (بدون whitespace)
-python manage.py check --settings=config.test_settings
-    → "System check identified no issues (0 silenced)."
-python manage.py makemigrations --check --dry-run --settings=config.test_settings
-    → "No changes detected"
 python manage.py spectacular --validate --fail-on-warn --settings=config.test_settings
     → pass (نیازمند PYTHONIOENCODING=utf-8 روی این کنسول Windows؛ صرفا محدودیت encoding کنسول محلی است، نه خطای schema)
 python manage.py test --settings=config.test_settings -v 1
@@ -161,10 +205,25 @@ python scripts/check_html_branding.py
     → "HTML_BRANDING_PASS files=228"
 powershell -NoProfile -File scripts/test-postgres.ps1
     → شکست فوری: "initdb: The term 'initdb' is not recognized" — تایید می‌کند PostgreSQL native روی این هاست نصب نیست؛ RUNTIME_UNPROVED نه FAIL محصول.
-which docker / which psql (bash)     → یافت نشد (تکرار همان یافته اسناد قبلی، اکنون با اجرای واقعی تایید شد)
+which docker / which psql (bash)     → یافت نشد
 ```
 
-هیچ نتیجه بالا جایگزین شواهد اجراشده روی محیط هدف واقعی نمی‌شود.
+بخش ب — دوباره اجراشده در فاز P0R (بعد از commit مستقل `AGENTS.md`، همین هاست):
+
+```text
+git rev-parse --show-toplevel        → C:/Users/Dear-OTCamp-User/Desktop/Kariz-CRM
+git branch --show-current            → main
+git rev-parse HEAD                   → 122b4707bbdd92c095fe85917cdb4ed72c66083d
+git status --short (قبل از ویرایش‌های P0R) → خالی
+git status --short (حین ویرایش‌های P0R)   → " M BACKEND_SPEC.md" و " M KARIZ_PROJECT_HANDOFF.md" (unstaged، طبق دستور)
+git diff --check                     → exit 0 (فقط هشدار تبدیل خط CRLF/LF گیت، نه خطای whitespace واقعی)
+python manage.py check --settings=config.test_settings
+    → "System check identified no issues (0 silenced)."
+python manage.py makemigrations --check --dry-run --settings=config.test_settings
+    → "No changes detected"
+```
+
+هیچ کد اپلیکیشنی در P0R تغییر نکرد، بنابراین اجرای مجدد کل test suite لازم نبود و انجام نشد (طبق دستور صریح این فاز). هیچ نتیجه بالا جایگزین شواهد اجراشده روی محیط هدف واقعی نمی‌شود.
 
 ## ۱۲. وضعیت انتشار فعلی
 
@@ -172,11 +231,24 @@ which docker / which psql (bash)     → یافت نشد (تکرار همان ی
 
 ## ۱۳. فاز دقیق بعدی و اقدام دقیق ازسرگیری
 
-فاز بعدی `P1 — بستن تصمیم‌های کسب‌وکار/دامنه باز` طبق `KARIZ_CLIENT1_CODEX_ROADMAP.md` است، مشروط به پاسخ مالک محصول به سوالات بخش ۱۴. موازی و مستقل از آن، `P2` (سخت‌سازی UI فعال و رفع کنترل مرده) می‌تواند شروع شود چون فقط یک نقص کوچک شناخته‌شده دارد (بخش ۹ ردیف ۳). اقدام دقیق ازسرگیری: مالک محصول به سوالات شماره‌گذاری‌شده در بخش ۱۴ پاسخ دهد؛ سپس با هر تصمیم مصوب، `KARIZ_CLIENT1_CODEX_ROADMAP.md` فاز مربوطه به‌روزرسانی و پیاده‌سازی محدود همان تصمیم آغاز شود. اصلاح نشتی ایمیج (بخش ۹ ردیف ۱) باید پیش از هر تلاش build ایمیج واقعی انجام شود، مستقل از تصمیم‌های کسب‌وکار.
+فاز بعدی `P1 — بستن تصمیم‌های کسب‌وکار/دامنه باز` طبق `KARIZ_CLIENT1_CODEX_ROADMAP.md` است، مشروط به پاسخ مالک محصول به سوالات بخش ۱۴. موازی و مستقل از آن: `P0R.1` (survey زودهنگام زیرساخت) و `P0R.2` (راه‌اندازی PostgreSQL محلی/staging) می‌توانند بدون انتظار برای تصمیم‌های مالی شروع شوند؛ `P2` (رفع نقص کوچک HTML بخش ۹ ردیف ۳) نیز مستقل قابل شروع است. اقدام دقیق ازسرگیری: مالک محصول به سوالات شماره‌گذاری‌شده در بخش ۱۴ پاسخ دهد و یکی از گزینه‌های طراحی deployment-profile (Option A/B/C در Roadmap) را انتخاب کند؛ سپس با هر تصمیم مصوب، `KARIZ_CLIENT1_CODEX_ROADMAP.md` فاز مربوطه به‌روزرسانی و پیاده‌سازی محدود همان تصمیم آغاز شود. اصلاح نشتی تعریف build ایمیج (بخش ۹ ردیف ۱) باید پیش از هر تلاش build ایمیج واقعی انجام شود، مستقل از تصمیم‌های کسب‌وکار. این diff فعلی (P0R) بدون commit در working tree باقی می‌ماند تا بازبینی انسانی انجام شود.
 
 ## ۱۴. شناسه‌های تصمیم باز (شماره‌گذاری‌شده)
 
-مصوب و بسته (فقط برای provenance، دیگر باز نیستند): نگاشت نقش‌ها/برچسب فارسی؛ نبود مدل Team برای Client 1 (Sales Manager فقط دامنه شرکت‌محور و مدیریت Sales Agent)؛ جداسازی workstream `sales`/`after_sales`.
+مصوب و بسته (فقط برای provenance، دیگر باز نیستند): نگاشت نقش‌ها/برچسب فارسی؛ نبود مدل Team برای Client 1؛ جداسازی workstream `sales`/`after_sales`؛ **`BIZ-005` (۲۰۲۶/۰۸/۱۴) — Sales Manager هیچ قابلیت مدیریت کاربر ندارد؛ `company_it` غیرفعال پیش‌فرض برای Client 1** (بخش ۲/۶؛ شکاف پیاده‌سازی مربوطه باز است، نه خودِ تصمیم).
+
+```text
+DOC-001 RESOLVED
+AGENTS.md قدیمی (۲۷۲ خط) بازگردانده نمی‌شود. یک CLAUDE.md مختصر ریشه
+(حداکثر ~۱۲۰ خط) جایگزین آن برای قوانین پایدار مخزن است. این فاز آن را
+ایجاد کرد (بدون stage). دلیل: AGENTS.md قدیمی بسیار محدودکننده و
+checkpoint-محور بود؛ CLAUDE.md فقط قوانین پایدار را نگه می‌دارد و مانع
+بازرسی کد first-party مرتبط نمی‌شود.
+
+PROFILE-001 PARTIALLY RESOLVED
+به بخش ۷ نگاه کنید. Architecture discovery تایید شده؛ پیاده‌سازی تا
+انتخاب یکی از Option A/B/C تایید نشده.
+```
 
 باز — کسب‌وکار/دامنه:
 
@@ -184,41 +256,38 @@ which docker / which psql (bash)     → یافت نشد (تکرار همان ی
 2. `BIZ-002` فهرست نهایی وضعیت و گذار Lead.
 3. `BIZ-003` گروه‌بندی outcome تماس واجد شرایط.
 4. `BIZ-004` معنای دقیق KPI مشتری/نرخ تبدیل.
-5. `BIZ-005` مرز دقیق مدیریت کاربر توسط Sales Manager (فراتر از Sales Agent).
-6. `BIZ-006` معنای دقیق correction فروش (فراتر از cancel فعلی).
-7. `BIZ-007` برچسب/قالب/تقویم جلالی خروجی XLSX.
-8. `BIZ-008` گراف وضعیت/reopen/SLA خدمات پس از فروش.
-9. `BIZ-009` زمان‌بندی/نگهداری/مالک/RPO/RTO backup.
-10. `BIZ-010` هدف ظرفیت/بار همزمان و قانون abort.
-11. `BIZ-011` مرز audit قابل‌مشاهده برای Sales Manager.
-12. `BIZ-012` سیاست backfill یا رد دائمی رکوردهای audit قدیمی.
-13. `BIZ-013` رفتار Lead فعال هنگام غیرفعال‌سازی کاربر مالک آن.
+5. `BIZ-006` معنای دقیق correction فروش (فراتر از cancel فعلی).
+6. `BIZ-007` برچسب/قالب/تقویم جلالی خروجی XLSX.
+7. `BIZ-008` گراف وضعیت/reopen/SLA خدمات پس از فروش.
+8. `BIZ-009` زمان‌بندی/نگهداری/مالک/RPO/RTO backup.
+9. `BIZ-010` هدف ظرفیت/بار همزمان و قانون abort.
+10. `BIZ-011` مرز audit قابل‌مشاهده برای Sales Manager.
+11. `BIZ-012` سیاست backfill یا رد دائمی رکوردهای audit قدیمی.
+12. `BIZ-013` رفتار Lead فعال هنگام غیرفعال‌سازی کاربر مالک آن.
 
-باز — دامنه‌های بزرگ (هرکدام باید قبل از کد شروع شود):
+باز — دامنه‌های بزرگ (هرکدام باید قبل از کد شروع شود؛ ترتیب اولویت اجرا در Roadmap P5-P8):
 
-14. Inventory/انبار: واحد، مکان انبار، موجودی اول دوره، رزرو، منفی‌شدن، اصلاح/برگشت.
-15. Order و Quotation: چرخه، منبع، تبدیل، شماره‌گذاری، تاییدها.
-16. Invoice/InvoiceItem حسابداری-حقوقی: حوزه مالیاتی، نرخ، ترتیب تخفیف، رُند کردن، شماره‌گذاری، اصلاح/ابطال، snapshot.
-17. Payment، چک، قسط: روش‌ها، تخصیص، idempotency، reversal/refund، تطبیق.
-18. حساب/دفتر مشتری (Customer Ledger): قرارداد بدهکار/بستانکار، موجودی اول دوره، تعدیل.
-19. مطالبات و سود/زیان: فرمول دقیق، منبع هزینه/موجودی، دوره بستن.
-20. فایل/سند عملیاتی: نوع/حجم مجاز، نگهداری، دانلود، malware scan.
-21. یکپارچگی‌های بیرونی (وب‌سایت/فروشگاه/درگاه/حسابداری/ایمیل/پیامک/تلفنی): provider دقیق، مستندات رسمی، credential، owner، retry/reconciliation.
+13. Inventory/انبار: واحد، مکان انبار، موجودی اول دوره، رزرو، منفی‌شدن، اصلاح/برگشت.
+14. Order و Quotation: چرخه، منبع، تبدیل، شماره‌گذاری، تاییدها (نمونه‌های چرخه ممکن، نه تصویب‌شده، در Roadmap §۷.۴).
+15. Invoice/InvoiceItem حسابداری-حقوقی: منبع دقیق (مستقیم از مشتری، فقط از Sale، فقط از Order/Quotation، یا چند مسیر)، حوزه مالیاتی، نرخ، ترتیب تخفیف، رُند کردن، شماره‌گذاری، اصلاح/ابطال، snapshot. **نمونه فاکتور/PDF ردشده (redacted) اولویت بالاتری از بقیه موارد رده B دارد چون PDF برای اولین تحویل عملیاتی انتظار می‌رود (بخش ۴).**
+16. Payment، چک، قسط: روش‌ها، آیا تخصیص به Invoice اجباری است یا پرداخت روی حساب بدون تخصیص فوری هم مجاز است، idempotency، reversal/refund، تطبیق.
+17. حساب/دفتر مشتری (Customer Ledger): قرارداد بدهکار/بستانکار، موجودی اول دوره، تعدیل.
+18. مطالبات و سود/زیان: مبنای حسابداری (نقدی/تعهدی)، فرمول دقیق، منبع هزینه/موجودی، دوره بستن.
+19. فایل/سند عملیاتی: نوع/حجم مجاز، نگهداری، دانلود، malware scan.
+20. یکپارچگی‌های بیرونی (وب‌سایت/فروشگاه/درگاه/حسابداری/ایمیل/پیامک/تلفنی): provider دقیق، مستندات رسمی، credential، owner، retry/reconciliation.
 
-باز — استقرار/زیرساخت (پاسخ مالک محصول یا صاحب زیرساخت لازم است):
+باز — استقرار/زیرساخت (پاسخ مالک محصول یا صاحب زیرساخت لازم است؛ Roadmap این‌ها را زودتر، موازی با P1، قرار می‌دهد):
 
-22. شواهد دقیق `winver` و `systeminfo` هاست پرند؛ آیا «Windows Server 2008» نسخه OS است یا SQL Server یا نرم‌افزار حسابداری؟
-23. ادیشن Windows، Service Pack، معماری، ظرفیت مجازی‌سازی.
-24. مدل/برند/firmware روتر تهران و پرند.
-25. دامنه Active Directory در برابر دامنه اینترنتی عمومی؛ مالکیت DNS.
-26. تصمیم مصوب: سرور/appliance اختصاصی پشتیبانی‌شده یا ارتقای OS پشتیبانی‌شده؟
-27. تعداد کل و peak همزمان کاربران مورد انتظار.
-28. وضعیت UPS و endpoint security/antivirus.
-29. مقصد backup خارج از سایت و مقصد همیشه-روشن تهران؛ مالک نگهداری/بازیابی/حادثه؛ پنجره نگهداری.
-30. نمونه فاکتور/PDF ردشده (redacted) برای تایید قالب.
-31. تایید نهایی حفاظت سورس/امضای release و سیاست تجاری پشتیبانی/بروزرسانی.
+21. شواهد دقیق `winver` و `systeminfo` هاست پرند؛ آیا «Windows Server 2008» نسخه OS است یا SQL Server یا نرم‌افزار حسابداری؟
+22. ادیشن Windows، Service Pack، معماری، ظرفیت مجازی‌سازی.
+23. مدل/برند/firmware روتر تهران و پرند.
+24. دامنه Active Directory در برابر دامنه اینترنتی عمومی؛ مالکیت DNS.
+25. تصمیم مصوب: سرور/appliance اختصاصی پشتیبانی‌شده یا ارتقای OS پشتیبانی‌شده؟
+26. تعداد کل و peak همزمان کاربران مورد انتظار.
+27. وضعیت UPS و endpoint security/antivirus.
+28. مقصد backup خارج از سایت و مقصد همیشه-روشن تهران؛ مالک نگهداری/بازیابی/حادثه؛ پنجره نگهداری.
+29. تایید نهایی حفاظت سورس/امضای release و سیاست تجاری پشتیبانی/بروزرسانی.
 
-باز — حاکمیت مستندات (تولید همین فاز):
+باز — معماری (تولید همین فاز):
 
-32. آیا `AGENTS.md` (حذف‌شده از working tree پیش از این نشست، هنوز در Git history موجود است) بازگردانده شود، یا با یک `CLAUDE.md` مختصر جایگزین شود؟ توصیه بخش پاسخ نهایی را ببینید.
-33. آیا تعریف/پیاده‌سازی مدل `DeploymentProfile`/feature-flag (بخش ۷) به‌عنوان اولین قدم فنی، مستقل از تصمیم‌های کسب‌وکار بزرگ‌تر، اکنون آغاز شود؟
+30. کدام گزینه طراحی deployment-profile تایید می‌شود — Option A (manifest امضاشده بیرونی)، Option B (مدل دیتابیسی `DeploymentProfile`)، یا Option C (ترکیب manifest + کش رانتایم دیتابیس)؟ مقایسه کامل در `KARIZ_CLIENT1_CODEX_ROADMAP.md` §P0R.3.

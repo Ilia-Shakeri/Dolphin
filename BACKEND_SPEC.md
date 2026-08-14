@@ -1,9 +1,9 @@
 # Kariz CRM — Backend Specification
 
-**Document status:** Provisional authoritative implementation specification assembled from the established Kariz CRM conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit, 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `KARIZ_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. Sections 2.3/2.4 were corrected in this pass because they contradicted this document's own §5.7A/§5.9 and the actual implemented code (verified by direct code inspection, not by re-reading old prose).
+**Document status:** Provisional authoritative implementation specification assembled from the established Kariz CRM conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit 2026-08-14, corrected P0R 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `KARIZ_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. P0 corrected §2.3/§2.4 (stale postal/SMS blocked-module claims contradicting this document's own §5.7A/§5.9 and the actual code). P0R corrected an over-expanded Client-1 scope claim (§2.6, now three explicit tiers), an incorrect Sales Manager user-administration rule (§4/§4.1, `BIZ-005`), and an ambiguous "Linux target" architecture line — all verified by direct code inspection, not by re-reading old prose.
 
 **Product:** Kariz CRM / کاریز
-**Architecture:** Django + Django REST Framework + PostgreSQL + Docker Compose + Nginx, modular monolith, Linux target
+**Architecture:** Django + Django REST Framework + PostgreSQL + Docker Compose + Nginx, modular monolith. **Correction (P0R, 2026-08-14):** "Linux target" describes the *application container image* (Linux/amd64, per `Dockerfile`/`docs/ops/DEPENDENCIES.md`) — it is not a claim about the customer's physical hosting architecture. Whether the target host runs Linux directly, Windows Server with a Hyper-V/container layer, or a dedicated appliance is unresolved and depends on the infrastructure survey in `KARIZ_CLIENT1_CODEX_ROADMAP.md`'s early infrastructure-survey gate; see `KARIZ_PROJECT_HANDOFF.md` for the exact open questions.
 **Deployment model:** Single-tenant deployment and separate database per client company, one shared codebase
 
 ---
@@ -70,37 +70,23 @@ Do not implement or claim completion for the following until a newer explicit de
 - Implementation of all template demos/plugins/pages.
 - 24/7 support or unlimited free maintenance.
 
-Dynamic report building and dynamic role/permission design are no longer silently out of the Client-1 end target: section 2.6 records their inclusion. Both remain blocked until bounded security, authorization, data-source, workflow, and acceptance contracts exist. The fixed-role contradiction in section 4 must be resolved before any dynamic permission work.
+**Correction (P0R audit, 2026-08-14):** the two lines below previously claimed dynamic role/permission design and dynamic report building were "confirmed" Client-1 target inclusions. That was an over-expansion of scope not backed by a direct product-owner decision. Per §2.6's Tier C, both stay out of scope by default and are not required Client-1 deliverables unless a newer direct decision explicitly approves them.
 
-### 2.6 Client-1 expanded target scope
+### 2.6 Client-1 scope — three tiers (corrected P0R, 2026-08-14)
 
-**CONFIRMED target inclusion, not implementation semantics:** the final Persian Client-1 list states that every named capability family must exist in the end target. Existing repository behavior remains authoritative only where it already conforms to this specification. Template-only pages remain non-operational evidence.
+**Correction (P0R audit, 2026-08-14):** this section previously stated that "every named capability family must exist in the end target" as a blanket `CONFIRMED` claim. That was an over-expansion not backed by a direct product-owner decision — it treated candidate/backlog ideas the same as approved requirements. It is replaced by three explicit tiers. This tiering is itself a direct product-owner decision and is authoritative over any earlier prose in this document or in Git history.
 
-Included target additions are:
+**Tier A — implemented baseline.** Proven by current models, migrations, services, APIs, maintained UI, and tests (verified against actual code, not claimed from templates): authentication/sessions/own profile; fixed application roles and backend object scope; users; customers and phone numbers; leads, assignment, and assignment history; interactions and follow-up; `ProductCategory` and `Product`; operational `Sale`; internal `SalesDocument` and postal history/report; `AfterSalesRequest`; provider-neutral internal `InboundSMS` storage/reporting; current performance dashboard and XLSX; `ActivityLog`; versioned API, OpenAPI, health, and current security controls.
 
-- session inventory/revocation, avatar, user notifications, and user export;
-- Customer classification, postal code, document relationship, export, bounded bulk operations, and aggregate profile/history;
-- final Lead workflow plus priority, archive, conversion, Opportunity, and Pipeline;
-- activity timeline, meetings, calendar, tasks/projects, reminders, manual specialist call reporting, and later provider-backed communication features;
-- Product classification/expanded forms plus the inventory/pricing/profit family;
-- Order, internal sales document, quotation, accounting Invoice, postal workflow, Payment, cheque, installment, customer account, and related reports;
-- detailed performance/drill-down, visual dashboard, domain reports, profit/loss, receivables, operational PDF, and a bounded dynamic report builder;
-- operational file/document management;
-- global search, saved filters, and bulk XLSX import;
-- workflow/automation, external website/store/gateway/accounting integrations, installable web application behavior, and abnormal-activity detection;
-- real target PostgreSQL/Compose/Nginx/TLS/browser/backup/restore/load/scan/UAT proof.
+**Tier B — confirmed Client-1 target.** Explicitly prioritized by the product owner as required but not yet implemented; each family still needs its own decision gate (source, workflow, statuses, numbering, authorization, acceptance) before code: warehouse and inventory; stock movement; purchase cost; approved pricing/discount/profit semantics; Order and Quotation (lifecycle to be approved); accounting/legal Invoice and InvoiceItem; approved tax/numbering/rounding/correction/cancellation rules; Payment; cheque; installment; Customer Account/Ledger; receivables; approved profit/loss reporting; operational PDF and printing (expected for the first operational delivery, but blocked until the exact document meaning and a redacted approved example exist); secure operational files/documents; approved external website/store/payment/accounting integrations, only after exact providers and official documentation exist.
 
-The customer's explicitly marked later/low-importance additions are required but assigned to the final implementation wave:
+**Tier C — candidate or low-priority backlog.** Not confirmed Client-1 delivery requirements unless a newer direct decision explicitly approves them: dynamic role/permission designer; complete Opportunity/Pipeline; general workflow-automation engine; installable PWA; abnormal-activity detection; full Task/Project/Meeting suite; global cross-module search; saved filters; bulk XLSX import; dynamic report builder beyond specifically approved reports; every Metronic/vendor demo page; avatar/notification/session-management extensions; every communication provider beyond the one already contracted (SMS); arbitrary other template functionality. These remain possible future product capabilities, not acceptance requirements.
 
-- inventory, stock, purchase cost, multi-price, discount, profit, and inventory reporting;
-- full quotation/accounting Invoice, Payment, cheque, installment, customer account, profit/loss, receivables, operational PDF, and dynamic report builder;
-- operational file/document management;
-- global search, saved filters, and bulk XLSX import;
-- checked website/store/gateway/accounting integrations.
+`FINAL_WAVE_LOW` (used in older prose/Git history for the Tier-B financial/inventory/file families) meant "required but last in implementation order," not optional. It is superseded by Tier B above; do not reintroduce it as a separate label.
 
-`FINAL_WAVE_LOW` means required and last in implementation order, not optional or delivered. Real backup scheduling/destination and recovery proof remain mandatory release gates and cannot be downgraded to optional feature work.
+All new entities, statuses, transitions, formulas, role/workstream rules, report units, provider adapters, integration directions, storage policies, migrations, routes, and acceptance criteria remain **UNRESOLVED/BLOCKED** until the exact decisions recorded in `KARIZ_PROJECT_HANDOFF.md` are approved. No model, endpoint, UI route, or authorization change is authorized by tier membership alone — Tier B membership means "must eventually be decided and built," not "already approved to implement."
 
-All new entities, statuses, transitions, formulas, role/workstream rules, report units, provider adapters, integration directions, storage policies, migrations, routes, and acceptance criteria remain **UNRESOLVED/BLOCKED** until the exact decisions recorded in `KARIZ_PROJECT_HANDOFF.md` are approved. No model, endpoint, UI route, or authorization change is authorized by target inclusion alone.
+**Explicit non-invention guard (P0R, 2026-08-14):** being technically conventional is not the same as being approved. Do not invent or silently approve any of the following merely because they are common ERP/accounting patterns: the exact source of an Invoice (whether it may be created directly from a Customer, only from a Sale, only from an Order/Quotation, or several ways); a mandatory Order→Invoice or Quotation→Order conversion step; mandatory Inventory reservation on Order/Quotation; a mandatory Payment→Invoice allocation model (payment-on-account without an Invoice must remain a considered option, not excluded by default); the accounting basis for profit/loss (cash versus accrual, cost source); tax rules of any kind; or ledger debit/credit sign conventions. `KARIZ_CLIENT1_CODEX_ROADMAP.md` §7.4 lists several possible workflow shapes as non-exhaustive examples only — none of them is an approval.
 
 ---
 
@@ -154,14 +140,41 @@ Legacy display levels 1–4 may remain only as display/backward-compatibility da
 
 The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 
-- `sales_agent`: `بازاریاب (کال سنتر)`; a User and never a Customer.
-- `sales_manager`: `مدیر فروشگاه`; the first client's store/sales manager.
-- `company_it`: `مدیر فنی مشتری`; optional client technical administrator and never permitted to grant, target, or manage `platform_admin`.
-- `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz platform owner/developer/admin, highest CRM application privilege, and holder of Platform Admin custody.
+- `sales_agent`: `بازاریاب (کال سنتر)`; a User and never a Customer; every marketer has an individual account; shared marketer accounts are prohibited.
+- `sales_manager`: `مدیر فروشگاه`; the first client's store/sales manager; operational business data only, **no user-administration capability**.
+- `company_it`: `مدیر فنی مشتری`; **disabled by default for Client 1** (see `PROFILE-001` / `DOC-COMPANY-IT-001` in `KARIZ_PROJECT_HANDOFF.md`); a future limited account requires a separate approved contract and must never grant, target, modify, or administer `platform_admin`.
+- `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz owner/developer team only; for Client 1 this is the **only** role permitted to create, edit, deactivate, reactivate, or reset passwords for application users, and the only role permitted to change application role or operator workstream. Django Admin and server/database administration are not exposed to customer users under any role.
 
 Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged.
 
-For the single-tenant Client-1 deployment, Sales Manager scope is confirmed as company-wide for business records and all clean `sales_agent` accounts in that deployment. No Team model is created. Sales Manager may list, create, edit, deactivate, and reactivate Sales Agent accounts only; it cannot target elevated-role users or change/grant roles. Company IT manages clean non-platform identities under the existing Platform Admin ceiling. Platform Admin manages every clean CRM identity and fixed CRM role. Client-1 uses a bounded `sales` / `after_sales` workstream on Sales Agent accounts only; it does not add a fifth role or dynamic permission builder. Elevated roles must remain in `sales`. Seat/capacity remains a separate unresolved decision.
+**Correction (P0R audit, 2026-08-14 — `BIZ-005` resolved):** for the single-tenant Client-1 deployment, Sales Manager scope is company-wide for *business* records only (Customer/Lead/Interaction/Product/Sale/report). It has **no** user-administration capability: it may not list, create, edit, deactivate, reactivate, reset the password of, or change the workstream of any account, including Sales Agent accounts. This replaces the prior statement that Sales Manager could administer Sales Agent accounts, which is no longer an active rule (kept only as historical provenance in §15). No Team model is created. Client-1 uses a bounded `sales` / `after_sales` workstream on Sales Agent accounts only, settable only by Platform Admin; it does not add a fifth role or dynamic permission builder. Elevated roles must remain in `sales`. Seat/capacity remains a separate unresolved decision.
+
+```text
+CURRENT CODE BEHAVIOR
+accounts/access.py grants role sales_manager the capability "users.manage_agents".
+accounts/views.py UserViewSet + accounts/services.py (create_crm_user,
+update_crm_user, _locked_users) let an authenticated sales_manager create,
+edit (including password reset via the writable "password" field and
+workstream toggle via the writable "workstream" field), deactivate, and
+reactivate accounts whose role is exactly sales_agent. It cannot touch
+company_it/platform_admin accounts and cannot call change-role (blocked
+explicitly in change_user_role). This is generic role-based behavior with
+no deployment-profile gate — it applies to every deployment on this
+codebase today, not only Client 1.
+
+CLIENT-1 TARGET BEHAVIOR
+Only platform_admin may create, edit, deactivate, reactivate, or reset
+passwords for application users, and only platform_admin may change role
+or workstream. sales_manager has zero user-administration capability.
+
+IMPLEMENTATION GAP
+The "users.manage_agents" capability and its enforcement in views.py/
+services.py exceed the approved Client-1 target and must be removed or
+gated behind an approved deployment-profile mechanism in a future
+implementation phase. Not changed in P0R (documentation-only phase); see
+KARIZ_CLIENT1_CODEX_ROADMAP.md P1.7 for the bounded future task and its
+required tests.
+```
 
 ### 4.1 Access matrix
 
@@ -185,11 +198,12 @@ For the single-tenant Client-1 deployment, Sales Manager scope is confirmed as c
 | View company/user KPIs | No | Yes | Yes | Yes |
 | Export own report | Yes | Yes | Yes | Yes |
 | Export company report | No | Yes | Yes | Yes |
-| Manage ordinary users | No | Sales Agent accounts only | All clean non-platform users | Every clean CRM identity |
-| Assign CRM roles | No | No | Up to `company_it`; never `platform_admin` | Yes |
+| Manage ordinary users (Client-1 target) | No | **No** | Disabled by default for Client 1 | Yes, every clean CRM identity |
+| Manage ordinary users (current code, generic) | No | Sales Agent accounts only — see the implementation-gap note above §4.1 | All clean non-platform users | Every clean CRM identity |
+| Assign CRM roles | No | No | Up to `company_it`; never `platform_admin` (role disabled by default for Client 1) | Yes |
 | Grant platform admin/superuser | No | No | No | Yes |
-| View audit log | No | No | Non-platform-safe audit | All CRM audit |
-| Django admin/server operations | No | No | No by default | Separately controlled |
+| View audit log | No | No | Non-platform-safe audit; role disabled by default for Client 1 | All CRM audit |
+| Django admin/server operations | No | No | No by default | Separately controlled, not exposed to customer users |
 
 ### 4.2 Mandatory backend enforcement
 
@@ -804,7 +818,7 @@ Use deterministic factories/fixtures and avoid real personal data.
 Two decisions affecting this document's own rules are resolved and stay recorded here as provenance:
 
 - **RESOLVED 2026-08-11:** four fixed role codes and Persian labels are mapped in §4; Platform Admin custody stays with `platform_admin`, and `company_it` cannot grant or manage it. Team/workstream scope was a separate decision, resolved next.
-- **RESOLVED 2026-08-12 for Client-1:** no Team model; Sales Manager has company-wide business scope and may administer Sales Agent accounts only. Elevated-role direct IDs are masked and role grants remain denied. A future multi-team product still needs a separate decision.
+- **RESOLVED 2026-08-12 for Client-1, superseded 2026-08-14 (`BIZ-005`):** no Team model; Sales Manager has company-wide *business* scope. The 2026-08-12 statement that Sales Manager "may administer Sales Agent accounts only" is no longer an active rule — kept here only as historical provenance. The current active rule is in §4: Sales Manager has no user-administration capability for Client 1. Elevated-role direct IDs are masked and role grants remain denied. A future multi-team product still needs a separate decision.
 
 Unresolved decisions block only the affected behavior. Continue all independent implementation and release-readiness work.
 
