@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
-from common.permissions import IsActiveAuthenticated
+from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
 from accounts.access import has_any_capability
 from reports.serializers import (
@@ -35,7 +35,8 @@ class XLSXNegotiationRenderer(JSONRenderer):
     format = "xlsx"
 
 
-class UserPerformanceReportMixin:
+class UserPerformanceReportMixin(FeatureGatedAPIMixin):
+    required_feature = "reports"
     permission_classes = [IsActiveAuthenticated]
     throttle_classes = [SensitiveRateThrottle]
 
@@ -128,7 +129,8 @@ class UserPerformanceDetailView(UserPerformanceReportMixin, APIView):
         return response
 
 
-class SalesDocumentReportView(APIView):
+class SalesDocumentReportView(FeatureGatedAPIMixin, APIView):
+    required_feature = "sales_documents"
     permission_classes = [IsActiveAuthenticated]
     throttle_classes = [SensitiveRateThrottle]
 

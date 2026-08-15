@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from accounts.access import has_any_capability
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
-from common.permissions import IsActiveAuthenticated
+from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
 from communications.reports import build_inbound_sms_report, inbound_sms_drilldown
 from communications.selectors import inbound_sms_for
@@ -19,7 +19,8 @@ from communications.serializers import (
 )
 
 
-class InboundSMSReportAccessMixin:
+class InboundSMSReportAccessMixin(FeatureGatedAPIMixin):
+    required_feature = "inbound_sms"
     permission_classes = [IsActiveAuthenticated]
     throttle_classes = [SensitiveRateThrottle]
 

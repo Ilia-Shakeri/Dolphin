@@ -24,6 +24,7 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 
 
 class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "customers"
     queryset = Customer.objects.none()
     serializer_class = CustomerSerializer
     sensitive_actions = frozenset({"deactivate"})
@@ -106,6 +107,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
 
 class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "customers"
     queryset = CustomerPhone.objects.none()
     serializer_class = CustomerPhoneSerializer
     search_fields = ["raw_phone", "normalized_phone", "customer__full_name"]
@@ -143,6 +145,7 @@ class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
 
 class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "leads"
     queryset = Lead.objects.none()
     serializer_class = LeadSerializer
     sensitive_actions = frozenset({"reassign"})
@@ -232,6 +235,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
 
 class InteractionViewSet(NoDestroyModelViewSet):
+    required_feature = "leads"
     queryset = Interaction.objects.none()
     serializer_class = InteractionSerializer
     http_method_names = ["get", "post", "head", "options"]
@@ -243,6 +247,7 @@ class InteractionViewSet(NoDestroyModelViewSet):
 
 
 class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "products"
     queryset = ProductCategory.objects.none()
     serializer_class = ProductCategorySerializer
     sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate", "reactivate"})
@@ -295,6 +300,7 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet
 
 
 class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "products"
     queryset = Product.objects.none()
     serializer_class = ProductSerializer
     sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate"})
@@ -373,6 +379,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
 
 class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "sales"
     queryset = Sale.objects.none()
     serializer_class = SaleSerializer
     sensitive_actions = frozenset({"create", "cancel"})
@@ -414,6 +421,7 @@ class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
 
 class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "sales_documents"
     queryset = SalesDocument.objects.none()
     serializer_class = SalesDocumentSerializer
     sensitive_actions = frozenset({"create", "transition_postal_status", "deactivate"})

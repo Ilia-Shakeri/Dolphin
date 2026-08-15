@@ -57,6 +57,10 @@ ENABLE_API_DOCS = False
 # reverse proxy denies /admin/ as well; both layers must be changed, and the
 # management-network allowlist configured (P14), before it can ever be reached.
 ENABLE_DJANGO_ADMIN = False
+# A customer deployment must present a manifest signed by the platform owner.
+# Without a valid one the application refuses to start rather than falling back
+# to any default feature set (PROFILE-001, Option C).
+DEPLOYMENT_MANIFEST_REQUIRED = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 REST_FRAMEWORK = {**REST_FRAMEWORK, "NUM_PROXIES": 1}

@@ -20,6 +20,12 @@ x-django-environment: &django-environment
   POSTGRES_INIT_USER: ${POSTGRES_INIT_USER}
   POSTGRES_MIGRATION_USER: ${POSTGRES_MIGRATION_USER}
   POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+  # Deployment profile (PROFILE-001, Option C). The signed manifest is mounted
+  # read-only and is the sole source of truth for feature availability; only
+  # public verification keys are configured here. Production refuses to start
+  # without a manifest that verifies.
+  KARIZ_DEPLOYMENT_MANIFEST: /profile/manifest.json
+  KARIZ_DEPLOYMENT_MANIFEST_KEYS: ${KARIZ_DEPLOYMENT_MANIFEST_KEYS:?KARIZ_DEPLOYMENT_MANIFEST_KEYS must list the trusted key_id:base64_public_key pairs}
 
 services:
   db:
@@ -115,6 +121,7 @@ services:
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
     volumes:
       - static_data:/app/staticfiles
+      - ${KARIZ_DEPLOYMENT_MANIFEST_PATH:?KARIZ_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
     networks:
       - backend
 
@@ -201,6 +208,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - static_data:/app/staticfiles:ro
+      - ${KARIZ_DEPLOYMENT_MANIFEST_PATH:?KARIZ_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
     tmpfs:
       - /tmp:size=64m,mode=1777
     networks:

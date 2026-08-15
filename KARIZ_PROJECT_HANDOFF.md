@@ -2,13 +2,50 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
-## ۰.۰۰ فاز `P0R.2` — اجرای واقعی روی PostgreSQL 17.11 — **`P0R.2 BLOCKED`** روی یک گام باقی‌مانده (۲۰۲۶/۰۸/۱۵)
+## ۰.۰۰۰ فاز `P3` — پیاده‌سازی deployment profile (Option C) — ✅ **انجام‌شده** (۲۰۲۶/۰۸/۱۵)
+
+`PROFILE-001` گزینه C را انتخاب کرده بود. اکنون پیاده شده است: **manifest امضاشده بیرونی تنها مرجع feature availability است** و جدول `common.DeploymentProfileCache` فقط کش مشتق است.
+
+### قواعد الزامی فاز و شاهد هرکدام
+
+| قاعده | وضعیت | شاهد |
+|---|---|---|
+| کلید خصوصی امضا هرگز شیپ نمی‌شود | ✅ | ابزار امضا در `scripts/` است که در `.dockerignore` exclude شده؛ فقط کلید عمومی در تنظیمات؛ تست `SigningToolSafetyTests` |
+| manifest نامعتبر/ناشناخته/دستکاری‌شده fail-closed | ✅ | ۱۲ حالت رد (امضای بد، کلید ناشناس، الگوریتم ناشناس، profile ناشناس، feature ناشناس، وابستگی برآورده‌نشده، نسخه، اندازه، JSON خراب، base64 خراب، feature تکراری، فایل غایب) → `ImproperlyConfigured` و بالا نیامدن فرآیند |
+| کش دیتابیس هرگز مرجع نیست | ✅ | `feature_enabled` فقط manifest حافظه‌ای را می‌خواند؛ تست «ردیف بازیابی‌شده کهنه نمی‌تواند feature پس‌گرفته را برگرداند» |
+| restore دیتابیس قدیمی manifest را override نمی‌کند | ✅ | تست restore/rollback: ردیف کش با ALL_FEATURES کاشته می‌شود، `after_sales` همچنان ۴۰۴ می‌دهد و خواندن کش ردیف را از manifest بازنویسی می‌کند |
+| feature/role/object-scope سه کنترل جدا | ✅ | تست‌های «feature هیچ‌وقت capability نقش را عوض نمی‌کند» و «object scope داخل feature فعال هم برقرار است» |
+| غیرفعال‌کردن feature داده تاریخی را حذف نمی‌کند | ✅ | `FeatureDisablingPreservesDataTests`: با profile خالی، ۴۰۴ گرفته می‌شود ولی شمار ردیف‌ها تغییر نمی‌کند و پس از فعال‌سازی مجدد همان ردیف‌ها برمی‌گردند |
+| بدون شاخه مشتری و بدون `if client_name == ...` | ✅ | هیچ نام مشتری در کد؛ profile فقط یک شناسه در manifest امضاشده است |
+| بدون expiry/kill-switch | ✅ | هیچ فیلد انقضا/فعال‌سازی آنلاین/خاموشی اضافه نشد |
+| حداقل دو profile قابل تعریف (gate پایان فاز) | ✅ | `client-1`، `demo`، `development` ثبت‌شده‌اند؛ تست تفاوت مجموعه feature دو profile |
+
+### امضا — چرا پیاده‌سازی داخل مخزن و چطور صحتش اثبات شد
+
+`cryptography` به requirements اضافه **نشد**، چون قفل وابستگی hash-pinned است و باید در یک ایمیج تمیز لینوکس CPython 3.13 حل شود (`docs/ops/DEPENDENCIES.md`) که از این هاست ممکن نیست. به‌جای آن `common/deployment/ed25519.py` الگوریتم RFC 8032 را پیاده می‌کند و **فقط verify** می‌کند. صحت آن با دو مرجع بیرون از این مخزن اثبات شد (اجراشده):
+
+```text
+RFC 8032 §7.1 هر سه بردار مرجع                      verify = True
+همان سه بردار، مسیر امضا                            کلید عمومی و امضا بیت‌به‌بیت برابر مرجع
+OpenSSL 3.5.5 → امضای openssl را می‌پذیریم           True
+OpenSSL 3.5.5 → امضای ما را می‌پذیرد                 Signature Verified Successfully
+کلید عمومی مشتق‌شده ما == کلید عمومی openssl          True
+دستکاری پیام/امضا/کلید/طول/scalar ≥ group order       همه False
+```
+
+سند طراحی: `docs/backend/DEPLOYMENT_PROFILE.md`. تست: `common/tests/test_deployment_profile.py` (۴۷ تست).
+
+### مرز صداقت
+
+امضا فقط هزینه دستکاری را بالا می‌برد و آن را قابل‌کشف می‌کند؛ در برابر مالک سخت‌افزار که حاضر است مسیر verify را patch کند تضمین مطلق نیست. این دقیقا همان مدل تهدید بخش ۸ است و به همین دلیل به فاز بسته‌بندی backend (`P12`) گره خورده، نه اینکه مسئله را بسته اعلام کند.
+
+## ۰.۰۰ فاز `P0R.2` — اجرای واقعی روی PostgreSQL 17.11 — ✅ **انجام‌شده** (۲۰۲۶/۰۸/۱۵)
 
 باینری‌های PostgreSQL 17.11 توسط مالک محصول در `C:\Users\Dear-OTCamp-User\pgsql-17.11` تامین شدند (فقط محیط توسعه؛ **قرارداد تولید نیست**). هر هشت باینری اجرا و نسخه‌شان تایید شد: `postgres`، `initdb`، `pg_ctl`، `psql`، `createdb`، `pg_dump`، `pg_restore`، `pg_isready` — همگی `17.11`. فایل‌های `share` (`postgres.bki`، `postgresql.conf.sample`، `pg_hba.conf.sample`) موجود و توسط `initdb` قابل یافتن‌اند.
 
 ### نتیجه اصلی: اپلیکیشن روی PostgreSQL واقعی کار می‌کند
 
-اولین اجرای مجموعه روی PostgreSQL: **۱۰ failure و ۱۸ error**. پس از اصلاح، **۴۰۴ تست، `OK`، ۶ skip**. روی SQLite هم **۴۰۴ تست، `OK`، ۷ skip**. هیچ‌کدام از نقص‌ها در اپلیکیشن نبود — همه در تست یا تنظیمات تست بودند و **هیچ migration مخزن ساخته نشد** (`makemigrations --check` تمیز). یک دیتابیس تازه از migrationها صحیح ساخته می‌شود (مستقیما بازرسی شد: `postal_code` موجود، هر ۱۳ migration اپ `sales` اعمال).
+اولین اجرای مجموعه روی PostgreSQL: **۱۰ failure و ۱۸ error**. پس از اصلاح، مجموعه سبز شد؛ آخرین اجرا **۴۶۵ تست، `OK`، ۶ skip** روی PostgreSQL و **۴۶۵ تست، `OK`، ۷ skip** روی SQLite. هیچ‌کدام از نقص‌ها در اپلیکیشن نبود — همه در تست یا تنظیمات تست بودند و **هیچ migration مخزن ساخته نشد** (`makemigrations --check` تمیز). یک دیتابیس تازه از migrationها صحیح ساخته می‌شود (مستقیما بازرسی شد: `postal_code` موجود، هر ۱۳ migration اپ `sales` اعمال).
 
 ### هر ۷ تست PostgreSQL-only اکنون اجرا و pass می‌شوند
 
@@ -51,35 +88,97 @@ Ran 7 tests — OK
 
 ماتریس مرورگر داخل همان اجرای PostgreSQL اجرا شد (نه SQLite) و پس از رفع رقابت pass شد. پس `POSTGRES_BROWSER_UNPROVED` **دیگر برقرار نیست**.
 
-### گام باقی‌مانده و **blocker دقیق**
+### نقص واقعی فرانت که تاخیر PostgreSQL آشکار کرد (برطرف شد)
 
-مراحل bootstrap نقش‌ها → contract → dump → **restore** اجرا نشدند، چون `scripts/bootstrap-postgres.sh` در تابع `set_role_password` از دستور تعاملی `psql \password` استفاده می‌کند. روی این هاست ویندوز آن دستور ورودی pipe شده را نادیده می‌گیرد و برای همیشه منتظر کنسول می‌ماند.
+دو تست مرورگر روی PostgreSQL **دوبار پشت سر هم و روی ماشین بی‌بار** شکست خوردند (نخست به‌اشتباه به رقابت CPU نسبت داده شد؛ اجرای دوم آن را رد کرد). علت واقعی همان کلاس نقصی بود که قبلا در `open_create_dialog` مستند شده بود، در دو نقطه‌ای که اصلاح قبلی از قلم انداخته بود:
 
-با آزمایش ایزوله قطعی اثبات شد:
+- `setupProducts` ابتدا `await loadAllPages("/api/v1/product-categories/...")` می‌کرد و **بعد** شنونده `open-create-product` را وصل می‌کرد → کلیک در آن پنجره بی‌صدا دور ریخته می‌شد؛
+- `setupPerformancePanel` ابتدا `await loadAllPages("/api/v1/products/...")` می‌کرد و **بعد** شنونده `submit` را وصل می‌کرد → دکمه فیلتر گزارش در ابتدای بارگذاری یک ارسال فرم native انجام می‌داد (بارگذاری مجدد صفحه) به‌جای فیلتر کردن؛
+- `setupAfterSales` هم همین شکل را داشت (شنونده `open-create-after-sales` بعد از `await Promise.all`) و پیشگیرانه اصلاح شد.
+
+**اصلاح در خود اپلیکیشن انجام شد، نه فقط در تست:** وصل‌کردن شنونده‌ها پیش از هر `await` شبکه‌ای. این رفتار کاربر را عوض نمی‌کند جز اینکه کنترل در ~۲۰۰ms اول دیگر مرده نیست. تست‌ها هم به الگوی مقاوم موجود منتقل شدند (`open_create_dialog` و کمک‌تابع جدید `submit_performance_filter` که ابتدا منتظر آماده‌شدن پنل می‌ماند). بررسی سیستماتیک هر ۱۰ نقطه `open-create-*`: سه مورد باقی‌مانده نقص نبودند (دکمه داخل ناحیه پنهان بود یا شنونده هم‌زمان وصل می‌شد).
+
+روی SQLite هر دو تست همیشه pass می‌شدند — این نقص فقط با تاخیر واقعی دیتابیس دیده می‌شود.
+
+### proof بازیابی native (اجراشده)
+
+پس از `pg_dump` با نقش backup، یک دیتابیس دوم گارد-شده ساخته می‌شود و آرشیو با `pg_restore --exit-on-error --single-transaction` داخل آن بازیابی می‌شود. سپس اثبات می‌شود که نتیجه واقعا یک دیتابیس قابل‌استفاده است: قرارداد schema، هش وضعیت migration برابر با مبدا، ردیف‌های sentinel و رابطه بین جدولی‌شان سالم، نقش اپلیکیشن بتواند هم با psql و هم از طریق Django بخواند و بنویسد، و هیچ امتیاز تازه‌ای (superuser/createdb/createrole/bypassrls/عضویت نقش) از راه restore به نقش رانتایم نرسیده باشد. نام دیتابیس restore هم پیش از ساخت و هم پیش از drop از گارد نام یک‌بارمصرف عبور می‌کند.
+
+**دو باگ خودِ harness که همین مرحله آشکار کرد** (هیچ‌کدام در اپلیکیشن نبود): گام sentinel اسکریپت پایتون چندخطی را به `manage.py shell -c` می‌داد و نقل‌قول‌ها را shell ویندوز خراب می‌کرد (اکنون فایل تولیدشده مستقیما اجرا می‌شود)، و `phone=` را رشته پاس می‌داد درحالی‌که `create_customer_with_phone` یک mapping می‌گیرد.
+
+### blocker `\password` — برطرف شد بدون تضعیف تولید
+
+پیش‌تر مراحل bootstrap → contract → dump → restore اجرا نمی‌شدند چون `set_role_password` از دستور تعاملی `psql \password` استفاده می‌کند و روی این هاست ویندوز stdin لوله‌شده را نادیده می‌گیرد و برای همیشه منتظر کنسول می‌ماند (با آزمایش ایزوله اثبات شده بود: `wait_event=Client/ClientRead`). این یک محدودیت قابل‌حمل‌بودن بود، نه نقص تولید.
+
+**رفتار تولید دست‌نخورده است.** `\password` همچنان مسیر `db-bootstrap` در Compose است. یک شاخه opt-in و fail-closed اضافه شد که از هیچ پیکربندی تولیدی قابل دسترسی نیست:
+
+- فقط با `KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD=1` صریح فعال می‌شود؛ هر مقدار دیگر غیرخالی کل bootstrap را متوقف می‌کند؛
+- حتی آن‌وقت هم رد می‌کند مگر `POSTGRES_DB` با `(test|contract|restore)_kariz_<۳۲ hex>` و هر نقش مدیریت‌شده با `kariz_(migration|app|backup)_<۳۲ hex>` مطابق باشد، host دقیقا `127.0.0.1` و port یک پورت بالا غیر از ۵۴۳۲ باشد — مقادیری که یک استقرار تولیدی نمی‌تواند داشته باشد؛
+- همان verifier SCRAM-SHA-256 را سمت کلاینت با `scripts/pg_scram_verifier.py` می‌سازد، پس **plaintext همچنان به سرور نمی‌رسد**؛ رمز فقط روی stdin آن helper می‌رود و هرگز آرگومان یا literal SQL نمی‌شود؛
+- سپس بررسی می‌کند که `pg_authid.rolpassword` واقعا یک verifier `SCRAM-SHA-256$...` است و در غیر این صورت abort می‌کند.
+
+هیچ fallback وجود ندارد. این پرچم در هیچ فایل Compose و هیچ `.env.example` نیست و کانتینر `db-bootstrap` فقط خود اسکریپت را mount می‌کند، پس helper موردنیازش آنجا اصلا موجود نیست. پوشش: `common/tests/test_pg_scram_verifier.py` و `common/tests/test_database_privileges.py`.
+
+### 🔴 یافته امنیتی جدی که همین فاز کشف کرد — **fail-open در گیت‌های bootstrap** (برطرف شد)
+
+اجرای واقعی زنجیره کامل نشان داد `\quit <status>` در psql **وجود ندارد**: psql پیام `\quit: extra argument "N" ignored` چاپ می‌کند و با کد **۰** خارج می‌شود. هر هشت گیت `bootstrap-postgres.sh` و هر دو verifier SQL از همین فرم استفاده می‌کردند، یعنی:
 
 ```text
-printf 'pw\npw\n' | psql ... -c "SET password_encryption='scram-sha-256'" -c "\password role"
-→ TIMED OUT (بلوکه)
-pg_stat_activity: state=idle, wait_event=Client/ClientRead,
-                  query="SET password_encryption = 'scram-sha-256'"
+اجراشده (خروجی harness):
+  "A first-party public relation has an unapproved owner."   ← گیت اعلام شکست کرد
+  \quit: extra argument "4" ignored
+  "PostgreSQL managed roles are ready."                      ← و اسکریپت موفق تمام شد
+  $LASTEXITCODE = 0
 ```
 
-طبقه‌بندی: **`ENVIRONMENT_BUG` / محدودیت قابل‌حمل‌بودن** — نه نقص تولید. هدف تولید کانتینر لینوکسی است و آنجا `\password` با stdin لوله‌شده درست کار می‌کند. در اجراهای قبلی این مرحله هرگز اجرا نشده بود چون harness زودتر روی شکست تست متوقف می‌شد.
+**اثر واقعی روی تولید:** `db-bootstrap`/`db-finalize` می‌توانستند نقض قرارداد مالکیت/نقش را اعلام کنند و با کد ۰ خارج شوند؛ شرط `service_completed_successfully` در Compose برآورده می‌شد و `migrate` و `web` روی دیتابیسی بالا می‌آمدند که سیاست مالکیت/ACL آن هرگز اعمال نشده بود. تراکنش خودش rollback می‌شد (چون psql پیش از `COMMIT` خارج می‌شد)، پس نشت داده رخ نمی‌داد؛ اما **گیت امنیتی بی‌صدا از کار می‌افتاد**. همین نقص در `verify-postgres-privileges.sql` (`\quit 5`) و `verify-postgres-schema.sql` (`\quit 6`) هم بود، یعنی verifierهایی که runbookهای عملیاتی برای تایید قرارداد یک استقرار به آن‌ها تکیه می‌کنند.
 
-**این تغییر داده نشد.** `bootstrap-postgres.sh` اسکریپت bootstrap تولید (`db-bootstrap` در Compose) و امنیت-حساس است؛ `\password` عمدا انتخاب شده تا رمز به‌صورت plaintext به سرور/لاگ نرود. تغییر آن یک تصمیم مالک محصول است، نه حدس من.
+**اصلاح:** هر ده مورد به `RAISE EXCEPTION` با همان متن تبدیل شدند؛ با `ON_ERROR_STOP=1` این یک خروج غیرصفر می‌دهد و داخل تراکنش مالکیت/ACL همان rollback قبلی را حفظ می‌کند. `\echo` نگه داشته شد تا اپراتور دلیل را ببیند. رگرسیون: `test_every_bootstrap_guard_actually_exits_non_zero` (هیچ `\quit <رقم>` در هیچ اسکریپت psql-محور نماند و هر بلوک `\else` باید `RAISE EXCEPTION` داشته باشد).
 
-### گیت‌های مخزن (SQLite)
+این یافته فقط با **اجرای واقعی زنجیره کامل** پیدا شد؛ هیچ بازرسی ایستا یا تست SQLite آن را نشان نداده بود.
+
+### شواهد اجراشده نهایی این فاز (۲۰۲۶/۰۸/۱۵)
+
+اجرای کامل harness روی PostgreSQL 17.11، از initdb تا drop، **با خروج صفر**:
+
+```text
+powershell -NoProfile -File scripts/test-postgres.ps1 \
+    -PostgresBin '<dev pgsql 17.11>\bin' -BashCommand '<git>\bin\bash.exe'
+→ HARNESS_EXIT = 0
+
+check (postgres_test_settings)          → System check identified no issues
+makemigrations --check                  → No changes detected   (drift صفر)
+manage.py test (روی PostgreSQL)         → Ran 465 tests, OK (skipped=6)
+bootstrap نقش‌ها (اجرای اول)             → PostgreSQL managed roles are ready.
+migrate روی دیتابیس contract            → همه migrationها OK
+finalizer پس از migration (اجرای دوم)    → PostgreSQL managed roles are ready.
+proof schema + proof دقیق امتیازها       → pass
+تزریق owner ناایمن                       → bootstrap با خروج غیرصفر رد کرد و rollback شد
+تزریق عضویت معکوس نقش                    → bootstrap و verifier هر دو با خروج غیرصفر رد کردند
+pg_dump با نقش backup                    → آرشیو custom ساخته شد
+pg_restore داخل دیتابیس دوم گارد-شده      → موفق، --single-transaction --exit-on-error
+یکپارچگی پس از restore                   → schema، هش migration برابر مبدا، ردیف‌های
+                                           sentinel و رابطه customer↔phone سالم
+نقش اپلیکیشن روی دیتابیس restore         → خواندن/نوشتن مجاز، DDL همچنان رد
+                                           (هم با psql هم از طریق Django)
+عدم ارتقای امتیاز از راه restore          → superuser/createdb/createrole/bypassrls همه false،
+                                           بدون عضویت نقش، owner = نقش migration
+```
+
+هر ۶ skip روی PostgreSQL تاییدا فقط تست‌های SQLite-specific‌اند؛ هر ۷ تست PostgreSQL-only اجرا و pass شدند.
+
+### گیت‌های مخزن (SQLite) — اجراشده
 
 ```text
 check → 0 | makemigrations --check → No changes detected | spectacular → 0
 collectstatic → 0 | branding → PASS files=228 | node --check → 0
-validate_image_content --context → PASS | git diff --check → 0
-manage.py test → Ran 404 tests, OK (skipped=7)
+validate_image_content --context → PASS files=157 | git diff --check → 0
+manage.py test → Ran 465 tests, OK (skipped=7)
 ```
 
 ### پاکسازی
 
-هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `kariz-pgtest-*` باقی نماند (تایید شد). درخت کاری تمیز.
+هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `kariz-pgtest-*` باقی نماند (پس از اجرا شمارش شد: صفر و صفر).
 
 ## ۰.۰ تلاش قبلی فاز `P0R.2` — **`BLOCKED_ENVIRONMENT`** (۲۰۲۶/۰۸/۱۵، منسوخ‌شده توسط بخش بالا)
 
@@ -376,10 +475,10 @@ python manage.py test                                   Ran 356 tests — OK (sk
 | فایل/سند عملیاتی | ندارد | ندارد | `ABSENT` | ذخیره/malware-scan/retention تایید نشده |
 | PDF/چاپ | ندارد | ندارد | `ABSENT` | وابسته به Invoice/سند نهایی |
 | خروجی XLSX | کامل برای گزارش عملکرد | متصل | `UI_CONNECTED_LOCAL` | فقط برای گزارش‌های موجود |
-| Backup/Restore دیتابیس | اسکریپت/Compose profile آماده | — | `RUNTIME_UNPROVED` | Docker/psql/`initdb` روی این هاست غایب (تایید اجرا شد) |
-| Deployment profile/feature flag | مدل/کد ندارد | — | `ABSENT` | طراحی معماری تصویب نشده؛ بخش ۷ |
+| Backup/Restore دیتابیس | اسکریپت/Compose profile آماده؛ `pg_dump` + `pg_restore` native داخل harness | — | `IMPLEMENTED_LOCAL` | dump/restore روی cluster ایزوله اثبات شد (بخش ۰.۰۰)؛ اجرای واقعی روی Compose/حجم تولید هنوز نه |
+| Deployment profile/feature flag | manifest امضاشده Ed25519 + کش دیتابیسی مشتق (`common/deployment/**`، `common.0001`) | گیت ناوبری/صفحه متصل | `IMPLEMENTED_LOCAL` | proof روی رانتایم هدف (manifest واقعی + کلید واقعی مالک محصول) هنوز انجام نشده |
 | Build/release/حفاظت سورس | Dockerfile hash-pinned، ولی نشتی محتوا دارد | — | نیازمند اصلاح | بخش ۹، ردیف اول (P0) |
-| PostgreSQL رانتایم واقعی | تست harness آماده | — | `RUNTIME_UNPROVED` | `initdb` غایب؛ فقط SQLite محلی pass شد |
+| PostgreSQL رانتایم واقعی | harness کامل روی PostgreSQL 17.11 واقعی اجرا و سبز | ماتریس مرورگر روی PostgreSQL سبز | `IMPLEMENTED_LOCAL` | cluster یک‌بارمصرف توسعه است، نه رانتایم هدف (Compose/TLS/هاست واقعی) |
 | Nginx/TLS معکوس | کانفیگ آماده، cert واقعی ندارد | — | `RUNTIME_UNPROVED` | hostname/cert/key واقعی |
 | VPN/شبکه هدف | فقط طراحی توصیه‌شده در سند | — | `BLOCKED_EXTERNAL` | مدل router/ISP/VPN واقعی |
 | مانیتورینگ/rollback | runbook آماده، تمرین واقعی نشده | — | `RUNTIME_UNPROVED` | owner/drill واقعی |
@@ -414,15 +513,15 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 ## ۷. اصول deployment profile چندمشتری
 
-اصول تصمیم‌شده در بخش ۲ باید در آینده به یک مکانیزم صریح تبدیل شود. **این مکانیزم امروز در کد وجود ندارد** — تنها جداسازی امروز از طریق دیتابیس/تنظیمات جدا در سطح deployment (نه کد) قابل انجام است. جدا از نبود کد، یعنی امروز حتی «غیرفعال به‌صورت پیش‌فرض» بودن `company_it` برای Client 1 (بخش ۲/۶) فقط یک سیاست عملیاتی است (هرگز چنین حسابی نساز/فعال نکن)، نه یک قفل فنی.
+اصول تصمیم‌شده در بخش ۲ اکنون به یک مکانیزم صریح تبدیل شده‌اند (فاز `P3`، بخش ۰.۰۰۰): manifest امضاشده Ed25519 مرجع feature availability است و `common.DeploymentProfileCache` فقط کش مشتق. **دقت لازم:** این مکانیزم فقط feature availability را کنترل می‌کند. «غیرفعال به‌صورت پیش‌فرض» بودن `company_it` برای Client 1 (بخش ۲/۶) همچنان یک سیاست عملیاتی است (هرگز چنین حسابی نساز/فعال نکن)، نه یک قفل فنی — چون آن یک نقش است، نه یک feature، و سه کنترل عمدا جدا نگه داشته شده‌اند. تبدیل آن به قفل فنی یک تصمیم جدا و باز است.
 
 ```text
-PROFILE-001 RESOLVED (2026-08-15)
+PROFILE-001 RESOLVED (2026-08-15) — IMPLEMENTED (2026-08-15, phase P3)
 Selected: Option C
   signed external deployment manifest = source of truth
   verified runtime database cache     = derived state only
 
-پیاده‌سازی هنوز شروع نشده و در P3 انجام می‌شود. قواعد الزامی آن فاز:
+پیاده‌سازی انجام شد؛ شاهد هر قاعده در بخش ۰.۰۰۰. قواعد الزامی آن فاز:
   - کلید امضای خصوصی تحت کنترل کاریز می‌ماند و هرگز به مشتری تحویل
     نمی‌شود؛ اپلیکیشن فقط کلید عمومی راستی‌آزمایی را دارد.
   - manifest نامعتبر یا ناشناخته fail-closed است.
@@ -464,6 +563,8 @@ Selected: Option C
 | 6 | Django Admin بدون گیت تنظیمات ثبت شده بود و در شبکه قابل دسترسی بود | **MEDIUM — برطرف شد در `P1.7`** | `config/settings.py`, `config/production_settings.py`, `config/urls.py`, `nginx/default.conf` | **دو لایه دفاعی مستقل اضافه شد.** لایه اپلیکیشن: تنظیم جدید `ENABLE_DJANGO_ADMIN` که پیش‌فرض `false` است و **مستقل از `DEBUG`** عمل می‌کند؛ در `production_settings.py` صریحا `False` است؛ مسیر `admin/` فقط وقتی ثبت می‌شود که این پرچم روشن باشد، پس روی استقرار مشتری `/admin/` اصلا وجود ندارد (۴۰۴). لایه edge: بلوک `location ^~ /admin/ { return 404; }` در `nginx/default.conf` که به‌خاطر `^~` بر همه location‌های regex اولویت دارد و هیچ درخواستی را proxy نمی‌کند. تست: `common/tests/test_admin_exposure.py` (۱۳ تست). allowlist شبکه مدیریت عمدا حدس زده نشد و به `P14` موکول شد. |
 | 7 | عملگر after-sales روی `customers`/`leads`/`sales` پاسخ `200` با صفر ردیف می‌گیرد، درحالی‌که `users`/`activity-logs`/`inbound-sms` برای بازاریاب `403` می‌دهند | LOW (ناسازگاری، نه نشت — مرز داده برقرار است و direct-ID = 404) | selector/permission لایه sales | یکسان‌سازی به `403` برای نبود capability. اختیاری، در `P1.7` یا `P2`. |
 | 5 | عدم‌تطابق نسخه Python: هاست توسعه فعلی `Python 3.14.5` دارد؛ `Dockerfile` فقط base image با `sys.version_info[:2] == (3, 13)` را می‌پذیرد | اطلاع‌رسانی، نه نقص | `Dockerfile:12` | تست‌های محلی روی 3.14.5 pass شدند ولی رفتار دقیق production روی 3.13 محلی proof نشده؛ در build واقعی هدف تایید شود. |
+| 8 | **fail-open در گیت‌های امنیتی دیتابیس:** `\quit <status>` در psql وجود ندارد؛ گیت پیام شکست را چاپ می‌کرد و با کد ۰ خارج می‌شد. ۸ مورد در `bootstrap-postgres.sh` و ۲ مورد در verifierهای SQL | **HIGH — برطرف شد در `P0R.2`** | `scripts/bootstrap-postgres.sh`, `scripts/verify-postgres-privileges.sql`, `scripts/verify-postgres-schema.sql` | همه به `RAISE EXCEPTION` تبدیل شدند تا با `ON_ERROR_STOP=1` خروج غیرصفر بدهند. اثر بالقوه: `db-bootstrap`/`db-finalize` نقض قرارداد مالکیت/ACL را اعلام و «موفق» گزارش می‌کردند و Compose اجازه شروع `migrate`/`web` می‌داد. رگرسیون: `test_every_bootstrap_guard_actually_exits_non_zero`. جزئیات و شاهد اجراشده در بخش ۰.۰۰. |
+| 9 | کنترل‌های فرانت در ~۲۰۰ms اول بارگذاری بی‌اثر بودند (شنونده پس از `await` شبکه‌ای وصل می‌شد) در `setupProducts`، `setupPerformancePanel` و `setupAfterSales` | LOW/MEDIUM — برطرف شد در `P0R.2` | `common/static/common/kariz-app.js` | شنونده‌ها پیش از هر `await` وصل شدند. فقط با تاخیر واقعی PostgreSQL دیده می‌شد؛ روی SQLite همیشه pass بود. بخش ۰.۰۰. |
 
 ## ۱۰. blockerهای بیرونی deployment (ورودی گزارش‌شده، نه fact اثبات‌شده)
 
@@ -512,11 +613,20 @@ python manage.py makemigrations --check --dry-run --settings=config.test_setting
 
 ## ۱۲. وضعیت انتشار فعلی
 
-`production candidate; external verification pending` — بدون تغییر نسبت به قبل، اکنون با شواهد تازه‌تر: مخزن/تست/schema/branding محلی سبز است (بخش ۱۱)، اما ایمیج immutable واقعی، PostgreSQL/Compose/Nginx زنده، TLS واقعی، backup/restore واقعی، load/scan هدف، UAT هدف و rollback drill انجام نشده و روی این هاست ابزارش موجود نیست. `NO-GO` برای هرگونه استقرار تا این فاز باقی می‌ماند. تا زمانی که یافته P0 بخش ۹ ردیف ۱ (نشتی محتوای ایمیج) اصلاح و بازبینی نشود، حتی تولید یک ایمیج «آماده انتشار» هم نباید انجام شود.
+`production candidate; external verification pending`. آنچه از قبل تغییر کرده: PostgreSQL واقعی، قرارداد چهار-نقشی، dump و restore ایزوله، ماتریس مرورگر روی PostgreSQL، و feature-gate امضاشده همگی **اجرا و اثبات** شده‌اند؛ و دو نقص واقعی (fail-open گیت‌های bootstrap، و کنترل‌های مرده ابتدای بارگذاری فرانت) که هیچ‌کدام با بازرسی ایستا پیدا نشده بودند، برطرف شدند.
+
+`NO-GO` برای استقرار **باقی می‌ماند**، با این blockerهای دقیق: ایمیج immutable واقعی ساخته و با `--listing` بازرسی نشده؛ Compose/Nginx/TLS زنده روی هاست هدف اجرا نشده؛ backup/restore روی حجم واقعی تولید تمرین نشده؛ load/scan/UAT/rollback drill هدف انجام نشده؛ و **manifest امضاشده واقعی هنوز صادر نشده** (کلید امضا هنوز وجود ندارد — ردیف ۳۲ بخش ۱۴)، که طبق طراحی یعنی استقرار تولیدی عمدا بالا نمی‌آید.
 
 ## ۱۳. فاز دقیق بعدی و اقدام دقیق ازسرگیری
 
-فاز بعدی `P1 — بستن تصمیم‌های کسب‌وکار/دامنه باز` طبق `KARIZ_CLIENT1_CODEX_ROADMAP.md` است، مشروط به پاسخ مالک محصول به سوالات بخش ۱۴. موازی و مستقل از آن: `P0R.1` (survey زودهنگام زیرساخت) و `P0R.2` (راه‌اندازی PostgreSQL محلی/staging) می‌توانند بدون انتظار برای تصمیم‌های مالی شروع شوند؛ `P2` (رفع نقص کوچک HTML بخش ۹ ردیف ۳) نیز مستقل قابل شروع است. اقدام دقیق ازسرگیری: مالک محصول به سوالات شماره‌گذاری‌شده در بخش ۱۴ پاسخ دهد و یکی از گزینه‌های طراحی deployment-profile (Option A/B/C در Roadmap) را انتخاب کند؛ سپس با هر تصمیم مصوب، `KARIZ_CLIENT1_CODEX_ROADMAP.md` فاز مربوطه به‌روزرسانی و پیاده‌سازی محدود همان تصمیم آغاز شود. اصلاح نشتی تعریف build ایمیج (بخش ۹ ردیف ۱) باید پیش از هر تلاش build ایمیج واقعی انجام شود، مستقل از تصمیم‌های کسب‌وکار. این diff فعلی (P0R) بدون commit در working tree باقی می‌ماند تا بازبینی انسانی انجام شود.
+**وضعیت ۲۰۲۶/۰۸/۱۵ پس از `P0R.2` و `P3`:** هر فازی که با تصمیم‌های مصوب فعلی قابل انجام بود، انجام شده است. `P0`، `P0R`، `P0R.2`، `P0R.3`، `P0R.4`، `P1.7`، `P2` و `P3` کامل‌اند. آنچه باقی مانده **هیچ‌کدام با کد بیشتر باز نمی‌شود**:
+
+- `P1` و فازهای `P4`–`P11` (Inventory، Order/Quotation، Invoice، Payment/چک/قسط، دفتر مشتری، مطالبات و سود/زیان، PDF/چاپ، فایل امن، یکپارچگی‌ها) منتظر **تصمیم واقعی کسب‌وکار** در بخش ۱۴ هستند. طبق قانون مخزن، قانون دامنه حدس زده نمی‌شود؛ هر ماژول تا رسیدن تصمیم خودش مسدود می‌ماند و بقیه کار مستقل متوقف نمی‌شود.
+- `P0R.1`، `P13`، `P14`، `P15` منتظر **زیرساخت بیرونی**اند: هاست staging دارای Docker/Compose، دامنه/گواهی TLS واقعی، مسیر شبکه/VPN، و پاسخ survey سایت هدف.
+- `P12` (بسته‌بندی و امضای release) به یک هاست لینوکس تمیز CPython 3.13 نیاز دارد تا قفل وابستگی hash-pinned بازتولید شود.
+- سه تصمیم تازه که خودِ `P3` تولید کرد (کلید امضا، مجموعه feature هر استقرار، قفل فنی `company_it`) در بخش ۱۴ ردیف‌های ۳۲–۳۵ ثبت شده‌اند.
+
+اقدام دقیق ازسرگیری: مالک محصول (۱) کلید امضای Ed25519 را تولید و `key_id`/کلید عمومی را اعلام کند، (۲) مجموعه feature مصوب Client-1 را اعلام کند، و (۳) به سوالات شماره‌گذاری‌شده بخش ۱۴ پاسخ دهد. با هر پاسخ، فاز مربوطه فورا آزاد می‌شود.
 
 ## ۱۴. شناسه‌های تصمیم باز (شماره‌گذاری‌شده)
 
@@ -573,7 +683,14 @@ PROFILE-001 PARTIALLY RESOLVED
 28. مقصد backup خارج از سایت و مقصد همیشه-روشن تهران؛ مالک نگهداری/بازیابی/حادثه؛ پنجره نگهداری.
 29. تایید نهایی حفاظت سورس/امضای release و سیاست تجاری پشتیبانی/بروزرسانی.
 
-باز — معماری (تولید همین فاز):
+باز — تصمیم‌های تازه‌ای که فاز `P3` تولید کرد (هر سه نیازمند تصمیم یا راز واقعی مالک محصول‌اند، نه کد):
 
-30. کدام گزینه طراحی deployment-profile تایید می‌شود — Option A (manifest امضاشده بیرونی)، Option B (مدل دیتابیسی `DeploymentProfile`)، یا Option C (ترکیب manifest + کش رانتایم دیتابیس)؟ **مقایسه کامل روی هر ۱۴ معیار اکنون در `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` آماده است.** ارزیابی مهندسی: Option C توصیه می‌شود، Option A جایگزین کوچک‌تر قابل‌قبول، Option B توصیه نمی‌شود (کنترل entitlement داخل ذخیره‌ای که مشتری می‌تواند ویرایش کند، و restore از backup قدیمی می‌تواند feature حذف‌شده را بی‌صدا برگرداند). انتخاب نهایی با مالک محصول است.
-31. **(مسدودکننده فعال `P0R.2`)** کدام مسیر برای فراهم‌کردن PostgreSQL 17 تایید می‌شود؟ گزینه‌ها به‌ترتیب کم‌اثرترین: **(الف)** استخراج آرشیو باینری ویندوز در یک پوشه و اجرای `scripts/test-postgres.ps1 -PostgresBin '<path>\bin'` — بدون نصب، بدون سرویس، بدون registry، بدون دسترسی administrator؛ **(ب)** نصب معمولی PostgreSQL 17؛ **(ج)** یک VM توسعه یک‌بارمصرف. هیچ‌کدام بدون اجازه صریح شما انجام نمی‌شود. ضمنا برای نیمه «restore» این فاز، یا Docker لازم است یا افزودن یک گام restore native به harness — تایید کنید کدام (بخش ۰.۰).
+32. **کلید امضای manifest.** مالک محصول باید یک کلید Ed25519 تولید کند (`openssl genpkey -algorithm ed25519`)، خصوصی نگه دارد، و برای هر استقرار یک `key_id` و کلید عمومی base64 اعلام کند. تا آن زمان هیچ manifest واقعی صادر نمی‌شود و **استقرار تولیدی عمدا بالا نمی‌آید** (همان fail-closed مصوب).
+33. **مجموعه feature هر استقرار.** برای Client-1 حالت طبیعی «همه featureهای موجود» است، ولی این هنوز یک تصمیم مکتوب نیست. اگر قرار است چیزی برای Client-1 خاموش باشد، همین‌جا اعلام شود.
+34. **آیا `company_it` باید قفل فنی شود؟** امروز فقط سیاست عملیاتی است. profile فقط feature را کنترل می‌کند نه نقش را (سه کنترل عمدا جدا هستند)؛ قفل فنی نیازمند مکانیزم جداگانه و تصویب جداست (بخش ۷).
+35. **آیا `cryptography` به قفل وابستگی اضافه شود؟** امروز تایید امضا داخل مخزن پیاده شده چون حل hash-pinned وابستگی نیازمند یک ایمیج تمیز لینوکس CPython 3.13 است که این هاست ندارد. با فراهم‌شدن چنین هاستی، جایگزینی پشت همان `verify()` بدون تغییر قالب manifest ممکن است.
+
+بسته‌شده — معماری:
+
+30. ~~کدام گزینه طراحی deployment-profile تایید می‌شود — Option A (manifest امضاشده بیرونی)، Option B (مدل دیتابیسی `DeploymentProfile`)، یا Option C (ترکیب manifest + کش رانتایم دیتابیس)؟ **مقایسه کامل روی هر ۱۴ معیار اکنون در `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` آماده است.** ارزیابی مهندسی: Option C توصیه می‌شود، Option A جایگزین کوچک‌تر قابل‌قبول، Option B توصیه نمی‌شود (کنترل entitlement داخل ذخیره‌ای که مشتری می‌تواند ویرایش کند، و restore از backup قدیمی می‌تواند feature حذف‌شده را بی‌صدا برگرداند). انتخاب نهایی با مالک محصول است.~~ **بسته شد (۲۰۲۶/۰۸/۱۵):** Option C انتخاب و در فاز `P3` پیاده شد — بخش ۰.۰۰۰ و `docs/backend/DEPLOYMENT_PROFILE.md`.
+31. ~~**(مسدودکننده فعال `P0R.2`)** کدام مسیر برای فراهم‌کردن PostgreSQL 17 تایید می‌شود؟ گزینه‌ها به‌ترتیب کم‌اثرترین: **(الف)** استخراج آرشیو باینری ویندوز در یک پوشه و اجرای `scripts/test-postgres.ps1 -PostgresBin '<path>\bin'` — بدون نصب، بدون سرویس، بدون registry، بدون دسترسی administrator؛ **(ب)** نصب معمولی PostgreSQL 17؛ **(ج)** یک VM توسعه یک‌بارمصرف. هیچ‌کدام بدون اجازه صریح شما انجام نمی‌شود. ضمنا برای نیمه «restore» این فاز، یا Docker لازم است یا افزودن یک گام restore native به harness — تایید کنید کدام (بخش ۰.۰).~~ **بسته شد (۲۰۲۶/۰۸/۱۵):** گزینه (الف) اجرا شد و نیمه restore با گام native داخل harness انجام شد، بدون نیاز به Docker — بخش ۰.۰۰.

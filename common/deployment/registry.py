@@ -1,0 +1,71 @@
+"""The features and deployment profiles this codebase knows about.
+
+Three separate controls exist and must not be merged:
+
+* **feature availability** — this module and the signed manifest: may this
+  deployment run a module at all;
+* **role permission** — `accounts/access.py`: may this role use it;
+* **object scope** — each app's `selectors.py`: which rows may this user see.
+
+Nothing here mentions a customer name, and no code branches on one. A
+deployment is described entirely by a signed manifest naming a profile id and a
+feature set.
+
+Feature dependencies are read off the actual data model, not invented: a feature
+depends on another only where a *non-nullable* foreign key makes its rows
+impossible without the other module's rows.
+"""
+
+
+# feature name -> features it cannot function without
+FEATURE_DEPENDENCIES = {
+    # sales.Customer / sales.CustomerPhone
+    "customers": frozenset(),
+    # sales.ProductCategory / sales.Product
+    "products": frozenset(),
+    # sales.Lead, LeadAssignmentHistory, Interaction — Lead.customer is NOT NULL
+    "leads": frozenset({"customers"}),
+    # sales.Sale — lead and customer are NOT NULL; product is nullable
+    "sales": frozenset({"customers", "leads"}),
+    # sales.SalesDocument / PostalStatusHistory — customer NOT NULL, sale nullable
+    "sales_documents": frozenset({"customers"}),
+    # aftersales.AfterSalesRequest — customer NOT NULL, sale and document nullable
+    "after_sales": frozenset({"customers"}),
+    # communications.InboundSMS — provider-neutral internal storage and report
+    "inbound_sms": frozenset(),
+    # reports: user performance metrics count customers and sales
+    "reports": frozenset({"customers", "sales"}),
+    # auditlog.ActivityLog
+    "audit_log": frozenset(),
+}
+
+FEATURES = frozenset(FEATURE_DEPENDENCIES)
+
+# Every feature the current code actually ships. A deployment may enable a
+# subset; it may never enable something absent from this set.
+ALL_FEATURES = FEATURES
+
+# Known deployment profile identifiers. An id absent from this table is refused
+# even when its signature is valid, so a manifest issued for a deployment this
+# release does not know about cannot start it.
+PROFILES = {
+    "client-1": "First operational customer deployment.",
+    "demo": "Reduced demonstration deployment.",
+    "development": "Local development and automated tests only.",
+}
+
+
+def unknown_features(names):
+    """Return the requested feature names this release does not ship."""
+    return frozenset(names) - FEATURES
+
+
+def missing_dependencies(names):
+    """Return {feature: missing required features} for an enabled feature set."""
+    enabled = frozenset(names)
+    missing = {}
+    for feature in sorted(enabled & FEATURES):
+        absent = FEATURE_DEPENDENCIES[feature] - enabled
+        if absent:
+            missing[feature] = frozenset(absent)
+    return missing

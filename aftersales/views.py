@@ -17,6 +17,7 @@ ELEVATED = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_AD
 
 
 class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    required_feature = "after_sales"
     queryset = AfterSalesRequest.objects.none()
     serializer_class = AfterSalesRequestSerializer
     http_method_names = ["get", "post", "head", "options"]

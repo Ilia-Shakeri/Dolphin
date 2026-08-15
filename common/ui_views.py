@@ -6,6 +6,8 @@ from django.views.generic import TemplateView
 
 from accounts.access import capabilities_for, crm_identities, has_any_capability, is_crm_identity
 from accounts.models import User
+from common.deployment.profile import active_profile, feature_enabled
+from common.permissions import FeatureGatedViewMixin
 from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
 from sales.selectors import (
@@ -40,7 +42,7 @@ class KarizLoginView(TemplateView):
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
-class ActiveCrmView(TemplateView):
+class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
     def dispatch(self, request, *args, **kwargs):
         if not is_crm_identity(request.user):
             if request.user.is_authenticated or SESSION_KEY in request.session:
@@ -51,6 +53,10 @@ class ActiveCrmView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         capabilities = capabilities_for(self.request.user)
+        # Feature availability is a separate control from role permission: the
+        # template hides a link when either says no, and the backend refuses
+        # regardless of what the template rendered.
+        context["features"] = active_profile().features
         context["capabilities"] = capabilities
         context["role_label"] = ROLE_LABELS[self.request.user.role]
         if self.request.user.role == User.Role.SALES_AGENT and self.request.user.workstream == User.Workstream.AFTER_SALES:
@@ -81,7 +87,9 @@ class ActiveCrmView(TemplateView):
         context["can_manage_after_sales"] = "after_sales.manage" in capabilities
         context["can_view_company_reports"] = "reports.company" in capabilities
         context["can_view_sms_report"] = "sms.company" in capabilities
-        context["can_view_audit"] = bool({"audit.non_platform", "audit.all"}.intersection(capabilities))
+        context["can_view_audit"] = feature_enabled("audit_log") and bool(
+            {"audit.non_platform", "audit.all"}.intersection(capabilities)
+        )
         context["is_platform_navigation"] = "dashboard.platform" in capabilities
         return context
 
@@ -105,9 +113,21 @@ class KarizHomeView(ActiveCrmView):
                 "پرونده‌های تخصیص‌یافته و اقدام‌های ثبت‌شده شما",
             )
         widgets = []
+        # A dashboard tile links into a module, so it needs the feature as well
+        # as the capability. Both controls are consulted, neither replaces the
+        # other, and the target page enforces both again.
+        widget_features = {
+            "customers": "customers",
+            "leads": "leads",
+            "interactions": "leads",
+            "sales": "sales",
+            "sales_documents": "sales_documents",
+            "after_sales": "after_sales",
+        }
 
         def add(capability, label, value, url_name):
-            if capability in capabilities:
+            feature = widget_features[capability.split(".", 1)[0]]
+            if capability in capabilities and feature_enabled(feature):
                 widgets.append({"capability": capability, "label": label, "value": value, "url_name": url_name})
 
         customer_scope = customers_for(self.request.user)
@@ -207,6 +227,7 @@ class KarizUserDetailView(UserAdminView):
 
 
 class KarizCustomerListView(ActiveCrmView):
+    required_feature = "customers"
     template_name = "common/customers/list.html"
 
 
@@ -239,6 +260,7 @@ class ScopedDetailView(ActiveCrmView):
 
 
 class KarizCustomerDetailView(ScopedDetailView):
+    required_feature = "customers"
     template_name = "common/customers/detail.html"
     object_id_kwarg = "customer_id"
     context_id_name = "customer_id"
@@ -250,10 +272,12 @@ class KarizCustomerDetailView(ScopedDetailView):
 
 
 class KarizLeadListView(ActiveCrmView):
+    required_feature = "leads"
     template_name = "common/leads/list.html"
 
 
 class KarizLeadDetailView(ScopedDetailView):
+    required_feature = "leads"
     template_name = "common/leads/detail.html"
     object_id_kwarg = "lead_id"
     context_id_name = "lead_id"
@@ -281,10 +305,12 @@ class KarizLeadDetailView(ScopedDetailView):
 
 
 class KarizInteractionListView(ActiveCrmView):
+    required_feature = "leads"
     template_name = "common/interactions/list.html"
 
 
 class KarizInteractionDetailView(ScopedDetailView):
+    required_feature = "leads"
     template_name = "common/interactions/detail.html"
     object_id_kwarg = "interaction_id"
     context_id_name = "interaction_id"
@@ -296,14 +322,17 @@ class KarizInteractionDetailView(ScopedDetailView):
 
 
 class KarizProductListView(ActiveCrmView):
+    required_feature = "products"
     template_name = "common/products/list.html"
 
 
 class KarizProductCategoryListView(ActiveCrmView):
+    required_feature = "products"
     template_name = "common/product_categories/list.html"
 
 
 class KarizProductCategoryDetailView(ScopedDetailView):
+    required_feature = "products"
     template_name = "common/product_categories/detail.html"
     object_id_kwarg = "category_id"
     context_id_name = "category_id"
@@ -315,6 +344,7 @@ class KarizProductCategoryDetailView(ScopedDetailView):
 
 
 class KarizProductDetailView(ScopedDetailView):
+    required_feature = "products"
     template_name = "common/products/detail.html"
     object_id_kwarg = "product_id"
     context_id_name = "product_id"
@@ -324,10 +354,12 @@ class KarizProductDetailView(ScopedDetailView):
 
 
 class KarizSaleListView(ActiveCrmView):
+    required_feature = "sales"
     template_name = "common/sales/list.html"
 
 
 class KarizSaleDetailView(ScopedDetailView):
+    required_feature = "sales"
     template_name = "common/sales/detail.html"
     object_id_kwarg = "sale_id"
     context_id_name = "sale_id"
@@ -337,10 +369,12 @@ class KarizSaleDetailView(ScopedDetailView):
 
 
 class KarizSalesDocumentListView(ActiveCrmView):
+    required_feature = "sales_documents"
     template_name = "common/sales_documents/list.html"
 
 
 class KarizSalesDocumentDetailView(ScopedDetailView):
+    required_feature = "sales_documents"
     template_name = "common/sales_documents/detail.html"
     object_id_kwarg = "document_id"
     context_id_name = "document_id"
@@ -352,6 +386,7 @@ class KarizSalesDocumentDetailView(ScopedDetailView):
 
 
 class KarizUserPerformanceView(ActiveCrmView):
+    required_feature = "reports"
     template_name = "common/reports/user_performance.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -364,6 +399,7 @@ class KarizUserPerformanceView(ActiveCrmView):
 
 
 class KarizSalesDocumentReportView(ActiveCrmView):
+    required_feature = "sales_documents"
     template_name = "common/reports/sales_documents.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -376,6 +412,7 @@ class KarizSalesDocumentReportView(ActiveCrmView):
 
 
 class KarizInboundSMSReportView(ActiveCrmView):
+    required_feature = "inbound_sms"
     template_name = "common/reports/inbound_sms.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -400,10 +437,12 @@ class AfterSalesAccessView(ActiveCrmView):
 
 
 class KarizAfterSalesListView(AfterSalesAccessView):
+    required_feature = "after_sales"
     template_name = "common/after_sales/list.html"
 
 
 class KarizAfterSalesDetailView(AfterSalesAccessView, ScopedDetailView):
+    required_feature = "after_sales"
     template_name = "common/after_sales/detail.html"
     object_id_kwarg = "request_id"
     context_id_name = "after_sales_request_id"
@@ -431,10 +470,12 @@ class AuditReaderView(ActiveCrmView):
 
 
 class KarizActivityLogListView(AuditReaderView):
+    required_feature = "audit_log"
     template_name = "common/activity_logs/list.html"
 
 
 class KarizActivityLogDetailView(AuditReaderView, ScopedDetailView):
+    required_feature = "audit_log"
     template_name = "common/activity_logs/detail.html"
     object_id_kwarg = "activity_log_id"
     context_id_name = "activity_log_id"

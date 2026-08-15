@@ -499,6 +499,7 @@ FROM (
         ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),
         ('communications_inboundsms', 'SELECT, INSERT'),
+        ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
         ('auth_group', 'SELECT, INSERT, UPDATE, DELETE'),
         ('auth_group_permissions', 'SELECT, INSERT, DELETE'),
         ('auth_permission', 'SELECT'),

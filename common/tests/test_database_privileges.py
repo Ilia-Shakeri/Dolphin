@@ -318,6 +318,10 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE",
             "auditlog_activitylog": "SELECT, INSERT",
             "communications_inboundsms": "SELECT, INSERT",
+            # Derived cache of the signed deployment manifest. The runtime
+            # rewrites it, which is safe precisely because it never authorises
+            # anything; the manifest alone does.
+            "common_deploymentprofilecache": "SELECT, INSERT, UPDATE",
             "auth_group": "SELECT, INSERT, UPDATE, DELETE",
             "auth_group_permissions": "SELECT, INSERT, DELETE",
             "auth_permission": "SELECT",

@@ -162,3 +162,37 @@ ENABLE_API_DOCS = DEBUG
 # production misconfiguration cannot enable it implicitly. CRM roles are never
 # Django staff, so enabling this does not grant any CRM user access.
 ENABLE_DJANGO_ADMIN = os.environ.get("ENABLE_DJANGO_ADMIN", "false").lower() == "true"
+
+
+def _manifest_public_keys(raw):
+    """Parse `key_id:base64,key_id:base64` into the trusted signer mapping.
+
+    Only public keys are ever configured. The matching private key stays with
+    the platform owner and never reaches a deployment, so a customer cannot
+    issue a manifest that verifies here.
+    """
+    keys = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        key_id, separator, value = entry.partition(":")
+        if not separator or not key_id.strip() or not value.strip():
+            raise ValueError(
+                "KARIZ_DEPLOYMENT_MANIFEST_KEYS entries must be key_id:base64_public_key."
+            )
+        keys[key_id.strip()] = value.strip()
+    return keys
+
+
+# Deployment profile (PROFILE-001, Option C). The signed external manifest is
+# the source of truth for feature availability; the database table of the same
+# name is a derived cache that never authorises anything. Feature availability,
+# role permission, and object scope stay three separate controls.
+DEPLOYMENT_MANIFEST_PATH = os.environ.get("KARIZ_DEPLOYMENT_MANIFEST", "")
+DEPLOYMENT_MANIFEST_PUBLIC_KEYS = _manifest_public_keys(
+    os.environ.get("KARIZ_DEPLOYMENT_MANIFEST_KEYS", "")
+)
+# Development and the test suite may run without a manifest. Production sets
+# this to True, so a customer deployment refuses to start without one.
+DEPLOYMENT_MANIFEST_REQUIRED = False

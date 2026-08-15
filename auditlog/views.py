@@ -9,6 +9,7 @@ from common.viewsets import StrictQueryParametersMixin
 
 
 class ActivityLogViewSet(StrictQueryParametersMixin, ReadOnlyModelViewSet):
+    required_feature = "audit_log"
     queryset = ActivityLog.objects.none()
     serializer_class = ActivityLogSerializer
     permission_classes = [IsAuditReader]

@@ -1,8 +1,10 @@
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
 
+from common.permissions import FeatureGatedAPIMixin
 
-class StrictQueryParametersMixin:
+
+class StrictQueryParametersMixin(FeatureGatedAPIMixin):
     common_list_query_parameters = {"format", "ordering", "page", "search"}
     list_query_parameters = set()
     action_query_parameters = {}
