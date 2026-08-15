@@ -118,6 +118,12 @@ class AfterSalesRealBrowserTests(StaticLiveServerTestCase):
 
         self.wait.until(_click_until_open)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-after-sales-customer")))
+        # The dialog now opens as soon as the page renders rather than only
+        # after its lookup loads resolve, so wait for the options themselves.
+        for select_id in ("create-after-sales-customer", "create-after-sales-assigned"):
+            self.wait.until(
+                lambda driver, node=select_id: len(Select(driver.find_element(By.ID, node)).options) > 1
+            )
         Select(self.browser.find_element(By.ID, "create-after-sales-customer")).select_by_visible_text("مشتری مرورگر خدمات")
         Select(self.browser.find_element(By.ID, "create-after-sales-assigned")).select_by_visible_text("اپراتور خدمات")
         self.browser.find_element(By.ID, "create-after-sales-subject").send_keys("پیگیری مرورگر")

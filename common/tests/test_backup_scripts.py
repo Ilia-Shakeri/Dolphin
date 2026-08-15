@@ -223,7 +223,10 @@ class BackupScriptTests(SimpleTestCase):
         self.assertEqual(restore.count("$verificationOutput = & $psql"), 1)
         self.assertIn("\\if :schema_contract_ok", schema)
         self.assertIn("SELECT 1;", schema)
-        self.assertIn("\\quit 6", schema)
+        # `\quit 6` used to stand here, but psql's `\quit` takes no argument and
+        # exits 0, so the verifier announced a failed schema contract and then
+        # reported success. Raising is what actually fails the restore check.
+        self.assertIn("RAISE EXCEPTION 'PostgreSQL schema contract failed.'", schema)
         self.assertNotIn("THEN 1 ELSE 0 END;", schema)
         self.assertIn("FROM pg_constraint", schema)
         self.assertIn("JOIN pg_index", schema)

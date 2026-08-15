@@ -139,6 +139,20 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.wait.until(_click_until_open)
 
+    def submit_performance_filter(self, prefix="report"):
+        """Filter a performance report only once the panel is really ready.
+
+        The panel renders once on load and again on submit. Clicking before the
+        first render has finished proves nothing about filtering, so wait for
+        the loaded panel first, then submit and wait for the re-render.
+        """
+        content = (By.ID, f"{prefix}-performance-content")
+        self.wait.until(expected_conditions.visibility_of_element_located(content))
+        self.browser.find_element(
+            By.CSS_SELECTOR, f"#{prefix}-performance-filter-form button[type='submit']"
+        ).click()
+        self.wait.until(expected_conditions.visibility_of_element_located(content))
+
     def test_customer_lead_assignment_history_and_manual_call_flow(self):
         self.browser.set_window_size(1440, 1000)
         self.login()
@@ -265,8 +279,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "sale-detail-status"), "لغوشده"))
 
         self.browser.get(f"{self.live_server_url}/reports/user-performance/")
-        self.browser.find_element(By.CSS_SELECTOR, "#report-performance-filter-form button[type='submit']").click()
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "report-performance-content")))
+        self.submit_performance_filter()
         self.assertIn(self.platform.username, self.browser.find_element(By.ID, "report-performance-table-body").text)
         export_url = self.browser.find_element(By.ID, "report-performance-xlsx").get_attribute("href")
         self.assertIn("period_start=", export_url)
@@ -397,7 +410,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         )
 
         self.browser.get(f"{self.live_server_url}/products/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-product"))).click()
+        self.open_create_dialog("open-create-product", "create-product-dialog")
         self.browser.find_element(By.ID, "create-product-sku").send_keys("DAILY-1")
         self.browser.find_element(By.ID, "create-product-name").send_keys("محصول روزانه")
         self.browser.find_element(By.ID, "create-product-price").send_keys("20.00")
@@ -405,14 +418,14 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
 
         self.browser.get(f"{self.live_server_url}/customers/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-customer"))).click()
+        self.open_create_dialog("open-create-customer", "create-customer-dialog")
         self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مسیر روزانه")
         self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121230001")
         self.browser.find_element(By.CSS_SELECTOR, "#create-customer-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
 
         self.browser.get(f"{self.live_server_url}/leads/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-lead"))).click()
+        self.open_create_dialog("open-create-lead", "create-lead-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-lead-customer")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مسیر روزانه")
         self.browser.find_element(By.ID, "create-lead-source").send_keys("صف روزانه")
@@ -467,8 +480,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "sale-customer").get_attribute("value"), "مشتری مسیر روزانه")
         self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), "بازاریاب روزانه")
         self.browser.get(f"{self.live_server_url}/reports/user-performance/")
-        self.browser.find_element(By.CSS_SELECTOR, "#report-performance-filter-form button[type='submit']").click()
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "report-performance-content")))
+        self.submit_performance_filter()
         report_text = self.browser.find_element(By.ID, "report-performance-table-body").text
         self.assertIn("daily.agent.browser", report_text)
         self.assertIn("20.00", report_text)

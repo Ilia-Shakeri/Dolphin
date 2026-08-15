@@ -63,6 +63,67 @@ if [ "$POSTGRES_INIT_PASSWORD" = "$POSTGRES_MIGRATION_PASSWORD" ] || \
     exit 2
 fi
 
+# --- Disposable-proof non-interactive password path (opt-in, fail-closed) ----
+#
+# Production sets role passwords with psql's interactive `\password`, which
+# hashes on the client so no plaintext password ever reaches the server or its
+# log. That meta-command reads the console device directly and ignores piped
+# stdin on some platforms, so the isolated PostgreSQL proof harness cannot drive
+# it there and the bootstrap -> contract -> dump -> restore proof cannot finish.
+#
+# When, and only when, the caller opts in explicitly AND every value in play
+# belongs to a disposable proof cluster, the same client-side hash is computed
+# by scripts/pg_scram_verifier.py instead and applied as a SCRAM verifier. The
+# plaintext still never reaches the server. Any unmet condition aborts the whole
+# bootstrap; there is no fallback to a weaker method, and production is
+# unreachable from this branch because a production database and role name can
+# never match the disposable-proof patterns below.
+NONINTERACTIVE_PASSWORD="${KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"
+EPHEMERAL_DB_PATTERN='^(test|contract|restore)_kariz_[0-9a-f]{32}$'
+EPHEMERAL_ROLE_PATTERN='^kariz_(migration|app|backup)_[0-9a-f]{32}$'
+VERIFIER_PATTERN='^SCRAM-SHA-256\$[0-9]+:[A-Za-z0-9+/]+=*\$[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*$'
+
+refuse_noninteractive() {
+    echo "$1" >&2
+    echo "Refusing the non-interactive password path." >&2
+    exit 2
+}
+
+require_ephemeral_proof_context() {
+    printf '%s' "$POSTGRES_DB" | LC_ALL=C grep -Eq "$EPHEMERAL_DB_PATTERN" || \
+        refuse_noninteractive "POSTGRES_DB is not a disposable Kariz proof database."
+    for proof_role in "$POSTGRES_MIGRATION_USER" "$POSTGRES_APP_USER" "$POSTGRES_BACKUP_USER"; do
+        printf '%s' "$proof_role" | LC_ALL=C grep -Eq "$EPHEMERAL_ROLE_PATTERN" || \
+            refuse_noninteractive "A managed role name is not a disposable Kariz proof role."
+    done
+    if [ "$POSTGRES_HOST" != "127.0.0.1" ]; then
+        refuse_noninteractive "The non-interactive path is limited to the IPv4 loopback host."
+    fi
+    if ! printf '%s' "$POSTGRES_PORT" | LC_ALL=C grep -Eq '^[0-9]+$' || \
+       [ "$POSTGRES_PORT" -le 1024 ] || [ "$POSTGRES_PORT" -ge 65536 ] || \
+       [ "$POSTGRES_PORT" -eq 5432 ]; then
+        refuse_noninteractive "The non-interactive path requires a high local port other than 5432."
+    fi
+    if [ -z "${KARIZ_BOOTSTRAP_SCRAM_HELPER:-}" ] || [ ! -f "$KARIZ_BOOTSTRAP_SCRAM_HELPER" ]; then
+        refuse_noninteractive "KARIZ_BOOTSTRAP_SCRAM_HELPER must point at the client-side verifier helper."
+    fi
+    if ! command -v "${KARIZ_BOOTSTRAP_PYTHON:-python3}" >/dev/null 2>&1; then
+        refuse_noninteractive "KARIZ_BOOTSTRAP_PYTHON must name an available interpreter."
+    fi
+}
+
+case "$NONINTERACTIVE_PASSWORD" in
+    0)
+        ;;
+    1)
+        require_ephemeral_proof_context
+        ;;
+    *)
+        echo "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD must be unset, '0', or '1'." >&2
+        exit 2
+        ;;
+esac
+
 export PGPASSWORD="$POSTGRES_INIT_PASSWORD"
 
 emit_variables() {
@@ -73,7 +134,51 @@ emit_variables() {
     printf "\\set backup_user '%s'\n" "$POSTGRES_BACKUP_USER"
 }
 
+set_role_password_from_client_hash() {
+    # Disposable-proof path only; see the guard block above. The plaintext is
+    # piped to the helper on stdin and never becomes an argument, an SQL
+    # literal, or a psql variable; only the derived verifier is sent.
+    role_name="$1"
+    role_password="$2"
+    role_verifier=$(printf '%s' "$role_password" | "${KARIZ_BOOTSTRAP_PYTHON:-python3}" "$KARIZ_BOOTSTRAP_SCRAM_HELPER") || \
+        refuse_noninteractive "Client-side SCRAM-SHA-256 derivation failed."
+    printf '%s' "$role_verifier" | LC_ALL=C grep -Eq "$VERIFIER_PATTERN" || \
+        refuse_noninteractive "Client-side SCRAM-SHA-256 derivation produced no usable verifier."
+
+    {
+        printf "\\set role_name '%s'\n" "$role_name"
+        printf "\\set role_verifier '%s'\n" "$role_verifier"
+        cat <<'SQL'
+SELECT format('ALTER ROLE %I PASSWORD %L', :'role_name', :'role_verifier') \gexec
+
+SELECT COALESCE(
+    (SELECT rolpassword FROM pg_authid WHERE rolname = :'role_name'),
+    ''
+) LIKE 'SCRAM-SHA-256$%' AS stored_password_is_scram \gset
+\if :stored_password_is_scram
+\else
+    \echo 'The managed role password was not stored as a SCRAM-SHA-256 verifier.'
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'The managed role password was not stored as a SCRAM-SHA-256 verifier.';
+    END $kariz_guard$;
+\endif
+SQL
+    } | psql \
+        --host="$POSTGRES_HOST" \
+        --port="$POSTGRES_PORT" \
+        --username="$POSTGRES_INIT_USER" \
+        --dbname=postgres \
+        --no-password \
+        --quiet \
+        --set=ON_ERROR_STOP=1
+    role_verifier=""
+}
+
 set_role_password() {
+    if [ "$NONINTERACTIVE_PASSWORD" = "1" ]; then
+        set_role_password_from_client_hash "$1" "$2"
+        return
+    fi
     role_name="$1"
     role_password="$2"
     printf '%s\n%s\n' "$role_password" "$role_password" | psql \
@@ -97,7 +202,9 @@ SELECT EXISTS (
 \if :init_is_superuser
 \else
     \echo 'POSTGRES_INIT_USER must be an existing PostgreSQL superuser.'
-    \quit 3
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_INIT_USER must be an existing PostgreSQL superuser.';
+    END $kariz_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -111,7 +218,9 @@ SELECT NOT EXISTS (
 \if :migration_role_is_managed
 \else
     \echo 'POSTGRES_MIGRATION_USER already exists but is not Kariz-managed.'
-    \quit 3
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_MIGRATION_USER already exists but is not Kariz-managed.';
+    END $kariz_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -125,7 +234,9 @@ SELECT NOT EXISTS (
 \if :app_role_is_managed
 \else
     \echo 'POSTGRES_APP_USER already exists but is not Kariz-managed.'
-    \quit 3
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_APP_USER already exists but is not Kariz-managed.';
+    END $kariz_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -139,7 +250,9 @@ SELECT NOT EXISTS (
 \if :backup_role_is_managed
 \else
     \echo 'POSTGRES_BACKUP_USER already exists but is not Kariz-managed.'
-    \quit 3
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_BACKUP_USER already exists but is not Kariz-managed.';
+    END $kariz_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -151,7 +264,9 @@ SELECT NOT EXISTS (
 \if :managed_roles_have_no_members
 \else
     \echo 'A Kariz-managed PostgreSQL role is granted to another role.'
-    \quit 3
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'A Kariz-managed PostgreSQL role is granted to another role.';
+    END $kariz_guard$;
 \endif
 
 SELECT format('CREATE ROLE %I', :'migration_user')
@@ -328,7 +443,9 @@ SELECT NOT EXISTS (
 \if :relation_owners_are_safe
 \else
     \echo 'A first-party public relation has an unapproved owner.'
-    \quit 4
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'A first-party public relation has an unapproved owner.';
+    END $kariz_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -349,7 +466,9 @@ SELECT NOT EXISTS (
 \if :routine_owners_are_safe
 \else
     \echo 'A first-party public routine has an unapproved owner.'
-    \quit 4
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'A first-party public routine has an unapproved owner.';
+    END $kariz_guard$;
 \endif
 
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'db_name') \gexec

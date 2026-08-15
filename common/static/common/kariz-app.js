@@ -1055,6 +1055,24 @@
 
     async function setupProducts() {
         const form = document.getElementById("product-search-form");
+        // Wire the dialog before any awaited load: a click that lands while a
+        // network load is still pending would otherwise be silently discarded,
+        // leaving the create button inert for the first moments of the page.
+        const dialog = document.getElementById("create-product-dialog");
+        if (dialog) {
+            const createForm = document.getElementById("create-product-form");
+            document.getElementById("open-create-product").addEventListener("click", () => dialog.showModal());
+            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const payload = formPayload(createForm, ["sku", "name", "brand", "barcode", "current_price", "description"]);
+                    payload.category = new FormData(createForm).get("category") ? Number(new FormData(createForm).get("category")) : null;
+                    const product = await apiRequest(createForm.action, {method: "POST", body: payload});
+                    window.location.assign(`/products/${product.id}/`);
+                });
+            });
+        }
         try {
             const categories = await loadAllPages("/api/v1/product-categories/?is_active=true&ordering=display_order");
             fillSelect(document.getElementById("product-category-filter"), categories, (category) => category.name, "همه دسته‌بندی‌ها");
@@ -1079,21 +1097,6 @@
             },
             renderRow: productRow,
         });
-        const dialog = document.getElementById("create-product-dialog");
-        if (dialog) {
-            const createForm = document.getElementById("create-product-form");
-            document.getElementById("open-create-product").addEventListener("click", () => dialog.showModal());
-            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
-            createForm.addEventListener("submit", (event) => {
-                event.preventDefault();
-                withSubmit(createForm, async () => {
-                    const payload = formPayload(createForm, ["sku", "name", "brand", "barcode", "current_price", "description"]);
-                    payload.category = new FormData(createForm).get("category") ? Number(new FormData(createForm).get("category")) : null;
-                    const product = await apiRequest(createForm.action, {method: "POST", body: payload});
-                    window.location.assign(`/products/${product.id}/`);
-                });
-            });
-        }
         controller.load();
     }
 
@@ -1615,6 +1618,11 @@
         const documentSelect = document.getElementById("create-after-sales-document");
         const assigneeSelect = document.getElementById("create-after-sales-assigned");
         let sales = [], documents = [];
+        // Wire the dialog before the awaited loads below, so a click during
+        // them opens the dialog instead of being silently discarded.
+        customerSelect.addEventListener("change", refreshRelations);
+        document.getElementById("open-create-after-sales").addEventListener("click", () => dialog.showModal());
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             const [customers, loadedSales, loadedDocuments, assignees] = await Promise.all([
                 loadAllPages("/api/v1/customers/?ordering=full_name"), loadAllPages("/api/v1/sales/?ordering=-sold_at"),
@@ -1629,9 +1637,6 @@
             fillSelect(saleSelect, sales.filter((item) => Number(item.customer) === id), (item) => `فروش ${item.id}`, "بدون فروش");
             fillSelect(documentSelect, documents.filter((item) => Number(item.customer) === id), (item) => item.document_number, "بدون سند");
         }
-        customerSelect.addEventListener("change", refreshRelations);
-        document.getElementById("open-create-after-sales").addEventListener("click", () => dialog.showModal());
-        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         const createForm = document.getElementById("create-after-sales-form");
         createForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(createForm, async () => {
             const payload = formPayload(createForm, ["customer", "sale", "document", "assigned_to", "subject", "description", "status"]);
@@ -1828,12 +1833,6 @@
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         document.getElementById(`${prefix}-period-start`).value = localDateTimeValue(start);
         document.getElementById(`${prefix}-period-end`).value = localDateTimeValue(new Date(now.getTime() + 60000));
-        try {
-            const products = await loadAllPages("/api/v1/products/?ordering=name");
-            fillSelect(document.getElementById(`${prefix}-product`), products, (product) => product.name, "همه محصولات مجاز");
-        } catch (error) {
-            showError(error);
-        }
         const exportLink = document.getElementById(`${prefix}-performance-xlsx`);
         const updateExport = () => { exportLink.href = `/api/v1/exports/user-performance.xlsx?${reportQuery(form)}`; };
         form.addEventListener("input", updateExport);
@@ -1883,7 +1882,16 @@
                 button.disabled = false;
             }
         };
+        // Claim the submit event before any awaited load. Without this the
+        // filter button performs a native form submission during the first
+        // moments of the page, which reloads instead of filtering.
         form.addEventListener("submit", (event) => { event.preventDefault(); load(); });
+        try {
+            const products = await loadAllPages("/api/v1/products/?ordering=name");
+            fillSelect(document.getElementById(`${prefix}-product`), products, (product) => product.name, "همه محصولات مجاز");
+        } catch (error) {
+            showError(error);
+        }
         await load();
     }
 

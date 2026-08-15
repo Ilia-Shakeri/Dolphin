@@ -133,5 +133,9 @@ SELECT (
 \if :privilege_contract_ok
 \else
     \echo 'PostgreSQL runtime privilege contract failed.'
-    \quit 5
+    -- psql's \quit takes no argument and exits 0, so announcing the failure is
+    -- not enough: raise, and let ON_ERROR_STOP=1 give a non-zero exit.
+    DO $kariz_guard$ BEGIN
+        RAISE EXCEPTION 'PostgreSQL runtime privilege contract failed.';
+    END $kariz_guard$;
 \endif

@@ -13,6 +13,8 @@ The four names must be safe lowercase PostgreSQL identifiers and must differ. Ea
 
 `db-bootstrap` runs before migration. It prepares roles/passwords, then locks one owner/ACL transaction that removes runtime default privileges. `db-finalize` repeats that guarded flow after migration and reapplies the exact table/sequence/routine policy before `web` may start. Owner transfer and every database/schema/table/sequence/routine/default-ACL change run inside the locked unit. Any SQL error closes the session and rolls back that unit.
 
+Role passwords are set with psql's `\password`, which hashes on the client so no plaintext password ever reaches the server or its log. That meta-command reads the console device, so the isolated PostgreSQL proof harness cannot drive it; the script carries one opt-in branch that derives the identical SCRAM-SHA-256 verifier locally instead. It refuses to act unless the database and role names are disposable proof identifiers on loopback, it never falls back, and no Compose file or `.env.example` sets its flag. Deployment behaviour is unaffected. See `docs/backend/POSTGRES_TESTING.md`.
+
 The exact runtime map gives:
 
 - `SELECT, INSERT` only to ActivityLog, LeadAssignmentHistory, Interaction, and Django admin log;

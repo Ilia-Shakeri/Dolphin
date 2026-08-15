@@ -2,6 +2,8 @@ import re
 from unittest import mock
 
 from django.conf import settings
+from django.db import connection
+from django.db.utils import OperationalError
 from django.test import TestCase, override_settings
 from django.urls import path
 from rest_framework.permissions import AllowAny
@@ -38,6 +40,31 @@ class SystemApiTests(TestCase):
         ready = client.get("/api/v1/health/ready/")
         self.assertEqual(ready.status_code, 200)
         self.assertEqual(ready.data["database"], "up")
+
+    def test_readiness_reports_unavailable_when_the_database_cannot_answer(self):
+        """Readiness must fail closed, and liveness must stay independent of it.
+
+        Proven by making the connection raise rather than by stopping a server,
+        so the gate runs on every vendor and on every suite run instead of being
+        a one-off manual observation.
+        """
+        client = APIClient()
+        with mock.patch.object(
+            connection, "cursor", side_effect=OperationalError("connection refused")
+        ):
+            ready = client.get("/api/v1/health/ready/")
+            self.assertEqual(ready.status_code, 503)
+            self.assertEqual(ready.data["status"], "unavailable")
+            self.assertEqual(ready.data["database"], "down")
+            # A dead database must not take the process out of rotation.
+            self.assertEqual(client.get("/api/v1/health/live/").status_code, 200)
+            # Nothing about the failure may leak connection detail.
+            body = ready.content.decode("utf-8")
+            for leaked in ("connection refused", "password", "host", "port", "user"):
+                with self.subTest(leaked=leaked):
+                    self.assertNotIn(leaked, body.lower())
+
+        self.assertEqual(client.get("/api/v1/health/ready/").status_code, 200)
 
     @override_settings(SECURE_SSL_REDIRECT=True)
     def test_security_redirect_has_request_id(self):

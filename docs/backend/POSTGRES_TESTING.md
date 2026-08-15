@@ -49,12 +49,12 @@ hundreds of milliseconds rather than microseconds) exposes frontend races;
 `TransactionTestCase` does not roll back schema changes, so a migration test can
 poison every later test.
 
-### Remaining blocker
+### Resolved blocker: the interactive password step
 
-The role bootstrap, contract, dump, and restore stages do not run on Windows.
+The role bootstrap, contract, dump, and restore stages used to stop on Windows.
 `scripts/bootstrap-postgres.sh` sets role passwords with psql's interactive
-`\password` meta-command, which on Windows reads the console instead of piped
-stdin and therefore blocks forever. Proven in isolation:
+`\password` meta-command, which reads the console device rather than piped stdin
+and therefore blocks forever here. Proven in isolation:
 
 ```text
 printf 'pw\npw\n' | psql ... -c "SET password_encryption='scram-sha-256'" \
@@ -62,22 +62,35 @@ printf 'pw\npw\n' | psql ... -c "SET password_encryption='scram-sha-256'" \
 -> times out; pg_stat_activity shows state=idle, wait_event=Client/ClientRead
 ```
 
-This is a portability limitation, not a production defect: the production target
-is a Linux container, where piped stdin works. Earlier runs never reached this
-stage because the harness stopped at the failing tests first.
+This was a portability limitation, not a production defect: the production
+target is a Linux container, where piped stdin works. Earlier runs never reached
+this stage because the harness stopped at failing tests first.
 
-It was deliberately left unchanged. `bootstrap-postgres.sh` is the production
-`db-bootstrap` script and `\password` is chosen precisely so a plaintext
-password never reaches the server or its logs. Changing it is a product-owner
-decision. Options, smallest first:
+**Production behaviour is unchanged.** `\password` is still what the Compose
+`db-bootstrap` service runs, and it is still chosen precisely so a plaintext
+password never reaches the server or its log. What was added is an opt-in
+branch that is unreachable from any production configuration:
 
-1. Run the bootstrap, contract, dump and restore stages on Linux (a container or
-   VM), keeping the Windows host for the Django suite only.
-2. Add an opt-in, harness-only non-interactive branch to the script, so the
-   production Compose path keeps using `\password` unchanged.
-3. Compute the SCRAM-SHA-256 verifier client-side and use
-   `ALTER ROLE ... PASSWORD '<verifier>'`, which keeps the plaintext off the
-   wire but is a real change to production tooling.
+- it runs only when `KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD=1` is set
+  explicitly, and any other non-empty value aborts the bootstrap;
+- even then it refuses unless `POSTGRES_DB` matches
+  `(test|contract|restore)_kariz_<32 hex>`, every managed role matches
+  `kariz_(migration|app|backup)_<32 hex>`, the host is `127.0.0.1`, and the port
+  is a high port other than 5432 — values a production deployment cannot have;
+- it derives the identical SCRAM-SHA-256 verifier on the client with
+  `scripts/pg_scram_verifier.py`, so the plaintext still never reaches the
+  server; the password is passed on that helper's stdin and never as an
+  argument or an SQL literal;
+- it then asserts the stored `pg_authid.rolpassword` really is a
+  `SCRAM-SHA-256$...` verifier, and aborts if it is not.
+
+There is no fallback: any unmet condition ends the bootstrap with a non-zero
+exit rather than choosing a weaker method. `KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD`
+appears in no Compose file and in no `.env.example`, and the `db-bootstrap`
+container mounts only the bootstrap script, so the verifier helper it requires
+is not even present there. Covered by
+`common/tests/test_database_privileges.py` and
+`common/tests/test_pg_scram_verifier.py`.
 
 ### Version contract
 
@@ -136,23 +149,28 @@ Confirmed by execution: with the tooling absent the harness aborts at tool
 resolution (`CommandNotFoundException` on `initdb`) and does **not** fall back to
 any other server.
 
-### Coverage gap found while auditing
+### Coverage gap found while auditing — closed
 
-The harness proves the backup role can `pg_dump`, but it never calls
-`pg_restore`. The only restore verifier, `scripts/verify-postgres-restore.sh`,
-is container-bound: it hardcodes the `/backups` and `/ops` mounts and requires a
-`.kariz-backup-root` sentinel, so it belongs to the Compose `restore-verify`
-profile and cannot run natively on Windows.
+The harness used to prove only that the backup role can `pg_dump`; it never
+called `pg_restore`. The only restore verifier,
+`scripts/verify-postgres-restore.sh`, is container-bound (fixed `/backups` and
+`/ops` mounts, a `.kariz-backup-root` sentinel), so it belongs to the Compose
+`restore-verify` profile and cannot run natively on Windows.
 
-Therefore, even once PostgreSQL is installed, the "isolated restore" half of the
-P0R.2 gate needs one of:
+A native restore step now runs inside the harness: it creates a second, separately
+named ephemeral database, restores the dump into it with `pg_restore
+--exit-on-error --single-transaction`, and then checks that the restored database
+is genuinely usable — schema contract, migration-state hash equal to the source,
+sentinel rows and their cross-table relationships intact, the ordinary
+application login able to read and write it through both psql and Django, and no
+privilege gained by the runtime role through the restore. The restore database
+name must pass the same ephemeral-name guard before it is created and again
+before it is dropped.
 
-- Docker plus the Compose `restore-verify` profile, or
-- a small native restore step added to the harness (`createdb` a second
-  database, `pg_restore` the dump into it, then run
-  `scripts/verify-postgres-schema.sql` against it).
-
-This is a tooling gap, not an application defect.
+Two notes on defects this uncovered, both in the harness rather than the
+application: the sentinel step passed a Windows shell's mangled argument to
+`manage.py shell -c` (now a generated file executed directly), and it passed
+`phone=` as a string where `create_customer_with_phone` takes a mapping.
 
 ### To clear the blocker
 

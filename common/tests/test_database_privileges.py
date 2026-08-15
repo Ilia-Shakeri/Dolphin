@@ -374,9 +374,124 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertIn('--command="\\\\password $role_name"', self.bootstrap)
         self.assertIn("password_encryption = 'scram-sha-256'", self.bootstrap)
         self.assertIn("printf '%s\\n%s\\n'", self.bootstrap)
-        self.assertNotIn("PASSWORD %L", self.bootstrap)
         self.assertNotIn("password_b64", self.bootstrap)
         self.assertNotIn("--set=role_password", self.bootstrap)
+
+        # The plaintext may only ever be piped into a process on stdin. It must
+        # never be interpolated into SQL, into a psql variable, or into any
+        # command-line argument on either password path.
+        for line in self.bootstrap.splitlines():
+            if "$role_password" not in line:
+                continue
+            stripped = line.strip()
+            with self.subTest(line=stripped):
+                if stripped == 'role_password="$2"':
+                    continue
+                # Every other use must be a printf piped into a process, which
+                # delivers the plaintext on that process's stdin only.
+                self.assertRegex(stripped, r'^(\w+=\$\()?printf ')
+                self.assertIn('"$role_password"', stripped)
+                self.assertIn("|", stripped.split('"$role_password"', 1)[1])
+
+        # The only value the disposable-proof path may put into SQL text is the
+        # client-derived SCRAM verifier, which is not the password.
+        for occurrence in re.findall(r".*PASSWORD %L.*", self.bootstrap):
+            with self.subTest(occurrence=occurrence.strip()):
+                self.assertIn(":'role_verifier'", occurrence)
+
+    def test_noninteractive_password_path_is_opt_in_and_fails_closed(self):
+        # Production keeps psql's interactive `\password`; the non-interactive
+        # branch exists only for the disposable proof harness and must be
+        # unreachable without an explicit opt-in and throwaway identifiers.
+        self.assertIn('NONINTERACTIVE_PASSWORD="${KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"', self.bootstrap)
+        self.assertIn(
+            "EPHEMERAL_DB_PATTERN='^(test|contract|restore)_kariz_[0-9a-f]{32}$'",
+            self.bootstrap,
+        )
+        self.assertIn(
+            "EPHEMERAL_ROLE_PATTERN='^kariz_(migration|app|backup)_[0-9a-f]{32}$'",
+            self.bootstrap,
+        )
+        self.assertIn("Refusing the non-interactive password path.", self.bootstrap)
+        self.assertIn(
+            "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD must be unset, '0', or '1'.",
+            self.bootstrap,
+        )
+        # A stored password that is not a SCRAM verifier must abort the run.
+        self.assertIn("stored_password_is_scram", self.bootstrap)
+        self.assertIn(
+            "The managed role password was not stored as a SCRAM-SHA-256 verifier.",
+            self.bootstrap,
+        )
+
+    def test_production_deployment_never_enables_the_noninteractive_path(self):
+        # The opt-in flag must not reach any production service definition, and
+        # the disposable-proof database and role names it demands can never be
+        # produced by the documented production configuration.
+        for path in ("compose.yml", "compose.restore-verify.yml", "compose.write-stop.yml", ".env.example"):
+            with self.subTest(path=path):
+                self.assertNotIn(
+                    "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
+                    (ROOT / path).read_text(encoding="utf-8"),
+                )
+
+        bootstrap_service = self.services["db-bootstrap"]
+        self.assertNotIn(
+            "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
+            bootstrap_service["environment"],
+        )
+        self.assertNotIn("KARIZ_BOOTSTRAP_PYTHON", bootstrap_service["environment"])
+        self.assertNotIn(
+            "KARIZ_BOOTSTRAP_SCRAM_HELPER", bootstrap_service["environment"]
+        )
+        # Only the bootstrap script itself is mounted, so the helper the
+        # non-interactive path requires is not even present in that container.
+        self.assertEqual(len(bootstrap_service["volumes"]), 1)
+        self.assertTrue(
+            bootstrap_service["volumes"][0].endswith(
+                "bootstrap-postgres.sh:/ops/bootstrap-postgres.sh:ro"
+            ),
+            bootstrap_service["volumes"],
+        )
+        self.assertNotIn("pg_scram_verifier", self.compose_text)
+
+    def test_every_bootstrap_guard_actually_exits_non_zero(self):
+        """A guard that announces failure must also fail the process.
+
+        psql's `\\quit` takes no argument: `\\quit 3` prints
+        `\\quit: extra argument "3" ignored` and exits 0. The bootstrap used
+        that form, so `db-bootstrap` and `db-finalize` printed their refusal and
+        then reported success, and Compose let `migrate` and `web` start against
+        a database whose ownership and ACL policy had never been applied. Every
+        guard now raises instead, which `ON_ERROR_STOP=1` turns into a non-zero
+        exit and, inside the owner/ACL transaction, still rolls the unit back.
+        """
+        exit_status_quit = re.compile(r"^\s*\\quit\s+\d", re.MULTILINE)
+        self.assertIsNone(exit_status_quit.search(self.bootstrap))
+        self.assertIn("ON_ERROR_STOP=1", self.bootstrap)
+
+        # The same defect was present in the SQL verifiers, which ops runbooks
+        # use to confirm a deployment's schema and privilege contract.
+        for name in ("verify-postgres-privileges.sql", "verify-postgres-schema.sql"):
+            with self.subTest(script=name):
+                text = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+                self.assertIsNone(exit_status_quit.search(text))
+                self.assertIn("RAISE EXCEPTION", text)
+
+        guards = re.findall(
+            r"\\else\n(?P<body>(?:.*\n)*?)\\endif",
+            self.bootstrap,
+        )
+        self.assertGreaterEqual(len(guards), 8)
+        for body in guards:
+            with self.subTest(guard=body.strip().splitlines()[0]):
+                self.assertIn("RAISE EXCEPTION", body)
+
+        # Each announced reason is also the raised reason, so an operator reading
+        # only the container's exit and last error still learns the cause.
+        for message in re.findall(r"\\echo '([^']+)'", self.bootstrap):
+            with self.subTest(message=message):
+                self.assertIn(f"RAISE EXCEPTION '{message}'", self.bootstrap)
 
     def test_bootstrap_is_in_place_and_fails_on_unsafe_role_layout(self):
         self.assertNotIn("dropdb", self.bootstrap.lower())

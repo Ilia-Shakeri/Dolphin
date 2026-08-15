@@ -25,9 +25,11 @@ $migrationPassword = "Migration!$runToken"
 $applicationPassword = "Application!$runToken"
 $backupPassword = "Backup!$runToken"
 $contractDumpPath = Join-Path $dataPath "contract-proof.dump"
+$sentinelScriptPath = Join-Path $dataPath "restore-sentinel.py"
 $bootstrapPath = Join-Path $repoPath "scripts\bootstrap-postgres.sh"
 $schemaProofPath = Join-Path $repoPath "scripts\verify-postgres-schema.sql"
 $privilegeProofPath = Join-Path $repoPath "scripts\verify-postgres-privileges.sql"
+$scramHelperPath = Join-Path $repoPath "scripts\pg_scram_verifier.py"
 $started = $false
 $restoreDatabaseCreated = $false
 $testVariables = @(
@@ -62,6 +64,9 @@ $testVariables = @(
     "POSTGRES_APP_PASSWORD",
     "POSTGRES_BACKUP_USER",
     "POSTGRES_BACKUP_PASSWORD",
+    "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
+    "KARIZ_BOOTSTRAP_PYTHON",
+    "KARIZ_BOOTSTRAP_SCRAM_HELPER",
     "PGPASSWORD"
 )
 $savedValues = @{}
@@ -90,7 +95,7 @@ if ($PostgresBin) {
 }
 $bash = (Get-Command $BashCommand -ErrorAction Stop).Source
 
-foreach ($tool in @($initdb, $pgCtl, $psql, $createdb, $pgDump, $pgRestore, $bash, $bootstrapPath, $schemaProofPath, $privilegeProofPath)) {
+foreach ($tool in @($initdb, $pgCtl, $psql, $createdb, $pgDump, $pgRestore, $bash, $bootstrapPath, $schemaProofPath, $privilegeProofPath, $scramHelperPath)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) {
         throw "Required isolated PostgreSQL proof tool or script not found."
     }
@@ -253,6 +258,24 @@ try {
     $env:POSTGRES_BACKUP_USER = $backupUser
     $env:POSTGRES_BACKUP_PASSWORD = $backupPassword
 
+    # The production bootstrap sets role passwords with psql's interactive
+    # `\password`, which reads the console device and therefore blocks forever
+    # under this harness. Opt in to the script's disposable-proof branch, which
+    # derives the identical SCRAM-SHA-256 verifier on the client. It refuses to
+    # act unless the database name, role names, host, and port are this run's
+    # throwaway values, so it cannot be reached by a production bootstrap.
+    $env:KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD = "1"
+    $env:KARIZ_BOOTSTRAP_PYTHON = $PythonCommand
+    $env:KARIZ_BOOTSTRAP_SCRAM_HELPER = $scramHelperPath.Replace("\", "/")
+
+    # The bootstrap runs under a POSIX shell that must see the same PostgreSQL
+    # binaries and interpreter as this harness. Fail here with a clear cause
+    # rather than deep inside the bootstrap.
+    $preflight = & $bash -c "command -v psql >/dev/null && command -v '$($PythonCommand)' >/dev/null && printf ok"
+    if ($LASTEXITCODE -ne 0 -or ($preflight | Out-String).Trim() -ne "ok") {
+        throw "The POSIX shell used for bootstrap cannot see psql and the Python interpreter. Pass -BashCommand for a shell that shares this host's PATH."
+    }
+
     & $bash $bootstrapPath
     if ($LASTEXITCODE -ne 0) { throw "PostgreSQL pre-migration role bootstrap failed." }
 
@@ -341,7 +364,22 @@ try {
     # Deterministic synthetic rows across related Tier-A models, written before
     # the dump so the archive carries them and the restore can be checked for
     # real content rather than only for a zero exit status.
-    $sentinelSource = @'
+    #
+    # The script is written to a file inside this run's guarded data directory
+    # and executed directly. Passing it as a `manage.py shell -c` argument does
+    # not survive this shell's native-argument quoting, which silently strips
+    # the quotes out of the Python source.
+    $sentinelSource = @"
+import sys
+
+sys.path.insert(0, r"$repoPath")
+import os
+
+os.environ["DJANGO_SETTINGS_MODULE"] = "config.postgres_contract_settings"
+import django
+
+django.setup()
+
 from accounts.models import User
 from sales.services import create_customer_with_phone
 
@@ -350,15 +388,20 @@ admin = User.objects.create_user(
     password="Sentinel-Restore-Proof-741!",
     role=User.Role.PLATFORM_ADMIN,
 )
-customer = create_customer_with_phone(
+create_customer_with_phone(
     actor=admin,
     full_name="RESTORE SENTINEL CUSTOMER",
-    phone="09120000001",
+    phone={"raw_phone": "09120000001", "is_primary": True},
     city="SentinelCity",
 )
 print("SENTINEL_OK")
-'@
-    $sentinelOutput = & $PythonCommand $managePath shell --settings=config.postgres_contract_settings -c $sentinelSource
+"@
+    [IO.File]::WriteAllText(
+        $sentinelScriptPath,
+        $sentinelSource,
+        (New-Object Text.UTF8Encoding $false)
+    )
+    $sentinelOutput = & $PythonCommand $sentinelScriptPath
     if ($LASTEXITCODE -ne 0 -or (($sentinelOutput | Out-String) -notmatch "SENTINEL_OK")) {
         throw "PostgreSQL restore sentinel data creation failed."
     }

@@ -55,7 +55,8 @@ class PostgresHarnessContractTests(SimpleTestCase):
         proof = SCHEMA_PROOF.read_text(encoding="utf-8")
         self.assertIn("AS schema_contract_ok \\gset", proof)
         self.assertIn("\\if :schema_contract_ok", proof)
-        self.assertIn("\\quit 6", proof)
+        # `\quit 6` is not a fail: psql's `\quit` takes no argument and exits 0.
+        self.assertIn("RAISE EXCEPTION 'PostgreSQL schema contract failed.'", proof)
         self.assertNotIn("THEN 1 ELSE 0 END", proof)
 
     def test_privilege_proof_checks_exact_runtime_and_backup_denials(self):
@@ -78,7 +79,10 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("NOT has_function_privilege(:'app_user'", proof)
         self.assertIn("NOT has_function_privilege(:'backup_user'", proof)
         self.assertIn("NOT rolbypassrls", proof)
-        self.assertIn("\\quit 5", proof)
+        # `\quit 5` is not a fail: psql's `\quit` takes no argument and exits 0.
+        self.assertIn(
+            "RAISE EXCEPTION 'PostgreSQL runtime privilege contract failed.'", proof
+        )
         self.assertIn("granted.oid = membership.roleid", proof)
         self.assertIn(
             "granted.rolname IN (:'migration_user', :'app_user', :'backup_user')",
