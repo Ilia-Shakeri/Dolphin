@@ -137,18 +137,43 @@ class AfterSalesContractTests(TestCase):
         )
 
     def test_after_sales_operator_gets_no_customer_sale_or_document_scope(self):
+        """An operator holds no sales capability, so the answer is 403.
+
+        This used to be `200` with an empty page, because the selectors return
+        an empty queryset for a caller with no capability. The data boundary
+        held either way, but it disagreed with `users`, `activity-logs`, and
+        `inbound-sms`, which already answered `403`. The answer is now uniform:
+        no capability means refused, not "here is nothing".
+        """
         client = APIClient()
         client.force_authenticate(self.operator)
         for path in ("customers", "leads", "interactions", "products", "sales", "sales-documents"):
             with self.subTest(path=path):
                 response = client.get(f"/api/v1/{path}/")
-                self.assertEqual(response.status_code, 200, response.data)
-                self.assertEqual(response.data["count"], 0)
-        self.assertEqual(client.get(f"/api/v1/customers/{self.customer.pk}/").status_code, 404)
-        self.assertEqual(client.get(f"/api/v1/sales/{self.sale.pk}/").status_code, 404)
-        self.assertEqual(client.get(f"/api/v1/sales-documents/{self.document.pk}/").status_code, 404)
+                self.assertEqual(response.status_code, 403, response.data)
+        for path in ("customer-phones",):
+            with self.subTest(path=path):
+                self.assertEqual(client.get(f"/api/v1/{path}/").status_code, 403)
+        # Writing is refused for the same reason, not merely reading.
+        self.assertEqual(
+            client.post("/api/v1/customers/", {"full_name": "x"}, format="json").status_code,
+            403,
+        )
+        # Direct-ID access stays closed exactly as before.
+        self.assertEqual(client.get(f"/api/v1/customers/{self.customer.pk}/").status_code, 403)
+        self.assertEqual(client.get(f"/api/v1/sales/{self.sale.pk}/").status_code, 403)
+        self.assertEqual(client.get(f"/api/v1/sales-documents/{self.document.pk}/").status_code, 403)
         self.assertEqual(client.get("/api/v1/reports/user-performance/").status_code, 403)
         self.assertEqual(client.get("/api/v1/reports/sales-documents/").status_code, 403)
+
+    def test_sales_roles_still_reach_their_own_modules(self):
+        """The uniform 403 must not narrow anyone who does hold the capability."""
+        for actor in (self.sales_agent, self.manager, self.company_it, self.platform):
+            client = APIClient()
+            client.force_authenticate(actor)
+            for path in ("customers", "leads", "interactions", "products", "sales", "sales-documents"):
+                with self.subTest(role=actor.role, path=path):
+                    self.assertEqual(client.get(f"/api/v1/{path}/").status_code, 200)
 
     def test_normal_agent_has_no_after_sales_access(self):
         client = APIClient()
