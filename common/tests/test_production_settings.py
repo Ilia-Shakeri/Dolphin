@@ -335,24 +335,20 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_edge_owns_request_id_for_all_responses(self):
         config = (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8")
         self.assertIn("add_header X-Request-ID $request_id always;", config)
-        self.assertEqual(config.count("proxy_set_header X-Request-ID $request_id;"), 3)
-        self.assertEqual(config.count("proxy_hide_header X-Request-ID;"), 3)
+        self.assertEqual(config.count("proxy_set_header X-Request-ID $request_id;"), 2)
+        self.assertEqual(config.count("proxy_hide_header X-Request-ID;"), 2)
 
-    def test_admin_login_is_rate_limited_and_still_proxied(self):
+    def test_admin_is_denied_at_the_customer_facing_edge(self):
+        # Django Admin is a server-administration plane. The edge denies it
+        # outright; the application also leaves it unregistered by default.
+        # Fuller coverage lives in common/tests/test_admin_exposure.py.
         config = (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8")
-        marker = "location = /admin/login/ {"
+        marker = "location ^~ /admin/ {"
         self.assertEqual(config.count(marker), 1)
         block = config.split(marker, maxsplit=1)[1].split("\n    }", maxsplit=1)[0]
-        self.assertIn("limit_req zone=login_limit burst=5 nodelay;", block)
-        self.assertIn("limit_req_status 429;", block)
-        self.assertIn("proxy_pass http://web:8000;", block)
-        self.assertIn("proxy_set_header Host $host;", block)
-        self.assertIn("proxy_set_header X-Real-IP $remote_addr;", block)
-        self.assertIn("proxy_set_header X-Forwarded-For $remote_addr;", block)
-        self.assertIn("proxy_set_header X-Forwarded-Proto https;", block)
-        self.assertIn("proxy_set_header X-Request-ID $request_id;", block)
-        self.assertIn("proxy_hide_header X-Request-ID;", block)
-        self.assertNotIn("return ", block)
+        self.assertIn("return 404;", block)
+        self.assertNotIn("proxy_pass", block)
+        self.assertNotIn("location = /admin/login/ {", config)
 
     def test_edge_requires_direct_tls_and_redirects_plain_http_to_fixed_host(self):
         root = Path(__file__).resolve().parents[2]
@@ -370,8 +366,8 @@ class ProductionSettingsTests(SimpleTestCase):
             'add_header Strict-Transport-Security "${KARIZ_HSTS_HEADER}" always;',
             config,
         )
-        self.assertEqual(config.count("proxy_hide_header Strict-Transport-Security;"), 3)
-        self.assertEqual(config.count("proxy_set_header X-Forwarded-Proto https;"), 3)
+        self.assertEqual(config.count("proxy_hide_header Strict-Transport-Security;"), 2)
+        self.assertEqual(config.count("proxy_set_header X-Forwarded-Proto https;"), 2)
         self.assertNotIn("proxy_set_header X-Forwarded-Proto $scheme;", config)
         self.assertIn('- "443:443"', compose)
         self.assertIn("KARIZ_TLS_CERT_PATH must name the approved certificate chain file", compose)

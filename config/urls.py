@@ -8,7 +8,6 @@ from common.views import HealthView, LivenessView, ReadinessView
 
 def build_urlpatterns():
     patterns = [
-        path("admin/", admin.site.urls),
         path("api/v1/auth/", include("accounts.auth_urls")),
         path("api/v1/", include("accounts.urls")),
         path("api/v1/", include("auditlog.urls")),
@@ -20,6 +19,12 @@ def build_urlpatterns():
         path("api/v1/health/live/", LivenessView.as_view(), name="health-live"),
         path("api/v1/health/ready/", ReadinessView.as_view(), name="health-ready"),
     ]
+    # Django Admin is a server-administration plane reserved for the product
+    # owner's management path. It is registered only when explicitly enabled, so
+    # the default customer deployment serves no /admin/ route at all and the
+    # reverse proxy denies it as a second, independent layer.
+    if getattr(settings, "ENABLE_DJANGO_ADMIN", False):
+        patterns.insert(0, path("admin/", admin.site.urls))
     if getattr(settings, "ENABLE_API_DOCS", False):
         from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 

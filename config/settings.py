@@ -156,3 +156,9 @@ SPECTACULAR_SETTINGS = {
     ],
 }
 ENABLE_API_DOCS = DEBUG
+# Django Admin is a server-administration plane, not a customer application
+# surface. It stays unregistered unless explicitly enabled, independently of
+# DEBUG, so that a debug-enabled environment never exposes it by accident and a
+# production misconfiguration cannot enable it implicitly. CRM roles are never
+# Django staff, so enabling this does not grant any CRM user access.
+ENABLE_DJANGO_ADMIN = os.environ.get("ENABLE_DJANGO_ADMIN", "false").lower() == "true"

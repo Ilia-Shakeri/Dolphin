@@ -162,7 +162,10 @@ runtime نگه‌داری می‌شود ولی هرگز منبع حقیقت نی
 - **stop condition:** هر آیتمی که مصوب نشود مسدود باقی می‌ماند و ماژول وابسته آن (P4-P8) شروع نمی‌شود.
 - **تحویل دقیق:** جدول تصمیم به‌روزشده در Handoff، بدون کد جدید.
 
-### P1.7 — هم‌راستاسازی Authorization مدیریت کاربر با سیاست Client 1
+### P1.7 — هم‌راستاسازی Authorization مدیریت کاربر — ✅ انجام‌شده (۲۰۲۶/۰۸/۱۵)
+
+**وضعیت:** پیاده‌سازی شد. `users.manage_agents` و `users.manage_non_platform` حذف شدند؛ `USER_ADMINS` در لایه سرویس به `{PLATFORM_ADMIN}` محدود شد؛ `UserViewSet._require_admin` هم‌راستا شد. علاوه بر آن Django Admin پشت تنظیم `ENABLE_DJANGO_ADMIN` (پیش‌فرض `false`، مستقل از `DEBUG`) رفت و در nginx با `location ^~ /admin/ { return 404; }` مسدود شد. تست: `accounts/tests/test_user_administration_policy.py` (۱۵ تست) و `common/tests/test_admin_exposure.py` (۱۳ تست). allowlist شبکه مدیریت به `P14` موکول شد. متن زیر قرارداد اصلی فاز است و برای سابقه نگه داشته شده.
+
 
 - **هدف:** رفتار فعلی کد (`accounts/access.py` capability `users.manage_agents` برای `sales_manager`؛ `accounts/views.py`/`accounts/services.py` که ساخت/ویرایش/reset‌رمز/toggle‌workstream/غیرفعال‌سازی حساب‌های `sales_agent` را به `sales_manager` اجازه می‌دهد) را با سیاست بسته Client 1 (بخش ۲/۶ Handoff: `sales_manager` هیچ قابلیت مدیریت کاربر ندارد) هم‌راستا کن.
 - **پیش‌نیاز:** هیچ تصمیم کسب‌وکاری اضافه لازم نیست — سیاست از قبل بسته است (`BIZ-005` resolved). فقط نیاز به تصمیم فنی: آیا این حذف به‌صورت مستقیم در کد عمومی انجام شود یا پشت مکانیزم deployment-profile (P0R.3/P3) gate شود تا مشتری‌های دیگر بتوانند رفتار متفاوت داشته باشند. **این فاز در P0R اجرا نشد** (فقط-مستندات).

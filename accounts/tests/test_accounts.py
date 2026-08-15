@@ -631,8 +631,10 @@ class AccountSecurityTests(TestCase):
             },
         )
 
+        # A maintained UI route, not /admin/: Django Admin is not registered on
+        # a customer deployment (ENABLE_DJANGO_ADMIN defaults to false).
         ui_response = client.post(
-            "/admin/login/",
+            "/login/",
             payload,
             HTTP_X_REQUEST_ID="csrf-ui-1",
         )

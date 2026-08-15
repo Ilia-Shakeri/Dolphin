@@ -40,10 +40,7 @@ class PersianAdminBrandTests(SimpleTestCase):
         self.assertEqual(admin.site.site_title, "Kariz CRM | کاریز")
         self.assertEqual(admin.site.index_title, "پنل مدیریت کاریز")
 
-    def test_admin_login_is_rtl_and_has_kariz_brand(self):
-        response = self.client.get("/admin/login/")
-        content = response.content.decode("utf-8")
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('<html lang="fa" dir="rtl">', content)
-        self.assertContains(response, "مدیریت کاریز")
+    # The admin login page is no longer routed by default: ENABLE_DJANGO_ADMIN
+    # is false, so /admin/ does not exist on a customer deployment. Its Persian
+    # RTL branding is still asserted, under an explicitly admin-enabled URLConf,
+    # in common/tests/test_admin_exposure.py.

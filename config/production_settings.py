@@ -53,6 +53,10 @@ DATABASES = {
 
 DEBUG = False
 ENABLE_API_DOCS = False
+# Never expose the server-administration plane on a customer deployment. The
+# reverse proxy denies /admin/ as well; both layers must be changed, and the
+# management-network allowlist configured (P14), before it can ever be reached.
+ENABLE_DJANGO_ADMIN = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 REST_FRAMEWORK = {**REST_FRAMEWORK, "NUM_PROXIES": 1}
