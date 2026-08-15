@@ -1,0 +1,539 @@
+"""Payments, allocation to invoices, cheque lifecycle, and installment plans.
+
+Money handling rules this module enforces, all recorded in
+`docs/backend/BILLING_SEMANTICS.md`:
+
+* **A payment is registered once.** An `idempotency_key` makes a retried
+  request return the original payment instead of taking the money twice.
+* **A cheque is not cash.** By default a cheque payment stays `pending` and
+  credits the customer account only when it clears
+  (`BILLING_CHEQUE_CREDITS_ON`).
+* **Allocation never exceeds either side.** A payment cannot allocate more than
+  it holds, and an invoice cannot receive more than it owes; the surplus stays
+  on the customer account as a credit.
+* **Nothing is deleted.** Releasing an allocation flags it reversed and appends
+  the compensating movement; cancelling a payment appends a ledger debit.
+"""
+
+import unicodedata
+from datetime import timedelta
+from decimal import Decimal
+
+from django.conf import settings
+from django.db import IntegrityError, transaction
+from django.utils import timezone
+
+from accounts.access import is_crm_identity
+from accounts.models import User
+from auditlog.services import log_activity
+from billing.ledger import append_ledger_entry
+from billing.money import clean_money, quantize_money
+from billing.models import (
+    FREE_TEXT_MAX_LENGTH,
+    IDEMPOTENCY_KEY_MAX_LENGTH,
+    REFERENCE_MAX_LENGTH,
+    Cheque,
+    ChequeStatusHistory,
+    CustomerLedgerEntry,
+    Installment,
+    InstallmentPlan,
+    Invoice,
+    Payment,
+    PaymentAllocation,
+)
+from billing.numbering import next_document_number
+from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
+from sales.models import Customer
+
+
+ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
+CHEQUE_FIELDS = {"bank_name", "branch_name", "serial_number", "account_holder", "due_date", "notes"}
+
+
+def cheque_credits_on_registration():
+    return str(getattr(settings, "BILLING_CHEQUE_CREDITS_ON", "cleared")).lower() == "registration"
+
+
+def _lock_payment_manager(actor):
+    locked = User.objects.select_for_update().filter(pk=actor.pk, is_active=True).first()
+    if locked is None or not is_crm_identity(locked):
+        raise BusinessPermissionDenied("Active user is required.")
+    if locked.role not in ELEVATED_OPERATORS:
+        raise BusinessPermissionDenied("Payment operations are not allowed.")
+    return locked
+
+
+def _clean_line(value, *, field, limit, required=False):
+    cleaned = " ".join(unicodedata.normalize("NFKC", str(value or "")).split())
+    if required and not cleaned:
+        raise BusinessRuleError({field: "This field is required."})
+    if len(cleaned) > limit:
+        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+    return cleaned
+
+
+def _clean_text(value, *, field, limit):
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    if len(text) > limit:
+        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+    return text
+
+
+@transaction.atomic
+def register_payment(
+    *,
+    actor,
+    customer,
+    method,
+    amount,
+    received_at=None,
+    reference="",
+    idempotency_key="",
+    notes="",
+    cheque=None,
+):
+    actor = _lock_payment_manager(actor)
+    if method not in Payment.Method.values:
+        raise BusinessRuleError({"method": "Unknown payment method."})
+    amount = clean_money(amount, field="amount", allow_zero=False)
+    reference = _clean_line(reference, field="reference", limit=REFERENCE_MAX_LENGTH)
+    idempotency_key = _clean_line(
+        idempotency_key, field="idempotency_key", limit=IDEMPOTENCY_KEY_MAX_LENGTH
+    )
+    notes = _clean_text(notes, field="notes", limit=FREE_TEXT_MAX_LENGTH)
+    received_at = received_at or timezone.now()
+
+    if idempotency_key:
+        existing = Payment.objects.filter(idempotency_key=idempotency_key).first()
+        if existing is not None:
+            return existing
+
+    locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
+    if not locked_customer.is_active:
+        raise BusinessConflictError({"customer": "Customer is inactive."})
+
+    is_cheque = method == Payment.Method.CHEQUE
+    if is_cheque and not isinstance(cheque, dict):
+        raise BusinessRuleError({"cheque": "Cheque details are required for a cheque payment."})
+    if not is_cheque and cheque:
+        raise BusinessRuleError({"cheque": "Cheque details apply only to a cheque payment."})
+
+    confirmed_now = (not is_cheque) or cheque_credits_on_registration()
+    status = Payment.Status.CONFIRMED if confirmed_now else Payment.Status.PENDING
+
+    try:
+        payment = Payment.objects.create(
+            number=next_document_number(Payment.NUMBER_KIND),
+            customer=locked_customer,
+            method=method,
+            status=status,
+            amount=amount,
+            received_at=received_at,
+            received_by=actor,
+            reference=reference,
+            idempotency_key=idempotency_key,
+            notes=notes,
+        )
+    except IntegrityError as exc:
+        raise BusinessConflictError({"idempotency_key": "This payment was already registered."}) from exc
+
+    if is_cheque:
+        _create_cheque(actor=actor, payment=payment, amount=amount, data=cheque)
+
+    if confirmed_now:
+        _post_payment_credit(actor=actor, payment=payment)
+
+    log_activity(
+        actor=actor,
+        operation="payment.registered",
+        instance=payment,
+        changes={
+            "customer": locked_customer.pk,
+            "number": payment.number,
+            "method": method,
+            "amount": str(amount),
+        },
+    )
+    return payment
+
+
+def _post_payment_credit(*, actor, payment):
+    append_ledger_entry(
+        actor=actor,
+        customer=payment.customer,
+        entry_type=CustomerLedgerEntry.EntryType.PAYMENT_RECEIVED,
+        credit=payment.amount,
+        occurred_at=payment.received_at,
+        reference_kind=CustomerLedgerEntry.ReferenceKind.PAYMENT,
+        reference_id=payment.pk,
+        reference_number=payment.number,
+    )
+
+
+def _create_cheque(*, actor, payment, amount, data):
+    unknown = set(data) - CHEQUE_FIELDS
+    if unknown:
+        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+    due_date = data.get("due_date")
+    if due_date is None:
+        raise BusinessRuleError({"cheque": "A cheque needs its due date."})
+    try:
+        return Cheque.objects.create(
+            payment=payment,
+            bank_name=_clean_line(data.get("bank_name"), field="cheque", limit=120, required=True),
+            branch_name=_clean_line(data.get("branch_name", ""), field="cheque", limit=120),
+            serial_number=_clean_line(data.get("serial_number"), field="cheque", limit=64, required=True),
+            account_holder=_clean_line(data.get("account_holder", ""), field="cheque", limit=255),
+            due_date=due_date,
+            amount=amount,
+            status=Cheque.Status.REGISTERED,
+            notes=_clean_text(data.get("notes", ""), field="cheque", limit=FREE_TEXT_MAX_LENGTH),
+        )
+    except IntegrityError as exc:
+        raise BusinessConflictError({
+            "cheque": "A cheque with this bank and serial number is already registered."
+        }) from exc
+
+
+@transaction.atomic
+def transition_cheque(*, actor, cheque, to_status, reason=""):
+    """Move a cheque along its lifecycle, crediting the account when it clears."""
+    actor = _lock_payment_manager(actor)
+    locked = Cheque.objects.select_for_update().select_related("payment").get(pk=cheque.pk)
+    if to_status not in Cheque.Status.values:
+        raise BusinessRuleError({"status": "Unknown cheque status."})
+    allowed = Cheque.TRANSITIONS.get(locked.status, frozenset())
+    if to_status not in allowed:
+        raise BusinessConflictError({
+            "status": f"A cheque in '{locked.status}' cannot move to '{to_status}'."
+        })
+    reason = _clean_text(reason, field="reason", limit=500)
+    previous = locked.status
+    locked.status = to_status
+    locked.save(update_fields=["status", "updated_at"])
+    ChequeStatusHistory.objects.create(
+        cheque=locked,
+        from_status=previous,
+        to_status=to_status,
+        changed_by=actor,
+        reason=reason[:500],
+    )
+
+    payment = Payment.objects.select_for_update().get(pk=locked.payment_id)
+    if to_status == Cheque.Status.CLEARED and payment.status == Payment.Status.PENDING:
+        payment.status = Payment.Status.CONFIRMED
+        payment.save(update_fields=["status", "updated_at"])
+        _post_payment_credit(actor=actor, payment=payment)
+    elif to_status in {Cheque.Status.RETURNED, Cheque.Status.CANCELLED}:
+        # The money is not coming through this instrument. A pending payment
+        # simply ends; a confirmed one is reversed through the normal path so
+        # the ledger keeps both movements.
+        if payment.status == Payment.Status.PENDING:
+            payment.status = Payment.Status.CANCELLED
+            payment.cancelled_at = timezone.now()
+            payment.save(update_fields=["status", "cancelled_at", "updated_at"])
+        elif payment.status == Payment.Status.CONFIRMED:
+            cancel_payment(actor=actor, payment=payment, reason=reason)
+
+    log_activity(
+        actor=actor,
+        operation="cheque.status_changed",
+        instance=locked,
+        changes={
+            "payment": locked.payment_id,
+            "status_from": previous,
+            "status_to": to_status,
+            "reason_provided": bool(reason),
+        },
+    )
+    return locked
+
+
+@transaction.atomic
+def allocate_payment(*, actor, payment, invoice, amount=None):
+    """Apply part or all of a confirmed payment to one issued invoice."""
+    actor = _lock_payment_manager(actor)
+    locked_payment = Payment.objects.select_for_update().get(pk=payment.pk)
+    if locked_payment.status != Payment.Status.CONFIRMED:
+        raise BusinessConflictError({"payment": "Only a confirmed payment can be allocated."})
+    locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if locked_invoice.status != Invoice.Status.ISSUED:
+        raise BusinessConflictError({"invoice": "Only an issued invoice can receive a payment."})
+    if locked_invoice.customer_id != locked_payment.customer_id:
+        raise BusinessRuleError({"invoice": "Invoice and payment must belong to the same customer."})
+
+    available = locked_payment.unallocated_amount
+    outstanding = locked_invoice.balance_due
+    if available <= 0:
+        raise BusinessConflictError({"payment": "This payment is fully allocated."})
+    if outstanding <= 0:
+        raise BusinessConflictError({"invoice": "This invoice is already settled."})
+
+    amount = clean_money(amount, field="amount", allow_zero=False) if amount is not None else min(available, outstanding)
+    if amount > available:
+        raise BusinessRuleError({"amount": "Amount exceeds the unallocated part of this payment."})
+    if amount > outstanding:
+        raise BusinessRuleError({"amount": "Amount exceeds the outstanding balance of this invoice."})
+
+    try:
+        allocation = PaymentAllocation.objects.create(
+            payment=locked_payment, invoice=locked_invoice, amount=amount, created_by=actor
+        )
+    except IntegrityError as exc:
+        raise BusinessConflictError({
+            "invoice": "This payment is already allocated to this invoice."
+        }) from exc
+
+    locked_payment.allocated_amount = quantize_money(locked_payment.allocated_amount + amount)
+    locked_payment.save(update_fields=["allocated_amount", "updated_at"])
+    locked_invoice.paid_amount = quantize_money(locked_invoice.paid_amount + amount)
+    locked_invoice.save(update_fields=["paid_amount", "updated_at"])
+    _apply_to_installments(invoice=locked_invoice, amount=amount)
+
+    log_activity(
+        actor=actor,
+        operation="payment.allocated",
+        instance=allocation,
+        changes={
+            "payment": locked_payment.pk,
+            "invoice": locked_invoice.pk,
+            "allocated_amount": str(amount),
+        },
+    )
+    return allocation
+
+
+@transaction.atomic
+def release_allocation(*, actor, allocation, reason=""):
+    """Undo one allocation without deleting it."""
+    actor = _lock_payment_manager(actor)
+    locked = PaymentAllocation.objects.select_for_update().get(pk=allocation.pk)
+    if locked.is_reversed:
+        raise BusinessConflictError({"is_reversed": "This allocation is already released."})
+    payment = Payment.objects.select_for_update().get(pk=locked.payment_id)
+    invoice = Invoice.objects.select_for_update().get(pk=locked.invoice_id)
+
+    locked.is_reversed = True
+    locked.save(update_fields=["is_reversed", "updated_at"])
+    payment.allocated_amount = quantize_money(payment.allocated_amount - locked.amount)
+    payment.save(update_fields=["allocated_amount", "updated_at"])
+    invoice.paid_amount = quantize_money(invoice.paid_amount - locked.amount)
+    invoice.save(update_fields=["paid_amount", "updated_at"])
+    _apply_to_installments(invoice=invoice, amount=-locked.amount)
+
+    log_activity(
+        actor=actor,
+        operation="payment.allocation_released",
+        instance=locked,
+        changes={
+            "payment": payment.pk,
+            "invoice": invoice.pk,
+            "allocated_amount": str(locked.amount),
+            "reason_provided": bool(reason),
+        },
+    )
+    return locked
+
+
+@transaction.atomic
+def cancel_payment(*, actor, payment, reason=""):
+    """Reverse a payment, releasing every allocation it still holds."""
+    actor = _lock_payment_manager(actor)
+    locked = Payment.objects.select_for_update().get(pk=payment.pk)
+    if locked.status == Payment.Status.CANCELLED:
+        raise BusinessConflictError({"status": "Payment is already cancelled."})
+    was_confirmed = locked.status == Payment.Status.CONFIRMED
+
+    for allocation in locked.allocations.filter(is_reversed=False):
+        release_allocation(actor=actor, allocation=allocation, reason=reason)
+
+    locked.refresh_from_db()
+    locked.status = Payment.Status.CANCELLED
+    locked.cancelled_at = timezone.now()
+    locked.save(update_fields=["status", "cancelled_at", "updated_at"])
+
+    if was_confirmed:
+        append_ledger_entry(
+            actor=actor,
+            customer=locked.customer,
+            entry_type=CustomerLedgerEntry.EntryType.PAYMENT_CANCELLED,
+            debit=locked.amount,
+            occurred_at=locked.cancelled_at,
+            reference_kind=CustomerLedgerEntry.ReferenceKind.PAYMENT,
+            reference_id=locked.pk,
+            reference_number=locked.number,
+        )
+    log_activity(
+        actor=actor,
+        operation="payment.cancelled",
+        instance=locked,
+        changes={
+            "number": locked.number,
+            "amount": str(locked.amount),
+            "reason_provided": bool(reason),
+        },
+    )
+    return locked
+
+
+def _apply_to_installments(*, invoice, amount):
+    """Spread an allocation (or its release) across the plan, earliest due first.
+
+    A negative `amount` unwinds in the reverse order, so releasing an allocation
+    leaves the plan exactly as it was before that allocation was made.
+    """
+    plan = InstallmentPlan.objects.select_for_update().filter(
+        invoice=invoice, status=InstallmentPlan.Status.ACTIVE
+    ).first()
+    if plan is None:
+        return
+    remaining = quantize_money(abs(amount))
+    ordering = "sequence" if amount > 0 else "-sequence"
+    installments = list(
+        plan.installments.select_for_update()
+        .exclude(status=Installment.Status.CANCELLED)
+        .order_by(ordering)
+    )
+    for installment in installments:
+        if remaining <= 0:
+            break
+        if amount > 0:
+            room = installment.amount - installment.paid_amount
+            applied = min(room, remaining)
+        else:
+            applied = -min(installment.paid_amount, remaining)
+        if applied == 0:
+            continue
+        installment.paid_amount = quantize_money(installment.paid_amount + applied)
+        installment.status = (
+            Installment.Status.PAID
+            if installment.paid_amount >= installment.amount
+            else Installment.Status.PARTIALLY_PAID
+            if installment.paid_amount > 0
+            else Installment.Status.PENDING
+        )
+        installment.save(update_fields=["paid_amount", "status", "updated_at"])
+        remaining = quantize_money(remaining - abs(applied))
+
+    if all(item.status == Installment.Status.PAID for item in plan.installments.all()):
+        plan.status = InstallmentPlan.Status.COMPLETED
+        plan.save(update_fields=["status", "updated_at"])
+    elif plan.status == InstallmentPlan.Status.COMPLETED:
+        plan.status = InstallmentPlan.Status.ACTIVE
+        plan.save(update_fields=["status", "updated_at"])
+
+
+@transaction.atomic
+def create_installment_plan(
+    *, actor, invoice, installment_count, start_date, interval_days=None, notes=""
+):
+    """Split an issued invoice into equal installments.
+
+    Equal amounts, with the rounding remainder placed on the **first**
+    installment rather than the last, so the plan always sums to the invoice
+    total and the customer never meets a surprise at the end.
+    """
+    actor = _lock_payment_manager(actor)
+    locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if locked_invoice.status != Invoice.Status.ISSUED:
+        raise BusinessConflictError({"invoice": "Only an issued invoice can be split into installments."})
+    if InstallmentPlan.objects.filter(invoice=locked_invoice).exists():
+        raise BusinessConflictError({"invoice": "This invoice already has an installment plan."})
+    if isinstance(installment_count, bool) or not isinstance(installment_count, int):
+        raise BusinessRuleError({"installment_count": "Enter a whole number of installments."})
+    if installment_count < 1 or installment_count > 120:
+        raise BusinessRuleError({"installment_count": "Choose between 1 and 120 installments."})
+    if interval_days is None:
+        interval_days = int(getattr(settings, "BILLING_INSTALLMENT_INTERVAL_DAYS", 30))
+    if isinstance(interval_days, bool) or not isinstance(interval_days, int) or not (1 <= interval_days <= 365):
+        raise BusinessRuleError({"interval_days": "Choose between 1 and 365 days."})
+    if start_date is None:
+        raise BusinessRuleError({"start_date": "A plan needs its first due date."})
+
+    total = locked_invoice.total_amount
+    if total <= 0:
+        raise BusinessRuleError({"invoice": "An invoice with no amount cannot be split."})
+    base = quantize_money(total / installment_count)
+    amounts = [base] * installment_count
+    amounts[0] = quantize_money(total - base * (installment_count - 1))
+    if any(value <= 0 for value in amounts):
+        raise BusinessRuleError({
+            "installment_count": "Too many installments for this amount; each one must be above zero."
+        })
+
+    plan = InstallmentPlan.objects.create(
+        invoice=locked_invoice,
+        total_amount=total,
+        installment_count=installment_count,
+        interval_days=interval_days,
+        start_date=start_date,
+        created_by=actor,
+        notes=_clean_text(notes, field="notes", limit=FREE_TEXT_MAX_LENGTH),
+    )
+    Installment.objects.bulk_create([
+        Installment(
+            plan=plan,
+            sequence=index + 1,
+            due_date=start_date + timedelta(days=interval_days * index),
+            amount=amounts[index],
+        )
+        for index in range(installment_count)
+    ])
+    # Money already applied to this invoice belongs to the plan from the start.
+    if locked_invoice.paid_amount > 0:
+        _apply_to_installments(invoice=locked_invoice, amount=locked_invoice.paid_amount)
+    log_activity(
+        actor=actor,
+        operation="installment_plan.created",
+        instance=plan,
+        changes={
+            "invoice": locked_invoice.pk,
+            "installment_count": installment_count,
+            "total_amount": str(total),
+        },
+    )
+    return plan
+
+
+@transaction.atomic
+def cancel_installment_plan(*, actor, plan, reason=""):
+    actor = _lock_payment_manager(actor)
+    locked = InstallmentPlan.objects.select_for_update().get(pk=plan.pk)
+    if locked.status == InstallmentPlan.Status.CANCELLED:
+        raise BusinessConflictError({"status": "This plan is already cancelled."})
+    locked.status = InstallmentPlan.Status.CANCELLED
+    locked.save(update_fields=["status", "updated_at"])
+    locked.installments.exclude(status=Installment.Status.PAID).update(
+        status=Installment.Status.CANCELLED
+    )
+    log_activity(
+        actor=actor,
+        operation="installment_plan.cancelled",
+        instance=locked,
+        changes={"invoice": locked.invoice_id, "reason_provided": bool(reason)},
+    )
+    return locked
+
+
+@transaction.atomic
+def record_opening_balance(*, actor, customer, amount, occurred_at=None, notes=""):
+    """Post a customer's balance carried in from before this system.
+
+    Allowed once per customer: a second opening balance is a correction, and a
+    correction belongs in the adjustment entries where it is visible as one.
+    """
+    actor = _lock_payment_manager(actor)
+    amount = clean_money(amount, field="amount", allow_zero=False)
+    locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
+    if CustomerLedgerEntry.objects.filter(
+        customer=locked_customer, entry_type=CustomerLedgerEntry.EntryType.OPENING_BALANCE
+    ).exists():
+        raise BusinessConflictError({"customer": "This customer already has an opening balance."})
+    return append_ledger_entry(
+        actor=actor,
+        customer=locked_customer,
+        entry_type=CustomerLedgerEntry.EntryType.OPENING_BALANCE,
+        debit=amount,
+        occurred_at=occurred_at or timezone.now(),
+        notes=_clean_text(notes, field="notes", limit=FREE_TEXT_MAX_LENGTH),
+    )

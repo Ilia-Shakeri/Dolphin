@@ -11,6 +11,20 @@ _POSTAL_STATUS = re.compile(r"^\S(?:.{0,78}\S)?$")
 _CASE_STATUS = re.compile(r"^\S(?:.{0,78}\S)?$")
 _UNSET = object()
 
+# Inventory and billing keys. Each is either a row id, a whole quantity, a
+# money string, or a value drawn from a fixed backend-owned vocabulary — never
+# operator free text, which is what keeps the audit payload safe to read at a
+# lower privilege than the row it describes.
+_ID_KEYS = ("warehouse", "product", "customer", "invoice", "order", "quotation", "payment", "plan")
+_QUANTITY_KEYS = ("quantity", "resulting_quantity", "item_count", "installment_count")
+_MONEY_KEYS = ("total_amount", "amount", "allocated_amount")
+# A ledger balance is legitimately negative when the customer is in credit, so
+# it needs the signed form rather than the unsigned `_MONEY` used for amounts.
+_SIGNED_MONEY = re.compile(r"^-?\d{1,16}(?:\.\d{1,2})?$")
+_CODE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+_CODE_KEYS = ("movement_type", "entry_type", "method", "status_from", "status_to", "number_kind")
+_DOCUMENT_NUMBER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9/._-]{0,63}$")
+
 
 def _clean_changes(changes):
     cleaned = {}
@@ -39,9 +53,28 @@ def _clean_changes(changes):
         value = changes.get(key)
         if isinstance(value, str) and (value == "" or _CASE_STATUS.fullmatch(value)):
             cleaned[key] = value
-    total_amount = changes.get("total_amount")
-    if total_amount is not None and _MONEY.fullmatch(str(total_amount)):
-        cleaned["total_amount"] = str(total_amount)
+    for key in _ID_KEYS:
+        value = changes.get(key)
+        if key in changes and (value is None or (isinstance(value, int) and not isinstance(value, bool))):
+            cleaned[key] = value
+    for key in _QUANTITY_KEYS:
+        value = changes.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and abs(value) <= 10**12:
+            cleaned[key] = value
+    for key in _CODE_KEYS:
+        value = changes.get(key)
+        if isinstance(value, str) and _CODE.fullmatch(value):
+            cleaned[key] = value
+    number = changes.get("number")
+    if isinstance(number, str) and _DOCUMENT_NUMBER.fullmatch(number):
+        cleaned["number"] = number
+    for key in _MONEY_KEYS:
+        value = changes.get(key)
+        if value is not None and _MONEY.fullmatch(str(value)):
+            cleaned[key] = str(value)
+    balance_after = changes.get("balance_after")
+    if balance_after is not None and _SIGNED_MONEY.fullmatch(str(balance_after)):
+        cleaned["balance_after"] = str(balance_after)
     return cleaned
 
 

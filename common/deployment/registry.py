@@ -33,6 +33,21 @@ FEATURE_DEPENDENCIES = {
     "after_sales": frozenset({"customers"}),
     # communications.InboundSMS — provider-neutral internal storage and report
     "inbound_sms": frozenset(),
+    # inventory.Warehouse / StockItem / StockMovement — StockItem.product is
+    # NOT NULL, and the ledger's soft reference to a billing document is
+    # deliberately not a foreign key so inventory stays usable on its own.
+    "inventory": frozenset({"products"}),
+    # billing.Quotation / QuotationItem — customer and item product NOT NULL
+    "quotations": frozenset({"customers", "products"}),
+    # billing.Order / OrderItem — same non-nullable pair
+    "orders": frozenset({"customers", "products"}),
+    # billing.Invoice / InvoiceItem — same non-nullable pair
+    "invoices": frozenset({"customers", "products"}),
+    # billing.Payment (customer NOT NULL) and PaymentAllocation (invoice NOT
+    # NULL): allocating money needs an invoice to allocate it to.
+    "payments": frozenset({"customers", "invoices"}),
+    # billing.CustomerLedgerEntry — customer NOT NULL
+    "customer_ledger": frozenset({"customers"}),
     # reports: user performance metrics count customers and sales
     "reports": frozenset({"customers", "sales"}),
     # auditlog.ActivityLog

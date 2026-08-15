@@ -25,6 +25,8 @@ INSTALLED_APPS = [
     "sales",
     "aftersales",
     "communications",
+    "inventory",
+    "billing",
     "reports",
 ]
 
@@ -150,6 +152,22 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Kariz CRM API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Several modules own a field called `status` or `to_status` over different
+    # vocabularies. Naming each enum after its module keeps the generated
+    # schema readable instead of letting the generator invent a hashed name.
+    "ENUM_NAME_OVERRIDES": {
+        "ChequeStatusEnum": "billing.models.Cheque.Status",
+        "InvoiceStatusEnum": "billing.models.Invoice.Status",
+        "OrderStatusEnum": "billing.models.Order.Status",
+        "QuotationStatusEnum": "billing.models.Quotation.Status",
+        "PaymentStatusEnum": "billing.models.Payment.Status",
+        "PaymentMethodEnum": "billing.models.Payment.Method",
+        "InstallmentStatusEnum": "billing.models.Installment.Status",
+        "InstallmentPlanStatusEnum": "billing.models.InstallmentPlan.Status",
+        "LedgerEntryTypeEnum": "billing.models.CustomerLedgerEntry.EntryType",
+        "StockMovementTypeEnum": "inventory.models.StockMovement.MovementType",
+        "SaleStatusEnum": "sales.models.Sale.Status",
+    },
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
         "common.openapi.add_common_api_contract",
@@ -184,6 +202,61 @@ def _manifest_public_keys(raw):
         keys[key_id.strip()] = value.strip()
     return keys
 
+
+# --- Inventory and billing semantics -----------------------------------------
+# None of these encode a legal, tax, or accounting requirement. They are the
+# conservative bounded defaults this codebase applies where no approved external
+# contract fixed the rule, and every one is per-deployment configurable.
+# `docs/backend/INVENTORY_SEMANTICS.md` and `docs/backend/BILLING_SEMANTICS.md`
+# state each choice and what would change it.
+
+# Refuse an issue that would drive a warehouse level below zero. A deployment
+# that genuinely sells before receipting sets this to true deliberately.
+INVENTORY_ALLOW_NEGATIVE_STOCK = (
+    os.environ.get("KARIZ_INVENTORY_ALLOW_NEGATIVE_STOCK", "false").lower() == "true"
+)
+
+# Document numbering. `{sequence}` is a gap-free per-kind counter. The format is
+# validated at use, so a deployment cannot configure a format that drops the
+# counter and produces duplicates.
+BILLING_NUMBER_FORMATS = {
+    "quotation": os.environ.get("KARIZ_NUMBER_FORMAT_QUOTATION", "QT-{sequence:06d}"),
+    "order": os.environ.get("KARIZ_NUMBER_FORMAT_ORDER", "SO-{sequence:06d}"),
+    "invoice": os.environ.get("KARIZ_NUMBER_FORMAT_INVOICE", "INV-{sequence:06d}"),
+    "payment": os.environ.get("KARIZ_NUMBER_FORMAT_PAYMENT", "PY-{sequence:06d}"),
+}
+
+# Tax is OFF by default and this code claims no tax compliance for any
+# jurisdiction. It applies the configured percentage to one taxable base
+# (subtotal minus header discount) and nothing more.
+BILLING_DEFAULT_TAX_RATE = os.environ.get("KARIZ_BILLING_DEFAULT_TAX_RATE", "0.00")
+
+# Upper bound on a single line discount, as a percentage.
+BILLING_MAX_DISCOUNT_PERCENT = os.environ.get("KARIZ_BILLING_MAX_DISCOUNT_PERCENT", "100.00")
+
+# Default validity window of a quotation, and default payment term of an
+# invoice, both in days. Zero due days means the invoice is due on issue.
+BILLING_QUOTATION_VALID_DAYS = int(os.environ.get("KARIZ_BILLING_QUOTATION_VALID_DAYS", "30"))
+BILLING_INVOICE_DUE_DAYS = int(os.environ.get("KARIZ_BILLING_INVOICE_DUE_DAYS", "0"))
+
+# Issuing an invoice that names a warehouse deducts its lines from that
+# warehouse and snapshots the unit cost. An invoice without a warehouse has no
+# stock effect and reports no profit.
+BILLING_INVOICE_AFFECTS_STOCK = (
+    os.environ.get("KARIZ_BILLING_INVOICE_AFFECTS_STOCK", "true").lower() == "true"
+)
+
+# When a cheque payment credits the customer account: on clearing (default) or
+# at registration. Clearing is the safe default because an uncleared cheque is
+# not money received.
+BILLING_CHEQUE_CREDITS_ON = os.environ.get("KARIZ_BILLING_CHEQUE_CREDITS_ON", "cleared")
+
+# Default spacing between installments, in days, and the hard ceiling on how
+# many lines or installments one document may carry.
+BILLING_INSTALLMENT_INTERVAL_DAYS = int(
+    os.environ.get("KARIZ_BILLING_INSTALLMENT_INTERVAL_DAYS", "30")
+)
+BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("KARIZ_BILLING_MAX_DOCUMENT_ITEMS", "200"))
 
 # Deployment profile (PROFILE-001, Option C). The signed external manifest is
 # the source of truth for feature availability; the database table of the same
