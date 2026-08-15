@@ -16,6 +16,7 @@ $logPath = Join-Path $dataPath "postgres.log"
 $databaseName = "test_kariz_$runToken"
 $databaseUser = "kariz_test_admin"
 $contractDatabaseName = "contract_kariz_$runToken"
+$restoreDatabaseName = "restore_kariz_$runToken"
 $migrationUser = "kariz_migration_$runToken"
 $applicationUser = "kariz_app_$runToken"
 $backupUser = "kariz_backup_$runToken"
@@ -28,6 +29,7 @@ $bootstrapPath = Join-Path $repoPath "scripts\bootstrap-postgres.sh"
 $schemaProofPath = Join-Path $repoPath "scripts\verify-postgres-schema.sql"
 $privilegeProofPath = Join-Path $repoPath "scripts\verify-postgres-privileges.sql"
 $started = $false
+$restoreDatabaseCreated = $false
 $testVariables = @(
     "KARIZ_PG_TEST",
     "KARIZ_PG_TEST_TOKEN",
@@ -42,6 +44,13 @@ $testVariables = @(
     "KARIZ_PG_CONTRACT_NAME",
     "KARIZ_PG_CONTRACT_USER",
     "KARIZ_PG_CONTRACT_PASSWORD",
+    "KARIZ_PG_RESTORE",
+    "KARIZ_PG_RESTORE_TOKEN",
+    "KARIZ_PG_RESTORE_HOST",
+    "KARIZ_PG_RESTORE_PORT",
+    "KARIZ_PG_RESTORE_NAME",
+    "KARIZ_PG_RESTORE_USER",
+    "KARIZ_PG_RESTORE_PASSWORD",
     "POSTGRES_HOST",
     "POSTGRES_PORT",
     "POSTGRES_DB",
@@ -69,17 +78,19 @@ if ($PostgresBin) {
     $psql = Join-Path $resolvedBin "psql.exe"
     $createdb = Join-Path $resolvedBin "createdb.exe"
     $pgDump = Join-Path $resolvedBin "pg_dump.exe"
+    $pgRestore = Join-Path $resolvedBin "pg_restore.exe"
 } else {
     $initdb = (Get-Command initdb -ErrorAction Stop).Source
     $pgCtl = (Get-Command pg_ctl -ErrorAction Stop).Source
     $psql = (Get-Command psql -ErrorAction Stop).Source
     $createdb = (Get-Command createdb -ErrorAction Stop).Source
     $pgDump = (Get-Command pg_dump -ErrorAction Stop).Source
+    $pgRestore = (Get-Command pg_restore -ErrorAction Stop).Source
     $resolvedBin = Split-Path -Parent $psql
 }
 $bash = (Get-Command $BashCommand -ErrorAction Stop).Source
 
-foreach ($tool in @($initdb, $pgCtl, $psql, $createdb, $pgDump, $bash, $bootstrapPath, $schemaProofPath, $privilegeProofPath)) {
+foreach ($tool in @($initdb, $pgCtl, $psql, $createdb, $pgDump, $pgRestore, $bash, $bootstrapPath, $schemaProofPath, $privilegeProofPath)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) {
         throw "Required isolated PostgreSQL proof tool or script not found."
     }
@@ -90,9 +101,11 @@ function Invoke-ContractSql {
         [Parameter(Mandatory = $true)][string]$User,
         [Parameter(Mandatory = $true)][string]$Password,
         [Parameter(Mandatory = $true)][string]$Sql,
+        [string]$Database = "",
         [bool]$ShouldPass = $true
     )
 
+    if (-not $Database) { $Database = $contractDatabaseName }
     $previousPassword = [Environment]::GetEnvironmentVariable("PGPASSWORD", "Process")
     try {
         $env:PGPASSWORD = $Password
@@ -100,7 +113,7 @@ function Invoke-ContractSql {
             --host=127.0.0.1 `
             --port=$port `
             --username=$User `
-            --dbname=$contractDatabaseName `
+            --dbname=$Database `
             --no-password `
             --quiet `
             --set=ON_ERROR_STOP=1 `
@@ -112,6 +125,72 @@ function Invoke-ContractSql {
     }
     if ($passed -ne $ShouldPass) {
         throw "PostgreSQL privilege probe returned an unexpected result."
+    }
+}
+
+function Assert-EphemeralDatabaseName {
+    <#
+        Only this run's disposable databases may ever be created or dropped.
+        The name must carry this run's random token, so a stale token, a typo,
+        or an operator-supplied name is refused instead of being destroyed.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Name)
+
+    if ($Name -notmatch '^(test|contract|restore)_kariz_[a-f0-9]{32}$') {
+        throw "Refusing to touch a database that is not an ephemeral Kariz proof database."
+    }
+    if (-not $Name.EndsWith($runToken, [StringComparison]::Ordinal)) {
+        throw "Refusing to touch an ephemeral database from a different harness run."
+    }
+}
+
+function Get-ScalarSql {
+    <#
+        Run one read-only query and return the single value it produced.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$User,
+        [Parameter(Mandatory = $true)][string]$Password,
+        [Parameter(Mandatory = $true)][string]$Database,
+        [Parameter(Mandatory = $true)][string]$Sql
+    )
+
+    $previousPassword = [Environment]::GetEnvironmentVariable("PGPASSWORD", "Process")
+    try {
+        $env:PGPASSWORD = $Password
+        $output = & $psql `
+            --host=127.0.0.1 `
+            --port=$port `
+            --username=$User `
+            --dbname=$Database `
+            --no-password `
+            --quiet `
+            --tuples-only `
+            --no-align `
+            --set=ON_ERROR_STOP=1 `
+            --command=$Sql
+        if ($LASTEXITCODE -ne 0) {
+            throw "PostgreSQL read-only probe failed."
+        }
+    } finally {
+        [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
+    }
+    return ($output | Out-String).Trim()
+}
+
+function Assert-ScalarSql {
+    param(
+        [Parameter(Mandatory = $true)][string]$User,
+        [Parameter(Mandatory = $true)][string]$Password,
+        [Parameter(Mandatory = $true)][string]$Database,
+        [Parameter(Mandatory = $true)][string]$Sql,
+        [Parameter(Mandatory = $true)][string]$Expected,
+        [Parameter(Mandatory = $true)][string]$Because
+    )
+
+    $actual = Get-ScalarSql -User $User -Password $Password -Database $Database -Sql $Sql
+    if ($actual -ne $Expected) {
+        throw "$Because (expected '$Expected', got '$actual')."
     }
 }
 
@@ -259,6 +338,31 @@ try {
     Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "CREATE TABLE public.kariz_backup_forbidden (id integer)" -ShouldPass $false
     Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT public.kariz_future_probe()" -ShouldPass $false
 
+    # Deterministic synthetic rows across related Tier-A models, written before
+    # the dump so the archive carries them and the restore can be checked for
+    # real content rather than only for a zero exit status.
+    $sentinelSource = @'
+from accounts.models import User
+from sales.services import create_customer_with_phone
+
+admin = User.objects.create_user(
+    username="restore_sentinel_admin",
+    password="Sentinel-Restore-Proof-741!",
+    role=User.Role.PLATFORM_ADMIN,
+)
+customer = create_customer_with_phone(
+    actor=admin,
+    full_name="RESTORE SENTINEL CUSTOMER",
+    phone="09120000001",
+    city="SentinelCity",
+)
+print("SENTINEL_OK")
+'@
+    $sentinelOutput = & $PythonCommand $managePath shell --settings=config.postgres_contract_settings -c $sentinelSource
+    if ($LASTEXITCODE -ne 0 -or (($sentinelOutput | Out-String) -notmatch "SENTINEL_OK")) {
+        throw "PostgreSQL restore sentinel data creation failed."
+    }
+
     $previousPassword = [Environment]::GetEnvironmentVariable("PGPASSWORD", "Process")
     try {
         $env:PGPASSWORD = $backupPassword
@@ -276,6 +380,123 @@ try {
     } finally {
         [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
     }
+
+    # ---- Native restore proof -------------------------------------------------
+    # The dump above is only half of a recovery guarantee. Restore the archive
+    # with pg_restore into a second, separately named ephemeral database and
+    # prove the result is a usable application database.
+    Assert-EphemeralDatabaseName -Name $restoreDatabaseName
+    if ($restoreDatabaseName -in @("postgres", "template0", "template1", $contractDatabaseName, $databaseName)) {
+        throw "Restore target must be a new, separate database."
+    }
+
+    & $createdb `
+        --host=127.0.0.1 `
+        --port=$port `
+        --username=$databaseUser `
+        --owner=$migrationUser `
+        --no-password `
+        $restoreDatabaseName
+    if ($LASTEXITCODE -ne 0) { throw "PostgreSQL restore database creation failed." }
+    $restoreDatabaseCreated = $true
+
+    $previousPassword = [Environment]::GetEnvironmentVariable("PGPASSWORD", "Process")
+    try {
+        $env:PGPASSWORD = $migrationPassword
+        & $pgRestore `
+            --host=127.0.0.1 `
+            --port=$port `
+            --username=$migrationUser `
+            --dbname=$restoreDatabaseName `
+            --no-password `
+            --exit-on-error `
+            --single-transaction `
+            $contractDumpPath
+        if ($LASTEXITCODE -ne 0) { throw "PostgreSQL native pg_restore failed." }
+
+        # Schema contract must hold in the restored database exactly as it does
+        # in the source database.
+        & $psql `
+            --host=127.0.0.1 `
+            --port=$port `
+            --username=$migrationUser `
+            --dbname=$restoreDatabaseName `
+            --no-password `
+            --quiet `
+            --set=ON_ERROR_STOP=1 `
+            --output=NUL `
+            --file=$schemaProofPath
+        if ($LASTEXITCODE -ne 0) { throw "PostgreSQL restored-schema proof failed." }
+    } finally {
+        [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
+    }
+
+    $sourceMigrations = Get-ScalarSql -User $migrationUser -Password $migrationPassword `
+        -Database $contractDatabaseName `
+        -Sql "SELECT COUNT(*)||':'||COALESCE(MD5(STRING_AGG(app||'/'||name, ',' ORDER BY app, name)), '') FROM django_migrations"
+    Assert-ScalarSql -User $migrationUser -Password $migrationPassword `
+        -Database $restoreDatabaseName `
+        -Sql "SELECT COUNT(*)||':'||COALESCE(MD5(STRING_AGG(app||'/'||name, ',' ORDER BY app, name)), '') FROM django_migrations" `
+        -Expected $sourceMigrations `
+        -Because "Restored migration state does not match the source database"
+
+    Assert-ScalarSql -User $migrationUser -Password $migrationPassword `
+        -Database $restoreDatabaseName `
+        -Sql "SELECT city FROM sales_customer WHERE full_name = 'RESTORE SENTINEL CUSTOMER'" `
+        -Expected "SentinelCity" `
+        -Because "Restored sentinel customer row is missing or altered"
+    Assert-ScalarSql -User $migrationUser -Password $migrationPassword `
+        -Database $restoreDatabaseName `
+        -Sql "SELECT p.normalized_phone FROM sales_customerphone p JOIN sales_customer c ON c.id = p.customer_id WHERE c.full_name = 'RESTORE SENTINEL CUSTOMER'" `
+        -Expected "+989120000001" `
+        -Because "Restored sentinel relationship across customer and phone is broken"
+    Assert-ScalarSql -User $migrationUser -Password $migrationPassword `
+        -Database $restoreDatabaseName `
+        -Sql "SELECT COUNT(*) FROM accounts_user WHERE username = 'restore_sentinel_admin'" `
+        -Expected "1" `
+        -Because "Restored sentinel user row is missing"
+
+    # The runtime login must be able to use the restored database without any
+    # added privilege, including through the ORM.
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword `
+        -Sql "SELECT COUNT(*) FROM sales_customer" -Database $restoreDatabaseName
+    $restoreSessionKey = "restore$runToken"
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword `
+        -Database $restoreDatabaseName `
+        -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('$restoreSessionKey', '', CURRENT_TIMESTAMP + INTERVAL '1 hour'); UPDATE django_session SET session_data = 'x' WHERE session_key = '$restoreSessionKey'; DELETE FROM django_session WHERE session_key = '$restoreSessionKey'"
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword `
+        -Database $restoreDatabaseName `
+        -Sql "CREATE TABLE public.kariz_restore_forbidden (id integer)" -ShouldPass $false
+
+    $env:KARIZ_PG_RESTORE = "1"
+    $env:KARIZ_PG_RESTORE_TOKEN = $runToken
+    $env:KARIZ_PG_RESTORE_HOST = "127.0.0.1"
+    $env:KARIZ_PG_RESTORE_PORT = [string]$port
+    $env:KARIZ_PG_RESTORE_NAME = $restoreDatabaseName
+    $env:KARIZ_PG_RESTORE_USER = $applicationUser
+    $env:KARIZ_PG_RESTORE_PASSWORD = $applicationPassword
+    & $PythonCommand $managePath showmigrations --settings=config.postgres_restore_settings | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Application role could not read the restored database through Django."
+    }
+
+    # Restore must not quietly promote the runtime login.
+    Assert-ScalarSql -User $databaseUser -Password $initPassword -Database $restoreDatabaseName `
+        -Sql "SELECT rolsuper::text||rolcreatedb::text||rolcreaterole::text||rolbypassrls::text FROM pg_roles WHERE rolname = '$applicationUser'" `
+        -Expected "falsefalsefalsefalse" `
+        -Because "Application role gained cluster privileges through restore"
+    Assert-ScalarSql -User $databaseUser -Password $initPassword -Database $restoreDatabaseName `
+        -Sql "SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$restoreDatabaseName'" `
+        -Expected $migrationUser `
+        -Because "Restored database owner is not the migration role"
+    Assert-ScalarSql -User $databaseUser -Password $initPassword -Database $restoreDatabaseName `
+        -Sql "SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'public'" `
+        -Expected $migrationUser `
+        -Because "Restored public schema owner is not the migration role"
+    Assert-ScalarSql -User $databaseUser -Password $initPassword -Database $restoreDatabaseName `
+        -Sql "SELECT COUNT(*) FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles g ON g.oid = m.member WHERE g.rolname = '$applicationUser'" `
+        -Expected "0" `
+        -Because "Application role inherited another role through restore"
 
     Invoke-ContractSql `
         -User $databaseUser `
@@ -344,6 +565,32 @@ try {
         -Password $initPassword `
         -Sql "REVOKE $applicationUser FROM $rogueRole; DROP ROLE $rogueRole"
 } finally {
+    if ($started -and $restoreDatabaseCreated) {
+        # Drop only this run's restore database, and only after the name passes
+        # the same ephemeral-name guard used to create it.
+        try {
+            Assert-EphemeralDatabaseName -Name $restoreDatabaseName
+            $previousPassword = [Environment]::GetEnvironmentVariable("PGPASSWORD", "Process")
+            try {
+                $env:PGPASSWORD = $initPassword
+                & $psql `
+                    --host=127.0.0.1 `
+                    --port=$port `
+                    --username=$databaseUser `
+                    --dbname=postgres `
+                    --no-password `
+                    --quiet `
+                    --set=ON_ERROR_STOP=1 `
+                    --output=NUL `
+                    --command="DROP DATABASE IF EXISTS $restoreDatabaseName WITH (FORCE)"
+            } finally {
+                [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
+            }
+        } catch {
+            Write-Warning "Restore database cleanup was refused or failed; the temporary cluster is removed below."
+        }
+    }
+
     if ($started) {
         & $pgCtl -D $dataPath -m fast -w stop
     }
