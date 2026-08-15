@@ -20,10 +20,64 @@ The harness runs Django checks, migration drift detection, and the full test sui
 
 SQLite test success is logic proof only. Harness success is local PostgreSQL migration, constraint, transaction, and query proof. Neither is production deployment proof.
 
-## Current status (phase P0R.2 attempt, 2026-08-15)
+## Current status (phase P0R.2, 2026-08-15)
 
-`BLOCKED_ENVIRONMENT` — PostgreSQL is not installed on the developer host, so
-no part of the PostgreSQL proof could be executed.
+PostgreSQL 17.11 was provisioned on the developer host, and most of the proof
+now passes. One step remains blocked; see "Remaining blocker" below.
+
+Executed with `-PostgresBin` pointing at a developer-controlled 17.11 tree (not
+installed as a service, not on machine `PATH`, and not a production contract):
+
+```text
+full suite on PostgreSQL      404 tests, OK, 6 skipped
+full suite on SQLite          404 tests, OK, 7 skipped
+7 PostgreSQL-only tests       all execute and pass
+fresh migrations from zero    correct; no migration drift
+health/readiness              200 healthy, 503 unavailable, no credential leak
+browser matrix                runs and passes against PostgreSQL
+```
+
+The first PostgreSQL run produced 10 failures and 18 errors. Every one was a
+defect in a test or in test configuration, not in the application; the fixes are
+in commit `fix: make the test suite pass on real postgresql`. The most serious
+was a migration test that left the schema downgraded for all later tests,
+which SQLite hid because that test was always skipped there.
+
+Observed SQLite/PostgreSQL differences that matter to this codebase: PostgreSQL
+enforces `varchar` length while SQLite ignores it; real query latency (tens to
+hundreds of milliseconds rather than microseconds) exposes frontend races;
+`TransactionTestCase` does not roll back schema changes, so a migration test can
+poison every later test.
+
+### Remaining blocker
+
+The role bootstrap, contract, dump, and restore stages do not run on Windows.
+`scripts/bootstrap-postgres.sh` sets role passwords with psql's interactive
+`\password` meta-command, which on Windows reads the console instead of piped
+stdin and therefore blocks forever. Proven in isolation:
+
+```text
+printf 'pw\npw\n' | psql ... -c "SET password_encryption='scram-sha-256'" \
+                             -c "\password role"
+-> times out; pg_stat_activity shows state=idle, wait_event=Client/ClientRead
+```
+
+This is a portability limitation, not a production defect: the production target
+is a Linux container, where piped stdin works. Earlier runs never reached this
+stage because the harness stopped at the failing tests first.
+
+It was deliberately left unchanged. `bootstrap-postgres.sh` is the production
+`db-bootstrap` script and `\password` is chosen precisely so a plaintext
+password never reaches the server or its logs. Changing it is a product-owner
+decision. Options, smallest first:
+
+1. Run the bootstrap, contract, dump and restore stages on Linux (a container or
+   VM), keeping the Windows host for the Django suite only.
+2. Add an opt-in, harness-only non-interactive branch to the script, so the
+   production Compose path keeps using `\password` unchanged.
+3. Compute the SCRAM-SHA-256 verifier client-side and use
+   `ALTER ROLE ... PASSWORD '<verifier>'`, which keeps the plaintext off the
+   wire but is a real change to production tooling.
 
 ### Version contract
 

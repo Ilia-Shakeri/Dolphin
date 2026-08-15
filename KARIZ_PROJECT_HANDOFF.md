@@ -2,7 +2,86 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
-## ۰.۰ تلاش فاز `P0R.2` — proof واقعی PostgreSQL — **`BLOCKED_ENVIRONMENT`** (۲۰۲۶/۰۸/۱۵)
+## ۰.۰۰ فاز `P0R.2` — اجرای واقعی روی PostgreSQL 17.11 — **`P0R.2 BLOCKED`** روی یک گام باقی‌مانده (۲۰۲۶/۰۸/۱۵)
+
+باینری‌های PostgreSQL 17.11 توسط مالک محصول در `C:\Users\Dear-OTCamp-User\pgsql-17.11` تامین شدند (فقط محیط توسعه؛ **قرارداد تولید نیست**). هر هشت باینری اجرا و نسخه‌شان تایید شد: `postgres`، `initdb`، `pg_ctl`، `psql`، `createdb`، `pg_dump`، `pg_restore`، `pg_isready` — همگی `17.11`. فایل‌های `share` (`postgres.bki`، `postgresql.conf.sample`، `pg_hba.conf.sample`) موجود و توسط `initdb` قابل یافتن‌اند.
+
+### نتیجه اصلی: اپلیکیشن روی PostgreSQL واقعی کار می‌کند
+
+اولین اجرای مجموعه روی PostgreSQL: **۱۰ failure و ۱۸ error**. پس از اصلاح، **۴۰۴ تست، `OK`، ۶ skip**. روی SQLite هم **۴۰۴ تست، `OK`، ۷ skip**. هیچ‌کدام از نقص‌ها در اپلیکیشن نبود — همه در تست یا تنظیمات تست بودند و **هیچ migration مخزن ساخته نشد** (`makemigrations --check` تمیز). یک دیتابیس تازه از migrationها صحیح ساخته می‌شود (مستقیما بازرسی شد: `postal_code` موجود، هر ۱۳ migration اپ `sales` اعمال).
+
+### هر ۷ تست PostgreSQL-only اکنون اجرا و pass می‌شوند
+
+```text
+test_cancel_race_has_one_transition_and_one_audit_row          ok
+test_global_active_phone_identity_wins_once                    ok
+test_last_platform_admin_guard_is_serialized                   ok
+test_reassignment_and_sale_use_one_lead_order                  ok
+test_sale_price_snapshot_is_linear_with_product_update         ok
+test_sales_upgrade_from_0004_keeps_valid_business_rows         ok
+InboundSMS test_concurrent_same_event_creates_one_row          ok
+Ran 7 tests — OK
+```
+
+این proof همزمانی واقعی است: قفل ردیف (`select_for_update`)، ترتیب قفل lead/sale، رقابت یکتایی شماره تلفن، سریال‌سازی نگهبان آخرین Platform Admin، idempotency پیامک، و upgrade واقعی migration از 0004.
+
+### چهار نقص کشف‌شده — همگی TEST_BUG، نه اپلیکیشن
+
+1. **مسموم‌سازی schema (شدید).** `PostgresMigrationUpgradeTests` اپ `sales` را به 0004 برمی‌گرداند و فقط تا 0010 جلو می‌برد — حتی در `finally`. چون `TransactionTestCase` است، schema برنمی‌گردد و **هر تست بعدی** دیتابیسی بدون `postal_code` و بدون جداول 0011-0013 می‌دید. برگرداندن `sales` همچنین migrationهای وابسته (`aftersales`، `communications`) را unapply می‌کند، پس بازیابی اکنون leaf همه اپ‌ها را هدف می‌گیرد. روی SQLite این تست همیشه skip بود و باگ نامرئی مانده بود.
+2. **`ENABLE_API_DOCS` غایب** در `config/postgres_test_settings.py` (در `test_settings` هست) → مسیرهای schema/docs ثبت نمی‌شدند و ۷ تست system-API فقط به‌خاطر ماژول تنظیمات ۴۰۴ می‌گرفتند.
+3. **گیت دیتابیس `seed_synthetic_uat`** روی PostgreSQL فقط `uat_kariz_*` را می‌پذیرد؛ دیتابیس harness `test_kariz_*` است، پس دستور **درست** آن را رد می‌کند. پنج تست به دیتابیس seed-pذیر محدود شدند؛ **گیت تولید تضعیف نشد** و خودش با `test_database_identity_guard_is_narrow` روی هر vendor پوشش دارد.
+4. **رقابت (race) در تست‌های مرورگر.** هر صفحه handler دیالوگ را فقط **پس از** resolve شدن بارگذاری اولیه API متصل می‌کند؛ روی SQLite این میکروثانیه است، ولی تاخیر واقعی دیتابیس باعث می‌شد کلیک زودتر برسد و بی‌صدا دور ریخته شود. تست‌ها اکنون تا باز شدن واقعی دیالوگ کلیک را تکرار می‌کنند. (نکته محصولی، نه نقص: دکمه‌ای که ~۲۰۰ms ابتدای بارگذاری بی‌اثر است.)
+
+### تفاوت‌های واقعی SQLite/PostgreSQL که مشاهده شد
+
+- **طول `varchar` اجرا می‌شود.** درج `notes` بلندتر از حد در PostgreSQL `DataError: value too long for type character varying(4000)` می‌دهد؛ SQLite کاملا نادیده می‌گیرد. نتیجه مثبت برای تولید: ردیف بیش‌ازحد بلند اصلا نمی‌تواند وجود داشته باشد.
+- **تاخیر واقعی** (~۵۰-۱۶۰ms برای هر فراخوان API در برابر میکروثانیه) رقابت‌های زمان‌بندی فرانت را آشکار می‌کند.
+- **وضعیت schema بین تست‌ها پایدار است** و `TransactionTestCase` آن را برنمی‌گرداند — روی SQLite چون تست migration اصلا اجرا نمی‌شد پنهان بود.
+- قفل‌گذاری/تراکنش/یکتایی: هر ۷ probe همزمانی مطابق انتظار رفتار کردند.
+
+### proof سلامت/آمادگی (اجراشده)
+
+```text
+دیتابیس سالم      → GET /api/v1/health/ready/  200  {"status":"ok","database":"up"}
+دیتابیس خاموش     → GET /api/v1/health/ready/  503  {"status":"unavailable","database":"down"}
+بررسی نشت اعتبارنامه در پاسخ/خروجی → هیچ ماده اعتبارنامه‌ای دیده نشد
+```
+
+### proof مرورگر روی PostgreSQL
+
+ماتریس مرورگر داخل همان اجرای PostgreSQL اجرا شد (نه SQLite) و پس از رفع رقابت pass شد. پس `POSTGRES_BROWSER_UNPROVED` **دیگر برقرار نیست**.
+
+### گام باقی‌مانده و **blocker دقیق**
+
+مراحل bootstrap نقش‌ها → contract → dump → **restore** اجرا نشدند، چون `scripts/bootstrap-postgres.sh` در تابع `set_role_password` از دستور تعاملی `psql \password` استفاده می‌کند. روی این هاست ویندوز آن دستور ورودی pipe شده را نادیده می‌گیرد و برای همیشه منتظر کنسول می‌ماند.
+
+با آزمایش ایزوله قطعی اثبات شد:
+
+```text
+printf 'pw\npw\n' | psql ... -c "SET password_encryption='scram-sha-256'" -c "\password role"
+→ TIMED OUT (بلوکه)
+pg_stat_activity: state=idle, wait_event=Client/ClientRead,
+                  query="SET password_encryption = 'scram-sha-256'"
+```
+
+طبقه‌بندی: **`ENVIRONMENT_BUG` / محدودیت قابل‌حمل‌بودن** — نه نقص تولید. هدف تولید کانتینر لینوکسی است و آنجا `\password` با stdin لوله‌شده درست کار می‌کند. در اجراهای قبلی این مرحله هرگز اجرا نشده بود چون harness زودتر روی شکست تست متوقف می‌شد.
+
+**این تغییر داده نشد.** `bootstrap-postgres.sh` اسکریپت bootstrap تولید (`db-bootstrap` در Compose) و امنیت-حساس است؛ `\password` عمدا انتخاب شده تا رمز به‌صورت plaintext به سرور/لاگ نرود. تغییر آن یک تصمیم مالک محصول است، نه حدس من.
+
+### گیت‌های مخزن (SQLite)
+
+```text
+check → 0 | makemigrations --check → No changes detected | spectacular → 0
+collectstatic → 0 | branding → PASS files=228 | node --check → 0
+validate_image_content --context → PASS | git diff --check → 0
+manage.py test → Ran 404 tests, OK (skipped=7)
+```
+
+### پاکسازی
+
+هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `kariz-pgtest-*` باقی نماند (تایید شد). درخت کاری تمیز.
+
+## ۰.۰ تلاش قبلی فاز `P0R.2` — **`BLOCKED_ENVIRONMENT`** (۲۰۲۶/۰۸/۱۵، منسوخ‌شده توسط بخش بالا)
 
 هدف این فاز اثبات اپلیکیشن روی PostgreSQL واقعی به‌جای SQLite بود. **هیچ بخشی از این proof اجرا نشد** چون PostgreSQL روی ماشین توسعه نصب نیست. طبق سیاست، نرم‌افزار سیستمی بدون اجازه صریح نصب نشد.
 
