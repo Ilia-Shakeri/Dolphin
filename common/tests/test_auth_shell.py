@@ -103,7 +103,7 @@ class AuthShellBrowserTests(TestCase):
     def test_role_aware_landing_and_navigation_match_backend_capabilities(self):
         expected = {
             User.Role.PLATFORM_ADMIN: ("پنل مدیر پلتفرم", {"users", "audit", "customers", "leads", "interactions", "sales", "products", "performance"}),
-            User.Role.SALES_MANAGER: ("پنل مدیر فروشگاه", {"users", "customers", "leads", "interactions", "sales", "products", "performance"}),
+            User.Role.SALES_MANAGER: ("پنل مدیر فروشگاه", {"customers", "leads", "interactions", "sales", "products", "performance"}),
             User.Role.SALES_AGENT: ("میز کار بازاریاب", {"customers", "leads", "interactions", "sales", "products", "performance"}),
         }
         for role, (title, modules) in expected.items():
@@ -125,8 +125,9 @@ class AuthShellBrowserTests(TestCase):
                     self.assertIn('data-platform-navigation="true"', content)
                 else:
                     self.assertNotIn('data-platform-navigation="true"', content)
-                if role == User.Role.SALES_AGENT:
+                if role != User.Role.PLATFORM_ADMIN:
                     self.assertNotIn('data-module="users"', content)
+                if role == User.Role.SALES_AGENT:
                     self.assertNotIn('data-module="audit"', content)
                     self.assertIn("محصولات (فقط خواندنی)", content)
                     self.assertIn('id="agent-work-queue"', content)
@@ -166,38 +167,46 @@ class AuthShellBrowserTests(TestCase):
                 self.assertContains(self.client.get("/"), label)
                 self.client.logout()
 
-    def test_agent_cannot_open_user_management_but_manager_can_manage_agents(self):
-        self.client.force_login(self.agent)
+    def test_only_platform_admin_can_open_user_management(self):
+        # User administration is platform_admin only, so both the Sales Agent
+        # and the Sales Manager are denied the pages and the navigation entry.
+        for user in (self.agent, self.manager):
+            self.client.force_login(user)
+            with self.subTest(role=user.role):
+                home = self.client.get("/")
+                denied_list = self.client.get("/users/")
+                denied_detail = self.client.get(f"/users/{self.agent.pk}/")
 
-        home = self.client.get("/")
-        denied = self.client.get("/users/")
+                self.assertEqual(home.status_code, 200)
+                self.assertNotContains(home, "مدیریت کاربران")
+                self.assertNotContains(home, "مدیریت بازاریابان")
+                self.assertNotContains(home, 'href="/users/"')
+                self.assertEqual(denied_list.status_code, 403)
+                self.assertContains(denied_list, "اجازه مدیریت کاربران را ندارید", status_code=403)
+                self.assertEqual(denied_detail.status_code, 403)
 
-        self.assertEqual(home.status_code, 200)
-        self.assertNotContains(home, "مدیریت کاربران")
-        self.assertEqual(denied.status_code, 403)
-        self.assertContains(denied, "اجازه مدیریت کاربران را ندارید", status_code=403)
+        self.client.force_login(self.platform)
+        platform_list = self.client.get("/users/")
+        platform_agent = self.client.get(f"/users/{self.agent.pk}/")
+        self.assertEqual(platform_list.status_code, 200)
+        self.assertContains(platform_list, "مدیریت کاربران")
+        self.assertEqual(platform_agent.status_code, 200)
+        self.assertContains(platform_agent, 'id="change-role-form"')
 
-        self.client.force_login(self.manager)
-        manager_list = self.client.get("/users/")
-        manager_agent = self.client.get(f"/users/{self.agent.pk}/")
-        manager_platform = self.client.get(f"/users/{self.platform.pk}/")
-        self.assertEqual(manager_list.status_code, 200)
-        self.assertContains(manager_list, "مدیریت بازاریابان")
-        self.assertEqual(manager_agent.status_code, 200)
-        self.assertNotContains(manager_agent, 'id="change-role-form"')
-        self.assertEqual(manager_platform.status_code, 404)
-
-    def test_company_it_cannot_open_or_select_platform_admin(self):
+    def test_company_it_has_no_user_administration_pages(self):
+        # Company IT holds no user-administration capability, so every user
+        # page is denied before any target is resolved.
         self.client.force_login(self.company_it)
 
-        hidden = self.client.get(f"/users/{self.platform.pk}/")
-        allowed = self.client.get(f"/users/{self.agent.pk}/")
-        content = allowed.content.decode("utf-8")
+        home = self.client.get("/")
+        platform_detail = self.client.get(f"/users/{self.platform.pk}/")
+        agent_detail = self.client.get(f"/users/{self.agent.pk}/")
 
-        self.assertEqual(hidden.status_code, 404)
-        self.assertContains(hidden, "کاربر پیدا نشد", status_code=404)
-        self.assertEqual(allowed.status_code, 200)
-        self.assertNotIn('<option value="platform_admin">', content)
+        self.assertEqual(home.status_code, 200)
+        self.assertNotContains(home, 'href="/users/"')
+        self.assertEqual(self.client.get("/users/").status_code, 403)
+        self.assertEqual(platform_detail.status_code, 403)
+        self.assertEqual(agent_detail.status_code, 403)
 
     def test_platform_admin_sees_exact_controlled_role_options(self):
         self.client.force_login(self.platform)

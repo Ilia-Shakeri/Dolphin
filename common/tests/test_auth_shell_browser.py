@@ -153,9 +153,11 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
 
     def test_role_aware_landing_and_menus_for_three_experiences(self):
         self.browser.set_window_size(1440, 1000)
+        # User administration is platform_admin only, so the Sales Manager
+        # navigation carries no user module and the page itself is denied.
         cases = (
             (self.platform, "پنل مدیر پلتفرم", {"users", "audit"}, set()),
-            (self.manager, "پنل مدیر فروشگاه", {"users"}, {"audit"}),
+            (self.manager, "پنل مدیر فروشگاه", set(), {"users", "audit"}),
             (self.agent, "میز کار بازاریاب", set(), {"users", "audit"}),
         )
         for user, title, visible, hidden in cases:
@@ -169,13 +171,11 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
                 }
                 self.assertTrue(visible.issubset(modules))
                 self.assertTrue(hidden.isdisjoint(modules))
-                if user.role == User.Role.SALES_MANAGER:
-                    self.browser.get(f"{self.live_server_url}/users/")
-                    self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "users-loading")))
-                    rows = self.browser.find_element(By.ID, "users-table-body").text
-                    self.assertIn(self.agent.username, rows)
-                    self.assertNotIn(self.platform.username, rows)
-                    self.assertNotIn(self.manager.username, rows)
+                # The denial of /users/ for non-admin roles is asserted at the
+                # Django level (accounts/tests/test_user_administration_policy.py
+                # and common/tests/test_auth_shell.py). Requesting it here would
+                # log an expected 403 and defeat assert_browser_clean().
+                if user.role == User.Role.PLATFORM_ADMIN:
                     self.browser.get(f"{self.live_server_url}/users/{self.agent.pk}/")
                     self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "user-detail-content")))
                     toggle = self.browser.find_element(By.ID, "toggle-user-active")

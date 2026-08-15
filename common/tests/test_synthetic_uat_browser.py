@@ -129,14 +129,11 @@ class SyntheticUatRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login("uat_sales_manager")
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "dashboard-title"), "پنل مدیر فروشگاه"))
-        self.assertTrue({"customers", "sales", "after-sales", "users", "performance"}.issubset(self.modules()))
-        self.assertNotIn("audit", self.modules())
-        self.browser.get(f"{self.live_server_url}/users/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "users-loading")))
-        rows = self.browser.find_element(By.ID, "users-table-body").text
-        self.assertIn("uat_sales_agent", rows)
-        self.assertIn("uat_after_sales_operator", rows)
-        self.assertNotIn("uat_platform_admin", rows)
+        self.assertTrue({"customers", "sales", "after-sales", "performance"}.issubset(self.modules()))
+        # User administration belongs to platform_admin alone, so the store
+        # manager sees no user module. The denial itself is asserted at the
+        # Django level, where it does not pollute the browser network log.
+        self.assertTrue({"audit", "users"}.isdisjoint(self.modules()))
         self.assert_browser_clean()
 
     def test_call_center_agent_persona(self):

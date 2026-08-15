@@ -258,8 +258,8 @@ python manage.py test                                   Ran 356 tests — OK (sk
 | قابلیت | Sales Agent | Sales Manager | Company IT | Platform Admin |
 |---|---|---|---|---|
 | ورود/پروفایل خود | بله | بله | بله (اگر فعال شود) | بله |
-| مدیریت کاربر (ساخت/ویرایش/غیرفعال/فعال‌سازی/reset رمز/role/workstream) — **سیاست Client 1، بسته** | خیر | **خیر — قطعی** | غیرفعال به‌صورت پیش‌فرض | همه هویت‌های تمیز CRM |
-| اعطای نقش | خیر | خیر | تا `company_it`؛ هرگز `platform_admin` (نقش غیرفعال پیش‌فرض) | بله، هر نقش ثابت |
+| مدیریت کاربر (ساخت/ویرایش/غیرفعال/فعال‌سازی/reset رمز/role/workstream) — **اجراشده در کد** | خیر | **خیر** | **خیر** | همه هویت‌های تمیز CRM |
+| اعطای نقش | خیر | خیر | **خیر** | بله، هر نقش ثابت |
 | Customer/Lead/Interaction | فقط assigned/created خود | همه شرکت | همه شرکت (اگر فعال شود) | همه شرکت |
 | Product/Category مدیریت | فقط خواندن (active) | بله | بله (اگر فعال شود) | بله |
 | Sale ثبت/لغو | assigned Lead خود / لغو ندارد | ثبت+لغو، audited | ثبت+لغو، audited (اگر فعال شود) | ثبت+لغو، audited |
@@ -270,43 +270,30 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 این ماتریس ستون‌های Customer/Lead/Product/Sale/After-Sales/گزارش/audit را با enforcement واقعی در `sales/selectors.py`، `aftersales/selectors.py`، `auditlog/selectors.py` تایید می‌کند؛ frontend فقط نمایش است و مرز امنیتی نیست. **ردیف «مدیریت کاربر» تنها ردیفی است که سیاست Client 1 (ستون بالا) با رفتار فعلی کد فرق دارد — بلوک زیر را ببینید.**
 
-```text
-CURRENT CODE BEHAVIOR
-accounts/access.py role sales_manager دارای capability "users.manage_agents" است.
-accounts/views.py UserViewSet + accounts/services.py (create_crm_user،
-update_crm_user، _locked_users) به sales_manager احرازشده اجازه می‌دهند
-حساب‌هایی با role دقیقا sales_agent را بسازد، ویرایش کند (شامل reset رمز
-از طریق فیلد قابل‌نوشتن "password" و تغییر workstream از طریق فیلد
-قابل‌نوشتن "workstream")، غیرفعال و دوباره فعال کند. نمی‌تواند به حساب
-company_it/platform_admin دست بزند و نمی‌تواند change-role را صدا بزند
-(در change_user_role صریحا مسدود شده). این رفتار عمومی role-based است،
-بدون گیت deployment-profile — امروز روی هر استقراری با همین کدبیس اعمال
-می‌شود، نه فقط Client 1.
-
-CLIENT-1 TARGET BEHAVIOR
-فقط platform_admin مجاز به ساخت/ویرایش/غیرفعال‌سازی/فعال‌سازی مجدد/reset
-رمز کاربران است؛ فقط platform_admin مجاز به تغییر role یا workstream است.
-sales_manager هیچ قابلیت مدیریت کاربر ندارد.
-
-IMPLEMENTATION GAP
-capability "users.manage_agents" و enforcement آن در views.py/services.py
-فراتر از هدف تاییدشده Client 1 است و باید در یک فاز پیاده‌سازی آینده حذف
-یا پشت یک مکانیزم deployment-profile تاییدشده gate شود. در P0R تغییر
-نکرد (فاز فقط-مستندات)؛ تسک محدود آینده و تست‌های لازم آن در
-KARIZ_CLIENT1_CODEX_ROADMAP.md بخش «شکاف Authorization» ثبت شده است.
-```
+**وضعیت (فاز `P1.7`، ۲۰۲۶/۰۸/۱۵): پیاده‌سازی شد — شکاف بسته است.** `users.manage_agents` و `users.manage_non_platform` از `accounts/access.py` حذف شدند، پس `sales_manager`، `company_it` و `sales_agent` هیچ capability از خانواده `users.manage_*` ندارند. در نتیجه `IsUserReader` کل `/api/v1/users/` را برایشان می‌بندد و `common/ui_views.py` هم لینک ناوبری را پنهان و صفحه‌ها را ۴۰۳ می‌کند. `USER_ADMINS` در `accounts/services.py` اکنون `{User.Role.PLATFORM_ADMIN}` است که لایه سرویس را برای **هر** فراخوان (شامل management command) مرجع می‌کند، و `UserViewSet._require_admin` هم با آن هم‌راستا شد. این پیش‌فرض امن کدبیس مشترک است، نه یک شاخه Client-1. پوشش رگرسیون: `accounts/tests/test_user_administration_policy.py`.
 
 ## ۷. اصول deployment profile چندمشتری
 
 اصول تصمیم‌شده در بخش ۲ باید در آینده به یک مکانیزم صریح تبدیل شود. **این مکانیزم امروز در کد وجود ندارد** — تنها جداسازی امروز از طریق دیتابیس/تنظیمات جدا در سطح deployment (نه کد) قابل انجام است. جدا از نبود کد، یعنی امروز حتی «غیرفعال به‌صورت پیش‌فرض» بودن `company_it` برای Client 1 (بخش ۲/۶) فقط یک سیاست عملیاتی است (هرگز چنین حسابی نساز/فعال نکن)، نه یک قفل فنی.
 
 ```text
-PROFILE-001 PARTIALLY RESOLVED
-Architecture discovery برای deployment profile تایید شده است.
-پیاده‌سازی (مدل/migration/کد) تایید نشده تا یکی از گزینه‌های طراحی
-(Option A/B/C — بخش P0R.3 در KARIZ_CLIENT1_CODEX_ROADMAP.md) رسما
-انتخاب شود. هیچ مدل DeploymentProfile یا migration نباید قبل از آن
-انتخاب شروع شود.
+PROFILE-001 RESOLVED (2026-08-15)
+Selected: Option C
+  signed external deployment manifest = source of truth
+  verified runtime database cache     = derived state only
+
+پیاده‌سازی هنوز شروع نشده و در P3 انجام می‌شود. قواعد الزامی آن فاز:
+  - کلید امضای خصوصی تحت کنترل کاریز می‌ماند و هرگز به مشتری تحویل
+    نمی‌شود؛ اپلیکیشن فقط کلید عمومی راستی‌آزمایی را دارد.
+  - manifest نامعتبر یا ناشناخته fail-closed است.
+  - کش دیتابیس هرگز مرجع نیست؛ restore یک دیتابیس قدیمی نباید manifest
+    امضاشده را override کند.
+  - feature availability، role permission و object scope سه کنترل جدا
+    می‌مانند؛ غیرفعال‌کردن feature داده تاریخی را حذف نمی‌کند.
+  - بدون شاخه دائمی مشتری و بدون `if client_name == ...` در کد.
+  - در این فاز هیچ expiration، kill-switch از راه دور، فعال‌سازی آنلاین
+    دوره‌ای یا خاموشی اجباری اضافه نمی‌شود.
+مقایسه کامل ۱۴ معیار: docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md
 ```
 
 مقایسه دقیق سه گزینه طراحی (manifest امضاشده بیرونی / مدل دیتابیسی / ترکیب manifest+cache) و معیارهای مقایسه در Roadmap ثبت شده؛ اینجا تکرار نمی‌شود تا duplicate-prone نشود.

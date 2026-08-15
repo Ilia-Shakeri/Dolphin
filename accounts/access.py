@@ -5,6 +5,15 @@ from accounts.models import User
 
 CRM_ROLES = {value for value, _ in User.Role.choices}
 
+# User administration is reserved for `platform_admin` alone. This is the secure
+# default of the shared codebase, not a Client-1 special case: `sales_manager`,
+# `company_it`, and `sales_agent` hold no `users.manage_*` capability, so
+# `IsUserReader`, the maintained UI navigation, and the user pages all deny them
+# without any per-role check elsewhere.
+#
+# A future deployment may reintroduce a narrower capability through the approved
+# signed deployment manifest (PROFILE-001, Option C). Until that mechanism
+# exists, nothing may re-grant these capabilities.
 ROLE_CAPABILITIES = {
     User.Role.SALES_AGENT: frozenset({
         "dashboard.agent",
@@ -29,7 +38,6 @@ ROLE_CAPABILITIES = {
         "products.manage",
         "reports.company",
         "sms.company",
-        "users.manage_agents",
     }),
     User.Role.COMPANY_IT: frozenset({
         "dashboard.technical",
@@ -44,7 +52,6 @@ ROLE_CAPABILITIES = {
         "products.manage",
         "reports.company",
         "sms.company",
-        "users.manage_non_platform",
         "audit.non_platform",
     }),
     User.Role.PLATFORM_ADMIN: frozenset({

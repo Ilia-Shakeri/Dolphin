@@ -370,16 +370,16 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login(self.manager)
 
-        self.browser.get(f"{self.live_server_url}/users/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-user"))).click()
-        self.browser.find_element(By.ID, "create-username").send_keys("daily.agent.browser")
-        self.browser.find_element(By.ID, "create-password").send_keys(self.password)
-        self.browser.find_element(By.ID, "create-first-name").send_keys("بازاریاب")
-        self.browser.find_element(By.ID, "create-last-name").send_keys("روزانه")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-user-form button[type='submit']").click()
-        self.wait.until(expected_conditions.url_matches(r"/users/\d+/$"))
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "user-detail-content")))
-        self.assertEqual(self.browser.find_element(By.ID, "toggle-user-active").text, "غیرفعال کردن کاربر")
+        # The daily operator is provisioned by the platform admin, not by the
+        # Sales Manager: user administration is platform_admin only. The manager
+        # workflow below still covers catalog, customer, lead, and reporting.
+        User.objects.create_user(
+            username="daily.agent.browser",
+            password=self.password,
+            role=User.Role.SALES_AGENT,
+            first_name="بازاریاب",
+            last_name="روزانه",
+        )
 
         self.browser.get(f"{self.live_server_url}/products/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-product"))).click()

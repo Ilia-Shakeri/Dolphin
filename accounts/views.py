@@ -110,7 +110,7 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return queryset
 
     def _require_admin(self):
-        if self.request.user.role not in {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}:
+        if self.request.user.role != User.Role.PLATFORM_ADMIN:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("User administration is not allowed.")
 

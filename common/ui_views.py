@@ -95,9 +95,9 @@ class KarizHomeView(ActiveCrmView):
         role = self.request.user.role
         dashboard = {
             User.Role.PLATFORM_ADMIN: ("پنل مدیر پلتفرم", "مدیریت سامانه، کاربران، رویدادها و همه بخش‌های عملیاتی"),
-            User.Role.SALES_MANAGER: ("پنل مدیر فروشگاه", "نمای سراسری کسب‌وکار و مدیریت بازاریابان این استقرار"),
+            User.Role.SALES_MANAGER: ("پنل مدیر فروشگاه", "نمای سراسری کسب‌وکار، عملیات فروش و گزارش‌های این استقرار"),
             User.Role.SALES_AGENT: ("میز کار بازاریاب", "سرنخ‌های تخصیص‌یافته، تماس‌های دستی و عملکرد خود شما"),
-            User.Role.COMPANY_IT: ("پنل مدیر فنی مشتری", "مدیریت فنی کاربران غیرپلتفرم و دسترسی عملیاتی شرکت"),
+            User.Role.COMPANY_IT: ("پنل مدیر فنی مشتری", "دسترسی عملیاتی شرکت و مشاهده رویدادهای غیرپلتفرمی"),
         }[role]
         if role == User.Role.SALES_AGENT and self.request.user.workstream == User.Workstream.AFTER_SALES:
             dashboard = (

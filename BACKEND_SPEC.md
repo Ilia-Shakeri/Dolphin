@@ -149,32 +149,21 @@ Customer remains the actual store/customer/client contact and is displayed as `�
 
 **Correction (P0R audit, 2026-08-14 — `BIZ-005` resolved):** for the single-tenant Client-1 deployment, Sales Manager scope is company-wide for *business* records only (Customer/Lead/Interaction/Product/Sale/report). It has **no** user-administration capability: it may not list, create, edit, deactivate, reactivate, reset the password of, or change the workstream of any account, including Sales Agent accounts. This replaces the prior statement that Sales Manager could administer Sales Agent accounts, which is no longer an active rule (kept only as historical provenance in §15). No Team model is created. Client-1 uses a bounded `sales` / `after_sales` workstream on Sales Agent accounts only, settable only by Platform Admin; it does not add a fifth role or dynamic permission builder. Elevated roles must remain in `sales`. Seat/capacity remains a separate unresolved decision.
 
-```text
-CURRENT CODE BEHAVIOR
-accounts/access.py grants role sales_manager the capability "users.manage_agents".
-accounts/views.py UserViewSet + accounts/services.py (create_crm_user,
-update_crm_user, _locked_users) let an authenticated sales_manager create,
-edit (including password reset via the writable "password" field and
-workstream toggle via the writable "workstream" field), deactivate, and
-reactivate accounts whose role is exactly sales_agent. It cannot touch
-company_it/platform_admin accounts and cannot call change-role (blocked
-explicitly in change_user_role). This is generic role-based behavior with
-no deployment-profile gate — it applies to every deployment on this
-codebase today, not only Client 1.
+**Status (P1.7, 2026-08-15): implemented — no gap remains.** `users.manage_agents`
+and `users.manage_non_platform` were removed from `accounts/access.py`, so
+`sales_manager`, `company_it`, and `sales_agent` hold no `users.manage_*`
+capability. `IsUserReader` therefore denies them the whole `/api/v1/users/`
+surface, and `common/ui_views.py` hides the navigation entry and returns 403 on
+the user pages. `accounts/services.py` `USER_ADMINS` is now
+`{User.Role.PLATFORM_ADMIN}`, which makes the service layer authoritative for
+every caller including management commands, and `UserViewSet._require_admin`
+matches. This is the secure default of the shared codebase, not a Client-1
+branch. Regression coverage lives in
+`accounts/tests/test_user_administration_policy.py`.
 
-CLIENT-1 TARGET BEHAVIOR
-Only platform_admin may create, edit, deactivate, reactivate, or reset
-passwords for application users, and only platform_admin may change role
-or workstream. sales_manager has zero user-administration capability.
-
-IMPLEMENTATION GAP
-The "users.manage_agents" capability and its enforcement in views.py/
-services.py exceed the approved Client-1 target and must be removed or
-gated behind an approved deployment-profile mechanism in a future
-implementation phase. Not changed in P0R (documentation-only phase); see
-KARIZ_CLIENT1_CODEX_ROADMAP.md P1.7 for the bounded future task and its
-required tests.
-```
+A future deployment may reintroduce a narrower, explicitly-approved capability
+only through the signed deployment manifest (`PROFILE-001`, Option C). Nothing
+else may re-grant it.
 
 ### 4.1 Access matrix
 
@@ -198,9 +187,9 @@ required tests.
 | View company/user KPIs | No | Yes | Yes | Yes |
 | Export own report | Yes | Yes | Yes | Yes |
 | Export company report | No | Yes | Yes | Yes |
-| Manage ordinary users (Client-1 target) | No | **No** | Disabled by default for Client 1 | Yes, every clean CRM identity |
-| Manage ordinary users (current code, generic) | No | Sales Agent accounts only — see the implementation-gap note above §4.1 | All clean non-platform users | Every clean CRM identity |
-| Assign CRM roles | No | No | Up to `company_it`; never `platform_admin` (role disabled by default for Client 1) | Yes |
+| Manage ordinary users (create/edit/deactivate/reactivate/reset password) | No | **No** | **No** | Yes, every clean CRM identity |
+| Change role or operational workstream | No | **No** | **No** | Yes |
+| Assign CRM roles | No | No | No | Yes |
 | Grant platform admin/superuser | No | No | No | Yes |
 | View audit log | No | No | Non-platform-safe audit; role disabled by default for Client 1 | All CRM audit |
 | Django admin/server operations | No | No | No by default | Separately controlled, not exposed to customer users |

@@ -15,7 +15,12 @@ ROLE_RANK = {
     User.Role.COMPANY_IT: 3,
     User.Role.PLATFORM_ADMIN: 4,
 }
-USER_ADMINS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
+# Only `platform_admin` may administer CRM users. This service-layer gate is the
+# authoritative boundary: it holds for every caller, including management
+# commands and future code paths that do not pass through the REST permission
+# class. The per-role target scoping further down stays in place so that a
+# future deployment-profile grant remains correctly bounded.
+USER_ADMINS = {User.Role.PLATFORM_ADMIN}
 USER_MUTABLE_FIELDS = {"username", "first_name", "last_name", "email", "phone", "workstream", "is_active"}
 PROFILE_MUTABLE_FIELDS = {"first_name", "last_name", "email", "phone"}
 

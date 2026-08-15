@@ -105,6 +105,9 @@ class AfterSalesRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/after-sales/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-after-sales")))
         self.browser.find_element(By.ID, "open-create-after-sales").click()
+        # The option list is filled asynchronously after the dialog opens, so
+        # wait for the control to be both populated and actually interactable.
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-after-sales-customer")))
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-after-sales-customer")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-after-sales-customer")).select_by_visible_text("مشتری مرورگر خدمات")
         Select(self.browser.find_element(By.ID, "create-after-sales-assigned")).select_by_visible_text("اپراتور خدمات")

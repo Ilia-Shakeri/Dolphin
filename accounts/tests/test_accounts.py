@@ -29,16 +29,18 @@ class AccountSecurityTests(TestCase):
         with self.assertRaises(BusinessPermissionDenied):
             change_user_role(actor=self.company_it, target=self.agent, role=User.Role.PLATFORM_ADMIN)
 
-    def test_company_it_cannot_see_platform_admin(self):
+    def test_company_it_has_no_user_directory_access(self):
+        # User administration is reserved for platform_admin, so Company IT no
+        # longer reaches the user API at all - it cannot even enumerate agents.
         client = APIClient()
         client.force_authenticate(self.company_it)
-        response = client.get("/api/v1/users/")
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn(self.platform.pk, [item["id"] for item in response.data["results"]])
+        self.assertEqual(client.get("/api/v1/users/").status_code, 403)
+        self.assertEqual(client.get(f"/api/v1/users/{self.platform.pk}/").status_code, 403)
+        self.assertEqual(client.get(f"/api/v1/users/{self.agent.pk}/").status_code, 403)
 
     def test_server_security_fields_are_rejected(self):
         client = APIClient()
-        client.force_authenticate(self.company_it)
+        client.force_authenticate(self.platform)
         response = client.post("/api/v1/users/", {
             "username": "bad",
             "password": "strong-pass-2",
@@ -61,7 +63,7 @@ class AccountSecurityTests(TestCase):
             username="server-admin",
             password="Server-Only-Pass-963!",
         )
-        for actor in (self.company_it, self.platform):
+        for actor in (self.platform,):
             with self.subTest(actor=actor.role):
                 client = APIClient()
                 client.force_authenticate(actor)
@@ -133,7 +135,7 @@ class AccountSecurityTests(TestCase):
             is_active=False,
         )
         client = APIClient()
-        client.force_authenticate(self.company_it)
+        client.force_authenticate(self.platform)
 
         listed = client.get("/api/v1/users/")
         self.assertEqual(listed.status_code, 200)
@@ -209,7 +211,7 @@ class AccountSecurityTests(TestCase):
 
     def test_unknown_fields_are_rejected(self):
         client = APIClient()
-        client.force_authenticate(self.company_it)
+        client.force_authenticate(self.platform)
         response = client.post("/api/v1/users/", {
             "username": "typo",
             "password": "Long-Safe-Pass-741!",
@@ -239,55 +241,36 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(profile.status_code, 400)
         self.assertIn("id", profile.data)
 
-        client.force_authenticate(self.company_it)
-        user_update = client.patch(f"/api/v1/users/{self.agent.pk}/", {"id": self.company_it.pk}, format="json")
+        client.force_authenticate(self.platform)
+        user_update = client.patch(f"/api/v1/users/{self.agent.pk}/", {"id": self.platform.pk}, format="json")
         self.assertEqual(user_update.status_code, 400)
         self.assertIn("id", user_update.data)
 
-    def test_sales_manager_lists_and_manages_sales_agents_only(self):
+    def test_sales_manager_has_no_user_directory_access(self):
+        # Superseded policy: Sales Manager used to administer Sales Agent
+        # accounts. User administration is now platform_admin only. The full
+        # matrix lives in accounts/tests/test_user_administration_policy.py.
         manager = User.objects.create_user(
             username="manager-user-reader",
             password="Long-Safe-Pass-741!",
             role=User.Role.SALES_MANAGER,
         )
-        other_agent = User.objects.create_user(
-            username="manager-visible-agent",
-            password="Long-Safe-Pass-741!",
-            role=User.Role.SALES_AGENT,
-        )
         client = APIClient()
         client.force_authenticate(manager)
 
-        listed = client.get("/api/v1/users/")
-        self.assertEqual(listed.status_code, 200)
-        self.assertEqual(
-            {item["id"] for item in listed.data["results"]},
-            {self.agent.pk, other_agent.pk},
-        )
+        self.assertEqual(client.get("/api/v1/users/").status_code, 403)
+        self.assertEqual(client.get(f"/api/v1/users/{self.agent.pk}/").status_code, 403)
         created = client.post(
             "/api/v1/users/",
             {"username": "manager-created-agent", "password": "Long-Safe-Pass-741!"},
             format="json",
         )
-        self.assertEqual(created.status_code, 201)
-        self.assertEqual(created.data["role"], User.Role.SALES_AGENT)
-        target_path = f"/api/v1/users/{created.data['id']}/"
-        edited = client.patch(target_path, {"first_name": "Edited"}, format="json")
-        self.assertEqual(edited.status_code, 200)
-        deactivated = client.patch(target_path, {"is_active": False}, format="json")
-        self.assertEqual(deactivated.status_code, 200)
-        reactivated = client.patch(target_path, {"is_active": True}, format="json")
-        self.assertEqual(reactivated.status_code, 200)
-        self.assertTrue(reactivated.data["is_active"])
+        self.assertEqual(created.status_code, 403)
+        self.assertFalse(User.objects.filter(username="manager-created-agent").exists())
 
-    def test_sales_manager_may_create_bounded_after_sales_operator_only(self):
-        manager = User.objects.create_user(
-            username="manager-after-sales-admin",
-            password="Long-Safe-Pass-741!",
-            role=User.Role.SALES_MANAGER,
-        )
+    def test_platform_admin_may_create_bounded_after_sales_operator(self):
         client = APIClient()
-        client.force_authenticate(manager)
+        client.force_authenticate(self.platform)
         created = client.post(
             "/api/v1/users/",
             {
@@ -340,30 +323,35 @@ class AccountSecurityTests(TestCase):
         client = APIClient()
         client.force_authenticate(manager)
 
-        for target in (manager, self.company_it, self.platform):
+        # Denied before the queryset is consulted, so no ID - including the
+        # manager's own - discloses anything or permits a mutation.
+        for target in (manager, self.agent, self.company_it, self.platform):
             with self.subTest(target=target.role):
                 path = f"/api/v1/users/{target.pk}/"
-                self.assertEqual(client.get(path).status_code, 404)
-                self.assertEqual(client.patch(path, {"first_name": "Blocked"}, format="json").status_code, 404)
+                self.assertEqual(client.get(path).status_code, 403)
+                self.assertEqual(client.patch(path, {"first_name": "Blocked"}, format="json").status_code, 403)
                 self.assertEqual(
                     client.post(f"{path}change-role/", {"role": User.Role.SALES_AGENT}, format="json").status_code,
-                    404,
+                    403,
                 )
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
+        self.assertEqual(self.agent.first_name, "")
 
+    def test_role_field_and_delete_stay_rejected_for_platform_admin(self):
+        client = APIClient()
+        client.force_authenticate(self.platform)
+
+        # `role` is server-controlled even for the only administrator role: it
+        # may only change through the dedicated audited change-role action.
         update_escalation = client.patch(
             f"/api/v1/users/{self.agent.pk}/",
             {"role": User.Role.SALES_MANAGER},
             format="json",
         )
-        role_escalation = client.post(
-            f"/api/v1/users/{self.agent.pk}/change-role/",
-            {"role": User.Role.SALES_MANAGER},
-            format="json",
-        )
-        delete = client.delete(f"/api/v1/users/{self.agent.pk}/")
         self.assertEqual(update_escalation.status_code, 400)
-        self.assertEqual(role_escalation.status_code, 403)
-        self.assertEqual(delete.status_code, 405)
+        self.assertIn("role", update_escalation.data)
+        self.assertEqual(client.delete(f"/api/v1/users/{self.agent.pk}/").status_code, 405)
         self.agent.refresh_from_db()
         self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
 
@@ -428,8 +416,7 @@ class AccountSecurityTests(TestCase):
             {"role": User.Role.PLATFORM_ADMIN},
             format="json",
         )
-        self.assertEqual(update.status_code, 400)
-        self.assertIn("role", update.data)
+        self.assertEqual(update.status_code, 403)
 
         role_action = client.post(
             f"/api/v1/users/{self.agent.pk}/change-role/",
@@ -515,7 +502,7 @@ class AccountSecurityTests(TestCase):
 
     def test_weak_password_is_rejected(self):
         client = APIClient()
-        client.force_authenticate(self.company_it)
+        client.force_authenticate(self.platform)
         response = client.post("/api/v1/users/", {
             "username": "weak",
             "password": "12345678",
@@ -525,7 +512,7 @@ class AccountSecurityTests(TestCase):
 
     def test_user_create_and_password_change_are_safely_audited(self):
         client = APIClient()
-        client.force_authenticate(self.company_it)
+        client.force_authenticate(self.platform)
         created = client.post("/api/v1/users/", {
             "username": "new-agent",
             "password": "Long-Safe-Pass-741!",
