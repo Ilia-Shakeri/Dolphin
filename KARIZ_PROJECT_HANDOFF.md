@@ -65,20 +65,32 @@ PROBE platform_admin_admin_login_post  status=200 (رد شد، redirect نشد)
 
 تفسیر صادقانه: صفحه ورود ادمین در دسترس شبکه است، **اما هیچ هویت CRM نمی‌تواند وارد آن شود** چون همه `is_staff=False` هستند و این در `crm_identities` اجبار شده. پس این یک نشت داده نیست؛ یک سطح حمله اضافی و fingerprinting نسخه Django است. سیاست مستند Client 1 («Django Admin نباید در معرض کاربر مشتری باشد») هنوز کاملا در کد اجرا نشده است.
 
-### نقص فعال UI — همچنان موجود، با اثر دوم کشف‌نشده
+### نقص فعال UI — **در فاز `P2` برطرف شد (۲۰۲۶/۰۸/۱۵)**
 
-`common/templates/common/sales_documents/detail.html:16` هنوز `maxlength="500` بدون کوتیشن بسته دارد. این **تنها خط با کوتیشن نامتوازن در کل UI served** است. تجزیه با پارسر HTML اثر دقیق را نشان داد:
+`common/templates/common/sales_documents/detail.html:16` صفت `maxlength="500` را بدون کوتیشن بسته داشت — **تنها خط با کوتیشن نامتوازن در کل UI served**. تجزیه صفحه واقعا render شده (نه فقط قطعه کد) این خروجی را داد:
 
 ```text
-<input ... maxlength='500><p class=' field-error"=None data-error-for='reason'>
+<input id='postal-reason' name='reason'
+       maxlength='500><p class='  field-error"=None  data-error-for='reason'>
 ```
 
-دو اثر واقعی، نه یکی:
+**اثر واقعی — یک مورد، نه دو مورد:**
 
-1. عنصر `<p class="field-error" data-error-for="reason">` **اصلا ساخته نمی‌شود**؛ صفت `data-error-for` روی خودِ `<input>` می‌نشیند. `showError` آن را با `querySelectorAll` پیدا می‌کند و `textContent` می‌نویسد — ولی `textContent` روی `<input>` هیچ چیز نمایش نمی‌دهد. پس خطای فیلد «دلیل» هرگز دیده نمی‌شود.
-2. **`maxlength` عملا از کار می‌افتد** (مقدارش رشته نامعتبر می‌شود)، پس محدودیت ۵۰۰ کاراکتری سمت مرورگر اعمال نمی‌شود. اعتبارسنجی سمت سرور همچنان برقرار است، پس این نقص امنیتی نیست ولی تجربه کاربر را خراب می‌کند.
+عنصر `<p class="field-error" data-error-for="reason">` **اصلا ساخته نمی‌شد**؛ صفت `data-error-for` روی خودِ `<input>` می‌نشست به‌همراه یک صفت زائد `field-error"`. `showError` آن را با `querySelectorAll("[data-error-for]")` پیدا می‌کرد و `textContent` می‌نوشت — ولی `textContent` روی `<input>` چیزی نمایش نمی‌دهد. پس خطای سمت سرور فیلد «دلیل» هرگز به کاربر نشان داده نمی‌شد.
 
-طبق دستور این فاز اصلاح نشد؛ کار `P2` است.
+**تصحیح یک ادعای قبلی:** ممیزی پیشین ادعا کرده بود اثر دومی هم وجود دارد و «`maxlength` از کار می‌افتد». **این ادعا نادرست بود** و با اندازه‌گیری در Chrome واقعی رد شد:
+
+```text
+PROBE_DEFECTIVE  maxLength=500  attr='500><p class='  err_p=0  input_has_dataerror='reason'
+```
+
+مرورگر `maxlength` را با «rules for parsing non-negative integers» می‌خواند که در اولین کاراکتر غیررقمی متوقف می‌شود، پس مقدار همچنان `500` بود و محدودیت ۵۰۰ کاراکتری **از کار نیفتاده بود**. فقط ادعای اثر اول درست بود. (منبع این تصحیح: اجرای واقعی، نه بازخوانی prose.)
+
+**اصلاح انجام‌شده:** فقط یک کوتیشن بسته اضافه شد. بدون تغییر endpoint، API، مدل، serializer، قانون کسب‌وکار، CSS یا واژگان فارسی.
+
+**پوشش رگرسیون:** `common/tests/test_sales_shell.py::SalesDocumentFormMarkupTests` (۴ تست، تجزیه DOM صفحه render شده) و `common/tests/test_sales_shell_browser.py::test_postal_reason_field_has_its_own_error_target_and_length_limit` (Chrome واقعی). هر دو با برگرداندن موقت template به حالت معیوب اجرا شدند و **fail شدند** (۴/۴ و ۱/۱)، پس پوشش واقعی است نه تزئینی. تست مرورگر یک ۴۰۰ واقعی از API را provoke می‌کند (`reason` با ۵۰۱ کاراکتر که از طریق JS مقداردهی می‌شود، چون `maxlength` فقط تایپ را محدود می‌کند نه انتساب برنامه‌ای) و ثابت می‌کند پیام خطا داخل همان `<p>` مقصد render می‌شود و وضعیت پستی سند تغییر نمی‌کند.
+
+**بازبینی هم‌خانواده:** هر ۲۸ template served با پارسر HTML بررسی شد — صفر کوتیشن نامتوازن، صفر مقدار صفت حاوی `<`/`>`، صفر صفت زائد. هیچ نمونه دیگری از این کلاس نقص وجود ندارد.
 
 ### وضعیت کنترل‌های مرده/نمایشی — تمیز
 
@@ -319,7 +331,7 @@ Selected: Option C
 | 1 | نشتی محتوای ایمیج Docker (بخش ۸) | **P0 — برطرف شد در سطح تعریف build** | `.dockerignore` | **در فاز P0R.4 اصلاح شد.** ۴۰۸ → ۱۴۷ فایل، ۱۴۲ → ۰ مورد ممنوعه (بخش ۰). گیت رگرسیون: `common/tests/test_image_content.py`. باقی‌مانده: اجرای `python scripts/validate_image_content.py --listing` روی یک ایمیج واقعی روی هاست دارای Docker. |
 | 1ب | الگوهای `__pycache__`/`*.pyc`/`*.log` در `.dockerignore` root-anchored بودند و bytecode توسعه‌دهنده وارد ایمیج می‌شد | P1 — برطرف شد | `.dockerignore` | فرم‌های `**/` اضافه شدند (بخش ۰). |
 | 2 | تناقض داخلی `BACKEND_SPEC.md` بخش ۲.۳/۲.۴ (وضعیت پستی و گزارش پیامک ورودی را «blocked» می‌گفت درحالی‌که در همان سند بخش ۵.۷A/۵.۹ و در کد واقعی پیاده شده‌اند) | P1 مستندات | `BACKEND_SPEC.md` | در همین فاز اصلاح شد (بخش زیر). |
-| 3 | خطای HTML: `common/templates/common/sales_documents/detail.html:16` — attribute `maxlength="500` بدون quote بسته؛ باعث می‌شود پاراگراف خطای فیلد «reason» در فرم انتقال وضعیت پستی هیچ‌وقت در DOM ساخته نشود (فقط نمایش خطای per-field تحت تاثیر است؛ ثبت واقعی وضعیت پستی درست کار می‌کند و به endpoint واقعی می‌رود) | P1 (نه امنیتی، نه از کار انداختن جریان) | `common/templates/common/sales_documents/detail.html:16` | **در این فاز اصلاح نشد** چون ویرایش template کد اپلیکیشن است، نه مستندسازی؛ برای اولین فاز مجاز اصلاح کد (P2) ثبت شد. |
+| 3 | خطای HTML: `sales_documents/detail.html:16` — attribute `maxlength="500` بدون quote بسته؛ پاراگراف خطای فیلد «reason» در DOM ساخته نمی‌شد و پیام خطای سرور به کاربر نشان داده نمی‌شد | P1 — **برطرف شد در `P2` (۲۰۲۶/۰۸/۱۵)** | همان فایل | یک کوتیشن بسته اضافه شد. پوشش رگرسیون در سطح DOM و مرورگر واقعی، هر دو تاییدشده با اجرای پیش از اصلاح. ادعای قبلی درباره از کار افتادن `maxlength` با اندازه‌گیری در Chrome رد شد — بخش ۰. |
 | 4 | `docs/KARIZ_CAPABILITIES_FOR_INVOICE_FA.txt` (پیوست فاکتور مشتری، تاریخ ۲۰۲۶/۰۸/۱۰) نسبت به قابلیت‌های تکمیل‌شده بعدی (ProductCategory، گزارش پیامک ورودی، پنل خدمات پس از فروش) بروز نیست | P2 اسنادی | همان فایل | باید پیش از استفاده تجاری بعدی بازبینی شود؛ در این فاز تغییر نکرد چون سند دو-فایل زنده مصوب (Handoff/Roadmap) نیست. |
 | 6 | Django Admin بدون گیت تنظیمات ثبت شده بود و در شبکه قابل دسترسی بود | **MEDIUM — برطرف شد در `P1.7`** | `config/settings.py`, `config/production_settings.py`, `config/urls.py`, `nginx/default.conf` | **دو لایه دفاعی مستقل اضافه شد.** لایه اپلیکیشن: تنظیم جدید `ENABLE_DJANGO_ADMIN` که پیش‌فرض `false` است و **مستقل از `DEBUG`** عمل می‌کند؛ در `production_settings.py` صریحا `False` است؛ مسیر `admin/` فقط وقتی ثبت می‌شود که این پرچم روشن باشد، پس روی استقرار مشتری `/admin/` اصلا وجود ندارد (۴۰۴). لایه edge: بلوک `location ^~ /admin/ { return 404; }` در `nginx/default.conf` که به‌خاطر `^~` بر همه location‌های regex اولویت دارد و هیچ درخواستی را proxy نمی‌کند. تست: `common/tests/test_admin_exposure.py` (۱۳ تست). allowlist شبکه مدیریت عمدا حدس زده نشد و به `P14` موکول شد. |
 | 7 | عملگر after-sales روی `customers`/`leads`/`sales` پاسخ `200` با صفر ردیف می‌گیرد، درحالی‌که `users`/`activity-logs`/`inbound-sms` برای بازاریاب `403` می‌دهند | LOW (ناسازگاری، نه نشت — مرز داده برقرار است و direct-ID = 404) | selector/permission لایه sales | یکسان‌سازی به `403` برای نبود capability. اختیاری، در `P1.7` یا `P2`. |

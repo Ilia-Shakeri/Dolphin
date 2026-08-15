@@ -1,3 +1,4 @@
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest import mock
 
@@ -10,7 +11,13 @@ from accounts.models import User
 from auditlog.models import ActivityLog
 from common.throttles import SensitiveRateThrottle
 from sales.models import Interaction
-from sales.services import assign_lead, create_customer_with_phone, create_lead, record_interaction
+from sales.services import (
+    assign_lead,
+    create_customer_with_phone,
+    create_lead,
+    record_interaction,
+    register_sales_document,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -361,3 +368,85 @@ class SalesShellApiTests(TestCase):
                 response = getattr(self.client, method)(path, payload, format="json")
                 self.assertEqual(response.status_code, 400)
                 self.assertIn(field, response.data)
+
+
+class SalesDocumentFormMarkupTests(TestCase):
+    """The postal-transition form must parse into the elements the JS expects.
+
+    A single unclosed attribute quote previously swallowed the `reason` field's
+    error paragraph into the input tag, so `showError()` targeted an `<input>`
+    and the message never rendered. These assertions run against the parsed DOM
+    of the real rendered page rather than the template source.
+    """
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username="doc.markup.manager",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.SALES_MANAGER,
+        )
+        customer = create_customer_with_phone(actor=self.manager, full_name="مشتری سند")
+        self.document = register_sales_document(
+            actor=self.manager,
+            customer=customer,
+            document_number="MARKUP-DOC-1",
+            postal_status="ثبت شد",
+        )
+        self.client.force_login(self.manager)
+
+    def _parsed_page(self):
+        response = self.client.get(f"/sales-documents/{self.document.pk}/")
+        self.assertEqual(response.status_code, 200)
+
+        collected = []
+
+        class Collector(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                collected.append((tag, dict(attrs)))
+
+        Collector().feed(response.content.decode("utf-8"))
+        return collected
+
+    def _element(self, elements, tag, **match):
+        found = [
+            attrs
+            for element_tag, attrs in elements
+            if element_tag == tag and all(attrs.get(key) == value for key, value in match.items())
+        ]
+        return found
+
+    def test_reason_field_keeps_a_well_formed_length_limit(self):
+        elements = self._parsed_page()
+        reason = self._element(elements, "input", id="postal-reason")
+        self.assertEqual(len(reason), 1)
+        # The malformed markup emitted maxlength="500><p class=". Chrome's
+        # non-negative-integer parsing still yielded 500, so the limit itself
+        # survived in practice; this asserts the attribute is well formed rather
+        # than relying on that lenient parsing.
+        self.assertEqual(reason[0].get("maxlength"), "500")
+        self.assertEqual(reason[0].get("name"), "reason")
+
+    def test_reason_field_error_paragraph_is_a_separate_element(self):
+        elements = self._parsed_page()
+        paragraphs = self._element(elements, "p", **{"data-error-for": "reason"})
+        self.assertEqual(len(paragraphs), 1)
+        self.assertEqual(paragraphs[0].get("class"), "field-error")
+
+    def test_reason_input_carries_no_swallowed_attributes(self):
+        elements = self._parsed_page()
+        reason = self._element(elements, "input", id="postal-reason")[0]
+        # showError() targets [data-error-for]; if that attribute lands on the
+        # input itself, the message is written to an element that renders none.
+        self.assertNotIn("data-error-for", reason)
+        self.assertEqual(set(reason), {"id", "name", "maxlength"})
+
+    def test_every_transition_form_field_has_its_own_error_target(self):
+        elements = self._parsed_page()
+        for field in ("to_status", "reason"):
+            with self.subTest(field=field):
+                self.assertEqual(
+                    len(self._element(elements, "p", **{"data-error-for": field})), 1
+                )
+                self.assertEqual(
+                    len(self._element(elements, "input", name=field)), 1
+                )

@@ -508,6 +508,60 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.assert_browser_clean()
 
+    def test_postal_reason_field_has_its_own_error_target_and_length_limit(self):
+        """The reason field's error paragraph must be a real, separate element.
+
+        A missing closing quote on `maxlength` previously swallowed the
+        paragraph into the input tag, so `showError()` wrote the message onto an
+        `<input>`, where textContent renders nothing.
+
+        Chrome parses `maxlength="500><p class="` with the rules for parsing
+        non-negative integers and still yields 500, so the limit itself was NOT
+        lost in a real browser; the length assertion below is a guard, and the
+        error-target assertions are what discriminate the defect.
+
+        This test deliberately provokes a 400 from the real API, so it does not
+        call assert_browser_clean(), which forbids any >=400 response.
+        """
+        from sales.services import register_sales_document
+
+        customer = create_customer_with_phone(actor=self.manager, full_name="مشتری خطای دلیل")
+        document = register_sales_document(
+            actor=self.manager,
+            customer=customer,
+            document_number="DOC-REASON-1",
+            postal_status="ثبت اولیه",
+        )
+        self.browser.set_window_size(1440, 1000)
+        self.login(self.manager)
+        self.browser.get(f"{self.live_server_url}/sales-documents/{document.pk}/")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "postal-reason")))
+
+        reason = self.browser.find_element(By.ID, "postal-reason")
+        self.assertEqual(reason.get_property("maxLength"), 500)
+        self.assertEqual(reason.get_attribute("maxlength"), "500")
+
+        # The discriminating assertions: a distinct paragraph, and an input that
+        # did not absorb the paragraph's attributes.
+        self.assertEqual(
+            len(self.browser.find_elements(By.CSS_SELECTOR, "p[data-error-for='reason']")), 1
+        )
+        self.assertIsNone(reason.get_attribute("data-error-for"))
+
+        # maxlength bounds typing, not programmatic assignment, so the server
+        # rule stays reachable and must surface in the intended element.
+        self.browser.execute_script("arguments[0].value = 'x'.repeat(501);", reason)
+        self.browser.find_element(By.ID, "postal-to-status").send_keys("تحویل پست")
+        self.browser.find_element(
+            By.CSS_SELECTOR, "#postal-transition-form button[type='submit']"
+        ).click()
+
+        error_node = self.browser.find_element(By.CSS_SELECTOR, "p[data-error-for='reason']")
+        self.wait.until(lambda driver: error_node.text.strip() != "")
+        self.assertIn("500", error_node.text)
+        document.refresh_from_db()
+        self.assertEqual(document.postal_status, "ثبت اولیه")
+
     def test_agent_reads_only_scoped_sales_document(self):
         customer = create_customer_with_phone(actor=self.agent, full_name="مشتری سند عامل")
         lead = create_lead(actor=self.agent, customer=customer)
