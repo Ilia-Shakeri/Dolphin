@@ -2,6 +2,55 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
+## ۰.۰ تلاش فاز `P0R.2` — proof واقعی PostgreSQL — **`BLOCKED_ENVIRONMENT`** (۲۰۲۶/۰۸/۱۵)
+
+هدف این فاز اثبات اپلیکیشن روی PostgreSQL واقعی به‌جای SQLite بود. **هیچ بخشی از این proof اجرا نشد** چون PostgreSQL روی ماشین توسعه نصب نیست. طبق سیاست، نرم‌افزار سیستمی بدون اجازه صریح نصب نشد.
+
+### جست‌وجوی جامع (نه فرض)
+
+`psql`، `pg_dump`، `pg_restore`، `initdb`، `pg_isready`، `pg_ctl`، `createdb`، `postgres` و `docker` — همگی غایب. علاوه بر `PATH`: هیچ سرویس ویندوزی با نام `*postgres*`، هیچ رکورد registry (`PostgreSQL`/`pgAdmin`/`EnterpriseDB`)، کلید `HKLM:\SOFTWARE\PostgreSQL` غایب، مسیرهای استاندارد نصب و مسیرهای scoop/chocolatey غایب، و جست‌وجوی بازگشتی `psql.exe` روی درایو `C:` بدون نتیجه.
+
+### قرارداد نسخه (از خود مخزن، نه از عادت)
+
+`docs/ops/DEPLOYMENT.md` صریحا **PostgreSQL 17** را برای سرویس `db` تعیین می‌کند. ایمیج Compose با digest قفل است (`KARIZ_POSTGRES_IMAGE`)، پس digest قرارداد انتشار است نه tag. `psycopg[binary]==3.2.13` محدودیت باریک‌تری تحمیل نمی‌کند.
+
+### baseline SQLite (اجراشده)
+
+`389` تست، `OK`، `7` skip. هر ۷ skip دقیقا همان تست‌های PostgreSQL-only هستند و **تنها شرط skip آن‌ها `connection.vendor == "postgresql"` است** — هیچ شرط دیگری ندارند، پس روی PostgreSQL قطعا اجرا خواهند شد:
+
+```text
+common.tests.test_postgres_concurrency.PostgresConcurrencyTests
+    test_cancel_race_has_one_transition_and_one_audit_row
+    test_global_active_phone_identity_wins_once
+    test_last_platform_admin_guard_is_serialized
+    test_reassignment_and_sale_use_one_lead_order
+    test_sale_price_snapshot_is_linear_with_product_update
+common.tests.test_postgres_concurrency.PostgresMigrationUpgradeTests
+    test_sales_upgrade_from_0004_keeps_valid_business_rows
+communications.tests.test_sms.InboundSMSConcurrencyTests
+    test_concurrent_same_event_creates_one_row
+```
+
+### ممیزی ایمنی harness (ایستا — قبول)
+
+`scripts/test-postgres.ps1` پیش از هر تلاش اجرا کامل خوانده شد. نمی‌تواند به دیتابیس تولید یا هر سرور موجود برسد: با `initdb` یک cluster یک‌بارمصرف تازه در temp می‌سازد (به سرور موجود وصل نمی‌شود)؛ مسیر داده باید با پیشوند `kariz-pgtest-<guid>` مطابقت کند و این هم پیش از ساخت و هم پیش از حذف بررسی می‌شود و در غیر این صورت throw می‌کند؛ فقط `127.0.0.1` روی یک پورت بالای تصادفی bind می‌شود و پورت ۵۴۳۲ و ≤۱۰۲۴ صریحا رد می‌شوند؛ نام دیتابیس/نقش/رمز همگی به run token تصادفی گره خورده‌اند؛ `config/postgres_test_guard.py` مستقلا همه این‌ها را دوباره اعتبارسنجی می‌کند و fail-closed است؛ هر متغیر محیطی و `PATH` در `finally` بازگردانده می‌شود و هیچ رمزی چاپ نمی‌شود.
+
+با اجرا تایید شد: در نبود ابزار، harness در مرحله تشخیص ابزار متوقف می‌شود (`CommandNotFoundException` روی `initdb`) و **به هیچ سرور دیگری fallback نمی‌کند**.
+
+### شکاف پوشش کشف‌شده حین ممیزی
+
+harness فقط ثابت می‌کند نقش backup می‌تواند `pg_dump` بگیرد؛ **هرگز `pg_restore` را صدا نمی‌زند**. تنها تاییدکننده restore یعنی `scripts/verify-postgres-restore.sh` وابسته به کانتینر است (مسیرهای ثابت `/backups` و `/ops` و sentinel `.kariz-backup-root`) و روی ویندوز به‌صورت native اجرا نمی‌شود.
+
+یعنی حتی پس از نصب PostgreSQL، نیمه «restore ایزوله» از گیت P0R.2 به یکی از این دو نیاز دارد: Docker به‌همراه profile `restore-verify`، یا افزودن یک گام restore native کوچک به harness (`createdb` دوم، `pg_restore`، سپس اجرای `verify-postgres-schema.sql` روی آن). این یک شکاف ابزار است، نه نقص اپلیکیشن.
+
+### مسیر رفع انسداد
+
+harness پارامتر `-PostgresBin` دارد، پس نصب کامل لازم نیست: کافی است آرشیو باینری‌های PostgreSQL 17 ویندوز هرجا استخراج شود و مسیر `bin` آن پاس داده شود. این روش هیچ سرویس، رکورد registry یا دسترسی administrator لازم ندارد. یک VM توسعه یک‌بارمصرف هم قابل قبول است.
+
+### نتیجه گیت‌ها در این تلاش
+
+migration روی PostgreSQL، اجرای مجموعه تست روی PostgreSQL، proof همزمانی، proof قید/یکپارچگی، proof نقش‌های دیتابیس، dump و restore — **هیچ‌کدام اجرا نشدند**. هیچ ادعای موفقیتی برای آن‌ها ثبت نمی‌شود.
+
 ## ۰. ممیزی حقیقت رانتایم و اتصال UI↔backend — ۲۰۲۶/۰۸/۱۵
 
 هدف این فاز پاسخ به یک پرسش مشخص مالک محصول بود: آیا فرانت واقعا به backend وصل است و آنچه ادعا شده واقعا کار می‌کند؟ پاسخ با **اجرای واقعی** به‌دست آمد، نه با خواندن کد یا اعتماد به prose.
@@ -147,7 +196,7 @@ python manage.py test                                   Ran 356 tests — OK (sk
 | `P0R.4` سخت‌سازی build-context | **تکمیل تا سقف این هاست** | `.dockerignore` اصلاح‌شده، `scripts/validate_image_content.py`، `common/tests/test_image_content.py` |
 | `P0R.3` طراحی deployment-profile | **مقایسه تکمیل شد؛ منتظر انتخاب مالک محصول** | `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` |
 | `P0R.1` survey زیرساخت | `BLOCKED_EXTERNAL` — ابزار پرسش آماده شد | `docs/ops/TARGET_SITE_SURVEY.md` |
-| `P0R.2` PostgreSQL زودهنگام | `RUNTIME_UNPROVED` — blocker دقیق تایید و ثبت شد | بخش جدید در `docs/backend/POSTGRES_TESTING.md` |
+| `P0R.2` PostgreSQL زودهنگام | **`BLOCKED_ENVIRONMENT`** — تلاش اجرا در ۲۰۲۶/۰۸/۱۵ انجام شد و شکست خورد چون PostgreSQL نصب نیست؛ جزئیات زیر | `docs/backend/POSTGRES_TESTING.md` |
 | `P1` بستن تصمیم‌ها | منتظر پاسخ مالک محصول — پرسش‌ها دقیق و پاسخ‌پذیر شدند | `docs/backend/OPEN_BUSINESS_DECISIONS.md` |
 
 ### نتیجه P0R.4 — نشتی build-context بسته شد (با شاهد اجراشده)
@@ -448,4 +497,4 @@ PROFILE-001 PARTIALLY RESOLVED
 باز — معماری (تولید همین فاز):
 
 30. کدام گزینه طراحی deployment-profile تایید می‌شود — Option A (manifest امضاشده بیرونی)، Option B (مدل دیتابیسی `DeploymentProfile`)، یا Option C (ترکیب manifest + کش رانتایم دیتابیس)؟ **مقایسه کامل روی هر ۱۴ معیار اکنون در `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` آماده است.** ارزیابی مهندسی: Option C توصیه می‌شود، Option A جایگزین کوچک‌تر قابل‌قبول، Option B توصیه نمی‌شود (کنترل entitlement داخل ذخیره‌ای که مشتری می‌تواند ویرایش کند، و restore از backup قدیمی می‌تواند feature حذف‌شده را بی‌صدا برگرداند). انتخاب نهایی با مالک محصول است.
-31. آیا نصب PostgreSQL روی همین ماشین توسعه مجاز است تا گیت `P0R.2` باز شود، یا یک هاست staging جدا تامین می‌شود؟ (این فاز چیزی نصب نکرد — نصب نرم‌افزار سیستمی بدون اجازه صریح انجام نمی‌شود.)
+31. **(مسدودکننده فعال `P0R.2`)** کدام مسیر برای فراهم‌کردن PostgreSQL 17 تایید می‌شود؟ گزینه‌ها به‌ترتیب کم‌اثرترین: **(الف)** استخراج آرشیو باینری ویندوز در یک پوشه و اجرای `scripts/test-postgres.ps1 -PostgresBin '<path>\bin'` — بدون نصب، بدون سرویس، بدون registry، بدون دسترسی administrator؛ **(ب)** نصب معمولی PostgreSQL 17؛ **(ج)** یک VM توسعه یک‌بارمصرف. هیچ‌کدام بدون اجازه صریح شما انجام نمی‌شود. ضمنا برای نیمه «restore» این فاز، یا Docker لازم است یا افزودن یک گام restore native به harness — تایید کنید کدام (بخش ۰.۰).

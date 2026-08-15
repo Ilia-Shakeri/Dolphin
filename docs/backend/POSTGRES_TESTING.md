@@ -20,59 +20,113 @@ The harness runs Django checks, migration drift detection, and the full test sui
 
 SQLite test success is logic proof only. Harness success is local PostgreSQL migration, constraint, transaction, and query proof. Neither is production deployment proof.
 
-## Current status (phase P0R.2, 2026-08-15)
+## Current status (phase P0R.2 attempt, 2026-08-15)
 
-`RUNTIME_UNPROVED` — the harness cannot run on the current development host.
+`BLOCKED_ENVIRONMENT` — PostgreSQL is not installed on the developer host, so
+no part of the PostgreSQL proof could be executed.
 
-Verified by direct probe on this host, not assumed:
+### Version contract
+
+The repository does specify a version: `docs/ops/DEPLOYMENT.md` states the `db`
+service is **PostgreSQL 17**. Use that. The Compose image is pinned by digest
+through `KARIZ_POSTGRES_IMAGE`, so the digest — not a tag — is the release
+contract. `psycopg[binary]==3.2.13` is the client and imposes no narrower bound.
+
+### Tooling probe
+
+Exhaustively verified on this host, not assumed:
 
 ```text
-psql        MISSING
-initdb      MISSING
-pg_ctl      MISSING
-pg_dump     MISSING
-pg_restore  MISSING
-docker      MISSING
-docker-compose MISSING
-C:\Program Files\PostgreSQL   does not exist
-C:\Program Files\Docker       does not exist
+psql pg_dump pg_restore initdb pg_isready pg_ctl createdb postgres   all MISSING
+docker                                                              MISSING
+C:\Program Files\PostgreSQL, C:\Program Files (x86)\PostgreSQL,
+C:\PostgreSQL                                                       absent
+Windows service matching *postgres*                                 none
+Registry uninstall entries (PostgreSQL/pgAdmin/EnterpriseDB)         none
+HKLM:\SOFTWARE\PostgreSQL                                            absent
+scoop / chocolatey / LOCALAPPDATA / C:\tools locations               absent
+recursive search for psql.exe on C:                                  no match
 
-python 3.14.5
-django 5.2.17
-psycopg 3.2.13   <- driver present, server tooling absent
+python 3.14.5 | django 5.2.17 | psycopg 3.2.13  (driver present, server absent)
 ```
 
-The exact blocker is the absence of PostgreSQL **server** binaries. The Python
-driver is installed, so the application can already talk to a PostgreSQL server
-that exists elsewhere; what is missing is the ability to create a local
-cluster, which `scripts/test-postgres.ps1` requires (`initdb`, `pg_ctl`,
-`psql`, `createdb`, `pg_dump`).
+The blocker is the absence of PostgreSQL **server** binaries. The driver is
+installed, so the application could already talk to a PostgreSQL server that
+exists elsewhere; what is missing is the ability to create a local cluster,
+which `scripts/test-postgres.ps1` requires.
 
-Note also that this host runs Python 3.14.5 while the production image pins
-CPython 3.13 (`Dockerfile` rejects any other minor version). Local results are
-therefore proof of logic, not of the exact production interpreter.
+Note this host runs Python 3.14.5 while the production image pins CPython 3.13
+(`Dockerfile` rejects any other minor version), so local results prove logic,
+not the exact production interpreter.
 
-### To clear this blocker
+### Harness safety audit (static, passed)
 
-Either is sufficient; no application code change is involved.
+`scripts/test-postgres.ps1` was read in full before any attempt to run it. It
+cannot reach a production or pre-existing database:
 
-1. **Install PostgreSQL locally.** Any currently supported major version. The
-   harness auto-detects tools on `PATH`, or accepts an explicit path:
+- it runs `initdb` to build a **new throwaway cluster** under the OS temp
+  directory rather than connecting to any existing server;
+- the data path must match the `kariz-pgtest-<guid>` prefix, checked both before
+  creation and again before deletion, and it throws instead of deleting anything
+  outside that prefix;
+- it binds `127.0.0.1` only, on a random high port, and explicitly rejects 5432
+  and any port ≤ 1024;
+- database names, role names, and passwords are all bound to a random run token;
+- `config/postgres_test_guard.py` independently re-validates the flag, token
+  format, loopback host, non-5432 high port, token-matched database name, and
+  the `kariz_test_` user prefix, so a misconfigured environment fails closed;
+- every touched environment variable and `PATH` is saved and restored in
+  `finally`, the cluster is stopped in `finally`, and no password is printed.
 
-   ```powershell
-   powershell -NoProfile -File scripts/test-postgres.ps1 -PostgresBin 'C:\Program Files\PostgreSQL\17\bin'
-   ```
+Confirmed by execution: with the tooling absent the harness aborts at tool
+resolution (`CommandNotFoundException` on `initdb`) and does **not** fall back to
+any other server.
 
-2. **Provision a staging host** with PostgreSQL, or with Docker so the
-   `compose.yml` stack can run. A staging host additionally unblocks P13.
+### Coverage gap found while auditing
+
+The harness proves the backup role can `pg_dump`, but it never calls
+`pg_restore`. The only restore verifier, `scripts/verify-postgres-restore.sh`,
+is container-bound: it hardcodes the `/backups` and `/ops` mounts and requires a
+`.kariz-backup-root` sentinel, so it belongs to the Compose `restore-verify`
+profile and cannot run natively on Windows.
+
+Therefore, even once PostgreSQL is installed, the "isolated restore" half of the
+P0R.2 gate needs one of:
+
+- Docker plus the Compose `restore-verify` profile, or
+- a small native restore step added to the harness (`createdb` a second
+  database, `pg_restore` the dump into it, then run
+  `scripts/verify-postgres-schema.sql` against it).
+
+This is a tooling gap, not an application defect.
+
+### To clear the blocker
+
+The harness accepts an explicit binary directory, so a full installer is not
+required:
+
+```powershell
+# Option A - no admin install: extract the PostgreSQL 17 Windows binaries
+# archive anywhere, then point the harness at its bin directory.
+powershell -NoProfile -File scripts/test-postgres.ps1 -PostgresBin 'C:\pgsql\bin'
+
+# Option B - normal installer, tools on PATH
+powershell -NoProfile -File scripts/test-postgres.ps1
+```
+
+Option A installs no service, writes no registry entry, and needs no
+administrator rights; the harness creates and destroys its own cluster. A
+disposable developer VM is equally acceptable. Docker is not required except for
+the container-bound restore verifier described above.
 
 ### What clearing it unblocks
 
-- The PostgreSQL-only tests that currently skip in every local run.
-- The `P0R.2` completion gate: migrations, constraints, transaction semantics,
-  row locking, concurrency harness, database roles, backup, isolated restore.
+- The 7 PostgreSQL-only tests, whose sole skip condition is
+  `connection.vendor == "postgresql"`.
+- The `P0R.2` gates: fresh migration, constraints, transaction semantics, row
+  locking, concurrency, the four-role privilege contract, dump, and restore.
 - Phase `P4` (Inventory) cannot be declared complete on SQLite evidence alone,
-  because its correctness depends on concurrency behaviour that SQLite does not
+  because its correctness depends on concurrency behaviour SQLite does not
   reproduce. Until this gate is green, P4 output is "local-only, PostgreSQL
   proof outstanding".
 
