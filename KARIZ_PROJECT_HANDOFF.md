@@ -45,7 +45,7 @@ OpenSSL 3.5.5 → امضای ما را می‌پذیرد                 Signatu
 
 ### نتیجه اصلی: اپلیکیشن روی PostgreSQL واقعی کار می‌کند
 
-اولین اجرای مجموعه روی PostgreSQL: **۱۰ failure و ۱۸ error**. پس از اصلاح، مجموعه سبز شد؛ آخرین اجرا **۴۶۵ تست، `OK`، ۶ skip** روی PostgreSQL و **۴۶۵ تست، `OK`، ۷ skip** روی SQLite. هیچ‌کدام از نقص‌ها در اپلیکیشن نبود — همه در تست یا تنظیمات تست بودند و **هیچ migration مخزن ساخته نشد** (`makemigrations --check` تمیز). یک دیتابیس تازه از migrationها صحیح ساخته می‌شود (مستقیما بازرسی شد: `postal_code` موجود، هر ۱۳ migration اپ `sales` اعمال).
+اولین اجرای مجموعه روی PostgreSQL: **۱۰ failure و ۱۸ error**. پس از اصلاح، مجموعه سبز شد؛ آخرین اجرا **۴۶۶ تست، `OK`، ۶ skip** روی PostgreSQL و **۴۶۶ تست، `OK`، ۷ skip** روی SQLite. هیچ‌کدام از نقص‌ها در اپلیکیشن نبود — همه در تست یا تنظیمات تست بودند و **هیچ migration مخزن ساخته نشد** (`makemigrations --check` تمیز). یک دیتابیس تازه از migrationها صحیح ساخته می‌شود (مستقیما بازرسی شد: `postal_code` موجود، هر ۱۳ migration اپ `sales` اعمال).
 
 ### هر ۷ تست PostgreSQL-only اکنون اجرا و pass می‌شوند
 
@@ -148,7 +148,7 @@ powershell -NoProfile -File scripts/test-postgres.ps1 \
 
 check (postgres_test_settings)          → System check identified no issues
 makemigrations --check                  → No changes detected   (drift صفر)
-manage.py test (روی PostgreSQL)         → Ran 465 tests, OK (skipped=6)
+manage.py test (روی PostgreSQL)         → Ran 466 tests, OK (skipped=6)
 bootstrap نقش‌ها (اجرای اول)             → PostgreSQL managed roles are ready.
 migrate روی دیتابیس contract            → همه migrationها OK
 finalizer پس از migration (اجرای دوم)    → PostgreSQL managed roles are ready.
@@ -172,8 +172,8 @@ pg_restore داخل دیتابیس دوم گارد-شده      → موفق، --
 ```text
 check → 0 | makemigrations --check → No changes detected | spectacular → 0
 collectstatic → 0 | branding → PASS files=228 | node --check → 0
-validate_image_content --context → PASS files=157 | git diff --check → 0
-manage.py test → Ran 465 tests, OK (skipped=7)
+validate_image_content --context → PASS files=158 | git diff --check → 0
+manage.py test → Ran 466 tests, OK (skipped=7)
 ```
 
 ### پاکسازی
