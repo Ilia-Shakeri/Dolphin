@@ -120,13 +120,31 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
                 failed.append((response["status"], response["url"]))
         self.assertEqual(failed, [])
 
+    def open_create_dialog(self, button_id, dialog_id):
+        """Click a create button until its dialog is actually open.
+
+        Each page attaches its open-dialog handler only after the initial API
+        loads resolve, so a click that lands earlier is silently discarded. On
+        SQLite the loads finish in microseconds and this is never observed; real
+        PostgreSQL latency makes it reproducible.
+        """
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, button_id)))
+
+        def _click_until_open(driver):
+            dialog = driver.find_element(By.ID, dialog_id)
+            if dialog.get_property("open"):
+                return True
+            driver.find_element(By.ID, button_id).click()
+            return driver.find_element(By.ID, dialog_id).get_property("open")
+
+        self.wait.until(_click_until_open)
+
     def test_customer_lead_assignment_history_and_manual_call_flow(self):
         self.browser.set_window_size(1440, 1000)
         self.login()
 
         self.browser.get(f"{self.live_server_url}/customers/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-customer")))
-        self.browser.find_element(By.ID, "open-create-customer").click()
+        self.open_create_dialog("open-create-customer", "create-customer-dialog")
         self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مرورگر")
         self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121110000")
         self.browser.find_element(By.ID, "create-customer-postal-code").send_keys("کد ۱۲۳")
@@ -147,8 +165,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "phones-table-body"), "+989129990000"))
 
         self.browser.get(f"{self.live_server_url}/leads/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-lead")))
-        self.browser.find_element(By.ID, "open-create-lead").click()
+        self.open_create_dialog("open-create-lead", "create-lead-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-lead-customer")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مرورگر")
         self.browser.find_element(By.ID, "create-lead-source").send_keys("ثبت دستی مرورگر")
@@ -163,8 +180,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "history-table-body"), "کارشناس مرورگر"))
 
         self.browser.get(f"{self.live_server_url}/interactions/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-interaction")))
-        self.browser.find_element(By.ID, "open-create-interaction").click()
+        self.open_create_dialog("open-create-interaction", "create-interaction-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-interaction-lead")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-interaction-lead")).select_by_index(1)
         self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121110000")
@@ -217,7 +233,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
                 "محصول غیرفعال مرورگر",
             )
         )
-        self.browser.find_element(By.ID, "open-create-product").click()
+        self.open_create_dialog("open-create-product", "create-product-dialog")
         self.browser.find_element(By.ID, "create-product-sku").send_keys("WEB-1")
         self.browser.find_element(By.ID, "create-product-name").send_keys("محصول مرورگر")
         self.browser.find_element(By.ID, "create-product-price").send_keys("12.50")
@@ -231,8 +247,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "global-message"), "محصول ذخیره شد"))
 
         self.browser.get(f"{self.live_server_url}/sales/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-sale")))
-        self.browser.find_element(By.ID, "open-create-sale").click()
+        self.open_create_dialog("open-create-sale", "create-sale-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sale-lead")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("مشتری فروش مرورگر — ثبت مستقیم مرورگر")
         Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — 15.00")
@@ -318,7 +333,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(
             lambda driver: len(Select(driver.find_element(By.ID, "product-category-filter")).options) > 1
         )
-        self.browser.find_element(By.ID, "open-create-product").click()
+        self.open_create_dialog("open-create-product", "create-product-dialog")
         self.browser.find_element(By.ID, "create-product-sku").send_keys("CAT-WEB-1")
         self.browser.find_element(By.ID, "create-product-name").send_keys("محصول دسته‌دار مرورگر")
         Select(self.browser.find_element(By.ID, "create-product-category")).select_by_visible_text("کالای مرورگر")
@@ -480,8 +495,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             self.browser.delete_all_cookies()
             self.login(self.manager)
             self.browser.get(f"{self.live_server_url}/sales-documents/")
-            self.wait.until(expected_conditions.element_to_be_clickable((By.ID, "open-create-sales-document")))
-        self.browser.find_element(By.ID, "open-create-sales-document").click()
+        self.open_create_dialog("open-create-sales-document", "create-sales-document-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sales-document-customer")).options) > 1)
         customer_select = Select(self.browser.find_element(By.ID, "create-sales-document-customer"))
         customer_select.select_by_visible_text("مشتری سند مرورگر")

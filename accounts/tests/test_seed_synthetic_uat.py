@@ -3,10 +3,12 @@ import tempfile
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
+from unittest import skipUnless
 from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection
 from django.test import TestCase
 
 from accounts.management.commands.seed_synthetic_uat import (
@@ -29,6 +31,18 @@ from sales.models import (
 
 
 TEST_PASSWORD = "Uat-Only-Safe-Pass-963!"
+
+
+# seed_synthetic_uat deliberately accepts only `uat_kariz_*` databases on
+# PostgreSQL, and on SQLite only the `config.test_settings` database. The
+# isolated PostgreSQL harness runs against `test_kariz_<token>`, so the command
+# refuses it by design. The tests below need to get past that guard to exercise
+# the command body, so they run on SQLite. The guard itself is covered on every
+# vendor by test_database_identity_guard_is_narrow.
+SEEDABLE_DATABASE_ONLY = skipUnless(
+    connection.vendor == "sqlite",
+    "seed_synthetic_uat only accepts an approved UAT or config.test_settings database.",
+)
 
 
 class SeedSyntheticUatTests(TestCase):
@@ -124,6 +138,7 @@ class SeedSyntheticUatTests(TestCase):
                     )
         self.assert_guarded_tables_empty()
 
+    @SEEDABLE_DATABASE_ONLY
     def test_refuses_nonempty_guarded_table_before_password(self):
         ActivityLog.objects.create(
             actor=None,
@@ -145,6 +160,7 @@ class SeedSyntheticUatTests(TestCase):
         self.assertEqual(ActivityLog.objects.count(), 1)
         self.assertFalse(User.objects.exists())
 
+    @SEEDABLE_DATABASE_ONLY
     def test_requires_validated_password_before_any_write(self):
         with patch.dict(
             os.environ,
@@ -163,6 +179,7 @@ class SeedSyntheticUatTests(TestCase):
         self.assertNotIn("12345678", str(caught.exception))
         self.assert_guarded_tables_empty()
 
+    @SEEDABLE_DATABASE_ONLY
     def test_creates_exact_synthetic_graph_without_secret_output(self):
         stdout, stderr = self.run_seed()
 
@@ -277,6 +294,7 @@ class SeedSyntheticUatTests(TestCase):
         self.assertTrue(ActivityLog.objects.filter(operation="sale.created").exists())
         self.assertTrue(ActivityLog.objects.filter(operation="after_sales.created").exists())
 
+    @SEEDABLE_DATABASE_ONLY
     def test_rerun_refuses_without_changing_rows(self):
         self.run_seed()
         counts = {model: model.objects.count() for model in GUARDED_MODELS}
@@ -287,6 +305,7 @@ class SeedSyntheticUatTests(TestCase):
             counts,
         )
 
+    @SEEDABLE_DATABASE_ONLY
     def test_failure_rolls_back_whole_graph(self):
         with patch(
             "accounts.management.commands.seed_synthetic_uat.mark_sale",

@@ -103,12 +103,21 @@ class AfterSalesRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login(self.manager)
         self.browser.get(f"{self.live_server_url}/after-sales/")
+        # The button is server-rendered, but its click handler is only attached
+        # after the page's initial API loads resolve, so a click that lands
+        # earlier is silently discarded. Real database latency makes that easy
+        # to hit, so click until the dialog is genuinely open.
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-after-sales")))
-        self.browser.find_element(By.ID, "open-create-after-sales").click()
-        # The option list is filled asynchronously after the dialog opens, so
-        # wait for the control to be both populated and actually interactable.
+
+        def _click_until_open(driver):
+            dialog = driver.find_element(By.ID, "create-after-sales-dialog")
+            if dialog.get_property("open"):
+                return True
+            driver.find_element(By.ID, "open-create-after-sales").click()
+            return driver.find_element(By.ID, "create-after-sales-dialog").get_property("open")
+
+        self.wait.until(_click_until_open)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-after-sales-customer")))
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-after-sales-customer")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-after-sales-customer")).select_by_visible_text("مشتری مرورگر خدمات")
         Select(self.browser.find_element(By.ID, "create-after-sales-assigned")).select_by_visible_text("اپراتور خدمات")
         self.browser.find_element(By.ID, "create-after-sales-subject").send_keys("پیگیری مرورگر")

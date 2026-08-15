@@ -319,7 +319,16 @@ class PostgresMigrationUpgradeTests(TransactionTestCase):
 
             old_executor.migrate(new_target)
         finally:
-            MigrationExecutor(connection).migrate(new_target)
+            # This is a TransactionTestCase, so schema changes are not rolled
+            # back: the database must be returned to the newest migration state,
+            # not merely to new_target. Leaving it at 0010 would strip every
+            # later sales column from each test that runs afterwards.
+            #
+            # Every app is restored, not just sales: unapplying sales back to
+            # 0004 also unapplies the migrations that depend on it, which drops
+            # the aftersales and communications tables.
+            restore_executor = MigrationExecutor(connection)
+            restore_executor.migrate(restore_executor.loader.graph.leaf_nodes())
 
         self.assertTrue(
             MigrationRecorder(connection).migration_qs.filter(

@@ -1,13 +1,13 @@
 from decimal import Decimal
 from importlib import import_module
 from datetime import timedelta
-from unittest import mock
+from unittest import mock, skipUnless
 
 from django.apps import apps as django_apps
 from django.contrib.auth.models import Group
 from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.utils import timezone
@@ -108,6 +108,10 @@ class CoreWorkflowTests(TestCase):
             )
         self.assertEqual(Interaction.objects.count(), before_interactions)
 
+    @skipUnless(
+        connection.vendor == "sqlite",
+        "PostgreSQL enforces varchar length, so an oversized legacy row cannot be created.",
+    )
     def test_text_limit_migration_preflight_lists_ids_not_values(self):
         marker = "private-oversized-text-marker"
         oversized = Customer.objects.create(
