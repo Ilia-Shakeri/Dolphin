@@ -26,6 +26,16 @@ x-django-environment: &django-environment
   # without a manifest that verifies.
   KARIZ_DEPLOYMENT_MANIFEST: /profile/manifest.json
   KARIZ_DEPLOYMENT_MANIFEST_KEYS: ${KARIZ_DEPLOYMENT_MANIFEST_KEYS:?KARIZ_DEPLOYMENT_MANIFEST_KEYS must list the trusted key_id:base64_public_key pairs}
+  # Transport security to PostgreSQL. Empty keeps libpq's default, which is
+  # right here because `backend` is an internal network the database never
+  # leaves. A split app/database deployment must set verify-full and mount a CA.
+  POSTGRES_SSLMODE: ${POSTGRES_SSLMODE:-}
+  POSTGRES_SSLROOTCERT: ${POSTGRES_SSLROOTCERT:-}
+  # Server-generated PDF. Off unless the image actually contains a browser;
+  # browser print / save-as-PDF works either way.
+  KARIZ_PDF_RENDERER: ${KARIZ_PDF_RENDERER:-}
+  KARIZ_PDF_CHROMIUM_BINARY: ${KARIZ_PDF_CHROMIUM_BINARY:-}
+  KARIZ_PDF_RENDER_TIMEOUT_SECONDS: ${KARIZ_PDF_RENDER_TIMEOUT_SECONDS:-20}
 
 services:
   db:

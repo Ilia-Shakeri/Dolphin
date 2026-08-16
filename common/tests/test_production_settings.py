@@ -537,3 +537,54 @@ class ProductionSettingsTests(SimpleTestCase):
             "secrets",
         }
         self.assertTrue(required_patterns.issubset(set(dockerignore)))
+
+
+class DatabaseTransportSecurityTests(SimpleTestCase):
+    """TLS to the database, which a split app/database deployment needs.
+
+    A single-host deployment reaches PostgreSQL only over an internal Docker
+    network that never leaves the machine, so the default stays exactly as it
+    was. The moment the connection crosses a real network, the operator has to
+    say so explicitly — and a mode that promises verification must come with
+    something to verify against.
+    """
+
+    def build(self, **overrides):
+        environment = {**VALID_PRODUCTION_ENVIRONMENT, **overrides}
+        return validate_production_environment(environment)
+
+    def test_no_ssl_option_is_added_unless_the_deployment_asks(self):
+        with mock.patch.dict(os.environ, VALID_PRODUCTION_ENVIRONMENT, clear=False):
+            settings_module = importlib.reload(importlib.import_module("config.production_settings"))
+        options = settings_module.DATABASES["default"]["OPTIONS"]
+        self.assertEqual(options, {"connect_timeout": 3})
+
+    def test_a_requested_mode_reaches_libpq(self):
+        environment = {**VALID_PRODUCTION_ENVIRONMENT, "POSTGRES_SSLMODE": "require"}
+        with mock.patch.dict(os.environ, environment, clear=False):
+            settings_module = importlib.reload(importlib.import_module("config.production_settings"))
+        self.assertEqual(settings_module.DATABASES["default"]["OPTIONS"]["sslmode"], "require")
+
+    def test_a_verifying_mode_carries_its_certificate_authority(self):
+        environment = {
+            **VALID_PRODUCTION_ENVIRONMENT,
+            "POSTGRES_SSLMODE": "verify-full",
+            "POSTGRES_SSLROOTCERT": "/tls/ca.pem",
+        }
+        with mock.patch.dict(os.environ, environment, clear=False):
+            settings_module = importlib.reload(importlib.import_module("config.production_settings"))
+        options = settings_module.DATABASES["default"]["OPTIONS"]
+        self.assertEqual(options["sslmode"], "verify-full")
+        self.assertEqual(options["sslrootcert"], "/tls/ca.pem")
+
+    def test_a_verifying_mode_without_a_certificate_authority_is_refused(self):
+        for mode in ("verify-ca", "verify-full"):
+            with self.subTest(mode=mode):
+                with self.assertRaises(ImproperlyConfigured):
+                    self.build(POSTGRES_SSLMODE=mode)
+
+    def test_an_unknown_mode_fails_at_startup_rather_than_at_connection_time(self):
+        with self.assertRaises(ImproperlyConfigured):
+            self.build(POSTGRES_SSLMODE="verify_full")
+        with self.assertRaises(ImproperlyConfigured):
+            self.build(POSTGRES_SSLMODE="on")

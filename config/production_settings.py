@@ -38,6 +38,18 @@ SECRET_KEY = PRODUCTION_ENV["SECRET_KEY"]
 ALLOWED_HOSTS = PRODUCTION_ENV["ALLOWED_HOSTS"]
 CSRF_TRUSTED_ORIGINS = PRODUCTION_ENV["CSRF_TRUSTED_ORIGINS"]
 AUDIT_TRUSTED_PROXY_CIDRS = PRODUCTION_ENV["AUDIT_TRUSTED_PROXY_CIDRS"]
+def _database_options():
+    """libpq options, adding TLS only when the deployment asked for it."""
+    options = {"connect_timeout": PRODUCTION_ENV["DATABASE"]["CONNECT_TIMEOUT"]}
+    sslmode = PRODUCTION_ENV["DATABASE"]["SSLMODE"]
+    if sslmode:
+        options["sslmode"] = sslmode
+    root_certificate = PRODUCTION_ENV["DATABASE"]["SSLROOTCERT"]
+    if root_certificate:
+        options["sslrootcert"] = root_certificate
+    return options
+
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -47,7 +59,7 @@ DATABASES = {
         "HOST": PRODUCTION_ENV["DATABASE"]["HOST"],
         "PORT": PRODUCTION_ENV["DATABASE"]["PORT"],
         "CONN_MAX_AGE": 60 if PRODUCTION_ENV["DATABASE_ROLE"] == "app" else 0,
-        "OPTIONS": {"connect_timeout": PRODUCTION_ENV["DATABASE"]["CONNECT_TIMEOUT"]},
+        "OPTIONS": _database_options(),
     }
 }
 

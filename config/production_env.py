@@ -92,6 +92,24 @@ def _validate_csrf_origins(origins):
             _fail("DJANGO_CSRF_TRUSTED_ORIGINS must contain HTTPS origins only.")
 
 
+SUPPORTED_SSLMODES = frozenset(
+    {"", "disable", "allow", "prefer", "require", "verify-ca", "verify-full"}
+)
+
+
+def _database_sslmode(environment):
+    """Validate POSTGRES_SSLMODE rather than passing an unknown value to libpq.
+
+    An unrecognised mode is refused here instead of at connection time, so a
+    typo fails the process at startup rather than silently behaving like
+    something the operator did not intend.
+    """
+    value = (environment.get("POSTGRES_SSLMODE") or "").strip().lower()
+    if value not in SUPPORTED_SSLMODES:
+        _fail(f"POSTGRES_SSLMODE must be one of {sorted(SUPPORTED_SSLMODES - {''})}.")
+    return value
+
+
 def _validate_proxy_networks(networks):
     try:
         parsed = [ip_network(value, strict=False) for value in networks]
@@ -163,9 +181,19 @@ def validate_production_environment(environment):
             minimum=1,
             maximum=30,
         ),
+        # Transport security to the database. Empty keeps libpq's own default,
+        # which is what a single-host deployment wants: the database is only
+        # reachable on an internal Docker network that never leaves the host.
+        # A split app/database deployment carries the connection over a real
+        # network and must set "verify-full" with a CA, or the credentials and
+        # every row cross that network in the clear.
+        "SSLMODE": _database_sslmode(environment),
+        "SSLROOTCERT": (environment.get("POSTGRES_SSLROOTCERT") or "").strip(),
     }
     if len(database["PASSWORD"]) < 16:
         _fail(f"{password_name} must be at least 16 characters.")
+    if database["SSLMODE"] in {"verify-ca", "verify-full"} and not database["SSLROOTCERT"]:
+        _fail("POSTGRES_SSLROOTCERT must name the CA bundle when POSTGRES_SSLMODE verifies the server.")
 
     hsts_seconds = _bounded_int(
         environment,
