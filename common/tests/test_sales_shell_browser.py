@@ -471,7 +471,17 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
         sale_url = self.browser.current_url
-        self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), "بازاریاب روزانه")
+        # The URL changes on redirect, but the detail page then fetches its own
+        # data. Reading the field at redirect time races that fetch: on SQLite
+        # the gap is microseconds, on real PostgreSQL under load it is not.
+        # Wait for the value, as the manager's pass over the same page below
+        # already does.
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element_value(
+                (By.ID, "sale-seller"), "بازاریاب روزانه"
+            )
+        )
 
         self.logout()
         self.login(self.manager)
