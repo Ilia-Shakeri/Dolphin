@@ -135,7 +135,7 @@ Repeat all applicable deployment gates:
 - login/logout and CSRF;
 - one scoped read per fixed CRM role;
 - Customer, Lead assignment, Product, Sale, audit, report, and XLSX critical paths using approved fixtures;
-- static, Persian/RTL, Kariz brand, browser console/network, and HTTPS checks;
+- static, Persian/RTL, ForooshBin brand, browser console/network, and HTTPS checks;
 - backup job and alert path.
 
 Keep the incident open if any gate lacks proof.

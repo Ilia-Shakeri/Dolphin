@@ -35,7 +35,7 @@ The user-created pushed final commit `95dbc71ea3a3e773a620271f3d3fbe0e88646e8b` 
 
 - Added scoped user-performance JSON and XLSX routes with exact half-open date filters, optional authorized user/Product filters, deterministic two-decimal values, zero-denominator handling, no-store responses, and workbook formula defense.
 - Added flat query-growth proof from one to five rows for users, activity logs, customers, phones, leads, interactions, products, and sales list routes.
-- Added a first-party Persian/RTL root shell and Persian Kariz admin branding with local static assets and no active vendor/demo link.
+- Added a first-party Persian/RTL root shell and Persian Kariz admin branding with local static assets and no active vendor/demo link. (The product was renamed to ForooshBin on 2026-08-16; this entry records the wording of that earlier release.)
 - Disabled schema and interactive API documentation routes in production; authenticated routes remain available in test/development settings.
 
 ### Production source and operations

@@ -130,7 +130,7 @@ docker compose exec web python manage.py bootstrap_platform_admin --username $ap
 - [ ] Sales Agent, Sales Manager, Company IT, and Platform Admin list/detail/write/action/filter scope passed with approved non-production fixtures.
 - [ ] Customer/phone uniqueness, Lead assignment/history, Interaction append-only, positive Product, Sale create/cancel, and audit critical paths passed.
 - [ ] Report JSON/XLSX scope, formulas, non-enumerating Product filter, exact money text, parity, cache, and download passed.
-- [ ] Persian/RTL root/admin, Kariz brand, static assets, target viewports, and clean browser console/network passed.
+- [ ] Persian/RTL root/admin, ForooshBin brand, static assets, target viewports, and clean browser console/network passed.
 - [ ] Capacity/load target passed on production-shaped infrastructure through the bounded read-only procedure in [LOAD_TEST.md](LOAD_TEST.md), or through one separately approved exact tool and contract, with external resource and abort evidence.
 
 ## Rollback and incident gates

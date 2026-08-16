@@ -96,8 +96,8 @@ For a separately approved backup root already accessible to the host, use only a
 
 ```powershell
 .\scripts\verify-postgres-restore.ps1 `
-  -BackupRoot 'D:\KarizBackups' `
-  -BackupFile 'D:\KarizBackups\kariz-pg-20260809T010203Z-0123456789abcdef0123456789abcdef.dump' `
+  -BackupRoot 'D:\ForooshBinBackups' `
+  -BackupFile 'D:\ForooshBinBackups\kariz-pg-20260809T010203Z-0123456789abcdef0123456789abcdef.dump' `
   -TargetHost '127.0.0.1' `
   -TargetPort 55432 `
   -DatabaseUser 'kariz_restore' `

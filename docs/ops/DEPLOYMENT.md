@@ -198,7 +198,7 @@ $approvedHost = Read-Host 'Approved HTTPS host'
 Invoke-WebRequest -UseBasicParsing -Uri "https://$approvedHost/api/v1/health/ready/"
 ```
 
-Then run controlled browser smoke for `/`, `/admin/login/`, login/logout with CSRF, one safe read per CRM role, static delivery, RTL/Persian output, Kariz branding, responsive viewports, and clean console/network behavior. Never use production customer data for smoke fixtures.
+Then run controlled browser smoke for `/`, `/admin/login/`, login/logout with CSRF, one safe read per CRM role, static delivery, RTL/Persian output, ForooshBin branding, responsive viewports, and clean console/network behavior. Never use production customer data for smoke fixtures.
 
 Only after every acceptance gate and reopen approval passes, recreate just Nginx from base Compose and prove the off mount:
 
