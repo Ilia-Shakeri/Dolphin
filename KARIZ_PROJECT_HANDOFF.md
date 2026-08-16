@@ -35,6 +35,63 @@
 - **قرارداد امتیاز PostgreSQL.** `test_runtime_table_grants_are_exact_and_history_is_append_only` هر ۱۷ جدول تازه را به‌عنوان «بدون grant» رد کرد. هر ۱۷ جدول با **حداقل امتیاز** اضافه شدند: جدول‌های سطر سند `DELETE` دارند چون حذف سطر از یک **پیش‌نویس** عملیات واقعی است (و سرویس آن را پس از پیش‌نویس رد می‌کند)، سطر فاکتور علاوه‌بر آن `UPDATE` برای snapshot بهای تمام‌شده. **دفتر حساب مشتری، تاریخچه چک و دفتر گردش انبار فقط `SELECT, INSERT` دارند** — یعنی append-only بودن نه‌فقط در کد بلکه در سطح نقش دیتابیس اجرا می‌شود. `scripts/verify-postgres-privileges.sql` به‌طور مستقل همین را اثبات می‌کند (دو فایل جدا نوشته می‌شوند تا خطای یکی را دیگری بگیرد).
 - **proof schema پس از restore.** `scripts/verify-postgres-schema.sql` فهرست ثابتی از جدول‌ها و قیدها دارد و ماژول‌های تازه در آن نبودند — یعنی proof بازیابی، دقیقا داده‌ای را که بیشترین اهمیت را دارد پوشش نمی‌داد. هر ۱۷ جدول، شمار migration هر دو اپ، و ۲۵ قید حیاتی یکپارچگی (از جمله `ledger_exactly_one_side`، `invoice_paid_within_total`، `invoice_item_line_total_matches_inputs`، `uniq_payment_idempotency_key`) اضافه شدند.
 
+### شواهد اجراشده نهایی این فاز (۲۰۲۶/۰۸/۱۶)
+
+اجرای کامل harness روی PostgreSQL 17.11 واقعی، از `initdb` تا drop، **با خروج صفر**:
+
+```text
+powershell -NoProfile -File scripts/test-postgres.ps1     -PostgresBin '<dev pgsql 17.11>in' -BashCommand '<git>inash.exe'
+→ HARNESS_EXIT = 0
+
+check (postgres_test_settings)          → System check identified no issues
+makemigrations --check                  → No changes detected   (drift صفر)
+manage.py test (روی PostgreSQL)         → Ran 569 tests, OK (skipped=6)
+bootstrap نقش‌ها (اجرای اول)             → PostgreSQL managed roles are ready.
+migrate روی دیتابیس contract            → همه migrationها OK (شامل inventory.0001،
+                                           billing.0001، billing.0002)
+finalizer پس از migration (اجرای دوم)    → PostgreSQL managed roles are ready.
+proof schema (قرارداد گسترش‌یافته)        → pass
+proof دقیق امتیازها (۱۷ جدول تازه)        → pass
+pg_dump با نقش backup                    → آرشیو custom ساخته شد
+pg_restore داخل دیتابیس دوم گارد-شده      → موفق، --single-transaction --exit-on-error
+proof schema روی دیتابیس restore‌شده      → pass — جدول‌های مالی/انبار، شمار migration
+                                           هر دو اپ، ۲۵ قید یکپارچگی و ۵ ایندکس یکتای
+                                           جزئی همگی پس از بازیابی سالم‌اند
+تزریق owner ناایمن                       → با خروج غیرصفر رد شد و rollback شد
+تزریق عضویت معکوس نقش                    → bootstrap و verifier هر دو رد کردند
+```
+
+**۶ skip روی PostgreSQL تاییدا فقط تست‌های SQLite-specific‌اند.** روی SQLite ۵۷۶ تست با **۱۳ skip** سبز است (۷ تست قرارداد صفحه ورود پس از اجرای harness افزوده شد)؛ اختلاف ۷ = ۶ probe همزمانی تازه + ۱ probe موجود که فقط روی PostgreSQL اجرا می‌شوند. یعنی **هر شش probe همزمانی تازه واقعا اجرا شدند**، نه skip.
+
+### گیت‌های مخزن (SQLite) — اجراشده
+
+```text
+manage.py test                          → Ran 576 tests, OK (skipped=13)
+check → 0 | makemigrations --check → No changes detected
+spectacular --validate --fail-on-warn   → 0
+collectstatic --dry-run                 → 0 (۱۷۹ فایل)
+check_html_branding.py                  → PASS files=249
+node --check kariz-app.js               → 0
+validate_image_content --context        → PASS files=209
+git diff --check                        → 0
+ماتریس مرورگر (شامل زنجیره بازرگانی)     → سبز
+```
+
+### پاکسازی
+
+پس از اجرا شمارش شد: صفر فرآیند `postgres`، صفر فرآیند `psql`، صفر پوشه `kariz-pgtest-*`.
+
+### آنچه هنوز انجام نشده و blocker دقیق آن
+
+| مورد | وضعیت | blocker دقیق (اجراشده/تایید شده) |
+|---|---|---|
+| endpoint تولید PDF سمت سرور | انجام نشد | هیچ کتابخانه PDF یا shaping فارسی نصب نیست (`reportlab`/`weasyprint`/`fpdf`/`arabic_reshaper`/`bidi` — همه غایب، تایید اجرا). طبق `docs/ops/DEPENDENCIES.md` افزودن وابستگی باید در ایمیج تمیز لینوکس CPython 3.13 با hash-pin حل شود؛ Docker روی این هاست نیست. **چاپ/ذخیره PDF از مرورگر کار می‌کند و مسیر عملیاتی روز اول است.** |
+| proof Compose/Nginx/TLS شبه‌تولید (`P13`) | اجرا نشد | `docker` روی این هاست غایب (تایید اجرا). |
+| شبکه/TLS/VPN سایت (`P14`) | اجرا نشد | `docs/ops/TARGET_SITE_SURVEY.md` همچنان `BLOCKED_EXTERNAL` است و پرسشنامه‌اش خالی؛ هیچ credential یا سرور staging در دسترس این نشست نیست. |
+| manifest امضاشده تولیدی | اجرا نشد | کلید خصوصی Ed25519 مالک محصول. تولید همچنان fail-closed است؛ مجموعه feature موردنظر `client-1` در `docs/backend/DEPLOYMENT_PROFILE.md` ثبت شد تا manifest بدون حدس صادر شود. |
+
+هیچ‌کدام از این چهار مورد با کد این مخزن قابل رفع نیست؛ هر چهار به یک منبع بیرونی (هاست لینوکس، پاسخ مشتری، یا کلید مالک محصول) نیاز دارند.
+
 ### ممیزی ماشینی اتصال UI — جایگزین پیمایش دستی
 
 `common/tests/test_ui_connectivity.py` هر `action` قالب و هر مسیر `/api/v1/...` در اسکریپت را در برابر URLconf resolve می‌کند، وجود handler برای هر `page_id` served را الزام می‌کند، و `href="#"` را **فقط** جایی می‌پذیرد که اسکریپت اثباتا همان id را مقداردهی کند. ممنوعیت مطلق `href="#"` قاعده اشتباهی بود: لنگری که مقصدش به داده بارگذاری‌شده وابسته است باید از جایی شروع کند؛ آنچه اهمیت دارد این است که واقعا مقداردهی شود.
