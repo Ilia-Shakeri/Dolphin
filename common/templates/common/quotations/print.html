@@ -9,7 +9,7 @@
 {% if document.status == "expired" %}<p class="print-cancelled">اعتبار این پیش‌فاکتور به پایان رسیده است</p>{% endif %}
 {% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز برای مشتری ارسال نشده است</p>{% endif %}
 <header class="print-head">
-    <div><p class="print-brand">Kariz CRM | کاریز</p><h1>پیش‌فاکتور</h1></div>
+    <div><p class="print-brand">ForooshBin | فروش‌بین</p><h1>پیش‌فاکتور</h1></div>
     <div><p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p><p><strong>تاریخ ارسال:</strong> {{ document.issued_at|jalali_datetime|default:"—" }}</p></div>
 </header>
 <div class="print-meta">

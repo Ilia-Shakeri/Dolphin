@@ -1,6 +1,6 @@
 # Deployment profile — design options (phase P0R.3)
 
-Kariz CRM ships one shared codebase to multiple customer deployments. Feature
+ForooshBin ships one shared codebase to multiple customer deployments. Feature
 availability, role permission, and object/data scope are three separate
 controls; this document is only about the first one — how a deployment learns
 which features it is allowed to run.

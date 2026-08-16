@@ -17,9 +17,9 @@ class KarizHomeTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('<html lang="fa" dir="rtl">', content)
-        self.assertIn('<title>میز کار بازاریاب | Kariz CRM</title>', content)
+        self.assertIn('<title>میز کار بازاریاب | ForooshBin</title>', content)
         self.assertIn('<meta name="robots" content="noindex,nofollow,noarchive" />', content)
-        self.assertContains(response, "Kariz CRM | کاریز")
+        self.assertContains(response, "ForooshBin | فروش‌بین")
         self.assertContains(response, "میز کار بازاریاب")
         self.assertContains(response, "پروفایل من")
         self.assertNotContains(response, "Metronic")
@@ -36,9 +36,9 @@ class KarizHomeTests(TestCase):
 class PersianAdminBrandTests(SimpleTestCase):
     def test_default_language_and_admin_brand_are_persian(self):
         self.assertEqual(settings.LANGUAGE_CODE, "fa")
-        self.assertEqual(admin.site.site_header, "مدیریت کاریز")
-        self.assertEqual(admin.site.site_title, "Kariz CRM | کاریز")
-        self.assertEqual(admin.site.index_title, "پنل مدیریت کاریز")
+        self.assertEqual(admin.site.site_header, "مدیریت فروش‌بین")
+        self.assertEqual(admin.site.site_title, "ForooshBin | فروش‌بین")
+        self.assertEqual(admin.site.index_title, "پنل مدیریت فروش‌بین")
 
     # The admin login page is no longer routed by default: ENABLE_DJANGO_ADMIN
     # is false, so /admin/ does not exist on a customer deployment. Its Persian

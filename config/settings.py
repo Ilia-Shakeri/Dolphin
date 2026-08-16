@@ -149,7 +149,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Kariz CRM API",
+    "TITLE": "ForooshBin API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     # Several modules own a field called `status` or `to_status` over different

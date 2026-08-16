@@ -1,6 +1,6 @@
 # Multi-server Docker deployment
 
-How to bring Kariz CRM up on **clean Linux servers**, in three topologies:
+How to bring ForooshBin up on **clean Linux servers**, in three topologies:
 
 1. one server running the application and PostgreSQL together;
 2. the application and PostgreSQL on separate servers;

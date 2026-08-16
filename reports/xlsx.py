@@ -49,7 +49,7 @@ def safe_spreadsheet_text(value: str) -> str:
 def build_user_performance_workbook(report: UserPerformanceReport) -> bytes:
     workbook = Workbook()
     workbook.iso_dates = True
-    workbook.properties.creator = "Kariz CRM"
+    workbook.properties.creator = "ForooshBin"
 
     sheet = workbook.active
     sheet.title = "user-performance"
@@ -113,7 +113,7 @@ def _write_money_columns(sheet, first_column, last_column):
 def _new_workbook(title):
     workbook = Workbook()
     workbook.iso_dates = True
-    workbook.properties.creator = "Kariz CRM"
+    workbook.properties.creator = "ForooshBin"
     sheet = workbook.active
     sheet.title = title
     sheet.freeze_panes = "A2"

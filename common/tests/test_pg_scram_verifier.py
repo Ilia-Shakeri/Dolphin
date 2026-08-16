@@ -95,7 +95,7 @@ class ScramVerifierDerivationTests(SimpleTestCase):
 
 class ScramVerifierInputRefusalTests(SimpleTestCase):
     def test_passwords_needing_saslprep_are_refused_rather_than_guessed(self):
-        for rejected in ("", "with space", "کاریز", "tab\tchar", "new\nline", "\x7f"):
+        for rejected in ("", "with space", "فروش‌بین", "tab\tchar", "new\nline", "\x7f"):
             with self.subTest(password=rejected):
                 with self.assertRaises(pg_scram_verifier.UnsupportedPassword):
                     pg_scram_verifier.scram_sha_256_verifier(rejected)

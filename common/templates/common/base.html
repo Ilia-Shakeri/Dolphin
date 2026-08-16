@@ -3,10 +3,10 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="utf-8">
-    <meta name="description" content="سامانه مدیریت ارتباط با مشتری کاریز">
+    <meta name="description" content="سامانه مدیریت ارتباط با مشتری فروش‌بین">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
-    <title>{% block title %}خانه{% endblock %} | Kariz CRM</title>
+    <title>{% block title %}خانه{% endblock %} | ForooshBin</title>
     <link rel="icon" href="{% static 'kariz-brand/favicon.ico' %}" sizes="any">
     <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
     <script src="{% static 'common/kariz-app.js' %}" defer></script>
@@ -15,8 +15,8 @@
 {% if request.user.is_authenticated %}
 <div class="app-shell">
     <aside class="sidebar" id="app-sidebar" aria-label="راهبری اصلی">
-        <a class="brand" href="{% url 'common_ui:home' %}">Kariz CRM <span>کاریز</span></a>
-        <nav class="nav-list" aria-label="فهرست بخش‌های کاریز">
+        <a class="brand" href="{% url 'common_ui:home' %}">ForooshBin <span>فروش‌بین</span></a>
+        <nav class="nav-list" aria-label="فهرست بخش‌های فروش‌بین">
             <a data-module="dashboard" href="{% url 'common_ui:home' %}">داشبورد</a>
 
             {% comment %} A link needs both an enabling capability (role) and an enabled feature

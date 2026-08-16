@@ -50,7 +50,7 @@ R2, the deployment cannot proceed on that OS. Two supported paths exist:
 
 - **Path 1 — dedicated appliance/server:** a separate supported machine
   (Linux host recommended, since the application image is `linux/amd64`) used
-  only for Kariz CRM.
+  only for ForooshBin.
 - **Path 2 — OS upgrade:** upgrade the existing host to a supported Windows
   Server release with a container/virtualisation layer.
 

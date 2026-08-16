@@ -4,9 +4,9 @@ Status: repository-controlled slice complete; real browser and edge-runtime proo
 
 ## Approved active brand
 
-- Product mark: `Kariz CRM` / `کاریز`.
-- Persian admin header: `مدیریت کاریز`.
-- Persian admin index title: `پنل مدیریت کاریز`.
+- Product mark: `ForooshBin` / `فروش‌بین`.
+- Persian admin header: `مدیریت فروش‌بین`.
+- Persian admin index title: `پنل مدیریت فروش‌بین`.
 
 ## Active-path manifest
 
@@ -14,7 +14,7 @@ Status: repository-controlled slice complete; real browser and edge-runtime proo
 |---|---|---|
 | `common/templates/common/home.html` | Page title, mark, and Persian product summary | Render test checks Kariz and rejects visible vendor names/external links |
 | `common/admin.py` | Django admin header, browser title, and index title | Exact admin setting/render tests |
-| `config/settings.py` | Schema title remains `Kariz CRM API` | Schema validation |
+| `config/settings.py` | Schema title remains `ForooshBin API` | Schema validation |
 | `common/static/common/kariz.css` | Project-owned visual shell with no remote brand asset | Static finder and collectstatic dry run |
 
 The active home page contains no purchase, preview, demo, remote image, remote font, or vendor link. It does not rename framework/theme runtime identifiers because none are used by this shell.
@@ -27,7 +27,7 @@ The active home page contains no purchase, preview, demo, remote image, remote f
 | Login page | No custom CRM HTML login exists; authentication is the same-origin API. Django admin login is present | Admin login render asserts Persian RTL and Kariz header |
 | Navigation and footer | No first-party navigation or footer exists in the current shell | Home source/render test proves no hidden demo action or external link |
 | Django admin | Present | `common/admin.py` owns the three exact Kariz strings; render test covers the login surface |
-| OpenAPI | Available only outside production | `config/settings.py` owns `Kariz CRM API`; schema validation covers it; production does not map schema/docs routes |
+| OpenAPI | Available only outside production | `config/settings.py` owns `ForooshBin API`; schema validation covers it; production does not map schema/docs routes |
 | Email templates | No first-party email template or email-sending feature exists | Not applicable; add a branded template and test if an approved email feature is introduced |
 | Logo, favicon, remote image, or remote font | None is referenced by the active shell | Local-template and link scan proof |
 | Operator/user documentation and runtime metadata | Current first-party operations docs, Dockerfile, Compose, and environment example are in the bounded brand scan | No vendor brand/domain match outside the two intentional negative test fixtures |

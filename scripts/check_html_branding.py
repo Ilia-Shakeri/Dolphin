@@ -21,8 +21,8 @@ SKIP_PARTS = {
 }
 THIRD_PARTY_HTML_PREFIXES = ("src/plugins/keenicons/",)
 ROBOTS_VALUE = "noindex,nofollow,noarchive"
-PRODUCT_NAME = "Kariz CRM | کاریز"
-DESCRIPTION = "سامانه مدیریت ارتباط با مشتری کاریز"
+PRODUCT_NAME = "ForooshBin | فروش‌بین"
+DESCRIPTION = "سامانه مدیریت ارتباط با مشتری فروش‌بین"
 
 VENDOR_TEXT_RE = re.compile(
     r"metronic|مترونیک|keenthemes?|ساتراس\s*وب|satras\s*web|satrasweb\.ir|"
@@ -202,7 +202,7 @@ def persian_title(path: Path) -> str:
     if relative == "index.html":
         return "داشبورد"
     if relative == "landing.html":
-        return "معرفی کاریز"
+        return "معرفی فروش‌بین"
     if parts[0] == "authentication":
         return AUTH_TITLES.get(stem, "احراز هویت")
     if parts[0] == "dashboards":
@@ -237,7 +237,7 @@ def normalize(path: Path) -> bool:
     if re.search(r"{%\s*extends\b", text):
         return False
     newline = "\r\n" if "\r\n" in text else "\n"
-    title = f"{persian_title(path)} | Kariz CRM"
+    title = f"{persian_title(path)} | ForooshBin"
 
     text = TOP_VENDOR_COMMENT_RE.sub(r"\1", text, count=1)
 
@@ -322,9 +322,9 @@ def normalize(path: Path) -> bool:
     text = re.sub(r"[\w.+-]+@keenthemes\.com", "", text, flags=re.IGNORECASE)
     text = re.sub(r"(?i)https?://[^\s\"'<>]*(?:keenthemes|envato|themeforest)[^\s\"'<>]*", "", text)
     text = re.sub(r"(?i)www\.(?:keenthemes|twitter|dribbble|facebook)\.com[^\s\"'<>]*", "", text)
-    text = re.sub(r"(?i)metronic|مترونیک", "کاریز", text)
-    text = re.sub(r"(?i)keenthemes?", "Kariz CRM", text)
-    text = re.sub(r"(?i)satras\s*web|ساتراس\s*وب|satrasweb\.ir", "کاریز", text)
+    text = re.sub(r"(?i)metronic|مترونیک", "فروش‌بین", text)
+    text = re.sub(r"(?i)keenthemes?", "ForooshBin", text)
+    text = re.sub(r"(?i)satras\s*web|ساتراس\s*وب|satrasweb\.ir", "فروش‌بین", text)
     text = re.sub(r"(?i)themeforest|envato", "", text)
     text = re.sub(r"[ \t]+(?=\r?$)", "", text, flags=re.MULTILINE)
 
@@ -346,7 +346,7 @@ def validate(path: Path) -> list[str]:
         if not html_tag or not re.search(r'\bdir=["\']rtl["\']', html_tag.group(0), re.IGNORECASE):
             errors.append("missing dir=rtl")
         title = TITLE_RE.search(text)
-        if not title or not re.fullmatch(r"<title>[^<]*[\u0600-\u06ff][^<]* \| Kariz CRM</title>", title.group(0)):
+        if not title or not re.fullmatch(r"<title>[^<]*[\u0600-\u06ff][^<]* \| ForooshBin</title>", title.group(0)):
             errors.append("invalid Persian Kariz title")
         robots = ROBOTS_RE.search(text)
         if not robots or not re.search(

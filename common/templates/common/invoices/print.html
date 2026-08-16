@@ -8,7 +8,7 @@
 {% if document.status == "cancelled" %}<p class="print-cancelled">این فاکتور ابطال شده است</p>{% endif %}
 {% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز صادر نشده است</p>{% endif %}
 <header class="print-head">
-    <div><p class="print-brand">Kariz CRM | کاریز</p><h1>فاکتور فروش</h1></div>
+    <div><p class="print-brand">ForooshBin | فروش‌بین</p><h1>فاکتور فروش</h1></div>
     <div><p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p><p><strong>تاریخ صدور:</strong> {{ document.issued_at|jalali_datetime|default:"—" }}</p></div>
 </header>
 <div class="print-meta">
@@ -45,5 +45,5 @@
     <div><span>مانده</span><span dir="ltr">{{ document.balance_due }}</span></div>
 </div>
 {% if document.notes %}<div class="print-notes">{{ document.notes }}</div>{% endif %}
-<p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه کاریز صادر شده است.</p>
+<p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه فروش‌بین صادر شده است.</p>
 {% endblock %}

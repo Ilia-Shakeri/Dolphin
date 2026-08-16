@@ -9,7 +9,7 @@
 - User-created final commit: `95dbc71ea3a3e773a620271f3d3fbe0e88646e8b` (`feat: Enhance security and API response handling`).
 - Remote proof: local `HEAD` and `origin/main` both resolved to that full commit with a clean worktree before `C-REF` and `C-REPO`.
 - Candidate form: one immutable 134-path base-to-final reference delta. No source overlay remains outside that reference.
-- Repository root: curated Kariz CRM workspace only.
+- Repository root: curated ForooshBin workspace only.
 - Deployment scope: first-party backend, active Django UI, production configuration, scripts, and operator documentation.
 - Excluded scope: dependency/vendor/minified/media/font/binary/cache trees and the unserved static template archive.
 

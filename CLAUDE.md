@@ -1,4 +1,4 @@
-# Kariz CRM — repository rules
+# ForooshBin — repository rules
 
 Concise, stable rules only. This file replaces the former long `AGENTS.md` (deleted as intentional prior work, not restored). It does not gate what may be inspected — read any first-party code relevant to the task.
 
@@ -37,7 +37,7 @@ Concise, stable rules only. This file replaces the former long `AGENTS.md` (dele
 
 ## Branding
 
-- Active first-party product branding is `Kariz CRM` / `کاریز` only. No customer name hardcoded into shared source, fixtures, tests, or default config.
+- Active first-party product branding is `ForooshBin` / `فروش‌بین` only. No customer name hardcoded into shared source, fixtures, tests, or default config.
 - Do not blindly rename stable vendor runtime identifiers (`KTMenu`, `KTDrawer`, `KTUtil`, `data-kt-*`) or delete required third-party `LICENSE`/`NOTICE` attribution.
 
 ## Working style

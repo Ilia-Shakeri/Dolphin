@@ -1,4 +1,4 @@
-# Kariz CRM frontend reference map
+# ForooshBin frontend reference map
 
 ## Authority and use
 

@@ -1,8 +1,8 @@
-# Kariz CRM — Backend Specification
+# ForooshBin — Backend Specification
 
-**Document status:** Provisional authoritative implementation specification assembled from the established Kariz CRM conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit 2026-08-14, corrected P0R 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `KARIZ_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. P0 corrected §2.3/§2.4 (stale postal/SMS blocked-module claims contradicting this document's own §5.7A/§5.9 and the actual code). P0R corrected an over-expanded Client-1 scope claim (§2.6, now three explicit tiers), an incorrect Sales Manager user-administration rule (§4/§4.1, `BIZ-005`), and an ambiguous "Linux target" architecture line — all verified by direct code inspection, not by re-reading old prose.
+**Document status:** Provisional authoritative implementation specification assembled from the established ForooshBin conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit 2026-08-14, corrected P0R 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `KARIZ_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. P0 corrected §2.3/§2.4 (stale postal/SMS blocked-module claims contradicting this document's own §5.7A/§5.9 and the actual code). P0R corrected an over-expanded Client-1 scope claim (§2.6, now three explicit tiers), an incorrect Sales Manager user-administration rule (§4/§4.1, `BIZ-005`), and an ambiguous "Linux target" architecture line — all verified by direct code inspection, not by re-reading old prose.
 
-**Product:** Kariz CRM / کاریز
+**Product:** ForooshBin / فروش‌بین
 **Architecture:** Django + Django REST Framework + PostgreSQL + Docker Compose + Nginx, modular monolith. **Correction (P0R, 2026-08-14):** "Linux target" describes the *application container image* (Linux/amd64, per `Dockerfile`/`docs/ops/DEPENDENCIES.md`) — it is not a claim about the customer's physical hosting architecture. Whether the target host runs Linux directly, Windows Server with a Hyper-V/container layer, or a dedicated appliance is unresolved and depends on the infrastructure survey in `KARIZ_CLIENT1_CODEX_ROADMAP.md`'s early infrastructure-survey gate; see `KARIZ_PROJECT_HANDOFF.md` for the exact open questions.
 **Deployment model:** Single-tenant deployment and separate database per client company, one shared codebase
 
@@ -26,7 +26,7 @@ Frontend labels, badges, demo data, fake submit handlers, and template pages are
 
 ### 2.1 Confirmed product goal
 
-Kariz CRM is an internal sales and customer-operations CRM for companies that receive phone/SMS-originated leads, distribute work to sales agents, track manual calls/interactions and successful sales, monitor performance, and export predefined reports to XLSX.
+ForooshBin is an internal sales and customer-operations CRM for companies that receive phone/SMS-originated leads, distribute work to sales agents, track manual calls/interactions and successful sales, monitor performance, and export predefined reports to XLSX.
 
 ### 2.2 Core V1 scope
 
@@ -654,7 +654,7 @@ Exact final Lead statuses, Interaction outcomes, decimal/rounding behavior, and 
 
 ### 10.1 Confirmed high-level requirement
 
-- Reports are visible inside Kariz CRM.
+- Reports are visible inside ForooshBin.
 - The same approved filtered result can be exported to XLSX.
 - V1 uses predefined reports, not a dynamic report builder.
 - Client-1 includes a bounded dynamic report builder in `FINAL_WAVE_LOW`, but its allowlisted sources/fields/joins/aggregates, ownership/sharing, authorization, query/export limits, audit, and acceptance rules remain **BLOCKED**. It does not alter the current predefined-report contract.
@@ -800,7 +800,7 @@ Use deterministic factories/fixtures and avoid real personal data.
 - Template/demo files provide visible form/table/action evidence only.
 - Many original scripts simulate success and are not real API integrations.
 - Build small Kariz-specific API/page modules rather than connecting every demo script.
-- Active product branding is `Kariz CRM` / `کاریز`.
+- Active product branding is `ForooshBin` / `فروش‌بین`.
 - Replace user-visible Metronic/KeenThemes branding, titles, login/footer text, and vendor/demo links.
 - Do not blindly rename runtime identifiers such as `KTMenu`, `KTDrawer`, `KTUtil`, `data-kt-*`, or vendor API names when behavior depends on them.
 - Preserve legally required third-party notices outside user-visible product branding.

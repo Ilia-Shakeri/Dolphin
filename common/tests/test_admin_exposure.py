@@ -121,7 +121,7 @@ class CrmIdentitiesStayOutOfAdminEvenWhenEnabledTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('<html lang="fa" dir="rtl">', content)
-        self.assertContains(response, "مدیریت کاریز")
+        self.assertContains(response, "مدیریت فروش‌بین")
 
 
 class NginxDeniesAdminTests(SimpleTestCase):
