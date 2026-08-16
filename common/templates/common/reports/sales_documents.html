@@ -4,8 +4,8 @@
 {% block content %}
 <section class="page-head"><div><p class="eyebrow">بر پایه نشانی ثبت‌شده و وضعیت جاری</p><h1>گزارش اسناد فروش و پست</h1></div></section>
 <section class="card"><form id="sales-document-report-form" action="/api/v1/reports/sales-documents/" method="get" class="toolbar" novalidate>
-    <div><label for="document-report-start">شروع بازه</label><input id="document-report-start" name="period_start" type="datetime-local" required><p class="field-error" data-error-for="period_start"></p></div>
-    <div><label for="document-report-end">پایان بازه</label><input id="document-report-end" name="period_end" type="datetime-local" required><p class="field-error" data-error-for="period_end"></p></div>
+    <div><label for="document-report-start">شروع بازه</label><input id="document-report-start" name="period_start" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="period_start"></p></div>
+    <div><label for="document-report-end">پایان بازه</label><input id="document-report-end" name="period_end" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="period_end"></p></div>
     <div><label for="document-report-province">استان</label><input id="document-report-province" name="province" maxlength="100"></div><div><label for="document-report-city">شهر</label><input id="document-report-city" name="city" maxlength="100"></div>
     <div><label for="document-report-status">وضعیت پستی</label><input id="document-report-status" name="postal_status" maxlength="80"></div><div><label for="document-report-active">حالت</label><select id="document-report-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
     <button class="button" type="submit">ساخت گزارش</button>

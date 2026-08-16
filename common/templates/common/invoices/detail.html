@@ -16,7 +16,7 @@
             <div><label for="invoice-warehouse">انبار</label><input id="invoice-warehouse" disabled></div>
             <div><label for="invoice-source">سند منبع</label><input id="invoice-source" disabled dir="ltr"></div>
             <div><label for="invoice-issued-at">زمان صدور</label><input id="invoice-issued-at" disabled></div>
-            <div><label for="edit-invoice-due">سررسید</label><input id="edit-invoice-due" name="due_at" type="datetime-local"><p class="field-error" data-error-for="due_at"></p></div>
+            <div><label for="edit-invoice-due">سررسید</label><input id="edit-invoice-due" name="due_at" type="text" data-jalali="datetime"><p class="field-error" data-error-for="due_at"></p></div>
             <div><label for="invoice-paid">پرداخت‌شده</label><input id="invoice-paid" disabled></div>
             <div><label for="invoice-balance">مانده</label><input id="invoice-balance" disabled></div>
             <div><label for="edit-invoice-discount">تخفیف سند</label><input id="edit-invoice-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="field-error" data-error-for="discount_amount"></p></div>
@@ -51,7 +51,7 @@
     <p class="muted">اقساط مساوی ساخته می‌شوند و باقیمانده گِردکردن روی قسط اول می‌نشیند، پس جمع اقساط دقیقا برابر مبلغ فاکتور است.</p>
     <form id="invoice-plan-form" class="toolbar" novalidate>
         <label class="sr-only" for="invoice-plan-count">تعداد اقساط</label><input id="invoice-plan-count" name="installment_count" type="number" min="1" max="120" value="3" required placeholder="تعداد اقساط">
-        <label class="sr-only" for="invoice-plan-start">سررسید قسط اول</label><input id="invoice-plan-start" name="start_date" type="date" required>
+        <label class="sr-only" for="invoice-plan-start">سررسید قسط اول</label><input id="invoice-plan-start" name="start_date" type="text" data-jalali="date" required>
         <label class="sr-only" for="invoice-plan-interval">فاصله (روز)</label><input id="invoice-plan-interval" name="interval_days" type="number" min="1" max="365" placeholder="فاصله (روز)">
         <button class="button button-muted" type="submit">ساخت قسط‌بندی</button>
     </form>

@@ -1,4 +1,5 @@
 {% extends "common/print_base.html" %}
+{% load jalali_tags %}
 {% block title %}فاکتور {{ document.number }}{% endblock %}
 {% block page_id %}invoice-print{% endblock %}
 {% block back_url %}{% url 'common_ui:invoice-detail' invoice_id %}{% endblock %}
@@ -8,11 +9,11 @@
 {% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز صادر نشده است</p>{% endif %}
 <header class="print-head">
     <div><p class="print-brand">Kariz CRM | کاریز</p><h1>فاکتور فروش</h1></div>
-    <div><p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p><p><strong>تاریخ صدور:</strong> {{ document.issued_at|date:"Y/m/d H:i"|default:"—" }}</p></div>
+    <div><p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p><p><strong>تاریخ صدور:</strong> {{ document.issued_at|jalali_datetime|default:"—" }}</p></div>
 </header>
 <div class="print-meta">
     <div><span>مشتری:</span><span>{{ document.customer_name_snapshot|default:document.customer.full_name }}</span></div>
-    <div><span>سررسید:</span><span>{{ document.due_at|date:"Y/m/d"|default:"هنگام صدور" }}</span></div>
+    <div><span>سررسید:</span><span>{{ document.due_at|jalali|default:"هنگام صدور" }}</span></div>
     <div><span>شناسه ملی/کد:</span><span dir="ltr">{{ document.customer.national_id|default:"—" }}</span></div>
     <div><span>وضعیت تسویه:</span><span>{{ settlement_label }}</span></div>
     <div><span>نشانی:</span><span>{{ document.customer.address|default:"—" }}</span></div>

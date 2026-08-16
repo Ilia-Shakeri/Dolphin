@@ -6,7 +6,7 @@
 <section class="card">
     <form id="installment-search-form" action="{% url 'common_ui:installments' %}" method="get" class="toolbar">
         <label class="sr-only" for="installment-status-filter">وضعیت</label><select id="installment-status-filter" name="status"><option value="">همه اقساط</option><option value="pending">پرداخت‌نشده</option><option value="partially_paid">پرداخت جزئی</option><option value="paid">پرداخت‌شده</option><option value="cancelled">لغوشده</option></select>
-        <label class="sr-only" for="installment-due-before">سررسید پیش از</label><input id="installment-due-before" name="due_before" type="date">
+        <label class="sr-only" for="installment-due-before">سررسید پیش از</label><input id="installment-due-before" name="due_before" type="text" data-jalali="date">
         <label class="sr-only" for="installment-ordering">مرتب‌سازی</label><select id="installment-ordering" name="ordering"><option value="due_date">نزدیک‌ترین سررسید</option><option value="-due_date">دورترین سررسید</option><option value="-amount">بیشترین مبلغ</option></select>
         <button class="button button-muted" type="submit">اعمال</button>
     </form>

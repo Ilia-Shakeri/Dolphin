@@ -430,7 +430,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مسیر روزانه")
         self.browser.find_element(By.ID, "create-lead-source").send_keys("صف روزانه")
         self.browser.execute_script(
-            "const e=document.getElementById('create-lead-follow-up'); e.value='2026-08-13T10:30'; e.dispatchEvent(new Event('change',{bubbles:true}));"
+            "const e=document.getElementById('create-lead-follow-up'); e.value='1405/05/22 10:30'; e.dispatchEvent(new Event('change',{bubbles:true}));"
         )
         self.browser.find_element(By.CSS_SELECTOR, "#create-lead-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/leads/\d+/$"))
@@ -459,7 +459,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         Select(self.browser.find_element(By.ID, "create-interaction-direction")).select_by_value("outbound")
         self.browser.find_element(By.ID, "create-interaction-outcome").send_keys("نیاز به پیگیری")
         self.browser.execute_script(
-            "const e=document.getElementById('create-interaction-follow-up'); e.value='2026-08-14T11:00'; e.dispatchEvent(new Event('change',{bubbles:true}));"
+            "const e=document.getElementById('create-interaction-follow-up'); e.value='1405/05/23 11:00'; e.dispatchEvent(new Event('change',{bubbles:true}));"
         )
         self.browser.find_element(By.CSS_SELECTOR, "#create-interaction-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/interactions/\d+/$"))

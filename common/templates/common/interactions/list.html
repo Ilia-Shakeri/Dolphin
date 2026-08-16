@@ -21,8 +21,8 @@
             <div><label for="create-interaction-phone">شماره تماس</label><input id="create-interaction-phone" name="phone" type="tel" required maxlength="40"><p class="field-error" data-error-for="phone"></p></div>
             <div><label for="create-interaction-direction">جهت</label><select id="create-interaction-direction" name="direction" required><option value="outbound">خروجی</option><option value="inbound">ورودی</option></select><p class="field-error" data-error-for="direction"></p></div>
             <div><label for="create-interaction-outcome">نتیجه ثبت‌شده</label><input id="create-interaction-outcome" name="outcome" required maxlength="80"><p class="field-error" data-error-for="outcome"></p></div>
-            <div><label for="create-interaction-occurred">زمان تماس</label><input id="create-interaction-occurred" name="occurred_at" type="datetime-local" required><p class="field-error" data-error-for="occurred_at"></p></div>
-            <div><label for="create-interaction-follow-up">پیگیری بعدی</label><input id="create-interaction-follow-up" name="next_follow_up_at" type="datetime-local"><p class="field-error" data-error-for="next_follow_up_at"></p></div>
+            <div><label for="create-interaction-occurred">زمان تماس</label><input id="create-interaction-occurred" name="occurred_at" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="occurred_at"></p></div>
+            <div><label for="create-interaction-follow-up">پیگیری بعدی</label><input id="create-interaction-follow-up" name="next_follow_up_at" type="text" data-jalali="datetime"><p class="field-error" data-error-for="next_follow_up_at"></p></div>
             <div class="full-field"><label for="create-interaction-notes">یادداشت</label><textarea id="create-interaction-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
         </div>
         <p class="muted">فقط تماس دستی ورودی یا خروجی ثبت می‌شود. نتیجه، متن ثبت‌شده کاربر است و کد تازه‌ای تحمیل نمی‌شود.</p>

@@ -2,6 +2,7 @@ from io import BytesIO
 
 from openpyxl import Workbook
 
+from common import jalali
 from reports.services import UserPerformanceReport
 
 
@@ -15,6 +16,25 @@ REPORT_HEADERS = (
     "average_sale_amount",
 )
 FORMULA_PREFIXES = ("=", "+", "-", "@")
+
+
+def spreadsheet_date(value):
+    """A stored Gregorian value as the Jalali text a Client-1 user expects.
+
+    `BIZ-007`: the export is client-facing, so its dates are Jalali. The column
+    names stay machine identifiers and the underlying record is untouched — this
+    converts the displayed value only, and claims no accounting meaning.
+
+    Written as text rather than a date cell on purpose: a spreadsheet has no
+    Jalali date type, so a real date cell would be silently re-rendered as
+    Gregorian by the reader's locale.
+    """
+    return jalali.format_date(value) if value not in (None, "") else ""
+
+
+def spreadsheet_datetime(value):
+    """As `spreadsheet_date`, keeping the Tehran-local time of day."""
+    return jalali.format_datetime(value) if value not in (None, "") else ""
 
 
 def safe_spreadsheet_text(value: str) -> str:
@@ -63,8 +83,15 @@ def build_user_performance_workbook(report: UserPerformanceReport) -> bytes:
 
     filters = workbook.create_sheet("filters")
     filters.append(("field", "value"))
+    # The `filters` sheet is the normalized query echoed back, and a documented
+    # contract holds it identical to the JSON response — so the canonical ISO
+    # value stays, and the Jalali rendering is added beside it rather than
+    # replacing it. The summary sheet and the data columns, which are read
+    # rather than compared, show Jalali alone.
     filters.append(("period_start", report.period_start))
+    filters.append(("period_start_jalali", spreadsheet_datetime(report.period_start)))
     filters.append(("period_end", report.period_end))
+    filters.append(("period_end_jalali", spreadsheet_datetime(report.period_end)))
     filters.append(("user_id", report.user_id))
     filters.append(("sales_product_id", report.sales_product_id))
 
@@ -126,7 +153,7 @@ def build_receivables_workbook(report):
 
     summary = workbook.create_sheet("summary")
     summary.append(("metric", "value"))
-    summary.append(("as_of", report.as_of))
+    summary.append(("as_of", spreadsheet_datetime(report.as_of)))
     summary.append(("total_outstanding", format(report.total_outstanding, ".2f")))
     for name, value in report.buckets.items():
         summary.append((name, format(value, ".2f")))
@@ -149,7 +176,7 @@ def build_profit_workbook(report):
             safe_spreadsheet_text(row.number),
             row.customer_id,
             safe_spreadsheet_text(row.customer_name),
-            row.issued_at,
+            spreadsheet_datetime(row.issued_at),
             format(row.revenue, ".2f"),
             format(row.cost, ".2f"),
             format(row.profit, ".2f"),
@@ -159,8 +186,8 @@ def build_profit_workbook(report):
 
     summary = workbook.create_sheet("summary")
     summary.append(("metric", "value"))
-    summary.append(("period_start", report.period_start))
-    summary.append(("period_end", report.period_end))
+    summary.append(("period_start", spreadsheet_datetime(report.period_start)))
+    summary.append(("period_end", spreadsheet_datetime(report.period_end)))
     summary.append(("revenue", format(report.revenue, ".2f")))
     summary.append(("cost", format(report.cost, ".2f")))
     summary.append(("profit", format(report.profit, ".2f")))
@@ -194,7 +221,7 @@ def build_inventory_valuation_workbook(report):
 
     summary = workbook.create_sheet("summary")
     summary.append(("metric", "value"))
-    summary.append(("as_of", report.as_of))
+    summary.append(("as_of", spreadsheet_datetime(report.as_of)))
     summary.append(("total_quantity", report.total_quantity))
     summary.append(("total_value", format(report.total_value, ".2f")))
     return _finish(workbook, sheet)

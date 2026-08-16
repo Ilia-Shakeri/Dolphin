@@ -152,7 +152,7 @@ exactly that phase and nothing else.
 3. Paper size and orientation (A4/A5, portrait/landscape).
 4. Which logo and company details appear in the header?
 5. Is any fixed legal text, stamp, or signature block required?
-6. Is a Jalali date shown, a Gregorian date, or both?
+6. ~~Is a Jalali date shown, a Gregorian date, or both?~~ **RESOLVED 2026-08-16 (`BIZ-007`):** Jalali everywhere a user reads or types; canonical Gregorian ISO in storage and the API. Contract: `docs/backend/DATE_AND_CALENDAR.md`.
 7. Are amounts also written in words? In Persian?
 8. Must the printed document carry a unique identifier or barcode/QR?
 9. Who may download or print each document type?

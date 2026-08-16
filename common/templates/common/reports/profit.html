@@ -5,8 +5,8 @@
 <section class="page-head"><div><p class="eyebrow">گزارش‌های مالی</p><h1>سود ناخالص فاکتورها</h1></div></section>
 <section class="card">
     <form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="toolbar">
-        <label class="sr-only" for="profit-period-start">از تاریخ</label><input id="profit-period-start" name="period_start" type="datetime-local" required>
-        <label class="sr-only" for="profit-period-end">تا تاریخ</label><input id="profit-period-end" name="period_end" type="datetime-local" required>
+        <label class="sr-only" for="profit-period-start">از تاریخ</label><input id="profit-period-start" name="period_start" type="text" data-jalali="datetime" required>
+        <label class="sr-only" for="profit-period-end">تا تاریخ</label><input id="profit-period-end" name="period_end" type="text" data-jalali="datetime" required>
         <label class="sr-only" for="profit-customer">مشتری</label><select id="profit-customer" name="customer_id"><option value="">همه مشتریان</option></select>
         <button class="button" type="submit">اعمال</button>
         <a id="profit-export" class="button button-muted" href="/api/v1/exports/profit.xlsx">خروجی اکسل</a>

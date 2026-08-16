@@ -14,7 +14,7 @@
             <div><label for="quotation-status">وضعیت</label><input id="quotation-status" disabled></div>
             <div><label for="quotation-created-by">ثبت‌کننده</label><input id="quotation-created-by" disabled></div>
             <div><label for="quotation-issued-at">زمان ارسال</label><input id="quotation-issued-at" disabled></div>
-            <div><label for="edit-quotation-valid-until">معتبر تا</label><input id="edit-quotation-valid-until" name="valid_until" type="datetime-local"><p class="field-error" data-error-for="valid_until"></p></div>
+            <div><label for="edit-quotation-valid-until">معتبر تا</label><input id="edit-quotation-valid-until" name="valid_until" type="text" data-jalali="datetime"><p class="field-error" data-error-for="valid_until"></p></div>
             <div><label for="edit-quotation-discount">تخفیف سند</label><input id="edit-quotation-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="field-error" data-error-for="discount_amount"></p></div>
             <div><label for="edit-quotation-tax">نرخ مالیات (٪)</label><input id="edit-quotation-tax" name="tax_rate" type="number" min="0" max="100" step="0.01"><p class="field-error" data-error-for="tax_rate"></p></div>
             <div class="full-field"><label for="edit-quotation-notes">یادداشت</label><textarea id="edit-quotation-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>

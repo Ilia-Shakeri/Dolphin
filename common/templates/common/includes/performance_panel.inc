@@ -7,8 +7,8 @@
     </div>
     <form id="{{ panel_prefix }}-performance-filter-form" class="performance-filter" action="/api/v1/reports/user-performance/" method="get" novalidate>
         <div class="form-grid performance-filter-grid">
-            <div><label for="{{ panel_prefix }}-period-start">شروع بازه</label><input id="{{ panel_prefix }}-period-start" name="period_start" type="datetime-local" required><p class="field-error" data-error-for="period_start"></p></div>
-            <div><label for="{{ panel_prefix }}-period-end">پایان بازه</label><input id="{{ panel_prefix }}-period-end" name="period_end" type="datetime-local" required><p class="field-error" data-error-for="period_end"></p></div>
+            <div><label for="{{ panel_prefix }}-period-start">شروع بازه</label><input id="{{ panel_prefix }}-period-start" name="period_start" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="period_start"></p></div>
+            <div><label for="{{ panel_prefix }}-period-end">پایان بازه</label><input id="{{ panel_prefix }}-period-end" name="period_end" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="period_end"></p></div>
             {% if can_view_company_reports %}<div><label for="{{ panel_prefix }}-user">کاربر</label><select id="{{ panel_prefix }}-user" name="user_id"><option value="">همه کاربران مجاز</option></select><p class="field-error" data-error-for="user_id"></p></div>{% endif %}
             <div><label for="{{ panel_prefix }}-product">محصول فروش</label><select id="{{ panel_prefix }}-product" name="sales_product_id"><option value="">همه محصولات مجاز</option></select><p class="muted field-hint">این فیلتر فقط شاخص‌های فروش را تغییر می‌دهد.</p><p class="field-error" data-error-for="sales_product_id"></p></div>
             <div class="form-actions"><a id="{{ panel_prefix }}-performance-xlsx" class="button button-muted" href="/api/v1/exports/user-performance.xlsx" download>دریافت XLSX</a><button class="button" type="submit">به‌روزرسانی</button></div>
