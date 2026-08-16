@@ -19,9 +19,9 @@
         <nav class="nav-list" aria-label="فهرست بخش‌های کاریز">
             <a data-module="dashboard" href="{% url 'common_ui:home' %}">داشبورد</a>
 
-            {# A link needs both an enabling capability (role) and an enabled feature
+            {% comment %} A link needs both an enabling capability (role) and an enabled feature
                (deployment profile). The two are separate controls: the backend
-               enforces each independently, and this markup is display only. #}
+               enforces each independently, and this markup is display only. {% endcomment %}
             {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities %}
             <details data-module="call-center" data-nav-group="call-center" open>
                 <summary>مرکز تماس</summary>

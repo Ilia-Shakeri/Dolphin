@@ -2,6 +2,7 @@
 {% block title %}فاکتور {{ document.number }}{% endblock %}
 {% block page_id %}invoice-print{% endblock %}
 {% block back_url %}{% url 'common_ui:invoice-detail' invoice_id %}{% endblock %}
+{% block pdf_url %}{% url 'common_ui:invoice-pdf' invoice_id %}{% endblock %}
 {% block document %}
 {% if document.status == "cancelled" %}<p class="print-cancelled">این فاکتور ابطال شده است</p>{% endif %}
 {% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز صادر نشده است</p>{% endif %}

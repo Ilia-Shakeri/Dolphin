@@ -7,14 +7,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
     <title>{% block title %}سند{% endblock %} | Kariz CRM</title>
+{% if pdf_mode %}
+    {% comment %} Printed by the server: the stylesheet is inlined and the script, favicon,
+       and toolbar are dropped, so the rendering browser issues no network
+       request at all while producing the file. {% endcomment %}
+    <style>{{ inline_css }}</style>
+{% else %}
     <link rel="icon" href="{% static 'kariz-brand/favicon.ico' %}" sizes="any">
     <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
     <script src="{% static 'common/kariz-app.js' %}" defer></script>
+{% endif %}
 </head>
-{# The printable document has no navigation and no controls beyond printing.
+{% comment %} The printable document has no navigation and no controls beyond printing.
    Everything on it is rendered server-side from the stored snapshot, so a
    failure to load leaves a blank page rather than an official-looking form
-   with missing numbers. #}
+   with missing numbers. {% endcomment %}
 <body data-page="{% block page_id %}document-print{% endblock %}">
 <div class="print-page">
     {% if error_status %}
@@ -25,10 +32,13 @@
             <a class="button" href="{% url 'common_ui:home' %}">بازگشت به خانه</a>
         </section>
     {% else %}
+        {% if not pdf_mode %}
         <div class="print-toolbar">
             <button id="print-document" class="button" type="button">چاپ / ذخیره PDF</button>
+            {% if pdf_available %}<a class="button" href="{% block pdf_url %}{% endblock %}">دانلود PDF</a>{% endif %}
             <a class="button button-muted" href="{% block back_url %}{% url 'common_ui:home' %}{% endblock %}">بازگشت</a>
         </div>
+        {% endif %}
         <article class="print-sheet">
             {% block document %}{% endblock %}
         </article>

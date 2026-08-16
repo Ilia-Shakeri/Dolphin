@@ -1,11 +1,11 @@
-{# Shared line block for Quotation, Order, and Invoice detail pages.
+{% comment %} Shared line block for Quotation, Order, and Invoice detail pages.
 
    The editor is rendered only for a document the backend would accept an edit
    for anyway (draft). It is display convenience, never authorisation: the
    `items` endpoint refuses a non-draft document regardless of what rendered.
 
    `doc` is the page prefix (quotation/order/invoice) and `endpoint` is the
-   document's API base path. #}
+   document's API base path. {% endcomment %}
 <section class="card">
     <div class="page-head"><h2>اقلام سند</h2><span id="{{ doc }}-lines-count" class="muted"></span></div>
     <div class="table-wrap"><table>

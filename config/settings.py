@@ -258,6 +258,16 @@ BILLING_INSTALLMENT_INTERVAL_DAYS = int(
 )
 BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("KARIZ_BILLING_MAX_DOCUMENT_ITEMS", "200"))
 
+# Server-generated PDF. Off unless a deployment sets a renderer, because the
+# only supported renderer needs a browser binary on the host and a control that
+# cannot act is never shown. Browser print / save-as-PDF works regardless.
+# Supported value: "chromium". See common/pdf.py for why no PDF library is used.
+PDF_RENDERER = os.environ.get("KARIZ_PDF_RENDERER", "")
+# Optional explicit path. When empty, a browser already on PATH is accepted,
+# which is the normal case inside an image that installed one.
+PDF_CHROMIUM_BINARY = os.environ.get("KARIZ_PDF_CHROMIUM_BINARY", "")
+PDF_RENDER_TIMEOUT_SECONDS = int(os.environ.get("KARIZ_PDF_RENDER_TIMEOUT_SECONDS", "20"))
+
 # Deployment profile (PROFILE-001, Option C). The signed external manifest is
 # the source of truth for feature availability; the database table of the same
 # name is a derived cache that never authorises anything. Feature availability,

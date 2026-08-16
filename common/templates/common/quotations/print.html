@@ -2,6 +2,7 @@
 {% block title %}پیش‌فاکتور {{ document.number }}{% endblock %}
 {% block page_id %}quotation-print{% endblock %}
 {% block back_url %}{% url 'common_ui:quotation-detail' quotation_id %}{% endblock %}
+{% block pdf_url %}{% url 'common_ui:quotation-pdf' quotation_id %}{% endblock %}
 {% block document %}
 {% if document.status == "cancelled" %}<p class="print-cancelled">این پیش‌فاکتور لغو شده است</p>{% endif %}
 {% if document.status == "expired" %}<p class="print-cancelled">اعتبار این پیش‌فاکتور به پایان رسیده است</p>{% endif %}

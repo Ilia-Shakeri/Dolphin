@@ -13,8 +13,10 @@ does not exist.
 import re
 from pathlib import Path
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import Resolver404, resolve
+
+from accounts.models import User
 
 from common.deployment.registry import ALL_FEATURES, FEATURE_DEPENDENCIES, missing_dependencies
 
@@ -85,6 +87,24 @@ class TemplateActionTests(SimpleTestCase):
                 assignment = f'getElementById("{element_id.group(1)}").href'
                 if assignment not in script:
                     offenders.append(f"{template.relative_to(ROOT)}: {element_id.group(1)} is never assigned")
+        self.assertEqual(offenders, [])
+
+    def test_no_template_comment_leaks_into_the_served_page(self):
+        """Django's `{# #}` comment cannot span lines.
+
+        A multi-line one is not a comment at all: the `{#` is literal text and
+        the whole thing renders to the reader. This shipped English developer
+        prose onto every page extending `base.html` and onto the top of every
+        printed invoice, and no existing test noticed because each one asserted
+        what *should* be present. Multi-line commentary must use
+        `{% comment %}`.
+        """
+        offenders = []
+        for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
+            text = template.read_text(encoding="utf-8")
+            for match in re.finditer(r"\{#(.*?)#\}", text, flags=re.DOTALL):
+                if "\n" in match.group(1):
+                    offenders.append(f"{template.relative_to(ROOT)}: {match.group(1).strip()[:50]}")
         self.assertEqual(offenders, [])
 
     def test_no_served_template_reaches_a_third_party_host(self):
@@ -164,3 +184,29 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_no_feature_depends_on_the_withheld_module(self):
         for feature, requires in FEATURE_DEPENDENCIES.items():
             self.assertNotIn("inbound_sms", requires, feature)
+
+
+class RenderedPageCleanlinessTests(TestCase):
+    """What actually reaches the reader carries no template syntax or dev prose.
+
+    The static check above catches the known cause; this one checks the effect
+    on real rendered pages, so a different cause producing the same symptom is
+    caught too.
+    """
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username="render.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER
+        )
+        self.client.force_login(self.manager)
+
+    def test_no_served_page_renders_template_syntax_or_developer_prose(self):
+        offenders = []
+        for path in ("/", "/customers/", "/leads/", "/products/", "/quotations/",
+                     "/orders/", "/invoices/", "/payments/", "/stock/", "/warehouses/",
+                     "/reports/receivables/", "/reports/profit/", "/login/"):
+            body = self.client.get(path).content.decode("utf-8")
+            for token in ("{#", "#}", "{%", "%}", "{{", "}}"):
+                if token in body:
+                    offenders.append(f"{path}: {token}")
+        self.assertEqual(offenders, [])

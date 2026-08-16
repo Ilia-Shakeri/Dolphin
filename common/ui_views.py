@@ -1,5 +1,7 @@
 from django.contrib.auth import SESSION_KEY, logout
+from django.http import HttpResponse
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
@@ -7,6 +9,7 @@ from django.views.generic import TemplateView
 from accounts.access import capabilities_for, crm_identities, has_any_capability, is_crm_identity
 from accounts.models import User
 from common.deployment.profile import active_profile, feature_enabled
+from common.pdf import PdfRendererUnavailable, inline_stylesheet, render_html_to_pdf, renderer_is_available
 from common.permissions import FeatureGatedViewMixin
 from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
@@ -617,6 +620,9 @@ class PrintableDocumentView(ScopedDetailView):
     def get_document(self):
         raise NotImplementedError
 
+    #: File stem for a downloaded PDF, joined with the document number.
+    pdf_name_prefix = "document"
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         if not context.get("error_status"):
@@ -628,7 +634,44 @@ class PrintableDocumentView(ScopedDetailView):
             settlement = getattr(document, "settlement_status", None)
             if settlement is not None:
                 context["settlement_label"] = SETTLEMENT_LABELS.get(settlement, settlement)
+        # Offer the download only where the server can really produce one.
+        context.setdefault("pdf_available", renderer_is_available())
         return context
+
+
+class DocumentPdfView(PrintableDocumentView):
+    """The same print page, printed by the server instead of by the reader.
+
+    Reusing the template rather than building a second layout is the whole
+    point: the PDF cannot drift away from the page that was verified in the
+    browser, because there is only one of them.
+    """
+
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        status = getattr(response, "status_code", 200)
+        if status != 200:
+            # Out of scope or feature disabled: answer exactly as the print
+            # page does, so a direct URL leaks nothing the page would not.
+            return response
+        context = response.context_data
+        context.update(pdf_mode=True, inline_css=inline_stylesheet())
+        html = render_to_string(self.template_name, context, request=request)
+        try:
+            payload = render_html_to_pdf(html)
+        except PdfRendererUnavailable:
+            return self.render_to_response(
+                self.get_context_data(
+                    error_status=503,
+                    error_title="تولید PDF در دسترس نیست",
+                    error_message="این استقرار موتور تولید PDF ندارد. از دکمه «چاپ / ذخیره PDF» مرورگر استفاده کنید.",
+                ),
+                status=503,
+            )
+        document = context["document"]
+        pdf = HttpResponse(payload, content_type="application/pdf")
+        pdf["Content-Disposition"] = f'attachment; filename="{self.pdf_name_prefix}-{document.number}.pdf"'
+        return pdf
 
 
 class KarizQuotationPrintView(PrintableDocumentView):
@@ -669,6 +712,14 @@ class KarizInvoicePrintView(PrintableDocumentView):
             .prefetch_related("items")
             .get(pk=self.kwargs["invoice_id"])
         )
+
+
+class KarizQuotationPdfView(DocumentPdfView, KarizQuotationPrintView):
+    pdf_name_prefix = "quotation"
+
+
+class KarizInvoicePdfView(DocumentPdfView, KarizInvoicePrintView):
+    pdf_name_prefix = "invoice"
 
 
 # --- Money pages -------------------------------------------------------------
