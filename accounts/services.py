@@ -6,6 +6,7 @@ from accounts.access import crm_identities, is_crm_account, is_crm_identity
 from accounts.models import User
 from accounts.platform_admin_guard import lock_platform_admin_guard
 from auditlog.services import log_activity
+from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 
 
@@ -164,6 +165,12 @@ def change_user_role(*, actor, target, role):
     actor_role_at_action = actor.role
     if role not in ROLE_RANK:
         raise BusinessRuleError({"role": "Unknown CRM role."})
+    if role == User.Role.COMPANY_IT and not feature_enabled("internal_it_role"):
+        # Feature availability is checked before role permission on purpose: a
+        # deployment that does not run this role must refuse it even for a
+        # Platform Admin, and refuse it at the API rather than only hiding the
+        # option in the page.
+        raise BusinessPermissionDenied("This deployment does not use the Company IT role.")
     if actor.role == User.Role.SALES_MANAGER:
         raise BusinessPermissionDenied("Sales Manager cannot change CRM roles.")
     if actor.role == User.Role.COMPANY_IT:

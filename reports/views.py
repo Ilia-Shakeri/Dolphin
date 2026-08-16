@@ -194,6 +194,6 @@ class UserPerformanceExportView(UserPerformanceReportMixin, APIView):
             build_user_performance_workbook(report),
             content_type=XLSX_CONTENT_TYPE,
         )
-        response["Content-Disposition"] = 'attachment; filename="kariz-user-performance.xlsx"'
+        response["Content-Disposition"] = 'attachment; filename="forooshbin-user-performance.xlsx"'
         response["Cache-Control"] = "private, no-store"
         return response

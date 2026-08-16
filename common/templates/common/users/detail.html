@@ -25,14 +25,20 @@
         <h2>تغییر نقش کنترل‌شده</h2>
         <label for="edit-role">نقش</label>
         <select id="edit-role" name="role" required>
-            <option value="sales_agent">بازاریاب (کال سنتر)</option>
-            <option value="sales_manager">مدیر فروشگاه</option>
-            <option value="company_it">مدیر فنی مشتری</option>
-            {% if request.user.role == 'platform_admin' %}<option value="platform_admin">مدیر پلتفرم</option>{% endif %}
+            {% for value, label in assignable_roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
         </select>
         <p class="field-error" data-error-for="role"></p>
         <div class="form-actions"><button class="button" type="submit">تغییر نقش</button></div>
     </form>{% endif %}
+    {% if can_change_roles %}<section class="card">
+        <div class="section-head">
+            <div><h2>نشست‌های فعال</h2><p class="muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>
+            <button id="revoke-user-sessions" class="button button-danger" type="button">پایان همه نشست‌ها</button>
+        </div>
+        <div id="user-sessions-loading" class="state">در حال دریافت نشست‌ها…</div>
+        <div id="user-sessions-empty" class="state" hidden>نشست فعالی برای این کاربر ثبت نشده است.</div>
+        <div id="user-sessions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
+    </section>{% endif %}
     <section class="card danger-zone">
         <h2>وضعیت دسترسی</h2>
         <p>کاربر غیرفعال اجازه ورود ندارد و بعدا می‌تواند در همین صفحه دوباره فعال شود. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>

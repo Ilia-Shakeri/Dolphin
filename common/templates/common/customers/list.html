@@ -4,7 +4,10 @@
 {% block content %}
 <section class="page-head">
     <div><p class="eyebrow">دفتر مشتریان</p><h1>مشتریان</h1></div>
-    <button id="open-create-customer" class="button" type="button">مشتری جدید</button>
+    <div class="row-actions">
+        <a class="button button-muted" href="/api/v1/exports/customers.xlsx">دریافت XLSX</a>
+        <button id="open-create-customer" class="button" type="button">مشتری جدید</button>
+    </div>
 </section>
 <section class="card">
     <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="toolbar">

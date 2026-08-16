@@ -158,6 +158,7 @@ impossible without the other module's rows.
 | `payments` | `customers`, `invoices` |
 | `customer_ledger` | `customers` |
 | `reports` | `customers`, `sales` |
+| `internal_it_role` | — |
 
 Profile ids known to this release: `client-1`, `demo`, `development`. A valid
 signature for an unregistered id is still refused.
@@ -175,12 +176,20 @@ inventory  quotations  orders  invoices  payments  customer_ledger
 reports  audit_log
 ```
 
-Fourteen of the fifteen registered features. The one deliberately withheld is
-`inbound_sms`: the module is built and provider-neutral, but no SMS provider
-contract, credential, or owner has arrived, so a deployment that enabled it
-would show a report with nothing behind it. Withholding it removes the route,
-the API, and the navigation entry while keeping every stored row, and enabling
-it later is a manifest change with no code change and no migration.
+Fourteen of the sixteen registered features. Two are deliberately withheld:
+
+* **`inbound_sms`** — the module is built and provider-neutral, but no SMS
+  provider contract, credential, or owner has arrived, so a deployment that
+  enabled it would show a report with nothing behind it.
+* **`internal_it_role`** — this one gates a *role* rather than a module. Client-1
+  policy is that only a Platform Admin administers users, so the `company_it`
+  role is not assignable there: it is absent from the role selector and
+  `change_user_role` refuses it at the API. Another deployment wanting an
+  on-site technical account simply lists it in its manifest.
+
+Withholding either removes the route, the API, and the navigation entry while
+keeping every stored row, and enabling one later is a manifest change with no
+code change and no migration.
 
 `ClientOneDayOneProfileTests` in `common/tests/test_deployment_profile.py`
 checks this set against the dependency table and asserts the withheld module is

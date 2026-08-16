@@ -4,7 +4,10 @@
 {% block content %}
 <section class="page-head">
     <div><p class="eyebrow">مدیریت دسترسی</p><h1>{{ user_admin_label }}</h1></div>
-    <button id="open-create-user" class="button" type="button">کاربر جدید</button>
+    <div class="row-actions">
+        <a class="button button-muted" href="/api/v1/exports/users.xlsx">دریافت XLSX</a>
+        <button id="open-create-user" class="button" type="button">کاربر جدید</button>
+    </div>
 </section>
 <section class="card">
     <form id="user-search-form" action="{% url 'common_ui:users' %}" method="get" class="toolbar">

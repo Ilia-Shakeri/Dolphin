@@ -225,3 +225,67 @@ def build_inventory_valuation_workbook(report):
     summary.append(("total_quantity", report.total_quantity))
     summary.append(("total_value", format(report.total_value, ".2f")))
     return _finish(workbook, sheet)
+
+
+USER_DIRECTORY_HEADERS = (
+    "user_id", "username", "first_name", "last_name", "role",
+    "workstream", "email", "phone", "is_active", "date_joined",
+)
+
+
+def build_user_directory_workbook(users):
+    """The CRM user directory (requirement 1.9).
+
+    No password, session key, or other credential material appears here: this is
+    a directory, and an export is exactly the kind of file that leaves the
+    building.
+    """
+    workbook, sheet = _new_workbook("users")
+    sheet.append(USER_DIRECTORY_HEADERS)
+    for user in users:
+        sheet.append((
+            user.pk,
+            safe_spreadsheet_text(user.username),
+            safe_spreadsheet_text(user.first_name),
+            safe_spreadsheet_text(user.last_name),
+            safe_spreadsheet_text(user.role),
+            safe_spreadsheet_text(user.workstream),
+            safe_spreadsheet_text(user.email),
+            safe_spreadsheet_text(getattr(user, "phone", "") or ""),
+            "yes" if user.is_active else "no",
+            spreadsheet_datetime(user.date_joined),
+        ))
+    return _finish(workbook, sheet)
+
+
+CUSTOMER_DIRECTORY_HEADERS = (
+    "customer_id", "full_name", "primary_phone", "national_id", "email",
+    "province", "city", "postal_code", "category", "is_active",
+    "created_by", "created_at",
+)
+
+
+def build_customer_directory_workbook(customers):
+    """The customer directory in the caller's scope (requirement 2.6)."""
+    workbook, sheet = _new_workbook("customers")
+    sheet.append(CUSTOMER_DIRECTORY_HEADERS)
+    for customer in customers:
+        primary = next(
+            (phone for phone in customer.phones.all() if phone.is_primary and phone.is_active),
+            None,
+        )
+        sheet.append((
+            customer.pk,
+            safe_spreadsheet_text(customer.full_name),
+            safe_spreadsheet_text(primary.normalized_phone if primary else ""),
+            safe_spreadsheet_text(customer.national_id),
+            safe_spreadsheet_text(customer.email),
+            safe_spreadsheet_text(customer.province),
+            safe_spreadsheet_text(customer.city),
+            safe_spreadsheet_text(customer.postal_code),
+            safe_spreadsheet_text(customer.category),
+            "yes" if customer.is_active else "no",
+            safe_spreadsheet_text(customer.created_by.username if customer.created_by else ""),
+            spreadsheet_datetime(customer.created_at),
+        ))
+    return _finish(workbook, sheet)

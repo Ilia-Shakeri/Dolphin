@@ -52,6 +52,14 @@ FEATURE_DEPENDENCIES = {
     "reports": frozenset({"customers", "sales"}),
     # auditlog.ActivityLog
     "audit_log": frozenset(),
+    # The `company_it` CRM role itself. Unlike every other entry this gates a
+    # *role* rather than a module, which is why it is named for the role and not
+    # for an app: some deployments want an on-site technical account, and
+    # Client-1 policy is that nobody but a Platform Admin administers users.
+    # With this absent the role cannot be assigned, is not offered in the UI,
+    # and the service refuses it — existing rows keep working and are never
+    # deleted, exactly as with any other disabled feature.
+    "internal_it_role": frozenset(),
 }
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)

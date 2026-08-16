@@ -6,7 +6,13 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import TemplateView
 
-from accounts.access import capabilities_for, crm_identities, has_any_capability, is_crm_identity
+from accounts.access import (
+    assignable_roles,
+    capabilities_for,
+    crm_identities,
+    has_any_capability,
+    is_crm_identity,
+)
 from accounts.models import User
 from common.deployment.profile import active_profile, feature_enabled
 from common.pdf import PdfRendererUnavailable, inline_stylesheet, render_html_to_pdf, renderer_is_available
@@ -266,6 +272,7 @@ class KarizUserDetailView(UserAdminView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["target_user_id"] = self.kwargs["user_id"]
+        context["assignable_roles"] = assignable_roles(self.request.user)
         return context
 
 

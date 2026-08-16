@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from accounts.access import capabilities_for
+from accounts.access import assignable_roles, capabilities_for
 from accounts.models import User
 from accounts.services import change_user_role, create_crm_user, update_crm_user
 from common.exceptions import BusinessPermissionDenied
@@ -329,3 +329,81 @@ class MaintainedUiRespectsPolicyTests(ThrottleIsolatedTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["can_manage_users"])
         self.assertContains(response, 'href="/users/"')
+
+
+class InternalItRoleGateTests(TestCase):
+    """`company_it` is a deployment feature, not a fixed part of the product.
+
+    Client-1 policy is that only a Platform Admin administers users, so that
+    role is absent from its manifest. Another deployment may want an on-site
+    technical account, so the role is gated rather than deleted — and the gate
+    has to hold at the API, not only in the page.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="gate.admin", password="Strong-pass-937!", role=User.Role.PLATFORM_ADMIN
+        )
+        self.agent = User.objects.create_user(
+            username="gate.agent", password="Strong-pass-937!", role=User.Role.SALES_AGENT
+        )
+
+    @staticmethod
+    def without_internal_it():
+        from common.deployment.profile import DeploymentProfile
+        from common.deployment.registry import ALL_FEATURES
+
+        return DeploymentProfile(
+            profile_id="client-1",
+            features=frozenset(ALL_FEATURES) - {"internal_it_role"},
+            source="signed-manifest",
+        )
+
+    def test_the_service_refuses_the_role_even_for_a_platform_admin(self):
+        from common.deployment.profile import override_active_profile
+
+        with override_active_profile(self.without_internal_it()):
+            with self.assertRaises(BusinessPermissionDenied):
+                change_user_role(actor=self.admin, target=self.agent, role=User.Role.COMPANY_IT)
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
+
+    def test_the_api_refuses_it_too(self):
+        from common.deployment.profile import override_active_profile
+
+        self.client.force_login(self.admin)
+        with override_active_profile(self.without_internal_it()):
+            response = self.client.post(
+                f"/api/v1/users/{self.agent.pk}/change-role/",
+                data={"role": "company_it"},
+                content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 403)
+
+    def test_the_page_does_not_offer_a_role_the_deployment_does_not_run(self):
+        from common.deployment.profile import override_active_profile
+
+        self.client.force_login(self.admin)
+        with override_active_profile(self.without_internal_it()):
+            content = self.client.get(f"/users/{self.agent.pk}/").content.decode("utf-8")
+        self.assertNotIn('value="company_it"', content)
+        self.assertIn('value="sales_agent"', content)
+        self.assertIn('value="sales_manager"', content)
+        self.assertIn('value="platform_admin"', content)
+
+    def test_a_deployment_that_runs_the_role_still_offers_and_accepts_it(self):
+        self.client.force_login(self.admin)
+        content = self.client.get(f"/users/{self.agent.pk}/").content.decode("utf-8")
+        self.assertIn('value="company_it"', content)
+        change_user_role(actor=self.admin, target=self.agent, role=User.Role.COMPANY_IT)
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.COMPANY_IT)
+
+    def test_a_sales_manager_is_never_offered_the_platform_admin_role(self):
+        manager = User.objects.create_user(
+            username="gate.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER
+        )
+        self.assertNotIn(
+            "platform_admin", [value for value, _ in assignable_roles(manager)]
+        )
+        self.assertIn("platform_admin", [value for value, _ in assignable_roles(self.admin)])

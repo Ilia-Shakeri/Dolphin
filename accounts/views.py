@@ -1,7 +1,7 @@
 from django.contrib.auth import login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
-from drf_spectacular.utils import OpenApiExample, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from accounts.access import crm_identities
 from accounts.models import User
 from accounts.permissions import IsUserReader
+from accounts.sessions import active_sessions_for, revoke_sessions
 from accounts.serializers import LoginSerializer, MeSerializer, RoleChangeSerializer, UserSerializer
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
@@ -141,6 +142,37 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         examples=[OpenApiExample("Role change", value={"role": User.Role.SALES_MANAGER}, request_only=True)],
         description="Sales Manager cannot change roles. Company IT may grant roles through company_it. Platform Admin may grant any fixed CRM role.",
     )
+    @extend_schema(
+        responses={200: OpenApiResponse(description="Active sessions for this user.")},
+        description="Active sessions of one user. Platform Admin only.",
+    )
+    @action(detail=True, methods=["get"], url_path="sessions")
+    def sessions(self, request, pk=None):
+        target = self.get_object()
+        rows = active_sessions_for(actor=request.user, target=target)
+        return Response({
+            "count": len(rows),
+            # Only a short prefix of each key is returned: the full value is a
+            # bearer credential, and the caller does not need it to revoke —
+            # revoking by prefix is refused, so the client sends back what it
+            # was given only when ending one specific session.
+            "results": [
+                {"session_key": row["session_key"], "expires_at": row["expires_at"]}
+                for row in rows
+            ],
+        })
+
+    @extend_schema(
+        request=None,
+        responses={200: OpenApiResponse(description="Number of sessions ended.")},
+        description="End every active session of one user. Platform Admin only.",
+    )
+    @action(detail=True, methods=["post"], url_path="revoke-sessions")
+    def revoke_sessions_action(self, request, pk=None):
+        target = self.get_object()
+        ended = revoke_sessions(actor=request.user, target=target)
+        return Response({"ended": ended})
+
     @action(detail=True, methods=["post"], url_path="change-role")
     def change_role(self, request, pk=None):
         target = self.get_object()

@@ -155,3 +155,39 @@ def capabilities_for(user):
 
 def has_any_capability(user, *capabilities):
     return bool(capabilities_for(user).intersection(capabilities))
+
+
+#: Persian labels for the roles a user may be moved to. Kept beside the rule
+#: that decides which of them are offered, so the two cannot drift.
+ROLE_LABELS = {
+    User.Role.SALES_AGENT: "بازاریاب (کال سنتر)",
+    User.Role.SALES_MANAGER: "مدیر فروشگاه",
+    User.Role.COMPANY_IT: "مدیر فنی مشتری",
+    User.Role.PLATFORM_ADMIN: "مدیر پلتفرم",
+}
+
+
+def assignable_roles(actor):
+    """The roles `actor` may move somebody to, in display order.
+
+    Two independent gates, in this order: a role its deployment does not run is
+    absent for everyone, and Platform Admin is offered only to a Platform Admin.
+    The template renders this list rather than hardcoding options, so the page
+    and `change_user_role` can never disagree about what is allowed.
+    """
+    from common.deployment.profile import feature_enabled
+
+    order = (
+        User.Role.SALES_AGENT,
+        User.Role.SALES_MANAGER,
+        User.Role.COMPANY_IT,
+        User.Role.PLATFORM_ADMIN,
+    )
+    allowed = []
+    for role in order:
+        if role == User.Role.COMPANY_IT and not feature_enabled("internal_it_role"):
+            continue
+        if role == User.Role.PLATFORM_ADMIN and getattr(actor, "role", None) != User.Role.PLATFORM_ADMIN:
+            continue
+        allowed.append((role.value, ROLE_LABELS[role]))
+    return allowed

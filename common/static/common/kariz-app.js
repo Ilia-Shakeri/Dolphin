@@ -367,6 +367,65 @@
                 showError(error);
             }
         });
+
+        setupUserSessions(userId);
+    }
+
+    /**
+     * The active sessions of one user, with the option to end them.
+     *
+     * The panel exists only for a user administrator, so it is absent rather
+     * than disabled for anyone else. Ending sessions signs the person out; it
+     * does not disable the account, which is the separate control above.
+     */
+    async function setupUserSessions(userId) {
+        const wrap = document.getElementById("user-sessions-table-wrap");
+        const body = document.getElementById("user-sessions-table-body");
+        const loading = document.getElementById("user-sessions-loading");
+        const empty = document.getElementById("user-sessions-empty");
+        const revoke = document.getElementById("revoke-user-sessions");
+        if (!wrap || !body || !loading || !empty || !revoke) return;
+
+        async function load() {
+            loading.hidden = false;
+            wrap.hidden = true;
+            empty.hidden = true;
+            try {
+                const data = await apiRequest(`/api/v1/users/${userId}/sessions/`);
+                body.replaceChildren(...data.results.map((item) => {
+                    const row = document.createElement("tr");
+                    // Only a prefix is shown: the key is a bearer credential and
+                    // printing it in full would put it on the operator's screen.
+                    const shortened = String(item.session_key || "").slice(0, 8);
+                    appendCell(row, shortened ? `${shortened}…` : "—").dir = "ltr";
+                    appendCell(row, displayDate(item.expires_at));
+                    return row;
+                }));
+                loading.hidden = true;
+                empty.hidden = data.results.length > 0;
+                wrap.hidden = data.results.length === 0;
+                revoke.disabled = data.results.length === 0;
+            } catch (error) {
+                loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        revoke.addEventListener("click", async () => {
+            if (!window.confirm("همه نشست‌های فعال این کاربر پایان یابد؟")) return;
+            revoke.disabled = true;
+            clearMessages();
+            try {
+                const result = await apiRequest(`/api/v1/users/${userId}/revoke-sessions/`, {method: "POST", body: {}});
+                globalMessage(`${result.ended} نشست پایان یافت.`, true);
+                await load();
+            } catch (error) {
+                revoke.disabled = false;
+                showError(error);
+            }
+        });
+
+        await load();
     }
 
     function appendCell(row, value) {

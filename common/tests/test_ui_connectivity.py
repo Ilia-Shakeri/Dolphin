@@ -174,16 +174,18 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_exactly_one_registered_feature_is_withheld_and_it_is_the_sms_module(self):
+    def test_the_withheld_features_are_exactly_the_two_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
-        # Built and provider-neutral, but no provider contract, credential, or
-        # owner has arrived; enabling it would show a report with nothing
-        # behind it.
-        self.assertEqual(withheld, frozenset({"inbound_sms"}))
+        # `inbound_sms` is built and provider-neutral, but no provider contract,
+        # credential, or owner has arrived; enabling it would show a report with
+        # nothing behind it. `internal_it_role` is withheld by Client-1 policy:
+        # only a Platform Admin administers users there.
+        self.assertEqual(withheld, frozenset({"inbound_sms", "internal_it_role"}))
 
-    def test_no_feature_depends_on_the_withheld_module(self):
+    def test_nothing_depends_on_a_withheld_feature(self):
         for feature, requires in FEATURE_DEPENDENCIES.items():
-            self.assertNotIn("inbound_sms", requires, feature)
+            for withheld in ("inbound_sms", "internal_it_role"):
+                self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 
 
 class RenderedPageCleanlinessTests(TestCase):
