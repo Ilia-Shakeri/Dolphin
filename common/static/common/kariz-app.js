@@ -3631,5 +3631,7 @@
     if (page === "receivables-report") setupReceivablesReport();
     if (page === "profit-report") setupProfitReport();
     if (page === "stock-valuation-report") setupStockValuationReport();
-    if (page === "invoice-print" || page === "quotation-print") setupDocumentPrint();
+    // `document-print` is the print base's own id, used when a printable page
+    // does not override it; every printable page needs the print button wired.
+    if (page === "invoice-print" || page === "quotation-print" || page === "document-print") setupDocumentPrint();
 })();

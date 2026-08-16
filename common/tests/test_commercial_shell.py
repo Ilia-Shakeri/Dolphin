@@ -2,6 +2,7 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
+from django.core.cache import cache
 from django.test import Client, SimpleTestCase, TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -74,6 +75,11 @@ class CommercialShellScopeTests(TestCase):
     password = "Strong-pass-548!"
 
     def setUp(self):
+        # Throttle history is keyed by user id and lives in the process cache,
+        # which the test database rollback does not touch. A user id reused
+        # from an earlier test would arrive already throttled and fail this
+        # test on a 429 that has nothing to do with scope or server fields.
+        cache.clear()
         self.roles = {
             role: User.objects.create_user(username=f"commercial-{role}", password=self.password, role=role)
             for role in User.Role.values

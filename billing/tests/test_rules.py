@@ -549,3 +549,56 @@ class LedgerTests(BillingFixtureMixin, TestCase):
         issue_invoice(actor=self.manager, invoice=self.draft_invoice(quantity=1))
         for entry in CustomerLedgerEntry.objects.all():
             self.assertNotEqual(entry.debit > 0, entry.credit > 0)
+
+
+class DocumentLineScopeTests(BillingFixtureMixin, TestCase):
+    """The nested line serializer must really scope its product field.
+
+    Regression: the nested serializer is constructed before DRF binds it to a
+    parent, so its own `__init__` sees an empty context. That left the product
+    queryset empty and the API refused every line — fail-closed, but it made the
+    whole document API unusable, and the fix must not overshoot into accepting
+    a product the caller may not use.
+    """
+
+    def setUp(self):
+        self.build()
+
+    def test_the_api_accepts_a_line_for_a_product_in_scope(self):
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            "/api/v1/quotations/",
+            data={"customer": self.customer.pk, "items": [{"product": self.product.pk, "quantity": 2}]},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(response.json()["line_items"][0]["product"], self.product.pk)
+
+    def test_the_api_refuses_a_line_for_an_inactive_product(self):
+        from sales.services import deactivate_product
+
+        deactivate_product(actor=self.manager, product=self.product)
+        self.client.force_login(self.manager)
+        response = self.client.post(
+            "/api/v1/quotations/",
+            data={"customer": self.customer.pk, "items": [{"product": self.product.pk, "quantity": 1}]},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("product", response.json()["items"][0])
+
+    def test_the_items_action_scopes_its_lines_too(self):
+        self.client.force_login(self.manager)
+        quotation = self.client.post(
+            "/api/v1/quotations/",
+            data={"customer": self.customer.pk, "items": [{"product": self.product.pk, "quantity": 1}]},
+            content_type="application/json",
+        ).json()
+        response = self.client.post(
+            f"/api/v1/quotations/{quotation['id']}/items/",
+            data={"items": [{"product": self.product.pk, "quantity": 5}]},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["line_items"][0]["quantity"], 5)
+        self.assertEqual(response.json()["total_amount"], "500.00")

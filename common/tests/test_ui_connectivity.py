@@ -1,0 +1,166 @@
+"""Every served control resolves to something real.
+
+This is the machine-checked half of the "no demo, placeholder, or dead control"
+requirement. Rather than trusting a manual sweep, it extracts the URLs the
+maintained UI actually references — form actions, navigation links, and every
+`/api/v1/...` path in the script — and resolves each against the URLconf.
+
+It deliberately does not test behaviour; the module test suites do that. What it
+proves is narrower and easy to regress: nothing rendered points at a route that
+does not exist.
+"""
+
+import re
+from pathlib import Path
+
+from django.test import SimpleTestCase
+from django.urls import Resolver404, resolve
+
+from common.deployment.registry import ALL_FEATURES, FEATURE_DEPENDENCIES, missing_dependencies
+
+
+ROOT = Path(__file__).resolve().parents[2]
+TEMPLATES = ROOT / "common" / "templates" / "common"
+SCRIPT = ROOT / "common" / "static" / "common" / "kariz-app.js"
+
+# A template action is a literal path; a script endpoint is a template literal
+# whose interpolations stand in for ids and query strings.
+ACTION_RE = re.compile(r'action="(/[^"]*)"')
+SCRIPT_PATH_RE = re.compile(r'["`](/api/v1/[^"`\s]*)["`]')
+INTERPOLATION_RE = re.compile(r"\$\{[^}]*\}")
+
+
+def _concrete(path):
+    """Turn a script template literal into a path the resolver can accept."""
+    path = path.split("?", 1)[0]
+    # Any interpolated segment is an id in practice; 1 resolves wherever an id
+    # is expected and leaves a trailing slash intact.
+    path = INTERPOLATION_RE.sub("1", path)
+    return re.sub(r"/{2,}", "/", path)
+
+
+class TemplateActionTests(SimpleTestCase):
+    def test_every_form_action_in_a_served_template_resolves(self):
+        unresolved = []
+        for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
+            text = template.read_text(encoding="utf-8")
+            for action in ACTION_RE.findall(text):
+                if "{" in action:
+                    # `{% url %}` output; Django itself fails the render if the
+                    # name is unknown, so the template test suite covers it.
+                    continue
+                try:
+                    resolve(_concrete(action))
+                except Resolver404:
+                    unresolved.append(f"{template.relative_to(ROOT)}: {action}")
+        self.assertEqual(unresolved, [])
+
+    def test_no_served_template_carries_a_placeholder_control(self):
+        offenders = []
+        for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
+            text = template.read_text(encoding="utf-8")
+            for pattern in ("javascript:void", 'action=""', "TODO", "FIXME", "lorem"):
+                if pattern in text:
+                    offenders.append(f"{template.relative_to(ROOT)}: {pattern}")
+        self.assertEqual(offenders, [])
+
+    def test_every_placeholder_href_is_really_assigned_by_the_script(self):
+        """`href="#"` is allowed only where the script fills it in.
+
+        A blanket ban would be the wrong rule: an anchor whose target depends on
+        loaded data has to start somewhere. What matters is that something
+        actually assigns it, which is what this checks — by element id, so
+        deleting the assignment fails here rather than shipping a link that
+        silently jumps to the top of the page.
+        """
+        script = SCRIPT.read_text(encoding="utf-8")
+        offenders = []
+        for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
+            text = template.read_text(encoding="utf-8")
+            for element in re.findall(r"<a\b[^>]*\bhref=\"#\"[^>]*>", text):
+                element_id = re.search(r'\bid="([^"]+)"', element)
+                if element_id is None:
+                    offenders.append(f"{template.relative_to(ROOT)}: anonymous href=\"#\"")
+                    continue
+                assignment = f'getElementById("{element_id.group(1)}").href'
+                if assignment not in script:
+                    offenders.append(f"{template.relative_to(ROOT)}: {element_id.group(1)} is never assigned")
+        self.assertEqual(offenders, [])
+
+    def test_no_served_template_reaches_a_third_party_host(self):
+        offenders = []
+        for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
+            text = template.read_text(encoding="utf-8")
+            for pattern in ('href="http', 'src="http', "cdn.", "googleapis", "Metronic", "KeenThemes"):
+                if pattern in text:
+                    offenders.append(f"{template.relative_to(ROOT)}: {pattern}")
+        self.assertEqual(offenders, [])
+
+
+class ScriptEndpointTests(SimpleTestCase):
+    def test_every_api_path_the_script_calls_resolves(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        unresolved = []
+        for raw in sorted(set(SCRIPT_PATH_RE.findall(text))):
+            path = _concrete(raw)
+            if not path.endswith("/") and not path.endswith(".xlsx"):
+                # Every first-party route ends in a slash or is a named export
+                # file; anything else is a typo rather than a route.
+                unresolved.append(f"{raw} (unexpected shape)")
+                continue
+            try:
+                resolve(path)
+            except Resolver404:
+                unresolved.append(raw)
+        self.assertEqual(unresolved, [])
+
+    def test_the_script_declares_a_handler_for_every_served_page_id(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        page_ids = set()
+        for template in sorted(TEMPLATES.rglob("*.html")):
+            match = re.search(r"{% block page_id %}([a-z0-9-]+){% endblock %}", template.read_text(encoding="utf-8"))
+            if match:
+                page_ids.add(match.group(1))
+        # `shell` is the base default for a page that needs no handler at all.
+        page_ids.discard("shell")
+        missing = sorted(page for page in page_ids if f'page === "{page}"' not in text)
+        self.assertEqual(missing, [])
+
+    def test_the_script_carries_no_placeholder_or_third_party_reference(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        for pattern in ("TODO", "FIXME", "http://", "https://", "cdn.", "Metronic", "KTUtil"):
+            self.assertNotIn(pattern, text, pattern)
+
+
+class ClientOneDayOneProfileTests(SimpleTestCase):
+    """The feature set the first operational deployment is meant to carry.
+
+    The signed manifest is the source of truth and lives outside this
+    repository, so what is checked here is that the intended set is internally
+    consistent — every dependency satisfied, every name registered — and that
+    the one withheld module is a real choice rather than an oversight.
+    Documented in `docs/backend/DEPLOYMENT_PROFILE.md`.
+    """
+
+    day_one = frozenset({
+        "customers", "products", "leads", "sales", "sales_documents", "after_sales",
+        "inventory", "quotations", "orders", "invoices", "payments", "customer_ledger",
+        "reports", "audit_log",
+    })
+
+    def test_the_day_one_set_names_only_registered_features(self):
+        self.assertEqual(self.day_one - frozenset(ALL_FEATURES), frozenset())
+
+    def test_the_day_one_set_satisfies_every_dependency(self):
+        self.assertEqual(missing_dependencies(self.day_one), {})
+
+    def test_exactly_one_registered_feature_is_withheld_and_it_is_the_sms_module(self):
+        withheld = frozenset(ALL_FEATURES) - self.day_one
+        # Built and provider-neutral, but no provider contract, credential, or
+        # owner has arrived; enabling it would show a report with nothing
+        # behind it.
+        self.assertEqual(withheld, frozenset({"inbound_sms"}))
+
+    def test_no_feature_depends_on_the_withheld_module(self):
+        for feature, requires in FEATURE_DEPENDENCIES.items():
+            self.assertNotIn("inbound_sms", requires, feature)

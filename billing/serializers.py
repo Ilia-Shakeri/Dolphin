@@ -64,11 +64,28 @@ class DocumentLineInputSerializer(RejectServerFieldsMixin, serializers.Serialize
     )
     description = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+
+class ScopedLineItemsMixin:
+    """Scope the nested line serializer's product field to the caller.
+
+    A nested serializer declared as a class attribute is constructed before DRF
+    binds it to a parent, so its own `__init__` runs with an empty context and
+    cannot see the request. Scoping it from the parent — which does receive the
+    context — is what makes an out-of-scope product id resolve to "Invalid
+    object" instead of silently accepting every product in the catalogue.
+    """
+
+    def scope_line_products(self):
+        items = self.fields.get("items")
+        if items is None:
+            return
         request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            _scope_relation(self.fields["product"], products_for(request.user).filter(is_active=True))
+        queryset = (
+            products_for(request.user).filter(is_active=True)
+            if request and request.user.is_authenticated
+            else Product.objects.none()
+        )
+        _scope_relation(items.child.fields["product"], queryset)
 
 
 class DocumentLineOutputSerializer(serializers.Serializer):
@@ -99,7 +116,7 @@ class InvoiceItemSerializer(DocumentLineOutputSerializer):
     )
 
 
-class CommercialDocumentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+class CommercialDocumentSerializer(ScopedLineItemsMixin, RejectServerFieldsMixin, serializers.ModelSerializer):
     """Shared read/write shape of Quotation, Order, and Invoice."""
 
     items = DocumentLineInputSerializer(many=True, write_only=True, required=False)
@@ -127,6 +144,7 @@ class CommercialDocumentSerializer(RejectServerFieldsMixin, serializers.ModelSer
             _scope_relation(
                 self.fields["lead"], leads_for(request.user) if authenticated else Lead.objects.none()
             )
+        self.scope_line_products()
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
@@ -274,8 +292,12 @@ class InvoiceSerializer(CommercialDocumentSerializer):
         return update_invoice(actor=self.context["request"].user, invoice=instance, **validated_data)
 
 
-class DocumentItemsSerializer(RejectServerFieldsMixin, serializers.Serializer):
+class DocumentItemsSerializer(ScopedLineItemsMixin, RejectServerFieldsMixin, serializers.Serializer):
     items = DocumentLineInputSerializer(many=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.scope_line_products()
 
 
 class DocumentStatusTransitionSerializer(RejectServerFieldsMixin, serializers.Serializer):
