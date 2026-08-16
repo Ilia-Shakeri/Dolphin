@@ -142,6 +142,14 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         examples=[OpenApiExample("Role change", value={"role": User.Role.SALES_MANAGER}, request_only=True)],
         description="Sales Manager cannot change roles. Company IT may grant roles through company_it. Platform Admin may grant any fixed CRM role.",
     )
+    @action(detail=True, methods=["post"], url_path="change-role")
+    def change_role(self, request, pk=None):
+        target = self.get_object()
+        serializer = RoleChangeSerializer(data=request.data, context={"request": request, "target": target})
+        serializer.is_valid(raise_exception=True)
+        target = serializer.save()
+        return Response(UserSerializer(target).data)
+
     @extend_schema(
         responses={200: OpenApiResponse(description="Active sessions for this user.")},
         description="Active sessions of one user. Platform Admin only.",
@@ -172,11 +180,3 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         target = self.get_object()
         ended = revoke_sessions(actor=request.user, target=target)
         return Response({"ended": ended})
-
-    @action(detail=True, methods=["post"], url_path="change-role")
-    def change_role(self, request, pk=None):
-        target = self.get_object()
-        serializer = RoleChangeSerializer(data=request.data, context={"request": request, "target": target})
-        serializer.is_valid(raise_exception=True)
-        target = serializer.save()
-        return Response(UserSerializer(target).data)

@@ -2,6 +2,175 @@
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
+## ۰ ماتریس مرجع تطبیق نیازمندی‌های مشتری با کد اجراشدنی (۲۰۲۶/۰۸/۱۶)
+
+**این تنها ماتریس معتبر وضعیت است.** مرجع شماره‌گذاری: `docs/FOROOSHBIN_CAPABILITIES_FOR_INVOICE_FA.txt` (۷۴ ردیف، ۱۰ بخش). آن سند در تاریخ ۲۰۲۶/۰۸/۱۰ نوشته شده و **وضعیت‌های آن کهنه است** (آن روز انبار، فاکتور، پرداخت و PDF وجود نداشتند)؛ فقط شماره و متن نیازمندی از آن گرفته می‌شود و وضعیت واقعی همین جدول است.
+
+هر ردیف دقیقا یکی از پنج برچسب را دارد:
+
+| برچسب | معنی |
+|---|---|
+| `IMPLEMENTED` | در کد اجراشدنی هست، به UI/API/DB وصل است و تست دارد |
+| `HIDDEN_NOT_CLIENT1` | کد قابل‌استفاده وجود دارد ولی طبق سیاست Client-1 پنهان/رد می‌شود |
+| `BLOCKED_EXTERNAL` | به قرارداد/credential/زیرساخت بیرونی نیاز دارد |
+| `BLOCKED_BUSINESS` | به یک تصمیم کسب‌وکاری نیازمند است که هنوز گرفته نشده |
+| `NOT_REQUESTED_DAY1` | خارج از دامنه روز اول؛ ساخته نشده و در UI هم نیست |
+
+### ۱. حساب کاربری، ورود و مدیریت کاربران
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۱.۱ | ورود، خروج، پروفایل جاری | `IMPLEMENTED` | `accounts/views.py` (`/api/v1/auth/login|logout|me/`)، `common/templates/common/login.html`، `home.html`؛ `common/tests/test_login_contract.py` |
+| ۱.۲ | نشست امن و قطع دسترسی کاربر غیرفعال | `IMPLEMENTED` | `common/permissions.py:IsActiveAuthenticated`؛ `common/tests/test_auth_shell.py` |
+| ۱.۳ | ثبت، جستجو، ویرایش، غیرفعال‌سازی کاربر | `IMPLEMENTED` | `accounts/services.py`، `users/list.html` + `users/detail.html`؛ `accounts/tests/test_user_administration_policy.py` |
+| ۱.۴ | نقش‌های ثابت و تغییر کنترل‌شده نقش | `IMPLEMENTED` | `accounts/access.py:assignable_roles`، `change_user_role`؛ گزینه‌های نقش از سرور render می‌شوند |
+| ۱.۵ | محدودسازی داده بر پایه نقش/مالک/تخصیص | `IMPLEMENTED` | `*/selectors.py`؛ تست IDOR در `common/tests/test_billing_shell.py::BillingScopeTests` |
+| ۱.۶ | بازیابی رمز و تعیین رمز جدید | `BLOCKED_EXTERNAL` | تعیین رمز توسط Platform Admin پیاده است (`users/detail.html` فیلد رمز). بازیابی **خودکار** به ایمیل/پیامک نیاز دارد که provider ندارد. در UI Client-1 هیچ دکمه «رمز را فراموش کردم» نیست |
+| ۱.۷ | ورود دومرحله‌ای و OTP | `HIDDEN_NOT_CLIENT1` | سیاست صریح Client-1: ورود فقط نام‌کاربری+رمز. `common/tests/test_login_contract.py` نبودِ هر کنترل MFA را تثبیت می‌کند |
+| ۱.۸ | مشاهده و قطع نشست‌های کاربر | `IMPLEMENTED` | `accounts/sessions.py`، `/api/v1/users/<id>/sessions/` و `/revoke-sessions/`، پنل «نشست‌های فعال» در `users/detail.html`؛ `accounts/tests/test_sessions_and_exports.py` |
+| ۱.۹ | آواتار، اعلان کاربر، خروجی فهرست کاربران | `IMPLEMENTED` (خروجی) / `NOT_REQUESTED_DAY1` (آواتار و اعلان) | خروجی: `/api/v1/exports/users.xlsx` + دکمه «دریافت XLSX». آواتار و اعلان درون‌برنامه‌ای **در هیچ صفحه سرو‌شده‌ای وجود ندارند** (بررسی اجراشده) — چیزی برای حذف نبود |
+
+### ۲. مدیریت مشتریان و مخاطبان
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۲.۱ | ثبت/فهرست/مشاهده/ویرایش/غیرفعال‌سازی مشتری | `IMPLEMENTED` | `sales/services.py`، `customers/list.html` + `detail.html` |
+| ۲.۲ | نام، ایمیل، شهر، آدرس، یادداشت | `IMPLEMENTED` | فیلدهای فرم ساخت و ویرایش مشتری |
+| ۲.۳ | کد ملی و استان | `IMPLEMENTED` | `Customer.national_id` / `province` در هر دو فرم |
+| ۲.۴ | چند شماره ایرانی برای هر مشتری | `IMPLEMENTED` | `sales/models.py:CustomerPhone` با نرمال‌سازی و قید یکتایی؛ `common/tests/test_phones.py` |
+| ۲.۵ | جستجو، مرتب‌سازی، صفحه‌بندی | `IMPLEMENTED` | `setupPagedList` + `search`/`ordering` در API |
+| ۲.۶ | خروجی مشتریان و عملیات گروهی | `IMPLEMENTED` (خروجی) / `NOT_REQUESTED_DAY1` (عملیات گروهی) | خروجی: `/api/v1/exports/customers.xlsx`، هم‌scope با فهرست (تست شده برای بازاریاب و مدیر). عملیات گروهی ساخته نشده و دکمه‌ای هم ندارد |
+| ۲.۷ | آواتار، شرکت، کشور، کدپستی، آدرس تکمیلی | `IMPLEMENTED` (کدپستی و آدرس) / `NOT_REQUESTED_DAY1` (آواتار، شرکت، کشور) | `Customer.postal_code` و `address` هستند. آواتار/شرکت/کشور نه مدل دارند نه کنترل UI |
+| ۲.۸ | پروفایل تجمیعی مشتری و سوابق مرتبط | `IMPLEMENTED` | `customers/detail.html`: پنل‌های «سرنخ‌های مرتبط»، «تماس‌های مرتبط»، «فروش‌های مرتبط»، همه صفحه‌بندی‌شده و scope‌شده |
+| ۲.۹ | جلسه، برنامه روزانه، خط زمانی مخاطب | `NOT_REQUESTED_DAY1` | ماژول تقویم/جلسه وجود ندارد و در UI Client-1 هم نیست |
+| ۲.۱۰ | شروع پیام یا ایمیل از پروفایل | `BLOCKED_EXTERNAL` | نیازمند provider پیامک/ایمیل؛ هیچ دکمه‌ای در UI سرو‌شده نیست |
+
+### ۳. مدیریت سرنخ و تخصیص کار
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۳.۱ | ثبت/فهرست/مشاهده/ویرایش سرنخ | `IMPLEMENTED` | `sales/services.py:create_lead`، `leads/list.html` + `detail.html` |
+| ۳.۲ | منبع، کمپین، محصول موردعلاقه، یادداشت | `IMPLEMENTED` | فیلدهای فرم سرنخ |
+| ۳.۳ | زمان پیگیری بعدی | `IMPLEMENTED` | `next_follow_up_at` با ورودی جلالی |
+| ۳.۴ | تخصیص و انتقال دستی سرنخ | `IMPLEMENTED` | `reassign_lead`، فرم «انتقال» در `leads/detail.html` |
+| ۳.۵ | تاریخچه انتقال، دلیل، رویداد ممیزی | `IMPLEMENTED` | `LeadAssignmentHistory` (append-only) + `ActivityLog` |
+| — | تبدیل سرنخ، اولویت، آرشیو، فرصت و قیف فروش | `NOT_REQUESTED_DAY1` | صریحا خارج از دامنه روز اول |
+
+### ۴. تماس، تعامل و پیگیری
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۴.۱ | ثبت دستی تماس ورودی/خروجی | `IMPLEMENTED` | `sales/services.py:create_interaction`، `interactions/list.html` |
+| ۴.۲ | شماره، نتیجه، زمان، یادداشت، پیگیری بعدی | `IMPLEMENTED` | فیلدهای فرم تعامل |
+| ۴.۳ | مشاهده، جستجو، مرتب‌سازی سوابق | `IMPLEMENTED` | فهرست تعامل‌ها با search/ordering/pagination |
+| ۴.۴ | خط زمانی تماس‌ها و فعالیت‌ها | `IMPLEMENTED` | خط زمانی تماس هر مشتری: پنل «تماس‌های مرتبط» در `customers/detail.html` (زمان‌مرتب و صفحه‌بندی‌شده). خط زمانی ممیزی: `/activity-logs/` با جستجو روی `object_type`/`object_id` |
+| ۴.۵ | جلسه، تقویم پیگیری، مسئول، سررسید، اعلان | `NOT_REQUESTED_DAY1` | تقویم و اعلان خودکار ساخته نشده و در UI نیست |
+| — | مدت تماس، ضبط تماس، اتصال تلفنی | `BLOCKED_EXTERNAL` | نیازمند سامانه تلفنی |
+
+### ۵. مدیریت محصولات
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۵.۱ | ثبت/فهرست/ویرایش/غیرفعال‌سازی محصول | `IMPLEMENTED` | `products/list.html` + `detail.html` |
+| ۵.۲ | شناسه کالا، نام، قیمت جاری، توضیحات | `IMPLEMENTED` | `Product.sku/name/current_price/description` |
+| ۵.۳ | مشاهده محصول فعال برای کارشناس فروش | `IMPLEMENTED` | `products_for()` + قید `is_active` |
+| ۵.۴ | جستجو، مرتب‌سازی، صفحه‌بندی | `IMPLEMENTED` | همان الگوی مشترک فهرست‌ها |
+| ۵.۵ | فهرست و مدیریت دسته‌بندی محصولات | `IMPLEMENTED` | `sales.ProductCategory`، `product_categories/list.html` + `detail.html` |
+| ۵.۶ | فرم کامل‌تر افزودن و ویرایش محصول | `IMPLEMENTED` | فرم شامل **هر فیلد قابل‌ویرایش مدل** است: `sku`, `name`, `category`, `brand`, `barcode`, `current_price`, `description`, `is_active` |
+| — | انبار، موجودی، قیمت خرید، تخفیف، سود، گزارش موجودی | `IMPLEMENTED` | اپ `inventory` + گزارش‌های `profit` و `stock-valuation` (بخش ۷ را ببینید) |
+| — | چندقیمتی (چند سطح قیمت برای یک کالا) | `BLOCKED_BUSINESS` | مدل یک `current_price` دارد و تخفیف سطری/سندی پیاده است. «کدام سطح قیمت به کدام مشتری تعلق می‌گیرد» یک تصمیم قیمت‌گذاری است که گرفته نشده؛ حدس زده نشد |
+
+### ۶. فروش، سفارش، فاکتور و پرداخت
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۶.۱ | ثبت فروش تاییدشده برای سرنخ مجاز | `IMPLEMENTED` | `sales/services.py:mark_sale` |
+| ۶.۲ | محصول، تعداد، قیمت لحظه فروش | `IMPLEMENTED` | snapshot قیمت روی `Sale` |
+| ۶.۳ | محاسبه خودکار مبلغ کل | `IMPLEMENTED` | قید دیتابیسی `sale_product_total_matches_snapshot` |
+| ۶.۴ | مبلغ دستی در حالت بدون محصول | `IMPLEMENTED` | `Sale.product` nullable با قید سازگاری |
+| ۶.۵ | جستجو، فیلتر، لغو کنترل‌شده فروش | `IMPLEMENTED` | `cancel_sale` + ممیزی |
+| ۶.۶ | فهرست، جزئیات، افزودن، ویرایش سفارش | `IMPLEMENTED` | `billing.Order`/`OrderItem`، `orders/list.html` + `detail.html`، گراف وضعیت اعلام‌شده |
+| ۶.۷ | ساخت و مشاهده فاکتور | `IMPLEMENTED` | `billing.Invoice`/`InvoiceItem`، صدور تراکنشی با کسر انبار و ثبت دفتر |
+| ۶.۸ | ثبت و مشاهده پرداخت‌های مشتری | `IMPLEMENTED` | `billing.Payment` + `PaymentAllocation`، `payments/list.html` + `detail.html` |
+| ۶.۹ | روش پرداخت، اصلاح مانده، صورت‌حساب | `IMPLEMENTED` | روش‌های پرداخت، چک، قسط، و `CustomerLedgerEntry` فقط-افزودنی؛ صفحه «صورت‌حساب مشتری» |
+| — | چاپ و PDF فاکتور/پیش‌فاکتور | `IMPLEMENTED` | صفحه چاپ سمت سرور + PDF از موتور مرورگر (`common/pdf.py`)؛ تاریخ‌ها جلالی |
+| — | قواعد مالیاتی/حقوقی ایران | `BLOCKED_BUSINESS` | مالیات فقط یک **درصد پیکربندی‌پذیر** روی یک پایه مشمول است و پیش‌فرض خاموش. هیچ ادعای انطباق مالیاتی/حقوقی/حسابداری نمی‌شود |
+
+### ۷. گزارش و داشبورد
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۷.۱ | گزارش عملکرد کاربر در بازه | `IMPLEMENTED` | `/reports/user-performance/` |
+| ۷.۲ | تعداد مشتری و فروش تاییدشده | `IMPLEMENTED` | همان گزارش |
+| ۷.۳ | جمع و میانگین فروش | `IMPLEMENTED` | همان گزارش |
+| ۷.۴ | فیلتر گزارش و خروجی اکسل | `IMPLEMENTED` | فیلتر بازه/کاربر/محصول + XLSX با همان پارامترها |
+| ۷.۵ | داشبورد بصری، کارت آماری، نمودار | `IMPLEMENTED` | `home.html`: کارت‌های شمارشی + نمودار میله‌ای `performance-chart` که از داده واقعی گزارش ساخته می‌شود |
+| ۷.۶ | پنل پرداخت، رویداد، لاگ، صورت‌حساب مشتری | `IMPLEMENTED` | صفحه دریافت‌ها، `/activity-logs/`، و صفحه صورت‌حساب مشتری با مانده جاری |
+| ۷.۷ | گزارش فروش، سفارش و ارسال | `IMPLEMENTED` | فروش: عملکرد کاربر + سود ناخالص؛ سفارش: فهرست سفارش با فیلتر وضعیت؛ ارسال: `/reports/sales-documents/` بر پایه استان/شهر/وضعیت پستی |
+| ۷.۷ | گزارش برگشتی | `NOT_REQUESTED_DAY1` | ماژول مرجوعی وجود ندارد؛ گزارشی هم ادعا نمی‌شود |
+| — | مطالبات و بدهکاران | `IMPLEMENTED` | `/reports/receivables/` با سطل‌های سررسید + XLSX |
+| — | **سود و زیان کامل (P&L)** | `BLOCKED_BUSINESS` | آنچه پیاده شده **سود ناخالص** است: درآمد فاکتورهای صادرشده منهای بهای تمام‌شده snapshot‌شده. UI هم دقیقا «سود ناخالص فاکتورها» می‌گوید و هیچ‌جای کد ادعای P&L نیست. صورت سود و زیان واقعی به قواعد هزینه/سربار/مبنای حسابداری نیاز دارد که تصویب نشده |
+| — | گزارش‌ساز پویا | `NOT_REQUESTED_DAY1` | خارج از دامنه |
+
+### ۸. تقویم، ارتباطات، فایل و پشتیبانی
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۸.۱ | تقویم | `NOT_REQUESTED_DAY1` | در UI Client-1 سرو نمی‌شود |
+| ۸.۲ | کارها، پروژه‌ها، فعالیت‌ها | `NOT_REQUESTED_DAY1` | همان |
+| ۸.۳ | صندوق پیام، نوشتن و پاسخ | `BLOCKED_EXTERNAL` | نیازمند provider ایمیل/پیامک |
+| ۸.۴ | گفت‌وگوی خصوصی و گروهی | `NOT_REQUESTED_DAY1` | همان |
+| ۸.۵ | مدیریت پوشه، فایل و تنظیمات فایل | `NOT_REQUESTED_DAY1` | فاز `P10`؛ نیازمند سیاست امنیتی ذخیره‌سازی |
+| ۸.۶ | مرکز پشتیبانی، تیکت، پرسش‌های متداول | `NOT_REQUESTED_DAY1` | همان |
+| — | پیامک ورودی (ذخیره و گزارش داخلی) | `HIDDEN_NOT_CLIENT1` | کد کامل و provider-neutral هست، ولی feature `inbound_sms` در manifest Client-1 نیست: مسیر، API و منو **غایب**‌اند. تا رسیدن قرارداد provider همین‌طور می‌ماند |
+
+### ۹. جستجو، فیلتر و خروجی
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۹.۱ | جستجوی داده‌های مجاز در بخش‌های اصلی | `IMPLEMENTED` | `search_fields` در همه ViewSetها، همیشه پس از اعمال scope |
+| ۹.۲ | رابط جستجوی مشتری و کاربر | `IMPLEMENTED` | فرم جستجو در هر دو صفحه |
+| ۹.۳ | مرتب‌سازی و صفحه‌بندی کنترل‌شده | `IMPLEMENTED` | `ordering_fields` محدود + صفحه‌بندی اجباری (تست رشد کوئری) |
+| ۹.۴ | فیلتر وضعیت سرنخ و فروش | `IMPLEMENTED` | فیلتر وضعیت در فهرست‌ها |
+| ۹.۵ | فیلتر بازه، کاربر و محصول در گزارش | `IMPLEMENTED` | پنل گزارش عملکرد |
+| ۹.۶ | جستجوی سراسری و فیلتر ذخیره‌شده | `NOT_REQUESTED_DAY1` | ساخته نشده و کنترلی هم در UI ندارد |
+| — | ورود گروهی از اکسل | `NOT_REQUESTED_DAY1` | همان |
+
+### ۱۰. امنیت، ممیزی، API و استقرار
+
+| # | نیازمندی | وضعیت | شاهد |
+|---|---|---|---|
+| ۱۰.۱ | API نسخه‌بندی‌شده زیر `/api/v1/` | `IMPLEMENTED` | `config/urls.py` |
+| ۱۰.۲ | ثبت و نمایش فقط‌خواندنی رویدادهای حساس | `IMPLEMENTED` | `auditlog`؛ در سطح نقش دیتابیس هم فقط `SELECT, INSERT` |
+| ۱۰.۳ | شناسه یکسان درخواست/لاگ/ممیزی | `IMPLEMENTED` | `common/middleware.py:RequestContextMiddleware` |
+| ۱۰.۴ | اعتبارسنجی رمز و محدودسازی درخواست | `IMPLEMENTED` | validatorها + `login`/`sensitive` throttle |
+| ۱۰.۵ | سقف بدنه، عمق داده، خطای پایدار | `IMPLEMENTED` | `RequestBodyLimitMiddleware`، `BoundedJSONParser` |
+| ۱۰.۶ | جلوگیری از نشت با شناسه مستقیم | `IMPLEMENTED` | selectorها + تست‌های IDOR |
+| ۱۰.۷ | مستندات فنی فقط در محیط غیرتولیدی | `IMPLEMENTED` | `ENABLE_API_DOCS = DEBUG` |
+| ۱۰.۸ | بررسی زنده‌بودن و آمادگی | `IMPLEMENTED` | `/api/v1/health/live|ready/` |
+| ۱۰.۹ | PostgreSQL، Compose و Nginx | `IMPLEMENTED` | `compose.yml`، `nginx/`، `docs/ops/MULTI_SERVER_DOCKER_DEPLOYMENT.md`؛ harness کامل با خروج صفر |
+| ۱۰.۱۰ | ابزار محافظت‌شده پشتیبان و آزمون بازیابی | `IMPLEMENTED` | سرویس `backup` + `compose.restore-verify.yml`؛ proof بازیابی روی قرارداد گسترش‌یافته |
+| ۱۰.۱۱ | صفحه‌های واکنش‌گرای قالب آماده | `HIDDEN_NOT_CLIENT1` | صفحه‌های Metronic سرو نمی‌شوند و در هیچ مسیر UI نیستند. UI سرو‌شده خودش واکنش‌گراست (ماتریس مرورگر) |
+| — | زمان‌بندی واقعی پشتیبان‌گیری | `BLOCKED_EXTERNAL` | ابزار آماده است؛ زمان‌بندی و مقصد باید روی سرور مشتری تنظیم شود |
+
+### جمع‌بندی
+
+| برچسب | تعداد ردیف |
+|---|---|
+| `IMPLEMENTED` | ۵۹ |
+| `NOT_REQUESTED_DAY1` | ۱۵ |
+| `BLOCKED_EXTERNAL` | ۵ |
+| `BLOCKED_BUSINESS` | ۳ |
+| `HIDDEN_NOT_CLIENT1` | ۳ |
+
+(چند ردیف دو بخشی‌اند و در دو ستون شمرده شده‌اند؛ مثلا ۱.۹ و ۲.۶ و ۲.۷.)
+
+### سه blocker کسب‌وکاری، دقیق
+
+۱. **سود و زیان کامل (P&L).** سود ناخالص پیاده و درست برچسب‌گذاری شده است. صورت سود و زیان واقعی نیازمند تعریف هزینه‌های عملیاتی، سربار و مبنای حسابداری (نقدی/تعهدی) است. تا آن تصمیم، واژه «سود ناخالص» تغییر نمی‌کند.
+۲. **چندقیمتی.** سطح‌های قیمت و قاعده تخصیصشان به مشتری تصویب نشده است.
+۳. **قواعد مالیاتی ایران.** مالیات یک درصد پیکربندی‌پذیر است و پیش‌فرض خاموش؛ هیچ انطباق قانونی ادعا نمی‌شود.
+
 ## ۰.۰۰۰۰۰ فاز `FREEZE` — تکمیل قابلیت مخزن پیش از استقرار لینوکس — ✅ **انجام‌شده** (۲۰۲۶/۰۸/۱۶)
 
 این فاز دامنه محصول را نبست بلکه سه کار باقی‌مانده مخزن را تمام کرد: PDF سمت سرور، ممیزی نهایی UI سرو‌شده، و runbook استقرار چندسروری. پس از آن مخزن **feature-complete** برای Client 1 است.
@@ -717,7 +886,7 @@ Selected: Option C
 | 1ب | الگوهای `__pycache__`/`*.pyc`/`*.log` در `.dockerignore` root-anchored بودند و bytecode توسعه‌دهنده وارد ایمیج می‌شد | P1 — برطرف شد | `.dockerignore` | فرم‌های `**/` اضافه شدند (بخش ۰). |
 | 2 | تناقض داخلی `BACKEND_SPEC.md` بخش ۲.۳/۲.۴ (وضعیت پستی و گزارش پیامک ورودی را «blocked» می‌گفت درحالی‌که در همان سند بخش ۵.۷A/۵.۹ و در کد واقعی پیاده شده‌اند) | P1 مستندات | `BACKEND_SPEC.md` | در همین فاز اصلاح شد (بخش زیر). |
 | 3 | خطای HTML: `sales_documents/detail.html:16` — attribute `maxlength="500` بدون quote بسته؛ پاراگراف خطای فیلد «reason» در DOM ساخته نمی‌شد و پیام خطای سرور به کاربر نشان داده نمی‌شد | P1 — **برطرف شد در `P2` (۲۰۲۶/۰۸/۱۵)** | همان فایل | یک کوتیشن بسته اضافه شد. پوشش رگرسیون در سطح DOM و مرورگر واقعی، هر دو تاییدشده با اجرای پیش از اصلاح. ادعای قبلی درباره از کار افتادن `maxlength` با اندازه‌گیری در Chrome رد شد — بخش ۰. |
-| 4 | `docs/KARIZ_CAPABILITIES_FOR_INVOICE_FA.txt` (پیوست فاکتور مشتری، تاریخ ۲۰۲۶/۰۸/۱۰) نسبت به قابلیت‌های تکمیل‌شده بعدی (ProductCategory، گزارش پیامک ورودی، پنل خدمات پس از فروش) بروز نیست | P2 اسنادی | همان فایل | باید پیش از استفاده تجاری بعدی بازبینی شود؛ در این فاز تغییر نکرد چون سند دو-فایل زنده مصوب (Handoff/Roadmap) نیست. |
+| 4 | ~~`docs/KARIZ_CAPABILITIES_FOR_INVOICE_FA.txt` بروز نیست~~ **رفع شد ۲۰۲۶/۰۸/۱۶** | — | `docs/FOROOSHBIN_CAPABILITIES_FOR_INVOICE_FA.txt` | فایل تغییر نام یافت، هشدار کهنگی وضعیت به ابتدای آن اضافه شد، و وضعیت واقعی هر ۷۴ ردیف در ماتریس بخش ۰ همین فایل ثبت شد. |
 | 6 | Django Admin بدون گیت تنظیمات ثبت شده بود و در شبکه قابل دسترسی بود | **MEDIUM — برطرف شد در `P1.7`** | `config/settings.py`, `config/production_settings.py`, `config/urls.py`, `nginx/default.conf` | **دو لایه دفاعی مستقل اضافه شد.** لایه اپلیکیشن: تنظیم جدید `ENABLE_DJANGO_ADMIN` که پیش‌فرض `false` است و **مستقل از `DEBUG`** عمل می‌کند؛ در `production_settings.py` صریحا `False` است؛ مسیر `admin/` فقط وقتی ثبت می‌شود که این پرچم روشن باشد، پس روی استقرار مشتری `/admin/` اصلا وجود ندارد (۴۰۴). لایه edge: بلوک `location ^~ /admin/ { return 404; }` در `nginx/default.conf` که به‌خاطر `^~` بر همه location‌های regex اولویت دارد و هیچ درخواستی را proxy نمی‌کند. تست: `common/tests/test_admin_exposure.py` (۱۳ تست). allowlist شبکه مدیریت عمدا حدس زده نشد و به `P14` موکول شد. |
 | 7 | عملگر after-sales روی `customers`/`leads`/`sales` پاسخ `200` با صفر ردیف می‌گرفت، درحالی‌که `users`/`activity-logs`/`inbound-sms` `403` می‌دهند | LOW — **برطرف شد** (۲۰۲۶/۰۸/۱۵) | `sales/permissions.py` (جدید)، `sales/views.py` | `HasSalesCapability` اضافه شد: هر ViewSet اپ `sales` اکنون `required_capabilities` صریح دارد و نبود capability `403` می‌دهد، نه «این هم لیست خالی». هر هشت ViewSet پوشش داده شدند تا ناسازگاری تازه ساخته نشود. **هیچ نقشی محدودتر نشد** — تست جدید `test_sales_roles_still_reach_their_own_modules` برای هر چهار نقش دارنده capability `200` را اثبات می‌کند. این کنترل نقش است و از feature-gate (`P3`) و object scope جداست. |
 | 5 | عدم‌تطابق نسخه Python: هاست توسعه فعلی `Python 3.14.5` دارد؛ `Dockerfile` فقط base image با `sys.version_info[:2] == (3, 13)` را می‌پذیرد | اطلاع‌رسانی، نه نقص | `Dockerfile:12` | تست‌های محلی روی 3.14.5 pass شدند ولی رفتار دقیق production روی 3.13 محلی proof نشده؛ در build واقعی هدف تایید شود. |

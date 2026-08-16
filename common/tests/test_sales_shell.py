@@ -104,11 +104,21 @@ class SalesShellContractTests(SimpleTestCase):
         script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
         views = (ROOT / "common" / "ui_views.py").read_text(encoding="utf-8")
         user_detail = (ROOT / "common" / "templates" / "common" / "users" / "detail.html").read_text(encoding="utf-8")
+        from accounts.access import ROLE_LABELS
+
         for role, label in role_labels.items():
             with self.subTest(role=role):
                 self.assertIn(f'{role}: "{label}"', script)
                 self.assertIn(label, views)
-                self.assertIn(f'value="{role}">{label}</option>', user_detail)
+                # The role selector is rendered from `assignable_roles`, not
+                # hardcoded in the template, so the label contract now lives
+                # beside the rule that decides which roles are offered.
+                self.assertEqual(ROLE_LABELS[role], label)
+        # No *role* is hardcoded as an option any more. The workstream select
+        # legitimately still lists its two fixed values inline.
+        for role in role_labels:
+            self.assertNotIn(f'<option value="{role}"', user_detail)
+        self.assertIn("{% for value, label in assignable_roles %}", user_detail)
         self.assertIn('not_found_title = "مشتری پیدا نشد"', views)
         self.assertNotIn("مشخصات بازاریاب (کال سنتر) ذخیره شد", script)
 
