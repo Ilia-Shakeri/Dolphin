@@ -1,0 +1,38 @@
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="سامانه مدیریت ارتباط با مشتری کاریز">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive" />
+    <title>{% block title %}سند{% endblock %} | Kariz CRM</title>
+    <link rel="icon" href="{% static 'kariz-brand/favicon.ico' %}" sizes="any">
+    <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
+    <script src="{% static 'common/kariz-app.js' %}" defer></script>
+</head>
+{# The printable document has no navigation and no controls beyond printing.
+   Everything on it is rendered server-side from the stored snapshot, so a
+   failure to load leaves a blank page rather than an official-looking form
+   with missing numbers. #}
+<body data-page="{% block page_id %}document-print{% endblock %}">
+<div class="print-page">
+    {% if error_status %}
+        <section class="card error-card">
+            <p class="status-code">{{ error_status }}</p>
+            <h1>{{ error_title }}</h1>
+            <p>{{ error_message }}</p>
+            <a class="button" href="{% url 'common_ui:home' %}">بازگشت به خانه</a>
+        </section>
+    {% else %}
+        <div class="print-toolbar">
+            <button id="print-document" class="button" type="button">چاپ / ذخیره PDF</button>
+            <a class="button button-muted" href="{% block back_url %}{% url 'common_ui:home' %}{% endblock %}">بازگشت</a>
+        </div>
+        <article class="print-sheet">
+            {% block document %}{% endblock %}
+        </article>
+    {% endif %}
+</div>
+</body>
+</html>

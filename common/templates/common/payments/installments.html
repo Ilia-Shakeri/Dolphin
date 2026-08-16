@@ -1,0 +1,18 @@
+{% extends "common/base.html" %}
+{% block title %}اقساط{% endblock %}
+{% block page_id %}installments{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">صندوق و دریافت</p><h1>اقساط</h1></div><a class="button button-muted" href="{% url 'common_ui:payments' %}">دریافت‌ها</a></section>
+<section class="card">
+    <form id="installment-search-form" action="{% url 'common_ui:installments' %}" method="get" class="toolbar">
+        <label class="sr-only" for="installment-status-filter">وضعیت</label><select id="installment-status-filter" name="status"><option value="">همه اقساط</option><option value="pending">پرداخت‌نشده</option><option value="partially_paid">پرداخت جزئی</option><option value="paid">پرداخت‌شده</option><option value="cancelled">لغوشده</option></select>
+        <label class="sr-only" for="installment-due-before">سررسید پیش از</label><input id="installment-due-before" name="due_before" type="date">
+        <label class="sr-only" for="installment-ordering">مرتب‌سازی</label><select id="installment-ordering" name="ordering"><option value="due_date">نزدیک‌ترین سررسید</option><option value="-due_date">دورترین سررسید</option><option value="-amount">بیشترین مبلغ</option></select>
+        <button class="button button-muted" type="submit">اعمال</button>
+    </form>
+    <div id="installments-loading" class="state">در حال دریافت اقساط…</div><div id="installments-empty" class="state" hidden>قسطی پیدا نشد.</div>
+    <div id="installments-table-wrap" class="table-wrap" hidden><table><thead><tr><th>فاکتور</th><th>شماره قسط</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>مانده</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="installments-table-body"></tbody></table></div>
+    <nav id="installments-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="installments-prev" class="button button-muted" type="button">قبلی</button><span id="installments-page-label"></span><button id="installments-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+<p class="muted">قسط‌بندی روی صفحه هر فاکتور صادرشده ساخته می‌شود. پرداخت‌ها به‌ترتیب نزدیک‌ترین سررسید روی اقساط می‌نشینند و آزادکردن تخصیص، همان اثر را دقیقا برمی‌گرداند.</p>
+{% endblock %}

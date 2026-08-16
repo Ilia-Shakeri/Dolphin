@@ -498,8 +498,32 @@ FROM (
         ('aftersales_aftersaleshistory', 'SELECT, INSERT'),
         ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),
+        -- Billing. A commercial document header is updated (status, totals);
+        -- its line table also carries DELETE because removing a line from a
+        -- *draft* is a real operation, and the service refuses it on anything
+        -- past draft. The invoice line additionally takes UPDATE for the unit
+        -- cost snapshotted at issue.
+        ('billing_cheque', 'SELECT, INSERT, UPDATE'),
+        ('billing_chequestatushistory', 'SELECT, INSERT'),
+        ('billing_customerledgerentry', 'SELECT, INSERT'),
+        ('billing_documentsequence', 'SELECT, INSERT, UPDATE'),
+        ('billing_installment', 'SELECT, INSERT, UPDATE'),
+        ('billing_installmentplan', 'SELECT, INSERT, UPDATE'),
+        ('billing_invoice', 'SELECT, INSERT, UPDATE'),
+        ('billing_invoiceitem', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('billing_order', 'SELECT, INSERT, UPDATE'),
+        ('billing_orderitem', 'SELECT, INSERT, DELETE'),
+        ('billing_payment', 'SELECT, INSERT, UPDATE'),
+        ('billing_paymentallocation', 'SELECT, INSERT, UPDATE'),
+        ('billing_quotation', 'SELECT, INSERT, UPDATE'),
+        ('billing_quotationitem', 'SELECT, INSERT, DELETE'),
         ('communications_inboundsms', 'SELECT, INSERT'),
         ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
+        -- Inventory. The movement ledger is append-only; the derived level row
+        -- is rewritten under a row lock by the movement service.
+        ('inventory_stockitem', 'SELECT, INSERT, UPDATE'),
+        ('inventory_stockmovement', 'SELECT, INSERT'),
+        ('inventory_warehouse', 'SELECT, INSERT, UPDATE'),
         ('auth_group', 'SELECT, INSERT, UPDATE, DELETE'),
         ('auth_group_permissions', 'SELECT, INSERT, DELETE'),
         ('auth_permission', 'SELECT'),

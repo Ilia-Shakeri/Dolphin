@@ -1,0 +1,43 @@
+{% extends "common/base.html" %}
+{% block title %}دفتر حساب مشتری{% endblock %}
+{% block page_id %}customer-ledger{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">گزارش‌های مالی</p><h1>دفتر حساب مشتری</h1></div></section>
+<section class="card">
+    <form id="ledger-filter-form" action="{% url 'common_ui:customer-ledger' %}" method="get" class="toolbar">
+        <label class="sr-only" for="ledger-customer">مشتری</label><select id="ledger-customer" name="customer" required><option value="">در حال دریافت…</option></select>
+        <label class="sr-only" for="ledger-entry-type">نوع رویداد</label><select id="ledger-entry-type" name="entry_type">
+            <option value="">همه رویدادها</option>
+            <option value="opening_balance">مانده اول دوره</option>
+            <option value="invoice_issued">صدور فاکتور</option>
+            <option value="invoice_cancelled">ابطال فاکتور</option>
+            <option value="payment_received">دریافت وجه</option>
+            <option value="payment_cancelled">ابطال دریافت</option>
+        </select>
+        <button class="button" type="submit">نمایش دفتر</button>
+    </form>
+    <div class="metric-grid">
+        <div class="metric"><span class="muted">مانده جاری</span><strong id="ledger-balance">—</strong></div>
+        <div class="metric"><span class="muted">مشتری</span><strong id="ledger-customer-name">—</strong></div>
+    </div>
+    <p class="muted">مانده مثبت یعنی مشتری بدهکار است و مانده منفی یعنی بستانکار. دفتر فقط افزوده می‌شود؛ هیچ ردیفی ویرایش یا حذف نمی‌شود و اصلاح با ردیف جبرانی انجام می‌گیرد.</p>
+</section>
+<section class="card">
+    <div id="ledger-entries-loading" class="state">مشتری را انتخاب کنید.</div><div id="ledger-entries-empty" class="state" hidden>رویدادی ثبت نشده است.</div>
+    <div id="ledger-entries-table-wrap" class="table-wrap" hidden><table><thead><tr><th>زمان</th><th>رویداد</th><th>سند</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th><th>ثبت‌کننده</th></tr></thead><tbody id="ledger-entries-table-body"></tbody></table></div>
+    <nav id="ledger-entries-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="ledger-entries-prev" class="button button-muted" type="button">قبلی</button><span id="ledger-entries-page-label"></span><button id="ledger-entries-next" class="button button-muted" type="button">بعدی</button></nav>
+</section>
+<section class="card">
+    <h2>ثبت مانده اول دوره</h2>
+    <p class="muted">مانده‌ای که پیش از راه‌اندازی این سامانه وجود داشته است. برای هر مشتری تنها یک بار مجاز است؛ اصلاح بعدی باید به‌صورت رویداد جداگانه ثبت شود.</p>
+    <form id="opening-balance-form" action="/api/v1/customer-ledger/opening-balance/" method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-grid">
+            <div><label for="opening-balance-customer">مشتری</label><select id="opening-balance-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="customer"></p></div>
+            <div><label for="opening-balance-amount">مبلغ بدهکاری</label><input id="opening-balance-amount" name="amount" type="number" min="0.01" step="0.01" required><p class="field-error" data-error-for="amount"></p></div>
+            <div class="full-field"><label for="opening-balance-notes">یادداشت</label><textarea id="opening-balance-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        </div>
+        <div class="form-actions"><button class="button" type="submit">ثبت مانده اول دوره</button></div>
+    </form>
+</section>
+{% endblock %}

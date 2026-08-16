@@ -132,3 +132,33 @@ dialog::backdrop { background: rgb(15 31 46 / 55%); }
     .performance-chart-row { grid-template-columns: minmax(4rem, auto) minmax(4rem, 1fr); }
     .performance-chart-row strong { grid-column: 2; }
 }
+
+/* Printable commercial document. The page is server-rendered from the stored
+   snapshot, so what appears on paper is exactly the row that was issued. */
+.print-page { width: min(100%, 60rem); margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); }
+.print-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-bottom: 1rem; }
+.print-sheet { padding: 2rem; border: 1px solid var(--border); border-radius: .5rem; background: #fff; }
+.print-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding-bottom: 1rem; border-bottom: .15rem solid var(--primary); }
+.print-head h1 { margin-bottom: .2rem; font-size: 1.6rem; }
+.print-brand { color: var(--primary); font-size: 1.3rem; font-weight: 800; }
+.print-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1.5rem; margin: 1.25rem 0; }
+.print-meta div { display: flex; gap: .5rem; }
+.print-meta dt, .print-meta span:first-child { color: var(--muted); font-weight: 700; }
+.print-sheet table { margin-top: .5rem; }
+.print-sheet th, .print-sheet td { border-bottom: 1px solid var(--border); white-space: normal; }
+.print-totals { display: grid; justify-content: flex-start; gap: .35rem; margin-top: 1.25rem; }
+.print-totals div { display: grid; grid-template-columns: 12rem auto; gap: 1rem; }
+.print-totals .print-grand { padding-top: .35rem; border-top: .1rem solid var(--primary); font-size: 1.1rem; font-weight: 800; }
+.print-notes { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); white-space: pre-wrap; }
+.print-footer { margin-top: 2rem; color: var(--muted); font-size: .82rem; }
+.print-cancelled { margin-bottom: 1rem; padding: .6rem 1rem; border: .15rem solid var(--danger); border-radius: .5rem; color: var(--danger); font-weight: 800; text-align: center; }
+
+@media print {
+    :root, body { background: #fff; }
+    .print-toolbar, .app-shell, .topbar, .sidebar { display: none !important; }
+    .print-page { width: 100%; padding: 0; }
+    .print-sheet { padding: 0; border: 0; border-radius: 0; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+}

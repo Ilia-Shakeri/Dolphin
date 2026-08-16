@@ -1,0 +1,61 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات فاکتور{% endblock %}
+{% block page_id %}invoice-detail{% endblock %}
+{% block body_data %} data-invoice-id="{{ invoice_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">اسناد بازرگانی</p><h1>جزئیات فاکتور</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:invoice-print' invoice_id %}">چاپ / ذخیره PDF</a><a class="button button-muted" href="{% url 'common_ui:invoices' %}">بازگشت به فهرست</a></div></section>
+<div id="invoice-detail-loading" class="card state">در حال دریافت فاکتور…</div>
+<section id="invoice-detail-content" class="card" hidden>
+    <form id="edit-invoice-form" action="/api/v1/invoices/{{ invoice_id }}/" method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-grid">
+            <div><label for="invoice-number">شماره سند</label><input id="invoice-number" disabled dir="ltr"></div>
+            <div><label for="invoice-customer">مشتری</label><input id="invoice-customer" disabled></div>
+            <div><label for="invoice-status">وضعیت</label><input id="invoice-status" disabled></div>
+            <div><label for="invoice-settlement">وضعیت تسویه</label><input id="invoice-settlement" disabled></div>
+            <div><label for="invoice-warehouse">انبار</label><input id="invoice-warehouse" disabled></div>
+            <div><label for="invoice-source">سند منبع</label><input id="invoice-source" disabled dir="ltr"></div>
+            <div><label for="invoice-issued-at">زمان صدور</label><input id="invoice-issued-at" disabled></div>
+            <div><label for="edit-invoice-due">سررسید</label><input id="edit-invoice-due" name="due_at" type="datetime-local"><p class="field-error" data-error-for="due_at"></p></div>
+            <div><label for="invoice-paid">پرداخت‌شده</label><input id="invoice-paid" disabled></div>
+            <div><label for="invoice-balance">مانده</label><input id="invoice-balance" disabled></div>
+            <div><label for="edit-invoice-discount">تخفیف سند</label><input id="edit-invoice-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="field-error" data-error-for="discount_amount"></p></div>
+            <div><label for="edit-invoice-tax">نرخ مالیات (٪)</label><input id="edit-invoice-tax" name="tax_rate" type="number" min="0" max="100" step="0.01"><p class="field-error" data-error-for="tax_rate"></p></div>
+            <div class="full-field"><label for="edit-invoice-notes">یادداشت</label><textarea id="edit-invoice-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        </div>
+        <div id="invoice-edit-actions" class="form-actions" hidden><button class="button" type="submit">ذخیره سربرگ</button></div>
+        <p id="invoice-locked-note" class="muted" hidden>فاکتور صادرشده تغییرناپذیر است: اقلام، مبالغ و بهای تمام‌شده آن ثابت‌اند. برای اصلاح، فاکتور را ابطال و فاکتور تازه صادر کنید.</p>
+    </form>
+</section>
+{% with doc="invoice" %}{% include "common/includes/document_lines.inc" %}{% endwith %}
+{% if can_manage_billing %}
+<section id="invoice-workflow" class="card" hidden>
+    <h2>صدور و ابطال</h2>
+    <p class="muted">صدور فاکتور در یک تراکنش: بهای تمام‌شده هر سطر ثبت می‌شود، در صورت انتخاب انبار موجودی کسر می‌شود، و بدهکاری در دفتر حساب مشتری ثبت می‌شود.</p>
+    <div class="row-actions">
+        <button id="issue-invoice" class="button" type="button">صدور فاکتور</button>
+        <button id="cancel-invoice" class="button button-danger" type="button">ابطال فاکتور</button>
+    </div>
+    <label for="invoice-cancel-reason">دلیل ابطال</label>
+    <textarea id="invoice-cancel-reason" maxlength="500"></textarea>
+</section>
+{% endif %}
+{% if can_handle_payments %}
+<section id="invoice-allocations" class="card" hidden>
+    <h2>دریافت‌های تخصیص‌یافته</h2>
+    <div id="invoice-allocations-loading" class="state">در حال دریافت تخصیص‌ها…</div>
+    <div id="invoice-allocations-empty" class="state" hidden>هنوز دریافتی به این فاکتور تخصیص نیافته است.</div>
+    <div id="invoice-allocations-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره دریافت</th><th>مبلغ</th><th>وضعیت</th><th>ثبت‌کننده</th><th>زمان</th></tr></thead><tbody id="invoice-allocations-table-body"></tbody></table></div>
+    <nav id="invoice-allocations-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="invoice-allocations-prev" class="button button-muted" type="button">قبلی</button><span id="invoice-allocations-page-label"></span><button id="invoice-allocations-next" class="button button-muted" type="button">بعدی</button></nav>
+    <h3>قسط‌بندی</h3>
+    <p class="muted">اقساط مساوی ساخته می‌شوند و باقیمانده گِردکردن روی قسط اول می‌نشیند، پس جمع اقساط دقیقا برابر مبلغ فاکتور است.</p>
+    <form id="invoice-plan-form" class="toolbar" novalidate>
+        <label class="sr-only" for="invoice-plan-count">تعداد اقساط</label><input id="invoice-plan-count" name="installment_count" type="number" min="1" max="120" value="3" required placeholder="تعداد اقساط">
+        <label class="sr-only" for="invoice-plan-start">سررسید قسط اول</label><input id="invoice-plan-start" name="start_date" type="date" required>
+        <label class="sr-only" for="invoice-plan-interval">فاصله (روز)</label><input id="invoice-plan-interval" name="interval_days" type="number" min="1" max="365" placeholder="فاصله (روز)">
+        <button class="button button-muted" type="submit">ساخت قسط‌بندی</button>
+    </form>
+    <div id="invoice-plan-summary" class="table-wrap" hidden><table><thead><tr><th>قسط</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>وضعیت</th></tr></thead><tbody id="invoice-plan-body"></tbody></table></div>
+</section>
+{% endif %}
+{% endblock %}

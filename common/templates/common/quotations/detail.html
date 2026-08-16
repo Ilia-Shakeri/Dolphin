@@ -1,0 +1,43 @@
+{% extends "common/base.html" %}
+{% block title %}جزئیات پیش‌فاکتور{% endblock %}
+{% block page_id %}quotation-detail{% endblock %}
+{% block body_data %} data-quotation-id="{{ quotation_id }}"{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">اسناد بازرگانی</p><h1>جزئیات پیش‌فاکتور</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:quotation-print' quotation_id %}">چاپ / ذخیره PDF</a><a class="button button-muted" href="{% url 'common_ui:quotations' %}">بازگشت به فهرست</a></div></section>
+<div id="quotation-detail-loading" class="card state">در حال دریافت پیش‌فاکتور…</div>
+<section id="quotation-detail-content" class="card" hidden>
+    <form id="edit-quotation-form" action="/api/v1/quotations/{{ quotation_id }}/" method="post" novalidate>
+        {% csrf_token %}
+        <div class="form-grid">
+            <div><label for="quotation-number">شماره سند</label><input id="quotation-number" disabled dir="ltr"></div>
+            <div><label for="quotation-customer">مشتری</label><input id="quotation-customer" disabled></div>
+            <div><label for="quotation-status">وضعیت</label><input id="quotation-status" disabled></div>
+            <div><label for="quotation-created-by">ثبت‌کننده</label><input id="quotation-created-by" disabled></div>
+            <div><label for="quotation-issued-at">زمان ارسال</label><input id="quotation-issued-at" disabled></div>
+            <div><label for="edit-quotation-valid-until">معتبر تا</label><input id="edit-quotation-valid-until" name="valid_until" type="datetime-local"><p class="field-error" data-error-for="valid_until"></p></div>
+            <div><label for="edit-quotation-discount">تخفیف سند</label><input id="edit-quotation-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="field-error" data-error-for="discount_amount"></p></div>
+            <div><label for="edit-quotation-tax">نرخ مالیات (٪)</label><input id="edit-quotation-tax" name="tax_rate" type="number" min="0" max="100" step="0.01"><p class="field-error" data-error-for="tax_rate"></p></div>
+            <div class="full-field"><label for="edit-quotation-notes">یادداشت</label><textarea id="edit-quotation-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        </div>
+        <div id="quotation-edit-actions" class="form-actions" hidden><button class="button" type="submit">ذخیره سربرگ</button></div>
+        <p id="quotation-locked-note" class="muted" hidden>این سند دیگر پیش‌نویس نیست، پس اقلام و مبالغ آن ثابت است. برای اصلاح، سند را لغو و سند تازه صادر کنید.</p>
+    </form>
+</section>
+{% with doc="quotation" %}{% include "common/includes/document_lines.inc" %}{% endwith %}
+<section id="quotation-workflow" class="card" hidden>
+    <h2>چرخه سند</h2>
+    <div class="row-actions">
+        <button class="button" type="button" data-quotation-transition="sent">ارسال به مشتری</button>
+        <button class="button" type="button" data-quotation-transition="accepted">ثبت پذیرش مشتری</button>
+        <button class="button button-muted" type="button" data-quotation-transition="rejected">ثبت رد مشتری</button>
+        <button class="button button-muted" type="button" data-quotation-transition="expired">ثبت انقضا</button>
+        <button class="button button-danger" type="button" data-quotation-transition="cancelled">لغو پیش‌فاکتور</button>
+    </div>
+    <p class="muted">تنها گذارهای مجاز همین وضعیت نمایش داده می‌شوند؛ گذار غیرمجاز را سرور رد می‌کند.</p>
+    <div id="quotation-convert-block" hidden>
+        <h3>تبدیل به سفارش</h3>
+        <p class="muted">یک سفارش پیش‌نویس تازه از روی همین اقلام ساخته می‌شود. پیش‌فاکتور دست‌نخورده می‌ماند.</p>
+        <button id="convert-quotation" class="button" type="button">ساخت سفارش از این پیش‌فاکتور</button>
+    </div>
+</section>
+{% endblock %}

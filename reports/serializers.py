@@ -149,3 +149,107 @@ class SalesDocumentReportSerializer(serializers.Serializer):
     total = serializers.IntegerField(min_value=0)
     by_geography = SalesDocumentGeographyRowSerializer(many=True)
     by_postal_status = SalesDocumentPostalStatusRowSerializer(many=True)
+
+
+# --- Financial reports -------------------------------------------------------
+# These read stored invoice, allocation, and stock rows only. Amounts are
+# serialised as strings so no client rounds a currency value through a float.
+
+MONEY = {"max_digits": 38, "decimal_places": 2, "coerce_to_string": True}
+
+
+class ReceivablesQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    customer_id = serializers.IntegerField(
+        min_value=1, required=False, help_text="Optional exact Customer ID inside actor scope."
+    )
+
+
+class ReceivablesRowSerializer(serializers.Serializer):
+    customer_id = serializers.IntegerField(min_value=1)
+    customer_name = serializers.CharField()
+    invoice_count = serializers.IntegerField(min_value=0)
+    total_outstanding = serializers.DecimalField(**MONEY)
+    not_due = serializers.DecimalField(**MONEY)
+    days_1_30 = serializers.DecimalField(**MONEY)
+    days_31_60 = serializers.DecimalField(**MONEY)
+    days_61_90 = serializers.DecimalField(**MONEY)
+    days_over_90 = serializers.DecimalField(**MONEY)
+
+
+class ReceivablesBucketSerializer(serializers.Serializer):
+    not_due = serializers.DecimalField(**MONEY)
+    days_1_30 = serializers.DecimalField(**MONEY)
+    days_31_60 = serializers.DecimalField(**MONEY)
+    days_61_90 = serializers.DecimalField(**MONEY)
+    days_over_90 = serializers.DecimalField(**MONEY)
+
+
+class ReceivablesReportSerializer(serializers.Serializer):
+    as_of = serializers.CharField()
+    total_outstanding = serializers.DecimalField(**MONEY)
+    buckets = ReceivablesBucketSerializer()
+    results = ReceivablesRowSerializer(many=True)
+
+
+class ProfitQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    period_start = OffsetAwareDateTimeField(help_text="Inclusive invoice issue timestamp.")
+    period_end = OffsetAwareDateTimeField(help_text="Exclusive invoice issue timestamp.")
+    customer_id = serializers.IntegerField(
+        min_value=1, required=False, help_text="Optional exact Customer ID inside actor scope."
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs["period_end"] <= attrs["period_start"]:
+            raise serializers.ValidationError({"period_end": "Must be later than period_start."})
+        return attrs
+
+
+class ProfitRowSerializer(serializers.Serializer):
+    invoice_id = serializers.IntegerField(min_value=1)
+    number = serializers.CharField()
+    customer_id = serializers.IntegerField(min_value=1)
+    customer_name = serializers.CharField()
+    issued_at = serializers.CharField()
+    revenue = serializers.DecimalField(**MONEY)
+    cost = serializers.DecimalField(**MONEY)
+    profit = serializers.DecimalField(**MONEY)
+    margin_percent = serializers.DecimalField(max_digits=8, decimal_places=2, coerce_to_string=True)
+
+
+class ProfitReportSerializer(serializers.Serializer):
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    revenue = serializers.DecimalField(**MONEY)
+    cost = serializers.DecimalField(**MONEY)
+    profit = serializers.DecimalField(**MONEY)
+    margin_percent = serializers.DecimalField(max_digits=8, decimal_places=2, coerce_to_string=True)
+    measured_invoice_count = serializers.IntegerField(min_value=0)
+    # Invoices issued with no cost snapshot. Reported separately rather than
+    # folded in at zero cost, which would overstate profit.
+    unmeasured_invoice_count = serializers.IntegerField(min_value=0)
+    results = ProfitRowSerializer(many=True)
+
+
+class InventoryValuationQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    warehouse_id = serializers.IntegerField(
+        min_value=1, required=False, help_text="Optional exact Warehouse ID."
+    )
+
+
+class ValuationRowSerializer(serializers.Serializer):
+    warehouse_id = serializers.IntegerField(min_value=1)
+    warehouse_name = serializers.CharField()
+    product_id = serializers.IntegerField(min_value=1)
+    product_sku = serializers.CharField()
+    product_name = serializers.CharField()
+    quantity = serializers.IntegerField()
+    average_cost = serializers.DecimalField(**MONEY)
+    stock_value = serializers.DecimalField(**MONEY)
+
+
+class InventoryValuationReportSerializer(serializers.Serializer):
+    as_of = serializers.CharField()
+    total_quantity = serializers.IntegerField()
+    total_value = serializers.DecimalField(**MONEY)
+    results = ValuationRowSerializer(many=True)

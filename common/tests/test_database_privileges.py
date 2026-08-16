@@ -317,7 +317,29 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "aftersales_aftersaleshistory": "SELECT, INSERT",
             "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE",
             "auditlog_activitylog": "SELECT, INSERT",
+            # Billing. Line tables carry DELETE because a draft document may
+            # have a line removed; the service refuses that past draft, and the
+            # invoice line also takes UPDATE for the issue-time cost snapshot.
+            "billing_cheque": "SELECT, INSERT, UPDATE",
+            "billing_chequestatushistory": "SELECT, INSERT",
+            "billing_customerledgerentry": "SELECT, INSERT",
+            "billing_documentsequence": "SELECT, INSERT, UPDATE",
+            "billing_installment": "SELECT, INSERT, UPDATE",
+            "billing_installmentplan": "SELECT, INSERT, UPDATE",
+            "billing_invoice": "SELECT, INSERT, UPDATE",
+            "billing_invoiceitem": "SELECT, INSERT, UPDATE, DELETE",
+            "billing_order": "SELECT, INSERT, UPDATE",
+            "billing_orderitem": "SELECT, INSERT, DELETE",
+            "billing_payment": "SELECT, INSERT, UPDATE",
+            "billing_paymentallocation": "SELECT, INSERT, UPDATE",
+            "billing_quotation": "SELECT, INSERT, UPDATE",
+            "billing_quotationitem": "SELECT, INSERT, DELETE",
             "communications_inboundsms": "SELECT, INSERT",
+            # Inventory. The movement ledger is append-only; the derived level
+            # row is rewritten by the movement service under a row lock.
+            "inventory_stockitem": "SELECT, INSERT, UPDATE",
+            "inventory_stockmovement": "SELECT, INSERT",
+            "inventory_warehouse": "SELECT, INSERT, UPDATE",
             # Derived cache of the signed deployment manifest. The runtime
             # rewrites it, which is safe precisely because it never authorises
             # anything; the manifest alone does.
@@ -369,6 +391,12 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_postalstatushistory",
             "aftersales_aftersaleshistory",
             "django_admin_log",
+            # The money and stock ledgers. A reversal is another row, so the
+            # runtime role must not be able to rewrite or remove history even
+            # if application code were to try.
+            "billing_customerledgerentry",
+            "billing_chequestatushistory",
+            "inventory_stockmovement",
         ):
             with self.subTest(append_only=table_name):
                 self.assertNotIn(f"('{table_name}', 'SELECT, INSERT, UPDATE", self.bootstrap)

@@ -10,6 +10,15 @@ from common.deployment.profile import active_profile, feature_enabled
 from common.permissions import FeatureGatedViewMixin
 from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
+from billing.selectors import (
+    cheques_for,
+    quotations_for,
+    installment_plans_for,
+    invoices_for,
+    orders_for,
+    payments_for,
+)
+from inventory.selectors import stock_items_for, stock_movements_for, warehouses_for
 from sales.selectors import (
     customers_for,
     interactions_for,
@@ -20,6 +29,26 @@ from sales.selectors import (
     sales_for,
 )
 
+
+# Persian labels for backend-owned status vocabularies. The backend value stays
+# the single source of truth; these are presentation only and a value with no
+# entry falls back to the raw code rather than being hidden.
+DOCUMENT_STATUS_LABELS = {
+    "draft": "پیش‌نویس",
+    "sent": "ارسال‌شده",
+    "accepted": "پذیرفته‌شده",
+    "rejected": "ردشده",
+    "expired": "منقضی‌شده",
+    "cancelled": "لغوشده",
+    "confirmed": "تأییدشده",
+    "fulfilled": "تحویل‌شده",
+    "issued": "صادرشده",
+}
+SETTLEMENT_LABELS = {
+    "unpaid": "تسویه‌نشده",
+    "partially_paid": "تسویه جزئی",
+    "paid": "تسویه کامل",
+}
 
 ROLE_LABELS = {
     User.Role.SALES_AGENT: "بازاریاب (کال سنتر)",
@@ -86,6 +115,17 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         context["can_manage_sales_documents"] = context["can_deactivate_customers"]
         context["can_manage_after_sales"] = "after_sales.manage" in capabilities
         context["can_view_company_reports"] = "reports.company" in capabilities
+        context["can_manage_inventory"] = "inventory.manage" in capabilities
+        context["can_read_inventory"] = bool(
+            {"inventory.read", "inventory.manage"}.intersection(capabilities)
+        )
+        # Money capabilities. An agent prepares documents but never issues an
+        # invoice, takes a payment, or reads the company ledger.
+        context["can_manage_billing"] = bool(
+            {"invoices.company", "orders.company", "quotations.company"}.intersection(capabilities)
+        )
+        context["can_handle_payments"] = "payments.company" in capabilities
+        context["can_view_ledger"] = "ledger.company" in capabilities
         context["can_view_sms_report"] = "sms.company" in capabilities
         context["can_view_audit"] = feature_enabled("audit_log") and bool(
             {"audit.non_platform", "audit.all"}.intersection(capabilities)
@@ -482,3 +522,233 @@ class KarizActivityLogDetailView(AuditReaderView, ScopedDetailView):
 
     def scoped_queryset(self):
         return activity_logs_for(self.request.user)
+
+
+# --- Inventory pages ---------------------------------------------------------
+
+class KarizWarehouseListView(ActiveCrmView):
+    required_feature = "inventory"
+    template_name = "common/warehouses/list.html"
+
+
+class KarizWarehouseDetailView(ScopedDetailView):
+    required_feature = "inventory"
+    template_name = "common/warehouses/detail.html"
+    object_id_kwarg = "warehouse_id"
+    context_id_name = "warehouse_id"
+    not_found_title = "انبار پیدا نشد"
+    not_found_message = "انبار در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return warehouses_for(self.request.user)
+
+
+class KarizStockLevelListView(ActiveCrmView):
+    required_feature = "inventory"
+    template_name = "common/inventory/stock_levels.html"
+
+
+class KarizStockMovementListView(ActiveCrmView):
+    required_feature = "inventory"
+    template_name = "common/inventory/stock_movements.html"
+
+
+# --- Commercial document pages ----------------------------------------------
+
+class KarizQuotationListView(ActiveCrmView):
+    required_feature = "quotations"
+    template_name = "common/quotations/list.html"
+
+
+class KarizQuotationDetailView(ScopedDetailView):
+    required_feature = "quotations"
+    template_name = "common/quotations/detail.html"
+    object_id_kwarg = "quotation_id"
+    context_id_name = "quotation_id"
+    not_found_title = "پیش‌فاکتور پیدا نشد"
+    not_found_message = "پیش‌فاکتور در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return quotations_for(self.request.user)
+
+
+class KarizOrderListView(ActiveCrmView):
+    required_feature = "orders"
+    template_name = "common/orders/list.html"
+
+
+class KarizOrderDetailView(ScopedDetailView):
+    required_feature = "orders"
+    template_name = "common/orders/detail.html"
+    object_id_kwarg = "order_id"
+    context_id_name = "order_id"
+    not_found_title = "سفارش پیدا نشد"
+    not_found_message = "سفارش در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return orders_for(self.request.user)
+
+
+class KarizInvoiceListView(ActiveCrmView):
+    required_feature = "invoices"
+    template_name = "common/invoices/list.html"
+
+
+class KarizInvoiceDetailView(ScopedDetailView):
+    required_feature = "invoices"
+    template_name = "common/invoices/detail.html"
+    object_id_kwarg = "invoice_id"
+    context_id_name = "invoice_id"
+    not_found_title = "فاکتور پیدا نشد"
+    not_found_message = "فاکتور در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return invoices_for(self.request.user)
+
+
+class PrintableDocumentView(ScopedDetailView):
+    """A document rendered for paper: no navigation, no controls, print stylesheet.
+
+    Server-rendered from the stored snapshot rather than assembled by script, so
+    what prints is exactly the row. A page that fails to load prints nothing,
+    rather than printing a blank form that still looks official.
+    """
+
+    def get_document(self):
+        raise NotImplementedError
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if not context.get("error_status"):
+            document = self.get_document()
+            context["document"] = document
+            context["items"] = list(document.items.order_by("line_number"))
+            context["taxable_amount"] = document.subtotal_amount - document.discount_amount
+            context["status_label"] = DOCUMENT_STATUS_LABELS.get(document.status, document.status)
+            settlement = getattr(document, "settlement_status", None)
+            if settlement is not None:
+                context["settlement_label"] = SETTLEMENT_LABELS.get(settlement, settlement)
+        return context
+
+
+class KarizQuotationPrintView(PrintableDocumentView):
+    required_feature = "quotations"
+    template_name = "common/quotations/print.html"
+    object_id_kwarg = "quotation_id"
+    context_id_name = "quotation_id"
+    not_found_title = "پیش‌فاکتور پیدا نشد"
+    not_found_message = "پیش‌فاکتور در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return quotations_for(self.request.user)
+
+    def get_document(self):
+        return (
+            self.scoped_queryset()
+            .select_related("customer", "created_by")
+            .prefetch_related("items")
+            .get(pk=self.kwargs["quotation_id"])
+        )
+
+
+class KarizInvoicePrintView(PrintableDocumentView):
+    required_feature = "invoices"
+    template_name = "common/invoices/print.html"
+    object_id_kwarg = "invoice_id"
+    context_id_name = "invoice_id"
+    not_found_title = "فاکتور پیدا نشد"
+    not_found_message = "فاکتور در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return invoices_for(self.request.user)
+
+    def get_document(self):
+        return (
+            self.scoped_queryset()
+            .select_related("customer", "created_by", "warehouse")
+            .prefetch_related("items")
+            .get(pk=self.kwargs["invoice_id"])
+        )
+
+
+# --- Money pages -------------------------------------------------------------
+
+class PaymentDeskView(ActiveCrmView):
+    """Pages that handle money: `payments.company` only, never a Sales Agent."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and not has_any_capability(request.user, "payments.company"):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="شما اجازه کار با دریافت‌ها را ندارید.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class KarizPaymentListView(PaymentDeskView):
+    required_feature = "payments"
+    template_name = "common/payments/list.html"
+
+
+class KarizPaymentDetailView(PaymentDeskView, ScopedDetailView):
+    required_feature = "payments"
+    template_name = "common/payments/detail.html"
+    object_id_kwarg = "payment_id"
+    context_id_name = "payment_id"
+    not_found_title = "دریافت پیدا نشد"
+    not_found_message = "دریافت در محدوده دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        return payments_for(self.request.user)
+
+
+class KarizChequeListView(PaymentDeskView):
+    required_feature = "payments"
+    template_name = "common/payments/cheques.html"
+
+
+class KarizInstallmentListView(PaymentDeskView):
+    required_feature = "payments"
+    template_name = "common/payments/installments.html"
+
+
+class KarizCustomerLedgerView(ActiveCrmView):
+    required_feature = "customer_ledger"
+    template_name = "common/reports/customer_ledger.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and not has_any_capability(request.user, "ledger.company"):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="شما اجازه مشاهده دفتر حساب مشتری را ندارید.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+# --- Financial report pages --------------------------------------------------
+
+class CompanyReportView(ActiveCrmView):
+    """Money reports need `reports.company`; `reports.own` is not enough."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and not has_any_capability(request.user, "reports.company"):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="شما اجازه مشاهده این گزارش را ندارید.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class KarizReceivablesReportView(CompanyReportView):
+    required_feature = "invoices"
+    template_name = "common/reports/receivables.html"
+
+
+class KarizProfitReportView(CompanyReportView):
+    required_feature = "invoices"
+    template_name = "common/reports/profit.html"
+
+
+class KarizStockValuationReportView(CompanyReportView):
+    required_feature = "inventory"
+    template_name = "common/reports/stock_valuation.html"

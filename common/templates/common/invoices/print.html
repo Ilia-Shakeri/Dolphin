@@ -1,0 +1,47 @@
+{% extends "common/print_base.html" %}
+{% block title %}فاکتور {{ document.number }}{% endblock %}
+{% block page_id %}invoice-print{% endblock %}
+{% block back_url %}{% url 'common_ui:invoice-detail' invoice_id %}{% endblock %}
+{% block document %}
+{% if document.status == "cancelled" %}<p class="print-cancelled">این فاکتور ابطال شده است</p>{% endif %}
+{% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز صادر نشده است</p>{% endif %}
+<header class="print-head">
+    <div><p class="print-brand">Kariz CRM | کاریز</p><h1>فاکتور فروش</h1></div>
+    <div><p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p><p><strong>تاریخ صدور:</strong> {{ document.issued_at|date:"Y/m/d H:i"|default:"—" }}</p></div>
+</header>
+<div class="print-meta">
+    <div><span>مشتری:</span><span>{{ document.customer_name_snapshot|default:document.customer.full_name }}</span></div>
+    <div><span>سررسید:</span><span>{{ document.due_at|date:"Y/m/d"|default:"هنگام صدور" }}</span></div>
+    <div><span>شناسه ملی/کد:</span><span dir="ltr">{{ document.customer.national_id|default:"—" }}</span></div>
+    <div><span>وضعیت تسویه:</span><span>{{ settlement_label }}</span></div>
+    <div><span>نشانی:</span><span>{{ document.customer.address|default:"—" }}</span></div>
+    <div><span>انبار:</span><span>{{ document.warehouse.name|default:"—" }}</span></div>
+</div>
+<div class="table-wrap"><table>
+    <thead><tr><th>ردیف</th><th>کد کالا</th><th>شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>تخفیف</th><th>مبلغ</th></tr></thead>
+    <tbody>
+    {% for item in items %}
+        <tr>
+            <td>{{ item.line_number }}</td>
+            <td dir="ltr">{{ item.product_sku_snapshot }}</td>
+            <td>{{ item.product_name_snapshot }}{% if item.description %} — {{ item.description }}{% endif %}</td>
+            <td>{{ item.quantity }}</td>
+            <td dir="ltr">{{ item.unit_price }}</td>
+            <td dir="ltr">{{ item.discount_amount }}</td>
+            <td dir="ltr">{{ item.line_total }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+<div class="print-totals">
+    <div><span>جمع اقلام</span><span dir="ltr">{{ document.subtotal_amount }}</span></div>
+    <div><span>تخفیف سند</span><span dir="ltr">{{ document.discount_amount }}</span></div>
+    <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount }}</span></div>
+    <div><span>مالیات ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount }}</span></div>
+    <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount }}</span></div>
+    <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount }}</span></div>
+    <div><span>مانده</span><span dir="ltr">{{ document.balance_due }}</span></div>
+</div>
+{% if document.notes %}<div class="print-notes">{{ document.notes }}</div>{% endif %}
+<p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه کاریز صادر شده است.</p>
+{% endblock %}

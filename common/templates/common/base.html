@@ -36,6 +36,39 @@
             {% endif %}
 
             {% if "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}<a data-module="sales" href="{% url 'common_ui:sales' %}">{% if request.user.role == 'sales_agent' %}فروش‌های من{% else %}فروش‌ها{% endif %}</a>{% endif %}
+
+            {% if "quotations" in features and "quotations.scoped" in capabilities or "quotations" in features and "quotations.company" in capabilities or "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}
+            <details data-module="billing" data-nav-group="billing" open>
+                <summary>اسناد بازرگانی</summary>
+                <div class="nav-list">
+                    {% if "quotations" in features and "quotations.scoped" in capabilities or "quotations" in features and "quotations.company" in capabilities %}<a data-module="quotations" href="{% url 'common_ui:quotations' %}">پیش‌فاکتورها</a>{% endif %}
+                    {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities %}<a data-module="orders" href="{% url 'common_ui:orders' %}">سفارش‌ها</a>{% endif %}
+                    {% if "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}<a data-module="invoices" href="{% url 'common_ui:invoices' %}">فاکتورها</a>{% endif %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if "payments" in features and can_handle_payments %}
+            <details data-module="treasury" data-nav-group="treasury" open>
+                <summary>صندوق و دریافت</summary>
+                <div class="nav-list">
+                    <a data-module="payments" href="{% url 'common_ui:payments' %}">دریافت‌ها</a>
+                    <a data-module="cheques" href="{% url 'common_ui:cheques' %}">چک‌ها</a>
+                    <a data-module="installments" href="{% url 'common_ui:installments' %}">اقساط</a>
+                </div>
+            </details>
+            {% endif %}
+
+            {% if "inventory" in features and can_read_inventory %}
+            <details data-module="inventory" data-nav-group="inventory" open>
+                <summary>انبار و موجودی</summary>
+                <div class="nav-list">
+                    <a data-module="stock-levels" href="{% url 'common_ui:stock-levels' %}">موجودی کالا</a>
+                    <a data-module="warehouses" href="{% url 'common_ui:warehouses' %}">انبارها{% if not can_manage_inventory %} (فقط خواندنی){% endif %}</a>
+                    <a data-module="stock-movements" href="{% url 'common_ui:stock-movements' %}">گردش انبار</a>
+                </div>
+            </details>
+            {% endif %}
             {% if "sales_documents" in features and "sales_documents.scoped" in capabilities or "sales_documents" in features and "sales_documents.company" in capabilities %}<a data-module="sales-documents" href="{% url 'common_ui:sales-documents' %}">اسناد فروش داخلی</a>{% endif %}
             {% if "after_sales" in features and "after_sales.assigned" in capabilities or "after_sales" in features and "after_sales.company" in capabilities %}<a data-module="after-sales" href="{% url 'common_ui:after-sales' %}">{% if request.user.role == 'sales_agent' %}پرونده‌های خدمات من{% else %}خدمات پس از فروش{% endif %}</a>{% endif %}
             {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities %}
@@ -54,6 +87,10 @@
                 <div class="nav-list">
                     <a data-module="performance" href="{% url 'common_ui:user-performance' %}">{% if request.user.role == 'sales_agent' %}عملکرد من{% else %}گزارش شرکت{% endif %}</a>
                     {% if "sales_documents" in features %}<a data-module="sales-document-report" href="{% url 'common_ui:sales-document-report' %}">گزارش اسناد و پست</a>{% endif %}
+                    {% if can_view_company_reports and "invoices" in features %}<a data-module="receivables-report" href="{% url 'common_ui:receivables-report' %}">مطالبات</a>{% endif %}
+                    {% if can_view_company_reports and "invoices" in features %}<a data-module="profit-report" href="{% url 'common_ui:profit-report' %}">سود ناخالص</a>{% endif %}
+                    {% if can_view_company_reports and "inventory" in features %}<a data-module="stock-valuation-report" href="{% url 'common_ui:stock-valuation-report' %}">ارزش موجودی</a>{% endif %}
+                    {% if can_view_ledger and "customer_ledger" in features %}<a data-module="customer-ledger" href="{% url 'common_ui:customer-ledger' %}">دفتر حساب مشتری</a>{% endif %}
                     {% if can_view_sms_report and "inbound_sms" in features %}<a data-module="inbound-sms-report" href="{% url 'common_ui:inbound-sms-report' %}">گزارش پیامک ورودی</a>{% endif %}
                 </div>
             </details>

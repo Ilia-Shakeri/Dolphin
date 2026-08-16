@@ -1,0 +1,22 @@
+{% extends "common/base.html" %}
+{% block title %}ارزش موجودی{% endblock %}
+{% block page_id %}stock-valuation-report{% endblock %}
+{% block content %}
+<section class="page-head"><div><p class="eyebrow">گزارش‌های مالی</p><h1>ارزش موجودی انبار</h1></div></section>
+<section class="card">
+    <form id="valuation-filter-form" action="{% url 'common_ui:stock-valuation-report' %}" method="get" class="toolbar">
+        <label class="sr-only" for="valuation-warehouse">انبار</label><select id="valuation-warehouse" name="warehouse_id"><option value="">همه انبارها</option></select>
+        <button class="button" type="submit">اعمال</button>
+        <a id="valuation-export" class="button button-muted" href="/api/v1/exports/stock-valuation.xlsx">خروجی اکسل</a>
+    </form>
+    <div class="metric-grid">
+        <div class="metric"><span class="muted">جمع تعداد</span><strong id="valuation-quantity">—</strong></div>
+        <div class="metric"><span class="muted">جمع ارزش</span><strong id="valuation-value">—</strong></div>
+    </div>
+    <p class="muted">ارزش هر ردیف، تعداد موجود ضربدر بهای میانگین موزونی است که دفتر گردش انبار تولید کرده است. هیچ سیاست تجدید ارزیابی اعمال نمی‌شود.</p>
+</section>
+<section class="card">
+    <div id="valuation-loading" class="state">در حال دریافت گزارش…</div><div id="valuation-empty" class="state" hidden>موجودی‌ای برای ارزش‌گذاری وجود ندارد.</div>
+    <div id="valuation-table-wrap" class="table-wrap" hidden><table><thead><tr><th>انبار</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>بهای میانگین</th><th>ارزش</th></tr></thead><tbody id="valuation-table-body"></tbody></table></div>
+</section>
+{% endblock %}

@@ -476,7 +476,9 @@
                 showError(error);
             }
         }
-        form.addEventListener("submit", (event) => { event.preventDefault(); load(1); });
+        // A paged list embedded in a detail page (payment allocations, ledger
+        // entries) has no filter form of its own; the caller passes null.
+        form?.addEventListener("submit", (event) => { event.preventDefault(); load(1); });
         previous.addEventListener("click", () => load(currentPage - 1));
         next.addEventListener("click", () => load(currentPage + 1));
         return {load};
@@ -1950,6 +1952,1639 @@
         }
     }
 
+
+    // --- Inventory, billing, and financial-report pages ----------------------
+
+    const DOCUMENT_STATUS_TEXT = Object.freeze({
+        draft: "پیش‌نویس",
+        sent: "ارسال‌شده",
+        accepted: "پذیرفته‌شده",
+        rejected: "ردشده",
+        expired: "منقضی‌شده",
+        cancelled: "لغوشده",
+        confirmed: "تأییدشده",
+        fulfilled: "تحویل‌شده",
+        issued: "صادرشده",
+    });
+    const SETTLEMENT_TEXT = Object.freeze({
+        unpaid: "تسویه‌نشده",
+        partially_paid: "تسویه جزئی",
+        paid: "تسویه کامل",
+    });
+    const MOVEMENT_TEXT = Object.freeze({
+        opening: "موجودی اول دوره",
+        purchase: "رسید خرید",
+        sale: "خروج فروش",
+        return_in: "برگشت از مشتری",
+        return_out: "برگشت به تأمین‌کننده",
+        adjustment_in: "اصلاح افزایشی",
+        adjustment_out: "اصلاح کاهشی",
+        transfer_in: "انتقال ورودی",
+        transfer_out: "انتقال خروجی",
+    });
+    const PAYMENT_METHOD_TEXT = Object.freeze({
+        cash: "نقدی",
+        card: "کارت‌خوان",
+        bank_transfer: "حواله بانکی",
+        cheque: "چک",
+    });
+    const PAYMENT_STATUS_TEXT = Object.freeze({
+        pending: "در انتظار وصول",
+        confirmed: "تأییدشده",
+        cancelled: "ابطال‌شده",
+    });
+    const CHEQUE_STATUS_TEXT = Object.freeze({
+        registered: "ثبت‌شده",
+        deposited: "به بانک سپرده‌شده",
+        cleared: "وصول‌شده",
+        bounced: "برگشت‌خورده",
+        returned: "بازگردانده‌شده",
+        cancelled: "ابطال‌شده",
+    });
+    // Mirrors billing.models.Cheque.TRANSITIONS. Display only — the server
+    // refuses a jump that is not in its own table regardless of what is offered
+    // here, so a drift in this copy narrows the menu, it never widens access.
+    const CHEQUE_TRANSITIONS = Object.freeze({
+        registered: ["deposited", "returned", "cancelled"],
+        deposited: ["cleared", "bounced", "returned"],
+        cleared: [],
+        bounced: ["deposited", "returned"],
+        returned: [],
+        cancelled: [],
+    });
+    const INSTALLMENT_STATUS_TEXT = Object.freeze({
+        pending: "پرداخت‌نشده",
+        partially_paid: "پرداخت جزئی",
+        paid: "پرداخت‌شده",
+        cancelled: "لغوشده",
+    });
+    const LEDGER_ENTRY_TEXT = Object.freeze({
+        opening_balance: "مانده اول دوره",
+        invoice_issued: "صدور فاکتور",
+        invoice_cancelled: "ابطال فاکتور",
+        payment_received: "دریافت وجه",
+        payment_cancelled: "ابطال دریافت",
+        adjustment_debit: "اصلاح بدهکار",
+        adjustment_credit: "اصلاح بستانکار",
+    });
+
+    function labelled(map, value) {
+        return map[value] || value || "—";
+    }
+
+    // Group thousands by walking the string rather than going through Number:
+    // an amount is authoritative as sent, and a float round-trip could move the
+    // last digit of a large total.
+    function money(value) {
+        if (value === null || value === undefined || value === "") return "—";
+        const text = String(value);
+        const negative = text.startsWith("-");
+        const [whole, fraction] = (negative ? text.slice(1) : text).split(".");
+        const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "،");
+        const body = fraction ? `${grouped}.${fraction}` : grouped;
+        return negative ? `‏-${body}` : body;
+    }
+
+    function appendMoneyCell(row, value) {
+        const cell = appendCell(row, money(value));
+        cell.dir = "ltr";
+        return cell;
+    }
+
+    function appendActionLinks(row, links) {
+        const cell = document.createElement("td");
+        cell.className = "row-actions";
+        links.forEach(([href, label]) => {
+            const link = document.createElement("a");
+            link.className = "button button-muted";
+            link.href = href;
+            link.textContent = label;
+            cell.appendChild(link);
+        });
+        row.appendChild(cell);
+        return cell;
+    }
+
+    function setSelectValue(select, value) {
+        select.value = value === null || value === undefined ? "" : String(value);
+    }
+
+    function numberOrNull(value) {
+        const text = String(value ?? "").trim();
+        return text === "" ? null : Number(text);
+    }
+
+    function textOrNull(value) {
+        const text = String(value ?? "").trim();
+        return text === "" ? null : text;
+    }
+
+    async function loadCustomerOptions(select, emptyLabel) {
+        if (!select) return [];
+        const rows = await loadAllPages("/api/v1/customers/?ordering=full_name");
+        fillSelect(select, rows, (row) => row.full_name, emptyLabel);
+        return rows;
+    }
+
+    async function loadProductOptions(select, emptyLabel) {
+        if (!select) return [];
+        const rows = await loadAllPages("/api/v1/products/?is_active=true&ordering=name");
+        fillSelect(select, rows, (row) => `${row.name} (${row.sku})`, emptyLabel);
+        return rows;
+    }
+
+    async function loadWarehouseOptions(select, emptyLabel) {
+        if (!select) return [];
+        const rows = await loadAllPages("/api/v1/warehouses/?is_active=true&ordering=name");
+        fillSelect(select, rows, (row) => row.name, emptyLabel);
+        return rows;
+    }
+
+    // --- Warehouses ---------------------------------------------------------
+
+    function warehouseRow(warehouse) {
+        const row = document.createElement("tr");
+        appendCell(row, warehouse.code);
+        appendCell(row, warehouse.name);
+        appendCell(row, warehouse.address);
+        appendCell(row, warehouse.is_default ? "بله" : "خیر");
+        appendCell(row, statusText(warehouse.is_active));
+        appendDetailLink(row, `/warehouses/${warehouse.id}/`);
+        return row;
+    }
+
+    function setupWarehouses() {
+        const form = document.getElementById("warehouse-search-form");
+        const dialog = document.getElementById("create-warehouse-dialog");
+        if (dialog) {
+            const createForm = document.getElementById("create-warehouse-form");
+            document.getElementById("open-create-warehouse").addEventListener("click", () => dialog.showModal());
+            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const payload = formPayload(createForm, ["code", "name", "address"]);
+                    payload.is_default = new FormData(createForm).get("is_default") === "true";
+                    const warehouse = await apiRequest(createForm.action, {method: "POST", body: payload});
+                    window.location.assign(`/warehouses/${warehouse.id}/`);
+                });
+            });
+        }
+        const controller = setupPagedList({
+            key: "warehouses",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("warehouse-search").value.trim();
+                if (search) query.set("search", search);
+                const isActive = document.getElementById("warehouse-status-filter").value;
+                if (isActive) query.set("is_active", isActive);
+                query.set("ordering", document.getElementById("warehouse-ordering").value);
+                return `/api/v1/warehouses/?${query}`;
+            },
+            renderRow: warehouseRow,
+        });
+        controller.load();
+    }
+
+    function fillWarehouse(warehouse) {
+        document.getElementById("edit-warehouse-code").value = warehouse.code;
+        document.getElementById("edit-warehouse-name").value = warehouse.name;
+        setSelectValue(document.getElementById("edit-warehouse-default"), String(warehouse.is_default));
+        document.getElementById("edit-warehouse-address").value = warehouse.address || "";
+        document.getElementById("warehouse-status").value = statusText(warehouse.is_active);
+        document.getElementById("warehouse-created-by").value = warehouse.created_by_display || warehouse.created_by;
+        document.getElementById("warehouse-updated-by").value = warehouse.updated_by_display || warehouse.updated_by;
+        const toggle = document.getElementById("toggle-warehouse");
+        if (toggle) {
+            toggle.textContent = warehouse.is_active ? "غیرفعال کردن انبار" : "فعال کردن دوباره انبار";
+            toggle.classList.toggle("button-danger", warehouse.is_active);
+        }
+    }
+
+    async function setupWarehouseDetail() {
+        const warehouseId = document.body.dataset.warehouseId;
+        const endpoint = `/api/v1/warehouses/${warehouseId}/`;
+        const loading = document.getElementById("warehouse-detail-loading");
+        const content = document.getElementById("warehouse-detail-content");
+        const dangerZone = document.getElementById("warehouse-danger-zone");
+        let warehouse;
+        try {
+            warehouse = await apiRequest(endpoint);
+            fillWarehouse(warehouse);
+            loading.hidden = true;
+            content.hidden = false;
+            if (dangerZone) dangerZone.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+            return;
+        }
+        const form = document.getElementById("edit-warehouse-form");
+        if (form.querySelector("button[type='submit']")) {
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(form, async () => {
+                    const payload = formPayload(form, ["name", "address"]);
+                    payload.is_default = new FormData(form).get("is_default") === "true";
+                    warehouse = await apiRequest(endpoint, {method: "PATCH", body: payload});
+                    fillWarehouse(warehouse);
+                    globalMessage("انبار ذخیره شد.", true);
+                });
+            });
+        }
+        const toggle = document.getElementById("toggle-warehouse");
+        toggle?.addEventListener("click", async () => {
+            const action = warehouse.is_active ? "deactivate" : "reactivate";
+            const prompt = warehouse.is_active ? "این انبار غیرفعال شود؟" : "این انبار دوباره فعال شود؟";
+            if (!window.confirm(prompt)) return;
+            toggle.disabled = true;
+            try {
+                warehouse = await apiRequest(`${endpoint}${action}/`, {method: "POST"});
+                fillWarehouse(warehouse);
+                globalMessage(warehouse.is_active ? "انبار فعال شد." : "انبار غیرفعال شد.", true);
+            } catch (error) {
+                showError(error);
+            } finally {
+                toggle.disabled = false;
+            }
+        });
+    }
+
+    // --- Stock levels and movements -----------------------------------------
+
+    function stockItemRow(item) {
+        const row = document.createElement("tr");
+        appendCell(row, item.warehouse_name);
+        appendCell(row, item.product_sku).dir = "ltr";
+        appendCell(row, item.product_name);
+        appendCell(row, item.quantity);
+        appendMoneyCell(row, item.average_cost);
+        appendMoneyCell(row, item.stock_value);
+        appendCell(row, displayDate(item.last_movement_at));
+        return row;
+    }
+
+    async function setupStockLevels() {
+        const form = document.getElementById("stock-search-form");
+        const movementDialog = document.getElementById("create-movement-dialog");
+        const transferDialog = document.getElementById("transfer-stock-dialog");
+        let controller = null;
+
+        // Handlers are attached before any awaited load so a click landing in
+        // the first moments of the page is not silently discarded.
+        if (movementDialog) {
+            const createForm = document.getElementById("create-movement-form");
+            document.getElementById("open-create-movement").addEventListener("click", () => movementDialog.showModal());
+            movementDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => movementDialog.close()));
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const data = new FormData(createForm);
+                    const payload = {
+                        warehouse: Number(data.get("warehouse")),
+                        product: Number(data.get("product")),
+                        movement_type: String(data.get("movement_type")),
+                        quantity: Number(data.get("quantity")),
+                        notes: String(data.get("notes") || ""),
+                    };
+                    const cost = numberOrNull(data.get("unit_cost"));
+                    if (cost !== null) payload.unit_cost = cost;
+                    await apiRequest(createForm.action, {method: "POST", body: payload});
+                    movementDialog.close();
+                    globalMessage("حرکت انبار ثبت شد.", true);
+                    controller?.load();
+                });
+            });
+        }
+        if (transferDialog) {
+            const transferForm = document.getElementById("transfer-stock-form");
+            document.getElementById("open-transfer-stock").addEventListener("click", () => transferDialog.showModal());
+            transferDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => transferDialog.close()));
+            transferForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(transferForm, async () => {
+                    const data = new FormData(transferForm);
+                    await apiRequest(transferForm.action, {method: "POST", body: {
+                        from_warehouse: Number(data.get("from_warehouse")),
+                        to_warehouse: Number(data.get("to_warehouse")),
+                        product: Number(data.get("product")),
+                        quantity: Number(data.get("quantity")),
+                        notes: String(data.get("notes") || ""),
+                    }});
+                    transferDialog.close();
+                    globalMessage("انتقال بین انبار ثبت شد.", true);
+                    controller?.load();
+                });
+            });
+        }
+
+        try {
+            const [warehouses] = await Promise.all([
+                loadWarehouseOptions(document.getElementById("stock-warehouse-filter"), "همه انبارها"),
+                loadProductOptions(document.getElementById("create-movement-product"), "یک کالا انتخاب کنید"),
+                loadProductOptions(document.getElementById("transfer-product"), "یک کالا انتخاب کنید"),
+            ]);
+            [
+                ["create-movement-warehouse", "یک انبار انتخاب کنید"],
+                ["transfer-from-warehouse", "انبار مبدأ"],
+                ["transfer-to-warehouse", "انبار مقصد"],
+            ].forEach(([id, emptyLabel]) => {
+                const select = document.getElementById(id);
+                if (select) fillSelect(select, warehouses, (row) => row.name, emptyLabel);
+            });
+        } catch (error) {
+            showError(error);
+        }
+
+        controller = setupPagedList({
+            key: "stock-items",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("stock-search").value.trim();
+                if (search) query.set("search", search);
+                const warehouse = document.getElementById("stock-warehouse-filter").value;
+                if (warehouse) query.set("warehouse", warehouse);
+                const threshold = document.getElementById("stock-threshold").value.trim();
+                if (threshold) query.set("below_or_equal", threshold);
+                query.set("ordering", document.getElementById("stock-ordering").value);
+                return `/api/v1/stock-items/?${query}`;
+            },
+            renderRow: stockItemRow,
+        });
+        controller.load();
+    }
+
+    function stockMovementRow(movement) {
+        const row = document.createElement("tr");
+        appendCell(row, displayDate(movement.occurred_at));
+        appendCell(row, movement.warehouse_name);
+        appendCell(row, movement.product_name);
+        appendCell(row, labelled(MOVEMENT_TEXT, movement.movement_type));
+        appendCell(row, movement.quantity);
+        appendMoneyCell(row, movement.unit_cost);
+        appendCell(row, movement.resulting_quantity);
+        appendCell(row, movement.reference_number || "—").dir = "ltr";
+        appendCell(row, movement.created_by_display || movement.created_by);
+        return row;
+    }
+
+    async function setupStockMovements() {
+        const form = document.getElementById("stock-movement-search-form");
+        try {
+            await loadWarehouseOptions(document.getElementById("stock-movement-warehouse"), "همه انبارها");
+        } catch (error) {
+            showError(error);
+        }
+        const controller = setupPagedList({
+            key: "stock-movements",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("stock-movement-search").value.trim();
+                if (search) query.set("search", search);
+                const warehouse = document.getElementById("stock-movement-warehouse").value;
+                if (warehouse) query.set("warehouse", warehouse);
+                const movementType = document.getElementById("stock-movement-type").value;
+                if (movementType) query.set("movement_type", movementType);
+                query.set("ordering", document.getElementById("stock-movement-ordering").value);
+                return `/api/v1/stock-movements/?${query}`;
+            },
+            renderRow: stockMovementRow,
+        });
+        controller.load();
+    }
+
+    // --- Commercial documents -----------------------------------------------
+
+    function documentListRow(document_, columns, href) {
+        const row = document.createElement("tr");
+        columns.forEach((render) => render(row, document_));
+        appendDetailLink(row, href(document_));
+        return row;
+    }
+
+    function setupDocumentList({key, prefix, endpoint, columns, detailPath, createFields}) {
+        const form = document.getElementById(`${prefix}-search-form`);
+        const dialog = document.getElementById(`create-${prefix}-dialog`);
+        let controller = null;
+        if (dialog) {
+            const createForm = document.getElementById(`create-${prefix}-form`);
+            document.getElementById(`open-create-${prefix}`).addEventListener("click", () => dialog.showModal());
+            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const created = await apiRequest(createForm.action, {
+                        method: "POST",
+                        body: createFields(new FormData(createForm)),
+                    });
+                    window.location.assign(`${detailPath}${created.id}/`);
+                });
+            });
+        }
+        controller = setupPagedList({
+            key,
+            form,
+            endpoint,
+            renderRow: (row) => documentListRow(row, columns, (item) => `${detailPath}${item.id}/`),
+        });
+        controller.load();
+        return controller;
+    }
+
+    function documentFirstLine(data) {
+        const line = {product: Number(data.get("product")), quantity: Number(data.get("quantity"))};
+        return [line];
+    }
+
+    async function setupQuotations() {
+        try {
+            await Promise.all([
+                loadCustomerOptions(document.getElementById("create-quotation-customer"), "یک مشتری انتخاب کنید"),
+                loadProductOptions(document.getElementById("create-quotation-product"), "یک کالا انتخاب کنید"),
+            ]);
+        } catch (error) {
+            showError(error);
+        }
+        setupDocumentList({
+            key: "quotations",
+            prefix: "quotation",
+            detailPath: "/quotations/",
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("quotation-search").value.trim();
+                if (search) query.set("search", search);
+                const status = document.getElementById("quotation-status-filter").value;
+                if (status) query.set("status", status);
+                query.set("ordering", document.getElementById("quotation-ordering").value);
+                return `/api/v1/quotations/?${query}`;
+            },
+            columns: [
+                (row, item) => { appendCell(row, item.number).dir = "ltr"; },
+                (row, item) => appendCell(row, item.customer_name),
+                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
+                (row, item) => appendMoneyCell(row, item.total_amount),
+                (row, item) => appendCell(row, displayDate(item.valid_until)),
+                (row, item) => appendCell(row, item.created_by_display || item.created_by),
+            ],
+            createFields: (data) => ({
+                customer: Number(data.get("customer")),
+                tax_rate: String(data.get("tax_rate") || "0"),
+                items: documentFirstLine(data),
+            }),
+        });
+    }
+
+    async function setupOrders() {
+        try {
+            await Promise.all([
+                loadCustomerOptions(document.getElementById("create-order-customer"), "یک مشتری انتخاب کنید"),
+                loadProductOptions(document.getElementById("create-order-product"), "یک کالا انتخاب کنید"),
+            ]);
+        } catch (error) {
+            showError(error);
+        }
+        setupDocumentList({
+            key: "orders",
+            prefix: "order",
+            detailPath: "/orders/",
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("order-search").value.trim();
+                if (search) query.set("search", search);
+                const status = document.getElementById("order-status-filter").value;
+                if (status) query.set("status", status);
+                query.set("ordering", document.getElementById("order-ordering").value);
+                return `/api/v1/orders/?${query}`;
+            },
+            columns: [
+                (row, item) => { appendCell(row, item.number).dir = "ltr"; },
+                (row, item) => appendCell(row, item.customer_name),
+                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
+                (row, item) => appendMoneyCell(row, item.total_amount),
+                (row, item) => appendCell(row, displayDate(item.confirmed_at)),
+                (row, item) => appendCell(row, item.created_by_display || item.created_by),
+            ],
+            createFields: (data) => ({
+                customer: Number(data.get("customer")),
+                tax_rate: String(data.get("tax_rate") || "0"),
+                items: documentFirstLine(data),
+            }),
+        });
+    }
+
+    async function setupInvoices() {
+        try {
+            await Promise.all([
+                loadCustomerOptions(document.getElementById("create-invoice-customer"), "یک مشتری انتخاب کنید"),
+                loadProductOptions(document.getElementById("create-invoice-product"), "یک کالا انتخاب کنید"),
+                loadWarehouseOptions(document.getElementById("create-invoice-warehouse"), "بدون اثر انبار"),
+            ]);
+        } catch (error) {
+            showError(error);
+        }
+        setupDocumentList({
+            key: "invoices",
+            prefix: "invoice",
+            detailPath: "/invoices/",
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("invoice-search").value.trim();
+                if (search) query.set("search", search);
+                const status = document.getElementById("invoice-status-filter").value;
+                if (status) query.set("status", status);
+                const settlement = document.getElementById("invoice-settlement-filter").value;
+                if (settlement) query.set("settlement", settlement);
+                query.set("ordering", document.getElementById("invoice-ordering").value);
+                return `/api/v1/invoices/?${query}`;
+            },
+            columns: [
+                (row, item) => { appendCell(row, item.number).dir = "ltr"; },
+                (row, item) => appendCell(row, item.customer_name),
+                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
+                (row, item) => appendMoneyCell(row, item.total_amount),
+                (row, item) => appendMoneyCell(row, item.paid_amount),
+                (row, item) => appendMoneyCell(row, item.balance_due),
+                (row, item) => appendCell(row, displayDate(item.due_at)),
+            ],
+            createFields: (data) => {
+                const payload = {
+                    customer: Number(data.get("customer")),
+                    tax_rate: String(data.get("tax_rate") || "0"),
+                    items: documentFirstLine(data),
+                };
+                const warehouse = numberOrNull(data.get("warehouse"));
+                if (warehouse !== null) payload.warehouse = warehouse;
+                return payload;
+            },
+        });
+    }
+
+    /** Shared line editor and totals for one commercial document.
+     *
+     * Lines are edited as one local list and written back with a single call to
+     * the document's `items` endpoint, which replaces the whole set. That keeps
+     * the stored header totals and the stored lines from ever disagreeing —
+     * the service recomputes the totals from the lines it just wrote.
+     */
+    function documentLineEditor({doc, endpoint, onSaved}) {
+        const body = document.getElementById(`${doc}-lines-body`);
+        const empty = document.getElementById(`${doc}-lines-empty`);
+        const editor = document.getElementById(`${doc}-lines-editor`);
+        const countLabel = document.getElementById(`${doc}-lines-count`);
+        const addForm = document.getElementById(`${doc}-add-line-form`);
+        const saveButton = document.getElementById(`${doc}-save-lines`);
+        const resetButton = document.getElementById(`${doc}-reset-lines`);
+        const productSelect = document.getElementById(`${doc}-line-product`);
+        let stored = [];
+        let draft = [];
+        let editable = false;
+        let products = [];
+
+        function productLabel(id) {
+            const match = products.find((item) => item.id === Number(id));
+            return match ? `${match.name} (${match.sku})` : String(id);
+        }
+
+        function render() {
+            const rows = draft.map((line, index) => {
+                const row = document.createElement("tr");
+                appendCell(row, index + 1);
+                appendCell(row, line.product_sku_snapshot || "—").dir = "ltr";
+                appendCell(row, line.product_name_snapshot || productLabel(line.product));
+                appendCell(row, line.quantity);
+                appendMoneyCell(row, line.unit_price);
+                appendMoneyCell(row, line.discount_amount);
+                appendMoneyCell(row, line.line_total);
+                const actions = document.createElement("td");
+                actions.className = "row-actions";
+                if (editable) {
+                    const remove = document.createElement("button");
+                    remove.type = "button";
+                    remove.className = "button button-muted";
+                    remove.textContent = "حذف سطر";
+                    remove.addEventListener("click", () => {
+                        draft.splice(index, 1);
+                        render();
+                    });
+                    actions.appendChild(remove);
+                }
+                row.appendChild(actions);
+                return row;
+            });
+            body.replaceChildren(...rows);
+            empty.hidden = draft.length > 0;
+            countLabel.textContent = draft.length ? `${draft.length} سطر` : "";
+        }
+
+        addForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            const data = new FormData(addForm);
+            const product = numberOrNull(data.get("product"));
+            const quantity = numberOrNull(data.get("quantity"));
+            if (product === null || quantity === null || quantity < 1) {
+                globalMessage("کالا و تعداد سطر را کامل وارد کنید.");
+                return;
+            }
+            const unitPrice = numberOrNull(data.get("unit_price"));
+            const discountPercent = numberOrNull(data.get("discount_percent"));
+            const match = products.find((item) => item.id === product);
+            const price = unitPrice ?? Number(match ? match.current_price : 0);
+            const gross = price * quantity;
+            const discount = discountPercent ? (gross * discountPercent) / 100 : 0;
+            draft.push({
+                product,
+                quantity,
+                unit_price: unitPrice === null ? null : unitPrice,
+                discount_percent: discountPercent,
+                // Preview only. The server recomputes every amount from the
+                // product price it reads at write time, and its numbers win.
+                product_name_snapshot: match ? match.name : "",
+                product_sku_snapshot: match ? match.sku : "",
+                line_total: (gross - discount).toFixed(2),
+                discount_amount: discount.toFixed(2),
+            });
+            addForm.reset();
+            document.getElementById(`${doc}-line-quantity`).value = "1";
+            render();
+        });
+
+        resetButton?.addEventListener("click", () => {
+            draft = stored.map((line) => ({...line}));
+            render();
+            globalMessage("اقلام ذخیره‌شده بازگردانده شد.", true);
+        });
+
+        saveButton?.addEventListener("click", async () => {
+            if (!draft.length) {
+                globalMessage("سند باید دست‌کم یک سطر داشته باشد.");
+                return;
+            }
+            saveButton.disabled = true;
+            clearMessages();
+            try {
+                const payload = draft.map((line) => {
+                    const item = {product: Number(line.product), quantity: Number(line.quantity)};
+                    if (line.unit_price !== null && line.unit_price !== undefined) {
+                        item.unit_price = String(line.unit_price);
+                    }
+                    if (line.discount_percent) item.discount_percent = String(line.discount_percent);
+                    return item;
+                });
+                const updated = await apiRequest(`${endpoint}items/`, {method: "POST", body: {items: payload}});
+                globalMessage("اقلام سند ذخیره شد.", true);
+                onSaved(updated);
+            } catch (error) {
+                showError(error);
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+
+        return {
+            async loadProducts() {
+                products = await loadAllPages("/api/v1/products/?is_active=true&ordering=name");
+                if (productSelect) {
+                    fillSelect(productSelect, products, (item) => `${item.name} (${item.sku})`, "یک کالا انتخاب کنید");
+                }
+            },
+            apply(document_) {
+                stored = (document_.line_items || []).map((line) => ({
+                    product: line.product,
+                    quantity: line.quantity,
+                    unit_price: line.unit_price,
+                    discount_percent: Number(line.discount_percent) || null,
+                    discount_amount: line.discount_amount,
+                    line_total: line.line_total,
+                    product_name_snapshot: line.product_name_snapshot,
+                    product_sku_snapshot: line.product_sku_snapshot,
+                }));
+                draft = stored.map((line) => ({...line}));
+                editable = document_.status === "draft";
+                if (editor) editor.hidden = !editable;
+                render();
+                document.getElementById(`${doc}-subtotal`).value = money(document_.subtotal_amount);
+                document.getElementById(`${doc}-discount-total`).value = money(document_.discount_amount);
+                document.getElementById(`${doc}-tax-rate-view`).value = document_.tax_rate;
+                document.getElementById(`${doc}-tax-amount`).value = money(document_.tax_amount);
+                document.getElementById(`${doc}-total`).value = money(document_.total_amount);
+            },
+        };
+    }
+
+    function bindTransitions(attribute, endpoint, apply) {
+        document.querySelectorAll(`[data-${attribute}-transition]`).forEach((button) => {
+            button.addEventListener("click", async () => {
+                const target = button.dataset[`${attribute}Transition`];
+                if (!window.confirm(`وضعیت سند به «${labelled(DOCUMENT_STATUS_TEXT, target)}» تغییر کند؟`)) return;
+                button.disabled = true;
+                clearMessages();
+                try {
+                    const updated = await apiRequest(`${endpoint}transition/`, {
+                        method: "POST",
+                        body: {to_status: target},
+                    });
+                    globalMessage("وضعیت سند ثبت شد.", true);
+                    apply(updated);
+                } catch (error) {
+                    showError(error);
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        });
+    }
+
+    async function setupQuotationDetail() {
+        const quotationId = document.body.dataset.quotationId;
+        const endpoint = `/api/v1/quotations/${quotationId}/`;
+        const loading = document.getElementById("quotation-detail-loading");
+        const content = document.getElementById("quotation-detail-content");
+        const workflow = document.getElementById("quotation-workflow");
+        const convertBlock = document.getElementById("quotation-convert-block");
+        const form = document.getElementById("edit-quotation-form");
+        const editActions = document.getElementById("quotation-edit-actions");
+        const lockedNote = document.getElementById("quotation-locked-note");
+        const lines = documentLineEditor({doc: "quotation", endpoint, onSaved: (updated) => apply(updated)});
+
+        function apply(quotation) {
+            document.getElementById("quotation-number").value = quotation.number;
+            document.getElementById("quotation-customer").value = quotation.customer_name;
+            document.getElementById("quotation-status").value = labelled(DOCUMENT_STATUS_TEXT, quotation.status);
+            document.getElementById("quotation-created-by").value = quotation.created_by_display || quotation.created_by;
+            document.getElementById("quotation-issued-at").value = displayDate(quotation.issued_at);
+            document.getElementById("edit-quotation-valid-until").value = localDateTimeValue(quotation.valid_until);
+            document.getElementById("edit-quotation-discount").value = quotation.discount_amount;
+            document.getElementById("edit-quotation-tax").value = quotation.tax_rate;
+            document.getElementById("edit-quotation-notes").value = quotation.notes || "";
+            const editable = quotation.status === "draft";
+            if (editActions) editActions.hidden = !editable;
+            if (lockedNote) lockedNote.hidden = editable;
+            form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
+            if (convertBlock) convertBlock.hidden = quotation.status !== "accepted";
+            lines.apply(quotation);
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const data = new FormData(form);
+                const payload = {
+                    discount_amount: String(data.get("discount_amount") || "0"),
+                    tax_rate: String(data.get("tax_rate") || "0"),
+                    notes: String(data.get("notes") || ""),
+                };
+                payload.valid_until = apiDateTime(textOrNull(data.get("valid_until")));
+                const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
+                apply(updated);
+                globalMessage("سربرگ پیش‌فاکتور ذخیره شد.", true);
+            });
+        });
+        bindTransitions("quotation", endpoint, apply);
+        document.getElementById("convert-quotation")?.addEventListener("click", async () => {
+            if (!window.confirm("یک سفارش پیش‌نویس از این پیش‌فاکتور ساخته شود؟")) return;
+            try {
+                const order = await apiRequest(`${endpoint}convert/`, {method: "POST"});
+                window.location.assign(`/orders/${order.id}/`);
+            } catch (error) {
+                showError(error);
+            }
+        });
+
+        try {
+            const [quotation] = await Promise.all([apiRequest(endpoint), lines.loadProducts()]);
+            apply(quotation);
+            loading.hidden = true;
+            content.hidden = false;
+            if (workflow) workflow.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+        }
+    }
+
+    async function setupOrderDetail() {
+        const orderId = document.body.dataset.orderId;
+        const endpoint = `/api/v1/orders/${orderId}/`;
+        const loading = document.getElementById("order-detail-loading");
+        const content = document.getElementById("order-detail-content");
+        const workflow = document.getElementById("order-workflow");
+        const convertBlock = document.getElementById("order-convert-block");
+        const convertForm = document.getElementById("order-convert-form");
+        const form = document.getElementById("edit-order-form");
+        const editActions = document.getElementById("order-edit-actions");
+        const lockedNote = document.getElementById("order-locked-note");
+        const lines = documentLineEditor({doc: "order", endpoint, onSaved: (updated) => apply(updated)});
+
+        function apply(order) {
+            document.getElementById("order-number").value = order.number;
+            document.getElementById("order-customer").value = order.customer_name;
+            document.getElementById("order-status").value = labelled(DOCUMENT_STATUS_TEXT, order.status);
+            document.getElementById("order-source-quotation").value = order.quotation ? `#${order.quotation}` : "—";
+            document.getElementById("order-created-by").value = order.created_by_display || order.created_by;
+            document.getElementById("order-confirmed-at").value = displayDate(order.confirmed_at);
+            document.getElementById("edit-order-delivery").value = localDateTimeValue(order.expected_delivery_at);
+            document.getElementById("edit-order-discount").value = order.discount_amount;
+            document.getElementById("edit-order-tax").value = order.tax_rate;
+            document.getElementById("edit-order-notes").value = order.notes || "";
+            const editable = order.status === "draft";
+            if (editActions) editActions.hidden = !editable;
+            if (lockedNote) lockedNote.hidden = editable;
+            form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
+            if (convertBlock) convertBlock.hidden = !["confirmed", "fulfilled"].includes(order.status);
+            lines.apply(order);
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const data = new FormData(form);
+                const payload = {
+                    discount_amount: String(data.get("discount_amount") || "0"),
+                    tax_rate: String(data.get("tax_rate") || "0"),
+                    notes: String(data.get("notes") || ""),
+                };
+                payload.expected_delivery_at = apiDateTime(textOrNull(data.get("expected_delivery_at")));
+                const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
+                apply(updated);
+                globalMessage("سربرگ سفارش ذخیره شد.", true);
+            });
+        });
+        bindTransitions("order", endpoint, apply);
+        convertForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(convertForm, async () => {
+                const warehouse = numberOrNull(new FormData(convertForm).get("warehouse"));
+                const invoice = await apiRequest(`${endpoint}convert/`, {
+                    method: "POST",
+                    body: warehouse === null ? {} : {warehouse},
+                });
+                window.location.assign(`/invoices/${invoice.id}/`);
+            });
+        });
+
+        try {
+            const [order] = await Promise.all([
+                apiRequest(endpoint),
+                lines.loadProducts(),
+                loadWarehouseOptions(document.getElementById("order-convert-warehouse"), "بدون اثر انبار"),
+            ]);
+            apply(order);
+            loading.hidden = true;
+            content.hidden = false;
+            if (workflow) workflow.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+        }
+    }
+
+    async function setupInvoiceDetail() {
+        const invoiceId = document.body.dataset.invoiceId;
+        const endpoint = `/api/v1/invoices/${invoiceId}/`;
+        const loading = document.getElementById("invoice-detail-loading");
+        const content = document.getElementById("invoice-detail-content");
+        const workflow = document.getElementById("invoice-workflow");
+        const allocationsSection = document.getElementById("invoice-allocations");
+        const form = document.getElementById("edit-invoice-form");
+        const editActions = document.getElementById("invoice-edit-actions");
+        const lockedNote = document.getElementById("invoice-locked-note");
+        const planForm = document.getElementById("invoice-plan-form");
+        const lines = documentLineEditor({doc: "invoice", endpoint, onSaved: (updated) => apply(updated)});
+        let allocationsController = null;
+
+        function apply(invoice) {
+            document.getElementById("invoice-number").value = invoice.number;
+            document.getElementById("invoice-customer").value = invoice.customer_name;
+            document.getElementById("invoice-status").value = labelled(DOCUMENT_STATUS_TEXT, invoice.status);
+            document.getElementById("invoice-settlement").value = labelled(SETTLEMENT_TEXT, invoice.settlement_status);
+            document.getElementById("invoice-warehouse").value = invoice.warehouse ? `#${invoice.warehouse}` : "—";
+            document.getElementById("invoice-source").value = invoice.order ? `سفارش #${invoice.order}` : invoice.quotation ? `پیش‌فاکتور #${invoice.quotation}` : "—";
+            document.getElementById("invoice-issued-at").value = displayDate(invoice.issued_at);
+            document.getElementById("edit-invoice-due").value = localDateTimeValue(invoice.due_at);
+            document.getElementById("invoice-paid").value = money(invoice.paid_amount);
+            document.getElementById("invoice-balance").value = money(invoice.balance_due);
+            document.getElementById("edit-invoice-discount").value = invoice.discount_amount;
+            document.getElementById("edit-invoice-tax").value = invoice.tax_rate;
+            document.getElementById("edit-invoice-notes").value = invoice.notes || "";
+            const editable = invoice.status === "draft";
+            if (editActions) editActions.hidden = !editable;
+            if (lockedNote) lockedNote.hidden = editable;
+            form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
+            const issueButton = document.getElementById("issue-invoice");
+            if (issueButton) issueButton.disabled = !editable;
+            const cancelButton = document.getElementById("cancel-invoice");
+            if (cancelButton) cancelButton.disabled = invoice.status === "cancelled";
+            if (allocationsSection) allocationsSection.hidden = invoice.status !== "issued";
+            if (invoice.status === "issued") {
+                allocationsController?.load();
+                loadPlan();
+            }
+            lines.apply(invoice);
+        }
+
+        async function loadPlan() {
+            const wrap = document.getElementById("invoice-plan-summary");
+            const body = document.getElementById("invoice-plan-body");
+            if (!wrap) return;
+            try {
+                const data = await apiRequest(`/api/v1/installment-plans/?invoice=${invoiceId}`);
+                const plan = data.results[0];
+                if (!plan) { wrap.hidden = true; return; }
+                body.replaceChildren(...plan.installments.map((item) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, item.sequence);
+                    appendCell(row, item.due_date);
+                    appendMoneyCell(row, item.amount);
+                    appendMoneyCell(row, item.paid_amount);
+                    appendCell(row, labelled(INSTALLMENT_STATUS_TEXT, item.status));
+                    return row;
+                }));
+                wrap.hidden = false;
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const data = new FormData(form);
+                const payload = {
+                    discount_amount: String(data.get("discount_amount") || "0"),
+                    tax_rate: String(data.get("tax_rate") || "0"),
+                    notes: String(data.get("notes") || ""),
+                };
+                payload.due_at = apiDateTime(textOrNull(data.get("due_at")));
+                const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
+                apply(updated);
+                globalMessage("سربرگ فاکتور ذخیره شد.", true);
+            });
+        });
+
+        document.getElementById("issue-invoice")?.addEventListener("click", async () => {
+            if (!window.confirm("فاکتور صادر شود؟ پس از صدور، اقلام و مبالغ تغییرناپذیر می‌شوند، موجودی انبار کسر می‌شود و بدهکاری مشتری ثبت می‌شود.")) return;
+            const button = document.getElementById("issue-invoice");
+            button.disabled = true;
+            clearMessages();
+            try {
+                apply(await apiRequest(`${endpoint}issue/`, {method: "POST"}));
+                globalMessage("فاکتور صادر شد.", true);
+            } catch (error) {
+                button.disabled = false;
+                showError(error);
+            }
+        });
+
+        document.getElementById("cancel-invoice")?.addEventListener("click", async () => {
+            if (!window.confirm("فاکتور ابطال شود؟ اثر انبار و دفتر حساب برگردانده می‌شود.")) return;
+            const button = document.getElementById("cancel-invoice");
+            button.disabled = true;
+            clearMessages();
+            try {
+                const reason = document.getElementById("invoice-cancel-reason").value;
+                apply(await apiRequest(`${endpoint}cancel/`, {method: "POST", body: {reason}}));
+                globalMessage("فاکتور ابطال شد.", true);
+            } catch (error) {
+                button.disabled = false;
+                showError(error);
+            }
+        });
+
+        planForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(planForm, async () => {
+                const data = new FormData(planForm);
+                const payload = {
+                    invoice: Number(invoiceId),
+                    installment_count: Number(data.get("installment_count")),
+                    start_date: String(data.get("start_date")),
+                };
+                const interval = numberOrNull(data.get("interval_days"));
+                if (interval !== null) payload.interval_days = interval;
+                await apiRequest("/api/v1/installment-plans/", {method: "POST", body: payload});
+                globalMessage("قسط‌بندی ساخته شد.", true);
+                loadPlan();
+            });
+        });
+
+        if (allocationsSection) {
+            allocationsController = setupPagedList({
+                key: "invoice-allocations",
+                form: null,
+                endpoint: (page) => `${endpoint}allocations/?page=${page}`,
+                renderRow: (allocation) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, allocation.payment_number).dir = "ltr";
+                    appendMoneyCell(row, allocation.amount);
+                    appendCell(row, allocation.is_reversed ? "آزادشده" : "فعال");
+                    appendCell(row, allocation.created_by_display || allocation.created_by);
+                    appendCell(row, displayDate(allocation.created_at));
+                    return row;
+                },
+            });
+        }
+
+        try {
+            const [invoice] = await Promise.all([apiRequest(endpoint), lines.loadProducts()]);
+            apply(invoice);
+            loading.hidden = true;
+            content.hidden = false;
+            if (workflow) workflow.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+        }
+    }
+
+    // --- Payments, cheques, installments -------------------------------------
+
+    function paymentRow(payment) {
+        const row = document.createElement("tr");
+        appendCell(row, payment.number).dir = "ltr";
+        appendCell(row, payment.customer_name);
+        appendCell(row, labelled(PAYMENT_METHOD_TEXT, payment.method));
+        appendMoneyCell(row, payment.amount);
+        appendMoneyCell(row, payment.allocated_amount);
+        appendCell(row, labelled(PAYMENT_STATUS_TEXT, payment.status));
+        appendCell(row, displayDate(payment.received_at));
+        appendDetailLink(row, `/payments/${payment.id}/`);
+        return row;
+    }
+
+    async function setupPayments() {
+        const form = document.getElementById("payment-search-form");
+        const dialog = document.getElementById("create-payment-dialog");
+        let controller = null;
+        if (dialog) {
+            const createForm = document.getElementById("create-payment-form");
+            const methodSelect = document.getElementById("create-payment-method");
+            const chequeFields = document.getElementById("create-payment-cheque-fields");
+            document.getElementById("open-create-payment").addEventListener("click", () => dialog.showModal());
+            dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+            const syncCheque = () => { chequeFields.hidden = methodSelect.value !== "cheque"; };
+            methodSelect.addEventListener("change", syncCheque);
+            syncCheque();
+            createForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(createForm, async () => {
+                    const data = new FormData(createForm);
+                    const payload = {
+                        customer: Number(data.get("customer")),
+                        method: String(data.get("method")),
+                        amount: String(data.get("amount")),
+                        reference: String(data.get("reference") || ""),
+                        notes: String(data.get("notes") || ""),
+                    };
+                    if (payload.method === "cheque") {
+                        payload.cheque = {
+                            bank_name: String(data.get("bank_name") || ""),
+                            branch_name: String(data.get("branch_name") || ""),
+                            serial_number: String(data.get("serial_number") || ""),
+                            account_holder: String(data.get("account_holder") || ""),
+                            due_date: String(data.get("due_date") || ""),
+                        };
+                    }
+                    const payment = await apiRequest(createForm.action, {method: "POST", body: payload});
+                    window.location.assign(`/payments/${payment.id}/`);
+                });
+            });
+        }
+        try {
+            await loadCustomerOptions(document.getElementById("create-payment-customer"), "یک مشتری انتخاب کنید");
+        } catch (error) {
+            showError(error);
+        }
+        controller = setupPagedList({
+            key: "payments",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("payment-search").value.trim();
+                if (search) query.set("search", search);
+                const status = document.getElementById("payment-status-filter").value;
+                if (status) query.set("status", status);
+                const method = document.getElementById("payment-method-filter").value;
+                if (method) query.set("method", method);
+                query.set("ordering", document.getElementById("payment-ordering").value);
+                return `/api/v1/payments/?${query}`;
+            },
+            renderRow: paymentRow,
+        });
+        controller.load();
+    }
+
+    async function setupPaymentDetail() {
+        const paymentId = document.body.dataset.paymentId;
+        const endpoint = `/api/v1/payments/${paymentId}/`;
+        const loading = document.getElementById("payment-detail-loading");
+        const content = document.getElementById("payment-detail-content");
+        const allocateSection = document.getElementById("payment-allocate-section");
+        const cancelSection = document.getElementById("payment-cancel-section");
+        const allocateForm = document.getElementById("payment-allocate-form");
+        let payment;
+        let allocationsController = null;
+
+        function apply(value) {
+            payment = value;
+            document.getElementById("payment-number").value = payment.number;
+            document.getElementById("payment-customer").value = payment.customer_name;
+            document.getElementById("payment-method").value = labelled(PAYMENT_METHOD_TEXT, payment.method);
+            document.getElementById("payment-status").value = labelled(PAYMENT_STATUS_TEXT, payment.status);
+            document.getElementById("payment-amount").value = money(payment.amount);
+            document.getElementById("payment-allocated").value = money(payment.allocated_amount);
+            document.getElementById("payment-unallocated").value = money(payment.unallocated_amount);
+            document.getElementById("payment-received-at").value = displayDate(payment.received_at);
+            document.getElementById("payment-received-by").value = payment.received_by_display || payment.received_by;
+            document.getElementById("payment-reference").value = payment.reference || "";
+            document.getElementById("payment-notes").value = payment.notes || "";
+            const chequeBlock = document.getElementById("payment-cheque-block");
+            if (chequeBlock) {
+                const cheque = payment.cheque_detail;
+                chequeBlock.hidden = !cheque;
+                if (cheque) {
+                    document.getElementById("payment-cheque-bank").value = cheque.bank_name;
+                    document.getElementById("payment-cheque-serial").value = cheque.serial_number;
+                    document.getElementById("payment-cheque-due").value = cheque.due_date;
+                    document.getElementById("payment-cheque-status").value = labelled(CHEQUE_STATUS_TEXT, cheque.status);
+                }
+            }
+            if (allocateSection) allocateSection.hidden = payment.status !== "confirmed";
+            if (cancelSection) cancelSection.hidden = payment.status === "cancelled";
+            if (payment.status === "confirmed") allocationsController?.load();
+        }
+
+        allocateForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(allocateForm, async () => {
+                const data = new FormData(allocateForm);
+                const body = {invoice: Number(data.get("invoice"))};
+                const amount = textOrNull(data.get("amount"));
+                if (amount !== null) body.amount = amount;
+                await apiRequest(`${endpoint}allocate/`, {method: "POST", body});
+                globalMessage("دریافت به فاکتور تخصیص یافت.", true);
+                apply(await apiRequest(endpoint));
+            });
+        });
+
+        document.getElementById("cancel-payment")?.addEventListener("click", async () => {
+            if (!window.confirm("این دریافت ابطال شود؟ همه تخصیص‌های فعال آزاد می‌شوند.")) return;
+            const button = document.getElementById("cancel-payment");
+            button.disabled = true;
+            clearMessages();
+            try {
+                const reason = document.getElementById("payment-cancel-reason").value;
+                apply(await apiRequest(`${endpoint}cancel/`, {method: "POST", body: {reason}}));
+                globalMessage("دریافت ابطال شد.", true);
+            } catch (error) {
+                showError(error);
+            } finally {
+                button.disabled = false;
+            }
+        });
+
+        allocationsController = setupPagedList({
+            key: "payment-allocations",
+            form: null,
+            endpoint: (page) => `${endpoint}allocations/?page=${page}`,
+            renderRow: (allocation) => {
+                const row = document.createElement("tr");
+                appendCell(row, allocation.invoice_number).dir = "ltr";
+                appendMoneyCell(row, allocation.amount);
+                appendCell(row, allocation.is_reversed ? "آزادشده" : "فعال");
+                appendCell(row, displayDate(allocation.created_at));
+                const actions = document.createElement("td");
+                actions.className = "row-actions";
+                if (!allocation.is_reversed) {
+                    const release = document.createElement("button");
+                    release.type = "button";
+                    release.className = "button button-muted";
+                    release.textContent = "آزادکردن";
+                    release.addEventListener("click", async () => {
+                        if (!window.confirm("این تخصیص آزاد شود؟")) return;
+                        release.disabled = true;
+                        try {
+                            await apiRequest(`/api/v1/payment-allocations/${allocation.id}/release/`, {method: "POST"});
+                            globalMessage("تخصیص آزاد شد.", true);
+                            apply(await apiRequest(endpoint));
+                        } catch (error) {
+                            release.disabled = false;
+                            showError(error);
+                        }
+                    });
+                    actions.appendChild(release);
+                }
+                row.appendChild(actions);
+                return row;
+            },
+        });
+
+        try {
+            const value = await apiRequest(endpoint);
+            const invoices = await loadAllPages(
+                `/api/v1/invoices/?status=issued&customer=${value.customer}&ordering=due_at`
+            );
+            fillSelect(
+                document.getElementById("payment-allocate-invoice"),
+                invoices.filter((invoice) => Number(invoice.balance_due) > 0),
+                (invoice) => `${invoice.number} — مانده ${money(invoice.balance_due)}`,
+                "یک فاکتور انتخاب کنید",
+            );
+            apply(value);
+            loading.hidden = true;
+            content.hidden = false;
+        } catch (error) {
+            loading.hidden = true;
+            showError(error);
+        }
+    }
+
+    function setupCheques() {
+        const form = document.getElementById("cheque-search-form");
+        const dialog = document.getElementById("cheque-transition-dialog");
+        const transitionForm = document.getElementById("cheque-transition-form");
+        const targetSelect = document.getElementById("cheque-transition-target");
+        let controller = null;
+        let currentCheque = null;
+
+        dialog?.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        transitionForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(transitionForm, async () => {
+                await apiRequest(`/api/v1/cheques/${currentCheque.id}/transition/`, {
+                    method: "POST",
+                    body: {
+                        to_status: targetSelect.value,
+                        reason: document.getElementById("cheque-transition-reason").value,
+                    },
+                });
+                dialog.close();
+                globalMessage("وضعیت چک ثبت شد.", true);
+                controller?.load();
+            });
+        });
+
+        controller = setupPagedList({
+            key: "cheques",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const search = document.getElementById("cheque-search").value.trim();
+                if (search) query.set("search", search);
+                const status = document.getElementById("cheque-status-filter").value;
+                if (status) query.set("status", status);
+                query.set("ordering", document.getElementById("cheque-ordering").value);
+                return `/api/v1/cheques/?${query}`;
+            },
+            renderRow: (cheque) => {
+                const row = document.createElement("tr");
+                appendCell(row, cheque.bank_name);
+                appendCell(row, cheque.serial_number).dir = "ltr";
+                appendCell(row, cheque.customer_name);
+                appendMoneyCell(row, cheque.amount);
+                appendCell(row, cheque.due_date);
+                appendCell(row, labelled(CHEQUE_STATUS_TEXT, cheque.status));
+                const actions = document.createElement("td");
+                actions.className = "row-actions";
+                const allowed = CHEQUE_TRANSITIONS[cheque.status] || [];
+                if (allowed.length && dialog) {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "button button-muted";
+                    button.textContent = "تغییر وضعیت";
+                    button.addEventListener("click", () => {
+                        currentCheque = cheque;
+                        targetSelect.replaceChildren(...allowed.map((value) => {
+                            const option = document.createElement("option");
+                            option.value = value;
+                            option.textContent = labelled(CHEQUE_STATUS_TEXT, value);
+                            return option;
+                        }));
+                        document.getElementById("cheque-transition-reason").value = "";
+                        dialog.showModal();
+                    });
+                    actions.appendChild(button);
+                }
+                const link = document.createElement("a");
+                link.className = "button button-muted";
+                link.href = `/payments/${cheque.payment}/`;
+                link.textContent = "دریافت";
+                actions.appendChild(link);
+                row.appendChild(actions);
+                return row;
+            },
+        });
+        controller.load();
+    }
+
+    function setupInstallments() {
+        const form = document.getElementById("installment-search-form");
+        const controller = setupPagedList({
+            key: "installments",
+            form,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page)});
+                const status = document.getElementById("installment-status-filter").value;
+                if (status) query.set("status", status);
+                const dueBefore = document.getElementById("installment-due-before").value;
+                if (dueBefore) query.set("due_before", dueBefore);
+                query.set("ordering", document.getElementById("installment-ordering").value);
+                return `/api/v1/installments/?${query}`;
+            },
+            renderRow: (installment) => {
+                const row = document.createElement("tr");
+                appendCell(row, installment.plan);
+                appendCell(row, installment.sequence);
+                appendCell(row, installment.due_date);
+                appendMoneyCell(row, installment.amount);
+                appendMoneyCell(row, installment.paid_amount);
+                appendMoneyCell(row, installment.balance_due);
+                appendCell(row, labelled(INSTALLMENT_STATUS_TEXT, installment.status));
+                appendActionLinks(row, []);
+                return row;
+            },
+        });
+        controller.load();
+    }
+
+    // --- Customer ledger -----------------------------------------------------
+
+    async function setupCustomerLedger() {
+        const filterForm = document.getElementById("ledger-filter-form");
+        const openingForm = document.getElementById("opening-balance-form");
+        const customerSelect = document.getElementById("ledger-customer");
+        const balanceNode = document.getElementById("ledger-balance");
+        const nameNode = document.getElementById("ledger-customer-name");
+        const loading = document.getElementById("ledger-entries-loading");
+        let controller = null;
+        let customers = [];
+
+        openingForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(openingForm, async () => {
+                const data = new FormData(openingForm);
+                await apiRequest(openingForm.action, {method: "POST", body: {
+                    customer: Number(data.get("customer")),
+                    amount: String(data.get("amount")),
+                    notes: String(data.get("notes") || ""),
+                }});
+                globalMessage("مانده اول دوره ثبت شد.", true);
+                openingForm.reset();
+                if (customerSelect.value) refresh();
+            });
+        });
+
+        async function refresh() {
+            if (!customerSelect.value) return;
+            loading.hidden = true;
+            try {
+                const balance = await apiRequest(`/api/v1/customer-ledger/balance/?customer=${customerSelect.value}`);
+                balanceNode.textContent = money(balance.balance);
+                const match = customers.find((row) => row.id === Number(customerSelect.value));
+                nameNode.textContent = match ? match.full_name : "—";
+                controller?.load();
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        filterForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            refresh();
+        });
+
+        controller = setupPagedList({
+            key: "ledger-entries",
+            form: null,
+            endpoint: (page) => {
+                const query = new URLSearchParams({page: String(page), customer: customerSelect.value});
+                const entryType = document.getElementById("ledger-entry-type").value;
+                if (entryType) query.set("entry_type", entryType);
+                return `/api/v1/customer-ledger/?${query}`;
+            },
+            renderRow: (entry) => {
+                const row = document.createElement("tr");
+                appendCell(row, displayDate(entry.occurred_at));
+                appendCell(row, labelled(LEDGER_ENTRY_TEXT, entry.entry_type));
+                appendCell(row, entry.reference_number || "—").dir = "ltr";
+                appendMoneyCell(row, Number(entry.debit) > 0 ? entry.debit : "");
+                appendMoneyCell(row, Number(entry.credit) > 0 ? entry.credit : "");
+                appendMoneyCell(row, entry.balance_after);
+                appendCell(row, entry.created_by_display || entry.created_by);
+                return row;
+            },
+        });
+
+        try {
+            customers = await loadCustomerOptions(customerSelect, "یک مشتری انتخاب کنید");
+            fillSelect(
+                document.getElementById("opening-balance-customer"),
+                customers,
+                (row) => row.full_name,
+                "یک مشتری انتخاب کنید",
+            );
+        } catch (error) {
+            showError(error);
+        }
+    }
+
+    // --- Financial reports ---------------------------------------------------
+
+    function reportSection(prefix) {
+        return {
+            loading: document.getElementById(`${prefix}-loading`),
+            empty: document.getElementById(`${prefix}-empty`),
+            wrap: document.getElementById(`${prefix}-table-wrap`),
+            body: document.getElementById(`${prefix}-table-body`),
+        };
+    }
+
+    function renderReportRows(prefix, rows, renderRow) {
+        const nodes = reportSection(prefix);
+        nodes.body.replaceChildren(...rows.map(renderRow));
+        nodes.loading.hidden = true;
+        nodes.empty.hidden = rows.length > 0;
+        nodes.wrap.hidden = rows.length === 0;
+    }
+
+    async function setupReceivablesReport() {
+        const form = document.getElementById("receivables-filter-form");
+        const exportLink = document.getElementById("receivables-export");
+
+        function query() {
+            const params = new URLSearchParams();
+            const customer = document.getElementById("receivables-customer").value;
+            if (customer) params.set("customer_id", customer);
+            return params;
+        }
+
+        async function load() {
+            const nodes = reportSection("receivables");
+            nodes.loading.hidden = false;
+            nodes.wrap.hidden = true;
+            nodes.empty.hidden = true;
+            clearMessages();
+            const params = query();
+            exportLink.href = `/api/v1/exports/receivables.xlsx${params.toString() ? `?${params}` : ""}`;
+            try {
+                const report = await apiRequest(`/api/v1/reports/receivables/?${params}`);
+                document.getElementById("receivables-total").textContent = money(report.total_outstanding);
+                document.getElementById("receivables-not-due").textContent = money(report.buckets.not_due);
+                document.getElementById("receivables-1-30").textContent = money(report.buckets.days_1_30);
+                document.getElementById("receivables-31-60").textContent = money(report.buckets.days_31_60);
+                document.getElementById("receivables-61-90").textContent = money(report.buckets.days_61_90);
+                document.getElementById("receivables-over-90").textContent = money(report.buckets.days_over_90);
+                renderReportRows("receivables", report.results, (item) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, item.customer_name);
+                    appendCell(row, item.invoice_count);
+                    appendMoneyCell(row, item.total_outstanding);
+                    appendMoneyCell(row, item.not_due);
+                    appendMoneyCell(row, item.days_1_30);
+                    appendMoneyCell(row, item.days_31_60);
+                    appendMoneyCell(row, item.days_61_90);
+                    appendMoneyCell(row, item.days_over_90);
+                    appendActionLinks(row, [[`/invoices/?customer=${item.customer_id}`, "فاکتورها"]]);
+                    return row;
+                });
+            } catch (error) {
+                reportSection("receivables").loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            load();
+        });
+        try {
+            await loadCustomerOptions(document.getElementById("receivables-customer"), "همه مشتریان");
+        } catch (error) {
+            showError(error);
+        }
+        load();
+    }
+
+    async function setupProfitReport() {
+        const form = document.getElementById("profit-filter-form");
+        const exportLink = document.getElementById("profit-export");
+        const startField = document.getElementById("profit-period-start");
+        const endField = document.getElementById("profit-period-end");
+
+        // A month back to now, so the page shows real numbers on arrival rather
+        // than an empty frame waiting for the operator to guess a range.
+        const now = new Date();
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        startField.value = localDateTimeValue(monthAgo.toISOString());
+        endField.value = localDateTimeValue(now.toISOString());
+
+        function query() {
+            const params = new URLSearchParams();
+            params.set("period_start", apiDateTime(startField.value));
+            params.set("period_end", apiDateTime(endField.value));
+            const customer = document.getElementById("profit-customer").value;
+            if (customer) params.set("customer_id", customer);
+            return params;
+        }
+
+        async function load() {
+            const nodes = reportSection("profit");
+            nodes.loading.hidden = false;
+            nodes.wrap.hidden = true;
+            nodes.empty.hidden = true;
+            clearMessages();
+            const params = query();
+            exportLink.href = `/api/v1/exports/profit.xlsx?${params}`;
+            try {
+                const report = await apiRequest(`/api/v1/reports/profit/?${params}`);
+                document.getElementById("profit-revenue").textContent = money(report.revenue);
+                document.getElementById("profit-cost").textContent = money(report.cost);
+                document.getElementById("profit-profit").textContent = money(report.profit);
+                document.getElementById("profit-margin").textContent = `${report.margin_percent}٪`;
+                document.getElementById("profit-measured").textContent = report.measured_invoice_count;
+                document.getElementById("profit-unmeasured").textContent = report.unmeasured_invoice_count;
+                renderReportRows("profit", report.results, (item) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, item.number).dir = "ltr";
+                    appendCell(row, item.customer_name);
+                    appendCell(row, displayDate(item.issued_at));
+                    appendMoneyCell(row, item.revenue);
+                    appendMoneyCell(row, item.cost);
+                    appendMoneyCell(row, item.profit);
+                    appendCell(row, `${item.margin_percent}٪`);
+                    appendActionLinks(row, [[`/invoices/${item.invoice_id}/`, "فاکتور"]]);
+                    return row;
+                });
+            } catch (error) {
+                reportSection("profit").loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            load();
+        });
+        try {
+            await loadCustomerOptions(document.getElementById("profit-customer"), "همه مشتریان");
+        } catch (error) {
+            showError(error);
+        }
+        load();
+    }
+
+    async function setupStockValuationReport() {
+        const form = document.getElementById("valuation-filter-form");
+        const exportLink = document.getElementById("valuation-export");
+
+        async function load() {
+            const nodes = reportSection("valuation");
+            nodes.loading.hidden = false;
+            nodes.wrap.hidden = true;
+            nodes.empty.hidden = true;
+            clearMessages();
+            const params = new URLSearchParams();
+            const warehouse = document.getElementById("valuation-warehouse").value;
+            if (warehouse) params.set("warehouse_id", warehouse);
+            exportLink.href = `/api/v1/exports/stock-valuation.xlsx${params.toString() ? `?${params}` : ""}`;
+            try {
+                const report = await apiRequest(`/api/v1/reports/stock-valuation/?${params}`);
+                document.getElementById("valuation-quantity").textContent = report.total_quantity;
+                document.getElementById("valuation-value").textContent = money(report.total_value);
+                renderReportRows("valuation", report.results, (item) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, item.warehouse_name);
+                    appendCell(row, item.product_sku).dir = "ltr";
+                    appendCell(row, item.product_name);
+                    appendCell(row, item.quantity);
+                    appendMoneyCell(row, item.average_cost);
+                    appendMoneyCell(row, item.stock_value);
+                    return row;
+                });
+            } catch (error) {
+                reportSection("valuation").loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            load();
+        });
+        try {
+            await loadWarehouseOptions(document.getElementById("valuation-warehouse"), "همه انبارها");
+        } catch (error) {
+            showError(error);
+        }
+        load();
+    }
+
+    function setupDocumentPrint() {
+        document.getElementById("print-document")?.addEventListener("click", () => window.print());
+    }
+
     setupNav();
     setupLogout();
     const page = document.body.dataset.page;
@@ -1978,4 +3613,23 @@
     if (page === "after-sales-detail") setupAfterSalesDetail();
     if (page === "activity-logs") setupActivityLogs();
     if (page === "activity-log-detail") setupActivityLogDetail();
+    if (page === "warehouses") setupWarehouses();
+    if (page === "warehouse-detail") setupWarehouseDetail();
+    if (page === "stock-levels") setupStockLevels();
+    if (page === "stock-movements") setupStockMovements();
+    if (page === "quotations") setupQuotations();
+    if (page === "quotation-detail") setupQuotationDetail();
+    if (page === "orders") setupOrders();
+    if (page === "order-detail") setupOrderDetail();
+    if (page === "invoices") setupInvoices();
+    if (page === "invoice-detail") setupInvoiceDetail();
+    if (page === "payments") setupPayments();
+    if (page === "payment-detail") setupPaymentDetail();
+    if (page === "cheques") setupCheques();
+    if (page === "installments") setupInstallments();
+    if (page === "customer-ledger") setupCustomerLedger();
+    if (page === "receivables-report") setupReceivablesReport();
+    if (page === "profit-report") setupProfitReport();
+    if (page === "stock-valuation-report") setupStockValuationReport();
+    if (page === "invoice-print" || page === "quotation-print") setupDocumentPrint();
 })();

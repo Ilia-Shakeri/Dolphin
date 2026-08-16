@@ -80,6 +80,7 @@ from common.openapi import (
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
 from common.viewsets import NoDestroyModelViewSet, StrictQueryParametersMixin
+from sales.selectors import customers_for
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}

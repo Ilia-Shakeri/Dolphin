@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -24,6 +25,11 @@ class ListQueryGrowthTests(TestCase):
     )
 
     def setUp(self):
+        # Throttle history is keyed by user id and lives in the process cache,
+        # which the test database rollback does not touch. Without this, a
+        # user id reused from an earlier test arrives already throttled and
+        # this test fails on a 429 that has nothing to do with query counts.
+        cache.clear()
         self.admin = User.objects.create_user(
             username="query-admin",
             password="Long-Safe-Pass-741!",
