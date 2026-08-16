@@ -354,7 +354,12 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
     action_query_parameters = {"allocations": {"page"}}
 
     def get_queryset(self):
-        queryset = payments_for(self.request.user).select_related("customer", "received_by")
+        # `cheque` is a reverse one-to-one and `cheque__payment__customer`
+        # feeds the nested cheque representation; without both, each row costs
+        # extra queries.
+        queryset = payments_for(self.request.user).select_related(
+            "customer", "received_by", "cheque", "cheque__payment", "cheque__payment__customer"
+        )
         customer = self.request.query_params.get("customer")
         if customer is not None:
             if not customer.isdecimal() or int(customer) < 1:

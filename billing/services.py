@@ -26,7 +26,6 @@ from auditlog.services import log_activity
 from billing.ledger import append_ledger_entry
 from billing.money import (
     clean_money,
-    clean_percent,
     clean_quantity,
     default_tax_rate,
     document_totals,

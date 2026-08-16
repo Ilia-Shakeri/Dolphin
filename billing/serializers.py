@@ -16,7 +16,7 @@ from billing.models import (
     Quotation,
     QuotationItem,
 )
-from billing.selectors import invoices_for, orders_for, payments_for, quotations_for
+from billing.selectors import invoices_for, orders_for, quotations_for
 from billing.services import (
     create_invoice,
     create_order,
@@ -401,8 +401,14 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     @extend_schema_field(ChequeSerializer(allow_null=True))
     def get_cheque_detail(self, instance):
-        cheque = Cheque.objects.filter(payment=instance).first()
-        return ChequeSerializer(cheque).data if cheque is not None else None
+        # Read the relation the queryset already selected rather than issuing a
+        # fresh query: this runs once per row, so a lookup here is a straight
+        # N+1 on the payments list.
+        try:
+            cheque = instance.cheque
+        except Cheque.DoesNotExist:
+            return None
+        return ChequeSerializer(cheque).data
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

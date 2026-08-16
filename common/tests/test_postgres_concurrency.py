@@ -23,10 +23,17 @@ from sales.models import (
 from sales.services import (
     cancel_sale,
     create_customer_phone,
+    create_customer_with_phone,
+    create_product,
     mark_sale,
     reassign_lead,
     update_product,
 )
+from billing.models import CustomerLedgerEntry, Invoice, Payment, PaymentAllocation, Quotation
+from billing.payments import allocate_payment, register_payment
+from billing.services import create_invoice, create_quotation, issue_invoice
+from inventory.models import StockItem, StockMovement, Warehouse
+from inventory.services import create_warehouse, record_stock_movement
 
 
 POSTGRES_ONLY = skipUnless(
@@ -341,3 +348,222 @@ class PostgresMigrationUpgradeTests(TransactionTestCase):
         self.assertEqual(interaction.outcome, "answered")
         sale.refresh_from_db()
         self.assertEqual(sale.total_amount, sale.unit_price_snapshot * sale.quantity)
+
+
+@POSTGRES_ONLY
+class PostgresInventoryAndBillingConcurrencyTests(TransactionTestCase):
+    """Real row-lock proof for the modules that count money and stock.
+
+    These races cannot be observed on SQLite, where the whole database is
+    serialised anyway. On PostgreSQL each thread holds its own connection, so a
+    service that read before locking would let both threads act on the same
+    pre-change state — which is exactly the failure mode being excluded here.
+    """
+
+    reset_sequences = True
+
+    def _run_race(self, *calls):
+        start = Barrier(len(calls))
+        result_lock = Lock()
+        results = []
+
+        def run(call):
+            close_old_connections()
+            try:
+                start.wait(timeout=10)
+                call()
+            except BaseException as exc:  # Test captures the exact competing outcome.
+                result = ("error", type(exc).__name__)
+            else:
+                result = ("ok", None)
+            finally:
+                close_old_connections()
+            with result_lock:
+                results.append(result)
+
+        threads = [Thread(target=run, args=(call,), daemon=True) for call in calls]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=30)
+        self.assertFalse(any(thread.is_alive() for thread in threads), "Database race did not finish.")
+        self.assertEqual(len(results), len(calls))
+        return results
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username="race-billing-manager",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.SALES_MANAGER,
+        )
+        self.customer = create_customer_with_phone(
+            actor=self.manager,
+            full_name="Race customer",
+            phone={"raw_phone": "09121119999", "is_primary": True},
+        )
+        self.product = create_product(
+            actor=self.manager, sku="RACE-1", name="Race product", current_price=Decimal("100.00")
+        )
+        self.warehouse = create_warehouse(actor=self.manager, code="racewh", name="Race warehouse")
+
+    def _receive(self, quantity, cost="50.00"):
+        record_stock_movement(
+            actor=self.manager,
+            warehouse=self.warehouse,
+            product=self.product,
+            movement_type=StockMovement.MovementType.OPENING,
+            quantity=quantity,
+            unit_cost=Decimal(cost),
+        )
+
+    def _issue_call(self, quantity):
+        def call():
+            record_stock_movement(
+                actor=User.objects.get(pk=self.manager.pk),
+                warehouse=Warehouse.objects.get(pk=self.warehouse.pk),
+                product=Product.objects.get(pk=self.product.pk),
+                movement_type=StockMovement.MovementType.ADJUSTMENT_OUT,
+                quantity=quantity,
+            )
+
+        return call
+
+    def test_two_concurrent_issues_cannot_both_take_the_last_stock(self):
+        self._receive(5)
+
+        results = self._run_race(self._issue_call(4), self._issue_call(4))
+
+        # Exactly one succeeds: the loser sees the winner's level, not the
+        # pre-race one, so the warehouse never goes below zero.
+        self.assertEqual(sum(result[0] == "ok" for result in results), 1)
+        item = StockItem.objects.get(warehouse=self.warehouse, product=self.product)
+        self.assertEqual(item.quantity, 1)
+        self.assertEqual(
+            StockMovement.objects.filter(movement_type="adjustment_out").count(), 1
+        )
+
+    def test_concurrent_receipts_leave_the_average_cost_exactly_weighted(self):
+        def receive(cost):
+            def call():
+                record_stock_movement(
+                    actor=User.objects.get(pk=self.manager.pk),
+                    warehouse=Warehouse.objects.get(pk=self.warehouse.pk),
+                    product=Product.objects.get(pk=self.product.pk),
+                    movement_type=StockMovement.MovementType.PURCHASE,
+                    quantity=10,
+                    unit_cost=Decimal(cost),
+                )
+
+            return call
+
+        results = self._run_race(receive("10.00"), receive("30.00"))
+
+        self.assertTrue(all(result[0] == "ok" for result in results))
+        item = StockItem.objects.get(warehouse=self.warehouse, product=self.product)
+        self.assertEqual(item.quantity, 20)
+        # A lost update would leave one receipt's cost missing entirely; the
+        # weighted average of both is the only correct answer.
+        self.assertEqual(item.average_cost, Decimal("20.00"))
+        self.assertEqual(StockMovement.objects.filter(movement_type="purchase").count(), 2)
+
+    def test_a_repeated_idempotency_key_applies_the_movement_once_under_a_race(self):
+        def call():
+            record_stock_movement(
+                actor=User.objects.get(pk=self.manager.pk),
+                warehouse=Warehouse.objects.get(pk=self.warehouse.pk),
+                product=Product.objects.get(pk=self.product.pk),
+                movement_type=StockMovement.MovementType.PURCHASE,
+                quantity=7,
+                unit_cost=Decimal("10.00"),
+                idempotency_key="race-receipt",
+            )
+
+        self._run_race(call, call)
+
+        self.assertEqual(StockMovement.objects.filter(idempotency_key="race-receipt").count(), 1)
+        self.assertEqual(
+            StockItem.objects.get(warehouse=self.warehouse, product=self.product).quantity, 7
+        )
+
+    def test_concurrent_document_creation_takes_two_different_numbers(self):
+        def create():
+            create_quotation(
+                actor=User.objects.get(pk=self.manager.pk),
+                customer=Customer.objects.get(pk=self.customer.pk),
+                items=[{"product": Product.objects.get(pk=self.product.pk), "quantity": 1}],
+            )
+
+        results = self._run_race(create, create)
+
+        self.assertTrue(all(result[0] == "ok" for result in results), results)
+        numbers = list(Quotation.objects.values_list("number", flat=True))
+        self.assertEqual(len(numbers), 2)
+        self.assertEqual(len(set(numbers)), 2)
+
+    def test_two_concurrent_allocations_cannot_overpay_one_invoice(self):
+        self._receive(100)
+        invoice = issue_invoice(
+            actor=self.manager,
+            invoice=create_invoice(
+                actor=self.manager,
+                customer=self.customer,
+                items=[{"product": self.product, "quantity": 1}],
+                warehouse=self.warehouse,
+            ),
+        )
+        first = register_payment(
+            actor=self.manager,
+            customer=self.customer,
+            method=Payment.Method.CASH,
+            amount=Decimal("100.00"),
+        )
+        second = register_payment(
+            actor=self.manager,
+            customer=self.customer,
+            method=Payment.Method.CASH,
+            amount=Decimal("100.00"),
+        )
+
+        def allocate(payment_pk):
+            def call():
+                allocate_payment(
+                    actor=User.objects.get(pk=self.manager.pk),
+                    payment=Payment.objects.get(pk=payment_pk),
+                    invoice=Invoice.objects.get(pk=invoice.pk),
+                    amount=Decimal("100.00"),
+                )
+
+            return call
+
+        results = self._run_race(allocate(first.pk), allocate(second.pk))
+
+        self.assertEqual(sum(result[0] == "ok" for result in results), 1)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.paid_amount, invoice.total_amount)
+        self.assertEqual(PaymentAllocation.objects.filter(is_reversed=False).count(), 1)
+
+    def test_concurrent_ledger_postings_keep_one_true_running_balance(self):
+        def pay(amount):
+            def call():
+                register_payment(
+                    actor=User.objects.get(pk=self.manager.pk),
+                    customer=Customer.objects.get(pk=self.customer.pk),
+                    method=Payment.Method.CASH,
+                    amount=Decimal(amount),
+                )
+
+            return call
+
+        results = self._run_race(pay("30.00"), pay("70.00"))
+
+        self.assertTrue(all(result[0] == "ok" for result in results), results)
+        entries = list(
+            CustomerLedgerEntry.objects.filter(customer=self.customer).order_by("occurred_at", "id")
+        )
+        self.assertEqual(len(entries), 2)
+        # Serialised postings: the second entry's balance is built on the
+        # first's, so the chain agrees with the sum of the movements.
+        self.assertEqual(entries[-1].balance_after, Decimal("-100.00"))
+        self.assertEqual(
+            sum(entry.debit - entry.credit for entry in entries), entries[-1].balance_after
+        )

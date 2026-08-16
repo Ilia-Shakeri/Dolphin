@@ -17,7 +17,6 @@ Money handling rules this module enforces, all recorded in
 
 import unicodedata
 from datetime import timedelta
-from decimal import Decimal
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
