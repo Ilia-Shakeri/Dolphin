@@ -42,7 +42,10 @@ Concise, stable rules only. This file replaces the former long `AGENTS.md` (dele
 
 ## Working style
 
-- Run the narrowest relevant test(s) for the change first, then the repository-wide gates: `python manage.py check --settings=config.test_settings`, `python manage.py makemigrations --check --dry-run --settings=config.test_settings`, `python manage.py test --settings=config.test_settings`, `python scripts/check_html_branding.py`, `git diff --check`.
-- Keep phases small and coherent. Update `KARIZ_PROJECT_HANDOFF.md` after a coherent phase completes — it is the only live status file; do not create a second one.
-- Do not invent business, financial, tax, legal, or integration semantics. When a rule is unresolved, implement the safe bounded default (or nothing) and record the open decision instead of guessing.
-- Stop and report — do not proceed past — a point that needs a real business decision, a real secret/credential, an irreversible external action, or infrastructure you cannot verify from this host.
+- During implementation, run the narrowest relevant checks/tests first.
+- Do not run repository-wide, PostgreSQL, or browser-wide gates after every small change.
+- Run full repository gates only at coherent integration checkpoints, feature freeze, or when a change affects database/security/concurrency infrastructure.
+- Prefer delivery-focused fixes over speculative cleanup or perfection loops.
+- Keep phases small and coherent. Update `KARIZ_PROJECT_HANDOFF.md` after a coherent phase completes.
+- Do not invent business, financial, tax, legal, or integration semantics.
+- Stop only when a real business decision, credential, irreversible external action, or unavailable infrastructure genuinely blocks safe progress.

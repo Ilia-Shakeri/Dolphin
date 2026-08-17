@@ -16,10 +16,15 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    # `common` is listed before `django.contrib.staticfiles` on purpose:
+    # Django resolves a management command to the *first* app in this list that
+    # provides it, so this ordering is what lets
+    # common/management/commands/collectstatic.py apply the deployment's own
+    # ignore list. Without it the override is silently never used.
+    "common",
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
-    "common",
     "accounts",
     "auditlog",
     "sales",
@@ -88,13 +93,26 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # (`../fonts/IRANSansWeb.woff`, `fonts/keenicons/...`), so the directory shape
 # has to survive intact anyway.
 #
-# The demo media under assets/media is excluded at collectstatic time except
-# the logo directory the favicon comes from (STATICFILES_COLLECT_IGNORE below);
-# the rest is ~70MB of theme screenshots no served page references.
+# The favicon is a ForooshBin brand asset and lives with the application, so
+# the theme's demo media directory is not needed at runtime at all.
 STATICFILES_DIRS = [BASE_DIR / "assets"]
-#: Passed to `collectstatic --ignore`. Only what a served page can request is
-#: collected; the rest of the purchased theme stays in the repository.
-STATICFILES_COLLECT_IGNORE = ["media/avatars", "media/stock", "media/patterns", "media/illustrations", "media/misc", "plugins/custom"]
+#: Applied by common/management/commands/collectstatic.py on every invocation.
+#: Patterns match a file name or a directory name while walking, so these are
+#: names rather than paths. Everything here is unreachable from a served page:
+#: theme demo imagery, icon families the UI never uses, the LTR builds of the
+#: RTL bundles, and bundles nothing loads.
+STATICFILES_COLLECT_IGNORE = [
+    "media",              # ~46MB of theme stock photography and illustrations
+    "custom",             # per-demo scripts and plugin bundles, none loaded
+    "@fortawesome",       # icon families the UI does not use; it uses keenicons
+    "bootstrap-icons",
+    "line-awesome",
+    "style.bundle.css",   # LTR builds; this deployment is RTL only
+    "plugins.bundle.css",
+    "plugins.bundle.js",  # Bootstrap JS; the UI needs KTMenu/KTDrawer only
+    "widgets.bundle.js",  # theme demo widgets, not loaded
+    "*.map",
+]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 64 * 1024
 
