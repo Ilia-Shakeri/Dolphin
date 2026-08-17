@@ -510,7 +510,7 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("password", response.data)
 
-    def test_user_create_and_password_change_are_safely_audited(self):
+    def test_creating_a_user_is_audited_without_recording_the_password(self):
         client = APIClient()
         client.force_authenticate(self.platform)
         created = client.post("/api/v1/users/", {
@@ -518,11 +518,38 @@ class AccountSecurityTests(TestCase):
             "password": "Long-Safe-Pass-741!",
         }, format="json")
         self.assertEqual(created.status_code, 201)
-        changed = client.patch(f"/api/v1/users/{created.data['id']}/", {"password": "Other-Safe-Pass-852!"}, format="json")
-        self.assertEqual(changed.status_code, 200)
+        edited = client.patch(
+            f"/api/v1/users/{created.data['id']}/", {"first_name": "تازه"}, format="json"
+        )
+        self.assertEqual(edited.status_code, 200)
         logs = list(ActivityLog.objects.filter(object_id=str(created.data["id"])).values_list("operation", "safe_changes"))
         self.assertEqual({operation for operation, _ in logs}, {"user.created", "user.updated"})
-        self.assertNotIn("Other-Safe-Pass-852!", str(logs))
+        self.assertNotIn("Long-Safe-Pass-741!", str(logs))
+
+    def test_a_password_cannot_be_changed_through_the_api(self):
+        """No interface offers it for any role, so the API does not accept it.
+
+        A forgotten password is recovered on the host with
+        `manage.py changepassword`, which needs server access rather than a
+        session — see docs/ops/CLIENT1_LINUX_STAGING_GUIDE.md.
+        """
+        client = APIClient()
+        client.force_authenticate(self.platform)
+        created = client.post("/api/v1/users/", {
+            "username": "no-reset",
+            "password": "Long-Safe-Pass-741!",
+        }, format="json")
+        self.assertEqual(created.status_code, 201)
+        target = User.objects.get(pk=created.data["id"])
+
+        refused = client.patch(
+            f"/api/v1/users/{target.pk}/", {"password": "Other-Safe-Pass-852!"}, format="json"
+        )
+        self.assertEqual(refused.status_code, 400)
+        self.assertIn("password", refused.json())
+        target.refresh_from_db()
+        self.assertTrue(target.check_password("Long-Safe-Pass-741!"))
+        self.assertFalse(target.check_password("Other-Safe-Pass-852!"))
 
     def test_profile_update_cannot_undo_role_change(self):
         stale_agent = User.objects.get(pk=self.agent.pk)

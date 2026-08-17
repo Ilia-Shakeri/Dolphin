@@ -314,6 +314,7 @@ chmod 600 secrets/.env
 | `DJANGO_ALLOWED_HOSTS`, `KARIZ_PUBLIC_HOST` | the hostname users type — or the public IP, §2 scenario B | **FINAL INPUT** |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://` + that same hostname or IP | **FINAL INPUT** |
 | `DJANGO_SECURE_HSTS_SECONDS`, `KARIZ_HSTS_HEADER` | `31536000` + `max-age=31536000` with a real certificate; `0` + empty for IP-only staging. Nothing in between is accepted | — |
+| `AUDIT_TRUSTED_PROXY_CIDRS` | the Compose network nginx proxies from — **not empty**, see below | — |
 | `POSTGRES_INIT/MIGRATION/APP/BACKUP_PASSWORD` | four independent values, ≥16 chars | **FINAL INPUT** for production |
 | `KARIZ_TLS_CERT_PATH`, `KARIZ_TLS_KEY_PATH` | absolute paths under `secrets/tls/` | **FINAL INPUT** |
 | `KARIZ_DEPLOYMENT_MANIFEST_PATH` | absolute path to `secrets/manifest.json` | — |
@@ -324,6 +325,34 @@ chmod 600 secrets/.env
 
 The manifest **signing private key never reaches a deployment host.** Only the
 public verification key is configured here.
+
+### `AUDIT_TRUSTED_PROXY_CIDRS` — set it, or the audit trail names nobody
+
+The application believes `X-Real-IP` only from a network listed here. nginx sets
+that header, but it reaches the application over Compose's own bridge, so with
+this left empty every audit row records **nginx's container address** — the same
+address for every user, every action. The rows still exist; they just no longer
+say who.
+
+The placeholder `172.16.0.0/12` covers Docker's usual private range. Confirm the
+real subnet once the stack is up and narrow it:
+
+```bash
+docker network inspect "${KARIZ_COMPOSE_PROJECT_NAME}_frontend" \
+  --format '{{(index .IPAM.Config 0).Subnet}}'
+```
+
+Then check a real login records a real address:
+
+```bash
+docker compose --env-file secrets/.env exec -T db \
+  psql -U "${POSTGRES_APP_USER}" -d "${POSTGRES_DB}" \
+  -c "SELECT ip_address, count(*) FROM auditlog_activitylog GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
+```
+
+One address with every row on it means this is still wrong. `0.0.0.0/0` is
+refused by production validation — trusting every source would let any client
+set its own audit address.
 
 ---
 
@@ -624,6 +653,33 @@ docker compose --env-file secrets/.env logs --since 1h nginx
 
 Application logs are structured JSON with a request id. Review any log for
 customer data before pasting it into a ticket.
+
+### Expired sessions — schedule this
+
+Django stops honouring an expired session but never deletes its row, so
+`django_session` grows for the life of the deployment and keeps expired session
+data at rest indefinitely. Nothing in the stack removes them on its own.
+
+```bash
+docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup
+```
+
+The service exists only under the `maintenance` profile, so it never starts with
+the stack. Put it on a weekly timer as the deployment user:
+
+```bash
+# crontab -e   — 03:30 every Sunday
+30 3 * * 0 cd /srv/forooshbin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup >> /var/log/forooshbin-session-cleanup.log 2>&1
+```
+
+It is safe to run at any time: it deletes only rows whose expiry has already
+passed, so no signed-in user is affected. Check the table is not growing without
+bound:
+
+```bash
+docker compose --env-file secrets/.env exec -T db \
+  psql -U "${POSTGRES_APP_USER}" -d "${POSTGRES_DB}" -c "SELECT count(*) FROM django_session;"
+```
 
 ---
 

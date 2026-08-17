@@ -434,7 +434,11 @@ def _apply_to_installments(*, invoice, amount):
         installment.save(update_fields=["paid_amount", "status", "updated_at"])
         remaining = quantize_money(remaining - abs(applied))
 
-    if all(item.status == Installment.Status.PAID for item in plan.installments.all()):
+    # Cancelled installments are excluded from the loop above and are therefore
+    # excluded here too: counting them meant a plan with one cancelled line
+    # could never reach `completed`, however fully the rest was paid.
+    remaining = plan.installments.exclude(status=Installment.Status.CANCELLED)
+    if remaining.exists() and all(item.status == Installment.Status.PAID for item in remaining):
         plan.status = InstallmentPlan.Status.COMPLETED
         plan.save(update_fields=["status", "updated_at"])
     elif plan.status == InstallmentPlan.Status.COMPLETED:

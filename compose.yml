@@ -200,6 +200,40 @@ services:
     networks:
       - backend
 
+  # Expired session rows are not removed by Django on their own: the store only
+  # ignores them, so `django_session` grows for the life of the deployment and
+  # keeps expired session data at rest indefinitely. Behind a profile so it
+  # never starts with the stack; the operator runs it from cron. See
+  # docs/ops/CLIENT1_LINUX_STAGING_GUIDE.md section 18.
+  session-cleanup:
+    image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["maintenance"]
+    restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      KARIZ_DATABASE_ROLE: app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "manage.py", "clearsessions"]
+    volumes:
+      - ${KARIZ_DEPLOYMENT_MANIFEST_PATH:?KARIZ_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+
   web:
     image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped

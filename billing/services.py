@@ -492,16 +492,28 @@ def transition_order(*, actor, order, to_status, reason=""):
 
 
 def _copy_lines(source_items):
-    return [
-        {
+    """Reproduce stored lines as line input for a new document.
+
+    A line's discount is carried across in the form it was given. Copying a
+    percentage line as a bare amount produced identical money on a document that
+    then read "0%" — the totals agreed, but what the customer accepted was no
+    longer legible as accepted. `line_amounts` refuses both forms at once, so
+    exactly one is sent.
+    """
+    lines = []
+    for item in source_items:
+        line = {
             "product": item.product,
             "quantity": item.quantity,
             "unit_price": item.unit_price,
-            "discount_amount": item.discount_amount,
             "description": item.description,
         }
-        for item in source_items
-    ]
+        if item.discount_percent:
+            line["discount_percent"] = item.discount_percent
+        else:
+            line["discount_amount"] = item.discount_amount
+        lines.append(line)
+    return lines
 
 
 @transaction.atomic

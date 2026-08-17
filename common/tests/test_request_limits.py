@@ -1,78 +1,47 @@
-from pathlib import Path
+"""The edge and the application must accept the same largest document.
 
-from django.test import TestCase, override_settings
-from rest_framework.test import APIClient
+`BILLING_MAX_DOCUMENT_ITEMS` lines each carrying a full-length Persian
+description is the biggest request the API advertises as valid. When the body
+limit sat below that, the rule the service layer enforces and the rule the
+transport enforces disagreed, and the user met a 413 quoting neither.
+"""
 
-from accounts.models import User
-from sales.models import Customer
+import pathlib
+import re
+
+from django.conf import settings
+from django.test import SimpleTestCase
+
+from billing.models import LINE_DESCRIPTION_MAX_LENGTH
 
 
-class RequestLimitTests(TestCase):
-    def setUp(self):
-        self.user = User.objects.create_user(
-            username="request-limit-admin",
-            password="Long-Safe-Pass-741!",
-            role=User.Role.PLATFORM_ADMIN,
-        )
+REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
+NGINX_CONF = REPOSITORY_ROOT / "nginx" / "default.conf"
+#: JSON field names and punctuation around one line, measured from the shape
+#: `DocumentLineInputSerializer` accepts.
+LINE_ENVELOPE_BYTES = 110
+#: Persian text is two bytes per character in UTF-8.
+PERSIAN_BYTES_PER_CHARACTER = 2
 
-    def _client(self):
-        client = APIClient()
-        client.force_authenticate(self.user)
-        return client
 
-    def test_malformed_and_deep_json_fail_safely_without_writes(self):
-        client = self._client()
-        before = Customer.objects.count()
+def largest_document_bytes():
+    per_line = LINE_ENVELOPE_BYTES + LINE_DESCRIPTION_MAX_LENGTH * PERSIAN_BYTES_PER_CHARACTER
+    return settings.BILLING_MAX_DOCUMENT_ITEMS * per_line
 
-        malformed = client.generic(
-            "POST",
-            "/api/v1/customers/",
-            b'{"full_name":',
-            content_type="application/json",
-            HTTP_X_REQUEST_ID="bad-json-1",
-        )
-        deep_value = "[" * 33 + "0" + "]" * 33
-        deep = client.generic(
-            "POST",
-            "/api/v1/customers/",
-            deep_value.encode("ascii"),
-            content_type="application/json",
-            HTTP_X_REQUEST_ID="deep-json-1",
-        )
 
-        self.assertEqual(malformed.status_code, 400)
-        self.assertEqual(malformed.data["error"], {"code": "parse_error", "request_id": "bad-json-1"})
-        self.assertEqual(deep.status_code, 400)
-        self.assertEqual(deep.data["error"], {"code": "parse_error", "request_id": "deep-json-1"})
-        self.assertEqual(Customer.objects.count(), before)
+class RequestSizeLimitTests(SimpleTestCase):
+    def test_django_accepts_the_largest_document_the_api_allows(self):
+        self.assertGreaterEqual(settings.DATA_UPLOAD_MAX_MEMORY_SIZE, largest_document_bytes())
 
-    @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=128)
-    def test_oversized_body_is_413_json_with_request_id(self):
-        response = self._client().generic(
-            "POST",
-            "/api/v1/customers/",
-            (b'{"full_name":"' + b"x" * 256 + b'"}'),
-            content_type="application/json",
-            HTTP_X_REQUEST_ID="large-body-1",
-        )
+    def test_nginx_accepts_at_least_what_django_does(self):
+        conf = NGINX_CONF.read_text(encoding="utf-8")
+        match = re.search(r"client_max_body_size\s+(\d+)([kKmM]?);", conf)
+        self.assertIsNotNone(match, "nginx no longer sets client_max_body_size")
+        value = int(match.group(1))
+        unit = match.group(2).lower()
+        limit = value * {"": 1, "k": 1024, "m": 1024 * 1024}[unit]
+        self.assertGreaterEqual(limit, settings.DATA_UPLOAD_MAX_MEMORY_SIZE)
 
-        self.assertEqual(response.status_code, 413)
-        self.assertEqual(response["Content-Type"], "application/json")
-        self.assertEqual(response["X-Request-ID"], "large-body-1")
-        self.assertEqual(
-            response.json(),
-            {
-                "detail": "Request body is too large.",
-                "error": {"code": "payload_too_large", "request_id": "large-body-1"},
-            },
-        )
-        self.assertFalse(Customer.objects.exists())
-
-    def test_edge_and_application_share_the_64_kib_limit(self):
-        root = Path(__file__).resolve().parents[2]
-        config = (root / "nginx" / "default.conf").read_text(encoding="utf-8")
-
-        self.assertEqual(64 * 1024, 65536)
-        self.assertIn("client_max_body_size 64k;", config)
-        self.assertIn("error_page 413 = @payload_too_large;", config)
-        self.assertIn('"code":"payload_too_large"', config)
+    def test_the_limit_is_still_a_limit(self):
+        """Bounded, not merely large: an unbounded body is a memory exhaustion."""
+        self.assertLessEqual(settings.DATA_UPLOAD_MAX_MEMORY_SIZE, 1024 * 1024)

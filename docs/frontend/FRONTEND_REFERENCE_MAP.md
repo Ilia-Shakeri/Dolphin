@@ -81,36 +81,45 @@ follows a specific theme page.
 | `/reports/customer-ledger/` | `reports/customer_ledger.html` | `account/statements.html` | statement toolbar, balance card, paged entry table | `GET /api/v1/customer-ledger/`, `balance/` | `TEMPLATE_ADAPTED` |
 | `/reports/sales-documents/`, `/reports/inbound-sms/` | `reports/*.html` | `apps/ecommerce/reports/sales.html` | date/geography filters, grouped tables, stat card | report APIs | `COMPOSED_FROM_COMPONENTS` |
 | `/activity-logs/`, `/…/<id>/` | `activity_logs/*.html` | no equivalent theme page | search toolbar, table, read-only detail card, bounded JSON block | `GET /api/v1/activity-logs/` | `COMPOSED_FROM_COMPONENTS` |
+| header user menu + `#sessions-dialog` | `base.html` | `layouts/dark-sidebar.html` header navbar + `menu-sub-dropdown` panel | symbol/avatar, `menu-content`, `separator`, `menu-link`; sessions in a native dialog | `GET/POST /api/v1/auth/me/sessions/`, `POST /api/v1/auth/logout/` | `TEMPLATE_ADAPTED` |
 | Django error pages | `error.html`, and the denial block in `base.html` | theme card + utilities | centred card, `fs-2hx` status, `btn btn-primary` | Django handlers / API error envelope | `COMPOSED_FROM_COMPONENTS` |
 
 ## Intentional differences from the theme
 
 Each of these is a deliberate choice, not an omission.
 
-1. **Modals are native `<dialog>`, not `.modal`.** The theme's modal needs
+1. **The header user menu is the theme's panel, opened by the application.**
+   The markup, classes and `.show` rule are the theme's own, so it looks and
+   behaves like every other Metronic menu. `KTMenu` is not used to open it:
+   it positions a dropdown with Popper, which ships only in the plugins bundle
+   above. Toggling the class is eight lines in `kariz-app.js` and the anchoring
+   is three in `kariz.css` — the same trade as the native dialogs, for the same
+   reason. The sidebar accordion still uses `KTMenu`, which needs no Popper.
+
+2. **Modals are native `<dialog>`, not `.modal`.** The theme's modal needs
    Bootstrap's JavaScript, which would mean shipping the 3.5 MB plugins bundle
    for one component. `<dialog>` is real, focusable, closes on Escape, and needs
    no library. `kariz.css` gives it the theme's card surface — about ten lines,
    the only place a theme component is re-created.
-2. **The print and PDF pages load no theme bundle at all.** Paper has no dark
+3. **The print and PDF pages load no theme bundle at all.** Paper has no dark
    sidebar, no cards and no hover states, and a printed invoice must look the
    same whatever the theme is doing on screen. Their stylesheet is
    self-contained in `kariz.css`.
-3. **No theme-mode switcher, no language selector, no social sign-in, no
+4. **No theme-mode switcher, no language selector, no social sign-in, no
    sign-up, no password-reset link, no notification or avatar drawer.** All
    exist in the theme; all are absent by Client-1 policy, and a control may
    appear only when its action is real.
-4. **The performance chart is a plain bar list, not the theme's chart widget.**
+5. **The performance chart is a plain bar list, not the theme's chart widget.**
    The theme charts through amCharts loaded from a CDN, which is forbidden — no
    served page may reach a third-party host. The bars are drawn from real report
    values.
-5. **`data-module` attributes are kept on navigation links.** They are not a
+6. **`data-module` attributes are kept on navigation links.** They are not a
    theme convention; they are how the deployment-profile and capability tests
    assert which entries a role may see.
-6. **Stable application ids** (`app-sidebar`, `nav-toggle`, `main-content`,
+7. **Stable application ids** (`app-sidebar`, `nav-toggle`, `main-content`,
    `app-error`, `global-message`) live alongside the theme's own ids, so tests
    pin behaviour rather than the theme's layout naming.
-7. **The whole theme tree is the static root.** Its CSS resolves fonts
+8. **The whole theme tree is the static root.** Its CSS resolves fonts
    relatively, so the directory shape must survive; a prefixed `STATICFILES_DIRS`
    entry also fails to resolve forward-slash URLs on Windows, where this is
    developed. `collectstatic` still excludes the demo media that no page

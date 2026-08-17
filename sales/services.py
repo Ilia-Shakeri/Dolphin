@@ -157,6 +157,12 @@ def create_customer_with_phone(*, actor, phone=None, **data):
         raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
     _validate_text_lengths(data, CUSTOMER_TEXT_LIMITS)
     customer = Customer.objects.create(created_by=actor, **data)
+    log_activity(
+        actor=actor,
+        operation="customer.created",
+        instance=customer,
+        changes={"fields": sorted(data)},
+    )
     if phone:
         create_customer_phone(actor=actor, customer=customer, **phone)
     return customer
@@ -179,6 +185,12 @@ def update_customer(*, actor, customer, **changes):
             changed_fields.append(field)
     if changed_fields:
         locked.save(update_fields=[*changed_fields, "updated_at"])
+        log_activity(
+            actor=actor,
+            operation="customer.updated",
+            instance=locked,
+            changes={"fields": sorted(changed_fields)},
+        )
     return locked
 
 
@@ -189,7 +201,7 @@ def create_customer_phone(*, actor, customer, raw_phone, label="", is_primary=Fa
         raise BusinessPermissionDenied("Customer is outside your scope.")
     normalized = normalize_customer_phone(raw_phone)
     try:
-        return CustomerPhone.objects.create(
+        created = CustomerPhone.objects.create(
             customer=customer,
             raw_phone=raw_phone,
             normalized_phone=normalized,
@@ -199,6 +211,16 @@ def create_customer_phone(*, actor, customer, raw_phone, label="", is_primary=Fa
         )
     except IntegrityError as exc:
         raise BusinessConflictError({"raw_phone": "Active phone identity or primary-phone constraint failed."}) from exc
+    # A customer's reachable number is the field most worth tampering with, so
+    # every change to one is recorded. The number itself stays out of the audit
+    # payload, which carries field names rather than customer data.
+    log_activity(
+        actor=actor,
+        operation="customer_phone.created",
+        instance=created,
+        changes={"customer": customer.pk},
+    )
+    return created
 
 
 @transaction.atomic
@@ -222,6 +244,12 @@ def update_customer_phone(*, actor, phone, **changes):
             locked.save(update_fields=[*changed_fields, "updated_at"])
         except IntegrityError as exc:
             raise BusinessConflictError({"raw_phone": "Active phone identity or primary-phone constraint failed."}) from exc
+        log_activity(
+            actor=actor,
+            operation="customer_phone.updated",
+            instance=locked,
+            changes={"customer": locked.customer_id, "fields": sorted(changed_fields)},
+        )
     return locked
 
 
@@ -249,7 +277,14 @@ def create_lead(*, actor, customer, **data):
     _validate_text_lengths(data, LEAD_TEXT_LIMITS)
     if not customers_for(actor).filter(pk=customer.pk).exists():
         raise BusinessPermissionDenied("Customer is outside your scope.")
-    return Lead.objects.create(customer=customer, created_by=actor, source_payload={}, **data)
+    lead = Lead.objects.create(customer=customer, created_by=actor, source_payload={}, **data)
+    log_activity(
+        actor=actor,
+        operation="lead.created",
+        instance=lead,
+        changes={"customer": customer.pk, "fields": sorted(data)},
+    )
+    return lead
 
 
 @transaction.atomic
@@ -279,6 +314,12 @@ def update_lead(*, actor, lead, **changes):
             changed_fields.append(field)
     if changed_fields:
         locked.save(update_fields=[*changed_fields, "updated_at"])
+        log_activity(
+            actor=actor,
+            operation="lead.updated",
+            instance=locked,
+            changes={"customer": locked.customer_id, "fields": sorted(changed_fields)},
+        )
     return locked
 
 

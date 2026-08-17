@@ -22,6 +22,21 @@ def quantize_money(value):
     return Decimal(value).quantize(MONEY, rounding=ROUND_HALF_UP)
 
 
+def _quantized_or_invalid(value, *, field):
+    """Quantize, turning a value too large to quantize into a field error.
+
+    `Decimal("1e100")` is finite, so it passes the checks above and then raises
+    `InvalidOperation` inside `quantize` — a 500 out of the function whose job is
+    to reject bad input. The API's `DecimalField(max_digits=18)` currently
+    catches such values first, but this is the layer that is supposed to be
+    defensive, so it defends.
+    """
+    try:
+        return quantize_money(value)
+    except (InvalidOperation, ArithmeticError) as exc:
+        raise BusinessRuleError({field: "Amount is too large."}) from exc
+
+
 def clean_money(value, *, field, allow_none=False, allow_zero=True):
     if value is None:
         if allow_none:
@@ -33,7 +48,7 @@ def clean_money(value, *, field, allow_none=False, allow_zero=True):
         raise BusinessRuleError({field: "Enter a valid amount."}) from exc
     if not amount.is_finite():
         raise BusinessRuleError({field: "Enter a valid amount."})
-    amount = quantize_money(amount)
+    amount = _quantized_or_invalid(amount, field=field)
     if amount < 0:
         raise BusinessRuleError({field: "Amount cannot be negative."})
     if not allow_zero and amount == 0:
@@ -52,7 +67,10 @@ def clean_percent(value, *, field, maximum=HUNDRED):
         raise BusinessRuleError({field: "Enter a valid percentage."}) from exc
     if not percent.is_finite():
         raise BusinessRuleError({field: "Enter a valid percentage."})
-    percent = percent.quantize(PERCENT, rounding=ROUND_HALF_UP)
+    try:
+        percent = percent.quantize(PERCENT, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ArithmeticError) as exc:
+        raise BusinessRuleError({field: "Enter a valid percentage."}) from exc
     if percent < 0 or percent > maximum:
         raise BusinessRuleError({field: f"Percentage must be between 0 and {maximum}."})
     return percent

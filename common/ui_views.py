@@ -15,7 +15,13 @@ from accounts.access import (
 )
 from accounts.models import User
 from common.deployment.profile import active_profile, feature_enabled
-from common.pdf import PdfRendererUnavailable, inline_stylesheet, render_html_to_pdf, renderer_is_available
+from common.pdf import (
+    PdfRendererBusy,
+    PdfRendererUnavailable,
+    inline_stylesheet,
+    render_html_to_pdf,
+    renderer_is_available,
+)
 from common.permissions import FeatureGatedViewMixin
 from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
@@ -666,6 +672,20 @@ class DocumentPdfView(PrintableDocumentView):
         html = render_to_string(self.template_name, context, request=request)
         try:
             payload = render_html_to_pdf(html)
+        except PdfRendererBusy:
+            # Every render slot is taken. Rendering occupies a whole worker, so
+            # refusing here is what keeps the rest of the site answering; the
+            # browser's own print button still works meanwhile.
+            response = self.render_to_response(
+                self.get_context_data(
+                    error_status=503,
+                    error_title="تولید PDF شلوغ است",
+                    error_message="در حال حاضر سند دیگری در حال تولید است. چند لحظه بعد دوباره تلاش کنید یا از دکمه «چاپ / ذخیره PDF» مرورگر استفاده کنید.",
+                ),
+                status=503,
+            )
+            response["Retry-After"] = "10"
+            return response
         except PdfRendererUnavailable:
             return self.render_to_response(
                 self.get_context_data(

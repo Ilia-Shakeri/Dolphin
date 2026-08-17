@@ -134,7 +134,14 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "profile-username").get_attribute("value"), self.platform.username)
         self.assertEqual(self.browser.find_element(By.ID, "profile-role").get_attribute("value"), "مدیر پلتفرم")
         self.assertTrue(self.browser.find_element(By.ID, "app-sidebar").is_displayed())
-        self.browser.find_element(By.CSS_SELECTOR, "#logout-form button[type='submit']").click()
+        # Signing out lives in the header user menu now, so it has to be opened
+        # first — which is exactly what a user does.
+        self.browser.find_element(By.ID, "user-menu-toggle").click()
+        self.wait.until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, "#logout-form button[type='submit']")
+            )
+        ).click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/login/"))
         self.assert_browser_clean()
 

@@ -114,7 +114,16 @@ STATICFILES_COLLECT_IGNORE = [
     "*.map",
 ]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-DATA_UPLOAD_MAX_MEMORY_SIZE = 64 * 1024
+# Sized from the largest document the application itself permits, not picked as
+# a round number: BILLING_MAX_DOCUMENT_ITEMS lines, each carrying a
+# LINE_DESCRIPTION_MAX_LENGTH description in Persian (two UTF-8 bytes per
+# character) plus its JSON field names, comes to roughly 220 KB. At 64 KB the
+# limit contradicted the rule the API advertises — a document the service layer
+# accepts was rejected as too large before it ever reached validation.
+#
+# `client_max_body_size` in nginx/default.conf must stay at or above this, or
+# the edge refuses what the application would have accepted.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"

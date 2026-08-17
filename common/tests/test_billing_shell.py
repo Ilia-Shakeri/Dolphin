@@ -17,6 +17,7 @@ from django.utils import timezone
 from accounts.models import User
 from billing.models import Invoice, Payment, Quotation
 from billing.payments import register_payment
+from common.templatetags.money_tags import money
 from billing.services import (
     convert_order_to_invoice,
     convert_quotation_to_order,
@@ -181,7 +182,9 @@ class BillingPageAccessTests(CommercialWorldMixin, TestCase):
         self.assertIn(self.invoice.number, content)
         self.assertIn("مشتری آزمون", content)
         self.assertIn("SHELL-1", content)
-        self.assertIn(str(self.invoice.total_amount), content)
+        # Printed amounts are grouped the way every screen groups them, so the
+        # stored `1000.00` appears as `1،000.00` on paper.
+        self.assertIn(money(self.invoice.total_amount), content)
         # The print page carries no navigation and no editing control.
         self.assertNotIn('id="app-sidebar"', content)
         self.assertNotIn("data-close-dialog", content)

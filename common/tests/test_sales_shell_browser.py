@@ -102,7 +102,14 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         )
 
     def logout(self):
-        self.browser.find_element(By.CSS_SELECTOR, "#logout-form button[type='submit']").click()
+        # Signing out lives in the header user menu now, so it has to be opened
+        # first — which is exactly what a user does.
+        self.browser.find_element(By.ID, "user-menu-toggle").click()
+        self.wait.until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, "#logout-form button[type='submit']")
+            )
+        ).click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/login/"))
 
     def assert_browser_clean(self):

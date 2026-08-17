@@ -39,6 +39,15 @@ class MeSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    """Create and edit a CRM account.
+
+    A password is set **once, when the account is created**, and this API offers
+    no way to change one afterwards: no interface exposes it for any role, and
+    accepting it here would be a control that exists only over the wire.
+    Recovering a forgotten password is a host operation
+    (`manage.py changepassword`), deliberately outside the application.
+    """
+
     server_fields = {"role", "last_login", "created_at", "updated_at"}
     password = serializers.CharField(write_only=True, required=False, min_length=8)
 
@@ -68,6 +77,10 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         return create_crm_user(actor=self.context["request"].user, password=password, **validated_data)
 
     def update(self, instance, validated_data):
+        if "password" in validated_data:
+            raise serializers.ValidationError(
+                {"password": "A password cannot be changed through this API."}
+            )
         return update_crm_user(actor=self.context["request"].user, target=instance, **validated_data)
 
 

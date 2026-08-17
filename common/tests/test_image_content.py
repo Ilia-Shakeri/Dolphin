@@ -61,12 +61,37 @@ class BuildContextContentTests(SimpleTestCase):
         self.assertGreater(len(migrations), 0)
 
     def test_forbidden_material_is_absent(self):
-        forbidden_prefixes = ("docs/", "scripts/", "nginx/", "assets/", "src/")
+        """Documentation, ops material and the theme's demo tree stay out.
+
+        `assets/` is no longer excluded wholesale: the purchased theme is the
+        served UI's design system, so the handful of files the pages actually
+        load must reach the image — that omission was the Linux deployment bug
+        where every theme bundle answered 404. `EXPECT_PRESENT` names them and
+        `DENY_PATTERNS` names the demo material that stays out; both are checked
+        by `test_build_context_passes_validation` above.
+        """
+        forbidden_prefixes = ("docs/", "scripts/", "nginx/", "src/")
+        # Read the allowed theme paths from `.dockerignore` itself, so the
+        # exclusion list and this test cannot drift apart.
+        dockerignore = (Path(__file__).resolve().parents[2] / ".dockerignore").read_text(
+            encoding="utf-8"
+        )
+        allowed_theme_paths = tuple(
+            line[1:].strip()
+            for line in dockerignore.splitlines()
+            if line.startswith("!assets/")
+        )
+        self.assertTrue(allowed_theme_paths, ".dockerignore no longer re-includes the theme")
         for path in self.paths:
             self.assertFalse(
                 path.startswith(forbidden_prefixes),
                 f"forbidden path in build context: {path}",
             )
+            if path.startswith("assets/"):
+                self.assertTrue(
+                    path.startswith(allowed_theme_paths),
+                    f"theme file in build context that .dockerignore does not re-include: {path}",
+                )
             self.assertNotIn("/tests/", path, f"test module in build context: {path}")
             self.assertFalse(path.endswith(".pyc"), f"bytecode in build context: {path}")
 

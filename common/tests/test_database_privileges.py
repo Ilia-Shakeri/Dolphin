@@ -82,7 +82,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
                 "migrate",
                 "db-finalize",
             },
-            "POSTGRES_APP_PASSWORD": {"db-bootstrap", "db-finalize", "web"},
+            # `session-cleanup` runs `clearsessions` as the app role, which is
+            # the role holding DELETE on django_session.
+            "POSTGRES_APP_PASSWORD": {"db-bootstrap", "db-finalize", "web", "session-cleanup"},
             "POSTGRES_BACKUP_PASSWORD": {
                 "db-bootstrap",
                 "db-finalize",

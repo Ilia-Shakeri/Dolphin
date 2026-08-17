@@ -94,6 +94,16 @@ dialog::backdrop {
     font-size: 0.82rem;
 }
 
+/* The header user menu. The theme styles the panel completely — surface,
+   spacing, hover states, the `.show` rule that reveals it — and normally lets
+   Popper place it. Popper ships in the plugins bundle this deployment does not
+   load, so the anchoring, and only the anchoring, is set here. */
+#user-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+}
+
 /* 3. Print ---------------------------------------------------------------- */
 
 /* The printed invoice and quotation deliberately do not use the theme: paper

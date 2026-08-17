@@ -376,8 +376,12 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_edge_owns_request_id_for_all_responses(self):
         config = (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8")
         self.assertIn("add_header X-Request-ID $request_id always;", config)
-        self.assertEqual(config.count("proxy_set_header X-Request-ID $request_id;"), 2)
-        self.assertEqual(config.count("proxy_hide_header X-Request-ID;"), 2)
+        # Counted against the number of proxying locations rather than a fixed
+        # number, so adding one cannot quietly skip the header contract.
+        proxied = config.count("proxy_pass http://web:8000;")
+        self.assertGreaterEqual(proxied, 2)
+        self.assertEqual(config.count("proxy_set_header X-Request-ID $request_id;"), proxied)
+        self.assertEqual(config.count("proxy_hide_header X-Request-ID;"), proxied)
 
     def test_admin_is_denied_at_the_customer_facing_edge(self):
         # Django Admin is a server-administration plane. The edge denies it
@@ -407,8 +411,10 @@ class ProductionSettingsTests(SimpleTestCase):
             'add_header Strict-Transport-Security "${KARIZ_HSTS_HEADER}" always;',
             config,
         )
-        self.assertEqual(config.count("proxy_hide_header Strict-Transport-Security;"), 2)
-        self.assertEqual(config.count("proxy_set_header X-Forwarded-Proto https;"), 2)
+        proxied = config.count("proxy_pass http://web:8000;")
+        self.assertGreaterEqual(proxied, 2)
+        self.assertEqual(config.count("proxy_hide_header Strict-Transport-Security;"), proxied)
+        self.assertEqual(config.count("proxy_set_header X-Forwarded-Proto https;"), proxied)
         self.assertNotIn("proxy_set_header X-Forwarded-Proto $scheme;", config)
         self.assertIn('- "443:443"', compose)
         self.assertIn("KARIZ_TLS_CERT_PATH must name the approved certificate chain file", compose)
@@ -553,9 +559,9 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertIn("'X-Forwarded-Proto': 'https'", compose)
         self.assertIn("location = /health/live/", (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8"))
         self.assertIn("http://127.0.0.1/health/live/", compose)
-        self.assertEqual(compose.count("driver: json-file"), 7)
-        self.assertEqual(compose.count('max-size: "10m"'), 7)
-        self.assertEqual(compose.count('max-file: "5"'), 7)
+        self.assertEqual(compose.count("driver: json-file"), 8)
+        self.assertEqual(compose.count('max-size: "10m"'), 8)
+        self.assertEqual(compose.count('max-file: "5"'), 8)
 
     def test_docker_context_excludes_private_and_generated_data(self):
         dockerignore = (

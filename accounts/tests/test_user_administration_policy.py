@@ -252,13 +252,15 @@ class PlatformAdminRetainsFullAdministrationTests(ThrottleIsolatedTestCase):
             ).status_code,
             200,
         )
+        # Not even a Platform Admin changes a password through the API: no role
+        # is offered the control anywhere, so the API declines it too.
         self.assertEqual(
             self.client_api.patch(
                 f"/api/v1/users/{target_id}/",
                 {"password": "Rotated-Safe-Pass-1!"},
                 format="json",
             ).status_code,
-            200,
+            400,
         )
         self.assertEqual(
             self.client_api.patch(

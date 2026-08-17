@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db import transaction
 from django.db.models import Count, Sum
 from django.utils import timezone
 
@@ -98,8 +97,12 @@ def format_utc_timestamp(value: datetime) -> str:
 
 
 def _performance_scope(*, actor, period_start, period_end, user_id=None):
+    # A plain read: this report writes nothing, so it takes no row lock. It used
+    # to `select_for_update` the actor's own user row, which serialised
+    # concurrent report requests and blocked role changes and account edits on
+    # that row for as long as the report ran.
     current_actor = crm_identities(
-        User.objects.select_for_update().filter(
+        User.objects.filter(
             pk=getattr(actor, "pk", None),
             is_active=True,
             role__in=REPORT_ROLES,
@@ -122,7 +125,6 @@ def _performance_scope(*, actor, period_start, period_end, user_id=None):
     return period_start, period_end, users
 
 
-@transaction.atomic
 def build_user_performance_report(
     *,
     actor,
@@ -199,7 +201,6 @@ def build_user_performance_report(
     )
 
 
-@transaction.atomic
 def user_performance_details(
     *, actor, period_start, period_end, metric, user_id=None, sales_product_id=None,
 ):

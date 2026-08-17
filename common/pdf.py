@@ -24,17 +24,33 @@ That choice has consequences worth stating plainly:
 the deployed image, and what that costs.
 """
 
+import contextlib
 import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
+from django.core.cache import cache
 
 
 class PdfRendererUnavailable(RuntimeError):
     """No usable renderer, or the renderer failed to produce a PDF."""
+
+
+class PdfRendererBusy(PdfRendererUnavailable):
+    """Every render slot is taken. A retry in a moment will succeed."""
+
+
+#: Concurrent renders allowed per container. Gunicorn runs synchronous workers,
+#: so a render occupies a whole worker for as long as the browser takes — up to
+#: PDF_RENDER_TIMEOUT_SECONDS. Left unbounded, three simultaneous downloads
+#: occupied all three workers and the application stopped answering anything at
+#: all. One slot leaves two workers free to keep serving the site.
+PDF_RENDER_SLOTS = 1
+_SLOT_KEY = "pdf-render-slot-{index}"
 
 
 def _setting(name, default):
@@ -85,6 +101,31 @@ def inline_stylesheet():
     return _STYLESHEET_CACHE["css"]
 
 
+@contextlib.contextmanager
+def _render_slot():
+    """Hold one render slot, or refuse rather than queue.
+
+    `cache.add` is atomic, so the first caller to claim a slot keeps it. The
+    entry carries a timeout slightly longer than the render itself, so a worker
+    killed mid-render releases its slot instead of stranding it forever.
+    """
+    timeout = int(_setting("PDF_RENDER_TIMEOUT_SECONDS", 20)) + 5
+    token = uuid.uuid4().hex
+    for index in range(PDF_RENDER_SLOTS):
+        key = _SLOT_KEY.format(index=index)
+        if cache.add(key, token, timeout):
+            try:
+                yield
+            finally:
+                # Only release a slot still held by this render: if the entry
+                # expired and another render claimed it, deleting would hand a
+                # second render the same slot.
+                if cache.get(key) == token:
+                    cache.delete(key)
+            return
+    raise PdfRendererBusy("The PDF renderer is busy. Try again in a moment.")
+
+
 def render_html_to_pdf(html):
     """Print a self-contained HTML string and return the PDF bytes.
 
@@ -99,6 +140,11 @@ def render_html_to_pdf(html):
         raise PdfRendererUnavailable("The configured PDF renderer binary was not found.")
 
     timeout = int(_setting("PDF_RENDER_TIMEOUT_SECONDS", 20))
+    with _render_slot():
+        return _print_with_chromium(html, binary=binary, timeout=timeout)
+
+
+def _print_with_chromium(html, *, binary, timeout):
     workspace = Path(tempfile.mkdtemp(prefix="kariz-pdf-"))
     try:
         source = workspace / "document.html"

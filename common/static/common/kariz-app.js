@@ -112,6 +112,163 @@
         sync();
     }
 
+    /**
+     * Open and close the header user menu.
+     *
+     * The theme owns how the panel looks and its `.show` rule; KTMenu would
+     * normally toggle that class and position the panel with Popper, which
+     * lives in the plugins bundle this deployment does not load. Toggling the
+     * class here is the whole of what was missing — placement is two CSS lines
+     * in kariz.css.
+     */
+    function setupUserMenu() {
+        const toggle = document.getElementById("user-menu-toggle");
+        const menu = document.getElementById("user-menu");
+        if (!toggle || !menu) return;
+
+        const setOpen = (open) => {
+            menu.classList.toggle("show", open);
+            toggle.setAttribute("aria-expanded", String(open));
+        };
+
+        toggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setOpen(!menu.classList.contains("show"));
+        });
+        // A menu that stays open after the pointer moves on is a menu in the
+        // way, so anywhere outside it closes it, and Escape returns focus.
+        document.addEventListener("click", (event) => {
+            if (!menu.contains(event.target)) setOpen(false);
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && menu.classList.contains("show")) {
+                setOpen(false);
+                toggle.focus();
+            }
+        });
+    }
+
+    /**
+     * The signed-in user's own sessions, opened from the header user menu.
+     *
+     * Every row is identified by the opaque reference the server sends; the
+     * session key never reaches the browser, so nothing here could be replayed
+     * as a credential even if the page were captured. The user's current
+     * session is marked and cannot be ended from this dialog — signing yourself
+     * out of the page you are using is never what "end this session" means.
+     */
+    function setupSessionsDialog() {
+        const dialog = document.getElementById("sessions-dialog");
+        const open = document.getElementById("open-sessions");
+        if (!dialog || !open) return;
+        const body = document.getElementById("sessions-table-body");
+        const wrap = document.getElementById("sessions-table-wrap");
+        const loading = document.getElementById("sessions-loading");
+        const empty = document.getElementById("sessions-empty");
+        const revokeOthers = document.getElementById("revoke-other-sessions");
+        const close = document.getElementById("close-sessions");
+
+        async function load() {
+            loading.hidden = false;
+            wrap.hidden = true;
+            empty.hidden = true;
+            try {
+                const data = await apiRequest("/api/v1/auth/me/sessions/");
+                const others = data.results.filter((item) => !item.is_current);
+                body.replaceChildren(...data.results.map((item) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, describeDevice(item.user_agent));
+                    appendCell(row, item.ip_address || "—").dir = "ltr";
+                    appendCell(row, item.started_at ? displayDate(item.started_at) : "—");
+                    appendCell(row, displayDate(item.expires_at));
+                    const actions = document.createElement("td");
+                    if (item.is_current) {
+                        const badge = document.createElement("span");
+                        badge.className = "badge badge-light-success";
+                        badge.textContent = "نشست فعلی";
+                        actions.append(badge);
+                    } else {
+                        const button = document.createElement("button");
+                        button.className = "btn btn-sm btn-light-danger";
+                        button.type = "button";
+                        button.textContent = "پایان";
+                        button.addEventListener("click", () => revoke(item.reference, button));
+                        actions.append(button);
+                    }
+                    row.append(actions);
+                    return row;
+                }));
+                loading.hidden = true;
+                empty.hidden = data.results.length > 0;
+                wrap.hidden = data.results.length === 0;
+                revokeOthers.disabled = others.length === 0;
+            } catch (error) {
+                loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        async function revoke(reference, button) {
+            button.disabled = true;
+            clearMessages();
+            try {
+                await apiRequest("/api/v1/auth/me/sessions/", {method: "POST", body: {reference}});
+                globalMessage("نشست پایان یافت.", true);
+                await load();
+            } catch (error) {
+                button.disabled = false;
+                showError(error);
+            }
+        }
+
+        revokeOthers.addEventListener("click", async () => {
+            if (!window.confirm("همه نشست‌های دیگر شما پایان یابد؟")) return;
+            revokeOthers.disabled = true;
+            clearMessages();
+            try {
+                const result = await apiRequest("/api/v1/auth/me/sessions/", {method: "POST", body: {}});
+                globalMessage(`${result.ended} نشست پایان یافت.`, true);
+                await load();
+            } catch (error) {
+                revokeOthers.disabled = false;
+                showError(error);
+            }
+        });
+
+        open.addEventListener("click", () => {
+            dialog.showModal();
+            load();
+        });
+        close.addEventListener("click", () => dialog.close());
+    }
+
+    /**
+     * A user agent string reduced to something a person recognises.
+     *
+     * Deliberately coarse: the point is "is this me on my own machine", not
+     * device fingerprinting, and a full user agent string on screen tells the
+     * reader nothing they can act on.
+     */
+    function describeDevice(userAgent) {
+        const text = String(userAgent || "");
+        if (!text) return "—";
+        const platform =
+            /Windows/i.test(text) ? "ویندوز"
+            : /Android/i.test(text) ? "اندروید"
+            : /(iPhone|iPad|iOS)/i.test(text) ? "iOS"
+            : /Mac OS X/i.test(text) ? "مک"
+            : /Linux/i.test(text) ? "لینوکس"
+            : "نامشخص";
+        const browser =
+            /Edg\//i.test(text) ? "Edge"
+            : /OPR\//i.test(text) ? "Opera"
+            : /Chrome\//i.test(text) ? "Chrome"
+            : /Firefox\//i.test(text) ? "Firefox"
+            : /Safari\//i.test(text) ? "Safari"
+            : "مرورگر";
+        return `${browser} — ${platform}`;
+    }
+
     function setupLogout() {
         const form = document.getElementById("logout-form");
         if (!form) return;
@@ -339,8 +496,9 @@
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
-                const payload = formPayload(editForm, ["username", "first_name", "last_name", "email", "phone", "password", "workstream"]);
-                if (!payload.password) delete payload.password;
+                // No password field: changing an existing account's password is
+                // not offered anywhere in this interface, and the API refuses it.
+                const payload = formPayload(editForm, ["username", "first_name", "last_name", "email", "phone", "workstream"]);
                 user = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 fillUser(user);
                 globalMessage("مشخصات کاربر ذخیره شد.", true);
@@ -401,10 +559,9 @@
                 const data = await apiRequest(`/api/v1/users/${userId}/sessions/`);
                 body.replaceChildren(...data.results.map((item) => {
                     const row = document.createElement("tr");
-                    // Only a prefix is shown: the key is a bearer credential and
-                    // printing it in full would put it on the operator's screen.
-                    const shortened = String(item.session_key || "").slice(0, 8);
-                    appendCell(row, shortened ? `${shortened}…` : "—").dir = "ltr";
+                    // The server sends an opaque reference, never the session
+                    // key. A short prefix of it is enough to tell rows apart.
+                    appendCell(row, `${String(item.reference || "").slice(0, 8)}…`).dir = "ltr";
                     appendCell(row, displayDate(item.expires_at));
                     return row;
                 }));
@@ -3873,6 +4030,8 @@
     setupJalaliInputs();
     setupNav();
     setupLogout();
+    setupUserMenu();
+    setupSessionsDialog();
 
     // A denied page is served with the error card in place of its content, so
     // its module has no markup to bind to and every call it makes would be

@@ -46,17 +46,60 @@
                 </div>
                 <div class="d-flex align-items-stretch justify-content-end flex-lg-grow-1">
                     <div class="app-navbar flex-shrink-0 align-items-center">
-                        <div class="app-navbar-item ms-1 ms-md-4">
-                            <div class="d-flex flex-column align-items-end">
-                                <span class="text-gray-900 fw-bold fs-6">{{ request.user.get_full_name|default:request.user.username }}</span>
-                                <span class="text-muted fw-semibold fs-8">{{ role_label }}</span>
+                        {% comment %} The theme's user-menu panel, with its markup and classes, opened by
+                           this application rather than by KTMenu: KTMenu places a dropdown with
+                           Popper, which lives in the 3.5 MB plugins bundle this deployment does
+                           not load. The theme's own `.show` rule already supplies the whole panel;
+                           only the anchoring is ours, in kariz.css. Same trade as the native
+                           dialog elements used instead of Bootstrap modals.
+
+                           Everything the account owner may do lives here, which is why the sidebar
+                           no longer carries a profile entry. {% endcomment %}
+                        <div class="app-navbar-item ms-1 ms-md-4 position-relative" id="kt_header_user_menu_toggle">
+                            <button id="user-menu-toggle" type="button"
+                                    class="btn btn-flex align-items-center bg-hover-light-primary py-2 px-2 px-md-3"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="user-menu"
+                                    aria-label="منوی کاربر">
+                                <span class="symbol symbol-35px symbol-circle">
+                                    <span class="symbol-label bg-light-primary text-primary fw-bold">
+                                        <i class="ki-duotone ki-profile-circle fs-2 text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                    </span>
+                                </span>
+                                <span class="d-none d-md-flex flex-column align-items-end ms-3">
+                                    <span id="user-menu-username" class="text-gray-900 fw-bold fs-7">{{ request.user.get_full_name|default:request.user.username }}</span>
+                                    <span class="text-muted fw-semibold fs-8">{{ role_label }}</span>
+                                </span>
+                            </button>
+                            <div id="user-menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-primary fw-semibold py-4 fs-6 w-275px">
+                                <div class="menu-item px-3">
+                                    <div class="menu-content d-flex align-items-center px-3">
+                                        <div class="symbol symbol-50px symbol-circle me-5">
+                                            <span class="symbol-label bg-light-primary">
+                                                <i class="ki-duotone ki-profile-circle fs-2x text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                            </span>
+                                        </div>
+                                        <div class="d-flex flex-column">
+                                            <span class="fw-bold d-flex align-items-center fs-6">{{ request.user.get_full_name|default:request.user.username }}</span>
+                                            <span class="fw-semibold text-muted fs-7">{{ request.user.username }}</span>
+                                            <span class="fw-semibold text-muted fs-8">{{ role_label }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="separator my-2"></div>
+                                <div class="menu-item px-5">
+                                    <a id="open-profile" class="menu-link px-5" href="{% url 'common_ui:home' %}#profile-card">پروفایل من</a>
+                                </div>
+                                <div class="menu-item px-5">
+                                    <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
+                                </div>
+                                <div class="separator my-2"></div>
+                                <div class="menu-item px-5">
+                                    <form id="logout-form" action="/api/v1/auth/logout/" method="post">
+                                        {% csrf_token %}
+                                        <button class="menu-link px-5 w-100 text-end border-0 bg-transparent text-danger" type="submit">خروج</button>
+                                    </form>
+                                </div>
                             </div>
-                        </div>
-                        <div class="app-navbar-item ms-3">
-                            <form id="logout-form" action="/api/v1/auth/logout/" method="post">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-light-danger" type="submit">خروج</button>
-                            </form>
                         </div>
                     </div>
                 </div>
@@ -228,12 +271,11 @@
                                 </div>
                                 {% endif %}
 
-                                <div class="menu-item">
-                                    <a data-module="profile" class="menu-link" href="{% url 'common_ui:home' %}#profile-card">
-                                        <span class="menu-icon"><i class="ki-duotone ki-profile-circle fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
-                                        <span class="menu-title">پروفایل من</span>
-                                    </a>
-                                </div>
+                                {% comment %} No profile entry here: the account owner's own controls —
+                                   profile, active sessions, sign out — live in the header user
+                                   menu, which is where the theme puts them and where a user
+                                   expects to find them. The sidebar is for the business
+                                   modules. {% endcomment %}
                             </nav>
                         </div>
                     </div>
@@ -272,6 +314,32 @@
                         </div>
                     </div>
                 </div>
+{% comment %} A native dialog element, as everywhere else in this application: it is
+   focusable, closes on Escape, and needs no Bootstrap JavaScript. Sessions are
+   identified by an opaque reference — the session key itself never reaches the
+   browser. {% endcomment %}
+<dialog id="sessions-dialog" aria-labelledby="sessions-dialog-title">
+    <div class="card">
+        <div class="card-header align-items-center">
+            <h2 class="fs-3 fw-bold text-gray-900 mb-0" id="sessions-dialog-title">نشست‌های فعال</h2>
+        </div>
+        <div class="card-body">
+            <p class="text-muted fs-7">هر ردیف یک ورود فعال به حساب شماست. اگر ورودی را نمی‌شناسید، همان‌جا پایانش دهید.</p>
+            <div id="sessions-loading" class="text-center text-muted py-10">در حال دریافت نشست‌ها…</div>
+            <div id="sessions-empty" class="text-center text-muted py-10" hidden>نشست فعالی ثبت نشده است.</div>
+            <div id="sessions-table-wrap" class="table-responsive" hidden>
+                <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
+                    <thead><tr><th>دستگاه</th><th>نشانی شبکه</th><th>آغاز</th><th>انقضا</th><th></th></tr></thead>
+                    <tbody id="sessions-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between gap-3">
+            <button id="revoke-other-sessions" class="btn btn-light-danger" type="button">پایان دادن به سایر نشست‌ها</button>
+            <button id="close-sessions" class="btn btn-light" type="button">بستن</button>
+        </div>
+    </div>
+</dialog>
             </div>
         </div>
     </div>
