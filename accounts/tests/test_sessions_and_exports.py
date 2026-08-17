@@ -34,8 +34,10 @@ class SessionAdministrationTests(TestCase):
         self.sign_in_agent()
         rows = active_sessions_for(actor=self.admin, target=self.agent)
         self.assertEqual(len(rows), 1)
-        self.assertIn("session_key", rows[0])
+        self.assertIn("reference", rows[0])
         self.assertIn("expires_at", rows[0])
+        # The session key is the credential itself and is never handed out.
+        self.assertNotIn("session_key", rows[0])
 
     def test_one_users_session_is_not_listed_under_another(self):
         self.sign_in_agent()
@@ -62,13 +64,18 @@ class SessionAdministrationTests(TestCase):
 
     def test_revoking_is_audited_without_recording_the_session_key(self):
         self.sign_in_agent()
-        keys = [row["session_key"] for row in active_sessions_for(actor=self.admin, target=self.agent)]
+        keys = list(Session.objects.values_list("session_key", flat=True))
+        references = [
+            row["reference"] for row in active_sessions_for(actor=self.admin, target=self.agent)
+        ]
         revoke_sessions(actor=self.admin, target=self.agent)
         entry = ActivityLog.objects.filter(operation="user.sessions_revoked").latest("id")
         self.assertEqual(entry.actor, self.admin)
         serialized = str(entry.safe_changes)
         for key in keys:
             self.assertNotIn(key, serialized)
+        for reference in references:
+            self.assertNotIn(reference, serialized)
 
     def test_only_a_user_administrator_may_look_or_revoke(self):
         for role in (User.Role.SALES_AGENT, User.Role.SALES_MANAGER, User.Role.COMPANY_IT):
@@ -82,13 +89,23 @@ class SessionAdministrationTests(TestCase):
                     revoke_sessions(actor=actor, target=self.agent)
 
     def test_the_api_matches_the_service(self):
-        self.sign_in_agent()
+        session_key = self.sign_in_agent().session.session_key
         self.client.force_login(self.admin)
         listing = self.client.get(f"/api/v1/users/{self.agent.pk}/sessions/")
         self.assertEqual(listing.status_code, 200)
-        self.assertEqual(listing.json()["count"], 1)
+        payload = listing.json()
+        self.assertEqual(payload["count"], 1)
+        # The response carries a reference, never the key that would let its
+        # reader sign in as that user.
+        self.assertNotIn("session_key", listing.content.decode("utf-8"))
+        self.assertNotIn(session_key, listing.content.decode("utf-8"))
+        self.assertTrue(payload["results"][0]["reference"])
 
-        revoked = self.client.post(f"/api/v1/users/{self.agent.pk}/revoke-sessions/")
+        revoked = self.client.post(
+            f"/api/v1/users/{self.agent.pk}/revoke-sessions/",
+            data={},
+            content_type="application/json",
+        )
         self.assertEqual(revoked.status_code, 200)
         self.assertEqual(revoked.json()["ended"], 1)
 

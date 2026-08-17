@@ -12,8 +12,16 @@ from rest_framework.views import APIView
 from accounts.access import crm_identities
 from accounts.models import User
 from accounts.permissions import IsUserReader
-from accounts.sessions import active_sessions_for, revoke_sessions
-from accounts.serializers import LoginSerializer, MeSerializer, RoleChangeSerializer, UserSerializer
+from accounts.sessions import active_sessions_for, record_session_device, revoke_sessions
+from accounts.serializers import (
+    LoginSerializer,
+    MeSerializer,
+    RoleChangeSerializer,
+    SessionListSerializer,
+    SessionRevokeResultSerializer,
+    SessionRevokeSerializer,
+    UserSerializer,
+)
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
     CONFLICT_RESPONSE,
@@ -23,7 +31,7 @@ from common.openapi import (
     VALIDATION_ERROR_RESPONSE,
 )
 from common.permissions import IsActiveAuthenticated
-from common.throttles import SensitiveActionThrottleMixin
+from common.throttles import SensitiveActionThrottleMixin, SensitiveRateThrottle
 from common.viewsets import NoDestroyModelViewSet
 
 
@@ -54,6 +62,7 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         login(request, serializer.validated_data["user"])
+        record_session_device(request)
         return Response(MeSerializer(serializer.validated_data["user"]).data)
 
 
@@ -92,6 +101,58 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class MySessionsView(APIView):
+    """The caller's own active sessions, and the controls to end them.
+
+    Separate from the Platform-Admin endpoints on `UserViewSet` on purpose:
+    seeing where *you* are signed in, and signing yourself out elsewhere, is not
+    user administration and needs no administrative capability. The service
+    layer allows self-service and admin access and refuses everything else.
+    """
+
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [SensitiveRateThrottle]
+    serializer_class = SessionListSerializer
+
+    @extend_schema(
+        responses={200: SessionListSerializer, 403: ACCESS_DENIED_RESPONSE},
+        description="Active sessions of the signed-in user. Session keys are never returned.",
+    )
+    def get(self, request):
+        rows = active_sessions_for(
+            actor=request.user,
+            target=request.user,
+            current_session_key=request.session.session_key or "",
+        )
+        response = Response(SessionListSerializer({"count": len(rows), "results": rows}).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @extend_schema(
+        request=SessionRevokeSerializer,
+        responses={
+            200: SessionRevokeResultSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: CSRF_OR_ACCESS_DENIED_RESPONSE,
+        },
+        description=(
+            "Ends one of the caller's sessions by reference, or every other session when no "
+            "reference is given. The caller's own session is always kept, so this never signs "
+            "them out of the page they are using."
+        ),
+    )
+    def post(self, request):
+        serializer = SessionRevokeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ended = revoke_sessions(
+            actor=request.user,
+            target=request.user,
+            reference=serializer.validated_data.get("reference") or None,
+            keep_session_key=request.session.session_key or "",
+        )
+        return Response(SessionRevokeResultSerializer({"ended": ended}).data)
 
 
 class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
@@ -151,32 +212,32 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(UserSerializer(target).data)
 
     @extend_schema(
-        responses={200: OpenApiResponse(description="Active sessions for this user.")},
+        responses={200: SessionListSerializer},
         description="Active sessions of one user. Platform Admin only.",
     )
     @action(detail=True, methods=["get"], url_path="sessions")
     def sessions(self, request, pk=None):
         target = self.get_object()
-        rows = active_sessions_for(actor=request.user, target=target)
-        return Response({
-            "count": len(rows),
-            # Only a short prefix of each key is returned: the full value is a
-            # bearer credential, and the caller does not need it to revoke —
-            # revoking by prefix is refused, so the client sends back what it
-            # was given only when ending one specific session.
-            "results": [
-                {"session_key": row["session_key"], "expires_at": row["expires_at"]}
-                for row in rows
-            ],
-        })
+        # `reference` identifies a session; the session key itself never leaves
+        # the server, because holding one is enough to *be* that user.
+        rows = active_sessions_for(
+            actor=request.user, target=target, current_session_key=request.session.session_key or ""
+        )
+        return Response(SessionListSerializer({"count": len(rows), "results": rows}).data)
 
     @extend_schema(
-        request=None,
-        responses={200: OpenApiResponse(description="Number of sessions ended.")},
-        description="End every active session of one user. Platform Admin only.",
+        request=SessionRevokeSerializer,
+        responses={200: SessionRevokeResultSerializer, 400: VALIDATION_ERROR_RESPONSE},
+        description="End one session, or every session, of one user. Platform Admin only.",
     )
     @action(detail=True, methods=["post"], url_path="revoke-sessions")
     def revoke_sessions_action(self, request, pk=None):
         target = self.get_object()
-        ended = revoke_sessions(actor=request.user, target=target)
-        return Response({"ended": ended})
+        serializer = SessionRevokeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ended = revoke_sessions(
+            actor=request.user,
+            target=target,
+            reference=serializer.validated_data.get("reference") or None,
+        )
+        return Response(SessionRevokeResultSerializer({"ended": ended}).data)

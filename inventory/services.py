@@ -231,14 +231,20 @@ def reactivate_warehouse(*, actor, warehouse):
 def _lock_stock_item(*, warehouse, product):
     """Take the row lock, creating the row first if this pair is new.
 
-    `get_or_create` can lose the create race; the loser sees the unique
-    constraint and simply re-reads the row the winner made.
+    The loser of the create race sees the unique constraint and simply re-reads
+    the row the winner made. The insert **must** run inside its own atomic block:
+    on PostgreSQL a failed statement aborts the surrounding transaction, so
+    catching IntegrityError without a savepoint leaves a connection on which no
+    further query may run — the re-read below would raise
+    TransactionManagementError instead of returning the row. SQLite does not
+    behave that way, which is why this only ever failed in production.
     """
     item = StockItem.objects.select_for_update().filter(warehouse=warehouse, product=product).first()
     if item is not None:
         return item
     try:
-        StockItem.objects.create(warehouse=warehouse, product=product)
+        with transaction.atomic():
+            StockItem.objects.create(warehouse=warehouse, product=product)
     except IntegrityError:
         pass
     return StockItem.objects.select_for_update().get(warehouse=warehouse, product=product)
@@ -288,8 +294,28 @@ def record_stock_movement(
         raise BusinessRuleError({"reference_id": "A referenced movement needs its source id."})
 
     if idempotency_key:
-        existing = StockMovement.objects.filter(idempotency_key=idempotency_key).first()
+        # A retry is the same movement asked for again, so the key is matched
+        # together with what it claims to be. A key that names this warehouse
+        # and product but a different movement is a collision, not a retry, and
+        # is refused rather than answered with the earlier movement. A key that
+        # belongs to some other warehouse or product does not match here at all
+        # and falls through to the unique constraint below, which refuses it
+        # without ever disclosing the movement it collided with.
+        existing = StockMovement.objects.filter(
+            idempotency_key=idempotency_key,
+            warehouse_id=warehouse.pk,
+            product_id=product.pk,
+        ).first()
         if existing is not None:
+            if (
+                existing.movement_type != movement_type
+                or existing.quantity != quantity
+                or existing.reference_kind != reference_kind
+                or existing.reference_id != reference_id
+            ):
+                raise BusinessConflictError({
+                    "idempotency_key": "This key was already used for a different movement."
+                })
             # A retried request must not apply the same movement twice.
             return existing
 

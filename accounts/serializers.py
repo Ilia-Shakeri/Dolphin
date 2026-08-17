@@ -71,6 +71,39 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         return update_crm_user(actor=self.context["request"].user, target=instance, **validated_data)
 
 
+class SessionSerializer(serializers.Serializer):
+    """One active session, identified by a reference and never by its key.
+
+    `reference` is the keyed digest from `accounts.sessions`; it identifies the
+    row for revocation and can neither be reversed into the session key nor used
+    to authenticate anything.
+    """
+
+    reference = serializers.CharField(read_only=True)
+    expires_at = serializers.DateTimeField(read_only=True)
+    is_current = serializers.BooleanField(read_only=True)
+    user_agent = serializers.CharField(read_only=True, allow_blank=True, default="")
+    ip_address = serializers.CharField(read_only=True, allow_blank=True, default="")
+    started_at = serializers.CharField(read_only=True, allow_blank=True, default="")
+
+
+class SessionListSerializer(serializers.Serializer):
+    count = serializers.IntegerField(read_only=True)
+    results = SessionSerializer(many=True, read_only=True)
+
+
+class SessionRevokeSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Ends one session when given its reference, or all of them when not."""
+
+    reference = serializers.CharField(
+        max_length=64, required=False, allow_blank=True, trim_whitespace=True
+    )
+
+
+class SessionRevokeResultSerializer(serializers.Serializer):
+    ended = serializers.IntegerField(read_only=True)
+
+
 class RoleChangeSerializer(RejectServerFieldsMixin, serializers.Serializer):
     role = serializers.ChoiceField(choices=User.Role.choices)
 

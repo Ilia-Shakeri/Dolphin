@@ -103,8 +103,28 @@ def register_payment(
     received_at = received_at or timezone.now()
 
     if idempotency_key:
-        existing = Payment.objects.filter(idempotency_key=idempotency_key).first()
+        # A retry is *this* payment asked for again, so the key is matched
+        # together with the customer it names and checked against what it
+        # claims. Three distinct outcomes, and only the first returns a row:
+        #
+        #   same key, same customer, same money  -> the original payment;
+        #   same key, same customer, different   -> refused as a collision;
+        #   same key, another customer           -> no match here at all, so it
+        #     falls through to the unique constraint below and is refused
+        #     without ever disclosing the other customer's payment.
+        #
+        # Matching on the key alone used to return whatever payment held it.
+        # That both leaked a payment the caller had no scope for and silently
+        # swallowed a second, genuine payment whose key happened to collide —
+        # money taken, nothing recorded, and a 201 to say it went through.
+        existing = Payment.objects.filter(
+            idempotency_key=idempotency_key, customer_id=customer.pk
+        ).first()
         if existing is not None:
+            if existing.method != method or existing.amount != amount:
+                raise BusinessConflictError({
+                    "idempotency_key": "This key was already used for a different payment."
+                })
             return existing
 
     locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)

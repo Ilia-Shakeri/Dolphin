@@ -4,6 +4,11 @@
 two concurrent postings serialise and the `balance_after` chain stays a true
 running balance rather than two entries computed from the same stale total.
 
+`balance_after` records the balance in *posting* order. An entry may carry an
+earlier `occurred_at` than the one before it — a payment received last week, an
+opening balance from last year — so `current_balance` sums the entries instead
+of reading the newest row's snapshot.
+
 Nothing here ever updates or deletes an entry. Reversing an invoice or a payment
 appends the opposite entry; the original stays visible forever.
 """
@@ -11,6 +16,8 @@ appends the opposite entry; the original stays visible forever.
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import DecimalField, Sum
+from django.db.models.functions import Coalesce
 
 from auditlog.services import log_activity
 from billing.models import CustomerLedgerEntry
@@ -20,14 +27,24 @@ from sales.models import Customer
 
 
 def current_balance(customer):
-    """The balance the customer owes: positive is a receivable, negative a credit."""
-    latest = (
-        CustomerLedgerEntry.objects.filter(customer=customer)
-        .order_by("-occurred_at", "-id")
-        .values_list("balance_after", flat=True)
-        .first()
+    """The balance the customer owes: positive is a receivable, negative a credit.
+
+    Summed from every entry rather than read from the newest row's
+    `balance_after`. `occurred_at` is a business date the caller supplies — a
+    payment received last week, an opening balance carried in from last year —
+    so the newest entry by that date is not necessarily the last one posted.
+    Reading its `balance_after` silently dropped every back-dated entry from the
+    balance: post an invoice today, then register a payment dated yesterday, and
+    the customer still appeared to owe the full amount.
+
+    Summing is order-independent and therefore correct whatever order entries
+    arrive in. Nothing here writes: the ledger stays append-only.
+    """
+    totals = CustomerLedgerEntry.objects.filter(customer=customer).aggregate(
+        debit=Coalesce(Sum("debit"), Decimal("0.00"), output_field=DecimalField(max_digits=38, decimal_places=2)),
+        credit=Coalesce(Sum("credit"), Decimal("0.00"), output_field=DecimalField(max_digits=38, decimal_places=2)),
     )
-    return latest if latest is not None else Decimal("0.00")
+    return quantize_money(totals["debit"] - totals["credit"])
 
 
 @transaction.atomic
@@ -54,7 +71,11 @@ def append_ledger_entry(
         raise BusinessRuleError({"amount": "A ledger amount cannot be negative."})
 
     # Locking the customer serialises every posting for this account, which is
-    # what makes the running balance correct under concurrency.
+    # what makes the running balance correct under concurrency. `balance_after`
+    # is therefore the account balance at the moment this entry was posted, in
+    # posting order — not in `occurred_at` order, which a back-dated entry may
+    # contradict. `current_balance` sums instead of reading this column, so the
+    # account total never depends on that distinction.
     locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
     balance = current_balance(locked_customer) + debit - credit
     balance = quantize_money(balance)
