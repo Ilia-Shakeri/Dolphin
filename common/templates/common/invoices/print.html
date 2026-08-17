@@ -1,5 +1,5 @@
 {% extends "common/print_base.html" %}
-{% load jalali_tags %}
+{% load jalali_tags money_tags %}
 {% block title %}فاکتور {{ document.number }}{% endblock %}
 {% block page_id %}invoice-print{% endblock %}
 {% block back_url %}{% url 'common_ui:invoice-detail' invoice_id %}{% endblock %}
@@ -28,21 +28,21 @@
             <td dir="ltr">{{ item.product_sku_snapshot }}</td>
             <td>{{ item.product_name_snapshot }}{% if item.description %} — {{ item.description }}{% endif %}</td>
             <td>{{ item.quantity }}</td>
-            <td dir="ltr">{{ item.unit_price }}</td>
-            <td dir="ltr">{{ item.discount_amount }}</td>
-            <td dir="ltr">{{ item.line_total }}</td>
+            <td dir="ltr">{{ item.unit_price|money }}</td>
+            <td dir="ltr">{{ item.discount_amount|money }}</td>
+            <td dir="ltr">{{ item.line_total|money }}</td>
         </tr>
     {% endfor %}
     </tbody>
 </table></div>
 <div class="print-totals">
-    <div><span>جمع اقلام</span><span dir="ltr">{{ document.subtotal_amount }}</span></div>
-    <div><span>تخفیف سند</span><span dir="ltr">{{ document.discount_amount }}</span></div>
-    <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount }}</span></div>
-    <div><span>مالیات ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount }}</span></div>
-    <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount }}</span></div>
-    <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount }}</span></div>
-    <div><span>مانده</span><span dir="ltr">{{ document.balance_due }}</span></div>
+    <div><span>جمع اقلام</span><span dir="ltr">{{ document.subtotal_amount|money }}</span></div>
+    <div><span>تخفیف سند</span><span dir="ltr">{{ document.discount_amount|money }}</span></div>
+    <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount|money }}</span></div>
+    <div><span>مالیات ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money }}</span></div>
+    <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount|money }}</span></div>
+    <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount|money }}</span></div>
+    <div><span>مانده</span><span dir="ltr">{{ document.balance_due|money }}</span></div>
 </div>
 {% if document.notes %}<div class="print-notes">{{ document.notes }}</div>{% endif %}
 <p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه فروش‌بین صادر شده است.</p>

@@ -105,7 +105,10 @@ dialog::backdrop {
 .print-page .button:hover { background: #06665d; }
 .print-page .button-muted { border-color: #c8d5de; color: #254057; background: #edf3f6; }
 
-.print-page { width: min(100%, 60rem); margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); }
+/* border-box because the print page loads no theme bundle and therefore has no
+   framework reset: without it the padding is added to the 100% width and the
+   document scrolls sideways on screen. */
+.print-page { box-sizing: border-box; width: min(100%, 60rem); margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); }
 .print-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-bottom: 1rem; }
 .print-sheet { padding: 2rem; border: 1px solid #d8e4eb; border-radius: .5rem; background: #fff; }
 .print-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding-bottom: 1rem; border-bottom: .15rem solid #087f73; }
@@ -114,10 +117,18 @@ dialog::backdrop {
 .print-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1.5rem; margin: 1.25rem 0; }
 .print-meta div { display: flex; gap: .5rem; }
 .print-meta span:first-child { color: #60758a; font-weight: 700; }
+/* The seven-column line-item table is wider than a phone. It scrolls inside its
+   own container so the document itself never scrolls sideways; on paper the
+   media query below returns it to visible, because a clipped invoice line is a
+   missing invoice line. */
+.print-page .table-wrap { overflow-x: auto; }
 .print-sheet table { width: 100%; margin-top: .5rem; border-collapse: collapse; }
 .print-sheet th, .print-sheet td { padding: .85rem .7rem; border-bottom: 1px solid #d8e4eb; text-align: right; white-space: normal; }
-.print-totals { display: grid; justify-content: flex-start; gap: .35rem; margin-top: 1.25rem; }
-.print-totals div { display: grid; grid-template-columns: 12rem auto; gap: 1rem; }
+/* Bounded rather than sized to its content: a fixed 12rem label column plus an
+   eight-digit rial total is wider than a phone, and the amounts were being cut
+   off at the edge of the sheet. */
+.print-totals { display: grid; justify-content: flex-start; gap: .35rem; margin-top: 1.25rem; width: min(100%, 26rem); }
+.print-totals div { display: grid; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: 1rem; }
 .print-totals .print-grand { padding-top: .35rem; border-top: .1rem solid #087f73; font-size: 1.1rem; font-weight: 800; }
 .print-notes { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #d8e4eb; white-space: pre-wrap; }
 .print-footer { margin-top: 2rem; color: #60758a; font-size: .82rem; }
@@ -127,6 +138,7 @@ dialog::backdrop {
     body { background: #fff; }
     .print-toolbar, .app-header, .app-sidebar, .app-footer { display: none !important; }
     .print-page { width: 100%; padding: 0; }
+    .print-page .table-wrap { overflow-x: visible; }
     .print-sheet { padding: 0; border: 0; border-radius: 0; }
     table { page-break-inside: auto; }
     tr { page-break-inside: avoid; }

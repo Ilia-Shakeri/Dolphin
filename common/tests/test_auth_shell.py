@@ -54,6 +54,22 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn("dialog {", stylesheet)
         self.assertIn("@media print", stylesheet)
 
+    def test_the_print_sheet_fits_a_phone(self):
+        """The print page loads no theme bundle, so it owns its own containment.
+
+        Each of these was a real overflow: the page box ignored its padding, the
+        seven-column line-item table pushed the document sideways, and the
+        totals column cut an eight-digit rial amount off at the edge of the
+        sheet. On paper the table must go back to visible — a clipped line item
+        is a missing line item.
+        """
+        stylesheet = (ROOT / "common" / "static" / "common" / "kariz.css").read_text(encoding="utf-8")
+        self.assertIn(".print-page { box-sizing: border-box;", stylesheet)
+        self.assertIn(".print-page .table-wrap { overflow-x: auto; }", stylesheet)
+        self.assertIn(".print-page .table-wrap { overflow-x: visible; }", stylesheet)
+        self.assertIn("width: min(100%, 26rem)", stylesheet)
+        self.assertIn("grid-template-columns: minmax(0, 12rem) minmax(0, 1fr)", stylesheet)
+
 
 class AuthShellBrowserTests(TestCase):
     def setUp(self):
