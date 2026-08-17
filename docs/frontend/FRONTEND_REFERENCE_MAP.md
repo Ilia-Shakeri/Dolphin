@@ -1,12 +1,129 @@
 # ForooshBin frontend reference map
 
-## Authority and use
+## What this document is
 
-- This map covers the maintained Persian RTL Django UI. It does not make demo/theme pages operational.
-- `BACKEND_SPEC.md`, backend selectors/services/serializers, and explicit user decisions define data, authorization, statuses, and workflows.
-- The exact theme HTML files below were inspected only in bounded ranges for layout and UX patterns. No rule, permission, metric, entity, status, route, or action was inferred from them.
-- Active architecture: `common/ui_urls.py` routes to `common/ui_views.py`; templates extend `common/templates/common/base.html`; `body[data-page]` selects one handler in `common/static/common/kariz-app.js`; same-origin session/CSRF calls reach `/api/v1/`; `common/static/common/kariz.css` supplies the maintained lightweight RTL shell.
-- Stable backend names remain unchanged. Customer is displayed as `مشتری` / `مشتریان`. Role labels are `بازاریاب (کال سنتر)`, `مدیر فروشگاه`, `مدیر فنی مشتری`, and `مدیر پلتفرم`.
+The served Persian RTL UI is built **on the purchased Metronic RTL theme**, not
+on a lookalike. This map records, for every served route, which theme reference
+it came from and how faithful the result is. It does not make any demo page
+operational, and it never sources a business rule from one.
+
+`BACKEND_SPEC.md`, the selectors/services/serializers, and explicit product-owner
+decisions define data, authorization, statuses and workflow. The theme defines
+appearance and component structure — nothing else.
+
+## The one canonical shell
+
+`layouts/dark-sidebar.html` is the single chosen layout variant. No other demo
+shell is mixed in. From it the application takes:
+
+* the app root / page / header / wrapper / sidebar / main / footer skeleton and
+  its `data-kt-app-*` body attributes;
+* `KTMenu` accordion navigation in the sidebar (`menu-item`, `menu-link`,
+  `menu-sub-accordion`, `menu-bullet`, keenicons `ki-duotone` icons);
+* `KTDrawer` for the mobile sidebar, toggled by the header button;
+* the theme's cards, tables, forms, grid, buttons, badges, alerts and spacing.
+
+Loaded assets, and only these, because they are what the served pages request:
+
+| Asset | Why |
+|---|---|
+| `plugins/global/plugins.bundle.rtl.css` | Bootstrap RTL base + keenicons font-face |
+| `css/style.bundle.rtl.css` | the theme itself; also resolves the Persian IRANSans face |
+| `js/scripts.bundle.js` | `KTUtil`, `KTMenu`, `KTDrawer`, `KTScroll` |
+| `plugins/global/fonts/keenicons/*` | the icon font the sidebar uses |
+| `fonts/IRANSansWeb*` | Persian typography |
+| `common/kariz.css` | ForooshBin-only: behaviour, brand, print |
+| `common/kariz-app.js` | the application; one handler per `data-page` |
+
+**`plugins.bundle.js` (3.5 MB) is deliberately not loaded.** The pages need
+`KTMenu` and `KTDrawer`, which live in `scripts.bundle.js`; they do not use
+Bootstrap's JavaScript, because the modals are native `<dialog>`. Nothing on a
+served page depends on it, and a served page has zero severe console errors
+without it.
+
+## Status vocabulary
+
+| Status | Meaning |
+|---|---|
+| `TEMPLATE_ADAPTED` | markup adapted from a named theme page |
+| `COMPOSED_FROM_COMPONENTS` | no equivalent theme page exists, so the page is assembled only from theme components on the canonical shell |
+
+Every route below sits on the canonical shell, so every one is at minimum a
+component composition. `TEMPLATE_ADAPTED` is reserved for pages whose layout
+follows a specific theme page.
+
+## Route map
+
+| Route | Template | Theme reference | Components reused | Backend | Status |
+|---|---|---|---|---|---|
+| `/login/` | `login.html` | `authentication/layouts/corporate/sign-in.html` | split auth root, `w-lg-500px` form column, `fv-row`, `form-control`, `btn btn-primary`, dark brand aside | `POST /api/v1/auth/login/` | `TEMPLATE_ADAPTED` |
+| `/` | `home.html` + `includes/performance_panel.inc` | `layouts/dark-sidebar.html`, `dashboards/store-analytics.html`, `dashboards/call-center.html` | `card card-flush` stat cards in `row`/`col-sm-6 col-xl-3`, `card-body`, filter grid, `btn`, `table-row-dashed` | me / work-queue / performance APIs, scoped counts | `TEMPLATE_ADAPTED` |
+| `/users/` | `users/list.html` | `apps/user-management/users/list.html` | page head, toolbar, `table-responsive`, `badge`, pagination, `dialog` create form | `GET/POST /api/v1/users/` | `TEMPLATE_ADAPTED` |
+| `/users/<id>/` | `users/detail.html` | `apps/user-management/users/view.html` | card + `card-body` forms, `form-select`, danger zone card, session table | `GET/PATCH /api/v1/users/<id>/`, `change-role/`, `sessions/`, `revoke-sessions/` | `TEMPLATE_ADAPTED` |
+| `/customers/` | `customers/list.html` | `apps/customers/list.html` | toolbar, search, `table align-middle table-row-dashed`, badges, pagination, XLSX action | `GET/POST /api/v1/customers/`, `exports/customers.xlsx` | `TEMPLATE_ADAPTED` |
+| `/customers/<id>/` | `customers/detail.html` | `apps/customers/view.html` | card form grid, related paged panels, deactivate card | Customer `GET/PATCH`, `deactivate/`, phones, related leads/interactions/sales | `TEMPLATE_ADAPTED` |
+| `/leads/`, `/leads/<id>/` | `leads/*.html` | `apps/contacts/getting-started.html`, `view-contact.html`, `edit-contact.html` | list toolbar/table, detail card grid, reassign card, history table | `GET/POST /api/v1/leads/`, `reassign/`, `assignment-history/` | `COMPOSED_FROM_COMPONENTS` |
+| `/interactions/`, `/interactions/<id>/` | `interactions/*.html` | `apps/contacts/add-contact.html`, `view-contact.html` | create `dialog`, table, read-only detail grid | `GET/POST /api/v1/interactions/` | `COMPOSED_FROM_COMPONENTS` |
+| `/products/`, `/products/<id>/` | `products/*.html` | `apps/ecommerce/catalog/products.html`, `add-product.html`, `edit-product.html` | catalogue toolbar, category filter, table, edit card | `GET/POST /api/v1/products/` | `TEMPLATE_ADAPTED` |
+| `/product-categories/`, `/…/<id>/` | `product_categories/*.html` | `apps/ecommerce/catalog/categories.html`, `add-category.html`, `edit-category.html` | same catalogue pattern, lifecycle buttons | `GET/POST /api/v1/product-categories/` | `TEMPLATE_ADAPTED` |
+| `/warehouses/`, `/warehouses/<id>/` | `warehouses/*.html` | no equivalent theme page | list toolbar/table/pagination, edit card, danger zone | `GET/POST /api/v1/warehouses/` | `COMPOSED_FROM_COMPONENTS` |
+| `/stock/`, `/stock/movements/` | `inventory/*.html` | no equivalent theme page | toolbar filters, table, movement `dialog`, transfer `dialog` | `GET /api/v1/stock-items/`, `POST /api/v1/stock-movements/` | `COMPOSED_FROM_COMPONENTS` |
+| `/sales/`, `/sales/<id>/` | `sales/*.html` | `apps/ecommerce/sales/listing.html`, `details.html` | order-style list, immutable detail card, controlled cancel | `GET/POST /api/v1/sales/`, `cancel/` | `TEMPLATE_ADAPTED` |
+| `/quotations/`, `/orders/`, `/invoices/` and details | `quotations/*`, `orders/*`, `invoices/*` + `includes/document_lines.inc` | `apps/ecommerce/sales/listing.html`, `add-order.html`, `details.html`, `apps/invoices/view/invoice-1.html` | document list toolbar with status filter, totals card, line-item table, status transition buttons, allocation panel | quotation/order/invoice APIs incl. `items/`, `issue/`, `cancel/` | `TEMPLATE_ADAPTED` |
+| `…/print/` | `quotations/print.html`, `invoices/print.html` | `apps/invoices/view/invoice-1.html` (layout only) | **deliberately not themed** — see intentional differences | server-rendered from the stored snapshot | `COMPOSED_FROM_COMPONENTS` |
+| `…/print.pdf` | same templates in `pdf_mode` | as above | as above | `common/pdf.py` | `COMPOSED_FROM_COMPONENTS` |
+| `/payments/`, `/payments/<id>/` | `payments/*.html` | no equivalent theme page | list toolbar, method/status filters, allocation panel, cheque card | payment APIs incl. `allocate/`, `release/` | `COMPOSED_FROM_COMPONENTS` |
+| `/cheques/`, `/installments/` | `payments/cheques.html`, `installments.html` | no equivalent theme page | filtered table + pagination | `GET /api/v1/cheques/`, `/installments/` | `COMPOSED_FROM_COMPONENTS` |
+| `/sales-documents/`, `/…/<id>/` | `sales_documents/*.html` | `apps/ecommerce/sales/listing.html`, `details.html` | list/detail cards, postal transition form, append-only history table | sales-document APIs | `TEMPLATE_ADAPTED` |
+| `/after-sales/`, `/…/<id>/` | `after_sales/*.html` | `apps/support-center/tickets/list.html`, `view.html` | case list with status/assignee filters, detail card, history table | after-sales APIs | `COMPOSED_FROM_COMPONENTS` |
+| `/reports/user-performance/` | `reports/user_performance.html` + shared panel | `dashboards/finance-performance.html`, `apps/ecommerce/reports/sales.html` | KPI stat cards, filter grid, chart card, drill-down table, XLSX action | performance JSON / details / XLSX | `TEMPLATE_ADAPTED` |
+| `/reports/receivables/`, `/profit/`, `/stock-valuation/` | `reports/*.html` | `apps/ecommerce/reports/view.html`, `sales.html` | stat-card row, filter toolbar, report table, XLSX action | financial report APIs | `TEMPLATE_ADAPTED` |
+| `/reports/customer-ledger/` | `reports/customer_ledger.html` | `account/statements.html` | statement toolbar, balance card, paged entry table | `GET /api/v1/customer-ledger/`, `balance/` | `TEMPLATE_ADAPTED` |
+| `/reports/sales-documents/`, `/reports/inbound-sms/` | `reports/*.html` | `apps/ecommerce/reports/sales.html` | date/geography filters, grouped tables, stat card | report APIs | `COMPOSED_FROM_COMPONENTS` |
+| `/activity-logs/`, `/…/<id>/` | `activity_logs/*.html` | no equivalent theme page | search toolbar, table, read-only detail card, bounded JSON block | `GET /api/v1/activity-logs/` | `COMPOSED_FROM_COMPONENTS` |
+| Django error pages | `error.html`, and the denial block in `base.html` | theme card + utilities | centred card, `fs-2hx` status, `btn btn-primary` | Django handlers / API error envelope | `COMPOSED_FROM_COMPONENTS` |
+
+## Intentional differences from the theme
+
+Each of these is a deliberate choice, not an omission.
+
+1. **Modals are native `<dialog>`, not `.modal`.** The theme's modal needs
+   Bootstrap's JavaScript, which would mean shipping the 3.5 MB plugins bundle
+   for one component. `<dialog>` is real, focusable, closes on Escape, and needs
+   no library. `kariz.css` gives it the theme's card surface — about ten lines,
+   the only place a theme component is re-created.
+2. **The print and PDF pages load no theme bundle at all.** Paper has no dark
+   sidebar, no cards and no hover states, and a printed invoice must look the
+   same whatever the theme is doing on screen. Their stylesheet is
+   self-contained in `kariz.css`.
+3. **No theme-mode switcher, no language selector, no social sign-in, no
+   sign-up, no password-reset link, no notification or avatar drawer.** All
+   exist in the theme; all are absent by Client-1 policy, and a control may
+   appear only when its action is real.
+4. **The performance chart is a plain bar list, not the theme's chart widget.**
+   The theme charts through amCharts loaded from a CDN, which is forbidden — no
+   served page may reach a third-party host. The bars are drawn from real report
+   values.
+5. **`data-module` attributes are kept on navigation links.** They are not a
+   theme convention; they are how the deployment-profile and capability tests
+   assert which entries a role may see.
+6. **Stable application ids** (`app-sidebar`, `nav-toggle`, `main-content`,
+   `app-error`, `global-message`) live alongside the theme's own ids, so tests
+   pin behaviour rather than the theme's layout naming.
+7. **The whole theme tree is the static root.** Its CSS resolves fonts
+   relatively, so the directory shape must survive; a prefixed `STATICFILES_DIRS`
+   entry also fails to resolve forward-slash URLs on Windows, where this is
+   developed. `collectstatic` still excludes the demo media that no page
+   requests.
+
+---
+
+## Appendix — pre-theme screen notes (history)
+
+Kept because it records each screen's backend endpoints, role scope and known
+UX gaps in more detail than the route table above. Its "visual reference" column
+described pages that were *consulted*; the table above records what is now
+actually adapted. Where the two disagree, the table above is current.
 
 ## Active page map
 
