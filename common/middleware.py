@@ -58,6 +58,8 @@ class RequestContextMiddleware:
                     duration_ms=duration_ms,
                 )
             except Exception:
+                # Access logging must never turn a successful response into a
+                # server error; the response is already built and is returned.
                 pass
             return response
         finally:

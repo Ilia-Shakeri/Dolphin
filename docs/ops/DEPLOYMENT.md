@@ -198,7 +198,12 @@ $approvedHost = Read-Host 'Approved HTTPS host'
 Invoke-WebRequest -UseBasicParsing -Uri "https://$approvedHost/api/v1/health/ready/"
 ```
 
-Then run controlled browser smoke for `/`, `/admin/login/`, login/logout with CSRF, one safe read per CRM role, static delivery, RTL/Persian output, ForooshBin branding, responsive viewports, and clean console/network behavior. Never use production customer data for smoke fixtures.
+Then run controlled browser smoke for `/`, `/login/`, login/logout with CSRF, one safe read per CRM role, static delivery, RTL/Persian output, ForooshBin branding, responsive viewports, and clean console/network behavior. Never use production customer data for smoke fixtures.
+
+`/admin/` is **not** part of the smoke path and must return 404: the Django
+admin is unregistered in production (`ENABLE_DJANGO_ADMIN` defaults false,
+independently of `DEBUG`) and Nginx denies the prefix as well. A 200 there is
+a misconfiguration, not a passing check.
 
 Only after every acceptance gate and reopen approval passes, recreate just Nginx from base Compose and prove the off mount:
 

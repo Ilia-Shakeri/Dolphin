@@ -604,13 +604,6 @@
     function pad2(value) { return String(value).padStart(2, "0"); }
     function pad4(value) { return String(value).padStart(4, "0"); }
 
-    /** Fill a Jalali date input from a stored value. */
-    function jalaliDateValue(value) {
-        if (!value) return "";
-        const shown = displayDay(value);
-        return shown === "—" ? "" : shown;
-    }
-
     /** Fill a Jalali date-time input from a stored value. */
     function localDateTimeValue(value) {
         if (!value) return "";

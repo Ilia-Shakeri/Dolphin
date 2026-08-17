@@ -78,6 +78,8 @@ def api_exception_handler(exc, context):
         try:
             write_server_fault_log(exc=exc, request=request)
         except Exception:
+            # A logging failure must not replace the handled error with a
+            # different one. The client still gets the stable 500 envelope.
             pass
         return Response(
             {

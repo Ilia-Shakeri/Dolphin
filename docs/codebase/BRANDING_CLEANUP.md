@@ -29,7 +29,7 @@ The active home page contains no purchase, preview, demo, remote image, remote f
 | Django admin | Present | `common/admin.py` owns the three exact Kariz strings; render test covers the login surface |
 | OpenAPI | Available only outside production | `config/settings.py` owns `ForooshBin API`; schema validation covers it; production does not map schema/docs routes |
 | Email templates | No first-party email template or email-sending feature exists | Not applicable; add a branded template and test if an approved email feature is introduced |
-| Logo, favicon, remote image, or remote font | None is referenced by the active shell | Local-template and link scan proof |
+| Logo, favicon, remote image, or remote font | No **remote** asset is referenced. Since the ForooshBin rebrand the shell serves one local favicon, `common/static/common/favicon.ico`, from the application's own static directory | Local-template and link scan proof; `common/tests/test_static_assets.py` |
 | Operator/user documentation and runtime metadata | Current first-party operations docs, Dockerfile, Compose, and environment example are in the bounded brand scan | No vendor brand/domain match outside the two intentional negative test fixtures |
 
 Brand ownership stays at each framework boundary: the home template owns its visible mark, Django admin owns admin strings, and schema settings own the API title. A shared runtime theme/config layer does not exist, so adding one only to remove these three small explicit boundaries would add needless coupling. Exact tests keep the values aligned.
