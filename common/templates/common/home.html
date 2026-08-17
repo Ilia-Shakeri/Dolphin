@@ -32,7 +32,7 @@
 </div></section>
 {% endif %}
 <section class="card mb-5 mb-xl-8" id="profile-card"><div class="card-body">
-    <h2>پروفایل من</h2>
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">پروفایل من</h2>
     <div id="profile-loading" class="text-center text-muted py-10">در حال دریافت پروفایل…</div>
     <form id="profile-form" action="/api/v1/auth/me/" method="post" class="row g-5" hidden novalidate>
         {% csrf_token %}

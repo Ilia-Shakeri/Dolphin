@@ -19,7 +19,7 @@
     <div class="col-12"><label class="form-label fw-semibold" for="payment-notes">یادداشت</label><textarea class="form-control form-control-solid" id="payment-notes" disabled></textarea></div>
 </div>
 <div id="payment-cheque-block" hidden>
-    <h2>مشخصات چک</h2>
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">مشخصات چک</h2>
     <div class="row g-5">
         <div class="col-md-6"><label class="form-label fw-semibold" for="payment-cheque-bank">بانک</label><input class="form-control form-control-solid" id="payment-cheque-bank" disabled></div>
         <div class="col-md-6"><label class="form-label fw-semibold" for="payment-cheque-serial">شماره چک</label><input class="form-control form-control-solid" id="payment-cheque-serial" disabled dir="ltr"></div>
@@ -30,7 +30,7 @@
 </div>
 </section>
 <section id="payment-allocate-section" class="card mb-5 mb-xl-8" hidden>
-    <h2>تخصیص به فاکتور</h2>
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">تخصیص به فاکتور</h2>
     <p class="text-muted">تخصیص نه از مانده تخصیص‌نیافته دریافت بیشتر می‌شود و نه از مانده فاکتور؛ مازاد به‌صورت بستانکاری روی حساب مشتری می‌ماند.</p>
     <form id="payment-allocate-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
         <label class="sr-only" for="payment-allocate-invoice">فاکتور صادرشده</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-allocate-invoice" name="invoice" required><option value="">در حال دریافت…</option></select>
@@ -44,7 +44,7 @@
     <nav id="payment-allocations-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="payment-allocations-prev" class="btn btn-light" type="button">قبلی</button><span id="payment-allocations-page-label"></span><button id="payment-allocations-next" class="btn btn-light" type="button">بعدی</button></nav>
 </section>
 <section id="payment-cancel-section" class="card mb-5 mb-xl-8 border border-danger border-dashed" hidden>
-    <h2>ابطال دریافت</h2>
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">ابطال دریافت</h2>
     <p class="text-muted">ابطال، همه تخصیص‌های فعال را آزاد می‌کند و یک بدهکاری جبرانی در دفتر حساب مشتری ثبت می‌کند. هیچ ردیفی حذف نمی‌شود.</p>
     <label class="form-label fw-semibold" for="payment-cancel-reason">دلیل</label><textarea class="form-control form-control-solid" id="payment-cancel-reason" maxlength="500"></textarea>
     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p>

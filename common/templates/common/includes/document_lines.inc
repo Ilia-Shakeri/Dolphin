@@ -7,7 +7,7 @@
    `doc` is the page prefix (quotation/order/invoice) and `endpoint` is the
    document's API base path. {% endcomment %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <div class="d-flex flex-wrap flex-stack align-items-center mb-6"><h2>اقلام سند</h2><span id="{{ doc }}-lines-count" class="text-muted"></span></div>
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-6"><h2 class="fs-3 fw-bold text-gray-900 mb-5">اقلام سند</h2><span id="{{ doc }}-lines-count" class="text-muted"></span></div>
     <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
         <thead><tr><th>ردیف</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>قیمت واحد</th><th>تخفیف</th><th>مبلغ سطر</th><th></th></tr></thead>
         <tbody id="{{ doc }}-lines-body"></tbody>
@@ -30,7 +30,7 @@
     </div>
 </div></section>
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <h2>جمع سند</h2>
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">جمع سند</h2>
     <div class="row g-5">
         <div class="col-md-6"><label class="form-label fw-semibold" for="{{ doc }}-subtotal">جمع اقلام</label><input class="form-control form-control-solid" id="{{ doc }}-subtotal" disabled></div>
         <div class="col-md-6"><label class="form-label fw-semibold" for="{{ doc }}-discount-total">تخفیف سند</label><input class="form-control form-control-solid" id="{{ doc }}-discount-total" disabled></div>

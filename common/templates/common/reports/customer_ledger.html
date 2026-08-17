@@ -17,8 +17,8 @@
         <button class="btn btn-primary" type="submit">نمایش دفتر</button>
     </form>
     <div class="row g-5 mb-6">
-        <div class="card card-flush h-100"><span class="text-muted">مانده جاری</span><strong id="ledger-balance">—</strong></div>
-        <div class="card card-flush h-100"><span class="text-muted">مشتری</span><strong id="ledger-customer-name">—</strong></div>
+        <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">مانده جاری</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="ledger-balance">—</span></div></div></div>
+        <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">مشتری</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="ledger-customer-name">—</span></div></div></div>
     </div>
     <p class="text-muted">مانده مثبت یعنی مشتری بدهکار است و مانده منفی یعنی بستانکار. دفتر فقط افزوده می‌شود؛ هیچ ردیفی ویرایش یا حذف نمی‌شود و اصلاح با ردیف جبرانی انجام می‌گیرد.</p>
 </div></section>
@@ -28,7 +28,7 @@
     <nav id="ledger-entries-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="ledger-entries-prev" class="btn btn-light" type="button">قبلی</button><span id="ledger-entries-page-label"></span><button id="ledger-entries-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <h2>ثبت مانده اول دوره</h2>
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">ثبت مانده اول دوره</h2>
     <p class="text-muted">مانده‌ای که پیش از راه‌اندازی این سامانه وجود داشته است. برای هر مشتری تنها یک بار مجاز است؛ اصلاح بعدی باید به‌صورت رویداد جداگانه ثبت شود.</p>
     <form id="opening-balance-form" action="/api/v1/customer-ledger/opening-balance/" method="post" novalidate>
         {% csrf_token %}

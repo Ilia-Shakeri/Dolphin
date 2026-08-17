@@ -7,7 +7,7 @@
 <div id="customer-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت مشتری…</div></div>
 <section id="customer-detail-content" hidden>
     <form id="edit-customer-form" action="/api/v1/customers/{{ customer_id }}/" method="post" class="card mb-5 mb-xl-8" novalidate>
-        {% csrf_token %}<h2>مشخصات مشتری</h2>
+        {% csrf_token %}<div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">مشخصات مشتری</h2>
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-customer-name">نام کامل</label><input class="form-control form-control-solid" id="edit-customer-name" name="full_name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="full_name"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-customer-national-id">کد ملی</label><input class="form-control form-control-solid" id="edit-customer-national-id" name="national_id" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="national_id"></p></div>
@@ -22,31 +22,31 @@
             <div class="col-12"><label class="form-label fw-semibold" for="edit-customer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-customer-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
         <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تغییرات</button></div>
-    </form>
+    </div></form>
     <section class="card mb-5 mb-xl-8"><div class="card-body">
-        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2>تلفن‌ها</h2><button id="open-create-phone" class="btn btn-primary" type="button">تلفن جدید</button></div>
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تلفن‌ها</h2><button id="open-create-phone" class="btn btn-primary" type="button">تلفن جدید</button></div>
         <div id="phones-loading" class="text-center text-muted py-10">در حال دریافت تلفن‌ها…</div><div id="phones-empty" class="text-center text-muted py-10" hidden>تلفنی ثبت نشده است.</div>
         <div id="phones-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شماره</th><th>نرمال‌شده</th><th>برچسب</th><th>اصلی</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="phones-table-body"></tbody></table></div>
     </div></section>
     <section class="card mb-5 mb-xl-8"><div class="card-body">
-        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2>سرنخ‌های مرتبط</h2></div>
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">سرنخ‌های مرتبط</h2></div>
         <div id="customer-leads-loading" class="text-center text-muted py-10">در حال دریافت سرنخ‌ها…</div><div id="customer-leads-empty" class="text-center text-muted py-10" hidden>سرنخی برای این مشتری در محدوده دسترسی شما نیست.</div>
         <div id="customer-leads-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>مشتری</th><th>منبع</th><th>کمپین</th><th>وضعیت</th><th>مسئول</th><th>عملیات</th></tr></thead><tbody id="customer-leads-table-body"></tbody></table></div>
         <nav id="customer-leads-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی سرنخ‌های مرتبط" hidden><button id="customer-leads-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-leads-page-label"></span><button id="customer-leads-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
     <section class="card mb-5 mb-xl-8"><div class="card-body">
-        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2>تماس‌های مرتبط</h2></div>
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تماس‌های مرتبط</h2></div>
         <div id="customer-interactions-loading" class="text-center text-muted py-10">در حال دریافت تماس‌ها…</div><div id="customer-interactions-empty" class="text-center text-muted py-10" hidden>تماسی برای این مشتری در محدوده دسترسی شما نیست.</div>
         <div id="customer-interactions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="customer-interactions-table-body"></tbody></table></div>
         <nav id="customer-interactions-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی تماس‌های مرتبط" hidden><button id="customer-interactions-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-interactions-page-label"></span><button id="customer-interactions-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
     <section class="card mb-5 mb-xl-8"><div class="card-body">
-        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2>فروش‌های مرتبط</h2></div>
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">فروش‌های مرتبط</h2></div>
         <div id="customer-sales-loading" class="text-center text-muted py-10">در حال دریافت فروش‌ها…</div><div id="customer-sales-empty" class="text-center text-muted py-10" hidden>فروشی برای این مشتری در محدوده دسترسی شما نیست.</div>
         <div id="customer-sales-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>مشتری</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>ثبت‌کننده فروش</th><th>عملیات</th></tr></thead><tbody id="customer-sales-table-body"></tbody></table></div>
         <nav id="customer-sales-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی فروش‌های مرتبط" hidden><button id="customer-sales-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-sales-page-label"></span><button id="customer-sales-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
-    {% if can_deactivate_customers %}<section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body"><h2>غیرفعال‌سازی</h2><p>سابقه مشتری نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="btn btn-danger" type="button">غیرفعال کردن مشتری</button></div></section>{% endif %}
+    {% if can_deactivate_customers %}<section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">غیرفعال‌سازی</h2><p>سابقه مشتری نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="btn btn-danger" type="button">غیرفعال کردن مشتری</button></div></section>{% endif %}
 </section>
 <dialog id="phone-dialog" aria-labelledby="phone-dialog-title">
     <form id="phone-form" action="/api/v1/customer-phones/" method="post" novalidate>

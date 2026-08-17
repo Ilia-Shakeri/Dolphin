@@ -7,8 +7,8 @@
 <div id="user-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت کاربر…</div></div>
 <section id="user-detail-content" hidden>
     <form id="edit-user-form" action="/api/v1/users/{{ target_user_id }}/" method="post" class="card mb-5 mb-xl-8" novalidate>
-        {% csrf_token %}
-        <h2>ویرایش مشخصات</h2>
+        {% csrf_token %}<div class="card-body">
+        <h2 class="fs-3 fw-bold text-gray-900 mb-5">ویرایش مشخصات</h2>
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-username">نام کاربری</label><input class="form-control form-control-solid" id="edit-username" name="username" required maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="username"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-first-name">نام</label><input class="form-control form-control-solid" id="edit-first-name" name="first_name" maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="first_name"></p></div>
@@ -19,20 +19,20 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-workstream">حوزه کاری</label><select class="form-select form-select-solid" id="edit-workstream" name="workstream"><option value="sales">فروش و مرکز تماس</option><option value="after_sales">خدمات پس از فروش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="workstream"></p></div>
         </div>
         <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تغییرات</button></div>
-    </form>
+    </div></form>
     {% if can_change_roles %}<form id="change-role-form" action="/api/v1/users/{{ target_user_id }}/change-role/" method="post" class="card mb-5 mb-xl-8" novalidate>
-        {% csrf_token %}
-        <h2>تغییر نقش کنترل‌شده</h2>
+        {% csrf_token %}<div class="card-body">
+        <h2 class="fs-3 fw-bold text-gray-900 mb-5">تغییر نقش کنترل‌شده</h2>
         <label class="form-label fw-semibold" for="edit-role">نقش</label>
         <select class="form-select form-select-solid" id="edit-role" name="role" required>
             {% for value, label in assignable_roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
         </select>
         <p class="text-danger fs-8 mt-1 mb-0" data-error-for="role"></p>
         <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">تغییر نقش</button></div>
-    </form>{% endif %}
+    </div></form>{% endif %}
     {% if can_change_roles %}<section class="card mb-5 mb-xl-8"><div class="card-body">
         <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
-            <div><h2>نشست‌های فعال</h2><p class="text-muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>
+            <div><h2 class="fs-3 fw-bold text-gray-900 mb-5">نشست‌های فعال</h2><p class="text-muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>
             <button id="revoke-user-sessions" class="btn btn-danger" type="button">پایان همه نشست‌ها</button>
         </div>
         <div id="user-sessions-loading" class="text-center text-muted py-10">در حال دریافت نشست‌ها…</div>
@@ -40,7 +40,7 @@
         <div id="user-sessions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
     </div></section>{% endif %}
     <section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body">
-        <h2>وضعیت دسترسی</h2>
+        <h2 class="fs-3 fw-bold text-gray-900 mb-5">وضعیت دسترسی</h2>
         <p>کاربر غیرفعال اجازه ورود ندارد و بعدا می‌تواند در همین صفحه دوباره فعال شود. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>
         <button id="toggle-user-active" class="btn btn-danger" type="button">تغییر وضعیت کاربر</button>
     </div></section>
