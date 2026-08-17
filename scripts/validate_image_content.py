@@ -57,7 +57,20 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     ("editor metadata", ".vscode"),
     ("editor metadata", ".idea"),
     # Vendor/demo template tree - visual reference only, never served.
-    ("vendor demo tree", "assets"),
+    # `assets` is NOT denied wholesale: the served UI is built on the purchased
+    # theme, so the few bundles/fonts it loads must ship. The demo material
+    # inside it is denied by path instead, and the runtime files it does need
+    # are asserted in EXPECT_PRESENT below.
+    ("theme demo imagery", "assets/media"),
+    ("theme demo plugins", "assets/plugins/custom"),
+    ("theme demo scripts", "assets/js/custom"),
+    ("unused icon family", "assets/plugins/global/fonts/@fortawesome"),
+    ("unused icon family", "assets/plugins/global/fonts/bootstrap-icons"),
+    ("unused icon family", "assets/plugins/global/fonts/line-awesome"),
+    ("unused LTR build", "assets/css/style.bundle.css"),
+    ("unused LTR build", "assets/plugins/global/plugins.bundle.css"),
+    ("unloaded bundle", "assets/plugins/global/plugins.bundle.js"),
+    ("unloaded bundle", "assets/js/widgets.bundle.js"),
     ("vendor demo tree", "src"),
     ("vendor demo tree", "dashboards"),
     ("vendor demo tree", "pages"),
@@ -84,7 +97,21 @@ EXPECT_PRESENT: list[str] = [
     "sales/models.py",
     "common/ui_urls.py",
     "common/static/common/kariz-app.js",
+    "common/static/common/kariz.css",
+    "common/static/common/favicon.ico",
     "common/templates/common/base.html",
+    # The purchased theme's runtime. Without these the image builds and starts,
+    # collectstatic reports success, and every page renders unstyled with a 404
+    # for each bundle — which is exactly what happened before this list existed.
+    "assets/css/style.bundle.rtl.css",
+    "assets/plugins/global/plugins.bundle.rtl.css",
+    "assets/js/scripts.bundle.js",
+    "assets/fonts/IRANSansWeb.woff",
+    "assets/fonts/IRANSansWeb.ttf",
+    "assets/fonts/IRANSansWeb.eot",
+    "assets/plugins/global/fonts/keenicons/keenicons-duotone.woff",
+    "assets/plugins/global/fonts/keenicons/keenicons-outline.woff",
+    "assets/plugins/global/fonts/keenicons/keenicons-solid.woff",
 ]
 
 

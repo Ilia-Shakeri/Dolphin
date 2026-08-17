@@ -116,3 +116,98 @@ class CollectStaticContentTests(SimpleTestCase):
                     self.assertFalse((destination / asset).exists(), asset)
         finally:
             shutil.rmtree(destination, ignore_errors=True)
+
+
+class ImageBuildContextTests(SimpleTestCase):
+    """The theme must survive the trip into the Docker image.
+
+    This is the regression guard for a real Linux deployment failure: the
+    `.dockerignore` excluded `assets` wholesale, so `/app/assets` did not exist
+    in the image, `collectstatic` collected only `admin/`, `common/` and
+    `rest_framework/`, and every page rendered unstyled with a 404 for each
+    theme bundle. Nothing caught it because the image-content contract *also*
+    listed `assets` as forbidden — the gate was certifying the exclusion that
+    broke the UI.
+
+    Verifying the paths exist in the repository would not have caught it either.
+    What is checked here is the file set the *build context* would carry, and
+    then what `collectstatic` produces from exactly that set.
+    """
+
+    @staticmethod
+    def _context_paths():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "validate_image_content", ROOT / "scripts" / "validate_image_content.py"
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return set(module.collect_context_paths())
+
+    def test_the_build_context_carries_the_theme_runtime(self):
+        context = self._context_paths()
+        for required in (
+            "assets/css/style.bundle.rtl.css",
+            "assets/plugins/global/plugins.bundle.rtl.css",
+            "assets/js/scripts.bundle.js",
+            "assets/fonts/IRANSansWeb.woff",
+            "assets/plugins/global/fonts/keenicons/keenicons-duotone.woff",
+            "assets/plugins/global/fonts/keenicons/keenicons-outline.woff",
+            "assets/plugins/global/fonts/keenicons/keenicons-solid.woff",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, context)
+
+    def test_the_build_context_still_excludes_the_demo_tree(self):
+        context = self._context_paths()
+        offenders = sorted(
+            path
+            for path in context
+            if path.startswith("assets/")
+            and (
+                path.startswith(("assets/media/", "assets/plugins/custom/", "assets/js/custom/"))
+                or "/fonts/line-awesome/" in path
+                or "/fonts/@fortawesome/" in path
+                or "/fonts/bootstrap-icons/" in path
+                or path.endswith(("plugins.bundle.js", "widgets.bundle.js", "style.bundle.css"))
+            )
+        )
+        self.assertEqual(offenders, [])
+
+    def test_collectstatic_from_the_image_file_set_serves_the_theme(self):
+        """Copy only what the image would hold, then collect from it."""
+        import os
+        import subprocess
+        import sys
+
+        image = Path(tempfile.mkdtemp(prefix="forooshbin-image-"))
+        try:
+            for relative in self._context_paths():
+                source = ROOT / relative
+                if not source.is_file():
+                    continue
+                destination = image / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+            self.assertTrue((image / "assets").is_dir(), "/app/assets missing from the image")
+
+            result = subprocess.run(
+                [sys.executable, "manage.py", "collectstatic", "--noinput", "-v", "0"],
+                cwd=image,
+                env=dict(os.environ, DJANGO_SETTINGS_MODULE="config.test_settings"),
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
+            collected = image / "staticfiles"
+            for asset in REQUIRED:
+                with self.subTest(asset=asset):
+                    self.assertTrue((collected / asset).is_file(), asset)
+            # The four theme roots that were absent during the Linux failure.
+            for directory in ("css", "js", "fonts", "plugins"):
+                with self.subTest(directory=directory):
+                    self.assertTrue((collected / directory).is_dir(), directory)
+        finally:
+            shutil.rmtree(image, ignore_errors=True)

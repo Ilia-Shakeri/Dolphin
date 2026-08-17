@@ -45,7 +45,22 @@ secrets
 *.key
 *.p12
 *.pfx
+# The purchased theme is the served UI's design system, so the handful of files
+# the application actually loads MUST reach the image. Everything else under
+# assets/ is demo material and stays out.
+#
+# This was the Linux deployment bug: `assets` alone excluded the whole tree, so
+# /app/assets did not exist in the image, collectstatic found only the app's own
+# static dirs, and the browser got 404 for every theme bundle.
+#
+# Docker evaluates every pattern per path and the last match wins, so these
+# re-inclusions must stay after the directory exclusion above.
 assets
+!assets/css/style.bundle.rtl.css
+!assets/js/scripts.bundle.js
+!assets/plugins/global/plugins.bundle.rtl.css
+!assets/plugins/global/fonts/keenicons
+!assets/fonts
 src
 asides
 dashboards
