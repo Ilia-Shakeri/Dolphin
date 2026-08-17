@@ -204,6 +204,15 @@ services:
     image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
     read_only: true
+    # The application already runs as the non-root `appuser` and binds 8000, so
+    # it needs no Linux capability at all and can never gain one. `db` and
+    # `nginx` keep theirs deliberately: both official entrypoints start as root
+    # to chown their data directory / bind 443 and then drop privileges, so
+    # dropping ALL there would stop the container from starting.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     logging:
       driver: json-file
       options:

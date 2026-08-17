@@ -547,6 +547,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         web = self.services["web"]
         migrate = self.services["migrate"]
         self.assertTrue(web["read_only"])
+        self.assertEqual(web["cap_drop"], ["ALL"])
+        self.assertIn("no-new-privileges:true", web["security_opt"])
         self.assertEqual(web["tmpfs"], ["/tmp:size=64m,mode=1777"])
         self.assertIn("static_data:/app/staticfiles:ro", web["volumes"])
         self.assertIn("static_data:/app/staticfiles", migrate["volumes"])
