@@ -30,7 +30,7 @@ class KarizHomeTests(TestCase):
         self.assertIsNotNone(finders.find("common/kariz.css"))
         favicon = settings.BASE_DIR / "assets" / "media" / "logos" / "favicon.ico"
         self.assertTrue(favicon.is_file())
-        self.assertContains(self.client.get("/"), '/static/kariz-brand/favicon.ico')
+        self.assertContains(self.client.get("/"), '/static/media/logos/favicon.ico')
 
 
 class PersianAdminBrandTests(SimpleTestCase):

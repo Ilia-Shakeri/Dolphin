@@ -3,28 +3,28 @@
 {% block page_id %}warehouse-detail{% endblock %}
 {% block body_data %} data-warehouse-id="{{ warehouse_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">انبار و موجودی</p><h1>جزئیات انبار</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:stock-levels' %}?warehouse={{ warehouse_id }}">موجودی این انبار</a><a class="button button-muted" href="{% url 'common_ui:warehouses' %}">بازگشت به فهرست</a></div></section>
-<div id="warehouse-detail-loading" class="card state">در حال دریافت انبار…</div>
-<section id="warehouse-detail-content" class="card" hidden>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">انبار و موجودی</p><h1>جزئیات انبار</h1></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:stock-levels' %}?warehouse={{ warehouse_id }}">موجودی این انبار</a><a class="btn btn-light" href="{% url 'common_ui:warehouses' %}">بازگشت به فهرست</a></div></section>
+<div id="warehouse-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت انبار…</div></div>
+<section id="warehouse-detail-content" class="card mb-5 mb-xl-8" hidden>
     <form id="edit-warehouse-form" action="/api/v1/warehouses/{{ warehouse_id }}/" method="post" novalidate>
         {% csrf_token %}
-        <div class="form-grid">
-            <div><label for="edit-warehouse-code">کد انبار</label><input id="edit-warehouse-code" disabled dir="ltr"></div>
-            <div><label for="edit-warehouse-name">نام</label><input id="edit-warehouse-name" name="name" maxlength="120" {% if not can_manage_inventory %}disabled{% endif %}><p class="field-error" data-error-for="name"></p></div>
-            <div><label for="edit-warehouse-default">انبار پیش‌فرض</label><select id="edit-warehouse-default" name="is_default" {% if not can_manage_inventory %}disabled{% endif %}><option value="false">خیر</option><option value="true">بله</option></select><p class="field-error" data-error-for="is_default"></p></div>
-            <div><label for="warehouse-status">وضعیت</label><input id="warehouse-status" disabled></div>
-            <div class="full-field"><label for="edit-warehouse-address">نشانی</label><textarea id="edit-warehouse-address" name="address" maxlength="2000" {% if not can_manage_inventory %}disabled{% endif %}></textarea><p class="field-error" data-error-for="address"></p></div>
-            <div><label for="warehouse-created-by">ثبت‌کننده</label><input id="warehouse-created-by" disabled></div>
-            <div><label for="warehouse-updated-by">آخرین ویرایش</label><input id="warehouse-updated-by" disabled></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-warehouse-code">کد انبار</label><input class="form-control form-control-solid" id="edit-warehouse-code" disabled dir="ltr"></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-warehouse-name">نام</label><input class="form-control form-control-solid" id="edit-warehouse-name" name="name" maxlength="120" {% if not can_manage_inventory %}disabled{% endif %}><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-warehouse-default">انبار پیش‌فرض</label><select class="form-select form-select-solid" id="edit-warehouse-default" name="is_default" {% if not can_manage_inventory %}disabled{% endif %}><option value="false">خیر</option><option value="true">بله</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="is_default"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="warehouse-status">وضعیت</label><input class="form-control form-control-solid" id="warehouse-status" disabled></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="edit-warehouse-address">نشانی</label><textarea class="form-control form-control-solid" id="edit-warehouse-address" name="address" maxlength="2000" {% if not can_manage_inventory %}disabled{% endif %}></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="address"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="warehouse-created-by">ثبت‌کننده</label><input class="form-control form-control-solid" id="warehouse-created-by" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="warehouse-updated-by">آخرین ویرایش</label><input class="form-control form-control-solid" id="warehouse-updated-by" disabled></div>
         </div>
-        {% if can_manage_inventory %}<div class="form-actions"><button class="button" type="submit">ذخیره انبار</button></div>{% endif %}
+        {% if can_manage_inventory %}<div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره انبار</button></div>{% endif %}
     </form>
 </section>
 {% if can_manage_inventory %}
-<section id="warehouse-danger-zone" class="card danger-zone" hidden>
+<section id="warehouse-danger-zone" class="card mb-5 mb-xl-8 border border-danger border-dashed" hidden>
     <h2>وضعیت انبار</h2>
-    <p class="muted">انباری که هنوز موجودی دارد غیرفعال نمی‌شود؛ ابتدا موجودی را منتقل کنید.</p>
-    <button id="toggle-warehouse" class="button button-danger" type="button">غیرفعال کردن انبار</button>
+    <p class="text-muted">انباری که هنوز موجودی دارد غیرفعال نمی‌شود؛ ابتدا موجودی را منتقل کنید.</p>
+    <button id="toggle-warehouse" class="btn btn-danger" type="button">غیرفعال کردن انبار</button>
 </section>
 {% endif %}
 {% endblock %}

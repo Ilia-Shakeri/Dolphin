@@ -2,21 +2,21 @@
 {% block title %}ارزش موجودی{% endblock %}
 {% block page_id %}stock-valuation-report{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">گزارش‌های مالی</p><h1>ارزش موجودی انبار</h1></div></section>
-<section class="card">
-    <form id="valuation-filter-form" action="{% url 'common_ui:stock-valuation-report' %}" method="get" class="toolbar">
-        <label class="sr-only" for="valuation-warehouse">انبار</label><select id="valuation-warehouse" name="warehouse_id"><option value="">همه انبارها</option></select>
-        <button class="button" type="submit">اعمال</button>
-        <a id="valuation-export" class="button button-muted" href="/api/v1/exports/stock-valuation.xlsx">خروجی اکسل</a>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</p><h1>ارزش موجودی انبار</h1></div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="valuation-filter-form" action="{% url 'common_ui:stock-valuation-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="valuation-warehouse">انبار</label><select class="form-select form-select-solid w-auto flex-grow-1" id="valuation-warehouse" name="warehouse_id"><option value="">همه انبارها</option></select>
+        <button class="btn btn-primary" type="submit">اعمال</button>
+        <a id="valuation-export" class="btn btn-light" href="/api/v1/exports/stock-valuation.xlsx">خروجی اکسل</a>
     </form>
-    <div class="metric-grid">
-        <div class="metric"><span class="muted">جمع تعداد</span><strong id="valuation-quantity">—</strong></div>
-        <div class="metric"><span class="muted">جمع ارزش</span><strong id="valuation-value">—</strong></div>
+    <div class="row g-5 mb-6">
+        <div class="card card-flush h-100"><span class="text-muted">جمع تعداد</span><strong id="valuation-quantity">—</strong></div>
+        <div class="card card-flush h-100"><span class="text-muted">جمع ارزش</span><strong id="valuation-value">—</strong></div>
     </div>
-    <p class="muted">ارزش هر ردیف، تعداد موجود ضربدر بهای میانگین موزونی است که دفتر گردش انبار تولید کرده است. هیچ سیاست تجدید ارزیابی اعمال نمی‌شود.</p>
-</section>
-<section class="card">
-    <div id="valuation-loading" class="state">در حال دریافت گزارش…</div><div id="valuation-empty" class="state" hidden>موجودی‌ای برای ارزش‌گذاری وجود ندارد.</div>
-    <div id="valuation-table-wrap" class="table-wrap" hidden><table><thead><tr><th>انبار</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>بهای میانگین</th><th>ارزش</th></tr></thead><tbody id="valuation-table-body"></tbody></table></div>
-</section>
+    <p class="text-muted">ارزش هر ردیف، تعداد موجود ضربدر بهای میانگین موزونی است که دفتر گردش انبار تولید کرده است. هیچ سیاست تجدید ارزیابی اعمال نمی‌شود.</p>
+</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div id="valuation-loading" class="text-center text-muted py-10">در حال دریافت گزارش…</div><div id="valuation-empty" class="text-center text-muted py-10" hidden>موجودی‌ای برای ارزش‌گذاری وجود ندارد.</div>
+    <div id="valuation-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>انبار</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>بهای میانگین</th><th>ارزش</th></tr></thead><tbody id="valuation-table-body"></tbody></table></div>
+</div></section>
 {% endblock %}

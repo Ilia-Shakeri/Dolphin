@@ -2,54 +2,54 @@
 {% block title %}موجودی کالا{% endblock %}
 {% block page_id %}stock-levels{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">انبار و موجودی</p><h1>موجودی کالا</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:stock-movements' %}">گردش انبار</a>{% if can_manage_inventory %}<button id="open-create-movement" class="button" type="button">ثبت حرکت انبار</button><button id="open-transfer-stock" class="button button-muted" type="button">انتقال بین انبار</button>{% endif %}</div></section>
-<section class="card">
-    <form id="stock-search-form" action="{% url 'common_ui:stock-levels' %}" method="get" class="toolbar">
-        <label class="sr-only" for="stock-search">جستجوی کالا</label><input id="stock-search" name="search" type="search" placeholder="نام، کد یا بارکد کالا">
-        <label class="sr-only" for="stock-warehouse-filter">انبار</label><select id="stock-warehouse-filter" name="warehouse"><option value="">همه انبارها</option></select>
-        <label class="sr-only" for="stock-threshold">حداکثر موجودی</label><input id="stock-threshold" name="below_or_equal" type="number" step="1" placeholder="موجودی کمتر یا برابر">
-        <label class="sr-only" for="stock-ordering">مرتب‌سازی</label><select id="stock-ordering" name="ordering"><option value="quantity">کمترین موجودی</option><option value="-quantity">بیشترین موجودی</option><option value="-last_movement_at">تازه‌ترین حرکت</option></select>
-        <button class="button button-muted" type="submit">اعمال</button>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">انبار و موجودی</p><h1>موجودی کالا</h1></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:stock-movements' %}">گردش انبار</a>{% if can_manage_inventory %}<button id="open-create-movement" class="btn btn-primary" type="button">ثبت حرکت انبار</button><button id="open-transfer-stock" class="btn btn-light" type="button">انتقال بین انبار</button>{% endif %}</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="stock-search-form" action="{% url 'common_ui:stock-levels' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="stock-search">جستجوی کالا</label><input class="form-control form-control-solid w-auto flex-grow-1" id="stock-search" name="search" type="search" placeholder="نام، کد یا بارکد کالا">
+        <label class="sr-only" for="stock-warehouse-filter">انبار</label><select class="form-select form-select-solid w-auto flex-grow-1" id="stock-warehouse-filter" name="warehouse"><option value="">همه انبارها</option></select>
+        <label class="sr-only" for="stock-threshold">حداکثر موجودی</label><input class="form-control form-control-solid w-auto flex-grow-1" id="stock-threshold" name="below_or_equal" type="number" step="1" placeholder="موجودی کمتر یا برابر">
+        <label class="sr-only" for="stock-ordering">مرتب‌سازی</label><select class="form-select form-select-solid w-auto flex-grow-1" id="stock-ordering" name="ordering"><option value="quantity">کمترین موجودی</option><option value="-quantity">بیشترین موجودی</option><option value="-last_movement_at">تازه‌ترین حرکت</option></select>
+        <button class="btn btn-light" type="submit">اعمال</button>
     </form>
-    <div id="stock-items-loading" class="state">در حال دریافت موجودی…</div><div id="stock-items-empty" class="state" hidden>موجودی‌ای پیدا نشد.</div>
-    <div id="stock-items-table-wrap" class="table-wrap" hidden><table><thead><tr><th>انبار</th><th>کد کالا</th><th>کالا</th><th>موجودی</th><th>بهای میانگین</th><th>ارزش موجودی</th><th>آخرین حرکت</th></tr></thead><tbody id="stock-items-table-body"></tbody></table></div>
-    <nav id="stock-items-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="stock-items-prev" class="button button-muted" type="button">قبلی</button><span id="stock-items-page-label"></span><button id="stock-items-next" class="button button-muted" type="button">بعدی</button></nav>
-</section>
+    <div id="stock-items-loading" class="text-center text-muted py-10">در حال دریافت موجودی…</div><div id="stock-items-empty" class="text-center text-muted py-10" hidden>موجودی‌ای پیدا نشد.</div>
+    <div id="stock-items-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>انبار</th><th>کد کالا</th><th>کالا</th><th>موجودی</th><th>بهای میانگین</th><th>ارزش موجودی</th><th>آخرین حرکت</th></tr></thead><tbody id="stock-items-table-body"></tbody></table></div>
+    <nav id="stock-items-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="stock-items-prev" class="btn btn-light" type="button">قبلی</button><span id="stock-items-page-label"></span><button id="stock-items-next" class="btn btn-light" type="button">بعدی</button></nav>
+</div></section>
 {% if can_manage_inventory %}
 <dialog id="create-movement-dialog" aria-labelledby="create-movement-title">
     <form id="create-movement-form" action="/api/v1/stock-movements/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="create-movement-title">ثبت حرکت انبار</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="form-grid">
-            <div><label for="create-movement-warehouse">انبار</label><select id="create-movement-warehouse" name="warehouse" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="warehouse"></p></div>
-            <div><label for="create-movement-product">کالا</label><select id="create-movement-product" name="product" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="product"></p></div>
-            <div><label for="create-movement-type">نوع حرکت</label><select id="create-movement-type" name="movement_type" required>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-movement-title">ثبت حرکت انبار</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-warehouse">انبار</label><select class="form-select form-select-solid" id="create-movement-warehouse" name="warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-product">کالا</label><select class="form-select form-select-solid" id="create-movement-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-type">نوع حرکت</label><select class="form-select form-select-solid" id="create-movement-type" name="movement_type" required>
                 <option value="opening">موجودی اول دوره</option>
                 <option value="purchase">رسید خرید</option>
                 <option value="return_in">برگشت از مشتری</option>
                 <option value="adjustment_in">اصلاح افزایشی</option>
                 <option value="return_out">برگشت به تأمین‌کننده</option>
                 <option value="adjustment_out">اصلاح کاهشی</option>
-            </select><p class="field-error" data-error-for="movement_type"></p></div>
-            <div><label for="create-movement-quantity">تعداد</label><input id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="field-error" data-error-for="quantity"></p></div>
-            <div><label for="create-movement-cost">بهای واحد</label><input id="create-movement-cost" name="unit_cost" type="number" min="0" step="0.01"><p class="field-error" data-error-for="unit_cost"></p></div>
-            <div class="full-field"><label for="create-movement-notes">یادداشت</label><textarea id="create-movement-notes" name="notes" maxlength="2000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+            </select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="movement_type"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="create-movement-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-movement-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
-        <p class="muted">بهای واحد برای حرکت‌های ورودی لازم است و میانگین موزون را به‌روز می‌کند. حرکت خروجی بهای میانگین جاری را مصرف می‌کند و آن را تغییر نمی‌دهد. حرکت ثبت‌شده ویرایش یا حذف نمی‌شود؛ اصلاح با یک حرکت جبرانی انجام می‌گیرد.</p>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت حرکت</button></div>
+        <p class="text-muted">بهای واحد برای حرکت‌های ورودی لازم است و میانگین موزون را به‌روز می‌کند. حرکت خروجی بهای میانگین جاری را مصرف می‌کند و آن را تغییر نمی‌دهد. حرکت ثبت‌شده ویرایش یا حذف نمی‌شود؛ اصلاح با یک حرکت جبرانی انجام می‌گیرد.</p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت حرکت</button></div>
     </form>
 </dialog>
 <dialog id="transfer-stock-dialog" aria-labelledby="transfer-stock-title">
     <form id="transfer-stock-form" action="/api/v1/stock-movements/transfer/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="transfer-stock-title">انتقال بین انبار</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="form-grid">
-            <div><label for="transfer-from-warehouse">از انبار</label><select id="transfer-from-warehouse" name="from_warehouse" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="from_warehouse"></p></div>
-            <div><label for="transfer-to-warehouse">به انبار</label><select id="transfer-to-warehouse" name="to_warehouse" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="to_warehouse"></p></div>
-            <div><label for="transfer-product">کالا</label><select id="transfer-product" name="product" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="product"></p></div>
-            <div><label for="transfer-quantity">تعداد</label><input id="transfer-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="field-error" data-error-for="quantity"></p></div>
-            <div class="full-field"><label for="transfer-notes">یادداشت</label><textarea id="transfer-notes" name="notes" maxlength="2000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="transfer-stock-title">انتقال بین انبار</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-from-warehouse">از انبار</label><select class="form-select form-select-solid" id="transfer-from-warehouse" name="from_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="from_warehouse"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-to-warehouse">به انبار</label><select class="form-select form-select-solid" id="transfer-to-warehouse" name="to_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_warehouse"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-product">کالا</label><select class="form-select form-select-solid" id="transfer-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-quantity">تعداد</label><input class="form-control form-control-solid" id="transfer-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="transfer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="transfer-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
-        <p class="muted">انتقال دو حرکت هم‌زمان می‌سازد و بهای میانگین کالا را جابه‌جا می‌کند، پس ارزش کل موجودی تغییر نمی‌کند.</p>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">انتقال</button></div>
+        <p class="text-muted">انتقال دو حرکت هم‌زمان می‌سازد و بهای میانگین کالا را جابه‌جا می‌کند، پس ارزش کل موجودی تغییر نمی‌کند.</p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">انتقال</button></div>
     </form>
 </dialog>
 {% endif %}

@@ -293,8 +293,13 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.assertNotIn("صندوق و دریافت", sidebar)
 
         self.browser.get(f"{self.live_server_url}/payments/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.CLASS_NAME, "error-card")))
-        self.assertIn("۴۰۳", self.browser.find_element(By.CLASS_NAME, "status-code").text.replace("403", "۴۰۳"))
+        # Pinned by id, not by a styling class: the denial has to keep working
+        # whatever the theme calls its card.
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "app-error")))
+        self.assertIn(
+            "۴۰۳",
+            self.browser.find_element(By.ID, "app-error-status").text.replace("403", "۴۰۳"),
+        )
 
         # The stock page is readable and offers the agent no way to change it.
         self.browser.get(f"{self.live_server_url}/stock/")

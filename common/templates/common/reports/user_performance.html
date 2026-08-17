@@ -2,6 +2,6 @@
 {% block title %}گزارش عملکرد کاربران{% endblock %}
 {% block page_id %}user-performance{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">گزارش همسان JSON، رابط و XLSX</p><h1>{% if can_view_company_reports %}گزارش عملکرد شرکت و کاربران{% else %}گزارش عملکرد من{% endif %}</h1><p class="muted">شاخص‌های ثبت مشتری و فروش تأییدشده از داده واقعی.</p></div></section>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">گزارش همسان JSON، رابط و XLSX</p><h1>{% if can_view_company_reports %}گزارش عملکرد شرکت و کاربران{% else %}گزارش عملکرد من{% endif %}</h1><p class="text-muted">شاخص‌های ثبت مشتری و فروش تأییدشده از داده واقعی.</p></div></section>
 {% include "common/includes/performance_panel.inc" with panel_prefix="report" %}
 {% endblock %}

@@ -2,26 +2,26 @@
 {% block title %}گزارش سود{% endblock %}
 {% block page_id %}profit-report{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">گزارش‌های مالی</p><h1>سود ناخالص فاکتورها</h1></div></section>
-<section class="card">
-    <form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="toolbar">
-        <label class="sr-only" for="profit-period-start">از تاریخ</label><input id="profit-period-start" name="period_start" type="text" data-jalali="datetime" required>
-        <label class="sr-only" for="profit-period-end">تا تاریخ</label><input id="profit-period-end" name="period_end" type="text" data-jalali="datetime" required>
-        <label class="sr-only" for="profit-customer">مشتری</label><select id="profit-customer" name="customer_id"><option value="">همه مشتریان</option></select>
-        <button class="button" type="submit">اعمال</button>
-        <a id="profit-export" class="button button-muted" href="/api/v1/exports/profit.xlsx">خروجی اکسل</a>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</p><h1>سود ناخالص فاکتورها</h1></div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="profit-period-start">از تاریخ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="profit-period-start" name="period_start" type="text" data-jalali="datetime" required>
+        <label class="sr-only" for="profit-period-end">تا تاریخ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="profit-period-end" name="period_end" type="text" data-jalali="datetime" required>
+        <label class="sr-only" for="profit-customer">مشتری</label><select class="form-select form-select-solid w-auto flex-grow-1" id="profit-customer" name="customer_id"><option value="">همه مشتریان</option></select>
+        <button class="btn btn-primary" type="submit">اعمال</button>
+        <a id="profit-export" class="btn btn-light" href="/api/v1/exports/profit.xlsx">خروجی اکسل</a>
     </form>
-    <div class="metric-grid">
-        <div class="metric"><span class="muted">درآمد</span><strong id="profit-revenue">—</strong></div>
-        <div class="metric"><span class="muted">بهای تمام‌شده</span><strong id="profit-cost">—</strong></div>
-        <div class="metric"><span class="muted">سود ناخالص</span><strong id="profit-profit">—</strong></div>
-        <div class="metric"><span class="muted">حاشیه سود</span><strong id="profit-margin">—</strong></div>
+    <div class="row g-5 mb-6">
+        <div class="card card-flush h-100"><span class="text-muted">درآمد</span><strong id="profit-revenue">—</strong></div>
+        <div class="card card-flush h-100"><span class="text-muted">بهای تمام‌شده</span><strong id="profit-cost">—</strong></div>
+        <div class="card card-flush h-100"><span class="text-muted">سود ناخالص</span><strong id="profit-profit">—</strong></div>
+        <div class="card card-flush h-100"><span class="text-muted">حاشیه سود</span><strong id="profit-margin">—</strong></div>
     </div>
-    <p class="muted">سود از بهای تمام‌شده‌ای محاسبه می‌شود که هنگام صدور هر فاکتور ثبت شده است. فاکتورهایی که بدون انبار صادر شده‌اند بهای تمام‌شده ندارند، پس در جمع‌ها نمی‌آیند و جداگانه شمارش می‌شوند — بهای نامعلوم صفر در نظر گرفته نمی‌شود.</p>
-    <p class="muted">فاکتورهای دارای بهای تمام‌شده: <strong id="profit-measured">—</strong> | فاکتورهای بدون بهای تمام‌شده: <strong id="profit-unmeasured">—</strong></p>
-</section>
-<section class="card">
-    <div id="profit-loading" class="state">بازه زمانی را انتخاب کنید.</div><div id="profit-empty" class="state" hidden>فاکتوری در این بازه یافت نشد.</div>
-    <div id="profit-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره فاکتور</th><th>مشتری</th><th>زمان صدور</th><th>درآمد</th><th>بهای تمام‌شده</th><th>سود</th><th>حاشیه</th><th>عملیات</th></tr></thead><tbody id="profit-table-body"></tbody></table></div>
-</section>
+    <p class="text-muted">سود از بهای تمام‌شده‌ای محاسبه می‌شود که هنگام صدور هر فاکتور ثبت شده است. فاکتورهایی که بدون انبار صادر شده‌اند بهای تمام‌شده ندارند، پس در جمع‌ها نمی‌آیند و جداگانه شمارش می‌شوند — بهای نامعلوم صفر در نظر گرفته نمی‌شود.</p>
+    <p class="text-muted">فاکتورهای دارای بهای تمام‌شده: <strong id="profit-measured">—</strong> | فاکتورهای بدون بهای تمام‌شده: <strong id="profit-unmeasured">—</strong></p>
+</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div id="profit-loading" class="text-center text-muted py-10">بازه زمانی را انتخاب کنید.</div><div id="profit-empty" class="text-center text-muted py-10" hidden>فاکتوری در این بازه یافت نشد.</div>
+    <div id="profit-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شماره فاکتور</th><th>مشتری</th><th>زمان صدور</th><th>درآمد</th><th>بهای تمام‌شده</th><th>سود</th><th>حاشیه</th><th>عملیات</th></tr></thead><tbody id="profit-table-body"></tbody></table></div>
+</div></section>
 {% endblock %}

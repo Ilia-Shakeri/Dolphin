@@ -131,5 +131,5 @@ class InboundSMSShellBrowserTests(StaticLiveServerTestCase):
             [],
         )
         self.browser.get(f"{self.live_server_url}/reports/inbound-sms/")
-        self.wait.until(expected_conditions.text_to_be_present_in_element((By.CLASS_NAME, "status-code"), "403"))
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "app-error-status"), "403"))
         self.assertIn("اجازه مشاهده گزارش پیامک", self.browser.find_element(By.ID, "main-content").text)

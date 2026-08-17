@@ -2,22 +2,47 @@
 {% block title %}ورود{% endblock %}
 {% block page_id %}login{% endblock %}
 {% block public_content %}
-<main class="auth-shell">
-    <section class="card auth-card" aria-labelledby="login-title">
-        <p class="eyebrow">ForooshBin | فروش‌بین</p>
-        <h1 id="login-title">ورود به سامانه</h1>
-        <p class="muted">نام کاربری و گذرواژه سازمانی خود را وارد کنید.</p>
-        <div id="global-message" class="message" role="alert" hidden></div>
-        <form id="login-form" action="/api/v1/auth/login/" method="post" novalidate>
-            {% csrf_token %}
-            <label for="login-username">نام کاربری</label>
-            <input id="login-username" name="username" type="text" autocomplete="username" required maxlength="150">
-            <p class="field-error" data-error-for="username"></p>
-            <label for="login-password">گذرواژه</label>
-            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-            <p class="field-error" data-error-for="password"></p>
-            <button class="button button-wide" type="submit">ورود</button>
-        </form>
-    </section>
-</main>
+{% comment %} Adapted from the theme's corporate sign-in layout: the same centred
+   single-column root, the same 500px form column, and the same form-floating
+   rhythm. Its social sign-in, "remember me", password reset and sign-up links
+   are deliberately not carried over — Client-1 policy is username and password
+   only, and a control may exist here only if it really works. {% endcomment %}
+<div class="d-flex flex-column flex-root" id="kt_app_root">
+    <div class="d-flex flex-column flex-lg-row flex-column-fluid">
+        <div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-10 order-2 order-lg-1">
+            <div class="d-flex flex-center flex-column flex-lg-row-fluid">
+                <div class="w-lg-500px p-10">
+                    <form class="form w-100" id="login-form" action="/api/v1/auth/login/" method="post" novalidate>
+                        {% csrf_token %}
+                        <div class="text-center mb-11">
+                            <h1 class="text-gray-900 fw-bolder mb-3" id="login-title">ورود به سامانه</h1>
+                            <div class="text-gray-500 fw-semibold fs-6">نام کاربری و گذرواژه سازمانی خود را وارد کنید.</div>
+                        </div>
+                        <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>
+                        <div class="fv-row mb-8">
+                            <label class="form-label fs-6 fw-bolder text-gray-900" for="login-username">نام کاربری</label>
+                            <input class="form-control bg-transparent" id="login-username" name="username" type="text" autocomplete="username" required maxlength="150">
+                            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="username"></p>
+                        </div>
+                        <div class="fv-row mb-8">
+                            <label class="form-label fs-6 fw-bolder text-gray-900" for="login-password">گذرواژه</label>
+                            <input class="form-control bg-transparent" id="login-password" name="password" type="password" autocomplete="current-password" required>
+                            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="password"></p>
+                        </div>
+                        <div class="d-grid mb-10">
+                            <button class="btn btn-primary" type="submit">ورود</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="d-flex flex-lg-row-fluid w-lg-50 bgi-size-cover bgi-position-center order-1 order-lg-2" style="background-color:#1e1e2d">
+            <div class="d-flex flex-column flex-center py-15 px-5 px-md-15 w-100">
+                <h1 class="text-white fs-2qx fw-bolder text-center mb-3">ForooshBin</h1>
+                <div class="text-white fs-2 fw-bold text-center mb-7">فروش‌بین</div>
+                <div class="text-gray-400 fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

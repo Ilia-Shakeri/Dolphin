@@ -96,13 +96,20 @@
         try { await task(); } catch (error) { showError(error, form); } finally { button.disabled = false; }
     }
 
+    /**
+     * Keep `aria-expanded` truthful on the sidebar toggle.
+     *
+     * Opening and closing the sidebar itself is the theme's drawer
+     * (`data-kt-drawer-toggle="#nav-toggle"`); this only mirrors that state
+     * into the attribute a screen reader reads, which the drawer does not set.
+     */
     function setupNav() {
         const toggle = document.getElementById("nav-toggle");
-        if (!toggle) return;
-        toggle.addEventListener("click", () => {
-            const open = document.body.classList.toggle("nav-open");
-            toggle.setAttribute("aria-expanded", String(open));
-        });
+        const sidebar = document.getElementById("app-sidebar");
+        if (!toggle || !sidebar) return;
+        const sync = () => toggle.setAttribute("aria-expanded", String(sidebar.classList.contains("drawer-on")));
+        new MutationObserver(sync).observe(sidebar, {attributes: true, attributeFilter: ["class"]});
+        sync();
     }
 
     function setupLogout() {
@@ -168,7 +175,7 @@
             [`/sales/?lead=${lead.id}`, "ثبت فروش"],
         ].forEach(([href, label]) => {
             const link = document.createElement("a");
-            link.className = "button button-muted";
+            link.className = "btn btn-sm btn-light";
             link.href = href;
             link.textContent = label;
             actions.appendChild(link);
@@ -223,7 +230,7 @@
         row.appendChild(statusCell);
         const actionCell = document.createElement("td");
         const link = document.createElement("a");
-        link.className = "button button-muted";
+        link.className = "btn btn-sm btn-light";
         link.href = `/users/${user.id}/`;
         link.textContent = "جزئیات";
         actionCell.appendChild(link);
@@ -306,7 +313,7 @@
         const toggle = document.getElementById("toggle-user-active");
         toggle.disabled = false;
         toggle.dataset.nextActive = String(!user.is_active);
-        toggle.classList.toggle("button-danger", user.is_active);
+        toggle.classList.toggle("btn-danger", user.is_active);
         toggle.textContent = user.is_active ? "غیرفعال کردن کاربر" : "فعال کردن دوباره کاربر";
     }
 
@@ -438,7 +445,7 @@
     function appendDetailLink(row, href) {
         const cell = document.createElement("td");
         const link = document.createElement("a");
-        link.className = "button button-muted";
+        link.className = "btn btn-sm btn-light";
         link.href = href;
         link.textContent = "جزئیات";
         cell.appendChild(link);
@@ -447,6 +454,17 @@
 
     function statusText(active) {
         return active ? "فعال" : "غیرفعال";
+    }
+
+    /** An active/inactive cell as the theme's badge rather than bare text. */
+    function appendStatusCell(row, active) {
+        const cell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = active ? "badge badge-light-success" : "badge badge-light-danger";
+        badge.textContent = statusText(active);
+        cell.appendChild(badge);
+        row.appendChild(cell);
+        return cell;
     }
 
     function directionText(direction) {
@@ -765,7 +783,7 @@
         appendCell(row, customer.category);
         appendCell(row, customer.postal_code);
         appendCell(row, customer.city);
-        appendCell(row, statusText(customer.is_active));
+        appendStatusCell(row, (customer.is_active));
         appendCell(row, customer.created_by_display || customer.created_by);
         appendDetailLink(row, `/customers/${customer.id}/`);
         return row;
@@ -813,16 +831,16 @@
         appendCell(row, phone.normalized_phone);
         appendCell(row, phone.label);
         appendCell(row, phone.is_primary ? "بله" : "خیر");
-        appendCell(row, statusText(phone.is_active));
+        appendStatusCell(row, (phone.is_active));
         const actions = document.createElement("td");
         const editButton = document.createElement("button");
-        editButton.className = "button button-muted";
+        editButton.className = "btn btn-sm btn-light";
         editButton.type = "button";
         editButton.textContent = "ویرایش";
         editButton.addEventListener("click", () => edit(phone));
         actions.appendChild(editButton);
         const deactivateButton = document.createElement("button");
-        deactivateButton.className = "button button-danger";
+        deactivateButton.className = "btn btn-sm btn-light-danger";
         deactivateButton.type = "button";
         deactivateButton.textContent = phone.is_active ? "غیرفعال" : "غیرفعال است";
         deactivateButton.disabled = !phone.is_active;
@@ -1216,7 +1234,7 @@
         appendCell(row, category.display_order);
         appendCell(row, category.code);
         appendCell(row, category.name);
-        appendCell(row, statusText(category.is_active));
+        appendStatusCell(row, (category.is_active));
         appendDetailLink(row, `/product-categories/${category.id}/`);
         return row;
     }
@@ -1266,7 +1284,7 @@
         const toggle = document.getElementById("toggle-product-category");
         if (toggle) {
             toggle.textContent = category.is_active ? "غیرفعال کردن دسته‌بندی" : "فعال کردن دوباره دسته‌بندی";
-            toggle.classList.toggle("button-danger", category.is_active);
+            toggle.classList.toggle("btn-danger", category.is_active);
         }
     }
 
@@ -1324,7 +1342,7 @@
         appendCell(row, product.category_name || "بدون دسته‌بندی");
         appendCell(row, product.brand || "—");
         appendCell(row, product.current_price);
-        appendCell(row, statusText(product.is_active));
+        appendStatusCell(row, (product.is_active));
         appendDetailLink(row, `/products/${product.id}/`);
         return row;
     }
@@ -1789,7 +1807,7 @@
                 const actions = document.createElement("td");
                 const button = document.createElement("button");
                 button.type = "button";
-                button.className = "button button-muted";
+                button.className = "btn btn-sm btn-light";
                 button.textContent = "نمایش";
                 button.addEventListener("click", () => showInboundSMSMessage(item.id));
                 actions.appendChild(button);
@@ -1846,7 +1864,7 @@
                     const actions = document.createElement("td");
                     const drill = document.createElement("button");
                     drill.type = "button";
-                    drill.className = "button button-muted";
+                    drill.className = "btn btn-sm btn-light";
                     drill.textContent = "جزئیات";
                     drill.addEventListener("click", () => loadInboundSMSDrilldown(item.local_date, item.local_hour));
                     actions.appendChild(drill);
@@ -2082,7 +2100,7 @@
             ].forEach(([metric, label, count]) => {
                 const button = document.createElement("button");
                 button.type = "button";
-                button.className = "button button-muted";
+                button.className = "btn btn-sm btn-light";
                 button.textContent = label;
                 button.disabled = Number(count) === 0;
                 button.addEventListener("click", () => loadPerformanceDetails(prefix, item.user_id, item.username, metric));
@@ -2330,7 +2348,7 @@
         cell.className = "row-actions";
         links.forEach(([href, label]) => {
             const link = document.createElement("a");
-            link.className = "button button-muted";
+            link.className = "btn btn-sm btn-light";
             link.href = href;
             link.textContent = label;
             cell.appendChild(link);
@@ -2382,7 +2400,7 @@
         appendCell(row, warehouse.name);
         appendCell(row, warehouse.address);
         appendCell(row, warehouse.is_default ? "بله" : "خیر");
-        appendCell(row, statusText(warehouse.is_active));
+        appendStatusCell(row, (warehouse.is_active));
         appendDetailLink(row, `/warehouses/${warehouse.id}/`);
         return row;
     }
@@ -2432,7 +2450,7 @@
         const toggle = document.getElementById("toggle-warehouse");
         if (toggle) {
             toggle.textContent = warehouse.is_active ? "غیرفعال کردن انبار" : "فعال کردن دوباره انبار";
-            toggle.classList.toggle("button-danger", warehouse.is_active);
+            toggle.classList.toggle("btn-danger", warehouse.is_active);
         }
     }
 
@@ -2837,7 +2855,7 @@
                 if (editable) {
                     const remove = document.createElement("button");
                     remove.type = "button";
-                    remove.className = "button button-muted";
+                    remove.className = "btn btn-sm btn-light";
                     remove.textContent = "حذف سطر";
                     remove.addEventListener("click", () => {
                         draft.splice(index, 1);
@@ -3434,7 +3452,7 @@
                 if (!allocation.is_reversed) {
                     const release = document.createElement("button");
                     release.type = "button";
-                    release.className = "button button-muted";
+                    release.className = "btn btn-sm btn-light";
                     release.textContent = "آزادکردن";
                     release.addEventListener("click", async () => {
                         if (!window.confirm("این تخصیص آزاد شود؟")) return;
@@ -3526,7 +3544,7 @@
                 if (allowed.length && dialog) {
                     const button = document.createElement("button");
                     button.type = "button";
-                    button.className = "button button-muted";
+                    button.className = "btn btn-sm btn-light";
                     button.textContent = "تغییر وضعیت";
                     button.addEventListener("click", () => {
                         currentCheque = cheque;
@@ -3542,7 +3560,7 @@
                     actions.appendChild(button);
                 }
                 const link = document.createElement("a");
-                link.className = "button button-muted";
+                link.className = "btn btn-sm btn-light";
                 link.href = `/payments/${cheque.payment}/`;
                 link.textContent = "دریافت";
                 actions.appendChild(link);

@@ -89,6 +89,31 @@ class TemplateActionTests(SimpleTestCase):
                     offenders.append(f"{template.relative_to(ROOT)}: {element_id.group(1)} is never assigned")
         self.assertEqual(offenders, [])
 
+    def test_every_served_template_is_tag_balanced(self):
+        """An unclosed container silently swallows the rest of the page.
+
+        This is not hypothetical: a bulk class rewrite once injected an opening
+        `<div>` with no closing tag, and every element after it ended up outside
+        its section. The page still returned 200 and still contained the right
+        text, so only a browser measuring the element's height caught it —
+        `display: block` with `offsetHeight: 0`. Counting tags is cheap and
+        catches the whole class.
+        """
+        offenders = []
+        for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
+            text = template.read_text(encoding="utf-8")
+            markup = re.sub(r"{%.*?%}|{{.*?}}", "", text, flags=re.DOTALL)
+            for tag in ("div", "section", "form", "dialog", "table", "nav"):
+                # The word boundary matters: without it `<div` also counts every
+                # `<dialog`, and the two miscounts cancel out.
+                opens = len(re.findall(rf"<{tag}\b", markup))
+                closes = len(re.findall(rf"</{tag}>", markup))
+                if opens != closes:
+                    offenders.append(
+                        f"{template.relative_to(ROOT)}: <{tag}> {opens} open / {closes} close"
+                    )
+        self.assertEqual(offenders, [])
+
     def test_no_template_comment_leaks_into_the_served_page(self):
         """Django's `{# #}` comment cannot span lines.
 
@@ -108,11 +133,19 @@ class TemplateActionTests(SimpleTestCase):
         self.assertEqual(offenders, [])
 
     def test_no_served_template_reaches_a_third_party_host(self):
+        """No external fetch, and no vendor name in anything that renders.
+
+        `{% comment %}` blocks are stripped server-side, so naming the design
+        system in one is not customer-visible and is worth keeping: it tells the
+        next reader where the markup came from. The rendered-output check in
+        `RenderedPageCleanlinessTests` is what actually guards the reader.
+        """
         offenders = []
         for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
             text = template.read_text(encoding="utf-8")
+            visible = re.sub(r"{% comment %}.*?{% endcomment %}", "", text, flags=re.DOTALL)
             for pattern in ('href="http', 'src="http', "cdn.", "googleapis", "Metronic", "KeenThemes"):
-                if pattern in text:
+                if pattern in visible:
                     offenders.append(f"{template.relative_to(ROOT)}: {pattern}")
         self.assertEqual(offenders, [])
 
@@ -211,4 +244,8 @@ class RenderedPageCleanlinessTests(TestCase):
             for token in ("{#", "#}", "{%", "%}", "{{", "}}"):
                 if token in body:
                     offenders.append(f"{path}: {token}")
+            # The vendor's name must never reach the reader, in any page.
+            for vendor in ("Metronic", "KeenThemes", "keenthemes"):
+                if vendor in body:
+                    offenders.append(f"{path}: vendor name {vendor}")
         self.assertEqual(offenders, [])

@@ -3,46 +3,46 @@
 {% block page_id %}user-detail{% endblock %}
 {% block body_data %} data-user-id="{{ target_user_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">مدیریت دسترسی</p><h1>جزئیات کاربر</h1></div><a class="button button-muted" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a></section>
-<div id="user-detail-loading" class="card state">در حال دریافت کاربر…</div>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">مدیریت دسترسی</p><h1>جزئیات کاربر</h1></div><a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a></section>
+<div id="user-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت کاربر…</div></div>
 <section id="user-detail-content" hidden>
-    <form id="edit-user-form" action="/api/v1/users/{{ target_user_id }}/" method="post" class="card" novalidate>
+    <form id="edit-user-form" action="/api/v1/users/{{ target_user_id }}/" method="post" class="card mb-5 mb-xl-8" novalidate>
         {% csrf_token %}
         <h2>ویرایش مشخصات</h2>
-        <div class="form-grid">
-            <div><label for="edit-username">نام کاربری</label><input id="edit-username" name="username" required maxlength="150"><p class="field-error" data-error-for="username"></p></div>
-            <div><label for="edit-first-name">نام</label><input id="edit-first-name" name="first_name" maxlength="150"><p class="field-error" data-error-for="first_name"></p></div>
-            <div><label for="edit-last-name">نام خانوادگی</label><input id="edit-last-name" name="last_name" maxlength="150"><p class="field-error" data-error-for="last_name"></p></div>
-            <div><label for="edit-email">ایمیل</label><input id="edit-email" name="email" type="email" maxlength="254"><p class="field-error" data-error-for="email"></p></div>
-            <div><label for="edit-phone">تلفن</label><input id="edit-phone" name="phone" type="tel" maxlength="32"><p class="field-error" data-error-for="phone"></p></div>
-            <div><label for="edit-password">گذرواژه تازه</label><input id="edit-password" name="password" type="password" minlength="8" autocomplete="new-password"><p class="field-error" data-error-for="password"></p></div>
-            <div><label for="edit-workstream">حوزه کاری</label><select id="edit-workstream" name="workstream"><option value="sales">فروش و مرکز تماس</option><option value="after_sales">خدمات پس از فروش</option></select><p class="field-error" data-error-for="workstream"></p></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-username">نام کاربری</label><input class="form-control form-control-solid" id="edit-username" name="username" required maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="username"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-first-name">نام</label><input class="form-control form-control-solid" id="edit-first-name" name="first_name" maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="first_name"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-last-name">نام خانوادگی</label><input class="form-control form-control-solid" id="edit-last-name" name="last_name" maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="last_name"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-email">ایمیل</label><input class="form-control form-control-solid" id="edit-email" name="email" type="email" maxlength="254"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="email"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-phone">تلفن</label><input class="form-control form-control-solid" id="edit-phone" name="phone" type="tel" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-password">گذرواژه تازه</label><input class="form-control form-control-solid" id="edit-password" name="password" type="password" minlength="8" autocomplete="new-password"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="password"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-workstream">حوزه کاری</label><select class="form-select form-select-solid" id="edit-workstream" name="workstream"><option value="sales">فروش و مرکز تماس</option><option value="after_sales">خدمات پس از فروش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="workstream"></p></div>
         </div>
-        <div class="form-actions"><button class="button" type="submit">ذخیره تغییرات</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تغییرات</button></div>
     </form>
-    {% if can_change_roles %}<form id="change-role-form" action="/api/v1/users/{{ target_user_id }}/change-role/" method="post" class="card" novalidate>
+    {% if can_change_roles %}<form id="change-role-form" action="/api/v1/users/{{ target_user_id }}/change-role/" method="post" class="card mb-5 mb-xl-8" novalidate>
         {% csrf_token %}
         <h2>تغییر نقش کنترل‌شده</h2>
-        <label for="edit-role">نقش</label>
-        <select id="edit-role" name="role" required>
+        <label class="form-label fw-semibold" for="edit-role">نقش</label>
+        <select class="form-select form-select-solid" id="edit-role" name="role" required>
             {% for value, label in assignable_roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
         </select>
-        <p class="field-error" data-error-for="role"></p>
-        <div class="form-actions"><button class="button" type="submit">تغییر نقش</button></div>
+        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="role"></p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">تغییر نقش</button></div>
     </form>{% endif %}
-    {% if can_change_roles %}<section class="card">
-        <div class="section-head">
-            <div><h2>نشست‌های فعال</h2><p class="muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>
-            <button id="revoke-user-sessions" class="button button-danger" type="button">پایان همه نشست‌ها</button>
+    {% if can_change_roles %}<section class="card mb-5 mb-xl-8"><div class="card-body">
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+            <div><h2>نشست‌های فعال</h2><p class="text-muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>
+            <button id="revoke-user-sessions" class="btn btn-danger" type="button">پایان همه نشست‌ها</button>
         </div>
-        <div id="user-sessions-loading" class="state">در حال دریافت نشست‌ها…</div>
-        <div id="user-sessions-empty" class="state" hidden>نشست فعالی برای این کاربر ثبت نشده است.</div>
-        <div id="user-sessions-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
-    </section>{% endif %}
-    <section class="card danger-zone">
+        <div id="user-sessions-loading" class="text-center text-muted py-10">در حال دریافت نشست‌ها…</div>
+        <div id="user-sessions-empty" class="text-center text-muted py-10" hidden>نشست فعالی برای این کاربر ثبت نشده است.</div>
+        <div id="user-sessions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
+    </div></section>{% endif %}
+    <section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body">
         <h2>وضعیت دسترسی</h2>
         <p>کاربر غیرفعال اجازه ورود ندارد و بعدا می‌تواند در همین صفحه دوباره فعال شود. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>
-        <button id="toggle-user-active" class="button button-danger" type="button">تغییر وضعیت کاربر</button>
-    </section>
+        <button id="toggle-user-active" class="btn btn-danger" type="button">تغییر وضعیت کاربر</button>
+    </div></section>
 </section>
 {% endblock %}

@@ -3,21 +3,21 @@
 {% block page_id %}interaction-detail{% endblock %}
 {% block body_data %} data-interaction-id="{{ interaction_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">ثبت دستی ارتباط</p><h1>جزئیات تماس</h1></div><a class="button button-muted" href="{% url 'common_ui:interactions' %}">بازگشت به فهرست</a></section>
-<div id="interaction-detail-loading" class="card state">در حال دریافت تماس…</div>
-<section id="interaction-detail-content" class="card" hidden>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">ثبت دستی ارتباط</p><h1>جزئیات تماس</h1></div><a class="btn btn-light" href="{% url 'common_ui:interactions' %}">بازگشت به فهرست</a></section>
+<div id="interaction-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت تماس…</div></div>
+<section id="interaction-detail-content" class="card mb-5 mb-xl-8" hidden>
     <h2>اطلاعات ثبت‌شده</h2>
-    <div class="form-grid readonly-grid">
-        <div><label for="interaction-lead">سرنخ</label><input id="interaction-lead" type="text" disabled></div>
-        <div><label for="interaction-customer">مشتری</label><input id="interaction-customer" type="text" disabled></div>
-        <div><label for="interaction-agent">ثبت‌کننده</label><input id="interaction-agent" type="text" disabled></div>
-        <div><label for="interaction-phone">شماره</label><input id="interaction-phone" type="text" disabled></div>
-        <div><label for="interaction-direction">جهت</label><input id="interaction-direction" type="text" disabled></div>
-        <div><label for="interaction-outcome">نتیجه</label><input id="interaction-outcome" type="text" disabled></div>
-        <div><label for="interaction-occurred">زمان تماس</label><input id="interaction-occurred" type="text" disabled></div>
-        <div><label for="interaction-follow-up">پیگیری بعدی</label><input id="interaction-follow-up" type="text" disabled></div>
-        <div class="full-field"><label for="interaction-notes">یادداشت</label><textarea id="interaction-notes" disabled></textarea></div>
+    <div class="row g-5">
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-lead">سرنخ</label><input class="form-control form-control-solid" id="interaction-lead" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-customer">مشتری</label><input class="form-control form-control-solid" id="interaction-customer" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-agent">ثبت‌کننده</label><input class="form-control form-control-solid" id="interaction-agent" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-phone">شماره</label><input class="form-control form-control-solid" id="interaction-phone" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-direction">جهت</label><input class="form-control form-control-solid" id="interaction-direction" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-outcome">نتیجه</label><input class="form-control form-control-solid" id="interaction-outcome" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-occurred">زمان تماس</label><input class="form-control form-control-solid" id="interaction-occurred" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-follow-up">پیگیری بعدی</label><input class="form-control form-control-solid" id="interaction-follow-up" type="text" disabled></div>
+        <div class="col-12"><label class="form-label fw-semibold" for="interaction-notes">یادداشت</label><textarea class="form-control form-control-solid" id="interaction-notes" disabled></textarea></div>
     </div>
-    <p class="muted">تماس‌ها سابقه‌محور هستند و از این صفحه ویرایش یا حذف نمی‌شوند.</p>
+    <p class="text-muted">تماس‌ها سابقه‌محور هستند و از این صفحه ویرایش یا حذف نمی‌شوند.</p>
 </section>
 {% endblock %}

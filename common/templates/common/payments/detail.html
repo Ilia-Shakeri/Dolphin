@@ -3,51 +3,51 @@
 {% block page_id %}payment-detail{% endblock %}
 {% block body_data %} data-payment-id="{{ payment_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">صندوق و دریافت</p><h1>جزئیات دریافت</h1></div><a class="button button-muted" href="{% url 'common_ui:payments' %}">بازگشت به فهرست</a></section>
-<div id="payment-detail-loading" class="card state">در حال دریافت…</div>
-<section id="payment-detail-content" class="card" hidden><div class="form-grid readonly-grid">
-    <div><label for="payment-number">شماره</label><input id="payment-number" disabled dir="ltr"></div>
-    <div><label for="payment-customer">مشتری</label><input id="payment-customer" disabled></div>
-    <div><label for="payment-method">روش</label><input id="payment-method" disabled></div>
-    <div><label for="payment-status">وضعیت</label><input id="payment-status" disabled></div>
-    <div><label for="payment-amount">مبلغ</label><input id="payment-amount" disabled></div>
-    <div><label for="payment-allocated">تخصیص‌یافته</label><input id="payment-allocated" disabled></div>
-    <div><label for="payment-unallocated">تخصیص‌نیافته</label><input id="payment-unallocated" disabled></div>
-    <div><label for="payment-received-at">زمان دریافت</label><input id="payment-received-at" disabled></div>
-    <div><label for="payment-received-by">ثبت‌کننده</label><input id="payment-received-by" disabled></div>
-    <div><label for="payment-reference">شماره پیگیری</label><input id="payment-reference" disabled dir="ltr"></div>
-    <div class="full-field"><label for="payment-notes">یادداشت</label><textarea id="payment-notes" disabled></textarea></div>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">صندوق و دریافت</p><h1>جزئیات دریافت</h1></div><a class="btn btn-light" href="{% url 'common_ui:payments' %}">بازگشت به فهرست</a></section>
+<div id="payment-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت…</div></div>
+<section id="payment-detail-content" class="card mb-5 mb-xl-8" hidden><div class="row g-5">
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-number">شماره</label><input class="form-control form-control-solid" id="payment-number" disabled dir="ltr"></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-customer">مشتری</label><input class="form-control form-control-solid" id="payment-customer" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-method">روش</label><input class="form-control form-control-solid" id="payment-method" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-status">وضعیت</label><input class="form-control form-control-solid" id="payment-status" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-amount">مبلغ</label><input class="form-control form-control-solid" id="payment-amount" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-allocated">تخصیص‌یافته</label><input class="form-control form-control-solid" id="payment-allocated" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-unallocated">تخصیص‌نیافته</label><input class="form-control form-control-solid" id="payment-unallocated" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-received-at">زمان دریافت</label><input class="form-control form-control-solid" id="payment-received-at" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-received-by">ثبت‌کننده</label><input class="form-control form-control-solid" id="payment-received-by" disabled></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-reference">شماره پیگیری</label><input class="form-control form-control-solid" id="payment-reference" disabled dir="ltr"></div>
+    <div class="col-12"><label class="form-label fw-semibold" for="payment-notes">یادداشت</label><textarea class="form-control form-control-solid" id="payment-notes" disabled></textarea></div>
 </div>
 <div id="payment-cheque-block" hidden>
     <h2>مشخصات چک</h2>
-    <div class="form-grid readonly-grid">
-        <div><label for="payment-cheque-bank">بانک</label><input id="payment-cheque-bank" disabled></div>
-        <div><label for="payment-cheque-serial">شماره چک</label><input id="payment-cheque-serial" disabled dir="ltr"></div>
-        <div><label for="payment-cheque-due">سررسید</label><input id="payment-cheque-due" disabled></div>
-        <div><label for="payment-cheque-status">وضعیت چک</label><input id="payment-cheque-status" disabled></div>
+    <div class="row g-5">
+        <div class="col-md-6"><label class="form-label fw-semibold" for="payment-cheque-bank">بانک</label><input class="form-control form-control-solid" id="payment-cheque-bank" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="payment-cheque-serial">شماره چک</label><input class="form-control form-control-solid" id="payment-cheque-serial" disabled dir="ltr"></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="payment-cheque-due">سررسید</label><input class="form-control form-control-solid" id="payment-cheque-due" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="payment-cheque-status">وضعیت چک</label><input class="form-control form-control-solid" id="payment-cheque-status" disabled></div>
     </div>
-    <a id="payment-cheque-link" class="inline-link" href="{% url 'common_ui:cheques' %}">مدیریت چک‌ها</a>
+    <a id="payment-cheque-link" class="link-primary fw-semibold" href="{% url 'common_ui:cheques' %}">مدیریت چک‌ها</a>
 </div>
 </section>
-<section id="payment-allocate-section" class="card" hidden>
+<section id="payment-allocate-section" class="card mb-5 mb-xl-8" hidden>
     <h2>تخصیص به فاکتور</h2>
-    <p class="muted">تخصیص نه از مانده تخصیص‌نیافته دریافت بیشتر می‌شود و نه از مانده فاکتور؛ مازاد به‌صورت بستانکاری روی حساب مشتری می‌ماند.</p>
-    <form id="payment-allocate-form" class="toolbar" novalidate>
-        <label class="sr-only" for="payment-allocate-invoice">فاکتور صادرشده</label><select id="payment-allocate-invoice" name="invoice" required><option value="">در حال دریافت…</option></select>
-        <label class="sr-only" for="payment-allocate-amount">مبلغ</label><input id="payment-allocate-amount" name="amount" type="number" min="0.01" step="0.01" placeholder="مبلغ (خالی = حداکثر ممکن)">
-        <button class="button" type="submit">تخصیص</button>
+    <p class="text-muted">تخصیص نه از مانده تخصیص‌نیافته دریافت بیشتر می‌شود و نه از مانده فاکتور؛ مازاد به‌صورت بستانکاری روی حساب مشتری می‌ماند.</p>
+    <form id="payment-allocate-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
+        <label class="sr-only" for="payment-allocate-invoice">فاکتور صادرشده</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-allocate-invoice" name="invoice" required><option value="">در حال دریافت…</option></select>
+        <label class="sr-only" for="payment-allocate-amount">مبلغ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="payment-allocate-amount" name="amount" type="number" min="0.01" step="0.01" placeholder="مبلغ (خالی = حداکثر ممکن)">
+        <button class="btn btn-primary" type="submit">تخصیص</button>
     </form>
-    <p class="field-error" data-error-for="invoice"></p><p class="field-error" data-error-for="amount"></p>
-    <div id="payment-allocations-loading" class="state">در حال دریافت تخصیص‌ها…</div>
-    <div id="payment-allocations-empty" class="state" hidden>هنوز تخصیصی ثبت نشده است.</div>
-    <div id="payment-allocations-table-wrap" class="table-wrap" hidden><table><thead><tr><th>فاکتور</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payment-allocations-table-body"></tbody></table></div>
-    <nav id="payment-allocations-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="payment-allocations-prev" class="button button-muted" type="button">قبلی</button><span id="payment-allocations-page-label"></span><button id="payment-allocations-next" class="button button-muted" type="button">بعدی</button></nav>
+    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice"></p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p>
+    <div id="payment-allocations-loading" class="text-center text-muted py-10">در حال دریافت تخصیص‌ها…</div>
+    <div id="payment-allocations-empty" class="text-center text-muted py-10" hidden>هنوز تخصیصی ثبت نشده است.</div>
+    <div id="payment-allocations-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>فاکتور</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payment-allocations-table-body"></tbody></table></div>
+    <nav id="payment-allocations-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="payment-allocations-prev" class="btn btn-light" type="button">قبلی</button><span id="payment-allocations-page-label"></span><button id="payment-allocations-next" class="btn btn-light" type="button">بعدی</button></nav>
 </section>
-<section id="payment-cancel-section" class="card danger-zone" hidden>
+<section id="payment-cancel-section" class="card mb-5 mb-xl-8 border border-danger border-dashed" hidden>
     <h2>ابطال دریافت</h2>
-    <p class="muted">ابطال، همه تخصیص‌های فعال را آزاد می‌کند و یک بدهکاری جبرانی در دفتر حساب مشتری ثبت می‌کند. هیچ ردیفی حذف نمی‌شود.</p>
-    <label for="payment-cancel-reason">دلیل</label><textarea id="payment-cancel-reason" maxlength="500"></textarea>
-    <p class="field-error" data-error-for="reason"></p>
-    <div class="form-actions"><button id="cancel-payment" class="button button-danger" type="button">ابطال دریافت</button></div>
+    <p class="text-muted">ابطال، همه تخصیص‌های فعال را آزاد می‌کند و یک بدهکاری جبرانی در دفتر حساب مشتری ثبت می‌کند. هیچ ردیفی حذف نمی‌شود.</p>
+    <label class="form-label fw-semibold" for="payment-cancel-reason">دلیل</label><textarea class="form-control form-control-solid" id="payment-cancel-reason" maxlength="500"></textarea>
+    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p>
+    <div class="d-flex justify-content-end gap-3 mt-6"><button id="cancel-payment" class="btn btn-danger" type="button">ابطال دریافت</button></div>
 </section>
 {% endblock %}

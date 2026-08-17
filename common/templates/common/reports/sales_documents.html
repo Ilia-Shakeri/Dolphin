@@ -2,16 +2,16 @@
 {% block title %}گزارش اسناد و پست{% endblock %}
 {% block page_id %}sales-document-report{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">بر پایه نشانی ثبت‌شده و وضعیت جاری</p><h1>گزارش اسناد فروش و پست</h1></div></section>
-<section class="card"><form id="sales-document-report-form" action="/api/v1/reports/sales-documents/" method="get" class="toolbar" novalidate>
-    <div><label for="document-report-start">شروع بازه</label><input id="document-report-start" name="period_start" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="period_start"></p></div>
-    <div><label for="document-report-end">پایان بازه</label><input id="document-report-end" name="period_end" type="text" data-jalali="datetime" required><p class="field-error" data-error-for="period_end"></p></div>
-    <div><label for="document-report-province">استان</label><input id="document-report-province" name="province" maxlength="100"></div><div><label for="document-report-city">شهر</label><input id="document-report-city" name="city" maxlength="100"></div>
-    <div><label for="document-report-status">وضعیت پستی</label><input id="document-report-status" name="postal_status" maxlength="80"></div><div><label for="document-report-active">حالت</label><select id="document-report-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
-    <button class="button" type="submit">ساخت گزارش</button>
-</form></section>
-<div id="sales-document-report-loading" class="card state" hidden>در حال ساخت گزارش…</div><div id="sales-document-report-empty" class="card state" hidden>داده‌ای در این بازه نیست.</div>
-<section id="sales-document-report-content" hidden><div class="metric-grid"><article class="card metric"><span>کل اسناد</span><strong id="sales-document-report-total">۰</strong></article></div>
-<div class="card"><h2>بر پایه استان و شهر ثبت‌شده</h2><div class="table-wrap"><table><thead><tr><th>استان</th><th>شهر</th><th>تعداد</th></tr></thead><tbody id="sales-document-geography-body"></tbody></table></div></div>
-<div class="card"><h2>بر پایه وضعیت پستی جاری</h2><div class="table-wrap"><table><thead><tr><th>وضعیت</th><th>تعداد</th></tr></thead><tbody id="sales-document-status-body"></tbody></table></div></div></section>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">بر پایه نشانی ثبت‌شده و وضعیت جاری</p><h1>گزارش اسناد فروش و پست</h1></div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body"><form id="sales-document-report-form" action="/api/v1/reports/sales-documents/" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
+    <div><label class="form-label fw-semibold" for="document-report-start">شروع بازه</label><input class="form-control form-control-solid w-auto flex-grow-1" id="document-report-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
+    <div><label class="form-label fw-semibold" for="document-report-end">پایان بازه</label><input class="form-control form-control-solid w-auto flex-grow-1" id="document-report-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
+    <div><label class="form-label fw-semibold" for="document-report-province">استان</label><input class="form-control form-control-solid w-auto flex-grow-1" id="document-report-province" name="province" maxlength="100"></div><div><label class="form-label fw-semibold" for="document-report-city">شهر</label><input class="form-control form-control-solid w-auto flex-grow-1" id="document-report-city" name="city" maxlength="100"></div>
+    <div><label class="form-label fw-semibold" for="document-report-status">وضعیت پستی</label><input class="form-control form-control-solid w-auto flex-grow-1" id="document-report-status" name="postal_status" maxlength="80"></div><div><label class="form-label fw-semibold" for="document-report-active">حالت</label><select class="form-select form-select-solid w-auto flex-grow-1" id="document-report-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
+    <button class="btn btn-primary" type="submit">ساخت گزارش</button>
+</form></div></section>
+<div id="sales-document-report-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10" hidden>در حال ساخت گزارش…</div></div><div id="sales-document-report-empty" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10" hidden>داده‌ای در این بازه نیست.</div></div>
+<section id="sales-document-report-content" hidden><div class="row g-5 mb-6"><article class="card card-flush"><span>کل اسناد</span><strong id="sales-document-report-total">۰</strong></article></div>
+<div class="card mb-5 mb-xl-8"><h2>بر پایه استان و شهر ثبت‌شده</h2><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>استان</th><th>شهر</th><th>تعداد</th></tr></thead><tbody id="sales-document-geography-body"></tbody></table></div></div>
+<div class="card mb-5 mb-xl-8"><h2>بر پایه وضعیت پستی جاری</h2><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>وضعیت</th><th>تعداد</th></tr></thead><tbody id="sales-document-status-body"></tbody></table></div></div></section>
 {% endblock %}

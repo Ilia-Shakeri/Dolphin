@@ -80,7 +80,21 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [("kariz-brand", BASE_DIR / "assets" / "media" / "logos")]
+# The purchased Metronic build is the visual system for the served UI, so its
+# tree is the static root. It is mapped *without* a prefix on purpose: Django's
+# FileSystemFinder joins a prefix using os.sep, so a prefixed entry silently
+# fails to resolve forward-slash URLs on Windows, which is where this is
+# developed. Metronic's own CSS also resolves its fonts relatively
+# (`../fonts/IRANSansWeb.woff`, `fonts/keenicons/...`), so the directory shape
+# has to survive intact anyway.
+#
+# The demo media under assets/media is excluded at collectstatic time except
+# the logo directory the favicon comes from (STATICFILES_COLLECT_IGNORE below);
+# the rest is ~70MB of theme screenshots no served page references.
+STATICFILES_DIRS = [BASE_DIR / "assets"]
+#: Passed to `collectstatic --ignore`. Only what a served page can request is
+#: collected; the rest of the purchased theme stays in the repository.
+STATICFILES_COLLECT_IGNORE = ["media/avatars", "media/stock", "media/patterns", "media/illustrations", "media/misc", "plugins/custom"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 64 * 1024
 

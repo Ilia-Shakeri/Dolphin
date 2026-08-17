@@ -7,18 +7,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
     <title>خطای سامانه | ForooshBin</title>
-    <link rel="icon" href="{% static 'kariz-brand/favicon.ico' %}" sizes="any">
+    <link rel="icon" href="{% static 'media/logos/favicon.ico' %}" sizes="any">
     <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
 </head>
 <body>
-<main class="auth-shell">
-    <section class="card error-card" aria-labelledby="error-title">
-        <p class="eyebrow">ForooshBin | فروش‌بین</p>
-        <p class="status-code">{{ status }}</p>
+<div class="d-flex flex-column flex-center flex-column-fluid p-10" style="min-height:100vh">
+    <section class="card mb-5 mb-xl-8" aria-labelledby="error-title"><div class="card-body">
+        <p class="text-primary fw-bold fs-7 mb-1">ForooshBin | فروش‌بین</p>
+        <p class="fs-2hx fw-bold text-danger mb-3">{{ status }}</p>
         <h1 id="error-title">{{ title }}</h1>
         <p>{{ message }}</p>
-        <a class="button" href="/">بازگشت به خانه</a>
-    </section>
-</main>
+        <a class="btn btn-primary" href="/">بازگشت به خانه</a>
+    </div></section>
+</div>
 </body>
 </html>

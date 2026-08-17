@@ -145,7 +145,15 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         toggle = self.browser.find_element(By.ID, "nav-toggle")
         self.assertTrue(toggle.is_displayed())
         toggle.click()
-        self.wait.until(lambda driver: "nav-open" in driver.find_element(By.TAG_NAME, "body").get_attribute("class").split())
+        # The sidebar is the theme's own drawer now, so its open state is the
+        # `drawer-on` class the theme sets — not a second class of our own.
+        self.wait.until(
+            lambda driver: "drawer-on"
+            in driver.find_element(By.ID, "app-sidebar").get_attribute("class").split()
+        )
+        self.assertEqual(
+            self.browser.find_element(By.ID, "nav-toggle").get_attribute("aria-expanded"), "true"
+        )
         self.browser.get(f"{self.live_server_url}/users/")
         self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "users-loading")))
         self.assertIn(self.platform.username, self.browser.find_element(By.ID, "users-table-body").text)

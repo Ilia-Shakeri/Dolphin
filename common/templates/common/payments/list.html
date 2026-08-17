@@ -2,40 +2,40 @@
 {% block title %}دریافت‌ها{% endblock %}
 {% block page_id %}payments{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">صندوق و دریافت</p><h1>دریافت‌ها</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:cheques' %}">چک‌ها</a><a class="button button-muted" href="{% url 'common_ui:installments' %}">اقساط</a><button id="open-create-payment" class="button" type="button">ثبت دریافت</button></div></section>
-<section class="card">
-    <form id="payment-search-form" action="{% url 'common_ui:payments' %}" method="get" class="toolbar">
-        <label class="sr-only" for="payment-search">جستجوی دریافت</label><input id="payment-search" name="search" type="search" placeholder="شماره، مشتری یا شماره پیگیری">
-        <label class="sr-only" for="payment-status-filter">وضعیت</label><select id="payment-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="pending">در انتظار وصول</option><option value="confirmed">تأییدشده</option><option value="cancelled">ابطال‌شده</option></select>
-        <label class="sr-only" for="payment-method-filter">روش</label><select id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="card">کارت‌خوان</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
-        <label class="sr-only" for="payment-ordering">مرتب‌سازی</label><select id="payment-ordering" name="ordering"><option value="-received_at">تازه‌ترین</option><option value="received_at">قدیمی‌ترین</option><option value="-amount">بیشترین مبلغ</option></select>
-        <button class="button button-muted" type="submit">اعمال</button>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">صندوق و دریافت</p><h1>دریافت‌ها</h1></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:cheques' %}">چک‌ها</a><a class="btn btn-light" href="{% url 'common_ui:installments' %}">اقساط</a><button id="open-create-payment" class="btn btn-primary" type="button">ثبت دریافت</button></div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="payment-search-form" action="{% url 'common_ui:payments' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="payment-search">جستجوی دریافت</label><input class="form-control form-control-solid w-auto flex-grow-1" id="payment-search" name="search" type="search" placeholder="شماره، مشتری یا شماره پیگیری">
+        <label class="sr-only" for="payment-status-filter">وضعیت</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="pending">در انتظار وصول</option><option value="confirmed">تأییدشده</option><option value="cancelled">ابطال‌شده</option></select>
+        <label class="sr-only" for="payment-method-filter">روش</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="card">کارت‌خوان</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
+        <label class="sr-only" for="payment-ordering">مرتب‌سازی</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-ordering" name="ordering"><option value="-received_at">تازه‌ترین</option><option value="received_at">قدیمی‌ترین</option><option value="-amount">بیشترین مبلغ</option></select>
+        <button class="btn btn-light" type="submit">اعمال</button>
     </form>
-    <div id="payments-loading" class="state">در حال دریافت فهرست…</div><div id="payments-empty" class="state" hidden>دریافتی پیدا نشد.</div>
-    <div id="payments-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره</th><th>مشتری</th><th>روش</th><th>مبلغ</th><th>تخصیص‌یافته</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payments-table-body"></tbody></table></div>
-    <nav id="payments-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="payments-prev" class="button button-muted" type="button">قبلی</button><span id="payments-page-label"></span><button id="payments-next" class="button button-muted" type="button">بعدی</button></nav>
-</section>
+    <div id="payments-loading" class="text-center text-muted py-10">در حال دریافت فهرست…</div><div id="payments-empty" class="text-center text-muted py-10" hidden>دریافتی پیدا نشد.</div>
+    <div id="payments-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شماره</th><th>مشتری</th><th>روش</th><th>مبلغ</th><th>تخصیص‌یافته</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payments-table-body"></tbody></table></div>
+    <nav id="payments-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="payments-prev" class="btn btn-light" type="button">قبلی</button><span id="payments-page-label"></span><button id="payments-next" class="btn btn-light" type="button">بعدی</button></nav>
+</div></section>
 <dialog id="create-payment-dialog" aria-labelledby="create-payment-title">
     <form id="create-payment-form" action="/api/v1/payments/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="create-payment-title">ثبت دریافت</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="form-grid">
-            <div><label for="create-payment-customer">مشتری</label><select id="create-payment-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="customer"></p></div>
-            <div><label for="create-payment-method">روش دریافت</label><select id="create-payment-method" name="method" required><option value="cash">نقدی</option><option value="card">کارت‌خوان</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select><p class="field-error" data-error-for="method"></p></div>
-            <div><label for="create-payment-amount">مبلغ</label><input id="create-payment-amount" name="amount" type="number" min="0.01" step="0.01" required><p class="field-error" data-error-for="amount"></p></div>
-            <div><label for="create-payment-reference">شماره پیگیری</label><input id="create-payment-reference" name="reference" maxlength="120" dir="ltr"><p class="field-error" data-error-for="reference"></p></div>
-            <div class="full-field"><label for="create-payment-notes">یادداشت</label><textarea id="create-payment-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-payment-title">ثبت دریافت</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-customer">مشتری</label><select class="form-select form-select-solid" id="create-payment-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-method">روش دریافت</label><select class="form-select form-select-solid" id="create-payment-method" name="method" required><option value="cash">نقدی</option><option value="card">کارت‌خوان</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="method"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="number" min="0.01" step="0.01" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-reference">شماره پیگیری</label><input class="form-control form-control-solid" id="create-payment-reference" name="reference" maxlength="120" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reference"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="create-payment-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-payment-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
         <fieldset id="create-payment-cheque-fields" hidden>
-            <div class="form-grid">
-                <div><label for="create-cheque-bank">بانک</label><input id="create-cheque-bank" name="bank_name" maxlength="120"><p class="field-error" data-error-for="cheque"></p></div>
-                <div><label for="create-cheque-branch">شعبه</label><input id="create-cheque-branch" name="branch_name" maxlength="120"></div>
-                <div><label for="create-cheque-serial">شماره چک</label><input id="create-cheque-serial" name="serial_number" maxlength="64" dir="ltr"></div>
-                <div><label for="create-cheque-holder">صاحب حساب</label><input id="create-cheque-holder" name="account_holder" maxlength="255"></div>
-                <div><label for="create-cheque-due">تاریخ سررسید چک</label><input id="create-cheque-due" name="due_date" type="text" data-jalali="date"></div>
+            <div class="row g-5">
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-bank">بانک</label><input class="form-control form-control-solid" id="create-cheque-bank" name="bank_name" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="cheque"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-branch">شعبه</label><input class="form-control form-control-solid" id="create-cheque-branch" name="branch_name" maxlength="120"></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-serial">شماره چک</label><input class="form-control form-control-solid" id="create-cheque-serial" name="serial_number" maxlength="64" dir="ltr"></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-holder">صاحب حساب</label><input class="form-control form-control-solid" id="create-cheque-holder" name="account_holder" maxlength="255"></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-due">تاریخ سررسید چک</label><input class="form-control form-control-solid" id="create-cheque-due" name="due_date" type="text" data-jalali="date"></div>
             </div>
         </fieldset>
-        <p class="muted">چک تا زمان وصول، حساب مشتری را بستانکار نمی‌کند؛ اثر مالی چک فقط پس از ثبت «وصول» ثبت می‌شود.</p>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت دریافت</button></div>
+        <p class="text-muted">چک تا زمان وصول، حساب مشتری را بستانکار نمی‌کند؛ اثر مالی چک فقط پس از ثبت «وصول» ثبت می‌شود.</p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت دریافت</button></div>
     </form>
 </dialog>
 {% endblock %}

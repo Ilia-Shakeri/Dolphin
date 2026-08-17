@@ -3,41 +3,41 @@
 {% block page_id %}order-detail{% endblock %}
 {% block body_data %} data-order-id="{{ order_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">اسناد بازرگانی</p><h1>جزئیات سفارش</h1></div><a class="button button-muted" href="{% url 'common_ui:orders' %}">بازگشت به فهرست</a></section>
-<div id="order-detail-loading" class="card state">در حال دریافت سفارش…</div>
-<section id="order-detail-content" class="card" hidden>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">اسناد بازرگانی</p><h1>جزئیات سفارش</h1></div><a class="btn btn-light" href="{% url 'common_ui:orders' %}">بازگشت به فهرست</a></section>
+<div id="order-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت سفارش…</div></div>
+<section id="order-detail-content" class="card mb-5 mb-xl-8" hidden>
     <form id="edit-order-form" action="/api/v1/orders/{{ order_id }}/" method="post" novalidate>
         {% csrf_token %}
-        <div class="form-grid">
-            <div><label for="order-number">شماره سند</label><input id="order-number" disabled dir="ltr"></div>
-            <div><label for="order-customer">مشتری</label><input id="order-customer" disabled></div>
-            <div><label for="order-status">وضعیت</label><input id="order-status" disabled></div>
-            <div><label for="order-source-quotation">پیش‌فاکتور منبع</label><input id="order-source-quotation" disabled dir="ltr"></div>
-            <div><label for="order-created-by">ثبت‌کننده</label><input id="order-created-by" disabled></div>
-            <div><label for="order-confirmed-at">زمان تأیید</label><input id="order-confirmed-at" disabled></div>
-            <div><label for="edit-order-delivery">زمان تحویل موردانتظار</label><input id="edit-order-delivery" name="expected_delivery_at" type="text" data-jalali="datetime"><p class="field-error" data-error-for="expected_delivery_at"></p></div>
-            <div><label for="edit-order-discount">تخفیف سند</label><input id="edit-order-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="field-error" data-error-for="discount_amount"></p></div>
-            <div><label for="edit-order-tax">نرخ مالیات (٪)</label><input id="edit-order-tax" name="tax_rate" type="number" min="0" max="100" step="0.01"><p class="field-error" data-error-for="tax_rate"></p></div>
-            <div class="full-field"><label for="edit-order-notes">یادداشت</label><textarea id="edit-order-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="order-number">شماره سند</label><input class="form-control form-control-solid" id="order-number" disabled dir="ltr"></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="order-customer">مشتری</label><input class="form-control form-control-solid" id="order-customer" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="order-status">وضعیت</label><input class="form-control form-control-solid" id="order-status" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="order-source-quotation">پیش‌فاکتور منبع</label><input class="form-control form-control-solid" id="order-source-quotation" disabled dir="ltr"></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="order-created-by">ثبت‌کننده</label><input class="form-control form-control-solid" id="order-created-by" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="order-confirmed-at">زمان تأیید</label><input class="form-control form-control-solid" id="order-confirmed-at" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-order-delivery">زمان تحویل موردانتظار</label><input class="form-control form-control-solid" id="edit-order-delivery" name="expected_delivery_at" type="text" data-jalali="datetime"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="expected_delivery_at"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-order-discount">تخفیف سند</label><input class="form-control form-control-solid" id="edit-order-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="discount_amount"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-order-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="edit-order-tax" name="tax_rate" type="number" min="0" max="100" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="edit-order-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-order-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
-        <div id="order-edit-actions" class="form-actions" hidden><button class="button" type="submit">ذخیره سربرگ</button></div>
-        <p id="order-locked-note" class="muted" hidden>این سند دیگر پیش‌نویس نیست، پس اقلام و مبالغ آن ثابت است.</p>
+        <div id="order-edit-actions" class="d-flex justify-content-end gap-3 mt-6" hidden><button class="btn btn-primary" type="submit">ذخیره سربرگ</button></div>
+        <p id="order-locked-note" class="text-muted" hidden>این سند دیگر پیش‌نویس نیست، پس اقلام و مبالغ آن ثابت است.</p>
     </form>
 </section>
 {% with doc="order" %}{% include "common/includes/document_lines.inc" %}{% endwith %}
-<section id="order-workflow" class="card" hidden>
+<section id="order-workflow" class="card mb-5 mb-xl-8" hidden>
     <h2>چرخه سند</h2>
-    <div class="row-actions">
-        <button class="button" type="button" data-order-transition="confirmed">تأیید سفارش</button>
-        <button class="button" type="button" data-order-transition="fulfilled">ثبت تحویل</button>
-        <button class="button button-danger" type="button" data-order-transition="cancelled">لغو سفارش</button>
+    <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" type="button" data-order-transition="confirmed">تأیید سفارش</button>
+        <button class="btn btn-primary" type="button" data-order-transition="fulfilled">ثبت تحویل</button>
+        <button class="btn btn-danger" type="button" data-order-transition="cancelled">لغو سفارش</button>
     </div>
     <div id="order-convert-block" hidden>
         <h3>صدور فاکتور</h3>
-        <p class="muted">یک فاکتور پیش‌نویس تازه از روی همین اقلام ساخته می‌شود. انتخاب انبار باعث می‌شود هنگام صدور فاکتور، موجودی کسر و بهای تمام‌شده ثبت شود.</p>
-        <form id="order-convert-form" class="toolbar" novalidate>
-            <label class="sr-only" for="order-convert-warehouse">انبار</label><select id="order-convert-warehouse" name="warehouse"><option value="">بدون اثر انبار</option></select>
-            <button class="button" type="submit">ساخت فاکتور از این سفارش</button>
+        <p class="text-muted">یک فاکتور پیش‌نویس تازه از روی همین اقلام ساخته می‌شود. انتخاب انبار باعث می‌شود هنگام صدور فاکتور، موجودی کسر و بهای تمام‌شده ثبت شود.</p>
+        <form id="order-convert-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
+            <label class="sr-only" for="order-convert-warehouse">انبار</label><select class="form-select form-select-solid w-auto flex-grow-1" id="order-convert-warehouse" name="warehouse"><option value="">بدون اثر انبار</option></select>
+            <button class="btn btn-primary" type="submit">ساخت فاکتور از این سفارش</button>
         </form>
     </div>
 </section>

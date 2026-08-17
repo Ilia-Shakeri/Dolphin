@@ -26,13 +26,33 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn('class ApiError', script)
         self.assertNotIn(".html", script)
 
-    def test_mobile_and_desktop_layout_contracts_exist(self):
-        stylesheet = (ROOT / "common" / "static" / "common" / "kariz.css").read_text(encoding="utf-8")
+    def test_the_shell_comes_from_the_theme_not_from_a_second_design_system(self):
+        """Layout is the purchased theme's job; the override sheet must not redo it.
 
-        self.assertIn("grid-template-columns: 17rem minmax(0, 1fr)", stylesheet)
-        self.assertIn("@media (max-width: 760px)", stylesheet)
-        self.assertIn("body.nav-open .sidebar", stylesheet)
-        self.assertIn("touch-action: manipulation", stylesheet)
+        The responsive shell, sidebar and mobile drawer are the theme's own
+        (`app-sidebar`, `data-kt-drawer`), so the rules that used to build a
+        bespoke grid here are gone on purpose. What is left is only behaviour
+        the theme does not cover, the brand mark, and the print sheet — and this
+        test fails if a parallel design system starts growing back.
+        """
+        stylesheet = (ROOT / "common" / "static" / "common" / "kariz.css").read_text(encoding="utf-8")
+        shell = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
+
+        # The theme provides the shell.
+        self.assertIn('class="app-sidebar flex-column"', shell)
+        self.assertIn('data-kt-drawer="true"', shell)
+        self.assertIn('data-kt-drawer-toggle="#nav-toggle"', shell)
+        self.assertIn("css/style.bundle.rtl.css", shell)
+        self.assertIn("js/scripts.bundle.js", shell)
+
+        # The override sheet stays small and must not restate the theme.
+        self.assertLess(len(stylesheet.splitlines()), 200)
+        for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
+            self.assertNotIn(recreated, stylesheet, recreated)
+        # It keeps exactly the three things it is for.
+        self.assertIn("[hidden]", stylesheet)
+        self.assertIn("dialog {", stylesheet)
+        self.assertIn("@media print", stylesheet)
 
 
 class AuthShellBrowserTests(TestCase):

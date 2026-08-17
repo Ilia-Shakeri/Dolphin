@@ -1,3 +1,4 @@
+import re
 from html.parser import HTMLParser
 from pathlib import Path
 from unittest import mock
@@ -92,8 +93,12 @@ class SalesShellContractTests(SimpleTestCase):
                 self.assertNotRegex(text, r"مخاطب|مخاطبین")
 
         lead_detail = (ROOT / "common" / "templates" / "common" / "leads" / "detail.html").read_text(encoding="utf-8")
-        self.assertIn('<label for="lead-customer">مشتری</label>', lead_detail)
-        self.assertIn('<label for="reassign-to-user">بازاریاب (کال سنتر)</label>', lead_detail)
+        # Wording, not markup: the label for each control must use the
+        # approved term. Matching the whole tag would break on any restyle.
+        for control, term in (("lead-customer", "مشتری"), ("reassign-to-user", "بازاریاب (کال سنتر)")):
+            label = re.search(rf'<label[^>]*for="{control}"[^>]*>([^<]*)</label>', lead_detail)
+            self.assertIsNotNone(label, control)
+            self.assertEqual(label.group(1).strip(), term)
 
         role_labels = {
             "sales_agent": "بازاریاب (کال سنتر)",
@@ -123,10 +128,16 @@ class SalesShellContractTests(SimpleTestCase):
         self.assertNotIn("مشخصات بازاریاب (کال سنتر) ذخیره شد", script)
 
         base = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
-        self.assertIn(
-            'data-module="customers" href="{% url \'common_ui:customers\' %}">مشتریان</a>',
+        # The customers entry is a theme menu item now, so its label sits in a
+        # `menu-title` span rather than directly inside the anchor. What is
+        # pinned here is the wording and the target, not the markup around them.
+        customers_link = re.search(
+            r'data-module="customers"[^>]*href="\{% url .common_ui:customers. %\}"[^>]*>(.*?)</a>',
             base,
+            re.DOTALL,
         )
+        self.assertIsNotNone(customers_link)
+        self.assertIn("مشتریان", customers_link.group(1))
         branding = (ROOT / "scripts" / "check_html_branding.py").read_text(encoding="utf-8")
         self.assertIn('"contacts": "مشتریان"', branding)
         self.assertIn('"customers": "مشتریان"', branding)
@@ -255,12 +266,12 @@ class SalesShellScopeTests(TestCase):
         agent_response = self.client.get(f"/leads/{unassigned.pk}/")
         agent_form = agent_response.content.decode("utf-8").split('id="edit-lead-form"', 1)[1].split("</form>", 1)[0]
         self.assertIn("<fieldset disabled>", agent_form)
-        self.assertNotIn('button class="button" type="submit"', agent_form)
+        self.assertNotIn('type="submit"', agent_form)
 
         self.client.force_login(self.manager)
         manager_form = self.client.get(f"/leads/{unassigned.pk}/").content.decode("utf-8").split('id="edit-lead-form"', 1)[1].split("</form>", 1)[0]
         self.assertIn("<fieldset>", manager_form)
-        self.assertIn('button class="button" type="submit"', manager_form)
+        self.assertIn('type="submit"', manager_form)
 
 
 class SalesShellApiTests(TestCase):
@@ -440,7 +451,9 @@ class SalesDocumentFormMarkupTests(TestCase):
         elements = self._parsed_page()
         paragraphs = self._element(elements, "p", **{"data-error-for": "reason"})
         self.assertEqual(len(paragraphs), 1)
-        self.assertEqual(paragraphs[0].get("class"), "field-error")
+        # What matters is that it is a separate <p> carrying the hook
+        # showError() writes into; the visual class comes from the theme.
+        self.assertIn("text-danger", paragraphs[0].get("class", ""))
 
     def test_reason_input_carries_no_swallowed_attributes(self):
         elements = self._parsed_page()
@@ -448,7 +461,8 @@ class SalesDocumentFormMarkupTests(TestCase):
         # showError() targets [data-error-for]; if that attribute lands on the
         # input itself, the message is written to an element that renders none.
         self.assertNotIn("data-error-for", reason)
-        self.assertEqual(set(reason), {"id", "name", "maxlength"})
+        # Only the expected attributes, plus the theme's styling class.
+        self.assertEqual(set(reason) - {"class"}, {"id", "name", "maxlength"})
 
     def test_every_transition_form_field_has_its_own_error_target(self):
         elements = self._parsed_page()

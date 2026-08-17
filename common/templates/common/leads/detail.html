@@ -3,33 +3,33 @@
 {% block page_id %}lead-detail{% endblock %}
 {% block body_data %} data-lead-id="{{ lead_id }}"{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">پیگیری فروش</p><h1>جزئیات سرنخ</h1></div><a class="button button-muted" href="{% url 'common_ui:leads' %}">بازگشت به فهرست</a></section>
-<div id="lead-detail-loading" class="card state">در حال دریافت سرنخ…</div>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">پیگیری فروش</p><h1>جزئیات سرنخ</h1></div><a class="btn btn-light" href="{% url 'common_ui:leads' %}">بازگشت به فهرست</a></section>
+<div id="lead-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت سرنخ…</div></div>
 <section id="lead-detail-content" hidden>
-    <form id="edit-lead-form" action="/api/v1/leads/{{ lead_id }}/" method="post" class="card" novalidate>
+    <form id="edit-lead-form" action="/api/v1/leads/{{ lead_id }}/" method="post" class="card mb-5 mb-xl-8" novalidate>
         {% csrf_token %}<h2>مشخصات سرنخ</h2>
         <fieldset{% if not can_edit_lead %} disabled{% endif %}>
-        <div class="form-grid">
-            <div><label for="lead-customer">مشتری</label><input id="lead-customer" type="text" disabled><a id="lead-customer-profile" class="inline-link" href="#">باز کردن پروفایل مشتری</a></div>
-            <div><label for="lead-status">وضعیت سرور</label><input id="lead-status" type="text" disabled></div>
-            <div><label for="lead-assigned-to">مسئول</label><input id="lead-assigned-to" type="text" disabled></div>
-            <div><label for="lead-created-by">ثبت‌کننده</label><input id="lead-created-by" type="text" disabled></div>
-            <div><label for="edit-lead-source">منبع</label><input id="edit-lead-source" name="source" maxlength="100"><p class="field-error" data-error-for="source"></p></div>
-            <div><label for="edit-lead-campaign">کمپین یا نوبت</label><input id="edit-lead-campaign" name="campaign_or_batch" maxlength="100"><p class="field-error" data-error-for="campaign_or_batch"></p></div>
-            <div><label for="edit-lead-product">محصول مورد علاقه</label><select id="edit-lead-product" name="interested_product"><option value="">بدون محصول</option></select><p class="field-error" data-error-for="interested_product"></p></div>
-            <div><label for="edit-lead-follow-up">پیگیری بعدی</label><input id="edit-lead-follow-up" name="next_follow_up_at" type="text" data-jalali="datetime"><p class="field-error" data-error-for="next_follow_up_at"></p></div>
-            <div class="full-field"><label for="edit-lead-notes">یادداشت</label><textarea id="edit-lead-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-customer">مشتری</label><input class="form-control form-control-solid" id="lead-customer" type="text" disabled><a id="lead-customer-profile" class="link-primary fw-semibold" href="#">باز کردن پروفایل مشتری</a></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-status">وضعیت سرور</label><input class="form-control form-control-solid" id="lead-status" type="text" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-assigned-to">مسئول</label><input class="form-control form-control-solid" id="lead-assigned-to" type="text" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-created-by">ثبت‌کننده</label><input class="form-control form-control-solid" id="lead-created-by" type="text" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-source">منبع</label><input class="form-control form-control-solid" id="edit-lead-source" name="source" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="source"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-campaign">کمپین یا نوبت</label><input class="form-control form-control-solid" id="edit-lead-campaign" name="campaign_or_batch" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="campaign_or_batch"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-product">محصول مورد علاقه</label><select class="form-select form-select-solid" id="edit-lead-product" name="interested_product"><option value="">بدون محصول</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="interested_product"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-follow-up">پیگیری بعدی</label><input class="form-control form-control-solid" id="edit-lead-follow-up" name="next_follow_up_at" type="text" data-jalali="datetime"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="next_follow_up_at"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="edit-lead-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-lead-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
-        <p class="muted">مشتری، وضعیت، مالکیت و اطلاعات تخصیص از این فرم تغییر نمی‌کنند.</p>
-        {% if can_edit_lead %}<div class="form-actions"><button class="button" type="submit">ذخیره تغییرات</button></div>{% else %}<p class="muted">ویرایش برای کارشناس فقط پس از تخصیص این سرنخ مجاز است.</p>{% endif %}
+        <p class="text-muted">مشتری، وضعیت، مالکیت و اطلاعات تخصیص از این فرم تغییر نمی‌کنند.</p>
+        {% if can_edit_lead %}<div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تغییرات</button></div>{% else %}<p class="text-muted">ویرایش برای کارشناس فقط پس از تخصیص این سرنخ مجاز است.</p>{% endif %}
         </fieldset>
     </form>
-    {% if can_reassign_leads %}<form id="reassign-lead-form" action="/api/v1/leads/{{ lead_id }}/reassign/" method="post" class="card" novalidate>
-        {% csrf_token %}<h2>تخصیص یا انتقال دستی</h2><div class="form-grid">
-            <div><label for="reassign-to-user">بازاریاب (کال سنتر)</label><select id="reassign-to-user" name="to_user" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="to_user"></p></div>
-            <div><label for="reassign-reason">دلیل اختیاری</label><input id="reassign-reason" name="reason" maxlength="500"><p class="field-error" data-error-for="reason"></p></div>
-        </div><div class="form-actions"><button class="button" type="submit">ثبت تخصیص</button></div>
+    {% if can_reassign_leads %}<form id="reassign-lead-form" action="/api/v1/leads/{{ lead_id }}/reassign/" method="post" class="card mb-5 mb-xl-8" novalidate>
+        {% csrf_token %}<h2>تخصیص یا انتقال دستی</h2><div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="reassign-to-user">بازاریاب (کال سنتر)</label><select class="form-select form-select-solid" id="reassign-to-user" name="to_user" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_user"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="reassign-reason">دلیل اختیاری</label><input class="form-control form-control-solid" id="reassign-reason" name="reason" maxlength="500"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div>
+        </div><div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت تخصیص</button></div>
     </form>{% endif %}
-    <section class="card"><h2>تاریخچه تخصیص</h2><div id="history-loading" class="state">در حال دریافت تاریخچه…</div><div id="history-empty" class="state" hidden>تخصیصی ثبت نشده است.</div><div id="history-table-wrap" class="table-wrap" hidden><table><thead><tr><th>از</th><th>به</th><th>تغییردهنده</th><th>دلیل</th><th>زمان</th></tr></thead><tbody id="history-table-body"></tbody></table></div><nav id="history-pagination" class="pagination" aria-label="صفحه‌بندی تاریخچه" hidden><button id="history-prev" class="button button-muted" type="button">قبلی</button><span id="history-page-label"></span><button id="history-next" class="button button-muted" type="button">بعدی</button></nav></section>
+    <section class="card mb-5 mb-xl-8"><div class="card-body"><h2>تاریخچه تخصیص</h2><div id="history-loading" class="text-center text-muted py-10">در حال دریافت تاریخچه…</div><div id="history-empty" class="text-center text-muted py-10" hidden>تخصیصی ثبت نشده است.</div><div id="history-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>از</th><th>به</th><th>تغییردهنده</th><th>دلیل</th><th>زمان</th></tr></thead><tbody id="history-table-body"></tbody></table></div><nav id="history-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی تاریخچه" hidden><button id="history-prev" class="btn btn-light" type="button">قبلی</button><span id="history-page-label"></span><button id="history-next" class="btn btn-light" type="button">بعدی</button></nav></div></section>
 </section>
 {% endblock %}

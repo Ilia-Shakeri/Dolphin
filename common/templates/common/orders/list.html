@@ -2,29 +2,29 @@
 {% block title %}سفارش‌ها{% endblock %}
 {% block page_id %}orders{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">اسناد بازرگانی</p><h1>سفارش‌ها</h1></div><button id="open-create-order" class="button" type="button">سفارش تازه</button></section>
-<section class="card">
-    <form id="order-search-form" action="{% url 'common_ui:orders' %}" method="get" class="toolbar">
-        <label class="sr-only" for="order-search">جستجوی سفارش</label><input id="order-search" name="search" type="search" placeholder="شماره، مشتری یا کالا">
-        <label class="sr-only" for="order-status-filter">وضعیت</label><select id="order-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="confirmed">تأییدشده</option><option value="fulfilled">تحویل‌شده</option><option value="cancelled">لغوشده</option></select>
-        <label class="sr-only" for="order-ordering">مرتب‌سازی</label><select id="order-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option><option value="-total_amount">بیشترین مبلغ</option></select>
-        <button class="button button-muted" type="submit">اعمال</button>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">اسناد بازرگانی</p><h1>سفارش‌ها</h1></div><button id="open-create-order" class="btn btn-primary" type="button">سفارش تازه</button></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="order-search-form" action="{% url 'common_ui:orders' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="order-search">جستجوی سفارش</label><input class="form-control form-control-solid w-auto flex-grow-1" id="order-search" name="search" type="search" placeholder="شماره، مشتری یا کالا">
+        <label class="sr-only" for="order-status-filter">وضعیت</label><select class="form-select form-select-solid w-auto flex-grow-1" id="order-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="confirmed">تأییدشده</option><option value="fulfilled">تحویل‌شده</option><option value="cancelled">لغوشده</option></select>
+        <label class="sr-only" for="order-ordering">مرتب‌سازی</label><select class="form-select form-select-solid w-auto flex-grow-1" id="order-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option><option value="-total_amount">بیشترین مبلغ</option></select>
+        <button class="btn btn-light" type="submit">اعمال</button>
     </form>
-    <div id="orders-loading" class="state">در حال دریافت سفارش‌ها…</div><div id="orders-empty" class="state" hidden>سفارشی پیدا نشد.</div>
-    <div id="orders-table-wrap" class="table-wrap" hidden><table><thead><tr><th>شماره</th><th>مشتری</th><th>وضعیت</th><th>مبلغ کل</th><th>زمان تأیید</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody id="orders-table-body"></tbody></table></div>
-    <nav id="orders-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="orders-prev" class="button button-muted" type="button">قبلی</button><span id="orders-page-label"></span><button id="orders-next" class="button button-muted" type="button">بعدی</button></nav>
-</section>
+    <div id="orders-loading" class="text-center text-muted py-10">در حال دریافت سفارش‌ها…</div><div id="orders-empty" class="text-center text-muted py-10" hidden>سفارشی پیدا نشد.</div>
+    <div id="orders-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شماره</th><th>مشتری</th><th>وضعیت</th><th>مبلغ کل</th><th>زمان تأیید</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody id="orders-table-body"></tbody></table></div>
+    <nav id="orders-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="orders-prev" class="btn btn-light" type="button">قبلی</button><span id="orders-page-label"></span><button id="orders-next" class="btn btn-light" type="button">بعدی</button></nav>
+</div></section>
 <dialog id="create-order-dialog" aria-labelledby="create-order-title">
     <form id="create-order-form" action="/api/v1/orders/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="create-order-title">سفارش تازه</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="form-grid">
-            <div><label for="create-order-customer">مشتری</label><select id="create-order-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="customer"></p></div>
-            <div><label for="create-order-tax">نرخ مالیات (٪)</label><input id="create-order-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"><p class="field-error" data-error-for="tax_rate"></p></div>
-            <div><label for="create-order-product">کالای سطر اول</label><select id="create-order-product" name="product" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="items"></p></div>
-            <div><label for="create-order-quantity">تعداد سطر اول</label><input id="create-order-quantity" name="quantity" type="number" min="1" step="1" value="1" required></div>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">سفارش تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-customer">مشتری</label><select class="form-select form-select-solid" id="create-order-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="create-order-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-product">کالای سطر اول</label><select class="form-select form-select-solid" id="create-order-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="items"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-quantity">تعداد سطر اول</label><input class="form-control form-control-solid" id="create-order-quantity" name="quantity" type="number" min="1" step="1" value="1" required></div>
         </div>
-        <p class="muted">سفارش به‌صورت پیش‌نویس با یک سطر ساخته می‌شود؛ سطرهای بعدی در صفحه جزئیات ثبت می‌شوند.</p>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت سفارش</button></div>
+        <p class="text-muted">سفارش به‌صورت پیش‌نویس با یک سطر ساخته می‌شود؛ سطرهای بعدی در صفحه جزئیات ثبت می‌شوند.</p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت سفارش</button></div>
     </form>
 </dialog>
 {% endblock %}

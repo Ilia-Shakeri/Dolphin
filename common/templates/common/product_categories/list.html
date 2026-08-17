@@ -2,29 +2,29 @@
 {% block title %}دسته‌بندی محصولات{% endblock %}
 {% block page_id %}product-categories{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">کاتالوگ فروش</p><h1>دسته‌بندی محصولات</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:products' %}">محصولات</a>{% if can_manage_products %}<button id="open-create-product-category" class="button" type="button">دسته‌بندی تازه</button>{% endif %}</div></section>
-<section class="card">
-    <form id="product-category-search-form" action="{% url 'common_ui:product-categories' %}" method="get" class="toolbar">
-        <label class="sr-only" for="product-category-search">جستجوی دسته‌بندی</label><input id="product-category-search" name="search" type="search" placeholder="نام، کد یا شرح دسته‌بندی">
-        <label class="sr-only" for="product-category-status-filter">وضعیت</label><select id="product-category-status-filter" name="is_active"><option value="">همه دسته‌بندی‌ها</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
-        <label class="sr-only" for="product-category-ordering">مرتب‌سازی</label><select id="product-category-ordering" name="ordering"><option value="display_order">ترتیب نمایش</option><option value="name">نام</option><option value="code">کد</option><option value="-created_at">تازه‌ترین</option></select>
-        <button class="button button-muted" type="submit">اعمال</button>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">کاتالوگ فروش</p><h1>دسته‌بندی محصولات</h1></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:products' %}">محصولات</a>{% if can_manage_products %}<button id="open-create-product-category" class="btn btn-primary" type="button">دسته‌بندی تازه</button>{% endif %}</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="product-category-search-form" action="{% url 'common_ui:product-categories' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="product-category-search">جستجوی دسته‌بندی</label><input class="form-control form-control-solid w-auto flex-grow-1" id="product-category-search" name="search" type="search" placeholder="نام، کد یا شرح دسته‌بندی">
+        <label class="sr-only" for="product-category-status-filter">وضعیت</label><select class="form-select form-select-solid w-auto flex-grow-1" id="product-category-status-filter" name="is_active"><option value="">همه دسته‌بندی‌ها</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
+        <label class="sr-only" for="product-category-ordering">مرتب‌سازی</label><select class="form-select form-select-solid w-auto flex-grow-1" id="product-category-ordering" name="ordering"><option value="display_order">ترتیب نمایش</option><option value="name">نام</option><option value="code">کد</option><option value="-created_at">تازه‌ترین</option></select>
+        <button class="btn btn-light" type="submit">اعمال</button>
     </form>
-    <div id="product-categories-loading" class="state">در حال دریافت دسته‌بندی‌ها…</div><div id="product-categories-empty" class="state" hidden>دسته‌بندی پیدا نشد.</div>
-    <div id="product-categories-table-wrap" class="table-wrap" hidden><table><thead><tr><th>ترتیب</th><th>کد</th><th>نام</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="product-categories-table-body"></tbody></table></div>
-    <nav id="product-categories-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="product-categories-prev" class="button button-muted" type="button">قبلی</button><span id="product-categories-page-label"></span><button id="product-categories-next" class="button button-muted" type="button">بعدی</button></nav>
-</section>
+    <div id="product-categories-loading" class="text-center text-muted py-10">در حال دریافت دسته‌بندی‌ها…</div><div id="product-categories-empty" class="text-center text-muted py-10" hidden>دسته‌بندی پیدا نشد.</div>
+    <div id="product-categories-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>ترتیب</th><th>کد</th><th>نام</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="product-categories-table-body"></tbody></table></div>
+    <nav id="product-categories-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="product-categories-prev" class="btn btn-light" type="button">قبلی</button><span id="product-categories-page-label"></span><button id="product-categories-next" class="btn btn-light" type="button">بعدی</button></nav>
+</div></section>
 {% if can_manage_products %}
 <dialog id="create-product-category-dialog" aria-labelledby="create-product-category-title">
     <form id="create-product-category-form" action="/api/v1/product-categories/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="create-product-category-title">دسته‌بندی تازه</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="form-grid">
-            <div><label for="create-product-category-code">کد پایدار</label><input id="create-product-category-code" name="code" required maxlength="64" dir="ltr" pattern="[a-z0-9][a-z0-9_-]*"><p class="field-error" data-error-for="code"></p></div>
-            <div><label for="create-product-category-name">نام</label><input id="create-product-category-name" name="name" required maxlength="120"><p class="field-error" data-error-for="name"></p></div>
-            <div><label for="create-product-category-order">ترتیب نمایش</label><input id="create-product-category-order" name="display_order" type="number" min="0" step="1" value="0" required><p class="field-error" data-error-for="display_order"></p></div>
-            <div class="full-field"><label for="create-product-category-description">شرح</label><textarea id="create-product-category-description" name="description" maxlength="2000"></textarea><p class="field-error" data-error-for="description"></p></div>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-product-category-title">دسته‌بندی تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-category-code">کد پایدار</label><input class="form-control form-control-solid" id="create-product-category-code" name="code" required maxlength="64" dir="ltr" pattern="[a-z0-9][a-z0-9_-]*"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="code"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-category-name">نام</label><input class="form-control form-control-solid" id="create-product-category-name" name="name" required maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-category-order">ترتیب نمایش</label><input class="form-control form-control-solid" id="create-product-category-order" name="display_order" type="number" min="0" step="1" value="0" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="display_order"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="create-product-category-description">شرح</label><textarea class="form-control form-control-solid" id="create-product-category-description" name="description" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="description"></p></div>
         </div>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت دسته‌بندی</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت دسته‌بندی</button></div>
     </form>
 </dialog>
 {% endif %}

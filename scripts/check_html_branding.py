@@ -360,7 +360,12 @@ def validate(path: Path) -> list[str]:
             errors.append("invalid Kariz description")
     if TOP_VENDOR_COMMENT_RE.search(text):
         errors.append("vendor header comment remains")
-    if VENDOR_TEXT_RE.search(text):
+    # A Django `{% comment %}` is stripped before the page is sent, so naming
+    # the design system there is not customer-visible branding. What renders is
+    # what this gate is about; the rendered-output check lives in
+    # common/tests/test_ui_connectivity.py.
+    rendered = re.sub(r"{% comment %}.*?{% endcomment %}", "", text, flags=re.DOTALL)
+    if VENDOR_TEXT_RE.search(rendered):
         errors.append("vendor name remains")
     if VENDOR_URL_RE.search(text):
         errors.append("vendor, support, purchase, or social URL remains")

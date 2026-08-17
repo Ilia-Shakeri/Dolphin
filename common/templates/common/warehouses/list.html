@@ -2,30 +2,30 @@
 {% block title %}انبارها{% endblock %}
 {% block page_id %}warehouses{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">انبار و موجودی</p><h1>انبارها</h1></div><div class="row-actions"><a class="button button-muted" href="{% url 'common_ui:stock-levels' %}">موجودی کالا</a>{% if can_manage_inventory %}<button id="open-create-warehouse" class="button" type="button">انبار تازه</button>{% endif %}</div></section>
-<section class="card">
-    <form id="warehouse-search-form" action="{% url 'common_ui:warehouses' %}" method="get" class="toolbar">
-        <label class="sr-only" for="warehouse-search">جستجوی انبار</label><input id="warehouse-search" name="search" type="search" placeholder="کد، نام یا نشانی">
-        <label class="sr-only" for="warehouse-status-filter">وضعیت</label><select id="warehouse-status-filter" name="is_active"><option value="">همه انبارها</option><option value="true">فعال</option>{% if can_manage_inventory %}<option value="false">غیرفعال</option>{% endif %}</select>
-        <label class="sr-only" for="warehouse-ordering">مرتب‌سازی</label><select id="warehouse-ordering" name="ordering"><option value="name">نام</option><option value="code">کد</option><option value="-created_at">تازه‌ترین</option></select>
-        <button class="button button-muted" type="submit">اعمال</button>
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">انبار و موجودی</p><h1>انبارها</h1></div><div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:stock-levels' %}">موجودی کالا</a>{% if can_manage_inventory %}<button id="open-create-warehouse" class="btn btn-primary" type="button">انبار تازه</button>{% endif %}</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="warehouse-search-form" action="{% url 'common_ui:warehouses' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="warehouse-search">جستجوی انبار</label><input class="form-control form-control-solid w-auto flex-grow-1" id="warehouse-search" name="search" type="search" placeholder="کد، نام یا نشانی">
+        <label class="sr-only" for="warehouse-status-filter">وضعیت</label><select class="form-select form-select-solid w-auto flex-grow-1" id="warehouse-status-filter" name="is_active"><option value="">همه انبارها</option><option value="true">فعال</option>{% if can_manage_inventory %}<option value="false">غیرفعال</option>{% endif %}</select>
+        <label class="sr-only" for="warehouse-ordering">مرتب‌سازی</label><select class="form-select form-select-solid w-auto flex-grow-1" id="warehouse-ordering" name="ordering"><option value="name">نام</option><option value="code">کد</option><option value="-created_at">تازه‌ترین</option></select>
+        <button class="btn btn-light" type="submit">اعمال</button>
     </form>
-    <div id="warehouses-loading" class="state">در حال دریافت انبارها…</div><div id="warehouses-empty" class="state" hidden>انباری پیدا نشد.</div>
-    <div id="warehouses-table-wrap" class="table-wrap" hidden><table><thead><tr><th>کد</th><th>نام</th><th>نشانی</th><th>پیش‌فرض</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="warehouses-table-body"></tbody></table></div>
-    <nav id="warehouses-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="warehouses-prev" class="button button-muted" type="button">قبلی</button><span id="warehouses-page-label"></span><button id="warehouses-next" class="button button-muted" type="button">بعدی</button></nav>
-</section>
+    <div id="warehouses-loading" class="text-center text-muted py-10">در حال دریافت انبارها…</div><div id="warehouses-empty" class="text-center text-muted py-10" hidden>انباری پیدا نشد.</div>
+    <div id="warehouses-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>کد</th><th>نام</th><th>نشانی</th><th>پیش‌فرض</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="warehouses-table-body"></tbody></table></div>
+    <nav id="warehouses-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="warehouses-prev" class="btn btn-light" type="button">قبلی</button><span id="warehouses-page-label"></span><button id="warehouses-next" class="btn btn-light" type="button">بعدی</button></nav>
+</div></section>
 {% if can_manage_inventory %}
 <dialog id="create-warehouse-dialog" aria-labelledby="create-warehouse-title">
     <form id="create-warehouse-form" action="/api/v1/warehouses/" method="post" novalidate>
-        {% csrf_token %}<div class="dialog-head"><h2 id="create-warehouse-title">انبار تازه</h2><button class="icon-button" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="form-grid">
-            <div><label for="create-warehouse-code">کد انبار</label><input id="create-warehouse-code" name="code" required maxlength="64" dir="ltr"><p class="field-error" data-error-for="code"></p></div>
-            <div><label for="create-warehouse-name">نام</label><input id="create-warehouse-name" name="name" required maxlength="120"><p class="field-error" data-error-for="name"></p></div>
-            <div><label for="create-warehouse-default">انبار پیش‌فرض</label><select id="create-warehouse-default" name="is_default"><option value="false">خیر</option><option value="true">بله</option></select><p class="field-error" data-error-for="is_default"></p></div>
-            <div class="full-field"><label for="create-warehouse-address">نشانی</label><textarea id="create-warehouse-address" name="address" maxlength="2000"></textarea><p class="field-error" data-error-for="address"></p></div>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-warehouse-title">انبار تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-warehouse-code">کد انبار</label><input class="form-control form-control-solid" id="create-warehouse-code" name="code" required maxlength="64" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="code"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-warehouse-name">نام</label><input class="form-control form-control-solid" id="create-warehouse-name" name="name" required maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-warehouse-default">انبار پیش‌فرض</label><select class="form-select form-select-solid" id="create-warehouse-default" name="is_default"><option value="false">خیر</option><option value="true">بله</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="is_default"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="create-warehouse-address">نشانی</label><textarea class="form-control form-control-solid" id="create-warehouse-address" name="address" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="address"></p></div>
         </div>
-        <p class="muted">کد انبار پس از ثبت تغییر نمی‌کند. تنها یک انبار می‌تواند پیش‌فرض باشد.</p>
-        <div class="form-actions"><button class="button button-muted" type="button" data-close-dialog>انصراف</button><button class="button" type="submit">ثبت انبار</button></div>
+        <p class="text-muted">کد انبار پس از ثبت تغییر نمی‌کند. تنها یک انبار می‌تواند پیش‌فرض باشد.</p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت انبار</button></div>
     </form>
 </dialog>
 {% endif %}

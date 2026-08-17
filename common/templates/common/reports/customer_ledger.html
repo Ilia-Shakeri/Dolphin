@@ -2,11 +2,11 @@
 {% block title %}دفتر حساب مشتری{% endblock %}
 {% block page_id %}customer-ledger{% endblock %}
 {% block content %}
-<section class="page-head"><div><p class="eyebrow">گزارش‌های مالی</p><h1>دفتر حساب مشتری</h1></div></section>
-<section class="card">
-    <form id="ledger-filter-form" action="{% url 'common_ui:customer-ledger' %}" method="get" class="toolbar">
-        <label class="sr-only" for="ledger-customer">مشتری</label><select id="ledger-customer" name="customer" required><option value="">در حال دریافت…</option></select>
-        <label class="sr-only" for="ledger-entry-type">نوع رویداد</label><select id="ledger-entry-type" name="entry_type">
+<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</p><h1>دفتر حساب مشتری</h1></div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="ledger-filter-form" action="{% url 'common_ui:customer-ledger' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+        <label class="sr-only" for="ledger-customer">مشتری</label><select class="form-select form-select-solid w-auto flex-grow-1" id="ledger-customer" name="customer" required><option value="">در حال دریافت…</option></select>
+        <label class="sr-only" for="ledger-entry-type">نوع رویداد</label><select class="form-select form-select-solid w-auto flex-grow-1" id="ledger-entry-type" name="entry_type">
             <option value="">همه رویدادها</option>
             <option value="opening_balance">مانده اول دوره</option>
             <option value="invoice_issued">صدور فاکتور</option>
@@ -14,30 +14,30 @@
             <option value="payment_received">دریافت وجه</option>
             <option value="payment_cancelled">ابطال دریافت</option>
         </select>
-        <button class="button" type="submit">نمایش دفتر</button>
+        <button class="btn btn-primary" type="submit">نمایش دفتر</button>
     </form>
-    <div class="metric-grid">
-        <div class="metric"><span class="muted">مانده جاری</span><strong id="ledger-balance">—</strong></div>
-        <div class="metric"><span class="muted">مشتری</span><strong id="ledger-customer-name">—</strong></div>
+    <div class="row g-5 mb-6">
+        <div class="card card-flush h-100"><span class="text-muted">مانده جاری</span><strong id="ledger-balance">—</strong></div>
+        <div class="card card-flush h-100"><span class="text-muted">مشتری</span><strong id="ledger-customer-name">—</strong></div>
     </div>
-    <p class="muted">مانده مثبت یعنی مشتری بدهکار است و مانده منفی یعنی بستانکار. دفتر فقط افزوده می‌شود؛ هیچ ردیفی ویرایش یا حذف نمی‌شود و اصلاح با ردیف جبرانی انجام می‌گیرد.</p>
-</section>
-<section class="card">
-    <div id="ledger-entries-loading" class="state">مشتری را انتخاب کنید.</div><div id="ledger-entries-empty" class="state" hidden>رویدادی ثبت نشده است.</div>
-    <div id="ledger-entries-table-wrap" class="table-wrap" hidden><table><thead><tr><th>زمان</th><th>رویداد</th><th>سند</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th><th>ثبت‌کننده</th></tr></thead><tbody id="ledger-entries-table-body"></tbody></table></div>
-    <nav id="ledger-entries-pagination" class="pagination" aria-label="صفحه‌بندی" hidden><button id="ledger-entries-prev" class="button button-muted" type="button">قبلی</button><span id="ledger-entries-page-label"></span><button id="ledger-entries-next" class="button button-muted" type="button">بعدی</button></nav>
-</section>
-<section class="card">
+    <p class="text-muted">مانده مثبت یعنی مشتری بدهکار است و مانده منفی یعنی بستانکار. دفتر فقط افزوده می‌شود؛ هیچ ردیفی ویرایش یا حذف نمی‌شود و اصلاح با ردیف جبرانی انجام می‌گیرد.</p>
+</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div id="ledger-entries-loading" class="text-center text-muted py-10">مشتری را انتخاب کنید.</div><div id="ledger-entries-empty" class="text-center text-muted py-10" hidden>رویدادی ثبت نشده است.</div>
+    <div id="ledger-entries-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>زمان</th><th>رویداد</th><th>سند</th><th>بدهکار</th><th>بستانکار</th><th>مانده</th><th>ثبت‌کننده</th></tr></thead><tbody id="ledger-entries-table-body"></tbody></table></div>
+    <nav id="ledger-entries-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden><button id="ledger-entries-prev" class="btn btn-light" type="button">قبلی</button><span id="ledger-entries-page-label"></span><button id="ledger-entries-next" class="btn btn-light" type="button">بعدی</button></nav>
+</div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
     <h2>ثبت مانده اول دوره</h2>
-    <p class="muted">مانده‌ای که پیش از راه‌اندازی این سامانه وجود داشته است. برای هر مشتری تنها یک بار مجاز است؛ اصلاح بعدی باید به‌صورت رویداد جداگانه ثبت شود.</p>
+    <p class="text-muted">مانده‌ای که پیش از راه‌اندازی این سامانه وجود داشته است. برای هر مشتری تنها یک بار مجاز است؛ اصلاح بعدی باید به‌صورت رویداد جداگانه ثبت شود.</p>
     <form id="opening-balance-form" action="/api/v1/customer-ledger/opening-balance/" method="post" novalidate>
         {% csrf_token %}
-        <div class="form-grid">
-            <div><label for="opening-balance-customer">مشتری</label><select id="opening-balance-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="field-error" data-error-for="customer"></p></div>
-            <div><label for="opening-balance-amount">مبلغ بدهکاری</label><input id="opening-balance-amount" name="amount" type="number" min="0.01" step="0.01" required><p class="field-error" data-error-for="amount"></p></div>
-            <div class="full-field"><label for="opening-balance-notes">یادداشت</label><textarea id="opening-balance-notes" name="notes" maxlength="4000"></textarea><p class="field-error" data-error-for="notes"></p></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="opening-balance-customer">مشتری</label><select class="form-select form-select-solid" id="opening-balance-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="opening-balance-amount">مبلغ بدهکاری</label><input class="form-control form-control-solid" id="opening-balance-amount" name="amount" type="number" min="0.01" step="0.01" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="opening-balance-notes">یادداشت</label><textarea class="form-control form-control-solid" id="opening-balance-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
-        <div class="form-actions"><button class="button" type="submit">ثبت مانده اول دوره</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت مانده اول دوره</button></div>
     </form>
-</section>
+</div></section>
 {% endblock %}
