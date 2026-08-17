@@ -3873,6 +3873,14 @@
     setupJalaliInputs();
     setupNav();
     setupLogout();
+
+    // A denied page is served with the error card in place of its content, so
+    // its module has no markup to bind to and every call it makes would be
+    // refused anyway. Navigation and sign-out above still work; the module does
+    // not run, which is what stopped an uncaught TypeError from being thrown
+    // behind the Persian "دسترسی مجاز نیست" card.
+    if (document.getElementById("app-error")) return;
+
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();
     if (page === "dashboard") setupDashboard();

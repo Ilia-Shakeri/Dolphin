@@ -54,6 +54,22 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn("dialog {", stylesheet)
         self.assertIn("@media print", stylesheet)
 
+    def test_a_denied_page_runs_no_page_module(self):
+        """The denial card replaces the page's markup, so its module must not run.
+
+        It used to run anyway and throw an uncaught TypeError behind the Persian
+        "not permitted" card — invisible to the user, but a real error on a
+        served page. Navigation and sign-out still have to work there, so the
+        guard sits after them.
+        """
+        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        guard = 'if (document.getElementById("app-error")) return;'
+        self.assertIn(guard, script)
+        before, _, after = script.partition(guard)
+        for always_wired in ("setupNav();", "setupLogout();"):
+            self.assertIn(always_wired, before, always_wired)
+        self.assertIn('const page = document.body.dataset.page;', after)
+
     def test_the_print_sheet_fits_a_phone(self):
         """The print page loads no theme bundle, so it owns its own containment.
 
