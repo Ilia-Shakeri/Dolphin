@@ -151,7 +151,9 @@ The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 - `sales_agent`: `بازاریاب (کال سنتر)`; a User and never a Customer; every marketer has an individual account; shared marketer accounts are prohibited.
 - `sales_manager`: `مدیر فروشگاه`; the first client's store/sales manager; operational business data only, **no user-administration capability**.
 - `company_it`: `مدیر فنی مشتری`; **disabled by default for Client 1** (see `PROFILE-001` / `DOC-COMPANY-IT-001` in `KARIZ_PROJECT_HANDOFF.md`); a future limited account requires a separate approved contract and must never grant, target, modify, or administer `platform_admin`.
-- `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz owner/developer team only; for Client 1 this is the **only** role permitted to create, edit, deactivate, reactivate, or reset passwords for application users, and the only role permitted to change application role or operator workstream. Django Admin and server/database administration are not exposed to customer users under any role.
+- `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz owner/developer team only; for Client 1 this is the **only** role permitted to create, edit, deactivate, or reactivate application users, and the only role permitted to change application role or operator workstream. Django Admin and server/database administration are not exposed to customer users under any role.
+
+**Correction (product-owner decision, 2026-08-18): no role changes a password.** A password is set once, when the account is created. No interface offers to change one and the API refuses `password` on update, for every role including `platform_admin`. This removes an in-application credential-reset path entirely rather than restricting it. A forgotten password is recovered on the deployment host with `manage.py changepassword`, which needs server access rather than a session; the consequence — that account recovery now requires the operator, and that there is still no self-service reset (requirement 1.6 remains `BLOCKED_EXTERNAL` for want of an email/SMS provider) — is accepted deliberately.
 
 Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged.
 
@@ -195,7 +197,8 @@ else may re-grant it.
 | View company/user KPIs | No | Yes | Yes | Yes |
 | Export own report | Yes | Yes | Yes | Yes |
 | Export company report | No | Yes | Yes | Yes |
-| Manage ordinary users (create/edit/deactivate/reactivate/reset password) | No | **No** | **No** | Yes, every clean CRM identity |
+| Manage ordinary users (create/edit/deactivate/reactivate) | No | **No** | **No** | Yes, every clean CRM identity |
+| Change an existing user's password | No | No | No | **No — not exposed to any role** |
 | Change role or operational workstream | No | **No** | **No** | Yes |
 | Assign CRM roles | No | No | No | Yes |
 | Grant platform admin/superuser | No | No | No | Yes |

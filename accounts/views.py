@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -172,8 +173,17 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return queryset
 
     def _require_admin(self):
+        """Writing a user account is Platform Admin only.
+
+        The narrower per-role rules that used to follow this check — what a
+        Sales Manager or Company IT may do to which target — were unreachable
+        behind it, and read as live policy while enforcing nothing. The real
+        boundary for those roles is that they hold no `users.manage_*`
+        capability at all, so `IsUserReader` refuses them before this runs; the
+        service layer in `accounts/services.py` keeps the scoped rules for the
+        day a deployment profile grants one of them a narrower capability.
+        """
         if self.request.user.role != User.Role.PLATFORM_ADMIN:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("User administration is not allowed.")
 
     def perform_create(self, serializer):
@@ -182,12 +192,6 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
     def perform_update(self, serializer):
         self._require_admin()
-        if self.request.user.role == User.Role.SALES_MANAGER and serializer.instance.role != User.Role.SALES_AGENT:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Sales Manager may manage Sales Agent accounts only.")
-        if self.request.user.role == User.Role.COMPANY_IT and serializer.instance.role == User.Role.PLATFORM_ADMIN:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Company IT cannot manage Platform Admin access.")
         serializer.save()
 
     @extend_schema(
