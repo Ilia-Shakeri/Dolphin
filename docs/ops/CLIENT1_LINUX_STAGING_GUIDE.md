@@ -56,13 +56,63 @@ timedatectl show -p NTPSynchronized --value   # expect: yes
 nproc; free -m; df -h /var/lib/docker
 ```
 
-If Docker is absent, install **Docker Engine + the Compose v2 plugin from
-Docker's own repository**. Distribution packages are frequently too old for the
-Compose syntax used here.
+### 1.1 Preparing a fresh Ubuntu 24.04 LTS server
+
+Skip this if the four checks above already pass. Run it as a user with `sudo`.
+
+```bash
+# Packages and clock.
+sudo apt-get update && sudo apt-get -y upgrade
+sudo apt-get install -y ca-certificates curl openssl
+
+# The application stores UTC and presents Tehran time, so the host clock only
+# has to be correct — but matching the operational timezone makes container
+# logs, backup filenames and user reports line up with what staff say.
+sudo timedatectl set-timezone Asia/Tehran
+sudo timedatectl set-ntp true
+timedatectl                       # expect: NTP service: active, synchronized
+```
+
+Docker Engine and the Compose v2 plugin, from **Docker's own repository** —
+Ubuntu's `docker.io` package is frequently too old for the Compose syntax used
+here, and `docker-compose` v1 is not supported at all:
+
+```bash
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io \
+                        docker-buildx-plugin docker-compose-plugin
+
+sudo usermod -aG docker "$USER"   # log out and back in for this to take effect
+sudo systemctl enable --now docker
+```
+
+On Ubuntu 24.04 the codename resolves to `noble`. If `apt-get update` reports no
+release file for it, the server has no route to `download.docker.com` — use the
+air-gapped path in section 4 and install Docker from the packages your
+organisation mirrors, rather than downgrading to the distribution package.
+
+Log out, log back in, then re-run the four checks above. All four must pass
+before section 3.
 
 ---
 
 ## 2. Network, DNS and TLS
+
+The deployment has exactly one public identity — one hostname **or** one IP —
+and it appears in four places that must agree: `DJANGO_ALLOWED_HOSTS`,
+`DJANGO_CSRF_TRUSTED_ORIGINS`, `KARIZ_PUBLIC_HOST`, and the certificate. The
+application refuses to start if they disagree; that check is the reason a
+mistake here fails at boot instead of at login.
+
+Pick the scenario the customer is actually in.
+
+### Scenario A — the customer has a domain (production shape)
 
 | Item | Value | Status |
 |---|---|---|
@@ -71,9 +121,79 @@ Compose syntax used here.
 | TLS certificate chain + private key | `secrets/tls/fullchain.pem`, `secrets/tls/privkey.pem` | **FINAL INPUT** |
 | VPN / private routing to the customer network | — | **FINAL INPUT** (see `TARGET_SITE_SURVEY.md`) |
 
-For staging you may use a staging hostname and a self-signed or internal
-certificate. Note it in the run record; a self-signed certificate is not a TLS
-readiness proof.
+```dotenv
+DJANGO_ALLOWED_HOSTS=crm.example.com
+DJANGO_CSRF_TRUSTED_ORIGINS=https://crm.example.com
+KARIZ_PUBLIC_HOST=crm.example.com
+DJANGO_SECURE_HSTS_SECONDS=31536000
+KARIZ_HSTS_HEADER=max-age=31536000
+```
+
+### Scenario B — no domain, static public IP only
+
+Supported, and the whole stack works, but read the limitations before promising
+it to the customer. Everything below uses `203.0.113.10` as the placeholder for
+**the IP users actually type**. Behind NAT that is the public address, not the
+address `ip addr` shows on the server.
+
+```dotenv
+DJANGO_ALLOWED_HOSTS=203.0.113.10
+DJANGO_CSRF_TRUSTED_ORIGINS=https://203.0.113.10
+KARIZ_PUBLIC_HOST=203.0.113.10
+# HSTS off — see the limitations below. These two must both be set.
+DJANGO_SECURE_HSTS_SECONDS=0
+KARIZ_HSTS_HEADER=
+```
+
+TLS still applies: the stack has no plain-HTTP mode, port 80 only redirects, and
+cookies are secure-only. Without a domain the certificate must be self-signed,
+generated **on the server** so the private key never travels:
+
+```bash
+cd /srv/forooshbin/client-1
+openssl req -x509 -nodes -newkey rsa:4096 -days 397 \
+  -keyout secrets/tls/privkey.pem \
+  -out    secrets/tls/fullchain.pem \
+  -subj   "/CN=203.0.113.10" \
+  -addext "subjectAltName=IP:203.0.113.10" \
+  -addext "basicConstraints=critical,CA:FALSE" \
+  -addext "keyUsage=critical,digitalSignature,keyEncipherment" \
+  -addext "extendedKeyUsage=serverAuth"
+chmod 600 secrets/tls/privkey.pem
+chmod 644 secrets/tls/fullchain.pem
+
+# Record the fingerprint. Staff compare it once, then trust the certificate.
+openssl x509 -in secrets/tls/fullchain.pem -noout -fingerprint -sha256 -dates
+```
+
+The `subjectAltName=IP:` line is not optional — every current browser ignores
+`CN` and will refuse a certificate that does not name the IP in a SAN.
+
+**Limitations without a domain — state these to the customer in writing:**
+
+1. **Every browser shows a certificate warning** until the certificate is
+   installed as trusted on each machine. There is no way around this: no public
+   CA issues certificates for an IP address on request, and Let's Encrypt issues
+   for domains only. Either staff click through the warning each time a browser
+   profile is new, or IT distributes the certificate through Windows Group
+   Policy / a trusted-root deployment.
+2. **HSTS is off, and must be.** Browsers ignore HSTS for IP hosts anyway, and a
+   one-year pin on a self-signed host would leave staff unable to click past
+   their own warning for a year, with no undo from the server side. Consequence:
+   no protection against a downgrade to plain HTTP by an attacker on the path.
+3. **No identity, only encryption.** A self-signed certificate proves the
+   connection is encrypted, not who is on the other end. Users are trained to
+   accept a warning, which is exactly the habit that makes an interception
+   attack work later.
+4. **The IP is the address.** Changing ISP or server changes the URL, every
+   bookmark, and the certificate. A domain can be repointed in DNS; an IP cannot.
+5. **Certificate renewal is manual.** `-days 397` is the browser-accepted
+   maximum; put the expiry date in the operations calendar, because nothing on
+   the server will remind you.
+6. **This is not a production TLS readiness proof.** Record it in the run record
+   as staging-only. Production sign-off needs scenario A.
+
+### Firewall — both scenarios
 
 Ports reachable from users: **443**, and **80** only because it redirects.
 Nothing else.
@@ -81,7 +201,9 @@ Nothing else.
 ```bash
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
+sudo ufw allow OpenSSH        # do not lock yourself out of a remote server
 sudo ufw enable
+sudo ufw status verbose
 # 5432 is never published. Verify later in section 12.
 ```
 
@@ -189,8 +311,9 @@ chmod 600 secrets/.env
 | `KARIZ_COMPOSE_PROJECT_NAME` | stable, lowercase, unique on this host | — |
 | `KARIZ_APP_IMAGE`, `KARIZ_POSTGRES_IMAGE`, `KARIZ_NGINX_IMAGE` | `repository@sha256:<digest>` — never a tag | — |
 | `DJANGO_SECRET_KEY` | long random, unique to this deployment | **FINAL INPUT** for production |
-| `DJANGO_ALLOWED_HOSTS`, `KARIZ_PUBLIC_HOST` | the real hostname users type | **FINAL INPUT** |
-| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://` + that hostname | **FINAL INPUT** |
+| `DJANGO_ALLOWED_HOSTS`, `KARIZ_PUBLIC_HOST` | the hostname users type — or the public IP, §2 scenario B | **FINAL INPUT** |
+| `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://` + that same hostname or IP | **FINAL INPUT** |
+| `DJANGO_SECURE_HSTS_SECONDS`, `KARIZ_HSTS_HEADER` | `31536000` + `max-age=31536000` with a real certificate; `0` + empty for IP-only staging. Nothing in between is accepted | — |
 | `POSTGRES_INIT/MIGRATION/APP/BACKUP_PASSWORD` | four independent values, ≥16 chars | **FINAL INPUT** for production |
 | `KARIZ_TLS_CERT_PATH`, `KARIZ_TLS_KEY_PATH` | absolute paths under `secrets/tls/` | **FINAL INPUT** |
 | `KARIZ_DEPLOYMENT_MANIFEST_PATH` | absolute path to `secrets/manifest.json` | — |
@@ -291,6 +414,16 @@ The static layer changed materially in this release and has only ever been
 exercised on Windows. It is the single most likely thing to behave differently
 here, so verify it before UAT rather than during it.
 
+Sections 9, 10 and 12 use `$PUBLIC` for the identity you set in §2. Set it once
+per shell. On a self-signed certificate (§2 scenario B) add `-k` to every `curl`
+below — that tells curl to skip verification, which is exactly what the browser
+warning is about, and is acceptable here only because you generated the
+certificate yourself on this machine:
+
+```bash
+export PUBLIC='crm.example.com'     # or: export PUBLIC='203.0.113.10'
+```
+
 ```bash
 for path in \
   /static/css/style.bundle.rtl.css \
@@ -302,7 +435,7 @@ for path in \
   /static/fonts/IRANSansWeb.woff \
   /static/plugins/global/fonts/keenicons/keenicons-duotone.woff ; do
   printf '%s ' "$path"
-  curl -s -o /dev/null -w '%{http_code}\n' "https://<crm.example.com>${path}"
+  curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}${path}"
 done
 ```
 
@@ -328,7 +461,7 @@ print(urllib.request.urlopen(r,timeout=3).status)"
 curl -fsS http://127.0.0.1/health/live/ && echo
 
 # The edge over TLS, as a user reaches it.
-curl -fsS "https://<crm.example.com>/api/v1/health/ready/" && echo
+curl -fsS "https://${PUBLIC}/api/v1/health/ready/" && echo
 ```
 
 ---
@@ -358,7 +491,7 @@ docker compose --env-file secrets/.env ps --format '{{.Service}}\t{{.Ports}}'
 sudo ss -ltnp | grep -E ':(5432|8000)\b' \
   && echo "EXPOSED — stop and fix" || echo "database and app not published: ok"
 
-curl -s -o /dev/null -w 'admin=%{http_code}\n' "https://<crm.example.com>/admin/"
+curl -s -o /dev/null -w 'admin=%{http_code}\n' "https://${PUBLIC}/admin/"
 ```
 
 Only `nginx` may map `0.0.0.0:80` and `0.0.0.0:443`. `/admin/` must return
@@ -419,7 +552,7 @@ Not a load test — a sanity check that nothing is pathological:
 ```bash
 for path in / /customers/ /invoices/ /reports/receivables/ ; do
   printf '%s ' "$path"
-  curl -s -o /dev/null -w '%{time_total}s\n' -b <session-cookie> "https://<crm.example.com>${path}"
+  curl -s -o /dev/null -w '%{time_total}s\n' -b <session-cookie> "https://${PUBLIC}${path}"
 done
 ```
 
@@ -526,6 +659,10 @@ Keep the previous image digest written down. It is what rollback needs.
 | 400 on every request | `DJANGO_ALLOWED_HOSTS` lacks the hostname in use | `.env` vs the browser URL |
 | CSRF failure on login | `DJANGO_CSRF_TRUSTED_ORIGINS` missing the `https://` origin | `.env` |
 | Nginx will not start | certificate or key path wrong or unreadable | `docker compose logs nginx`; `ls -l secrets/tls/` |
+| `KARIZ_HSTS_HEADER must exactly match` | the edge header and `DJANGO_SECURE_HSTS_SECONDS` disagree | §2 — both on, or both off |
+| `DJANGO_SECURE_HSTS_SECONDS must be between…` | a value between 0 and one year was set | §2 — only `0` or `31536000`+ |
+| Browser warns about the certificate on an IP deployment | expected, self-signed | §2 scenario B limitation 1 |
+| Browser refuses to open the site at all, no click-through | HSTS was once enabled on this host name and the browser still holds the pin | clear the pin in the browser's HSTS settings; keep §2 scenario B's `0` |
 | Page renders unstyled | theme bundles 404 | §9 |
 | Persian text falls back, sidebar icons blank | IRANSans or keenicons 404 | §9 |
 | PDF button absent | no renderer configured — expected unless §4's optional step was taken | `KARIZ_PDF_RENDERER` |
@@ -565,6 +702,7 @@ credentials, and the manifest key if it was deployment-specific.
 
 ## Sign-off checklist
 
+- [ ] §2 scenario recorded (A domain / B IP-only), and if B, the limitations sent to the customer in writing
 - [ ] §4 image-content validation: `IMAGE_CONTENT_PASS`
 - [ ] §8 `db-bootstrap`, `migrate`, `db-finalize` all `Exited (0)`
 - [ ] §9 all eight static assets return 200

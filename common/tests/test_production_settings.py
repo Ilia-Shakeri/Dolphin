@@ -222,6 +222,47 @@ class ProductionSettingsTests(SimpleTestCase):
         with self.assertRaisesMessage(ImproperlyConfigured, "KARIZ_HSTS_HEADER"):
             validate_production_environment(bad_hsts_header)
 
+    def test_ip_only_deployment_may_disable_hsts_but_not_weaken_it(self):
+        # Scenario B: the customer has a static public IP and no domain, so the
+        # certificate is self-signed. A one-year pin on a host the operator must
+        # click past is a lockout, so 0 is allowed — and only 0.
+        ip_only = {
+            **VALID_PRODUCTION_ENVIRONMENT,
+            "DJANGO_ALLOWED_HOSTS": "203.0.113.10",
+            "DJANGO_CSRF_TRUSTED_ORIGINS": "https://203.0.113.10",
+            "KARIZ_PUBLIC_HOST": "203.0.113.10",
+            "DJANGO_SECURE_HSTS_SECONDS": "0",
+            "KARIZ_HSTS_HEADER": "",
+        }
+        validated = validate_production_environment(ip_only)
+        self.assertEqual(validated["SECURE_HSTS_SECONDS"], 0)
+        self.assertTrue(validated["SECURE_SSL_REDIRECT"])
+        self.assertEqual(validated["ALLOWED_HOSTS"], ["203.0.113.10"])
+
+        # Disabling it at one layer only would leave the browser pinned by the
+        # edge while Django believes HSTS is off.
+        for label, override in (
+            ("edge still sends a pin", {"KARIZ_HSTS_HEADER": "max-age=31536000"}),
+            ("subdomains claimed while off", {"DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS": "true"}),
+            ("preload claimed while off", {"DJANGO_SECURE_HSTS_PRELOAD": "true"}),
+        ):
+            with self.subTest(case=label):
+                with self.assertRaises(ImproperlyConfigured):
+                    validate_production_environment({**ip_only, **override})
+
+        # Everything between 0 and a year stays refused, with or without a domain.
+        for weak in ("1", "3600", "86400", "31535999"):
+            with self.subTest(seconds=weak):
+                weakened = {
+                    **ip_only,
+                    "DJANGO_SECURE_HSTS_SECONDS": weak,
+                    "KARIZ_HSTS_HEADER": f"max-age={weak}",
+                }
+                with self.assertRaisesMessage(
+                    ImproperlyConfigured, "DJANGO_SECURE_HSTS_SECONDS"
+                ):
+                    validate_production_environment(weakened)
+
     def test_one_proxy_identity_ignores_spoofed_prefix(self):
         rest_settings = {
             "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],

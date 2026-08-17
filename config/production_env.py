@@ -195,13 +195,26 @@ def validate_production_environment(environment):
     if database["SSLMODE"] in {"verify-ca", "verify-full"} and not database["SSLROOTCERT"]:
         _fail("POSTGRES_SSLROOTCERT must name the CA bundle when POSTGRES_SSLMODE verifies the server.")
 
-    hsts_seconds = _bounded_int(
-        environment,
-        "DJANGO_SECURE_HSTS_SECONDS",
-        default=31_536_000,
-        minimum=31_536_000,
-        maximum=63_072_000,
-    )
+    # HSTS is one year or more when it is on, and the only other accepted value
+    # is exactly 0, meaning off. A value in between would be a weak pin that
+    # looks like protection, so it stays refused.
+    #
+    # 0 exists for one real case: a staging or IP-only deployment presenting a
+    # self-signed certificate. HSTS is inert for a bare IP by specification, but
+    # on a hostname a one-year pin makes the browser refuse to let anyone click
+    # through the certificate warning for a year — on the operator's own machine,
+    # with no easy undo. Production keeps the default.
+    hsts_raw = environment.get("DJANGO_SECURE_HSTS_SECONDS", "31536000").strip()
+    if hsts_raw == "0":
+        hsts_seconds = 0
+    else:
+        hsts_seconds = _bounded_int(
+            environment,
+            "DJANGO_SECURE_HSTS_SECONDS",
+            default=31_536_000,
+            minimum=31_536_000,
+            maximum=63_072_000,
+        )
     hsts_include_subdomains = _strict_bool(
         environment,
         "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
@@ -210,12 +223,23 @@ def validate_production_environment(environment):
     hsts_preload = _strict_bool(environment, "DJANGO_SECURE_HSTS_PRELOAD", default=False)
     if hsts_preload and not hsts_include_subdomains:
         _fail("DJANGO_SECURE_HSTS_PRELOAD requires HSTS on subdomains.")
-    expected_hsts_header = f"max-age={hsts_seconds}"
-    if hsts_include_subdomains:
-        expected_hsts_header += "; includeSubDomains"
-    if hsts_preload:
-        expected_hsts_header += "; preload"
-    if _required(environment, "KARIZ_HSTS_HEADER") != expected_hsts_header:
+    if hsts_seconds == 0:
+        # Off means off at both layers: no subdomain or preload modifier may be
+        # claimed, and the edge must send no header at all.
+        if hsts_include_subdomains or hsts_preload:
+            _fail("DJANGO_SECURE_HSTS_SECONDS=0 cannot be combined with subdomain or preload HSTS.")
+        expected_hsts_header = ""
+    else:
+        expected_hsts_header = f"max-age={hsts_seconds}"
+        if hsts_include_subdomains:
+            expected_hsts_header += "; includeSubDomains"
+        if hsts_preload:
+            expected_hsts_header += "; preload"
+    # When HSTS is off the edge header must be empty, and nginx omits a header
+    # whose value is an empty string — so the two layers stay in agreement
+    # instead of Django saying "off" while the proxy still pins the browser.
+    supplied_hsts_header = (environment.get("KARIZ_HSTS_HEADER") or "").strip()
+    if supplied_hsts_header != expected_hsts_header:
         _fail("KARIZ_HSTS_HEADER must exactly match the approved HSTS settings.")
 
     secure_ssl_redirect = _strict_bool(
