@@ -280,11 +280,18 @@ BILLING_MAX_DISCOUNT_PERCENT = os.environ.get("KARIZ_BILLING_MAX_DISCOUNT_PERCEN
 BILLING_QUOTATION_VALID_DAYS = int(os.environ.get("KARIZ_BILLING_QUOTATION_VALID_DAYS", "30"))
 BILLING_INVOICE_DUE_DAYS = int(os.environ.get("KARIZ_BILLING_INVOICE_DUE_DAYS", "0"))
 
-# Issuing an invoice that names a warehouse deducts its lines from that
-# warehouse and snapshots the unit cost. An invoice without a warehouse has no
-# stock effect and reports no profit.
+# Whether issuing an invoice moves stock.
+#
+# Off by default. In Client-1's flow the invoice comes first and the order
+# follows, and it is the *order* that owns the inventory lifecycle: stock leaves
+# on approval and comes back on cancellation, exactly once each. If an invoice
+# also deducted, the same goods would leave twice for one sale.
+#
+# The behaviour is kept rather than deleted because a deployment that invoices
+# straight out of stock, with no order step, is a legitimate configuration — it
+# just is not this one.
 BILLING_INVOICE_AFFECTS_STOCK = (
-    os.environ.get("KARIZ_BILLING_INVOICE_AFFECTS_STOCK", "true").lower() == "true"
+    os.environ.get("KARIZ_BILLING_INVOICE_AFFECTS_STOCK", "false").lower() == "true"
 )
 
 # When a cheque payment credits the customer account: on clearing (default) or

@@ -224,7 +224,9 @@ class Order(CommercialDocument):
         CANCELLED = "cancelled", "Cancelled"
 
     NUMBER_KIND = "order"
-    EDITABLE_STATUSES = frozenset({Status.DRAFT})
+    #: An approved order stays editable: Client-1 adjusts quantities after
+    #: approval, and the stock reconciliation below moves only the difference.
+    EDITABLE_STATUSES = frozenset({Status.DRAFT, Status.CONFIRMED})
     TRANSITIONS = {
         Status.DRAFT: frozenset({Status.CONFIRMED, Status.CANCELLED}),
         Status.CONFIRMED: frozenset({Status.FULFILLED, Status.CANCELLED}),
@@ -238,9 +240,25 @@ class Order(CommercialDocument):
     lead = models.ForeignKey(
         "sales.Lead", null=True, blank=True, on_delete=models.PROTECT, related_name="orders"
     )
+    #: Where the goods leave from when the order is approved. An order without
+    #: one has no stock effect at all.
+    warehouse = models.ForeignKey(
+        "inventory.Warehouse", null=True, blank=True, on_delete=models.PROTECT, related_name="orders"
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
     confirmed_at = models.DateTimeField(null=True, blank=True, db_index=True)
     expected_delivery_at = models.DateTimeField(null=True, blank=True)
+
+    # --- Inventory lifecycle guards ----------------------------------------
+    #
+    # The order owns the stock movement, not the invoice: goods leave once on
+    # approval and come back once on cancellation. `stock_applied` is what makes
+    # "once" true under a retry — a repeated approval finds it already set and
+    # moves nothing. `stock_revision` counts reconciliations so each one gets a
+    # distinct idempotency key; without it a repeated edit would reuse the key
+    # of the previous edit and be silently swallowed.
+    stock_applied = models.BooleanField(default=False)
+    stock_revision = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ["-created_at", "-id"]
@@ -306,15 +324,57 @@ class Invoice(CommercialDocument):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
     issued_at = models.DateTimeField(null=True, blank=True, db_index=True)
     due_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    #: The canonical figure, maintained only by PaymentAllocation. Nothing in
+    #: the manual-settlement block below ever writes to it.
     paid_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     cancelled_at = models.DateTimeField(null=True, blank=True)
     stock_applied = models.BooleanField(default=False)
+
+    # --- Manual settlement -------------------------------------------------
+    #
+    # Client-1 wants a "پرداخت شده" box an operator can type into, where
+    # entering exactly the outstanding amount marks the invoice settled. That
+    # is a *display* decision, not an accounting one: it creates no Payment, no
+    # PaymentAllocation and no ledger entry, and it never touches `paid_amount`
+    # or the customer balance. Payment, allocation and ledger keep meaning
+    # exactly what they meant before, so receivables and the ledger stay true.
+    #
+    # It is deliberately one-way. Once the operator has matched the outstanding
+    # amount the invoice is settled for good, and later edits to the typed value
+    # cannot pull it back — an invoice that has been declared paid does not
+    # become unpaid because somebody retyped a number. A real receipt feature
+    # will replace this later; until then the override is isolated to these
+    # three columns so nothing else has to be unwound.
+    manual_paid_entry = models.DecimalField(
+        max_digits=18, decimal_places=2, null=True, blank=True
+    )
+    manual_settled_at = models.DateTimeField(null=True, blank=True)
+    manual_settled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="manually_settled_invoices",
+    )
 
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [
             *_document_constraints("invoice", ["draft", "issued", "cancelled"]),
             models.CheckConstraint(condition=Q(paid_amount__gte=0), name="invoice_paid_non_negative"),
+            models.CheckConstraint(
+                condition=Q(manual_paid_entry__isnull=True) | Q(manual_paid_entry__gte=0),
+                name="invoice_manual_entry_non_negative",
+            ),
+            # The stamp and its author travel together, so a settled invoice
+            # always says who settled it.
+            models.CheckConstraint(
+                condition=(
+                    Q(manual_settled_at__isnull=True, manual_settled_by__isnull=True)
+                    | Q(manual_settled_at__isnull=False, manual_settled_by__isnull=False)
+                ),
+                name="invoice_manual_settlement_fields_consistent",
+            ),
             # Allocation may never exceed the invoice; an overpayment stays on
             # the customer account instead of inflating a settled document.
             models.CheckConstraint(
@@ -337,11 +397,29 @@ class Invoice(CommercialDocument):
         return self.number
 
     @property
-    def balance_due(self):
+    def is_manually_settled(self):
+        """Whether the one-way manual override has fired for this invoice."""
+        return self.manual_settled_at is not None
+
+    @property
+    def canonical_balance_due(self):
+        """What the payment records alone say is outstanding.
+
+        This is the figure receivables reporting and the customer ledger are
+        built from, and the manual override never changes it.
+        """
         return self.total_amount - self.paid_amount
 
     @property
+    def balance_due(self):
+        if self.is_manually_settled:
+            return Decimal("0.00")
+        return self.canonical_balance_due
+
+    @property
     def settlement_status(self):
+        if self.is_manually_settled:
+            return self.SettlementStatus.PAID
         if self.status == self.Status.CANCELLED or self.paid_amount <= 0:
             return self.SettlementStatus.UNPAID
         if self.paid_amount >= self.total_amount:

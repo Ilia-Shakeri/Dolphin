@@ -48,13 +48,15 @@ from common.exceptions import BusinessConflictError, BusinessPermissionDenied, B
 from inventory.models import StockItem, StockMovement, Warehouse
 from inventory.services import record_stock_movement
 from sales.models import Customer, Lead, Product
+from billing.selectors import invoices_for, orders_for
 from sales.selectors import customers_for, leads_for
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
 DOCUMENT_WRITERS = {User.Role.SALES_AGENT, *ELEVATED_OPERATORS}
 QUOTATION_HEADER_FIELDS = {"discount_amount", "tax_rate", "valid_until", "notes"}
-ORDER_HEADER_FIELDS = {"discount_amount", "tax_rate", "expected_delivery_at", "notes"}
+#: `warehouse` is here because the order, not the invoice, is what moves stock.
+ORDER_HEADER_FIELDS = {"discount_amount", "tax_rate", "expected_delivery_at", "notes", "warehouse"}
 INVOICE_HEADER_FIELDS = {"discount_amount", "tax_rate", "due_at", "notes", "warehouse"}
 
 
@@ -403,6 +405,9 @@ def create_order(*, actor, customer, items, lead=None, quotation=None, **header)
             "status": Order.Status.DRAFT,
             "quotation": locked_quotation,
             "expected_delivery_at": header.get("expected_delivery_at"),
+            # The order is what moves stock, so it is the order that names the
+            # warehouse the goods leave from.
+            "warehouse": _resolve_warehouse(header.get("warehouse")),
         },
     )
     log_activity(
@@ -449,11 +454,32 @@ def update_order(*, actor, order, **changes):
 
 @transaction.atomic
 def replace_order_items(*, actor, order, items):
+    """Replace an order's lines, reconciling stock when it is already approved.
+
+    A draft order moves nothing. An approved one has already taken its goods out
+    of the warehouse, so the edit moves only the difference: extra quantity
+    leaves, removed quantity comes back. If the increase cannot be covered the
+    order is cancelled with the reason on it rather than approved against stock
+    that is not there.
+    """
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)
+    # What the warehouse is holding for this order *before* the edit.
+    previous_quantities = _order_quantities(locked) if locked.stock_applied else {}
+
     document = _replace_items(
         actor=actor, document=locked, item_model=OrderItem, items=items, relation="order"
     )
+
+    if previous_quantities:
+        occurred_at = timezone.now()
+        reconciled = _reconcile_order_stock(
+            actor=actor, order=document, previous=previous_quantities, occurred_at=occurred_at
+        )
+        if not reconciled:
+            return _cancel_for_shortage(actor=actor, order=document, occurred_at=occurred_at)
+        document.save(update_fields=["stock_applied", "stock_revision", "updated_at"])
+
     log_activity(
         actor=actor,
         operation="order.items_replaced",
@@ -461,6 +487,181 @@ def replace_order_items(*, actor, order, items):
         changes={"number": document.number, "item_count": len(items), "total_amount": str(document.total_amount)},
     )
     return document
+
+
+
+# --- Order inventory lifecycle ----------------------------------------------
+#
+# Stock belongs to the order, and only to the order. Goods leave the warehouse
+# once when the order is approved and come back once if it is cancelled; an
+# approved order that is edited moves only the difference. Invoices never touch
+# stock at all, so the same goods can never leave twice for one sale.
+#
+# "Once" survives retries because every movement carries an idempotency key
+# derived from the order and its revision counter, and because `stock_applied`
+# records whether the deduction has already happened.
+
+#: Appended to an order's note when the warehouse cannot cover it.
+ORDER_SHORTAGE_NOTE = "موجودی کافی نبود"
+
+
+def _order_quantities(order):
+    """What the order asks of the warehouse, per product."""
+    quantities = {}
+    for item in order.items.all():
+        quantities[item.product_id] = quantities.get(item.product_id, 0) + item.quantity
+    return quantities
+
+
+def _available_quantity(*, warehouse_id, product_id):
+    stock = StockItem.objects.filter(warehouse_id=warehouse_id, product_id=product_id).first()
+    return stock.quantity if stock is not None else 0
+
+
+def _shortage_for(*, warehouse_id, required):
+    """The first product the warehouse cannot cover, or None.
+
+    Checked before anything is written, so a shortfall never leaves the order
+    half-deducted.
+    """
+    for product_id, quantity in required.items():
+        if quantity <= 0:
+            continue
+        if _available_quantity(warehouse_id=warehouse_id, product_id=product_id) < quantity:
+            return product_id
+    return None
+
+
+def _append_order_note(order, sentence):
+    """Add a sentence to the order note without losing what is already there."""
+    existing = (order.notes or "").strip()
+    if sentence in existing:
+        return existing
+    combined = f"{existing}\n{sentence}".strip() if existing else sentence
+    return combined[:FREE_TEXT_MAX_LENGTH]
+
+
+def _cancel_for_shortage(*, actor, order, occurred_at):
+    """Cancel an order the warehouse cannot cover, and say why on the order."""
+    order.status = Order.Status.CANCELLED
+    order.notes = _append_order_note(order, ORDER_SHORTAGE_NOTE)
+    order.save(update_fields=["status", "notes", "updated_at"])
+    log_activity(
+        actor=actor,
+        operation="order.cancelled_for_shortage",
+        instance=order,
+        changes={"number": order.number, "reason": ORDER_SHORTAGE_NOTE},
+    )
+    return order
+
+
+def _move_order_stock(*, actor, order, product_id, quantity, movement_type, occurred_at, key):
+    product = Product.objects.get(pk=product_id)
+    record_stock_movement(
+        actor=actor,
+        warehouse=order.warehouse,
+        product=product,
+        movement_type=movement_type,
+        quantity=quantity,
+        occurred_at=occurred_at,
+        reference_kind=StockMovement.ReferenceKind.ORDER,
+        reference_id=order.pk,
+        reference_number=order.number,
+        idempotency_key=key,
+        require_manager=False,
+    )
+
+
+def _apply_order_stock(*, actor, order, occurred_at):
+    """Deduct an approved order from stock. Returns False on a shortage.
+
+    Idempotent twice over: it returns immediately when the deduction has already
+    been applied, and each movement carries a key derived from the order, so a
+    retry that gets past the flag still cannot move the same goods again.
+    """
+    if order.stock_applied or order.warehouse_id is None:
+        return True
+    required = _order_quantities(order)
+    if _shortage_for(warehouse_id=order.warehouse_id, required=required) is not None:
+        return False
+    for product_id, quantity in sorted(required.items()):
+        _move_order_stock(
+            actor=actor,
+            order=order,
+            product_id=product_id,
+            quantity=quantity,
+            movement_type=StockMovement.MovementType.SALE,
+            occurred_at=occurred_at,
+            key=f"order:{order.pk}:approve:{product_id}",
+        )
+    order.stock_applied = True
+    return True
+
+
+def _release_order_stock(*, actor, order, occurred_at):
+    """Give an approved order's goods back, exactly once."""
+    if not order.stock_applied or order.warehouse_id is None:
+        return
+    for product_id, quantity in sorted(_order_quantities(order).items()):
+        _move_order_stock(
+            actor=actor,
+            order=order,
+            product_id=product_id,
+            quantity=quantity,
+            movement_type=StockMovement.MovementType.RETURN_IN,
+            occurred_at=occurred_at,
+            key=f"order:{order.pk}:release:{order.stock_revision}:{product_id}",
+        )
+    order.stock_applied = False
+
+
+def _reconcile_order_stock(*, actor, order, previous, occurred_at):
+    """Move only the difference after an approved order is edited.
+
+    `previous` is what the order asked for before the edit. Anything now asked
+    for beyond that is deducted; anything no longer asked for is returned. A
+    shortfall on the increase leaves the whole edit unapplied, and the caller
+    cancels the order.
+    """
+    if not order.stock_applied or order.warehouse_id is None:
+        return True
+    current = _order_quantities(order)
+    increases = {}
+    decreases = {}
+    for product_id in set(previous) | set(current):
+        delta = current.get(product_id, 0) - previous.get(product_id, 0)
+        if delta > 0:
+            increases[product_id] = delta
+        elif delta < 0:
+            decreases[product_id] = -delta
+    if not increases and not decreases:
+        return True
+    if _shortage_for(warehouse_id=order.warehouse_id, required=increases) is not None:
+        return False
+
+    revision = order.stock_revision + 1
+    for product_id, quantity in sorted(decreases.items()):
+        _move_order_stock(
+            actor=actor,
+            order=order,
+            product_id=product_id,
+            quantity=quantity,
+            movement_type=StockMovement.MovementType.RETURN_IN,
+            occurred_at=occurred_at,
+            key=f"order:{order.pk}:reconcile:{revision}:in:{product_id}",
+        )
+    for product_id, quantity in sorted(increases.items()):
+        _move_order_stock(
+            actor=actor,
+            order=order,
+            product_id=product_id,
+            quantity=quantity,
+            movement_type=StockMovement.MovementType.SALE,
+            occurred_at=occurred_at,
+            key=f"order:{order.pk}:reconcile:{revision}:out:{product_id}",
+        )
+    order.stock_revision = revision
+    return True
 
 
 @transaction.atomic
@@ -471,10 +672,25 @@ def transition_order(*, actor, order, to_status, reason=""):
     if to_status == Order.Status.CONFIRMED and not locked.items.exists():
         raise BusinessConflictError({"items": "An order needs at least one line before it is confirmed."})
     previous = locked.status
+    occurred_at = timezone.now()
+
+    # Approval is what moves goods. If the warehouse cannot cover the order it
+    # is cancelled with the reason on it, rather than approved against stock
+    # that does not exist.
+    if to_status == Order.Status.CONFIRMED:
+        if not _apply_order_stock(actor=actor, order=locked, occurred_at=occurred_at):
+            return _cancel_for_shortage(actor=actor, order=locked, occurred_at=occurred_at)
+
+    # Cancelling an approved order gives the goods back, once.
+    if to_status == Order.Status.CANCELLED and previous in {
+        Order.Status.CONFIRMED, Order.Status.FULFILLED
+    }:
+        _release_order_stock(actor=actor, order=locked, occurred_at=occurred_at)
+
     locked.status = to_status
-    update_fields = ["status", "updated_at"]
+    update_fields = ["status", "stock_applied", "stock_revision", "updated_at"]
     if to_status == Order.Status.CONFIRMED and locked.confirmed_at is None:
-        locked.confirmed_at = timezone.now()
+        locked.confirmed_at = occurred_at
         update_fields.append("confirmed_at")
     locked.save(update_fields=update_fields)
     log_activity(
@@ -486,6 +702,7 @@ def transition_order(*, actor, order, to_status, reason=""):
             "status_from": previous,
             "status_to": to_status,
             "reason_provided": bool(reason),
+            "stock_applied": locked.stock_applied,
         },
     )
     return locked
@@ -517,12 +734,16 @@ def _copy_lines(source_items):
 
 
 @transaction.atomic
-def convert_quotation_to_order(*, actor, quotation):
+def convert_quotation_to_order(*, actor, quotation, warehouse=None):
     """Copy an accepted quotation into a new draft order.
 
     A copy, not a conversion: the quotation keeps its own number, status, and
     line snapshot. Nothing about the accepted document is rewritten, so what the
     customer accepted stays readable exactly as accepted.
+
+    `warehouse` names where the goods will leave from when the order is
+    approved. A quotation has no warehouse of its own, so it has to be supplied
+    here or the resulting order has no stock effect.
     """
     actor = _lock_document_writer(actor)
     locked = Quotation.objects.select_for_update().get(pk=quotation.pk)
@@ -540,6 +761,7 @@ def convert_quotation_to_order(*, actor, quotation):
         discount_amount=locked.discount_amount,
         tax_rate=locked.tax_rate,
         notes=locked.notes,
+        warehouse=warehouse,
     )
     return order
 
@@ -677,14 +899,23 @@ def issue_invoice(*, actor, invoice):
         raise BusinessConflictError({"items": "An invoice needs at least one line before it is issued."})
 
     issued_at = timezone.now()
-    if locked.warehouse_id is not None and invoice_affects_stock():
+    # The cost snapshot and the stock movement are two separate things.
+    #
+    # The snapshot is a *read* of what the units cost, and gross profit is
+    # measured against it, so it is taken whenever the invoice names a warehouse
+    # — including in Client-1, where the invoice moves no goods at all because
+    # the order already did. Without this, turning off the stock effect would
+    # silently empty the profit report.
+    if locked.warehouse_id is not None:
         for item in items:
-            # Snapshot the cost *before* the issue moves the average, so profit
-            # is measured against what the sold units actually cost.
             stock = StockItem.objects.filter(
                 warehouse_id=locked.warehouse_id, product_id=item.product_id
             ).first()
             item.unit_cost_snapshot = stock.average_cost if stock is not None else Decimal("0.00")
+            item.save(update_fields=["unit_cost_snapshot", "updated_at"])
+
+    if locked.warehouse_id is not None and invoice_affects_stock():
+        for item in items:
             record_stock_movement(
                 actor=actor,
                 warehouse=locked.warehouse,
@@ -698,7 +929,6 @@ def issue_invoice(*, actor, invoice):
                 idempotency_key=f"invoice:{locked.pk}:issue:{item.pk}",
                 require_manager=False,
             )
-            item.save(update_fields=["unit_cost_snapshot", "updated_at"])
         locked.stock_applied = True
 
     locked.status = Invoice.Status.ISSUED
@@ -832,3 +1062,107 @@ def invoice_profit(invoice):
         revenue += item.line_total
         cost += item.unit_cost_snapshot * item.quantity
     return quantize_money(revenue) - quantize_money(cost)
+
+@transaction.atomic
+def record_manual_paid_entry(*, actor, invoice, amount):
+    """Record the operator's typed "پرداخت شده" figure for one invoice.
+
+    This is deliberately **not** an accounting operation. It writes no Payment,
+    no PaymentAllocation and no ledger entry, and it never touches
+    `paid_amount`, the customer balance, receivables reporting or stock. Those
+    records keep meaning exactly what they meant before, which is what lets the
+    ledger stay true while the invoice screen shows what Client-1 asked for.
+
+    One rule gives the typed number any effect: when it matches the amount the
+    payment records still show outstanding, the invoice is marked settled. That
+    mark is one-way. Retyping a smaller number afterwards updates what is shown
+    in the box and leaves the settlement alone — an invoice that has been
+    declared paid does not become unpaid because somebody edited a field.
+
+    A real receipt feature will replace this; until then the whole override
+    lives in three columns on Invoice and can be dropped without unwinding
+    anything else.
+    """
+    actor = _lock_billing_manager(actor)
+    locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if not invoices_for(actor).filter(pk=locked.pk).exists():
+        raise BusinessPermissionDenied("Invoice is outside your scope.")
+    entry = clean_money(amount, field="manual_paid_entry")
+    if entry > locked.total_amount:
+        raise BusinessRuleError(
+            {"manual_paid_entry": "Paid amount cannot exceed the invoice total."}
+        )
+
+    outstanding_before = locked.canonical_balance_due
+    already_settled = locked.is_manually_settled
+    fields = ["manual_paid_entry", "updated_at"]
+    locked.manual_paid_entry = entry
+
+    # The transition fires only on an exact match, and only once. `> 0` keeps a
+    # fully-allocated invoice from being "settled again" by typing zero.
+    settles_now = not already_settled and outstanding_before > 0 and entry == outstanding_before
+    if settles_now:
+        locked.manual_settled_at = timezone.now()
+        locked.manual_settled_by = actor
+        fields.extend(["manual_settled_at", "manual_settled_by"])
+
+    locked.save(update_fields=fields)
+    log_activity(
+        actor=actor,
+        operation="invoice.manual_paid_entry",
+        instance=locked,
+        changes={
+            "entry": str(entry),
+            "outstanding_before": str(outstanding_before),
+            "settled_now": settles_now,
+            "already_settled": already_settled,
+        },
+    )
+    return locked
+
+
+@transaction.atomic
+def link_invoice_to_order(*, actor, invoice, order):
+    """Attach an existing invoice to an existing order, or detach it.
+
+    Client-1 raises the invoice first and the order afterwards, so the two
+    documents normally exist before anyone knows they belong together. This is
+    the operation that says so, and it takes a real foreign key rather than
+    matching document numbers as text — numbers are display strings, and two
+    deployments could reuse one.
+
+    Passing `order=None` detaches. Both documents must be in the caller's scope
+    and belong to the same customer; nothing about either document's money,
+    status or stock changes here.
+    """
+    actor = _lock_document_writer(actor)
+    locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if not invoices_for(actor).filter(pk=locked.pk).exists():
+        raise BusinessPermissionDenied("Invoice is outside your scope.")
+
+    locked_order = None
+    if order is not None:
+        if not orders_for(actor).filter(pk=order.pk).exists():
+            raise BusinessPermissionDenied("Order is outside your scope.")
+        locked_order = Order.objects.select_for_update().get(pk=order.pk)
+        if locked_order.customer_id != locked.customer_id:
+            raise BusinessRuleError(
+                {"order": "Order and invoice must belong to the same customer."}
+            )
+
+    previous = locked.order_id
+    if previous == (locked_order.pk if locked_order else None):
+        return locked
+    locked.order = locked_order
+    locked.save(update_fields=["order", "updated_at"])
+    log_activity(
+        actor=actor,
+        operation="invoice.order_linked",
+        instance=locked,
+        changes={
+            "number": locked.number,
+            "order_from": previous,
+            "order_to": locked_order.pk if locked_order else None,
+        },
+    )
+    return locked

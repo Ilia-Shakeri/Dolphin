@@ -32,10 +32,15 @@ def _sales_agent_in_scope(user):
 
 
 def _document_scope(user, queryset):
+    """Which commercial documents a role may see.
+
+    A marketer sees the documents they raised themselves — nothing wider. They
+    previously also saw every document belonging to a customer in their scope,
+    which quietly widened as customers were reassigned; Client-1 wants own-work
+    scope, and "own" means the person who created the document.
+    """
     if _sales_agent_in_scope(user):
-        return queryset.filter(
-            Q(created_by=user) | Q(customer__in=customers_for(user))
-        ).distinct()
+        return queryset.filter(created_by=user)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()

@@ -242,9 +242,19 @@ class DocumentStatusTests(BillingFixtureMixin, TestCase):
 
 
 class InvoiceIssueTests(BillingFixtureMixin, TestCase):
+    """Issuing an invoice, including the optional stock effect.
+
+    That effect is **off** for Client-1, where the order owns the inventory
+    lifecycle and an invoice moves nothing. The capability is kept for a
+    deployment that invoices straight out of stock with no order step, so the
+    tests that exercise it turn it on explicitly rather than relying on a
+    default that no longer holds.
+    """
+
     def setUp(self):
         self.build()
 
+    @override_settings(BILLING_INVOICE_AFFECTS_STOCK=True)
     def test_issuing_deducts_stock_snapshots_cost_and_posts_the_ledger_together(self):
         invoice = self.draft_invoice(quantity=5, warehouse=self.warehouse)
         issue_invoice(actor=self.manager, invoice=invoice)
@@ -255,6 +265,7 @@ class InvoiceIssueTests(BillingFixtureMixin, TestCase):
         self.assertEqual(current_balance(self.customer), invoice.total_amount)
         self.assertTrue(invoice.stock_applied)
 
+    @override_settings(BILLING_INVOICE_AFFECTS_STOCK=True)
     def test_a_stock_shortfall_aborts_the_whole_issue(self):
         invoice = self.draft_invoice(quantity=500, warehouse=self.warehouse)
         with self.assertRaises(BusinessConflictError):

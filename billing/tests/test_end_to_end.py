@@ -40,7 +40,8 @@ class CommercialCycleEndToEndTests(TestCase):
         q.refresh_from_db()
         transition_quotation(actor=mgr, quotation=q, to_status=Quotation.Status.ACCEPTED)
         q.refresh_from_db()
-        order = convert_quotation_to_order(actor=mgr, quotation=q)
+        # The order carries the warehouse now: approving it is what moves stock.
+        order = convert_quotation_to_order(actor=mgr, quotation=q, warehouse=wh)
         assert order.total_amount == q.total_amount
         transition_order(actor=mgr, order=order, to_status=Order.Status.CONFIRMED)
         order.refresh_from_db()
