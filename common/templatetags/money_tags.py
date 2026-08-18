@@ -1,6 +1,6 @@
 """Render a stored amount the way every screen in the product renders it.
 
-The served pages group thousands in JavaScript (`money()` in `kariz-app.js`).
+The served pages group thousands in JavaScript (`money()` in `forooshbin-app.js`).
 The print and PDF documents are rendered by Django and had no equivalent, so a
 printed invoice showed `12500000.00` where the same amount on screen showed
 `12،500،000.00`. On a rial total that is not cosmetic: an unseparated eight-digit
@@ -18,7 +18,7 @@ from django import template
 
 register = template.Library()
 
-# U+060C ARABIC COMMA — the separator `kariz-app.js` already uses, so the
+# U+060C ARABIC COMMA — the separator `forooshbin-app.js` already uses, so the
 # printed document and the screen agree character for character.
 GROUP_SEPARATOR = "،"
 

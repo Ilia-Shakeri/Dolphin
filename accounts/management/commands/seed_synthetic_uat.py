@@ -28,7 +28,7 @@ from sales.services import (
 )
 
 
-POSTGRES_UAT_NAME = re.compile(r"\Auat_kariz_[a-z0-9]+(?:_[a-z0-9]+)*\Z")
+POSTGRES_UAT_NAME = re.compile(r"\Auat_forooshbin_[a-z0-9]+(?:_[a-z0-9]+)*\Z")
 SQLITE_MEMORY_TEST_NAME = re.compile(
     r"\Afile:memorydb_[A-Za-z0-9_]+\?mode=memory&cache=shared\Z"
 )
@@ -65,7 +65,7 @@ def database_identity_is_allowed(vendor, name, *, django_test_settings=False):
         is_memory = name == ":memory:" or bool(
             SQLITE_MEMORY_TEST_NAME.fullmatch(name)
         )
-        test_file = Path(tempfile.gettempdir()) / f"test_kariz_{os.getpid()}.sqlite3"
+        test_file = Path(tempfile.gettempdir()) / f"test_forooshbin_{os.getpid()}.sqlite3"
         is_process_test_file = Path(name).resolve() == test_file.resolve()
         return django_test_settings and (is_memory or is_process_test_file)
     if vendor == "postgresql":

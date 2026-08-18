@@ -27,7 +27,7 @@ class KarizHomeTests(TestCase):
         self.assertNotIn('href="http', content)
 
     def test_home_stylesheet_is_first_party_static(self):
-        self.assertIsNotNone(finders.find("common/kariz.css"))
+        self.assertIsNotNone(finders.find("common/forooshbin.css"))
         favicon = settings.BASE_DIR / "assets" / "media" / "logos" / "favicon.ico"
         self.assertTrue(favicon.is_file())
         self.assertContains(self.client.get("/"), '/static/common/favicon.ico')

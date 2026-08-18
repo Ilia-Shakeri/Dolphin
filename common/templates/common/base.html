@@ -14,11 +14,11 @@
    Persian IRANSans face from `fonts/`. {% endcomment %}
     <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}">
-    <link rel="stylesheet" href="{% static 'common/kariz.css' %}">
+    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
 </head>
 {% comment %} Metronic's dark-sidebar layout is the one canonical shell for this product;
    no other demo variant is mixed in. `data-page` stays because it selects the
-   single page handler in kariz-app.js. {% endcomment %}
+   single page handler in forooshbin-app.js. {% endcomment %}
 <body id="kt_app_body" class="app-default"
       data-kt-app-layout="dark-sidebar"
       data-kt-app-header-fixed="true"
@@ -50,7 +50,7 @@
                            this application rather than by KTMenu: KTMenu places a dropdown with
                            Popper, which lives in the 3.5 MB plugins bundle this deployment does
                            not load. The theme's own `.show` rule already supplies the whole panel;
-                           only the anchoring is ours, in kariz.css. Same trade as the native
+                           only the anchoring is ours, in forooshbin.css. Same trade as the native
                            dialog elements used instead of Bootstrap modals.
 
                            Everything the account owner may do lives here, which is why the sidebar
@@ -381,6 +381,6 @@
    assigned further down the same file. A body-end script still sees
    readyState "loading", so every module registers a real listener instead. {% endcomment %}
 <script src="{% static 'js/scripts.bundle.js' %}"></script>
-<script src="{% static 'common/kariz-app.js' %}" defer></script>
+<script src="{% static 'common/forooshbin-app.js' %}" defer></script>
 </body>
 </html>

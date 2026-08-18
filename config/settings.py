@@ -63,8 +63,8 @@ ASGI_APPLICATION = "config.asgi.application"
 
 DATABASES = {"default": {
     "ENGINE": "django.db.backends.postgresql",
-    "NAME": os.environ.get("POSTGRES_DB", "kariz"),
-    "USER": os.environ.get("POSTGRES_USER", "kariz"),
+    "NAME": os.environ.get("POSTGRES_DB", "forooshbin"),
+    "USER": os.environ.get("POSTGRES_USER", "forooshbin"),
     "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
     "HOST": os.environ.get("POSTGRES_HOST", "127.0.0.1"),
     "PORT": os.environ.get("POSTGRES_PORT", "5432"),
@@ -157,12 +157,12 @@ LOGGING = {
         },
     },
     "loggers": {
-        "kariz.request": {
+        "forooshbin.request": {
             "handlers": ["request_console"],
             "level": "INFO",
             "propagate": False,
         },
-        "kariz.server_fault": {
+        "forooshbin.server_fault": {
             "handlers": ["server_fault_console"],
             "level": "ERROR",
             "propagate": False,

@@ -64,7 +64,7 @@ class ProductionSettingsTests(SimpleTestCase):
         )
         self.assertEqual(
             settings_module.CACHES["default"]["LOCATION"],
-            str(Path(tempfile.gettempdir()) / "kariz-throttle-cache"),
+            str(Path(tempfile.gettempdir()) / "forooshbin-throttle-cache"),
         )
         self.assertLessEqual(
             settings_module.CACHES["default"]["OPTIONS"]["MAX_ENTRIES"],

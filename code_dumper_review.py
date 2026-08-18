@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 ROOT = Path(".").resolve()
-OUTPUT = ROOT / "kariz_review_bundle.txt"
+OUTPUT = ROOT / "forooshbin_review_bundle.txt"
 
 # ---------------------------------------------------------
 # Only first-party / operational files needed for review

@@ -84,7 +84,7 @@ SECURE_HSTS_PRELOAD = PRODUCTION_ENV["SECURE_HSTS_PRELOAD"]
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": str(Path(tempfile.gettempdir()) / "kariz-throttle-cache"),
+        "LOCATION": str(Path(tempfile.gettempdir()) / "forooshbin-throttle-cache"),
         "TIMEOUT": 300,
         "OPTIONS": {
             "MAX_ENTRIES": 10_000,

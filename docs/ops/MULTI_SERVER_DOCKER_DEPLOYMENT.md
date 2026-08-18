@@ -487,7 +487,7 @@ curl -fsS http://127.0.0.1/health/live/ && echo
 curl -fsS "https://<public-host>/api/v1/health/ready/" && echo
 
 # Static assets are served by Nginx from the shared volume.
-curl -fsS -o /dev/null -w '%{http_code}\n' "https://<public-host>/static/common/kariz.css"
+curl -fsS -o /dev/null -w '%{http_code}\n' "https://<public-host>/static/common/forooshbin.css"
 ```
 
 Prove nothing sensitive is published:

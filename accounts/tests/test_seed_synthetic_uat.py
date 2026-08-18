@@ -33,9 +33,9 @@ from sales.models import (
 TEST_PASSWORD = "Uat-Only-Safe-Pass-963!"
 
 
-# seed_synthetic_uat deliberately accepts only `uat_kariz_*` databases on
+# seed_synthetic_uat deliberately accepts only `uat_forooshbin_*` databases on
 # PostgreSQL, and on SQLite only the `config.test_settings` database. The
-# isolated PostgreSQL harness runs against `test_kariz_<token>`, so the command
+# isolated PostgreSQL harness runs against `test_forooshbin_<token>`, so the command
 # refuses it by design. The tests below need to get past that guard to exercise
 # the command body, so they run on SQLite. The guard itself is covered on every
 # vendor by test_database_identity_guard_is_narrow.
@@ -89,18 +89,18 @@ class SeedSyntheticUatTests(TestCase):
         allowed = (
             ("sqlite", ":memory:", True),
             ("sqlite", "file:memorydb_default?mode=memory&cache=shared", True),
-            ("sqlite", str(Path(tempfile.gettempdir()) / f"test_kariz_{os.getpid()}.sqlite3"), True),
-            ("postgresql", "uat_kariz_team_1", False),
+            ("sqlite", str(Path(tempfile.gettempdir()) / f"test_forooshbin_{os.getpid()}.sqlite3"), True),
+            ("postgresql", "uat_forooshbin_team_1", False),
         )
         denied = (
             ("sqlite", ":memory:", False),
-            ("sqlite", "kariz.sqlite3", True),
-            ("sqlite", str(Path(tempfile.gettempdir()) / "test_kariz_999999.sqlite3"), True),
-            ("postgresql", "kariz", False),
-            ("postgresql", "uat_kariz_", False),
-            ("postgresql", "uat_kariz_BAD", False),
-            ("postgresql", "uat_kariz_bad-name", False),
-            ("mysql", "uat_kariz_team_1", False),
+            ("sqlite", "forooshbin.sqlite3", True),
+            ("sqlite", str(Path(tempfile.gettempdir()) / "test_forooshbin_999999.sqlite3"), True),
+            ("postgresql", "forooshbin", False),
+            ("postgresql", "uat_forooshbin_", False),
+            ("postgresql", "uat_forooshbin_BAD", False),
+            ("postgresql", "uat_forooshbin_bad-name", False),
+            ("mysql", "uat_forooshbin_team_1", False),
         )
         for vendor, name, test_settings in allowed:
             with self.subTest(vendor=vendor, name=name):

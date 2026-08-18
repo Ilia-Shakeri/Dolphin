@@ -32,8 +32,8 @@ Loaded assets, and only these, because they are what the served pages request:
 | `js/scripts.bundle.js` | `KTUtil`, `KTMenu`, `KTDrawer`, `KTScroll` |
 | `plugins/global/fonts/keenicons/*` | the icon font the sidebar uses |
 | `fonts/IRANSansWeb*` | Persian typography |
-| `common/kariz.css` | ForooshBin-only: behaviour, brand, print |
-| `common/kariz-app.js` | the application; one handler per `data-page` |
+| `common/forooshbin.css` | ForooshBin-only: behaviour, brand, print |
+| `common/forooshbin-app.js` | the application; one handler per `data-page` |
 
 **`plugins.bundle.js` (3.5 MB) is deliberately not loaded.** The pages need
 `KTMenu` and `KTDrawer`, which live in `scripts.bundle.js`; they do not use
@@ -92,19 +92,19 @@ Each of these is a deliberate choice, not an omission.
    The markup, classes and `.show` rule are the theme's own, so it looks and
    behaves like every other Metronic menu. `KTMenu` is not used to open it:
    it positions a dropdown with Popper, which ships only in the plugins bundle
-   above. Toggling the class is eight lines in `kariz-app.js` and the anchoring
-   is three in `kariz.css` — the same trade as the native dialogs, for the same
+   above. Toggling the class is eight lines in `forooshbin-app.js` and the anchoring
+   is three in `forooshbin.css` — the same trade as the native dialogs, for the same
    reason. The sidebar accordion still uses `KTMenu`, which needs no Popper.
 
 2. **Modals are native `<dialog>`, not `.modal`.** The theme's modal needs
    Bootstrap's JavaScript, which would mean shipping the 3.5 MB plugins bundle
    for one component. `<dialog>` is real, focusable, closes on Escape, and needs
-   no library. `kariz.css` gives it the theme's card surface — about ten lines,
+   no library. `forooshbin.css` gives it the theme's card surface — about ten lines,
    the only place a theme component is re-created.
 3. **The print and PDF pages load no theme bundle at all.** Paper has no dark
    sidebar, no cards and no hover states, and a printed invoice must look the
    same whatever the theme is doing on screen. Their stylesheet is
-   self-contained in `kariz.css`.
+   self-contained in `forooshbin.css`.
 4. **No theme-mode switcher, no language selector, no social sign-in, no
    sign-up, no password-reset link, no notification or avatar drawer.** All
    exist in the theme; all are absent by Client-1 policy, and a control may
@@ -205,4 +205,4 @@ Inspection was limited to titles, forms, content containers, cards, toolbars, ta
 - No exact curated ActivityLog list/detail page was identified.
 - No exact curated after-sales list, case detail, or operator dashboard page was identified. The bounded user/contact/sale pages above were inspected for layout rhythm only; no support-center page was opened or silently substituted.
 - No separate exact Platform Admin dashboard reference exists. The maintained route intentionally remains one shared role-aware dashboard/profile page rather than duplicated frontends.
-- Vendor stylesheet/plugin implementation remains intentionally excluded. The maintained `common/static/common/kariz.css` is the only active stylesheet inspected in this phase.
+- Vendor stylesheet/plugin implementation remains intentionally excluded. The maintained `common/static/common/forooshbin.css` is the only active stylesheet inspected in this phase.

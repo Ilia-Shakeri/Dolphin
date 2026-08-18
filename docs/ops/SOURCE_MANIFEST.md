@@ -74,7 +74,7 @@ The 134 paths below exactly equal `git diff --name-status 50a978abc206e43032ce96
 | ` M` | `common/phones.py` | shared runtime source | SHIP | Reviewed first-party modified path |
 | `??` | `common/request_logging.py` | shared runtime source | SHIP | Reviewed first-party added path |
 | ` M` | `common/serializers.py` | shared runtime source | SHIP | Reviewed first-party modified path |
-| `??` | `common/static/common/kariz.css` | active UI asset | SHIP | Reviewed first-party added path |
+| `??` | `common/static/common/forooshbin.css` | active UI asset | SHIP | Reviewed first-party added path |
 | `??` | `common/templates/common/home.html` | active UI template | SHIP | Reviewed first-party added path |
 | `??` | `common/tests/test_backup_scripts.py` | shared test proof | SHIP | Reviewed first-party added path |
 | `??` | `common/tests/test_database_privileges.py` | shared test proof | SHIP | Reviewed first-party added path |

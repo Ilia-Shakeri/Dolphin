@@ -19,7 +19,7 @@ Concise, stable rules only. This file replaces the former long `AGENTS.md` (dele
 - One shared codebase for multiple customer deployments. No permanent customer-specific fork or branch.
 - Each customer deployment uses a separate database, secrets, and runtime identity — never `if client_name == ...` scattered through code.
 - Feature availability, role permission, and object/data scope are three separate controls. Disabling a feature must never delete historical data.
-- The maintained first-party UI is `common/templates/common/**` + `common/static/common/kariz-app.js` + `common/static/common/kariz.css`, routed through `common/ui_urls.py`/`common/ui_views.py`. This is the only served application UI.
+- The maintained first-party UI is `common/templates/common/**` + `common/static/common/forooshbin-app.js` + `common/static/common/forooshbin.css`, routed through `common/ui_urls.py`/`common/ui_views.py`. This is the only served application UI.
 - Backend enforces feature, role, and object-scope checks (selectors/services/permissions). A hidden or disabled frontend control is never authorization.
 
 ## Git safety

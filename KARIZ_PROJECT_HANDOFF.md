@@ -172,7 +172,7 @@ savepoint تثبیت شده، نه با اجرای واقعی؛ و سرویس `s
 | MEDIUM | `docs/ops/DEPLOYMENT.md` به اپراتور می‌گفت `/admin/login/` را در browser smoke بررسی کند — مسیری که در تولید **عمدا ۴۰۴** است (`ENABLE_DJANGO_ADMIN` پیش‌فرض false و nginx هم prefix را رد می‌کند). دنبال‌کردن runbook یک شکست کاذب تولید می‌کرد | مسیر به `/login/` اصلاح شد و صریحا نوشته شد که ۲۰۰ روی `/admin/` یک پیکربندی نادرست است، نه یک تست موفق |
 | MEDIUM | `docs/backend/API_CONTRACT.md` نام فایل XLSX را `kariz-user-performance.xlsx` اعلام می‌کرد؛ کد `forooshbin-*` تولید می‌کند — قرارداد API مستند با کد تناقض داشت | نام اصلاح شد |
 | MEDIUM | `docs/codebase/BRANDING_CLEANUP.md` ادعا می‌کرد هیچ favicon توسط پوسته فعال ارجاع نمی‌شود؛ پس از rebrand این نادرست است | ادعا به «هیچ دارایی **راه‌دور**؛ یک favicon محلی در دایرکتوری استاتیک خود اپلیکیشن» اصلاح شد |
-| LOW | `jalaliDateValue()` در `kariz-app.js` تعریف شده و هرگز فراخوانی نمی‌شد (کد first-party غیرقابل‌دسترس) | حذف شد؛ `displayDay()` همان کار را می‌کند |
+| LOW | `jalaliDateValue()` در `forooshbin-app.js` تعریف شده و هرگز فراخوانی نمی‌شد (کد first-party غیرقابل‌دسترس) | حذف شد؛ `displayDay()` همان کار را می‌کند |
 | LOW | `common/tests/test_deployment_profile.py` تنها فایل مخزن با BOM بود و `ast.parse` ساده را می‌شکست | BOM حذف شد |
 | LOW | دو `except Exception: pass` دور لاگ‌گیری بدون توضیح | توضیح اضافه شد: شکست لاگ نباید خطای مدیریت‌شده را با خطای دیگری جایگزین کند یا پاسخ موفق را به خطا تبدیل کند |
 
@@ -249,7 +249,7 @@ savepoint تثبیت شده، نه با اجرای واقعی؛ و سرویس `s
 
 ### دارایی‌هایی که بارگذاری می‌شوند (و آن‌که نمی‌شود)
 
-`plugins.bundle.rtl.css`، `style.bundle.rtl.css`، `scripts.bundle.js`، فونت keenicons، فونت فارسی IRANSans، به‌علاوه `kariz.css`/`kariz-app.js`.
+`plugins.bundle.rtl.css`، `style.bundle.rtl.css`، `scripts.bundle.js`، فونت keenicons، فونت فارسی IRANSans، به‌علاوه `forooshbin.css`/`forooshbin-app.js`.
 
 **`plugins.bundle.js` با ۳٫۵ مگابایت عمدا بارگذاری نمی‌شود.** صفحه‌ها به `KTMenu` و `KTDrawer` نیاز دارند که در `scripts.bundle.js` هستند؛ به جاوااسکریپت Bootstrap نیازی نیست چون مودال‌ها `<dialog>` بومی‌اند. صفحه‌های سرو‌شده بدون آن **صفر خطای severe** در کنسول دارند.
 
@@ -504,7 +504,7 @@ sidebar دو سازوکار باز/بسته داشت: drawer قالب، به‌�
 
 **پایگاه داده و API دست‌نخورده:** بدون migration، بدون تغییر schema، بدون تغییر در بدنه درخواست/پاسخ.
 
-**کجا پیاده شد:** دو پیاده‌سازی از یک الگوریتم، چون مرورگر باید بدون رفت‌وبرگشت تبدیل کند و سرور باید چاپ/PDF/XLSX را render کند — `common/jalali.py` (+ `common/templatetags/jalali_tags.py`) و بخش تاریخ در `kariz-app.js`. هیچ تبدیل موردی در قالب‌ها پخش نشد.
+**کجا پیاده شد:** دو پیاده‌سازی از یک الگوریتم، چون مرورگر باید بدون رفت‌وبرگشت تبدیل کند و سرور باید چاپ/PDF/XLSX را render کند — `common/jalali.py` (+ `common/templatetags/jalali_tags.py`) و بخش تاریخ در `forooshbin-app.js`. هیچ تبدیل موردی در قالب‌ها پخش نشد.
 
 **درستی، اثبات‌شده نه فرض‌شده:** تبدیل در برابر ICU روی **۱۶۸۰۱ روز پیاپی (۱۹۹۰ تا ۲۰۳۵)، هر دو جهت، برای هر دو پیاده‌سازی، با صفر اختلاف** بررسی شد. پیش‌نویس اول یک روز در مبدا خطا داشت و دقیقا همین مقایسه آن را گرفت.
 
@@ -589,7 +589,7 @@ check → 0 | makemigrations --check → No changes detected
 spectacular --validate --fail-on-warn   → 0
 collectstatic --dry-run                 → 0 (۱۷۹ فایل)
 check_html_branding.py                  → PASS files=249
-node --check kariz-app.js               → 0
+node --check forooshbin-app.js               → 0
 validate_image_content --context        → PASS files=209
 git diff --check                        → 0
 ماتریس مرورگر (شامل زنجیره بازرگانی)     → سبز
@@ -938,7 +938,7 @@ PROBE_DEFECTIVE  maxLength=500  attr='500><p class='  err_p=0  input_has_dataerr
 جست‌وجوی الگویی در کل `common/templates/common/**`:
 
 ```text
-href="#"            → 1 مورد، و مرده نیست (kariz-app.js:787 آن را مقداردهی می‌کند)
+href="#"            → 1 مورد، و مرده نیست (forooshbin-app.js:787 آن را مقداردهی می‌کند)
 javascript:void(0)  → صفر
 form بدون action    → صفر
 action=""           → صفر
@@ -965,7 +965,7 @@ python manage.py makemigrations --check --dry-run       exit=0  No changes detec
 python manage.py spectacular --validate --fail-on-warn  exit=0
 python manage.py collectstatic --dry-run --noinput      exit=0
 python scripts/check_html_branding.py                   exit=0  files=228
-node --check common/static/common/kariz-app.js          exit=0
+node --check common/static/common/forooshbin-app.js          exit=0
 python scripts/validate_image_content.py --context      exit=0  files=147 PASS
 git diff --check                                        exit=0
 python manage.py test                                   Ran 356 tests — OK (skipped=7)
@@ -1102,7 +1102,7 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 ### وضعیت اتصال frontend↔backend
 
-ممیزی مستقل خط‌به‌خط (۲۵ route در `common/ui_urls.py`، هر ۲۵ تابع `setup*` در `kariz-app.js`، هر endpoint در پنج app) نتیجه داد: **اتصال واقعی و کامل است، نه partial و نه فقط shell.** هیچ دکمه/لینک مرده، هیچ `data-page` بی‌صاحب، هیچ fetch به مسیر ناموجود، هیچ پیام موفقیت جعلی، و هیچ قابلیت backend بدون UI متصل پیدا نشد. تنها نقص واقعی یافت‌شده یک باگ HTML کوچک است (بخش ۹).
+ممیزی مستقل خط‌به‌خط (۲۵ route در `common/ui_urls.py`، هر ۲۵ تابع `setup*` در `forooshbin-app.js`، هر endpoint در پنج app) نتیجه داد: **اتصال واقعی و کامل است، نه partial و نه فقط shell.** هیچ دکمه/لینک مرده، هیچ `data-page` بی‌صاحب، هیچ fetch به مسیر ناموجود، هیچ پیام موفقیت جعلی، و هیچ قابلیت backend بدون UI متصل پیدا نشد. تنها نقص واقعی یافت‌شده یک باگ HTML کوچک است (بخش ۹).
 
 صفحات نمایشی/فروشنده (Metronic/KeenThemes زیر `assets/`, `src/`, `dashboards/`, `pages/`, و مشابه) صرفا مرجع بصری bounded هستند، جزو اپلیکیشن served نیستند و در `.dockerignore` صریحا exclude شده‌اند — تایید شد.
 
@@ -1178,7 +1178,7 @@ Selected: Option C
 | 7 | عملگر after-sales روی `customers`/`leads`/`sales` پاسخ `200` با صفر ردیف می‌گرفت، درحالی‌که `users`/`activity-logs`/`inbound-sms` `403` می‌دهند | LOW — **برطرف شد** (۲۰۲۶/۰۸/۱۵) | `sales/permissions.py` (جدید)، `sales/views.py` | `HasSalesCapability` اضافه شد: هر ViewSet اپ `sales` اکنون `required_capabilities` صریح دارد و نبود capability `403` می‌دهد، نه «این هم لیست خالی». هر هشت ViewSet پوشش داده شدند تا ناسازگاری تازه ساخته نشود. **هیچ نقشی محدودتر نشد** — تست جدید `test_sales_roles_still_reach_their_own_modules` برای هر چهار نقش دارنده capability `200` را اثبات می‌کند. این کنترل نقش است و از feature-gate (`P3`) و object scope جداست. |
 | 5 | عدم‌تطابق نسخه Python: هاست توسعه فعلی `Python 3.14.5` دارد؛ `Dockerfile` فقط base image با `sys.version_info[:2] == (3, 13)` را می‌پذیرد | اطلاع‌رسانی، نه نقص | `Dockerfile:12` | تست‌های محلی روی 3.14.5 pass شدند ولی رفتار دقیق production روی 3.13 محلی proof نشده؛ در build واقعی هدف تایید شود. |
 | 8 | **fail-open در گیت‌های امنیتی دیتابیس:** `\quit <status>` در psql وجود ندارد؛ گیت پیام شکست را چاپ می‌کرد و با کد ۰ خارج می‌شد. ۸ مورد در `bootstrap-postgres.sh` و ۲ مورد در verifierهای SQL | **HIGH — برطرف شد در `P0R.2`** | `scripts/bootstrap-postgres.sh`, `scripts/verify-postgres-privileges.sql`, `scripts/verify-postgres-schema.sql` | همه به `RAISE EXCEPTION` تبدیل شدند تا با `ON_ERROR_STOP=1` خروج غیرصفر بدهند. اثر بالقوه: `db-bootstrap`/`db-finalize` نقض قرارداد مالکیت/ACL را اعلام و «موفق» گزارش می‌کردند و Compose اجازه شروع `migrate`/`web` می‌داد. رگرسیون: `test_every_bootstrap_guard_actually_exits_non_zero`. جزئیات و شاهد اجراشده در بخش ۰.۰۰. |
-| 9 | کنترل‌های فرانت در ~۲۰۰ms اول بارگذاری بی‌اثر بودند (شنونده پس از `await` شبکه‌ای وصل می‌شد) در `setupProducts`، `setupPerformancePanel` و `setupAfterSales` | LOW/MEDIUM — برطرف شد در `P0R.2` | `common/static/common/kariz-app.js` | شنونده‌ها پیش از هر `await` وصل شدند. فقط با تاخیر واقعی PostgreSQL دیده می‌شد؛ روی SQLite همیشه pass بود. بخش ۰.۰۰. |
+| 9 | کنترل‌های فرانت در ~۲۰۰ms اول بارگذاری بی‌اثر بودند (شنونده پس از `await` شبکه‌ای وصل می‌شد) در `setupProducts`، `setupPerformancePanel` و `setupAfterSales` | LOW/MEDIUM — برطرف شد در `P0R.2` | `common/static/common/forooshbin-app.js` | شنونده‌ها پیش از هر `await` وصل شدند. فقط با تاخیر واقعی PostgreSQL دیده می‌شد؛ روی SQLite همیشه pass بود. بخش ۰.۰۰. |
 
 ## ۱۰. blockerهای بیرونی deployment (ورودی گزارش‌شده، نه fact اثبات‌شده)
 
@@ -1199,7 +1199,7 @@ python manage.py test --settings=config.test_settings -v 1
     → "Ran 342 tests ... OK (skipped=7)"؛ ۷ skip همگی PostgreSQL-only
 python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
     → exit 0، بدون خطا
-node --check common/static/common/kariz-app.js
+node --check common/static/common/forooshbin-app.js
     → exit 0
 python scripts/check_html_branding.py
     → "HTML_BRANDING_PASS files=228"

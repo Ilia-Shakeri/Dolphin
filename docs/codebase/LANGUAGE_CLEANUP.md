@@ -14,7 +14,7 @@ Only the active first-party Django surfaces were reviewed and changed. No exclud
 | `common/ui_views.py` | Renders the fixed home template | Root response test |
 | `common/templates/common/home.html` | Declares `lang="fa"` and `dir="rtl"`; visible copy is Persian except the approved product mark | Exact content tests |
 | `common/admin.py` | Gives Django admin Persian Kariz headers | Admin render test |
-| `common/static/common/kariz.css` | Local RTL-safe presentation; no remote asset | Static finder and collectstatic dry run |
+| `common/static/common/forooshbin.css` | Local RTL-safe presentation; no remote asset | Static finder and collectstatic dry run |
 | `common/tests/test_ui.py` | Guards language, RTL, local asset, and admin output | Full suite |
 
 ## Active behavior
@@ -32,7 +32,7 @@ Only the active first-party Django surfaces were reviewed and changed. No exclud
 | Language selector UI | No selector, switch control, flag control, or language form exists on `/` or Django admin customization | No selector removed because none exists |
 | Language state behavior | No `LocaleMiddleware`, `set_language`, `i18n_patterns`, project `LANGUAGES` list, language cookie/query key, or local-storage handler exists in the active first-party apps | No handler, route, field, cookie, or selector removed because none exists |
 | Default locale and direction | `config/settings.py` sets `LANGUAGE_CODE = "fa"`; the home template fixes `lang="fa"` and `dir="rtl"`; Django admin inherits Persian/RTL behavior | Keep the explicit Persian default and render guards |
-| First-party active static | `common/static/common/kariz.css` is the only project-owned shell asset and contains no locale payload or remote import | Keep as local RTL-safe presentation |
+| First-party active static | `common/static/common/forooshbin.css` is the only project-owned shell asset and contains no locale payload or remote import | Keep as local RTL-safe presentation |
 | Django dependency locales | Dependency-owned Django locale data such as `django/conf/locale/**` and Django admin translation/RTL/static resources remain installed | Required framework exception; these files are not project-owned language choices and must not be edited or deleted from installed dependencies |
 | Machine and developer text | Python, API/database identifiers, stable report headers, and technical operator documentation remain language-stable | Required non-UI exception under the Persian-only policy |
 | Excluded static archive | Not in `TEMPLATES.DIRS`, backend image, or repository URL map | Leave untouched; unknown external use and any deletion need a separate manifest and runtime proof |

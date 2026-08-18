@@ -293,7 +293,7 @@ def execute_load(config, *, probe=_probe):
     workers = [
         threading.Thread(
             target=worker,
-            name=f"kariz-readiness-{index}",
+            name=f"forooshbin-readiness-{index}",
             daemon=True,
         )
         for index in range(config.concurrency)

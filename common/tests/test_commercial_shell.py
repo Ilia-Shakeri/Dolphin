@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class CommercialShellContractTests(SimpleTestCase):
     def test_real_pages_states_and_identical_report_query_are_wired(self):
-        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         for page in ("products", "product-detail", "product-categories", "product-category-detail", "sales", "sale-detail", "user-performance", "activity-logs", "activity-log-detail"):
             self.assertIn(f'page === "{page}"', script)
         self.assertIn("function reportQuery(form)", script)
@@ -33,7 +33,7 @@ class CommercialShellContractTests(SimpleTestCase):
         form = template.split('id="create-sale-form"', 1)[1].split("</form>", 1)[0]
         for field in ("customer", "sold_by", "unit_price_snapshot", "total_amount", "status", "sold_at", "created_at", "updated_at"):
             self.assertNotIn(f'name="{field}"', form)
-        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         self.assertIn('formPayload(createForm, ["lead", "product", "quantity", "notes"])', script)
         self.assertNotIn("correction", template.lower())
         self.assertNotIn('method: "DELETE"', script)
@@ -50,7 +50,7 @@ class CommercialShellContractTests(SimpleTestCase):
         self.assertIn('id="product-category-filter" name="category"', list_template)
         self.assertIn('name="brand" maxlength="120"', list_template)
         self.assertIn('name="barcode" maxlength="64"', list_template)
-        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         self.assertIn('query.set("is_active", isActive)', script)
         self.assertIn('query.set("category", category)', script)
         self.assertNotIn('method: "DELETE"', script)

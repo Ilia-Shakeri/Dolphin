@@ -166,7 +166,7 @@
      * normally toggle that class and position the panel with Popper, which
      * lives in the plugins bundle this deployment does not load. Toggling the
      * class here is the whole of what was missing — placement is two CSS lines
-     * in kariz.css.
+     * in forooshbin.css.
      */
     function setupUserMenu() {
         const toggle = document.getElementById("user-menu-toggle");

@@ -23,7 +23,7 @@ from common.deployment.registry import ALL_FEATURES, FEATURE_DEPENDENCIES, missi
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "common" / "templates" / "common"
-SCRIPT = ROOT / "common" / "static" / "common" / "kariz-app.js"
+SCRIPT = ROOT / "common" / "static" / "common" / "forooshbin-app.js"
 
 # A template action is a literal path; a script endpoint is a template literal
 # whose interpolations stand in for ids and query strings.

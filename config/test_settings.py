@@ -10,10 +10,10 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
         "TEST": {
-            "NAME": str(Path(tempfile.gettempdir()) / f"test_kariz_{os.getpid()}.sqlite3"),
+            "NAME": str(Path(tempfile.gettempdir()) / f"test_forooshbin_{os.getpid()}.sqlite3"),
         },
     }
 }
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 ENABLE_API_DOCS = True
-LOGGING["loggers"]["kariz.request"]["level"] = "WARNING"
+LOGGING["loggers"]["forooshbin.request"]["level"] = "WARNING"

@@ -458,8 +458,8 @@ for path in \
   /static/css/style.bundle.rtl.css \
   /static/plugins/global/plugins.bundle.rtl.css \
   /static/js/scripts.bundle.js \
-  /static/common/kariz.css \
-  /static/common/kariz-app.js \
+  /static/common/forooshbin.css \
+  /static/common/forooshbin-app.js \
   /static/common/favicon.ico \
   /static/fonts/IRANSansWeb.woff \
   /static/plugins/global/fonts/keenicons/keenicons-duotone.woff ; do

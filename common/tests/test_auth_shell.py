@@ -17,7 +17,7 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertEqual(len(ROLE_LABELS), 4)
 
     def test_client_has_persian_error_states_and_same_origin_requests(self):
-        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
 
         for status in (403, 404, 409, 429):
             self.assertIn(f'{status}: "', script)
@@ -35,7 +35,7 @@ class AuthShellUnitTests(SimpleTestCase):
         the theme does not cover, the brand mark, and the print sheet — and this
         test fails if a parallel design system starts growing back.
         """
-        stylesheet = (ROOT / "common" / "static" / "common" / "kariz.css").read_text(encoding="utf-8")
+        stylesheet = (ROOT / "common" / "static" / "common" / "forooshbin.css").read_text(encoding="utf-8")
         shell = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
 
         # The theme provides the shell.
@@ -68,7 +68,7 @@ class AuthShellUnitTests(SimpleTestCase):
         served page. Navigation and sign-out still have to work there, so the
         guard sits after them.
         """
-        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         guard = 'if (document.getElementById("app-error")) return;'
         self.assertIn(guard, script)
         before, _, after = script.partition(guard)
@@ -85,7 +85,7 @@ class AuthShellUnitTests(SimpleTestCase):
         sheet. On paper the table must go back to visible — a clipped line item
         is a missing line item.
         """
-        stylesheet = (ROOT / "common" / "static" / "common" / "kariz.css").read_text(encoding="utf-8")
+        stylesheet = (ROOT / "common" / "static" / "common" / "forooshbin.css").read_text(encoding="utf-8")
         self.assertIn(".print-page { box-sizing: border-box;", stylesheet)
         self.assertIn(".print-page .table-wrap { overflow-x: auto; }", stylesheet)
         self.assertIn(".print-page .table-wrap { overflow-x: visible; }", stylesheet)

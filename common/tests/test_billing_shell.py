@@ -67,7 +67,7 @@ AGENT_FORBIDDEN_PAGES = (
 
 class BillingScriptContractTests(SimpleTestCase):
     def test_every_new_page_has_a_handler_and_no_dead_control_pattern(self):
-        script = (ROOT / "common" / "static" / "common" / "kariz-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         for page in (
             "warehouses", "warehouse-detail", "stock-levels", "stock-movements",
             "quotations", "quotation-detail", "orders", "order-detail",

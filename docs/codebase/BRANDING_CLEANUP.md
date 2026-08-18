@@ -15,7 +15,7 @@ Status: repository-controlled slice complete; real browser and edge-runtime proo
 | `common/templates/common/home.html` | Page title, mark, and Persian product summary | Render test checks Kariz and rejects visible vendor names/external links |
 | `common/admin.py` | Django admin header, browser title, and index title | Exact admin setting/render tests |
 | `config/settings.py` | Schema title remains `ForooshBin API` | Schema validation |
-| `common/static/common/kariz.css` | Project-owned visual shell with no remote brand asset | Static finder and collectstatic dry run |
+| `common/static/common/forooshbin.css` | Project-owned visual shell with no remote brand asset | Static finder and collectstatic dry run |
 
 The active home page contains no purchase, preview, demo, remote image, remote font, or vendor link. It does not rename framework/theme runtime identifiers because none are used by this shell.
 

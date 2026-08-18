@@ -49,7 +49,7 @@ round trip and the server must render print, PDF, and XLSX:
 * `common/jalali.py` — conversion, formatting, parsing, the operational
   timezone. Used by `common/templatetags/jalali_tags.py` (`|jalali`,
   `|jalali_datetime`, `|jalali_long`) and by `reports/xlsx.py`.
-* `common/static/common/kariz-app.js` — the same arithmetic, plus
+* `common/static/common/forooshbin-app.js` — the same arithmetic, plus
   `displayDate` / `displayDay` for rendering, `apiDate` / `apiDateTime` for
   submitting, and `setupJalaliInputs` which gives every `[data-jalali]` field
   its behaviour once at start-up.
