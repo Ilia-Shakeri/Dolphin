@@ -3138,6 +3138,8 @@
             await Promise.all([
                 loadCustomerOptions(document.getElementById("create-order-customer"), "یک مشتری انتخاب کنید"),
                 loadProductOptions(document.getElementById("create-order-product"), "یک کالا انتخاب کنید"),
+                // The order names the warehouse its goods leave from on approval.
+                loadWarehouseOptions(document.getElementById("create-order-warehouse"), "بدون اثر انبار"),
             ]);
         } catch (error) {
             showError(error);
@@ -3156,18 +3158,33 @@
                 return `/api/v1/orders/?${query}`;
             },
             columns: [
-                (row, item) => { appendCell(row, item.number).dir = "ltr"; },
+                (row, item) => {
+                    // The order number, centred like the amount beside it.
+                    const cell = appendCell(row, item.number);
+                    cell.dir = "ltr";
+                    cell.classList.add("text-center");
+                },
                 (row, item) => appendCell(row, item.customer_name),
                 (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
-                (row, item) => appendMoneyCell(row, item.total_amount),
-                (row, item) => appendCell(row, displayDate(item.confirmed_at)),
+                (row, item) => appendMoneyCell(row, item.total_amount).classList.add("text-center"),
+                // Registration is server-generated and immutable; delivery is
+                // the date the operator sets on the order.
+                (row, item) => appendCell(row, displayDay(item.created_at)),
+                (row, item) => appendCell(row, displayDay(item.expected_delivery_at)),
                 (row, item) => appendCell(row, item.created_by_display || item.created_by),
             ],
-            createFields: (data) => ({
-                customer: Number(data.get("customer")),
-                tax_rate: String(data.get("tax_rate") || "0"),
-                items: documentFirstLine(data),
-            }),
+            createFields: (data) => {
+                const payload = {
+                    customer: Number(data.get("customer")),
+                    items: documentFirstLine(data),
+                    notes: String(data.get("notes") || ""),
+                    shipping_method: String(data.get("shipping_method") || ""),
+                };
+                const warehouse = numberOrNull(data.get("warehouse"));
+                if (warehouse !== null) payload.warehouse = warehouse;
+                payload.expected_delivery_at = apiDateTime(textOrNull(data.get("expected_delivery_at")));
+                return payload;
+            },
         });
     }
 
@@ -3466,71 +3483,123 @@
         const endpoint = `/api/v1/orders/${orderId}/`;
         const loading = document.getElementById("order-detail-loading");
         const content = document.getElementById("order-detail-content");
-        const workflow = document.getElementById("order-workflow");
-        const convertBlock = document.getElementById("order-convert-block");
-        const convertForm = document.getElementById("order-convert-form");
+        const statusSelect = document.getElementById("order-status-select");
         const form = document.getElementById("edit-order-form");
         const editActions = document.getElementById("order-edit-actions");
         const lockedNote = document.getElementById("order-locked-note");
         const lines = documentLineEditor({doc: "order", endpoint, onSaved: (updated) => apply(updated)});
 
+        let current = null;
+
         function apply(order) {
+            current = order;
             document.getElementById("order-number").value = order.number;
             document.getElementById("order-customer").value = order.customer_name;
-            document.getElementById("order-status").value = labelled(DOCUMENT_STATUS_TEXT, order.status);
-            document.getElementById("order-source-quotation").value = order.quotation ? `#${order.quotation}` : "—";
+            // Registration is server-generated and immutable, shown as a day.
+            document.getElementById("order-registered-at").value = displayDay(order.created_at);
             document.getElementById("order-created-by").value = order.created_by_display || order.created_by;
-            document.getElementById("order-confirmed-at").value = displayDate(order.confirmed_at);
-            document.getElementById("edit-order-delivery").value = localDateTimeValue(order.expected_delivery_at);
-            document.getElementById("edit-order-discount").value = order.discount_amount;
-            document.getElementById("edit-order-tax").value = order.tax_rate;
+            if (statusSelect) {
+                statusSelect.value = order.status;
+            } else {
+                document.getElementById("order-status").value = labelled(DOCUMENT_STATUS_TEXT, order.status);
+            }
+            document.getElementById("edit-order-delivery").value = localDateValue(order.expected_delivery_at);
             document.getElementById("edit-order-notes").value = order.notes || "";
-            const editable = order.status === "draft";
+            // A draft and an approved order are both editable: the service moves
+            // only the stock difference when an approved one changes.
+            const editable = ["draft", "confirmed"].includes(order.status);
             if (editActions) editActions.hidden = !editable;
             if (lockedNote) lockedNote.hidden = editable;
             form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
-            if (convertBlock) convertBlock.hidden = !["confirmed", "fulfilled"].includes(order.status);
             lines.apply(order);
+        }
+
+        /**
+         * Invoices linked to this order.
+         *
+         * Read through the real relation — `?order=<id>` — rather than by
+         * comparing document numbers as text.
+         */
+        async function loadLinkedInvoices() {
+            const wrap = document.getElementById("order-invoices-table-wrap");
+            const body = document.getElementById("order-invoices-table-body");
+            const invoiceLoading = document.getElementById("order-invoices-loading");
+            const empty = document.getElementById("order-invoices-empty");
+            if (!wrap || !body) return;
+            invoiceLoading.hidden = false; wrap.hidden = true; empty.hidden = true;
+            try {
+                const data = await apiRequest(`/api/v1/invoices/?order=${orderId}`);
+                body.replaceChildren(...data.results.map((invoice) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, invoice.number).dir = "ltr";
+                    appendMoneyCell(row, invoice.total_amount);
+                    const cell = document.createElement("td");
+                    const link = document.createElement("a");
+                    link.className = "btn btn-sm btn-light";
+                    link.href = `/invoices/${invoice.id}/`;
+                    link.textContent = "مشاهده";
+                    cell.append(link);
+                    row.append(cell);
+                    return row;
+                }));
+                invoiceLoading.hidden = true;
+                empty.hidden = data.results.length > 0;
+                wrap.hidden = data.results.length === 0;
+            } catch (error) {
+                invoiceLoading.hidden = true;
+                showError(error);
+            }
         }
 
         form.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(form, async () => {
                 const data = new FormData(form);
-                const payload = {
-                    discount_amount: String(data.get("discount_amount") || "0"),
-                    tax_rate: String(data.get("tax_rate") || "0"),
-                    notes: String(data.get("notes") || ""),
-                };
+                // Document discount and tax rate are not offered on this form.
+                const payload = {notes: String(data.get("notes") || "")};
                 payload.expected_delivery_at = apiDateTime(textOrNull(data.get("expected_delivery_at")));
                 const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 apply(updated);
                 globalMessage("سربرگ سفارش ذخیره شد.", true);
             });
         });
-        bindTransitions("order", endpoint, apply);
-        convertForm?.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(convertForm, async () => {
-                const warehouse = numberOrNull(new FormData(convertForm).get("warehouse"));
-                const invoice = await apiRequest(`${endpoint}convert/`, {
-                    method: "POST",
-                    body: warehouse === null ? {} : {warehouse},
+        // Changing the status is what moves stock, so it asks first and reports
+        // what the server decided — an approval the warehouse cannot cover comes
+        // back cancelled, with the reason on the order.
+        statusSelect?.addEventListener("change", async () => {
+            const next = statusSelect.value;
+            if (!current || next === current.status) return;
+            const label = labelled(DOCUMENT_STATUS_TEXT, next);
+            if (!window.confirm(`وضعیت سفارش به «${label}» تغییر کند؟`)) {
+                statusSelect.value = current.status;
+                return;
+            }
+            statusSelect.disabled = true;
+            clearMessages();
+            try {
+                const updated = await apiRequest(`${endpoint}transition/`, {
+                    method: "POST", body: {to_status: next},
                 });
-                window.location.assign(`/invoices/${invoice.id}/`);
-            });
+                apply(updated);
+                if (updated.status === "cancelled" && next !== "cancelled") {
+                    globalMessage("موجودی کافی نبود؛ سفارش لغو شد.");
+                } else {
+                    globalMessage("وضعیت سفارش ثبت شد.", true);
+                }
+            } catch (error) {
+                statusSelect.value = current.status;
+                showError(error);
+            } finally {
+                statusSelect.disabled = false;
+            }
         });
 
         try {
-            const [order] = await Promise.all([
-                apiRequest(endpoint),
-                lines.loadProducts(),
-                loadWarehouseOptions(document.getElementById("order-convert-warehouse"), "بدون اثر انبار"),
-            ]);
+            const [order] = await Promise.all([apiRequest(endpoint), lines.loadProducts()]);
             apply(order);
+            await loadLinkedInvoices();
             loading.hidden = true;
             content.hidden = false;
-            if (workflow) workflow.hidden = false;
         } catch (error) {
             loading.hidden = true;
             showError(error);

@@ -267,7 +267,9 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     })
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "issued_at", "due_at", "total_amount", "number"]
-    list_query_parameters = {"status", "customer", "settlement"}
+    #: `order` lets the order page list the invoices linked to it through the
+    #: real relation rather than by matching document numbers as text.
+    list_query_parameters = {"status", "customer", "settlement", "order"}
     action_query_parameters = {"allocations": {"page"}}
 
     def get_queryset(self):
@@ -276,6 +278,11 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             .select_related("customer", "order", "quotation", "warehouse", "created_by")
             .prefetch_related("items")
         )
+        order = self.request.query_params.get("order")
+        if order is not None:
+            if not str(order).isdigit():
+                raise ValidationError({"order": "Enter a numeric order id."})
+            queryset = queryset.filter(order_id=int(order))
         settlement = self.request.query_params.get("settlement")
         if settlement is not None:
             if settlement not in Invoice.SettlementStatus.values:

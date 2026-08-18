@@ -217,6 +217,10 @@ class QuotationItem(DocumentLine):
 
 
 class Order(CommercialDocument):
+    class ShippingMethod(models.TextChoices):
+        POST = "post", "پست"
+        COURIER = "courier", "پیک"
+
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         CONFIRMED = "confirmed", "Confirmed"
@@ -248,6 +252,11 @@ class Order(CommercialDocument):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
     confirmed_at = models.DateTimeField(null=True, blank=True, db_index=True)
     expected_delivery_at = models.DateTimeField(null=True, blank=True)
+    #: How the goods travel. Blank until somebody decides, which is why it is a
+    #: blank-able choice rather than a default that would claim a decision.
+    shipping_method = models.CharField(
+        max_length=20, choices=ShippingMethod.choices, blank=True, default=""
+    )
 
     # --- Inventory lifecycle guards ----------------------------------------
     #
@@ -262,9 +271,13 @@ class Order(CommercialDocument):
 
     class Meta:
         ordering = ["-created_at", "-id"]
-        constraints = _document_constraints(
-            "order", ["draft", "confirmed", "fulfilled", "cancelled"]
-        )
+        constraints = [
+            *_document_constraints("order", ["draft", "confirmed", "fulfilled", "cancelled"]),
+            models.CheckConstraint(
+                condition=Q(shipping_method__in=["", "post", "courier"]),
+                name="order_shipping_method_valid",
+            ),
+        ]
         indexes = [
             models.Index(fields=["customer", "-created_at"]),
             models.Index(fields=["status", "-created_at"]),

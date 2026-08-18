@@ -124,16 +124,21 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             User.Role.COMPANY_IT,
             User.Role.PLATFORM_ADMIN,
         }
-        # Activation state is reserved for the Platform Admin. It is a separate
-        # flag from the operational ones above because it answers a different
-        # question: not "may this role work the record" but "may this role take
-        # it out of circulation".
-        context["can_change_activation"] = self.request.user.role == User.Role.PLATFORM_ADMIN
+        # Mirrors `sales.services.STATUS_ADMINISTRATORS`. Client-1 gives the
+        # store manager the same functional access as the platform admin; what
+        # stays Platform-Admin-only is the security plane — user accounts,
+        # sessions, the deployment — not business workflow.
+        status_admin = self.request.user.role in {
+            User.Role.SALES_MANAGER, User.Role.PLATFORM_ADMIN
+        }
+        context["can_change_activation"] = status_admin
+        # An order's status decides whether goods leave the warehouse, so it is
+        # held by the same roles. Everything else on the order stays editable by
+        # whoever may work it.
+        context["can_change_order_status"] = status_admin
         # Mirrors exactly what `_require_target_audience_editor` allows, so the
         # page never offers a control the service would refuse, nor hides one it
-        # would accept. Whether `sales_manager` specifically should hold this is
-        # an open product question; until it is answered the UI follows the
-        # service rather than guessing ahead of it.
+        # would accept.
         context["can_edit_target_audience"] = self.request.user.role != User.Role.SALES_AGENT
         context["can_reassign_leads"] = context["can_deactivate_customers"]
         context["can_manage_products"] = context["can_deactivate_customers"]

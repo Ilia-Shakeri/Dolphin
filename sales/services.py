@@ -844,15 +844,25 @@ TARGET_MEMBER_TEXT_LIMITS = {"full_name": 255, "raw_phone": 40, "notes": FREE_TE
 TARGET_MEMBER_ASSIGNABLE_STATUSES = frozenset()
 
 
-def _require_status_administrator(actor):
-    """Turning a record on or off is reserved for a Platform Admin.
+#: Roles that may turn a business record on or off, or move an order through
+#: its lifecycle. Client-1 gives `sales_manager` the same functional access as
+#: `platform_admin`; what stays Platform-Admin-only is the security and
+#: administration plane — user accounts, sessions, the deployment itself — not
+#: business workflow. `company_it` is a technical role and is deliberately not
+#: here: it administers the deployment, it does not run the shop.
+STATUS_ADMINISTRATORS = frozenset({User.Role.SALES_MANAGER, User.Role.PLATFORM_ADMIN})
 
-    Activation state decides whether a product can still be sold and whether a
-    customer can still be worked, so Client-1 keeps it with the one role that
-    administers the deployment. Operational roles keep every other edit.
+
+def _require_status_administrator(actor):
+    """Turning a record on or off, for the roles that run the business.
+
+    Activation decides whether a product can still be sold and whether a
+    customer can still be worked — an operational decision, so the store
+    manager holds it alongside the platform administrator. Every marketer edit
+    stays out.
     """
     actor = _lock_operational_actor(actor)
-    if actor.role != User.Role.PLATFORM_ADMIN:
+    if actor.role not in STATUS_ADMINISTRATORS:
         raise BusinessPermissionDenied("Changing activation state is not allowed.")
     return actor
 

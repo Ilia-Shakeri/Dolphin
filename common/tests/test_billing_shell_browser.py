@@ -19,6 +19,7 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.cache import cache
 
 from accounts.models import User
+from billing.models import Invoice
 from inventory.models import StockItem
 from sales.services import create_customer_with_phone, create_product, create_product_category
 
@@ -225,14 +226,28 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.url_matches(r"/orders/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "order-detail-content")))
         self.assertEqual(self.value_of("order-total"), "600.00")
-        self.browser.find_element(By.CSS_SELECTOR, "[data-order-transition='confirmed']").click()
+        order_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
+        # Approving is a Platform-Admin decision made through the status select,
+        # and it is what moves stock. This order carries no warehouse (it came
+        # from a quotation), so approving it moves nothing.
+        Select(self.browser.find_element(By.ID, "order-status-select")).select_by_value("confirmed")
         self.browser.switch_to.alert.accept()
-        self.wait.until(lambda driver: self.value_of("order-status") == "تأییدشده")
+        self.wait.until(
+            lambda driver: Select(
+                driver.find_element(By.ID, "order-status-select")
+            ).first_selected_option.get_attribute("value") == "confirmed"
+        )
 
-        # 5. Convert to an invoice against the warehouse, and issue it.
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "order-convert-form")))
-        self.select_when_populated("order-convert-warehouse", warehouse_id)
-        self.browser.find_element(By.CSS_SELECTOR, "#order-convert-form button[type='submit']").click()
+        # 5. Raise an invoice on its own — Client-1 invoices first — then issue
+        # it and attach it to the order afterwards.
+        self.browser.get(f"{self.live_server_url}/invoices/")
+        self.open_create_dialog("open-create-invoice", "create-invoice-dialog")
+        self.select_when_populated("create-invoice-customer", self.customer.pk)
+        self.select_when_populated("create-invoice-product", self.product.pk)
+        quantity = self.browser.find_element(By.ID, "create-invoice-quantity")
+        quantity.clear()
+        quantity.send_keys("3")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-invoice-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/invoices/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
         invoice_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
@@ -240,12 +255,19 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.switch_to.alert.accept()
         self.wait.until(lambda driver: self.value_of("invoice-status") == "صادرشده")
 
-        # Issuing moved no stock. The order owns the inventory lifecycle now, so
-        # the 40 received are still on hand — the order in this chain was never
-        # approved against a warehouse, and the invoice deliberately deducts
-        # nothing. Deducting here as well would take the same goods out twice.
+        # Issuing moved no stock: the order owns the inventory lifecycle, and
+        # deducting here as well would take the same goods out twice.
         self.assertEqual(
             StockItem.objects.get(warehouse_id=warehouse_id, product=self.product).quantity, 40
+        )
+
+        # The invoice can be attached to the order after both already exist.
+        Invoice.objects.filter(pk=invoice_id).update(order_id=order_id)
+        self.browser.get(f"{self.live_server_url}/orders/{order_id}/")
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element(
+                (By.ID, "order-invoices-table-body"), "INV-"
+            )
         )
 
         # 6. Take a payment and allocate it to the invoice.

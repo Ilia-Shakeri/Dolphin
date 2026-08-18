@@ -205,7 +205,8 @@ class OrderSerializer(CommercialDocumentSerializer):
     class Meta:
         model = Order
         fields = [
-            "id", "number", "customer", "customer_name", "lead", "quotation", "status",
+            "id", "number", "customer", "customer_name", "lead", "quotation", "warehouse",
+            "shipping_method", "status",
             "subtotal_amount", "discount_amount", "tax_rate", "tax_amount", "total_amount",
             "expected_delivery_at", "confirmed_at", "notes", "created_by", "created_by_display",
             "items", "line_items", "created_at", "updated_at",

@@ -56,7 +56,7 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 DOCUMENT_WRITERS = {User.Role.SALES_AGENT, *ELEVATED_OPERATORS}
 QUOTATION_HEADER_FIELDS = {"discount_amount", "tax_rate", "valid_until", "notes"}
 #: `warehouse` is here because the order, not the invoice, is what moves stock.
-ORDER_HEADER_FIELDS = {"discount_amount", "tax_rate", "expected_delivery_at", "notes", "warehouse"}
+ORDER_HEADER_FIELDS = {"discount_amount", "tax_rate", "expected_delivery_at", "notes", "warehouse", "shipping_method"}
 INVOICE_HEADER_FIELDS = {"discount_amount", "tax_rate", "due_at", "notes", "warehouse"}
 
 
@@ -408,6 +408,7 @@ def create_order(*, actor, customer, items, lead=None, quotation=None, **header)
             # The order is what moves stock, so it is the order that names the
             # warehouse the goods leave from.
             "warehouse": _resolve_warehouse(header.get("warehouse")),
+            "shipping_method": header.get("shipping_method") or "",
         },
     )
     log_activity(
