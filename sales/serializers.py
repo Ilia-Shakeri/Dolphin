@@ -208,7 +208,10 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)
-    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    # A campaign may name no customer, so this reads blank rather than failing.
+    customer_name = serializers.CharField(
+        source="customer.full_name", read_only=True, default=""
+    )
     assigned_to_display = serializers.SerializerMethodField()
 
     class Meta:

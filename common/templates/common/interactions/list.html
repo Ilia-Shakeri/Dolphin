@@ -17,7 +17,13 @@
     <form id="create-interaction-form" action="/api/v1/interactions/" method="post" novalidate>
         {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-interaction-title">ثبت دستی تماس</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
         <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-interaction-lead">سرنخ</label><select class="form-select form-select-solid" id="create-interaction-lead" name="lead" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lead"></p></div>
+            {% comment %} تماس روی یک هویت جامعه هدف ثبت می‌شود، نه روی یک سرنخ. فهرست
+               از سمت سرور به کمپین‌های همین کاربر محدود است، پس بازاریاب فقط
+               هویت‌های کمپین‌های خودش را می‌بیند و می‌تواند جست‌وجو کند. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-interaction-member">مشتری</label>
+                <input class="form-control form-control-solid" id="create-interaction-member" name="target_member" list="target-member-options" autocomplete="off" placeholder="جست‌وجوی نام یا شماره" required>
+                <datalist id="target-member-options"></datalist>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="target_member"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-interaction-phone">شماره تماس</label><input class="form-control form-control-solid" id="create-interaction-phone" name="phone" type="tel" required maxlength="40"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-interaction-direction">جهت</label><select class="form-select form-select-solid" id="create-interaction-direction" name="direction" required><option value="outbound">خروجی</option><option value="inbound">ورودی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="direction"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-interaction-outcome">نتیجه ثبت‌شده</label><input class="form-control form-control-solid" id="create-interaction-outcome" name="outcome" required maxlength="80"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="outcome"></p></div>

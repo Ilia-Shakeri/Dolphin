@@ -137,7 +137,12 @@ class Lead(TimeStampedModel):
         COMPLETED = "completed", "تکمیل"
         CANCELLED = "cancelled", "کنسل شده"
 
-    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="leads")
+    # A campaign is worked from its target audience, not from one customer, so a
+    # lead may name no customer at all. Existing leads keep theirs; a campaign
+    # created from now on simply does not need one.
+    customer = models.ForeignKey(
+        Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="leads"
+    )
     source = models.CharField(max_length=100, blank=True)
     campaign_or_batch = models.CharField(max_length=100, blank=True)
     interested_product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name="interested_leads")

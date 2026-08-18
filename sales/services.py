@@ -286,21 +286,27 @@ def deactivate_customer_phone(*, actor, phone):
 
 
 @transaction.atomic
-def create_lead(*, actor, customer, **data):
+def create_lead(*, actor, customer=None, **data):
+    """Start a campaign.
+
+    `customer` is optional: a campaign is worked from its target audience, and
+    the people in it are not customers yet. When one is named it still has to
+    be inside the caller's scope.
+    """
     actor = _lock_operational_actor(actor)
     unknown = set(data) - LEAD_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
     _validate_text_lengths(data, LEAD_TEXT_LIMITS)
     _validate_lead_status(data)
-    if not customers_for(actor).filter(pk=customer.pk).exists():
+    if customer is not None and not customers_for(actor).filter(pk=customer.pk).exists():
         raise BusinessPermissionDenied("Customer is outside your scope.")
     lead = Lead.objects.create(customer=customer, created_by=actor, source_payload={}, **data)
     log_activity(
         actor=actor,
         operation="lead.created",
         instance=lead,
-        changes={"customer": customer.pk, "fields": sorted(data)},
+        changes={"customer": customer.pk if customer else None, "fields": sorted(data)},
     )
     return lead
 
@@ -582,6 +588,10 @@ def mark_sale(*, actor, lead, product=None, quantity=1, total_amount=None, **dat
         raise BusinessRuleError({"total_amount": "Amount cannot be negative."})
     if total_amount > MAX_MONEY:
         raise BusinessRuleError({"total_amount": "Amount is too large."})
+    if locked_lead.customer_id is None:
+        raise BusinessRuleError({
+            "customer": "Record the customer before logging a result for this campaign."
+        })
     sale = Sale.objects.create(
         lead=locked_lead,
         customer=locked_lead.customer,

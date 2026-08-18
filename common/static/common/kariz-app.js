@@ -367,17 +367,21 @@
 
     function workQueueRow(lead) {
         const row = document.createElement("tr");
-        appendCell(row, lead.customer_name || lead.customer);
+        // A campaign may name no customer, so the row leads with the campaign
+        // itself and falls back to it wherever a customer would have gone.
+        appendCell(row, lead.customer_name || lead.campaign_or_batch || lead.source || `#${lead.id}`);
         appendCell(row, lead.source);
-        appendCell(row, displayDate(lead.next_follow_up_at));
+        appendCell(row, displayDay(lead.next_follow_up_at));
         const actions = document.createElement("td");
         actions.className = "row-actions";
-        [
-            [`/customers/${lead.customer}/`, "مشتری"],
+        const links = [
             [`/leads/${lead.id}/`, "سرنخ"],
             [`/interactions/?lead=${lead.id}`, "ثبت تماس"],
             [`/sales/?lead=${lead.id}`, "ثبت فروش"],
-        ].forEach(([href, label]) => {
+        ];
+        // The customer link exists only when there is a customer to open.
+        if (lead.customer) links.unshift([`/customers/${lead.customer}/`, "مشتری"]);
+        links.forEach(([href, label]) => {
             const link = document.createElement("a");
             link.className = "btn btn-sm btn-light";
             link.href = href;
@@ -1353,18 +1357,14 @@
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             await controller.load();
-            const customers = await loadAllPages("/api/v1/customers/?ordering=full_name");
-            const products = await loadAllPages("/api/v1/products/?ordering=name");
-            fillSelect(document.getElementById("create-lead-customer"), customers.filter((item) => item.is_active), (item) => item.full_name, "انتخاب مشتری");
-            fillSelect(document.getElementById("create-lead-product"), products.filter((item) => item.is_active), (item) => item.name, "بدون محصول");
         } catch (error) { showError(error); }
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(createForm, async () => {
                 const data = new FormData(createForm);
-                const payload = formPayload(createForm, ["source", "campaign_or_batch", "notes"]);
-                payload.customer = Number(data.get("customer"));
-                if (data.get("interested_product")) payload.interested_product = Number(data.get("interested_product"));
+                // No customer and no interested product: a campaign is worked
+                // from its target audience.
+                const payload = formPayload(createForm, ["source", "campaign_or_batch", "status", "notes"]);
                 if (data.get("next_follow_up_at")) payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));
                 const lead = await apiRequest(createForm.action, {method: "POST", body: payload});
                 window.location.assign(`/leads/${lead.id}/`);
@@ -1568,28 +1568,51 @@
         });
         const dialog = document.getElementById("create-interaction-dialog");
         const createForm = document.getElementById("create-interaction-form");
+        let memberOptions = [];
         document.getElementById("create-interaction-occurred").value = localDateTimeValue(new Date().toISOString());
         document.getElementById("open-create-interaction").addEventListener("click", () => dialog.showModal());
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             await controller.load();
-            const me = await apiRequest("/api/v1/auth/me/");
-            const leads = await loadAllPages("/api/v1/leads/?ordering=-created_at");
-            const allowed = me.role === "sales_agent" ? leads.filter((item) => item.assigned_to === me.id) : leads;
-            const leadSelect = document.getElementById("create-interaction-lead");
-            fillSelect(leadSelect, allowed, (item) => `${item.customer_name || item.customer} — ${item.source || `#${item.id}`}`, "انتخاب سرنخ");
-            const requestedLead = new URLSearchParams(window.location.search).get("lead");
-            if (requestedLead && allowed.some((item) => String(item.id) === requestedLead)) {
-                leadSelect.value = requestedLead;
-                dialog.showModal();
-            }
+            // The identities this caller may call. The endpoint is already
+            // scoped to their own campaigns, so a marketer searches only the
+            // people on campaigns assigned to them — no client-side filtering
+            // decides that.
+            memberOptions = await loadAllPages("/api/v1/target-audience/?ordering=full_name");
+            const list = document.getElementById("target-member-options");
+            list.replaceChildren(...memberOptions.map((item) => {
+                const option = document.createElement("option");
+                // The label is what the user types against and what is matched
+                // back to an id on submit.
+                option.value = `${item.full_name} — ${item.raw_phone}`;
+                return option;
+            }));
         } catch (error) { showError(error); }
+
+        /** The identity whose label the user typed, or null. */
+        function chosenMember(typed) {
+            const text = String(typed || "").trim();
+            if (!text) return null;
+            return memberOptions.find(
+                (item) => `${item.full_name} — ${item.raw_phone}` === text
+            ) || memberOptions.find((item) => item.full_name === text) || null;
+        }
+
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(createForm, async () => {
                 const data = new FormData(createForm);
+                const member = chosenMember(data.get("target_member"));
+                if (member === null) {
+                    const slot = createForm.querySelector('[data-error-for="target_member"]');
+                    if (slot) slot.textContent = "یکی از هویت‌های جامعه هدف را انتخاب کنید.";
+                    return;
+                }
                 const payload = formPayload(createForm, ["phone", "direction", "outcome", "notes"]);
-                payload.lead = Number(data.get("lead"));
+                // The campaign comes from the identity, so the two can never
+                // disagree about which campaign the call belongs to.
+                payload.lead = member.lead;
+                payload.target_member = member.id;
                 payload.occurred_at = apiDateTime(data.get("occurred_at"));
                 if (data.get("next_follow_up_at")) payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));
                 const interaction = await apiRequest(createForm.action, {method: "POST", body: payload});

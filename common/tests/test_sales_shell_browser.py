@@ -11,7 +11,8 @@ from django.utils import timezone
 
 from accounts.models import User
 from sales.models import Customer
-from sales.services import create_customer_with_phone, create_lead, create_product, mark_sale
+from sales.models import Lead
+from sales.services import add_target_audience_member, create_customer_with_phone, create_lead, create_product, mark_sale
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
@@ -206,9 +207,8 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "phones-table-body"), "+989129990000"))
 
         self.browser.get(f"{self.live_server_url}/leads/")
+        # A campaign names no customer: it is worked from its target audience.
         self.open_create_dialog("open-create-lead", "create-lead-dialog")
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-lead-customer")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مرورگر")
         self.browser.find_element(By.ID, "create-lead-source").send_keys("ثبت دستی مرورگر")
         self.browser.find_element(By.CSS_SELECTOR, "#create-lead-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/leads/\d+/$"))
@@ -220,10 +220,23 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "lead-assigned-to"), "کارشناس مرورگر"))
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "history-table-body"), "کارشناس مرورگر"))
 
+        # A call is logged against a target-audience identity, so the campaign
+        # needs one before the page loads its options.
+        add_target_audience_member(
+            actor=self.platform,
+            lead=Lead.objects.latest("id"),
+            full_name="هویت مرورگر",
+            raw_phone="09121110000",
+        )
         self.browser.get(f"{self.live_server_url}/interactions/")
         self.open_create_dialog("open-create-interaction", "create-interaction-dialog")
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-interaction-lead")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-interaction-lead")).select_by_index(1)
+        member_box = self.browser.find_element(By.ID, "create-interaction-member")
+        self.wait.until(
+            lambda driver: len(
+                driver.find_elements(By.CSS_SELECTOR, "#target-member-options option")
+            ) > 0
+        )
+        member_box.send_keys("هویت مرورگر — 09121110000")
         self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121110000")
         self.browser.find_element(By.ID, "create-interaction-outcome").send_keys("پاسخ دستی")
         self.browser.find_element(By.CSS_SELECTOR, "#create-interaction-form button[type='submit']").click()
@@ -233,9 +246,14 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "interaction-outcome").get_attribute("value"), "پاسخ دستی")
 
         customer = Customer.objects.get(full_name="مشتری مرورگر")
+        # A campaign result names a customer, so the campaign is tied to one
+        # first — which is what converting a target identity means.
+        campaign = Lead.objects.latest("id")
+        campaign.customer = customer
+        campaign.save(update_fields=["customer"])
         mark_sale(
             actor=self.platform,
-            lead=customer.leads.get(),
+            lead=campaign,
             total_amount=Decimal("25.00"),
             sold_at=timezone.now(),
         )
@@ -463,8 +481,6 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.browser.get(f"{self.live_server_url}/leads/")
         self.open_create_dialog("open-create-lead", "create-lead-dialog")
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-lead-customer")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-lead-customer")).select_by_visible_text("مشتری مسیر روزانه")
         self.browser.find_element(By.ID, "create-lead-source").send_keys("صف روزانه")
         self.browser.execute_script(
             "const e=document.getElementById('create-lead-follow-up'); e.value='1405/05/22 10:30'; e.dispatchEvent(new Event('change',{bubbles:true}));"
@@ -482,23 +498,43 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.logout()
         agent = User.objects.get(username="daily.agent.browser")
         self.login(agent)
-        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "agent-work-queue-body"), "مشتری مسیر روزانه"))
+        # The campaign names no customer, so the queue leads with the campaign.
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "agent-work-queue-body"), "صف روزانه"))
         queue_row = self.browser.find_element(By.CSS_SELECTOR, "#agent-work-queue-body tr")
         self.assertNotEqual(queue_row.find_elements(By.TAG_NAME, "td")[2].text, "—")
-        # A marketer's customer scope is now the customers they entered
-        # themselves. This customer was entered by the manager, so following the
-        # link from the work queue lands on "not found" rather than on the
-        # record: a row outside scope is answered as absent, which is what the
-        # rest of the application does and what leaks the least.
-        queue_row.find_element(By.LINK_TEXT, "مشتری").click()
+        # No customer, so no customer link is offered — a control appears only
+        # when it can act.
+        self.assertEqual(queue_row.find_elements(By.LINK_TEXT, "مشتری"), [])
+        # The marketer reaches the campaign assigned to them.
+        queue_row.find_element(By.LINK_TEXT, "سرنخ").click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "lead-detail-content")))
+
+        # A customer they did not enter is outside their scope and answers as
+        # absent, which is what the rest of the application does.
+        outside_scope = Customer.objects.get(full_name="مشتری مسیر روزانه")
+        self.browser.get(f"{self.live_server_url}/customers/{outside_scope.pk}/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "app-error")))
         self.assertEqual(self.browser.find_element(By.ID, "app-error-status").text.strip(), "404")
         denied_customer_path = urlparse(self.browser.current_url).path
 
-        self.browser.get(f"{self.live_server_url}/interactions/?lead={lead_id}")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-interaction-dialog")))
-        self.assertEqual(Select(self.browser.find_element(By.ID, "create-interaction-lead")).first_selected_option.get_attribute("value"), lead_id)
-        self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121230001")
+        # Logging a call needs an identity in the campaign's target audience.
+        add_target_audience_member(
+            actor=self.platform,
+            lead=Lead.objects.get(pk=int(lead_id)),
+            full_name="هویت روزانه",
+            raw_phone="09121239999",
+        )
+        self.browser.get(f"{self.live_server_url}/interactions/")
+        self.open_create_dialog("open-create-interaction", "create-interaction-dialog")
+        self.wait.until(
+            lambda driver: len(
+                driver.find_elements(By.CSS_SELECTOR, "#target-member-options option")
+            ) > 0
+        )
+        self.browser.find_element(By.ID, "create-interaction-member").send_keys(
+            "هویت روزانه — 09121239999"
+        )
+        self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121239999")
         Select(self.browser.find_element(By.ID, "create-interaction-direction")).select_by_value("outbound")
         self.browser.find_element(By.ID, "create-interaction-outcome").send_keys("نیاز به پیگیری")
         self.browser.execute_script(
@@ -506,6 +542,17 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         )
         self.browser.find_element(By.CSS_SELECTOR, "#create-interaction-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/interactions/\d+/$"))
+
+        # A campaign result names a customer, so the converted identity becomes
+        # one and the campaign is tied to them — the normal end of the flow.
+        converted = create_customer_with_phone(
+            actor=agent,
+            full_name="هویت روزانه",
+            phone={"raw_phone": "09121239999", "is_primary": True},
+        )
+        campaign = Lead.objects.get(pk=int(lead_id))
+        campaign.customer = converted
+        campaign.save(update_fields=["customer"])
 
         self.browser.get(f"{self.live_server_url}/sales/?lead={lead_id}")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-sale-dialog")))
@@ -530,7 +577,9 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.login(self.manager)
         self.browser.get(sale_url)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
-        self.assertEqual(self.browser.find_element(By.ID, "sale-customer").get_attribute("value"), "مشتری مسیر روزانه")
+        # The result names the identity the campaign converted, not the
+        # customer the manager entered earlier.
+        self.assertEqual(self.browser.find_element(By.ID, "sale-customer").get_attribute("value"), "هویت روزانه")
         self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), "بازاریاب روزانه")
         self.browser.get(f"{self.live_server_url}/reports/user-performance/")
         self.submit_performance_filter()
