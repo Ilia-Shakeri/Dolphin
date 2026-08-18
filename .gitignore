@@ -50,3 +50,6 @@ node_modules/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# A separate git checkout that lives here but is not part of this project.
+codex-plugin-cc-probe/
