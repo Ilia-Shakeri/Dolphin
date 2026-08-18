@@ -123,11 +123,25 @@ class Product(TimeStampedModel):
 
 
 class Lead(TimeStampedModel):
+    class Status(models.TextChoices):
+        """The three states Client-1 tracks a campaign in.
+
+        Previously free text, which meant every caller invented its own
+        vocabulary and the list could not be filtered reliably. Existing rows
+        keep whatever they held — the constraint below admits the legacy blank
+        so no historical row has to be rewritten — but everything new is one of
+        these three.
+        """
+
+        PENDING = "pending", "در انتظار تکمیل"
+        COMPLETED = "completed", "تکمیل"
+        CANCELLED = "cancelled", "کنسل شده"
+
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="leads")
     source = models.CharField(max_length=100, blank=True)
     campaign_or_batch = models.CharField(max_length=100, blank=True)
     interested_product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name="interested_leads")
-    status = models.CharField(max_length=40, blank=True, db_index=True)
+    status = models.CharField(max_length=40, choices=Status.choices, default=Status.PENDING, blank=True, db_index=True)
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assigned_leads")
     assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="lead_assignments_made")
     assigned_at = models.DateTimeField(null=True, blank=True)
@@ -154,6 +168,62 @@ class Lead(TimeStampedModel):
         ]
 
 
+class TargetAudienceMember(TimeStampedModel):
+    """One identity in a campaign's target audience ("جامعه هدف").
+
+    A campaign is worked from a list of people who are not customers yet. That
+    list has to survive between sessions, be scoped like everything else, and
+    carry its own progression — so it is a table, not a JSON blob on the lead.
+
+    `status` is partly derived: it moves to ENGAGED once the call centre records
+    an interaction with this identity, and to CUSTOMER once the identity exists
+    in the customer book. CUSTOMER wins over ENGAGED, because being a customer
+    is the further state. `services.refresh_target_member_status` is the single
+    place that applies both rules.
+    """
+
+    class Status(models.TextChoices):
+        LEAD = "lead", "سرنخ"
+        ENGAGED = "engaged", "در تعامل"
+        CUSTOMER = "customer", "مشتری"
+        FAILED = "failed", "ناموفق"
+
+    lead = models.ForeignKey(Lead, on_delete=models.PROTECT, related_name="target_audience")
+    full_name = models.CharField(max_length=255, db_index=True)
+    raw_phone = models.CharField(max_length=40)
+    normalized_phone = models.CharField(max_length=20, db_index=True, editable=False)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.LEAD, db_index=True)
+    #: Set when this identity is matched to a real customer record. It is what
+    #: makes the CUSTOMER status auditable rather than a guess.
+    customer = models.ForeignKey(
+        Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="target_audience_entries"
+    )
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_target_members")
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="updated_target_members")
+    notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
+
+    class Meta:
+        ordering = ["full_name", "id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(full_name__regex=r"\S"), name="target_member_name_nonblank"),
+            models.CheckConstraint(
+                condition=Q(normalized_phone__regex=r"\A\+98[1-9][0-9]{9}\Z"),
+                name="target_member_phone_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=["lead", "engaged", "customer", "failed"]),
+                name="target_member_status_valid",
+            ),
+            # One person appears once per campaign. Across campaigns the same
+            # number may legitimately appear again.
+            models.UniqueConstraint(fields=["lead", "normalized_phone"], name="uniq_target_member_per_lead"),
+        ]
+        indexes = [
+            models.Index(fields=["lead", "status", "full_name"]),
+            models.Index(fields=["normalized_phone", "status"]),
+        ]
+
+
 class LeadAssignmentHistory(models.Model):
     lead = models.ForeignKey(Lead, on_delete=models.PROTECT, related_name="assignment_history")
     from_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assignments_lost")
@@ -176,7 +246,16 @@ class Interaction(TimeStampedModel):
         OUTBOUND = "outbound", "Outbound"
 
     lead = models.ForeignKey(Lead, on_delete=models.PROTECT, related_name="interactions")
-    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="interactions")
+    # A call is logged against whoever was actually called. Early in a campaign
+    # that is a target-audience identity with no customer record yet, so
+    # `customer` is nullable and the constraint below requires at least one of
+    # the two. Every historical row has a customer, so nothing is rewritten.
+    customer = models.ForeignKey(
+        Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="interactions"
+    )
+    target_member = models.ForeignKey(
+        TargetAudienceMember, null=True, blank=True, on_delete=models.PROTECT, related_name="interactions"
+    )
     agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="interactions")
     phone = models.CharField(max_length=40)
     direction = models.CharField(max_length=20, choices=Direction.choices)
@@ -195,6 +274,10 @@ class Interaction(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(outcome__regex=r"\S"),
                 name="interaction_outcome_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(customer__isnull=False) | Q(target_member__isnull=False),
+                name="interaction_names_someone",
             ),
         ]
         indexes = [models.Index(fields=["agent", "-occurred_at"]), models.Index(fields=["lead", "-occurred_at"])]

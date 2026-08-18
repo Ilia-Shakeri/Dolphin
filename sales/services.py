@@ -26,8 +26,9 @@ from sales.models import (
     Sale,
     SalesDocument,
     PostalStatusHistory,
+    TargetAudienceMember,
 )
-from sales.selectors import customers_for, sales_for
+from sales.selectors import customers_for, leads_for, sales_for, target_audience_for
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -220,6 +221,9 @@ def create_customer_phone(*, actor, customer, raw_phone, label="", is_primary=Fa
         instance=created,
         changes={"customer": customer.pk},
     )
+    # This number may sit in one or more campaign audiences; being a customer
+    # now is the further state, so those entries follow.
+    refresh_target_members_for_phone(normalized_phone=normalized, actor=actor)
     return created
 
 
@@ -250,6 +254,10 @@ def update_customer_phone(*, actor, phone, **changes):
             instance=locked,
             changes={"customer": locked.customer_id, "fields": sorted(changed_fields)},
         )
+        if "normalized_phone" in changed_fields:
+            refresh_target_members_for_phone(
+                normalized_phone=locked.normalized_phone, actor=actor
+            )
     return locked
 
 
@@ -497,7 +505,18 @@ def assign_lead(*, actor, lead, to_user, reason=""):
 
 
 @transaction.atomic
-def record_interaction(*, actor, lead, **data):
+def record_interaction(*, actor, lead, target_member=None, **data):
+    """Log a call.
+
+    A call is recorded against whoever was actually spoken to. Early in a
+    campaign that is a target-audience identity with no customer record yet, so
+    `target_member` may be given instead of relying on the lead's customer. When
+    the identity has already been matched to a customer, both are stored.
+
+    Logging a call is what moves an identity to "در تعامل", so the derived
+    status is refreshed here rather than by a signal — the write and the
+    conclusion drawn from it stay in one transaction.
+    """
     actor = _lock_operational_actor(actor)
     unknown = set(data) - INTERACTION_CREATE_FIELDS
     if unknown:
@@ -507,7 +526,18 @@ def record_interaction(*, actor, lead, **data):
     locked_lead = Lead.objects.select_for_update().get(pk=lead.pk)
     if actor.role == User.Role.SALES_AGENT and locked_lead.assigned_to_id != actor.pk:
         raise BusinessPermissionDenied("Lead is outside your scope.")
-    interaction = Interaction.objects.create(lead=locked_lead, customer=locked_lead.customer, agent=actor, **data)
+    customer = locked_lead.customer
+    if target_member is not None:
+        if target_member.lead_id != locked_lead.pk:
+            raise BusinessRuleError({"target_member": "That identity belongs to another campaign."})
+        if not target_audience_for(actor).filter(pk=target_member.pk).exists():
+            raise BusinessPermissionDenied("Target audience entry is outside your scope.")
+        customer = target_member.customer or customer
+    interaction = Interaction.objects.create(
+        lead=locked_lead, customer=customer, target_member=target_member, agent=actor, **data
+    )
+    if target_member is not None:
+        refresh_target_member_status(member=target_member, actor=actor)
     next_follow_up_at = data.get("next_follow_up_at")
     if next_follow_up_at is not None and locked_lead.next_follow_up_at != next_follow_up_at:
         locked_lead.next_follow_up_at = next_follow_up_at
@@ -744,3 +774,178 @@ def reactivate_product_category(*, actor, category):
     category.save(update_fields=["is_active", "updated_by", "updated_at"])
     log_activity(actor=actor, operation="product_category.reactivated", instance=category)
     return category
+
+
+# --- Target audience ("جامعه هدف") ------------------------------------------
+#
+# The people a campaign is worked from. Only an elevated role may edit the list;
+# a marketer reads the audience of the campaigns assigned to them. That split is
+# enforced here, not in the template — a hidden button is not authorization.
+
+TARGET_MEMBER_MUTABLE_FIELDS = {"full_name", "raw_phone", "status", "notes"}
+TARGET_MEMBER_TEXT_LIMITS = {"full_name": 255, "raw_phone": 40, "notes": FREE_TEXT_MAX_LENGTH}
+#: Statuses a person may set by hand. ENGAGED and CUSTOMER are conclusions the
+#: system draws from real activity, so setting them by hand would let the list
+#: claim work that never happened.
+TARGET_MEMBER_ASSIGNABLE_STATUSES = {
+    TargetAudienceMember.Status.LEAD,
+    TargetAudienceMember.Status.FAILED,
+}
+
+
+def _require_target_audience_editor(actor):
+    actor = _lock_operational_actor(actor)
+    if actor.role == User.Role.SALES_AGENT:
+        raise BusinessPermissionDenied("Editing the target audience is not allowed.")
+    return actor
+
+
+def _derived_target_status(member):
+    """The status the world implies for this identity, or None to keep it.
+
+    Two rules, in priority order, exactly as the product states them: an
+    identity that exists in the customer book is a customer; an identity the
+    call centre has spoken to is engaged. Being a customer outranks being
+    engaged, so the checks run in that order.
+    """
+    customer = (
+        Customer.objects.filter(
+            phones__normalized_phone=member.normalized_phone, phones__is_active=True
+        )
+        .order_by("pk")
+        .first()
+    )
+    if customer is not None:
+        return TargetAudienceMember.Status.CUSTOMER, customer
+    if member.interactions.exists():
+        return TargetAudienceMember.Status.ENGAGED, None
+    return None, None
+
+
+@transaction.atomic
+def refresh_target_member_status(*, member, actor=None):
+    """Apply the derived-status rules to one identity.
+
+    Called after anything that could change the answer: a call logged, a
+    customer created, a phone number edited. It writes only when the answer
+    actually differs, so it is safe to call often and leaves no audit noise.
+    """
+    locked = TargetAudienceMember.objects.select_for_update().get(pk=member.pk)
+    derived, customer = _derived_target_status(locked)
+    if derived is None or locked.status == derived:
+        return locked
+    # A hand-set FAILED is a judgement about the person rather than a record of
+    # activity, so only a real customer record overrides it.
+    if (
+        locked.status == TargetAudienceMember.Status.FAILED
+        and derived != TargetAudienceMember.Status.CUSTOMER
+    ):
+        return locked
+    previous = locked.status
+    locked.status = derived
+    fields = ["status", "updated_at"]
+    if customer is not None and locked.customer_id != customer.pk:
+        locked.customer = customer
+        fields.insert(1, "customer")
+    if actor is not None:
+        locked.updated_by = actor
+        fields.insert(1, "updated_by")
+    locked.save(update_fields=fields)
+    log_activity(
+        actor=actor or locked.updated_by,
+        operation="target_audience.status_derived",
+        instance=locked,
+        changes={"lead": locked.lead_id, "from": previous, "to": derived},
+    )
+    return locked
+
+
+def refresh_target_members_for_phone(*, normalized_phone, actor=None):
+    """Re-derive every campaign entry that shares one phone number.
+
+    The same person can sit in several campaigns; becoming a customer makes
+    every one of those entries a customer.
+    """
+    for member in TargetAudienceMember.objects.filter(normalized_phone=normalized_phone):
+        refresh_target_member_status(member=member, actor=actor)
+
+
+@transaction.atomic
+def add_target_audience_member(*, actor, lead, full_name, raw_phone, status="", notes=""):
+    actor = _require_target_audience_editor(actor)
+    locked_lead = Lead.objects.select_for_update().get(pk=lead.pk)
+    if not leads_for(actor).filter(pk=locked_lead.pk).exists():
+        raise BusinessPermissionDenied("Lead is outside your scope.")
+    data = {"full_name": full_name, "raw_phone": raw_phone, "notes": notes}
+    _validate_text_lengths(data, TARGET_MEMBER_TEXT_LIMITS)
+    if not str(full_name).strip():
+        raise BusinessRuleError({"full_name": "This field is required."})
+    status = status or TargetAudienceMember.Status.LEAD
+    if status not in TARGET_MEMBER_ASSIGNABLE_STATUSES:
+        raise BusinessRuleError({"status": "Choose a status that can be set by hand."})
+    normalized = normalize_customer_phone(raw_phone)
+    try:
+        member = TargetAudienceMember.objects.create(
+            lead=locked_lead,
+            full_name=str(full_name).strip(),
+            raw_phone=raw_phone,
+            normalized_phone=normalized,
+            status=status,
+            notes=notes,
+            created_by=actor,
+            updated_by=actor,
+        )
+    except IntegrityError as exc:
+        raise BusinessConflictError(
+            {"raw_phone": "This number is already in this campaign."}
+        ) from exc
+    log_activity(
+        actor=actor,
+        operation="target_audience.added",
+        instance=member,
+        changes={"lead": locked_lead.pk, "status": status},
+    )
+    # A number that already belongs to a customer starts as one.
+    return refresh_target_member_status(member=member, actor=actor)
+
+
+@transaction.atomic
+def update_target_audience_member(*, actor, member, **changes):
+    actor = _require_target_audience_editor(actor)
+    locked = (
+        TargetAudienceMember.objects.select_for_update().select_related("lead").get(pk=member.pk)
+    )
+    if not target_audience_for(actor).filter(pk=locked.pk).exists():
+        raise BusinessPermissionDenied("Target audience entry is outside your scope.")
+    unknown = set(changes) - TARGET_MEMBER_MUTABLE_FIELDS
+    if unknown:
+        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+    _validate_text_lengths(changes, TARGET_MEMBER_TEXT_LIMITS)
+    if "status" in changes and changes["status"] not in TARGET_MEMBER_ASSIGNABLE_STATUSES:
+        raise BusinessRuleError({"status": "Choose a status that can be set by hand."})
+    if "raw_phone" in changes:
+        changes["normalized_phone"] = normalize_customer_phone(changes["raw_phone"])
+    if "full_name" in changes:
+        changes["full_name"] = str(changes["full_name"]).strip()
+        if not changes["full_name"]:
+            raise BusinessRuleError({"full_name": "This field is required."})
+    changed_fields = []
+    for field, value in changes.items():
+        if getattr(locked, field) != value:
+            setattr(locked, field, value)
+            changed_fields.append(field)
+    if changed_fields:
+        locked.updated_by = actor
+        try:
+            locked.save(update_fields=[*changed_fields, "updated_by", "updated_at"])
+        except IntegrityError as exc:
+            raise BusinessConflictError(
+                {"raw_phone": "This number is already in this campaign."}
+            ) from exc
+        log_activity(
+            actor=actor,
+            operation="target_audience.updated",
+            instance=locked,
+            changes={"lead": locked.lead_id, "fields": sorted(changed_fields)},
+        )
+    return refresh_target_member_status(member=locked, actor=actor)

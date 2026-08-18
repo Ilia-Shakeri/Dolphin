@@ -1,18 +1,35 @@
 from django.db.models import Case, IntegerField, Q, Value, When
 
 from accounts.models import User
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument
+from sales.models import (
+    Customer,
+    CustomerPhone,
+    Interaction,
+    Lead,
+    Product,
+    ProductCategory,
+    Sale,
+    SalesDocument,
+    TargetAudienceMember,
+)
 
 
 ELEVATED_OPERATIONAL = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
 
 
 def customers_for(user):
+    """Which customers a role may see.
+
+    A marketer sees the customers they entered themselves, and no others. They
+    previously also saw every customer behind a lead assigned to them, which
+    made the customer book grow silently as work was handed around; Client-1
+    wants own-entry scope, so that is what this enforces.
+    """
     queryset = Customer.objects.all()
     if user.role == User.Role.SALES_AGENT:
         if user.workstream == User.Workstream.AFTER_SALES:
             return queryset.none()
-        return queryset.filter(Q(created_by=user) | Q(leads__assigned_to=user)).distinct()
+        return queryset.filter(created_by=user)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()
@@ -105,3 +122,13 @@ def sales_documents_for(user):
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()
+
+
+def target_audience_for(user):
+    """The campaign identities a role may see.
+
+    Scoped through the lead that owns them, so a marketer sees the target
+    audience of the campaigns assigned to them and nothing else. Read access
+    only is a separate question from write access, which lives in the service.
+    """
+    return TargetAudienceMember.objects.filter(lead__in=leads_for(user))
