@@ -17,7 +17,13 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-customer-postal-code">کد پستی</label><input class="form-control form-control-solid" id="edit-customer-postal-code" name="postal_code" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="postal_code"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-customer-category">دسته‌بندی</label><input class="form-control form-control-solid" id="edit-customer-category" name="category" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="customer-created-by">شناسه ثبت‌کننده</label><input class="form-control form-control-solid" id="customer-created-by" type="text" disabled></div>
+            {% comment %} فقط مدیر پلتفرم وضعیت را تغییر می‌دهد؛ برای بقیه همان متن
+               خواندنی قبلی می‌ماند. سرویس مستقل از این نشانه‌گذاری رد می‌کند. {% endcomment %}
+            {% if can_change_activation %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="customer-active-select">وضعیت</label><select class="form-select form-select-solid" id="customer-active-select"><option value="true">فعال</option><option value="false">غیرفعال</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="is_active"></p></div>
+            {% else %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="customer-active">وضعیت</label><input class="form-control form-control-solid" id="customer-active" type="text" disabled></div>
+            {% endif %}
             <div class="col-12"><label class="form-label fw-semibold" for="edit-customer-address">نشانی</label><textarea class="form-control form-control-solid" id="edit-customer-address" name="address" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="address"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="edit-customer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-customer-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
@@ -40,13 +46,17 @@
         <div id="customer-interactions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="customer-interactions-table-body"></tbody></table></div>
         <nav id="customer-interactions-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی تماس‌های مرتبط" hidden><button id="customer-interactions-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-interactions-page-label"></span><button id="customer-interactions-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
+    {% comment %} سفارشات مرتبط جایگزین «فروش‌های مرتبط» شد: آنچه برای این مشتری ثبت
+       می‌شود سفارش است و همان باید اینجا دیده شود. {% endcomment %}
     <section class="card mb-5 mb-xl-8"><div class="card-body">
-        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">فروش‌های مرتبط</h2></div>
-        <div id="customer-sales-loading" class="text-center text-muted py-10">در حال دریافت فروش‌ها…</div><div id="customer-sales-empty" class="text-center text-muted py-10" hidden>فروشی برای این مشتری در محدوده دسترسی شما نیست.</div>
-        <div id="customer-sales-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>مشتری</th><th>محصول</th><th>تعداد</th><th>مبلغ کل</th><th>وضعیت</th><th>ثبت‌کننده فروش</th><th>عملیات</th></tr></thead><tbody id="customer-sales-table-body"></tbody></table></div>
-        <nav id="customer-sales-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی فروش‌های مرتبط" hidden><button id="customer-sales-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-sales-page-label"></span><button id="customer-sales-next" class="btn btn-light" type="button">بعدی</button></nav>
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">سفارشات مرتبط</h2></div>
+        <div id="customer-orders-loading" class="text-center text-gray-700 py-10">در حال دریافت سفارش‌ها…</div><div id="customer-orders-empty" class="text-center text-gray-700 py-10" hidden>سفارشی برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-orders-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نام محصول</th><th>تعداد سفارش</th><th>مبلغ کل</th></tr></thead><tbody id="customer-orders-table-body"></tbody></table></div>
+        <nav id="customer-orders-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی سفارشات مرتبط" hidden><button id="customer-orders-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-orders-page-label"></span><button id="customer-orders-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
-    {% if can_deactivate_customers %}<section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">غیرفعال‌سازی</h2><p>سابقه مشتری نگه داشته می‌شود و حذف سخت انجام نمی‌شود.</p><button id="deactivate-customer" class="btn btn-danger" type="button">غیرفعال کردن مشتری</button></div></section>{% endif %}
+    {% comment %} بلوک «غیرفعال‌سازی» برداشته شد. وضعیت فعال/غیرفعال حالا یک انتخابگر
+       در بالای همین صفحه است و فقط مدیر پلتفرم آن را می‌بیند و تغییر می‌دهد. هیچ
+       حذفی در کار نبود و همچنان نیست. {% endcomment %}
 </section>
 <dialog id="phone-dialog" aria-labelledby="phone-dialog-title">
     <form id="phone-form" action="/api/v1/customer-phones/" method="post" novalidate>

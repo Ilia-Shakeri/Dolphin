@@ -244,10 +244,20 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-leads-table-body"), "ثبت دستی مرورگر"))
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-interactions-table-body"), "پاسخ دستی"))
-        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-sales-table-body"), "25.00"))
-        self.browser.find_element(By.ID, "deactivate-customer").click()
+        # The related panel lists orders now, not sales, so the sale above no
+        # longer appears here — it is still visible in the campaign results.
+        self.assertFalse(self.browser.find_elements(By.ID, "customer-sales-table-body"))
+
+        # Activation moved to a select at the top of the page and is a Platform
+        # Admin action; this browser is signed in as one.
+        status = Select(self.browser.find_element(By.ID, "customer-active-select"))
+        status.select_by_value("false")
         self.wait.until(expected_conditions.alert_is_present()).accept()
-        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "customer-active"), "غیرفعال"))
+        self.wait.until(
+            lambda driver: Select(
+                driver.find_element(By.ID, "customer-active-select")
+            ).first_selected_option.get_attribute("value") == "false"
+        )
         self.assert_browser_clean()
 
     def test_product_sale_report_export_and_activity_log_flow(self):

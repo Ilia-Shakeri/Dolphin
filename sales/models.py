@@ -175,11 +175,12 @@ class TargetAudienceMember(TimeStampedModel):
     list has to survive between sessions, be scoped like everything else, and
     carry its own progression — so it is a table, not a JSON blob on the lead.
 
-    `status` is partly derived: it moves to ENGAGED once the call centre records
-    an interaction with this identity, and to CUSTOMER once the identity exists
-    in the customer book. CUSTOMER wins over ENGAGED, because being a customer
-    is the further state. `services.refresh_target_member_status` is the single
-    place that applies both rules.
+    `status` is **entirely derived** and never typed in: every identity enters as
+    LEAD, moves to ENGAGED once the call centre records an interaction with it,
+    and to CUSTOMER once the same number exists in the customer book. CUSTOMER
+    wins over ENGAGED, because being a customer is the further state.
+    `services.refresh_target_member_status` is the single place that applies the
+    rules, so the list can never claim work that did not happen.
     """
 
     class Status(models.TextChoices):
@@ -214,9 +215,11 @@ class TargetAudienceMember(TimeStampedModel):
                 condition=Q(status__in=["lead", "engaged", "customer", "failed"]),
                 name="target_member_status_valid",
             ),
-            # One person appears once per campaign. Across campaigns the same
-            # number may legitimately appear again.
-            models.UniqueConstraint(fields=["lead", "normalized_phone"], name="uniq_target_member_per_lead"),
+            # The phone number *is* the identity, so one person appears once in
+            # the whole target audience — not once per campaign. Two campaigns
+            # chasing the same number would otherwise each draw their own
+            # conclusions about the same human being.
+            models.UniqueConstraint(fields=["normalized_phone"], name="uniq_target_member_phone"),
         ]
         indexes = [
             models.Index(fields=["lead", "status", "full_name"]),

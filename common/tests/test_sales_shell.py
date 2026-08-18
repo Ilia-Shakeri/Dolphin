@@ -71,12 +71,20 @@ class SalesShellContractTests(SimpleTestCase):
             self.assertIn(f'name="{field}"', customer_list)
             self.assertIn(f'name="{field}"', customer_detail)
             self.assertIn(f'"{field}"', script)
-        for relation in ("leads", "interactions", "sales"):
+        for relation in ("leads", "interactions"):
             self.assertIn(f'id="customer-{relation}-table-body"', customer_detail)
             self.assertIn(f'"{relation}", "{relation}"', script)
-        self.assertIn('id="deactivate-customer"', customer_detail)
+        # Related sales became related orders: an order is what gets recorded
+        # for a customer, so an order is what the panel shows.
+        self.assertIn('id="customer-orders-table-body"', customer_detail)
+        self.assertNotIn('id="customer-sales-table-body"', customer_detail)
+
+        # The destructive block is gone. Activation is a select at the top of
+        # the page for a Platform Admin, and nothing anywhere deletes.
+        self.assertNotIn('id="deactivate-customer"', customer_detail)
         self.assertNotIn('id="delete-customer"', customer_detail)
-        self.assertIn("حذف سخت انجام نمی‌شود", customer_detail)
+        self.assertIn('id="customer-active-select"', customer_detail)
+        self.assertIn("can_change_activation", customer_detail)
 
     def test_active_terminology_keeps_customers_and_user_roles_distinct(self):
         customer_paths = (

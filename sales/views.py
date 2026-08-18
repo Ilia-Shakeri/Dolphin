@@ -1,3 +1,7 @@
+from datetime import datetime, time, timedelta
+
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -18,11 +22,21 @@ from common.viewsets import NoDestroyModelViewSet
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
-from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
+from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
+
+
+def _start_of_day(day):
+    """Midnight on `day` in the deployment's timezone.
+
+    Built in local time on purpose: a person filtering "from 1405/05/01" means
+    the day as it is lived in Tehran, not a UTC boundary that would cut it three
+    and a half hours early.
+    """
+    return timezone.make_aware(datetime.combine(day, time.min))
 
 
 class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
@@ -44,6 +58,9 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         "phones__normalized_phone",
     ]
     ordering_fields = ["full_name", "created_at", "updated_at"]
+    #: A registration-date window. Both bounds are optional and inclusive of the
+    #: whole day they name, which is what a person means by "from x to y".
+    list_query_parameters = {"created_from", "created_to"}
     action_query_parameters = {
         "leads": {"page"},
         "interactions": {"page"},
@@ -51,7 +68,43 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     }
 
     def get_queryset(self):
-        return customers_for(self.request.user).select_related("created_by").prefetch_related("phones")
+        queryset = (
+            customers_for(self.request.user).select_related("created_by").prefetch_related("phones")
+        )
+        return self._filter_by_registration_date(queryset)
+
+    def _filter_by_registration_date(self, queryset):
+        """Narrow to a registration-date window given as two ISO dates.
+
+        The upper bound is exclusive of the next day rather than inclusive of a
+        timestamp, so a customer registered at 23:59 on the closing day is still
+        inside the window. A malformed date is a request error, not a silently
+        ignored parameter — quietly dropping it would show the wrong rows and
+        look like the filter worked.
+        """
+        bounds = {
+            "created_from": self.request.query_params.get("created_from"),
+            "created_to": self.request.query_params.get("created_to"),
+        }
+        parsed = {}
+        errors = {}
+        for name, raw in bounds.items():
+            if not raw:
+                continue
+            value = parse_date(raw)
+            if value is None:
+                errors[name] = ["Enter a date as YYYY-MM-DD."]
+            else:
+                parsed[name] = value
+        if errors:
+            raise ValidationError(errors)
+        if "created_from" in parsed:
+            queryset = queryset.filter(created_at__gte=_start_of_day(parsed["created_from"]))
+        if "created_to" in parsed:
+            queryset = queryset.filter(
+                created_at__lt=_start_of_day(parsed["created_to"] + timedelta(days=1))
+            )
+        return queryset
 
     @extend_schema(
         request=None,
@@ -65,6 +118,32 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     @action(detail=True, methods=["post"])
     def deactivate(self, request, pk=None):
         customer = deactivate_customer(actor=request.user, customer=self.get_object())
+        return Response(self.get_serializer(customer).data)
+
+    @extend_schema(
+        request=CustomerActivationSerializer,
+        responses={
+            200: CustomerSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+            409: CONFLICT_RESPONSE,
+        },
+        description=(
+            "Turn a customer active or inactive. Platform Admin only. Deactivating hides the "
+            "customer from day-to-day work and removes nothing: orders, invoices, payments and "
+            "ledger entries all survive, which is why it is reversible."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="set-active")
+    def set_active(self, request, pk=None):
+        serializer = CustomerActivationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        customer = set_customer_active(
+            actor=request.user,
+            customer=self.get_object(),
+            is_active=serializer.validated_data["is_active"],
+        )
         return Response(self.get_serializer(customer).data)
 
     @extend_schema(

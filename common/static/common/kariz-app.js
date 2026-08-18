@@ -805,6 +805,15 @@
         );
     }
 
+    /** The Jalali day alone, for columns where the time of day is not acted on. */
+    function displayDay(value) {
+        if (!value) return "—";
+        const parts = tehranParts(value);
+        if (!parts) return value;
+        const [year, month, day] = gregorianToJalali(parts.year, parts.month, parts.day);
+        return toPersianDigits(`${pad4(year)}/${pad2(month)}/${pad2(day)}`);
+    }
+
     function pad2(value) { return String(value).padStart(2, "0"); }
     function pad4(value) { return String(value).padStart(4, "0"); }
 
@@ -989,6 +998,7 @@
         appendCell(row, customer.city);
         appendStatusCell(row, (customer.is_active));
         appendCell(row, customer.created_by_display || customer.created_by);
+        appendCell(row, displayDay(customer.created_at));
         appendDetailLink(row, `/customers/${customer.id}/`);
         return row;
     }
@@ -999,13 +1009,38 @@
             key: "customers",
             form,
             endpoint(page) {
-                const query = new URLSearchParams({page: String(page), ordering: document.getElementById("customer-ordering").value});
+                const ordering = document.getElementById("customer-ordering").value;
+                // "registered" is a UI-only choice that means "sort by
+                // registration date and let me pick a window"; the API knows
+                // only its own ordering fields.
+                const query = new URLSearchParams({
+                    page: String(page),
+                    ordering: ordering === "registered" ? "-created_at" : ordering,
+                });
                 const search = document.getElementById("customer-search").value.trim();
                 if (search) query.set("search", search);
+                if (ordering === "registered") {
+                    const from = apiDate(document.getElementById("customer-created-from").value);
+                    const to = apiDate(document.getElementById("customer-created-to").value);
+                    if (from) query.set("created_from", from);
+                    if (to) query.set("created_to", to);
+                }
                 return `/api/v1/customers/?${query}`;
             },
             renderRow: customerRow,
         });
+        // The window controls only make sense under the registration sort, so
+        // they appear with it and stay out of the way otherwise.
+        const orderingSelect = document.getElementById("customer-ordering");
+        const dateRange = document.getElementById("customer-date-range");
+        const syncDateRange = () => {
+            const active = orderingSelect.value === "registered";
+            dateRange.hidden = !active;
+            // Give the range the room: the search keeps growing, the sort does not.
+            orderingSelect.classList.toggle("flex-grow-1", !active);
+        };
+        orderingSelect.addEventListener("change", syncDateRange);
+        syncDateRange();
         controller.load();
         const dialog = document.getElementById("create-customer-dialog");
         const createForm = document.getElementById("create-customer-form");
@@ -1068,11 +1103,12 @@
                 document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`).value = value[name] || "";
             });
             document.getElementById("customer-created-by").value = value.created_by_display || value.created_by;
-            document.getElementById("customer-active").value = statusText(value.is_active);
-            const deactivate = document.getElementById("deactivate-customer");
-            if (deactivate) {
-                deactivate.disabled = !value.is_active;
-                deactivate.textContent = value.is_active ? "غیرفعال کردن مشتری" : "مشتری غیرفعال است";
+            // A Platform Admin gets a select; everyone else the read-only text.
+            const activeSelect = document.getElementById("customer-active-select");
+            if (activeSelect) {
+                activeSelect.value = String(Boolean(value.is_active));
+            } else {
+                document.getElementById("customer-active").value = statusText(value.is_active);
             }
         }
 
@@ -1128,7 +1164,7 @@
             }
         }
 
-        function setupCustomerRelatedList(key, path, renderRow) {
+        function setupCustomerRelatedList(key, path, renderRow, {absolute = false} = {}) {
             const listLoading = document.getElementById(`customer-${key}-loading`);
             const listEmpty = document.getElementById(`customer-${key}-empty`);
             const listWrap = document.getElementById(`customer-${key}-table-wrap`);
@@ -1144,8 +1180,17 @@
                 listWrap.hidden = true;
                 listPagination.hidden = true;
                 try {
-                    const data = await apiRequest(`${endpoint}${path}/?page=${page}`);
-                    listBody.replaceChildren(...data.results.map(renderRow));
+                    // Most related lists are sub-resources of the customer; the
+                    // orders panel reads the orders endpoint filtered by this
+                    // customer, because that is where orders actually live.
+                    const url = absolute
+                        ? `${path}${path.includes("?") ? "&" : "?"}page=${page}`
+                        : `${endpoint}${path}/?page=${page}`;
+                    const data = await apiRequest(url);
+                    // A renderer may expand one record into several rows — the
+                    // orders panel lists a row per line — so results are
+                    // flattened rather than assumed one-to-one.
+                    listBody.replaceChildren(...data.results.flatMap(renderRow));
                     listLoading.hidden = true;
                     if (!data.results.length) { listEmpty.hidden = false; return; }
                     listWrap.hidden = false;
@@ -1165,10 +1210,34 @@
             return {load};
         }
 
+        /**
+         * One row per line of every order this customer has.
+         *
+         * The panel answers "what has this customer ordered", so it lists the
+         * goods rather than the documents: product, quantity, line total. The
+         * document itself is one click away in the orders module.
+         */
+        function customerOrderRows(order) {
+            return (order.items || []).map((item) => {
+                const row = document.createElement("tr");
+                appendCell(row, item.product_name_snapshot || item.product_name || item.product);
+                appendCell(row, toPersianDigits(String(item.quantity)));
+                appendCell(row, money(item.line_total ?? item.total_amount));
+                return row;
+            });
+        }
+
         const relatedLists = [
             setupCustomerRelatedList("leads", "leads", leadRow),
             setupCustomerRelatedList("interactions", "interactions", interactionRow),
-            setupCustomerRelatedList("sales", "sales", saleRow),
+            // Related sales became related orders: an order is what is recorded
+            // for a customer, so an order is what this panel shows.
+            setupCustomerRelatedList(
+                "orders",
+                `/api/v1/orders/?customer=${customerId}`,
+                customerOrderRows,
+                {absolute: true},
+            ),
         ];
 
         try {
@@ -1205,30 +1274,62 @@
                 await loadPhones();
             });
         });
-        const deactivateCustomer = document.getElementById("deactivate-customer");
-        deactivateCustomer?.addEventListener("click", async () => {
-            if (!window.confirm("این مشتری غیرفعال شود؟")) return;
-            deactivateCustomer.disabled = true;
+        // Activation state. Reversible on purpose: it hides the customer from
+        // day-to-day work and removes nothing, so switching back restores them.
+        const activeSelect = document.getElementById("customer-active-select");
+        activeSelect?.addEventListener("change", async () => {
+            const nextActive = activeSelect.value === "true";
+            if (nextActive === Boolean(customer.is_active)) return;
+            const question = nextActive ? "این مشتری دوباره فعال شود؟" : "این مشتری غیرفعال شود؟";
+            if (!window.confirm(question)) {
+                activeSelect.value = String(Boolean(customer.is_active));
+                return;
+            }
+            activeSelect.disabled = true;
             clearMessages();
             try {
-                customer = await apiRequest(`${endpoint}deactivate/`, {method: "POST"});
+                customer = await apiRequest(`${endpoint}set-active/`, {
+                    method: "POST", body: {is_active: nextActive},
+                });
                 fillCustomer(customer);
-                globalMessage("مشتری بدون حذف سابقه غیرفعال شد.", true);
+                globalMessage(
+                    nextActive ? "مشتری دوباره فعال شد." : "مشتری بدون حذف سابقه غیرفعال شد.",
+                    true,
+                );
             } catch (error) {
-                deactivateCustomer.disabled = false;
+                activeSelect.value = String(Boolean(customer.is_active));
                 showError(error);
+            } finally {
+                activeSelect.disabled = false;
             }
         });
     }
 
+    /** The three states a campaign is tracked in, as the theme's badges. */
+    const LEAD_STATUS_LABELS = {
+        pending: ["در انتظار تکمیل", "badge-light-warning"],
+        completed: ["تکمیل", "badge-light-success"],
+        cancelled: ["کنسل شده", "badge-light-danger"],
+    };
+
     function leadRow(lead) {
         const row = document.createElement("tr");
-        appendCell(row, lead.customer_name || lead.customer);
+        // The customer column is gone: a campaign is worked from its target
+        // audience rather than from one customer.
         appendCell(row, lead.source);
         appendCell(row, lead.campaign_or_batch);
-        appendCell(row, lead.status);
+        const [label, badgeClass] = LEAD_STATUS_LABELS[lead.status] || [lead.status || "—", "badge-light"];
+        const statusCell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `badge ${badgeClass}`;
+        badge.textContent = label;
+        statusCell.append(badge);
+        row.append(statusCell);
         appendCell(row, lead.assigned_to_display || lead.assigned_to);
-        appendCell(row, displayDate(lead.next_follow_up_at));
+        // Follow-up and registration are both days; the time of day was never
+        // acted on and only made the column harder to scan.
+        appendCell(row, displayDay(lead.next_follow_up_at));
+        appendCell(row, displayDay(lead.created_at));
         appendDetailLink(row, `/leads/${lead.id}/`);
         return row;
     }
@@ -1419,7 +1520,8 @@
             addForm.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(addForm, async () => {
-                    const payload = formPayload(addForm, ["full_name", "raw_phone", "status"]);
+                    // No status: the server derives it, so sending one would be refused.
+                    const payload = formPayload(addForm, ["full_name", "raw_phone"]);
                     payload.lead = Number(leadId);
                     await apiRequest(addForm.action, {method: "POST", body: payload});
                     addForm.reset();

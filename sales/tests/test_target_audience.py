@@ -112,35 +112,44 @@ class TargetAudienceTests(TestCase):
         self.assertEqual(member.status, TargetAudienceMember.Status.CUSTOMER)
         self.assertEqual(member.customer_id, self.customer.pk)
 
-    def test_a_hand_set_failure_survives_a_call_but_not_a_customer_record(self):
-        member = self._add(phone="09120006666", status=TargetAudienceMember.Status.FAILED)
-        record_interaction(
-            actor=self.manager,
-            lead=self.lead,
-            target_member=member,
-            phone="09120006666",
-            direction=Interaction.Direction.OUTBOUND,
-            outcome="پاسخ نداد",
-            occurred_at=timezone.now(),
-        )
-        member.refresh_from_db()
-        # A judgement about the person is not overwritten by activity alone.
-        self.assertEqual(member.status, TargetAudienceMember.Status.FAILED)
+    def test_an_identity_always_enters_as_a_lead(self):
+        """Status is derived, so no caller may choose one on the way in."""
+        member = self._add(phone="09120006666")
+        self.assertEqual(member.status, TargetAudienceMember.Status.LEAD)
+        with self.assertRaises(BusinessRuleError):
+            add_target_audience_member(
+                actor=self.manager,
+                lead=self.lead,
+                full_name="کس دیگر",
+                raw_phone="09120007878",
+                status=TargetAudienceMember.Status.CUSTOMER,
+            )
 
-        create_customer_with_phone(
-            actor=self.manager,
-            full_name="فرد هدف",
-            phone={"raw_phone": "09120006666", "is_primary": True},
-        )
-        member.refresh_from_db()
-        self.assertEqual(member.status, TargetAudienceMember.Status.CUSTOMER)
-
-    def test_the_derived_statuses_cannot_be_set_by_hand(self):
+    def test_no_status_can_be_set_by_hand_after_the_fact_either(self):
         member = self._add(phone="09120007777")
-        for status in (TargetAudienceMember.Status.ENGAGED, TargetAudienceMember.Status.CUSTOMER):
+        for status in TargetAudienceMember.Status.values:
             with self.subTest(status=status):
                 with self.assertRaises(BusinessRuleError):
                     update_target_audience_member(actor=self.manager, member=member, status=status)
+
+    def test_one_phone_is_one_identity_across_every_campaign(self):
+        """The number is the identity, so it cannot appear in two campaigns."""
+        from common.exceptions import BusinessConflictError
+
+        self._add(phone="09120009090")
+        other_customer = create_customer_with_phone(
+            actor=self.manager,
+            full_name="مشتری کمپین دوم",
+            phone={"raw_phone": "09120009191", "is_primary": True},
+        )
+        other_lead = create_lead(actor=self.manager, customer=other_customer, source="manual")
+        with self.assertRaises(BusinessConflictError):
+            add_target_audience_member(
+                actor=self.manager,
+                lead=other_lead,
+                full_name="همان شخص",
+                raw_phone="09120009090",
+            )
 
     # --- scope and permission ----------------------------------------------
 

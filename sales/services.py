@@ -809,15 +809,13 @@ def reactivate_product_category(*, actor, category):
 # a marketer reads the audience of the campaigns assigned to them. That split is
 # enforced here, not in the template — a hidden button is not authorization.
 
-TARGET_MEMBER_MUTABLE_FIELDS = {"full_name", "raw_phone", "status", "notes"}
+#: `status` is absent on purpose: it is derived from what actually happened and
+#: is never typed in. See `refresh_target_member_status`.
+TARGET_MEMBER_MUTABLE_FIELDS = {"full_name", "raw_phone", "notes"}
 TARGET_MEMBER_TEXT_LIMITS = {"full_name": 255, "raw_phone": 40, "notes": FREE_TEXT_MAX_LENGTH}
-#: Statuses a person may set by hand. ENGAGED and CUSTOMER are conclusions the
-#: system draws from real activity, so setting them by hand would let the list
-#: claim work that never happened.
-TARGET_MEMBER_ASSIGNABLE_STATUSES = {
-    TargetAudienceMember.Status.LEAD,
-    TargetAudienceMember.Status.FAILED,
-}
+#: Kept as an empty set so callers that still consult it read "nothing may be
+#: assigned by hand" rather than crashing on a missing name.
+TARGET_MEMBER_ASSIGNABLE_STATUSES = frozenset()
 
 
 def _require_status_administrator(actor):
@@ -874,13 +872,6 @@ def refresh_target_member_status(*, member, actor=None):
     derived, customer = _derived_target_status(locked)
     if derived is None or locked.status == derived:
         return locked
-    # A hand-set FAILED is a judgement about the person rather than a record of
-    # activity, so only a real customer record overrides it.
-    if (
-        locked.status == TargetAudienceMember.Status.FAILED
-        and derived != TargetAudienceMember.Status.CUSTOMER
-    ):
-        return locked
     previous = locked.status
     locked.status = derived
     fields = ["status", "updated_at"]
@@ -920,9 +911,11 @@ def add_target_audience_member(*, actor, lead, full_name, raw_phone, status="", 
     _validate_text_lengths(data, TARGET_MEMBER_TEXT_LIMITS)
     if not str(full_name).strip():
         raise BusinessRuleError({"full_name": "This field is required."})
-    status = status or TargetAudienceMember.Status.LEAD
-    if status not in TARGET_MEMBER_ASSIGNABLE_STATUSES:
-        raise BusinessRuleError({"status": "Choose a status that can be set by hand."})
+    if status:
+        raise BusinessRuleError({"status": "Status is derived and cannot be set."})
+    # Every identity enters the audience as a lead. Where it goes from there is
+    # decided by what happens to it, not by what anyone types.
+    status = TargetAudienceMember.Status.LEAD
     normalized = normalize_customer_phone(raw_phone)
     try:
         member = TargetAudienceMember.objects.create(
@@ -961,8 +954,6 @@ def update_target_audience_member(*, actor, member, **changes):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
     _validate_text_lengths(changes, TARGET_MEMBER_TEXT_LIMITS)
-    if "status" in changes and changes["status"] not in TARGET_MEMBER_ASSIGNABLE_STATUSES:
-        raise BusinessRuleError({"status": "Choose a status that can be set by hand."})
     if "raw_phone" in changes:
         changes["normalized_phone"] = normalize_customer_phone(changes["raw_phone"])
     if "full_name" in changes:

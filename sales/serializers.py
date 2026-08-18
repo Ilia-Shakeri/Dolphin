@@ -9,7 +9,7 @@ from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
 from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for, target_audience_for
-from sales.services import TARGET_MEMBER_ASSIGNABLE_STATUSES, add_target_audience_member, update_target_audience_member, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
+from sales.services import add_target_audience_member, update_target_audience_member, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
 
 
 def _scope_relation(field, queryset):
@@ -256,15 +256,10 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
     claim work that never happened. They are still returned on read.
     """
 
-    server_fields = {"normalized_phone", "customer", "created_by", "created_at", "updated_at"}
-    status = serializers.ChoiceField(
-        choices=[
-            (value, label)
-            for value, label in TargetAudienceMember.Status.choices
-            if value in TARGET_MEMBER_ASSIGNABLE_STATUSES
-        ],
-        required=False,
-    )
+    server_fields = {"status", "normalized_phone", "customer", "created_by", "created_at", "updated_at"}
+    # Read-only: an identity enters as a lead and moves on only when something
+    # real happens to it — a call logged, a customer record appearing.
+    status = serializers.CharField(read_only=True)
     normalized_phone = serializers.CharField(read_only=True)
     customer = serializers.PrimaryKeyRelatedField(read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
@@ -275,7 +270,7 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
             "id", "lead", "full_name", "raw_phone", "normalized_phone",
             "status", "status_display", "customer", "notes", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "normalized_phone", "status_display", "customer", "created_at", "updated_at"]
+        read_only_fields = ["id", "status", "normalized_phone", "status_display", "customer", "created_at", "updated_at"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -291,6 +286,12 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
         return update_target_audience_member(
             actor=self.context["request"].user, member=instance, **validated_data
         )
+
+
+class CustomerActivationSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """The one field the activation endpoint accepts."""
+
+    is_active = serializers.BooleanField()
 
 
 class ReassignSerializer(RejectServerFieldsMixin, serializers.Serializer):

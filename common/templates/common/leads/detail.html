@@ -58,10 +58,9 @@
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="add-target-name">نام</label><input class="form-control form-control-solid" id="add-target-name" name="full_name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="full_name"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="add-target-phone">تلفن</label><input class="form-control form-control-solid" id="add-target-phone" name="raw_phone" type="tel" required maxlength="40"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="raw_phone"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="add-target-status">وضعیت</label><select class="form-select form-select-solid" id="add-target-status" name="status"><option value="lead">سرنخ</option><option value="failed">ناموفق</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p>
-              {% comment %} «در تعامل» و «مشتری» پیشنهاد نمی‌شوند چون سامانه آن‌ها را از
-                 فعالیت واقعی نتیجه می‌گیرد. {% endcomment %}
-              <p class="text-gray-700 fs-8 mt-1 mb-0">«در تعامل» و «مشتری» خودکار تعیین می‌شوند.</p></div>
+            {% comment %} وضعیت انتخابی نیست: هر هویت با «سرنخ» وارد می‌شود و فقط با
+               رویداد واقعی — ثبت تماس یا ساخته‌شدن مشتری — جلو می‌رود. {% endcomment %}
+            <div class="col-12"><p class="text-gray-700 fs-7 mb-0">وضعیت خودکار تعیین می‌شود: با افزودن «سرنخ»، با ثبت تماس «در تعامل»، و با ساخته‌شدن مشتری با همین شماره «مشتری».</p></div>
         </div>
         <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">افزودن</button></div>
     </form>
