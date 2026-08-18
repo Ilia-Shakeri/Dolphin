@@ -288,6 +288,12 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
         )
 
 
+class ProductActivationSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """The one field the product activation endpoint accepts."""
+
+    is_active = serializers.BooleanField()
+
+
 class CustomerActivationSerializer(RejectServerFieldsMixin, serializers.Serializer):
     """The one field the activation endpoint accepts."""
 
@@ -395,9 +401,12 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
 
 
 class SaleSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer", "customer_name", "sold_by", "sold_by_display", "product_name", "unit_price_snapshot", "status", "created_at", "updated_at"}
+    server_fields = {"customer", "customer_name", "campaign_name", "sold_by", "sold_by_display", "product_name", "unit_price_snapshot", "status", "created_at", "updated_at"}
     customer = serializers.PrimaryKeyRelatedField(read_only=True)
     customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    #: A "sale" is a campaign outcome in Client-1's language, so the list leads
+    #: with the campaign rather than the customer.
+    campaign_name = serializers.SerializerMethodField()
     sold_by = serializers.PrimaryKeyRelatedField(read_only=True)
     sold_by_display = serializers.SerializerMethodField()
     product_name = serializers.CharField(source="product.name", read_only=True)
@@ -407,8 +416,8 @@ class SaleSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Sale
-        fields = ["id", "lead", "customer", "customer_name", "sold_by", "sold_by_display", "product", "product_name", "quantity", "unit_price_snapshot", "total_amount", "status", "sold_at", "notes", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer", "customer_name", "sold_by", "sold_by_display", "product_name", "unit_price_snapshot", "status", "created_at", "updated_at"]
+        fields = ["id", "lead", "customer", "customer_name", "campaign_name", "sold_by", "sold_by_display", "product", "product_name", "quantity", "unit_price_snapshot", "total_amount", "status", "sold_at", "notes", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer", "customer_name", "campaign_name", "sold_by", "sold_by_display", "product_name", "unit_price_snapshot", "status", "created_at", "updated_at"]
         extra_kwargs = {"total_amount": {"required": False}}
 
     def __init__(self, *args, **kwargs):
@@ -426,6 +435,18 @@ class SaleSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     def create(self, validated_data):
         return mark_sale(actor=self.context["request"].user, **validated_data)
+
+    @extend_schema_field(serializers.CharField(allow_blank=True))
+    def get_campaign_name(self, obj):
+        """The campaign this result came from.
+
+        Falls back through the lead's own labels so the column is never blank
+        for a record that does belong to a campaign.
+        """
+        lead = obj.lead
+        if lead is None:
+            return ""
+        return lead.campaign_or_batch or lead.source or f"#{lead.pk}"
 
     def get_sold_by_display(self, instance) -> str:
         return instance.sold_by.get_full_name() or instance.sold_by.username

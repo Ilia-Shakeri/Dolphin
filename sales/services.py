@@ -754,6 +754,32 @@ def deactivate_customer(*, actor, customer):
 
 
 @transaction.atomic
+def set_product_active(*, actor, product, is_active):
+    """Turn a product on or off. Platform Admin only.
+
+    Activation decides whether the product can still be sold, so it sits with
+    the same role that owns customer activation. Deactivating removes nothing:
+    every past sale, order line and invoice line keeps its snapshot, which is
+    why this is reversible.
+    """
+    actor = _require_status_administrator(actor)
+    product = Product.objects.select_for_update().get(pk=product.pk)
+    is_active = bool(is_active)
+    if product.is_active == is_active:
+        state = "active" if is_active else "inactive"
+        raise BusinessConflictError({"is_active": f"Product is already {state}."})
+    product.is_active = is_active
+    product.updated_by = actor
+    product.save(update_fields=["is_active", "updated_by", "updated_at"])
+    log_activity(
+        actor=actor,
+        operation="product.reactivated" if is_active else "product.deactivated",
+        instance=product,
+    )
+    return product
+
+
+@transaction.atomic
 def deactivate_product(*, actor, product):
     # Activation decides whether the product can still be sold, so Client-1
     # keeps it with the Platform Admin. Every other product edit stays with the

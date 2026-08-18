@@ -23,12 +23,12 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-warehouse">انبار</label><select class="form-select form-select-solid" id="create-movement-warehouse" name="warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-product">کالا</label><select class="form-select form-select-solid" id="create-movement-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-type">نوع حرکت</label><select class="form-select form-select-solid" id="create-movement-type" name="movement_type" required>
+                {% comment %} سه حرکت دستی مجاز. بقیه انواع در مدل می‌مانند چون سامانه
+                   خودش آن‌ها را برای سفارش و فاکتور ثبت می‌کند، اما اپراتور فقط
+                   این سه را انتخاب می‌کند. {% endcomment %}
                 <option value="opening">موجودی اول دوره</option>
-                <option value="purchase">رسید خرید</option>
                 <option value="return_in">برگشت از مشتری</option>
-                <option value="adjustment_in">اصلاح افزایشی</option>
-                <option value="return_out">برگشت به تأمین‌کننده</option>
-                <option value="adjustment_out">اصلاح کاهشی</option>
+                <option value="sale">ارسال به مشتری</option>
             </select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="movement_type"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>

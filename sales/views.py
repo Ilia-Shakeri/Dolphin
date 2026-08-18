@@ -22,8 +22,8 @@ from common.viewsets import NoDestroyModelViewSet
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
-from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, ProductActivationSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
+from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -498,6 +498,32 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     @action(detail=True, methods=["post"])
     def deactivate(self, request, pk=None):
         product = deactivate_product(actor=request.user, product=self.get_object())
+        return Response(self.get_serializer(product).data)
+
+    @extend_schema(
+        request=ProductActivationSerializer,
+        responses={
+            200: ProductSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+            409: CONFLICT_RESPONSE,
+        },
+        description=(
+            "Turn a product active or inactive. Platform Admin only. An inactive product cannot "
+            "be put on a new document; every existing line keeps its snapshot, so this removes "
+            "nothing and can be undone."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="set-active")
+    def set_active(self, request, pk=None):
+        serializer = ProductActivationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = set_product_active(
+            actor=request.user,
+            product=self.get_object(),
+            is_active=serializer.validated_data["is_active"],
+        )
         return Response(self.get_serializer(product).data)
 
 

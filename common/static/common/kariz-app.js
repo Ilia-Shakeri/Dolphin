@@ -1790,13 +1790,14 @@
         document.getElementById("edit-product-barcode").value = product.barcode || "";
         document.getElementById("edit-product-price").value = product.current_price;
         document.getElementById("edit-product-description").value = product.description || "";
-        document.getElementById("product-status").value = statusText(product.is_active);
         document.getElementById("product-created-by").value = product.created_by_display || product.created_by;
         document.getElementById("product-updated-by").value = product.updated_by_display || product.updated_by;
-        const deactivate = document.getElementById("deactivate-product");
-        if (deactivate) {
-            deactivate.disabled = !product.is_active;
-            deactivate.textContent = product.is_active ? "غیرفعال کردن محصول" : "محصول غیرفعال است";
+        // A Platform Admin gets a select; everyone else the read-only text.
+        const activeSelect = document.getElementById("product-active-select");
+        if (activeSelect) {
+            activeSelect.value = String(Boolean(product.is_active));
+        } else {
+            document.getElementById("product-status").value = statusText(product.is_active);
         }
     }
 
@@ -1837,17 +1838,30 @@
                 });
             });
         }
-        const deactivate = document.getElementById("deactivate-product");
-        deactivate?.addEventListener("click", async () => {
-            if (!window.confirm("این محصول غیرفعال شود؟")) return;
-            deactivate.disabled = true;
+        // Reversible: an inactive product cannot go on a new document, but every
+        // existing line keeps its snapshot, so turning it back on restores it.
+        const activeSelect = document.getElementById("product-active-select");
+        activeSelect?.addEventListener("change", async () => {
+            const nextActive = activeSelect.value === "true";
+            if (nextActive === Boolean(product.is_active)) return;
+            const question = nextActive ? "این محصول دوباره فعال شود؟" : "این محصول غیرفعال شود؟";
+            if (!window.confirm(question)) {
+                activeSelect.value = String(Boolean(product.is_active));
+                return;
+            }
+            activeSelect.disabled = true;
+            clearMessages();
             try {
-                product = await apiRequest(`${endpoint}deactivate/`, {method: "POST"});
+                product = await apiRequest(`${endpoint}set-active/`, {
+                    method: "POST", body: {is_active: nextActive},
+                });
                 fillProduct(product);
-                globalMessage("محصول غیرفعال شد.", true);
+                globalMessage(nextActive ? "محصول دوباره فعال شد." : "محصول غیرفعال شد.", true);
             } catch (error) {
-                deactivate.disabled = false;
+                activeSelect.value = String(Boolean(product.is_active));
                 showError(error);
+            } finally {
+                activeSelect.disabled = false;
             }
         });
     }
@@ -1858,7 +1872,9 @@
 
     function saleRow(sale) {
         const row = document.createElement("tr");
-        appendCell(row, sale.customer_name || sale.customer);
+        // The campaign the result came from leads the row: these are campaign
+        // outcomes, and the campaign is what the reader is scanning for.
+        appendCell(row, sale.campaign_name || "—");
         appendCell(row, sale.product_name || sale.product);
         appendCell(row, sale.quantity);
         appendCell(row, sale.total_amount);
