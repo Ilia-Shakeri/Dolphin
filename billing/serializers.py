@@ -1,6 +1,8 @@
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from decimal import Decimal
+
 from billing.models import (
     Cheque,
     ChequeStatusHistory,
@@ -233,32 +235,64 @@ class OrderSerializer(CommercialDocumentSerializer):
         return update_order(actor=self.context["request"].user, order=instance, **validated_data)
 
 
+class ManualPaidEntrySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """The typed "پرداخت شده" figure.
+
+    Display only: matching the outstanding amount marks the invoice settled and
+    writes no accounting record. See `billing.services.record_manual_paid_entry`.
+    """
+
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=Decimal("0.00"))
+
+
+class InvoiceOrderLinkSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Attach an invoice to an order after both exist, or detach it with null."""
+
+    order = serializers.PrimaryKeyRelatedField(
+        queryset=Order.objects.all(), allow_null=True, required=True
+    )
+
+
 class InvoiceSerializer(CommercialDocumentSerializer):
     server_fields = {
         "number", "status", "customer_name", "subtotal_amount", "tax_amount", "total_amount",
         "issued_at", "cancelled_at", "paid_amount", "balance_due", "settlement_status",
         "stock_applied", "created_by", "created_by_display", "line_items", "created_at", "updated_at",
+        "manual_paid_entry", "manual_settled_at", "is_manually_settled", "canonical_balance_due",
     }
     line_items = InvoiceItemSerializer(source="items", many=True, read_only=True)
     paid_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     balance_due = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     settlement_status = serializers.CharField(read_only=True)
     stock_applied = serializers.BooleanField(read_only=True)
+    #: What the payment records alone say, alongside what the screen shows. Both
+    #: are published so a reader can tell a manual settlement from a real one.
+    canonical_balance_due = serializers.DecimalField(
+        max_digits=18, decimal_places=2, read_only=True
+    )
+    manual_paid_entry = serializers.DecimalField(
+        max_digits=18, decimal_places=2, read_only=True
+    )
+    manual_settled_at = serializers.DateTimeField(read_only=True)
+    is_manually_settled = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Invoice
         fields = [
             "id", "number", "customer", "customer_name", "order", "quotation", "sale",
             "warehouse", "status", "subtotal_amount", "discount_amount", "tax_rate", "tax_amount",
-            "total_amount", "paid_amount", "balance_due", "settlement_status", "issued_at",
-            "due_at", "cancelled_at", "stock_applied", "notes", "created_by", "created_by_display",
+            "total_amount", "paid_amount", "balance_due", "canonical_balance_due",
+            "settlement_status", "issued_at", "due_at", "cancelled_at", "stock_applied",
+            "manual_paid_entry", "manual_settled_at", "is_manually_settled",
+            "notes", "created_by", "created_by_display",
             "items", "line_items", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "number", "customer_name", "status", "subtotal_amount", "tax_amount",
-            "total_amount", "paid_amount", "balance_due", "settlement_status", "issued_at",
-            "cancelled_at", "stock_applied", "created_by", "created_by_display", "line_items",
-            "created_at", "updated_at",
+            "total_amount", "paid_amount", "balance_due", "canonical_balance_due",
+            "settlement_status", "issued_at", "cancelled_at", "stock_applied",
+            "manual_paid_entry", "manual_settled_at", "is_manually_settled",
+            "created_by", "created_by_display", "line_items", "created_at", "updated_at",
         ]
 
     def __init__(self, *args, **kwargs):

@@ -1,4 +1,4 @@
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils.dateparse import parse_date
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, viewsets
@@ -40,6 +40,8 @@ from billing.selectors import (
     quotations_for,
 )
 from billing.serializers import (
+    InvoiceOrderLinkSerializer,
+    ManualPaidEntrySerializer,
     AllocatePaymentSerializer,
     ChequeSerializer,
     ChequeStatusHistorySerializer,
@@ -60,6 +62,8 @@ from billing.serializers import (
     DocumentStatusTransitionSerializer,
 )
 from billing.services import (
+    link_invoice_to_order,
+    record_manual_paid_entry,
     cancel_invoice,
     convert_order_to_invoice,
     convert_quotation_to_order,
@@ -257,7 +261,10 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     queryset = Invoice.objects.none()
     serializer_class = InvoiceSerializer
     status_enum = Invoice.Status
-    sensitive_actions = frozenset({"create", "update", "partial_update", "items", "issue", "cancel"})
+    sensitive_actions = frozenset({
+        "create", "update", "partial_update", "items", "issue", "cancel",
+        "manual_paid", "link_order",
+    })
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "issued_at", "due_at", "total_amount", "number"]
     list_query_parameters = {"status", "customer", "settlement"}
@@ -274,16 +281,19 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             if settlement not in Invoice.SettlementStatus.values:
                 raise ValidationError({"settlement": "Unknown settlement status."})
             issued = queryset.filter(status=Invoice.Status.ISSUED)
+            # A manually settled invoice reads as settled everywhere, so the
+            # filter has to agree with what the document itself shows.
+            manually_settled = Q(manual_settled_at__isnull=False)
             if settlement == Invoice.SettlementStatus.PAID:
                 # `paid_amount` is capped at `total_amount` by a check
                 # constraint, so equality is exactly "fully settled".
-                queryset = issued.filter(paid_amount__gte=F("total_amount"))
+                queryset = issued.filter(Q(paid_amount__gte=F("total_amount")) | manually_settled)
             elif settlement == Invoice.SettlementStatus.UNPAID:
-                queryset = issued.filter(paid_amount__lte=0)
+                queryset = issued.filter(paid_amount__lte=0).exclude(manually_settled)
             else:
                 queryset = issued.filter(
                     paid_amount__gt=0, paid_amount__lt=F("total_amount")
-                )
+                ).exclude(manually_settled)
         return queryset
 
     @extend_schema(
@@ -295,6 +305,47 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ManualPaidEntrySerializer,
+        responses={200: InvoiceSerializer, **WRITE_RESPONSES},
+        description=(
+            "Record the typed پرداخت شده figure. Entering exactly the amount the payment "
+            "records still show outstanding marks the invoice settled, once and for good. It "
+            "creates no Payment, allocation or ledger entry and never changes `paid_amount`, so "
+            "receivables and the customer ledger are unaffected."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="manual-paid")
+    def manual_paid(self, request, pk=None):
+        serializer = ManualPaidEntrySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        invoice = record_manual_paid_entry(
+            actor=request.user,
+            invoice=self.get_object(),
+            amount=serializer.validated_data["amount"],
+        )
+        return Response(self.get_serializer(invoice).data)
+
+    @extend_schema(
+        request=InvoiceOrderLinkSerializer,
+        responses={200: InvoiceSerializer, **WRITE_RESPONSES},
+        description=(
+            "Attach this invoice to an existing order, or detach it with null. Client-1 raises "
+            "the invoice first, so the two documents normally exist before anyone knows they "
+            "belong together. One order may gather several invoices."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="link-order")
+    def link_order(self, request, pk=None):
+        serializer = InvoiceOrderLinkSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        invoice = link_invoice_to_order(
+            actor=request.user,
+            invoice=self.get_object(),
+            order=serializer.validated_data["order"],
+        )
+        return Response(self.get_serializer(invoice).data)
 
     @extend_schema(request=DocumentItemsSerializer, responses={200: InvoiceSerializer, **WRITE_RESPONSES})
     @action(detail=True, methods=["post"])
