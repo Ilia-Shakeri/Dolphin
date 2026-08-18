@@ -240,9 +240,12 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.switch_to.alert.accept()
         self.wait.until(lambda driver: self.value_of("invoice-status") == "صادرشده")
 
-        # Issuing really moved the stock: 40 received minus 3 sold.
+        # Issuing moved no stock. The order owns the inventory lifecycle now, so
+        # the 40 received are still on hand — the order in this chain was never
+        # approved against a warehouse, and the invoice deliberately deducts
+        # nothing. Deducting here as well would take the same goods out twice.
         self.assertEqual(
-            StockItem.objects.get(warehouse_id=warehouse_id, product=self.product).quantity, 37
+            StockItem.objects.get(warehouse_id=warehouse_id, product=self.product).quantity, 40
         )
 
         # 6. Take a payment and allocate it to the invoice.

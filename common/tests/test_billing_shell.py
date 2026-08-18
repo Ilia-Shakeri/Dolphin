@@ -11,6 +11,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
+from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
@@ -99,6 +100,11 @@ class CommercialWorldMixin:
     """One manager, one agent, and a fully populated commercial chain."""
 
     def build_world(self):
+        # The sensitive-action throttle is keyed by user id, and a rolled-back
+        # test reuses ids, so without this every test in this module shares one
+        # bucket and a later test is refused for calls an earlier one made.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.manager = User.objects.create_user(
             username="shell.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER
         )
@@ -141,7 +147,10 @@ class CommercialWorldMixin:
         self.quotation.refresh_from_db()
         transition_quotation(actor=self.manager, quotation=self.quotation, to_status=Quotation.Status.ACCEPTED)
         self.quotation.refresh_from_db()
-        self.order = convert_quotation_to_order(actor=self.manager, quotation=self.quotation)
+        # The order carries the warehouse: approving it is what moves stock now.
+        self.order = convert_quotation_to_order(
+            actor=self.manager, quotation=self.quotation, warehouse=self.warehouse
+        )
         transition_order(actor=self.manager, order=self.order, to_status="confirmed")
         self.order.refresh_from_db()
         self.invoice = convert_order_to_invoice(

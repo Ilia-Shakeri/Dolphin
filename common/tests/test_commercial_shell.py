@@ -128,15 +128,18 @@ class CommercialShellScopeTests(TestCase):
         listing = self.client.get("/products/")
         detail = self.client.get(f"/products/{self.product.pk}/")
         self.assertNotContains(listing, 'id="open-create-product"')
-        self.assertNotContains(detail, 'id="deactivate-product"')
+        self.assertNotContains(detail, 'id="product-active-select"')
         self.assertNotContains(detail, 'type="submit">ذخیره تغییرات')
         self.client.force_login(self.manager)
         self.assertContains(self.client.get("/products/"), 'id="open-create-product"')
-        # A manager creates and edits products but no longer takes one out of
-        # circulation: activation state belongs to the Platform Admin.
-        self.assertNotContains(self.client.get(f"/products/{self.product.pk}/"), 'id="deactivate-product"')
+        # A manager creates and edits products but does not decide whether one
+        # stays sellable: activation belongs to the Platform Admin, and it is a
+        # reversible select rather than a one-way button.
+        self.assertNotContains(self.client.get(f"/products/{self.product.pk}/"), 'id="product-active-select"')
         self.client.force_login(self.roles[User.Role.PLATFORM_ADMIN])
-        self.assertContains(self.client.get(f"/products/{self.product.pk}/"), 'id="deactivate-product"')
+        admin_detail = self.client.get(f"/products/{self.product.pk}/")
+        self.assertContains(admin_detail, 'id="product-active-select"')
+        self.assertNotContains(admin_detail, 'id="deactivate-product"')
 
     def test_activity_log_browser_and_api_scope_are_enforced(self):
         for role in (User.Role.SALES_AGENT, User.Role.SALES_MANAGER):

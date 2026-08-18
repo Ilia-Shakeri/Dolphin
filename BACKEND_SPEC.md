@@ -165,6 +165,34 @@ The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 
 **Correction (product-owner decision, 2026-08-18): no role changes a password.** A password is set once, when the account is created. No interface offers to change one and the API refuses `password` on update, for every role including `platform_admin`. This removes an in-application credential-reset path entirely rather than restricting it. A forgotten password is recovered on the deployment host with `manage.py changepassword`, which needs server access rather than a session; the consequence — that account recovery now requires the operator, and that there is still no self-service reset (requirement 1.6 remains `BLOCKED_EXTERNAL` for want of an email/SMS provider) — is accepted deliberately.
 
+**Correction (PM decisions, 2026-08-18).** The following supersede earlier
+statements where they differ:
+
+* **Marketer scope is own-work.** A `sales_agent` sees only the customers they
+  personally created and may not edit them, only the leads assigned to them, and
+  only the orders and invoices they raised themselves. Enforced in
+  `sales/selectors.py` and `billing/selectors.py`, not in templates.
+* **`sales_manager` has the same functional Client-1 access as `platform_admin`**,
+  except operations that are platform-level security or administration — user
+  administration, customer activation and product activation stay Platform Admin.
+* **"Campaign" means the existing `Lead`.** No separate campaign entity exists.
+* **Target audience** (`جامعه هدف`) is a list of identities per campaign. The
+  normalized phone is the identity and is globally unique. Status is entirely
+  derived and never typed: `سرنخ` on entry, `در تعامل` once the call centre logs
+  an interaction, `مشتری` once the same number exists in the customer book, with
+  `مشتری` taking precedence.
+* **The order owns the inventory lifecycle.** Stock leaves on approval and
+  returns on cancellation, exactly once each; an edit to an approved order moves
+  only the difference; an invoice moves no stock. A shortage never goes negative
+  — the order is cancelled and `موجودی کافی نبود` is appended to its note.
+* **Invoice before order.** An invoice needs no order, one order may gather
+  several invoices, and the link is a real nullable relation established after
+  both documents exist.
+* **Manual invoice settlement** is a display override, isolated to three columns
+  on `Invoice`. It writes no Payment, allocation or ledger entry and never
+  changes `paid_amount`; entering the outstanding amount settles the invoice
+  permanently. See `docs/backend/BILLING_SEMANTICS.md`.
+
 Customer remains the actual store/customer/client contact and is displayed as `مشتری` / `مشتریان`. The `Customer` model, API path, database table, field names, fixed role codes, and stable internal identifiers remain unchanged.
 
 **Correction (P0R audit, 2026-08-14 — `BIZ-005` resolved):** for the single-tenant Client-1 deployment, Sales Manager scope is company-wide for *business* records only (Customer/Lead/Interaction/Product/Sale/report). It has **no** user-administration capability: it may not list, create, edit, deactivate, reactivate, reset the password of, or change the workstream of any account, including Sales Agent accounts. This replaces the prior statement that Sales Manager could administer Sales Agent accounts, which is no longer an active rule (kept only as historical provenance in §15). No Team model is created. Client-1 uses a bounded `sales` / `after_sales` workstream on Sales Agent accounts only, settable only by Platform Admin; it does not add a fifth role or dynamic permission builder. Elevated roles must remain in `sales`. Seat/capacity remains a separate unresolved decision.

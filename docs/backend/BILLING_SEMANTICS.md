@@ -107,14 +107,71 @@ target.
 
 One transaction does all three of:
 
-1. snapshot each line's unit cost from the warehouse moving average **before**
-   the issue moves it, so profit is measured against what the sold units cost;
-2. deduct the lines from the named warehouse (`BILLING_INVOICE_AFFECTS_STOCK`,
-   default true);
+1. snapshot each line's unit cost from the warehouse moving average, so profit
+   is measured against what the sold units cost;
+2. deduct the lines from the named warehouse — **off by default**
+   (`BILLING_INVOICE_AFFECTS_STOCK`), see below;
 3. post the debit to the customer ledger.
 
-So an invoice can never exist without its ledger entry, and a stock shortfall
-aborts the issue rather than producing a document the warehouse cannot back.
+So an invoice can never exist without its ledger entry.
+
+**The order owns the inventory lifecycle, not the invoice.** Client-1 raises the
+invoice first and the order afterwards, and stock leaves when the *order* is
+approved. If the invoice deducted as well, the same goods would leave twice for
+one sale, so `BILLING_INVOICE_AFFECTS_STOCK` defaults to false. The capability
+is kept for a deployment that invoices straight out of stock with no order step.
+
+Note that step 1 still runs whenever the invoice names a warehouse, even with
+the stock effect off: the cost snapshot is a *read*, and gross profit is
+measured against it. Without that split, turning the deduction off would have
+silently emptied the profit report.
+
+## Order inventory lifecycle
+
+| Event | Stock |
+|---|---|
+| order created (draft) | nothing moves |
+| order approved | deducted, exactly once |
+| approved order cancelled | returned, exactly once |
+| approved order edited | only the difference moves |
+| invoice issued | nothing (see above) |
+
+"Exactly once" survives retries: `Order.stock_applied` records whether the
+deduction has happened, and every movement carries an idempotency key derived
+from the order and its `stock_revision` counter, so a repeated edit cannot reuse
+the previous key and be silently swallowed.
+
+A shortage never produces negative stock. If approval — or an edit to an
+approved order — needs more than the warehouse holds, nothing moves, the order
+is cancelled, and `موجودی کافی نبود` is appended to its note.
+
+## Manual settlement of an invoice
+
+Client-1 asked for a `پرداخت شده` box an operator can type into, where entering
+exactly the outstanding amount marks the invoice settled.
+
+This is a **display** decision and not an accounting one. It creates no Payment,
+no PaymentAllocation and no ledger entry, and it never touches `paid_amount`,
+the customer balance, receivables reporting or stock. `canonical_balance_due`
+keeps reporting what the payment records alone say, and is published beside
+`balance_due` so a reader can tell a manual settlement from a real one.
+
+The transition is **one-way**. Once the typed figure has matched the outstanding
+amount the invoice stays settled; editing the number afterwards changes what the
+box shows and leaves the settlement alone. An invoice that has been declared
+paid does not become unpaid because somebody retyped a field.
+
+The whole override lives in three columns on `Invoice`
+(`manual_paid_entry`, `manual_settled_at`, `manual_settled_by`) and can be
+dropped without unwinding anything else, which is what a future receipt feature
+will do.
+
+## Invoice ↔ order linking
+
+An invoice needs no order and is normally raised before one exists. One order
+may gather several invoices. The link is a real nullable foreign key set through
+`link_invoice_to_order`, after both documents exist — never a comparison of
+document numbers as text, because a number is a display string.
 
 An invoice with **no** warehouse has no stock effect and records no cost. It is
 then reported as *unmeasured* in the profit report and excluded from the totals —
