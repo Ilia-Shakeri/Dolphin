@@ -411,7 +411,7 @@
                 if (!data.results.length) { empty.hidden = false; return; }
                 wrap.hidden = false; currentPage = page;
                 previous.disabled = !data.previous; next.disabled = !data.next;
-                document.getElementById("agent-work-queue-page-label").textContent = `صفحه ${page}`;
+                document.getElementById("agent-work-queue-page-label").textContent = pageRangeLabel(data, page);
                 pager.hidden = !data.previous && !data.next;
             } catch (error) { loading.hidden = true; showError(error); }
         }
@@ -475,7 +475,7 @@
                 currentPage = page;
                 prev.disabled = !data.previous;
                 next.disabled = !data.next;
-                document.getElementById("users-page-label").textContent = `صفحه ${page}`;
+                document.getElementById("users-page-label").textContent = pageRangeLabel(data, page);
                 pagination.hidden = !data.previous && !data.next;
             } catch (error) {
                 loading.hidden = true;
@@ -978,7 +978,7 @@
                 currentPage = page;
                 previous.disabled = !data.previous;
                 next.disabled = !data.next;
-                document.getElementById(`${key}-page-label`).textContent = `صفحه ${page}`;
+                document.getElementById(`${key}-page-label`).textContent = pageRangeLabel(data, page);
                 pagination.hidden = !data.previous && !data.next;
             } catch (error) {
                 loading.hidden = true;
@@ -1201,7 +1201,7 @@
                     currentPage = page;
                     previous.disabled = !data.previous;
                     next.disabled = !data.next;
-                    document.getElementById(`customer-${key}-page-label`).textContent = `صفحه ${page}`;
+                    document.getElementById(`customer-${key}-page-label`).textContent = pageRangeLabel(data, page);
                     listPagination.hidden = !data.previous && !data.next;
                 } catch (error) {
                     listLoading.hidden = true;
@@ -1431,7 +1431,7 @@
                 document.getElementById("target-audience-prev").disabled = !data.previous;
                 document.getElementById("target-audience-next").disabled = !data.next;
                 document.getElementById("target-audience-page-label").textContent =
-                    `صفحه ${page} — ${data.count} نفر`;
+                    pageRangeLabel(data, page);
                 pager.hidden = !data.previous && !data.next;
             } catch (error) {
                 audienceLoading.hidden = true;
@@ -1458,7 +1458,7 @@
                 historyWrap.hidden = false; historyPage = page;
                 document.getElementById("history-prev").disabled = !data.previous;
                 document.getElementById("history-next").disabled = !data.next;
-                document.getElementById("history-page-label").textContent = `صفحه ${page}`;
+                document.getElementById("history-page-label").textContent = pageRangeLabel(data, page);
                 historyPager.hidden = !data.previous && !data.next;
             } catch (error) { historyLoading.hidden = true; showError(error); }
         }
@@ -2500,7 +2500,7 @@
             next.disabled = !data.next;
             previous.onclick = () => loadPerformanceDetails(prefix, userId, username, metric, page - 1);
             next.onclick = () => loadPerformanceDetails(prefix, userId, username, metric, page + 1);
-            document.getElementById(`${prefix}-details-page-label`).textContent = `صفحه ${page}`;
+            document.getElementById(`${prefix}-details-page-label`).textContent = pageRangeLabel(data, page);
             pager.hidden = !data.previous && !data.next;
         } catch (error) {
             loading.hidden = true;
@@ -2747,8 +2747,90 @@
         adjustment_credit: "اصلاح بستانکار",
     });
 
+    /**
+     * What a pager says: which records are on screen, out of how many.
+     *
+     * "صفحه ۲" alone never told an operator whether they were looking at 12
+     * customers or 12 of 3,400. The API already returns `count`, so the range
+     * is derived rather than guessed, and a page whose size is unknown falls
+     * back to the page number alone instead of inventing a range.
+     */
+    function pageRangeLabel(data, page, pageSize = 25) {
+        const total = Number(data.count);
+        if (!Number.isFinite(total)) return `صفحه ${toPersianDigits(String(page))}`;
+        if (total === 0) return "بدون رکورد";
+        const first = (page - 1) * pageSize + 1;
+        const last = Math.min(page * pageSize, total);
+        return `${toPersianDigits(String(first))} تا ${toPersianDigits(String(last))} از ${toPersianDigits(String(total))}`;
+    }
+
     function labelled(map, value) {
         return map[value] || value || "—";
+    }
+
+    /**
+     * Which theme accent a status wears.
+     *
+     * A document list is scanned, not read: an operator looking for the one
+     * cancelled invoice among fifty should find it by colour, not by reading
+     * every row. The meaning stays the backend's — this only decides how the
+     * value already sent is painted, and an unknown value falls back to a
+     * neutral badge rather than disappearing.
+     */
+    const STATUS_ACCENTS = Object.freeze({
+        // Commercial documents.
+        draft: "secondary",
+        sent: "info",
+        accepted: "success",
+        confirmed: "success",
+        issued: "success",
+        fulfilled: "primary",
+        rejected: "danger",
+        cancelled: "danger",
+        expired: "warning",
+        // Settlement.
+        unpaid: "danger",
+        partially_paid: "warning",
+        paid: "success",
+        // Payments and cheques.
+        pending: "warning",
+        registered: "info",
+        deposited: "info",
+        cleared: "success",
+        bounced: "danger",
+        returned: "warning",
+        // Campaign and target audience.
+        completed: "success",
+        lead: "primary",
+        engaged: "warning",
+        customer: "success",
+        failed: "danger",
+        // Inventory movement direction.
+        opening: "info",
+        purchase: "success",
+        sale: "primary",
+        return_in: "success",
+        return_out: "warning",
+        adjustment_in: "success",
+        adjustment_out: "warning",
+        transfer_in: "info",
+        transfer_out: "info",
+    });
+
+    /** A status rendered as the theme's badge, ready to append to a row. */
+    function statusBadge(map, value) {
+        const badge = document.createElement("span");
+        badge.className = `badge badge-light-${STATUS_ACCENTS[value] || "secondary"}`;
+        badge.textContent = labelled(map, value);
+        return badge;
+    }
+
+    /** Append a status cell carrying that badge. */
+    function appendStatusBadgeCell(row, map, value) {
+        const cell = document.createElement("td");
+        cell.append(statusBadge(map, value));
+        row.append(cell);
+        return cell;
     }
 
     // Group thousands by walking the string rather than going through Number:
@@ -3040,7 +3122,7 @@
         appendCell(row, displayDate(movement.occurred_at));
         appendCell(row, movement.warehouse_name);
         appendCell(row, movement.product_name);
-        appendCell(row, labelled(MOVEMENT_TEXT, movement.movement_type));
+        appendStatusBadgeCell(row, MOVEMENT_TEXT, movement.movement_type);
         appendCell(row, movement.quantity);
         appendMoneyCell(row, movement.unit_cost);
         appendCell(row, movement.resulting_quantity);
@@ -3143,7 +3225,7 @@
             columns: [
                 (row, item) => { appendCell(row, item.number).dir = "ltr"; },
                 (row, item) => appendCell(row, item.customer_name),
-                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
+                (row, item) => appendStatusBadgeCell(row, DOCUMENT_STATUS_TEXT, item.status),
                 (row, item) => appendMoneyCell(row, item.total_amount),
                 (row, item) => appendCell(row, displayDate(item.valid_until)),
                 (row, item) => appendCell(row, item.created_by_display || item.created_by),
@@ -3188,7 +3270,7 @@
                     cell.classList.add("text-center");
                 },
                 (row, item) => appendCell(row, item.customer_name),
-                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
+                (row, item) => appendStatusBadgeCell(row, DOCUMENT_STATUS_TEXT, item.status),
                 (row, item) => appendMoneyCell(row, item.total_amount).classList.add("text-center"),
                 // Registration is server-generated and immutable; delivery is
                 // the date the operator sets on the order.
@@ -3243,7 +3325,7 @@
                     cell.classList.add("text-center");
                 },
                 (row, item) => appendCell(row, item.customer_name).classList.add("text-center"),
-                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)).classList.add("text-center"),
+                (row, item) => appendStatusBadgeCell(row, DOCUMENT_STATUS_TEXT, item.status).classList.add("text-center"),
                 (row, item) => appendMoneyCell(row, item.total_amount).classList.add("text-center"),
                 (row, item) => appendMoneyCell(row, item.paid_amount).classList.add("text-center"),
                 (row, item) => appendMoneyCell(row, item.balance_due).classList.add("text-center"),
@@ -3698,7 +3780,7 @@
                     appendCell(row, displayDay(item.due_date));
                     appendMoneyCell(row, item.amount);
                     appendMoneyCell(row, item.paid_amount);
-                    appendCell(row, labelled(INSTALLMENT_STATUS_TEXT, item.status));
+                    appendStatusBadgeCell(row, INSTALLMENT_STATUS_TEXT, item.status);
                     return row;
                 }));
                 wrap.hidden = false;
@@ -3864,7 +3946,7 @@
         appendCell(row, labelled(PAYMENT_METHOD_TEXT, payment.method));
         appendMoneyCell(row, payment.amount);
         appendMoneyCell(row, payment.allocated_amount);
-        appendCell(row, labelled(PAYMENT_STATUS_TEXT, payment.status));
+        appendStatusBadgeCell(row, PAYMENT_STATUS_TEXT, payment.status);
         appendCell(row, displayDate(payment.received_at));
         appendDetailLink(row, `/payments/${payment.id}/`);
         return row;
@@ -4101,7 +4183,7 @@
                 appendCell(row, cheque.customer_name);
                 appendMoneyCell(row, cheque.amount);
                 appendCell(row, displayDay(cheque.due_date));
-                appendCell(row, labelled(CHEQUE_STATUS_TEXT, cheque.status));
+                appendStatusBadgeCell(row, CHEQUE_STATUS_TEXT, cheque.status);
                 const actions = document.createElement("td");
                 actions.className = "row-actions";
                 const allowed = CHEQUE_TRANSITIONS[cheque.status] || [];
@@ -4157,7 +4239,7 @@
                 appendMoneyCell(row, installment.amount);
                 appendMoneyCell(row, installment.paid_amount);
                 appendMoneyCell(row, installment.balance_due);
-                appendCell(row, labelled(INSTALLMENT_STATUS_TEXT, installment.status));
+                appendStatusBadgeCell(row, INSTALLMENT_STATUS_TEXT, installment.status);
                 appendActionLinks(row, []);
                 return row;
             },

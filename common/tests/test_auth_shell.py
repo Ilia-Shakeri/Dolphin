@@ -45,8 +45,14 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn("css/style.bundle.rtl.css", shell)
         self.assertIn("js/scripts.bundle.js", shell)
 
-        # The override sheet stays small and must not restate the theme.
-        self.assertLess(len(stylesheet.splitlines()), 200)
+        # The override sheet stays small and must not restate the theme. The
+        # ceiling moved from 200 to 260 when the sheet took on the vendor
+        # focus-ring repair: the purchased bundle compiles nine declarations as
+        # `box-shadow: false, …`, which browsers discard, so the ring the theme
+        # intends never draws. Repairing it here is what avoids forking the
+        # vendor Sass. The rules below still assert the sheet does not rebuild
+        # the theme's own components.
+        self.assertLess(len(stylesheet.splitlines()), 260)
         for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
             self.assertNotIn(recreated, stylesheet, recreated)
         # It keeps exactly the three things it is for.

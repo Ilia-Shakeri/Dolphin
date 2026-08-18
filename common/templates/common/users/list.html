@@ -1,29 +1,28 @@
 {% extends "common/base.html" %}
 {% block title %}فهرست کاربران{% endblock %}
 {% block page_id %}users{% endblock %}
-{% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6">
-    <div><p class="text-primary fw-bold fs-7 mb-1">مدیریت دسترسی</p><h1>{{ user_admin_label }}</h1></div>
-    <div class="d-flex flex-wrap gap-2">
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مدیریت دسترسی</span>{% endblock %}
+{% block page_title %}{{ user_admin_label }}{% endblock %}
+{% block breadcrumb_current %}{{ user_admin_label }}{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2">
         <a class="btn btn-light" href="/api/v1/exports/users.xlsx">دریافت XLSX</a>
         <button id="open-create-user" class="btn btn-primary" type="button">کاربر جدید</button>
-    </div>
-</section>
-<section class="card mb-5 mb-xl-8"><div class="card-body">
-    <form id="user-search-form" action="{% url 'common_ui:users' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+    </div>{% endblock %}
+{% block content %}
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="user-search-form" action="{% url 'common_ui:users' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
         <label class="sr-only" for="user-search">جستجوی کاربران</label>
         <input class="form-control form-control-solid w-auto flex-grow-1" id="user-search" name="search" type="search" placeholder="نام، نام کاربری، ایمیل یا تلفن">
         <button class="btn btn-light" type="submit">جستجو</button>
-    </form>
-    <div id="users-loading" class="text-center text-muted py-10">در حال دریافت کاربران…</div>
-    <div id="users-empty" class="text-center text-muted py-10" hidden>کاربری پیدا نشد.</div>
+    </form></div></div><div class="card-body pt-2">
+    <div id="users-loading" class="text-center text-gray-700 py-10">در حال دریافت کاربران…</div>
+    <div id="users-empty" class="text-center text-gray-700 py-10" hidden>کاربری پیدا نشد.</div>
     <div class="table-responsive" id="users-table-wrap" hidden>
         <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
-            <thead><tr><th>نام کاربری</th><th>نام</th><th>نقش</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+            <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>نام کاربری</th><th>نام</th><th>نقش</th><th>وضعیت</th><th>عملیات</th></tr></thead>
             <tbody id="users-table-body"></tbody>
         </table>
     </div>
-    <nav id="users-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی" hidden>
+    <nav id="users-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden>
         <button id="users-prev" class="btn btn-light" type="button">قبلی</button>
         <span id="users-page-label"></span>
         <button id="users-next" class="btn btn-light" type="button">بعدی</button>

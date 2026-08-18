@@ -9,10 +9,10 @@
 <section class="card mb-5 mb-xl-8"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-6"><h2 class="fs-3 fw-bold text-gray-900 mb-5">اقلام سند</h2><span id="{{ doc }}-lines-count" class="text-muted"></span></div>
     <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
-        <thead><tr><th>ردیف</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>قیمت واحد</th><th>تخفیف</th><th>مبلغ سطر</th><th></th></tr></thead>
+        <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>ردیف</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>قیمت واحد</th><th>تخفیف</th><th>مبلغ سطر</th><th></th></tr></thead>
         <tbody id="{{ doc }}-lines-body"></tbody>
     </table></div>
-    <div id="{{ doc }}-lines-empty" class="text-center text-muted py-10" hidden>این سند هنوز سطری ندارد.</div>
+    <div id="{{ doc }}-lines-empty" class="text-center text-gray-700 py-10" hidden>این سند هنوز سطری ندارد.</div>
     <div id="{{ doc }}-lines-editor" hidden>
         <h3>افزودن سطر</h3>
         <form id="{{ doc }}-add-line-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>

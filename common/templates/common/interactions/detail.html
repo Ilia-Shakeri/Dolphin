@@ -2,9 +2,12 @@
 {% block title %}جزئیات تماس{% endblock %}
 {% block page_id %}interaction-detail{% endblock %}
 {% block body_data %} data-interaction-id="{{ interaction_id }}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">ثبت دستی ارتباط</span>{% endblock %}
+{% block page_title %}جزئیات تماس{% endblock %}
+{% block breadcrumb_current %}جزئیات تماس{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:interactions' %}">بازگشت به فهرست</a>{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">ثبت دستی ارتباط</p><h1>جزئیات تماس</h1></div><a class="btn btn-light" href="{% url 'common_ui:interactions' %}">بازگشت به فهرست</a></section>
-<div id="interaction-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت تماس…</div></div>
+<div id="interaction-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت تماس…</div></div>
 <section id="interaction-detail-content" class="card mb-5 mb-xl-8" hidden>
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">اطلاعات ثبت‌شده</h2>
     <div class="row g-5">

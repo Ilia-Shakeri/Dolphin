@@ -2,9 +2,12 @@
 {% block title %}جزئیات محصول{% endblock %}
 {% block page_id %}product-detail{% endblock %}
 {% block body_data %} data-product-id="{{ product_id }}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">کاتالوگ فروش</span>{% endblock %}
+{% block page_title %}جزئیات محصول{% endblock %}
+{% block breadcrumb_current %}جزئیات محصول{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:products' %}">بازگشت به فهرست</a>{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">کاتالوگ فروش</p><h1>جزئیات محصول</h1></div><a class="btn btn-light" href="{% url 'common_ui:products' %}">بازگشت به فهرست</a></section>
-<div id="product-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت محصول…</div></div>
+<div id="product-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت محصول…</div></div>
 <section id="product-detail-content" class="card mb-5 mb-xl-8" hidden>
     <form id="edit-product-form" action="/api/v1/products/{{ product_id }}/" method="post" novalidate>
         {% csrf_token %}<div class="row g-5">

@@ -1,14 +1,15 @@
 {% extends "common/base.html" %}
 {% block title %}گزارش مطالبات{% endblock %}
 {% block page_id %}receivables-report{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</span>{% endblock %}
+{% block page_title %}مطالبات{% endblock %}
+{% block breadcrumb_current %}مطالبات{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</p><h1>مطالبات</h1></div></section>
-<section class="card mb-5 mb-xl-8"><div class="card-body">
-    <form id="receivables-filter-form" action="{% url 'common_ui:receivables-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="receivables-filter-form" action="{% url 'common_ui:receivables-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
         <label class="sr-only" for="receivables-customer">مشتری</label><select class="form-select form-select-solid w-auto flex-grow-1" id="receivables-customer" name="customer_id"><option value="">همه مشتریان</option></select>
         <button class="btn btn-primary" type="submit">اعمال</button>
         <a id="receivables-export" class="btn btn-light" href="/api/v1/exports/receivables.xlsx">خروجی اکسل</a>
-    </form>
+    </form></div></div><div class="card-body pt-2">
     <div class="row g-5 mb-6">
         <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">جمع مطالبات</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="receivables-total">—</span></div></div></div>
         <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">سررسید نشده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="receivables-not-due">—</span></div></div></div>
@@ -20,7 +21,7 @@
     <p class="text-muted">مانده هر فاکتور صادرشده بر پایه سررسید آن گروه‌بندی می‌شود. فاکتور بدون سررسید، در زمان صدور سررسید شده در نظر گرفته می‌شود. این گروه‌بندی صرفا نمایشی است و معنای حسابداری یا حقوقی ندارد.</p>
 </div></section>
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <div id="receivables-loading" class="text-center text-muted py-10">در حال دریافت گزارش…</div><div id="receivables-empty" class="text-center text-muted py-10" hidden>مطالبه‌ای وجود ندارد.</div>
-    <div id="receivables-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>مشتری</th><th>تعداد فاکتور</th><th>جمع مانده</th><th>سررسید نشده</th><th>۱-۳۰</th><th>۳۱-۶۰</th><th>۶۱-۹۰</th><th>۹۰+</th><th>عملیات</th></tr></thead><tbody id="receivables-table-body"></tbody></table></div>
+    <div id="receivables-loading" class="text-center text-gray-700 py-10">در حال دریافت گزارش…</div><div id="receivables-empty" class="text-center text-gray-700 py-10" hidden>مطالبه‌ای وجود ندارد.</div>
+    <div id="receivables-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>مشتری</th><th>تعداد فاکتور</th><th>جمع مانده</th><th>سررسید نشده</th><th>۱-۳۰</th><th>۳۱-۶۰</th><th>۶۱-۹۰</th><th>۹۰+</th><th>عملیات</th></tr></thead><tbody id="receivables-table-body"></tbody></table></div>
 </div></section>
 {% endblock %}

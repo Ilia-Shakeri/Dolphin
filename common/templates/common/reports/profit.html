@@ -1,16 +1,17 @@
 {% extends "common/base.html" %}
 {% block title %}گزارش سود{% endblock %}
 {% block page_id %}profit-report{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</span>{% endblock %}
+{% block page_title %}سود ناخالص فاکتورها{% endblock %}
+{% block breadcrumb_current %}سود ناخالص فاکتورها{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</p><h1>سود ناخالص فاکتورها</h1></div></section>
-<section class="card mb-5 mb-xl-8"><div class="card-body">
-    <form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
         <label class="sr-only" for="profit-period-start">از تاریخ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="profit-period-start" name="period_start" type="text" data-jalali="datetime" required>
         <label class="sr-only" for="profit-period-end">تا تاریخ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="profit-period-end" name="period_end" type="text" data-jalali="datetime" required>
         <label class="sr-only" for="profit-customer">مشتری</label><select class="form-select form-select-solid w-auto flex-grow-1" id="profit-customer" name="customer_id"><option value="">همه مشتریان</option></select>
         <button class="btn btn-primary" type="submit">اعمال</button>
         <a id="profit-export" class="btn btn-light" href="/api/v1/exports/profit.xlsx">خروجی اکسل</a>
-    </form>
+    </form></div></div><div class="card-body pt-2">
     <div class="row g-5 mb-6">
         <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">درآمد</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="profit-revenue">—</span></div></div></div>
         <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">بهای تمام‌شده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="profit-cost">—</span></div></div></div>
@@ -21,7 +22,7 @@
     <p class="text-muted">فاکتورهای دارای بهای تمام‌شده: <strong id="profit-measured">—</strong> | فاکتورهای بدون بهای تمام‌شده: <strong id="profit-unmeasured">—</strong></p>
 </div></section>
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <div id="profit-loading" class="text-center text-muted py-10">بازه زمانی را انتخاب کنید.</div><div id="profit-empty" class="text-center text-muted py-10" hidden>فاکتوری در این بازه یافت نشد.</div>
-    <div id="profit-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شماره فاکتور</th><th>مشتری</th><th>زمان صدور</th><th>درآمد</th><th>بهای تمام‌شده</th><th>سود</th><th>حاشیه</th><th>عملیات</th></tr></thead><tbody id="profit-table-body"></tbody></table></div>
+    <div id="profit-loading" class="text-center text-gray-700 py-10">بازه زمانی را انتخاب کنید.</div><div id="profit-empty" class="text-center text-gray-700 py-10" hidden>فاکتوری در این بازه یافت نشد.</div>
+    <div id="profit-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره فاکتور</th><th>مشتری</th><th>زمان صدور</th><th>درآمد</th><th>بهای تمام‌شده</th><th>سود</th><th>حاشیه</th><th>عملیات</th></tr></thead><tbody id="profit-table-body"></tbody></table></div>
 </div></section>
 {% endblock %}

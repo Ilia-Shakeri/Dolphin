@@ -2,9 +2,12 @@
 {% block title %}جزئیات دسته‌بندی{% endblock %}
 {% block page_id %}product-category-detail{% endblock %}
 {% block body_data %} data-category-id="{{ category_id }}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">کاتالوگ فروش</span>{% endblock %}
+{% block page_title %}جزئیات دسته‌بندی{% endblock %}
+{% block breadcrumb_current %}جزئیات دسته‌بندی{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">بازگشت به فهرست</a>{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">کاتالوگ فروش</p><h1>جزئیات دسته‌بندی</h1></div><a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">بازگشت به فهرست</a></section>
-<div id="product-category-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت دسته‌بندی…</div></div>
+<div id="product-category-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت دسته‌بندی…</div></div>
 <section id="product-category-detail-content" class="card mb-5 mb-xl-8" hidden>
     <form id="edit-product-category-form" action="/api/v1/product-categories/{{ category_id }}/" method="post" novalidate>
         {% csrf_token %}<div class="row g-5">

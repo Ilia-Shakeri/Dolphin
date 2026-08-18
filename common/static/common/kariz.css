@@ -154,3 +154,72 @@ dialog::backdrop {
     tr { page-break-inside: avoid; }
     thead { display: table-header-group; }
 }
+
+/* 4. Theme repairs and product polish ------------------------------------- */
+
+/* The purchased bundle compiles nine declarations as
+   `box-shadow: false, 0 0 0 0.25rem …`. `false` is not a valid shadow, so the
+   browser discards the whole declaration and the focus ring the theme intends
+   never appears — on `.form-control`, `.form-select`, and every validation
+   state. Buttons are fine, because their focus rule is valid CSS.
+
+   This restores the ring the theme meant to draw rather than inventing a new
+   one, and uses `:focus-visible` so it appears for keyboard users without
+   ringing every mouse click. Recompiling the vendor Sass would be the other
+   fix; this is the one that does not fork the purchased theme. */
+.form-control:focus-visible,
+.form-select:focus-visible,
+.form-check-input:focus-visible,
+textarea:focus-visible,
+[data-jalali]:focus-visible {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgb(27 132 255 / 25%);
+    outline: none;
+}
+
+/* Anything else focusable — links, buttons, menu entries, table row actions —
+   gets a real outline. Without it a keyboard user cannot see where they are. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.menu-link:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+    border-radius: 0.35rem;
+}
+
+/* The sidebar is dark, so the primary ring disappears against it. */
+.app-sidebar a:focus-visible,
+.app-sidebar button:focus-visible,
+.app-sidebar .menu-link:focus-visible {
+    outline-color: #9de1d8;
+}
+
+/* Metronic's `.text-muted` is #99A1B7 — 2.58:1 on a white card, below the 4.5:1
+   AA needs for body text, and it carries the KPI labels and every empty state.
+   `--bs-gray-700` is the theme's own next step up and reads at 5.9:1, so this
+   stays inside the palette instead of introducing a colour. */
+.text-muted {
+    color: var(--bs-gray-700) !important;
+}
+
+/* Column priority for narrow screens. A CRM table is wide by nature; hiding the
+   lowest-value columns on a phone keeps the row readable, and every hidden
+   value is still on the record's own page. */
+@media (max-width: 767.98px) {
+    .table .priority-low {
+        display: none;
+    }
+}
+
+/* Row actions keep a comfortable target on touch without growing the desktop
+   table: 44px is the size a finger actually hits. */
+@media (hover: none) and (pointer: coarse) {
+    .table .btn-sm {
+        min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+    }
+}

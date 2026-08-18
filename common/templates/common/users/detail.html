@@ -2,9 +2,12 @@
 {% block title %}جزئیات کاربر{% endblock %}
 {% block page_id %}user-detail{% endblock %}
 {% block body_data %} data-user-id="{{ target_user_id }}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مدیریت دسترسی</span>{% endblock %}
+{% block page_title %}جزئیات کاربر{% endblock %}
+{% block breadcrumb_current %}جزئیات کاربر{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a>{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6"><div><p class="text-primary fw-bold fs-7 mb-1">مدیریت دسترسی</p><h1>جزئیات کاربر</h1></div><a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a></section>
-<div id="user-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10">در حال دریافت کاربر…</div></div>
+<div id="user-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت کاربر…</div></div>
 <section id="user-detail-content" hidden>
     <form id="edit-user-form" action="/api/v1/users/{{ target_user_id }}/" method="post" class="card mb-5 mb-xl-8" novalidate>
         {% csrf_token %}<div class="card-body">
@@ -34,9 +37,9 @@
             <div><h2 class="fs-3 fw-bold text-gray-900 mb-5">نشست‌های فعال</h2><p class="text-muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>
             <button id="revoke-user-sessions" class="btn btn-danger" type="button">پایان همه نشست‌ها</button>
         </div>
-        <div id="user-sessions-loading" class="text-center text-muted py-10">در حال دریافت نشست‌ها…</div>
-        <div id="user-sessions-empty" class="text-center text-muted py-10" hidden>نشست فعالی برای این کاربر ثبت نشده است.</div>
-        <div id="user-sessions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
+        <div id="user-sessions-loading" class="text-center text-gray-700 py-10">در حال دریافت نشست‌ها…</div>
+        <div id="user-sessions-empty" class="text-center text-gray-700 py-10" hidden>نشست فعالی برای این کاربر ثبت نشده است.</div>
+        <div id="user-sessions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
     </div></section>{% endif %}
     <section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body">
         <h2 class="fs-3 fw-bold text-gray-900 mb-5">وضعیت دسترسی</h2>

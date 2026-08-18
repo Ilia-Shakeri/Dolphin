@@ -65,6 +65,21 @@ SETTLEMENT_LABELS = {
     "paid": "تسویه کامل",
 }
 
+#: How each dashboard tile is presented: a keenicon from the theme's own set and
+#: a Metronic accent. Purely visual — the figure and its scope come from the
+#: capability check above, never from this table.
+DEFAULT_WIDGET_STYLE = {"icon": "ki-element-11", "accent": "primary", "icon_paths": 4}
+WIDGET_STYLE = {
+    "customers": {"icon": "ki-profile-user", "accent": "primary", "icon_paths": 4},
+    "leads": {"icon": "ki-phone", "accent": "info", "icon_paths": 2},
+    "interactions": {"icon": "ki-message-text-2", "accent": "info", "icon_paths": 3},
+    "sales": {"icon": "ki-handcart", "accent": "success", "icon_paths": 1},
+    "sales_documents": {"icon": "ki-delivery", "accent": "warning", "icon_paths": 5},
+    "after_sales": {"icon": "ki-shield-tick", "accent": "warning", "icon_paths": 2},
+    "users": {"icon": "ki-people", "accent": "dark", "icon_paths": 5},
+    "audit": {"icon": "ki-shield-search", "accent": "dark", "icon_paths": 4},
+}
+
 ROLE_LABELS = {
     User.Role.SALES_AGENT: "بازاریاب (کال سنتر)",
     User.Role.SALES_MANAGER: "مدیر فروشگاه",
@@ -199,7 +214,18 @@ class KarizHomeView(ActiveCrmView):
         def add(capability, label, value, url_name):
             feature = widget_features[capability.split(".", 1)[0]]
             if capability in capabilities and feature_enabled(feature):
-                widgets.append({"capability": capability, "label": label, "value": value, "url_name": url_name})
+                module = capability.split(".", 1)[0]
+                widgets.append({
+                    "capability": capability,
+                    "label": label,
+                    "value": value,
+                    "url_name": url_name,
+                    # Presentation only. Keeping the icon and accent beside the
+                    # figure means the card reads as a KPI rather than as a
+                    # number on a blank tile, and the template stays free of a
+                    # long `{% if %}` ladder over capability names.
+                    **WIDGET_STYLE.get(module, DEFAULT_WIDGET_STYLE),
+                })
 
         customer_scope = customers_for(self.request.user)
         lead_scope = leads_for(self.request.user)
@@ -230,6 +256,7 @@ class KarizHomeView(ActiveCrmView):
                 "label": context["user_admin_label"],
                 "value": user_scope.count(),
                 "url_name": "common_ui:users",
+                **WIDGET_STYLE["users"],
             })
         if context["can_view_audit"]:
             widgets.append({
@@ -237,6 +264,7 @@ class KarizHomeView(ActiveCrmView):
                 "label": "رویدادهای قابل مشاهده",
                 "value": activity_logs_for(self.request.user).count(),
                 "url_name": "common_ui:activity-logs",
+                **WIDGET_STYLE["audit"],
             })
         context["dashboard_title"], context["dashboard_summary"] = dashboard
         context["dashboard_capability"] = next(item for item in capabilities if item.startswith("dashboard."))

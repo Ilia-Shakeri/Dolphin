@@ -1,14 +1,10 @@
 {% extends "common/base.html" %}
 {% block title %}گزارش پیامک ورودی{% endblock %}
 {% block page_id %}inbound-sms-report{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">داده داخلی و مستقل از سرویس‌دهنده</span>{% endblock %}
+{% block page_title %}گزارش پیامک ورودی{% endblock %}
+{% block breadcrumb_current %}گزارش پیامک ورودی{% endblock %}
 {% block content %}
-<section class="d-flex flex-wrap flex-stack align-items-center mb-6">
-    <div>
-        <p class="text-primary fw-bold fs-7 mb-1">داده داخلی و مستقل از سرویس‌دهنده</p>
-        <h1>گزارش پیامک ورودی</h1>
-        <p class="text-muted">شمارش بر پایه زمان دریافت سرویس‌دهنده و ساعت رسمی ایران است. متن پیام نگه‌داری نمی‌شود.</p>
-    </div>
-</section>
 <section class="card mb-5 mb-xl-8"><div class="card-body">
     <form id="inbound-sms-report-form" action="/api/v1/reports/inbound-sms/" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
         <div><label class="form-label fw-semibold" for="inbound-sms-start">شروع بازه</label><input class="form-control form-control-solid w-auto flex-grow-1" id="inbound-sms-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
@@ -19,28 +15,28 @@
         <button class="btn btn-primary" type="submit">ساخت گزارش</button>
     </form>
 </div></section>
-<div id="inbound-sms-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-muted py-10" hidden>در حال ساخت گزارش…</div></div>
+<div id="inbound-sms-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10" hidden>در حال ساخت گزارش…</div></div>
 <div id="inbound-sms-error" class="card state state-error" role="alert" hidden></div>
 <section id="inbound-sms-content" hidden>
     <div class="row g-5 mb-6"><div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">کل پیامک ورودی</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="inbound-sms-total">۰</span></div></div></div></div>
     <div class="card performance-chart-card">
         <h2 class="fs-3 fw-bold text-gray-900 mb-5">نمودار تعداد بر پایه روز و ساعت</h2>
         <div id="inbound-sms-chart" class="performance-chart" role="img" aria-label="نمودار تعداد پیامک ورودی"></div>
-        <p id="inbound-sms-chart-empty" class="text-center text-muted py-10" hidden>داده‌ای برای نمودار نیست.</p>
+        <p id="inbound-sms-chart-empty" class="text-center text-gray-700 py-10" hidden>داده‌ای برای نمودار نیست.</p>
     </div>
     <div class="card mb-5 mb-xl-8">
         <h2 class="fs-3 fw-bold text-gray-900 mb-5">شمارش ساعتی</h2>
-        <p id="inbound-sms-empty" class="text-center text-muted py-10" hidden>داده‌ای در این بازه نیست.</p>
-        <div id="inbound-sms-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>تاریخ ایران</th><th>ساعت</th><th>تعداد</th><th>جزئیات</th></tr></thead><tbody id="inbound-sms-table-body"></tbody></table></div>
+        <p id="inbound-sms-empty" class="text-center text-gray-700 py-10" hidden>داده‌ای در این بازه نیست.</p>
+        <div id="inbound-sms-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>تاریخ ایران</th><th>ساعت</th><th>تعداد</th><th>جزئیات</th></tr></thead><tbody id="inbound-sms-table-body"></tbody></table></div>
     </div>
 </section>
 <section id="inbound-sms-drilldown" class="card mb-5 mb-xl-8" hidden>
     <h2 id="inbound-sms-drilldown-title">جزئیات مجاز</h2>
-    <div id="inbound-sms-drilldown-loading" class="text-center text-muted py-10" hidden>در حال دریافت جزئیات…</div>
+    <div id="inbound-sms-drilldown-loading" class="text-center text-gray-700 py-10" hidden>در حال دریافت جزئیات…</div>
     <div id="inbound-sms-drilldown-error" class="state state-error" role="alert" hidden></div>
-    <p id="inbound-sms-drilldown-empty" class="text-center text-muted py-10" hidden>رکوردی نیست.</p>
-    <div id="inbound-sms-drilldown-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>سرویس‌دهنده</th><th>فرستنده</th><th>گیرنده</th><th>دریافت سرویس‌دهنده</th><th>مشتری</th><th>وضعیت</th><th>نمایش</th></tr></thead><tbody id="inbound-sms-drilldown-body"></tbody></table></div>
-    <div id="inbound-sms-drilldown-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" hidden><button id="inbound-sms-drilldown-prev" class="btn btn-light" type="button">قبل</button><span id="inbound-sms-drilldown-page"></span><button id="inbound-sms-drilldown-next" class="btn btn-light" type="button">بعد</button></div>
+    <p id="inbound-sms-drilldown-empty" class="text-center text-gray-700 py-10" hidden>رکوردی نیست.</p>
+    <div id="inbound-sms-drilldown-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>سرویس‌دهنده</th><th>فرستنده</th><th>گیرنده</th><th>دریافت سرویس‌دهنده</th><th>مشتری</th><th>وضعیت</th><th>نمایش</th></tr></thead><tbody id="inbound-sms-drilldown-body"></tbody></table></div>
+    <div id="inbound-sms-drilldown-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" hidden><button id="inbound-sms-drilldown-prev" class="btn btn-light" type="button">قبل</button><span id="inbound-sms-drilldown-page"></span><button id="inbound-sms-drilldown-next" class="btn btn-light" type="button">بعد</button></div>
 </section>
 <section id="inbound-sms-message-detail" class="card mb-5 mb-xl-8" hidden>
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">جزئیات پیامک ذخیره‌شده</h2>

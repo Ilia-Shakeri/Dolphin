@@ -95,7 +95,9 @@ class SalesShellContractTests(SimpleTestCase):
             ROOT / "common" / "templates" / "common" / "interactions" / "detail.html",
             ROOT / "common" / "templates" / "common" / "sales" / "list.html",
             ROOT / "common" / "templates" / "common" / "sales" / "detail.html",
-            ROOT / "common" / "templates" / "common" / "reports" / "user_performance.html",
+            # The performance page is now a toolbar plus this include, so the
+            # wording it shows a user lives here.
+            ROOT / "common" / "templates" / "common" / "includes" / "performance_panel.inc",
         )
         for path in customer_paths:
             with self.subTest(path=path.relative_to(ROOT)):

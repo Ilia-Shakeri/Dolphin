@@ -14,9 +14,9 @@
             <div class="col-12 d-flex justify-content-end gap-3"><a id="{{ panel_prefix }}-performance-xlsx" class="btn btn-light" href="/api/v1/exports/user-performance.xlsx" download>دریافت XLSX</a><button class="btn btn-primary" type="submit">به‌روزرسانی</button></div>
         </div>
     </form>
-    <div id="{{ panel_prefix }}-performance-loading" class="text-center text-muted py-10" hidden>در حال دریافت عملکرد…</div>
+    <div id="{{ panel_prefix }}-performance-loading" class="text-center text-gray-700 py-10" hidden>در حال دریافت عملکرد…</div>
     <div id="{{ panel_prefix }}-performance-error" class="text-center text-danger py-10" role="alert" hidden>گزارش دریافت نشد. دوباره تلاش کنید.</div>
-    <div id="{{ panel_prefix }}-performance-empty" class="text-center text-muted py-10" hidden>در این بازه مشتری تازه یا فروش تأییدشده‌ای ثبت نشده است.</div>
+    <div id="{{ panel_prefix }}-performance-empty" class="text-center text-gray-700 py-10" hidden>در این بازه مشتری تازه یا فروش تأییدشده‌ای ثبت نشده است.</div>
     <div id="{{ panel_prefix }}-performance-content" hidden>
         <div class="row g-5 mb-6" aria-label="شاخص‌های قطعی عملکرد">
             <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">مشتری ثبت‌شده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="customers_created_count">۰</span></div></div></div>
@@ -32,20 +32,20 @@
             <section class="col-lg-5" aria-labelledby="{{ panel_prefix }}-chart-title">
                 <h3 id="{{ panel_prefix }}-chart-title">مبلغ فروش تأییدشده به تفکیک کاربر</h3>
                 <div id="{{ panel_prefix }}-performance-chart" class="performance-chart" role="img" aria-label="نمودار مبلغ فروش تأییدشده کاربران مجاز"></div>
-                <p id="{{ panel_prefix }}-performance-chart-empty" class="text-center text-muted py-10" hidden>فروش تأییدشده‌ای برای نمودار نیست.</p>
+                <p id="{{ panel_prefix }}-performance-chart-empty" class="text-center text-gray-700 py-10" hidden>فروش تأییدشده‌ای برای نمودار نیست.</p>
             </section>
             <section class="col-lg-7" aria-labelledby="{{ panel_prefix }}-table-title">
                 <h3 id="{{ panel_prefix }}-table-title">جزئیات همان محدوده مجاز</h3>
-                <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>کاربر</th><th>مشتری ثبت‌شده</th><th>فروش تأییدشده</th><th>مبلغ فروش</th><th>میانگین مبلغ فروش</th><th>جزئیات</th></tr></thead><tbody id="{{ panel_prefix }}-performance-table-body"></tbody></table></div>
+                <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>کاربر</th><th>مشتری ثبت‌شده</th><th>فروش تأییدشده</th><th>مبلغ فروش</th><th>میانگین مبلغ فروش</th><th>جزئیات</th></tr></thead><tbody id="{{ panel_prefix }}-performance-table-body"></tbody></table></div>
             </section>
         </div>
         <section id="{{ panel_prefix }}-performance-details" class="mt-5 pt-5 border-top" aria-labelledby="{{ panel_prefix }}-details-title" hidden>
             <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><div><h3 id="{{ panel_prefix }}-details-title">رکوردهای پشت شاخص</h3><p id="{{ panel_prefix }}-details-scope" class="text-muted"></p></div></div>
-            <div id="{{ panel_prefix }}-details-loading" class="text-center text-muted py-10" hidden>در حال دریافت جزئیات…</div>
+            <div id="{{ panel_prefix }}-details-loading" class="text-center text-gray-700 py-10" hidden>در حال دریافت جزئیات…</div>
             <div id="{{ panel_prefix }}-details-error" class="text-center text-danger py-10" role="alert" hidden>جزئیات دریافت نشد.</div>
-            <div id="{{ panel_prefix }}-details-empty" class="text-center text-muted py-10" hidden>رکوردی برای این شاخص نیست.</div>
-            <div id="{{ panel_prefix }}-details-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>نوع</th><th>مشتری</th><th>کاربر</th><th>محصول</th><th>مبلغ</th><th>زمان</th><th>عمل</th></tr></thead><tbody id="{{ panel_prefix }}-details-body"></tbody></table></div>
-            <nav id="{{ panel_prefix }}-details-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی جزئیات" hidden><button id="{{ panel_prefix }}-details-prev" class="btn btn-light" type="button">قبلی</button><span id="{{ panel_prefix }}-details-page-label"></span><button id="{{ panel_prefix }}-details-next" class="btn btn-light" type="button">بعدی</button></nav>
+            <div id="{{ panel_prefix }}-details-empty" class="text-center text-gray-700 py-10" hidden>رکوردی برای این شاخص نیست.</div>
+            <div id="{{ panel_prefix }}-details-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>نوع</th><th>مشتری</th><th>کاربر</th><th>محصول</th><th>مبلغ</th><th>زمان</th><th>عمل</th></tr></thead><tbody id="{{ panel_prefix }}-details-body"></tbody></table></div>
+            <nav id="{{ panel_prefix }}-details-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی جزئیات" hidden><button id="{{ panel_prefix }}-details-prev" class="btn btn-light" type="button">قبلی</button><span id="{{ panel_prefix }}-details-page-label"></span><button id="{{ panel_prefix }}-details-next" class="btn btn-light" type="button">بعدی</button></nav>
         </section>
     </div>
 </div></section>
