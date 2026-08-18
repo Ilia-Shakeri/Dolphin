@@ -62,11 +62,26 @@ FEATURE_DEPENDENCIES = {
     "internal_it_role": frozenset(),
 }
 
+#: Features this release ships but does not serve by default.
+#:
+#: Quotations (پیش‌فاکتور) is the whole of it today: Client-1 raises an invoice
+#: first and never issues a pre-invoice, so the module has no place in the panel
+#: and its sidebar entry, pages and API are all withheld. The models, services,
+#: serializers and tests stay in the codebase and stay reusable — a deployment
+#: whose signed manifest names `quotations` gets it back with nothing to
+#: rebuild. This only decides what a deployment gets when nobody has said
+#: otherwise.
+DEFAULT_OFF_FEATURES = frozenset({"quotations"})
+
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
 
 # Every feature the current code actually ships. A deployment may enable a
 # subset; it may never enable something absent from this set.
 ALL_FEATURES = FEATURES
+
+#: What a deployment runs when no manifest narrows it: everything this release
+#: ships, minus the modules that are off by default.
+DEFAULT_FEATURES = ALL_FEATURES - DEFAULT_OFF_FEATURES
 
 # Known deployment profile identifiers. An id absent from this table is refused
 # even when its signature is valid, so a manifest issued for a deployment this

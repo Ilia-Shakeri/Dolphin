@@ -17,7 +17,7 @@ import threading
 from django.core.exceptions import ImproperlyConfigured
 
 from common.deployment.manifest import ManifestError, decode_public_keys, read_manifest_file
-from common.deployment.registry import ALL_FEATURES, FEATURES
+from common.deployment.registry import ALL_FEATURES, DEFAULT_FEATURES, FEATURES
 
 
 DEVELOPMENT_PROFILE_ID = "development"
@@ -56,10 +56,15 @@ def _development_profile():
 
     Production settings set `DEPLOYMENT_MANIFEST_REQUIRED = True`, so a customer
     deployment can never reach this: it refuses to start instead.
+
+    It runs `DEFAULT_FEATURES`, not everything the release contains, so what a
+    developer or a demo sees is what a customer gets. Enabling a module here
+    that no deployment runs is how a screen nobody asked for ends up in a
+    presentation.
     """
     return DeploymentProfile(
         profile_id=DEVELOPMENT_PROFILE_ID,
-        features=ALL_FEATURES,
+        features=DEFAULT_FEATURES,
         source="development-fallback",
     )
 
@@ -73,6 +78,15 @@ def load_profile_from_settings(settings):
         if required:
             raise ImproperlyConfigured(
                 "DEPLOYMENT_MANIFEST_PATH must name a signed deployment manifest."
+            )
+        # The test suite has to exercise every module this release ships,
+        # including the ones no deployment serves by default — otherwise
+        # reusable code would rot untested the moment it left the panel.
+        if getattr(settings, "DEPLOYMENT_PROFILE_ENABLES_ALL_FEATURES", False):
+            return DeploymentProfile(
+                profile_id=DEVELOPMENT_PROFILE_ID,
+                features=ALL_FEATURES,
+                source="test-fallback",
             )
         return _development_profile()
 

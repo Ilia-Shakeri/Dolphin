@@ -25,6 +25,7 @@ from common.deployment.profile import (
 )
 from common.deployment.registry import (
     ALL_FEATURES,
+    DEFAULT_FEATURES,
     FEATURE_DEPENDENCIES,
     PROFILES,
     missing_dependencies,
@@ -363,7 +364,11 @@ class ProfileResolutionTests(SimpleTestCase):
         )
         self.assertEqual(profile.profile_id, "development")
         self.assertFalse(profile.is_signed)
-        self.assertEqual(profile.features, ALL_FEATURES)
+        # An unconfigured deployment runs the default set, not everything the
+        # release contains: a module the product does not serve — quotations —
+        # must not appear just because nobody wrote a manifest.
+        self.assertEqual(profile.features, DEFAULT_FEATURES)
+        self.assertNotIn("quotations", profile.features)
 
 
 class FeatureRegistryTests(SimpleTestCase):
