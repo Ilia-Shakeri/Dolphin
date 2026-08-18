@@ -251,9 +251,14 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.url_matches(r"/invoices/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
         invoice_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
-        self.browser.find_element(By.ID, "issue-invoice").click()
+        # Issuing runs from the status select; the issue/cancel box is gone.
+        Select(self.browser.find_element(By.ID, "invoice-status-select")).select_by_value("issued")
         self.browser.switch_to.alert.accept()
-        self.wait.until(lambda driver: self.value_of("invoice-status") == "صادرشده")
+        self.wait.until(
+            lambda driver: Select(
+                driver.find_element(By.ID, "invoice-status-select")
+            ).first_selected_option.get_attribute("value") == "issued"
+        )
 
         # Issuing moved no stock: the order owns the inventory lifecycle, and
         # deducting here as well would take the same goods out twice.
@@ -291,7 +296,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
         self.wait.until(lambda driver: self.value_of("invoice-paid") == "250.00")
         self.assertEqual(self.value_of("invoice-balance"), "350.00")
-        self.assertEqual(self.value_of("invoice-settlement"), "تسویه جزئی")
+        self.assertEqual(self.value_of("invoice-settlement"), "تسویه جزئی")  # canonical, not manual
 
         self.browser.get(f"{self.live_server_url}/invoices/{invoice_id}/print/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.CSS_SELECTOR, ".print-sheet")))

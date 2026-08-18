@@ -3193,7 +3193,6 @@
             await Promise.all([
                 loadCustomerOptions(document.getElementById("create-invoice-customer"), "یک مشتری انتخاب کنید"),
                 loadProductOptions(document.getElementById("create-invoice-product"), "یک کالا انتخاب کنید"),
-                loadWarehouseOptions(document.getElementById("create-invoice-warehouse"), "بدون اثر انبار"),
             ]);
         } catch (error) {
             showError(error);
@@ -3214,23 +3213,27 @@
                 return `/api/v1/invoices/?${query}`;
             },
             columns: [
-                (row, item) => { appendCell(row, item.number).dir = "ltr"; },
-                (row, item) => appendCell(row, item.customer_name),
-                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)),
-                (row, item) => appendMoneyCell(row, item.total_amount),
-                (row, item) => appendMoneyCell(row, item.paid_amount),
-                (row, item) => appendMoneyCell(row, item.balance_due),
-                (row, item) => appendCell(row, displayDate(item.due_at)),
+                // Every value column is centred; the action column is not.
+                (row, item) => {
+                    const cell = appendCell(row, item.number);
+                    cell.dir = "ltr";
+                    cell.classList.add("text-center");
+                },
+                (row, item) => appendCell(row, item.customer_name).classList.add("text-center"),
+                (row, item) => appendCell(row, labelled(DOCUMENT_STATUS_TEXT, item.status)).classList.add("text-center"),
+                (row, item) => appendMoneyCell(row, item.total_amount).classList.add("text-center"),
+                (row, item) => appendMoneyCell(row, item.paid_amount).classList.add("text-center"),
+                (row, item) => appendMoneyCell(row, item.balance_due).classList.add("text-center"),
+                (row, item) => appendCell(row, displayDay(item.issued_at)).classList.add("text-center"),
+                (row, item) => appendCell(row, displayDay(item.due_at)).classList.add("text-center"),
             ],
             createFields: (data) => {
-                const payload = {
+                // No warehouse: an invoice moves no stock, so naming one would
+                // suggest an effect it does not have.
+                return {
                     customer: Number(data.get("customer")),
-                    tax_rate: String(data.get("tax_rate") || "0"),
                     items: documentFirstLine(data),
                 };
-                const warehouse = numberOrNull(data.get("warehouse"));
-                if (warehouse !== null) payload.warehouse = warehouse;
-                return payload;
             },
         });
     }
@@ -3471,6 +3474,8 @@
             apply(quotation);
             loading.hidden = true;
             content.hidden = false;
+            // The quotation keeps its own workflow section; only the order and
+            // invoice pages moved their transitions onto a status select.
             if (workflow) workflow.hidden = false;
         } catch (error) {
             loading.hidden = true;
@@ -3611,7 +3616,9 @@
         const endpoint = `/api/v1/invoices/${invoiceId}/`;
         const loading = document.getElementById("invoice-detail-loading");
         const content = document.getElementById("invoice-detail-content");
-        const workflow = document.getElementById("invoice-workflow");
+        const statusSelect = document.getElementById("invoice-status-select");
+        const orderSelect = document.getElementById("invoice-order");
+        const paidInput = document.getElementById("invoice-paid");
         const allocationsSection = document.getElementById("invoice-allocations");
         const form = document.getElementById("edit-invoice-form");
         const editActions = document.getElementById("invoice-edit-actions");
@@ -3620,28 +3627,32 @@
         const lines = documentLineEditor({doc: "invoice", endpoint, onSaved: (updated) => apply(updated)});
         let allocationsController = null;
 
+        let current = null;
+
         function apply(invoice) {
+            current = invoice;
             document.getElementById("invoice-number").value = invoice.number;
             document.getElementById("invoice-customer").value = invoice.customer_name;
-            document.getElementById("invoice-status").value = labelled(DOCUMENT_STATUS_TEXT, invoice.status);
+            if (statusSelect) {
+                statusSelect.value = invoice.status;
+            } else {
+                document.getElementById("invoice-status").value = labelled(DOCUMENT_STATUS_TEXT, invoice.status);
+            }
+            // Settlement is derived and read-only for everyone.
             document.getElementById("invoice-settlement").value = labelled(SETTLEMENT_TEXT, invoice.settlement_status);
-            document.getElementById("invoice-warehouse").value = invoice.warehouse ? `#${invoice.warehouse}` : "—";
-            document.getElementById("invoice-source").value = invoice.order ? `سفارش #${invoice.order}` : invoice.quotation ? `پیش‌فاکتور #${invoice.quotation}` : "—";
+            if (orderSelect) orderSelect.value = invoice.order ? String(invoice.order) : "";
             document.getElementById("invoice-issued-at").value = displayDate(invoice.issued_at);
-            document.getElementById("edit-invoice-due").value = localDateTimeValue(invoice.due_at);
-            document.getElementById("invoice-paid").value = money(invoice.paid_amount);
+            document.getElementById("edit-invoice-due").value = localDateValue(invoice.due_at);
+            // The typed figure is what the operator last entered; when nothing
+            // has been typed the canonical paid amount is shown instead.
+            paidInput.value = invoice.manual_paid_entry ?? invoice.paid_amount;
+            paidInput.disabled = Boolean(invoice.is_manually_settled);
             document.getElementById("invoice-balance").value = money(invoice.balance_due);
-            document.getElementById("edit-invoice-discount").value = invoice.discount_amount;
-            document.getElementById("edit-invoice-tax").value = invoice.tax_rate;
             document.getElementById("edit-invoice-notes").value = invoice.notes || "";
             const editable = invoice.status === "draft";
             if (editActions) editActions.hidden = !editable;
             if (lockedNote) lockedNote.hidden = editable;
             form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
-            const issueButton = document.getElementById("issue-invoice");
-            if (issueButton) issueButton.disabled = !editable;
-            const cancelButton = document.getElementById("cancel-invoice");
-            if (cancelButton) cancelButton.disabled = invoice.status === "cancelled";
             if (allocationsSection) allocationsSection.hidden = invoice.status !== "issued";
             if (invoice.status === "issued") {
                 allocationsController?.load();
@@ -3677,11 +3688,8 @@
             event.preventDefault();
             withSubmit(form, async () => {
                 const data = new FormData(form);
-                const payload = {
-                    discount_amount: String(data.get("discount_amount") || "0"),
-                    tax_rate: String(data.get("tax_rate") || "0"),
-                    notes: String(data.get("notes") || ""),
-                };
+                // Document discount and tax rate are not offered on this form.
+                const payload = {notes: String(data.get("notes") || "")};
                 payload.due_at = apiDateTime(textOrNull(data.get("due_at")));
                 const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 apply(updated);
@@ -3689,32 +3697,85 @@
             });
         });
 
-        document.getElementById("issue-invoice")?.addEventListener("click", async () => {
-            if (!window.confirm("فاکتور صادر شود؟ پس از صدور، اقلام و مبالغ تغییرناپذیر می‌شوند، موجودی انبار کسر می‌شود و بدهکاری مشتری ثبت می‌شود.")) return;
-            const button = document.getElementById("issue-invoice");
-            button.disabled = true;
+        // The invoice lifecycle runs from the status select. Issuing posts the
+        // customer debit and freezes the lines; it moves no stock, because the
+        // order already did.
+        statusSelect?.addEventListener("change", async () => {
+            const next = statusSelect.value;
+            if (!current || next === current.status) return;
+            const questions = {
+                issued: "فاکتور صادر شود؟ پس از صدور، اقلام و مبالغ تغییرناپذیر می‌شوند و بدهکاری مشتری ثبت می‌شود.",
+                cancelled: "فاکتور ابطال شود؟ اثر دفتر حساب برگردانده می‌شود.",
+            };
+            if (!window.confirm(questions[next] || "وضعیت فاکتور تغییر کند؟")) {
+                statusSelect.value = current.status;
+                return;
+            }
+            statusSelect.disabled = true;
             clearMessages();
             try {
-                apply(await apiRequest(`${endpoint}issue/`, {method: "POST"}));
-                globalMessage("فاکتور صادر شد.", true);
+                if (next === "issued") {
+                    apply(await apiRequest(`${endpoint}issue/`, {method: "POST"}));
+                    globalMessage("فاکتور صادر شد.", true);
+                } else if (next === "cancelled") {
+                    apply(await apiRequest(`${endpoint}cancel/`, {method: "POST", body: {reason: ""}}));
+                    globalMessage("فاکتور ابطال شد.", true);
+                } else {
+                    statusSelect.value = current.status;
+                    globalMessage("بازگشت به پیش‌نویس ممکن نیست.");
+                }
             } catch (error) {
-                button.disabled = false;
+                statusSelect.value = current.status;
                 showError(error);
+            } finally {
+                statusSelect.disabled = false;
             }
         });
 
-        document.getElementById("cancel-invoice")?.addEventListener("click", async () => {
-            if (!window.confirm("فاکتور ابطال شود؟ اثر انبار و دفتر حساب برگردانده می‌شود.")) return;
-            const button = document.getElementById("cancel-invoice");
-            button.disabled = true;
+        // Attaching the invoice to an order, after both already exist. Client-1
+        // raises the invoice first, so this is the normal order of events.
+        orderSelect?.addEventListener("change", async () => {
+            const chosen = numberOrNull(orderSelect.value);
+            if (!current || chosen === (current.order ?? null)) return;
+            orderSelect.disabled = true;
             clearMessages();
             try {
-                const reason = document.getElementById("invoice-cancel-reason").value;
-                apply(await apiRequest(`${endpoint}cancel/`, {method: "POST", body: {reason}}));
-                globalMessage("فاکتور ابطال شد.", true);
+                apply(await apiRequest(`${endpoint}link-order/`, {
+                    method: "POST", body: {order: chosen},
+                }));
+                globalMessage(chosen === null ? "پیوند سفارش برداشته شد." : "فاکتور به سفارش پیوند خورد.", true);
             } catch (error) {
-                button.disabled = false;
+                orderSelect.value = current.order ? String(current.order) : "";
                 showError(error);
+            } finally {
+                orderSelect.disabled = false;
+            }
+        });
+
+        // The typed "پرداخت شده" figure. Matching the outstanding amount settles
+        // the invoice for good; it writes no Payment, allocation or ledger entry.
+        paidInput?.addEventListener("change", async () => {
+            if (!current || current.is_manually_settled) return;
+            const typed = paidInput.value.trim();
+            if (!typed) return;
+            paidInput.disabled = true;
+            clearMessages();
+            try {
+                const updated = await apiRequest(`${endpoint}manual-paid/`, {
+                    method: "POST", body: {amount: typed},
+                });
+                apply(updated);
+                globalMessage(
+                    updated.is_manually_settled
+                        ? "فاکتور تسویه‌شده ثبت شد."
+                        : "مبلغ پرداخت‌شده ثبت شد.",
+                    true,
+                );
+            } catch (error) {
+                paidInput.value = current.manual_paid_entry ?? current.paid_amount;
+                showError(error);
+            } finally {
+                paidInput.disabled = Boolean(current?.is_manually_settled);
             }
         });
 
@@ -3754,10 +3815,17 @@
 
         try {
             const [invoice] = await Promise.all([apiRequest(endpoint), lines.loadProducts()]);
+            if (orderSelect) {
+                // Only the caller's own orders for this customer are offered;
+                // the API refuses anything else regardless.
+                const orders = await loadAllPages(
+                    `/api/v1/orders/?customer=${invoice.customer}&ordering=-created_at`
+                );
+                fillSelect(orderSelect, orders, (item) => item.number, "بدون سفارش");
+            }
             apply(invoice);
             loading.hidden = true;
             content.hidden = false;
-            if (workflow) workflow.hidden = false;
         } catch (error) {
             loading.hidden = true;
             showError(error);

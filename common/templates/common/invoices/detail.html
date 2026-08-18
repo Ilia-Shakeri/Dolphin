@@ -11,16 +11,22 @@
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-number">شماره سند</label><input class="form-control form-control-solid" id="invoice-number" disabled dir="ltr"></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-customer">مشتری</label><input class="form-control form-control-solid" id="invoice-customer" disabled></div>
+            {% comment %} وضعیت فقط با نقش‌های اداره‌کنندهٔ کسب‌وکار عوض می‌شود؛ سرویس
+               مستقل از این نشانه‌گذاری رد می‌کند. {% endcomment %}
+            {% if can_change_order_status %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-status-select">وضعیت</label><select class="form-select form-select-solid" id="invoice-status-select"><option value="draft">پیش‌نویس</option><option value="issued">صادر شده</option><option value="cancelled">ابطال شده</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
+            {% else %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-status">وضعیت</label><input class="form-control form-control-solid" id="invoice-status" disabled></div>
+            {% endif %}
+            {% comment %} وضعیت تسویه مشتق است و هیچ نقشی آن را تایپ نمی‌کند. {% endcomment %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-settlement">وضعیت تسویه</label><input class="form-control form-control-solid" id="invoice-settlement" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-warehouse">انبار</label><input class="form-control form-control-solid" id="invoice-warehouse" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-source">سند منبع</label><input class="form-control form-control-solid" id="invoice-source" disabled dir="ltr"></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-order">سفارش</label><select class="form-select form-select-solid" id="invoice-order"><option value="">بدون سفارش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="order"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-issued-at">زمان صدور</label><input class="form-control form-control-solid" id="invoice-issued-at" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-due">سررسید</label><input class="form-control form-control-solid" id="edit-invoice-due" name="due_at" type="text" data-jalali="datetime"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="due_at"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-paid">پرداخت‌شده</label><input class="form-control form-control-solid" id="invoice-paid" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-due">سررسید</label><input class="form-control form-control-solid" id="edit-invoice-due" name="due_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="due_at"></p></div>
+            {% comment %} «پرداخت شده» را اپراتور وارد می‌کند. برابر شدن دقیقش با مانده،
+               فاکتور را برای همیشه تسویه‌شده می‌کند و هیچ سند حسابداری نمی‌سازد. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-paid">پرداخت شده</label><input class="form-control form-control-solid" id="invoice-paid" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-balance">مانده</label><input class="form-control form-control-solid" id="invoice-balance" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-discount">تخفیف سند</label><input class="form-control form-control-solid" id="edit-invoice-discount" name="discount_amount" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="discount_amount"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="edit-invoice-tax" name="tax_rate" type="number" min="0" max="100" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="edit-invoice-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-invoice-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
         <div id="invoice-edit-actions" class="d-flex justify-content-end gap-3 mt-6" hidden><button class="btn btn-primary" type="submit">ذخیره سربرگ</button></div>
@@ -28,18 +34,8 @@
     </form>
 </section>
 {% with doc="invoice" %}{% include "common/includes/document_lines.inc" %}{% endwith %}
-{% if can_manage_billing %}
-<section id="invoice-workflow" class="card mb-5 mb-xl-8" hidden>
-    <h2 class="fs-3 fw-bold text-gray-900 mb-5">صدور و ابطال</h2>
-    <p class="text-muted">صدور فاکتور در یک تراکنش: بهای تمام‌شده هر سطر ثبت می‌شود، در صورت انتخاب انبار موجودی کسر می‌شود، و بدهکاری در دفتر حساب مشتری ثبت می‌شود.</p>
-    <div class="d-flex flex-wrap gap-2">
-        <button id="issue-invoice" class="btn btn-primary" type="button">صدور فاکتور</button>
-        <button id="cancel-invoice" class="btn btn-danger" type="button">ابطال فاکتور</button>
-    </div>
-    <label class="form-label fw-semibold" for="invoice-cancel-reason">دلیل ابطال</label>
-    <textarea class="form-control form-control-solid" id="invoice-cancel-reason" maxlength="500"></textarea>
-</section>
-{% endif %}
+{% comment %} باکس «صدور و ابطال» برداشته شد؛ چرخهٔ فاکتور از همان انتخابگر وضعیت
+   بالای صفحه اداره می‌شود و سرویس همان قواعد گذار را اعمال می‌کند. {% endcomment %}
 {% if can_handle_payments %}
 <section id="invoice-allocations" class="card mb-5 mb-xl-8" hidden>
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">دریافت‌های تخصیص‌یافته</h2>
