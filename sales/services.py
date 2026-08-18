@@ -46,7 +46,10 @@ CUSTOMER_MUTABLE_FIELDS = {
     "address",
     "notes",
 }
-LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes"}
+# `status` is set by the person working the campaign, not by the server: it
+# records their judgement of where the campaign stands. The three permitted
+# values are fixed by Lead.Status and checked by _validate_lead_status.
+LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes", "status"}
 PHONE_MUTABLE_FIELDS = {"raw_phone", "label", "is_primary", "is_active"}
 PRODUCT_MUTABLE_FIELDS = {"sku", "name", "category", "brand", "barcode", "current_price", "description"}
 PRODUCT_CATEGORY_CREATE_FIELDS = {"code", "name", "description", "display_order"}
@@ -73,6 +76,12 @@ SALES_DOCUMENT_TEXT_LIMITS = {
     "postal_status": 80,
     "notes": FREE_TEXT_MAX_LENGTH,
 }
+
+
+def _validate_lead_status(data):
+    """Refuse a status outside the three states a campaign is tracked in."""
+    if "status" in data and data["status"] not in Lead.Status.values:
+        raise BusinessRuleError({"status": "Choose one of the three campaign states."})
 
 
 def _validate_text_lengths(values, limits):
@@ -283,6 +292,7 @@ def create_lead(*, actor, customer, **data):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
     _validate_text_lengths(data, LEAD_TEXT_LIMITS)
+    _validate_lead_status(data)
     if not customers_for(actor).filter(pk=customer.pk).exists():
         raise BusinessPermissionDenied("Customer is outside your scope.")
     lead = Lead.objects.create(customer=customer, created_by=actor, source_payload={}, **data)
@@ -309,6 +319,7 @@ def update_lead(*, actor, lead, **changes):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
     _validate_text_lengths(changes, LEAD_TEXT_LIMITS)
+    _validate_lead_status(changes)
     changed_fields = []
     for field, value in changes.items():
         current_id = getattr(locked, f"{field}_id", None) if field in {"customer", "interested_product"} else None

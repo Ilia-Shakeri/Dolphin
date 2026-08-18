@@ -53,8 +53,12 @@ class SalesShellContractTests(SimpleTestCase):
         interaction_form = interaction_list.split('id="create-interaction-form"', 1)[1].split("</form>", 1)[0]
         for field in ("created_by", "is_active"):
             self.assertNotIn(f'name="{field}"', customer_form)
-        for field in ("customer", "status", "assigned_to", "assigned_by", "assigned_at", "created_by", "source_payload"):
+        # `status` is deliberately absent from this list: the person working the
+        # campaign sets it, and the service validates it against the three
+        # permitted states. Ownership and assignment stay server-managed.
+        for field in ("customer", "assigned_to", "assigned_by", "assigned_at", "created_by", "source_payload"):
             self.assertNotIn(f'name="{field}"', lead_form)
+        self.assertIn('name="status"', lead_form)
         for field in ("customer", "agent"):
             self.assertNotIn(f'name="{field}"', interaction_form)
 
@@ -95,7 +99,10 @@ class SalesShellContractTests(SimpleTestCase):
         lead_detail = (ROOT / "common" / "templates" / "common" / "leads" / "detail.html").read_text(encoding="utf-8")
         # Wording, not markup: the label for each control must use the
         # approved term. Matching the whole tag would break on any restyle.
-        for control, term in (("lead-customer", "مشتری"), ("reassign-to-user", "بازاریاب (کال سنتر)")):
+        # The lead form no longer names a single customer — a campaign is worked
+        # from its target audience — so the customer control is gone from it.
+        self.assertNotIn('for="lead-customer"', lead_detail)
+        for control, term in (("reassign-to-user", "بازاریاب (کال سنتر)"),):
             label = re.search(rf'<label[^>]*for="{control}"[^>]*>([^<]*)</label>', lead_detail)
             self.assertIsNotNone(label, control)
             self.assertEqual(label.group(1).strip(), term)

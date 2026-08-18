@@ -16,9 +16,9 @@ from common.throttles import SensitiveActionThrottleMixin
 from common.permissions import IsActiveAuthenticated
 from common.viewsets import NoDestroyModelViewSet
 from sales.permissions import HasSalesCapability
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument
-from sales.selectors import customers_for, interactions_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer
+from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
+from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
+from sales.serializers import CancelSaleSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
 from sales.services import cancel_or_correct_sale, deactivate_customer, deactivate_customer_phone, deactivate_product, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -254,6 +254,36 @@ class InteractionViewSet(NoDestroyModelViewSet):
 
     def get_queryset(self):
         return interactions_for(self.request.user).select_related("lead", "customer", "agent")
+
+
+class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+    """The campaign target audience ("جامعه هدف").
+
+    Read scope follows the lead, so a marketer sees the audience of campaigns
+    assigned to them. Write is refused for them in the service, which is where
+    the boundary belongs — the read-only rendering in the template is a
+    courtesy, not the control.
+    """
+
+    required_feature = "leads"
+    required_capabilities = ("leads.scoped", "leads.company")
+    permission_classes = [IsActiveAuthenticated, HasSalesCapability]
+    queryset = TargetAudienceMember.objects.none()
+    serializer_class = TargetAudienceMemberSerializer
+    sensitive_actions = frozenset({"create", "update", "partial_update"})
+    search_fields = ["full_name", "normalized_phone", "raw_phone"]
+    ordering_fields = ["full_name", "status", "created_at"]
+    list_query_parameters = {"lead", "status"}
+
+    def get_queryset(self):
+        queryset = target_audience_for(self.request.user).select_related("lead", "customer")
+        lead = self.request.query_params.get("lead")
+        if lead:
+            queryset = queryset.filter(lead_id=lead)
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        return queryset
 
 
 class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):

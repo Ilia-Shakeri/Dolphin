@@ -815,6 +815,13 @@
         return shown === "—" ? "" : shown;
     }
 
+    /** The same, for a `data-jalali="date"` input: the day without the time. */
+    function localDateValue(value) {
+        const shown = localDateTimeValue(value);
+        // `displayDate` renders "۱۴۰۵/۰۵/۲۷ ۰۱:۰۳"; a date input wants the day.
+        return shown ? shown.split(" ")[0] : "";
+    }
+
     /**
      * Read a typed Jalali value.
      *
@@ -1272,18 +1279,63 @@
         const editForm = document.getElementById("edit-lead-form");
         let lead;
         let historyPage = 1;
+        let targetAudiencePage = 1;
 
         function fillLead(value) {
-            document.getElementById("lead-customer").value = value.customer_name || value.customer;
-            document.getElementById("lead-customer-profile").href = `/customers/${value.customer}/`;
-            document.getElementById("lead-status").value = value.status || "ثبت نشده";
+            // Customer, server status, creator and interested product are no
+            // longer on this form: a campaign is worked from its target
+            // audience rather than from a single customer.
             document.getElementById("lead-assigned-to").value = value.assigned_to_display || value.assigned_to || "تخصیص نیافته";
-            document.getElementById("lead-created-by").value = value.created_by;
+            document.getElementById("edit-lead-status").value = value.status || "pending";
             document.getElementById("edit-lead-source").value = value.source || "";
             document.getElementById("edit-lead-campaign").value = value.campaign_or_batch || "";
-            document.getElementById("edit-lead-product").value = value.interested_product || "";
-            document.getElementById("edit-lead-follow-up").value = localDateTimeValue(value.next_follow_up_at);
+            // Follow-up is a date; the time of day was never used for anything.
+            document.getElementById("edit-lead-follow-up").value = localDateValue(value.next_follow_up_at);
             document.getElementById("edit-lead-notes").value = value.notes || "";
+        }
+
+        /**
+         * The campaign's target audience.
+         *
+         * Read-only for a marketer: the add button is absent for them and the
+         * API refuses the write regardless, so this rendering never decides
+         * anything on its own.
+         */
+        async function loadTargetAudience(page = 1) {
+            const wrap = document.getElementById("target-audience-table-wrap");
+            const body = document.getElementById("target-audience-table-body");
+            const audienceLoading = document.getElementById("target-audience-loading");
+            const empty = document.getElementById("target-audience-empty");
+            const pager = document.getElementById("target-audience-pagination");
+            if (!wrap || !body) return;
+            audienceLoading.hidden = false; empty.hidden = true; wrap.hidden = true; pager.hidden = true;
+            try {
+                const data = await apiRequest(`/api/v1/target-audience/?lead=${leadId}&page=${page}`);
+                body.replaceChildren(...data.results.map((item) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, item.full_name);
+                    appendCell(row, item.raw_phone).dir = "ltr";
+                    const statusCell = document.createElement("td");
+                    const badge = document.createElement("span");
+                    badge.className = `badge ${TARGET_STATUS_BADGES[item.status] || "badge-light"}`;
+                    badge.textContent = item.status_display || item.status;
+                    statusCell.append(badge);
+                    row.append(statusCell);
+                    return row;
+                }));
+                audienceLoading.hidden = true;
+                empty.hidden = data.results.length > 0;
+                wrap.hidden = data.results.length === 0;
+                targetAudiencePage = page;
+                document.getElementById("target-audience-prev").disabled = !data.previous;
+                document.getElementById("target-audience-next").disabled = !data.next;
+                document.getElementById("target-audience-page-label").textContent =
+                    `صفحه ${page} — ${data.count} نفر`;
+                pager.hidden = !data.previous && !data.next;
+            } catch (error) {
+                audienceLoading.hidden = true;
+                showError(error);
+            }
         }
 
         async function loadHistory(page = 1) {
@@ -1312,11 +1364,8 @@
 
         try {
             lead = await apiRequest(endpoint);
-            const products = await loadAllPages("/api/v1/products/?ordering=name");
-            if (lead.interested_product && !products.some((item) => item.id === lead.interested_product)) {
-                products.push({id: lead.interested_product, name: `محصول ثبت‌شده #${lead.interested_product}`, is_active: true});
-            }
-            fillSelect(document.getElementById("edit-lead-product"), products.filter((item) => item.is_active || item.id === lead.interested_product), (item) => item.name, "بدون محصول");
+            // The interested-product select is gone from this form, so the
+            // product catalogue is no longer fetched for it either.
             fillLead(lead);
             await loadHistory();
             const reassignForm = document.getElementById("reassign-lead-form");
@@ -1332,8 +1381,7 @@
             if (!editForm.querySelector("button[type='submit']")) return;
             withSubmit(editForm, async () => {
                 const data = new FormData(editForm);
-                const payload = formPayload(editForm, ["source", "campaign_or_batch", "notes"]);
-                payload.interested_product = data.get("interested_product") ? Number(data.get("interested_product")) : null;
+                const payload = formPayload(editForm, ["source", "campaign_or_batch", "status", "notes"]);
                 payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));
                 lead = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 fillLead(lead); globalMessage("سرنخ ذخیره شد.", true);
@@ -1350,7 +1398,48 @@
         });
         document.getElementById("history-prev").addEventListener("click", () => loadHistory(historyPage - 1));
         document.getElementById("history-next").addEventListener("click", () => loadHistory(historyPage + 1));
+
+        document.getElementById("target-audience-prev")?.addEventListener(
+            "click", () => loadTargetAudience(targetAudiencePage - 1)
+        );
+        document.getElementById("target-audience-next")?.addEventListener(
+            "click", () => loadTargetAudience(targetAudiencePage + 1)
+        );
+
+        // Adding to the audience exists only for a role that may write, but the
+        // API is what actually refuses a marketer.
+        const addDialog = document.getElementById("add-target-member-dialog");
+        const addForm = document.getElementById("add-target-member-form");
+        const openAdd = document.getElementById("open-add-target-member");
+        if (addDialog && addForm && openAdd) {
+            openAdd.addEventListener("click", () => addDialog.showModal());
+            addDialog.querySelectorAll("[data-close-dialog]").forEach(
+                (button) => button.addEventListener("click", () => addDialog.close())
+            );
+            addForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(addForm, async () => {
+                    const payload = formPayload(addForm, ["full_name", "raw_phone", "status"]);
+                    payload.lead = Number(leadId);
+                    await apiRequest(addForm.action, {method: "POST", body: payload});
+                    addForm.reset();
+                    addDialog.close();
+                    await loadTargetAudience(1);
+                    globalMessage("به جامعه هدف افزوده شد.", true);
+                });
+            });
+        }
+
+        await loadTargetAudience(1);
     }
+
+    /** Theme badge per target-audience status, warm for progress, muted for a dead end. */
+    const TARGET_STATUS_BADGES = {
+        lead: "badge-light-primary",
+        engaged: "badge-light-warning",
+        customer: "badge-light-success",
+        failed: "badge-light-danger",
+    };
 
     function interactionRow(interaction) {
         const row = document.createElement("tr");

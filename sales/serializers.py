@@ -7,9 +7,9 @@ from accounts.access import crm_identities
 from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
-from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument
-from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for
-from sales.services import create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
+from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
+from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for, target_audience_for
+from sales.services import TARGET_MEMBER_ASSIGNABLE_STATUSES, add_target_audience_member, update_target_audience_member, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
 
 
 def _scope_relation(field, queryset):
@@ -204,7 +204,7 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer_name", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
+    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -214,7 +214,7 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer_name", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
 
     def get_assigned_to_display(self, instance) -> str:
         if instance.assigned_to is None:
@@ -245,6 +245,52 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         if product and not product.is_active:
             raise serializers.ValidationError({"interested_product": "Product is inactive."})
         return attrs
+
+
+class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    """One identity in a campaign's target audience.
+
+    `status` accepts only the two values a person may set by hand. The other
+    two are conclusions the system draws from real activity — a call logged, a
+    customer record appearing — so offering them for write would let the list
+    claim work that never happened. They are still returned on read.
+    """
+
+    server_fields = {"normalized_phone", "customer", "created_by", "created_at", "updated_at"}
+    status = serializers.ChoiceField(
+        choices=[
+            (value, label)
+            for value, label in TargetAudienceMember.Status.choices
+            if value in TARGET_MEMBER_ASSIGNABLE_STATUSES
+        ],
+        required=False,
+    )
+    normalized_phone = serializers.CharField(read_only=True)
+    customer = serializers.PrimaryKeyRelatedField(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = TargetAudienceMember
+        fields = [
+            "id", "lead", "full_name", "raw_phone", "normalized_phone",
+            "status", "status_display", "customer", "notes", "created_at", "updated_at",
+        ]
+        read_only_fields = ["id", "normalized_phone", "status_display", "customer", "created_at", "updated_at"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        queryset = leads_for(request.user) if request and request.user.is_authenticated else Lead.objects.none()
+        _scope_relation(self.fields["lead"], queryset)
+
+    def create(self, validated_data):
+        return add_target_audience_member(actor=self.context["request"].user, **validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("lead", None)
+        return update_target_audience_member(
+            actor=self.context["request"].user, member=instance, **validated_data
+        )
 
 
 class ReassignSerializer(RejectServerFieldsMixin, serializers.Serializer):
@@ -302,13 +348,21 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
     server_fields = {"customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"}
     customer = serializers.PrimaryKeyRelatedField(read_only=True)
     agent = serializers.PrimaryKeyRelatedField(read_only=True)
-    customer_name = serializers.CharField(source="customer.full_name", read_only=True)
+    # The call is logged against whoever was actually spoken to. Early in a
+    # campaign that is a target-audience identity with no customer record, so
+    # the displayed name falls back to the identity's own name.
+    customer_name = serializers.SerializerMethodField()
     agent_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Interaction
-        fields = ["id", "lead", "customer", "customer_name", "agent", "agent_display", "phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
+        fields = ["id", "lead", "customer", "customer_name", "target_member", "agent", "agent_display", "phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
         read_only_fields = ["id", "customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"]
+
+    def get_customer_name(self, instance) -> str:
+        if instance.customer_id:
+            return instance.customer.full_name
+        return instance.target_member.full_name if instance.target_member_id else ""
 
     def get_agent_display(self, instance) -> str:
         return instance.agent.get_full_name() or instance.agent.username
@@ -320,6 +374,14 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
         if request and request.user.is_authenticated and request.user.role == User.Role.SALES_AGENT:
             queryset = queryset.filter(assigned_to=request.user)
         _scope_relation(self.fields["lead"], queryset)
+        # The identity picker offers only the audience of campaigns this user
+        # may work, so a marketer searches within their own assignments.
+        members = (
+            target_audience_for(request.user)
+            if request and request.user.is_authenticated
+            else TargetAudienceMember.objects.none()
+        )
+        _scope_relation(self.fields["target_member"], members)
 
     def create(self, validated_data):
         return record_interaction(actor=self.context["request"].user, **validated_data)

@@ -10,20 +10,38 @@
         {% csrf_token %}<div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">مشخصات سرنخ</h2>
         <fieldset{% if not can_edit_lead %} disabled{% endif %}>
         <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-customer">مشتری</label><input class="form-control form-control-solid" id="lead-customer" type="text" disabled><a id="lead-customer-profile" class="link-primary fw-semibold" href="#">باز کردن پروفایل مشتری</a></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-status">وضعیت سرور</label><input class="form-control form-control-solid" id="lead-status" type="text" disabled></div>
+            {% comment %} مشتری، وضعیت سرور، ثبت‌کننده و محصول مورد علاقه از این فرم برداشته
+               شدند: کمپین از روی جامعه هدف کار می‌شود، نه از روی یک مشتری واحد. {% endcomment %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="lead-assigned-to">مسئول</label><input class="form-control form-control-solid" id="lead-assigned-to" type="text" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="lead-created-by">ثبت‌کننده</label><input class="form-control form-control-solid" id="lead-created-by" type="text" disabled></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-status">وضعیت</label><select class="form-select form-select-solid" id="edit-lead-status" name="status"><option value="pending">در انتظار تکمیل</option><option value="completed">تکمیل</option><option value="cancelled">کنسل شده</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-source">منبع</label><input class="form-control form-control-solid" id="edit-lead-source" name="source" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="source"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-campaign">کمپین یا نوبت</label><input class="form-control form-control-solid" id="edit-lead-campaign" name="campaign_or_batch" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="campaign_or_batch"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-product">محصول مورد علاقه</label><select class="form-select form-select-solid" id="edit-lead-product" name="interested_product"><option value="">بدون محصول</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="interested_product"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-follow-up">پیگیری بعدی</label><input class="form-control form-control-solid" id="edit-lead-follow-up" name="next_follow_up_at" type="text" data-jalali="datetime"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="next_follow_up_at"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-lead-follow-up">پیگیری بعدی</label><input class="form-control form-control-solid" id="edit-lead-follow-up" name="next_follow_up_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="next_follow_up_at"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="edit-lead-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-lead-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
-        <p class="text-muted">مشتری، وضعیت، مالکیت و اطلاعات تخصیص از این فرم تغییر نمی‌کنند.</p>
+        <p class="text-gray-700">مالکیت و اطلاعات تخصیص از این فرم تغییر نمی‌کنند.</p>
         {% if can_edit_lead %}<div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تغییرات</button></div>{% else %}<p class="text-muted">ویرایش برای کارشناس فقط پس از تخصیص این سرنخ مجاز است.</p>{% endif %}
         </fieldset>
     </div></form>
+    {% comment %} جامعه هدف کمپین. بازاریاب می‌خواند؛ افزودن و ویرایش فقط با نقش ارشد
+       است و این را API مستقل از این نشانه‌گذاری اعمال می‌کند. {% endcomment %}
+    <section class="card mb-5 mb-xl-8" id="target-audience-card"><div class="card-body">
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-5">
+            <div><h2 class="fs-3 fw-bold text-gray-900 mb-1">جامعه هدف</h2><p class="text-gray-700 fs-7 mb-0">افرادی که این کمپین روی آن‌ها کار می‌شود.</p></div>
+            {% if can_edit_target_audience %}<button id="open-add-target-member" class="btn btn-primary" type="button">افزودن منبع جدید</button>{% endif %}
+        </div>
+        <div id="target-audience-loading" class="text-center text-gray-700 py-10">در حال دریافت جامعه هدف…</div>
+        <div id="target-audience-empty" class="text-center text-gray-700 py-10" hidden>هنوز کسی به جامعه هدف این کمپین افزوده نشده است.</div>
+        <div class="table-responsive" id="target-audience-table-wrap" hidden>
+            <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
+                <thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نام</th><th>تلفن همراه</th><th>وضعیت</th></tr></thead>
+                <tbody id="target-audience-table-body"></tbody>
+            </table>
+        </div>
+        <nav id="target-audience-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی جامعه هدف" hidden>
+            <button id="target-audience-prev" class="btn btn-light" type="button">قبلی</button><span id="target-audience-page-label"></span><button id="target-audience-next" class="btn btn-light" type="button">بعدی</button>
+        </nav>
+    </div></section>
     {% if can_reassign_leads %}<form id="reassign-lead-form" action="/api/v1/leads/{{ lead_id }}/reassign/" method="post" class="card mb-5 mb-xl-8" novalidate>
         {% csrf_token %}<div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تخصیص یا انتقال دستی</h2><div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="reassign-to-user">بازاریاب (کال سنتر)</label><select class="form-select form-select-solid" id="reassign-to-user" name="to_user" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_user"></p></div>
@@ -32,4 +50,21 @@
     </div></form>{% endif %}
     <section class="card mb-5 mb-xl-8"><div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تاریخچه تخصیص</h2><div id="history-loading" class="text-center text-muted py-10">در حال دریافت تاریخچه…</div><div id="history-empty" class="text-center text-muted py-10" hidden>تخصیصی ثبت نشده است.</div><div id="history-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr><th>از</th><th>به</th><th>تغییردهنده</th><th>دلیل</th><th>زمان</th></tr></thead><tbody id="history-table-body"></tbody></table></div><nav id="history-pagination" class="d-flex align-items-center justify-content-center gap-4 mt-5" aria-label="صفحه‌بندی تاریخچه" hidden><button id="history-prev" class="btn btn-light" type="button">قبلی</button><span id="history-page-label"></span><button id="history-next" class="btn btn-light" type="button">بعدی</button></nav></div></section>
 </section>
+{% if can_edit_target_audience %}
+<dialog id="add-target-member-dialog" aria-labelledby="add-target-member-title">
+    <form id="add-target-member-form" action="/api/v1/target-audience/" method="post" novalidate>
+        {% csrf_token %}
+        <div class="d-flex flex-stack align-items-center mb-5"><h2 id="add-target-member-title" class="fs-3 fw-bold text-gray-900 mb-0">افزودن منبع جدید</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="add-target-name">نام</label><input class="form-control form-control-solid" id="add-target-name" name="full_name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="full_name"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="add-target-phone">تلفن</label><input class="form-control form-control-solid" id="add-target-phone" name="raw_phone" type="tel" required maxlength="40"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="raw_phone"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="add-target-status">وضعیت</label><select class="form-select form-select-solid" id="add-target-status" name="status"><option value="lead">سرنخ</option><option value="failed">ناموفق</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p>
+              {% comment %} «در تعامل» و «مشتری» پیشنهاد نمی‌شوند چون سامانه آن‌ها را از
+                 فعالیت واقعی نتیجه می‌گیرد. {% endcomment %}
+              <p class="text-gray-700 fs-8 mt-1 mb-0">«در تعامل» و «مشتری» خودکار تعیین می‌شوند.</p></div>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">افزودن</button></div>
+    </form>
+</dialog>
+{% endif %}
 {% endblock %}
