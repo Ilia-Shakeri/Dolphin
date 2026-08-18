@@ -124,6 +124,11 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             User.Role.COMPANY_IT,
             User.Role.PLATFORM_ADMIN,
         }
+        # Activation state is reserved for the Platform Admin. It is a separate
+        # flag from the operational ones above because it answers a different
+        # question: not "may this role work the record" but "may this role take
+        # it out of circulation".
+        context["can_change_activation"] = self.request.user.role == User.Role.PLATFORM_ADMIN
         context["can_reassign_leads"] = context["can_deactivate_customers"]
         context["can_manage_products"] = context["can_deactivate_customers"]
         context["can_cancel_sales"] = context["can_deactivate_customers"]

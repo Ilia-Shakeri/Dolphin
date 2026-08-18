@@ -48,6 +48,9 @@ class BillingFixtureMixin:
         self.manager = User.objects.create_user(
             username="bill.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER
         )
+        self.platform_admin = User.objects.create_user(
+            username="rules.status_admin", password="Strong-pass-937!", role=User.Role.PLATFORM_ADMIN
+        )
         self.agent = User.objects.create_user(
             username="bill.agent", password="Strong-pass-937!", role=User.Role.SALES_AGENT
         )
@@ -577,7 +580,9 @@ class DocumentLineScopeTests(BillingFixtureMixin, TestCase):
     def test_the_api_refuses_a_line_for_an_inactive_product(self):
         from sales.services import deactivate_product
 
-        deactivate_product(actor=self.manager, product=self.product)
+        # Activation is a Platform Admin action; this test is about the line
+        # rule, so it uses the role that holds the action.
+        deactivate_product(actor=self.platform_admin, product=self.product)
         self.client.force_login(self.manager)
         response = self.client.post(
             "/api/v1/quotations/",

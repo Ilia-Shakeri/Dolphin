@@ -25,6 +25,11 @@ class ProductCategoryContractTests(TestCase):
             password=self.password,
             role=User.Role.SALES_AGENT,
         )
+        self.status_admin = User.objects.create_user(
+            username="cat.status_admin",
+            password=self.password,
+            role=User.Role.PLATFORM_ADMIN,
+        )
         self.manager_client = APIClient()
         self.manager_client.force_authenticate(self.manager)
         self.agent_client = APIClient()
@@ -130,7 +135,7 @@ class ProductCategoryContractTests(TestCase):
         self.assertEqual(blocked.status_code, 409)
         self.assertIn("category", blocked.data)
 
-        deactivate_product(actor=self.manager, product=product)
+        deactivate_product(actor=self.status_admin, product=product)
         deactivated = self.manager_client.post(f"{endpoint}deactivate/")
         self.assertEqual(deactivated.status_code, 200)
         self.assertFalse(deactivated.data["is_active"])

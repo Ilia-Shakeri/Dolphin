@@ -26,6 +26,9 @@ from common.throttles import SensitiveRateThrottle
 class CoreWorkflowTests(TestCase):
     def setUp(self):
         self.manager = User.objects.create_user(username="manager", password="strong-pass-1", role=User.Role.SALES_MANAGER)
+        # Activation state is a Platform Admin action, so the lifecycle tests
+        # below need an actor that holds it.
+        self.status_admin = User.objects.create_user(username="status-admin", password="strong-pass-1", role=User.Role.PLATFORM_ADMIN)
         self.agent = User.objects.create_user(username="agent", password="strong-pass-1", role=User.Role.SALES_AGENT)
         self.other = User.objects.create_user(username="other", password="strong-pass-1", role=User.Role.SALES_AGENT)
         self.customer = create_customer_with_phone(
@@ -635,8 +638,12 @@ class CoreWorkflowTests(TestCase):
 
         cache.clear()
         customer = create_customer_with_phone(actor=self.manager, full_name="Throttle Customer")
-        first_deactivate = manager_client.post(f"/api/v1/customers/{customer.pk}/deactivate/")
-        second_deactivate = manager_client.post(f"/api/v1/customers/{customer.pk}/deactivate/")
+        # Activation is a Platform Admin action now; the throttle is what this
+        # test is about, so it drives it as the role that holds the action.
+        admin_client = APIClient()
+        admin_client.force_authenticate(self.status_admin)
+        first_deactivate = admin_client.post(f"/api/v1/customers/{customer.pk}/deactivate/")
+        second_deactivate = admin_client.post(f"/api/v1/customers/{customer.pk}/deactivate/")
         self.assertEqual(first_deactivate.status_code, 200)
         self.assertEqual(second_deactivate.status_code, 429)
         cache.clear()
@@ -788,13 +795,16 @@ class CoreWorkflowTests(TestCase):
                     ).status_code,
                     200,
                 )
+                # Activation state is reserved for the Platform Admin, so this
+                # is where the two roles deliberately stop being equal.
+                expected_status = 200 if role == User.Role.PLATFORM_ADMIN else 403
                 self.assertEqual(
                     client.post(f"/api/v1/products/{product_id}/deactivate/").status_code,
-                    200,
+                    expected_status,
                 )
                 self.assertEqual(
                     client.post(f"/api/v1/customers/{customer_id}/deactivate/").status_code,
-                    200,
+                    expected_status,
                 )
 
     def test_large_computed_sale_amount_is_rejected(self):
@@ -879,7 +889,7 @@ class CoreWorkflowTests(TestCase):
         self.lead.refresh_from_db()
         self.assertEqual(self.lead.assigned_to, self.other)
         client = APIClient()
-        client.force_authenticate(self.manager)
+        client.force_authenticate(self.status_admin)
         client.post(f"/api/v1/customers/{self.customer.pk}/deactivate/")
         update_customer(actor=self.manager, customer=stale_customer, notes="kept")
         self.customer.refresh_from_db()
@@ -887,16 +897,16 @@ class CoreWorkflowTests(TestCase):
 
     def test_repeat_deactivation_is_rejected_without_false_audit(self):
         client = APIClient()
-        client.force_authenticate(self.manager)
+        client.force_authenticate(self.status_admin)
         first = client.post(f"/api/v1/customers/{self.customer.pk}/deactivate/")
         second = client.post(f"/api/v1/customers/{self.customer.pk}/deactivate/")
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 409)
         self.assertEqual(ActivityLog.objects.filter(operation="customer.deactivated", object_id=str(self.customer.pk)).count(), 1)
         product = Product.objects.create(sku="DEACT", name="Deact", current_price=1, created_by=self.manager, updated_by=self.manager)
-        deactivate_product(actor=self.manager, product=product)
+        deactivate_product(actor=self.status_admin, product=product)
         with self.assertRaises(BusinessRuleError):
-            deactivate_product(actor=self.manager, product=product)
+            deactivate_product(actor=self.status_admin, product=product)
         self.assertEqual(ActivityLog.objects.filter(operation="product.deactivated", object_id=str(product.pk)).count(), 1)
 
     def test_hidden_lead_id_and_missing_id_both_fail_validation(self):
@@ -1012,7 +1022,7 @@ class CoreWorkflowTests(TestCase):
         stale = Product.objects.get(pk=created.data["id"])
         updated = client.patch(f"/api/v1/products/{stale.pk}/", {"name": "Second"}, format="json")
         self.assertEqual(updated.status_code, 200)
-        deactivate_product(actor=self.manager, product=stale)
+        deactivate_product(actor=self.status_admin, product=stale)
         update_product(actor=self.manager, product=stale, description="kept")
         stale.refresh_from_db()
         self.assertFalse(stale.is_active)

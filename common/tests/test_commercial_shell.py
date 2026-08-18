@@ -132,6 +132,10 @@ class CommercialShellScopeTests(TestCase):
         self.assertNotContains(detail, 'type="submit">ذخیره تغییرات')
         self.client.force_login(self.manager)
         self.assertContains(self.client.get("/products/"), 'id="open-create-product"')
+        # A manager creates and edits products but no longer takes one out of
+        # circulation: activation state belongs to the Platform Admin.
+        self.assertNotContains(self.client.get(f"/products/{self.product.pk}/"), 'id="deactivate-product"')
+        self.client.force_login(self.roles[User.Role.PLATFORM_ADMIN])
         self.assertContains(self.client.get(f"/products/{self.product.pk}/"), 'id="deactivate-product"')
 
     def test_activity_log_browser_and_api_scope_are_enforced(self):
@@ -196,7 +200,7 @@ class CommercialShellScopeTests(TestCase):
         hidden_inactive = api.get("/api/v1/products/?is_active=false")
         self.assertEqual(hidden_inactive.status_code, 200)
         self.assertEqual(hidden_inactive.data["count"], 0)
-        api.force_authenticate(self.manager)
+        api.force_authenticate(self.roles[User.Role.PLATFORM_ADMIN])
         deactivated = api.post(f"/api/v1/products/{self.product.pk}/deactivate/")
         self.assertEqual(deactivated.status_code, 200)
         self.assertFalse(deactivated.data["is_active"])

@@ -73,6 +73,25 @@ class StockItemSerializer(serializers.ModelSerializer):
 
 
 class StockMovementSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    """A movement recorded by a person through the movement form.
+
+    `movement_type` is narrowed to the three kinds an operator records directly:
+    opening stock, a customer return, and stock sent to a customer. The other
+    kinds are produced by an operation that explains them — a transfer between
+    warehouses, an order being issued — and are written by those services rather
+    than typed in here.
+
+    This is a narrowing of the write contract, not a hidden option: the endpoint
+    refuses a kind outside the list even when the request is hand-made.
+    """
+
+    movement_type = serializers.ChoiceField(
+        choices=[
+            (value, label)
+            for value, label in StockMovement.MovementType.choices
+            if value in StockMovement.MANUALLY_RECORDABLE
+        ]
+    )
     server_fields = {
         "resulting_quantity", "resulting_average_cost", "created_by", "created_by_display",
         "reference_kind", "reference_id", "reference_number", "warehouse_name",

@@ -540,6 +540,9 @@ FROM (
         ('sales_productcategory', 'SELECT, INSERT, UPDATE'),
         ('sales_sale', 'SELECT, INSERT, UPDATE'),
         ('sales_salesdocument', 'SELECT, INSERT, UPDATE'),
+        -- Campaign target audience. No DELETE: an identity that was worked is
+        -- part of the campaign's history even after it stops being pursued.
+        ('sales_targetaudiencemember', 'SELECT, INSERT, UPDATE'),
         ('sales_postalstatushistory', 'SELECT, INSERT')
 ) AS table_grant(table_name, privileges)
 WHERE to_regclass(format('%I.%I', 'public', table_grant.table_name)) IS NOT NULL

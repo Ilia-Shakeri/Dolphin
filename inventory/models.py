@@ -159,6 +159,18 @@ class StockMovement(TimeStampedModel):
         MovementType.ADJUSTMENT_OUT,
         MovementType.TRANSFER_OUT,
     })
+    #: The kinds a person may record by hand. Every other kind exists because
+    #: some other operation produces it — a transfer moves stock between
+    #: warehouses, an order issues it — and letting an operator type one of
+    #: those directly would create inventory history that no document explains.
+    #: "sale" is the outward one: stock sent to a customer, deducted from the
+    #: level like any other issue and recorded in the same ledger.
+    MANUALLY_RECORDABLE = frozenset({
+        MovementType.OPENING,
+        MovementType.RETURN_IN,
+        MovementType.SALE,
+    })
+
     # An incoming movement must carry the cost it arrives at, otherwise the
     # moving average silently drifts toward zero.
     COST_REQUIRED = frozenset({

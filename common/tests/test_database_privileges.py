@@ -362,6 +362,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_productcategory": "SELECT, INSERT, UPDATE",
             "sales_sale": "SELECT, INSERT, UPDATE",
             "sales_salesdocument": "SELECT, INSERT, UPDATE",
+            # Campaign target audience. No DELETE: an identity that was worked
+            # is part of the campaign history even after it stops being pursued.
+            "sales_targetaudiencemember": "SELECT, INSERT, UPDATE",
             "sales_postalstatushistory": "SELECT, INSERT",
         }
         grant_block = re.search(

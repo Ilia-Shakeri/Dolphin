@@ -712,26 +712,42 @@ def deactivate_sales_document(*, actor, document):
 
 
 @transaction.atomic
-def deactivate_customer(*, actor, customer):
-    actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
-        raise BusinessPermissionDenied("Customer deactivation is not allowed.")
+def set_customer_active(*, actor, customer, is_active):
+    """Turn a customer on or off. Platform Admin only.
+
+    Deactivating hides the customer from day-to-day work; it never removes a
+    row. Every order, invoice, payment and ledger entry stays exactly as it
+    was, which is why this is reversible and why nothing here deletes.
+    """
+    actor = _require_status_administrator(actor)
     customer = Customer.objects.select_for_update().get(pk=customer.pk)
     if not customers_for(actor).filter(pk=customer.pk).exists():
         raise BusinessPermissionDenied("Customer is outside your scope.")
-    if not customer.is_active:
-        raise BusinessConflictError({"is_active": "Customer is already inactive."})
-    customer.is_active = False
+    is_active = bool(is_active)
+    if customer.is_active == is_active:
+        state = "active" if is_active else "inactive"
+        raise BusinessConflictError({"is_active": f"Customer is already {state}."})
+    customer.is_active = is_active
     customer.save(update_fields=["is_active", "updated_at"])
-    log_activity(actor=actor, operation="customer.deactivated", instance=customer)
+    log_activity(
+        actor=actor,
+        operation="customer.reactivated" if is_active else "customer.deactivated",
+        instance=customer,
+    )
     return customer
+
+
+def deactivate_customer(*, actor, customer):
+    """Kept as the name the API route and older callers already use."""
+    return set_customer_active(actor=actor, customer=customer, is_active=False)
 
 
 @transaction.atomic
 def deactivate_product(*, actor, product):
-    actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
-        raise BusinessPermissionDenied("Product management is not allowed.")
+    # Activation decides whether the product can still be sold, so Client-1
+    # keeps it with the Platform Admin. Every other product edit stays with the
+    # operational roles.
+    actor = _require_status_administrator(actor)
     product = Product.objects.select_for_update().get(pk=product.pk)
     if not product.is_active:
         raise BusinessConflictError({"is_active": "Product is already inactive."})
@@ -791,6 +807,19 @@ TARGET_MEMBER_ASSIGNABLE_STATUSES = {
     TargetAudienceMember.Status.LEAD,
     TargetAudienceMember.Status.FAILED,
 }
+
+
+def _require_status_administrator(actor):
+    """Turning a record on or off is reserved for a Platform Admin.
+
+    Activation state decides whether a product can still be sold and whether a
+    customer can still be worked, so Client-1 keeps it with the one role that
+    administers the deployment. Operational roles keep every other edit.
+    """
+    actor = _lock_operational_actor(actor)
+    if actor.role != User.Role.PLATFORM_ADMIN:
+        raise BusinessPermissionDenied("Changing activation state is not allowed.")
+    return actor
 
 
 def _require_target_audience_editor(actor):

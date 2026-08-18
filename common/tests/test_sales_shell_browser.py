@@ -1,5 +1,6 @@
 import importlib.util
 import json
+from urllib.parse import urlparse
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -112,10 +113,25 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         ).click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/login/"))
 
-    def assert_browser_clean(self):
+    def assert_browser_clean(self, expected_denials=()):
+        """No unexpected console error and no unexpected failing request.
+
+        `expected_denials` names paths the test navigated to on purpose to prove
+        a scope boundary holds. Chrome logs the navigation's own 403/404 as a
+        SEVERE console entry, so a deliberate denial would otherwise read as a
+        defect. Anything not named here still fails.
+        """
         self.assertEqual(self.browser.execute_script("return document.documentElement.lang"), "fa")
         self.assertEqual(self.browser.execute_script("return document.documentElement.dir"), "rtl")
-        severe = [entry for entry in self.browser.get_log("browser") if entry["level"] == "SEVERE"]
+
+        def is_expected(url):
+            return any(url.rstrip("/").endswith(path.rstrip("/")) for path in expected_denials)
+
+        severe = [
+            entry
+            for entry in self.browser.get_log("browser")
+            if entry["level"] == "SEVERE" and not is_expected(entry["message"].split(" ", 1)[0])
+        ]
         self.assertEqual(severe, [])
         failed = []
         for entry in self.browser.get_log("performance"):
@@ -123,7 +139,11 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             if message["method"] != "Network.responseReceived":
                 continue
             response = message["params"]["response"]
-            if response["url"].startswith(self.live_server_url) and response["status"] >= 400:
+            if (
+                response["url"].startswith(self.live_server_url)
+                and response["status"] >= 400
+                and not is_expected(response["url"])
+            ):
                 failed.append((response["status"], response["url"]))
         self.assertEqual(failed, [])
 
@@ -455,9 +475,15 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "agent-work-queue-body"), "مشتری مسیر روزانه"))
         queue_row = self.browser.find_element(By.CSS_SELECTOR, "#agent-work-queue-body tr")
         self.assertNotEqual(queue_row.find_elements(By.TAG_NAME, "td")[2].text, "—")
+        # A marketer's customer scope is now the customers they entered
+        # themselves. This customer was entered by the manager, so following the
+        # link from the work queue lands on "not found" rather than on the
+        # record: a row outside scope is answered as absent, which is what the
+        # rest of the application does and what leaks the least.
         queue_row.find_element(By.LINK_TEXT, "مشتری").click()
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
-        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "مشتری مسیر روزانه")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "app-error")))
+        self.assertEqual(self.browser.find_element(By.ID, "app-error-status").text.strip(), "404")
+        denied_customer_path = urlparse(self.browser.current_url).path
 
         self.browser.get(f"{self.live_server_url}/interactions/?lead={lead_id}")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-interaction-dialog")))
@@ -501,7 +527,9 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         report_text = self.browser.find_element(By.ID, "report-performance-table-body").text
         self.assertIn("daily.agent.browser", report_text)
         self.assertIn("20.00", report_text)
-        self.assert_browser_clean()
+        # The one deliberate denial above: a marketer opening a customer they
+        # did not enter.
+        self.assert_browser_clean(expected_denials=[denied_customer_path])
 
     def test_sales_document_postal_manager_to_agent_journey(self):
         customer = create_customer_with_phone(
