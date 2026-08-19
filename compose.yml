@@ -20,6 +20,7 @@ x-django-environment: &django-environment
   POSTGRES_INIT_USER: ${POSTGRES_INIT_USER}
   POSTGRES_MIGRATION_USER: ${POSTGRES_MIGRATION_USER}
   POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+  FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES: ${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}
   # Deployment profile (PROFILE-001, Option C). The signed manifest is mounted
   # read-only and is the sole source of truth for feature availability; only
   # public verification keys are configured here. Production refuses to start
@@ -41,6 +42,7 @@ services:
   db:
     image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
+    entrypoint: ["sh", "/ops/postgres-entrypoint.sh"]
     command:
       - postgres
       - -c
@@ -74,8 +76,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_INIT_USER}
       POSTGRES_PASSWORD: ${POSTGRES_INIT_PASSWORD}
+      FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES: ${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-entrypoint.sh:/ops/postgres-entrypoint.sh:ro
     networks:
       - backend
     healthcheck:
@@ -104,6 +108,7 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
       POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
+      FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES: ${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}
     depends_on:
       db:
         condition: service_healthy
@@ -155,6 +160,7 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
       POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
+      FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES: ${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}
     depends_on:
       migrate:
         condition: service_completed_successfully

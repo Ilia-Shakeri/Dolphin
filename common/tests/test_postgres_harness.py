@@ -18,7 +18,7 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell") or shutil.which(
 class PostgresHarnessContractTests(SimpleTestCase):
     def test_harness_is_bound_to_one_fresh_loopback_cluster(self):
         source = HARNESS.read_text(encoding="utf-8")
-        self.assertIn("kariz-pgtest-$runToken", source)
+        self.assertIn("frooshbin-pgtest-$runToken", source)
         self.assertIn("[Net.IPAddress]::Loopback", source)
         self.assertIn('$port -eq 5432', source)
         self.assertIn('-A trust --no-locale --encoding=UTF8', source)
@@ -43,10 +43,10 @@ class PostgresHarnessContractTests(SimpleTestCase):
         self.assertIn("DELETE FROM sales_productcategory", source)
         self.assertIn("UPDATE aftersales_aftersaleshistory", source)
         self.assertIn("DELETE FROM aftersales_aftersalesrequest", source)
-        self.assertIn("SELECT public.kariz_contract_probe()", source)
-        self.assertIn("kariz_future_table", source)
+        self.assertIn("SELECT public.frooshbin_contract_probe()", source)
+        self.assertIn("frooshbin_future_table", source)
         self.assertIn("--format=custom", source)
-        self.assertIn("kariz_rollback_probe", source)
+        self.assertIn("frooshbin_rollback_probe", source)
         self.assertIn("did not roll back after injected failure", source)
         self.assertIn("reverse role-membership injection did not fail closed", source)
         self.assertIn("privilege proof accepted reverse role membership", source)
@@ -95,7 +95,7 @@ class PostgresHarnessContractTests(SimpleTestCase):
         first_managed_mutation = source.index("CREATE ROLE %I")
         self.assertLess(membership_guard, first_managed_mutation)
         self.assertIn("granted.oid = membership.roleid", source)
-        self.assertIn("A Kariz-managed PostgreSQL role is granted to another role.", source)
+        self.assertIn("A FrooshBin-managed PostgreSQL role is granted to another role.", source)
 
     @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
     def test_harness_has_valid_powershell_syntax(self):

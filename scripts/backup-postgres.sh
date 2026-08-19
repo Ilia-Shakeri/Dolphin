@@ -64,9 +64,14 @@ if [ ! -d "$POSTGRES_BACKUP_ROOT" ] || [ -L "$POSTGRES_BACKUP_ROOT" ]; then
     exit 2
 fi
 
-sentinel_path="$POSTGRES_BACKUP_ROOT/.kariz-backup-root"
-if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
-   [ "$(cat "$sentinel_path")" != "KARIZ_BACKUP_ROOT_V1" ]; then
+new_sentinel="$POSTGRES_BACKUP_ROOT/.frooshbin-backup-root"
+legacy_sentinel="$POSTGRES_BACKUP_ROOT/.kariz-backup-root"
+if [ ! -e "$new_sentinel" ] && [ ! -e "$legacy_sentinel" ]; then
+    echo "The backup volume sentinel is missing or invalid." >&2
+    exit 2
+fi
+if { [ -e "$new_sentinel" ] && { [ ! -f "$new_sentinel" ] || [ -L "$new_sentinel" ] || [ "$(cat "$new_sentinel")" != "FROOSHBIN_BACKUP_ROOT_V1" ]; }; } || \
+   { [ -e "$legacy_sentinel" ] && { [ ! -f "$legacy_sentinel" ] || [ -L "$legacy_sentinel" ] || [ "$(cat "$legacy_sentinel")" != "KARIZ_BACKUP_ROOT_V1" ]; }; }; then
     echo "The backup volume sentinel is missing or invalid." >&2
     exit 2
 fi
@@ -79,13 +84,13 @@ if ! printf '%s' "$token" | grep -Eq '^[0-9a-f]{32}$'; then
     exit 3
 fi
 
-backup_name="kariz-pg-$timestamp-$token.dump"
+backup_name="frooshbin-pg-$timestamp-$token.dump"
 checksum_name="$backup_name.sha256"
 temp_dump="$POSTGRES_BACKUP_ROOT/.$backup_name.tmp"
 temp_checksum="$POSTGRES_BACKUP_ROOT/.$checksum_name.tmp"
 final_dump="$POSTGRES_BACKUP_ROOT/$backup_name"
 final_checksum="$POSTGRES_BACKUP_ROOT/$checksum_name"
-lock_dir="$POSTGRES_BACKUP_ROOT/.kariz-backup.lock"
+lock_dir="$POSTGRES_BACKUP_ROOT/.frooshbin-backup.lock"
 published=0
 lock_held=0
 
@@ -124,7 +129,7 @@ lock_held=1
 
 export LC_ALL=C
 export PGPASSWORD="$POSTGRES_BACKUP_PASSWORD"
-export PGAPPNAME=kariz_backup_job
+export PGAPPNAME=frooshbin_backup_job
 
 pg_dump \
     --format=custom \
@@ -154,19 +159,19 @@ published=1
 
 if [ "$POSTGRES_BACKUP_RETENTION_DAYS" -gt 0 ]; then
     retention_age=$((POSTGRES_BACKUP_RETENTION_DAYS - 1))
-    candidate_list="/tmp/kariz-backup-retention-$token"
+    candidate_list="/tmp/frooshbin-backup-retention-$token"
     find "$POSTGRES_BACKUP_ROOT" \
         -mindepth 1 \
         -maxdepth 1 \
         -type f \
-        -name 'kariz-pg-*.dump' \
+        \( -name 'frooshbin-pg-*.dump' -o -name 'kariz-pg-*.dump' \) \
         -mtime "+$retention_age" \
         -print >"$candidate_list"
     while IFS= read -r candidate; do
         [ "$candidate" != "$final_dump" ] || continue
         candidate_name="$(basename "$candidate")"
         if ! printf '%s' "$candidate_name" | grep -Eq \
-            '^kariz-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
+            '^(frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
             continue
         fi
         checksum_path="$POSTGRES_BACKUP_ROOT/$candidate_name.sha256"

@@ -33,13 +33,13 @@ def build_postgres_contract_database(environment):
             "PostgreSQL contract proof must use a high port other than 5432."
         )
 
-    expected_name = f"contract_forooshbin_{token}"
+    expected_name = f"contract_frooshbin_{token}"
     if environment.get("KARIZ_PG_CONTRACT_NAME") != expected_name:
         raise ImproperlyConfigured(
             "PostgreSQL contract database name does not match the random run token."
         )
 
-    expected_user = f"forooshbin_migration_{token}"
+    expected_user = f"frooshbin_migration_{token}"
     if environment.get("KARIZ_PG_CONTRACT_USER") != expected_user:
         raise ImproperlyConfigured(
             "PostgreSQL contract user does not match the random run token."

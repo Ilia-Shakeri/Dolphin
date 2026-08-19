@@ -13,8 +13,8 @@ class PostgresTestGuardTests(SimpleTestCase):
             "KARIZ_PG_TEST_TOKEN": token,
             "KARIZ_PG_TEST_HOST": "127.0.0.1",
             "KARIZ_PG_TEST_PORT": "55432",
-            "KARIZ_PG_TEST_NAME": f"test_forooshbin_{token}",
-            "KARIZ_PG_TEST_USER": "forooshbin_test_admin",
+            "KARIZ_PG_TEST_NAME": f"test_frooshbin_{token}",
+            "KARIZ_PG_TEST_USER": "frooshbin_test_admin",
         }
 
     def test_builds_only_isolated_postgres_settings(self):
@@ -22,7 +22,7 @@ class PostgresTestGuardTests(SimpleTestCase):
         self.assertEqual(database["ENGINE"], "django.db.backends.postgresql")
         self.assertEqual(database["HOST"], "127.0.0.1")
         self.assertEqual(database["CONN_MAX_AGE"], 0)
-        self.assertTrue(database["TEST"]["NAME"].startswith("test_forooshbin_"))
+        self.assertTrue(database["TEST"]["NAME"].startswith("test_frooshbin_"))
 
     def test_rejects_missing_opt_in(self):
         environment = self.safe_environment()
@@ -57,8 +57,8 @@ class PostgresContractGuardTests(SimpleTestCase):
             "KARIZ_PG_CONTRACT_TOKEN": token,
             "KARIZ_PG_CONTRACT_HOST": "127.0.0.1",
             "KARIZ_PG_CONTRACT_PORT": "55433",
-            "KARIZ_PG_CONTRACT_NAME": f"contract_forooshbin_{token}",
-            "KARIZ_PG_CONTRACT_USER": f"forooshbin_migration_{token}",
+            "KARIZ_PG_CONTRACT_NAME": f"contract_frooshbin_{token}",
+            "KARIZ_PG_CONTRACT_USER": f"frooshbin_migration_{token}",
             "KARIZ_PG_CONTRACT_PASSWORD": "isolated-contract-secret",
         }
 
@@ -68,7 +68,7 @@ class PostgresContractGuardTests(SimpleTestCase):
         self.assertEqual(database["HOST"], "127.0.0.1")
         self.assertEqual(database["PORT"], "55433")
         self.assertEqual(database["CONN_MAX_AGE"], 0)
-        self.assertEqual(database["NAME"], "contract_forooshbin_" + "b" * 32)
+        self.assertEqual(database["NAME"], "contract_frooshbin_" + "b" * 32)
 
     def test_rejects_contract_without_sentinel(self):
         environment = self.safe_environment()
@@ -90,7 +90,7 @@ class PostgresContractGuardTests(SimpleTestCase):
     def test_rejects_contract_name_user_and_password_not_bound_to_run(self):
         for field, value in (
             ("KARIZ_PG_CONTRACT_NAME", "kariz"),
-            ("KARIZ_PG_CONTRACT_USER", "forooshbin_migration_other"),
+            ("KARIZ_PG_CONTRACT_USER", "frooshbin_migration_other"),
             ("KARIZ_PG_CONTRACT_PASSWORD", "short"),
         ):
             with self.subTest(field=field):

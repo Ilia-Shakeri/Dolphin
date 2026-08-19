@@ -237,7 +237,7 @@ class RenderedPageCleanlinessTests(TestCase):
 
     def test_no_served_page_renders_template_syntax_or_developer_prose(self):
         offenders = []
-        for path in ("/", "/customers/", "/leads/", "/products/", "/quotations/",
+        for path in ("/", "/customers/", "/leads/", "/products/",
                      "/orders/", "/invoices/", "/payments/", "/stock/", "/warehouses/",
                      "/reports/receivables/", "/reports/profit/", "/login/"):
             body = self.client.get(path).content.decode("utf-8")

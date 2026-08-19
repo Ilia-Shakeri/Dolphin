@@ -27,7 +27,6 @@ from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
 from billing.selectors import (
     cheques_for,
-    quotations_for,
     installment_plans_for,
     invoices_for,
     orders_for,
@@ -168,7 +167,7 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # Money capabilities. An agent prepares documents but never issues an
         # invoice, takes a payment, or reads the company ledger.
         context["can_manage_billing"] = bool(
-            {"invoices.company", "orders.company", "quotations.company"}.intersection(capabilities)
+            {"invoices.company", "orders.company"}.intersection(capabilities)
         )
         context["can_handle_payments"] = "payments.company" in capabilities
         context["can_view_ledger"] = "ledger.company" in capabilities
@@ -615,23 +614,6 @@ class KarizStockMovementListView(ActiveCrmView):
 
 # --- Commercial document pages ----------------------------------------------
 
-class KarizQuotationListView(ActiveCrmView):
-    required_feature = "quotations"
-    template_name = "common/quotations/list.html"
-
-
-class KarizQuotationDetailView(ScopedDetailView):
-    required_feature = "quotations"
-    template_name = "common/quotations/detail.html"
-    object_id_kwarg = "quotation_id"
-    context_id_name = "quotation_id"
-    not_found_title = "پیش‌فاکتور پیدا نشد"
-    not_found_message = "پیش‌فاکتور در محدوده دسترسی شما وجود ندارد."
-
-    def scoped_queryset(self):
-        return quotations_for(self.request.user)
-
-
 class KarizOrderListView(ActiveCrmView):
     required_feature = "orders"
     template_name = "common/orders/list.html"
@@ -745,26 +727,6 @@ class DocumentPdfView(PrintableDocumentView):
         return pdf
 
 
-class KarizQuotationPrintView(PrintableDocumentView):
-    required_feature = "quotations"
-    template_name = "common/quotations/print.html"
-    object_id_kwarg = "quotation_id"
-    context_id_name = "quotation_id"
-    not_found_title = "پیش‌فاکتور پیدا نشد"
-    not_found_message = "پیش‌فاکتور در محدوده دسترسی شما وجود ندارد."
-
-    def scoped_queryset(self):
-        return quotations_for(self.request.user)
-
-    def get_document(self):
-        return (
-            self.scoped_queryset()
-            .select_related("customer", "created_by")
-            .prefetch_related("items")
-            .get(pk=self.kwargs["quotation_id"])
-        )
-
-
 class KarizInvoicePrintView(PrintableDocumentView):
     required_feature = "invoices"
     template_name = "common/invoices/print.html"
@@ -783,10 +745,6 @@ class KarizInvoicePrintView(PrintableDocumentView):
             .prefetch_related("items")
             .get(pk=self.kwargs["invoice_id"])
         )
-
-
-class KarizQuotationPdfView(DocumentPdfView, KarizQuotationPrintView):
-    pdf_name_prefix = "quotation"
 
 
 class KarizInvoicePdfView(DocumentPdfView, KarizInvoicePrintView):

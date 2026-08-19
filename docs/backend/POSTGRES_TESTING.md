@@ -16,7 +16,7 @@ If PostgreSQL tools are not on `PATH`:
 powershell -NoProfile -File scripts/test-postgres.ps1 -PostgresBin 'C:\Program Files\PostgreSQL\17\bin'
 ```
 
-The harness runs Django checks, migration drift detection, and the full test suite against the temporary PostgreSQL cluster. It stops the cluster in `finally` and removes only the validated `kariz-pgtest-<random-token>` temporary directory.
+The harness runs Django checks, migration drift detection, and the full test suite against the temporary PostgreSQL cluster. It stops the cluster in `finally` and removes only the validated `frooshbin-pgtest-<random-token>` temporary directory.
 
 SQLite test success is logic proof only. Harness success is local PostgreSQL migration, constraint, transaction, and query proof. Neither is production deployment proof.
 
@@ -74,8 +74,8 @@ branch that is unreachable from any production configuration:
 - it runs only when `KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD=1` is set
   explicitly, and any other non-empty value aborts the bootstrap;
 - even then it refuses unless `POSTGRES_DB` matches
-  `(test|contract|restore)_kariz_<32 hex>`, every managed role matches
-  `kariz_(migration|app|backup)_<32 hex>`, the host is `127.0.0.1`, and the port
+  `(test|contract|restore)_frooshbin_<32 hex>`, every managed role matches
+  `frooshbin_(migration|app|backup)_<32 hex>`, the host is `127.0.0.1`, and the port
   is a high port other than 5432 — values a production deployment cannot have;
 - it derives the identical SCRAM-SHA-256 verifier on the client with
   `scripts/pg_scram_verifier.py`, so the plaintext still never reaches the
@@ -133,7 +133,7 @@ cannot reach a production or pre-existing database:
 
 - it runs `initdb` to build a **new throwaway cluster** under the OS temp
   directory rather than connecting to any existing server;
-- the data path must match the `kariz-pgtest-<guid>` prefix, checked both before
+- the data path must match the `frooshbin-pgtest-<guid>` prefix, checked both before
   creation and again before deletion, and it throws instead of deleting anything
   outside that prefix;
 - it binds `127.0.0.1` only, on a random high port, and explicitly rejects 5432
@@ -141,7 +141,7 @@ cannot reach a production or pre-existing database:
 - database names, role names, and passwords are all bound to a random run token;
 - `config/postgres_test_guard.py` independently re-validates the flag, token
   format, loopback host, non-5432 high port, token-matched database name, and
-  the `kariz_test_` user prefix, so a misconfigured environment fails closed;
+  the `frooshbin_test_` user prefix, so a misconfigured environment fails closed;
 - every touched environment variable and `PATH` is saved and restored in
   `finally`, the cluster is stopped in `finally`, and no password is printed.
 
@@ -154,7 +154,7 @@ any other server.
 The harness used to prove only that the backup role can `pg_dump`; it never
 called `pg_restore`. The only restore verifier,
 `scripts/verify-postgres-restore.sh`, is container-bound (fixed `/backups` and
-`/ops` mounts, a `.kariz-backup-root` sentinel), so it belongs to the Compose
+`/ops` mounts, a `.frooshbin-backup-root` sentinel), so it belongs to the Compose
 `restore-verify` profile and cannot run natively on Windows.
 
 A native restore step now runs inside the harness: it creates a second, separately
@@ -201,4 +201,3 @@ the container-bound restore verifier described above.
   because its correctness depends on concurrency behaviour SQLite does not
   reproduce. Until this gate is green, P4 output is "local-only, PostgreSQL
   proof outstanding".
-

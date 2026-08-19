@@ -4,7 +4,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 
 TOKEN_PATTERN = re.compile(r"^[a-f0-9]{32}$")
-RESTORE_NAME_PATTERN = re.compile(r"^restore_forooshbin_[a-f0-9]{32}$")
+RESTORE_NAME_PATTERN = re.compile(r"^restore_frooshbin_[a-f0-9]{32}$")
 
 
 def is_ephemeral_restore_database(name):
@@ -50,7 +50,7 @@ def build_postgres_restore_database(environment):
             "PostgreSQL restore proof must use a high port other than 5432."
         )
 
-    expected_name = f"restore_forooshbin_{token}"
+    expected_name = f"restore_frooshbin_{token}"
     name = environment.get("KARIZ_PG_RESTORE_NAME")
     if name != expected_name or not is_ephemeral_restore_database(name):
         raise ImproperlyConfigured(
@@ -59,7 +59,7 @@ def build_postgres_restore_database(environment):
 
     # The point of this settings module is to exercise the runtime role, so the
     # migration and initialisation logins are rejected outright.
-    expected_user = f"forooshbin_app_{token}"
+    expected_user = f"frooshbin_app_{token}"
     if environment.get("KARIZ_PG_RESTORE_USER") != expected_user:
         raise ImproperlyConfigured(
             "PostgreSQL restore proof must use the ordinary application login."

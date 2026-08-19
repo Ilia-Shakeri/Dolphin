@@ -23,9 +23,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$sentinelName = ".kariz-backup-root"
-$sentinelValue = "KARIZ_BACKUP_ROOT_V1"
-$backupNamePattern = "^kariz-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$"
+$backupNamePattern = "^(?:frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$"
 
 function Test-SamePath {
     param(
@@ -61,12 +59,21 @@ function Get-ValidatedBackupRoot {
     if ($resolved.TrimEnd($trimCharacters) -eq $volumeRoot.TrimEnd($trimCharacters)) {
         throw "BackupRoot cannot be a filesystem root."
     }
-    $sentinelPath = Join-Path $resolved $sentinelName
-    if (-not (Test-Path -LiteralPath $sentinelPath -PathType Leaf)) {
+    $sentinels = @(
+        @{ Path = (Join-Path $resolved ".frooshbin-backup-root"); Value = "FROOSHBIN_BACKUP_ROOT_V1" },
+        @{ Path = (Join-Path $resolved ".kariz-backup-root"); Value = "KARIZ_BACKUP_ROOT_V1" }
+    )
+    $present = @($sentinels | Where-Object { Test-Path -LiteralPath $_.Path })
+    if ($present.Count -eq 0) {
         throw "BackupRoot sentinel is missing."
     }
-    if ((Get-Content -LiteralPath $sentinelPath -Raw).Trim() -cne $sentinelValue) {
-        throw "BackupRoot sentinel value is invalid."
+    foreach ($sentinel in $present) {
+        $sentinelItem = Get-Item -LiteralPath $sentinel.Path -Force
+        if (-not (Test-Path -LiteralPath $sentinel.Path -PathType Leaf) -or
+            ($sentinelItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            (Get-Content -LiteralPath $sentinel.Path -Raw).Trim() -cne $sentinel.Value) {
+            throw "BackupRoot sentinel value is invalid."
+        }
     }
     return $resolved
 }
@@ -134,7 +141,7 @@ if (-not (Test-SamePath -Left (Split-Path $resolvedBackupFile -Parent) -Right $r
 }
 $backupLeaf = Split-Path $resolvedBackupFile -Leaf
 if ($backupLeaf -notmatch $backupNamePattern) {
-    throw "BackupFile name does not match the Kariz backup pattern."
+    throw "BackupFile name does not match the FrooshBin or legacy Kariz backup pattern."
 }
 $checksumPath = "$resolvedBackupFile.sha256"
 if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) {
@@ -170,8 +177,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $runToken = [Guid]::NewGuid().ToString("N")
-$databaseName = "kariz_restore_verify_$runToken"
-$databaseNamePattern = "^kariz_restore_verify_[0-9a-f]{32}$"
+$databaseName = "frooshbin_restore_verify_$runToken"
+$databaseNamePattern = "^frooshbin_restore_verify_[0-9a-f]{32}$"
 if ($databaseName -notmatch $databaseNamePattern) {
     throw "Generated restore database name is unsafe."
 }
@@ -214,12 +221,12 @@ try {
     }
     $verificationOutput = & $psql @connectionArguments "--dbname=$databaseName" "--tuples-only" "--no-align" "--set=ON_ERROR_STOP=1" "--file=$verificationSql"
     if ($LASTEXITCODE -ne 0 -or (($verificationOutput | ForEach-Object { [string]$_ }) -join "").Trim() -ne "1") {
-        throw "Restored Kariz schema verification failed."
+        throw "Restored FrooshBin schema verification failed."
     }
     $verified = $true
 } finally {
     if ($created) {
-        $expectedDatabaseName = "kariz_restore_verify_$runToken"
+        $expectedDatabaseName = "frooshbin_restore_verify_$runToken"
         if ($databaseName -cne $expectedDatabaseName -or $databaseName -notmatch $databaseNamePattern) {
             throw "Unsafe disposable database cleanup target."
         }

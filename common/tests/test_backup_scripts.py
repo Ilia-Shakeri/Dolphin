@@ -38,7 +38,7 @@ class BackupScriptTests(SimpleTestCase):
         restore = RESTORE_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn("KARIZ_BACKUP_ROOT_V1", backup)
-        self.assertIn("Get-Content -LiteralPath $sentinelPath -Raw", backup)
+        self.assertIn("Get-Content -LiteralPath $sentinel.Path -Raw", backup)
         self.assertIn("pg_restore", backup)
         self.assertIn("Get-FileHash -LiteralPath $tempDumpPath -Algorithm SHA256", backup)
         self.assertIn("Move-Item -LiteralPath $tempDumpPath", backup)
@@ -54,7 +54,7 @@ class BackupScriptTests(SimpleTestCase):
 
         self.assertIn("[Net.IPAddress]::IsLoopback", restore)
         self.assertIn("$TargetPort -le 1024 -or $TargetPort -eq 5432", restore)
-        self.assertIn('"kariz_restore_verify_$runToken"', restore)
+        self.assertIn('"frooshbin_restore_verify_$runToken"', restore)
         self.assertIn("Backup checksum verification failed.", restore)
         self.assertIn("Disposable target database already exists.", restore)
         self.assertIn("} finally {", restore)
@@ -80,7 +80,7 @@ class BackupScriptTests(SimpleTestCase):
         self.assertIn("candidate_hash", backup)
         self.assertIn('rm -f -- "$candidate"', backup)
         self.assertIn('rm -f -- "$checksum_path"', backup)
-        self.assertIn('lock_dir="$POSTGRES_BACKUP_ROOT/.kariz-backup.lock"', backup)
+        self.assertIn('lock_dir="$POSTGRES_BACKUP_ROOT/.frooshbin-backup.lock"', backup)
         self.assertIn('mkdir -m 0700 "$lock_dir"', backup)
         self.assertIn('rmdir "$lock_dir"', backup)
         self.assertIn("Another backup run or a stale exact backup lock exists.", backup)
@@ -115,7 +115,7 @@ class BackupScriptTests(SimpleTestCase):
         self.assertIn("POSTGRES_RESTORE_TMPFS_SIZE_BYTES", service["tmpfs"][0])
         self.assertTrue(compose["volumes"]["backup_data"]["external"])
 
-        self.assertIn("Pass one exact Kariz archive name.", restore)
+        self.assertIn("Pass one exact FrooshBin or legacy Kariz archive name.", restore)
         self.assertIn("KARIZ_BACKUP_ROOT_V1", restore)
         self.assertIn("sha256sum", restore)
         self.assertIn("pg_restore --list", restore)
@@ -134,7 +134,8 @@ class BackupScriptTests(SimpleTestCase):
         backup = BACKUP_SCRIPT.read_text(encoding="utf-8")
         restore = RESTORE_SCRIPT.read_text(encoding="utf-8")
         for script in (backup, restore):
-            self.assertIn("kariz-pg-", script)
+            self.assertIn("frooshbin", script)
+            self.assertIn("kariz", script)
             self.assertIn("[0-9]{8}T[0-9]{6}Z-", script)
             self.assertIn("[0-9a-f]{32}", script)
         self.assertIn('"$hash  $backupName`n"', backup)
@@ -319,10 +320,10 @@ class BackupScriptTests(SimpleTestCase):
         self.assertIn("recreate only `nginx`", edge_rollback)
         self.assertIn("# kariz-write-stop: on", edge_rollback)
         self.assertNotIn("migrate python manage.py migrate", edge_rollback)
-        self.assertIn("/backups/.kariz-backup.lock", backup_restore)
+        self.assertIn("/backups/.frooshbin-backup.lock", backup_restore)
         self.assertIn("ps --all backup", backup_restore)
-        self.assertIn("rmdir /backups/.kariz-backup.lock", backup_restore)
-        self.assertNotIn("rm -rf /backups/.kariz-backup.lock", backup_restore)
+        self.assertIn("rmdir /backups/.frooshbin-backup.lock", backup_restore)
+        self.assertNotIn("rm -rf /backups/.frooshbin-backup.lock", backup_restore)
         self.assertNotIn("docker compose build", checklist)
         self.assertNotIn("docker compose build", tls)
         self.assertIn("docker compose pull", checklist)
@@ -386,6 +387,30 @@ class BackupScriptTests(SimpleTestCase):
             )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("connection string", (result.stdout + result.stderr).lower())
+
+    @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
+    def test_backup_rejects_one_bad_sentinel_when_both_exist(self):
+        with tempfile.TemporaryDirectory() as backup_root:
+            root = Path(backup_root)
+            (root / ".frooshbin-backup-root").write_text(
+                "FROOSHBIN_BACKUP_ROOT_V1\n", encoding="ascii"
+            )
+            (root / ".kariz-backup-root").write_text("bad\n", encoding="ascii")
+            result = self._run_script(
+                BACKUP_SCRIPT,
+                "-BackupRoot",
+                root,
+                "-DatabaseHost",
+                "127.0.0.1",
+                "-DatabasePort",
+                "5432",
+                "-DatabaseName",
+                "frooshbin",
+                "-DatabaseUser",
+                "frooshbin_backup",
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("sentinel value is invalid", (result.stdout + result.stderr).lower())
 
     @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
     def test_restore_refuses_unsafe_target_before_backup_or_tool_lookup(self):

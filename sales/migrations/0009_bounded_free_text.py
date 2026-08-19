@@ -16,8 +16,8 @@ def reject_oversized_text(apps, schema_editor):
     for model_name, field_name, limit in TEXT_LIMITS:
         model = apps.get_model("sales", model_name)
         row_ids = list(
-            model.objects.annotate(_kariz_text_length=Length(field_name))
-            .filter(_kariz_text_length__gt=limit)
+            model.objects.annotate(_frooshbin_text_length=Length(field_name))
+            .filter(_frooshbin_text_length__gt=limit)
             .order_by("pk")
             .values_list("pk", flat=True)[:21]
         )

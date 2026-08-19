@@ -138,7 +138,14 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         )
         self.assertEqual(
             self.services["db"]["volumes"],
-            ["postgres_data:/var/lib/postgresql/data"],
+            [
+                "postgres_data:/var/lib/postgresql/data",
+                "./scripts/postgres-entrypoint.sh:/ops/postgres-entrypoint.sh:ro",
+            ],
+        )
+        self.assertEqual(
+            self.services["db"]["entrypoint"],
+            ["sh", "/ops/postgres-entrypoint.sh"],
         )
         backup_volume = self.compose["volumes"]["backup_data"]
         self.assertTrue(backup_volume["external"])
@@ -198,8 +205,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertNotIn("REASSIGN OWNED", self.bootstrap)
 
     def test_backup_role_is_read_only_and_future_safe(self):
-        self.assertIn("Kariz managed backup role v1", self.bootstrap)
-        self.assertIn("POSTGRES_BACKUP_USER already exists but is not Kariz-managed.", self.bootstrap)
+        self.assertIn("FrooshBin managed backup role v1", self.bootstrap)
+        self.assertIn("POSTGRES_BACKUP_USER already exists but is not FrooshBin-managed.", self.bootstrap)
         self.assertIn("REVOKE ALL ON DATABASE %I FROM %I', :'db_name', :'backup_user'", self.bootstrap)
         self.assertIn("GRANT CONNECT ON DATABASE %I TO %I', :'db_name', :'backup_user'", self.bootstrap)
         self.assertIn("REVOKE ALL ON SCHEMA public FROM %I', :'backup_user'", self.bootstrap)
@@ -442,11 +449,11 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         # unreachable without an explicit opt-in and throwaway identifiers.
         self.assertIn('NONINTERACTIVE_PASSWORD="${KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"', self.bootstrap)
         self.assertIn(
-            "EPHEMERAL_DB_PATTERN='^(test|contract|restore)_kariz_[0-9a-f]{32}$'",
+            "EPHEMERAL_DB_PATTERN='^(test|contract|restore)_frooshbin_[0-9a-f]{32}$'",
             self.bootstrap,
         )
         self.assertIn(
-            "EPHEMERAL_ROLE_PATTERN='^kariz_(migration|app|backup)_[0-9a-f]{32}$'",
+            "EPHEMERAL_ROLE_PATTERN='^frooshbin_(migration|app|backup)_[0-9a-f]{32}$'",
             self.bootstrap,
         )
         self.assertIn("Refusing the non-interactive password path.", self.bootstrap)
@@ -535,7 +542,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertNotIn("drop database", self.bootstrap.lower())
         self.assertIn("PostgreSQL role names must be distinct.", self.bootstrap)
         self.assertIn("PostgreSQL role passwords must be distinct.", self.bootstrap)
-        self.assertIn("already exists but is not Kariz-managed", self.bootstrap)
+        self.assertIn("already exists but is not FrooshBin-managed", self.bootstrap)
         self.assertIn("ALTER ROLE %I RESET ALL", self.bootstrap)
         self.assertIn("ALTER ROLE %I IN DATABASE %I RESET ALL", self.bootstrap)
         self.assertIn("SET search_path TO public, pg_catalog", self.bootstrap)

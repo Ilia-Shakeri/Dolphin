@@ -173,7 +173,7 @@
                                 </div>
                                 {% endif %}
 
-                                {% if "quotations" in features and "quotations.scoped" in capabilities or "quotations" in features and "quotations.company" in capabilities or "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}
+                                {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="billing" data-nav-group="billing" class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-document fs-2"><span class="path1"></span><span class="path2"></span></i></span>
@@ -181,7 +181,6 @@
                                         <span class="menu-arrow"></span>
                                     </span>
                                     <div class="menu-sub menu-sub-accordion">
-                                        {% if "quotations" in features and "quotations.scoped" in capabilities or "quotations" in features and "quotations.company" in capabilities %}<div class="menu-item"><a data-module="quotations" class="menu-link" href="{% url 'common_ui:quotations' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">پیش‌فاکتورها</span></a></div>{% endif %}
                                         {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities %}<div class="menu-item"><a data-module="orders" class="menu-link" href="{% url 'common_ui:orders' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">سفارش‌ها</span></a></div>{% endif %}
                                         {% if "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}<div class="menu-item"><a data-module="invoices" class="menu-link" href="{% url 'common_ui:invoices' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">فاکتورها</span></a></div>{% endif %}
                                     </div>

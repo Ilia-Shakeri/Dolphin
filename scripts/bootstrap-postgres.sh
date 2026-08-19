@@ -32,6 +32,34 @@ require_identifier() {
     fi
 }
 
+ALLOW_LEGACY="${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}"
+case "$ALLOW_LEGACY" in
+    true|false) ;;
+    *) echo "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES must be true or false." >&2; exit 2 ;;
+esac
+
+require_database_identity() {
+    case "$2" in
+        frooshbin|frooshbin_*) return ;;
+        kariz|kariz_*|forooshbin|forooshbin_*) [ "$ALLOW_LEGACY" = true ] && return ;;
+    esac
+    if printf '%s' "$2" | LC_ALL=C grep -Eq \
+        '^(test|contract|restore)_frooshbin_[0-9a-f]{32}$'; then
+        return
+    fi
+    echo "$1 must use the frooshbin database identity." >&2
+    exit 2
+}
+
+require_role_identity() {
+    case "$2" in
+        frooshbin_*) return ;;
+        kariz_*|forooshbin_*) [ "$ALLOW_LEGACY" = true ] && return ;;
+    esac
+    echo "$1 must use the frooshbin_ role identity." >&2
+    exit 2
+}
+
 require_value POSTGRES_HOST "${POSTGRES_HOST:-}"
 require_value POSTGRES_PORT "${POSTGRES_PORT:-}"
 require_identifier POSTGRES_DB "${POSTGRES_DB:-}"
@@ -39,6 +67,11 @@ require_identifier POSTGRES_INIT_USER "${POSTGRES_INIT_USER:-}"
 require_identifier POSTGRES_MIGRATION_USER "${POSTGRES_MIGRATION_USER:-}"
 require_identifier POSTGRES_APP_USER "${POSTGRES_APP_USER:-}"
 require_identifier POSTGRES_BACKUP_USER "${POSTGRES_BACKUP_USER:-}"
+require_database_identity POSTGRES_DB "$POSTGRES_DB"
+require_role_identity POSTGRES_INIT_USER "$POSTGRES_INIT_USER"
+require_role_identity POSTGRES_MIGRATION_USER "$POSTGRES_MIGRATION_USER"
+require_role_identity POSTGRES_APP_USER "$POSTGRES_APP_USER"
+require_role_identity POSTGRES_BACKUP_USER "$POSTGRES_BACKUP_USER"
 require_secret POSTGRES_INIT_PASSWORD "${POSTGRES_INIT_PASSWORD:-}"
 require_secret POSTGRES_MIGRATION_PASSWORD "${POSTGRES_MIGRATION_PASSWORD:-}"
 require_secret POSTGRES_APP_PASSWORD "${POSTGRES_APP_PASSWORD:-}"
@@ -79,8 +112,8 @@ fi
 # unreachable from this branch because a production database and role name can
 # never match the disposable-proof patterns below.
 NONINTERACTIVE_PASSWORD="${KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"
-EPHEMERAL_DB_PATTERN='^(test|contract|restore)_kariz_[0-9a-f]{32}$'
-EPHEMERAL_ROLE_PATTERN='^kariz_(migration|app|backup)_[0-9a-f]{32}$'
+EPHEMERAL_DB_PATTERN='^(test|contract|restore)_frooshbin_[0-9a-f]{32}$'
+EPHEMERAL_ROLE_PATTERN='^frooshbin_(migration|app|backup)_[0-9a-f]{32}$'
 VERIFIER_PATTERN='^SCRAM-SHA-256\$[0-9]+:[A-Za-z0-9+/]+=*\$[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*$'
 
 refuse_noninteractive() {
@@ -91,10 +124,10 @@ refuse_noninteractive() {
 
 require_ephemeral_proof_context() {
     printf '%s' "$POSTGRES_DB" | LC_ALL=C grep -Eq "$EPHEMERAL_DB_PATTERN" || \
-        refuse_noninteractive "POSTGRES_DB is not a disposable Kariz proof database."
+        refuse_noninteractive "POSTGRES_DB is not a disposable FrooshBin proof database."
     for proof_role in "$POSTGRES_MIGRATION_USER" "$POSTGRES_APP_USER" "$POSTGRES_BACKUP_USER"; do
         printf '%s' "$proof_role" | LC_ALL=C grep -Eq "$EPHEMERAL_ROLE_PATTERN" || \
-            refuse_noninteractive "A managed role name is not a disposable Kariz proof role."
+            refuse_noninteractive "A managed role name is not a disposable FrooshBin proof role."
     done
     if [ "$POSTGRES_HOST" != "127.0.0.1" ]; then
         refuse_noninteractive "The non-interactive path is limited to the IPv4 loopback host."
@@ -132,6 +165,14 @@ emit_variables() {
     printf "\\set migration_user '%s'\n" "$POSTGRES_MIGRATION_USER"
     printf "\\set app_user '%s'\n" "$POSTGRES_APP_USER"
     printf "\\set backup_user '%s'\n" "$POSTGRES_BACKUP_USER"
+    case "$POSTGRES_MIGRATION_USER" in kariz_*|forooshbin_*) printf "\\set migration_is_legacy '1'\n" ;; *) printf "\\set migration_is_legacy '0'\n" ;; esac
+    case "$POSTGRES_APP_USER" in kariz_*|forooshbin_*) printf "\\set app_is_legacy '1'\n" ;; *) printf "\\set app_is_legacy '0'\n" ;; esac
+    case "$POSTGRES_BACKUP_USER" in kariz_*|forooshbin_*) printf "\\set backup_is_legacy '1'\n" ;; *) printf "\\set backup_is_legacy '0'\n" ;; esac
+    if [ "$ALLOW_LEGACY" = true ]; then
+        printf "\\set allow_legacy_comments '1'\n"
+    else
+        printf "\\set allow_legacy_comments '0'\n"
+    fi
 }
 
 set_role_password_from_client_hash() {
@@ -158,9 +199,9 @@ SELECT COALESCE(
 \if :stored_password_is_scram
 \else
     \echo 'The managed role password was not stored as a SCRAM-SHA-256 verifier.'
-    DO $kariz_guard$ BEGIN
+    DO $frooshbin_guard$ BEGIN
         RAISE EXCEPTION 'The managed role password was not stored as a SCRAM-SHA-256 verifier.';
-    END $kariz_guard$;
+    END $frooshbin_guard$;
 \endif
 SQL
     } | psql \
@@ -202,57 +243,66 @@ SELECT EXISTS (
 \if :init_is_superuser
 \else
     \echo 'POSTGRES_INIT_USER must be an existing PostgreSQL superuser.'
-    DO $kariz_guard$ BEGIN
+    DO $frooshbin_guard$ BEGIN
         RAISE EXCEPTION 'POSTGRES_INIT_USER must be an existing PostgreSQL superuser.';
-    END $kariz_guard$;
+    END $frooshbin_guard$;
 \endif
 
-SELECT NOT EXISTS (
+SELECT (:'migration_is_legacy' = '0' AND NOT EXISTS (
     SELECT 1 FROM pg_roles WHERE rolname = :'migration_user'
-) OR EXISTS (
+)) OR EXISTS (
     SELECT 1
     FROM pg_roles
     WHERE rolname = :'migration_user'
-      AND shobj_description(oid, 'pg_authid') = 'Kariz managed migration role v1'
+      AND (
+        shobj_description(oid, 'pg_authid') = 'FrooshBin managed migration role v1'
+        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') = 'Kariz managed migration role v1')
+      )
 ) AS migration_role_is_managed \gset
 \if :migration_role_is_managed
 \else
-    \echo 'POSTGRES_MIGRATION_USER already exists but is not Kariz-managed.'
-    DO $kariz_guard$ BEGIN
-        RAISE EXCEPTION 'POSTGRES_MIGRATION_USER already exists but is not Kariz-managed.';
-    END $kariz_guard$;
+    \echo 'POSTGRES_MIGRATION_USER already exists but is not FrooshBin-managed.'
+    DO $frooshbin_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_MIGRATION_USER already exists but is not FrooshBin-managed.';
+    END $frooshbin_guard$;
 \endif
 
-SELECT NOT EXISTS (
+SELECT (:'app_is_legacy' = '0' AND NOT EXISTS (
     SELECT 1 FROM pg_roles WHERE rolname = :'app_user'
-) OR EXISTS (
+)) OR EXISTS (
     SELECT 1
     FROM pg_roles
     WHERE rolname = :'app_user'
-      AND shobj_description(oid, 'pg_authid') = 'Kariz managed application role v1'
+      AND (
+        shobj_description(oid, 'pg_authid') = 'FrooshBin managed application role v1'
+        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') = 'Kariz managed application role v1')
+      )
 ) AS app_role_is_managed \gset
 \if :app_role_is_managed
 \else
-    \echo 'POSTGRES_APP_USER already exists but is not Kariz-managed.'
-    DO $kariz_guard$ BEGIN
-        RAISE EXCEPTION 'POSTGRES_APP_USER already exists but is not Kariz-managed.';
-    END $kariz_guard$;
+    \echo 'POSTGRES_APP_USER already exists but is not FrooshBin-managed.'
+    DO $frooshbin_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_APP_USER already exists but is not FrooshBin-managed.';
+    END $frooshbin_guard$;
 \endif
 
-SELECT NOT EXISTS (
+SELECT (:'backup_is_legacy' = '0' AND NOT EXISTS (
     SELECT 1 FROM pg_roles WHERE rolname = :'backup_user'
-) OR EXISTS (
+)) OR EXISTS (
     SELECT 1
     FROM pg_roles
     WHERE rolname = :'backup_user'
-      AND shobj_description(oid, 'pg_authid') = 'Kariz managed backup role v1'
+      AND (
+        shobj_description(oid, 'pg_authid') = 'FrooshBin managed backup role v1'
+        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') = 'Kariz managed backup role v1')
+      )
 ) AS backup_role_is_managed \gset
 \if :backup_role_is_managed
 \else
-    \echo 'POSTGRES_BACKUP_USER already exists but is not Kariz-managed.'
-    DO $kariz_guard$ BEGIN
-        RAISE EXCEPTION 'POSTGRES_BACKUP_USER already exists but is not Kariz-managed.';
-    END $kariz_guard$;
+    \echo 'POSTGRES_BACKUP_USER already exists but is not FrooshBin-managed.'
+    DO $frooshbin_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_BACKUP_USER already exists but is not FrooshBin-managed.';
+    END $frooshbin_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -263,10 +313,10 @@ SELECT NOT EXISTS (
 ) AS managed_roles_have_no_members \gset
 \if :managed_roles_have_no_members
 \else
-    \echo 'A Kariz-managed PostgreSQL role is granted to another role.'
-    DO $kariz_guard$ BEGIN
-        RAISE EXCEPTION 'A Kariz-managed PostgreSQL role is granted to another role.';
-    END $kariz_guard$;
+    \echo 'A FrooshBin-managed PostgreSQL role is granted to another role.'
+    DO $frooshbin_guard$ BEGIN
+        RAISE EXCEPTION 'A FrooshBin-managed PostgreSQL role is granted to another role.';
+    END $frooshbin_guard$;
 \endif
 
 SELECT format('CREATE ROLE %I', :'migration_user')
@@ -306,17 +356,17 @@ SELECT format(
 SELECT format(
     'COMMENT ON ROLE %I IS %L',
     :'migration_user',
-    'Kariz managed migration role v1'
+    'FrooshBin managed migration role v1'
 ) \gexec
 SELECT format(
     'COMMENT ON ROLE %I IS %L',
     :'app_user',
-    'Kariz managed application role v1'
+    'FrooshBin managed application role v1'
 ) \gexec
 SELECT format(
     'COMMENT ON ROLE %I IS %L',
     :'backup_user',
-    'Kariz managed backup role v1'
+    'FrooshBin managed backup role v1'
 ) \gexec
 
 SELECT format('REVOKE %I FROM %I', granted.rolname, :'migration_user')
@@ -443,9 +493,9 @@ SELECT NOT EXISTS (
 \if :relation_owners_are_safe
 \else
     \echo 'A first-party public relation has an unapproved owner.'
-    DO $kariz_guard$ BEGIN
+    DO $frooshbin_guard$ BEGIN
         RAISE EXCEPTION 'A first-party public relation has an unapproved owner.';
-    END $kariz_guard$;
+    END $frooshbin_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -466,9 +516,9 @@ SELECT NOT EXISTS (
 \if :routine_owners_are_safe
 \else
     \echo 'A first-party public routine has an unapproved owner.'
-    DO $kariz_guard$ BEGIN
+    DO $frooshbin_guard$ BEGIN
         RAISE EXCEPTION 'A first-party public routine has an unapproved owner.';
-    END $kariz_guard$;
+    END $frooshbin_guard$;
 \endif
 
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'db_name') \gexec

@@ -1,4 +1,15 @@
-# ForooshBin project handoff
+# FrooshBin project handoff
+
+## FrooshBin database identity and quotation panel cut (2026-08-19)
+
+- Fresh database identity is `frooshbin`: roles are `frooshbin_init`, `frooshbin_migration`, `frooshbin_app`, and `frooshbin_backup`. Stable `KARIZ_*` environment keys remain compatibility contracts.
+- `FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES=false` is the default. Setting it to `true` permits an existing `kariz_*` or `forooshbin_*` installation to boot; it never renames a live role or owner.
+- PostgreSQL image startup now runs `scripts/postgres-entrypoint.sh` before the official entrypoint. A fresh invalid database or init-role prefix fails before role creation.
+- New archives, sentinels, locks, proof roles, proof databases, and temporary proof paths use `frooshbin`. Exact old Kariz archive and sentinel forms remain read-only restore/retention input.
+- The quotation browser panel is removed: no menu item, template, JavaScript handler, or `/quotations/...` UI route remains. The quotation API, models, rows, audit history, permissions, feature flag, and optional order/invoice links remain unchanged.
+- The browser billing proof creates an order directly, then confirms it, raises an invoice, and takes payment.
+
+This section supersedes older inventory tables or notes that describe quotation list/detail/print pages as live panel UI.
 
 این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
@@ -597,7 +608,7 @@ git diff --check                        → 0
 
 ### پاکسازی
 
-پس از اجرا شمارش شد: صفر فرآیند `postgres`، صفر فرآیند `psql`، صفر پوشه `kariz-pgtest-*`.
+پس از اجرا شمارش شد: صفر فرآیند `postgres`، صفر فرآیند `psql`، صفر پوشه `frooshbin-pgtest-*`.
 
 ### آنچه هنوز انجام نشده و blocker دقیق آن
 
@@ -790,7 +801,7 @@ manage.py test → Ran 466 tests, OK (skipped=7)
 
 ### پاکسازی
 
-هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `kariz-pgtest-*` باقی نماند (پس از اجرا شمارش شد: صفر و صفر).
+هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `frooshbin-pgtest-*` باقی نماند (پس از اجرا شمارش شد: صفر و صفر).
 
 ## ۰.۰ تلاش قبلی فاز `P0R.2` — **`BLOCKED_ENVIRONMENT`** (۲۰۲۶/۰۸/۱۵، منسوخ‌شده توسط بخش بالا)
 
@@ -823,13 +834,13 @@ communications.tests.test_sms.InboundSMSConcurrencyTests
 
 ### ممیزی ایمنی harness (ایستا — قبول)
 
-`scripts/test-postgres.ps1` پیش از هر تلاش اجرا کامل خوانده شد. نمی‌تواند به دیتابیس تولید یا هر سرور موجود برسد: با `initdb` یک cluster یک‌بارمصرف تازه در temp می‌سازد (به سرور موجود وصل نمی‌شود)؛ مسیر داده باید با پیشوند `kariz-pgtest-<guid>` مطابقت کند و این هم پیش از ساخت و هم پیش از حذف بررسی می‌شود و در غیر این صورت throw می‌کند؛ فقط `127.0.0.1` روی یک پورت بالای تصادفی bind می‌شود و پورت ۵۴۳۲ و ≤۱۰۲۴ صریحا رد می‌شوند؛ نام دیتابیس/نقش/رمز همگی به run token تصادفی گره خورده‌اند؛ `config/postgres_test_guard.py` مستقلا همه این‌ها را دوباره اعتبارسنجی می‌کند و fail-closed است؛ هر متغیر محیطی و `PATH` در `finally` بازگردانده می‌شود و هیچ رمزی چاپ نمی‌شود.
+`scripts/test-postgres.ps1` پیش از هر تلاش اجرا کامل خوانده شد. نمی‌تواند به دیتابیس تولید یا هر سرور موجود برسد: با `initdb` یک cluster یک‌بارمصرف تازه در temp می‌سازد (به سرور موجود وصل نمی‌شود)؛ مسیر داده باید با پیشوند `frooshbin-pgtest-<guid>` مطابقت کند و این هم پیش از ساخت و هم پیش از حذف بررسی می‌شود و در غیر این صورت throw می‌کند؛ فقط `127.0.0.1` روی یک پورت بالای تصادفی bind می‌شود و پورت ۵۴۳۲ و ≤۱۰۲۴ صریحا رد می‌شوند؛ نام دیتابیس/نقش/رمز همگی به run token تصادفی گره خورده‌اند؛ `config/postgres_test_guard.py` مستقلا همه این‌ها را دوباره اعتبارسنجی می‌کند و fail-closed است؛ هر متغیر محیطی و `PATH` در `finally` بازگردانده می‌شود و هیچ رمزی چاپ نمی‌شود.
 
 با اجرا تایید شد: در نبود ابزار، harness در مرحله تشخیص ابزار متوقف می‌شود (`CommandNotFoundException` روی `initdb`) و **به هیچ سرور دیگری fallback نمی‌کند**.
 
 ### شکاف پوشش کشف‌شده حین ممیزی
 
-harness فقط ثابت می‌کند نقش backup می‌تواند `pg_dump` بگیرد؛ **هرگز `pg_restore` را صدا نمی‌زند**. تنها تاییدکننده restore یعنی `scripts/verify-postgres-restore.sh` وابسته به کانتینر است (مسیرهای ثابت `/backups` و `/ops` و sentinel `.kariz-backup-root`) و روی ویندوز به‌صورت native اجرا نمی‌شود.
+harness فقط ثابت می‌کند نقش backup می‌تواند `pg_dump` بگیرد؛ **هرگز `pg_restore` را صدا نمی‌زند**. تنها تاییدکننده restore یعنی `scripts/verify-postgres-restore.sh` وابسته به کانتینر است (مسیرهای ثابت `/backups` و `/ops` و sentinel `.frooshbin-backup-root`) و روی ویندوز به‌صورت native اجرا نمی‌شود.
 
 یعنی حتی پس از نصب PostgreSQL، نیمه «restore ایزوله» از گیت P0R.2 به یکی از این دو نیاز دارد: Docker به‌همراه profile `restore-verify`، یا افزودن یک گام restore native کوچک به harness (`createdb` دوم، `pg_restore`، سپس اجرای `verify-postgres-schema.sql` روی آن). این یک شکاف ابزار است، نه نقص اپلیکیشن.
 

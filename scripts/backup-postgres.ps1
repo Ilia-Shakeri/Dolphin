@@ -24,10 +24,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$sentinelName = ".kariz-backup-root"
-$sentinelValue = "KARIZ_BACKUP_ROOT_V1"
-$backupNamePattern = "^kariz-pg-(?<timestamp>[0-9]{8}T[0-9]{6}Z)-(?<token>[0-9a-f]{32})[.]dump$"
-$checksumNamePattern = "^kariz-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump[.]sha256$"
+$backupNamePattern = "^(?:frooshbin|kariz)-pg-(?<timestamp>[0-9]{8}T[0-9]{6}Z)-(?<token>[0-9a-f]{32})[.]dump$"
+$checksumNamePattern = "^(?:frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump[.]sha256$"
 
 function Test-SamePath {
     param(
@@ -63,12 +61,21 @@ function Get-ValidatedBackupRoot {
     if ($resolved.TrimEnd($trimCharacters) -eq $volumeRoot.TrimEnd($trimCharacters)) {
         throw "BackupRoot cannot be a filesystem root."
     }
-    $sentinelPath = Join-Path $resolved $sentinelName
-    if (-not (Test-Path -LiteralPath $sentinelPath -PathType Leaf)) {
+    $sentinels = @(
+        @{ Path = (Join-Path $resolved ".frooshbin-backup-root"); Value = "FROOSHBIN_BACKUP_ROOT_V1" },
+        @{ Path = (Join-Path $resolved ".kariz-backup-root"); Value = "KARIZ_BACKUP_ROOT_V1" }
+    )
+    $present = @($sentinels | Where-Object { Test-Path -LiteralPath $_.Path })
+    if ($present.Count -eq 0) {
         throw "BackupRoot sentinel is missing."
     }
-    if ((Get-Content -LiteralPath $sentinelPath -Raw).Trim() -cne $sentinelValue) {
-        throw "BackupRoot sentinel value is invalid."
+    foreach ($sentinel in $present) {
+        $sentinelItem = Get-Item -LiteralPath $sentinel.Path -Force
+        if (-not (Test-Path -LiteralPath $sentinel.Path -PathType Leaf) -or
+            ($sentinelItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+            (Get-Content -LiteralPath $sentinel.Path -Raw).Trim() -cne $sentinel.Value) {
+            throw "BackupRoot sentinel value is invalid."
+        }
     }
     return $resolved
 }
@@ -183,7 +190,7 @@ if ($DatabaseName.Contains("=") -or $DatabaseName.Contains("://")) {
 
 $runToken = [Guid]::NewGuid().ToString("N")
 $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ", [Globalization.CultureInfo]::InvariantCulture)
-$backupName = "kariz-pg-$timestamp-$runToken.dump"
+$backupName = "frooshbin-pg-$timestamp-$runToken.dump"
 if ($backupName -notmatch $backupNamePattern) {
     throw "Generated backup name is unsafe."
 }

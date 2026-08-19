@@ -27,8 +27,8 @@ def valid_environment(**overrides):
         "KARIZ_PG_RESTORE_TOKEN": TOKEN,
         "KARIZ_PG_RESTORE_HOST": "127.0.0.1",
         "KARIZ_PG_RESTORE_PORT": "54321",
-        "KARIZ_PG_RESTORE_NAME": f"restore_forooshbin_{TOKEN}",
-        "KARIZ_PG_RESTORE_USER": f"forooshbin_app_{TOKEN}",
+        "KARIZ_PG_RESTORE_NAME": f"restore_frooshbin_{TOKEN}",
+        "KARIZ_PG_RESTORE_USER": f"frooshbin_app_{TOKEN}",
         "KARIZ_PG_RESTORE_PASSWORD": "restore-proof-secret-value",
     }
     environment.update(overrides)
@@ -37,7 +37,7 @@ def valid_environment(**overrides):
 
 class EphemeralRestoreNameTests(SimpleTestCase):
     def test_accepts_only_the_exact_ephemeral_pattern(self):
-        self.assertTrue(is_ephemeral_restore_database(f"restore_forooshbin_{TOKEN}"))
+        self.assertTrue(is_ephemeral_restore_database(f"restore_frooshbin_{TOKEN}"))
 
     def test_rejects_non_ephemeral_names(self):
         for name in (
@@ -46,12 +46,12 @@ class EphemeralRestoreNameTests(SimpleTestCase):
             "template1",
             "kariz",
             "kariz_production",
-            "restore_forooshbin_",
-            "restore_forooshbin_short",
-            f"restore_forooshbin_{TOKEN}x",
-            f"x_restore_forooshbin_{TOKEN}",
-            f"restore_forooshbin_{TOKEN.upper()}",
-            f"restore_forooshbin_{TOKEN}; DROP DATABASE kariz",
+            "restore_frooshbin_",
+            "restore_frooshbin_short",
+            f"restore_frooshbin_{TOKEN}x",
+            f"x_restore_frooshbin_{TOKEN}",
+            f"restore_frooshbin_{TOKEN.upper()}",
+            f"restore_frooshbin_{TOKEN}; DROP DATABASE kariz",
             "",
             None,
         ):
@@ -62,8 +62,8 @@ class EphemeralRestoreNameTests(SimpleTestCase):
 class RestoreSettingsGuardTests(SimpleTestCase):
     def test_valid_environment_builds_the_expected_connection(self):
         database = build_postgres_restore_database(valid_environment())
-        self.assertEqual(database["NAME"], f"restore_forooshbin_{TOKEN}")
-        self.assertEqual(database["USER"], f"forooshbin_app_{TOKEN}")
+        self.assertEqual(database["NAME"], f"restore_frooshbin_{TOKEN}")
+        self.assertEqual(database["USER"], f"frooshbin_app_{TOKEN}")
         self.assertEqual(database["HOST"], "127.0.0.1")
         self.assertEqual(database["ENGINE"], "django.db.backends.postgresql")
 
@@ -84,7 +84,7 @@ class RestoreSettingsGuardTests(SimpleTestCase):
                     build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE_PORT=value))
 
     def test_rejects_a_database_outside_the_run_token(self):
-        for name in ("postgres", "kariz", f"restore_forooshbin_{'f' * 32}", "restore_forooshbin_x"):
+        for name in ("postgres", "kariz", f"restore_frooshbin_{'f' * 32}", "restore_frooshbin_x"):
             with self.subTest(name=name):
                 with self.assertRaises(ImproperlyConfigured):
                     build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE_NAME=name))
@@ -93,9 +93,9 @@ class RestoreSettingsGuardTests(SimpleTestCase):
         # The restore proof exists to show the ordinary runtime login works, so
         # an elevated login must not be able to stand in for it.
         for user in (
-            f"forooshbin_migration_{TOKEN}",
+            f"frooshbin_migration_{TOKEN}",
             f"kariz_backup_{TOKEN}",
-            "forooshbin_test_admin",
+            "frooshbin_test_admin",
             "postgres",
         ):
             with self.subTest(user=user):
@@ -123,7 +123,7 @@ class HarnessRestoreContractTests(SimpleTestCase):
         self.assertIn("--single-transaction", self.source)
 
     def test_restore_target_is_a_separate_database(self):
-        self.assertIn('$restoreDatabaseName = "restore_forooshbin_$runToken"', self.source)
+        self.assertIn('$restoreDatabaseName = "restore_frooshbin_$runToken"', self.source)
         self.assertIn("Restore target must be a new, separate database.", self.source)
 
     def test_drop_is_guarded_by_the_ephemeral_name_check(self):
@@ -136,7 +136,7 @@ class HarnessRestoreContractTests(SimpleTestCase):
 
     def test_guard_requires_the_run_token(self):
         self.assertIn("EndsWith($runToken", self.source)
-        self.assertIn("^(test|contract|restore)_kariz_[a-f0-9]{32}$", self.source)
+        self.assertIn("^(test|contract|restore)_frooshbin_[a-f0-9]{32}$", self.source)
 
     def test_cleanup_runs_in_finally(self):
         # The outermost finally is the only one at column 0; nested helpers use

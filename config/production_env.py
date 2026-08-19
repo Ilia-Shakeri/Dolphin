@@ -57,6 +57,23 @@ def _postgres_identifier(environment, name):
     return value
 
 
+def _validate_database_identity(environment, name, *, role):
+    value = _postgres_identifier(environment, name)
+    allow_legacy = _strict_bool(
+        environment, "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES", default=False
+    )
+    fresh = value.startswith("frooshbin_") or (not role and value == "frooshbin")
+    legacy = (
+        value.startswith("kariz_")
+        or value.startswith("forooshbin_")
+        or (not role and value in {"kariz", "forooshbin"})
+    )
+    if not fresh and not (allow_legacy and legacy):
+        kind = "role" if role else "database"
+        _fail(f"{name} must use the frooshbin {kind} identity.")
+    return value
+
+
 def _validate_allowed_hosts(hosts):
     for host in hosts:
         if (
@@ -156,9 +173,9 @@ def validate_production_environment(environment):
         _fail("KARIZ_DATABASE_ROLE must be app or migration.")
 
     role_names = {
-        "init": _postgres_identifier(environment, "POSTGRES_INIT_USER"),
-        "migration": _postgres_identifier(environment, "POSTGRES_MIGRATION_USER"),
-        "app": _postgres_identifier(environment, "POSTGRES_APP_USER"),
+        "init": _validate_database_identity(environment, "POSTGRES_INIT_USER", role=True),
+        "migration": _validate_database_identity(environment, "POSTGRES_MIGRATION_USER", role=True),
+        "app": _validate_database_identity(environment, "POSTGRES_APP_USER", role=True),
     }
     if len(set(role_names.values())) != len(role_names):
         _fail("PostgreSQL role names must be distinct.")
@@ -169,7 +186,7 @@ def validate_production_environment(environment):
         else "POSTGRES_MIGRATION_PASSWORD"
     )
     database = {
-        "NAME": _postgres_identifier(environment, "POSTGRES_DB"),
+        "NAME": _validate_database_identity(environment, "POSTGRES_DB", role=False),
         "USER": role_names[database_role],
         "PASSWORD": _required(environment, password_name),
         "HOST": _required(environment, "POSTGRES_HOST"),

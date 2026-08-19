@@ -25,13 +25,13 @@ def build_postgres_test_database(environment):
     if port <= 1024 or port >= 65536 or port == 5432:
         raise ImproperlyConfigured("PostgreSQL tests must use a high port other than 5432.")
 
-    expected_name = f"test_forooshbin_{token}"
+    expected_name = f"test_frooshbin_{token}"
     if environment.get("KARIZ_PG_TEST_NAME") != expected_name:
         raise ImproperlyConfigured("PostgreSQL test database name does not match the random run token.")
 
     user = environment.get("KARIZ_PG_TEST_USER", "")
-    if not user.startswith("forooshbin_test_"):
-        raise ImproperlyConfigured("PostgreSQL test user must use the forooshbin_test_ prefix.")
+    if not user.startswith("frooshbin_test_"):
+        raise ImproperlyConfigured("PostgreSQL test user must use the frooshbin_test_ prefix.")
 
     return {
         "ENGINE": "django.db.backends.postgresql",

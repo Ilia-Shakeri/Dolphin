@@ -3200,44 +3200,6 @@
         return [line];
     }
 
-    async function setupQuotations() {
-        try {
-            await Promise.all([
-                loadCustomerOptions(document.getElementById("create-quotation-customer"), "یک مشتری انتخاب کنید"),
-                loadProductOptions(document.getElementById("create-quotation-product"), "یک کالا انتخاب کنید"),
-            ]);
-        } catch (error) {
-            showError(error);
-        }
-        setupDocumentList({
-            key: "quotations",
-            prefix: "quotation",
-            detailPath: "/quotations/",
-            endpoint: (page) => {
-                const query = new URLSearchParams({page: String(page)});
-                const search = document.getElementById("quotation-search").value.trim();
-                if (search) query.set("search", search);
-                const status = document.getElementById("quotation-status-filter").value;
-                if (status) query.set("status", status);
-                query.set("ordering", document.getElementById("quotation-ordering").value);
-                return `/api/v1/quotations/?${query}`;
-            },
-            columns: [
-                (row, item) => { appendCell(row, item.number).dir = "ltr"; },
-                (row, item) => appendCell(row, item.customer_name),
-                (row, item) => appendStatusBadgeCell(row, DOCUMENT_STATUS_TEXT, item.status),
-                (row, item) => appendMoneyCell(row, item.total_amount),
-                (row, item) => appendCell(row, displayDate(item.valid_until)),
-                (row, item) => appendCell(row, item.created_by_display || item.created_by),
-            ],
-            createFields: (data) => ({
-                customer: Number(data.get("customer")),
-                tax_rate: String(data.get("tax_rate") || "0"),
-                items: documentFirstLine(data),
-            }),
-        });
-    }
-
     async function setupOrders() {
         try {
             await Promise.all([
@@ -3516,76 +3478,6 @@
                 }
             });
         });
-    }
-
-    async function setupQuotationDetail() {
-        const quotationId = document.body.dataset.quotationId;
-        const endpoint = `/api/v1/quotations/${quotationId}/`;
-        const loading = document.getElementById("quotation-detail-loading");
-        const content = document.getElementById("quotation-detail-content");
-        const workflow = document.getElementById("quotation-workflow");
-        const convertBlock = document.getElementById("quotation-convert-block");
-        const form = document.getElementById("edit-quotation-form");
-        const editActions = document.getElementById("quotation-edit-actions");
-        const lockedNote = document.getElementById("quotation-locked-note");
-        const lines = documentLineEditor({doc: "quotation", endpoint, onSaved: (updated) => apply(updated)});
-
-        function apply(quotation) {
-            document.getElementById("quotation-number").value = quotation.number;
-            document.getElementById("quotation-customer").value = quotation.customer_name;
-            document.getElementById("quotation-status").value = labelled(DOCUMENT_STATUS_TEXT, quotation.status);
-            document.getElementById("quotation-created-by").value = quotation.created_by_display || quotation.created_by;
-            document.getElementById("quotation-issued-at").value = displayDate(quotation.issued_at);
-            document.getElementById("edit-quotation-valid-until").value = localDateTimeValue(quotation.valid_until);
-            document.getElementById("edit-quotation-discount").value = quotation.discount_amount;
-            document.getElementById("edit-quotation-tax").value = quotation.tax_rate;
-            document.getElementById("edit-quotation-notes").value = quotation.notes || "";
-            const editable = quotation.status === "draft";
-            if (editActions) editActions.hidden = !editable;
-            if (lockedNote) lockedNote.hidden = editable;
-            form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
-            if (convertBlock) convertBlock.hidden = quotation.status !== "accepted";
-            lines.apply(quotation);
-        }
-
-        form.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(form, async () => {
-                const data = new FormData(form);
-                const payload = {
-                    discount_amount: String(data.get("discount_amount") || "0"),
-                    tax_rate: String(data.get("tax_rate") || "0"),
-                    notes: String(data.get("notes") || ""),
-                };
-                payload.valid_until = apiDateTime(textOrNull(data.get("valid_until")));
-                const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
-                apply(updated);
-                globalMessage("سربرگ پیش‌فاکتور ذخیره شد.", true);
-            });
-        });
-        bindTransitions("quotation", endpoint, apply);
-        document.getElementById("convert-quotation")?.addEventListener("click", async () => {
-            if (!window.confirm("یک سفارش پیش‌نویس از این پیش‌فاکتور ساخته شود؟")) return;
-            try {
-                const order = await apiRequest(`${endpoint}convert/`, {method: "POST"});
-                window.location.assign(`/orders/${order.id}/`);
-            } catch (error) {
-                showError(error);
-            }
-        });
-
-        try {
-            const [quotation] = await Promise.all([apiRequest(endpoint), lines.loadProducts()]);
-            apply(quotation);
-            loading.hidden = true;
-            content.hidden = false;
-            // The quotation keeps its own workflow section; only the order and
-            // invoice pages moved their transitions onto a status select.
-            if (workflow) workflow.hidden = false;
-        } catch (error) {
-            loading.hidden = true;
-            showError(error);
-        }
     }
 
     async function setupOrderDetail() {
@@ -4567,8 +4459,6 @@
     if (page === "warehouse-detail") setupWarehouseDetail();
     if (page === "stock-levels") setupStockLevels();
     if (page === "stock-movements") setupStockMovements();
-    if (page === "quotations") setupQuotations();
-    if (page === "quotation-detail") setupQuotationDetail();
     if (page === "orders") setupOrders();
     if (page === "order-detail") setupOrderDetail();
     if (page === "invoices") setupInvoices();
@@ -4583,5 +4473,5 @@
     if (page === "stock-valuation-report") setupStockValuationReport();
     // `document-print` is the print base's own id, used when a printable page
     // does not override it; every printable page needs the print button wired.
-    if (page === "invoice-print" || page === "quotation-print" || page === "document-print") setupDocumentPrint();
+    if (page === "invoice-print" || page === "document-print") setupDocumentPrint();
 })();

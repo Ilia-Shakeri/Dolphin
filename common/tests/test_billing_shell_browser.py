@@ -1,7 +1,7 @@
 """The commercial chain driven through a real browser.
 
 This is the proof that the pages a Client-1 operator actually uses work: a
-manager receipts stock, builds a quotation, moves it to an order and then an
+manager receipts stock, builds an order and then an
 invoice, issues it, takes a payment, allocates it, and prints the result —
 clicking the same controls a person would.
 
@@ -161,7 +161,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
 
     # --- the flow ----------------------------------------------------------
 
-    def test_manager_receipts_stock_then_quotes_orders_invoices_and_takes_payment(self):
+    def test_manager_receipts_stock_then_orders_invoices_and_takes_payment(self):
         self.browser.set_window_size(1440, 1000)
         self.login(self.manager)
 
@@ -197,39 +197,22 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
             Decimal("120.00"),
         )
 
-        # 3. Quotation from the catalogue, then through its status graph.
-        self.browser.get(f"{self.live_server_url}/quotations/")
-        self.open_create_dialog("open-create-quotation", "create-quotation-dialog")
-        self.select_when_populated("create-quotation-customer", self.customer.pk)
-        self.select_when_populated("create-quotation-product", self.product.pk)
-        quotation_quantity = self.browser.find_element(By.ID, "create-quotation-quantity")
-        quotation_quantity.clear()
-        quotation_quantity.send_keys("3")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-quotation-form button[type='submit']").click()
-        self.wait.until(expected_conditions.url_matches(r"/quotations/\d+/$"))
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "quotation-detail-content")))
-        # 3 × 200 with tax off by default.
-        self.wait.until(lambda driver: self.value_of("quotation-total") == "600.00")
-        self.assertEqual(self.value_of("quotation-status"), "پیش‌نویس")
-
-        self.browser.find_element(By.CSS_SELECTOR, "[data-quotation-transition='sent']").click()
-        self.browser.switch_to.alert.accept()
-        self.wait.until(lambda driver: self.value_of("quotation-status") == "ارسال‌شده")
-        self.browser.find_element(By.CSS_SELECTOR, "[data-quotation-transition='accepted']").click()
-        self.browser.switch_to.alert.accept()
-        self.wait.until(lambda driver: self.value_of("quotation-status") == "پذیرفته‌شده")
-
-        # 4. Convert to an order and confirm it.
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "convert-quotation")))
-        self.browser.find_element(By.ID, "convert-quotation").click()
-        self.browser.switch_to.alert.accept()
+        # 3. Build the order directly from the catalogue.
+        self.browser.get(f"{self.live_server_url}/orders/")
+        self.open_create_dialog("open-create-order", "create-order-dialog")
+        self.select_when_populated("create-order-customer", self.customer.pk)
+        self.select_when_populated("create-order-warehouse", warehouse_id)
+        self.select_when_populated("create-order-product", self.product.pk)
+        order_quantity = self.browser.find_element(By.ID, "create-order-quantity")
+        order_quantity.clear()
+        order_quantity.send_keys("3")
+        self.browser.find_element(By.CSS_SELECTOR, "#create-order-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/orders/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "order-detail-content")))
+        # 3 × 200 with tax off by default.
         self.assertEqual(self.value_of("order-total"), "600.00")
         order_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
-        # Approving is a Platform-Admin decision made through the status select,
-        # and it is what moves stock. This order carries no warehouse (it came
-        # from a quotation), so approving it moves nothing.
+        # Approving the warehouse-backed order moves stock once.
         Select(self.browser.find_element(By.ID, "order-status-select")).select_by_value("confirmed")
         self.browser.switch_to.alert.accept()
         self.wait.until(
@@ -263,7 +246,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # Issuing moved no stock: the order owns the inventory lifecycle, and
         # deducting here as well would take the same goods out twice.
         self.assertEqual(
-            StockItem.objects.get(warehouse_id=warehouse_id, product=self.product).quantity, 40
+            StockItem.objects.get(warehouse_id=warehouse_id, product=self.product).quantity, 37
         )
 
         # The invoice can be attached to the order after both already exist.
@@ -321,6 +304,21 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.assertIn("اسناد بازرگانی", sidebar)
         self.assertIn("انبار و موجودی", sidebar)
         self.assertNotIn("صندوق و دریافت", sidebar)
+        self.assertNotIn("پیش‌فاکتور", sidebar)
+
+        for path in (
+            "/quotations/",
+            "/quotations/1/",
+            "/quotations/1/print/",
+            "/quotations/1/print.pdf",
+        ):
+            status = self.browser.execute_async_script(
+                "const done = arguments[arguments.length - 1]; "
+                "fetch(arguments[0], {credentials: 'same-origin'})"
+                ".then(response => done(response.status)).catch(() => done(0));",
+                path,
+            )
+            self.assertEqual(status, 404, path)
 
         self.browser.get(f"{self.live_server_url}/payments/")
         # Pinned by id, not by a styling class: the denial has to keep working

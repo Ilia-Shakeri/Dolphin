@@ -40,7 +40,6 @@ MANAGER_PAGES = (
     "/warehouses/",
     "/stock/",
     "/stock/movements/",
-    "/quotations/",
     "/orders/",
     "/invoices/",
     "/payments/",
@@ -53,7 +52,7 @@ MANAGER_PAGES = (
 )
 # What a Sales Agent may reach: they prepare documents and read stock, and they
 # never touch money. These three lists are the whole of the difference.
-AGENT_ALLOWED_PAGES = ("/warehouses/", "/stock/", "/stock/movements/", "/quotations/", "/orders/", "/invoices/")
+AGENT_ALLOWED_PAGES = ("/warehouses/", "/stock/", "/stock/movements/", "/orders/", "/invoices/")
 AGENT_FORBIDDEN_PAGES = (
     "/payments/",
     "/cheques/",
@@ -70,25 +69,34 @@ class BillingScriptContractTests(SimpleTestCase):
         script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         for page in (
             "warehouses", "warehouse-detail", "stock-levels", "stock-movements",
-            "quotations", "quotation-detail", "orders", "order-detail",
+            "orders", "order-detail",
             "invoices", "invoice-detail", "payments", "payment-detail",
             "cheques", "installments", "customer-ledger",
             "receivables-report", "profit-report", "stock-valuation-report",
-            "invoice-print", "quotation-print",
+            "invoice-print",
         ):
             self.assertIn(f'page === "{page}"', script)
         for endpoint in (
             "/api/v1/warehouses/", "/api/v1/stock-items/", "/api/v1/stock-movements/",
-            "/api/v1/quotations/", "/api/v1/orders/", "/api/v1/invoices/",
+            "/api/v1/orders/", "/api/v1/invoices/",
             "/api/v1/payments/", "/api/v1/cheques/", "/api/v1/installments/",
             "/api/v1/customer-ledger/", "/api/v1/reports/receivables/",
             "/api/v1/reports/profit/", "/api/v1/reports/stock-valuation/",
         ):
             self.assertIn(endpoint, script)
+        for removed in (
+            'page === "quotations"',
+            'page === "quotation-detail"',
+            'page === "quotation-print"',
+            "/api/v1/quotations/",
+        ):
+            self.assertNotIn(removed, script)
+        quotation_templates = ROOT / "common" / "templates" / "common" / "quotations"
+        self.assertFalse(any(quotation_templates.glob("*.html")))
 
     def test_new_templates_carry_no_placeholder_control(self):
         templates = ROOT / "common" / "templates" / "common"
-        for folder in ("warehouses", "inventory", "quotations", "orders", "invoices", "payments"):
+        for folder in ("warehouses", "inventory", "orders", "invoices", "payments"):
             for path in (templates / folder).glob("*.html"):
                 text = path.read_text(encoding="utf-8")
                 self.assertNotIn('href="#"', text, path.name)
@@ -173,13 +181,29 @@ class BillingPageAccessTests(CommercialWorldMixin, TestCase):
         self.client.force_login(self.manager)
         for path in MANAGER_PAGES:
             self.assertEqual(self.client.get(path).status_code, 200, path)
+
+    def test_quotation_browser_routes_are_gone_for_every_role(self):
+        paths = (
+            "/quotations/",
+            f"/quotations/{self.quotation.pk}/",
+            f"/quotations/{self.quotation.pk}/print/",
+            f"/quotations/{self.quotation.pk}/print.pdf",
+        )
+        for index, (role, _label) in enumerate(User.Role.choices):
+            user = User.objects.create_user(
+                username=f"quote.cut.{index}",
+                password="Strong-pass-937!",
+                role=role,
+            )
+            self.client.force_login(user)
+            for path in paths:
+                with self.subTest(role=role, path=path):
+                    self.assertEqual(self.client.get(path).status_code, 404)
         for path in (
             f"/warehouses/{self.warehouse.pk}/",
-            f"/quotations/{self.quotation.pk}/",
             f"/orders/{self.order.pk}/",
             f"/invoices/{self.invoice.pk}/",
             f"/payments/{self.payment.pk}/",
-            f"/quotations/{self.quotation.pk}/print/",
             f"/invoices/{self.invoice.pk}/print/",
         ):
             self.assertEqual(self.client.get(path).status_code, 200, path)
@@ -208,7 +232,7 @@ class BillingPageAccessTests(CommercialWorldMixin, TestCase):
     def test_agent_navigation_offers_no_money_link(self):
         self.client.force_login(self.agent)
         content = self.client.get("/").content.decode("utf-8")
-        self.assertIn('href="/quotations/"', content)
+        self.assertNotIn('href="/quotations/"', content)
         for href in ('href="/payments/"', 'href="/cheques/"', 'href="/reports/receivables/"'):
             self.assertNotIn(href, content)
 
@@ -228,7 +252,13 @@ class BillingScopeTests(CommercialWorldMixin, TestCase):
             items=[{"product": self.product, "quantity": 1}],
         )
         self.client.force_login(self.other_agent)
-        self.assertEqual(self.client.get(f"/quotations/{own.pk}/").status_code, 404)
+        for path in (
+            "/quotations/",
+            f"/quotations/{own.pk}/",
+            f"/quotations/{own.pk}/print/",
+            f"/quotations/{own.pk}/print.pdf",
+        ):
+            self.assertEqual(self.client.get(path).status_code, 404, path)
         self.assertEqual(self.client.get(f"/api/v1/quotations/{own.pk}/").status_code, 404)
         listing = self.client.get("/api/v1/quotations/").json()
         self.assertEqual(listing["count"], 0)

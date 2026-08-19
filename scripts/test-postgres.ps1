@@ -10,16 +10,16 @@ $runToken = [Guid]::NewGuid().ToString("N")
 $repoPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $managePath = Join-Path $repoPath "manage.py"
 $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
-$dataPath = [IO.Path]::GetFullPath((Join-Path $tempRoot "kariz-pgtest-$runToken"))
-$safePrefix = [IO.Path]::GetFullPath((Join-Path $tempRoot "kariz-pgtest-"))
+$dataPath = [IO.Path]::GetFullPath((Join-Path $tempRoot "frooshbin-pgtest-$runToken"))
+$safePrefix = [IO.Path]::GetFullPath((Join-Path $tempRoot "frooshbin-pgtest-"))
 $logPath = Join-Path $dataPath "postgres.log"
-$databaseName = "test_forooshbin_$runToken"
-$databaseUser = "forooshbin_test_admin"
-$contractDatabaseName = "contract_forooshbin_$runToken"
-$restoreDatabaseName = "restore_forooshbin_$runToken"
-$migrationUser = "forooshbin_migration_$runToken"
-$applicationUser = "forooshbin_app_$runToken"
-$backupUser = "kariz_backup_$runToken"
+$databaseName = "test_frooshbin_$runToken"
+$databaseUser = "frooshbin_test_admin"
+$contractDatabaseName = "contract_frooshbin_$runToken"
+$restoreDatabaseName = "restore_frooshbin_$runToken"
+$migrationUser = "frooshbin_migration_$runToken"
+$applicationUser = "frooshbin_app_$runToken"
+$backupUser = "frooshbin_backup_$runToken"
 $initPassword = "Initial!$runToken"
 $migrationPassword = "Migration!$runToken"
 $applicationPassword = "Application!$runToken"
@@ -64,6 +64,7 @@ $testVariables = @(
     "POSTGRES_APP_PASSWORD",
     "POSTGRES_BACKUP_USER",
     "POSTGRES_BACKUP_PASSWORD",
+    "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES",
     "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
     "KARIZ_BOOTSTRAP_PYTHON",
     "KARIZ_BOOTSTRAP_SCRAM_HELPER",
@@ -141,8 +142,8 @@ function Assert-EphemeralDatabaseName {
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Name)
 
-    if ($Name -notmatch '^(test|contract|restore)_kariz_[a-f0-9]{32}$') {
-        throw "Refusing to touch a database that is not an ephemeral Kariz proof database."
+    if ($Name -notmatch '^(test|contract|restore)_frooshbin_[a-f0-9]{32}$') {
+        throw "Refusing to touch a database that is not an ephemeral FrooshBin proof database."
     }
     if (-not $Name.EndsWith($runToken, [StringComparison]::Ordinal)) {
         throw "Refusing to touch an ephemeral database from a different harness run."
@@ -206,7 +207,7 @@ $listener.Stop()
 if ($port -eq 5432 -or $port -le 1024) {
     throw "Safe high test port was not found."
 }
-if (-not $dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path $dataPath -Leaf) -ne "kariz-pgtest-$runToken") {
+if (-not $dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path $dataPath -Leaf) -ne "frooshbin-pgtest-$runToken") {
     throw "Unsafe PostgreSQL test data path."
 }
 
@@ -257,6 +258,7 @@ try {
     $env:POSTGRES_APP_PASSWORD = $applicationPassword
     $env:POSTGRES_BACKUP_USER = $backupUser
     $env:POSTGRES_BACKUP_PASSWORD = $backupPassword
+    $env:FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES = "false"
 
     # The production bootstrap sets role passwords with psql's interactive
     # `\password`, which reads the console device and therefore blocks forever
@@ -293,7 +295,7 @@ try {
     Invoke-ContractSql `
         -User $migrationUser `
         -Password $migrationPassword `
-        -Sql "CREATE FUNCTION public.kariz_contract_probe() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'"
+        -Sql "CREATE FUNCTION public.frooshbin_contract_probe() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'"
 
     & $bash $bootstrapPath
     if ($LASTEXITCODE -ne 0) { throw "PostgreSQL post-migration privilege finalizer failed." }
@@ -335,7 +337,7 @@ try {
     Invoke-ContractSql `
         -User $migrationUser `
         -Password $migrationPassword `
-        -Sql "CREATE TABLE public.kariz_future_table (id integer); CREATE SEQUENCE public.kariz_future_sequence; CREATE FUNCTION public.kariz_future_probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'"
+        -Sql "CREATE TABLE public.frooshbin_future_table (id integer); CREATE SEQUENCE public.frooshbin_future_sequence; CREATE FUNCTION public.frooshbin_future_probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'"
 
     $sessionKey = "acl$runToken"
     Invoke-ContractSql `
@@ -351,15 +353,15 @@ try {
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM sales_productcategory WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE aftersales_aftersaleshistory SET reason = reason WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM aftersales_aftersalesrequest WHERE FALSE" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "CREATE TABLE public.kariz_forbidden_table (id integer)" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.kariz_contract_probe()" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT * FROM public.kariz_future_table" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.kariz_future_probe()" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "CREATE TABLE public.frooshbin_forbidden_table (id integer)" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.frooshbin_contract_probe()" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT * FROM public.frooshbin_future_table" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.frooshbin_future_probe()" -ShouldPass $false
 
-    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT * FROM public.kariz_future_table"
+    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT * FROM public.frooshbin_future_table"
     Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('backup-denied', '', CURRENT_TIMESTAMP)" -ShouldPass $false
-    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "CREATE TABLE public.kariz_backup_forbidden (id integer)" -ShouldPass $false
-    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT public.kariz_future_probe()" -ShouldPass $false
+    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "CREATE TABLE public.frooshbin_backup_forbidden (id integer)" -ShouldPass $false
+    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT public.frooshbin_future_probe()" -ShouldPass $false
 
     # Deterministic synthetic rows across related Tier-A models, written before
     # the dump so the archive carries them and the restore can be checked for
@@ -509,7 +511,7 @@ print("SENTINEL_OK")
         -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('$restoreSessionKey', '', CURRENT_TIMESTAMP + INTERVAL '1 hour'); UPDATE django_session SET session_data = 'x' WHERE session_key = '$restoreSessionKey'; DELETE FROM django_session WHERE session_key = '$restoreSessionKey'"
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword `
         -Database $restoreDatabaseName `
-        -Sql "CREATE TABLE public.kariz_restore_forbidden (id integer)" -ShouldPass $false
+        -Sql "CREATE TABLE public.frooshbin_restore_forbidden (id integer)" -ShouldPass $false
 
     $env:KARIZ_PG_RESTORE = "1"
     $env:KARIZ_PG_RESTORE_TOKEN = $runToken
@@ -544,7 +546,7 @@ print("SENTINEL_OK")
     Invoke-ContractSql `
         -User $databaseUser `
         -Password $initPassword `
-        -Sql "CREATE TABLE public.kariz_rollback_probe (id integer); CREATE TABLE public.kariz_unsafe_owner (id integer); ALTER TABLE public.kariz_unsafe_owner OWNER TO $applicationUser"
+        -Sql "CREATE TABLE public.frooshbin_rollback_probe (id integer); CREATE TABLE public.frooshbin_unsafe_owner (id integer); ALTER TABLE public.frooshbin_unsafe_owner OWNER TO $applicationUser"
     & $bash $bootstrapPath
     if ($LASTEXITCODE -eq 0) { throw "PostgreSQL rollback injection did not fail closed." }
 
@@ -561,7 +563,7 @@ print("SENTINEL_OK")
             --tuples-only `
             --no-align `
             --set=ON_ERROR_STOP=1 `
-            --command="SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'public.kariz_rollback_probe'::regclass"
+            --command="SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'public.frooshbin_rollback_probe'::regclass"
         if ($LASTEXITCODE -ne 0) { throw "PostgreSQL rollback owner proof failed." }
         $rollbackOwner = ($ownerOutput | Out-String).Trim()
         if ($rollbackOwner -ne $databaseUser) {
@@ -571,7 +573,7 @@ print("SENTINEL_OK")
         [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
     }
 
-    $rogueRole = "kariz_rogue_$runToken"
+    $rogueRole = "frooshbin_rogue_$runToken"
     Invoke-ContractSql `
         -User $databaseUser `
         -Password $initPassword `
@@ -643,7 +645,7 @@ print("SENTINEL_OK")
     }
     [Environment]::SetEnvironmentVariable("PATH", $savedPath, "Process")
 
-    if ($dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -and (Split-Path $dataPath -Leaf) -eq "kariz-pgtest-$runToken") {
+    if ($dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -and (Split-Path $dataPath -Leaf) -eq "frooshbin-pgtest-$runToken") {
         if (Test-Path -LiteralPath $dataPath) {
             Remove-Item -LiteralPath $dataPath -Recurse -Force
         }

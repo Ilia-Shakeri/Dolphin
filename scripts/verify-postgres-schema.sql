@@ -234,7 +234,7 @@ SELECT (
     \echo 'PostgreSQL schema contract failed.'
     -- psql's \quit takes no argument and exits 0, so announcing the failure is
     -- not enough: raise, and let ON_ERROR_STOP=1 give a non-zero exit.
-    DO $kariz_guard$ BEGIN
+    DO $frooshbin_guard$ BEGIN
         RAISE EXCEPTION 'PostgreSQL schema contract failed.';
-    END $kariz_guard$;
+    END $frooshbin_guard$;
 \endif

@@ -98,7 +98,7 @@ EXPECT_PRESENT: list[str] = [
     "common/ui_urls.py",
     "common/static/common/forooshbin-app.js",
     "common/static/common/forooshbin.css",
-    "common/static/common/favicon.ico",
+    "common/static/common/brand/favicon.ico",
     "common/templates/common/base.html",
     # The purchased theme's runtime. Without these the image builds and starts,
     # collectstatic reports success, and every page renders unstyled with a 404

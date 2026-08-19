@@ -10,7 +10,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
         "TEST": {
-            "NAME": str(Path(tempfile.gettempdir()) / f"test_forooshbin_{os.getpid()}.sqlite3"),
+            "NAME": str(Path(tempfile.gettempdir()) / f"test_frooshbin_{os.getpid()}.sqlite3"),
         },
     }
 }

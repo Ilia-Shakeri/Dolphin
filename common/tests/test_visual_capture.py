@@ -131,7 +131,7 @@ class VisualCaptureTests(StaticLiveServerTestCase):
             ("04-leads", "/leads/", "leads-table-wrap"),
             ("05-products", "/products/", "products-table-wrap"),
             ("06-stock", "/stock/", "stock-items-table-wrap"),
-            ("07-quotations", "/quotations/", "quotations-table-wrap"),
+            ("07-orders", "/orders/", "orders-table-wrap"),
             ("08-invoices", "/invoices/", "invoices-table-wrap"),
             ("09-payments", "/payments/", "payments-table-wrap"),
             ("10-receivables", "/reports/receivables/", None),

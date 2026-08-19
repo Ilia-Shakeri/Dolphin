@@ -14,7 +14,6 @@ REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin-app.js"
 PRINT_TEMPLATES = (
     REPOSITORY_ROOT / "common" / "templates" / "common" / "invoices" / "print.html",
-    REPOSITORY_ROOT / "common" / "templates" / "common" / "quotations" / "print.html",
 )
 
 

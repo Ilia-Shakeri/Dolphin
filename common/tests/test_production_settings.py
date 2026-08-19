@@ -28,10 +28,11 @@ VALID_PRODUCTION_ENVIRONMENT = {
     "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS": "false",
     "DJANGO_SECURE_HSTS_PRELOAD": "false",
     "KARIZ_HSTS_HEADER": "max-age=31536000",
-    "POSTGRES_DB": "kariz",
-    "POSTGRES_INIT_USER": "kariz_init",
-    "POSTGRES_MIGRATION_USER": "kariz_migration",
-    "POSTGRES_APP_USER": "kariz_app",
+    "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "false",
+    "POSTGRES_DB": "frooshbin",
+    "POSTGRES_INIT_USER": "frooshbin_init",
+    "POSTGRES_MIGRATION_USER": "frooshbin_migration",
+    "POSTGRES_APP_USER": "frooshbin_app",
     "POSTGRES_APP_PASSWORD": "test-only-app-password-741",
     "KARIZ_DATABASE_ROLE": "app",
     "POSTGRES_HOST": "db",
@@ -56,7 +57,7 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertEqual(settings_module.REST_FRAMEWORK["NUM_PROXIES"], 1)
         self.assertEqual(settings_module.ALLOWED_HOSTS, ["crm.example.test"])
         self.assertEqual(settings_module.DATABASES["default"]["HOST"], "db")
-        self.assertEqual(settings_module.DATABASES["default"]["USER"], "kariz_app")
+        self.assertEqual(settings_module.DATABASES["default"]["USER"], "frooshbin_app")
         self.assertEqual(settings_module.DATABASES["default"]["CONN_MAX_AGE"], 60)
         self.assertEqual(
             settings_module.CACHES["default"]["BACKEND"],
@@ -163,7 +164,7 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_database_roles_are_distinct_and_access_mode_is_closed(self):
         duplicate = {
             **VALID_PRODUCTION_ENVIRONMENT,
-            "POSTGRES_APP_USER": "kariz_migration",
+            "POSTGRES_APP_USER": "frooshbin_migration",
         }
         with self.assertRaisesMessage(ImproperlyConfigured, "must be distinct"):
             validate_production_environment(duplicate)
@@ -175,6 +176,32 @@ class ProductionSettingsTests(SimpleTestCase):
         with self.assertRaisesMessage(ImproperlyConfigured, "KARIZ_DATABASE_ROLE"):
             validate_production_environment(invalid_mode)
 
+    def test_legacy_database_identities_require_explicit_flag(self):
+        legacy = {
+            **VALID_PRODUCTION_ENVIRONMENT,
+            "POSTGRES_DB": "kariz",
+            "POSTGRES_INIT_USER": "kariz_init",
+            "POSTGRES_MIGRATION_USER": "kariz_migration",
+            "POSTGRES_APP_USER": "kariz_app",
+        }
+        with self.assertRaisesMessage(ImproperlyConfigured, "POSTGRES_INIT_USER"):
+            validate_production_environment(legacy)
+        accepted = validate_production_environment(
+            {**legacy, "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "true"}
+        )
+        self.assertEqual(accepted["DATABASE"]["NAME"], "kariz")
+        self.assertEqual(accepted["DATABASE"]["USER"], "kariz_app")
+
+    def test_database_identity_flag_is_strict(self):
+        environment = {
+            **VALID_PRODUCTION_ENVIRONMENT,
+            "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "yes",
+        }
+        with self.assertRaisesMessage(
+            ImproperlyConfigured, "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES"
+        ):
+            validate_production_environment(environment)
+
     def test_migration_mode_uses_only_migration_login(self):
         environment = {
             **VALID_PRODUCTION_ENVIRONMENT,
@@ -183,7 +210,7 @@ class ProductionSettingsTests(SimpleTestCase):
         }
         environment.pop("POSTGRES_APP_PASSWORD")
         validated = validate_production_environment(environment)
-        self.assertEqual(validated["DATABASE"]["USER"], "kariz_migration")
+        self.assertEqual(validated["DATABASE"]["USER"], "frooshbin_migration")
         self.assertEqual(
             validated["DATABASE"]["PASSWORD"],
             "test-only-migration-password-852",

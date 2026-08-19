@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-    echo "Pass one exact Kariz archive name." >&2
+    echo "Pass one exact FrooshBin or legacy Kariz archive name." >&2
     exit 2
 fi
 archive_name="$1"
@@ -14,14 +14,19 @@ if [ ! -d "$backup_root" ] || [ -L "$backup_root" ]; then
     exit 2
 fi
 if ! printf '%s' "$archive_name" | LC_ALL=C grep -Eq \
-    '^kariz-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
-    echo "The restore input must be one exact Kariz archive name." >&2
+    '^(frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
+    echo "The restore input must be one exact FrooshBin or legacy Kariz archive name." >&2
     exit 2
 fi
 
-sentinel_path="$backup_root/.kariz-backup-root"
-if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
-   [ "$(cat "$sentinel_path")" != "KARIZ_BACKUP_ROOT_V1" ]; then
+new_sentinel="$backup_root/.frooshbin-backup-root"
+legacy_sentinel="$backup_root/.kariz-backup-root"
+if [ ! -e "$new_sentinel" ] && [ ! -e "$legacy_sentinel" ]; then
+    echo "The backup volume sentinel is missing or invalid." >&2
+    exit 2
+fi
+if { [ -e "$new_sentinel" ] && { [ ! -f "$new_sentinel" ] || [ -L "$new_sentinel" ] || [ "$(cat "$new_sentinel")" != "FROOSHBIN_BACKUP_ROOT_V1" ]; }; } || \
+   { [ -e "$legacy_sentinel" ] && { [ ! -f "$legacy_sentinel" ] || [ -L "$legacy_sentinel" ] || [ "$(cat "$legacy_sentinel")" != "KARIZ_BACKUP_ROOT_V1" ]; }; }; then
     echo "The backup volume sentinel is missing or invalid." >&2
     exit 2
 fi
@@ -59,10 +64,10 @@ if ! printf '%s' "$token" | grep -Eq '^[0-9a-f]{32}$'; then
     exit 3
 fi
 
-restore_root="/tmp/kariz-restore-$token"
+restore_root="/tmp/frooshbin-restore-$token"
 data_dir="$restore_root/data"
 socket_dir="$restore_root/socket"
-database_name="kariz_restore_verify_$token"
+database_name="frooshbin_restore_verify_$token"
 mkdir -m 0700 "$restore_root"
 mkdir -m 0700 "$data_dir" "$socket_dir"
 
@@ -121,7 +126,7 @@ verification_output="$(psql \
     --file="$verification_sql"
 )"
 if [ "$verification_output" != "1" ]; then
-    echo "Restored Kariz schema verification failed." >&2
+    echo "Restored FrooshBin schema verification failed." >&2
     exit 4
 fi
 
