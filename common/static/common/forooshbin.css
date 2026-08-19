@@ -60,8 +60,13 @@ dialog::backdrop {
     object-fit: contain;
 }
 
+/* Capped by height, not width. The mark is nearly square (1278×1230), so sizing
+   it by width made it about 200px tall and pushed the sign-in form past the
+   fold. Height is the dimension that was actually costing us, and `vh` keeps it
+   proportionate on a short laptop screen. */
 .brand-mark-login {
-    width: min(13rem, 55vw);
+    height: min(5.5rem, 16vh);
+    margin-inline: auto;
 }
 
 .brand-mark-sidebar {
