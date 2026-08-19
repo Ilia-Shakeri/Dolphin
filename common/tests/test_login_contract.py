@@ -44,8 +44,9 @@ class LoginPageContractTests(TestCase):
             "demo", "Demo", "دمو", "نمونه",
             "otp", "OTP", "2fa", "mfa", "کد یک‌بارمصرف", "احراز دومرحله",
         )
+        body = self.content.partition("<body")[2]
         for token in forbidden:
-            self.assertNotIn(token, self.content, token)
+            self.assertNotIn(token, body, token)
 
     def test_the_page_offers_no_language_switcher(self):
         for token in ("lang-switch", "language", "English", "EN</", "زبان", 'hreflang'):

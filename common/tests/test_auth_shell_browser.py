@@ -100,6 +100,9 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
     def login(self, user=None):
         user = user or self.platform
         self.browser.get(f"{self.live_server_url}/login/")
+        login_mark = self.browser.find_element(By.CSS_SELECTOR, ".brand-mark-login")
+        self.assertTrue(login_mark.is_displayed())
+        self.assertGreater(self.browser.execute_script("return arguments[0].naturalWidth", login_mark), 0)
         self.browser.find_element(By.ID, "login-username").send_keys(user.username)
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
@@ -134,6 +137,9 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertEqual(self.browser.find_element(By.ID, "profile-username").get_attribute("value"), self.platform.username)
         self.assertEqual(self.browser.find_element(By.ID, "profile-role").get_attribute("value"), "مدیر پلتفرم")
         self.assertTrue(self.browser.find_element(By.ID, "app-sidebar").is_displayed())
+        sidebar_mark = self.browser.find_element(By.CSS_SELECTOR, ".brand-mark-sidebar")
+        self.assertTrue(sidebar_mark.is_displayed())
+        self.assertGreater(self.browser.execute_script("return arguments[0].naturalWidth", sidebar_mark), 0)
         # Signing out lives in the header user menu now, so it has to be opened
         # first — which is exactly what a user does.
         self.browser.find_element(By.ID, "user-menu-toggle").click()
@@ -151,6 +157,9 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
 
         toggle = self.browser.find_element(By.ID, "nav-toggle")
         self.assertTrue(toggle.is_displayed())
+        mobile_mark = self.browser.find_element(By.CSS_SELECTOR, ".brand-mark-mobile")
+        self.assertTrue(mobile_mark.is_displayed())
+        self.assertGreater(self.browser.execute_script("return arguments[0].naturalWidth", mobile_mark), 0)
         toggle.click()
         # The sidebar is the theme's own drawer now, so its open state is the
         # `drawer-on` class the theme sets — not a second class of our own.

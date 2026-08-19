@@ -127,6 +127,8 @@ class AuthShellBrowserTests(TestCase):
         self.assertIn('action="/api/v1/auth/login/"', content)
         self.assertIn('name="username"', content)
         self.assertIn('name="password"', content)
+        self.assertIn('/static/common/brand/Logo.webp', content)
+        self.assertIn('/static/common/brand/Logo.png', content)
         self.assertNotIn('action="#"', content)
         self.assertNotIn("ثبت نام", content)
         self.assertNotIn("sign-up", content)
@@ -205,6 +207,7 @@ class AuthShellBrowserTests(TestCase):
         self.assertContains(response, 'id="nav-toggle"')
         self.assertContains(response, 'aria-controls="app-sidebar"')
         self.assertContains(response, 'aria-expanded="false"')
+        self.assertContains(response, 'brand-mark-mobile')
 
     def test_home_renders_authoritative_label_for_each_fixed_role(self):
         role_labels = {

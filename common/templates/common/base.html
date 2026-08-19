@@ -7,7 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
     <title>{% block title %}خانه{% endblock %} | ForooshBin</title>
-    <link rel="icon" href="{% static 'common/favicon.ico' %}" sizes="any">
+    <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'common/brand/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'common/brand/site.webmanifest' %}">
 {% comment %} The purchased Metronic RTL build is the design system. Load order is the
    vendor's own: plugin styles, then the theme bundle, then only the
    ForooshBin-specific overrides. `style.bundle.rtl.css` already resolves the
@@ -40,7 +44,11 @@
                     </button>
                 </div>
                 <div class="d-flex align-items-center flex-grow-1 flex-lg-grow-0">
-                    <a class="d-lg-none" href="{% url 'common_ui:home' %}">
+                    <a class="d-lg-none d-flex align-items-center gap-2 text-decoration-none" href="{% url 'common_ui:home' %}">
+                        <picture>
+                            <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
+                            <img class="brand-mark brand-mark-mobile" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
+                        </picture>
                         <span class="text-white fw-bold fs-4">ForooshBin</span>
                     </a>
                 </div>
@@ -111,8 +119,12 @@
                  data-kt-drawer-width="250px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#nav-toggle"
                  aria-label="راهبری اصلی">
                 <div class="app-sidebar-logo px-6 py-6 d-flex align-items-center justify-content-center flex-column-auto" id="kt_app_sidebar_logo">
-                    <a class="brand text-white fw-bold fs-3 text-decoration-none text-center lh-sm" href="{% url 'common_ui:home' %}">ForooshBin
-                        <span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span>
+                    <a class="brand text-white fw-bold fs-3 text-decoration-none d-flex align-items-center gap-3 text-start" href="{% url 'common_ui:home' %}">
+                        <picture>
+                            <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
+                            <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
+                        </picture>
+                        <span>ForooshBin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span></span>
                     </a>
                 </div>
                 <div class="app-sidebar-menu overflow-hidden flex-column-fluid">

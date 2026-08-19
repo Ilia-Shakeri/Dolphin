@@ -13,7 +13,11 @@
        request at all while producing the file. {% endcomment %}
     <style>{{ inline_css }}</style>
 {% else %}
-    <link rel="icon" href="{% static 'common/favicon.ico' %}" sizes="any">
+    <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'common/brand/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'common/brand/site.webmanifest' %}">
     <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
     <script src="{% static 'common/forooshbin-app.js' %}" defer></script>
 {% endif %}

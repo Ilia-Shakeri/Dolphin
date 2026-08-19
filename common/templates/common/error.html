@@ -7,12 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
     <title>خطای سامانه | ForooshBin</title>
-    <link rel="icon" href="{% static 'common/favicon.ico' %}" sizes="any">
+    <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'common/brand/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'common/brand/site.webmanifest' %}">
     <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
 </head>
 <body>
 <div class="d-flex flex-column flex-center flex-column-fluid p-10" style="min-height:100vh">
     <section class="card mb-5 mb-xl-8" aria-labelledby="error-title"><div class="card-body">
+        <picture>
+            <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
+            <img class="brand-mark brand-mark-error mb-4" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
+        </picture>
         <p class="text-primary fw-bold fs-7 mb-1">ForooshBin | فروش‌بین</p>
         <p class="fs-2hx fw-bold text-danger mb-3">{{ status }}</p>
         <h1 id="error-title">{{ title }}</h1>

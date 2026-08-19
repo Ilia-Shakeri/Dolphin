@@ -54,6 +54,29 @@ dialog::backdrop {
     line-height: 1.2;
 }
 
+.brand-mark {
+    display: block;
+    width: auto;
+    object-fit: contain;
+}
+
+.brand-mark-login {
+    width: min(13rem, 55vw);
+}
+
+.brand-mark-sidebar {
+    width: 3.25rem;
+}
+
+.brand-mark-mobile {
+    width: 2rem;
+}
+
+.brand-mark-error {
+    width: 5rem;
+    margin-inline: auto;
+}
+
 /* The performance panel draws its bars from real report values. The theme has
    no plain bar-list component, so these are the only bespoke visuals kept. */
 .performance-chart {

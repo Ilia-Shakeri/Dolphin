@@ -28,9 +28,14 @@ class KarizHomeTests(TestCase):
 
     def test_home_stylesheet_is_first_party_static(self):
         self.assertIsNotNone(finders.find("common/forooshbin.css"))
-        favicon = settings.BASE_DIR / "assets" / "media" / "logos" / "favicon.ico"
+        favicon = settings.BASE_DIR / "common" / "static" / "common" / "brand" / "favicon.ico"
         self.assertTrue(favicon.is_file())
-        self.assertContains(self.client.get("/"), '/static/common/favicon.ico')
+        response = self.client.get("/")
+        self.assertContains(response, '/static/common/brand/favicon.ico')
+        self.assertContains(response, '/static/common/brand/apple-touch-icon.png')
+        self.assertContains(response, '/static/common/brand/site.webmanifest')
+        self.assertContains(response, '/static/common/brand/Logo.webp')
+        self.assertContains(response, '/static/common/brand/Logo.png')
 
 
 class PersianAdminBrandTests(SimpleTestCase):

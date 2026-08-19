@@ -11,6 +11,7 @@ settings constant that no code read until `common/management/commands/
 collectstatic.py` existed — it excluded nothing at all.
 """
 
+import json
 import posixpath
 import re
 import shutil
@@ -33,7 +34,15 @@ REQUIRED = (
     "js/scripts.bundle.js",
     "common/forooshbin.css",
     "common/forooshbin-app.js",
-    "common/favicon.ico",
+    "common/brand/Logo.webp",
+    "common/brand/Logo.png",
+    "common/brand/favicon.ico",
+    "common/brand/favicon-16x16.png",
+    "common/brand/favicon-32x32.png",
+    "common/brand/apple-touch-icon.png",
+    "common/brand/android-chrome-192x192.png",
+    "common/brand/android-chrome-512x512.png",
+    "common/brand/site.webmanifest",
     "fonts/IRANSansWeb.woff",
     "plugins/global/fonts/keenicons/keenicons-duotone.woff",
 )
@@ -54,12 +63,29 @@ EXCLUDED = (
 class StaticResolutionTests(SimpleTestCase):
     def test_every_asset_a_served_shell_references_resolves(self):
         referenced = set()
-        for name in ("base.html", "print_base.html", "error.html"):
+        for name in ("base.html", "login.html", "print_base.html", "error.html"):
             text = (TEMPLATES / name).read_text(encoding="utf-8")
             referenced |= set(re.findall(r"{% static '([^']+)' %}", text))
         self.assertTrue(referenced)
         missing = sorted(ref for ref in referenced if not finders.find(ref))
         self.assertEqual(missing, [])
+
+    def test_brand_manifest_names_the_product_and_resolves_its_icons(self):
+        manifest_path = ROOT / "common" / "static" / "common" / "brand" / "site.webmanifest"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(manifest["name"], "FrooshBin")
+        self.assertEqual(manifest["short_name"], "FrooshBin")
+        self.assertEqual(
+            {(icon["src"], icon["sizes"]) for icon in manifest["icons"]},
+            {
+                ("android-chrome-192x192.png", "192x192"),
+                ("android-chrome-512x512.png", "512x512"),
+            },
+        )
+        for icon in manifest["icons"]:
+            self.assertFalse(icon["src"].startswith("/"), icon)
+            self.assertIsNotNone(finders.find(f'common/brand/{icon["src"]}'), icon)
 
     def test_the_theme_stylesheets_find_every_font_they_ask_for(self):
         """A missing font file is a 404 on every page that loads the sheet."""
