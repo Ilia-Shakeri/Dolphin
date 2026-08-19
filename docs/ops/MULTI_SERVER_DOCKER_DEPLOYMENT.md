@@ -1,5 +1,11 @@
 # Multi-server Docker deployment
 
+> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> That runbook is canonical for installing, starting, updating, backing up,
+> restoring and recovering the stack. This document covers multi-host topologies and the split-server override in more
+> depth and does not restate the procedure; where the two differ, the runbook
+> is correct.
+
 How to bring ForooshBin up on **clean Linux servers**, in three topologies:
 
 1. one server running the application and PostgreSQL together;

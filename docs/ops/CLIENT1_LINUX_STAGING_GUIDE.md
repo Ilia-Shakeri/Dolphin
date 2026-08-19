@@ -1,5 +1,11 @@
 # Client-1 Linux staging guide
 
+> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> That runbook is canonical for installing, starting, updating, backing up,
+> restoring and recovering the stack. This document covers the original Client-1 staging walkthrough in more
+> depth and does not restate the procedure; where the two differ, the runbook
+> is correct.
+
 Bring ForooshBin up on a **fresh Linux amd64 server**, from nothing to a stack
 you can hand to UAT. Follow it top to bottom; each section ends with something
 you can check.
@@ -460,7 +466,8 @@ for path in \
   /static/js/scripts.bundle.js \
   /static/common/forooshbin.css \
   /static/common/forooshbin-app.js \
-  /static/common/favicon.ico \
+  /static/common/brand/favicon.ico \
+  /static/common/brand/Logo.png \
   /static/fonts/IRANSansWeb.woff \
   /static/plugins/global/fonts/keenicons/keenicons-duotone.woff ; do
   printf '%s ' "$path"
@@ -468,7 +475,7 @@ for path in \
 done
 ```
 
-All eight must be `200`. If the theme bundles 404 the UI renders unstyled; if
+All nine must be `200`. If the theme bundles 404 the UI renders unstyled; if
 the fonts 404 the Persian text falls back and the sidebar icons vanish.
 
 Expect roughly **197 files, ~11 MB** in the `static_data` volume — the theme's

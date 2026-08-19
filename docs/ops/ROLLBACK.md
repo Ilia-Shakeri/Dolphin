@@ -1,5 +1,11 @@
 # Rollback procedure
 
+> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> That runbook is canonical for installing, starting, updating, backing up,
+> restoring and recovering the stack. This document covers rollback detail in more
+> depth and does not restate the procedure; where the two differ, the runbook
+> is correct.
+
 Status: decision-safe procedure complete; immutable release values and live recovery proof remain external.
 
 This guide never deletes a volume, rewrites the live worktree, reverses a migration by guess, or restores over a business database.

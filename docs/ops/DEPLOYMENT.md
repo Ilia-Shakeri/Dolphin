@@ -1,5 +1,11 @@
 # Deployment procedure
 
+> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> That runbook is canonical for installing, starting, updating, backing up,
+> restoring and recovering the stack. This document covers release gates and the edge write-stop in more
+> depth and does not restate the procedure; where the two differ, the runbook
+> is correct.
+
 > This document defines an operations procedure, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
 
 Procedure snapshot: repository procedure was complete at its recorded release reference; use `KARIZ_PROJECT_HANDOFF.md` for the current proof state.

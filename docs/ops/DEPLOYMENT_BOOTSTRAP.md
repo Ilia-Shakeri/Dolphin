@@ -1,5 +1,11 @@
 # Platform Admin bootstrap
 
+> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> That runbook is canonical for installing, starting, updating, backing up,
+> restoring and recovering the stack. This document covers the first-admin bootstrap in more
+> depth and does not restate the procedure; where the two differ, the runbook
+> is correct.
+
 This command is for a server operator creating the first-ever CRM Platform Admin. It refuses to run when any active or inactive Platform Admin row already exists. It is not an HTTP endpoint and is not a normal user-management path.
 
 ## Before use

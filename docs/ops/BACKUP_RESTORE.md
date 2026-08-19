@@ -1,5 +1,11 @@
 # PostgreSQL backup and restore verification
 
+> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> That runbook is canonical for installing, starting, updating, backing up,
+> restoring and recovering the stack. This document covers backup internals and the restore-verification contract in more
+> depth and does not restate the procedure; where the two differ, the runbook
+> is correct.
+
 The bundled profile-only `backup` service creates verified custom-format PostgreSQL backups over the internal database network. It uses only the managed read-only backup login and one exact external backup volume. The host PowerShell tools remain available for a separately approved host-reachable database and for disposable restore verification. No tool accepts a password argument, overwrites a backup, or restores into a named business database.
 
 ## Prerequisites
