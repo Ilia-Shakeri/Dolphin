@@ -1,35 +1,17 @@
 #!/bin/sh
 set -eu
 
-case "${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}" in
-  true|false) ;;
-  *) echo "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES must be true or false." >&2; exit 64 ;;
-esac
-
-is_database_name() {
-  case "$1" in
-    frooshbin|frooshbin_*) return 0 ;;
-    kariz|kariz_*|forooshbin|forooshbin_*)
-      [ "${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}" = true ]; return ;;
-  esac
-  return 1
-}
-
-is_role_name() {
-  case "$1" in
-    frooshbin_*) return 0 ;;
-    kariz_*|forooshbin_*)
-      [ "${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}" = true ]; return ;;
-  esac
-  return 1
-}
-
-is_database_name "${POSTGRES_DB:-}" || {
-  echo "POSTGRES_DB must use the frooshbin identity." >&2; exit 64;
-}
-is_role_name "${POSTGRES_USER:-}" || {
-  echo "POSTGRES_USER must use the frooshbin_ identity." >&2; exit 64;
-}
+# The database name and role are the deployment's own choice, so this wrapper
+# no longer gates on what they are called. It previously refused to start unless
+# they carried a brand prefix, which protected nothing and blocked a staging
+# deployment whose roles already existed under their own names.
+#
+# The identifier shape, the reserved `pg_` prefix, role distinctness and
+# password strength are all still enforced — in config/production_env.py, before
+# Django will start at all.
+#
+# The wrapper stays so the preflight flag keeps working and so there is a place
+# to put a real check if one is ever needed.
 
 [ "${1:-}" != "--frooshbin-preflight-only" ] || exit 0
 

@@ -58,20 +58,20 @@ def _postgres_identifier(environment, name):
 
 
 def _validate_database_identity(environment, name, *, role):
-    value = _postgres_identifier(environment, name)
-    allow_legacy = _strict_bool(
-        environment, "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES", default=False
-    )
-    fresh = value.startswith("frooshbin_") or (not role and value == "frooshbin")
-    legacy = (
-        value.startswith("kariz_")
-        or value.startswith("forooshbin_")
-        or (not role and value in {"kariz", "forooshbin"})
-    )
-    if not fresh and not (allow_legacy and legacy):
-        kind = "role" if role else "database"
-        _fail(f"{name} must use the frooshbin {kind} identity.")
-    return value
+    """Check a database or role name is a safe identifier — nothing more.
+
+    What the name *says* is a deployment's own choice. This used to demand a
+    brand prefix and refuse to start without one, which protected nothing and
+    stopped a working staging deployment whose roles were already created under
+    their existing names. The checks that do protect something are all still
+    here and all still unconditional: the value must be a lowercase PostgreSQL
+    identifier, must not claim the reserved `pg_` prefix, the three roles must
+    be distinct from each other, and their passwords must be long.
+
+    `role` is kept in the signature because callers read better for it, and so a
+    future rule can distinguish the two without changing every call site.
+    """
+    return _postgres_identifier(environment, name)
 
 
 def _validate_allowed_hosts(hosts):

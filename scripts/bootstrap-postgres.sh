@@ -32,33 +32,12 @@ require_identifier() {
     fi
 }
 
-ALLOW_LEGACY="${FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES:-false}"
-case "$ALLOW_LEGACY" in
-    true|false) ;;
-    *) echo "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES must be true or false." >&2; exit 2 ;;
-esac
-
-require_database_identity() {
-    case "$2" in
-        frooshbin|frooshbin_*) return ;;
-        kariz|kariz_*|forooshbin|forooshbin_*) [ "$ALLOW_LEGACY" = true ] && return ;;
-    esac
-    if printf '%s' "$2" | LC_ALL=C grep -Eq \
-        '^(test|contract|restore)_frooshbin_[0-9a-f]{32}$'; then
-        return
-    fi
-    echo "$1 must use the frooshbin database identity." >&2
-    exit 2
-}
-
-require_role_identity() {
-    case "$2" in
-        frooshbin_*) return ;;
-        kariz_*|forooshbin_*) [ "$ALLOW_LEGACY" = true ] && return ;;
-    esac
-    echo "$1 must use the frooshbin_ role identity." >&2
-    exit 2
-}
+# What the database and roles are *called* is the deployment's own choice, so
+# there is no brand gate here. This script used to refuse names without a brand
+# prefix, which protected nothing and stopped a staging deployment whose roles
+# already existed under their own names. The checks that do protect something —
+# identifier shape, the reserved pg_ prefix, role distinctness, password
+# strength, and the managed-role comment guard below — are unconditional.
 
 require_value POSTGRES_HOST "${POSTGRES_HOST:-}"
 require_value POSTGRES_PORT "${POSTGRES_PORT:-}"
@@ -67,11 +46,6 @@ require_identifier POSTGRES_INIT_USER "${POSTGRES_INIT_USER:-}"
 require_identifier POSTGRES_MIGRATION_USER "${POSTGRES_MIGRATION_USER:-}"
 require_identifier POSTGRES_APP_USER "${POSTGRES_APP_USER:-}"
 require_identifier POSTGRES_BACKUP_USER "${POSTGRES_BACKUP_USER:-}"
-require_database_identity POSTGRES_DB "$POSTGRES_DB"
-require_role_identity POSTGRES_INIT_USER "$POSTGRES_INIT_USER"
-require_role_identity POSTGRES_MIGRATION_USER "$POSTGRES_MIGRATION_USER"
-require_role_identity POSTGRES_APP_USER "$POSTGRES_APP_USER"
-require_role_identity POSTGRES_BACKUP_USER "$POSTGRES_BACKUP_USER"
 require_secret POSTGRES_INIT_PASSWORD "${POSTGRES_INIT_PASSWORD:-}"
 require_secret POSTGRES_MIGRATION_PASSWORD "${POSTGRES_MIGRATION_PASSWORD:-}"
 require_secret POSTGRES_APP_PASSWORD "${POSTGRES_APP_PASSWORD:-}"
@@ -165,14 +139,12 @@ emit_variables() {
     printf "\\set migration_user '%s'\n" "$POSTGRES_MIGRATION_USER"
     printf "\\set app_user '%s'\n" "$POSTGRES_APP_USER"
     printf "\\set backup_user '%s'\n" "$POSTGRES_BACKUP_USER"
-    case "$POSTGRES_MIGRATION_USER" in kariz_*|forooshbin_*) printf "\\set migration_is_legacy '1'\n" ;; *) printf "\\set migration_is_legacy '0'\n" ;; esac
-    case "$POSTGRES_APP_USER" in kariz_*|forooshbin_*) printf "\\set app_is_legacy '1'\n" ;; *) printf "\\set app_is_legacy '0'\n" ;; esac
-    case "$POSTGRES_BACKUP_USER" in kariz_*|forooshbin_*) printf "\\set backup_is_legacy '1'\n" ;; *) printf "\\set backup_is_legacy '0'\n" ;; esac
-    if [ "$ALLOW_LEGACY" = true ]; then
-        printf "\\set allow_legacy_comments '1'\n"
-    else
-        printf "\\set allow_legacy_comments '0'\n"
-    fi
+    printf "\\set migration_is_legacy '0'\n"
+    printf "\\set app_is_legacy '0'\n"
+    printf "\\set backup_is_legacy '0'\n"
+    # A role created by an earlier release carries the older management comment.
+    # It is still a role this stack owns, so it is still recognised.
+    printf "\\set allow_legacy_comments '1'\n"
 }
 
 set_role_password_from_client_hash() {

@@ -16,28 +16,20 @@ if os.name == "nt" and BASH and "system32" in BASH.lower():
 
 class DatabaseIdentityContractTests(SimpleTestCase):
     @unittest.skipUnless(BASH, "A POSIX shell is not installed.")
-    def test_preinit_gate_accepts_fresh_and_explicit_legacy_names(self):
-        cases = (
-            ({"POSTGRES_DB": "frooshbin", "POSTGRES_USER": "frooshbin_init"}, 0),
-            ({"POSTGRES_DB": "kariz", "POSTGRES_USER": "kariz_init"}, 64),
-            (
-                {
-                    "POSTGRES_DB": "kariz",
-                    "POSTGRES_USER": "kariz_init",
-                    "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "true",
-                },
-                0,
-            ),
-            (
-                {
-                    "POSTGRES_DB": "forooshbin",
-                    "POSTGRES_USER": "forooshbin_init",
-                    "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "true",
-                },
-                0,
-            ),
-        )
-        for values, expected in cases:
+    def test_the_preflight_accepts_any_safe_name(self):
+        """The wrapper no longer gates on what the database is called.
+
+        It used to refuse anything without a brand prefix, which protected
+        nothing and stopped a staging deployment whose roles already existed.
+        Identifier safety, role distinctness and password strength are all
+        enforced in config/production_env.py before Django starts.
+        """
+        for values in (
+            {"POSTGRES_DB": "frooshbin", "POSTGRES_USER": "frooshbin_init"},
+            {"POSTGRES_DB": "forooshbin", "POSTGRES_USER": "forooshbin_init"},
+            {"POSTGRES_DB": "kariz", "POSTGRES_USER": "kariz_init"},
+            {"POSTGRES_DB": "crm", "POSTGRES_USER": "crm_init"},
+        ):
             with self.subTest(values=values):
                 result = subprocess.run(
                     [BASH, "scripts/postgres-entrypoint.sh", "--frooshbin-preflight-only"],
@@ -48,7 +40,7 @@ class DatabaseIdentityContractTests(SimpleTestCase):
                     check=False,
                     timeout=10,
                 )
-                self.assertEqual(result.returncode, expected, result.stderr)
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_fresh_database_identity_constructors_have_no_old_prefix(self):
         files = (
@@ -87,18 +79,40 @@ class DatabaseIdentityContractTests(SimpleTestCase):
         self.assertNotIn('backup_name="kariz-pg-', shell)
         self.assertNotIn('$backupName = "kariz-pg-', powershell)
 
-    def test_legacy_bootstrap_requires_existing_roles_then_normalizes_comments(self):
-        source = (ROOT / "scripts" / "bootstrap-postgres.sh").read_text(
-            encoding="utf-8"
-        )
+    def test_bootstrap_only_touches_roles_this_stack_manages(self):
+        """The real guard: an existing role that is not ours is never taken over.
+
+        The brand gate that sat beside it is gone — a role's name is the
+        deployment's choice — but the management-comment check is what stops the
+        script adopting somebody else's role, so it stays, and it still accepts
+        the comment an earlier release wrote.
+        """
+        source = (ROOT / "scripts" / "bootstrap-postgres.sh").read_text(encoding="utf-8")
         for role in ("migration", "app", "backup"):
             self.assertIn(f":'{role}_is_legacy' = '0' AND NOT EXISTS", source)
-            self.assertIn(f"FrooshBin managed {role if role != 'app' else 'application'} role v1", source)
+            self.assertIn(
+                f"FrooshBin managed {role if role != 'app' else 'application'} role v1", source
+            )
         self.assertIn("allow_legacy_comments", source)
+        # No brand gate remains in the script.
+        self.assertNotIn("require_role_identity", source)
+        self.assertNotIn("require_database_identity", source)
+        self.assertNotIn("ALLOW_LEGACY=", source)
 
-    def test_bootstrap_accepts_only_exact_frooshbin_proof_database_shape(self):
-        source = (ROOT / "scripts" / "bootstrap-postgres.sh").read_text(
-            encoding="utf-8"
-        )
-        pattern = "^(test|contract|restore)_frooshbin_[0-9a-f]{32}$"
-        self.assertGreaterEqual(source.count(pattern), 2)
+    def test_the_noninteractive_password_path_needs_a_disposable_proof_database(self):
+        """The one place a name still has to match an exact shape.
+
+        Passwords may only be supplied non-interactively against a throwaway
+        proof database whose name carries 32 hex characters — a production
+        database can never match it, which is what keeps that path out of a real
+        deployment. This is a safety rule about disposability, not about
+        branding, so it survives the removal of the brand gate.
+        """
+        source = (ROOT / "scripts" / "bootstrap-postgres.sh").read_text(encoding="utf-8")
+        database_pattern = "^(test|contract|restore)_frooshbin_[0-9a-f]{32}$"
+        role_pattern = "^frooshbin_(migration|app|backup)_[0-9a-f]{32}$"
+        self.assertIn(database_pattern, source)
+        self.assertIn(role_pattern, source)
+        # Defined once and actually applied, rather than merely present.
+        self.assertIn('grep -Eq "$EPHEMERAL_DB_PATTERN"', source)
+        self.assertIn('grep -Eq "$EPHEMERAL_ROLE_PATTERN"', source)

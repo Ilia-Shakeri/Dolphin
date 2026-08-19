@@ -28,7 +28,6 @@ VALID_PRODUCTION_ENVIRONMENT = {
     "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS": "false",
     "DJANGO_SECURE_HSTS_PRELOAD": "false",
     "KARIZ_HSTS_HEADER": "max-age=31536000",
-    "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "false",
     "POSTGRES_DB": "frooshbin",
     "POSTGRES_INIT_USER": "frooshbin_init",
     "POSTGRES_MIGRATION_USER": "frooshbin_migration",
@@ -176,31 +175,43 @@ class ProductionSettingsTests(SimpleTestCase):
         with self.assertRaisesMessage(ImproperlyConfigured, "KARIZ_DATABASE_ROLE"):
             validate_production_environment(invalid_mode)
 
-    def test_legacy_database_identities_require_explicit_flag(self):
-        legacy = {
-            **VALID_PRODUCTION_ENVIRONMENT,
-            "POSTGRES_DB": "kariz",
-            "POSTGRES_INIT_USER": "kariz_init",
-            "POSTGRES_MIGRATION_USER": "kariz_migration",
-            "POSTGRES_APP_USER": "kariz_app",
-        }
-        with self.assertRaisesMessage(ImproperlyConfigured, "POSTGRES_INIT_USER"):
-            validate_production_environment(legacy)
-        accepted = validate_production_environment(
-            {**legacy, "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "true"}
-        )
-        self.assertEqual(accepted["DATABASE"]["NAME"], "kariz")
-        self.assertEqual(accepted["DATABASE"]["USER"], "kariz_app")
+    def test_a_deployment_may_name_its_database_and_roles_whatever_it_likes(self):
+        """The name is a deployment's own choice, so any safe identifier works.
 
-    def test_database_identity_flag_is_strict(self):
-        environment = {
-            **VALID_PRODUCTION_ENVIRONMENT,
-            "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES": "yes",
-        }
-        with self.assertRaisesMessage(
-            ImproperlyConfigured, "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES"
+        A brand gate used to refuse anything without a `frooshbin_` prefix. It
+        protected nothing — the protections are the identifier shape, the
+        reserved `pg_` prefix, role distinctness and password strength, all
+        checked below — and it stopped a staging deployment whose roles already
+        existed under their own names.
+        """
+        for names in (
+            {"POSTGRES_DB": "kariz", "POSTGRES_INIT_USER": "kariz_init",
+             "POSTGRES_MIGRATION_USER": "kariz_migration", "POSTGRES_APP_USER": "kariz_app"},
+            {"POSTGRES_DB": "forooshbin", "POSTGRES_INIT_USER": "forooshbin_init",
+             "POSTGRES_MIGRATION_USER": "forooshbin_migration", "POSTGRES_APP_USER": "forooshbin_app"},
+            {"POSTGRES_DB": "crm", "POSTGRES_INIT_USER": "crm_init",
+             "POSTGRES_MIGRATION_USER": "crm_migration", "POSTGRES_APP_USER": "crm_app"},
         ):
-            validate_production_environment(environment)
+            with self.subTest(database=names["POSTGRES_DB"]):
+                accepted = validate_production_environment(
+                    {**VALID_PRODUCTION_ENVIRONMENT, **names}
+                )
+                self.assertEqual(accepted["DATABASE"]["NAME"], names["POSTGRES_DB"])
+                self.assertEqual(accepted["DATABASE"]["USER"], names["POSTGRES_APP_USER"])
+
+    def test_unsafe_database_identities_are_still_refused(self):
+        """What the name *is* still matters, even though what it says does not."""
+        for field, value in (
+            ("POSTGRES_DB", "pg_catalog"),
+            ("POSTGRES_INIT_USER", "pg_signal_backend"),
+            ("POSTGRES_APP_USER", "Bad-Role"),
+            ("POSTGRES_MIGRATION_USER", "role; DROP TABLE"),
+        ):
+            with self.subTest(field=field):
+                with self.assertRaisesMessage(ImproperlyConfigured, field):
+                    validate_production_environment(
+                        {**VALID_PRODUCTION_ENVIRONMENT, field: value}
+                    )
 
     def test_migration_mode_uses_only_migration_login(self):
         environment = {
