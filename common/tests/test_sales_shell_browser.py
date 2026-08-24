@@ -319,14 +319,16 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.open_create_dialog("open-create-sale", "create-sale-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sale-lead")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("مشتری فروش مرورگر — ثبت مستقیم مرورگر")
-        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — 15.00")
+        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — 15 ریال")
         quantity = self.browser.find_element(By.ID, "create-sale-quantity")
         quantity.clear()
         quantity.send_keys("2")
         self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
-        self.assertEqual(Decimal(self.browser.find_element(By.ID, "sale-total").get_attribute("value")), Decimal("30.00"))
+        # The box shows the formatted amount now, not the raw decimal, so
+        # this reads what a person reads.
+        self.assertEqual(self.browser.find_element(By.ID, "sale-total").get_attribute("value"), "30 ریال")
         self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), self.platform.username)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-cancel-section")))
         self.browser.find_element(By.ID, "cancel-sale-reason").send_keys("لغو مجاز مرورگر")
@@ -406,7 +408,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "create-product-name").send_keys("محصول دسته‌دار مرورگر")
         Select(self.browser.find_element(By.ID, "create-product-category")).select_by_visible_text("کالای مرورگر")
         self.browser.find_element(By.ID, "create-product-brand").send_keys("برند مرورگر")
-        self.browser.find_element(By.ID, "create-product-barcode").send_keys("web-bar-1")
+        Select(self.browser.find_element(By.ID, "create-product-unit")).select_by_value("carton")
         self.browser.find_element(By.ID, "create-product-price").send_keys("18.50")
         self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
@@ -418,10 +420,11 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             Select(self.browser.find_element(By.ID, "edit-product-category")).first_selected_option.text,
             "کالای مرورگر",
         )
-        self.assertEqual(
-            self.browser.find_element(By.ID, "edit-product-barcode").get_attribute("value"),
-            "WEB-BAR-1",
-        )
+        # The unit chosen on the create form comes back on the detail form as
+        # the stored code, and reads as its Persian label.
+        unit = Select(self.browser.find_element(By.ID, "edit-product-unit"))
+        self.assertEqual(unit.first_selected_option.get_attribute("value"), "carton")
+        self.assertEqual(unit.first_selected_option.text, "کارتن")
 
         self.logout()
         self.login(self.agent)
@@ -557,7 +560,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/sales/?lead={lead_id}")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-sale-dialog")))
         self.assertEqual(Select(self.browser.find_element(By.ID, "create-sale-lead")).first_selected_option.get_attribute("value"), lead_id)
-        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول روزانه — 20.00")
+        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول روزانه — 20 ریال")
         self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
         sale_url = self.browser.current_url

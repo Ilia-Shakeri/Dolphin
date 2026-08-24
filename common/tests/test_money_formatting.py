@@ -1,4 +1,11 @@
-"""The printed document must show an amount the way the screens show it."""
+"""The printed document must show an amount the way the screens show it.
+
+Since 1.1.0 that means three things together: thousands grouped with the Arabic
+comma, no fraction, and the word ریال beside the figure. The rial has no
+sub-unit in daily use, so a permanent `٫۰۰` only made an already long number
+longer; and an eight-digit figure with no currency word beside it is exactly the
+kind a reader mis-scans by a factor of ten.
+"""
 
 import pathlib
 import re
@@ -18,13 +25,21 @@ PRINT_TEMPLATES = (
 
 
 class MoneyFilterTests(SimpleTestCase):
-    def test_thousands_are_grouped_the_way_the_screens_group_them(self):
-        self.assertEqual(money(Decimal("12500000.00")), "12،500،000.00")
-        self.assertEqual(money("12500000.00"), "12،500،000.00")
-        self.assertEqual(money(Decimal("0.00")), "0.00")
-        self.assertEqual(money(Decimal("999.99")), "999.99")
-        self.assertEqual(money(Decimal("1000")), "1،000")
-        self.assertEqual(money(Decimal("123456789012.34")), "123،456،789،012.34")
+    def test_thousands_are_grouped_and_the_currency_is_named(self):
+        self.assertEqual(money(Decimal("12500000.00")), "12،500،000 ریال")
+        self.assertEqual(money("12500000.00"), "12،500،000 ریال")
+        self.assertEqual(money(Decimal("0.00")), "0 ریال")
+        self.assertEqual(money(Decimal("1000")), "1،000 ریال")
+        self.assertEqual(money(Decimal("123456789012.34")), "123،456،789،012 ریال")
+
+    def test_the_fraction_is_dropped_by_rounding_not_by_truncation(self):
+        """Truncating would understate every amount it touched."""
+        self.assertEqual(money(Decimal("999.99")), "1،000 ریال")
+        self.assertEqual(money(Decimal("999.50")), "1،000 ریال")
+        self.assertEqual(money(Decimal("999.49")), "999 ریال")
+        # The carry has to propagate through the whole number, not just its
+        # last digit.
+        self.assertEqual(money(Decimal("999999.60")), "1،000،000 ریال")
 
     def test_a_missing_or_unrecognised_amount_is_never_mangled(self):
         self.assertEqual(money(None), "—")
@@ -34,24 +49,39 @@ class MoneyFilterTests(SimpleTestCase):
 
     def test_a_negative_amount_keeps_its_sign_beside_the_number(self):
         rendered = money(Decimal("-2500.50"))
-        self.assertTrue(rendered.endswith("-2،500.50"))
-        self.assertEqual(rendered[0], "‏")
+        self.assertTrue(rendered.startswith("‏-2،501"), rendered)
+        self.assertTrue(rendered.endswith("ریال"))
 
     def test_the_last_digit_of_a_large_total_survives_formatting(self):
-        # Going through float would round this; the amount is authoritative.
-        self.assertEqual(money(Decimal("9007199254740993.01")), "9،007،199،254،740،993.01")
+        # Going through float would round this away; the amount is
+        # authoritative as stored.
+        self.assertEqual(
+            money(Decimal("9007199254740993.01")), "9،007،199،254،740،993 ریال"
+        )
+
+    def test_the_stored_amount_is_not_what_changed(self):
+        """Dropping the fraction is a display decision and nothing more."""
+        amount = Decimal("450000.75")
+        money(amount)
+        self.assertEqual(amount, Decimal("450000.75"))
+        self.assertEqual(amount.as_tuple().exponent, -2)
 
     def test_the_filter_is_loadable_from_a_template(self):
         rendered = Template(
             "{% load money_tags %}{{ amount|money }}"
         ).render(Context({"amount": Decimal("450000.00")}))
-        self.assertEqual(rendered, "450،000.00")
+        self.assertEqual(rendered, "450،000 ریال")
 
     def test_the_separator_matches_the_one_the_application_javascript_uses(self):
         source = APP_JS.read_text(encoding="utf-8")
         grouping = re.search(r'whole\.replace\(/\\B\(\?=\(\\d\{3\}\)\+\(\?!\\d\)\)/g, "(.)"\)', source)
         self.assertIsNotNone(grouping, "forooshbin-app.js no longer groups thousands as expected")
         self.assertEqual(grouping.group(1), "،")
+
+    def test_the_currency_word_matches_the_one_the_javascript_appends(self):
+        """The printed document and the screen must agree, word for word."""
+        source = APP_JS.read_text(encoding="utf-8")
+        self.assertIn('`${body} ریال`', source)
 
     def test_every_printed_amount_goes_through_the_filter(self):
         amount_field = re.compile(

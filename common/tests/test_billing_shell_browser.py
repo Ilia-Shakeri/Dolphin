@@ -210,7 +210,9 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.url_matches(r"/orders/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "order-detail-content")))
         # 3 × 200 with tax off by default.
-        self.assertEqual(self.value_of("order-total"), "600.00")
+        # Every amount on a served page now reads as grouped rial with no
+        # fraction — the same string a person sees.
+        self.assertEqual(self.value_of("order-total"), "600 ریال")
         order_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
         # Approving the warehouse-backed order moves stock once.
         Select(self.browser.find_element(By.ID, "order-status-select")).select_by_value("confirmed")
@@ -272,13 +274,16 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "payment-allocate-form")))
         self.select_when_populated("payment-allocate-invoice", invoice_id)
         self.browser.find_element(By.CSS_SELECTOR, "#payment-allocate-form button[type='submit']").click()
-        self.wait.until(lambda driver: self.value_of("payment-allocated") == "250.00")
+        self.wait.until(lambda driver: self.value_of("payment-allocated") == "250 ریال")
 
         # 7. The invoice now shows the payment, and prints the stored snapshot.
         self.browser.get(f"{self.live_server_url}/invoices/{invoice_id}/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
-        self.wait.until(lambda driver: self.value_of("invoice-paid") == "250.00")
-        self.assertEqual(self.value_of("invoice-balance"), "350.00")
+        # The paid box is an editable money field, so it shows grouped
+        # digits without the currency word; the balance beside it is a
+        # read-only display and carries it.
+        self.wait.until(lambda driver: self.value_of("invoice-paid") == "250")
+        self.assertEqual(self.value_of("invoice-balance"), "350 ریال")
         self.assertEqual(self.value_of("invoice-settlement"), "تسویه جزئی")  # canonical, not manual
 
         self.browser.get(f"{self.live_server_url}/invoices/{invoice_id}/print/")
@@ -286,14 +291,14 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         printed = self.browser.find_element(By.CSS_SELECTOR, ".print-sheet").text
         self.assertIn("مشتری بازرگانی", printed)
         self.assertIn("BR-1", printed)
-        self.assertIn("600.00", printed)
+        self.assertIn("600 ریال", printed)
         # The printed page carries no navigation to click away from.
         self.assertEqual(self.browser.find_elements(By.ID, "app-sidebar"), [])
 
         # 8. The receivables report reflects the same numbers.
         self.browser.get(f"{self.live_server_url}/reports/receivables/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "receivables-table-wrap")))
-        self.assertEqual(self.browser.find_element(By.ID, "receivables-total").text, "350.00")
+        self.assertEqual(self.browser.find_element(By.ID, "receivables-total").text, "350 ریال")
 
         self.assert_browser_clean()
 

@@ -51,7 +51,7 @@ CUSTOMER_MUTABLE_FIELDS = {
 # values are fixed by Lead.Status and checked by _validate_lead_status.
 LEAD_MUTABLE_FIELDS = {"source", "campaign_or_batch", "interested_product", "next_follow_up_at", "notes", "status"}
 PHONE_MUTABLE_FIELDS = {"raw_phone", "label", "is_primary", "is_active"}
-PRODUCT_MUTABLE_FIELDS = {"sku", "name", "category", "brand", "barcode", "current_price", "description"}
+PRODUCT_MUTABLE_FIELDS = {"sku", "name", "category", "brand", "barcode", "unit", "current_price", "description"}
 PRODUCT_CATEGORY_CREATE_FIELDS = {"code", "name", "description", "display_order"}
 PRODUCT_CATEGORY_UPDATE_FIELDS = {"name", "description", "display_order"}
 INTERACTION_CREATE_FIELDS = {"phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes"}
@@ -436,6 +436,17 @@ def _prepare_product_values(data):
         prepared["brand"] = _clean_single_line(prepared["brand"], field="brand", limit=120)
     if "barcode" in prepared:
         prepared["barcode"] = _clean_product_barcode(prepared["barcode"])
+    if "unit" in prepared:
+        # The database constraint would catch this too, but only as an
+        # IntegrityError that this module reports as a SKU conflict — a message
+        # naming the wrong field. Checked here so the caller is told what is
+        # actually wrong. Blank is allowed: products created before the field
+        # existed have no unit, and a default would print a wrong word on an
+        # invoice.
+        unit = (prepared["unit"] or "").strip()
+        if unit and unit not in Product.Unit.values:
+            raise BusinessRuleError({"unit": "Select a unit from the list."})
+        prepared["unit"] = unit
     return prepared
 
 

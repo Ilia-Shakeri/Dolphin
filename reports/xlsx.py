@@ -289,3 +289,59 @@ def build_customer_directory_workbook(customers):
             spreadsheet_datetime(customer.created_at),
         ))
     return _finish(workbook, sheet)
+
+
+#: The product export and import share this header row exactly.
+#:
+#: That sharing is the whole design of the round trip: the operator exports,
+#: writes on the file, and returns it, so the importer can map columns by name
+#: instead of guessing at positions. `id` is present so an export stays useful
+#: as a reference, and is ignored on the way back in — an import always creates.
+PRODUCT_HEADERS = (
+    "id",
+    "sku",
+    "name",
+    "category_code",
+    "brand",
+    "unit",
+    "current_price",
+    "description",
+    "is_active",
+)
+
+#: Persian labels the operator may type in the `unit` column, mapped to the
+#: stored code. The stored codes are accepted too, so a returned export needs no
+#: translation.
+PRODUCT_UNIT_INPUT = {
+    "جعبه": "box",
+    "عدد": "piece",
+    "کارتن": "carton",
+    "کیلوگرم": "kilogram",
+    "گرم": "gram",
+    "box": "box",
+    "piece": "piece",
+    "carton": "carton",
+    "kilogram": "kilogram",
+    "gram": "gram",
+}
+
+
+def build_product_catalogue_workbook(products):
+    """The product catalogue, in the exact shape the importer reads back."""
+    workbook, sheet = _new_workbook("products")
+    sheet.append(PRODUCT_HEADERS)
+    for product in products:
+        sheet.append((
+            product.pk,
+            safe_spreadsheet_text(product.sku),
+            safe_spreadsheet_text(product.name),
+            safe_spreadsheet_text(product.category.code if product.category else ""),
+            safe_spreadsheet_text(product.brand),
+            safe_spreadsheet_text(product.get_unit_display() if product.unit else ""),
+            # Written as a plain number so the operator can edit it as one; the
+            # panel adds grouping and the rial label when it displays it.
+            product.current_price,
+            safe_spreadsheet_text(product.description),
+            "yes" if product.is_active else "no",
+        ))
+    return _finish(workbook, sheet)

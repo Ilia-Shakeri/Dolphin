@@ -3,6 +3,19 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# One source of truth for the product version, read from the `VERSION` file at
+# the repository root. A file rather than a constant here so a build, a release
+# script and the running application all read the same three numbers, and so
+# bumping a version is a one-line change that shows up plainly in a diff.
+# CHANGELOG.md records what each number contains.
+#
+# The fallback covers a container built without the file: the application must
+# still start, and an unknown version is better than a wrong one.
+try:
+    FOROOSHBIN_VERSION = (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+except OSError:
+    FOROOSHBIN_VERSION = "unknown"
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-development-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [value.strip() for value in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if value.strip()]
@@ -56,6 +69,7 @@ TEMPLATES = [{
         "django.template.context_processors.request",
         "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
+        "common.context_processors.product_version",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
@@ -125,6 +139,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # the edge refuses what the application would have accepted.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024
 
+# Routes that accept a real file rather than a JSON document, and the bound that
+# applies to them. Only the product spreadsheet import today. Kept explicit and
+# still bounded: a file larger than this is a data-migration task, not something
+# to push through a web request.
+FILE_UPLOAD_PATHS = ("/api/v1/products/import-xlsx/",)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG
@@ -191,7 +212,7 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "ForooshBin API",
-    "VERSION": "1.0.0",
+    "VERSION": FOROOSHBIN_VERSION,
     "SERVE_INCLUDE_SCHEMA": False,
     # Several modules own a field called `status` or `to_status` over different
     # vocabularies. Naming each enum after its module keeps the generated

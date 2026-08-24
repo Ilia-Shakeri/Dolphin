@@ -20,8 +20,12 @@ from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE
 from common.permissions import FeatureGatedAPIMixin
 from common.throttles import SensitiveRateThrottle
 from reports.views import XLSX_CONTENT_TYPE, XLSXNegotiationRenderer
-from reports.xlsx import build_customer_directory_workbook, build_user_directory_workbook
-from sales.selectors import customers_for
+from reports.xlsx import (
+    build_customer_directory_workbook,
+    build_product_catalogue_workbook,
+    build_user_directory_workbook,
+)
+from sales.selectors import customers_for, products_for
 
 
 class DirectoryExportView(APIView):
@@ -101,3 +105,38 @@ class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
             .order_by("full_name")
         )
         return build_customer_directory_workbook(customers)
+
+
+class ProductCatalogueExportView(FeatureGatedAPIMixin, DirectoryExportView):
+    """The product catalogue, in the shape the importer reads back.
+
+    The columns here and the columns `sales.imports` accepts are the same tuple,
+    so the operator can export, write on the file, and upload it again without
+    reshaping anything.
+    """
+
+    required_feature = "products"
+    filename = "forooshbin-products.xlsx"
+
+    @extend_schema(
+        responses={
+            (200, XLSX_CONTENT_TYPE): OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="Product catalogue in the caller's scope.",
+            ),
+            (403, "application/json"): ACCESS_DENIED_RESPONSE,
+            (429, "application/json"): THROTTLED_RESPONSE,
+        },
+        description=(
+            "Product catalogue as XLSX, scoped exactly like the product list endpoint. "
+            "Its header row is what POST /api/v1/products/import-xlsx/ reads."
+        ),
+    )
+    def get(self, request):
+        return super().get(request)
+
+    def workbook(self, request):
+        products = (
+            products_for(request.user).select_related("category").order_by("name", "pk")
+        )
+        return build_product_catalogue_workbook(products)

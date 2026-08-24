@@ -22,10 +22,22 @@ register = template.Library()
 # printed document and the screen agree character for character.
 GROUP_SEPARATOR = "،"
 
+#: Every amount in the product is rial. Naming it beside the figure removes the
+#: only question a bare number leaves.
+CURRENCY_LABEL = "ریال"
+
 
 @register.filter(name="money")
 def money(value):
-    """`12500000.00` → `12،500،000.00`; a missing amount → `—`."""
+    """`12500000.00` -> `12،500،000 ریال`; a missing amount -> the em dash.
+
+    Rial has no sub-unit in daily use, so the fraction is dropped rather than
+    printed as a permanent `.00`. It is dropped by rounding half-up on the digit
+    string, not through `float`, for the same reason the grouping walks the
+    string: the amount is authoritative as stored and a float round-trip could
+    move its last digit. The stored value keeps its two decimals — this is
+    display only.
+    """
     if value is None or value == "":
         return "—"
     if isinstance(value, float):
@@ -40,11 +52,13 @@ def money(value):
     if not whole.isdigit():
         # Not a number we recognise; show it unchanged rather than mangling it.
         return str(value)
+    if fraction and fraction[0].isdigit() and int(fraction[0]) >= 5:
+        whole = str(int(whole) + 1)
     grouped = ""
     for index, digit in enumerate(reversed(whole)):
         if index and index % 3 == 0:
             grouped = GROUP_SEPARATOR + grouped
         grouped = digit + grouped
-    body = f"{grouped}.{fraction}" if fraction else grouped
     # U+200F keeps the minus sign attached to the number inside RTL text.
-    return f"‏-{body}" if negative else body
+    body = f"‏-{grouped}" if negative and grouped != "0" else grouped
+    return f"{body} {CURRENCY_LABEL}"

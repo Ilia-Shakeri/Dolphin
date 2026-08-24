@@ -28,7 +28,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-due">سررسید</label><input class="form-control form-control-solid" id="edit-invoice-due" name="due_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="due_at"></p></div>
             {% comment %} «پرداخت شده» را اپراتور وارد می‌کند. برابر شدن دقیقش با مانده،
                فاکتور را برای همیشه تسویه‌شده می‌کند و هیچ سند حسابداری نمی‌سازد. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-paid">پرداخت شده</label><input class="form-control form-control-solid" id="invoice-paid" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-paid">پرداخت شده</label><input class="form-control form-control-solid" id="invoice-paid" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-balance">مانده</label><input class="form-control form-control-solid" id="invoice-balance" disabled></div>
             <div class="col-12"><label class="form-label fw-semibold" for="edit-invoice-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-invoice-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>

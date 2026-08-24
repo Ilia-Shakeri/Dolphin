@@ -162,8 +162,15 @@ class ProductCategorySerializer(RejectServerFieldsMixin, serializers.ModelSerial
 
 
 class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"category_name", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"}
+    server_fields = {"category_name", "unit_display", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"}
     barcode = serializers.CharField(max_length=64, required=False, allow_blank=True, validators=[])
+    #: The five units the panel offers, plus blank for products that predate the
+    #: field. `unit_display` carries the Persian label so a reader never has to
+    #: map the stored code themselves.
+    unit = serializers.ChoiceField(
+        choices=Product.Unit.choices, required=False, allow_blank=True
+    )
+    unit_display = serializers.CharField(source="get_unit_display", read_only=True)
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     updated_by = serializers.PrimaryKeyRelatedField(read_only=True)
     category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
@@ -172,8 +179,8 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ["id", "sku", "name", "category", "category_name", "brand", "barcode", "current_price", "description", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
-        read_only_fields = ["id", "category_name", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+        fields = ["id", "sku", "name", "category", "category_name", "brand", "barcode", "unit", "unit_display", "current_price", "description", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "category_name", "unit_display", "is_active", "created_by", "created_by_display", "updated_by", "updated_by_display", "created_at", "updated_at"]
 
     @staticmethod
     def _display(user) -> str:
@@ -289,6 +296,25 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
         return update_target_audience_member(
             actor=self.context["request"].user, member=instance, **validated_data
         )
+
+
+class ProductImportRowErrorSerializer(serializers.Serializer):
+    row = serializers.IntegerField(read_only=True)
+    detail = serializers.CharField(read_only=True)
+
+
+class ProductImportResultSerializer(serializers.Serializer):
+    """What one spreadsheet upload did, counted by outcome.
+
+    The three counts are separate because they mean different things: `created`
+    is work done, `duplicates` is work deliberately not done, and `invalid` is
+    work that could not be done and needs the operator to look.
+    """
+
+    created = serializers.IntegerField(read_only=True)
+    duplicates = serializers.IntegerField(read_only=True)
+    invalid = serializers.IntegerField(read_only=True)
+    errors = ProductImportRowErrorSerializer(many=True, read_only=True)
 
 
 class ProductActivationSerializer(RejectServerFieldsMixin, serializers.Serializer):

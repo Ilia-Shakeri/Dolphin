@@ -33,7 +33,7 @@
                 <option value="sale">ارسال به مشتری</option>
             </select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="movement_type"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="number" min="0" step="0.01"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="create-movement-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-movement-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
         <p class="text-muted">بهای واحد برای حرکت‌های ورودی لازم است و میانگین موزون را به‌روز می‌کند. حرکت خروجی بهای میانگین جاری را مصرف می‌کند و آن را تغییر نمی‌دهد. حرکت ثبت‌شده ویرایش یا حذف نمی‌شود؛ اصلاح با یک حرکت جبرانی انجام می‌گیرد.</p>

@@ -568,7 +568,11 @@ class CoreWorkflowTests(TestCase):
         self.assertEqual(CustomerViewSet.sensitive_actions, frozenset({"deactivate"}))
         self.assertEqual(
             ProductViewSet.sensitive_actions,
-            frozenset({"create", "update", "partial_update", "deactivate"}),
+            # A spreadsheet import creates products in bulk, so it is the most
+            # expensive write on this viewset, not the least — it belongs here.
+            frozenset({
+                "create", "update", "partial_update", "deactivate", "import_xlsx",
+            }),
         )
 
         manager_client = APIClient()

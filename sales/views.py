@@ -3,11 +3,12 @@ from datetime import datetime, time, timedelta
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 
-from accounts.access import crm_identities
+from accounts.access import crm_identities, has_any_capability
 from accounts.models import User
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
@@ -22,7 +23,8 @@ from common.viewsets import NoDestroyModelViewSet
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, ProductActivationSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
+from sales.imports import import_products_from_workbook
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
 from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -426,7 +428,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Product.objects.none()
     serializer_class = ProductSerializer
-    sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate", "import_xlsx"})
     search_fields = ["sku", "name", "brand", "barcode", "category__name", "description"]
     ordering_fields = ["sku", "name", "brand", "current_price", "created_at"]
     list_query_parameters = {"is_active", "category"}
@@ -499,6 +501,42 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     def deactivate(self, request, pk=None):
         product = deactivate_product(actor=request.user, product=self.get_object())
         return Response(self.get_serializer(product).data)
+
+    @extend_schema(
+        request={"multipart/form-data": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}},
+        responses={
+            200: ProductImportResultSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+        },
+        description=(
+            "Create products in bulk from a filled export of GET /api/v1/exports/products.xlsx. "
+            "Columns are matched by header name. A row whose SKU already exists is skipped and "
+            "counted as a duplicate — an import never overwrites an existing product. The "
+            "response reports how many rows were created, skipped and rejected."
+        ),
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import-xlsx",
+        parser_classes=[MultiPartParser],
+    )
+    def import_xlsx(self, request):
+        # The viewset admits anyone holding read *or* manage, and `create_product`
+        # refuses a reader on the first row it tries. Checked here as well so a
+        # caller who cannot create products is refused before their file is
+        # parsed at all — and so a file with no valid rows cannot answer 200 to
+        # someone who was never allowed to import.
+        if not has_any_capability(request.user, "products.manage"):
+            raise PermissionDenied("Product management is not allowed.")
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "Attach the completed spreadsheet."})
+        if not upload.name.lower().endswith(".xlsx"):
+            raise ValidationError({"file": "Only an .xlsx file is accepted."})
+        result = import_products_from_workbook(actor=request.user, stream=upload)
+        return Response(ProductImportResultSerializer(result).data)
 
     @extend_schema(
         request=ProductActivationSerializer,

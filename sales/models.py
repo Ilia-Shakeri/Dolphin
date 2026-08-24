@@ -88,6 +88,23 @@ class ProductCategory(TimeStampedModel):
 
 
 class Product(TimeStampedModel):
+    class Unit(models.TextChoices):
+        """How a product is counted when it is sold.
+
+        A fixed list, not free text: the unit appears on order and invoice
+        lines, and two spellings of the same unit would make those documents
+        disagree with each other. Existing products predate the field and carry
+        a blank value, which the constraint below admits — a blank unit is "not
+        recorded yet", never a silent default that would put a wrong word on a
+        customer's invoice.
+        """
+
+        BOX = "box", "جعبه"
+        PIECE = "piece", "عدد"
+        CARTON = "carton", "کارتن"
+        KILOGRAM = "kilogram", "کیلوگرم"
+        GRAM = "gram", "گرم"
+
     sku = models.CharField(max_length=80, unique=True)
     name = models.CharField(max_length=255, db_index=True)
     category = models.ForeignKey(
@@ -99,6 +116,7 @@ class Product(TimeStampedModel):
     )
     brand = models.CharField(max_length=PRODUCT_BRAND_MAX_LENGTH, blank=True)
     barcode = models.CharField(max_length=PRODUCT_BARCODE_MAX_LENGTH, blank=True, default="")
+    unit = models.CharField(max_length=20, choices=Unit.choices, blank=True, default="")
     current_price = models.DecimalField(max_digits=18, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
     description = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     is_active = models.BooleanField(default=True, db_index=True)
@@ -117,6 +135,10 @@ class Product(TimeStampedModel):
                 fields=["barcode"],
                 condition=~Q(barcode=""),
                 name="uniq_product_nonblank_barcode",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit__in=["", "box", "piece", "carton", "kilogram", "gram"]),
+                name="product_unit_valid",
             ),
         ]
         indexes = [models.Index(fields=["category", "is_active", "name"])]

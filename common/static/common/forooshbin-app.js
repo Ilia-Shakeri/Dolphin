@@ -35,8 +35,15 @@
             headers["X-CSRFToken"] = csrfToken();
         }
         if (options.body !== undefined) {
-            headers["Content-Type"] = "application/json";
-            options.body = JSON.stringify(options.body);
+            if (options.raw) {
+                // A FormData body carries its own multipart boundary. Setting
+                // Content-Type by hand here would omit that boundary and the
+                // upload would arrive unparseable.
+                delete options.raw;
+            } else {
+                headers["Content-Type"] = "application/json";
+                options.body = JSON.stringify(options.body);
+            }
         }
         const response = await fetch(url, {...options, method, headers, credentials: "same-origin"});
         let payload = null;
@@ -1752,7 +1759,10 @@
         appendCell(row, product.name);
         appendCell(row, product.category_name || "بدون دسته‌بندی");
         appendCell(row, product.brand || "—");
-        appendCell(row, product.current_price);
+        appendCell(row, product.unit_display || "—");
+        // The price went out raw here while every other table used `money()`,
+        // so the products list was the one screen showing `12500000.00`.
+        appendMoneyCell(row, product.current_price);
         appendStatusCell(row, (product.is_active));
         appendDetailLink(row, `/products/${product.id}/`);
         return row;
@@ -1760,6 +1770,7 @@
 
     async function setupProducts() {
         const form = document.getElementById("product-search-form");
+        setupProductImport();
         // Wire the dialog before any awaited load: a click that lands while a
         // network load is still pending would otherwise be silently discarded,
         // leaving the create button inert for the first moments of the page.
@@ -1771,7 +1782,9 @@
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(createForm, async () => {
-                    const payload = formPayload(createForm, ["sku", "name", "brand", "barcode", "current_price", "description"]);
+                    const payload = formPayload(createForm, ["sku", "name", "brand", "unit", "description"]);
+                    // The field is grouped text for the operator; the API wants digits.
+                    payload.current_price = moneyValue(new FormData(createForm).get("current_price"));
                     payload.category = new FormData(createForm).get("category") ? Number(new FormData(createForm).get("category")) : null;
                     const product = await apiRequest(createForm.action, {method: "POST", body: payload});
                     window.location.assign(`/products/${product.id}/`);
@@ -1797,7 +1810,8 @@
                 if (isActive) query.set("is_active", isActive);
                 const category = document.getElementById("product-category-filter").value;
                 if (category) query.set("category", category);
-                query.set("ordering", document.getElementById("product-ordering").value);
+                // Ordering is no longer a filter control; the list keeps the
+                // model's own name ordering.
                 return `/api/v1/products/?${query}`;
             },
             renderRow: productRow,
@@ -1810,8 +1824,8 @@
         document.getElementById("edit-product-name").value = product.name;
         document.getElementById("edit-product-category").value = product.category || "";
         document.getElementById("edit-product-brand").value = product.brand || "";
-        document.getElementById("edit-product-barcode").value = product.barcode || "";
-        document.getElementById("edit-product-price").value = product.current_price;
+        document.getElementById("edit-product-unit").value = product.unit || "";
+        document.getElementById("edit-product-price").value = moneyDigits(product.current_price);
         document.getElementById("edit-product-description").value = product.description || "";
         document.getElementById("product-created-by").value = product.created_by_display || product.created_by;
         document.getElementById("product-updated-by").value = product.updated_by_display || product.updated_by;
@@ -1822,6 +1836,50 @@
         } else {
             document.getElementById("product-status").value = statusText(product.is_active);
         }
+    }
+
+    /**
+     * Upload a filled export back as new products.
+     *
+     * The user exports first, writes on that file, and returns it — so the
+     * header row is ours and the server maps columns by name rather than by
+     * position. Everything about which row is a duplicate, which is invalid and
+     * which was created is decided on the server; this only reports what it
+     * says.
+     */
+    function setupProductImport() {
+        const open = document.getElementById("open-import-products");
+        const picker = document.getElementById("import-products-file");
+        if (!open || !picker) return;
+
+        open.addEventListener("click", () => picker.click());
+        picker.addEventListener("change", async () => {
+            const file = picker.files && picker.files[0];
+            if (!file) return;
+            const body = new FormData();
+            body.append("file", file);
+            open.disabled = true;
+            clearMessages();
+            try {
+                const result = await apiRequest("/api/v1/products/import-xlsx/", {
+                    method: "POST", body, raw: true,
+                });
+                const parts = [`${toPersianDigits(String(result.created))} محصول ثبت شد.`];
+                if (result.duplicates) {
+                    parts.push(`${toPersianDigits(String(result.duplicates))} محصول تکراری بود و اضافه نشد.`);
+                }
+                if (result.invalid) {
+                    parts.push(`${toPersianDigits(String(result.invalid))} ردیف نامعتبر بود و رد شد.`);
+                }
+                // A run with nothing created is not a success message.
+                globalMessage(parts.join(" "), result.created > 0);
+            } catch (error) {
+                showError(error);
+            } finally {
+                open.disabled = false;
+                picker.value = "";
+            }
+        });
     }
 
     async function setupProductDetail() {
@@ -1853,7 +1911,8 @@
             form.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(form, async () => {
-                    const payload = formPayload(form, ["sku", "name", "brand", "barcode", "current_price", "description"]);
+                    const payload = formPayload(form, ["sku", "name", "brand", "unit", "description"]);
+                    payload.current_price = moneyValue(new FormData(form).get("current_price"));
                     payload.category = new FormData(form).get("category") ? Number(new FormData(form).get("category")) : null;
                     product = await apiRequest(endpoint, {method: "PATCH", body: payload});
                     fillProduct(product);
@@ -1934,7 +1993,7 @@
             if (me.role === "sales_agent") leads = leads.filter((lead) => Number(lead.assigned_to) === Number(me.id));
             const leadSelect = document.getElementById("create-sale-lead");
             fillSelect(leadSelect, leads, (lead) => `${lead.customer_name} — ${lead.source}`, "یک سرنخ انتخاب کنید");
-            fillSelect(document.getElementById("create-sale-product"), products.filter((product) => product.is_active), (product) => `${product.name} — ${product.current_price}`, "یک محصول انتخاب کنید");
+            fillSelect(document.getElementById("create-sale-product"), products.filter((product) => product.is_active), (product) => `${product.name} — ${money(product.current_price)}`, "یک محصول انتخاب کنید");
             const requestedLead = new URLSearchParams(window.location.search).get("lead");
             if (requestedLead && leads.some((lead) => String(lead.id) === requestedLead)) {
                 leadSelect.value = requestedLead;
@@ -1959,8 +2018,10 @@
         document.getElementById("sale-product").value = sale.product_name || sale.product || "—";
         document.getElementById("sale-seller").value = sale.sold_by_display || sale.sold_by;
         document.getElementById("sale-quantity").value = sale.quantity;
-        document.getElementById("sale-unit-price").value = sale.unit_price_snapshot || "—";
-        document.getElementById("sale-total").value = sale.total_amount;
+        // These are read-only boxes, so they get the same rial formatting as
+        // every table cell rather than the raw two-decimal string.
+        document.getElementById("sale-unit-price").value = money(sale.unit_price_snapshot);
+        document.getElementById("sale-total").value = money(sale.total_amount);
         document.getElementById("sale-detail-status").value = saleStatusText(sale.status);
         document.getElementById("sale-time").value = displayDate(sale.sold_at);
         document.getElementById("sale-notes").value = sale.notes || "";
@@ -2836,14 +2897,75 @@
     // Group thousands by walking the string rather than going through Number:
     // an amount is authoritative as sent, and a float round-trip could move the
     // last digit of a large total.
-    function money(value) {
+    /**
+     * A stored amount as the panel shows it: grouped, in rial, no decimals.
+     *
+     * Rial has no sub-unit in daily use, so a trailing `.00` on every figure is
+     * noise that makes an eight-digit total harder to scan, not more precise.
+     * The fraction is dropped by rounding half-up on the digit string rather
+     * than through `Number`, because the amount is authoritative as stored and
+     * a float round-trip could move its last digit.
+     *
+     * The stored value keeps its two decimals — this is display only.
+     */
+    function money(value, {withCurrency = true} = {}) {
         if (value === null || value === undefined || value === "") return "—";
-        const text = String(value);
+        const text = String(value).trim();
         const negative = text.startsWith("-");
-        const [whole, fraction] = (negative ? text.slice(1) : text).split(".");
+        const [rawWhole, fraction = ""] = (negative ? text.slice(1) : text).split(".");
+        if (!/^\d+$/.test(rawWhole)) return String(value);
+
+        // Round half-up on the first dropped digit, carrying through the string.
+        let whole = rawWhole;
+        if (fraction && Number(fraction[0]) >= 5) {
+            const carried = (BigInt(whole) + 1n).toString();
+            whole = carried;
+        }
         const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "،");
-        const body = fraction ? `${grouped}.${fraction}` : grouped;
-        return negative ? `‏-${body}` : body;
+        const body = negative && grouped !== "0" ? `‏-${grouped}` : grouped;
+        return withCurrency ? `${body} ریال` : body;
+    }
+
+    /** The same grouping for a text input, without the currency word. */
+    function moneyDigits(value) {
+        const shown = money(value, {withCurrency: false});
+        return shown === "—" ? "" : shown;
+    }
+
+    /** Strip grouping and Persian digits back to what the API expects. */
+    function moneyValue(text) {
+        const latin = toLatinDigits(String(text || ""));
+        return latin.replace(/[،,\s]/g, "").trim();
+    }
+
+    /**
+     * Group a price field as it is typed, so nobody types separators by hand.
+     *
+     * Applied to `[data-money-input]`. The field is `type="text"` rather than
+     * `type="number"`, because a number input refuses a grouped value outright.
+     * `moneyValue` turns it back into digits on submit.
+     */
+    function setupMoneyInputs(root = document) {
+        root.querySelectorAll("[data-money-input]").forEach((field) => {
+            if (field.dataset.moneyBound === "1") return;
+            field.dataset.moneyBound = "1";
+            field.setAttribute("inputmode", "numeric");
+            field.addEventListener("input", () => {
+                const raw = moneyValue(field.value);
+                const [whole, ...rest] = raw.split(".");
+                const digits = whole.replace(/\D/g, "");
+                const grouped = digits ? moneyDigits(digits) : "";
+                // A decimal point that has been typed is kept, and only the
+                // whole part is grouped. Dropping the point as it is typed
+                // would leave the digits behind it: `15.00` became `1500`,
+                // a hundredfold error on a field an operator types by hand.
+                // The fraction is dropped on display and at submit instead,
+                // where nothing can be mistaken for a further digit.
+                field.value = rest.length
+                    ? `${grouped}.${rest.join("").replace(/\D/g, "")}`
+                    : grouped;
+            });
+        });
     }
 
     function appendMoneyCell(row, value) {
@@ -2868,6 +2990,19 @@
 
     function setSelectValue(select, value) {
         select.value = value === null || value === undefined ? "" : String(value);
+    }
+
+    /**
+     * A money field's value as digits, or null when it was left empty.
+     *
+     * Money fields are grouped text, so `Number()` on them would read `1،200`
+     * as NaN. The digit string goes to the API as text and is parsed there as
+     * a Decimal — turning it into a JS number first would lose precision on
+     * large rial amounts.
+     */
+    function moneyOrNull(value) {
+        const digits = moneyValue(value);
+        return digits === "" ? null : digits;
     }
 
     function numberOrNull(value) {
@@ -3049,7 +3184,7 @@
                         quantity: Number(data.get("quantity")),
                         notes: String(data.get("notes") || ""),
                     };
-                    const cost = numberOrNull(data.get("unit_cost"));
+                    const cost = moneyOrNull(data.get("unit_cost"));
                     if (cost !== null) payload.unit_cost = cost;
                     await apiRequest(createForm.action, {method: "POST", body: payload});
                     movementDialog.close();
@@ -3371,16 +3506,16 @@
                 globalMessage("کالا و تعداد سطر را کامل وارد کنید.");
                 return;
             }
-            const unitPrice = numberOrNull(data.get("unit_price"));
+            const unitPrice = moneyOrNull(data.get("unit_price"));
             const discountPercent = numberOrNull(data.get("discount_percent"));
             const match = products.find((item) => item.id === product);
-            const price = unitPrice ?? Number(match ? match.current_price : 0);
+            const price = unitPrice === null ? Number(match ? match.current_price : 0) : Number(unitPrice);
             const gross = price * quantity;
             const discount = discountPercent ? (gross * discountPercent) / 100 : 0;
             draft.push({
                 product,
                 quantity,
-                unit_price: unitPrice === null ? null : unitPrice,
+                unit_price: unitPrice,
                 discount_percent: discountPercent,
                 // Preview only. The server recomputes every amount from the
                 // product price it reads at write time, and its numbers win.
@@ -3642,7 +3777,7 @@
             document.getElementById("edit-invoice-due").value = localDateValue(invoice.due_at);
             // The typed figure is what the operator last entered; when nothing
             // has been typed the canonical paid amount is shown instead.
-            paidInput.value = invoice.manual_paid_entry ?? invoice.paid_amount;
+            paidInput.value = moneyDigits(invoice.manual_paid_entry ?? invoice.paid_amount);
             paidInput.disabled = Boolean(invoice.is_manually_settled);
             document.getElementById("invoice-balance").value = money(invoice.balance_due);
             document.getElementById("edit-invoice-notes").value = invoice.notes || "";
@@ -3753,7 +3888,7 @@
         // the invoice for good; it writes no Payment, allocation or ledger entry.
         paidInput?.addEventListener("change", async () => {
             if (!current || current.is_manually_settled) return;
-            const typed = paidInput.value.trim();
+            const typed = moneyValue(paidInput.value);
             if (!typed) return;
             paidInput.disabled = true;
             clearMessages();
@@ -3769,7 +3904,7 @@
                     true,
                 );
             } catch (error) {
-                paidInput.value = current.manual_paid_entry ?? current.paid_amount;
+                paidInput.value = moneyDigits(current.manual_paid_entry ?? current.paid_amount);
                 showError(error);
             } finally {
                 paidInput.disabled = Boolean(current?.is_manually_settled);
@@ -3864,7 +3999,7 @@
                     const payload = {
                         customer: Number(data.get("customer")),
                         method: String(data.get("method")),
-                        amount: String(data.get("amount")),
+                        amount: moneyValue(data.get("amount")),
                         reference: String(data.get("reference") || ""),
                         notes: String(data.get("notes") || ""),
                     };
@@ -3951,7 +4086,7 @@
             withSubmit(allocateForm, async () => {
                 const data = new FormData(allocateForm);
                 const body = {invoice: Number(data.get("invoice"))};
-                const amount = textOrNull(data.get("amount"));
+                const amount = moneyOrNull(data.get("amount"));
                 if (amount !== null) body.amount = amount;
                 await apiRequest(`${endpoint}allocate/`, {method: "POST", body});
                 globalMessage("دریافت به فاکتور تخصیص یافت.", true);
@@ -4157,7 +4292,7 @@
                 const data = new FormData(openingForm);
                 await apiRequest(openingForm.action, {method: "POST", body: {
                     customer: Number(data.get("customer")),
-                    amount: String(data.get("amount")),
+                    amount: moneyValue(data.get("amount")),
                     notes: String(data.get("notes") || ""),
                 }});
                 globalMessage("مانده اول دوره ثبت شد.", true);
@@ -4428,6 +4563,11 @@
     // not run, which is what stopped an uncaught TypeError from being thrown
     // behind the Persian "دسترسی مجاز نیست" card.
     if (document.getElementById("app-error")) return;
+
+    // Every price field on the page groups itself as it is typed. Bound once
+    // here rather than per module, because a price is a price on whichever
+    // screen it appears; dialogs are in the DOM at load, so they are covered.
+    setupMoneyInputs();
 
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();

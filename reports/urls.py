@@ -1,6 +1,10 @@
 from django.urls import path
 
-from reports.directory_views import CustomerDirectoryExportView, UserDirectoryExportView
+from reports.directory_views import (
+    CustomerDirectoryExportView,
+    ProductCatalogueExportView,
+    UserDirectoryExportView,
+)
 
 from reports.financial_views import (
     InventoryValuationExportView,
@@ -23,6 +27,7 @@ urlpatterns = [
     path("exports/user-performance.xlsx", UserPerformanceExportView.as_view(), name="user-performance-export"),
     path("exports/users.xlsx", UserDirectoryExportView.as_view(), name="user-directory-export"),
     path("exports/customers.xlsx", CustomerDirectoryExportView.as_view(), name="customer-directory-export"),
+    path("exports/products.xlsx", ProductCatalogueExportView.as_view(), name="product-catalogue-export"),
     path("exports/receivables.xlsx", ReceivablesExportView.as_view(), name="receivables-export"),
     path("exports/profit.xlsx", ProfitExportView.as_view(), name="profit-export"),
     path("exports/stock-valuation.xlsx", InventoryValuationExportView.as_view(), name="stock-valuation-export"),

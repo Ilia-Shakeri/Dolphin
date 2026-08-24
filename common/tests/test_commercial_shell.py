@@ -49,7 +49,21 @@ class CommercialShellContractTests(SimpleTestCase):
         self.assertIn('name="sku" required maxlength="80"', detail_template)
         self.assertIn('id="product-category-filter" name="category"', list_template)
         self.assertIn('name="brand" maxlength="120"', list_template)
-        self.assertIn('name="barcode" maxlength="64"', list_template)
+        # The unit replaced the internal barcode on both product forms. It is a
+        # fixed list rather than a text field, so an agent cannot invent a unit.
+        self.assertNotIn('name="barcode"', list_template + detail_template)
+        for template in (list_template, detail_template):
+            self.assertIn('name="unit"', template)
+            for value in ("box", "piece", "carton", "kilogram", "gram"):
+                self.assertIn(f'<option value="{value}">', template)
+
+        # Import is a write and stays behind the manage gate; export is a read
+        # of rows the agent can already see in the list, and is not gated.
+        self.assertIn('id="open-import-products"', list_template)
+        import_block = list_template.split("{% if can_manage_products %}", 1)[1]
+        self.assertIn('id="open-import-products"', import_block)
+        self.assertIn('id="import-products-file"', import_block)
+
         script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
         self.assertIn('query.set("is_active", isActive)', script)
         self.assertIn('query.set("category", category)', script)
