@@ -23,8 +23,9 @@ from common.viewsets import NoDestroyModelViewSet
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
+from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
 from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -47,7 +48,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Customer.objects.none()
     serializer_class = CustomerSerializer
-    sensitive_actions = frozenset({"deactivate"})
+    sensitive_actions = frozenset({"deactivate", "import_xlsx"})
     search_fields = [
         "full_name",
         "national_id",
@@ -60,9 +61,10 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         "phones__normalized_phone",
     ]
     ordering_fields = ["full_name", "created_at", "updated_at"]
-    #: A registration-date window. Both bounds are optional and inclusive of the
-    #: whole day they name, which is what a person means by "from x to y".
-    list_query_parameters = {"created_from", "created_to"}
+    #: A registration-date window (both bounds optional and inclusive of the
+    #: whole day they name, which is what a person means by "from x to y"), and
+    #: which customer book to read.
+    list_query_parameters = {"created_from", "created_to", "kind"}
     action_query_parameters = {
         "leads": {"page"},
         "interactions": {"page"},
@@ -73,6 +75,14 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         queryset = (
             customers_for(self.request.user).select_related("created_by").prefetch_related("phones")
         )
+        # Narrowing only. `customers_for` has already decided which books this
+        # caller may read at all, so a marketer asking for `kind=legal` gets an
+        # empty page rather than someone else's customers.
+        kind = self.request.query_params.get("kind")
+        if kind is not None:
+            if kind not in Customer.Kind.values:
+                raise ValidationError({"kind": "Select a customer kind from the list."})
+            queryset = queryset.filter(kind=kind)
         return self._filter_by_registration_date(queryset)
 
     def _filter_by_registration_date(self, queryset):
@@ -107,6 +117,48 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
                 created_at__lt=_start_of_day(parsed["created_to"] + timedelta(days=1))
             )
         return queryset
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "format": "binary"},
+                    "kind": {"type": "string", "enum": ["individual", "legal"]},
+                },
+            }
+        },
+        responses={
+            200: CustomerImportResultSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+        },
+        description=(
+            "Create customers in bulk from a filled export of "
+            "GET /api/v1/exports/customers.xlsx. Columns are matched by header name. "
+            "`kind` names the list to import into and overrides the file's own kind "
+            "column. A row whose phone or national ID already exists is skipped and "
+            "counted as a duplicate — an import never overwrites an existing customer."
+        ),
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import-xlsx",
+        parser_classes=[MultiPartParser],
+    )
+    def import_xlsx(self, request):
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "Attach the completed spreadsheet."})
+        if not upload.name.lower().endswith(".xlsx"):
+            raise ValidationError({"file": "Only an .xlsx file is accepted."})
+        result = import_customers_from_workbook(
+            actor=request.user,
+            stream=upload,
+            kind=request.data.get("kind", Customer.Kind.INDIVIDUAL),
+        )
+        return Response(CustomerImportResultSerializer(result).data)
 
     @extend_schema(
         request=None,

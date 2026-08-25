@@ -258,9 +258,15 @@ def build_user_directory_workbook(users):
     return _finish(workbook, sheet)
 
 
+#: The customer export and `sales.customer_imports` share this header row, the
+#: same way the product pair does: the operator exports a list, writes on the
+#: file, and returns it, so columns can be matched by name instead of guessed at
+#: by position. `customer_id`, `is_active`, `created_by` and `created_at` are
+#: present because an export is also a reference document; an import ignores
+#: them, because an import always creates.
 CUSTOMER_DIRECTORY_HEADERS = (
-    "customer_id", "full_name", "primary_phone", "national_id", "email",
-    "province", "city", "postal_code", "category", "is_active",
+    "customer_id", "full_name", "kind", "primary_phone", "national_id", "email",
+    "province", "city", "postal_code", "category", "address", "is_active",
     "created_by", "created_at",
 )
 
@@ -277,13 +283,15 @@ def build_customer_directory_workbook(customers):
         sheet.append((
             customer.pk,
             safe_spreadsheet_text(customer.full_name),
-            safe_spreadsheet_text(primary.normalized_phone if primary else ""),
+            safe_spreadsheet_text(customer.get_kind_display()),
+            safe_spreadsheet_text(primary.raw_phone if primary else ""),
             safe_spreadsheet_text(customer.national_id),
             safe_spreadsheet_text(customer.email),
             safe_spreadsheet_text(customer.province),
             safe_spreadsheet_text(customer.city),
             safe_spreadsheet_text(customer.postal_code),
             safe_spreadsheet_text(customer.category),
+            safe_spreadsheet_text(customer.address),
             "yes" if customer.is_active else "no",
             safe_spreadsheet_text(customer.created_by.username if customer.created_by else ""),
             spreadsheet_datetime(customer.created_at),

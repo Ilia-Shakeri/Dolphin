@@ -565,7 +565,12 @@ class CoreWorkflowTests(TestCase):
         cache.clear()
         self.assertEqual(LeadViewSet.sensitive_actions, frozenset({"reassign"}))
         self.assertEqual(SaleViewSet.sensitive_actions, frozenset({"create", "cancel"}))
-        self.assertEqual(CustomerViewSet.sensitive_actions, frozenset({"deactivate"}))
+        self.assertEqual(
+            CustomerViewSet.sensitive_actions,
+            # A spreadsheet import creates customers in bulk, so it is the most
+            # expensive write on this viewset.
+            frozenset({"deactivate", "import_xlsx"}),
+        )
         self.assertEqual(
             ProductViewSet.sensitive_actions,
             # A spreadsheet import creates products in bulk, so it is the most

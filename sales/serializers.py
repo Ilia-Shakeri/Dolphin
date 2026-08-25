@@ -35,16 +35,18 @@ class CustomerPrimaryPhoneSerializer(serializers.Serializer):
 
 
 class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"created_by", "created_by_display", "is_active", "primary_phone", "created_at", "updated_at"}
+    server_fields = {"created_by", "created_by_display", "is_active", "primary_phone", "kind_display", "created_at", "updated_at"}
     phone = CustomerPhoneInlineSerializer(write_only=True, required=False)
+    kind = serializers.ChoiceField(choices=Customer.Kind.choices, required=False)
+    kind_display = serializers.CharField(source="get_kind_display", read_only=True)
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     created_by_display = serializers.SerializerMethodField()
     primary_phone = serializers.SerializerMethodField()
 
     class Meta:
         model = Customer
-        fields = ["id", "full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
-        read_only_fields = ["id", "created_by", "created_by_display", "is_active", "primary_phone", "created_at", "updated_at"]
+        fields = ["id", "full_name", "kind", "kind_display", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_by", "created_by_display", "is_active", "primary_phone", "kind_display", "created_at", "updated_at"]
 
     def get_created_by_display(self, instance) -> str:
         return instance.created_by.get_full_name() or instance.created_by.username
@@ -296,6 +298,15 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
         return update_target_audience_member(
             actor=self.context["request"].user, member=instance, **validated_data
         )
+
+
+class CustomerImportResultSerializer(serializers.Serializer):
+    """What one customer spreadsheet upload did, counted by outcome."""
+
+    created = serializers.IntegerField(read_only=True)
+    duplicates = serializers.IntegerField(read_only=True)
+    invalid = serializers.IntegerField(read_only=True)
+    errors = serializers.ListField(child=serializers.DictField(), read_only=True)
 
 
 class ProductImportRowErrorSerializer(serializers.Serializer):

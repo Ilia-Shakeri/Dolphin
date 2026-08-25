@@ -74,10 +74,26 @@ class SalesShellContractTests(SimpleTestCase):
         for relation in ("leads", "interactions"):
             self.assertIn(f'id="customer-{relation}-table-body"', customer_detail)
             self.assertIn(f'"{relation}", "{relation}"', script)
-        # Related sales became related orders: an order is what gets recorded
-        # for a customer, so an order is what the panel shows.
-        self.assertIn('id="customer-orders-table-body"', customer_detail)
+        # Related orders became related invoices: what is asked of a customer's
+        # account is their invoices, and neither of the earlier panels survives.
+        self.assertIn('id="customer-invoices-table-body"', customer_detail)
+        self.assertNotIn('id="customer-orders-table-body"', customer_detail)
         self.assertNotIn('id="customer-sales-table-body"', customer_detail)
+        # Both settlement columns are shown, because a manually settled invoice
+        # reads as paid while its canonical balance is untouched.
+        self.assertIn("<th>تسویه</th>", customer_detail)
+        self.assertIn("<th>مانده</th>", customer_detail)
+
+        # Two customer books, and the marketer is offered neither the switch nor
+        # the kind selector. That hiding is not the authorisation — see
+        # test_scope_attacks for what the backend refuses.
+        self.assertIn('data-customer-kind="individual"', customer_list)
+        self.assertIn('data-customer-kind="legal"', customer_list)
+        self.assertIn('name="kind"', customer_list)
+        self.assertEqual(customer_list.count("can_manage_customer_kinds"), 5)
+        self.assertIn('id="open-export-customers"', customer_list)
+        self.assertIn('id="open-import-customers"', customer_list)
+        self.assertNotIn("دریافت XLSX", customer_list)
 
         # The destructive block is gone. Activation is a select at the top of
         # the page for a Platform Admin, and nothing anywhere deletes.

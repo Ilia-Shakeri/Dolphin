@@ -24,12 +24,19 @@ def customers_for(user):
     previously also saw every customer behind a lead assigned to them, which
     made the customer book grow silently as work was handed around; Client-1
     wants own-entry scope, so that is what this enforces.
+
+    A marketer is also confined to the **individual** book. Client-1 works
+    organisations through the sales desk, not the call centre, so a legal
+    customer is outside a marketer's scope entirely — not merely a list their
+    page declines to offer them. Enforced here rather than in the view because
+    every reader of a customer goes through this selector: the list, the detail
+    page, the export, and every related lead, interaction and document.
     """
     queryset = Customer.objects.all()
     if user.role == User.Role.SALES_AGENT:
         if user.workstream == User.Workstream.AFTER_SALES:
             return queryset.none()
-        return queryset.filter(created_by=user)
+        return queryset.filter(created_by=user, kind=Customer.Kind.INDIVIDUAL)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()

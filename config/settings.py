@@ -143,7 +143,10 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024
 # applies to them. Only the product spreadsheet import today. Kept explicit and
 # still bounded: a file larger than this is a data-migration task, not something
 # to push through a web request.
-FILE_UPLOAD_PATHS = ("/api/v1/products/import-xlsx/",)
+FILE_UPLOAD_PATHS = (
+    "/api/v1/products/import-xlsx/",
+    "/api/v1/customers/import-xlsx/",
+)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 SESSION_COOKIE_HTTPONLY = True

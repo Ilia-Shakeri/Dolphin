@@ -37,6 +37,7 @@ OPERATIONAL_WRITERS = {User.Role.SALES_AGENT, *ELEVATED_OPERATORS}
 MAX_MONEY = Decimal("9999999999999999.99")
 CUSTOMER_MUTABLE_FIELDS = {
     "full_name",
+    "kind",
     "national_id",
     "email",
     "province",
@@ -159,6 +160,25 @@ def _clean_single_line(value, *, field, limit):
     return cleaned
 
 
+def _validate_customer_kind(actor, data):
+    """A customer's kind must be real, and must be one this actor may work.
+
+    A marketer's scope is the individual book (`customers_for`). Without this
+    check the API would let one create a legal customer and then be unable to
+    read back the record they had just written — the write would succeed and the
+    customer would be invisible to its own author. Refusing the write is the
+    honest answer.
+    """
+    if "kind" not in data:
+        return
+    kind = (data["kind"] or "").strip()
+    if kind not in Customer.Kind.values:
+        raise BusinessRuleError({"kind": "Select a customer kind from the list."})
+    if actor.role == User.Role.SALES_AGENT and kind != Customer.Kind.INDIVIDUAL:
+        raise BusinessPermissionDenied("Legal customers are outside your scope.")
+    data["kind"] = kind
+
+
 @transaction.atomic
 def create_customer_with_phone(*, actor, phone=None, **data):
     actor = _lock_operational_actor(actor)
@@ -166,6 +186,7 @@ def create_customer_with_phone(*, actor, phone=None, **data):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
     _validate_text_lengths(data, CUSTOMER_TEXT_LIMITS)
+    _validate_customer_kind(actor, data)
     customer = Customer.objects.create(created_by=actor, **data)
     log_activity(
         actor=actor,
@@ -188,6 +209,7 @@ def update_customer(*, actor, customer, **changes):
     if unknown:
         raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
     _validate_text_lengths(changes, CUSTOMER_TEXT_LIMITS)
+    _validate_customer_kind(actor, changes)
     changed_fields = []
     for field, value in changes.items():
         if getattr(locked, field) != value:

@@ -1016,6 +1016,10 @@
 
     function setupCustomers() {
         const form = document.getElementById("customer-search-form");
+        // Which of the two books is on screen. A marketer never sees the
+        // switch, and `customers_for` confines them to this book in the
+        // database regardless of what the page asks for.
+        let kind = "individual";
         const controller = setupPagedList({
             key: "customers",
             form,
@@ -1036,6 +1040,7 @@
                     if (from) query.set("created_from", from);
                     if (to) query.set("created_to", to);
                 }
+                query.set("kind", kind);
                 return `/api/v1/customers/?${query}`;
             },
             renderRow: customerRow,
@@ -1052,6 +1057,33 @@
         };
         orderingSelect.addEventListener("change", syncDateRange);
         syncDateRange();
+
+        /**
+         * The حقیقی / حقوقی switch.
+         *
+         * One table, two books: the same columns and the same filters read a
+         * different list, rather than a second page duplicating all of it. The
+         * pressed state is carried on `aria-pressed` as well as the class, so
+         * the switch is not colour-only.
+         */
+        const kindButtons = Array.from(document.querySelectorAll("[data-customer-kind]"));
+        kindButtons.forEach((button) => {
+            button.addEventListener("click", () => {
+                const chosen = button.dataset.customerKind;
+                if (chosen === kind) return;
+                kind = chosen;
+                kindButtons.forEach((other) => {
+                    const active = other === button;
+                    other.classList.toggle("btn-primary", active);
+                    other.classList.toggle("btn-light", !active);
+                    other.setAttribute("aria-pressed", String(active));
+                });
+                clearMessages();
+                controller.load(1);
+            });
+        });
+
+        setupCustomerListTransfer(() => kind);
         controller.load();
         const dialog = document.getElementById("create-customer-dialog");
         const createForm = document.getElementById("create-customer-form");
@@ -1061,6 +1093,10 @@
             event.preventDefault();
             withSubmit(createForm, async () => {
                 const payload = formPayload(createForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"]);
+                // Absent for a marketer, who has no such selector and whose
+                // customers are individuals by the model's own default.
+                const kindField = document.getElementById("create-customer-kind");
+                if (kindField) payload.kind = kindField.value;
                 const rawPhone = String(new FormData(createForm).get("phone_raw") || "").trim();
                 if (rawPhone) payload.phone = {
                     raw_phone: rawPhone,
@@ -1072,6 +1108,97 @@
                 controller.load(1);
                 window.location.assign(`/customers/${customer.id}/`);
             });
+        });
+    }
+
+    /**
+     * The «خروجی لیست» and «ورودی لیست» dialogs.
+     *
+     * Both ask the same first question — which list — because both act on one
+     * book at a time. Export then offers a download; import offers a file and a
+     * upload button. The export columns and the import columns are the same row,
+     * so the operator exports a list, writes on that file, and returns it.
+     *
+     * `currentKind` seeds each dialog with the book already on screen, which is
+     * almost always the one meant.
+     */
+    function setupCustomerListTransfer(currentKind) {
+        const exportDialog = document.getElementById("export-customers-dialog");
+        const exportOpen = document.getElementById("open-export-customers");
+        const exportKind = document.getElementById("export-customers-kind");
+        const download = document.getElementById("download-customers");
+
+        function bindClose(dialog) {
+            dialog?.querySelectorAll("[data-close-dialog]").forEach((button) =>
+                button.addEventListener("click", () => dialog.close()),
+            );
+        }
+
+        if (exportDialog && exportOpen) {
+            bindClose(exportDialog);
+            exportOpen.addEventListener("click", () => {
+                // Seed with the book on screen, but only if this reader has
+                // that option at all.
+                if (Array.from(exportKind.options).some((option) => option.value === currentKind())) {
+                    exportKind.value = currentKind();
+                }
+                exportDialog.showModal();
+            });
+            download.addEventListener("click", () => {
+                // A plain navigation: the browser's own download, with the
+                // session cookie attached, and no blob held in memory.
+                window.location.assign(
+                    `/api/v1/exports/customers.xlsx?kind=${encodeURIComponent(exportKind.value)}`,
+                );
+                exportDialog.close();
+            });
+        }
+
+        const importDialog = document.getElementById("import-customers-dialog");
+        const importOpen = document.getElementById("open-import-customers");
+        if (!importDialog || !importOpen) return;
+        const importKind = document.getElementById("import-customers-kind");
+        const picker = document.getElementById("import-customers-file");
+        const upload = document.getElementById("upload-customers");
+
+        bindClose(importDialog);
+        importOpen.addEventListener("click", () => {
+            importKind.value = currentKind();
+            picker.value = "";
+            clearMessages(importDialog);
+            importDialog.showModal();
+        });
+        upload.addEventListener("click", async () => {
+            const file = picker.files && picker.files[0];
+            if (!file) {
+                const slot = importDialog.querySelector('[data-error-for="file"]');
+                if (slot) slot.textContent = "یک فایل اکسل انتخاب کنید.";
+                return;
+            }
+            const body = new FormData();
+            body.append("file", file);
+            body.append("kind", importKind.value);
+            upload.disabled = true;
+            clearMessages(importDialog);
+            try {
+                const result = await apiRequest("/api/v1/customers/import-xlsx/", {
+                    method: "POST", body, raw: true,
+                });
+                importDialog.close();
+                const parts = [`${toPersianDigits(String(result.created))} مشتری ثبت شد.`];
+                if (result.duplicates) {
+                    parts.push(`${toPersianDigits(String(result.duplicates))} مشتری تکراری بود و اضافه نشد.`);
+                }
+                if (result.invalid) {
+                    parts.push(`${toPersianDigits(String(result.invalid))} ردیف نامعتبر بود و رد شد.`);
+                }
+                // A run that created nothing is not a success message.
+                globalMessage(parts.join(" "), result.created > 0);
+            } catch (error) {
+                showError(error, importDialog);
+            } finally {
+                upload.disabled = false;
+            }
         });
     }
 
@@ -1222,34 +1349,42 @@
         }
 
         /**
-         * One row per line of every order this customer has.
+         * One row per invoice this customer has.
          *
-         * The panel answers "what has this customer ordered", so it lists the
-         * goods rather than the documents: product, quantity, line total. The
-         * document itself is one click away in the orders module.
+         * The panel answers "where does this customer's account stand", which
+         * is a question about documents rather than goods, so each row is one
+         * invoice: its number, where it is, what it came to and what is still
+         * owed. Both settlement columns are shown because they can disagree —
+         * a manually settled invoice reads as paid while its canonical balance
+         * is untouched, and hiding one of the two would make the page lie.
          */
-        function customerOrderRows(order) {
-            return (order.items || []).map((item) => {
-                const row = document.createElement("tr");
-                appendCell(row, item.product_name_snapshot || item.product_name || item.product);
-                appendCell(row, toPersianDigits(String(item.quantity)));
-                appendCell(row, money(item.line_total ?? item.total_amount));
-                return row;
-            });
+        function customerInvoiceRow(invoice) {
+            const row = document.createElement("tr");
+            appendCell(row, invoice.number).dir = "ltr";
+            appendStatusBadgeCell(row, DOCUMENT_STATUS_TEXT, invoice.status);
+            appendCell(row, labelled(SETTLEMENT_TEXT, invoice.settlement_status));
+            appendMoneyCell(row, invoice.total_amount);
+            appendMoneyCell(row, invoice.balance_due);
+            appendCell(row, displayDay(invoice.issued_at));
+            appendActionLinks(row, [[`/invoices/${invoice.id}/`, "مشاهده"]]);
+            return row;
         }
 
         const relatedLists = [
             setupCustomerRelatedList("leads", "leads", leadRow),
             setupCustomerRelatedList("interactions", "interactions", interactionRow),
-            // Related sales became related orders: an order is what is recorded
-            // for a customer, so an order is what this panel shows.
-            setupCustomerRelatedList(
-                "orders",
-                `/api/v1/orders/?customer=${customerId}`,
-                customerOrderRows,
-                {absolute: true},
-            ),
         ];
+        // Related orders became related invoices. The box is only rendered for
+        // a reader whose deployment has invoices at all, so its absence is not
+        // an error — the endpoint checks scope again regardless.
+        if (document.getElementById("customer-invoices-table-wrap")) {
+            relatedLists.push(setupCustomerRelatedList(
+                "invoices",
+                `/api/v1/invoices/?customer=${customerId}`,
+                customerInvoiceRow,
+                {absolute: true},
+            ));
+        }
 
         try {
             await loadCustomer();

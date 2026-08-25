@@ -8,7 +8,7 @@ query would eventually introduce.
 
 from django.http import HttpResponse
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,6 +25,9 @@ from reports.xlsx import (
     build_product_catalogue_workbook,
     build_user_directory_workbook,
 )
+from rest_framework.exceptions import ValidationError
+
+from sales.models import Customer
 from sales.selectors import customers_for, products_for
 
 
@@ -92,7 +95,21 @@ class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
             (403, "application/json"): ACCESS_DENIED_RESPONSE,
             (429, "application/json"): THROTTLED_RESPONSE,
         },
-        description="Customer directory as XLSX, scoped exactly like the customer list endpoint.",
+        parameters=[
+            OpenApiParameter(
+                "kind",
+                str,
+                description=(
+                    "Which customer book to export: `individual` or `legal`. "
+                    "Omitted exports both. A marketer may only ever read the "
+                    "individual book, whatever they ask for."
+                ),
+            )
+        ],
+        description=(
+            "Customer directory as XLSX, scoped exactly like the customer list endpoint. "
+            "Its header row is what POST /api/v1/customers/import-xlsx/ reads."
+        ),
     )
     def get(self, request):
         return super().get(request)
@@ -104,6 +121,13 @@ class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
             .prefetch_related("phones")
             .order_by("full_name")
         )
+        # Narrowing only: `customers_for` has already settled which books this
+        # caller may read at all.
+        kind = request.query_params.get("kind")
+        if kind is not None:
+            if kind not in Customer.Kind.values:
+                raise ValidationError({"kind": "Select a customer kind from the list."})
+            customers = customers.filter(kind=kind)
         return build_customer_directory_workbook(customers)
 
 

@@ -22,7 +22,28 @@ PRODUCT_BARCODE_MAX_LENGTH = 64
 
 
 class Customer(TimeStampedModel):
+    class Kind(models.TextChoices):
+        """Whether this customer is a person or an organisation.
+
+        Client-1 keeps two customer books and works them separately, so the kind
+        decides which list a customer appears in, not merely how they are
+        labelled.
+
+        The default is deliberate and is not a "not recorded yet" blank the way
+        `Product.unit` is. Every customer that existed before this field is a
+        natural person as far as the panel is concerned, and a blank kind would
+        put them in *neither* list — they would silently vanish from the book
+        the marketer works out of. A default nobody has to backfill is the only
+        version of this migration that cannot lose sight of a customer.
+        """
+
+        INDIVIDUAL = "individual", "حقیقی"
+        LEGAL = "legal", "حقوقی"
+
     full_name = models.CharField(max_length=255, db_index=True)
+    kind = models.CharField(
+        max_length=16, choices=Kind.choices, default=Kind.INDIVIDUAL, db_index=True
+    )
     national_id = models.CharField(max_length=32, blank=True, db_index=True)
     email = models.EmailField(blank=True)
     province = models.CharField(max_length=100, blank=True)
@@ -37,6 +58,12 @@ class Customer(TimeStampedModel):
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["created_by", "is_active", "-created_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(kind__in=["individual", "legal"]),
+                name="customer_kind_valid",
+            ),
+        ]
 
 
 class CustomerPhone(TimeStampedModel):

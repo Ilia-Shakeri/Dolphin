@@ -49,14 +49,19 @@
         <div id="customer-interactions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>مشتری</th><th>شماره</th><th>جهت</th><th>نتیجه</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="customer-interactions-table-body"></tbody></table></div>
         <nav id="customer-interactions-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی تماس‌های مرتبط" hidden><button id="customer-interactions-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-interactions-page-label"></span><button id="customer-interactions-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
-    {% comment %} سفارشات مرتبط جایگزین «فروش‌های مرتبط» شد: آنچه برای این مشتری ثبت
-       می‌شود سفارش است و همان باید اینجا دیده شود. {% endcomment %}
+    {% comment %} فاکتورهای مرتبط جایگزین «سفارشات مرتبط» شد: آنچه از حساب مشتری
+       پرسیده می‌شود فاکتور اوست. هر سطر یک سند است — شماره، وضعیت، مبلغ، مانده —
+       و خودِ سند یک کلیک آن‌طرف‌تر در ماژول فاکتورها باز می‌شود.
+       این جعبه فقط برای کسی که اختیار فاکتور دارد رندر می‌شود؛ نقطهٔ انتهایی
+       مستقل از این نشانه‌گذاری هم دامنه را بررسی می‌کند. {% endcomment %}
+    {% if "invoices" in features %}
     <section class="card mb-5 mb-xl-8"><div class="card-body">
-        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">سفارشات مرتبط</h2></div>
-        <div id="customer-orders-loading" class="text-center text-gray-700 py-10">در حال دریافت سفارش‌ها…</div><div id="customer-orders-empty" class="text-center text-gray-700 py-10" hidden>سفارشی برای این مشتری در محدوده دسترسی شما نیست.</div>
-        <div id="customer-orders-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>نام محصول</th><th>تعداد سفارش</th><th>مبلغ کل</th></tr></thead><tbody id="customer-orders-table-body"></tbody></table></div>
-        <nav id="customer-orders-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی سفارشات مرتبط" hidden><button id="customer-orders-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-orders-page-label"></span><button id="customer-orders-next" class="btn btn-light" type="button">بعدی</button></nav>
+        <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">فاکتورهای مرتبط</h2></div>
+        <div id="customer-invoices-loading" class="text-center text-gray-700 py-10">در حال دریافت فاکتورها…</div><div id="customer-invoices-empty" class="text-center text-gray-700 py-10" hidden>فاکتوری برای این مشتری در محدوده دسترسی شما نیست.</div>
+        <div id="customer-invoices-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره</th><th>وضعیت</th><th>تسویه</th><th>مبلغ کل</th><th>مانده</th><th>تاریخ صدور</th><th>عملیات</th></tr></thead><tbody id="customer-invoices-table-body"></tbody></table></div>
+        <nav id="customer-invoices-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی فاکتورهای مرتبط" hidden><button id="customer-invoices-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-invoices-page-label"></span><button id="customer-invoices-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
+    {% endif %}
     {% comment %} بلوک «غیرفعال‌سازی» برداشته شد. وضعیت فعال/غیرفعال حالا یک انتخابگر
        در بالای همین صفحه است و فقط مدیر پلتفرم آن را می‌بیند و تغییر می‌دهد. هیچ
        حذفی در کار نبود و همچنان نیست. {% endcomment %}

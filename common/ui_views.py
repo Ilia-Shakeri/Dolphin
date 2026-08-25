@@ -154,6 +154,11 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # page never offers a control the service would refuse, nor hides one it
         # would accept.
         context["can_edit_target_audience"] = self.request.user.role != User.Role.SALES_AGENT
+        # Two customer books. A marketer works the individual one and is not
+        # offered the choice — mirroring `customers_for`, which confines their
+        # scope to it in the database, and `_validate_customer_kind`, which
+        # refuses them a legal customer on the way in.
+        context["can_manage_customer_kinds"] = self.request.user.role != User.Role.SALES_AGENT
         context["can_reassign_leads"] = context["can_deactivate_customers"]
         context["can_manage_products"] = context["can_deactivate_customers"]
         context["can_cancel_sales"] = context["can_deactivate_customers"]
