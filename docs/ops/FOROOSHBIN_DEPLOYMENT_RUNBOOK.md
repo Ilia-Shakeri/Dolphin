@@ -62,8 +62,7 @@ rebuild, so do it in this order.
 reads it, the panel footer prints it, and the OpenAPI schema carries it.
 
 ```bash
-printf '1.1.2
-' > VERSION
+echo 1.1.2 > VERSION
 ```
 
 Record what changed in `CHANGELOG.md`: what was added, changed, removed and
@@ -72,12 +71,25 @@ fixed. Commit both with the work they describe, and push.
 Build the image and tag it with the same version:
 
 ```bash
-docker build -t forooshbin-app:v1.1.2 .
+./scripts/build-image.sh --save
 ```
 
+The tag is read from `VERSION`, so it cannot name a version the image does not
+contain, and the script reads the version back out of what it built before it
+finishes. It also supplies the two build arguments the Dockerfile requires:
+plain `docker build .` fails with `base name (${PYTHON_BASE_IMAGE}) should not
+be blank`, because the base is pinned by digest rather than by tag.
+
+Record that digest once per build machine — it is git-ignored, since which
+digest has been reviewed belongs to your machine and its date, not to the
+source:
+
 ```bash
-docker save forooshbin-app:v1.1.2 | gzip > forooshbin-app-v1.1.2.tar.gz
+docker pull python:3.13-slim && docker inspect --format='{{index .RepoDigests 0}}' python:3.13-slim > .python-base-image
 ```
+
+Use the `RepoDigests` value, not the image ID from `docker image ls`. An image
+ID names the config on one machine and will not resolve anywhere else.
 
 ```bash
 scp forooshbin-app-v1.1.2.tar.gz deploy@<server>:/srv/forooshbin/
@@ -144,10 +156,11 @@ stale and starts anyway. The result is shared-catalog corruption. To trial a
 release without touching production, use a separate host or a separate volume
 set.
 
-**Never run a release with a prompt in it.** `docker compose run` attaches a TTY
-by default, and psql's `\password` reads the terminal instead of stdin whenever
-one is present, which silently discards the passwords `db-bootstrap` pipes in
-from `.env`. Every service invocation in a release path uses `-T`.
+**A release allocates no terminal.** Every service invocation in a release path
+uses `-T`. `db-bootstrap` still prints three password prompts as it runs — psql
+echoes them while reading the values piped in from `.env` — and that is expected
+rather than a fault. The backup that follows is what proves the values landed,
+because it authenticates as the role that step just configured.
 
 ---
 
@@ -764,12 +777,15 @@ backup for that reason:
 docker compose run --rm -T db-bootstrap
 ```
 
-`-T` is required, not cosmetic. `docker compose run` attaches a TTY by default,
-and psql's `\password` reads from the terminal rather than from stdin whenever
-one is present — so the script prompts the operator and discards the passwords
-it piped in from `.env`. The roles then hold whatever the terminal supplied, and
-the next backup fails to authenticate against them. Running the same service
-through `up` is unaffected, because a service has no TTY.
+This prints `Enter new password for user ...` three times. **That is expected.**
+`bootstrap-postgres.sh` sets those roles through psql's `\password`, piping each
+value in on stdin; psql echoes the prompt but reads what was piped. The
+non-interactive alternative beside it is restricted to disposable proof
+databases on a loopback high port, so a real deployment cannot use it.
+
+The prompts appear with or without `-T`. If you want to know whether the values
+actually landed, look at the backup that follows: it authenticates as the backup
+role this step just configured, so a successful backup is the proof.
 
 ### One stack, not one per version
 

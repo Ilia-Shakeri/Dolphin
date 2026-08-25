@@ -53,3 +53,7 @@ Thumbs.db
 
 # A separate git checkout that lives here but is not part of this project.
 codex-plugin-cc-probe/
+
+# Which base-image digest has been reviewed is a property of the build machine
+# and the date, not of the source. scripts/build-image.sh reads it from here.
+.python-base-image

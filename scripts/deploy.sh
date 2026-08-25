@@ -261,13 +261,17 @@ deploy() {
         # provisioned against this database it authenticates before
         # `db-bootstrap` has ever had a chance to set their passwords. Bootstrap
         # first, so the backup meets the credentials the .env actually describes.
-        # -T matters, it is not tidiness. `docker compose run` attaches a
-        # TTY by default, and psql's \password reads from the terminal rather
-        # than from stdin whenever one is present — so bootstrap prompts the
-        # operator and silently discards the passwords the script piped in from
-        # .env. The roles then carry whatever the terminal supplied, and the
-        # next backup fails to authenticate. Without a TTY, \password reads
-        # the piped stdin, which is what this path was written for.
+        # bootstrap prints "Enter new password for user ..." three times here
+        # and that is expected, not a fault. bootstrap-postgres.sh reaches those
+        # roles through psql's \password, piping each value in on stdin; psql
+        # echoes the prompt but reads what was piped. The non-interactive path
+        # beside it is restricted to disposable proof databases on a loopback
+        # high port, so it is unavailable to a real deployment by design.
+        #
+        # -T is kept because a release should allocate no terminal, not because
+        # it silences the prompts. It does not: they appear with or without it.
+        # The proof that the piped values land is the backup immediately below,
+        # which authenticates as the role this step just configured.
         $COMPOSE run --rm -T db-bootstrap
         $COMPOSE --profile backup run --rm -T backup
     fi
