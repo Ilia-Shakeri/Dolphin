@@ -101,14 +101,24 @@ check_nginx_config_is_current() {
     fi
 }
 
+foreign_containers_matching() {
+    # Containers matching a `docker ps` filter that do NOT belong to this
+    # deployment. Membership is decided by asking Compose for its own container
+    # ids rather than by comparing the project label against a name read out of
+    # .env: the project can be set in the environment rather than the file, and
+    # a name this script failed to find made every container look foreign —
+    # including the deployment's own database.
+    own="$($COMPOSE ps -aq 2>/dev/null || true)"
+    docker ps --no-trunc --filter "$1" --format '{{.ID}} {{.Names}}' \
+        | while read -r id name; do
+              printf '%s\n' "$own" | grep -qx "$id" || printf '%s\n' "$name"
+          done
+}
+
 check_ports_are_free() {
-    # Any *other* Compose project publishing 80/443 will make nginx fail to
-    # bind, after the rest of the stack has already come up.
-    project="$(env_value KARIZ_COMPOSE_PROJECT_NAME)"
-    intruders="$(docker ps \
-        --filter "publish=80" \
-        --format '{{.Names}} {{.Label "com.docker.compose.project"}}' \
-        | awk -v p="$project" '$2 != "" && $2 != p {print $1" (project "$2")"}')"
+    # Any other project publishing 80 will make nginx fail to bind, after the
+    # rest of the stack has already come up.
+    intruders="$(foreign_containers_matching 'publish=80')"
     if [ -n "$intruders" ]; then
         echo "error: another stack already holds port 80:" >&2
         echo "$intruders" | sed 's/^/       /' >&2
@@ -119,16 +129,13 @@ check_ports_are_free() {
 }
 
 check_database_is_not_shared() {
-    # Two Compose projects pointed at one external volume means two PostgreSQL
-    # servers over one data directory. PostgreSQL's own lock stops the second
-    # from starting, so this shows up as a restart loop rather than as
-    # corruption — but it is never intended and is worth refusing.
+    # Two projects over one external volume means two PostgreSQL servers over
+    # one data directory. PostgreSQL's own lock stops the second from starting,
+    # so it shows up as a restart loop rather than as corruption — but it is
+    # never intended and is worth refusing.
     volume="$(env_value POSTGRES_DATA_VOLUME)"
     [ -n "$volume" ] || return 0
-    project="$(env_value KARIZ_COMPOSE_PROJECT_NAME)"
-    sharers="$(docker ps --filter "volume=$volume" \
-        --format '{{.Names}} {{.Label "com.docker.compose.project"}}' \
-        | awk -v p="$project" '$2 != "" && $2 != p {print $1" (project "$2")"}')"
+    sharers="$(foreign_containers_matching "volume=$volume")"
     if [ -n "$sharers" ]; then
         echo "error: another running stack mounts the same database volume ($volume):" >&2
         echo "$sharers" | sed 's/^/       /' >&2
