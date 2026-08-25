@@ -688,10 +688,23 @@ Stop and roll back ([section 5](#5-rollback)) if any of these is true after step
 The backup job refuses to write to a volume without its sentinel — that is what
 stops it writing into the wrong place.
 
+The order below is not arbitrary. The `backup` service runs with `cap_drop:
+ALL`, and this command adds only `CHOWN`. `chmod` on a path you do not own needs
+`CAP_FOWNER`, which is not there — so every `chmod` has to happen while root
+still owns the path, before the matching `chown`. `/backups` itself is handed
+over last, because once it belongs to `postgres` at mode `0700` a root without
+`DAC_OVERRIDE` can no longer write the sentinel into it.
+
+It reclaims ownership of `/backups` first so it can be re-run. An earlier
+attempt that chowned the directory and then failed leaves it owned by
+`postgres`, and without this the retry fails at the same `chmod` as the first
+run did. The emptiness test still guards the volume: this recovers a
+half-prepared directory, never an inhabited one.
+
 ```bash
 docker compose --env-file secrets/.env --profile backup run --rm --no-deps \
   --user root --cap-add CHOWN --entrypoint sh backup -c \
-  'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown postgres:postgres /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root'
+  'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chown postgres:postgres /backups'
 ```
 
 ### 4.2 Take a backup

@@ -162,7 +162,7 @@ check_backup_volume_is_prepared() {
     # Quoted so the shell expands nothing: this is text to be copied, and the
     # inner $(find ...) must reach the reader intact.
     cat >&2 <<'PREPARE'
-    docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown postgres:postgres /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root'
+    docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chown postgres:postgres /backups'
 PREPARE
     echo >&2
     exit 2
