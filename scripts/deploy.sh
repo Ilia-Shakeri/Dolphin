@@ -130,9 +130,16 @@ check_ports_are_free() {
 
 check_database_is_not_shared() {
     # Two projects over one external volume means two PostgreSQL servers over
-    # one data directory. PostgreSQL's own lock stops the second from starting,
-    # so it shows up as a restart loop rather than as corruption — but it is
-    # never intended and is worth refusing.
+    # one data directory, and this check is the only thing standing between a
+    # deployment and that.
+    #
+    # `postmaster.pid` does NOT protect against it across containers. The second
+    # server reads the recorded PID, looks for it inside its own PID namespace,
+    # does not find it, concludes the lock is stale, and starts. Both then write
+    # the shared catalogs in pg_global. On this deployment that produced a
+    # pg_authid whose unique index held roles its heap did not, and a pg_class
+    # whose tables could not be found by name — the database had to be rebuilt.
+    # Refusing here is not tidiness.
     volume="$(env_value POSTGRES_DATA_VOLUME)"
     [ -n "$volume" ] || return 0
     sharers="$(foreign_containers_matching "volume=$volume")"
