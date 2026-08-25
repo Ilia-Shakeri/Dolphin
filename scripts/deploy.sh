@@ -134,6 +134,40 @@ check_database_is_not_shared() {
     fi
 }
 
+check_backup_volume_is_prepared() {
+    # The backup job refuses a volume without its sentinel — that is what stops
+    # it writing a database dump into the wrong place. Preparing the volume is a
+    # one-time step (runbook 4.1), easy to have never done on a deployment that
+    # has not been backed up yet. Checked here so the release stops before
+    # anything starts and says what to run, rather than failing halfway with a
+    # message about a sentinel.
+    #
+    # Best effort: this reads the volume through the local driver's mountpoint,
+    # which needs root. Where that is not possible the check stands aside rather
+    # than blocking a release it cannot judge.
+    volume="$(env_value POSTGRES_BACKUP_VOLUME)"
+    [ -n "$volume" ] || return 0
+    mountpoint="$(docker volume inspect -f '{{.Mountpoint}}' "$volume" 2>/dev/null || true)"
+    if [ -z "$mountpoint" ] || [ ! -d "$mountpoint" ]; then
+        note "cannot read volume $volume from here — skipping the backup-volume check."
+        return 0
+    fi
+    if [ -f "$mountpoint/.frooshbin-backup-root" ] || [ -f "$mountpoint/.kariz-backup-root" ]; then
+        return 0
+    fi
+    echo "error: the backup volume ($volume) has no sentinel, so the backup job will" >&2
+    echo "       refuse to write to it. Prepare it once (runbook 4.1), from this" >&2
+    echo "       directory, then run this script again:" >&2
+    echo >&2
+    # Quoted so the shell expands nothing: this is text to be copied, and the
+    # inner $(find ...) must reach the reader intact.
+    cat >&2 <<'PREPARE'
+    docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown postgres:postgres /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root'
+PREPARE
+    echo >&2
+    exit 2
+}
+
 # --- the release ----------------------------------------------------------
 
 deploy() {
@@ -152,6 +186,7 @@ deploy() {
     check_nginx_config_is_current
     check_ports_are_free
     check_database_is_not_shared
+    check_backup_volume_is_prepared
 
     if [ "$image" = "$current" ]; then
         note "already on that image; continuing so migrations and static files are refreshed."
