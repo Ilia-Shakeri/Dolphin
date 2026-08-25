@@ -414,7 +414,34 @@ it — see [4.1](#41-prepare-the-backup-volume-once).
 
 ### 1.8 `.env`
 
-Copy the template and fill it in:
+**Generate it rather than writing it by hand:**
+
+```bash
+python3 scripts/new_deployment.py --slug <customer> --host <public-hostname> --out /srv/forooshbin/<customer>
+```
+
+One answer set produces the whole file: the project name, the database, all four
+role names, both volume names, and five generated secrets, all derived from the
+single slug so they cannot disagree with each other. The tool creates nothing
+and starts nothing; it writes one `.env` at mode `0600`, refuses to replace an
+existing one, and prints the remaining steps in order. Only the two TLS paths
+and the manifest key are left for you to fill in, because neither can be
+generated here.
+
+Choose the feature set with `--features customers,products,invoices`; omit it
+for this release's default set. Dependencies are added for you and the additions
+are named — asking for `payments` also enables `invoices`, `customers` and
+`products`, because an invoice cannot exist without a customer and a product.
+
+```bash
+python3 scripts/new_deployment.py --list-features
+```
+
+The feature list and the dependency rules are imported from
+`common/deployment/registry.py`, the same module the running application
+enforces, so the two can never drift apart.
+
+**Or fill the template in by hand.** Copy the template:
 
 ```bash
 cp .env.example secrets/.env
