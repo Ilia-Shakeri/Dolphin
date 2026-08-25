@@ -217,12 +217,19 @@ deploy() {
         # provisioned against this database it authenticates before
         # `db-bootstrap` has ever had a chance to set their passwords. Bootstrap
         # first, so the backup meets the credentials the .env actually describes.
-        $COMPOSE run --rm db-bootstrap
-        $COMPOSE --profile backup run --rm backup
+        # -T matters, it is not tidiness. `docker compose run` attaches a
+        # TTY by default, and psql's \password reads from the terminal rather
+        # than from stdin whenever one is present — so bootstrap prompts the
+        # operator and silently discards the passwords the script piped in from
+        # .env. The roles then carry whatever the terminal supplied, and the
+        # next backup fails to authenticate. Without a TTY, \password reads
+        # the piped stdin, which is what this path was written for.
+        $COMPOSE run --rm -T db-bootstrap
+        $COMPOSE --profile backup run --rm -T backup
     fi
 
     note "applying migrations and collecting static files"
-    $COMPOSE run --rm migrate
+    $COMPOSE run --rm -T migrate
 
     note "starting the stack"
     $COMPOSE up -d

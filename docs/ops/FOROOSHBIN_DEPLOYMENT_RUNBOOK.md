@@ -622,8 +622,15 @@ three managed role passwords from `.env`, and the script now runs it before the
 backup for that reason:
 
 ```bash
-docker compose run --rm db-bootstrap
+docker compose run --rm -T db-bootstrap
 ```
+
+`-T` is required, not cosmetic. `docker compose run` attaches a TTY by default,
+and psql's `\password` reads from the terminal rather than from stdin whenever
+one is present — so the script prompts the operator and discards the passwords
+it piped in from `.env`. The roles then hold whatever the terminal supplied, and
+the next backup fails to authenticate against them. Running the same service
+through `up` is unaffected, because a service has no TTY.
 
 ### One stack, not one per version
 
