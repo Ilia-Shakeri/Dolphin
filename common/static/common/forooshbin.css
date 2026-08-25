@@ -251,3 +251,109 @@ summary:focus-visible,
         align-items: center;
     }
 }
+
+/* 5. Data-table and dialog detail ----------------------------------------- */
+
+/* Row actions are built in JavaScript by appending buttons straight into a
+   cell, so no whitespace text node separates them and adjacent targets touch
+   at 0px. On a phone that is two 44px targets with no gap between them, which
+   is how a person taps "ویرایش" and gets "غیرفعال‌سازی".
+
+   Targeted on the buttons rather than on `.row-actions`, because only three of
+   the ten action cells in the application carry that class and the rest are
+   bare `<td>`. `margin-inline-start` rather than `margin-left`: the panel is
+   RTL and the logical property is the one that follows the text direction. */
+.table td .btn:not(:first-child) {
+    margin-inline-start: 0.5rem;
+}
+
+/* Identifier and amount columns are set `dir="ltr"` by the renderers — prices,
+   invoice numbers, phone numbers, references, IP addresses. They are read down
+   the column rather than across the row, and proportional digits make that
+   harder than it needs to be: `1` is narrower than `8`, so a column of prices
+   arrives with its digits misaligned and the eye cannot compare magnitudes at a
+   glance. Tabular figures give every digit the same advance width, which is
+   what the numerals were designed for. */
+.table td[dir="ltr"],
+.table th[dir="ltr"] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+
+/* A row highlight on hover. These tables are wide — a customer row runs to nine
+   columns — and the whole difficulty of reading one is keeping your eye on a
+   single row while crossing it. The theme ships `.table-hover` for this and no
+   template uses it, so this is the theme's own intent applied where it was
+   meant to go. Kept to the palette's lightest step: it has to be a hint, not a
+   selection. */
+.table tbody tr {
+    transition: background-color 150ms ease-out;
+}
+
+.table tbody tr:hover {
+    background-color: var(--bs-gray-100);
+}
+
+/* Hover is a pointer idea. On touch there is no hover state to enter, and
+   mobile browsers emulate one that then sticks to the last row tapped. */
+@media (hover: none) {
+    .table tbody tr:hover {
+        background-color: transparent;
+    }
+}
+
+/* A form control has to be as tappable as the buttons beside it. The theme's
+   controls are close to 44px already; this guarantees it on coarse pointers
+   without touching the desktop density the tables depend on. */
+@media (hover: none) and (pointer: coarse) {
+    .form-control,
+    .form-select {
+        min-height: 2.75rem;
+    }
+}
+
+/* `100vh` on a mobile browser is the viewport with the toolbars *retracted*, so
+   a dialog sized against it is taller than the screen actually showing it and
+   its footer — the buttons — sits below the fold. `dvh` is the viewport as it
+   currently is. The `vh` line stays first as the fallback for anything that
+   does not know `dvh`. */
+dialog {
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+}
+
+/* Phones: reclaim the padding for content, and keep the dialog clear of the
+   home indicator and the notch. `env()` resolves to zero where there is no
+   inset, so this costs nothing on a device without one. */
+@media (max-width: 575.98px) {
+    dialog {
+        width: calc(100% - 1rem);
+        padding: 1.25rem;
+        padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+}
+
+/* A dialog that appears instantly reads as a page replacement; one that grows
+   a little from where it opened reads as something on top of what you were
+   doing. Small and quick — 160ms, and no movement, only scale and opacity, so
+   nothing reflows. */
+@media (prefers-reduced-motion: no-preference) {
+    dialog[open] {
+        animation: forooshbin-dialog-in 160ms ease-out;
+    }
+
+    @keyframes forooshbin-dialog-in {
+        from {
+            opacity: 0;
+            transform: scale(0.98);
+        }
+    }
+}
+
+/* `.sr-only` was missing the padding and border resets, so a themed border or
+   padding landed on the 1px box and could paint a stray mark. */
+.sr-only {
+    padding: 0;
+    margin: -1px;
+    border: 0;
+}

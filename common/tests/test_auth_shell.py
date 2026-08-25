@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from django.test import Client, SimpleTestCase, TestCase, override_settings
@@ -45,16 +46,31 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn("css/style.bundle.rtl.css", shell)
         self.assertIn("js/scripts.bundle.js", shell)
 
-        # The override sheet stays small and must not restate the theme. The
-        # ceiling moved from 200 to 260 when the sheet took on the vendor
-        # focus-ring repair: the purchased bundle compiles nine declarations as
-        # `box-shadow: false, …`, which browsers discard, so the ring the theme
-        # intends never draws. Repairing it here is what avoids forking the
-        # vendor Sass. The rules below still assert the sheet does not rebuild
-        # the theme's own components.
-        self.assertLess(len(stylesheet.splitlines()), 260)
+        # The override sheet stays small and must not restate the theme.
+        #
+        # Measured in declarations rather than lines. A line count was the first
+        # proxy and it was the wrong one: this file is deliberately more than
+        # half comment, because every rule here exists to work around something
+        # and the reason is worth more than the rule. Counting lines charged the
+        # sheet for its own explanations and would have been satisfied by
+        # deleting them, which is the opposite of what this test wants.
+        #
+        # Declarations measure the thing actually at issue — how much CSS is
+        # here. A second design system is hundreds; the repairs, the brand mark
+        # and the print sheet together are under a hundred.
+        declarations = re.findall(
+            r"^\s*[a-z-]+\s*:\s*[^;]+;",
+            re.sub(r"/\*.*?\*/", "", stylesheet, flags=re.S),
+            re.M,
+        )
+        self.assertLess(len(declarations), 120, "the override sheet is growing into a design system")
+        # And it must not rebuild the theme's own components, at any size.
         for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
             self.assertNotIn(recreated, stylesheet, recreated)
+        # Layout, type scale and palette belong to the purchased bundle. The
+        # sheet may position a detail; it may not own any of these.
+        for owned_by_theme in ("font-family:", "--bs-primary:", "@font-face"):
+            self.assertNotIn(owned_by_theme, stylesheet, owned_by_theme)
         # It keeps exactly the three things it is for.
         self.assertIn("[hidden]", stylesheet)
         self.assertIn("dialog {", stylesheet)
