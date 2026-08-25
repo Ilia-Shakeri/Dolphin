@@ -101,6 +101,42 @@ check_nginx_config_is_current() {
     fi
 }
 
+check_image_version_matches_tag() {
+    # An image tag is a label chosen at `docker build -t`. The VERSION file
+    # inside the image is what settings.py reads, what the OpenAPI schema
+    # carries, and what the panel footer prints. Nothing makes them agree.
+    #
+    # Build before bumping VERSION and you get an image tagged v1.1.2 whose
+    # footer says 1.1.1 — with every other signal, including `docker compose
+    # ps`, insisting the deploy worked. That happened, and the only thing that
+    # caught it was someone reading the footer.
+    #
+    # Checked only when the tag names a version, so `:latest`, `:staging` and a
+    # hotfix tag pass through untouched.
+    image="$1"
+    tag="${image##*:}"
+    case "$tag" in
+        v[0-9]*.[0-9]*.[0-9]*) ;;
+        *) return 0 ;;
+    esac
+    expected="${tag#v}"
+    actual="$(docker run --rm --entrypoint cat "$image" /app/VERSION 2>/dev/null | tr -d '[:space:]')"
+    if [ -z "$actual" ]; then
+        note "image $image carries no /app/VERSION - skipping the version check."
+        return 0
+    fi
+    [ "$actual" = "$expected" ] && return 0
+    fail "image $image contains VERSION=$actual, not $expected.
+
+       The tag is only a label; VERSION inside the image is what the panel
+       footer prints. Deploying this would serve $actual while every tag and
+       listing claimed $expected. Bump VERSION in the checkout, rebuild, and
+       load the image again:
+
+           printf '%s\n' $expected > VERSION
+           docker build -t $image ."
+}
+
 foreign_containers_matching() {
     # Containers matching a `docker ps` filter that do NOT belong to this
     # deployment. Membership is decided by asking Compose for its own container
@@ -201,6 +237,7 @@ deploy() {
     note "target image:  $image"
 
     check_image_exists "$image"
+    check_image_version_matches_tag "$image"
     check_nginx_config_is_current
     check_ports_are_free
     check_database_is_not_shared

@@ -52,7 +52,13 @@ current host. `v1.1.2` stands in for the version being shipped.
 
 ### 1. On the development machine
 
-Bump the version. `VERSION` is the single source of truth — `config/settings.py`
+Bump the version **before you build**. The image tag is only a label; the
+`VERSION` file inside the image is what the footer prints, so building first and
+bumping afterwards produces an image whose tag and contents disagree. The
+release refuses that outright, naming both numbers — but the fix is still a
+rebuild, so do it in this order.
+
+`VERSION` is the single source of truth — `config/settings.py`
 reads it, the panel footer prints it, and the OpenAPI schema carries it.
 
 ```bash
