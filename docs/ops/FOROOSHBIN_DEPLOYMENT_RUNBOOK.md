@@ -107,7 +107,21 @@ docker compose --env-file secrets/.env --profile backup run --rm backup
 docker compose --env-file secrets/.env -f compose.restore-verify.yml --profile restore-verify run --rm --no-deps restore-verify <archive-name>.dump
 ```
 
-**UPDATE IMAGE** — see [section 3](#3-application-update).
+**UPDATE IMAGE**
+
+```bash
+./scripts/deploy.sh v1.1.1
+```
+
+Backs up, migrates, collects static files and recreates the stack, refusing to
+start if the nginx config is stale, another project holds the ports, or another
+project shares the database volume. See [section 3](#3-application-update).
+
+**WHAT IS RUNNING**
+
+```bash
+./scripts/deploy.sh --status
+```
 
 **CHECK VERSION** (which image each container actually runs)
 
@@ -232,6 +246,7 @@ compose.restore-verify.yml
 nginx/default.conf
 nginx/write-stop-off.conf
 nginx/write-stop-on.conf
+scripts/deploy.sh
 scripts/bootstrap-postgres.sh
 scripts/postgres-entrypoint.sh
 scripts/backup-postgres.sh
@@ -547,6 +562,67 @@ already running alone.
 ---
 
 ## 3. Application update
+
+### The short way
+
+```bash
+./scripts/deploy.sh v1.1.1
+```
+
+Run from the deployment directory — the one holding `compose.yml` and `.env`.
+It performs the whole sequence below (back up, migrate, collect static files,
+recreate) and **refuses to start** rather than half-applying when a precondition
+fails. It blocks on the three that are silent when skipped:
+
+* **`nginx/default.conf` has drifted from `origin/main`.** That file is
+  bind-mounted from this checkout, not baked into the image, so a stale copy
+  keeps the old limits in force with nothing in any log to say so. This is the
+  one that bites: after the 1.1.1 release a stale copy still capped request
+  bodies at 256 KB, so the spreadsheet imports worked with a small test file and
+  failed on a real one.
+* **Another Compose project already holds port 80.** Caught before anything
+  starts, instead of leaving the database and application up with nginx refused.
+* **Another running project mounts the same database volume.** Two PostgreSQL
+  servers over one data directory is never intended; PostgreSQL's own lock turns
+  it into a restart loop rather than corruption, but it is still wrong.
+
+Afterwards it prints the version read out of the running container
+(`/app/VERSION`), so "did the new image actually deploy" is answered by the tool
+rather than from memory.
+
+```bash
+./scripts/deploy.sh --status
+```
+
+What is running now: project, image tag, database volume, and every ForooshBin
+container on the host with its ports. Use it when returning to a deployment you
+have not touched for a while.
+
+```bash
+./scripts/deploy.sh --rollback
+```
+
+Back to the tag the script last replaced. It records that tag when it switches.
+It does **not** reverse migrations — see
+[why a database rollback is unsafe](#why-a-database-rollback-is-unsafe).
+
+### One stack, not one per version
+
+`KARIZ_COMPOSE_PROJECT_NAME` names a **stable** project, and
+`POSTGRES_DATA_VOLUME` a single fixed volume. The version belongs to the image
+tag, never to the project name.
+
+Standing up `forooshbin-v110` and `forooshbin-v111` as parallel Compose projects
+looks like a safe way to trial a release, and is not: both publish 80 and 443,
+so the second cannot bind, and both name the same external database volume, so
+two PostgreSQL servers fight over one data directory. Upgrading in place has
+neither problem — Docker replaces the container, and there is only ever one
+stack. To trial a release without touching production, use a separate host or a
+separate volume set, not a second project beside the live one.
+
+### The same sequence by hand
+
+Use this when the script cannot run, or to understand what it does.
 
 ### Required every release
 
