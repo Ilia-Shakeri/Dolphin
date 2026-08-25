@@ -6,6 +6,9 @@
 #   ./scripts/deploy.sh --status   what is running now
 #   ./scripts/deploy.sh --rollback go back to the tag this script last replaced
 #
+#   --no-backup   proceed without one. For a deployment whose backup path is
+#                 not working yet; never for one holding data you would miss.
+#
 # This exists because the upgrade is a fixed sequence with three steps that are
 # easy to forget and quiet when skipped:
 #
@@ -21,6 +24,7 @@ set -eu
 
 COMPOSE="docker compose"
 ENV_FILE=".env"
+SKIP_BACKUP=0
 STATE_FILE=".deploy-previous-image"
 
 fail() {
@@ -186,7 +190,9 @@ deploy() {
     check_nginx_config_is_current
     check_ports_are_free
     check_database_is_not_shared
-    check_backup_volume_is_prepared
+    if [ "$SKIP_BACKUP" -eq 0 ]; then
+        check_backup_volume_is_prepared
+    fi
 
     if [ "$image" = "$current" ]; then
         note "already on that image; continuing so migrations and static files are refreshed."
@@ -196,8 +202,17 @@ deploy() {
         note "recorded $current for --rollback"
     fi
 
-    note "backing up the database first"
-    $COMPOSE --profile backup run --rm backup
+    if [ "$SKIP_BACKUP" -eq 1 ]; then
+        note "SKIPPING THE BACKUP because --no-backup was given."
+    else
+        note "backing up the database first"
+        # `backup` depends on `db` alone, so on a stack whose roles have not been
+        # provisioned against this database it authenticates before
+        # `db-bootstrap` has ever had a chance to set their passwords. Bootstrap
+        # first, so the backup meets the credentials the .env actually describes.
+        $COMPOSE run --rm db-bootstrap
+        $COMPOSE --profile backup run --rm backup
+    fi
 
     note "applying migrations and collecting static files"
     $COMPOSE run --rm migrate
@@ -228,6 +243,18 @@ rollback() {
 }
 
 require_deployment_directory
+
+# --no-backup may come before or after the tag; take it from anywhere.
+args=""
+for arg in "$@"; do
+    if [ "$arg" = "--no-backup" ]; then
+        SKIP_BACKUP=1
+    else
+        args="${args:+$args }$arg"
+    fi
+done
+# shellcheck disable=SC2086
+set -- $args
 
 case "${1:-}" in
     --status|"") show_status ;;

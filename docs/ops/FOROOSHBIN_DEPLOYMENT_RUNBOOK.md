@@ -602,6 +602,27 @@ have not touched for a while.
 ./scripts/deploy.sh --rollback
 ```
 
+Back to the tag the script last replaced.
+
+```bash
+./scripts/deploy.sh v1.1.1 --no-backup
+```
+
+Proceed without a backup. For a deployment whose backup path is not working yet
+— an unprepared volume, or database roles whose passwords do not match `.env` —
+and never for one holding data you would miss. The release announces the skip
+rather than performing it quietly.
+
+A backup that fails with `password authentication failed for user
+"<backup role>"` means the role's password in the database and
+`POSTGRES_BACKUP_PASSWORD` in `.env` have diverged. `db-bootstrap` resets all
+three managed role passwords from `.env`, and the script now runs it before the
+backup for that reason:
+
+```bash
+docker compose run --rm db-bootstrap
+```
+
 Back to the tag the script last replaced. It records that tag when it switches.
 It does **not** reverse migrations — see
 [why a database rollback is unsafe](#why-a-database-rollback-is-unsafe).
