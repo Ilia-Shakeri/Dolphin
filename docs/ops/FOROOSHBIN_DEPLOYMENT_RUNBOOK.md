@@ -20,10 +20,11 @@ v2, PostgreSQL and nginx in containers, and a Django/Gunicorn application image
 
 | Section | When you need it |
 |---|---|
+| [Shipping a change](#shipping-a-change) | **Every ordinary release — start here** |
 | [0. Cheat sheet](#0-cheat-sheet) | Daily operation |
 | [1. First install on a fresh server](#1-first-install-on-a-fresh-server) | Once, on a clean machine |
 | [2. Start after a reboot](#2-start-after-a-reboot) | Every restart |
-| [3. Application update](#3-application-update) | Every release |
+| [3. Application update](#3-application-update) | What a release does, and the same steps by hand |
 | [4. Backup and restore](#4-backup-and-restore) | Routine and disaster |
 | [5. Rollback](#5-rollback) | A release went wrong |
 | [6. Domain deployment](#6-domain-deployment) | Recommended production |
@@ -36,6 +37,111 @@ Throughout, `$DEPLOY` is the deployment directory — this runbook uses
 
 Every Compose command needs `--env-file secrets/.env`. Compose does **not** read
 that path automatically, and without it the stack fails on missing variables.
+
+---
+
+## Shipping a change
+
+The everyday loop, start to finish. Two commands on the server; everything else
+happens on the machine you develop on. The longer sections below explain what
+these do and what to reach for when something is wrong — this is the path when
+nothing is.
+
+`$DEPLOY` is the deployment directory, `/srv/forooshbin/FrooshBin` on the
+current host. `v1.1.2` stands in for the version being shipped.
+
+### 1. On the development machine
+
+Bump the version. `VERSION` is the single source of truth — `config/settings.py`
+reads it, the panel footer prints it, and the OpenAPI schema carries it.
+
+```bash
+printf '1.1.2
+' > VERSION
+```
+
+Record what changed in `CHANGELOG.md`: what was added, changed, removed and
+fixed. Commit both with the work they describe, and push.
+
+Build the image and tag it with the same version:
+
+```bash
+docker build -t forooshbin-app:v1.1.2 .
+```
+
+```bash
+docker save forooshbin-app:v1.1.2 | gzip > forooshbin-app-v1.1.2.tar.gz
+```
+
+```bash
+scp forooshbin-app-v1.1.2.tar.gz deploy@<server>:/srv/forooshbin/
+```
+
+### 2. On the server
+
+Load the image:
+
+```bash
+docker load -i /srv/forooshbin/forooshbin-app-v1.1.2.tar.gz
+```
+
+Pull the checkout and release:
+
+```bash
+cd $DEPLOY && git pull --ff-only && ./scripts/deploy.sh v1.1.2
+```
+
+That is the whole release. The script backs up, provisions the database roles,
+migrates, collects static files, recreates the stack, and prints the running
+version read out of the container.
+
+**The `git pull` is not optional.** `nginx/default.conf` is bind-mounted from
+this checkout rather than baked into the image, so a release that changed it
+does nothing at all until the checkout is updated — nothing errors, the previous
+limits simply stay in force. The script refuses to run when the two have
+drifted, which is the only reason that failure is visible.
+
+### 3. Confirm
+
+Log in and read the version in the panel footer. It must show the version just
+shipped; if it shows the previous one, `KARIZ_APP_IMAGE` did not change.
+
+```bash
+cd $DEPLOY && ./scripts/deploy.sh --status
+```
+
+### If something is wrong
+
+```bash
+cd $DEPLOY && ./scripts/deploy.sh --rollback
+```
+
+Returns to the tag the script last replaced — which requires that image to still
+be loaded, so **keep at least the previous tag on the host**. Migrations are not
+reversed; every migration this project ships is additive, so the older
+application ignores what it does not know about.
+
+If the backup step blocks a release you need out, `--no-backup` proceeds without
+one and says so. It is for a deployment whose backup path is not working yet,
+never for one holding data you would miss.
+
+### Two rules this deployment learned the hard way
+
+**One Compose project, one database volume.** The project name is stable
+(`forooshbin`); the version lives in the image tag and nowhere else. Standing up
+a second project beside the live one looks like a safe way to trial a release
+and is not: both publish 80 and 443, and both name the same external volume, so
+two PostgreSQL servers end up writing one data directory. `postmaster.pid` does
+not protect against this across containers — the second server checks the
+recorded PID inside its own namespace, does not find it, decides the lock is
+stale and starts anyway. The result is shared-catalog corruption. To trial a
+release without touching production, use a separate host or a separate volume
+set.
+
+**Never run a release with a prompt in it.** `docker compose run` attaches a TTY
+by default, and psql's `\password` reads the terminal instead of stdin whenever
+one is present, which silently discards the passwords `db-bootstrap` pipes in
+from `.env`. Every service invocation in a release path uses `-T`.
 
 ---
 
