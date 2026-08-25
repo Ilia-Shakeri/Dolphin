@@ -602,7 +602,9 @@ have not touched for a while.
 ./scripts/deploy.sh --rollback
 ```
 
-Back to the tag the script last replaced.
+Back to the tag the script last replaced. It records that tag when it switches.
+It does **not** reverse migrations — see
+[why a database rollback is unsafe](#why-a-database-rollback-is-unsafe).
 
 ```bash
 ./scripts/deploy.sh v1.1.1 --no-backup
@@ -622,10 +624,6 @@ backup for that reason:
 ```bash
 docker compose run --rm db-bootstrap
 ```
-
-Back to the tag the script last replaced. It records that tag when it switches.
-It does **not** reverse migrations — see
-[why a database rollback is unsafe](#why-a-database-rollback-is-unsafe).
 
 ### One stack, not one per version
 
