@@ -73,6 +73,30 @@
         return STATUS_MESSAGES[error.status] || "خطایی رخ داد. دوباره تلاش کنید.";
     }
 
+    /**
+     * Turn one field's error payload into a sentence a reader can act on.
+     *
+     * DRF nests. A plain field gives `["..."]`, but a nested serializer used
+     * with `many=True` — the split-allocation form is one — gives a list of
+     * per-row objects like `[{invoice: ["..."]}]`. Joining that list directly
+     * printed the literal text `[object Object]` where the reason should be,
+     * which told the operator nothing and looked like a crash.
+     *
+     * Walking the structure instead means any shape DRF produces comes out as
+     * readable text, and a shape nobody anticipated degrades to its own values
+     * rather than to a stringified object.
+     */
+    function flattenErrorValue(value) {
+        if (value === null || value === undefined) return "";
+        if (Array.isArray(value)) {
+            return value.map(flattenErrorValue).filter(Boolean).join(" ");
+        }
+        if (typeof value === "object") {
+            return Object.values(value).map(flattenErrorValue).filter(Boolean).join(" ");
+        }
+        return String(value);
+    }
+
     function showError(error, form = null) {
         if (error instanceof ApiError && error.payload?.error?.code === "authentication_failed") {
             window.location.assign("/login/");
@@ -83,7 +107,7 @@
             form.querySelectorAll("[data-error-for]").forEach((node) => {
                 const value = error.payload[node.dataset.errorFor];
                 if (value !== undefined) {
-                    node.textContent = Array.isArray(value) ? value.join(" ") : String(value);
+                    node.textContent = flattenErrorValue(value);
                     hasFieldError = true;
                 }
             });
@@ -3025,14 +3049,23 @@
 
     function renderPerformanceReport(prefix, report) {
         const panel = document.querySelector(`[data-performance-panel="${prefix}"]`);
+        // Two of the four KPIs are amounts and the other two are counts. Sending
+        // an amount through `String()` printed it exactly as the API serialises
+        // a decimal — `12500000.00` — with no grouping and a fraction the panel
+        // shows nowhere else.
+        const MONEY_KPIS = new Set(["sales_amount", "average_sale_amount"]);
         Object.entries(report.summary).forEach(([name, value]) => {
             const node = panel.querySelector(`[data-kpi="${name}"]`);
-            if (node) node.textContent = String(value);
+            if (node) node.textContent = MONEY_KPIS.has(name) ? money(value) : String(value);
         });
         const rows = report.results.map((item) => {
             const row = document.createElement("tr");
-            [item.username, item.customers_created_count, item.sales_count, item.sales_amount, item.average_sale_amount]
+            // The first three are text and counts; the last two are money and
+            // need the same grouping every other table in the panel uses.
+            [item.username, item.customers_created_count, item.sales_count]
                 .forEach((value) => appendCell(row, value));
+            appendMoneyCell(row, item.sales_amount);
+            appendMoneyCell(row, item.average_sale_amount);
             const actions = document.createElement("td");
             actions.className = "row-actions";
             [
@@ -3221,6 +3254,10 @@
         bank_transfer: "حواله بانکی",
         cheque: "چک",
     });
+    const PAYMENT_DIRECTION_TEXT = Object.freeze({
+        receipt: "دریافتی",
+        disbursement: "پرداختی",
+    });
     const PAYMENT_STATUS_TEXT = Object.freeze({
         pending: "در انتظار وصول",
         confirmed: "تأییدشده",
@@ -3258,6 +3295,7 @@
         invoice_issued: "صدور فاکتور",
         invoice_cancelled: "ابطال فاکتور",
         payment_received: "دریافت وجه",
+        payment_made: "پرداخت به مشتری",
         payment_cancelled: "ابطال دریافت",
         adjustment_debit: "اصلاح بدهکار",
         adjustment_credit: "اصلاح بستانکار",
@@ -4483,7 +4521,14 @@
     function paymentRow(payment) {
         const row = document.createElement("tr");
         appendCell(row, payment.number).dir = "ltr";
-        appendCell(row, payment.customer_name);
+        // Since 1.2.1 this list carries money going both ways, and nothing in
+        // the row said which — a disbursement was indistinguishable from a
+        // receipt except by opening it.
+        appendCell(row, payment.direction_display || labelled(PAYMENT_DIRECTION_TEXT, payment.direction));
+        // A receipt names a customer; a disbursement often names no customer at
+        // all and records who was paid instead. Showing only the customer left
+        // the row blank for money that has a perfectly good payee on it.
+        appendCell(row, payment.customer_name || payment.payee || "—");
         appendCell(row, labelled(PAYMENT_METHOD_TEXT, payment.method));
         appendMoneyCell(row, payment.amount);
         appendMoneyCell(row, payment.allocated_amount);

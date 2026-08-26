@@ -27,7 +27,16 @@ class Line:
 
 
 class PrintedLineBreakdownTests(SimpleTestCase):
-    def rows(self, items, *, header_discount="0.00", tax_rate="0", tax_amount="0.00"):
+    """The columns must add up to the footer printed beneath them.
+
+    Everything is whole rial, because that is what the reader sees. An earlier
+    version apportioned exact decimals — the stored values summed perfectly, and
+    then the page rounded each line up for display and the column came to a
+    rial more than the total. Rounding up is not additive, so the arithmetic has
+    to happen in the displayed units or the document contradicts itself.
+    """
+
+    def breakdown(self, items, *, header_discount="0.00", tax_rate="0", tax_amount="0.00"):
         return printed_line_breakdown(
             items=items,
             header_discount=Decimal(header_discount),
@@ -35,76 +44,103 @@ class PrintedLineBreakdownTests(SimpleTestCase):
             tax_amount=Decimal(tax_amount),
         )
 
+    def assert_columns_sum_to_footer(self, rows, totals):
+        for column in ("gross", "discount", "net", "tax", "total"):
+            self.assertEqual(
+                sum(row[column] for row in rows),
+                totals[column],
+                f"the {column} column does not add up to its own footer",
+            )
+
     def test_the_sample_invoice_reproduces(self):
         """The figures from `kala-1.pdf`: 10% on each of two lines."""
-        rows = self.rows(
+        rows, totals = self.breakdown(
             [Line("34000000.00"), Line("58400000.00")],
-            tax_rate="10",
-            tax_amount="9240000.00",
+            tax_rate="10", tax_amount="9240000.00",
         )
-        self.assertEqual(rows[0]["net"], Decimal("34000000.00"))
-        self.assertEqual(rows[0]["tax"], Decimal("3400000.00"))
-        self.assertEqual(rows[0]["total"], Decimal("37400000.00"))
-        self.assertEqual(rows[1]["net"], Decimal("58400000.00"))
-        self.assertEqual(rows[1]["tax"], Decimal("5840000.00"))
-        self.assertEqual(rows[1]["total"], Decimal("64240000.00"))
+        self.assertEqual(rows[0]["net"], 34000000)
+        self.assertEqual(rows[0]["tax"], 3400000)
+        self.assertEqual(rows[0]["total"], 37400000)
+        self.assertEqual(rows[1]["net"], 58400000)
+        self.assertEqual(rows[1]["tax"], 5840000)
+        self.assertEqual(rows[1]["total"], 64240000)
+        self.assert_columns_sum_to_footer(rows, totals)
 
-    def test_the_tax_column_totals_the_stored_tax_exactly(self):
-        """Even where the proportional split does not divide evenly.
+    def test_the_case_that_was_off_by_a_rial(self):
+        """Two lines whose shares both ended in a fraction.
 
-        Three equal lines and a tax of 10.00 gives 3.333… each. Whatever the
-        rounding does per line, the column has to come to 10.00.
+        Each was rounded up independently and the discount column came to
+        5,000,001 under a footer reading 5,000,000.
         """
-        stored_tax = Decimal("10.00")
-        rows = self.rows(
-            [Line("100.00"), Line("100.00"), Line("100.00")],
-            tax_rate="3.3333",
-            tax_amount=str(stored_tax),
+        rows, totals = self.breakdown(
+            [Line("370000000.00"), Line("127500000.00")],
+            header_discount="5000000.00", tax_rate="9", tax_amount="44325000.00",
         )
-        self.assertEqual(sum(row["tax"] for row in rows), stored_tax)
+        self.assert_columns_sum_to_footer(rows, totals)
+        self.assertEqual(totals["discount"], 5000000)
+        self.assertEqual(totals["tax"], 44325000)
+        self.assertEqual(totals["total"], 536825000)
 
-    def test_the_discount_column_totals_both_discounts_exactly(self):
-        rows = self.rows(
+    def test_a_tax_that_does_not_divide_evenly_still_adds_up(self):
+        rows, totals = self.breakdown(
+            [Line("100.00"), Line("100.00"), Line("100.00")],
+            tax_rate="3.3333", tax_amount="10.00",
+        )
+        self.assert_columns_sum_to_footer(rows, totals)
+        self.assertEqual(totals["tax"], 10)
+
+    def test_a_discount_that_does_not_divide_evenly_still_adds_up(self):
+        rows, totals = self.breakdown(
+            [Line("100.00"), Line("100.00"), Line("100.00")], header_discount="10.00",
+        )
+        self.assert_columns_sum_to_footer(rows, totals)
+        self.assertEqual(totals["discount"], 10)
+
+    def test_a_line_discount_reaches_both_the_column_and_the_footer(self):
+        rows, totals = self.breakdown(
             [Line("100.00", "5.00"), Line("200.00", "0.00"), Line("300.00", "1.00")],
             header_discount="10.00",
         )
-        # Each line's own discount plus its share of the header discount.
-        self.assertEqual(sum(row["discount"] for row in rows), Decimal("16.00"))
+        self.assert_columns_sum_to_footer(rows, totals)
+        # Every discount on the document: the three line discounts and the header.
+        self.assertEqual(totals["discount"], 16)
+        # And gross is before any of them.
+        self.assertEqual(totals["gross"], 606)
 
-    def test_a_header_discount_that_does_not_divide_evenly_still_totals(self):
-        stored_discount = Decimal("10.00")
-        rows = self.rows(
-            [Line("100.00"), Line("100.00"), Line("100.00")],
-            header_discount=str(stored_discount),
-        )
-        spread = sum(row["discount"] for row in rows)
-        self.assertEqual(spread, stored_discount)
-
-    def test_the_last_line_absorbs_the_drift_and_not_more(self):
-        rows = self.rows(
-            [Line("100.00"), Line("100.00"), Line("100.00")],
-            tax_rate="3.3333",
-            tax_amount="10.00",
-        )
-        # An even split would be 3.33 each; the last line carries the remainder.
-        self.assertEqual(rows[0]["tax"], Decimal("3.33"))
-        self.assertEqual(rows[1]["tax"], Decimal("3.33"))
-        self.assertEqual(rows[2]["tax"], Decimal("3.34"))
-
-    def test_the_grand_total_column_equals_net_plus_tax_on_every_line(self):
-        rows = self.rows(
-            [Line("100.00"), Line("250.50")], tax_rate="9", tax_amount="31.55"
+    def test_every_line_total_is_its_own_net_plus_tax(self):
+        rows, _ = self.breakdown(
+            [Line("100.00"), Line("250.50")], tax_rate="9", tax_amount="31.55",
         )
         for row in rows:
-            self.assertEqual(row["total"], quantize_money(row["net"] + row["tax"]))
+            self.assertEqual(row["total"], row["net"] + row["tax"])
+
+    def test_nothing_printed_carries_a_fraction(self):
+        """The panel shows no decimals anywhere, this document included."""
+        rows, totals = self.breakdown(
+            [Line("33.33"), Line("66.67")], header_discount="0.01",
+            tax_rate="9", tax_amount="8.99",
+        )
+        for row in rows:
+            for column in ("gross", "discount", "net", "tax", "total"):
+                self.assertIsInstance(row[column], int)
+        for value in totals.values():
+            self.assertIsInstance(value, int)
 
     def test_a_document_with_no_tax_prints_zero_not_a_blank(self):
-        rows = self.rows([Line("100.00")])
-        self.assertEqual(rows[0]["tax"], Decimal("0.00"))
-        self.assertEqual(rows[0]["total"], Decimal("100.00"))
+        rows, totals = self.breakdown([Line("100.00")])
+        self.assertEqual(rows[0]["tax"], 0)
+        self.assertEqual(rows[0]["total"], 100)
+        self.assertEqual(totals["tax"], 0)
 
     def test_no_lines_produces_no_rows(self):
-        self.assertEqual(self.rows([]), [])
+        rows, totals = self.breakdown([])
+        self.assertEqual(rows, [])
+        self.assertEqual(totals["total"], 0)
+
+    def test_a_free_document_does_not_divide_by_its_own_zero(self):
+        """Every line at zero leaves nothing to weigh the apportionment by."""
+        rows, totals = self.breakdown([Line("0.00"), Line("0.00")])
+        self.assert_columns_sum_to_footer(rows, totals)
 
 
 class AmountInWordsTests(SimpleTestCase):

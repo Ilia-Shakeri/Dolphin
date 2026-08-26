@@ -86,11 +86,11 @@
     <tfoot>
         <tr>
             <th colspan="6">جمع کل</th>
-            <th dir="ltr">{{ document.subtotal_amount|money }}</th>
-            <th dir="ltr">{{ document.discount_amount|money }}</th>
-            <th dir="ltr">{{ taxable_amount|money }}</th>
-            <th dir="ltr">{{ document.tax_amount|money }}</th>
-            <th dir="ltr">{{ document.total_amount|money }}</th>
+            <th dir="ltr">{{ line_totals.gross|money }}</th>
+            <th dir="ltr">{{ line_totals.discount|money }}</th>
+            <th dir="ltr">{{ line_totals.net|money }}</th>
+            <th dir="ltr">{{ line_totals.tax|money }}</th>
+            <th dir="ltr">{{ line_totals.total|money }}</th>
         </tr>
     </tfoot>
 </table></div>

@@ -525,19 +525,43 @@ class PaymentAllocationSerializer(serializers.ModelSerializer):
         return _display(instance.created_by)
 
 
+class ScopedIssuedInvoiceField(serializers.PrimaryKeyRelatedField):
+    """An issued invoice the requesting user is allowed to see.
+
+    The scope is resolved in `get_queryset`, which DRF calls during validation,
+    rather than in a serializer's `__init__`.
+
+    That distinction is the whole point. `__init__` runs when the serializer is
+    *constructed*, and a serializer nested as a field — `AllocatePaymentSerializer(many=True)`
+    — is constructed once, at class-definition time, when there is no request and
+    no context. Scoping there left the nested child holding `Invoice.objects.none()`
+    forever, so every id it was given came back as "invalid pk", and the split
+    endpoint could not allocate to any invoice at all. `get_queryset` runs per
+    request, and `self.context` on a bound field resolves up through its parents,
+    so the same field works standalone and nested.
+
+    A caller with no authenticated request gets nothing, which is the safe end of
+    the failure: an unscoped queryset here would let a split reach an invoice
+    outside the caller's scope.
+    """
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("queryset", Invoice.objects.none())
+        super().__init__(**kwargs)
+        self.error_messages["does_not_exist"] = "Invalid object."
+
+    def get_queryset(self):
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return Invoice.objects.none()
+        return invoices_for(request.user).filter(status=Invoice.Status.ISSUED)
+
+
 class AllocatePaymentSerializer(RejectServerFieldsMixin, serializers.Serializer):
-    invoice = serializers.PrimaryKeyRelatedField(queryset=Invoice.objects.none())
+    invoice = ScopedIssuedInvoiceField()
     amount = serializers.DecimalField(
         max_digits=18, decimal_places=2, required=False, allow_null=True, min_value=0
     )
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            _scope_relation(
-                self.fields["invoice"], invoices_for(request.user).filter(status=Invoice.Status.ISSUED)
-            )
 
 
 class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Serializer):

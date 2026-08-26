@@ -5,7 +5,7 @@ each step rather than once at the end, so a stored total always equals the sum
 of the stored parts and a database check constraint can enforce that.
 """
 
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
 
 from django.conf import settings
 
@@ -134,64 +134,120 @@ def document_totals(*, line_totals, header_discount, tax_rate):
     return subtotal, discount, rate, tax, total
 
 
+def display_rial(value):
+    """The whole-rial figure the panel shows for an amount.
+
+    The same rule as `money()` in the panel script and the `money` template
+    filter: drop the fraction by rounding **up**. Kept here so the arithmetic
+    below works in the units the reader actually sees.
+    """
+    return int(Decimal(value or 0).to_integral_value(rounding=ROUND_CEILING))
+
+
+def _apportion(total, weights):
+    """Split a whole number across weights so the parts sum to it exactly.
+
+    Rounds the *running* total rather than each part, then takes differences.
+    The last cumulative value is the total itself, so the parts always add up —
+    which rounding each part independently does not guarantee, and that is the
+    whole reason this exists.
+    """
+    count = len(weights)
+    if count == 0:
+        return []
+    total_weight = sum(weights)
+    if total_weight <= 0:
+        # Nothing to weigh by: give it all to the first line rather than
+        # dropping it, so the column still sums to the footer.
+        return [total] + [0] * (count - 1)
+
+    parts = []
+    running_weight = Decimal(0)
+    carried = 0
+    for index, weight in enumerate(weights):
+        running_weight += Decimal(weight)
+        if index == count - 1:
+            cumulative = total
+        else:
+            cumulative = int(
+                (Decimal(total) * running_weight / Decimal(total_weight)).to_integral_value(
+                    rounding=ROUND_HALF_UP
+                )
+            )
+        parts.append(cumulative - carried)
+        carried = cumulative
+    return parts
+
+
 def printed_line_breakdown(*, items, header_discount, tax_rate, tax_amount):
-    """Per-line discount, tax and grand total for the printed document.
+    """Per-line columns and their totals for the printed document, in whole rial.
 
     The sample official invoice the product owner supplied prints tax **on each
-    line**, not only once at the foot. The stored document has no such column:
-    tax is one header figure computed on the discounted subtotal, which is the
-    only way it can be checked against `total_amount`.
+    line**. The stored document has no such column: tax is one header figure
+    computed on the discounted subtotal, which is the only form that can be
+    checked against `total_amount`. So the columns are derived, and the one rule
+    that matters is that **they add up to the footer beneath them**. A tax
+    document whose columns disagree with its own total is worse than one with no
+    columns at all.
 
-    So the columns are derived here, and the one rule that matters is that
-    **they must add up to what is stored**. A tax document whose column sums
-    disagree with its own footer is worse than one without the columns.
+    Everything here is computed in **whole rial**, not in stored decimals, and
+    that is the point. An earlier version apportioned the exact decimal amounts
+    so the stored values summed perfectly — and then the page rounded each line
+    up for display, because the panel shows no fractions. Rounding up is not
+    additive: two lines each ending in a fraction each gained a rial, and the
+    printed column came to one more than the printed total. Working in the units
+    the reader sees is the only way the two can agree.
 
-    Two things are therefore spread across the lines in proportion to each
-    line's share of the subtotal — the header discount, and the tax — and the
-    rounding drift from that division is given to the **last** line, so the
-    printed columns total exactly `header_discount` and `tax_amount`. The last
-    line absorbs at most a rial per column.
-
-    Returns a list of dicts, one per item, in the order given.
+    Returns `(rows, totals)`. The template prints both, so the footer cannot
+    drift from the columns: they are the same numbers.
     """
+    items = list(items)
+    header_discount = Decimal(header_discount or 0)
+    tax_amount = Decimal(tax_amount or 0)
+
+    line_totals = [Decimal(item.line_total) for item in items]
+    line_discounts = [Decimal(item.discount_amount or 0) for item in items]
+    subtotal = sum(line_totals, Decimal("0.00"))
+
+    # Each column's exact total, then the whole-rial figure printed for it.
+    gross_total = display_rial(subtotal + sum(line_discounts, Decimal("0.00")))
+    discount_total = display_rial(sum(line_discounts, Decimal("0.00")) + header_discount)
+    net_total = display_rial(subtotal - header_discount)
+    tax_total = display_rial(tax_amount)
+
+    # Weighted by each line's share of the subtotal, which is what the header
+    # discount and the tax were computed from in the first place.
+    weights = [int(value) for value in line_totals]
+    gross_parts = _apportion(gross_total, [int(a + b) for a, b in zip(line_totals, line_discounts)])
+    discount_parts = _apportion(discount_total, weights) if discount_total else [0] * len(items)
+    net_parts = _apportion(net_total, weights)
+    tax_parts = _apportion(tax_total, weights)
+
     rows = []
-    subtotal = quantize_money(sum((item.line_total for item in items), Decimal("0.00")))
-    header_discount = quantize_money(header_discount or 0)
-    tax_amount = quantize_money(tax_amount or 0)
-
-    discount_spread = Decimal("0.00")
-    tax_spread = Decimal("0.00")
-    last = len(items) - 1
-
     for index, item in enumerate(items):
-        if index == last:
-            # Whatever is left, so the column totals are exact rather than
-            # merely close.
-            line_header_discount = quantize_money(header_discount - discount_spread)
-            line_tax = quantize_money(tax_amount - tax_spread)
-        elif subtotal > 0:
-            share = item.line_total / subtotal
-            line_header_discount = quantize_money(header_discount * share)
-            line_tax = quantize_money(tax_amount * share)
-        else:
-            line_header_discount = Decimal("0.00")
-            line_tax = Decimal("0.00")
-
-        discount_spread = quantize_money(discount_spread + line_header_discount)
-        tax_spread = quantize_money(tax_spread + line_tax)
-
-        net = quantize_money(item.line_total - line_header_discount)
+        net = net_parts[index]
+        tax = tax_parts[index]
         rows.append({
             "item": item,
             # مبلغ کل — before any discount, which is what the sample shows.
-            "gross": quantize_money(item.line_total + (item.discount_amount or 0)),
+            "gross": gross_parts[index],
             # مبلغ تخفیف — the line's own discount plus its share of the header.
-            "discount": quantize_money((item.discount_amount or 0) + line_header_discount),
+            "discount": discount_parts[index],
             # مبلغ کل پس از تخفیف
             "net": net,
             # جمع مالیات و عوارض
-            "tax": line_tax,
+            "tax": tax,
             # جمع مبلغ کل بعلاوه جمع مالیات و عوارض
-            "total": quantize_money(net + line_tax),
+            "total": net + tax,
         })
-    return rows
+
+    totals = {
+        "gross": gross_total,
+        "discount": discount_total,
+        "net": net_total,
+        "tax": tax_total,
+        # Taken from the rows rather than rounded separately, so the last column
+        # sums to its own footer too.
+        "total": sum(row["total"] for row in rows),
+    }
+    return rows, totals

@@ -769,7 +769,9 @@ class KarizInvoicePrintView(PrintableDocumentView):
         # بند ۹ — the sample invoice prints tax on every line. The stored
         # document has one header tax figure, so the columns are derived and
         # forced to add up to it.
-        context["line_rows"] = printed_line_breakdown(
+        # The footer comes back from the same computation as the columns, so the
+        # two cannot drift: they are the same numbers, already in whole rial.
+        context["line_rows"], context["line_totals"] = printed_line_breakdown(
             items=items,
             header_discount=document.discount_amount,
             tax_rate=document.tax_rate,

@@ -628,6 +628,13 @@ def mark_sale(*, actor, lead, product=None, quantity=1, total_amount=None, **dat
         raise BusinessRuleError({
             "customer": "Record the customer before logging a result for this campaign."
         })
+    # `sold_at` is NOT NULL with no database default. The serializer defaults it
+    # to now, so the panel always supplies one — but a caller that does not (a
+    # command, an import, a future endpoint) hit an IntegrityError instead of
+    # the BusinessRuleError every other missing field here raises, surfacing as
+    # a 500 rather than a 400. Defaulting to the serializer's own choice keeps
+    # the two in step and closes that path without changing what the panel does.
+    data.setdefault("sold_at", timezone.now())
     sale = Sale.objects.create(
         lead=locked_lead,
         customer=locked_lead.customer,

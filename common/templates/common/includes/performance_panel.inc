@@ -21,8 +21,8 @@
         <div class="row g-5 mb-6" aria-label="شاخص‌های قطعی عملکرد">
             <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">مشتری ثبت‌شده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="customers_created_count">۰</span></div></div></div>
             <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">تعداد فروش تأییدشده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="sales_count">۰</span></div></div></div>
-            <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">مبلغ فروش تأییدشده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="sales_amount">۰.۰۰</span></div></div></div>
-            <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">میانگین مبلغ فروش تأییدشده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="average_sale_amount">۰.۰۰</span></div></div></div>
+            <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">مبلغ فروش تأییدشده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="sales_amount">۰</span></div></div></div>
+            <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">میانگین مبلغ فروش تأییدشده</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" data-kpi="average_sale_amount">۰</span></div></div></div>
         </div>
         <div class="d-flex flex-wrap gap-3 mb-5">
             <button class="btn btn-light" type="button" data-performance-detail="customers_created_count">مشتری‌های پشت این جمع</button>

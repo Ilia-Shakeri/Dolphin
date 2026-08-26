@@ -425,7 +425,11 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
     sensitive_actions = frozenset({"create", "allocate", "allocate_across", "cancel", "release"})
     search_fields = ["number", "customer__full_name", "reference", "notes"]
     ordering_fields = ["received_at", "amount", "created_at", "number"]
-    list_query_parameters = {"customer", "status", "method"}
+    #: `direction` joined these in 1.3.x. It became a first-class field in
+    #: 1.2.1 and the list already charts by it, but the endpoint refused to
+    #: filter on it — so "show me only the money that went out" was a question
+    #: the API could not answer about a column it stores.
+    list_query_parameters = {"customer", "status", "method", "direction"}
     action_query_parameters = {"allocations": {"page"}}
 
     def get_queryset(self):
@@ -445,6 +449,11 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
             if status_value not in Payment.Status.values:
                 raise ValidationError({"status": "Unknown status."})
             queryset = queryset.filter(status=status_value)
+        direction = self.request.query_params.get("direction")
+        if direction is not None:
+            if direction not in Payment.Direction.values:
+                raise ValidationError({"direction": "Unknown direction."})
+            queryset = queryset.filter(direction=direction)
         method = self.request.query_params.get("method")
         if method is not None:
             if method not in Payment.Method.values:

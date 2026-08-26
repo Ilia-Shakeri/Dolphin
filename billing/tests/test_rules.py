@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 
 from accounts.models import User
@@ -647,6 +648,11 @@ class DocumentLineScopeTests(BillingFixtureMixin, TestCase):
     """
 
     def setUp(self):
+        # Throttle buckets are keyed by user id, and a rolled-back test hands
+        # the next one the same ids — so a class that makes many requests can
+        # inherit the previous class's spend and get 429 where it expected 201.
+        # Every other request-heavy class in this suite clears it the same way.
+        cache.clear()
         self.build()
 
     def test_the_api_accepts_a_line_for_a_product_in_scope(self):

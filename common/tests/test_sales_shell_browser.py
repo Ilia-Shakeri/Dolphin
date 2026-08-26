@@ -591,7 +591,12 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.submit_performance_filter()
         report_text = self.browser.find_element(By.ID, "report-performance-table-body").text
         self.assertIn("daily.agent.browser", report_text)
-        self.assertIn("20.00", report_text)
+        # The amount is grouped and named, like every other amount in the panel.
+        # It used to print here as the raw `20.00` the API serialises, because
+        # this table sent its two money columns through the plain cell renderer
+        # instead of the money one — the only table in the panel that did.
+        self.assertIn("20 ریال", report_text)
+        self.assertNotIn("20.00", report_text)
         # The one deliberate denial above: a marketer opening a customer they
         # did not enter.
         self.assert_browser_clean(expected_denials=[denied_customer_path])
