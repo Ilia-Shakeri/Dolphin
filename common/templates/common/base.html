@@ -31,6 +31,7 @@
       data-kt-app-sidebar-push-header="true"
       data-kt-app-sidebar-push-toolbar="true"
       data-kt-app-sidebar-push-footer="true"
+      {% if sidebar_minimized %}data-kt-app-sidebar-minimize="on"{% endif %}
       data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
 {% if request.user.is_authenticated %}
 <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
@@ -101,6 +102,7 @@
                                     <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
                                 </div>
                                 <div class="separator my-2"></div>
+<div class="separator my-2"></div>
                                 <div class="menu-item px-5">
                                     <form id="logout-form" action="/api/v1/auth/logout/" method="post">
                                         {% csrf_token %}
@@ -118,14 +120,37 @@
                  data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true"
                  data-kt-drawer-width="250px" data-kt-drawer-direction="start" data-kt-drawer-toggle="#nav-toggle"
                  aria-label="راهبری اصلی">
-                <div class="app-sidebar-logo px-6 py-6 d-flex align-items-center justify-content-center flex-column-auto" id="kt_app_sidebar_logo">
-                    <a class="brand text-white fw-bold fs-3 text-decoration-none d-flex align-items-center gap-3 text-start" href="{% url 'common_ui:home' %}">
+{% comment %} Two logos, one shown at a time. `app-sidebar-logo-default` and
+   `app-sidebar-logo-minimize` are the theme's own class names and the theme's
+   own CSS decides which is visible from the attribute on `<body>` — so the
+   collapsed rail shows the mark alone with no width left for a wordmark.
+
+   The toggle is the theme's markup too: `KTToggle` picks up any
+   `[data-kt-toggle]` at DOM ready, flips `data-kt-app-sidebar-minimize` on the
+   body, and writes the cookie the context processor reads back. It sits on the
+   sidebar's outer edge, vertically centred — always in the same place, never
+   scrolling away with the menu, and reachable without hunting for it. {% endcomment %}
+                <div class="app-sidebar-logo px-6 py-6 d-flex align-items-center justify-content-center flex-column-auto position-relative" id="kt_app_sidebar_logo">
+                    <a class="brand app-sidebar-logo-default text-white fw-bold fs-3 text-decoration-none d-flex align-items-center gap-3 text-start" href="{% url 'common_ui:home' %}">
                         <picture>
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
                         </picture>
                         <span>ForooshBin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span></span>
                     </a>
+                    <a class="brand app-sidebar-logo-minimize text-decoration-none" href="{% url 'common_ui:home' %}" aria-label="ForooshBin">
+                        <picture>
+                            <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
+                            <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="ForooshBin">
+                        </picture>
+                    </a>
+                    <button id="kt_app_sidebar_toggle" type="button"
+                            class="app-sidebar-toggle btn btn-icon btn-sm h-28px w-28px{% if sidebar_minimized %} active{% endif %}"
+                            data-kt-toggle="true" data-kt-toggle-state="active"
+                            data-kt-toggle-target="body" data-kt-toggle-name="app-sidebar-minimize"
+                            aria-label="جمع کردن یا باز کردن فهرست" title="جمع کردن یا باز کردن فهرست">
+                        <i class="ki-duotone ki-black-left-line fs-4"><span class="path1"></span><span class="path2"></span></i>
+                    </button>
                 </div>
                 <div class="app-sidebar-menu overflow-hidden flex-column-fluid">
                     <div id="kt_app_sidebar_menu_wrapper" class="app-sidebar-wrapper">

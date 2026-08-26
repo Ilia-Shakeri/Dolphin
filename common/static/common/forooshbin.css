@@ -77,6 +77,108 @@ dialog::backdrop {
     width: 2rem;
 }
 
+.brand-mark-minimize {
+    width: 2.25rem;
+}
+
+/* 2b. Collapsed sidebar ---------------------------------------------------
+   The theme already knows how to collapse `.app-sidebar` — width, hidden menu
+   titles, and which of the two logos shows — all driven by
+   `[data-kt-app-sidebar-minimize=on]` on `<body>`. What it does not know is
+   this panel's own brand block, so only that is written here.
+
+   Both logos live in the DOM at once; exactly one is displayed. Swapping the
+   image `src` instead would have reloaded a file on every toggle and left the
+   rail briefly empty. */
+/* `!important` on both, and not by preference. The expanded brand carries
+   Bootstrap's `d-flex`, which is itself `!important`, so a plain `display:none`
+   loses to it and the wide block stays in the DOM — and because `.app-sidebar`
+   is a flex item with the default `min-width: auto`, its own content then holds
+   it open. That was the whole bug: the width variable said 75px, the rule read
+   it, and the box still measured 265px because the brand text would not fit in
+   anything narrower. */
+.app-sidebar-logo-minimize { display: none !important; }
+
+[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-default { display: none !important; }
+[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-minimize { display: block !important; }
+
+/* Lets the rail actually reach its width instead of being propped open by
+   whatever is widest inside it. A flex item defaults to `min-width: auto`,
+   which means "never smaller than my content" — the one declaration that makes
+   a collapsing sidebar impossible. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar {
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+/* The rail is 75px, so the logo block loses the padding that assumed 250px. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo {
+    padding-inline: 0.75rem !important;
+}
+
+/* The toggle sits on the sidebar's inner edge, vertically centred on the logo
+   band: the same place on every screen, never scrolling away with the menu,
+   and reachable without hunting. `start: 100%` puts it on the edge facing the
+   content, which under RTL is the left one — the theme's own `rotate` class
+   turns the chevron to match the state. */
+.app-sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    inset-inline-start: 100%;
+    transform: translate(50%, -50%);
+    z-index: 2;
+    color: #9de1d8;
+    background-color: #12374d;
+    border: 1px solid rgba(157, 225, 216, 0.25);
+    border-radius: 50%;
+}
+
+.app-sidebar-toggle:hover,
+.app-sidebar-toggle:focus-visible {
+    color: #ffffff;
+    background-color: #1b7f74;
+}
+
+.app-sidebar-toggle i { transition: transform 0.3s ease; }
+
+/* Points the way it will move: inward while open, outward while collapsed. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar-toggle i { transform: rotate(180deg); }
+
+/* The collapsed rail has no room for a wordmark or a section heading. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-title,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-arrow,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-bullet {
+    display: none !important;
+}
+
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-link,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link {
+    justify-content: center;
+    padding-inline: 0;
+}
+
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-icon {
+    margin-inline-end: 0;
+    width: auto;
+}
+
+/* An accordion cannot open in a 75px rail; its children would have nowhere to
+   go and would overlap the icons. Collapsed, the rail is a set of links. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-sub-accordion {
+    display: none;
+}
+
+/* Below the breakpoint the sidebar is a drawer that slides over the page, so
+   collapsing it to a rail means nothing — the toggle would do something the
+   reader cannot see. It is hidden rather than left to confuse.
+
+   Selected as `.app-sidebar .app-sidebar-toggle` for weight, not for reach:
+   the theme's own `.btn.btn-icon` is two classes and outranks a single one, so
+   a plain `.app-sidebar-toggle` here loses and the button stays on screen. */
+@media (max-width: 991.98px) {
+    .app-sidebar .app-sidebar-toggle { display: none; }
+}
+
 .brand-mark-error {
     width: 5rem;
     margin-inline: auto;
@@ -230,6 +332,59 @@ textarea:focus-visible,
     border-color: var(--bs-primary);
     box-shadow: 0 0 0 0.2rem rgb(27 132 255 / 25%);
     outline: none;
+}
+
+/* Select controls -----------------------------------------------------------
+   Every choice in this panel is a real `<select>`, and it stays one. The list
+   is populated from the API by `fillSelect`, read back by `.value` in dozens of
+   places, and asserted on by the test suite — replacing it with a scripted
+   listbox would mean keeping a copy of the value in sync with the original,
+   and a copy that drifts shows the operator a label that is not what will be
+   submitted. So the native control is styled instead of being hidden behind
+   one.
+
+   Two halves. The closed box is entirely ours. The open list is drawn by the
+   browser, and the only things it takes from the page are `color-scheme` and
+   the `option` colours below — which is enough to keep it from opening as a
+   bare white OS list against a dark panel. */
+
+.form-select {
+    /* Tells the browser which palette to paint its own popup with, so the open
+       list follows the panel into dark mode instead of staying white. */
+    color-scheme: light dark;
+    cursor: pointer;
+}
+
+.form-select:hover:not(:disabled) {
+    border-color: var(--bs-gray-400);
+}
+
+.form-select-solid:hover:not(:disabled) {
+    background-color: var(--bs-gray-200);
+    border-color: var(--bs-gray-200);
+}
+
+/* The chevron is a background image, so it cannot be recoloured by `color`.
+   Restating it is the only way to tint it, and it is worth doing: an open
+   select that looks identical to a closed one gives the reader nothing. */
+.form-select:focus,
+.form-select:focus-visible {
+    --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%231B84FF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* The popup. Chromium honours these; where a browser does not, `color-scheme`
+   above still keeps the list readable, so this degrades to the platform list
+   rather than to an unreadable one. */
+.form-select option,
+.form-select optgroup {
+    color: var(--bs-gray-800);
+    background-color: var(--bs-body-bg);
+}
+
+/* The placeholder row — `fillSelect` writes it with an empty value — reads as
+   an instruction, not as one of the choices. */
+.form-select option[value=""] {
+    color: var(--bs-gray-500);
 }
 
 /* Anything else focusable — links, buttons, menu entries, table row actions —

@@ -64,7 +64,19 @@ class AuthShellUnitTests(SimpleTestCase):
             re.sub(r"/\*.*?\*/", "", stylesheet, flags=re.S),
             re.M,
         )
-        self.assertLess(len(declarations), 120, "the override sheet is growing into a design system")
+        #
+        # The ceiling moved from 120 to 140 in 1.3.4, deliberately. It was set
+        # when this sheet held repairs, the brand mark and the print styles;
+        # that release added two things the theme genuinely cannot supply on its
+        # own — the glue that lets the sidebar collapse to a rail against this
+        # panel's own brand markup, and the styling of native select popups.
+        # Both are integration with the theme, not a replacement for it, which
+        # is what the assertions below actually guard.
+        #
+        # Raising it is a decision, not a reflex: anything that needs another
+        # twenty declarations should be questioned first, and rebuilding a theme
+        # component stays forbidden at any size.
+        self.assertLess(len(declarations), 140, "the override sheet is growing into a design system")
         # And it must not rebuild the theme's own components, at any size.
         for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
             self.assertNotIn(recreated, stylesheet, recreated)

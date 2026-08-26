@@ -70,6 +70,7 @@ TEMPLATES = [{
         "django.contrib.auth.context_processors.auth",
         "django.contrib.messages.context_processors.messages",
         "common.context_processors.product_version",
+        "common.context_processors.sidebar_state",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"
