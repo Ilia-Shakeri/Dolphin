@@ -152,6 +152,23 @@ class SecretTests(SimpleTestCase):
             with self.subTest(key=key):
                 self.assertGreaterEqual(len(env[key]), 16)
 
+    def test_the_generated_env_satisfies_the_real_production_validator(self):
+        """The check that matters, run by the code that gates production start.
+
+        Asserting a minimum length here by hand is what let a defect ship: the
+        secrets were 43 characters, the bootstrap script wanted 16, and this
+        test was satisfied — while `production_env.py` refuses anything under 50
+        for DJANGO_SECRET_KEY, so every provisioned deployment would have failed
+        on first boot. Handing the file to the real validator cannot drift from
+        the rule the same way a copied number can.
+        """
+        from config.production_env import validate_production_environment
+
+        env = provision()
+        # compose.yml supplies this per service rather than through .env.
+        env["KARIZ_DATABASE_ROLE"] = "app"
+        validate_production_environment(env)  # raises if the deployment is unstartable
+
     def test_secrets_cannot_be_reinterpreted_by_a_shell_or_by_compose(self):
         """A quote, a space or a `$` in a .env value is eventually expanded."""
         for _ in range(20):

@@ -816,15 +816,6 @@
         );
     }
 
-    /** The Jalali day alone, for columns where the time of day is not acted on. */
-    function displayDay(value) {
-        if (!value) return "—";
-        const parts = tehranParts(value);
-        if (!parts) return value;
-        const [year, month, day] = gregorianToJalali(parts.year, parts.month, parts.day);
-        return toPersianDigits(`${pad4(year)}/${pad2(month)}/${pad2(day)}`);
-    }
-
     function pad2(value) { return String(value).padStart(2, "0"); }
     function pad4(value) { return String(value).padStart(4, "0"); }
 

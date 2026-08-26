@@ -67,12 +67,19 @@ class ProvisioningError(Exception):
 def password():
     """A generated secret.
 
-    `token_urlsafe(32)` is 43 characters of URL-safe base64 over 256 bits. The
-    alphabet matters as much as the length: these values are written into a
-    `.env` that is read by shell tooling and by Compose, so a quote or a `$`
-    would eventually be interpolated by something.
+    `token_urlsafe(48)` is 64 characters of URL-safe base64 over 384 bits.
+
+    The length is not arbitrary: `config/production_env.py` refuses to start a
+    deployment whose `DJANGO_SECRET_KEY` is under 50 characters, and the 43 this
+    used to generate sat just below that line — every provisioned deployment
+    would have failed on first boot. One length is used for all five secrets so
+    there is no second value to get wrong.
+
+    The alphabet matters as much as the length: these values are written into a
+    `.env` read by shell tooling and by Compose, so a quote or a `$` would
+    eventually be interpolated by something.
     """
-    return secrets.token_urlsafe(32)
+    return secrets.token_urlsafe(48)
 
 
 def resolve_features(requested):
