@@ -182,7 +182,7 @@ savepoint تثبیت شده، نه با اجرای واقعی؛ و سرویس `s
 |---|---|---|
 | MEDIUM | `docs/ops/DEPLOYMENT.md` به اپراتور می‌گفت `/admin/login/` را در browser smoke بررسی کند — مسیری که در تولید **عمدا ۴۰۴** است (`ENABLE_DJANGO_ADMIN` پیش‌فرض false و nginx هم prefix را رد می‌کند). دنبال‌کردن runbook یک شکست کاذب تولید می‌کرد | مسیر به `/login/` اصلاح شد و صریحا نوشته شد که ۲۰۰ روی `/admin/` یک پیکربندی نادرست است، نه یک تست موفق |
 | MEDIUM | `docs/backend/API_CONTRACT.md` نام فایل XLSX را `kariz-user-performance.xlsx` اعلام می‌کرد؛ کد `forooshbin-*` تولید می‌کند — قرارداد API مستند با کد تناقض داشت | نام اصلاح شد |
-| MEDIUM | `docs/codebase/BRANDING_CLEANUP.md` ادعا می‌کرد هیچ favicon توسط پوسته فعال ارجاع نمی‌شود؛ پس از rebrand این نادرست است | ادعا به «هیچ دارایی **راه‌دور**؛ یک favicon محلی در دایرکتوری استاتیک خود اپلیکیشن» اصلاح شد |
+| MEDIUM | `docs/codebase/BRANDING_CLEANUP.md` (که اکنون حذف شده) ادعا می‌کرد هیچ favicon توسط پوسته فعال ارجاع نمی‌شود؛ پس از rebrand این نادرست است | ادعا به «هیچ دارایی **راه‌دور**؛ یک favicon محلی در دایرکتوری استاتیک خود اپلیکیشن» اصلاح شد |
 | LOW | `jalaliDateValue()` در `forooshbin-app.js` تعریف شده و هرگز فراخوانی نمی‌شد (کد first-party غیرقابل‌دسترس) | حذف شد؛ `displayDay()` همان کار را می‌کند |
 | LOW | `common/tests/test_deployment_profile.py` تنها فایل مخزن با BOM بود و `ast.parse` ساده را می‌شکست | BOM حذف شد |
 | LOW | دو `except Exception: pass` دور لاگ‌گیری بدون توضیح | توضیح اضافه شد: شکست لاگ نباید خطای مدیریت‌شده را با خطای دیگری جایگزین کند یا پاسخ موفق را به خطا تبدیل کند |
@@ -1028,7 +1028,7 @@ python manage.py test                                   Ran 356 tests — OK (sk
 - **فاز فعلی: `P0R` — اصلاح مستندات پیش از هر پیاده‌سازی feature.** این فاز فقط مستندات را اصلاح می‌کند (`BACKEND_SPEC.md`، همین فایل، Roadmap، و افزودن `CLAUDE.md`)؛ هیچ کد اپلیکیشن، migration، وابستگی، تست، Dockerfile یا Compose تغییر نکرد؛ هیچ `git add`/`commit`/`push` در این فاز اجرا نشد — کل diff برای بازبینی انسانی در working tree باقی می‌ماند.
 - `git status --short` فعلی (بعد از commit مستقل `AGENTS.md`) **خالی است** — درخت پیش از این فاز کاملا تمیز بود؛ حذف `AGENTS.md` کار از پیش موجود و عمدی کاربر بود و در این فاز بازگردانده نشد.
 - **اصلاح:** عکس فوری قبلی این بخش HEAD `58b25a1` را به‌عنوان HEAD «فعلی» معرفی می‌کرد. آن دیگر درست نیست — `58b25a1` والد `fde384a` است و `fde384a` خودش والد HEAD فعلی (`122b470`) است. این خودش یک نمونه دیگر از «prose در برابر شاهد اجراشده» است که این فاز اصلاحی موظف به رفع آن بود.
-- `docs/ops/SOURCE_MANIFEST.md` و `docs/ops/RELEASE_NOTES.md` یک reference منجمد و تاریخی روی commitهای بسیار قدیمی‌تر (`50a978a`، `95dbc71e`) دارند؛ هر دو commit در تاریخچه واقعی مخزن موجودند ولی به‌شدت عقب‌تر از HEAD فعلی هستند. آن دو سند صریحا خود را «historical, not live status» اعلام می‌کنند؛ به‌عنوان شاهد وضعیت فعلی استفاده نشوند. از زمان آن reference هیچ immutable release reference تازه‌ای تولید نشده است.
+- `docs/ops/SOURCE_MANIFEST.md` و `docs/ops/RELEASE_NOTES.md` **حذف شدند.** هر دو خودشان را «historical, not live status» اعلام کرده بودند و به commitهای بسیار قدیمی (`50a978a`، `95dbc71e`) گره خورده بودند؛ نگه داشتنشان در درخت فقط این خطر را داشت که کسی آن‌ها را وضعیت فعلی بخواند. تاریخچهٔ Git هر دو را نگه داشته است. جای تغییرات نسخه‌به‌نسخه اکنون `CHANGELOG.md` در ریشهٔ مخزن است.
 
 ## ۲. تصمیم‌های مستقیم کاربر که اکنون معتبرند
 

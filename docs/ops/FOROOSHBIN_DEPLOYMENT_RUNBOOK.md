@@ -649,8 +649,25 @@ docker compose --env-file secrets/.env run --rm web \
   python manage.py bootstrap_platform_admin --username <name>
 ```
 
-It prompts for the password twice, enforces Django's password validators, and
-refuses to run if an active Platform Admin already exists.
+It prompts for the password twice and enforces Django's password validators. It
+has no password argument, so the value never reaches shell history, process
+arguments or a log.
+
+It refuses to run once **any** Platform Admin row exists — active *or inactive*.
+The check is `User.objects.filter(role=PLATFORM_ADMIN).exists()`, with no
+`is_active` condition, so deactivating the only administrator does not reopen
+this path. That is the lockout case, and it is recovered with `changepassword`
+below or by reactivating the row directly, never by bootstrapping a second one.
+
+A username is never reused either, including one belonging to a deactivated
+account. The account is created with CRM role `platform_admin` and stays outside
+Django admin (`is_staff=false`, `is_superuser=false`). Creation and its audit row
+commit in one transaction; the audit actor is null, because no CRM user exists
+yet to have performed it, and it records field names and a password-set flag
+rather than the password.
+
+This is not a role-escalation or lockout-recovery tool. Ordinary user and role
+work goes through the authorised CRM paths.
 
 > **Password recovery is a host operation.** No interface anywhere changes a
 > password, and the API refuses it. A user who forgets theirs is recovered with
