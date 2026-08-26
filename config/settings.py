@@ -321,7 +321,11 @@ BILLING_INVOICE_AFFECTS_STOCK = (
 # When a cheque payment credits the customer account: on clearing (default) or
 # at registration. Clearing is the safe default because an uncleared cheque is
 # not money received.
-BILLING_CHEQUE_CREDITS_ON = os.environ.get("KARIZ_BILLING_CHEQUE_CREDITS_ON", "cleared")
+#: Whether a cheque credits the customer on arrival (`registration`) or
+#: only once the bank pays it (`cleared`). The product owner chose arrival
+#: in 1.3.0; a bounce then reverses the credit. See
+#: `billing.payments.cheque_credits_on_registration`.
+BILLING_CHEQUE_CREDITS_ON = os.environ.get("KARIZ_BILLING_CHEQUE_CREDITS_ON", "registration")
 
 # Default spacing between installments, in days, and the hard ceiling on how
 # many lines or installments one document may carry.
@@ -347,6 +351,20 @@ BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("KARIZ_BILLING_MAX_DOCUMENT_ITEM
 SELLER_LEGAL_NAME = os.environ.get("KARIZ_SELLER_LEGAL_NAME", "").strip()
 SELLER_NATIONAL_ID = os.environ.get("KARIZ_SELLER_NATIONAL_ID", "").strip()
 SELLER_ECONOMIC_CODE = os.environ.get("KARIZ_SELLER_ECONOMIC_CODE", "").strip()
+#: The rest of مشخصات فروشنده as the printed document sets it out. These are
+#: deployment identity, not business data, which is why they are environment and
+#: not a model: one deployment is one seller, and a second seller would be a
+#: second deployment with its own database.
+#:
+#: Only name, national id and economic code are required to issue — those three
+#: identify the seller for tax. The address block is printed when present and
+#: does not block issuing, because a deployment that has not filled it in should
+#: still be able to invoice.
+SELLER_REGISTRATION_NUMBER = os.environ.get("KARIZ_SELLER_REGISTRATION_NUMBER", "").strip()
+SELLER_ADDRESS = os.environ.get("KARIZ_SELLER_ADDRESS", "").strip()
+SELLER_POSTAL_CODE = os.environ.get("KARIZ_SELLER_POSTAL_CODE", "").strip()
+SELLER_CITY = os.environ.get("KARIZ_SELLER_CITY", "").strip()
+SELLER_PHONE = os.environ.get("KARIZ_SELLER_PHONE", "").strip()
 
 # Server-generated PDF. Off unless a deployment sets a renderer, because the
 # only supported renderer needs a browser binary on the host and a control that

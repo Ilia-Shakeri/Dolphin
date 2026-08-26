@@ -204,8 +204,6 @@ class CommercialListQueryGrowthTests(TestCase):
             },
         )
         cheque = Cheque.objects.get(payment=payment)
-        transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.DEPOSITED)
-        cheque.refresh_from_db()
         transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED)
         allocate_payment(
             actor=self.manager,

@@ -30,13 +30,23 @@ class MoneyFilterTests(SimpleTestCase):
         self.assertEqual(money("12500000.00"), "12،500،000 ریال")
         self.assertEqual(money(Decimal("0.00")), "0 ریال")
         self.assertEqual(money(Decimal("1000")), "1،000 ریال")
-        self.assertEqual(money(Decimal("123456789012.34")), "123،456،789،012 ریال")
+        self.assertEqual(money(Decimal("123456789012.34")), "123،456،789،013 ریال")
 
-    def test_the_fraction_is_dropped_by_rounding_not_by_truncation(self):
-        """Truncating would understate every amount it touched."""
+    def test_any_fraction_at_all_rounds_the_figure_up(self):
+        """Ceiling, not half-up — the product owner's rule since 1.3.0.
+
+        A figure shown to a customer must never be lower than what is actually
+        owed. Half-up satisfied that for `.5` and above and quietly broke it
+        below: `999.49` used to print as `999`, understating the debt. Rounding
+        up can overstate by at most one rial, and that is the direction chosen.
+        """
         self.assertEqual(money(Decimal("999.99")), "1،000 ریال")
         self.assertEqual(money(Decimal("999.50")), "1،000 ریال")
-        self.assertEqual(money(Decimal("999.49")), "999 ریال")
+        self.assertEqual(money(Decimal("999.49")), "1،000 ریال")
+        self.assertEqual(money(Decimal("999.01")), "1،000 ریال")
+        # A whole amount must not be nudged upward — only a real fraction is.
+        self.assertEqual(money(Decimal("999.00")), "999 ریال")
+        self.assertEqual(money(Decimal("0.01")), "1 ریال")
         # The carry has to propagate through the whole number, not just its
         # last digit.
         self.assertEqual(money(Decimal("999999.60")), "1،000،000 ریال")
@@ -48,15 +58,18 @@ class MoneyFilterTests(SimpleTestCase):
         self.assertEqual(money("not-a-number"), "not-a-number")
 
     def test_a_negative_amount_keeps_its_sign_beside_the_number(self):
-        rendered = money(Decimal("-2500.50"))
+        # The magnitude rounds up, so a negative figure moves away from zero.
+        rendered = money(Decimal("-2500.40"))
         self.assertTrue(rendered.startswith("‏-2،501"), rendered)
         self.assertTrue(rendered.endswith("ریال"))
 
     def test_the_last_digit_of_a_large_total_survives_formatting(self):
         # Going through float would round this away; the amount is
-        # authoritative as stored.
+        # authoritative as stored. As a double, 9007199254740993.01 collapses to
+        # ...992, so a float path would carry to ...993 — reaching ...994 is only
+        # possible on the digit string.
         self.assertEqual(
-            money(Decimal("9007199254740993.01")), "9،007،199،254،740،993 ریال"
+            money(Decimal("9007199254740993.01")), "9،007،199،254،740،994 ریال"
         )
 
     def test_the_stored_amount_is_not_what_changed(self):

@@ -188,10 +188,16 @@ class BidirectionalPaymentTests(TestCase):
         history = payment.cheque.history.order_by("-id").first()
         self.assertEqual(history.to_status, Cheque.Status.SPENT)
 
-    def test_spending_ends_the_pending_payment(self):
-        """The money is not arriving through this instrument any more."""
+    def test_spending_ends_the_payment_behind_the_cheque(self):
+        """The money is not coming to us through this instrument any more.
+
+        Since 1.3.0 the payment is already confirmed when the cheque arrives, so
+        endorsing it onward reverses that credit rather than ending a pending
+        payment — the customer's account must not keep a credit for a cheque we
+        handed to someone else.
+        """
         payment = self.cheque_receipt()
-        self.assertEqual(payment.status, Payment.Status.PENDING)
+        self.assertEqual(payment.status, Payment.Status.CONFIRMED)
         spend_received_cheque(actor=self.manager, cheque=payment.cheque, payee="گیرنده")
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.Status.CANCELLED)
@@ -204,11 +210,11 @@ class BidirectionalPaymentTests(TestCase):
                 actor=self.manager, cheque=spent, to_status=Cheque.Status.CLEARED
             )
 
-    def test_a_banked_cheque_cannot_be_handed_to_anyone(self):
-        """It is at the bank; it is not ours to endorse."""
+    def test_a_cleared_cheque_cannot_be_handed_to_anyone(self):
+        """It has been paid; there is nothing left to endorse."""
         payment = self.cheque_receipt()
         transition_cheque(
-            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.DEPOSITED
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.CLEARED
         )
         with self.assertRaises(BusinessRuleError):
             spend_received_cheque(
@@ -220,29 +226,38 @@ class BidirectionalPaymentTests(TestCase):
         with self.assertRaises(BusinessRuleError):
             spend_received_cheque(actor=self.manager, cheque=payment.cheque, payee="")
 
-    # --- the states we kept still mean what they meant ---------------------
+    # --- the two axes are genuinely independent ----------------------------
 
-    def test_registered_and_deposited_are_still_distinct(self):
+    def test_registration_is_a_separate_axis_from_what_happened(self):
+        """حالت and وضعیت move independently; that is the point of the split."""
         payment = self.cheque_receipt()
-        self.assertEqual(payment.cheque.status, Cheque.Status.REGISTERED)
+        cheque = payment.cheque
+        self.assertEqual(cheque.status, Cheque.Status.PENDING)
+        self.assertFalse(cheque.is_registered)
+
+        cheque.is_registered = True
+        cheque.save(update_fields=["is_registered"])
         moved = transition_cheque(
-            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.DEPOSITED
+            actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED
         )
-        self.assertEqual(moved.status, Cheque.Status.DEPOSITED)
+        # Changing وضعیت left حالت alone.
+        self.assertTrue(moved.is_registered)
+        self.assertEqual(moved.status, Cheque.Status.CLEARED)
 
     def test_a_bounced_cheque_can_still_be_re_presented(self):
-        """BOUNCED -> DEPOSITED survives; collapsing the enum would have lost it."""
+        """BOUNCED -> PENDING survives the split; a bounce is not terminal."""
         payment = self.cheque_receipt()
-        transition_cheque(actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.DEPOSITED)
         transition_cheque(actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.BOUNCED)
         again = transition_cheque(
-            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.DEPOSITED
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.PENDING
         )
-        self.assertEqual(again.status, Cheque.Status.DEPOSITED)
+        self.assertEqual(again.status, Cheque.Status.PENDING)
 
-    def test_returned_and_cancelled_still_exist(self):
-        self.assertIn(Cheque.Status.RETURNED, Cheque.Status.values)
-        self.assertIn(Cheque.Status.CANCELLED, Cheque.Status.values)
+    def test_the_check_constraint_list_matches_the_enum(self):
+        """These fell out of step twice, and both times production broke."""
+        from billing.models import CHEQUE_STATUS_VALUES
+
+        self.assertEqual(sorted(CHEQUE_STATUS_VALUES), sorted(Cheque.Status.values))
 
     # --- the display-only path is untouched --------------------------------
 

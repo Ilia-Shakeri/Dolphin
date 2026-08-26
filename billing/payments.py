@@ -17,9 +17,11 @@ Money handling rules this module enforces, all recorded in
 
 import unicodedata
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.db.models import F, Sum
 from django.utils import timezone
 
 from accounts.access import is_crm_identity
@@ -49,11 +51,79 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 CHEQUE_FIELDS = {
     "bank_name", "bank_account", "branch_name", "serial_number",
     "account_holder", "due_date", "notes", "source",
+    # حالت, and the date written on the cheque. تاریخ روز is `created_at` and
+    # is deliberately not accepted here — the system stamps it.
+    "is_registered", "registered_on",
 }
 
 
 def cheque_credits_on_registration():
-    return str(getattr(settings, "BILLING_CHEQUE_CREDITS_ON", "cleared")).lower() == "registration"
+    """Whether a cheque credits the customer on arrival or only once cleared.
+
+    The default became `registration` in 1.3.0 on the product owner's
+    instruction: receiving a cheque is what settles the customer's account in
+    their practice, and waiting for clearance left balances showing debts that
+    both sides considered already paid.
+
+    The consequence is that a bounce has to take the credit back, which is why
+    `transition_cheque` reverses on BOUNCED. The setting is still read rather
+    than hard-coded, so a deployment that accounts the other way can say so
+    without a code change.
+    """
+    return str(getattr(settings, "BILLING_CHEQUE_CREDITS_ON", "registration")).lower() == "registration"
+
+
+def customer_outstanding(customer):
+    """What this customer still owes across every issued invoice.
+
+    Cancelled and draft invoices are not debts, so they are not counted. The sum
+    is computed from the invoices rather than from the ledger balance because
+    the ledger also carries manual adjustments and opening balances, and بند ۳.۴
+    is about invoices.
+    """
+    total = (
+        Invoice.objects.filter(
+            customer=customer, status=Invoice.Status.ISSUED
+        ).aggregate(due=Sum(F("total_amount") - F("paid_amount")))["due"]
+        or Decimal("0.00")
+    )
+    return quantize_money(max(total, Decimal("0.00")))
+
+
+def _refuse_overpayment(*, customer, amount):
+    """بند ۳.۴ — «اضافه پرداخت نداریم این آپشنو حذف کن».
+
+    The product owner was asked what should happen to an overpayment — reject
+    it, hold it as a credit, or refund it — and answered that overpayment does
+    not occur in their business and the option should go. So it is rejected at
+    the door: money that exceeds the debt cannot be recorded as a receipt
+    against it.
+
+    Only receipts that name a customer are checked. A receipt with no customer
+    has no debt to measure against, and a disbursement is money going the other
+    way.
+
+    A refund is not this. The product owner's answer to بند ۵.۱ was that a
+    refund is entered as a disbursement (پرداختی), which does not pass here.
+    """
+    if customer is None:
+        return
+    # Only meaningful once there is a debt to measure against.
+    #
+    # A receipt from a customer with no issued invoice is money on account, not
+    # an overpayment: بند ۳.۱ says a receipt may sit unallocated and be assigned
+    # to an invoice later, which is exactly that flow. Refusing it would have
+    # blocked the ordinary case of taking a deposit before invoicing.
+    if not Invoice.objects.filter(customer=customer, status=Invoice.Status.ISSUED).exists():
+        return
+    outstanding = customer_outstanding(customer)
+    if amount > outstanding:
+        raise BusinessRuleError({
+            "amount": (
+                "A receipt cannot exceed what the customer owes "
+                f"({outstanding}). Overpayment is not recorded."
+            )
+        })
 
 
 def _lock_payment_manager(actor):
@@ -168,6 +238,10 @@ def register_payment(
         if not locked_customer.is_active:
             raise BusinessConflictError({"customer": "Customer is inactive."})
 
+    # بند ۳.۴ — overpayment is refused before anything is written.
+    if direction == Payment.Direction.RECEIPT:
+        _refuse_overpayment(customer=locked_customer, amount=amount)
+
     is_cheque = method == Payment.Method.CHEQUE
     if is_cheque and not isinstance(cheque, dict):
         raise BusinessRuleError({"cheque": "Cheque details are required for a cheque payment."})
@@ -269,6 +343,10 @@ def _create_cheque(*, actor, payment, amount, data):
     source = data.get("source", "") or ""
     if source and source not in Cheque.Source.values:
         raise BusinessRuleError({"cheque": "Unknown cheque source."})
+    registered_on = data.get("registered_on") or None
+    # حالت is stated at registration and defaults to "not registered": a cheque
+    # that has just been handed over has not been submitted anywhere yet.
+    is_registered = bool(data.get("is_registered", False))
     try:
         return Cheque.objects.create(
             payment=payment,
@@ -279,8 +357,10 @@ def _create_cheque(*, actor, payment, amount, data):
             serial_number=_clean_line(data.get("serial_number"), field="cheque", limit=64, required=True),
             account_holder=_clean_line(data.get("account_holder", ""), field="cheque", limit=255),
             due_date=due_date,
+            registered_on=registered_on,
+            is_registered=is_registered,
             amount=amount,
-            status=Cheque.Status.REGISTERED,
+            status=Cheque.Status.PENDING,
             notes=_clean_text(data.get("notes", ""), field="cheque", limit=FREE_TEXT_MAX_LENGTH),
         )
     except IntegrityError as exc:
@@ -346,10 +426,18 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
         payment.status = Payment.Status.CONFIRMED
         payment.save(update_fields=["status", "updated_at"])
         _post_payment_credit(actor=actor, payment=payment)
-    elif to_status in {Cheque.Status.RETURNED, Cheque.Status.CANCELLED, Cheque.Status.SPENT}:
+    elif to_status in {Cheque.Status.BOUNCED, Cheque.Status.SPENT}:
         # The money is not coming through this instrument. A pending payment
         # simply ends; a confirmed one is reversed through the normal path so
         # the ledger keeps both movements.
+        #
+        # BOUNCED belongs here since 1.3.0 and did not before. Now that a
+        # cheque credits the customer on arrival, a bounce has to take that
+        # credit back — and `cancel_payment` releases the payment's
+        # allocations, which is precisely what "on bounce, add it back to the
+        # invoice balance" asks for. Reversing rather than deleting keeps both
+        # movements visible in the ledger, so the bounce is auditable instead
+        # of looking like a cheque that never existed.
         if payment.status == Payment.Status.PENDING:
             payment.status = Payment.Status.CANCELLED
             payment.cancelled_at = timezone.now()
@@ -369,6 +457,54 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
         },
     )
     return locked
+
+
+@transaction.atomic
+def allocate_payment_across(*, actor, payment, splits):
+    """Apply one receipt to several invoices at once. (بند ۳.۱ و ۳.۲)
+
+    `splits` is a sequence of `{"invoice": Invoice, "amount": Decimal|None}`.
+    This is the "place to specify how one receipt is divided between invoices"
+    the product owner asked for.
+
+    All of it or none of it. Splitting a receipt is one decision the operator
+    makes on one screen, so a run that settled two invoices and then failed on
+    the third would leave them looking at a state they never chose. The shared
+    transaction means the failure reported is the only thing that happened.
+
+    Each split goes through `allocate_payment`, so every rule that holds for a
+    single allocation holds here too — same customer, issued invoice only,
+    never more than the invoice's balance, never more than the receipt has
+    left. Nothing is relaxed for being part of a batch.
+    """
+    actor = _lock_payment_manager(actor)
+    if not splits:
+        raise BusinessRuleError({"splits": "Choose at least one invoice."})
+
+    seen = set()
+    for index, split in enumerate(splits):
+        invoice = split.get("invoice")
+        if invoice is None:
+            raise BusinessRuleError({f"splits.{index}.invoice": "This field is required."})
+        # The same invoice twice would hit the unique constraint underneath and
+        # surface as a conflict about an allocation the operator never made.
+        if invoice.pk in seen:
+            raise BusinessRuleError({
+                f"splits.{index}.invoice": "This invoice is listed more than once."
+            })
+        seen.add(invoice.pk)
+
+    allocations = []
+    for split in splits:
+        allocations.append(
+            allocate_payment(
+                actor=actor,
+                payment=payment,
+                invoice=split["invoice"],
+                amount=split.get("amount"),
+            )
+        )
+    return allocations
 
 
 @transaction.atomic

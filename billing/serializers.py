@@ -413,7 +413,7 @@ class ChequeSerializer(serializers.ModelSerializer):
         model = Cheque
         fields = [
             "id", "payment", "payment_number", "customer", "customer_name", "bank_name",
-            "bank_account", "branch_name", "serial_number", "account_holder", "due_date",
+            "bank_account", "branch_name", "serial_number", "account_holder", "due_date", "registered_on", "is_registered",
             "amount", "status", "status_display", "source", "paid_to",
             "notes", "created_at", "updated_at",
         ]
@@ -538,6 +538,30 @@ class AllocatePaymentSerializer(RejectServerFieldsMixin, serializers.Serializer)
             _scope_relation(
                 self.fields["invoice"], invoices_for(request.user).filter(status=Invoice.Status.ISSUED)
             )
+
+
+class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """One receipt, several invoices, one submission. (بند ۳.۱ و ۳.۲)
+
+    Each row reuses `AllocatePaymentSerializer`, so an invoice offered here is
+    scoped to what the requesting user may see exactly as it is for a single
+    allocation — a split is not a way to reach an invoice outside your scope.
+    """
+
+    splits = AllocatePaymentSerializer(many=True)
+
+    def validate_splits(self, value):
+        if not value:
+            raise serializers.ValidationError("Choose at least one invoice.")
+        seen = set()
+        for row in value:
+            invoice = row["invoice"]
+            if invoice.pk in seen:
+                raise serializers.ValidationError(
+                    "Each invoice may appear only once in a split."
+                )
+            seen.add(invoice.pk)
+        return value
 
 
 class ChequeTransitionSerializer(RejectServerFieldsMixin, serializers.Serializer):

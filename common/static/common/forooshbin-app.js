@@ -3226,25 +3226,26 @@
         confirmed: "تأییدشده",
         cancelled: "ابطال‌شده",
     });
+    // وضعیت — one of the two axes a cheque has since 1.3.0. The other, حالت,
+    // is a yes/no and is rendered by CHEQUE_REGISTRATION_TEXT below.
     const CHEQUE_STATUS_TEXT = Object.freeze({
-        spent: "خرج‌شده",
-        registered: "ثبت‌شده",
-        deposited: "به بانک سپرده‌شده",
-        cleared: "وصول‌شده",
-        bounced: "برگشت‌خورده",
-        returned: "بازگردانده‌شده",
-        cancelled: "ابطال‌شده",
+        pending: "در انتظار",
+        cleared: "وصول شده",
+        bounced: "برگشت",
+        spent: "خرج شده",
+    });
+    const CHEQUE_REGISTRATION_TEXT = Object.freeze({
+        true: "ثبت شده",
+        false: "ثبت نشده",
     });
     // Mirrors billing.models.Cheque.TRANSITIONS. Display only — the server
     // refuses a jump that is not in its own table regardless of what is offered
     // here, so a drift in this copy narrows the menu, it never widens access.
     const CHEQUE_TRANSITIONS = Object.freeze({
-        registered: ["deposited", "returned", "cancelled"],
-        deposited: ["cleared", "bounced", "returned"],
+        pending: ["cleared", "bounced", "spent"],
         cleared: [],
-        bounced: ["deposited", "returned"],
-        returned: [],
-        cancelled: [],
+        bounced: ["pending"],
+        spent: [],
     });
     const INSTALLMENT_STATUS_TEXT = Object.freeze({
         pending: "پرداخت‌نشده",
@@ -3310,7 +3311,6 @@
         // Payments and cheques.
         pending: "warning",
         registered: "info",
-        deposited: "info",
         cleared: "success",
         bounced: "danger",
         returned: "warning",
@@ -3369,11 +3369,20 @@
         const [rawWhole, fraction = ""] = (negative ? text.slice(1) : text).split(".");
         if (!/^\d+$/.test(rawWhole)) return String(value);
 
-        // Round half-up on the first dropped digit, carrying through the string.
+        // Ceiling, not half-up: any fraction at all rounds the whole number up.
+        //
+        // The product owner's rule is that the rial figure must never be
+        // reported lower than the amount actually owed, and that no decimal is
+        // ever shown. Half-up would round 1.4 down to 1 and quietly understate
+        // it; rounding up can overstate by at most one rial, which is the
+        // direction chosen deliberately.
+        //
+        // Carried through the digit string with BigInt rather than through a
+        // float, because a rial total can exceed what a double represents
+        // exactly.
         let whole = rawWhole;
-        if (fraction && Number(fraction[0]) >= 5) {
-            const carried = (BigInt(whole) + 1n).toString();
-            whole = carried;
+        if (fraction && /[1-9]/.test(fraction)) {
+            whole = (BigInt(whole) + 1n).toString();
         }
         const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "،");
         const body = negative && grouped !== "0" ? `‏-${grouped}` : grouped;
@@ -4688,6 +4697,103 @@
             if (payment.status === "confirmed") allocationsController?.load();
         }
 
+        // --- تقسیم یک دریافت بین چند فاکتور (بند ۳.۲) ----------------------
+        //
+        // A second form rather than more controls on the first one. Allocating
+        // to a single invoice is the common action and stays a single line;
+        // dividing a receipt is a deliberate, multi-row decision and is worth
+        // its own submit. Both post to the same rules on the server.
+        const splitForm = document.getElementById("payment-split-form");
+        const splitRows = document.getElementById("payment-split-rows");
+        const splitTotal = document.getElementById("payment-split-total");
+
+        function splitInvoiceOptions() {
+            // Cloned from the single-allocation select, which is already
+            // filtered to this customer's issued invoices that still owe
+            // something, so the two lists can never disagree.
+            const source = document.getElementById("payment-allocate-invoice");
+            return source ? source.innerHTML : "";
+        }
+
+        function refreshSplitTotal() {
+            if (!splitRows || !splitTotal) return;
+            let sum = 0;
+            let anyBlank = false;
+            splitRows.querySelectorAll("[data-split-amount]").forEach((input) => {
+                const value = moneyOrNull(input.value);
+                if (value === null) anyBlank = true;
+                else sum += Number(value);
+            });
+            // A blank row takes "whatever the invoice still owes", which is not
+            // known here, so the total is reported as at-least rather than as a
+            // figure that would be wrong.
+            splitTotal.textContent = sum === 0 && anyBlank ? "—" : (anyBlank ? "حداقل " : "") + money(sum);
+        }
+
+        function addSplitRow() {
+            if (!splitRows) return;
+            const row = document.createElement("div");
+            row.className = "d-flex flex-wrap align-items-center gap-3";
+            row.dataset.splitRow = "";
+            const select = document.createElement("select");
+            select.className = "form-select form-select-solid w-auto flex-grow-1";
+            select.dataset.splitInvoice = "";
+            select.setAttribute("aria-label", "فاکتور");
+            select.innerHTML = splitInvoiceOptions();
+            const amount = document.createElement("input");
+            amount.className = "form-control form-control-solid w-auto flex-grow-1";
+            amount.type = "text";
+            amount.inputMode = "numeric";
+            amount.dir = "ltr";
+            amount.placeholder = "مبلغ به ریال (خالی = مانده فاکتور)";
+            amount.setAttribute("data-money-input", "");
+            amount.dataset.splitAmount = "";
+            amount.setAttribute("aria-label", "مبلغ");
+            amount.addEventListener("input", refreshSplitTotal);
+            const remove = document.createElement("button");
+            remove.className = "btn btn-icon btn-light-danger";
+            remove.type = "button";
+            remove.textContent = "×";
+            remove.setAttribute("aria-label", "حذف سطر");
+            remove.addEventListener("click", () => {
+                row.remove();
+                refreshSplitTotal();
+            });
+            row.append(select, amount, remove);
+            splitRows.append(row);
+            // Money grouping is wired once per input by the shared helper, which
+            // guards against binding the same field twice.
+            setupMoneyInputs(row);
+            refreshSplitTotal();
+        }
+
+        document.getElementById("payment-split-add")?.addEventListener("click", addSplitRow);
+
+        splitForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(splitForm, async () => {
+                const splits = [];
+                splitRows.querySelectorAll("[data-split-row]").forEach((row) => {
+                    const invoice = Number(row.querySelector("[data-split-invoice]").value);
+                    if (!invoice) return;
+                    const entry = {invoice};
+                    const amount = moneyOrNull(row.querySelector("[data-split-amount]").value);
+                    if (amount !== null) entry.amount = amount;
+                    splits.push(entry);
+                });
+                if (!splits.length) {
+                    const slot = splitForm.querySelector('[data-error-for="splits"]');
+                    if (slot) slot.textContent = "حداقل یک فاکتور را انتخاب کنید.";
+                    return;
+                }
+                await apiRequest(`${endpoint}allocate-across/`, {method: "POST", body: {splits}});
+                globalMessage("دریافت بین فاکتورها تقسیم شد.", true);
+                splitRows.replaceChildren();
+                refreshSplitTotal();
+                apply(await apiRequest(endpoint));
+            });
+        });
+
         allocateForm?.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(allocateForm, async () => {
@@ -4832,7 +4938,7 @@
                 // Endorsing a cheque onward is its own action rather than one
                 // more entry in the status dropdown, because it needs a second
                 // answer the others do not: who it went to.
-                if (cheque.status === "registered" && spendDialog) {
+                if (cheque.status === "pending" && spendDialog) {
                     const spend = document.createElement("button");
                     spend.type = "button";
                     spend.className = "btn btn-sm btn-light";

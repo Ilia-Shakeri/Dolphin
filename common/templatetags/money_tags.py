@@ -32,11 +32,15 @@ def money(value):
     """`12500000.00` -> `12،500،000 ریال`; a missing amount -> the em dash.
 
     Rial has no sub-unit in daily use, so the fraction is dropped rather than
-    printed as a permanent `.00`. It is dropped by rounding half-up on the digit
-    string, not through `float`, for the same reason the grouping walks the
+    printed as a permanent `.00`. It is dropped by **rounding up** on the digit
+    string — never through `float`, for the same reason the grouping walks the
     string: the amount is authoritative as stored and a float round-trip could
-    move its last digit. The stored value keeps its two decimals — this is
-    display only.
+    move its last digit.
+
+    Rounding up rather than half-up is the product owner's rule: a figure shown
+    to a customer must not be lower than what is owed. The cost is at most one
+    rial of overstatement. The stored value keeps its two decimals untouched —
+    this is display only.
     """
     if value is None or value == "":
         return "—"
@@ -52,7 +56,10 @@ def money(value):
     if not whole.isdigit():
         # Not a number we recognise; show it unchanged rather than mangling it.
         return str(value)
-    if fraction and fraction[0].isdigit() and int(fraction[0]) >= 5:
+    # Ceiling, matching `money()` in forooshbin-app.js: any fraction at all
+    # rounds up. A printed document and the screen it was checked against must
+    # agree to the rial, so both use the same rule and neither may drift.
+    if fraction and any(digit in "123456789" for digit in fraction):
         whole = str(int(whole) + 1)
     grouped = ""
     for index, digit in enumerate(reversed(whole)):

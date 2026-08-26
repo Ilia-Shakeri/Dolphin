@@ -64,14 +64,15 @@ class CommercialCycleEndToEndTests(TestCase):
 
         cheque = register_payment(actor=mgr, customer=cust, method=Payment.Method.CHEQUE, amount=Decimal("90.50"),
                                   cheque={"bank_name": "ملت", "serial_number": "12345", "due_date": date(2026, 10, 1)})
-        assert cheque.status == Payment.Status.PENDING
-        assert current_balance(cust) == Decimal("290.50")
+        # Since 1.3.0 receiving the cheque is itself the credit, so the balance
+        # moves here rather than at clearance.
+        assert cheque.status == Payment.Status.CONFIRMED
+        assert current_balance(cust) == Decimal("200.00")
         from billing.payments import transition_cheque
         from billing.models import Cheque
         ch = Cheque.objects.get(payment=cheque)
-        transition_cheque(actor=mgr, cheque=ch, to_status=Cheque.Status.DEPOSITED)
-        ch.refresh_from_db()
         transition_cheque(actor=mgr, cheque=ch, to_status=Cheque.Status.CLEARED)
         cheque.refresh_from_db()
+        # Clearing confirms what was already counted; it must not count again.
         assert cheque.status == Payment.Status.CONFIRMED
         assert current_balance(cust) == Decimal("200.00")

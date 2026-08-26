@@ -34,13 +34,27 @@
 </section>
 <section id="payment-allocate-section" class="card mb-5 mb-xl-8" hidden>
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">تخصیص به فاکتور</h2>
-    <p class="text-muted">تخصیص نه از مانده تخصیص‌نیافته دریافت بیشتر می‌شود و نه از مانده فاکتور؛ مازاد به‌صورت بستانکاری روی حساب مشتری می‌ماند.</p>
+    <p class="text-muted">تخصیص نه از مانده تخصیص‌نیافته دریافت بیشتر می‌شود و نه از مانده فاکتور. یک دریافت می‌تواند بین چند فاکتور تقسیم شود و یک فاکتور می‌تواند از چند دریافت تسویه شود.</p>
     <form id="payment-allocate-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
         <label class="sr-only" for="payment-allocate-invoice">فاکتور صادرشده</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-allocate-invoice" name="invoice" required><option value="">در حال دریافت…</option></select>
         <label class="sr-only" for="payment-allocate-amount">مبلغ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="payment-allocate-amount" name="amount" type="text" inputmode="numeric" data-money-input dir="ltr" placeholder="مبلغ به ریال (خالی = حداکثر ممکن)">
         <button class="btn btn-primary" type="submit">تخصیص</button>
     </form>
     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice"></p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p>
+
+    <div class="separator separator-dashed my-6"></div>
+    <h3 class="fs-5 fw-bold text-gray-900 mb-2">تقسیم بین چند فاکتور</h3>
+    <p class="text-muted fs-7">مبلغ هر سطر را مشخص کنید؛ خالی گذاشتن یعنی تا سقف مانده همان فاکتور. همه سطرها با هم ثبت می‌شوند و اگر یکی رد شود، هیچ‌کدام ثبت نمی‌شود.</p>
+    <form id="payment-split-form" class="mb-5" novalidate>
+        <div id="payment-split-rows" class="d-flex flex-column gap-3 mb-4"></div>
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <button class="btn btn-light-primary" type="button" id="payment-split-add">افزودن فاکتور</button>
+            <span class="text-gray-700 fs-7">جمع تقسیم‌شده: <span id="payment-split-total" dir="ltr">—</span></span>
+            <button class="btn btn-primary ms-auto" type="submit">ثبت تقسیم</button>
+        </div>
+        <p class="text-danger fs-8 mt-3 mb-0" data-error-for="splits"></p>
+    </form>
+
     <div id="payment-allocations-loading" class="text-center text-gray-700 py-10">در حال دریافت تخصیص‌ها…</div>
     <div id="payment-allocations-empty" class="text-center text-gray-700 py-10" hidden>هنوز تخصیصی ثبت نشده است.</div>
     <div id="payment-allocations-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>فاکتور</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payment-allocations-table-body"></tbody></table></div>

@@ -378,6 +378,40 @@ class Invoice(CommercialDocument):
     #:
     #: Cancellation does not release it. That is what gapless means: a cancelled
     #: official invoice keeps its number, and the number is not reissued.
+    # --- مشخصات خریدار و فروشنده, as they stood when this became a document ---
+    #
+    # An issued invoice is evidence of a transaction that already happened, so
+    # it may not change afterwards. Reading the buyer's identity live meant that
+    # correcting a typo in a customer's economic code silently rewrote every tax
+    # document ever issued to them — which is the one thing a tax document must
+    # never do.
+    #
+    # These are written once, by `issue_invoice`, and never again. They are
+    # **not** editable: there is no serializer field, no form input and no API
+    # path that writes them. Every value is copied from the `Customer` record or
+    # from deployment settings, which is the product owner's rule — an address
+    # on an invoice is chosen from the customer's file, never typed by hand, so
+    # that the two can never disagree.
+    #
+    # Blank on a draft, and blank on rows issued before this existed. Blank is
+    # therefore "no snapshot taken", and the print falls back to the live record
+    # for those — see `party_details` in the print view.
+    buyer_name = models.CharField(max_length=255, blank=True)
+    buyer_national_id = models.CharField(max_length=32, blank=True)
+    buyer_economic_code = models.CharField(max_length=32, blank=True)
+    buyer_address = models.CharField(max_length=500, blank=True)
+    buyer_postal_code = models.CharField(max_length=32, blank=True)
+    buyer_city = models.CharField(max_length=100, blank=True)
+    buyer_phone = models.CharField(max_length=40, blank=True)
+    seller_name = models.CharField(max_length=255, blank=True)
+    seller_registration_number = models.CharField(max_length=32, blank=True)
+    seller_national_id = models.CharField(max_length=32, blank=True)
+    seller_economic_code = models.CharField(max_length=32, blank=True)
+    seller_address = models.CharField(max_length=500, blank=True)
+    seller_postal_code = models.CharField(max_length=32, blank=True)
+    seller_city = models.CharField(max_length=100, blank=True)
+    seller_phone = models.CharField(max_length=40, blank=True)
+
     official_number = models.CharField(
         max_length=DOCUMENT_NUMBER_MAX_LENGTH, blank=True, default="", db_index=True
     )
@@ -702,31 +736,45 @@ class PaymentAllocation(TimeStampedModel):
         ]
 
 
+#: The stored values of `Cheque.Status`, at module level because a nested
+#: `Meta` cannot see names from the class body around it. Kept in one place so
+#: the database CHECK constraint cannot silently disagree with the enum — the
+#: constraint used to hold a hand-written copy of this list and twice fell
+#: behind it, which is how a valid status once failed to save in production.
+CHEQUE_STATUS_VALUES = ["pending", "cleared", "bounced", "spent"]
+
+
 class Cheque(TimeStampedModel):
     class Status(models.TextChoices):
-        REGISTERED = "registered", "Registered"
-        DEPOSITED = "deposited", "Deposited"
-        CLEARED = "cleared", "Cleared"
-        BOUNCED = "bounced", "Bounced"
-        RETURNED = "returned", "Returned to customer"
-        CANCELLED = "cancelled", "Cancelled"
+        """وضعیت — what has become of the money.
+
+        Since 1.3.0 a cheque is described by two independent facts, because the
+        product owner's staff already thought of them separately and the single
+        seven-value enum kept forcing them into one answer:
+
+        * **حالت** — has the cheque been registered? That is `is_registered`.
+        * **وضعیت** — what happened to it? That is this enum.
+
+        The two are independent: a cheque can be registered and still pending,
+        or unregistered and already spent. The old enum could not express that
+        pair, so `deposited` and `registered` were really one axis leaking into
+        the other.
+        """
+
+        PENDING = "pending", "در انتظار"
+        CLEARED = "cleared", "وصول شده"
+        BOUNCED = "bounced", "برگشت"
         #: Endorsed to someone else instead of being banked. The instrument is
         #: the same instrument — spending it does not create a second cheque —
         #: so this is a state of the row that already exists.
-        SPENT = "spent", "Spent"
+        SPENT = "spent", "خرج شده"
 
     TRANSITIONS = {
-        # Spendable only while it is still in hand. A cheque already at the
-        # bank cannot be handed to a third party, which is why DEPOSITED does
-        # not lead here.
-        Status.REGISTERED: frozenset({
-            Status.DEPOSITED, Status.RETURNED, Status.CANCELLED, Status.SPENT,
-        }),
-        Status.DEPOSITED: frozenset({Status.CLEARED, Status.BOUNCED, Status.RETURNED}),
+        # A cheque still waiting can clear, bounce, or be handed on.
+        Status.PENDING: frozenset({Status.CLEARED, Status.BOUNCED, Status.SPENT}),
         Status.CLEARED: frozenset(),
-        Status.BOUNCED: frozenset({Status.DEPOSITED, Status.RETURNED}),
-        Status.RETURNED: frozenset(),
-        Status.CANCELLED: frozenset(),
+        # A bounced cheque can be presented again, so it returns to waiting.
+        Status.BOUNCED: frozenset({Status.PENDING}),
         # Terminal: the cheque is in someone else's hands and its fate is no
         # longer ours to record.
         Status.SPENT: frozenset(),
@@ -755,11 +803,25 @@ class Cheque(TimeStampedModel):
     branch_name = models.CharField(max_length=120, blank=True)
     serial_number = models.CharField(max_length=64)
     account_holder = models.CharField(max_length=255, blank=True)
+    #: تاریخ سررسید — when the cheque may be presented.
     due_date = models.DateField(db_index=True)
+    #: تاریخ ثبت چک — the date written on the cheque, which is the operator's
+    #: to state and is routinely earlier than the day it reaches us. Distinct
+    #: from `created_at` (تاریخ روز), which the system stamps and nobody edits.
+    registered_on = models.DateField(null=True, blank=True)
     amount = models.DecimalField(max_digits=18, decimal_places=2)
+    #: حالت — the axis that is not وضعیت. Whether the cheque has been
+    #: registered; unregistered by default, because a cheque that has just
+    #: arrived has not been.
+    is_registered = models.BooleanField(default=False, db_index=True)
     status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.REGISTERED, db_index=True
+        max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True
     )
+    #: The pre-1.3.0 seven-value status, preserved verbatim for every row that
+    #: had one. Nothing here is read by the application; it exists so the split
+    #: into two axes destroys no history and can be re-derived differently if
+    #: the mapping for `returned`/`cancelled` is ever corrected.
+    legacy_status = models.CharField(max_length=20, blank=True, default="")
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
 
     class Meta:
@@ -769,12 +831,7 @@ class Cheque(TimeStampedModel):
             models.CheckConstraint(condition=Q(bank_name__regex=r"\S"), name="cheque_bank_nonblank"),
             models.CheckConstraint(condition=Q(serial_number__regex=r"\S"), name="cheque_serial_nonblank"),
             models.CheckConstraint(
-                condition=Q(
-                    status__in=[
-                        "registered", "deposited", "cleared", "bounced", "returned",
-                        "cancelled", "spent",
-                    ]
-                ),
+                condition=Q(status__in=CHEQUE_STATUS_VALUES),
                 name="cheque_status_valid",
             ),
             # A serial is unique within a bank; the same serial at another bank

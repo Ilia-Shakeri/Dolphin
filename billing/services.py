@@ -944,6 +944,53 @@ def official_invoice_identity_errors(invoice):
     return errors
 
 
+#: The columns `_snapshot_parties` writes. Named once so the `save()` beside it
+#: cannot fall out of step with the assignments above it.
+PARTY_SNAPSHOT_FIELDS = (
+    "buyer_name", "buyer_national_id", "buyer_economic_code", "buyer_address",
+    "buyer_postal_code", "buyer_city", "buyer_phone",
+    "seller_name", "seller_registration_number", "seller_national_id",
+    "seller_economic_code", "seller_address", "seller_postal_code",
+    "seller_city", "seller_phone",
+)
+
+
+def _snapshot_parties(invoice):
+    """Copy both parties onto the invoice, in place. Caller saves.
+
+    Every value comes from the `Customer` row or from deployment settings.
+    Nothing here reads operator input, and that is the point: the product
+    owner's rule is that an address on an invoice is **selected from the
+    customer's file and never typed by hand**, so the only way to change what
+    an invoice will say is to correct the customer first and then issue.
+
+    Taken for every invoice, not only official ones. An unofficial invoice is
+    printed and handed over too, and there is no reason for its copy to drift
+    afterwards while the official one holds still.
+    """
+    customer = invoice.customer
+    # The primary active number, matching what the customer screen shows as the
+    # main line. `.first()` on the model's own ordering puts primary first.
+    phone = customer.phones.filter(is_active=True).order_by("-is_primary", "id").first()
+
+    invoice.buyer_name = (customer.full_name or "").strip()[:255]
+    invoice.buyer_national_id = (customer.national_id or "").strip()[:32]
+    invoice.buyer_economic_code = (customer.economic_code or "").strip()[:32]
+    invoice.buyer_address = (customer.address or "").strip()[:500]
+    invoice.buyer_postal_code = (customer.postal_code or "").strip()[:32]
+    invoice.buyer_city = (customer.city or "").strip()[:100]
+    invoice.buyer_phone = (phone.raw_phone if phone else "").strip()[:40]
+
+    invoice.seller_name = settings.SELLER_LEGAL_NAME[:255]
+    invoice.seller_registration_number = settings.SELLER_REGISTRATION_NUMBER[:32]
+    invoice.seller_national_id = settings.SELLER_NATIONAL_ID[:32]
+    invoice.seller_economic_code = settings.SELLER_ECONOMIC_CODE[:32]
+    invoice.seller_address = settings.SELLER_ADDRESS[:500]
+    invoice.seller_postal_code = settings.SELLER_POSTAL_CODE[:32]
+    invoice.seller_city = settings.SELLER_CITY[:100]
+    invoice.seller_phone = settings.SELLER_PHONE[:40]
+
+
 def issue_invoice(*, actor, invoice):
     """Make an invoice final: snapshot cost, deduct stock, post to the ledger.
 
@@ -972,6 +1019,10 @@ def issue_invoice(*, actor, invoice):
         # status graph does not currently allow issuing twice.
         if not locked.official_number:
             locked.official_number = next_document_number("official_invoice")
+
+    # Both parties are frozen here, in the same transaction as the status
+    # change, so an issued invoice can never exist without its snapshot.
+    _snapshot_parties(locked)
 
     issued_at = timezone.now()
     # The cost snapshot and the stock movement are two separate things.
@@ -1012,6 +1063,7 @@ def issue_invoice(*, actor, invoice):
     # never be issued without its number, nor hold a number without being issued.
     locked.save(update_fields=[
         "status", "issued_at", "stock_applied", "official_number", "updated_at",
+        *PARTY_SNAPSHOT_FIELDS,
     ])
 
     append_ledger_entry(

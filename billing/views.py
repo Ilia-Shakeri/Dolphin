@@ -22,6 +22,7 @@ from billing.models import (
 from billing.payments import (
     spend_received_cheque,
     allocate_payment,
+    allocate_payment_across,
     cancel_installment_plan,
     cancel_payment,
     create_installment_plan,
@@ -43,6 +44,7 @@ from billing.selectors import (
 from billing.serializers import (
     InvoiceOrderLinkSerializer,
     ManualPaidEntrySerializer,
+    AllocatePaymentAcrossSerializer,
     AllocatePaymentSerializer,
     ChequeSerializer,
     ChequeSpendSerializer,
@@ -407,7 +409,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = Payment.objects.none()
     serializer_class = PaymentSerializer
-    sensitive_actions = frozenset({"create", "allocate", "cancel", "release"})
+    sensitive_actions = frozenset({"create", "allocate", "allocate_across", "cancel", "release"})
     search_fields = ["number", "customer__full_name", "reference", "notes"]
     ordering_fields = ["received_at", "amount", "created_at", "number"]
     list_query_parameters = {"customer", "status", "method"}
@@ -456,6 +458,26 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
             actor=request.user, payment=self.get_object(), **serializer.validated_data
         )
         return Response(PaymentAllocationSerializer(allocation).data, status=201)
+
+    @extend_schema(
+        request=AllocatePaymentAcrossSerializer,
+        responses={201: PaymentAllocationSerializer(many=True), **WRITE_RESPONSES},
+    )
+    @action(detail=True, methods=["post"], url_path="allocate-across")
+    def allocate_across(self, request, pk=None):
+        """Settle several invoices from one receipt in a single transaction."""
+        serializer = AllocatePaymentAcrossSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        allocations = allocate_payment_across(
+            actor=request.user,
+            payment=self.get_object(),
+            splits=serializer.validated_data["splits"],
+        )
+        return Response(
+            PaymentAllocationSerializer(allocations, many=True).data, status=201
+        )
 
     @extend_schema(request=ReasonSerializer, responses={200: PaymentSerializer, **WRITE_RESPONSES})
     @action(detail=True, methods=["post"])
@@ -527,7 +549,7 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
     sensitive_actions = frozenset({"transition", "spend"})
     search_fields = ["bank_name", "serial_number", "account_holder", "payment__customer__full_name"]
     ordering_fields = ["due_date", "amount", "created_at"]
-    list_query_parameters = {"status", "customer"}
+    list_query_parameters = {"status", "customer", "is_registered"}
     action_query_parameters = {"history": {"page"}}
 
     def get_queryset(self):
@@ -537,6 +559,14 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
             if status_value not in Cheque.Status.values:
                 raise ValidationError({"status": "Unknown cheque status."})
             queryset = queryset.filter(status=status_value)
+        # حالت is the axis that is not وضعیت, so it filters separately rather
+        # than as another value of `status`. Only the two literals are accepted;
+        # anything else would quietly become False and silently narrow the list.
+        registered = self.request.query_params.get("is_registered")
+        if registered is not None:
+            if registered not in {"true", "false"}:
+                raise ValidationError({"is_registered": "Enter 'true' or 'false'."})
+            queryset = queryset.filter(is_registered=(registered == "true"))
         customer = self.request.query_params.get("customer")
         if customer is not None:
             if not customer.isdecimal() or int(customer) < 1:
@@ -547,6 +577,7 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
     @extend_schema(
         parameters=[
             OpenApiParameter("status", str, enum=list(Cheque.Status.values)),
+            OpenApiParameter("is_registered", str, enum=["true", "false"], description="حالت."),
             OpenApiParameter("customer", int, description="Exact Customer ID."),
         ]
     )

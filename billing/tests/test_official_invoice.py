@@ -36,6 +36,11 @@ SELLER = {
     "SELLER_LEGAL_NAME": "فروشگاه نمونه",
     "SELLER_NATIONAL_ID": "10101010101",
     "SELLER_ECONOMIC_CODE": "411111111111",
+    "SELLER_REGISTRATION_NUMBER": "۱۲۳۴۵",
+    "SELLER_ADDRESS": "تهران، خیابان نمونه، پلاک ۱",
+    "SELLER_POSTAL_CODE": "1234567890",
+    "SELLER_CITY": "تهران",
+    "SELLER_PHONE": "021-88888888",
 }
 
 
@@ -294,3 +299,106 @@ class OfficialInvoiceTests(TestCase):
         self.assertEqual(
             set(errors), {"customer_national_id", "customer_economic_code"}
         )
+
+class IdentitySnapshotTests(OfficialInvoiceTests):
+    """بند ۲ — an issued invoice stops reading the customer file.
+
+    An issued invoice is evidence of a transaction that already happened. While
+    it read the buyer live, correcting a typo in a customer record silently
+    rewrote every tax document ever issued to them.
+    """
+
+    def complete_buyer(self):
+        customer = self.make_customer(
+            kind=Customer.Kind.LEGAL,
+            national_id="10101010101",
+            economic_code="411111111111",
+        )
+        customer.address = "اصفهان، خیابان اول، پلاک ۹"
+        customer.postal_code = "9876543210"
+        customer.city = "اصفهان"
+        customer.save(update_fields=["address", "postal_code", "city"])
+        return customer
+
+    @override_settings(**SELLER)
+    def test_issuing_copies_both_parties_onto_the_invoice(self):
+        customer = self.complete_buyer()
+        issued = issue_invoice(
+            actor=self.manager,
+            invoice=self.make_invoice(customer, invoice_type=Invoice.InvoiceType.OFFICIAL),
+        )
+        self.assertEqual(issued.buyer_name, customer.full_name)
+        self.assertEqual(issued.buyer_national_id, "10101010101")
+        self.assertEqual(issued.buyer_economic_code, "411111111111")
+        self.assertEqual(issued.buyer_address, "اصفهان، خیابان اول، پلاک ۹")
+        self.assertEqual(issued.buyer_postal_code, "9876543210")
+        self.assertEqual(issued.buyer_city, "اصفهان")
+        # The address came from the customer file, so it must be the same string.
+        self.assertEqual(issued.buyer_address, customer.address)
+        # And the primary phone, which is what the customer screen shows.
+        self.assertTrue(issued.buyer_phone)
+
+        self.assertEqual(issued.seller_name, "فروشگاه نمونه")
+        self.assertEqual(issued.seller_national_id, "10101010101")
+        self.assertEqual(issued.seller_economic_code, "411111111111")
+        self.assertEqual(issued.seller_address, "تهران، خیابان نمونه، پلاک ۱")
+        self.assertEqual(issued.seller_postal_code, "1234567890")
+        self.assertEqual(issued.seller_city, "تهران")
+        self.assertEqual(issued.seller_phone, "021-88888888")
+
+    @override_settings(**SELLER)
+    def test_correcting_the_customer_afterwards_does_not_touch_the_document(self):
+        """The whole reason بند ۲ exists."""
+        customer = self.complete_buyer()
+        issued = issue_invoice(
+            actor=self.manager,
+            invoice=self.make_invoice(customer, invoice_type=Invoice.InvoiceType.OFFICIAL),
+        )
+        customer.full_name = "نام تازه"
+        customer.economic_code = "999999999999"
+        customer.address = "نشانی تازه"
+        customer.save(update_fields=["full_name", "economic_code", "address"])
+
+        issued.refresh_from_db()
+        self.assertEqual(issued.buyer_name, "مشتری آزمون")
+        self.assertEqual(issued.buyer_economic_code, "411111111111")
+        self.assertEqual(issued.buyer_address, "اصفهان، خیابان اول، پلاک ۹")
+
+    @override_settings(**SELLER)
+    def test_a_draft_carries_no_snapshot_at_all(self):
+        """Blank means "not yet a document", and the print falls back to live."""
+        invoice = self.make_invoice(
+            self.complete_buyer(), invoice_type=Invoice.InvoiceType.OFFICIAL
+        )
+        self.assertEqual(invoice.buyer_name, "")
+        self.assertEqual(invoice.buyer_address, "")
+        self.assertEqual(invoice.seller_name, "")
+
+    @override_settings(**SELLER)
+    def test_an_unofficial_invoice_is_snapshotted_too(self):
+        """It is printed and handed over as well; its copy must not drift either."""
+        customer = self.complete_buyer()
+        issued = issue_invoice(actor=self.manager, invoice=self.make_invoice(customer))
+        self.assertEqual(issued.buyer_name, customer.full_name)
+        self.assertEqual(issued.buyer_address, customer.address)
+
+    @override_settings(**SELLER)
+    def test_no_write_path_exposes_the_snapshot(self):
+        """The rule is that these are never typed — only selected from the file.
+
+        Enforced by there being no input for them: if a snapshot column ever
+        appears in the invoice serializer or in the header fields the update
+        path accepts, an operator could type an address onto a tax document and
+        the customer record would no longer be the single source of it.
+        """
+        from billing.serializers import InvoiceSerializer
+        from billing.services import INVOICE_HEADER_FIELDS, PARTY_SNAPSHOT_FIELDS
+
+        writable = {
+            name
+            for name, field in InvoiceSerializer().get_fields().items()
+            if not field.read_only
+        }
+        for column in PARTY_SNAPSHOT_FIELDS:
+            self.assertNotIn(column, writable, column)
+            self.assertNotIn(column, INVOICE_HEADER_FIELDS, column)

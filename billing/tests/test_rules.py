@@ -334,18 +334,56 @@ class PaymentTests(BillingFixtureMixin, TestCase):
         self.assertEqual(Payment.objects.count(), 1)
         self.assertEqual(current_balance(self.customer), self.invoice.total_amount - Decimal("100.00"))
 
-    def test_allocation_never_exceeds_either_side(self):
-        payment = self.pay("1000.00")
+    def test_allocation_never_exceeds_the_invoice(self):
+        """Allocating more than the invoice owes is still refused.
+
+        The surplus half of this test is gone with بند ۳.۴: a receipt larger
+        than the debt can no longer be registered at all, so there is no
+        overpayment left to sit on account. The invoice-side limit still
+        matters, because a receipt can legitimately cover several invoices and
+        must not pour all of itself into the first one.
+        """
+        payment = self.pay(str(self.invoice.total_amount))
         with self.assertRaises(BusinessRuleError):
             allocate_payment(
-                actor=self.manager, payment=payment, invoice=self.invoice, amount=Decimal("999.00")
+                actor=self.manager,
+                payment=payment,
+                invoice=self.invoice,
+                amount=self.invoice.total_amount + Decimal("1.00"),
             )
         allocate_payment(actor=self.manager, payment=payment, invoice=self.invoice)
         self.invoice.refresh_from_db()
         payment.refresh_from_db()
         self.assertEqual(self.invoice.paid_amount, self.invoice.total_amount)
-        # The surplus stays on account rather than inflating a settled invoice.
-        self.assertEqual(payment.unallocated_amount, Decimal("1000.00") - self.invoice.total_amount)
+        self.assertEqual(payment.unallocated_amount, Decimal("0.00"))
+
+    def test_a_receipt_larger_than_the_debt_is_refused(self):
+        """بند ۳.۴ — «اضافه پرداخت نداریم این آپشنو حذف کن»."""
+        with self.assertRaises(BusinessRuleError) as caught:
+            self.pay(str(self.invoice.total_amount + Decimal("0.01")))
+        self.assertIn("amount", caught.exception.detail)
+
+    def test_money_on_account_is_not_an_overpayment(self):
+        """A customer with no issued invoice has no debt to exceed.
+
+        بند ۳.۱ allows a receipt to sit unallocated and be assigned later, which
+        is exactly a deposit taken before invoicing. Refusing that would have
+        broken the ordinary case while chasing بند ۳.۴.
+        """
+        from sales.services import create_customer_with_phone
+
+        fresh = create_customer_with_phone(
+            actor=self.manager,
+            full_name="مشتری بی‌فاکتور",
+            phone={"raw_phone": "09121119999", "is_primary": True},
+        )
+        payment = register_payment(
+            actor=self.manager,
+            customer=fresh,
+            method=Payment.Method.CASH,
+            amount=Decimal("5000.00"),
+        )
+        self.assertEqual(payment.unallocated_amount, Decimal("5000.00"))
 
     def test_an_unallocated_payment_still_credits_the_customer_account(self):
         self.pay("50.00")
@@ -405,37 +443,70 @@ class ChequeTests(BillingFixtureMixin, TestCase):
             },
         )
 
-    def test_an_uncleared_cheque_is_not_money_received(self):
-        payment = self.register_cheque()
-        self.assertEqual(payment.status, Payment.Status.PENDING)
-        self.assertEqual(current_balance(self.customer), Decimal("0.00"))
+    def test_receiving_a_cheque_credits_the_customer_before_it_clears(self):
+        """The product owner's rule since 1.3.0, and a reversal of the old one.
 
-    def test_clearing_confirms_the_payment_and_credits_the_account(self):
+        Their staff treat handing over a cheque as settling the account. Waiting
+        for clearance left balances showing debts both sides considered paid,
+        and the reconciliation calls that followed were the actual complaint.
+        """
+        payment = self.register_cheque()
+        self.assertEqual(payment.status, Payment.Status.CONFIRMED)
+        self.assertEqual(current_balance(self.customer), Decimal("-300.00"))
+
+    def test_a_new_cheque_is_pending_and_not_yet_registered(self):
+        """The two axes start independent, and both start at their zero."""
+        cheque = Cheque.objects.get(payment=self.register_cheque())
+        self.assertEqual(cheque.status, Cheque.Status.PENDING)
+        self.assertFalse(cheque.is_registered)
+
+    def test_clearing_a_cheque_does_not_credit_the_customer_twice(self):
+        """The credit was already taken at registration; clearing confirms it."""
         payment = self.register_cheque()
         cheque = Cheque.objects.get(payment=payment)
-        transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.DEPOSITED)
-        cheque.refresh_from_db()
         transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.Status.CONFIRMED)
         self.assertEqual(current_balance(self.customer), Decimal("-300.00"))
+        self.assertEqual(
+            CustomerLedgerEntry.objects.filter(customer=self.customer).count(), 1
+        )
 
-    def test_an_unlisted_cheque_transition_is_refused(self):
-        cheque = Cheque.objects.get(payment=self.register_cheque())
-        with self.assertRaises(BusinessConflictError):
-            transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED)
+    def test_a_bounced_cheque_takes_its_credit_back(self):
+        """Answer 4.3: on a bounce, the amount returns to what is owed.
 
-    def test_returning_a_pending_cheque_ends_its_payment_without_a_ledger_entry(self):
+        The credit is reversed rather than deleted, so the ledger keeps both
+        movements and the bounce stays auditable instead of looking like a
+        cheque that was never received.
+        """
         payment = self.register_cheque()
         cheque = Cheque.objects.get(payment=payment)
-        transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.RETURNED)
+        self.assertEqual(current_balance(self.customer), Decimal("-300.00"))
+        transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.BOUNCED)
         payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.Status.CANCELLED)
-        self.assertEqual(CustomerLedgerEntry.objects.filter(customer=self.customer).count(), 0)
+        self.assertEqual(current_balance(self.customer), Decimal("0.00"))
+        self.assertEqual(
+            CustomerLedgerEntry.objects.filter(customer=self.customer).count(), 2
+        )
 
-    @override_settings(BILLING_CHEQUE_CREDITS_ON="registration")
-    def test_a_deployment_may_credit_a_cheque_at_registration_instead(self):
+    def test_an_unlisted_cheque_transition_is_refused(self):
+        """CLEARED is terminal — a cleared cheque cannot later bounce."""
+        cheque = Cheque.objects.get(payment=self.register_cheque())
+        transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED)
+        cheque.refresh_from_db()
+        with self.assertRaises(BusinessConflictError):
+            transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.BOUNCED)
+
+    @override_settings(BILLING_CHEQUE_CREDITS_ON="cleared")
+    def test_a_deployment_may_wait_for_clearance_before_crediting(self):
+        """The opposite accounting choice is still reachable by configuration."""
         payment = self.register_cheque()
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+        self.assertEqual(current_balance(self.customer), Decimal("0.00"))
+        cheque = Cheque.objects.get(payment=payment)
+        transition_cheque(actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED)
+        payment.refresh_from_db()
         self.assertEqual(payment.status, Payment.Status.CONFIRMED)
         self.assertEqual(current_balance(self.customer), Decimal("-300.00"))
 
