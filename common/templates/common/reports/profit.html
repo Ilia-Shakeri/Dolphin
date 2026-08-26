@@ -25,4 +25,10 @@
     <div id="profit-loading" class="text-center text-gray-700 py-10">بازه زمانی را انتخاب کنید.</div><div id="profit-empty" class="text-center text-gray-700 py-10" hidden>فاکتوری در این بازه یافت نشد.</div>
     <div id="profit-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره فاکتور</th><th>مشتری</th><th>زمان صدور</th><th>درآمد</th><th>بهای تمام‌شده</th><th>سود</th><th>حاشیه</th><th>عملیات</th></tr></thead><tbody id="profit-table-body"></tbody></table></div>
 </div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-0">نمودار ترکیب درآمد</h2></div>
+    <p class="text-muted fs-7 mb-5">درآمد، بهای تمام‌شده و سود ناخالص همان دوره، کنار هم. فاکتورهای بدون عکس بهای تمام‌شده در این ارقام نیستند و جداگانه شمرده می‌شوند.</p>
+    <div id="profit-composition-chart" class="performance-chart" role="img" aria-label="نمودار مقایسه درآمد، بهای تمام‌شده و سود ناخالص" hidden></div>
+    <p id="profit-composition-chart-empty" class="text-center text-gray-700 py-10" hidden>برای این دوره رقمی وجود ندارد.</p>
+</div></section>
 {% endblock %}

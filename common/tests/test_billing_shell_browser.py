@@ -300,6 +300,33 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "receivables-table-wrap")))
         self.assertEqual(self.browser.find_element(By.ID, "receivables-total").text, "350 ریال")
 
+        # The ageing chart draws the same money the cards above it show. All
+        # five buckets are present even where a bucket is empty, because the
+        # sequence is the point and a missing bucket is the reader's good news.
+        chart = self.browser.find_element(By.ID, "receivables-aging-chart")
+        self.wait.until(lambda driver: chart.is_displayed())
+        bars = chart.find_elements(By.CLASS_NAME, "performance-chart-row")
+        self.assertEqual(len(bars), 5)
+        self.assertEqual(
+            [bar.find_element(By.CLASS_NAME, "performance-chart-label").text for bar in bars],
+            ["سررسید نشده", "۱ تا ۳۰ روز", "۳۱ تا ۶۰ روز", "۶۱ تا ۹۰ روز", "بیش از ۹۰ روز"],
+        )
+        # Every figure is formatted rial, never a raw decimal - the defect the
+        # shared renderer was written to make impossible.
+        for bar in bars:
+            with self.subTest(bar=bar.text[:20]):
+                self.assertRegex(bar.find_element(By.TAG_NAME, "strong").text, r"ریال$")
+        # The same string the summary card above shows, character for character:
+        # `money()` groups with the Arabic comma but leaves the digits Latin,
+        # and a chart that formatted them differently from the card beside it
+        # would be its own kind of wrong.
+        self.assertIn("350 ریال", chart.text)
+        self.assertEqual(
+            self.browser.find_element(By.ID, "receivables-1-30").text,
+            bars[1].find_element(By.TAG_NAME, "strong").text,
+        )
+        self.assertTrue(chart.get_attribute("aria-label"))
+
         self.assert_browser_clean()
 
     def test_agent_sees_documents_and_no_money_navigation_at_all(self):

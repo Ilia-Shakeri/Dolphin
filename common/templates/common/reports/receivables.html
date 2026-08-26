@@ -24,4 +24,10 @@
     <div id="receivables-loading" class="text-center text-gray-700 py-10">در حال دریافت گزارش…</div><div id="receivables-empty" class="text-center text-gray-700 py-10" hidden>مطالبه‌ای وجود ندارد.</div>
     <div id="receivables-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>مشتری</th><th>تعداد فاکتور</th><th>جمع مانده</th><th>سررسید نشده</th><th>۱-۳۰</th><th>۳۱-۶۰</th><th>۶۱-۹۰</th><th>۹۰+</th><th>عملیات</th></tr></thead><tbody id="receivables-table-body"></tbody></table></div>
 </div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-0">نمودار سنی مطالبات</h2></div>
+    <p class="text-muted fs-7 mb-5">همان مبالغ کارت‌های بالا، کنار هم. ترتیب ستون‌ها از سررسیدنشده تا بیش از ۹۰ روز است و مرتب نمی‌شود؛ خودِ ترتیب معنا دارد. بازه‌ای که مبلغی ندارد با میلهٔ خالی نشان داده می‌شود، چون «صفر» هم خبر است.</p>
+    <div id="receivables-aging-chart" class="performance-chart" role="img" aria-label="نمودار سنی مطالبات به تفکیک بازه سررسید" hidden></div>
+    <p id="receivables-aging-chart-empty" class="text-center text-gray-700 py-10" hidden>مطالبه‌ای برای نمایش نیست.</p>
+</div></section>
 {% endblock %}

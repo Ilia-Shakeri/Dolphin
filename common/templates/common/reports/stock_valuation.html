@@ -20,4 +20,10 @@
     <div id="valuation-loading" class="text-center text-gray-700 py-10">در حال دریافت گزارش…</div><div id="valuation-empty" class="text-center text-gray-700 py-10" hidden>موجودی‌ای برای ارزش‌گذاری وجود ندارد.</div>
     <div id="valuation-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>انبار</th><th>کد کالا</th><th>کالا</th><th>تعداد</th><th>بهای میانگین</th><th>ارزش</th></tr></thead><tbody id="valuation-table-body"></tbody></table></div>
 </div></section>
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-0">نمودار ارزش موجودی</h2></div>
+    <p class="text-muted fs-7 mb-5">ده کالای با بیشترین ارزش موجودی، بر پایه میانگین متحرک بهای همان دفتر حرکت انبار. کالاهای دیگر در جدول پایین هستند.</p>
+    <div id="valuation-chart" class="performance-chart" role="img" aria-label="نمودار ده کالای با بیشترین ارزش موجودی" hidden></div>
+    <p id="valuation-chart-empty" class="text-center text-gray-700 py-10" hidden>موجودی ارزش‌داری برای نمایش نیست.</p>
+</div></section>
 {% endblock %}

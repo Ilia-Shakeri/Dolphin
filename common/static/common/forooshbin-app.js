@@ -2342,35 +2342,27 @@
     }
 
     function renderInboundSMSChart(rows) {
-        const chart = document.getElementById("inbound-sms-chart");
-        const empty = document.getElementById("inbound-sms-chart-empty");
-        chart.replaceChildren();
-        if (!rows.length) {
-            chart.hidden = true;
-            empty.hidden = false;
-            return;
-        }
-        const maximum = Math.max(...rows.map((item) => Number(item.inbound_sms_count)));
-        const nodes = rows.map((item) => {
-            const row = document.createElement("div");
-            row.className = "performance-chart-row";
-            const label = document.createElement("span");
-            label.className = "performance-chart-label";
-            label.textContent = `${item.local_date} — ساعت ${String(item.local_hour).padStart(2, "0")}`;
-            const track = document.createElement("span");
-            track.className = "performance-chart-track";
-            const bar = document.createElement("span");
-            bar.className = "performance-chart-bar";
-            bar.style.width = `${Math.max(2, (Number(item.inbound_sms_count) / maximum) * 100)}%`;
-            track.appendChild(bar);
-            const value = document.createElement("strong");
-            value.textContent = String(item.inbound_sms_count);
-            row.append(label, track, value);
-            return row;
-        });
-        chart.replaceChildren(...nodes);
-        chart.hidden = false;
-        empty.hidden = true;
+        // `local_date` is a DateField, so it arrives as a bare `YYYY-MM-DD`.
+        // `displayDay` reads that as a calendar day rather than pushing it
+        // through a time zone, and returns Jalali — this chart was the one
+        // surface still showing Gregorian dates and Latin digits.
+        //
+        // Not sorted: the sequence is the chart. Reordering hourly counts by
+        // size would destroy the only thing a time series is for.
+        const items = rows.map((item) => ({
+            label: `${displayDay(item.local_date)} — ساعت ${toPersianDigits(String(item.local_hour).padStart(2, "0"))}`,
+            value: Number(item.inbound_sms_count),
+            display: toPersianDigits(String(item.inbound_sms_count)),
+        }));
+        renderBarChart(
+            document.getElementById("inbound-sms-chart"),
+            document.getElementById("inbound-sms-chart-empty"),
+            items,
+            {
+                sort: false,
+                ariaLabel: `نمودار تعداد پیامک ورودی در ${toPersianDigits(String(items.length))} بازه زمانی`,
+            },
+        );
     }
 
     async function showInboundSMSMessage(messageId) {
@@ -2602,47 +2594,93 @@
         return query;
     }
 
-    function renderPerformanceChart(prefix, rows) {
-        const chart = document.getElementById(`${prefix}-performance-chart`);
-        const empty = document.getElementById(`${prefix}-performance-chart-empty`);
-        const values = rows
-            // `money()` for the label, like every other amount on the panel; the
-            // raw number stays for the bar width. This was missed when prices
-            // moved to grouped rial, so the one chart in the product was still
-            // printing `12500000.00` beside tables reading `۱۲،۵۰۰،۰۰۰ ریال`.
-            .map((row) => ({username: row.username, display: money(row.sales_amount), value: Number(row.sales_amount)}))
-            .filter((row) => Number.isFinite(row.value) && row.value > 0);
-        chart.replaceChildren();
-        if (!values.length) {
+    /**
+     * One horizontal bar per item, drawn from `div`s.
+     *
+     * The panel deliberately ships no charting library: the theme's ApexCharts
+     * lives inside a 3.5 MB bundle that `collectstatic` excludes, and every
+     * chart here is a comparison across a handful of rows, which a bar answers
+     * without one. See docs/frontend/CHARTS_GROUNDWORK.md.
+     *
+     * `items` is `[{label, value, display}]` — `value` sizes the bar, `display`
+     * is what the reader sees, already formatted by the caller. Keeping those
+     * apart is what stops a chart printing a raw `12500000.00` beside tables
+     * reading grouped rial, which is what the two renderers this replaces had
+     * each drifted into doing in their own way.
+     *
+     * options:
+     *   ariaLabel  what the chart says to a screen reader; bars announce nothing
+     *   limit      keep only the first N after sorting (a "top N" chart)
+     *   sort       order by value descending; off for fixed categories such as
+     *              ageing buckets or a time series, where the sequence itself
+     *              carries the meaning
+     *   keepZero   draw zero-valued items as empty tracks instead of dropping
+     *              them — for a fixed category, an empty bucket is information
+     */
+    function renderBarChart(chart, empty, items, options = {}) {
+        const {ariaLabel = null, limit = 0, sort = true, keepZero = false} = options;
+        if (!chart || !empty) return;
+
+        const usable = items.filter((item) => Number.isFinite(item.value) && item.value >= 0);
+        const positive = usable.filter((item) => item.value > 0);
+        // A chart of nothing but zeros is an empty chart, whatever keepZero says.
+        if (!positive.length) {
+            chart.replaceChildren();
             chart.hidden = true;
             empty.hidden = false;
             return;
         }
-        const maximum = Math.max(...values.map((row) => row.value));
-        const nodes = values.map((item) => {
+
+        let shown = keepZero ? usable.slice() : positive.slice();
+        if (sort) shown.sort((a, b) => b.value - a.value);
+        if (limit > 0) shown = shown.slice(0, limit);
+
+        const maximum = Math.max(...shown.map((item) => item.value));
+        chart.replaceChildren(...shown.map((item) => {
             const row = document.createElement("div");
             row.className = "performance-chart-row";
+
             const label = document.createElement("span");
             label.className = "performance-chart-label";
-            label.textContent = item.username;
+            label.textContent = item.label;
+            // The label ellipsises; the title gives the reader the whole of it.
+            label.title = item.label;
+
             const track = document.createElement("span");
             track.className = "performance-chart-track";
             const bar = document.createElement("span");
             bar.className = "performance-chart-bar";
-            bar.style.width = `${Math.max(2, (item.value / maximum) * 100)}%`;
+            // A 2% floor keeps a small non-zero value visible as a bar; a real
+            // zero stays empty rather than being inflated into a false one.
+            const share = maximum > 0 ? (item.value / maximum) * 100 : 0;
+            bar.style.width = item.value > 0 ? `${Math.max(2, share)}%` : "0%";
             track.appendChild(bar);
+
             const value = document.createElement("strong");
             value.textContent = item.display;
+
             row.append(label, track, value);
             return row;
-        });
-        chart.replaceChildren(...nodes);
-        chart.setAttribute(
-            "aria-label",
-            `نمودار مبلغ فروش تأییدشده برای ${toPersianDigits(String(values.length))} کاربر مجاز`,
-        );
+        }));
+
+        if (ariaLabel) chart.setAttribute("aria-label", ariaLabel);
         chart.hidden = false;
         empty.hidden = true;
+    }
+
+    function renderPerformanceChart(prefix, rows) {
+        const items = rows.map((row) => ({
+            label: row.username,
+            value: Number(row.sales_amount),
+            display: money(row.sales_amount),
+        }));
+        const drawn = items.filter((item) => Number.isFinite(item.value) && item.value > 0).length;
+        renderBarChart(
+            document.getElementById(`${prefix}-performance-chart`),
+            document.getElementById(`${prefix}-performance-chart-empty`),
+            items,
+            {ariaLabel: `نمودار مبلغ فروش تأییدشده برای ${toPersianDigits(String(drawn))} کاربر مجاز`},
+        );
     }
 
     async function loadPerformanceDetails(prefix, userId, username, metric, page = 1) {
@@ -4507,6 +4545,96 @@
         nodes.wrap.hidden = rows.length === 0;
     }
 
+    /**
+     * Where the outstanding money is sitting, by age.
+     *
+     * The five buckets are a fixed sequence running from not-yet-due to more
+     * than ninety days late, so this neither sorts nor drops empties: an
+     * ageing chart reordered by size would say nothing, and a missing bucket
+     * is the reader's good news.
+     */
+    function renderReceivablesAgingChart(buckets) {
+        const order = [
+            ["سررسید نشده", buckets.not_due],
+            ["۱ تا ۳۰ روز", buckets.days_1_30],
+            ["۳۱ تا ۶۰ روز", buckets.days_31_60],
+            ["۶۱ تا ۹۰ روز", buckets.days_61_90],
+            ["بیش از ۹۰ روز", buckets.days_over_90],
+        ];
+        renderBarChart(
+            document.getElementById("receivables-aging-chart"),
+            document.getElementById("receivables-aging-chart-empty"),
+            order.map(([label, amount]) => ({
+                label,
+                value: Number(amount),
+                display: money(amount),
+            })),
+            {
+                sort: false,
+                keepZero: true,
+                ariaLabel: "نمودار سنی مطالبات در پنج بازه سررسید",
+            },
+        );
+    }
+
+    /**
+     * Revenue against cost against gross profit, for the period.
+     *
+     * Three bars rather than a ratio, because the question a reader brings to
+     * this page is how much of the revenue the cost ate. Not sorted: revenue is
+     * always the largest and the sequence is the comparison.
+     *
+     * Profit can be negative, and the renderer draws no bar below zero. The
+     * figure is still printed beside the empty track, and the summary card
+     * above carries it too, so a loss is never hidden — it simply has no bar.
+     */
+    function renderProfitCompositionChart(report) {
+        const order = [
+            ["درآمد", report.revenue],
+            ["بهای تمام‌شده", report.cost],
+            ["سود ناخالص", report.profit],
+        ];
+        renderBarChart(
+            document.getElementById("profit-composition-chart"),
+            document.getElementById("profit-composition-chart-empty"),
+            order.map(([label, amount]) => ({
+                label,
+                value: Math.max(0, Number(amount)),
+                display: money(amount),
+            })),
+            {
+                sort: false,
+                keepZero: true,
+                ariaLabel: "نمودار مقایسه درآمد، بهای تمام‌شده و سود ناخالص",
+            },
+        );
+    }
+
+    /**
+     * The ten products holding the most stock value.
+     *
+     * Sorted and capped, because a valuation report can run to hundreds of rows
+     * and a bar per row is unreadable. The rest stay in the table below, which
+     * is also the accessible alternative to this chart.
+     */
+    function renderValuationChart(rows) {
+        const items = rows.map((row) => ({
+            label: `${row.product_name} (${row.warehouse_name})`,
+            value: Number(row.stock_value),
+            display: money(row.stock_value),
+        }));
+        const drawn = Math.min(10, items.filter((item) => Number.isFinite(item.value) && item.value > 0).length);
+        renderBarChart(
+            document.getElementById("valuation-chart"),
+            document.getElementById("valuation-chart-empty"),
+            items,
+            {
+                limit: 10,
+                ariaLabel: `نمودار ${toPersianDigits(String(drawn))} کالای با بیشترین ارزش موجودی`,
+            },
+        );
+    }
+
     async function setupReceivablesReport() {
         const form = document.getElementById("receivables-filter-form");
         const exportLink = document.getElementById("receivables-export");
@@ -4534,6 +4662,7 @@
                 document.getElementById("receivables-31-60").textContent = money(report.buckets.days_31_60);
                 document.getElementById("receivables-61-90").textContent = money(report.buckets.days_61_90);
                 document.getElementById("receivables-over-90").textContent = money(report.buckets.days_over_90);
+                renderReceivablesAgingChart(report.buckets);
                 renderReportRows("receivables", report.results, (item) => {
                     const row = document.createElement("tr");
                     appendCell(row, item.customer_name);
@@ -4603,6 +4732,7 @@
                 document.getElementById("profit-margin").textContent = `${report.margin_percent}٪`;
                 document.getElementById("profit-measured").textContent = report.measured_invoice_count;
                 document.getElementById("profit-unmeasured").textContent = report.unmeasured_invoice_count;
+                renderProfitCompositionChart(report);
                 renderReportRows("profit", report.results, (item) => {
                     const row = document.createElement("tr");
                     appendCell(row, item.number).dir = "ltr";
@@ -4651,6 +4781,7 @@
                 const report = await apiRequest(`/api/v1/reports/stock-valuation/?${params}`);
                 document.getElementById("valuation-quantity").textContent = report.total_quantity;
                 document.getElementById("valuation-value").textContent = money(report.total_value);
+                renderValuationChart(report.results);
                 renderReportRows("valuation", report.results, (item) => {
                     const row = document.createElement("tr");
                     appendCell(row, item.warehouse_name);
