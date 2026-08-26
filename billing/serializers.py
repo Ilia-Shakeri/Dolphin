@@ -260,6 +260,8 @@ class InvoiceSerializer(CommercialDocumentSerializer):
         "issued_at", "cancelled_at", "paid_amount", "balance_due", "settlement_status",
         "stock_applied", "created_by", "created_by_display", "line_items", "created_at", "updated_at",
         "manual_paid_entry", "manual_settled_at", "is_manually_settled", "canonical_balance_due",
+        "invoice_type_display", "official_number", "customer_kind", "customer_national_id",
+        "customer_economic_code",
     }
     line_items = InvoiceItemSerializer(source="items", many=True, read_only=True)
     paid_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
@@ -276,12 +278,30 @@ class InvoiceSerializer(CommercialDocumentSerializer):
     )
     manual_settled_at = serializers.DateTimeField(read_only=True)
     is_manually_settled = serializers.BooleanField(read_only=True)
+    #: Writable while the invoice is a draft, like every other document field:
+    #: the identity requirements it brings are checked at issue, not here, so an
+    #: operator can set the type first and complete the buyer's details after.
+    invoice_type = serializers.ChoiceField(
+        choices=Invoice.InvoiceType.choices, required=False
+    )
+    invoice_type_display = serializers.CharField(
+        source="get_invoice_type_display", read_only=True
+    )
+    #: The buyer's identity, read through rather than duplicated, so the page
+    #: can tell the operator what an official invoice is still missing without
+    #: fetching the customer separately. Read-only: the customer record owns
+    #: these, and editing them from an invoice would be editing the wrong thing.
+    customer_kind = serializers.CharField(source="customer.kind", read_only=True)
+    customer_national_id = serializers.CharField(source="customer.national_id", read_only=True)
+    customer_economic_code = serializers.CharField(source="customer.economic_code", read_only=True)
 
     class Meta:
         model = Invoice
         fields = [
             "id", "number", "customer", "customer_name", "order", "quotation", "sale",
-            "warehouse", "status", "subtotal_amount", "discount_amount", "tax_rate", "tax_amount",
+            "warehouse", "status", "invoice_type", "invoice_type_display", "official_number",
+            "customer_kind", "customer_national_id", "customer_economic_code",
+            "subtotal_amount", "discount_amount", "tax_rate", "tax_amount",
             "total_amount", "paid_amount", "balance_due", "canonical_balance_due",
             "settlement_status", "issued_at", "due_at", "cancelled_at", "stock_applied",
             "manual_paid_entry", "manual_settled_at", "is_manually_settled",
@@ -289,7 +309,9 @@ class InvoiceSerializer(CommercialDocumentSerializer):
             "items", "line_items", "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "number", "customer_name", "status", "subtotal_amount", "tax_amount",
+            "id", "number", "official_number", "customer_name", "status", "invoice_type_display",
+            "customer_kind", "customer_national_id", "customer_economic_code",
+            "subtotal_amount", "tax_amount",
             "total_amount", "paid_amount", "balance_due", "canonical_balance_due",
             "settlement_status", "issued_at", "cancelled_at", "stock_applied",
             "manual_paid_entry", "manual_settled_at", "is_manually_settled",
@@ -422,7 +444,8 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         fields = [
             "id", "number", "customer", "customer_name", "method", "status", "amount",
             "allocated_amount", "unallocated_amount", "received_at", "received_by",
-            "received_by_display", "reference", "idempotency_key", "cancelled_at", "notes",
+            "received_by_display", "reference", "bank_name", "bank_account",
+            "idempotency_key", "cancelled_at", "notes",
             "cheque", "cheque_detail", "created_at", "updated_at",
         ]
         read_only_fields = [

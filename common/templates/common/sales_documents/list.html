@@ -19,7 +19,18 @@
     <div id="sales-documents-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره سند</th><th>مشتری</th><th>فروش</th><th>استان / شهر</th><th>وضعیت پستی</th><th>حالت</th><th>عملیات</th></tr></thead><tbody id="sales-documents-table-body"></tbody></table></div>
     <nav id="sales-documents-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="sales-documents-prev" class="btn btn-light" type="button">قبلی</button><span id="sales-documents-page-label"></span><button id="sales-documents-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
-{% if can_manage_sales_documents %}<dialog id="create-sales-document-dialog" aria-labelledby="create-sales-document-title">
+{% if can_manage_sales_documents %}{% comment %} نمودار این صفحه. داده‌اش از همان selector ماژول می‌آید که جدول
+   بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. اگر
+   نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
+   صفحه دست‌نخورده کار می‌کند. {% endcomment %}
+<section class="card mb-5 mb-xl-8" data-list-chart="sales-documents"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+        <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
+    </div>
+    <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
+    <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
+</div></section>
+<dialog id="create-sales-document-dialog" aria-labelledby="create-sales-document-title">
     <form id="create-sales-document-form" action="/api/v1/sales-documents/" method="post" novalidate>{% csrf_token %}
         <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-sales-document-title">ثبت سند فروش داخلی</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
         <div class="row g-5">

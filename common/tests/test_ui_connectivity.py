@@ -179,10 +179,23 @@ class ScriptEndpointTests(SimpleTestCase):
         missing = sorted(page for page in page_ids if f'page === "{page}"' not in text)
         self.assertEqual(missing, [])
 
+    #: The XML namespace `createElementNS` requires to build an SVG element.
+    #: It is an identifier, not an address: no browser ever fetches it, and
+    #: there is no other way to create an SVG node from script. Exempted by
+    #: exact string so the rule below still catches every real external
+    #: reference, including any other URL on the same host.
+    SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+
     def test_the_script_carries_no_placeholder_or_third_party_reference(self):
-        text = SCRIPT.read_text(encoding="utf-8")
+        text = SCRIPT.read_text(encoding="utf-8").replace(self.SVG_NAMESPACE, "")
         for pattern in ("TODO", "FIXME", "http://", "https://", "cdn.", "Metronic", "KTUtil"):
             self.assertNotIn(pattern, text, pattern)
+
+    def test_the_svg_namespace_is_the_only_url_shaped_string_in_the_script(self):
+        """The exemption above must stay exactly one string, not a doorway."""
+        text = SCRIPT.read_text(encoding="utf-8")
+        urls = set(re.findall(r"https?://[^\s\"'`)]+", text))
+        self.assertEqual(urls, {self.SVG_NAMESPACE})
 
 
 class ClientOneDayOneProfileTests(SimpleTestCase):

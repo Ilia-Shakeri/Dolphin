@@ -264,7 +264,32 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/payments/")
         self.open_create_dialog("open-create-payment", "create-payment-dialog")
         self.select_when_populated("create-payment-customer", self.customer.pk)
-        Select(self.browser.find_element(By.ID, "create-payment-method")).select_by_value("cash")
+        # The method is a mode now, not a dropdown: each one shows only the
+        # fields it collects. Cash is selected by default.
+        self.assertEqual(
+            self.browser.find_element(By.ID, "create-payment-method").get_attribute("value"),
+            "cash",
+        )
+        self.assertFalse(self.browser.find_element(By.ID, "create-payment-bank-fields").is_displayed())
+        self.assertFalse(self.browser.find_element(By.ID, "create-payment-cheque-fields").is_displayed())
+
+        # Switching to the transfer mode reveals its fields and only its fields.
+        self.browser.find_element(By.CSS_SELECTOR, '[data-payment-mode="bank_transfer"]').click()
+        self.assertEqual(
+            self.browser.find_element(By.ID, "create-payment-method").get_attribute("value"),
+            "bank_transfer",
+        )
+        self.assertTrue(self.browser.find_element(By.ID, "create-payment-bank-fields").is_displayed())
+        self.assertFalse(self.browser.find_element(By.ID, "create-payment-cheque-fields").is_displayed())
+
+        # And the cheque mode swaps them over, and shows its own warning.
+        self.browser.find_element(By.CSS_SELECTOR, '[data-payment-mode="cheque"]').click()
+        self.assertTrue(self.browser.find_element(By.ID, "create-payment-cheque-fields").is_displayed())
+        self.assertFalse(self.browser.find_element(By.ID, "create-payment-bank-fields").is_displayed())
+        self.assertTrue(self.browser.find_element(By.ID, "create-payment-cheque-note").is_displayed())
+
+        # Back to cash to record the receipt this test is actually about.
+        self.browser.find_element(By.CSS_SELECTOR, '[data-payment-mode="cash"]').click()
         self.browser.find_element(By.ID, "create-payment-amount").send_keys("250")
         self.browser.find_element(By.CSS_SELECTOR, "#create-payment-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/payments/\d+/$"))

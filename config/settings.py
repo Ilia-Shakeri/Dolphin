@@ -330,6 +330,24 @@ BILLING_INSTALLMENT_INTERVAL_DAYS = int(
 )
 BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("KARIZ_BILLING_MAX_DOCUMENT_ITEMS", "200"))
 
+# The seller's own legal identity, as it must appear on an official invoice.
+#
+# Deployment-level rather than per-invoice: this is one company per deployment,
+# and it is the same on every document it ever issues. It is configuration, not
+# data an operator edits between invoices.
+#
+# All three default to empty, and empty is meaningful: a deployment that has not
+# supplied them cannot mark an invoice official, and `billing.services` refuses
+# the transition rather than issuing a tax document with a blank seller. A
+# deployment issuing only unofficial invoices needs none of this and is not
+# nagged for it.
+#
+# Nothing here is a tax rule. These are three identifiers printed on a document;
+# what tax applies to it, and how it is computed, stays open (D.3-D.6).
+SELLER_LEGAL_NAME = os.environ.get("KARIZ_SELLER_LEGAL_NAME", "").strip()
+SELLER_NATIONAL_ID = os.environ.get("KARIZ_SELLER_NATIONAL_ID", "").strip()
+SELLER_ECONOMIC_CODE = os.environ.get("KARIZ_SELLER_ECONOMIC_CODE", "").strip()
+
 # Server-generated PDF. Off unless a deployment sets a renderer, because the
 # only supported renderer needs a browser binary on the host and a control that
 # cannot act is never shown. Browser print / save-as-PDF works regardless.

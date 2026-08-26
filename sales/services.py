@@ -38,6 +38,7 @@ MAX_MONEY = Decimal("9999999999999999.99")
 CUSTOMER_MUTABLE_FIELDS = {
     "full_name",
     "kind",
+    "economic_code",
     "national_id",
     "email",
     "province",
@@ -64,6 +65,8 @@ CUSTOMER_TEXT_LIMITS = {
     "notes": FREE_TEXT_MAX_LENGTH,
 }
 LEAD_TEXT_LIMITS = {"notes": FREE_TEXT_MAX_LENGTH}
+CUSTOMER_TEXT_LIMITS["economic_code"] = 32
+
 PRODUCT_TEXT_LIMITS = {
     "brand": 120,
     "barcode": 64,

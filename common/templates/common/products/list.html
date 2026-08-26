@@ -48,6 +48,17 @@
     </div>
 </section>
 {% if can_manage_products %}
+{% comment %} نمودار این صفحه. داده‌اش از همان selector ماژول می‌آید که جدول
+   بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. اگر
+   نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
+   صفحه دست‌نخورده کار می‌کند. {% endcomment %}
+<section class="card mb-5 mb-xl-8" data-list-chart="products"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+        <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
+    </div>
+    <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
+    <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
+</div></section>
 <dialog id="create-product-dialog" aria-labelledby="create-product-title">
     <form id="create-product-form" action="/api/v1/products/" method="post" novalidate>
         {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-product-title">محصول تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>

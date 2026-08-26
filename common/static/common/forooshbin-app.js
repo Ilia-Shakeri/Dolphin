@@ -1075,6 +1075,7 @@
         });
 
         setupCustomerListTransfer(() => kind);
+        setupCustomerCharts();
         controller.load();
         const dialog = document.getElementById("create-customer-dialog");
         const createForm = document.getElementById("create-customer-form");
@@ -1083,7 +1084,7 @@
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(createForm, async () => {
-                const payload = formPayload(createForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"]);
+                const payload = formPayload(createForm, ["full_name", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"]);
                 // Absent for a marketer, who has no such selector and whose
                 // customers are individuals by the model's own default.
                 const kindField = document.getElementById("create-customer-kind");
@@ -1193,6 +1194,149 @@
         });
     }
 
+    /**
+     * The two charts under the customers table.
+     *
+     * Both read endpoints built on `customers_for`, so what they count is
+     * exactly what the table above lists. Neither is fatal: a deployment whose
+     * role cannot reach the reports still gets its customer list, and the chart
+     * simply reports that it has nothing rather than taking the page down.
+     */
+    function setupCustomerCharts() {
+        const cityChart = document.getElementById("customer-city-chart");
+        const growthChart = document.getElementById("customer-growth-chart");
+        if (!cityChart && !growthChart) return;
+
+        async function loadCities() {
+            const empty = document.getElementById("customer-city-chart-empty");
+            try {
+                const report = await apiRequest("/api/v1/reports/customer-cities/");
+                renderBarChart(
+                    cityChart,
+                    empty,
+                    report.results.map((row) => ({
+                        label: row.label,
+                        value: row.count,
+                        // Count and share together: the count is the fact, the
+                        // share is what makes two cities comparable.
+                        display: `${toPersianDigits(String(row.count))} (${toPersianDigits(String(row.percent))}٪)`,
+                    })),
+                    {
+                        // Already ordered largest-first by the endpoint, with
+                        // its two aggregate rows deliberately last. Re-sorting
+                        // here would lift "سایر شهرها" into the middle of the
+                        // real cities.
+                        sort: false,
+                        ariaLabel: `نمودار پراکندگی ${toPersianDigits(String(report.total))} مشتری در ${toPersianDigits(String(report.distinct_cities))} شهر`,
+                    },
+                );
+            } catch (error) {
+                if (cityChart) cityChart.hidden = true;
+                if (empty) {
+                    empty.textContent = "نمودار پراکندگی شهری در دسترس نیست.";
+                    empty.hidden = false;
+                }
+            }
+        }
+
+        let granularity = "month";
+        const rangeForm = document.getElementById("customer-growth-range");
+
+        async function loadGrowth() {
+            const empty = document.getElementById("customer-growth-chart-empty");
+            const query = new URLSearchParams();
+            // "custom" is a window, not a bucket width. A bucket has to be a
+            // fixed size for the slope between two points to mean anything, so
+            // a custom range is still bucketed monthly.
+            query.set("granularity", granularity === "custom" ? "month" : granularity);
+            if (granularity === "custom") {
+                const from = apiDateTime(textOrNull(document.getElementById("customer-growth-from").value));
+                const to = apiDateTime(textOrNull(document.getElementById("customer-growth-to").value));
+                if (from) query.set("period_start", from);
+                if (to) query.set("period_end", to);
+            }
+            try {
+                const report = await apiRequest(`/api/v1/reports/customer-growth/?${query}`);
+                const points = report.results.map((row) => ({
+                    label: displayDay(row.bucket),
+                    value: row.cumulative,
+                    display: `${toPersianDigits(String(row.cumulative))} مشتری (${toPersianDigits(String(row.count))} تازه)`,
+                }));
+                const added = report.closing_total - report.opening_total;
+                renderLineChart(growthChart, empty, points, {
+                    ariaLabel: `نمودار رشد مشتریان از ${toPersianDigits(String(report.opening_total))} به ${toPersianDigits(String(report.closing_total))}`,
+                    summary: `در این بازه ${toPersianDigits(String(added))} مشتری تازه ثبت شد؛ مجموع از ${toPersianDigits(String(report.opening_total))} به ${toPersianDigits(String(report.closing_total))} رسید.`,
+                });
+            } catch (error) {
+                if (growthChart) growthChart.hidden = true;
+                if (empty) {
+                    empty.textContent = "نمودار رشد در دسترس نیست.";
+                    empty.hidden = false;
+                }
+            }
+        }
+
+        document.querySelectorAll("[data-growth-range]").forEach((button) => {
+            button.addEventListener("click", () => {
+                granularity = button.dataset.growthRange;
+                document.querySelectorAll("[data-growth-range]").forEach((other) => {
+                    const active = other === button;
+                    other.classList.toggle("btn-primary", active);
+                    other.classList.toggle("btn-light", !active);
+                    other.setAttribute("aria-pressed", String(active));
+                });
+                if (rangeForm) rangeForm.hidden = granularity !== "custom";
+                // A custom range waits for the operator to name one; the two
+                // fixed granularities redraw immediately.
+                if (granularity !== "custom") loadGrowth();
+            });
+        });
+        rangeForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            loadGrowth();
+        });
+
+        loadCities();
+        loadGrowth();
+    }
+
+    /**
+     * The chart card beneath a list page, wherever one is declared.
+     *
+     * Driven by `data-list-chart` in the markup rather than by a per-page
+     * function, so a twelfth page needs a template card and a registry entry
+     * and no JavaScript at all.
+     *
+     * Every failure is contained to the card. A role without the capability, or
+     * a deployment without the module, leaves the list above it working and
+     * says so in the space the chart would have taken - a chart is never worth
+     * taking a page down for.
+     */
+    async function setupListCharts() {
+        const cards = Array.from(document.querySelectorAll("[data-list-chart]"));
+        await Promise.all(cards.map(async (card) => {
+            const key = card.dataset.listChart;
+            const canvas = card.querySelector("[data-list-chart-canvas]");
+            const empty = card.querySelector("[data-list-chart-empty]");
+            const heading = card.querySelector("[data-list-chart-title]");
+            if (!canvas || !empty) return;
+            try {
+                const report = await apiRequest(`/api/v1/reports/list-chart/${key}/`);
+                if (heading && report.title) heading.textContent = report.title;
+                renderBarChart(canvas, empty, report.results, {
+                    // The builder already ordered them and put its grouped tail
+                    // last; re-sorting here would lift "سایر" into the middle.
+                    sort: false,
+                    ariaLabel: report.title,
+                });
+            } catch (error) {
+                canvas.hidden = true;
+                empty.textContent = "نمودار این فهرست در دسترس نیست.";
+                empty.hidden = false;
+            }
+        }));
+    }
+
     function phoneRow(phone, edit, deactivate) {
         const row = document.createElement("tr");
         appendCell(row, phone.raw_phone);
@@ -1228,7 +1372,7 @@
         let editingPhoneId = null;
 
         function fillCustomer(value) {
-            ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
+            ["full_name", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
                 document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`).value = value[name] || "";
             });
             document.getElementById("customer-created-by").value = value.created_by_display || value.created_by;
@@ -1391,7 +1535,7 @@
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
-                customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "email", "province", "city", "postal_code", "category", "address", "notes"])});
+                customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"])});
                 fillCustomer(customer);
                 globalMessage("مشخصات مشتری ذخیره شد.", true);
             });
@@ -2668,6 +2812,144 @@
         empty.hidden = true;
     }
 
+    const SVG_NS = "http://www.w3.org/2000/svg";
+
+    function svg(tag, attrs = {}) {
+        const node = document.createElementNS(SVG_NS, tag);
+        Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, String(value)));
+        return node;
+    }
+
+    /**
+     * A time series, drawn as SVG by hand.
+     *
+     * CHARTS_GROUNDWORK.md left one question open: what to do when a real time
+     * series arrived, given the panel ships no charting library. This is the
+     * answer taken - option A, extended rather than abandoned. ApexCharts is
+     * only available inside a 3.5 MB vendor bundle that collectstatic excludes,
+     * and a line over a few dozen monthly points does not need a library to
+     * draw it, nor the RTL and Persian configuration one would then require per
+     * chart.
+     *
+     * `points` is `[{label, value, display}]` in chronological order and is NOT
+     * reordered: the sequence is the entire meaning of a time series.
+     *
+     * The SVG scales with its container through `viewBox` and
+     * `preserveAspectRatio`, so it stays readable on a phone without measuring
+     * anything at runtime.
+     *
+     * options:
+     *   ariaLabel  what the chart says to a screen reader
+     *   summary    text placed under the line for readers who get nothing from it
+     *   maxLabels  how many x labels to print before thinning them out
+     */
+    function renderLineChart(chart, empty, points, options = {}) {
+        const {ariaLabel = null, summary = "", maxLabels = 8} = options;
+        if (!chart || !empty) return;
+
+        const usable = points.filter((point) => Number.isFinite(point.value));
+        // One point is not a line. Two are the minimum that can show a
+        // direction, and a direction is what this chart is for.
+        if (usable.length < 2) {
+            chart.replaceChildren();
+            chart.hidden = true;
+            empty.hidden = false;
+            return;
+        }
+
+        const WIDTH = 720;
+        const HEIGHT = 240;
+        const PAD_X = 48;
+        const PAD_TOP = 16;
+        const PAD_BOTTOM = 48;
+        const plotWidth = WIDTH - PAD_X * 2;
+        const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
+
+        const values = usable.map((point) => point.value);
+        const highest = Math.max(...values);
+        const lowest = Math.min(0, Math.min(...values));
+        // A flat series would divide by zero and collapse every point onto one
+        // line; giving it a span of 1 draws it flat along the bottom, which is
+        // what it is.
+        const span = highest - lowest || 1;
+
+        // RTL: the earliest point sits on the right, because that is where a
+        // reader of this panel starts. Reversing the x axis rather than the
+        // data keeps `points` in true chronological order for everything else.
+        const xFor = (index) =>
+            WIDTH - PAD_X - (index / (usable.length - 1)) * plotWidth;
+        const yFor = (value) =>
+            PAD_TOP + plotHeight - ((value - lowest) / span) * plotHeight;
+
+        const root = svg("svg", {
+            viewBox: `0 0 ${WIDTH} ${HEIGHT}`,
+            preserveAspectRatio: "xMidYMid meet",
+            class: "line-chart-canvas",
+            role: "presentation",
+        });
+
+        // Three horizontal guides. Low contrast on purpose: they orient the eye
+        // without competing with the data.
+        for (let step = 0; step <= 2; step += 1) {
+            const y = PAD_TOP + (plotHeight / 2) * step;
+            root.appendChild(svg("line", {
+                x1: PAD_X, x2: WIDTH - PAD_X, y1: y, y2: y, class: "line-chart-grid",
+            }));
+            const value = Math.round(highest - (span / 2) * step);
+            const label = svg("text", {
+                x: PAD_X - 8, y: y + 4, class: "line-chart-axis", "text-anchor": "end",
+            });
+            label.textContent = toPersianDigits(String(value));
+            root.appendChild(label);
+        }
+
+        const path = usable
+            .map((point, index) => `${index ? "L" : "M"}${xFor(index).toFixed(1)},${yFor(point.value).toFixed(1)}`)
+            .join(" ");
+        root.appendChild(svg("path", {d: path, class: "line-chart-line"}));
+
+        usable.forEach((point, index) => {
+            const dot = svg("circle", {
+                cx: xFor(index).toFixed(1),
+                cy: yFor(point.value).toFixed(1),
+                r: 3.5,
+                class: "line-chart-dot",
+            });
+            // Native SVG tooltip: no positioning code, works on hover, and is
+            // read out by a screen reader that lands on the point.
+            const tip = svg("title");
+            tip.textContent = `${point.label}: ${point.display}`;
+            dot.appendChild(tip);
+            root.appendChild(dot);
+        });
+
+        // Thin the x labels rather than overlapping them. Always keep the first
+        // and last, because the ends of the window are what a reader checks.
+        const stride = Math.max(1, Math.ceil(usable.length / maxLabels));
+        usable.forEach((point, index) => {
+            if (index % stride !== 0 && index !== usable.length - 1) return;
+            const label = svg("text", {
+                x: xFor(index).toFixed(1),
+                y: HEIGHT - PAD_BOTTOM + 20,
+                class: "line-chart-axis",
+                "text-anchor": "middle",
+            });
+            label.textContent = point.label;
+            root.appendChild(label);
+        });
+
+        chart.replaceChildren(root);
+        if (summary) {
+            const note = document.createElement("p");
+            note.className = "text-muted fs-7 mt-3 mb-0";
+            note.textContent = summary;
+            chart.appendChild(note);
+        }
+        if (ariaLabel) chart.setAttribute("aria-label", ariaLabel);
+        chart.hidden = false;
+        empty.hidden = true;
+    }
+
     function renderPerformanceChart(prefix, rows) {
         const items = rows.map((row) => ({
             label: row.username,
@@ -3605,6 +3887,7 @@
                 // suggest an effect it does not have.
                 return {
                     customer: Number(data.get("customer")),
+                    invoice_type: String(data.get("invoice_type") || "unofficial"),
                     items: documentFirstLine(data),
                 };
             },
@@ -3914,6 +4197,42 @@
         }
     }
 
+    /**
+     * What this invoice still lacks before it can be issued as official.
+     *
+     * The server decides this - `official_invoice_identity_errors` in
+     * billing/services.py refuses the issue - and this only mirrors the same
+     * conditions so the operator learns before pressing the button rather than
+     * after. It is a convenience, never the check: an invoice that got past
+     * this list is still refused by the service if it is genuinely incomplete.
+     */
+    function officialInvoiceChecklist(invoice) {
+        const missing = [];
+        if (!invoice.customer_national_id) {
+            missing.push("کد/شناسه ملی خریدار در پروندهٔ مشتری");
+        }
+        if (invoice.customer_kind === "legal" && !invoice.customer_economic_code) {
+            missing.push("شماره اقتصادی خریدار (مشتری حقوقی)");
+        }
+        return missing;
+    }
+
+    function syncOfficialInvoiceNotice(invoice) {
+        const notice = document.getElementById("invoice-official-requirements");
+        const list = document.getElementById("invoice-official-checklist");
+        const select = document.getElementById("edit-invoice-type");
+        if (!notice || !list || !select) return;
+        if (select.value !== "official") {
+            notice.hidden = true;
+            return;
+        }
+        const missing = officialInvoiceChecklist(invoice || {});
+        list.textContent = missing.length
+            ? `این موارد هنوز ثبت نشده‌اند: ${missing.join("، ")}`
+            : "هویت‌های لازم کامل است. هویت فروشنده از تنظیمات استقرار خوانده می‌شود و هنگام صدور بررسی می‌شود.";
+        notice.hidden = false;
+    }
+
     async function setupInvoiceDetail() {
         const invoiceId = document.body.dataset.invoiceId;
         const endpoint = `/api/v1/invoices/${invoiceId}/`;
@@ -3944,6 +4263,14 @@
             // Settlement is derived and read-only for everyone.
             document.getElementById("invoice-settlement").value = labelled(SETTLEMENT_TEXT, invoice.settlement_status);
             if (orderSelect) orderSelect.value = invoice.order ? String(invoice.order) : "";
+            // Editable only while the invoice is a draft: after issue the type is
+            // part of what was issued, and the service refuses to change it.
+            const typeSelect = document.getElementById("edit-invoice-type");
+            if (typeSelect) {
+                typeSelect.value = invoice.invoice_type || "unofficial";
+                typeSelect.disabled = invoice.status !== "draft";
+            }
+            syncOfficialInvoiceNotice(invoice);
             document.getElementById("invoice-issued-at").value = displayDate(invoice.issued_at);
             document.getElementById("edit-invoice-due").value = localDateValue(invoice.due_at);
             // The typed figure is what the operator last entered; when nothing
@@ -3994,6 +4321,8 @@
                 // Document discount and tax rate are not offered on this form.
                 const payload = {notes: String(data.get("notes") || "")};
                 payload.due_at = apiDateTime(textOrNull(data.get("due_at")));
+                const typeField = document.getElementById("edit-invoice-type");
+                if (typeField && !typeField.disabled) payload.invoice_type = typeField.value;
                 const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 apply(updated);
                 globalMessage("سربرگ فاکتور ذخیره شد.", true);
@@ -4057,6 +4386,10 @@
 
         // The typed "پرداخت شده" figure. Matching the outstanding amount settles
         // the invoice for good; it writes no Payment, allocation or ledger entry.
+        document.getElementById("edit-invoice-type")?.addEventListener("change", () => {
+            syncOfficialInvoiceNotice(current);
+        });
+
         paidInput?.addEventListener("change", async () => {
             if (!current || current.is_manually_settled) return;
             const typed = moneyValue(paidInput.value);
@@ -4156,31 +4489,77 @@
         let controller = null;
         if (dialog) {
             const createForm = document.getElementById("create-payment-form");
-            const methodSelect = document.getElementById("create-payment-method");
+            const methodField = document.getElementById("create-payment-method");
+            const bankFields = document.getElementById("create-payment-bank-fields");
             const chequeFields = document.getElementById("create-payment-cheque-fields");
+            const chequeNote = document.getElementById("create-payment-cheque-note");
+            const modeButtons = Array.from(createForm.querySelectorAll("[data-payment-mode]"));
+
+            // What the reference column is called depends on the method. It is
+            // one field on the record because it is one idea - the number this
+            // receipt is traceable by - but "شماره رسید" and "شماره پیگیری"
+            // are not interchangeable words to the person typing it.
+            const REFERENCE_LABELS = {
+                cash: "شماره رسید",
+                bank_transfer: "شماره پیگیری",
+                cheque: "شماره مرجع",
+                card: "شماره پیگیری",
+            };
+
+            function selectMode(method) {
+                methodField.value = method;
+                modeButtons.forEach((button) => {
+                    const active = button.dataset.paymentMode === method;
+                    button.classList.toggle("btn-primary", active);
+                    button.classList.toggle("btn-light", !active);
+                    button.setAttribute("aria-pressed", String(active));
+                });
+                bankFields.hidden = method !== "bank_transfer";
+                chequeFields.hidden = method !== "cheque";
+                if (chequeNote) chequeNote.hidden = method !== "cheque";
+                const label = createForm.querySelector("[data-reference-label]");
+                if (label) label.textContent = REFERENCE_LABELS[method] || REFERENCE_LABELS.cash;
+                clearMessages(createForm);
+            }
+
+            modeButtons.forEach((button) => {
+                button.addEventListener("click", () => selectMode(button.dataset.paymentMode));
+            });
+            selectMode("cash");
+
             document.getElementById("open-create-payment").addEventListener("click", () => dialog.showModal());
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
-            const syncCheque = () => { chequeFields.hidden = methodSelect.value !== "cheque"; };
-            methodSelect.addEventListener("change", syncCheque);
-            syncCheque();
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(createForm, async () => {
                     const data = new FormData(createForm);
+                    const method = String(data.get("method"));
                     const payload = {
                         customer: Number(data.get("customer")),
-                        method: String(data.get("method")),
+                        method,
                         amount: moneyValue(data.get("amount")),
                         reference: String(data.get("reference") || ""),
                         notes: String(data.get("notes") || ""),
                     };
-                    if (payload.method === "cheque") {
+                    // Blank means "today" on the server, which is what an
+                    // operator recording a receipt as it happens expects.
+                    const receivedAt = apiDateTime(textOrNull(data.get("received_at")));
+                    if (receivedAt) payload.received_at = receivedAt;
+
+                    // Only ever sent for a transfer. The service refuses these
+                    // on any other method, and a hidden field left populated
+                    // from a previous mode would otherwise be submitted.
+                    if (method === "bank_transfer") {
+                        payload.bank_name = String(data.get("bank_name") || "");
+                        payload.bank_account = String(data.get("bank_account") || "");
+                    }
+                    if (method === "cheque") {
                         payload.cheque = {
-                            bank_name: String(data.get("bank_name") || ""),
-                            branch_name: String(data.get("branch_name") || ""),
-                            serial_number: String(data.get("serial_number") || ""),
-                            account_holder: String(data.get("account_holder") || ""),
-                            due_date: apiDate(data.get("due_date")) || "",
+                            bank_name: String(data.get("cheque_bank_name") || ""),
+                            branch_name: String(data.get("cheque_branch_name") || ""),
+                            serial_number: String(data.get("cheque_serial_number") || ""),
+                            account_holder: String(data.get("cheque_account_holder") || ""),
+                            due_date: apiDate(data.get("cheque_due_date")) || "",
                         };
                     }
                     const payment = await apiRequest(createForm.action, {method: "POST", body: payload});
@@ -4832,6 +5211,9 @@
     // here rather than per module, because a price is a price on whichever
     // screen it appears; dialogs are in the DOM at load, so they are covered.
     setupMoneyInputs();
+
+    // Any page that declares a chart card gets one, whichever page it is.
+    setupListCharts();
 
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();

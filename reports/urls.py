@@ -1,5 +1,10 @@
 from django.urls import path
 
+from reports.customer_views import (
+    CustomerCityReportView,
+    CustomerGrowthReportView,
+    ListChartView,
+)
 from reports.directory_views import (
     CustomerDirectoryExportView,
     ProductCatalogueExportView,
@@ -18,6 +23,9 @@ from reports.views import SalesDocumentReportView, UserPerformanceDetailView, Us
 
 
 urlpatterns = [
+    path("reports/list-chart/<slug:key>/", ListChartView.as_view(), name="list-chart"),
+    path("reports/customer-cities/", CustomerCityReportView.as_view(), name="customer-city-report"),
+    path("reports/customer-growth/", CustomerGrowthReportView.as_view(), name="customer-growth-report"),
     path("reports/user-performance/", UserPerformanceReportView.as_view(), name="user-performance-report"),
     path("reports/user-performance/details/", UserPerformanceDetailView.as_view(), name="user-performance-detail"),
     path("reports/sales-documents/", SalesDocumentReportView.as_view(), name="sales-document-report"),

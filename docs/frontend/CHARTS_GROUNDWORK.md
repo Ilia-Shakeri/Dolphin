@@ -23,6 +23,13 @@ Five charts call it:
 | receivables ageing | receivables report | five buckets, fixed order, `keepZero` |
 | profit composition | profit report | revenue / cost / gross profit |
 | stock valuation | stock valuation report | top ten products by value |
+| customer cities | customers list | share per city, largest first (`sort: false`) |
+
+And one line chart, through `renderLineChart`:
+
+| Chart | Page | Shape |
+|---|---|---|
+| customer growth | customers list | cumulative total per week or month |
 
 Styling is `.performance-chart*` in `common/static/common/forooshbin.css`. Every
 chart carries an `aria-label`, because bars announce nothing on their own, and
@@ -72,11 +79,31 @@ as its own file, or add a small dedicated library. Buys interaction and time
 series; costs payload, a dependency to keep current, and RTL/Persian
 configuration that has to be got right per chart.
 
-**A was chosen.** Of the five endpoints above, four are comparisons across a
-handful of rows — exactly what a bar does well and where a library buys nothing.
-Revisit B only when a real time series arrives with enough points to need
-tooltips and zoom, and if it does, extract ApexCharts alone rather than shipping
-the 3.5 MB bundle.
+**A was chosen**, and then chosen a second time.
+
+The first time was for the five bar charts: comparisons across a handful of
+rows, where a library buys nothing.
+
+The second time was the case this document said would force the question — a
+real time series, the customer growth chart. Option A was extended rather than
+abandoned, with a hand-written `renderLineChart` beside `renderBarChart`. The
+reasoning:
+
+* the series is **tens of points, not thousands** — a year of months is twelve,
+  and the endpoint refuses more than 120 buckets outright, so nothing here needs
+  the decimation or zoom a library exists to provide;
+* ApexCharts is still only reachable inside the 3.5 MB vendor bundle, and
+  extracting it would have to be maintained against every theme update;
+* **RTL and Persian would have to be configured per chart** rather than written
+  once. This axis runs right to left, its labels are Jalali, and its values are
+  Persian digits. A library defaulting to LTR Gregorian Latin is work in the
+  wrong direction;
+* an SVG path with a `<title>` per point gets native tooltips and screen-reader
+  access with no positioning code at all.
+
+Option B stays open for the case that would actually justify it: a chart with
+enough points to need decimation, or genuine pan and zoom. Neither exists yet.
+If it arrives, extract ApexCharts alone — never the bundle.
 
 ## Constraints any chart must satisfy
 
@@ -116,3 +143,11 @@ Three steps, and no fourth:
 
 Do not write a second renderer. The two that existed before diverged in exactly
 the ways the shared one now prevents.
+
+For a time series use `renderLineChart` instead, with the same three steps. It
+takes the same `{label, value, display}` shape and **does not reorder** — the
+sequence is the meaning. Two things it handles that are easy to get wrong by
+hand: a flat series does not divide by zero, and empty buckets must reach it as
+zeros rather than being omitted, or the line draws a straight run across a gap
+and misstates the slope. `reports/customer_insights.py` fills those zeros
+server-side for exactly that reason.

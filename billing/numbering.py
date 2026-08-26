@@ -15,11 +15,18 @@ from billing.models import DocumentSequence
 from common.exceptions import BusinessRuleError
 
 
-KINDS = ("quotation", "order", "invoice", "payment")
+KINDS = ("quotation", "order", "invoice", "official_invoice", "payment")
 DEFAULT_FORMATS = {
     "quotation": "QT-{sequence:06d}",
     "order": "SO-{sequence:06d}",
     "invoice": "INV-{sequence:06d}",
+    # The official series is separate from `invoice` by product-owner decision.
+    # An invoice therefore carries up to two numbers: the internal one every
+    # document gets at creation, and this one, taken only when it is issued as
+    # an official document. They cannot share a counter — an internal number
+    # spent on a draft that is never issued would leave a hole in the official
+    # series, and that series has to be gapless.
+    "official_invoice": "OINV-{sequence:06d}",
     "payment": "PY-{sequence:06d}",
 }
 # A number goes onto paperwork a customer keeps, so it stays printable ASCII

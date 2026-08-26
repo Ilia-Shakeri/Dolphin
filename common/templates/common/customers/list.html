@@ -57,6 +57,42 @@
         <button id="customers-prev" class="btn btn-light" type="button">قبلی</button><span id="customers-page-label"></span><button id="customers-next" class="btn btn-light" type="button">بعدی</button>
     </nav>
 </div></section>
+{% comment %} دو نمودار زیر جدول. هر دو از اندپوینت‌هایی می‌خوانند که روی
+   `customers_for` ساخته شده‌اند، پس بازاریاب فقط دفتر خودش را می‌بیند — همان
+   دامنه‌ای که جدول بالا نشان می‌دهد، نه بیشتر. {% endcomment %}
+<div class="row g-5 g-xl-8">
+    <div class="col-xl-6">
+        <section class="card h-100"><div class="card-body">
+            <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+                <h2 class="fs-3 fw-bold text-gray-900 mb-0">پراکندگی شهری مشتریان</h2>
+            </div>
+            <p class="text-muted fs-7 mb-5">درصدها نسبت به همان مشتریانی است که شما می‌بینید. مشتری بدون شهر با استان‌اش شمرده می‌شود و مشتری بدون هیچ‌کدام در ردیف «ثبت‌نشده» می‌آید، تا جمع درصدها درست بماند.</p>
+            <div id="customer-city-chart" class="performance-chart" role="img" aria-label="نمودار پراکندگی مشتریان به تفکیک شهر" hidden></div>
+            <p id="customer-city-chart-empty" class="text-center text-gray-700 py-10" hidden>هنوز شهری برای نمایش نیست.</p>
+        </div></section>
+    </div>
+    <div class="col-xl-6">
+        <section class="card h-100"><div class="card-body">
+            <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-4">
+                <h2 class="fs-3 fw-bold text-gray-900 mb-0">روند رشد مشتریان</h2>
+                <div class="btn-group" role="group" aria-label="بازه زمانی نمودار رشد">
+                    <button type="button" class="btn btn-sm btn-light" data-growth-range="week" aria-pressed="false">هفتگی</button>
+                    <button type="button" class="btn btn-sm btn-primary" data-growth-range="month" aria-pressed="true">ماهانه</button>
+                    <button type="button" class="btn btn-sm btn-light" data-growth-range="custom" aria-pressed="false">بازه دلخواه</button>
+                </div>
+            </div>
+            <form id="customer-growth-range" class="d-flex flex-wrap align-items-center gap-3 mb-5" hidden>
+                <label class="sr-only" for="customer-growth-from">از تاریخ</label>
+                <input class="form-control form-control-solid form-control-sm w-auto" id="customer-growth-from" type="text" data-jalali="date" placeholder="از تاریخ">
+                <label class="sr-only" for="customer-growth-to">تا تاریخ</label>
+                <input class="form-control form-control-solid form-control-sm w-auto" id="customer-growth-to" type="text" data-jalali="date" placeholder="تا تاریخ">
+                <button class="btn btn-sm btn-light" type="submit">اعمال</button>
+            </form>
+            <div id="customer-growth-chart" role="img" aria-label="نمودار تعداد مشتریان ثبت‌شده در طول زمان" hidden></div>
+            <p id="customer-growth-chart-empty" class="text-center text-gray-700 py-10" hidden>برای این بازه مشتری تازه‌ای ثبت نشده است.</p>
+        </div></section>
+    </div>
+</div>
 <dialog id="create-customer-dialog" aria-labelledby="create-customer-title">
     <form id="create-customer-form" action="/api/v1/customers/" method="post" novalidate>
         {% csrf_token %}
@@ -69,6 +105,9 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-kind">نوع مشتری</label><select class="form-select form-select-solid" id="create-customer-kind" name="kind"><option value="individual">حقیقی</option><option value="legal">حقوقی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="kind"></p></div>
             {% endif %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-national-id">کد ملی</label><input class="form-control form-control-solid" id="create-customer-national-id" name="national_id" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="national_id"></p></div>
+            {% comment %} فقط مشتری حقوقی شماره اقتصادی دارد، و فقط فاکتور رسمی آن را
+               لازم دارد؛ پس اینجا اختیاری است. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-economic-code">شماره اقتصادی</label><input class="form-control form-control-solid" id="create-customer-economic-code" name="economic_code" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="economic_code"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-email">ایمیل</label><input class="form-control form-control-solid" id="create-customer-email" name="email" type="email" maxlength="254"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="email"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-province">استان</label><input class="form-control form-control-solid" id="create-customer-province" name="province" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="province"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-city">شهر</label><input class="form-control form-control-solid" id="create-customer-city" name="city" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="city"></p></div>

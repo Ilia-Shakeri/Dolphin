@@ -45,6 +45,17 @@ class Customer(TimeStampedModel):
         max_length=16, choices=Kind.choices, default=Kind.INDIVIDUAL, db_index=True
     )
     national_id = models.CharField(max_length=32, blank=True, db_index=True)
+    #: Iran issues two different identifiers, and an official invoice needs the
+    #: right one for the buyer it names. A natural person has a ten-digit
+    #: کد ملی, which `national_id` above already holds. An organisation has an
+    #: eleven-digit شناسه ملی *and* a separate شماره اقتصادی, which is this
+    #: field. They are distinct numbers and one cannot be derived from the
+    #: other, so they get distinct columns.
+    #:
+    #: Blank is the normal state: it is only required when an invoice is marked
+    #: official, and it is required there by the invoice, not by this model. A
+    #: customer entered for day-to-day work is not obliged to carry one.
+    economic_code = models.CharField(max_length=32, blank=True, db_index=True)
     email = models.EmailField(blank=True)
     province = models.CharField(max_length=100, blank=True)
     city = models.CharField(max_length=100, blank=True)

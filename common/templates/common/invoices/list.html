@@ -17,11 +17,25 @@
     <div id="invoices-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th class="text-center">شماره</th><th class="text-center">مشتری</th><th class="text-center">وضعیت</th><th class="text-center">مبلغ کل</th><th class="text-center">پرداخت‌شده</th><th class="text-center">مانده</th><th class="text-center">تاریخ صدور</th><th class="text-center">سررسید</th><th>عملیات</th></tr></thead><tbody id="invoices-table-body"></tbody></table></div>
     <nav id="invoices-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="invoices-prev" class="btn btn-light" type="button">قبلی</button><span id="invoices-page-label"></span><button id="invoices-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
+{% comment %} نمودار این صفحه. داده‌اش از همان selector ماژول می‌آید که جدول
+   بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. اگر
+   نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
+   صفحه دست‌نخورده کار می‌کند. {% endcomment %}
+<section class="card mb-5 mb-xl-8" data-list-chart="invoices"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+        <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
+    </div>
+    <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
+    <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
+</div></section>
 <dialog id="create-invoice-dialog" aria-labelledby="create-invoice-title">
     <form id="create-invoice-form" action="/api/v1/invoices/" method="post" novalidate>
         {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-invoice-title">فاکتور تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-customer">مشتری</label><select class="form-select form-select-solid" id="create-invoice-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+            {% comment %} نوع فاکتور فقط تعیین می‌کند چه هویت‌هایی هنگام صدور لازم است.
+               محاسبهٔ مالیات، ترتیب تخفیف و رند کردن دست‌نخورده می‌ماند. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-type">نوع فاکتور</label><select class="form-select form-select-solid" id="create-invoice-type" name="invoice_type"><option value="unofficial">غیررسمی</option><option value="official">رسمی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice_type"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="create-invoice-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-product">محصول</label><select class="form-select form-select-solid" id="create-invoice-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="items"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-quantity">تعداد</label><input class="form-control form-control-solid" id="create-invoice-quantity" name="quantity" type="number" min="1" step="1" value="1" required></div>

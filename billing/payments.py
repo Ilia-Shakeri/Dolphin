@@ -87,6 +87,8 @@ def register_payment(
     amount,
     received_at=None,
     reference="",
+    bank_name="",
+    bank_account="",
     idempotency_key="",
     notes="",
     cheque=None,
@@ -96,6 +98,15 @@ def register_payment(
         raise BusinessRuleError({"method": "Unknown payment method."})
     amount = clean_money(amount, field="amount", allow_zero=False)
     reference = _clean_line(reference, field="reference", limit=REFERENCE_MAX_LENGTH)
+    bank_name = _clean_line(bank_name, field="bank_name", limit=120)
+    bank_account = _clean_line(bank_account, field="bank_account", limit=64)
+    if method != Payment.Method.BANK_TRANSFER and (bank_name or bank_account):
+        # The database constraint says the same thing, but as an IntegrityError
+        # naming a constraint. Refused here so the caller is told which field.
+        raise BusinessRuleError({
+            "bank_name": "Bank details belong to a bank transfer.",
+            "bank_account": "Bank details belong to a bank transfer.",
+        })
     idempotency_key = _clean_line(
         idempotency_key, field="idempotency_key", limit=IDEMPOTENCY_KEY_MAX_LENGTH
     )
@@ -150,6 +161,8 @@ def register_payment(
             received_at=received_at,
             received_by=actor,
             reference=reference,
+            bank_name=bank_name,
+            bank_account=bank_account,
             idempotency_key=idempotency_key,
             notes=notes,
         )

@@ -57,7 +57,9 @@ DOCUMENT_WRITERS = {User.Role.SALES_AGENT, *ELEVATED_OPERATORS}
 QUOTATION_HEADER_FIELDS = {"discount_amount", "tax_rate", "valid_until", "notes"}
 #: `warehouse` is here because the order, not the invoice, is what moves stock.
 ORDER_HEADER_FIELDS = {"discount_amount", "tax_rate", "expected_delivery_at", "notes", "warehouse", "shipping_method"}
-INVOICE_HEADER_FIELDS = {"discount_amount", "tax_rate", "due_at", "notes", "warehouse"}
+INVOICE_HEADER_FIELDS = {
+    "discount_amount", "tax_rate", "due_at", "notes", "warehouse", "invoice_type",
+}
 
 
 def max_document_items():
@@ -798,6 +800,13 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
     if sale is not None and sale.customer_id != locked_customer.pk:
         raise BusinessRuleError({"sale": "Sale must belong to the selected customer."})
 
+    invoice_type = header.get("invoice_type")
+    if invoice_type is not None and invoice_type not in Invoice.InvoiceType.values:
+        # Checked here as well as by the serializer, because the service is the
+        # boundary a script or a management command also comes through, and the
+        # database constraint would report this as something else entirely.
+        raise BusinessRuleError({"invoice_type": "Select an invoice type from the list."})
+
     due_at = header.get("due_at")
     if due_at is None:
         due_days = int(getattr(settings, "BILLING_INVOICE_DUE_DAYS", 0))
@@ -813,6 +822,10 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
         header=header,
         extra_fields={
             "status": Invoice.Status.DRAFT,
+            # `_create_document` reads only the header fields it names, so this
+            # has to travel here rather than in `header` - accepting the value
+            # and then not writing it is worse than refusing it.
+            "invoice_type": invoice_type or Invoice.InvoiceType.UNOFFICIAL,
             "order": locked_order,
             "quotation": locked_quotation,
             "sale": sale,
@@ -885,6 +898,52 @@ def invoice_affects_stock():
 
 
 @transaction.atomic
+def official_invoice_identity_errors(invoice):
+    """What an official invoice is still missing, as {field: message}.
+
+    Checked at issue rather than at draft, so an operator can build the document
+    first and complete the identities before making it final — the same shape as
+    the "needs at least one line" rule beside it.
+
+    Three identifiers, and which ones apply depends on who the buyer is. Iran
+    gives a natural person a کد ملی and an organisation a شناسه ملی plus a
+    separate شماره اقتصادی, so a legal-entity buyer needs both columns filled
+    and a natural person needs one. `Customer.kind` already records which it is.
+
+    This is a completeness check on fields, and deliberately nothing more. It
+    does not validate a check digit, does not compute tax, and does not touch
+    numbering — D.3 through D.7 remain open and are not guessed at here.
+    """
+    errors = {}
+
+    if not settings.SELLER_LEGAL_NAME:
+        errors["seller_legal_name"] = (
+            "This deployment has no seller name configured, so it cannot issue an "
+            "official invoice. Set KARIZ_SELLER_LEGAL_NAME."
+        )
+    if not settings.SELLER_NATIONAL_ID:
+        errors["seller_national_id"] = (
+            "This deployment has no seller national id configured. Set "
+            "KARIZ_SELLER_NATIONAL_ID."
+        )
+    if not settings.SELLER_ECONOMIC_CODE:
+        errors["seller_economic_code"] = (
+            "This deployment has no seller economic code configured. Set "
+            "KARIZ_SELLER_ECONOMIC_CODE."
+        )
+
+    customer = invoice.customer
+    if not (customer.national_id or "").strip():
+        errors["customer_national_id"] = (
+            "An official invoice needs the buyer's national id."
+        )
+    if customer.kind == Customer.Kind.LEGAL and not (customer.economic_code or "").strip():
+        errors["customer_economic_code"] = (
+            "A legal-entity buyer needs an economic code on an official invoice."
+        )
+    return errors
+
+
 def issue_invoice(*, actor, invoice):
     """Make an invoice final: snapshot cost, deduct stock, post to the ledger.
 
@@ -898,6 +957,21 @@ def issue_invoice(*, actor, invoice):
     items = list(locked.items.select_related("product").order_by("line_number"))
     if not items:
         raise BusinessConflictError({"items": "An invoice needs at least one line before it is issued."})
+
+    # An official invoice is a tax document, so it is refused rather than issued
+    # incomplete. An unofficial one is unaffected and none of this runs for it.
+    if locked.invoice_type == Invoice.InvoiceType.OFFICIAL:
+        missing = official_invoice_identity_errors(locked)
+        if missing:
+            raise BusinessRuleError(missing)
+        # The official number is taken here and nowhere else: this is the moment
+        # the document becomes a tax document, and a series that must be gapless
+        # cannot afford a number spent on a draft that is never issued.
+        #
+        # Guarded so a re-issue could never take a second one, even though the
+        # status graph does not currently allow issuing twice.
+        if not locked.official_number:
+            locked.official_number = next_document_number("official_invoice")
 
     issued_at = timezone.now()
     # The cost snapshot and the stock movement are two separate things.
@@ -934,7 +1008,11 @@ def issue_invoice(*, actor, invoice):
 
     locked.status = Invoice.Status.ISSUED
     locked.issued_at = issued_at
-    locked.save(update_fields=["status", "issued_at", "stock_applied", "updated_at"])
+    # `official_number` is in the same write as the status, so an invoice can
+    # never be issued without its number, nor hold a number without being issued.
+    locked.save(update_fields=[
+        "status", "issued_at", "stock_applied", "official_number", "updated_at",
+    ])
 
     append_ledger_entry(
         actor=actor,

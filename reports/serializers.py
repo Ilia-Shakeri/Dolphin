@@ -253,3 +253,69 @@ class InventoryValuationReportSerializer(serializers.Serializer):
     total_quantity = serializers.IntegerField()
     total_value = serializers.DecimalField(**MONEY)
     results = ValuationRowSerializer(many=True)
+
+
+# --- customer insights ------------------------------------------------------
+
+
+class CustomerCityRowSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    count = serializers.IntegerField(min_value=0)
+    percent = serializers.FloatField()
+    #: True for the two rows that are not a city — the grouped tail and the
+    #: "not recorded" bucket. The panel labels them differently so a reader
+    #: cannot mistake either for a place.
+    is_aggregate = serializers.BooleanField()
+
+
+class CustomerCityReportSerializer(serializers.Serializer):
+    total = serializers.IntegerField(min_value=0)
+    distinct_cities = serializers.IntegerField(min_value=0)
+    results = CustomerCityRowSerializer(many=True)
+
+
+class CustomerGrowthQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    granularity = serializers.ChoiceField(choices=["week", "month"], required=False)
+    period_start = OffsetAwareDateTimeField(required=False)
+    period_end = OffsetAwareDateTimeField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        start, end = attrs.get("period_start"), attrs.get("period_end")
+        if start and end and end <= start:
+            raise serializers.ValidationError(
+                {"period_end": "The period must end after it starts."}
+            )
+        return attrs
+
+
+class CustomerGrowthRowSerializer(serializers.Serializer):
+    #: The first day of the bucket, as a plain calendar date. `displayDay` reads
+    #: it as written rather than shifting it through a time zone.
+    bucket = serializers.CharField()
+    count = serializers.IntegerField(min_value=0)
+    cumulative = serializers.IntegerField(min_value=0)
+
+
+class CustomerGrowthReportSerializer(serializers.Serializer):
+    granularity = serializers.CharField()
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    opening_total = serializers.IntegerField(min_value=0)
+    closing_total = serializers.IntegerField(min_value=0)
+    results = CustomerGrowthRowSerializer(many=True)
+
+
+class ListChartRowSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    value = serializers.FloatField()
+    #: Already formatted by the builder — grouped rial for money, Persian digits
+    #: for counts. The panel prints it as given rather than reformatting, so one
+    #: chart cannot present a number differently from the table beside it.
+    display = serializers.CharField()
+
+
+class ListChartSerializer(serializers.Serializer):
+    key = serializers.CharField()
+    title = serializers.CharField()
+    results = ListChartRowSerializer(many=True)

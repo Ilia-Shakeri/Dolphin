@@ -21,6 +21,17 @@
             {% else %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-status">وضعیت</label><input class="form-control form-control-solid" id="invoice-status" disabled></div>
             {% endif %}
+            {% comment %} نوع فاکتور تا زمانی که پیش‌نویس است قابل تغییر است؛ پس از صدور
+               دیگر نه. فهرست هویت‌های لازم زیر آن دیده می‌شود. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-type">نوع فاکتور</label><select class="form-select form-select-solid" id="edit-invoice-type" name="invoice_type"><option value="unofficial">غیررسمی</option><option value="official">رسمی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice_type"></p></div>
+            <div class="col-12" id="invoice-official-requirements" hidden>
+                <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-5">
+                    <div class="d-flex flex-stack flex-grow-1"><div class="fw-semibold">
+                        <h4 class="text-gray-900 fw-bold fs-6">فاکتور رسمی چه چیزی لازم دارد</h4>
+                        <div class="fs-7 text-gray-700" id="invoice-official-checklist"></div>
+                    </div></div>
+                </div>
+            </div>
             {% comment %} وضعیت تسویه مشتق است و هیچ نقشی آن را تایپ نمی‌کند. {% endcomment %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-settlement">وضعیت تسویه</label><input class="form-control form-control-solid" id="invoice-settlement" disabled></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-order">سفارش</label><select class="form-select form-select-solid" id="invoice-order"><option value="">بدون سفارش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="order"></p></div>

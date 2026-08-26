@@ -357,3 +357,46 @@ dialog {
     margin: -1px;
     border: 0;
 }
+
+/* 6. Line chart ----------------------------------------------------------- */
+
+/* The SVG scales with its container rather than being measured at runtime, so
+   the chart is readable on a phone without a resize listener. */
+.line-chart-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+/* Low contrast on purpose: guides orient the eye without competing with the
+   data drawn over them. */
+.line-chart-grid {
+    stroke: var(--bs-gray-200);
+    stroke-width: 1;
+}
+
+.line-chart-axis {
+    fill: var(--bs-gray-700);
+    font-size: 11px;
+}
+
+.line-chart-line {
+    fill: none;
+    stroke: var(--bs-primary);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.line-chart-dot {
+    fill: var(--bs-primary);
+    stroke: var(--bs-body-bg);
+    stroke-width: 1.5;
+}
+
+/* A point is a hover target, and on touch a tap target. Growing it on hover
+   costs no layout because a circle's radius is not part of the flow. */
+.line-chart-dot:hover {
+    r: 5.5;
+}

@@ -310,6 +310,28 @@ class Invoice(CommercialDocument):
         PARTIALLY_PAID = "partially_paid", "Partially paid"
         PAID = "paid", "Paid"
 
+    class InvoiceType(models.TextChoices):
+        """Whether this invoice is a tax document or an internal one.
+
+        `OPEN_BUSINESS_DECISIONS.md` D.2 asked which of the two an Invoice is;
+        the answer is that this deployment issues both, and the distinction is
+        recorded per document rather than per deployment.
+
+        What this field does today is exactly one thing: an official invoice
+        must name the identities a tax document names, so those fields become
+        required when it is set. It deliberately changes **nothing** about tax
+        computation, the order of discount against tax, rounding, or numbering
+        — D.3 through D.7 are still open, and inventing an answer to any of them
+        here would put a wrong number on a legal document.
+
+        The default is unofficial, because that is what every invoice in the
+        system before this field was, and a migration cannot know which of them
+        a tax authority ever saw.
+        """
+
+        UNOFFICIAL = "unofficial", "غیررسمی"
+        OFFICIAL = "official", "رسمی"
+
     NUMBER_KIND = "invoice"
     EDITABLE_STATUSES = frozenset({Status.DRAFT})
     TRANSITIONS = {
@@ -335,6 +357,30 @@ class Invoice(CommercialDocument):
         related_name="invoices",
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    invoice_type = models.CharField(
+        max_length=20,
+        choices=InvoiceType.choices,
+        default=InvoiceType.UNOFFICIAL,
+        db_index=True,
+    )
+    #: The number in the official series, taken at issue and never afterwards.
+    #:
+    #: Separate from `number`, which every document receives at creation. The
+    #: official series must be gapless, and allocating from it at creation would
+    #: not be: a draft that is abandoned, or one created official and switched
+    #: back before issue, would have consumed a number no tax document ever
+    #: carries. Taking it at the moment the document becomes official is the
+    #: only point at which the series can stay whole.
+    #:
+    #: Blank on every unofficial invoice, and on every official one still in
+    #: draft. Unique among the invoices that have one — the partial constraint
+    #: below excludes the blanks, which would otherwise collide immediately.
+    #:
+    #: Cancellation does not release it. That is what gapless means: a cancelled
+    #: official invoice keeps its number, and the number is not reissued.
+    official_number = models.CharField(
+        max_length=DOCUMENT_NUMBER_MAX_LENGTH, blank=True, default="", db_index=True
+    )
     issued_at = models.DateTimeField(null=True, blank=True, db_index=True)
     due_at = models.DateTimeField(null=True, blank=True, db_index=True)
     #: The canonical figure, maintained only by PaymentAllocation. Nothing in
@@ -375,6 +421,21 @@ class Invoice(CommercialDocument):
         constraints = [
             *_document_constraints("invoice", ["draft", "issued", "cancelled"]),
             models.CheckConstraint(condition=Q(paid_amount__gte=0), name="invoice_paid_non_negative"),
+            # Unique among the invoices that carry one. A plain unique column
+            # would collide on the first two blanks, and blank is the normal
+            # state for every unofficial invoice and every unissued draft.
+            models.UniqueConstraint(
+                fields=["official_number"],
+                condition=~Q(official_number=""),
+                name="invoice_official_number_unique",
+            ),
+            # Only an official invoice may hold one. A number in this series on
+            # an unofficial document would mean the series had been spent on
+            # something that is not a tax document.
+            models.CheckConstraint(
+                condition=Q(official_number="") | Q(invoice_type="official"),
+                name="invoice_official_number_requires_official_type",
+            ),
             models.CheckConstraint(
                 condition=Q(manual_paid_entry__isnull=True) | Q(manual_paid_entry__gte=0),
                 name="invoice_manual_entry_non_negative",
@@ -491,7 +552,24 @@ class Payment(TimeStampedModel):
     received_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="received_payments"
     )
+    #: The tracking / receipt number, whatever the method calls it: a cash
+    #: receipt number, a transfer's شماره پیگیری. One column, because it is the
+    #: same idea each time and splitting it per method would mean four columns
+    #: of which three are always blank.
     reference = models.CharField(max_length=REFERENCE_MAX_LENGTH, blank=True)
+    #: Where a bank transfer came from. Blank for every other method, and blank
+    #: is also fine on a transfer: an operator recording one from a statement
+    #: may genuinely not have the account it left, and refusing the receipt over
+    #: that would lose the money rather than record it.
+    #:
+    #: `Cheque` keeps its own `bank_name`, deliberately. A cheque is a separate
+    #: instrument with its own lifecycle and its own bank, and collapsing the
+    #: two would tie a cheque's bank to the payment row that happens to carry it.
+    bank_name = models.CharField(max_length=120, blank=True)
+    #: شماره حساب or شبا. Stored as typed rather than normalised: an IBAN and
+    #: a domestic account number have different shapes, and guessing which one
+    #: an operator meant is how a wrong account ends up on a record.
+    bank_account = models.CharField(max_length=64, blank=True)
     idempotency_key = models.CharField(max_length=IDEMPOTENCY_KEY_MAX_LENGTH, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
@@ -511,6 +589,16 @@ class Payment(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(method__in=["cash", "card", "bank_transfer", "cheque"]),
                 name="payment_method_valid",
+            ),
+            # Bank details belong to a bank transfer and nothing else. A cash
+            # receipt carrying an account number would mean the form had written
+            # into the wrong record.
+            models.CheckConstraint(
+                condition=(
+                    Q(method="bank_transfer")
+                    | (Q(bank_name="") & Q(bank_account=""))
+                ),
+                name="payment_bank_details_only_on_transfer",
             ),
             models.CheckConstraint(
                 condition=Q(status__in=["pending", "confirmed", "cancelled"]),
