@@ -2606,7 +2606,11 @@
         const chart = document.getElementById(`${prefix}-performance-chart`);
         const empty = document.getElementById(`${prefix}-performance-chart-empty`);
         const values = rows
-            .map((row) => ({username: row.username, display: String(row.sales_amount), value: Number(row.sales_amount)}))
+            // `money()` for the label, like every other amount on the panel; the
+            // raw number stays for the bar width. This was missed when prices
+            // moved to grouped rial, so the one chart in the product was still
+            // printing `12500000.00` beside tables reading `۱۲،۵۰۰،۰۰۰ ریال`.
+            .map((row) => ({username: row.username, display: money(row.sales_amount), value: Number(row.sales_amount)}))
             .filter((row) => Number.isFinite(row.value) && row.value > 0);
         chart.replaceChildren();
         if (!values.length) {
@@ -2633,7 +2637,10 @@
             return row;
         });
         chart.replaceChildren(...nodes);
-        chart.setAttribute("aria-label", `نمودار مبلغ فروش تأییدشده برای ${values.length} کاربر مجاز`);
+        chart.setAttribute(
+            "aria-label",
+            `نمودار مبلغ فروش تأییدشده برای ${toPersianDigits(String(values.length))} کاربر مجاز`,
+        );
         chart.hidden = false;
         empty.hidden = true;
     }
