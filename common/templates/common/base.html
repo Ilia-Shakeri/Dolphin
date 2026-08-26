@@ -19,6 +19,40 @@
     <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}">
     <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
+{% comment %} The theme is applied before the stylesheets get a chance to paint.
+
+   `KTThemeMode` sets `data-bs-theme` itself, but it runs on DOMContentLoaded —
+   by which time a dark-mode reader has already been shown a white page. This
+   runs inline, in the head, ahead of every sheet below it, so the first frame
+   is already the right one.
+
+   The theme ships an equivalent snippet. It is not copied: this repository's
+   vendor HTML went through a machine translation that replaced `mode` with a
+   Persian word inside identifiers, lower-cased `getItem`, and dropped the `?`
+   out of a ternary. What is written here is the same idea, spelled correctly.
+
+   Two keys, and they mean different things — `data-bs-theme-mode` is what the
+   reader chose (light, dark, or system) and `data-bs-theme` is what that
+   resolves to right now. Only the choice is worth storing; "system" has to be
+   resolved on each load, or a reader who chose it would keep yesterday's
+   answer after changing their OS setting. {% endcomment %}
+    <script>
+        var defaultThemeMode = "system";
+        (function () {
+            try {
+                var chosen = localStorage.getItem("data-bs-theme-mode") || defaultThemeMode;
+                var resolved = chosen;
+                if (chosen === "system") {
+                    resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                }
+                document.documentElement.setAttribute("data-bs-theme", resolved);
+            } catch (error) {
+                // Private mode can refuse localStorage. A panel that renders in
+                // the default theme is fine; one that fails to render is not.
+                document.documentElement.setAttribute("data-bs-theme", "light");
+            }
+        })();
+    </script>
 </head>
 {% comment %} Metronic's dark-sidebar layout is the one canonical shell for this product;
    no other demo variant is mixed in. `data-page` stays because it selects the
@@ -71,7 +105,12 @@
                                     aria-label="منوی کاربر">
                                 <span class="symbol symbol-35px symbol-circle">
                                     <span class="symbol-label bg-light-primary text-primary fw-bold">
-                                        <i class="ki-duotone ki-profile-circle fs-2 text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+{% comment %} One of these two shows at a time; the theme's own `theme-light-show`
+   and `theme-dark-show` rules pick which, from `data-bs-theme` on `<html>`.
+   The button therefore reports the current theme without any script of ours,
+   and reports it correctly on the very first frame. {% endcomment %}
+                                        <i class="ki-duotone ki-night-day theme-light-show fs-2 text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span><span class="path6"></span><span class="path7"></span><span class="path8"></span><span class="path9"></span><span class="path10"></span></i>
+                                        <i class="ki-duotone ki-moon theme-dark-show fs-2 text-primary"><span class="path1"></span><span class="path2"></span></i>
                                     </span>
                                 </span>
                                 <span class="d-none d-md-flex flex-column align-items-end ms-3">
@@ -102,7 +141,46 @@
                                     <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
                                 </div>
                                 <div class="separator my-2"></div>
-<div class="separator my-2"></div>
+{% comment %} The three modes live inside the user menu rather than behind their own
+   navbar button. The theme puts them in a nested dropdown, which KTMenu
+   positions with Popper — and Popper is in the plugins bundle this deployment
+   does not load. `KTThemeMode` does not need any of that: it finds
+   `[data-kt-element="theme-mode-menu"]` wherever it sits and binds the clicks
+   itself, so the items work as plain rows in the menu that is already open.
+
+   `.active` is placed by KTThemeMode on load, from the stored choice. It is not
+   rendered server-side because the answer depends on `localStorage`, which the
+   server cannot see. {% endcomment %}
+                                <div class="menu-item px-5 pt-1 pb-2">
+                                    <span class="menu-content text-muted fw-semibold fs-8 px-5">پوسته</span>
+                                </div>
+                                <div data-kt-menu="true" data-kt-element="theme-mode-menu">
+                                    <div class="menu-item px-5">
+                                        <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="light">
+                                            <span class="menu-icon" data-kt-element="icon">
+                                                <i class="ki-duotone ki-night-day fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span><span class="path6"></span><span class="path7"></span><span class="path8"></span><span class="path9"></span><span class="path10"></span></i>
+                                            </span>
+                                            <span class="menu-title">روشن</span>
+                                        </button>
+                                    </div>
+                                    <div class="menu-item px-5">
+                                        <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="dark">
+                                            <span class="menu-icon" data-kt-element="icon">
+                                                <i class="ki-duotone ki-moon fs-4"><span class="path1"></span><span class="path2"></span></i>
+                                            </span>
+                                            <span class="menu-title">تاریک</span>
+                                        </button>
+                                    </div>
+                                    <div class="menu-item px-5">
+                                        <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="system">
+                                            <span class="menu-icon" data-kt-element="icon">
+                                                <i class="ki-duotone ki-screen fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
+                                            </span>
+                                            <span class="menu-title">سیستم</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="separator my-2"></div>
                                 <div class="menu-item px-5">
                                     <form id="logout-form" action="/api/v1/auth/logout/" method="post">
                                         {% csrf_token %}
