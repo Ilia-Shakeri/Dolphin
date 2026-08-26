@@ -991,6 +991,80 @@ def _snapshot_parties(invoice):
     invoice.seller_phone = settings.SELLER_PHONE[:40]
 
 
+@transaction.atomic
+def reissue_invoice(*, actor, invoice, reason=""):
+    """Cancel an invoice and raise a fresh draft with the same lines. (بند ۸.۲)
+
+    The product owner's answer to "how is an issued invoice corrected" was
+    neither editing it nor a credit note: **cancel it and issue a new one**,
+    with the reason recorded in the notes.
+
+    So this is exactly those two steps in one transaction, and deliberately
+    nothing more:
+
+    * The old document is cancelled through `cancel_invoice`, which reverses its
+      stock and its ledger entry and writes the reason into its notes. Every
+      rule there still applies — in particular, an invoice with money allocated
+      to it is refused until those allocations are released.
+    * A **draft** is created with the same lines and header. A draft, not an
+      issued invoice: the replacement usually differs from the original in the
+      way that caused the reissue, and the operator has to be able to correct it
+      before it becomes a document. Issuing it is the ordinary separate step,
+      and that is also what takes the next official number.
+
+    The new invoice carries no allocation, no payment and no number from the
+    old one. It points back to it in its notes, which is the only link that
+    survives printing.
+    """
+    actor = _lock_billing_manager(actor)
+    locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if locked.status != Invoice.Status.ISSUED:
+        raise BusinessConflictError({
+            "status": "Only an issued invoice can be reissued."
+        })
+
+    items = list(locked.items.select_related("product").order_by("line_number"))
+    original_number = locked.number
+    header_notes = locked.notes
+    replacement_items = [
+        {
+            "product": item.product,
+            "quantity": item.quantity,
+            "unit_price": item.unit_price,
+            "discount_amount": item.discount_amount,
+            "description": item.description,
+        }
+        for item in items
+    ]
+
+    cancel_invoice(actor=actor, invoice=locked, reason=reason)
+
+    trail = f"[صادرشده به‌جای {original_number}]"
+    replacement = create_invoice(
+        actor=actor,
+        customer=locked.customer,
+        warehouse=locked.warehouse,
+        items=replacement_items,
+        discount_amount=locked.discount_amount,
+        tax_rate=locked.tax_rate,
+        due_at=locked.due_at,
+        invoice_type=locked.invoice_type,
+        notes=f"{header_notes}\n{trail}".strip() if header_notes else trail,
+    )
+
+    log_activity(
+        actor=actor,
+        operation="invoice.reissued",
+        instance=replacement,
+        changes={
+            "replaces": locked.pk,
+            "replaces_number": original_number,
+            "reason_provided": bool(reason),
+        },
+    )
+    return replacement
+
+
 def issue_invoice(*, actor, invoice):
     """Make an invoice final: snapshot cost, deduct stock, post to the ledger.
 
@@ -1128,7 +1202,19 @@ def cancel_invoice(*, actor, invoice, reason=""):
 
     locked.status = Invoice.Status.CANCELLED
     locked.cancelled_at = cancelled_at
-    locked.save(update_fields=["status", "cancelled_at", "stock_applied", "updated_at"])
+    # بند ۸.۲ — «دلیل ابطال هم در توضیحات فاکتور نوشته بشه».
+    #
+    # Appended rather than assigned: whatever the operator wrote when raising
+    # the invoice is still true and is not overwritten by the reason it was
+    # later cancelled for. The audit log records the same reason, but the audit
+    # log is not what gets printed and handed to anyone — the notes are.
+    if reason:
+        stamp = f"[ابطال] {reason}"
+        locked.notes = f"{locked.notes}\n{stamp}".strip() if locked.notes else stamp
+        locked.notes = locked.notes[:FREE_TEXT_MAX_LENGTH]
+    locked.save(
+        update_fields=["status", "cancelled_at", "stock_applied", "notes", "updated_at"]
+    )
 
     if was_issued:
         append_ledger_entry(

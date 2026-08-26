@@ -3136,7 +3136,7 @@
 
     function activityLogRow(item) {
         const row = document.createElement("tr");
-        appendCell(row, item.operation);
+        appendCell(row, item.operation_display || item.operation);
         appendCell(row, item.object_type);
         appendCell(row, item.object_id);
         appendCell(row, ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot);
@@ -3167,7 +3167,7 @@
         const content = document.getElementById("activity-log-detail-content");
         try {
             const item = await apiRequest(`/api/v1/activity-logs/${id}/`);
-            document.getElementById("activity-operation").value = item.operation;
+            document.getElementById("activity-operation").value = item.operation_display || item.operation;
             document.getElementById("activity-object-type").value = item.object_type;
             document.getElementById("activity-object-id").value = item.object_id || "";
             document.getElementById("activity-actor").value = item.actor || "";

@@ -27,12 +27,21 @@ ROLE_CAPABILITIES = {
         # change a level: every movement is a manager operation.
         "inventory.read",
         # An agent prepares commercial documents for their own customers. They
-        # may not issue an invoice, take money, or see the company ledger —
-        # those are `*.company` capabilities held only by elevated roles.
+        # may not issue an invoice or take money — those are `*.company`
+        # capabilities held only by elevated roles.
         "quotations.scoped",
         "orders.scoped",
         "invoices.scoped",
         "reports.own",
+        # بند ۶.۳ — «آیا بازاریاب باید مانده مشتریان خودش را ببیند؟» «بله».
+        #
+        # Deliberately **not** `ledger.company`. Permission and object scope are
+        # separate controls here: this says a marketer may read a ledger at all,
+        # and `ledger_entries_for` decides whose. Widening `ledger.company` to
+        # this role would have granted the company-wide view and then relied on
+        # a queryset to take most of it back, which is the shape that turns one
+        # missed filter into every customer's balance.
+        "ledger.own",
     }),
     User.Role.SALES_MANAGER: frozenset({
         "dashboard.store",

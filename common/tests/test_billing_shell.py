@@ -52,7 +52,20 @@ MANAGER_PAGES = (
 )
 # What a Sales Agent may reach: they prepare documents and read stock, and they
 # never touch money. These three lists are the whole of the difference.
-AGENT_ALLOWED_PAGES = ("/warehouses/", "/stock/", "/stock/movements/", "/orders/", "/invoices/")
+#
+# بند ۶.۳ moved the ledger page across: the product owner said a marketer should
+# see their own customers' balances, so the page now opens for them. What it
+# shows is confined by `ledger_entries_for`, and that confinement is pinned in
+# `billing/tests/test_ledger_scope.py` — permission and object scope are two
+# controls, and this list is only the first of them.
+AGENT_ALLOWED_PAGES = (
+    "/warehouses/",
+    "/stock/",
+    "/stock/movements/",
+    "/orders/",
+    "/invoices/",
+    "/reports/customer-ledger/",
+)
 AGENT_FORBIDDEN_PAGES = (
     "/payments/",
     "/cheques/",
@@ -60,7 +73,6 @@ AGENT_FORBIDDEN_PAGES = (
     "/reports/receivables/",
     "/reports/profit/",
     "/reports/stock-valuation/",
-    "/reports/customer-ledger/",
 )
 
 
@@ -265,8 +277,12 @@ class BillingScopeTests(CommercialWorldMixin, TestCase):
 
     def test_agent_is_refused_the_payment_and_ledger_apis_outright(self):
         self.client.force_login(self.agent)
-        for path in ("/api/v1/payments/", "/api/v1/cheques/", "/api/v1/customer-ledger/"):
+        for path in ("/api/v1/payments/", "/api/v1/cheques/"):
             self.assertEqual(self.client.get(path).status_code, 403, path)
+        # بند ۶.۳ — the ledger endpoint now answers a marketer, and returns only
+        # their own customers' rows. This asserts the permission; the scope is
+        # asserted in `billing/tests/test_ledger_scope.py`.
+        self.assertEqual(self.client.get("/api/v1/customer-ledger/").status_code, 200)
         for path in ("/api/v1/reports/receivables/", "/api/v1/reports/stock-valuation/"):
             self.assertEqual(self.client.get(path).status_code, 403, path)
 
@@ -336,6 +352,25 @@ class FinancialReportShellTests(CommercialWorldMixin, TestCase):
         self.build_world()
         self.client.force_login(self.manager)
 
+    def collect(self, invoice):
+        """Settle an invoice in full, so a cash-basis report can see it.
+
+        بند ۷.۱ — the profit report counts a sale when the money arrives, not
+        when the document is raised. These tests are about where cost comes
+        from and how an unmeasured invoice is counted, not about the basis, so
+        they pay their invoices and keep asserting the same figures.
+        """
+        from billing.models import Payment
+        from billing.payments import allocate_payment, register_payment
+
+        payment = register_payment(
+            actor=self.manager,
+            customer=invoice.customer,
+            method=Payment.Method.CASH,
+            amount=invoice.balance_due,
+        )
+        allocate_payment(actor=self.manager, payment=payment, invoice=invoice)
+
     def test_receivables_report_and_export_agree(self):
         report = self.client.get("/api/v1/reports/receivables/").json()
         self.assertEqual(report["total_outstanding"], str(self.invoice.total_amount))
@@ -346,6 +381,7 @@ class FinancialReportShellTests(CommercialWorldMixin, TestCase):
         self.assertIn("forooshbin-receivables.xlsx", export["Content-Disposition"])
 
     def test_profit_report_sources_cost_from_the_issue_time_snapshot(self):
+        self.collect(self.invoice)
         now = timezone.now()
         query = {
             "period_start": (now - timedelta(days=1)).isoformat(),
@@ -368,6 +404,8 @@ class FinancialReportShellTests(CommercialWorldMixin, TestCase):
             items=[{"product": self.product, "quantity": 1}],
         )
         issue_invoice(actor=self.manager, invoice=invoice)
+        self.collect(self.invoice)
+        self.collect(invoice)
         now = timezone.now()
         report = self.client.get(
             "/api/v1/reports/profit/",

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import SESSION_KEY, logout
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -25,6 +26,8 @@ from common.pdf import (
 from common.permissions import FeatureGatedViewMixin
 from auditlog.selectors import activity_logs_for
 from aftersales.selectors import after_sales_requests_for
+from billing.money import printed_line_breakdown
+from billing.words import amount_in_words
 from billing.selectors import (
     cheques_for,
     installment_plans_for,
@@ -175,7 +178,9 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             {"invoices.company", "orders.company"}.intersection(capabilities)
         )
         context["can_handle_payments"] = "payments.company" in capabilities
-        context["can_view_ledger"] = "ledger.company" in capabilities
+        context["can_view_ledger"] = bool(
+            capabilities.intersection({"ledger.company", "ledger.own"})
+        )
         context["can_view_sms_report"] = "sms.company" in capabilities
         context["can_view_audit"] = feature_enabled("audit_log") and bool(
             {"audit.non_platform", "audit.all"}.intersection(capabilities)
@@ -674,6 +679,9 @@ class PrintableDocumentView(ScopedDetailView):
             context["document"] = document
             context["items"] = list(document.items.order_by("line_number"))
             context["taxable_amount"] = document.subtotal_amount - document.discount_amount
+            # بند ۹.۲ — the amount stated a second time, in words, so a digit
+            # cannot be added to it after signing.
+            context["total_in_words"] = amount_in_words(document.total_amount)
             context["status_label"] = DOCUMENT_STATUS_LABELS.get(document.status, document.status)
             settlement = getattr(document, "settlement_status", None)
             if settlement is not None:
@@ -751,6 +759,54 @@ class KarizInvoicePrintView(PrintableDocumentView):
             .get(pk=self.kwargs["invoice_id"])
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if context.get("error_status"):
+            return context
+        document = context["document"]
+        items = context["items"]
+
+        # بند ۹ — the sample invoice prints tax on every line. The stored
+        # document has one header tax figure, so the columns are derived and
+        # forced to add up to it.
+        context["line_rows"] = printed_line_breakdown(
+            items=items,
+            header_discount=document.discount_amount,
+            tax_rate=document.tax_rate,
+            tax_amount=document.tax_amount,
+        )
+
+        # بند ۲ — both parties as they were frozen at issue. An invoice issued
+        # before the snapshot existed, or still a draft, has none; it falls back
+        # to the live records so the page never prints an empty identity block.
+        customer = document.customer
+        phone = customer.phones.filter(is_active=True).order_by("-is_primary", "id").first()
+        context["buyer"] = {
+            "name": document.buyer_name or customer.full_name,
+            "national_id": document.buyer_national_id or customer.national_id,
+            "economic_code": document.buyer_economic_code or customer.economic_code,
+            "address": document.buyer_address or customer.address,
+            "postal_code": document.buyer_postal_code or customer.postal_code,
+            "city": document.buyer_city or customer.city,
+            "phone": document.buyer_phone or (phone.raw_phone if phone else ""),
+        }
+        context["seller"] = {
+            "name": document.seller_name or settings.SELLER_LEGAL_NAME,
+            "registration_number": (
+                document.seller_registration_number or settings.SELLER_REGISTRATION_NUMBER
+            ),
+            "national_id": document.seller_national_id or settings.SELLER_NATIONAL_ID,
+            "economic_code": document.seller_economic_code or settings.SELLER_ECONOMIC_CODE,
+            "address": document.seller_address or settings.SELLER_ADDRESS,
+            "postal_code": document.seller_postal_code or settings.SELLER_POSTAL_CODE,
+            "city": document.seller_city or settings.SELLER_CITY,
+            "phone": document.seller_phone or settings.SELLER_PHONE,
+        }
+        # A snapshot is what makes the document evidence; say so when there
+        # isn't one rather than letting live data pass as frozen.
+        context["identity_is_snapshot"] = bool(document.buyer_name)
+        return context
+
 
 class KarizInvoicePdfView(DocumentPdfView, KarizInvoicePrintView):
     pdf_name_prefix = "invoice"
@@ -802,7 +858,9 @@ class KarizCustomerLedgerView(ActiveCrmView):
     template_name = "common/reports/customer_ledger.html"
 
     def dispatch(self, request, *args, **kwargs):
-        if is_crm_identity(request.user) and not has_any_capability(request.user, "ledger.company"):
+        if is_crm_identity(request.user) and not has_any_capability(
+            request.user, "ledger.company", "ledger.own"
+        ):
             return self.render_to_response(self.get_context_data(
                 error_status=403, error_title="دسترسی مجاز نیست",
                 error_message="شما اجازه مشاهده دفتر حساب مشتری را ندارید.",

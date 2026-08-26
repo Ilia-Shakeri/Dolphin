@@ -84,6 +84,22 @@ def installments_for(user):
 
 
 def ledger_entries_for(user):
+    """Which ledger rows a role may read.
+
+    بند ۶.۳ — «آیا بازاریاب باید مانده مشتریان خودش را ببیند؟» «بله».
+
+    So a marketer is no longer refused the ledger outright. They are confined to
+    **their own customers**, and by reusing `customers_for` rather than writing
+    a second rule: a marketer's scope is own-entry and individual-only, and if
+    that definition ever changes, the ledger follows it instead of drifting into
+    a quietly wider view of who owes what.
+
+    The scope is applied here, in the selector every reader goes through, not in
+    the view — the list, the customer page and the export all come through this
+    one queryset.
+    """
     if user.role in ELEVATED_OPERATIONAL:
         return CustomerLedgerEntry.objects.all()
+    if user.role == User.Role.SALES_AGENT:
+        return CustomerLedgerEntry.objects.filter(customer__in=customers_for(user))
     return CustomerLedgerEntry.objects.none()

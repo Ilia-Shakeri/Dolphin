@@ -25,7 +25,8 @@ from django.utils import timezone
 
 from accounts.access import crm_identities, has_any_capability
 from accounts.models import User
-from billing.models import Invoice, InvoiceItem
+from billing.models import Invoice, InvoiceItem, Payment, PaymentAllocation
+from billing.money import quantize_money
 from billing.selectors import invoices_for
 from inventory.selectors import stock_items_for
 from reports.services import ReportAccessDenied, format_utc_timestamp
@@ -179,23 +180,96 @@ def build_receivables_report(*, actor, customer_id=None, as_of=None):
     )
 
 
-def build_profit_report(*, actor, period_start: datetime, period_end: datetime, customer_id=None):
+#: The two ways of deciding when a sale counts.
+BASIS_CASH = "cash"
+BASIS_ACCRUAL = "accrual"
+PROFIT_BASES = (BASIS_CASH, BASIS_ACCRUAL)
+
+
+def _collected_by_invoice(*, invoices, period_start, period_end):
+    """How much was actually **collected** against each invoice in the period.
+
+    Cash basis asks when the money arrived, so the period is applied to the
+    payment's `received_at` and not to the invoice's `issued_at`. An invoice
+    raised in March and paid in April belongs to April, and an invoice raised in
+    April and never paid belongs to no period at all until it is.
+
+    Only confirmed receipts count. A cancelled payment has had its allocations
+    released, so it contributes nothing here without needing to be filtered out
+    a second time.
+
+    One grouped query, so the report stays flat in query count as the period
+    widens.
+    """
+    rows = (
+        PaymentAllocation.objects.filter(
+            invoice__in=invoices,
+            payment__status=Payment.Status.CONFIRMED,
+            payment__direction=Payment.Direction.RECEIPT,
+            payment__received_at__gte=period_start,
+            payment__received_at__lt=period_end,
+        )
+        .values("invoice_id")
+        .annotate(
+            collected=Coalesce(
+                Sum("amount", output_field=DecimalField(max_digits=38, decimal_places=2)),
+                Value(ZERO, output_field=DecimalField(max_digits=38, decimal_places=2)),
+            )
+        )
+    )
+    return {row["invoice_id"]: row["collected"] for row in rows}
+
+
+def build_profit_report(
+    *, actor, period_start: datetime, period_end: datetime, customer_id=None, basis=BASIS_CASH
+):
+    """Revenue, cost and profit for a period.
+
+    **The default is a cash basis** (بند ۷.۱). The product owner was asked
+    "نقدی یا تعهدی؟" and answered cash: a sale counts when the money arrives,
+    not when the document is raised.
+
+    That decides three things at once, which is why it was worth asking:
+
+    * The period filters on when payment was **received**, not when the invoice
+      was issued.
+    * An issued but unpaid invoice contributes **nothing**. It is a receivable,
+      and the receivables report is where it appears.
+    * A part-paid invoice contributes **its paid part**, with cost recognised in
+      the same proportion — otherwise a half-collected sale would show its full
+      cost against half its revenue and report a loss that has not happened.
+
+    `basis="accrual"` keeps the former behaviour. It is not what the product
+    owner chose and nothing in the panel selects it; it exists so that the
+    difference the answer makes is visible and testable rather than asserted.
+    """
     actor = _financial_reader(actor)
     if timezone.is_naive(period_start) or timezone.is_naive(period_end) or period_end <= period_start:
+        raise InvalidProfitPeriod
+    if basis not in PROFIT_BASES:
         raise InvalidProfitPeriod
     period_start = period_start.astimezone(UTC)
     period_end = period_end.astimezone(UTC)
 
     queryset = (
         invoices_for(actor)
-        .filter(
-            status=Invoice.Status.ISSUED,
-            issued_at__gte=period_start,
-            issued_at__lt=period_end,
-        )
+        .filter(status=Invoice.Status.ISSUED)
         .select_related("customer")
         .order_by("-issued_at", "-id")
     )
+    if basis == BASIS_ACCRUAL:
+        queryset = queryset.filter(
+            issued_at__gte=period_start, issued_at__lt=period_end
+        )
+    else:
+        # بند ۷.۶ — a cancelled invoice drops out here without a second rule:
+        # cancelling releases its allocations, so nothing was collected against
+        # it. A discount is already gone too, because what was collected is
+        # measured against the discounted total.
+        collected = _collected_by_invoice(
+            invoices=queryset, period_start=period_start, period_end=period_end
+        )
+        queryset = queryset.filter(pk__in=collected)
     if customer_id is not None:
         queryset = queryset.filter(customer_id=customer_id)
 
@@ -226,8 +300,24 @@ def build_profit_report(*, actor, period_start: datetime, period_end: datetime, 
         if invoice.pk in unmeasured_ids:
             unmeasured += 1
             continue
-        revenue = invoice.subtotal_amount - invoice.discount_amount
+        # Revenue excludes tax on both bases: tax collected is not the
+        # company's money, and including it would inflate every margin.
+        taxable = invoice.subtotal_amount - invoice.discount_amount
         cost = cost_by_invoice.get(invoice.pk, ZERO)
+        if basis == BASIS_CASH:
+            # The collected share of the document, applied to revenue and cost
+            # alike. Measured against `total_amount` because that is what the
+            # customer actually pays.
+            received = collected.get(invoice.pk, ZERO)
+            share = (
+                Decimal(received) / invoice.total_amount
+                if invoice.total_amount > 0
+                else ZERO
+            )
+            revenue = quantize_money(taxable * share)
+            cost = quantize_money(cost * share)
+        else:
+            revenue = taxable
         profit = revenue - cost
         rows.append(
             ProfitRow(

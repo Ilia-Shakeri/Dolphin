@@ -7,43 +7,114 @@
 {% block document %}
 {% if document.status == "cancelled" %}<p class="print-cancelled">این فاکتور ابطال شده است</p>{% endif %}
 {% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز صادر نشده است</p>{% endif %}
+
 <header class="print-head">
-    <div><p class="print-brand">ForooshBin | فروش‌بین</p><h1>فاکتور فروش</h1></div>
-    <div><p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p><p><strong>تاریخ صدور:</strong> {{ document.issued_at|jalali_datetime|default:"—" }}</p></div>
+    <div>
+        <p class="print-brand">ForooshBin | فروش‌بین</p>
+        <h1>{% if document.invoice_type == "official" %}صورتحساب فروش کالا و خدمات{% else %}فاکتور فروش{% endif %}</h1>
+    </div>
+    <div>
+        {% if document.official_number %}<p><strong>شماره سریال:</strong> <span dir="ltr">{{ document.official_number }}</span></p>{% endif %}
+        <p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p>
+        <p><strong>تاریخ:</strong> {{ document.issued_at|jalali_datetime|default:"—" }}</p>
+    </div>
 </header>
+
+{# بند ۲ و ۹ — the two identity blocks the sample invoice sets out side by side. #}
+<div class="print-parties">
+    <section class="print-party">
+        <h2>مشخصات فروشنده</h2>
+        <div><span>نام شخص حقیقی/حقوقی:</span><span>{{ seller.name|default:"—" }}</span></div>
+        <div><span>شماره ثبت/شماره ملی:</span><span dir="ltr">{{ seller.registration_number|default:seller.national_id|default:"—" }}</span></div>
+        <div><span>شماره اقتصادی:</span><span dir="ltr">{{ seller.economic_code|default:"—" }}</span></div>
+        <div><span>شهر:</span><span>{{ seller.city|default:"—" }}</span></div>
+        <div><span>نشانی کامل:</span><span>{{ seller.address|default:"—" }}</span></div>
+        <div><span>کدپستی:</span><span dir="ltr">{{ seller.postal_code|default:"—" }}</span></div>
+        <div><span>شماره تلفن/نمابر:</span><span dir="ltr">{{ seller.phone|default:"—" }}</span></div>
+    </section>
+    <section class="print-party">
+        <h2>مشخصات خریدار</h2>
+        <div><span>نام شخص حقیقی/حقوقی:</span><span>{{ buyer.name|default:"—" }}</span></div>
+        <div><span>شماره ثبت/شماره ملی:</span><span dir="ltr">{{ buyer.national_id|default:"—" }}</span></div>
+        <div><span>شماره اقتصادی:</span><span dir="ltr">{{ buyer.economic_code|default:"—" }}</span></div>
+        <div><span>شهر:</span><span>{{ buyer.city|default:"—" }}</span></div>
+        <div><span>نشانی کامل:</span><span>{{ buyer.address|default:"—" }}</span></div>
+        <div><span>کدپستی:</span><span dir="ltr">{{ buyer.postal_code|default:"—" }}</span></div>
+        <div><span>شماره تلفن/نمابر:</span><span dir="ltr">{{ buyer.phone|default:"—" }}</span></div>
+    </section>
+</div>
+
 <div class="print-meta">
-    <div><span>مشتری:</span><span>{{ document.customer_name_snapshot|default:document.customer.full_name }}</span></div>
     <div><span>سررسید:</span><span>{{ document.due_at|jalali|default:"هنگام صدور" }}</span></div>
-    <div><span>شناسه ملی/کد:</span><span dir="ltr">{{ document.customer.national_id|default:"—" }}</span></div>
     <div><span>وضعیت تسویه:</span><span>{{ settlement_label }}</span></div>
-    <div><span>نشانی:</span><span>{{ document.customer.address|default:"—" }}</span></div>
     <div><span>انبار:</span><span>{{ document.warehouse.name|default:"—" }}</span></div>
 </div>
-<div class="table-wrap"><table>
-    <thead><tr><th>ردیف</th><th>کد کالا</th><th>شرح کالا</th><th>تعداد</th><th>قیمت واحد</th><th>تخفیف</th><th>مبلغ</th></tr></thead>
-    <tbody>
-    {% for item in items %}
+
+<div class="table-wrap"><table class="print-lines">
+    <thead>
         <tr>
-            <td>{{ item.line_number }}</td>
-            <td dir="ltr">{{ item.product_sku_snapshot }}</td>
-            <td>{{ item.product_name_snapshot }}{% if item.description %} — {{ item.description }}{% endif %}</td>
-            <td>{{ item.quantity }}</td>
-            <td dir="ltr">{{ item.unit_price|money }}</td>
-            <td dir="ltr">{{ item.discount_amount|money }}</td>
-            <td dir="ltr">{{ item.line_total|money }}</td>
+            <th>ردیف</th>
+            <th>کد کالا</th>
+            <th>مشخصات کالا یا خدمات</th>
+            <th>مقدار/تعداد</th>
+            <th>واحد اندازه‌گیری</th>
+            <th>مبلغ واحد به ریال</th>
+            <th>مبلغ کل به ریال</th>
+            <th>مبلغ تخفیف</th>
+            <th>مبلغ کل پس از تخفیف (ریال)</th>
+            <th>جمع مالیات و عوارض (ریال)</th>
+            <th>جمع مبلغ کل بعلاوه جمع مالیات و عوارض (ریال)</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for row in line_rows %}
+        <tr>
+            <td>{{ row.item.line_number }}</td>
+            <td dir="ltr">{{ row.item.product_sku_snapshot }}</td>
+            <td>{{ row.item.product_name_snapshot }}{% if row.item.description %} — {{ row.item.description }}{% endif %}</td>
+            <td>{{ row.item.quantity }}</td>
+            <td>{{ row.item.product.unit|default:"—" }}</td>
+            <td dir="ltr">{{ row.item.unit_price|money }}</td>
+            <td dir="ltr">{{ row.gross|money }}</td>
+            <td dir="ltr">{{ row.discount|money }}</td>
+            <td dir="ltr">{{ row.net|money }}</td>
+            <td dir="ltr">{{ row.tax|money }}</td>
+            <td dir="ltr">{{ row.total|money }}</td>
         </tr>
     {% endfor %}
     </tbody>
+    <tfoot>
+        <tr>
+            <th colspan="6">جمع کل</th>
+            <th dir="ltr">{{ document.subtotal_amount|money }}</th>
+            <th dir="ltr">{{ document.discount_amount|money }}</th>
+            <th dir="ltr">{{ taxable_amount|money }}</th>
+            <th dir="ltr">{{ document.tax_amount|money }}</th>
+            <th dir="ltr">{{ document.total_amount|money }}</th>
+        </tr>
+    </tfoot>
 </table></div>
+
+{# بند ۹.۲ — the amount a second time, so a digit cannot be added after signing. #}
+<div class="print-in-words"><span>مبلغ به حروف:</span><strong>{{ total_in_words }}</strong></div>
+
 <div class="print-totals">
-    <div><span>جمع اقلام</span><span dir="ltr">{{ document.subtotal_amount|money }}</span></div>
-    <div><span>تخفیف سند</span><span dir="ltr">{{ document.discount_amount|money }}</span></div>
     <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount|money }}</span></div>
-    <div><span>مالیات ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money }}</span></div>
+    <div><span>مالیات و عوارض ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money }}</span></div>
     <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount|money }}</span></div>
     <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount|money }}</span></div>
     <div><span>مانده</span><span dir="ltr">{{ document.balance_due|money }}</span></div>
 </div>
+
 {% if document.notes %}<div class="print-notes">{{ document.notes }}</div>{% endif %}
+
+{# بند ۹.۴ — space for a stamp and a signature, and nothing else. No barcode #}
+{# and no QR: the product owner said the document does not carry one. #}
+<div class="print-signatures">
+    <div class="print-signature"><span>مهر و امضای فروشنده</span></div>
+    <div class="print-signature"><span>مهر و امضای خریدار</span></div>
+</div>
+
+{% if not identity_is_snapshot and document.status == "issued" %}<p class="print-footer">این سند پیش از افزوده‌شدن قفل هویت صادر شده است؛ مشخصات طرفین از پرونده جاری خوانده شده‌اند.</p>{% endif %}
 <p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه فروش‌بین صادر شده است.</p>
 {% endblock %}

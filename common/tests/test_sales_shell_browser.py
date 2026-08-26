@@ -350,7 +350,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.browser.get(f"{self.live_server_url}/activity-logs/")
         self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "activity-logs-loading")))
-        self.assertIn("sale.cancelled", self.browser.find_element(By.ID, "activity-logs-table-body").text)
+        # The activity table reads in Persian since the product owner asked for
+        # it («رویداد های سامانه باید فارسی باشند»). The stored operation is
+        # still `sale.cancelled`; this asserts what a reader actually sees.
+        self.assertIn("ابطال فروش", self.browser.find_element(By.ID, "activity-logs-table-body").text)
         self.browser.find_element(By.CSS_SELECTOR, "#activity-logs-table-body a").click()
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "activity-log-detail-content")))
         self.assert_browser_clean()

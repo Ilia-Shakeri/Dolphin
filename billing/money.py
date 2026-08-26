@@ -132,3 +132,66 @@ def document_totals(*, line_totals, header_discount, tax_rate):
     if total > MAX_MONEY:
         raise BusinessRuleError({"total_amount": "Document total is too large."})
     return subtotal, discount, rate, tax, total
+
+
+def printed_line_breakdown(*, items, header_discount, tax_rate, tax_amount):
+    """Per-line discount, tax and grand total for the printed document.
+
+    The sample official invoice the product owner supplied prints tax **on each
+    line**, not only once at the foot. The stored document has no such column:
+    tax is one header figure computed on the discounted subtotal, which is the
+    only way it can be checked against `total_amount`.
+
+    So the columns are derived here, and the one rule that matters is that
+    **they must add up to what is stored**. A tax document whose column sums
+    disagree with its own footer is worse than one without the columns.
+
+    Two things are therefore spread across the lines in proportion to each
+    line's share of the subtotal — the header discount, and the tax — and the
+    rounding drift from that division is given to the **last** line, so the
+    printed columns total exactly `header_discount` and `tax_amount`. The last
+    line absorbs at most a rial per column.
+
+    Returns a list of dicts, one per item, in the order given.
+    """
+    rows = []
+    subtotal = quantize_money(sum((item.line_total for item in items), Decimal("0.00")))
+    header_discount = quantize_money(header_discount or 0)
+    tax_amount = quantize_money(tax_amount or 0)
+
+    discount_spread = Decimal("0.00")
+    tax_spread = Decimal("0.00")
+    last = len(items) - 1
+
+    for index, item in enumerate(items):
+        if index == last:
+            # Whatever is left, so the column totals are exact rather than
+            # merely close.
+            line_header_discount = quantize_money(header_discount - discount_spread)
+            line_tax = quantize_money(tax_amount - tax_spread)
+        elif subtotal > 0:
+            share = item.line_total / subtotal
+            line_header_discount = quantize_money(header_discount * share)
+            line_tax = quantize_money(tax_amount * share)
+        else:
+            line_header_discount = Decimal("0.00")
+            line_tax = Decimal("0.00")
+
+        discount_spread = quantize_money(discount_spread + line_header_discount)
+        tax_spread = quantize_money(tax_spread + line_tax)
+
+        net = quantize_money(item.line_total - line_header_discount)
+        rows.append({
+            "item": item,
+            # مبلغ کل — before any discount, which is what the sample shows.
+            "gross": quantize_money(item.line_total + (item.discount_amount or 0)),
+            # مبلغ تخفیف — the line's own discount plus its share of the header.
+            "discount": quantize_money((item.discount_amount or 0) + line_header_discount),
+            # مبلغ کل پس از تخفیف
+            "net": net,
+            # جمع مالیات و عوارض
+            "tax": line_tax,
+            # جمع مبلغ کل بعلاوه جمع مالیات و عوارض
+            "total": quantize_money(net + line_tax),
+        })
+    return rows

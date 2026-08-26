@@ -100,11 +100,18 @@ class MoneyFilterTests(SimpleTestCase):
         amount_field = re.compile(
             r"\{\{\s*[\w.]*(?:amount|price|total|balance_due)\w*\s*(\|[^}]*)?\}\}"
         )
+        # `_in_words` is not a number. `total_in_words` arrives already rendered
+        # as Persian text by `amount_in_words`, and putting it through `money`
+        # would mangle it rather than group it. Narrow on purpose: every other
+        # name containing "total" is still required to go through the filter.
+        not_a_number = re.compile(r"_in_words\b")
         for path in PRINT_TEMPLATES:
             source = path.read_text(encoding="utf-8")
             with self.subTest(template=path.name):
                 self.assertIn("{% load jalali_tags money_tags %}", source)
                 for match in amount_field.finditer(source):
+                    if not_a_number.search(match.group(0)):
+                        continue
                     self.assertIn(
                         "money",
                         match.group(0),

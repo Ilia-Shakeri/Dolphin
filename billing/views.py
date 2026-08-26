@@ -69,6 +69,7 @@ from billing.services import (
     link_invoice_to_order,
     record_manual_paid_entry,
     cancel_invoice,
+    reissue_invoice,
     convert_order_to_invoice,
     convert_quotation_to_order,
     issue_invoice,
@@ -267,7 +268,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     status_enum = Invoice.Status
     sensitive_actions = frozenset({
         "create", "update", "partial_update", "items", "issue", "cancel",
-        "manual_paid", "link_order",
+        "reissue", "manual_paid", "link_order",
     })
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "issued_at", "due_at", "total_amount", "number"]
@@ -392,6 +393,18 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             actor=request.user, invoice=self.get_object(), **serializer.validated_data
         )
         return Response(self.get_serializer(invoice).data)
+
+    @extend_schema(request=ReasonSerializer, responses={201: InvoiceSerializer, **WRITE_RESPONSES})
+    @action(detail=True, methods=["post"])
+    def reissue(self, request, pk=None):
+        """بند ۸.۲ — cancel this invoice and raise a replacement draft."""
+        self._require_manager("Reissuing an invoice is not allowed.")
+        serializer = ReasonSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        replacement = reissue_invoice(
+            actor=request.user, invoice=self.get_object(), **serializer.validated_data
+        )
+        return Response(self.get_serializer(replacement).data, status=201)
 
     @extend_schema(responses={200: PaymentAllocationSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
     @action(detail=True, methods=["get"])
@@ -722,7 +735,10 @@ class InstallmentViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixi
 
 class CustomerLedgerViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     required_feature = "customer_ledger"
-    required_capabilities = ("ledger.company",)
+    #: Either capability opens the endpoint; `ledger_entries_for` decides which
+    #: rows come back. A marketer holds only `ledger.own` and so sees only their
+    #: own customers' movements.
+    required_capabilities = ("ledger.company", "ledger.own")
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = CustomerLedgerEntry.objects.none()
     serializer_class = CustomerLedgerEntrySerializer
