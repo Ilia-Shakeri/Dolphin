@@ -36,6 +36,11 @@ class UserPerformanceReportTests(TestCase):
     period_end = datetime(2026, 2, 1, tzinfo=UTC)
 
     def setUp(self):
+        # Throttle buckets are keyed by user id, and rolled-back tests reuse
+        # those ids, so without this a test inherits whatever the previous one
+        # spent and fails as 429 instead of what it was checking.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.agent = self._user("agent", User.Role.SALES_AGENT)
         self.manager = self._user("manager", User.Role.SALES_MANAGER)
         self.company_it = self._user("company-it", User.Role.COMPANY_IT)

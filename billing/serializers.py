@@ -382,23 +382,39 @@ class ConvertOrderSerializer(RejectServerFieldsMixin, serializers.Serializer):
 
 class ChequeInputSerializer(RejectServerFieldsMixin, serializers.Serializer):
     bank_name = serializers.CharField(max_length=120)
+    #: شماره جاری — the account drawn on, distinct from the serial number.
+    bank_account = serializers.CharField(max_length=64, required=False, allow_blank=True)
     branch_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
     serial_number = serializers.CharField(max_length=64)
+    #: Only meaningful on a disbursement; blank on a cheque received from a
+    #: customer, where the question does not arise.
+    source = serializers.ChoiceField(
+        choices=Cheque.Source.choices, required=False, allow_blank=True
+    )
     account_holder = serializers.CharField(max_length=255, required=False, allow_blank=True)
     due_date = serializers.DateField()
     notes = serializers.CharField(max_length=4000, required=False, allow_blank=True)
+
+
+class ChequeSpendSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Endorsing a received cheque onward. Only the recipient and why."""
+
+    payee = serializers.CharField(max_length=255)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
 class ChequeSerializer(serializers.ModelSerializer):
     payment_number = serializers.CharField(source="payment.number", read_only=True)
     customer = serializers.IntegerField(source="payment.customer_id", read_only=True)
     customer_name = serializers.CharField(source="payment.customer.full_name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
         model = Cheque
         fields = [
             "id", "payment", "payment_number", "customer", "customer_name", "bank_name",
-            "branch_name", "serial_number", "account_holder", "due_date", "amount", "status",
+            "bank_account", "branch_name", "serial_number", "account_holder", "due_date",
+            "amount", "status", "status_display", "source", "paid_to",
             "notes", "created_at", "updated_at",
         ]
         read_only_fields = fields
@@ -423,7 +439,7 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     server_fields = {
         "number", "status", "allocated_amount", "unallocated_amount", "customer_name",
         "received_by", "received_by_display", "cancelled_at", "cheque_detail",
-        "created_at", "updated_at",
+        "direction_display", "created_at", "updated_at",
     }
     cheque = ChequeInputSerializer(write_only=True, required=False)
     # A method field rather than a nested serializer: the reverse one-to-one
@@ -438,18 +454,25 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     received_by_display = serializers.SerializerMethodField()
     received_at = serializers.DateTimeField(required=False, allow_null=True)
     idempotency_key = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    direction = serializers.ChoiceField(choices=Payment.Direction.choices, required=False)
+    direction_display = serializers.CharField(source="get_direction_display", read_only=True)
+    #: Required for a disbursement, refused for a receipt — checked by the
+    #: service, which is also where a script or a management command arrives.
+    payee = serializers.CharField(max_length=255, required=False, allow_blank=True)
 
     class Meta:
         model = Payment
         fields = [
             "id", "number", "customer", "customer_name", "method", "status", "amount",
             "allocated_amount", "unallocated_amount", "received_at", "received_by",
-            "received_by_display", "reference", "bank_name", "bank_account",
+            "received_by_display", "direction", "direction_display", "payee",
+            "reference", "bank_name", "bank_account",
             "idempotency_key", "cancelled_at", "notes",
             "cheque", "cheque_detail", "created_at", "updated_at",
         ]
         read_only_fields = [
-            "id", "number", "customer_name", "status", "allocated_amount", "unallocated_amount",
+            "id", "number", "customer_name", "status", "direction_display",
+            "allocated_amount", "unallocated_amount",
             "received_by", "received_by_display", "cancelled_at", "cheque_detail",
             "created_at", "updated_at",
         ]

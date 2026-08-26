@@ -10,6 +10,7 @@ the moment it is declared.
 
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -51,6 +52,11 @@ class ListChartRegistryTests(TestCase):
 
 class ListChartBuilderTests(TestCase):
     def setUp(self):
+        # Throttle buckets are keyed by user id, and rolled-back tests reuse
+        # those ids, so without this a test inherits whatever the previous one
+        # spent and fails as 429 instead of what it was checking.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.admin = User.objects.create_user(
             username="lc.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN
         )
@@ -99,6 +105,11 @@ class ListChartWithDataTests(TestCase):
     """A few charts checked against rows, to prove they count what they claim."""
 
     def setUp(self):
+        # Throttle buckets are keyed by user id, and rolled-back tests reuse
+        # those ids, so without this a test inherits whatever the previous one
+        # spent and fails as 429 instead of what it was checking.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.manager = User.objects.create_user(
             username="lcd.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
         )
@@ -159,6 +170,11 @@ class ListChartWithDataTests(TestCase):
 
 class ListChartEndpointTests(TestCase):
     def setUp(self):
+        # Throttle buckets are keyed by user id, and rolled-back tests reuse
+        # those ids, so without this a test inherits whatever the previous one
+        # spent and fails as 429 instead of what it was checking.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.manager = User.objects.create_user(
             username="lce.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
         )

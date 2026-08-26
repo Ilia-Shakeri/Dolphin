@@ -3227,6 +3227,7 @@
         cancelled: "ابطال‌شده",
     });
     const CHEQUE_STATUS_TEXT = Object.freeze({
+        spent: "خرج‌شده",
         registered: "ثبت‌شده",
         deposited: "به بانک سپرده‌شده",
         cleared: "وصول‌شده",
@@ -4525,6 +4526,48 @@
             modeButtons.forEach((button) => {
                 button.addEventListener("click", () => selectMode(button.dataset.paymentMode));
             });
+
+            // Direction sits above the method, because it changes what the form
+            // is asking for: a receipt names the customer money came from, a
+            // disbursement names whoever was paid. The customer stays available
+            // on a disbursement rather than being removed, because one may still
+            // concern a customer - and when it does, it posts to that customer's
+            // ledger as a debit.
+            const directionField = document.getElementById("create-payment-direction");
+            const directionButtons = Array.from(
+                createForm.querySelectorAll("[data-payment-direction]")
+            );
+
+            function selectDirection(direction) {
+                directionField.value = direction;
+                const receipt = direction === "receipt";
+                directionButtons.forEach((button) => {
+                    const active = button.dataset.paymentDirection === direction;
+                    button.classList.toggle("btn-primary", active);
+                    button.classList.toggle("btn-light", !active);
+                    button.setAttribute("aria-pressed", String(active));
+                });
+                const payeeField = createForm.querySelector('[data-payment-field="payee"]');
+                if (payeeField) payeeField.hidden = receipt;
+                const chequeSource = createForm.querySelector('[data-payment-field="cheque-source"]');
+                if (chequeSource) chequeSource.hidden = receipt;
+                const customerLabel = createForm.querySelector("[data-customer-label]");
+                if (customerLabel) {
+                    // On a disbursement the customer means "who this concerns",
+                    // not "who paid", and is optional.
+                    customerLabel.textContent = receipt
+                        ? "مشتری"
+                        : "مشتری مرتبط (اختیاری)";
+                }
+                clearMessages(createForm);
+            }
+
+            directionButtons.forEach((button) => {
+                button.addEventListener("click", () =>
+                    selectDirection(button.dataset.paymentDirection),
+                );
+            });
+            selectDirection("receipt");
             selectMode("cash");
 
             document.getElementById("open-create-payment").addEventListener("click", () => dialog.showModal());
@@ -4534,13 +4577,22 @@
                 withSubmit(createForm, async () => {
                     const data = new FormData(createForm);
                     const method = String(data.get("method"));
+                    const direction = String(data.get("direction") || "receipt");
+                    const chosenCustomer = String(data.get("customer") || "");
                     const payload = {
-                        customer: Number(data.get("customer")),
                         method,
+                        direction,
                         amount: moneyValue(data.get("amount")),
                         reference: String(data.get("reference") || ""),
                         notes: String(data.get("notes") || ""),
                     };
+                    // Omitted rather than null when a disbursement names nobody:
+                    // the field is optional there, and sending an empty value is
+                    // a different claim from not sending one.
+                    if (chosenCustomer) payload.customer = Number(chosenCustomer);
+                    if (direction === "disbursement") {
+                        payload.payee = String(data.get("payee") || "");
+                    }
                     // Blank means "today" on the server, which is what an
                     // operator recording a receipt as it happens expects.
                     const receivedAt = apiDateTime(textOrNull(data.get("received_at")));
@@ -4556,11 +4608,16 @@
                     if (method === "cheque") {
                         payload.cheque = {
                             bank_name: String(data.get("cheque_bank_name") || ""),
+                            bank_account: String(data.get("cheque_bank_account") || ""),
                             branch_name: String(data.get("cheque_branch_name") || ""),
                             serial_number: String(data.get("cheque_serial_number") || ""),
                             account_holder: String(data.get("cheque_account_holder") || ""),
                             due_date: apiDate(data.get("cheque_due_date")) || "",
                         };
+                        // Only a disbursement cheque has a source to record.
+                        if (direction === "disbursement") {
+                            payload.cheque.source = String(data.get("cheque_source") || "own");
+                        }
                     }
                     const payment = await apiRequest(createForm.action, {method: "POST", body: payload});
                     window.location.assign(`/payments/${payment.id}/`);
@@ -4717,6 +4774,13 @@
     }
 
     function setupCheques() {
+        // Endorsing a cheque onward. Kept beside the transition dialog rather
+        // than folded into it: this action needs a recipient, and a dropdown
+        // that sometimes demands a second field is worse than two buttons.
+        const spendDialog = document.getElementById("spend-cheque-dialog");
+        const spendForm = document.getElementById("spend-cheque-form");
+        let spendingCheque = null;
+
         const form = document.getElementById("cheque-search-form");
         const dialog = document.getElementById("cheque-transition-dialog");
         const transitionForm = document.getElementById("cheque-transition-form");
@@ -4756,6 +4820,7 @@
             renderRow: (cheque) => {
                 const row = document.createElement("tr");
                 appendCell(row, cheque.bank_name);
+                appendCell(row, cheque.bank_account || "—").dir = "ltr";
                 appendCell(row, cheque.serial_number).dir = "ltr";
                 appendCell(row, cheque.customer_name);
                 appendMoneyCell(row, cheque.amount);
@@ -4763,6 +4828,25 @@
                 appendStatusBadgeCell(row, CHEQUE_STATUS_TEXT, cheque.status);
                 const actions = document.createElement("td");
                 actions.className = "row-actions";
+
+                // Endorsing a cheque onward is its own action rather than one
+                // more entry in the status dropdown, because it needs a second
+                // answer the others do not: who it went to.
+                if (cheque.status === "registered" && spendDialog) {
+                    const spend = document.createElement("button");
+                    spend.type = "button";
+                    spend.className = "btn btn-sm btn-light";
+                    spend.textContent = "خرج کردن";
+                    spend.addEventListener("click", () => {
+                        spendingCheque = cheque;
+                        document.getElementById("spend-cheque-payee").value = "";
+                        document.getElementById("spend-cheque-reason").value = "";
+                        clearMessages(spendForm);
+                        spendDialog.showModal();
+                    });
+                    actions.appendChild(spend);
+                }
+
                 const allowed = CHEQUE_TRANSITIONS[cheque.status] || [];
                 if (allowed.length && dialog) {
                     const button = document.createElement("button");
@@ -4791,6 +4875,31 @@
                 return row;
             },
         });
+        spendDialog?.querySelectorAll("[data-close-dialog]").forEach((button) =>
+            button.addEventListener("click", () => spendDialog.close()),
+        );
+        document.getElementById("confirm-spend-cheque")?.addEventListener("click", async () => {
+            if (!spendingCheque) return;
+            const payee = document.getElementById("spend-cheque-payee").value.trim();
+            if (!payee) {
+                const slot = spendForm.querySelector('[data-error-for="payee"]');
+                if (slot) slot.textContent = "گیرنده را وارد کنید.";
+                return;
+            }
+            clearMessages(spendForm);
+            try {
+                await apiRequest(`/api/v1/cheques/${spendingCheque.id}/spend/`, {
+                    method: "POST",
+                    body: {payee, reason: document.getElementById("spend-cheque-reason").value},
+                });
+                spendDialog.close();
+                globalMessage("چک خرج شد.", true);
+                controller.load();
+            } catch (error) {
+                showError(error, spendForm);
+            }
+        });
+
         controller.load();
     }
 

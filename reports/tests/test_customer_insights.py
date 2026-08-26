@@ -8,6 +8,7 @@ is still information about the rows behind it.
 
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -27,6 +28,11 @@ PASSWORD = "Strong-pass-937!"
 
 class CustomerInsightTests(TestCase):
     def setUp(self):
+        # Throttle buckets are keyed by user id, and rolled-back tests reuse
+        # those ids, so without this a test inherits whatever the previous one
+        # spent and fails as 429 instead of what it was checking.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.manager = User.objects.create_user(
             username="ci.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
         )

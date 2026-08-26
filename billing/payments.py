@@ -46,7 +46,10 @@ from sales.models import Customer
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
-CHEQUE_FIELDS = {"bank_name", "branch_name", "serial_number", "account_holder", "due_date", "notes"}
+CHEQUE_FIELDS = {
+    "bank_name", "bank_account", "branch_name", "serial_number",
+    "account_holder", "due_date", "notes", "source",
+}
 
 
 def cheque_credits_on_registration():
@@ -85,6 +88,8 @@ def register_payment(
     customer,
     method,
     amount,
+    direction=Payment.Direction.RECEIPT,
+    payee="",
     received_at=None,
     reference="",
     bank_name="",
@@ -96,6 +101,14 @@ def register_payment(
     actor = _lock_payment_manager(actor)
     if method not in Payment.Method.values:
         raise BusinessRuleError({"method": "Unknown payment method."})
+    if direction not in Payment.Direction.values:
+        raise BusinessRuleError({"direction": "Unknown payment direction."})
+    payee = _clean_line(payee, field="payee", limit=255)
+    is_receipt = direction == Payment.Direction.RECEIPT
+    if is_receipt and customer is None:
+        raise BusinessRuleError({"customer": "A receipt names the customer it came from."})
+    if not is_receipt and not payee:
+        raise BusinessRuleError({"payee": "A disbursement names who was paid."})
     amount = clean_money(amount, field="amount", allow_zero=False)
     reference = _clean_line(reference, field="reference", limit=REFERENCE_MAX_LENGTH)
     bank_name = _clean_line(bank_name, field="bank_name", limit=120)
@@ -128,8 +141,17 @@ def register_payment(
         # That both leaked a payment the caller had no scope for and silently
         # swallowed a second, genuine payment whose key happened to collide —
         # money taken, nothing recorded, and a 201 to say it went through.
+        # Matched together with who it belongs to, never on the key alone —
+        # that was the leak fixed earlier. A disbursement has no customer to
+        # scope by, so it is scoped by its payee instead: the same retry, from
+        # the same caller, about the same money.
+        scope = (
+            {"customer_id": customer.pk}
+            if customer is not None
+            else {"customer__isnull": True, "payee": payee}
+        )
         existing = Payment.objects.filter(
-            idempotency_key=idempotency_key, customer_id=customer.pk
+            idempotency_key=idempotency_key, **scope
         ).first()
         if existing is not None:
             if existing.method != method or existing.amount != amount:
@@ -138,9 +160,13 @@ def register_payment(
                 })
             return existing
 
-    locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
-    if not locked_customer.is_active:
-        raise BusinessConflictError({"customer": "Customer is inactive."})
+    # A disbursement need not name a customer at all; when it does, the same
+    # active check applies as for a receipt.
+    locked_customer = None
+    if customer is not None:
+        locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
+        if not locked_customer.is_active:
+            raise BusinessConflictError({"customer": "Customer is inactive."})
 
     is_cheque = method == Payment.Method.CHEQUE
     if is_cheque and not isinstance(cheque, dict):
@@ -155,6 +181,8 @@ def register_payment(
         payment = Payment.objects.create(
             number=next_document_number(Payment.NUMBER_KIND),
             customer=locked_customer,
+            direction=direction,
+            payee=payee,
             method=method,
             status=status,
             amount=amount,
@@ -180,7 +208,11 @@ def register_payment(
         operation="payment.registered",
         instance=payment,
         changes={
-            "customer": locked_customer.pk,
+            # None on a disbursement that names no customer, which is a legal
+            # state — the audit row records that rather than failing on it.
+            "customer": locked_customer.pk if locked_customer is not None else None,
+            "direction": direction,
+            "payee": payee,
             "number": payment.number,
             "method": method,
             "amount": str(amount),
@@ -190,6 +222,31 @@ def register_payment(
 
 
 def _post_payment_credit(*, actor, payment):
+    """Post this payment to the customer ledger, in the direction it moved.
+
+    A receipt credits: money arrived, so the customer owes less. A disbursement
+    debits: money went the other way, so the mirror applies. Both follow the
+    convention `CustomerLedgerEntry` states for itself — debit increases what
+    the customer owes — rather than a second convention invented here.
+
+    A disbursement with no customer posts nothing, and cannot: the ledger's
+    customer is a required foreign key, and a payment to a supplier is not a
+    customer event. That is a real limit of this ledger, not an omission.
+    """
+    if payment.customer_id is None:
+        return
+    if payment.direction == Payment.Direction.DISBURSEMENT:
+        append_ledger_entry(
+            actor=actor,
+            customer=payment.customer,
+            entry_type=CustomerLedgerEntry.EntryType.PAYMENT_MADE,
+            debit=payment.amount,
+            occurred_at=payment.received_at,
+            reference_kind=CustomerLedgerEntry.ReferenceKind.PAYMENT,
+            reference_id=payment.pk,
+            reference_number=payment.number,
+        )
+        return
     append_ledger_entry(
         actor=actor,
         customer=payment.customer,
@@ -209,10 +266,15 @@ def _create_cheque(*, actor, payment, amount, data):
     due_date = data.get("due_date")
     if due_date is None:
         raise BusinessRuleError({"cheque": "A cheque needs its due date."})
+    source = data.get("source", "") or ""
+    if source and source not in Cheque.Source.values:
+        raise BusinessRuleError({"cheque": "Unknown cheque source."})
     try:
         return Cheque.objects.create(
             payment=payment,
             bank_name=_clean_line(data.get("bank_name"), field="cheque", limit=120, required=True),
+            bank_account=_clean_line(data.get("bank_account", ""), field="cheque", limit=64),
+            source=source,
             branch_name=_clean_line(data.get("branch_name", ""), field="cheque", limit=120),
             serial_number=_clean_line(data.get("serial_number"), field="cheque", limit=64, required=True),
             account_holder=_clean_line(data.get("account_holder", ""), field="cheque", limit=255),
@@ -228,6 +290,34 @@ def _create_cheque(*, actor, payment, amount, data):
 
 
 @transaction.atomic
+@transaction.atomic
+def spend_received_cheque(*, actor, cheque, payee, reason=""):
+    """Endorse a received cheque to a third party.
+
+    Deliberately creates nothing. The instrument handed over is the instrument
+    already recorded, so this is a state change on that row and not a second
+    cheque that would double the amount everywhere it is counted.
+
+    It goes through `transition_cheque`, so the status graph, the append-only
+    history, and the effect on the underlying payment all behave exactly as they
+    do for every other cheque movement — including the part that matters most:
+    a pending cheque payment is cancelled rather than left looking collectable,
+    because this cheque is never going to clear into our account.
+    """
+    payee = _clean_line(payee, field="payee", limit=255, required=True)
+    locked = Cheque.objects.select_for_update().get(pk=cheque.pk)
+    if locked.payment.direction != Payment.Direction.RECEIPT:
+        raise BusinessRuleError({
+            "cheque": "Only a cheque received from a customer can be endorsed onward."
+        })
+    updated = transition_cheque(
+        actor=actor, cheque=locked, to_status=Cheque.Status.SPENT, reason=reason
+    )
+    updated.paid_to = payee
+    updated.save(update_fields=["paid_to", "updated_at"])
+    return updated
+
+
 def transition_cheque(*, actor, cheque, to_status, reason=""):
     """Move a cheque along its lifecycle, crediting the account when it clears."""
     actor = _lock_payment_manager(actor)
@@ -256,7 +346,7 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
         payment.status = Payment.Status.CONFIRMED
         payment.save(update_fields=["status", "updated_at"])
         _post_payment_credit(actor=actor, payment=payment)
-    elif to_status in {Cheque.Status.RETURNED, Cheque.Status.CANCELLED}:
+    elif to_status in {Cheque.Status.RETURNED, Cheque.Status.CANCELLED, Cheque.Status.SPENT}:
         # The money is not coming through this instrument. A pending payment
         # simply ends; a confirmed one is reversed through the normal path so
         # the ledger keeps both movements.
@@ -286,6 +376,17 @@ def allocate_payment(*, actor, payment, invoice, amount=None):
     """Apply part or all of a confirmed payment to one issued invoice."""
     actor = _lock_payment_manager(actor)
     locked_payment = Payment.objects.select_for_update().get(pk=payment.pk)
+    # Only money that came in can settle an invoice. A disbursement is money
+    # going the other way; allowing it here would reduce a customer's balance
+    # for a payment they never made.
+    #
+    # Enforced in the service rather than by a check constraint: a constraint on
+    # PaymentAllocation cannot read the direction column, which lives on the
+    # payment it points at. The test beside this is what keeps it honest.
+    if locked_payment.direction != Payment.Direction.RECEIPT:
+        raise BusinessRuleError({
+            "payment": "Only a receipt can be allocated to an invoice."
+        })
     if locked_payment.status != Payment.Status.CONFIRMED:
         raise BusinessConflictError({"payment": "Only a confirmed payment can be allocated."})
     locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)

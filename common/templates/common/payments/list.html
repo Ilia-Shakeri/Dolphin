@@ -32,7 +32,16 @@
     <form id="create-payment-form" action="/api/v1/payments/" method="post" novalidate>
         {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-payment-title">ثبت دریافت</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
 
-        {% comment %} روش دریافت به‌جای یک فهرست کشویی، حالت فرم است: هر روش
+        {% comment %} جهت سند، بالای همه‌چیز: دریافتی پول ورودی است و پرداختی
+           پول خروجی. این دو قرینهٔ هم نیستند — فقط دریافتی به فاکتور تخصیص
+           می‌خورد، و دفتر مشتری در دو جهت مخالف حرکت می‌کند. {% endcomment %}
+        <div class="btn-group w-100 mb-4" role="group" aria-label="جهت سند">
+            <button type="button" class="btn btn-primary" data-payment-direction="receipt" aria-pressed="true">دریافتی</button>
+            <button type="button" class="btn btn-light" data-payment-direction="disbursement" aria-pressed="false">پرداختی</button>
+        </div>
+        <input type="hidden" id="create-payment-direction" name="direction" value="receipt">
+
+        {% comment %} روش سند به‌جای یک فهرست کشویی، حالت فرم است: هر روش
            فیلدهای خودش را دارد و فیلد بی‌ربط اصلا دیده نمی‌شود. مقدار واقعی در
            همان input مخفی زیر می‌نشیند، پس مسیر دادهٔ قبلی دست‌نخورده است.
 
@@ -47,7 +56,11 @@
         <input type="hidden" id="create-payment-method" name="method" value="cash">
 
         <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-customer">مشتری</label><select class="form-select form-select-solid" id="create-payment-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+            <div class="col-md-6" data-payment-field="customer"><label class="form-label fw-semibold" for="create-payment-customer"><span data-customer-label>مشتری</span></label><select class="form-select form-select-solid" id="create-payment-customer" name="customer"><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+            {% comment %} گیرندهٔ پول در پرداختی. متن آزاد است چون اغلب مشتری نیست
+               و ساختن یک مدل تأمین‌کننده برای نگه داشتن یک نام، تصمیم بزرگ‌تری از
+               این کار است. {% endcomment %}
+            <div class="col-md-6" data-payment-field="payee" hidden><label class="form-label fw-semibold" for="create-payment-payee">گیرنده</label><input class="form-control form-control-solid" id="create-payment-payee" name="payee" maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="payee"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ (ریال)</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-received-at">تاریخ دریافت</label><input class="form-control form-control-solid" id="create-payment-received-at" name="received_at" type="text" data-jalali="date" placeholder="امروز"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-reference"><span data-reference-label>شماره رسید</span></label><input class="form-control form-control-solid" id="create-payment-reference" name="reference" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reference"></p></div>
@@ -68,7 +81,11 @@
         <fieldset id="create-payment-cheque-fields" class="mt-2" hidden>
             <div class="row g-5">
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-bank">بانک</label><input class="form-control form-control-solid" id="create-cheque-bank" name="cheque_bank_name" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="cheque"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-account">شماره جاری</label><input class="form-control form-control-solid" id="create-cheque-account" name="cheque_bank_account" maxlength="64" dir="ltr"></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-branch">شعبه</label><input class="form-control form-control-solid" id="create-cheque-branch" name="cheque_branch_name" maxlength="120"></div>
+                {% comment %} فقط روی چک پرداختی معنا دارد. چک دریافتی همیشه مال
+                   مشتری است و همین که دریافت شده یعنی همان. {% endcomment %}
+                <div class="col-md-6" data-payment-field="cheque-source" hidden><label class="form-label fw-semibold" for="create-cheque-source">نوع چک</label><select class="form-select form-select-solid" id="create-cheque-source" name="cheque_source"><option value="own">چک خودمان</option></select></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-serial">شماره چک</label><input class="form-control form-control-solid" id="create-cheque-serial" name="cheque_serial_number" maxlength="64" dir="ltr"></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-holder">صاحب حساب</label><input class="form-control form-control-solid" id="create-cheque-holder" name="cheque_account_holder" maxlength="255"></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-due">تاریخ سررسید چک</label><input class="form-control form-control-solid" id="create-cheque-due" name="cheque_due_date" type="text" data-jalali="date"></div>

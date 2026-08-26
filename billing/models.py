@@ -529,6 +529,23 @@ class InvoiceItem(DocumentLine):
 
 
 class Payment(TimeStampedModel):
+    class Direction(models.TextChoices):
+        """Whether this document brought money in or sent it out.
+
+        `receipt` is the default and every row that existed before this field
+        was one: the module only ever recorded money arriving. Defaulting the
+        other way, or leaving it blank, would have reinterpreted history.
+
+        The two directions are not symmetrical and must not be treated as one
+        thing with a sign. Only a receipt may be allocated to an invoice, and
+        only a receipt credits a customer. A disbursement is money leaving, and
+        it debits the customer it names — the mirror, on the same ledger,
+        following the same convention: debit increases what the customer owes.
+        """
+
+        RECEIPT = "receipt", "دریافتی"
+        DISBURSEMENT = "disbursement", "پرداختی"
+
     class Method(models.TextChoices):
         CASH = "cash", "Cash"
         CARD = "card", "Card"
@@ -543,7 +560,19 @@ class Payment(TimeStampedModel):
     NUMBER_KIND = "payment"
 
     number = models.CharField(max_length=DOCUMENT_NUMBER_MAX_LENGTH, unique=True)
-    customer = models.ForeignKey("sales.Customer", on_delete=models.PROTECT, related_name="payments")
+    direction = models.CharField(
+        max_length=20, choices=Direction.choices, default=Direction.RECEIPT, db_index=True
+    )
+    #: Nullable only because a disbursement need not name one — paying a supplier
+    #: is not a customer event. A receipt still requires one, enforced by the
+    #: constraint below rather than by the column, so the rule stays visible.
+    customer = models.ForeignKey(
+        "sales.Customer", null=True, blank=True, on_delete=models.PROTECT, related_name="payments"
+    )
+    #: Who received the money, on a disbursement. Free text: a payee is often
+    #: not a customer, and inventing a supplier model to hold a name would be a
+    #: larger decision than this one.
+    payee = models.CharField(max_length=255, blank=True)
     method = models.CharField(max_length=20, choices=Method.choices, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.CONFIRMED, db_index=True)
     amount = models.DecimalField(max_digits=18, decimal_places=2)
@@ -589,6 +618,24 @@ class Payment(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(method__in=["cash", "card", "bank_transfer", "cheque"]),
                 name="payment_method_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(direction__in=["receipt", "disbursement"]),
+                name="payment_direction_valid",
+            ),
+            # A receipt is money from a customer, so it names one. The column is
+            # nullable for the other direction; this keeps the old rule exactly
+            # where it was for receipts.
+            models.CheckConstraint(
+                condition=Q(direction="disbursement") | Q(customer__isnull=False),
+                name="payment_receipt_requires_customer",
+            ),
+            # And a disbursement says who was paid, whether or not that is a
+            # customer. Money leaving with no recipient recorded is not a
+            # document anyone can reconcile.
+            models.CheckConstraint(
+                condition=Q(direction="receipt") | ~Q(payee=""),
+                name="payment_disbursement_requires_payee",
             ),
             # Bank details belong to a bank transfer and nothing else. A cash
             # receipt carrying an account number would mean the form had written
@@ -663,18 +710,48 @@ class Cheque(TimeStampedModel):
         BOUNCED = "bounced", "Bounced"
         RETURNED = "returned", "Returned to customer"
         CANCELLED = "cancelled", "Cancelled"
+        #: Endorsed to someone else instead of being banked. The instrument is
+        #: the same instrument — spending it does not create a second cheque —
+        #: so this is a state of the row that already exists.
+        SPENT = "spent", "Spent"
 
     TRANSITIONS = {
-        Status.REGISTERED: frozenset({Status.DEPOSITED, Status.RETURNED, Status.CANCELLED}),
+        # Spendable only while it is still in hand. A cheque already at the
+        # bank cannot be handed to a third party, which is why DEPOSITED does
+        # not lead here.
+        Status.REGISTERED: frozenset({
+            Status.DEPOSITED, Status.RETURNED, Status.CANCELLED, Status.SPENT,
+        }),
         Status.DEPOSITED: frozenset({Status.CLEARED, Status.BOUNCED, Status.RETURNED}),
         Status.CLEARED: frozenset(),
         Status.BOUNCED: frozenset({Status.DEPOSITED, Status.RETURNED}),
         Status.RETURNED: frozenset(),
         Status.CANCELLED: frozenset(),
+        # Terminal: the cheque is in someone else's hands and its fate is no
+        # longer ours to record.
+        Status.SPENT: frozenset(),
     }
+
+    class Source(models.TextChoices):
+        """Whose cheque this is, on a disbursement.
+
+        Blank on a received cheque, where the question does not arise: it is the
+        customer's, and that is what receiving one means.
+        """
+
+        OWN = "own", "چک خودمان"
+        CUSTOMER_ENDORSED = "customer_endorsed", "چک مشتری"
 
     payment = models.OneToOneField(Payment, on_delete=models.PROTECT, related_name="cheque")
     bank_name = models.CharField(max_length=120)
+    #: شماره جاری — the account the cheque is drawn on, which is neither the
+    #: serial number nor the holder's name.
+    bank_account = models.CharField(max_length=64, blank=True)
+    source = models.CharField(max_length=20, choices=Source.choices, blank=True, default="")
+    #: Recorded when the cheque is endorsed to a third party. A cheque is spent
+    #: once and SPENT is terminal, so one column suffices; the full transition
+    #: is still in ChequeStatusHistory beside it.
+    paid_to = models.CharField(max_length=255, blank=True)
     branch_name = models.CharField(max_length=120, blank=True)
     serial_number = models.CharField(max_length=64)
     account_holder = models.CharField(max_length=255, blank=True)
@@ -693,7 +770,10 @@ class Cheque(TimeStampedModel):
             models.CheckConstraint(condition=Q(serial_number__regex=r"\S"), name="cheque_serial_nonblank"),
             models.CheckConstraint(
                 condition=Q(
-                    status__in=["registered", "deposited", "cleared", "bounced", "returned", "cancelled"]
+                    status__in=[
+                        "registered", "deposited", "cleared", "bounced", "returned",
+                        "cancelled", "spent",
+                    ]
                 ),
                 name="cheque_status_valid",
             ),
@@ -813,6 +893,12 @@ class CustomerLedgerEntry(TimeStampedModel):
         INVOICE_ISSUED = "invoice_issued", "Invoice issued"
         INVOICE_CANCELLED = "invoice_cancelled", "Invoice cancelled"
         PAYMENT_RECEIVED = "payment_received", "Payment received"
+        #: Money paid out to a customer. Posted as a debit, because this file's
+        #: own convention is that debit increases what the customer owes — and
+        #: paying a customer is the mirror of being paid by one. Its own type
+        #: rather than an adjustment, which means a manual correction and would
+        #: misdescribe a real movement of money.
+        PAYMENT_MADE = "payment_made", "Payment made"
         PAYMENT_CANCELLED = "payment_cancelled", "Payment cancelled"
         ADJUSTMENT_DEBIT = "adjustment_debit", "Adjustment (debit)"
         ADJUSTMENT_CREDIT = "adjustment_credit", "Adjustment (credit)"
@@ -855,8 +941,8 @@ class CustomerLedgerEntry(TimeStampedModel):
                 condition=Q(
                     entry_type__in=[
                         "opening_balance", "invoice_issued", "invoice_cancelled",
-                        "payment_received", "payment_cancelled", "adjustment_debit",
-                        "adjustment_credit",
+                        "payment_received", "payment_made", "payment_cancelled",
+                        "adjustment_debit", "adjustment_credit",
                     ]
                 ),
                 name="ledger_entry_type_valid",

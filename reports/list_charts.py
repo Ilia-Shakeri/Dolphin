@@ -174,10 +174,28 @@ def payments_by_method(actor):
         Payment.Method.CHEQUE: "چک",
         Payment.Method.CARD: "کارت",
     }
-    # Cancelled receipts are excluded: a chart of money received should not
-    # count money that was taken back.
-    scoped = payments_for(actor).exclude(status=Payment.Status.CANCELLED)
+    # Receipts only. Once disbursements share this table, summing without the
+    # direction filter would add money paid out to money taken in and report the
+    # total as income — a wrong number that looks entirely plausible.
+    #
+    # Cancelled receipts are excluded too: a chart of money received should not
+    # count money that was given back.
+    scoped = (
+        payments_for(actor)
+        .filter(direction=Payment.Direction.RECEIPT)
+        .exclude(status=Payment.Status.CANCELLED)
+    )
     return _amounts(_grouped_sum(scoped, "method", "amount"), labels)
+
+
+def payments_by_direction(actor):
+    """Money in against money out, from the same table."""
+    labels = {
+        Payment.Direction.RECEIPT: "دریافتی",
+        Payment.Direction.DISBURSEMENT: "پرداختی",
+    }
+    scoped = payments_for(actor).exclude(status=Payment.Status.CANCELLED)
+    return _amounts(_grouped_sum(scoped, "direction", "amount"), labels)
 
 
 def products_by_category(actor):
@@ -263,6 +281,8 @@ LIST_CHARTS = {
                orders_by_status, "تعداد سفارش به تفکیک وضعیت"),
     "payments": ("payments", ("payments.company",),
                  payments_by_method, "مبلغ دریافتی به تفکیک روش"),
+    "payments-direction": ("payments", ("payments.company",),
+                           payments_by_direction, "مبلغ به تفکیک جهت (دریافتی/پرداختی)"),
     "products": ("products", ("products.read", "products.manage"),
                  products_by_category, "تعداد محصول به تفکیک دسته‌بندی"),
     "product-categories": ("products", ("products.read", "products.manage"),

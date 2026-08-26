@@ -20,6 +20,7 @@ from billing.models import (
     Quotation,
 )
 from billing.payments import (
+    spend_received_cheque,
     allocate_payment,
     cancel_installment_plan,
     cancel_payment,
@@ -44,6 +45,7 @@ from billing.serializers import (
     ManualPaidEntrySerializer,
     AllocatePaymentSerializer,
     ChequeSerializer,
+    ChequeSpendSerializer,
     ChequeStatusHistorySerializer,
     ChequeTransitionSerializer,
     ConvertOrderSerializer,
@@ -522,7 +524,7 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = Cheque.objects.none()
     serializer_class = ChequeSerializer
-    sensitive_actions = frozenset({"transition"})
+    sensitive_actions = frozenset({"transition", "spend"})
     search_fields = ["bank_name", "serial_number", "account_holder", "payment__customer__full_name"]
     ordering_fields = ["due_date", "amount", "created_at"]
     list_query_parameters = {"status", "customer"}
@@ -557,6 +559,25 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
         serializer = ChequeTransitionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cheque = transition_cheque(
+            actor=request.user, cheque=self.get_object(), **serializer.validated_data
+        )
+        return Response(self.get_serializer(cheque).data)
+
+    @extend_schema(
+        request=ChequeSpendSerializer,
+        responses={200: ChequeSerializer, **WRITE_RESPONSES},
+        description=(
+            "Endorse a received cheque to a third party. This changes the cheque that "
+            "already exists and creates nothing: the instrument handed over is the "
+            "instrument recorded, so it is never counted twice. The underlying payment "
+            "ends, because the money is not arriving through it any more."
+        ),
+    )
+    @action(detail=True, methods=["post"])
+    def spend(self, request, pk=None):
+        serializer = ChequeSpendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cheque = spend_received_cheque(
             actor=request.user, cheque=self.get_object(), **serializer.validated_data
         )
         return Response(self.get_serializer(cheque).data)
