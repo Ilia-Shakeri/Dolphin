@@ -599,6 +599,58 @@ class ChequeTransitionSerializer(RejectServerFieldsMixin, serializers.Serializer
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
+class ChequeCorrectionSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """The cheque's descriptive fields, on a correction.
+
+    Its two axes are absent on purpose: they move from the cheque page, through
+    the services that know what each move means for the money.
+    """
+
+    bank_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    bank_account = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    branch_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    serial_number = serializers.CharField(max_length=64, required=False)
+    due_date = serializers.DateField(required=False)
+    registered_on = serializers.DateField(required=False, allow_null=True)
+
+
+class PaymentCorrectionSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """What the platform admin may correct on a recorded payment.
+
+    `number` and `received_by` are not offered here and are not oversights: the
+    first is the document's identity, the second is who recorded it, and a
+    record whose author can be rewritten is not a record.
+
+    The status has exactly two values. «در انتظار وصول» is not one of them — it
+    is a state a cheque payment passes through on its own and not an answer an
+    operator gives.
+    """
+
+    customer = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.none(), required=False, allow_null=True
+    )
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, required=False, min_value=0)
+    received_at = serializers.DateTimeField(required=False)
+    reference = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    bank_name = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    payee = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    notes = serializers.CharField(max_length=4000, required=False, allow_blank=True)
+    status = serializers.ChoiceField(
+        choices=[
+            (Payment.Status.CONFIRMED, "تأییدشده"),
+            (Payment.Status.CANCELLED, "ابطال‌شده"),
+        ],
+        required=False,
+    )
+    cheque = ChequeCorrectionSerializer(required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            _scope_relation(self.fields["customer"], customers_for(request.user))
+
+
 class ChequeRegistrationSerializer(RejectServerFieldsMixin, serializers.Serializer):
     """حالت — registered or not. One boolean, and why."""
 

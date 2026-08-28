@@ -4899,16 +4899,43 @@
         function apply(value) {
             payment = value;
             document.getElementById("payment-number").value = payment.number;
-            document.getElementById("payment-customer").value = payment.customer_name;
             document.getElementById("payment-method").value = labelled(PAYMENT_METHOD_TEXT, payment.method);
-            document.getElementById("payment-status").value = labelled(PAYMENT_STATUS_TEXT, payment.status);
-            document.getElementById("payment-amount").value = money(payment.amount);
-            document.getElementById("payment-allocated").value = money(payment.allocated_amount);
-            document.getElementById("payment-unallocated").value = money(payment.unallocated_amount);
-            document.getElementById("payment-received-at").value = displayDate(payment.received_at);
             document.getElementById("payment-received-by").value = payment.received_by_display || payment.received_by;
+
+            // The party. On a disbursement with no customer the select holds
+            // nothing and the payee is what names it, so the label follows.
+            const customerSelect = document.getElementById("payment-customer");
+            const customerSearch = document.getElementById("payment-customer-search");
+            const isDisbursement = payment.direction === "disbursement";
+            const partyLabel = document.querySelector('label[for="payment-customer-search"]');
+            if (partyLabel) partyLabel.textContent = isDisbursement ? "گیرنده" : "مشتری";
+            if (customerSelect) {
+                customerSelect.value = payment.customer ? String(payment.customer) : "";
+                if (customerSearch) {
+                    customerSearch.value = payment.customer_name || payment.payee || "";
+                }
+            }
+
+            // Two values, and the one it currently holds. A payment still
+            // pending on a cheque shows as confirmed here only once it is; until
+            // then the select simply carries no match, which is honest — the
+            // status is not the operator's to set while the cheque decides it.
+            const statusSelect = document.getElementById("payment-status");
+            if (statusSelect) statusSelect.value = payment.status;
+
+            document.getElementById("payment-amount").value = money(payment.amount);
+            document.getElementById("payment-received-at").value = displayDate(payment.received_at);
             document.getElementById("payment-reference").value = payment.reference || "";
+            const bankName = document.getElementById("payment-bank-name");
+            if (bankName) bankName.value = payment.bank_name || "";
             document.getElementById("payment-notes").value = payment.notes || "";
+
+            // A reference belongs to a transfer, and so does the bank. On cash
+            // and on a cheque the rows are absent rather than empty.
+            const referenceRow = document.querySelector('[data-payment-detail="reference"]');
+            if (referenceRow) referenceRow.hidden = payment.method !== "bank_transfer";
+            const bankRow = document.querySelector('[data-payment-detail="bank"]');
+            if (bankRow) bankRow.hidden = payment.method !== "bank_transfer";
             const chequeBlock = document.getElementById("payment-cheque-block");
             if (chequeBlock) {
                 const cheque = payment.cheque_detail;
@@ -4918,6 +4945,14 @@
                     document.getElementById("payment-cheque-serial").value = cheque.serial_number;
                     document.getElementById("payment-cheque-due").value = displayDay(cheque.due_date);
                     document.getElementById("payment-cheque-status").value = labelled(CHEQUE_STATUS_TEXT, cheque.status);
+                    // Both axes are shown, and neither is editable from here.
+                    const registration = document.getElementById("payment-cheque-registration");
+                    if (registration) {
+                        registration.value = labelled(
+                            CHEQUE_REGISTRATION_TEXT,
+                            String(Boolean(cheque.is_registered)),
+                        );
+                    }
                 }
             }
             if (allocateSection) allocateSection.hidden = payment.status !== "confirmed";
@@ -5021,6 +5056,67 @@
                 apply(await apiRequest(endpoint));
             });
         });
+
+        // --- correcting a recorded document (بند: مدیر پلتفرم) --------------
+        //
+        // The controls are only enabled for the platform admin, and that is a
+        // convenience: the endpoint and the service both check the role again,
+        // because a field being editable on screen has never been the
+        // authorisation for changing it.
+        const editForm = document.getElementById("payment-edit-form");
+        const saveButton = document.getElementById("save-payment-edit");
+        if (editForm && saveButton) {
+            loadCustomerOptions(
+                document.getElementById("payment-customer"),
+                "بدون طرف حساب",
+            )
+                .then(() => {
+                    const select = document.getElementById("payment-customer");
+                    if (payment && select) {
+                        select.value = payment.customer ? String(payment.customer) : "";
+                    }
+                    setupSearchableSelects(editForm);
+                })
+                .catch(showError);
+
+            editForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(editForm, async () => {
+                    const data = new FormData(editForm);
+                    const body = {
+                        amount: moneyValue(data.get("amount")),
+                        notes: String(data.get("notes") || ""),
+                        status: String(data.get("status") || payment.status),
+                    };
+                    const chosen = String(data.get("customer") || "");
+                    // Null, not omitted: on a disbursement clearing the party is
+                    // a real edit, and the two are different claims.
+                    body.customer = chosen ? Number(chosen) : null;
+                    const receivedAt = apiDateTime(textOrNull(data.get("received_at")));
+                    if (receivedAt) body.received_at = receivedAt;
+                    if (payment.method === "bank_transfer") {
+                        body.reference = String(data.get("reference") || "");
+                        body.bank_name = String(data.get("bank_name") || "");
+                    }
+                    if (payment.method === "cheque") {
+                        body.cheque = {
+                            bank_name: String(data.get("cheque_bank_name") || ""),
+                            serial_number: String(data.get("cheque_serial_number") || ""),
+                        };
+                        const due = apiDate(data.get("cheque_due_date"));
+                        if (due) body.cheque.due_date = due;
+                    }
+                    apply(await apiRequest(`${endpoint}correct/`, {method: "POST", body}));
+                    globalMessage("تغییرات ذخیره شد.", true);
+                });
+            });
+        } else if (editForm) {
+            // No save button means this reader may not correct anything, so the
+            // controls are made read-only rather than left looking usable.
+            editForm.querySelectorAll("input, select, textarea").forEach((field) => {
+                field.disabled = true;
+            });
+        }
 
         allocateForm?.addEventListener("submit", (event) => {
             event.preventDefault();

@@ -74,6 +74,7 @@ OPERATION_LABELS = {
     "payment.allocated": "تخصیص دریافت به فاکتور",
     "payment.allocation_released": "آزادسازی تخصیص",
     "payment.cancelled": "ابطال سند مالی",
+    "payment.corrected": "اصلاح سند مالی",
     "cheque.status_changed": "تغییر وضعیت چک",
     "cheque.registration_changed": "تغییر حالت ثبت چک",
     "installment_plan.created": "ثبت طرح اقساط",

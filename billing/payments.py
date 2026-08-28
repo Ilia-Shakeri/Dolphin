@@ -648,6 +648,147 @@ def release_allocation(*, actor, allocation, reason=""):
     return locked
 
 
+#: What a correction may touch. `number` and `received_by` are not here and
+#: never will be: the first is the document's identity and the second is who
+#: recorded it, and a record you can rewrite the author of is not a record.
+PAYMENT_EDITABLE_FIELDS = {
+    "customer", "amount", "received_at", "reference", "bank_name", "payee",
+    "notes", "status",
+}
+
+#: The cheque's own descriptive fields. Its two axes — وضعیت and حالت — are
+#: deliberately absent: they move from the cheque page, through the services
+#: that know what each move means for the money.
+CHEQUE_EDITABLE_FIELDS = {
+    "bank_name", "bank_account", "branch_name", "serial_number", "due_date",
+    "registered_on",
+}
+
+
+@transaction.atomic
+def update_payment(*, actor, payment, cheque=None, **data):
+    """Correct a recorded payment, restating the ledger if the money changed.
+
+    Only the platform admin. Checked here rather than only in the view, because
+    a field being editable on screen is a convenience and never the
+    authorisation.
+
+    The hard part is not the fields, it is the ledger. A confirmed payment has
+    already posted a credit; changing its amount or its customer makes that
+    entry wrong. The ledger is append-only, so nothing is rewritten — the old
+    entry is reversed and the new one posted, which is what a correction is in
+    double entry and is exactly what `cancel_payment` and `_post_payment_credit`
+    already do between them. No new accounting is invented here; the two
+    existing primitives are simply called in order.
+
+    The same applies to the status. Cancelling goes through `cancel_payment`, so
+    allocations are released and the reversal is recorded; un-cancelling posts a
+    fresh credit, which is the mirror of that and leaves both movements visible.
+    """
+    actor = _lock_payment_manager(actor)
+    if actor.role != User.Role.PLATFORM_ADMIN:
+        raise BusinessPermissionDenied("Correcting a payment is not allowed.")
+
+    unknown = set(data) - PAYMENT_EDITABLE_FIELDS
+    if unknown:
+        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+
+    locked = Payment.objects.select_for_update().get(pk=payment.pk)
+    target_status = data.pop("status", locked.status)
+    if target_status not in {Payment.Status.CONFIRMED, Payment.Status.CANCELLED}:
+        raise BusinessRuleError({"status": "A payment is either confirmed or cancelled."})
+
+    was_confirmed = locked.status == Payment.Status.CONFIRMED
+    # What the ledger currently believes, captured before anything moves.
+    old_amount = locked.amount
+    old_customer_id = locked.customer_id
+
+    if "amount" in data:
+        data["amount"] = clean_money(data["amount"], field="amount", allow_zero=False)
+    if "customer" in data:
+        customer = data.pop("customer")
+        if customer is None:
+            if locked.direction == Payment.Direction.RECEIPT:
+                raise BusinessRuleError({"customer": "A receipt needs a customer."})
+            locked.customer = None
+        else:
+            locked.customer = Customer.objects.select_for_update().get(pk=customer.pk)
+    for field in ("received_at", "reference", "bank_name", "payee", "notes"):
+        if field in data:
+            setattr(locked, field, data[field])
+    if "amount" in data:
+        # A payment cannot be worth less than what has already been applied to
+        # invoices from it. The database says so too, and left to itself it says
+        # so as an IntegrityError — a 500 that tells the operator nothing. This
+        # is the same rule, said in words, before anything is written.
+        if data["amount"] < locked.allocated_amount:
+            raise BusinessRuleError({
+                "amount": (
+                    "Amount cannot be less than the part already allocated "
+                    f"({locked.allocated_amount}). Release an allocation first."
+                )
+            })
+        locked.amount = data["amount"]
+
+    locked.save()
+
+    money_moved = locked.amount != old_amount or locked.customer_id != old_customer_id
+
+    # --- the ledger, restated only when it has to be ------------------------
+    if was_confirmed and target_status == Payment.Status.CANCELLED:
+        cancel_payment(actor=actor, payment=locked, reason="اصلاح سند")
+    elif was_confirmed and money_moved:
+        # Reverse what was posted, then post what is true now. Two entries, both
+        # kept, so the correction is auditable rather than silent.
+        if old_customer_id is not None:
+            append_ledger_entry(
+                actor=actor,
+                customer=Customer.objects.get(pk=old_customer_id),
+                entry_type=CustomerLedgerEntry.EntryType.PAYMENT_CANCELLED,
+                debit=old_amount,
+                occurred_at=timezone.now(),
+                reference_kind=CustomerLedgerEntry.ReferenceKind.PAYMENT,
+                reference_id=locked.pk,
+                reference_number=locked.number,
+            )
+        _post_payment_credit(actor=actor, payment=locked)
+    elif not was_confirmed and target_status == Payment.Status.CONFIRMED:
+        # Bringing a cancelled document back. The mirror of cancelling: a fresh
+        # credit, appended rather than the reversal being erased.
+        locked.status = Payment.Status.CONFIRMED
+        locked.cancelled_at = None
+        locked.save(update_fields=["status", "cancelled_at", "updated_at"])
+        _post_payment_credit(actor=actor, payment=locked)
+
+    # --- the cheque's own details -------------------------------------------
+    if cheque:
+        unknown = set(cheque) - CHEQUE_EDITABLE_FIELDS
+        if unknown:
+            raise BusinessRuleError({
+                f"cheque.{field}": "Field cannot be set." for field in sorted(unknown)
+            })
+        instrument = Cheque.objects.select_for_update().filter(payment=locked).first()
+        if instrument is None:
+            raise BusinessRuleError({"cheque": "This payment has no cheque."})
+        for field, value in cheque.items():
+            setattr(instrument, field, value)
+        instrument.save()
+
+    locked.refresh_from_db()
+    log_activity(
+        actor=actor,
+        operation="payment.corrected",
+        instance=locked,
+        changes={
+            "number": locked.number,
+            "amount": str(locked.amount),
+            "status": locked.status,
+            "ledger_restated": bool(was_confirmed and money_moved),
+        },
+    )
+    return locked
+
+
 @transaction.atomic
 def cancel_payment(*, actor, payment, reason=""):
     """Reverse a payment, releasing every allocation it still holds."""

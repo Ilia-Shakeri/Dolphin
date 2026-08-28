@@ -330,12 +330,27 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.CSS_SELECTOR, "#create-payment-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/payments/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "payment-detail-content")))
-        self.assertEqual(self.value_of("payment-status"), "تأییدشده")
+        # The status is a two-value select since 1.3.7, so its `value` is the
+        # stored word and its selected option is what the reader sees. Both are
+        # checked: the wrong one passing would mean the page showed a Persian
+        # label over an English value or the reverse.
+        self.assertEqual(self.value_of("payment-status"), "confirmed")
+        self.assertEqual(
+            Select(self.browser.find_element(By.ID, "payment-status"))
+            .first_selected_option.text,
+            "تأییدشده",
+        )
 
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "payment-allocate-form")))
         self.select_when_populated("payment-allocate-invoice", invoice_id)
         self.browser.find_element(By.CSS_SELECTOR, "#payment-allocate-form button[type='submit']").click()
-        self.wait.until(lambda driver: self.value_of("payment-allocated") == "250 ریال")
+        # «تخصیص‌یافته» left the detail card in 1.3.7 — allocation has its own
+        # section with the invoices named, so the allocation row is the evidence.
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element(
+                (By.ID, "payment-allocations-table-body"), "250"
+            )
+        )
 
         # 7. The invoice now shows the payment, and prints the stored snapshot.
         self.browser.get(f"{self.live_server_url}/invoices/{invoice_id}/")

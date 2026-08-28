@@ -30,6 +30,7 @@ from billing.payments import (
     record_opening_balance,
     release_allocation,
     transition_cheque,
+    update_payment,
 )
 from billing.permissions import HasBillingCapability
 from billing.selectors import (
@@ -61,6 +62,7 @@ from billing.serializers import (
     InvoiceSerializer,
     OpeningBalanceSerializer,
     OrderSerializer,
+    PaymentCorrectionSerializer,
     PaymentAllocationSerializer,
     PaymentSerializer,
     QuotationSerializer,
@@ -424,7 +426,9 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = Payment.objects.none()
     serializer_class = PaymentSerializer
-    sensitive_actions = frozenset({"create", "allocate", "allocate_across", "cancel", "release"})
+    sensitive_actions = frozenset({
+        "create", "allocate", "allocate_across", "cancel", "release", "correct",
+    })
     search_fields = ["number", "customer__full_name", "reference", "notes"]
     ordering_fields = ["received_at", "amount", "created_at", "number"]
     #: `direction` joined these in 1.3.x. It became a first-class field in
@@ -502,6 +506,27 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
         return Response(
             PaymentAllocationSerializer(allocations, many=True).data, status=201
         )
+
+    @extend_schema(
+        request=PaymentCorrectionSerializer,
+        responses={200: PaymentSerializer, **WRITE_RESPONSES},
+        description=(
+            "Correct a recorded payment. Platform admin only, and enforced in the "
+            "service as well as here. If the amount or the customer changes on a "
+            "confirmed payment the ledger is restated rather than rewritten: the old "
+            "entry is reversed and the new one posted, so both movements stay visible."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="correct")
+    def correct(self, request, pk=None):
+        serializer = PaymentCorrectionSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        payment = update_payment(
+            actor=request.user, payment=self.get_object(), **serializer.validated_data
+        )
+        return Response(self.get_serializer(payment).data)
 
     @extend_schema(request=ReasonSerializer, responses={200: PaymentSerializer, **WRITE_RESPONSES})
     @action(detail=True, methods=["post"])
