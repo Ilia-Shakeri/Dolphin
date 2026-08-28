@@ -126,15 +126,23 @@ class PaymentCorrectionTests(TestCase):
         self.assertEqual(payment.status, Payment.Status.CANCELLED)
         self.assertEqual(current_balance(self.customer), Decimal("0.00"))
 
-    def test_bringing_a_cancelled_payment_back_posts_a_fresh_credit(self):
-        """The mirror of cancelling, and appended rather than un-erased."""
+    def test_a_cancelled_payment_cannot_be_confirmed_again(self):
+        """Cancelling is one-way; the document is recorded anew instead.
+
+        1.3.7 allowed the reverse and posted a fresh credit for it, which was
+        arithmetically sound and still the wrong thing to offer: an operator who
+        cancelled the wrong row could put it back leaving no trace but two
+        ledger lines, where re-recording leaves a document whose number says
+        when it was really entered.
+        """
         payment = self.receipt("600.00")
         update_payment(actor=self.admin, payment=payment, status=Payment.Status.CANCELLED)
-        update_payment(actor=self.admin, payment=payment, status=Payment.Status.CONFIRMED)
+        with self.assertRaises(BusinessRuleError):
+            update_payment(actor=self.admin, payment=payment, status=Payment.Status.CONFIRMED)
         payment.refresh_from_db()
-        self.assertEqual(payment.status, Payment.Status.CONFIRMED)
-        self.assertIsNone(payment.cancelled_at)
-        self.assertEqual(current_balance(self.customer), Decimal("-600.00"))
+        self.assertEqual(payment.status, Payment.Status.CANCELLED)
+        # And the reversal stands: the balance is not quietly restored.
+        self.assertEqual(current_balance(self.customer), Decimal("0.00"))
 
     def test_the_status_has_only_the_two_values_an_operator_decides(self):
         """«در انتظار وصول» is a cheque's business, not an operator's answer."""
@@ -146,8 +154,15 @@ class PaymentCorrectionTests(TestCase):
 
     # --- what a correction may not do --------------------------------------
 
-    def test_an_amount_below_what_is_already_allocated_is_refused_in_words(self):
-        """The database refuses this too, but only as a 500 nobody can act on."""
+    def test_reducing_the_amount_releases_the_allocations_that_no_longer_fit(self):
+        """Allocation is not compulsory, so a smaller amount is not refused.
+
+        Money may sit against the customer's account without being tied to any
+        invoice, which is the product owner's rule. So the surplus allocations
+        are released until what is left fits, through the same service a manual
+        release uses — the invoice's paid amount and settlement status are
+        restored, and the release is recorded rather than silently undone.
+        """
         warehouse = create_warehouse(actor=self.manager, code="fixwh", name="انبار")
         product = create_product(
             actor=self.manager, sku="FIX-1", name="کالا", current_price=Decimal("500.00")
@@ -171,10 +186,64 @@ class PaymentCorrectionTests(TestCase):
         )
         payment = self.receipt("500.00")
         allocate_payment(actor=self.manager, payment=payment, invoice=invoice)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.paid_amount, Decimal("500.00"))
 
-        with self.assertRaises(BusinessRuleError) as caught:
-            update_payment(actor=self.admin, payment=payment, amount=Decimal("100.00"))
-        self.assertIn("amount", caught.exception.detail)
+        update_payment(actor=self.admin, payment=payment, amount=Decimal("100.00"))
+
+        payment.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(payment.amount, Decimal("100.00"))
+        # The allocation went, so the invoice is owed again and the money now
+        # simply sits on the customer's account.
+        self.assertEqual(payment.allocated_amount, Decimal("0.00"))
+        self.assertEqual(invoice.paid_amount, Decimal("0.00"))
+        self.assertEqual(invoice.balance_due, invoice.total_amount)
+
+    def test_only_what_no_longer_fits_is_released(self):
+        """A release is per allocation, so the ones that still fit stay put."""
+        warehouse = create_warehouse(actor=self.manager, code="fitwh", name="انبار")
+        product = create_product(
+            actor=self.manager, sku="FIT-1", name="کالا", current_price=Decimal("200.00")
+        )
+        record_stock_movement(
+            actor=self.manager,
+            warehouse=warehouse,
+            product=product,
+            movement_type=StockMovement.MovementType.OPENING,
+            quantity=20,
+            unit_cost=Decimal("80.00"),
+        )
+
+        def issued():
+            return issue_invoice(
+                actor=self.manager,
+                invoice=create_invoice(
+                    actor=self.manager,
+                    customer=self.customer,
+                    warehouse=warehouse,
+                    items=[{"product": product, "quantity": 1}],
+                ),
+            )
+
+        first, second = issued(), issued()
+        payment = self.receipt("400.00")
+        allocate_payment(actor=self.manager, payment=payment, invoice=first)
+        allocate_payment(actor=self.manager, payment=payment, invoice=second)
+        payment.refresh_from_db()
+        self.assertEqual(payment.allocated_amount, Decimal("400.00"))
+
+        # 250 leaves room for one allocation of 200 but not for both.
+        update_payment(actor=self.admin, payment=payment, amount=Decimal("250.00"))
+
+        payment.refresh_from_db()
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(payment.allocated_amount, Decimal("200.00"))
+        # The newer one went; the earlier is the one the operator most likely
+        # still means, so it is kept.
+        self.assertEqual(first.paid_amount, Decimal("200.00"))
+        self.assertEqual(second.paid_amount, Decimal("0.00"))
 
     def test_a_receipt_cannot_be_left_with_no_customer(self):
         payment = self.receipt()

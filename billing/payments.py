@@ -716,18 +716,31 @@ def update_payment(*, actor, payment, cheque=None, **data):
     for field in ("received_at", "reference", "bank_name", "payee", "notes"):
         if field in data:
             setattr(locked, field, data[field])
+    released_for_amount = []
     if "amount" in data:
-        # A payment cannot be worth less than what has already been applied to
-        # invoices from it. The database says so too, and left to itself it says
-        # so as an IntegrityError — a 500 that tells the operator nothing. This
-        # is the same rule, said in words, before anything is written.
+        # Allocation is not compulsory: money may simply sit against the
+        # customer's account without being tied to any invoice. So a smaller
+        # amount does not have to be refused — the surplus allocations are
+        # released until what is left fits, and the payment keeps the rest.
+        #
+        # Newest first, because the earliest allocations are the ones the
+        # operator most likely still means. Released through
+        # `release_allocation`, so each invoice's paid amount and settlement
+        # status are restored the same way they would be by hand, and the
+        # release is recorded rather than silently undone.
         if data["amount"] < locked.allocated_amount:
-            raise BusinessRuleError({
-                "amount": (
-                    "Amount cannot be less than the part already allocated "
-                    f"({locked.allocated_amount}). Release an allocation first."
+            for allocation in (
+                locked.allocations.filter(is_reversed=False).order_by("-id")
+            ):
+                if locked.allocated_amount <= data["amount"]:
+                    break
+                release_allocation(
+                    actor=actor,
+                    allocation=allocation,
+                    reason="اصلاح مبلغ سند",
                 )
-            })
+                released_for_amount.append(allocation.pk)
+                locked.refresh_from_db()
         locked.amount = data["amount"]
 
     locked.save()
@@ -752,13 +765,18 @@ def update_payment(*, actor, payment, cheque=None, **data):
                 reference_number=locked.number,
             )
         _post_payment_credit(actor=actor, payment=locked)
-    elif not was_confirmed and target_status == Payment.Status.CONFIRMED:
-        # Bringing a cancelled document back. The mirror of cancelling: a fresh
-        # credit, appended rather than the reversal being erased.
-        locked.status = Payment.Status.CONFIRMED
-        locked.cancelled_at = None
-        locked.save(update_fields=["status", "cancelled_at", "updated_at"])
-        _post_payment_credit(actor=actor, payment=locked)
+    elif locked.status == Payment.Status.CANCELLED and target_status == Payment.Status.CONFIRMED:
+        # Cancelling is one-way, on the product owner's instruction: a document
+        # that was cancelled is recorded again, not revived.
+        #
+        # 1.3.7 allowed the reverse and posted a fresh credit for it. That was
+        # arithmetically sound and still the wrong thing to offer — an operator
+        # who cancelled the wrong row could put it back with no trace of the
+        # mistake except two ledger lines, while re-recording leaves a document
+        # whose number says when it was really entered.
+        raise BusinessRuleError({
+            "status": "A cancelled payment cannot be confirmed again. Record it anew."
+        })
 
     # --- the cheque's own details -------------------------------------------
     if cheque:
@@ -784,6 +802,7 @@ def update_payment(*, actor, payment, cheque=None, **data):
             "amount": str(locked.amount),
             "status": locked.status,
             "ledger_restated": bool(was_confirmed and money_moved),
+            "allocations_released": released_for_amount,
         },
     )
     return locked

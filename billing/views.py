@@ -435,7 +435,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
     #: 1.2.1 and the list already charts by it, but the endpoint refused to
     #: filter on it — so "show me only the money that went out" was a question
     #: the API could not answer about a column it stores.
-    list_query_parameters = {"customer", "status", "method", "direction"}
+    list_query_parameters = {"customer", "status", "method", "direction", "desk"}
     action_query_parameters = {"allocations": {"page"}}
 
     def get_queryset(self):
@@ -460,6 +460,31 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
             if direction not in Payment.Direction.values:
                 raise ValidationError({"direction": "Unknown direction."})
             queryset = queryset.filter(direction=direction)
+
+        # `desk` is what the two screens ask for, and it is not the same
+        # question as `direction`.
+        #
+        # A cheque taken in from a customer and later handed to someone else is
+        # **one document**, and it belongs on both desks: it is still the receipt
+        # that was recorded, and it is also money that has left. So the paying
+        # desk asks for disbursements *plus* the receipts whose cheque was spent.
+        #
+        # It is a second view of the same row, never a second row. Recording a
+        # disbursement for the endorsement would count the same money twice and
+        # would debit a customer for a cheque that was never ours — which is why
+        # `spend_received_cheque` creates nothing, and why this is a query rather
+        # than a document.
+        desk = self.request.query_params.get("desk")
+        if desk is not None:
+            if desk not in Payment.Direction.values:
+                raise ValidationError({"desk": "Unknown desk."})
+            if desk == Payment.Direction.DISBURSEMENT:
+                queryset = queryset.filter(
+                    Q(direction=Payment.Direction.DISBURSEMENT)
+                    | Q(cheque__status=Cheque.Status.SPENT)
+                )
+            else:
+                queryset = queryset.filter(direction=Payment.Direction.RECEIPT)
         method = self.request.query_params.get("method")
         if method is not None:
             if method not in Payment.Method.values:

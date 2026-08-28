@@ -4650,10 +4650,12 @@
     function paymentRow(payment) {
         const row = document.createElement("tr");
         appendCell(row, payment.number).dir = "ltr";
-        // No direction column since 1.3.6: each desk lists one direction, so a
-        // column repeating it on every row said nothing. The party column still
-        // falls back to the payee, because a disbursement often names no
-        // customer and the name it does carry is the useful one.
+        // The party. A disbursement often names no customer and records who was
+        // paid instead, so the payee is the fallback rather than a dash.
+        //
+        // An endorsed cheque shows the customer it came from on both desks,
+        // which is right: it is the same document, and that is whose cheque it
+        // was. Where it went is on the cheque itself.
         appendCell(row, payment.customer_name || payment.payee || "—");
         appendCell(row, labelled(PAYMENT_METHOD_TEXT, payment.method));
         appendMoneyCell(row, payment.amount);
@@ -4867,10 +4869,13 @@
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("payment-search").value.trim();
                 if (search) query.set("search", search);
-                // Each desk shows one direction. Without this the two pages
-                // would list the same rows under different titles.
+                // `desk`, not `direction`. A cheque taken in and later handed
+                // on is one document that belongs on both screens — still the
+                // receipt it was, and also money that has left — so the paying
+                // desk asks for a desk rather than for a direction. The server
+                // decides what that means; nothing here duplicates the rule.
                 query.set(
-                    "direction",
+                    "desk",
                     document.body.dataset.paymentDirection === "disbursement"
                         ? "disbursement"
                         : "receipt",
@@ -4921,7 +4926,16 @@
             // then the select simply carries no match, which is honest — the
             // status is not the operator's to set while the cheque decides it.
             const statusSelect = document.getElementById("payment-status");
-            if (statusSelect) statusSelect.value = payment.status;
+            if (statusSelect) {
+                statusSelect.value = payment.status;
+                // Cancelling is one-way. Once a document is cancelled it is
+                // recorded anew rather than revived, so «تأییدشده» is disabled
+                // instead of being offered and then refused by the server.
+                const confirmOption = statusSelect.querySelector('option[value="confirmed"]');
+                if (confirmOption) {
+                    confirmOption.disabled = payment.status === "cancelled";
+                }
+            }
 
             document.getElementById("payment-amount").value = money(payment.amount);
             document.getElementById("payment-received-at").value = displayDate(payment.received_at);
