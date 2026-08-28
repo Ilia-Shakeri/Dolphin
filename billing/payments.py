@@ -158,7 +158,15 @@ def _clean_text(value, *, field, limit):
 def register_payment(
     *,
     actor,
-    customer,
+    # Defaults to nobody, because since 1.2.1 a disbursement may legitimately
+    # name no customer and the model allows it. Without a default, a request
+    # that simply omitted the key reached this function and raised TypeError —
+    # a 500 where the rule it was breaking ("a receipt needs a customer") is
+    # checked a few lines below and answers 400 like every other rule here.
+    #
+    # Passing `customer=None` explicitly always worked; only the missing key
+    # crashed, which is exactly the shape a caller is most likely to send.
+    customer=None,
     method,
     amount,
     direction=Payment.Direction.RECEIPT,
@@ -442,8 +450,15 @@ def set_cheque_registration(*, actor, cheque, is_registered, reason=""):
     return locked
 
 
+@transaction.atomic
 def transition_cheque(*, actor, cheque, to_status, reason=""):
-    """Move a cheque along its lifecycle, crediting the account when it clears."""
+    """Move a cheque along its lifecycle, crediting the account when it clears.
+
+    Atomic because it writes four things — the cheque's status, a history row,
+    the payment underneath, and a ledger entry — and because it locks rows to do
+    it. Without the decorator PostgreSQL refuses the first lock outright, and
+    SQLite drops the lock and lets a half-finished transition survive a failure.
+    """
     actor = _lock_payment_manager(actor)
     locked = Cheque.objects.select_for_update().select_related("payment").get(pk=cheque.pk)
     if to_status not in Cheque.Status.values:

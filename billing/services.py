@@ -1065,6 +1065,7 @@ def reissue_invoice(*, actor, invoice, reason=""):
     return replacement
 
 
+@transaction.atomic
 def issue_invoice(*, actor, invoice):
     """Make an invoice final: snapshot cost, deduct stock, post to the ledger.
 

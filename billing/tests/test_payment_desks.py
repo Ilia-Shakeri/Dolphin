@@ -14,6 +14,7 @@ a second *view* of the same row, expressed as a query, and never a second row.
 from datetime import date
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.test import Client, TestCase
 
 from accounts.models import User
@@ -27,6 +28,11 @@ PASSWORD = "Strong-pass-937!"
 
 class PaymentDeskTests(TestCase):
     def setUp(self):
+        # Throttle buckets key by user id, and a rolled-back test hands the
+        # next one the same ids — so a request-heavy class inherits the previous
+        # one's spend and gets 429 where it expected 201. Every other such class
+        # in this suite clears it the same way.
+        cache.clear()
         self.manager = User.objects.create_user(
             username="desk.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
         )
@@ -113,6 +119,44 @@ class PaymentDeskTests(TestCase):
         )
         self.assertIn(payment.number, self.desk("receipt"))
         self.assertNotIn(payment.number, self.desk("disbursement"))
+
+    # --- a missing customer is a refusal, not a crash ----------------------
+
+    def test_a_receipt_with_no_customer_key_is_refused_not_a_server_error(self):
+        """Omitting the key entirely used to raise TypeError and answer 500.
+
+        `Payment.customer` became nullable in 1.2.1 so a disbursement could name
+        nobody, which stopped DRF requiring it — but `register_payment` still
+        took it as a mandatory keyword, so a request that simply left it out
+        never reached the rule that would have refused it politely.
+
+        Sending `{"customer": null}` always worked. Only the missing key broke,
+        which is the shape a caller is most likely to send.
+        """
+        response = self.client.post(
+            "/api/v1/payments/",
+            data='{"method":"cash","amount":"10.00"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400, response.content.decode())
+        self.assertIn("customer", response.json())
+
+    def test_an_explicit_null_customer_is_refused_the_same_way(self):
+        response = self.client.post(
+            "/api/v1/payments/",
+            data='{"customer":null,"method":"cash","amount":"10.00"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_disbursement_may_still_name_nobody(self):
+        """The reason the field became optional in the first place."""
+        response = self.client.post(
+            "/api/v1/payments/",
+            data='{"direction":"disbursement","method":"cash","amount":"10.00","payee":"هزینه"}',
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201, response.content.decode())
 
     # --- the parameter itself ----------------------------------------------
 

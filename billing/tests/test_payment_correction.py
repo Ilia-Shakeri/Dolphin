@@ -14,6 +14,7 @@ new accounting is invented; the two existing primitives are called in order.
 from datetime import date
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.test import Client, TestCase
 
 from accounts.models import User
@@ -32,6 +33,11 @@ PASSWORD = "Strong-pass-937!"
 
 class PaymentCorrectionTests(TestCase):
     def setUp(self):
+        # Throttle buckets key by user id, and a rolled-back test hands the
+        # next one the same ids — so a request-heavy class inherits the previous
+        # one's spend and gets 429 where it expected 201. Every other such class
+        # in this suite clears it the same way.
+        cache.clear()
         self.admin = User.objects.create_user(
             username="fix.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN
         )
