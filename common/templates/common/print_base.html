@@ -18,8 +18,13 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'common/brand/apple-touch-icon.png' %}">
     <link rel="manifest" href="{% static 'common/brand/site.webmanifest' %}">
-    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
-    <script src="{% static 'common/forooshbin-app.js' %}" defer></script>
+{% comment %} The version is appended so a release actually reaches a returning
+   reader. These two files are the ones this project changes; without a query
+   that moves, a browser holding yesterday's copy keeps using it after a deploy,
+   and the panel runs new markup against old CSS and old script. The vendor
+   bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
+    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}?v={{ forooshbin_version }}">
+    <script src="{% static 'common/forooshbin-app.js' %}?v={{ forooshbin_version }}" defer></script>
 {% endif %}
 </head>
 {% comment %} The printable document has no navigation and no controls beyond printing.

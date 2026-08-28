@@ -5813,7 +5813,78 @@
     // Any searchable select present in the served markup. A page that fills its
     // options later calls this again for its own block; binding twice is a
     // no-op, so neither has to know about the other.
+
+    /**
+     * The theme row in the user menu, and the small popup beside it.
+     *
+     * `KTThemeMode` already binds the three buttons and does the switching; it
+     * finds them by `data-kt-element` wherever they sit, so all that is left is
+     * showing and hiding the popup and keeping the row's own label current.
+     *
+     * Opened on hover and on click. Hover alone would strand a touch screen,
+     * where there is no hover at all, and a keyboard user who tabs to the row.
+     */
+    function setupThemeModePopup() {
+        const item = document.querySelector("[data-theme-mode-item]");
+        const trigger = document.getElementById("theme-mode-trigger");
+        const popup = document.getElementById("theme-mode-popup");
+        if (!item || !trigger || !popup) return;
+
+        let hideTimer = null;
+
+        function open() {
+            window.clearTimeout(hideTimer);
+            popup.hidden = false;
+            trigger.setAttribute("aria-expanded", "true");
+            // Which side has room is not knowable in advance: it depends on the
+            // window width and where the user menu ended up. Measure once, and
+            // flip only if the preferred side would put the popup off-screen.
+            popup.classList.remove("is-flipped");
+            const box = popup.getBoundingClientRect();
+            if (box.left < 0 || box.right > window.innerWidth) {
+                popup.classList.add("is-flipped");
+            }
+        }
+
+        function close(delay = 0) {
+            window.clearTimeout(hideTimer);
+            hideTimer = window.setTimeout(() => {
+                popup.hidden = true;
+                trigger.setAttribute("aria-expanded", "false");
+            }, delay);
+        }
+
+        item.addEventListener("mouseenter", open);
+        item.addEventListener("mouseleave", () => close(180));
+        trigger.addEventListener("click", (event) => {
+            event.preventDefault();
+            if (popup.hidden) open();
+            else close();
+        });
+
+        // Choosing a mode closes the popup and updates the row. The switching
+        // itself is KTThemeMode's; this only reacts to it.
+        popup.querySelectorAll("[data-kt-element='mode']").forEach((button) => {
+            // The row's own icon follows `data-bs-theme` through the theme's
+            // CSS, so nothing here has to update it.
+            button.addEventListener("click", () => close(120));
+        });
+
+        // A click anywhere else, and Escape, both dismiss it.
+        document.addEventListener("click", (event) => {
+            if (!item.contains(event.target)) close();
+        });
+        item.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                close();
+                trigger.focus();
+            }
+        });
+
+    }
+
     setupSearchableSelects();
+    setupThemeModePopup();
 
     // Any page that declares a chart card gets one, whichever page it is.
     setupListCharts();

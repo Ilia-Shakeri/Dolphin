@@ -117,6 +117,34 @@ class SidebarCollapseStyleTests(SimpleTestCase):
             r'[^}]*display: none !important',
         )
 
+    def test_the_width_transition_is_off_so_the_toggle_actually_resizes(self):
+        """The collapse did nothing until the next page load, and this is why.
+
+        The sidebar's width is `var(--bs-app-sidebar-width)`, and the toggle
+        changes that custom property rather than the `width` declaration.
+        Chromium will not re-apply a width that resolves through `var()` while a
+        transition on `width` is armed: measured live, the variable moved 265px
+        to 75px on every click while the box stayed at 265px. The theme declares
+        that transition inside its own collapsed rule, so the selector is
+        repeated here to outrank it.
+        """
+        self.assertRegex(
+            self.css,
+            r'\.app-sidebar,\s*\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{'
+            r"[^}]*transition: none",
+        )
+
+    def test_the_brand_mark_has_an_explicit_auto_height(self):
+        """Without it the collapsed logo renders as a 1230px-tall sliver.
+
+        The markup carries `width="1278" height="1230"` so the browser can
+        reserve the box before the file arrives. Setting only a CSS width leaves
+        that height attribute in force — which is what «لوگوی ریز نشان داده
+        نمی‌شود» actually was: it was being drawn, one column wide and taller
+        than the screen.
+        """
+        self.assertRegex(self.css, r"\.brand-mark \{[^}]*height: auto")
+
     def test_the_mobile_rule_outranks_the_themes_button_classes(self):
         """`.btn.btn-icon` is two classes; a single-class rule loses to it and
         the toggle stays on screen in drawer mode."""

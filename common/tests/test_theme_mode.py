@@ -66,12 +66,53 @@ class ThemeModeMarkupTests(TestCase):
         refuses those outright, and in a real browser each click also pushed a
         `#` onto the URL, which is what broke the navigation tests.
         """
+        import re
+
         for value in ("light", "dark", "system"):
-            self.assertIn(
-                f'<button type="button" class="menu-link px-5 w-100 text-start '
-                f'border-0 bg-transparent" data-kt-element="mode" data-kt-value="{value}">',
-                self.markup,
+            # The element type and its two data attributes are the contract;
+            # the utility classes on it are presentation and may change.
+            pattern = (
+                r'<button[^>]*data-kt-element="mode"[^>]*data-kt-value="' + value + r'"'
             )
+            self.assertRegex(self.markup, pattern)
+            self.assertNotRegex(
+                self.markup,
+                r'<a[^>]*data-kt-element="mode"[^>]*data-kt-value="' + value + r'"',
+            )
+
+    def test_the_three_modes_sit_behind_one_row(self):
+        """One entry that says «حالت», with the choice in a popup beside it."""
+        self.assertIn("data-theme-mode-item", self.markup)
+        self.assertIn('id="theme-mode-trigger"', self.markup)
+        self.assertIn('id="theme-mode-popup"', self.markup)
+        self.assertIn(">حالت<", self.markup)
+
+    def test_the_row_says_which_theme_is_on_without_script(self):
+        """The trigger carries both icons; the theme's CSS picks one from
+        `data-bs-theme`, so it is right on the very first frame."""
+        trigger = self.markup[
+            self.markup.index('id="theme-mode-trigger"') : self.markup.index('id="theme-mode-popup"')
+        ]
+        self.assertIn("theme-light-show", trigger)
+        self.assertIn("theme-dark-show", trigger)
+
+    def test_the_popup_states_its_own_display(self):
+        """It carries the theme's `.menu-sub`, which is `display: none` until
+        KTMenu adds `.show`. Nothing adds `.show` here — this project's script
+        opens it — so without an explicit display it stayed 0x0 forever."""
+        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".theme-mode-popup { display: block; }", css)
+        self.assertIn(".theme-mode-popup[hidden] { display: none; }", css)
+
+    def test_the_popup_can_flip_to_whichever_side_has_room(self):
+        """The user menu sits against one edge, so the preferred side is not
+        always the one with space."""
+        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(".theme-mode-popup.is-flipped", css)
 
     def test_the_button_reports_the_current_theme(self):
         """Two icons, one shown, decided by the theme's own CSS from the

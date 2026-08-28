@@ -18,7 +18,12 @@
    Persian IRANSans face from `fonts/`. {% endcomment %}
     <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}">
-    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
+{% comment %} The version is appended so a release actually reaches a returning
+   reader. These two files are the ones this project changes; without a query
+   that moves, a browser holding yesterday's copy keeps using it after a deploy,
+   and the panel runs new markup against old CSS and old script. The vendor
+   bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
+    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}?v={{ forooshbin_version }}">
 {% comment %} The theme is applied before the stylesheets get a chance to paint.
 
    `KTThemeMode` sets `data-bs-theme` itself, but it runs on DOMContentLoaded —
@@ -151,33 +156,59 @@
    `.active` is placed by KTThemeMode on load, from the stored choice. It is not
    rendered server-side because the answer depends on `localStorage`, which the
    server cannot see. {% endcomment %}
-                                <div class="menu-item px-5 pt-1 pb-2">
-                                    <span class="menu-content text-muted fw-semibold fs-8 px-5">پوسته</span>
-                                </div>
-                                <div data-kt-menu="true" data-kt-element="theme-mode-menu">
-                                    <div class="menu-item px-5">
-                                        <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="light">
-                                            <span class="menu-icon" data-kt-element="icon">
-                                                <i class="ki-duotone ki-night-day fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span><span class="path6"></span><span class="path7"></span><span class="path8"></span><span class="path9"></span><span class="path10"></span></i>
-                                            </span>
-                                            <span class="menu-title">روشن</span>
-                                        </button>
-                                    </div>
-                                    <div class="menu-item px-5">
-                                        <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="dark">
-                                            <span class="menu-icon" data-kt-element="icon">
-                                                <i class="ki-duotone ki-moon fs-4"><span class="path1"></span><span class="path2"></span></i>
-                                            </span>
-                                            <span class="menu-title">تاریک</span>
-                                        </button>
-                                    </div>
-                                    <div class="menu-item px-5">
-                                        <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="system">
-                                            <span class="menu-icon" data-kt-element="icon">
-                                                <i class="ki-duotone ki-screen fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
-                                            </span>
-                                            <span class="menu-title">سیستم</span>
-                                        </button>
+{% comment %} One row, and a small popup beside it.
+
+   The three modes used to sit flat in this menu, which made the user menu long
+   and gave the current theme no summary. Now the row says which theme is on,
+   and hovering or clicking it opens the choice next to it.
+
+   It is opened by this project's own CSS and a few lines of script rather than
+   by KTMenu: KTMenu positions a submenu with Popper, which lives in the 3.5 MB
+   plugins bundle this deployment does not load. `KTThemeMode` does not care
+   where the items are — it binds anything carrying `data-kt-element="mode"` —
+   so the popup is free to be plain markup.
+
+   Hover opens it on a pointer; click opens it too, so a touch screen and a
+   keyboard both reach it. {% endcomment %}
+                                <div class="menu-item px-5 theme-mode-item" data-theme-mode-item>
+                                    <button type="button" class="menu-link px-5 w-100 text-start border-0 bg-transparent d-flex align-items-center"
+                                            id="theme-mode-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="theme-mode-popup">
+                                        <span class="menu-title">حالت</span>
+{% comment %} The current theme's own icon, at the far edge of the row — the
+   theme's `theme-light-show` / `theme-dark-show` rules pick which of the two is
+   drawn, so the row reports the active theme without any script and is correct
+   on the first frame. {% endcomment %}
+                                        <span class="menu-icon ms-auto me-0">
+                                            <i class="ki-duotone ki-night-day theme-light-show fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span><span class="path6"></span><span class="path7"></span><span class="path8"></span><span class="path9"></span><span class="path10"></span></i>
+                                            <i class="ki-duotone ki-moon theme-dark-show fs-4"><span class="path1"></span><span class="path2"></span></i>
+                                        </span>
+                                    </button>
+                                    <div class="theme-mode-popup menu menu-sub menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-primary fw-semibold py-2 fs-7"
+                                         id="theme-mode-popup" data-kt-menu="true" data-kt-element="theme-mode-menu" hidden>
+                                        <div class="menu-item px-3">
+                                            <button type="button" class="menu-link px-3 py-2 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="light">
+                                                <span class="menu-icon" data-kt-element="icon">
+                                                    <i class="ki-duotone ki-night-day fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span><span class="path6"></span><span class="path7"></span><span class="path8"></span><span class="path9"></span><span class="path10"></span></i>
+                                                </span>
+                                                <span class="menu-title">روشن</span>
+                                            </button>
+                                        </div>
+                                        <div class="menu-item px-3">
+                                            <button type="button" class="menu-link px-3 py-2 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="dark">
+                                                <span class="menu-icon" data-kt-element="icon">
+                                                    <i class="ki-duotone ki-moon fs-4"><span class="path1"></span><span class="path2"></span></i>
+                                                </span>
+                                                <span class="menu-title">تاریک</span>
+                                            </button>
+                                        </div>
+                                        <div class="menu-item px-3">
+                                            <button type="button" class="menu-link px-3 py-2 w-100 text-start border-0 bg-transparent" data-kt-element="mode" data-kt-value="system">
+                                                <span class="menu-icon" data-kt-element="icon">
+                                                    <i class="ki-duotone ki-screen fs-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>
+                                                </span>
+                                                <span class="menu-title">سیستم</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="separator my-2"></div>
@@ -499,6 +530,6 @@
    assigned further down the same file. A body-end script still sees
    readyState "loading", so every module registers a real listener instead. {% endcomment %}
 <script src="{% static 'js/scripts.bundle.js' %}"></script>
-<script src="{% static 'common/forooshbin-app.js' %}" defer></script>
+<script src="{% static 'common/forooshbin-app.js' %}?v={{ forooshbin_version }}" defer></script>
 </body>
 </html>

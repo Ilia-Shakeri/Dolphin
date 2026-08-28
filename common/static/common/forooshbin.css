@@ -57,6 +57,12 @@ dialog::backdrop {
 .brand-mark {
     display: block;
     width: auto;
+    /* The markup carries `width="1278" height="1230"` so the browser can reserve
+       the right box before the file arrives. Setting only a CSS width leaves the
+       height attribute in force, and the mark renders as a 1230px-tall sliver —
+       which is what «لوگوی ریز نشان داده نمی‌شود» actually was: it was being
+       drawn, one column of pixels wide and taller than the screen. */
+    height: auto;
     object-fit: contain;
 }
 
@@ -101,6 +107,35 @@ dialog::backdrop {
 
 [data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-default { display: none !important; }
 [data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-minimize { display: block !important; }
+
+/* The sidebar never re-sized when the toggle was clicked. It kept whatever
+   width the page had been served with, and only a reload showed the change —
+   so collapsing appeared to do nothing but hide the menu labels.
+
+   The cause is the width transition, and the reason is specific: the sidebar's
+   width is `var(--bs-app-sidebar-width)`, and the toggle changes that custom
+   property rather than the `width` declaration itself. Chromium will not
+   re-apply a `width` that resolves through `var()` while a transition on
+   `width` is armed — the variable updates, the used width does not follow, and
+   nothing animates either. Measured in a live page: the variable moved 265px to
+   75px on every click while the box stayed at 265px, and switching the
+   transition off made the same clicks work immediately.
+
+   So the transition goes. The collapse is instant now, which is the right trade:
+   a sidebar that moves at once is better than an animation that never runs. The
+   theme's own declaration lives inside its `[data-kt-app-sidebar-minimize=on]`
+   rule and is two classes' worth of weight, so that selector is repeated here
+   to outrank it.
+
+   Scoped to the breakpoint where a collapsible sidebar exists at all. Below it
+   the sidebar is a drawer that slides on `transform`, and that animation is
+   untouched. */
+@media (min-width: 992px) {
+    .app-sidebar,
+    [data-kt-app-sidebar-minimize="on"] .app-sidebar {
+        transition: none;
+    }
+}
 
 /* Lets the rail actually reach its width instead of being propped open by
    whatever is widest inside it. A flex item defaults to `min-width: auto`,
@@ -455,6 +490,67 @@ textarea:focus-visible,
 .searchable-select-empty {
     padding: 0.5rem 0.75rem;
     color: var(--bs-gray-500);
+}
+
+/* Theme popup -----------------------------------------------------------------
+   One row in the user menu that opens the three choices beside it. Positioned
+   here rather than by KTMenu, whose submenu placement needs Popper — and Popper
+   is in the plugins bundle this deployment does not load.
+
+   It opens to the inline-start edge of the row, which under RTL puts it to the
+   left of the menu, away from the screen edge the user menu is already against. */
+.theme-mode-item { position: relative; }
+
+/* `display` is stated here because the popup carries the theme's `.menu-sub`,
+   which is `display: none` until KTMenu adds `.show`. Nothing adds `.show`
+   here — the popup is opened by this project's own script — so without these
+   two rules it stayed 0x0 no matter what the script did. The `[hidden]` pair
+   keeps the attribute meaningful now that `display` is set explicitly. */
+.theme-mode-popup { display: block; }
+.theme-mode-popup[hidden] { display: none; }
+
+.theme-mode-popup {
+    position: absolute;
+    z-index: 110;
+    top: -0.5rem;
+    /* `inset-inline-start`, not `-end`. Under RTL the inline start is the right
+       edge, so insetting the start by the full width pushes the popup out to
+       the left of the menu — which is the side with room, the user menu itself
+       being against the right edge of the window. Using `-end` put it on the
+       right, on top of the page. */
+    inset-inline-start: 100%;
+    width: 11rem;
+    background-color: var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-200);
+    border-radius: 0.475rem;
+    box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.18);
+}
+
+/* The gap between the row and the popup would otherwise end the hover and close
+   it before the pointer arrived. */
+/* The other side, when the first one runs off the window. Which side has room
+   depends on where the user menu sits and how wide the window is, so it is
+   measured once on open rather than assumed. */
+.theme-mode-popup.is-flipped {
+    inset-inline-start: auto;
+    inset-inline-end: 100%;
+}
+
+.theme-mode-popup .menu-link.active {
+    background-color: var(--bs-primary);
+    color: #ffffff;
+}
+
+/* Below the breakpoint the user menu is already narrow and near the edge, so
+   the popup drops underneath the row instead of beside it. */
+@media (max-width: 575.98px) {
+    .theme-mode-popup {
+        position: static;
+        inset-inline-start: auto;
+        width: auto;
+        margin-top: 0.35rem;
+        box-shadow: none;
+    }
 }
 
 /* Anything else focusable — links, buttons, menu entries, table row actions —
