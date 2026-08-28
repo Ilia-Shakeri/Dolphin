@@ -3516,6 +3516,135 @@
         return text === "" ? null : text;
     }
 
+    /**
+     * Make one `[data-searchable-select]` block usable by typing.
+     *
+     * The real `<select>` stays in the DOM, keeps the value, and is what
+     * submits — this only filters what is offered and writes the choice back to
+     * it. Nothing downstream needs to know the search box exists: `FormData`,
+     * the tests, and every `.value` read in this file all keep working, and if
+     * this function never ran the select is still a usable control.
+     *
+     * That is the whole reason it is built this way. A widget that *replaced*
+     * the select would have to keep a copy of the value, and a copy that drifts
+     * shows the operator a name that is not what will be recorded.
+     *
+     * The options are re-read from the select on every open, so the list that
+     * `fillSelect` writes after the API returns is picked up without this
+     * needing to be told about it.
+     */
+    function setupSearchableSelect(root) {
+        const input = root.querySelector("[data-searchable-input]");
+        const select = root.querySelector("[data-searchable-source]");
+        const list = root.querySelector(".searchable-select-options");
+        if (!input || !select || !list) return;
+
+        let active = -1;
+
+        // The swap happens here rather than in the markup, and that is the
+        // whole point of building it this way: until this line runs the page
+        // carries a working `<select>`, so a script that fails to load leaves a
+        // usable control behind instead of an invisible one.
+        input.hidden = false;
+        select.hidden = true;
+
+        const options = () =>
+            Array.from(select.options).filter((option) => option.value !== "");
+
+        function close() {
+            list.hidden = true;
+            input.setAttribute("aria-expanded", "false");
+            active = -1;
+        }
+
+        function choose(option) {
+            select.value = option.value;
+            // Only the name, once chosen — not "name — id" or the raw row.
+            input.value = option.textContent;
+            // Anything listening to the select (a dependent field, a reload)
+            // hears the same event it would from a real selection.
+            select.dispatchEvent(new Event("change", {bubbles: true}));
+            close();
+        }
+
+        function render(term) {
+            const needle = term.trim().toLowerCase();
+            const matches = options().filter((option) =>
+                option.textContent.toLowerCase().includes(needle),
+            );
+            list.replaceChildren();
+            if (!matches.length) {
+                const empty = document.createElement("li");
+                empty.className = "searchable-select-empty";
+                empty.textContent = select.options.length > 1 ? "چیزی پیدا نشد." : "در حال دریافت…";
+                list.append(empty);
+            } else {
+                matches.slice(0, 50).forEach((option, index) => {
+                    const row = document.createElement("li");
+                    row.textContent = option.textContent;
+                    row.setAttribute("role", "option");
+                    row.setAttribute("aria-selected", String(index === active));
+                    // `mousedown`, not `click`: the input's `blur` fires first
+                    // and would close the list before a click ever landed.
+                    row.addEventListener("mousedown", (event) => {
+                        event.preventDefault();
+                        choose(option);
+                    });
+                    list.append(row);
+                });
+            }
+            list.hidden = false;
+            input.setAttribute("aria-expanded", "true");
+        }
+
+        input.addEventListener("input", () => {
+            // Typing after a choice means the choice is being changed, so the
+            // stale value must not survive into the submission.
+            select.value = "";
+            active = -1;
+            render(input.value);
+        });
+        input.addEventListener("focus", () => render(input.value));
+        input.addEventListener("blur", () => window.setTimeout(close, 120));
+
+        input.addEventListener("keydown", (event) => {
+            const rows = Array.from(list.querySelectorAll("li[role='option']"));
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                if (list.hidden) render(input.value);
+                active += event.key === "ArrowDown" ? 1 : -1;
+                if (active < 0) active = rows.length - 1;
+                if (active >= rows.length) active = 0;
+                rows.forEach((row, index) => {
+                    row.setAttribute("aria-selected", String(index === active));
+                    if (index === active) row.scrollIntoView({block: "nearest"});
+                });
+            } else if (event.key === "Enter") {
+                if (!list.hidden && rows[active]) {
+                    event.preventDefault();
+                    const matches = options().filter((option) =>
+                        option.textContent.toLowerCase().includes(input.value.trim().toLowerCase()),
+                    );
+                    if (matches[active]) choose(matches[active]);
+                }
+            } else if (event.key === "Escape") {
+                close();
+            }
+        });
+
+        // A value already on the select (a preselected party) shows as its name.
+        const preselected = select.selectedOptions[0];
+        if (preselected && preselected.value) input.value = preselected.textContent;
+    }
+
+    function setupSearchableSelects(root = document) {
+        root.querySelectorAll("[data-searchable-select]").forEach((block) => {
+            if (block.dataset.searchableBound === "1") return;
+            block.dataset.searchableBound = "1";
+            setupSearchableSelect(block);
+        });
+    }
+
     async function loadCustomerOptions(select, emptyLabel) {
         if (!select) return [];
         const rows = await loadAllPages("/api/v1/customers/?ordering=full_name");
@@ -4521,17 +4650,13 @@
     function paymentRow(payment) {
         const row = document.createElement("tr");
         appendCell(row, payment.number).dir = "ltr";
-        // Since 1.2.1 this list carries money going both ways, and nothing in
-        // the row said which — a disbursement was indistinguishable from a
-        // receipt except by opening it.
-        appendCell(row, payment.direction_display || labelled(PAYMENT_DIRECTION_TEXT, payment.direction));
-        // A receipt names a customer; a disbursement often names no customer at
-        // all and records who was paid instead. Showing only the customer left
-        // the row blank for money that has a perfectly good payee on it.
+        // No direction column since 1.3.6: each desk lists one direction, so a
+        // column repeating it on every row said nothing. The party column still
+        // falls back to the payee, because a disbursement often names no
+        // customer and the name it does carry is the useful one.
         appendCell(row, payment.customer_name || payment.payee || "—");
         appendCell(row, labelled(PAYMENT_METHOD_TEXT, payment.method));
         appendMoneyCell(row, payment.amount);
-        appendMoneyCell(row, payment.allocated_amount);
         appendStatusBadgeCell(row, PAYMENT_STATUS_TEXT, payment.status);
         appendCell(row, displayDate(payment.received_at));
         appendDetailLink(row, `/payments/${payment.id}/`);
@@ -4550,16 +4675,18 @@
             const chequeNote = document.getElementById("create-payment-cheque-note");
             const modeButtons = Array.from(createForm.querySelectorAll("[data-payment-mode]"));
 
-            // What the reference column is called depends on the method. It is
-            // one field on the record because it is one idea - the number this
-            // receipt is traceable by - but "شماره رسید" and "شماره پیگیری"
-            // are not interchangeable words to the person typing it.
-            const REFERENCE_LABELS = {
-                cash: "شماره رسید",
-                bank_transfer: "شماره پیگیری",
-                cheque: "شماره مرجع",
-                card: "شماره پیگیری",
-            };
+            // Which direction this desk records. It is fixed by the page, not
+            // chosen on the form: a receipt desk files receipts. Asking again
+            // only ever let someone file a document in the wrong ledger from
+            // the right screen.
+            const direction = document.body.dataset.paymentDirection === "disbursement"
+                ? "disbursement"
+                : "receipt";
+            const referenceField = createForm.querySelector('[data-payment-field="reference"]');
+            const chequeSourceRow = createForm.querySelector('[data-payment-field="cheque-source"]');
+            const chequeSource = document.getElementById("create-cheque-source");
+            const existingChequeRow = document.getElementById("create-cheque-existing");
+            const newChequeFields = document.getElementById("create-cheque-new-fields");
 
             function selectMode(method) {
                 methodField.value = method;
@@ -4572,57 +4699,44 @@
                 bankFields.hidden = method !== "bank_transfer";
                 chequeFields.hidden = method !== "cheque";
                 if (chequeNote) chequeNote.hidden = method !== "cheque";
-                const label = createForm.querySelector("[data-reference-label]");
-                if (label) label.textContent = REFERENCE_LABELS[method] || REFERENCE_LABELS.cash;
+                // A reference number exists on a transfer and nowhere else. Cash
+                // handed over has none, and a cheque is identified by its own
+                // serial rather than by a tracking code.
+                if (referenceField) referenceField.hidden = method !== "bank_transfer";
+                // Only a disbursement can hand on a cheque already taken in.
+                if (chequeSourceRow) {
+                    chequeSourceRow.hidden = !(method === "cheque" && direction === "disbursement");
+                }
+                applyChequeSource();
                 clearMessages(createForm);
             }
+
+            // «چک مشتری» spends an instrument already recorded, so the only
+            // thing to ask for is which one. «چک تازه» writes a new one and
+            // needs its details.
+            function applyChequeSource() {
+                const spending =
+                    direction === "disbursement" &&
+                    methodField.value === "cheque" &&
+                    chequeSource &&
+                    chequeSource.value === "customer_endorsed";
+                if (existingChequeRow) existingChequeRow.hidden = !spending;
+                if (newChequeFields) {
+                    newChequeFields.hidden = methodField.value !== "cheque" || spending;
+                }
+                if (chequeNote) {
+                    chequeNote.hidden = methodField.value !== "cheque" || spending;
+                }
+            }
+
+            if (chequeSource) chequeSource.addEventListener("change", applyChequeSource);
 
             modeButtons.forEach((button) => {
                 button.addEventListener("click", () => selectMode(button.dataset.paymentMode));
             });
 
-            // Direction sits above the method, because it changes what the form
-            // is asking for: a receipt names the customer money came from, a
-            // disbursement names whoever was paid. The customer stays available
-            // on a disbursement rather than being removed, because one may still
-            // concern a customer - and when it does, it posts to that customer's
-            // ledger as a debit.
-            const directionField = document.getElementById("create-payment-direction");
-            const directionButtons = Array.from(
-                createForm.querySelectorAll("[data-payment-direction]")
-            );
-
-            function selectDirection(direction) {
-                directionField.value = direction;
-                const receipt = direction === "receipt";
-                directionButtons.forEach((button) => {
-                    const active = button.dataset.paymentDirection === direction;
-                    button.classList.toggle("btn-primary", active);
-                    button.classList.toggle("btn-light", !active);
-                    button.setAttribute("aria-pressed", String(active));
-                });
-                const payeeField = createForm.querySelector('[data-payment-field="payee"]');
-                if (payeeField) payeeField.hidden = receipt;
-                const chequeSource = createForm.querySelector('[data-payment-field="cheque-source"]');
-                if (chequeSource) chequeSource.hidden = receipt;
-                const customerLabel = createForm.querySelector("[data-customer-label]");
-                if (customerLabel) {
-                    // On a disbursement the customer means "who this concerns",
-                    // not "who paid", and is optional.
-                    customerLabel.textContent = receipt
-                        ? "مشتری"
-                        : "مشتری مرتبط (اختیاری)";
-                }
-                clearMessages(createForm);
-            }
-
-            directionButtons.forEach((button) => {
-                button.addEventListener("click", () =>
-                    selectDirection(button.dataset.paymentDirection),
-                );
-            });
-            selectDirection("receipt");
             selectMode("cash");
+            setupSearchableSelects(createForm);
 
             document.getElementById("open-create-payment").addEventListener("click", () => dialog.showModal());
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
@@ -4631,21 +4745,57 @@
                 withSubmit(createForm, async () => {
                     const data = new FormData(createForm);
                     const method = String(data.get("method"));
-                    const direction = String(data.get("direction") || "receipt");
                     const chosenCustomer = String(data.get("customer") || "");
+                    const spendingExisting =
+                        direction === "disbursement" &&
+                        method === "cheque" &&
+                        chequeSource &&
+                        chequeSource.value === "customer_endorsed";
+
+                    // Handing on a cheque already recorded is not a new payment.
+                    // It is the same instrument moving, so it goes to the spend
+                    // endpoint — creating a second document here would count the
+                    // same money twice everywhere it is summed.
+                    if (spendingExisting) {
+                        const chequeId = String(data.get("cheque_existing") || "");
+                        if (!chequeId) {
+                            const slot = createForm.querySelector('[data-error-for="cheque_existing"]');
+                            if (slot) slot.textContent = "یک چک را انتخاب کنید.";
+                            return;
+                        }
+                        const payee = chosenCustomer
+                            ? (document.getElementById("create-payment-customer-search").value || "")
+                            : "";
+                        await apiRequest(`/api/v1/cheques/${chequeId}/spend/`, {
+                            method: "POST",
+                            body: {payee, reason: String(data.get("notes") || "")},
+                        });
+                        window.location.assign("/disbursements/");
+                        return;
+                    }
+
                     const payload = {
                         method,
                         direction,
                         amount: moneyValue(data.get("amount")),
-                        reference: String(data.get("reference") || ""),
                         notes: String(data.get("notes") || ""),
                     };
+                    // A reference exists on a transfer and nowhere else, so it
+                    // is only sent from there — a value left over from another
+                    // method would otherwise be filed against cash.
+                    if (method === "bank_transfer") {
+                        payload.reference = String(data.get("reference") || "");
+                    }
                     // Omitted rather than null when a disbursement names nobody:
                     // the field is optional there, and sending an empty value is
                     // a different claim from not sending one.
                     if (chosenCustomer) payload.customer = Number(chosenCustomer);
                     if (direction === "disbursement") {
-                        payload.payee = String(data.get("payee") || "");
+                        // The party is one field on this form. On a disbursement
+                        // the name typed into it is who was paid.
+                        payload.payee =
+                            document.getElementById("create-payment-customer-search").value.trim() ||
+                            "گیرنده";
                     }
                     // Blank means "today" on the server, which is what an
                     // operator recording a receipt as it happens expects.
@@ -4657,7 +4807,6 @@
                     // from a previous mode would otherwise be submitted.
                     if (method === "bank_transfer") {
                         payload.bank_name = String(data.get("bank_name") || "");
-                        payload.bank_account = String(data.get("bank_account") || "");
                     }
                     if (method === "cheque") {
                         payload.cheque = {
@@ -4665,12 +4814,16 @@
                             bank_account: String(data.get("cheque_bank_account") || ""),
                             branch_name: String(data.get("cheque_branch_name") || ""),
                             serial_number: String(data.get("cheque_serial_number") || ""),
-                            account_holder: String(data.get("cheque_account_holder") || ""),
                             due_date: apiDate(data.get("cheque_due_date")) || "",
+                            registered_on: apiDate(data.get("cheque_registered_on")) || null,
+                            // Always unregistered on arrival, whichever desk
+                            // wrote it. Both axes are moved by hand from the
+                            // cheque page and nowhere else, so this form cannot
+                            // put an instrument into a state nobody chose.
+                            is_registered: false,
                         };
-                        // Only a disbursement cheque has a source to record.
                         if (direction === "disbursement") {
-                            payload.cheque.source = String(data.get("cheque_source") || "own");
+                            payload.cheque.source = "own";
                         }
                     }
                     const payment = await apiRequest(createForm.action, {method: "POST", body: payload});
@@ -4679,7 +4832,31 @@
             });
         }
         try {
-            await loadCustomerOptions(document.getElementById("create-payment-customer"), "یک مشتری انتخاب کنید");
+            await loadCustomerOptions(
+                document.getElementById("create-payment-customer"),
+                document.body.dataset.paymentDirection === "disbursement"
+                    ? "یک گیرنده انتخاب کنید"
+                    : "یک مشتری انتخاب کنید",
+            );
+            // The cheques this desk may hand on: taken in from a customer and
+            // still waiting. A cleared one is spent money and a spent one is
+            // already gone, so neither is offered — the same rule the service
+            // enforces, asked of the API rather than restated here.
+            const existing = document.getElementById("create-cheque-existing-id");
+            if (existing) {
+                const rows = await loadAllPages(
+                    "/api/v1/cheques/?status=pending&ordering=due_date",
+                );
+                fillSelect(
+                    existing,
+                    rows.filter((row) => row.source !== "own"),
+                    (row) =>
+                        `${row.serial_number} — ${row.bank_name} — ${money(row.amount)}` +
+                        (row.customer_name ? ` — ${row.customer_name}` : ""),
+                    "یک چک انتخاب کنید",
+                );
+            }
+            setupSearchableSelects(document.getElementById("create-payment-form") || document);
         } catch (error) {
             showError(error);
         }
@@ -4690,8 +4867,14 @@
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("payment-search").value.trim();
                 if (search) query.set("search", search);
-                const status = document.getElementById("payment-status-filter").value;
-                if (status) query.set("status", status);
+                // Each desk shows one direction. Without this the two pages
+                // would list the same rows under different titles.
+                query.set(
+                    "direction",
+                    document.body.dataset.paymentDirection === "disbursement"
+                        ? "disbursement"
+                        : "receipt",
+                );
                 const method = document.getElementById("payment-method-filter").value;
                 if (method) query.set("method", method);
                 query.set("ordering", document.getElementById("payment-ordering").value);
@@ -4977,52 +5160,112 @@
                 appendMoneyCell(row, cheque.amount);
                 appendCell(row, displayDay(cheque.due_date));
                 appendStatusBadgeCell(row, CHEQUE_STATUS_TEXT, cheque.status);
+                // حالت is the other axis and gets its own column, because a
+                // reader scanning for unregistered cheques should not have to
+                // open each one to find out.
+                appendStatusBadgeCell(
+                    row,
+                    CHEQUE_REGISTRATION_TEXT,
+                    String(Boolean(cheque.is_registered)),
+                );
+
+                // --- وضعیت: one button per destination ----------------------
+                //
+                // Four buttons rather than a dropdown behind a «تغییر وضعیت»
+                // button. The four are the whole vocabulary of this axis, so
+                // naming them costs one row of the table and saves two clicks
+                // and a guess every time.
+                //
+                // A destination the status graph refuses is shown disabled
+                // rather than hidden: a button that appears and disappears as
+                // rows change state reads as a rendering fault, and the reader
+                // learns nothing about why it cannot be pressed. The server
+                // refuses the same jumps regardless — this only spares the trip.
                 const actions = document.createElement("td");
                 actions.className = "row-actions";
-
-                // Endorsing a cheque onward is its own action rather than one
-                // more entry in the status dropdown, because it needs a second
-                // answer the others do not: who it went to.
-                if (cheque.status === "pending" && spendDialog) {
-                    const spend = document.createElement("button");
-                    spend.type = "button";
-                    spend.className = "btn btn-sm btn-light";
-                    spend.textContent = "خرج کردن";
-                    spend.addEventListener("click", () => {
-                        spendingCheque = cheque;
-                        document.getElementById("spend-cheque-payee").value = "";
-                        document.getElementById("spend-cheque-reason").value = "";
-                        clearMessages(spendForm);
-                        spendDialog.showModal();
-                    });
-                    actions.appendChild(spend);
-                }
-
                 const allowed = CHEQUE_TRANSITIONS[cheque.status] || [];
-                if (allowed.length && dialog) {
+
+                [
+                    ["bounced", "برگشت"],
+                    ["spent", "خرج کردن"],
+                    ["cleared", "وصول"],
+                    ["pending", "در انتظار"],
+                ].forEach(([target, label]) => {
                     const button = document.createElement("button");
                     button.type = "button";
                     button.className = "btn btn-sm btn-light";
-                    button.textContent = "تغییر وضعیت";
-                    button.addEventListener("click", () => {
-                        currentCheque = cheque;
-                        targetSelect.replaceChildren(...allowed.map((value) => {
-                            const option = document.createElement("option");
-                            option.value = value;
-                            option.textContent = labelled(CHEQUE_STATUS_TEXT, value);
-                            return option;
-                        }));
-                        document.getElementById("cheque-transition-reason").value = "";
-                        dialog.showModal();
+                    button.textContent = label;
+                    const reachable = allowed.includes(target);
+                    button.disabled = !reachable;
+                    if (!reachable) {
+                        button.title = `از «${labelled(CHEQUE_STATUS_TEXT, cheque.status)}» نمی‌توان به «${label}» رفت.`;
+                    }
+                    button.addEventListener("click", async () => {
+                        // Spending needs a second answer the others do not —
+                        // who it went to — so it asks before it acts.
+                        if (target === "spent") {
+                            if (!spendDialog) return;
+                            spendingCheque = cheque;
+                            document.getElementById("spend-cheque-payee").value = "";
+                            document.getElementById("spend-cheque-reason").value = "";
+                            clearMessages(spendForm);
+                            spendDialog.showModal();
+                            return;
+                        }
+                        button.disabled = true;
+                        try {
+                            await apiRequest(`/api/v1/cheques/${cheque.id}/transition/`, {
+                                method: "POST",
+                                body: {to_status: target},
+                            });
+                            globalMessage(`وضعیت چک به «${label}» تغییر کرد.`, true);
+                            controller.load();
+                        } catch (error) {
+                            button.disabled = false;
+                            showError(error);
+                        }
                     });
                     actions.appendChild(button);
-                }
-                const link = document.createElement("a");
-                link.className = "btn btn-sm btn-light";
-                link.href = `/payments/${cheque.payment}/`;
-                link.textContent = "دریافت";
-                actions.appendChild(link);
+                });
                 row.appendChild(actions);
+
+                // --- حالت: registered, or not -------------------------------
+                //
+                // Its own cell so the column widths stay put: the two buttons
+                // are always both present and always the same size, so a row
+                // does not resize as its state changes.
+                const registration = document.createElement("td");
+                registration.className = "row-actions";
+                [
+                    [true, "ثبت شده"],
+                    [false, "ثبت نشده"],
+                ].forEach(([target, label]) => {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    const current = Boolean(cheque.is_registered) === target;
+                    button.className = `btn btn-sm ${current ? "btn-primary" : "btn-light"}`;
+                    button.textContent = label;
+                    // The state it already holds is shown as the pressed one
+                    // rather than removed, so both remain readable as a pair.
+                    button.disabled = current;
+                    button.setAttribute("aria-pressed", String(current));
+                    button.addEventListener("click", async () => {
+                        button.disabled = true;
+                        try {
+                            await apiRequest(`/api/v1/cheques/${cheque.id}/registration/`, {
+                                method: "POST",
+                                body: {is_registered: target},
+                            });
+                            globalMessage(`حالت چک به «${label}» تغییر کرد.`, true);
+                            controller.load();
+                        } catch (error) {
+                            button.disabled = false;
+                            showError(error);
+                        }
+                    });
+                    registration.appendChild(button);
+                });
+                row.appendChild(registration);
                 return row;
             },
         });
@@ -5471,6 +5714,10 @@
     // here rather than per module, because a price is a price on whichever
     // screen it appears; dialogs are in the DOM at load, so they are covered.
     setupMoneyInputs();
+    // Any searchable select present in the served markup. A page that fills its
+    // options later calls this again for its own block; binding twice is a
+    // no-op, so neither has to know about the other.
+    setupSearchableSelects();
 
     // Any page that declares a chart card gets one, whichever page it is.
     setupListCharts();

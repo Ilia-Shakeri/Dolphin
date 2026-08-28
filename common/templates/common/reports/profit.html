@@ -5,11 +5,11 @@
 {% block page_title %}سود ناخالص فاکتورها{% endblock %}
 {% block breadcrumb_current %}سود ناخالص فاکتورها{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
-        <label class="sr-only" for="profit-period-start">از تاریخ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="profit-period-start" name="period_start" type="text" data-jalali="datetime" required>
-        <label class="sr-only" for="profit-period-end">تا تاریخ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="profit-period-end" name="period_end" type="text" data-jalali="datetime" required>
-        <label class="sr-only" for="profit-customer">مشتری</label><select class="form-select form-select-solid w-auto flex-grow-1" id="profit-customer" name="customer_id"><option value="">همه مشتریان</option></select>
-        <button class="btn btn-primary" type="submit">اعمال</button>
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="profit-filter-form" action="{% url 'common_ui:profit-report' %}" method="get" class="list-filters">
+        <label class="sr-only" for="profit-period-start">از تاریخ</label><input class="form-control form-control-solid" id="profit-period-start" name="period_start" type="text" data-jalali="datetime" required>
+        <label class="sr-only" for="profit-period-end">تا تاریخ</label><input class="form-control form-control-solid" id="profit-period-end" name="period_end" type="text" data-jalali="datetime" required>
+        <label class="sr-only" for="profit-customer">مشتری</label><select class="form-select form-select-solid" id="profit-customer" name="customer_id"><option value="">همه مشتریان</option></select>
+        <button class="btn btn-primary list-filters-submit" type="submit">اعمال</button>
         <a id="profit-export" class="btn btn-light" href="/api/v1/exports/profit.xlsx">خروجی اکسل</a>
     </form></div></div><div class="card-body pt-2">
     <div class="row g-5 mb-6">

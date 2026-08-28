@@ -10,6 +10,7 @@ The load-bearing claims:
 * `manual_paid_entry` is untouched by any of it.
 """
 
+from datetime import date
 from decimal import Decimal
 
 from django.test import TestCase
@@ -20,6 +21,7 @@ from billing.models import Cheque, CustomerLedgerEntry, Invoice, Payment
 from billing.payments import (
     allocate_payment,
     register_payment,
+    set_cheque_registration,
     spend_received_cheque,
     transition_cheque,
 )
@@ -241,6 +243,82 @@ class BidirectionalPaymentTests(TestCase):
             actor=self.manager, cheque=cheque, to_status=Cheque.Status.CLEARED
         )
         # Changing وضعیت left حالت alone.
+        self.assertTrue(moved.is_registered)
+        self.assertEqual(moved.status, Cheque.Status.CLEARED)
+
+    def test_a_desk_cannot_file_a_cheque_as_already_registered(self):
+        """Both axes start at their neutral value, whatever the caller asked.
+
+        The product owner's rule is that a cheque recorded from a payment desk
+        always begins «در انتظار» and «ثبت نشده», and is moved by hand from the
+        cheque page. Enforced in the service rather than in the form, so a
+        crafted request cannot put an instrument into a state nobody chose.
+        """
+        payment = register_payment(
+            actor=self.manager,
+            customer=self.customer,
+            method=Payment.Method.CHEQUE,
+            amount=Decimal("100.00"),
+            cheque={
+                "bank_name": "بانک ملت",
+                "serial_number": "9001",
+                "due_date": date(2027, 1, 1),
+                # Asked for, and deliberately ignored.
+                "is_registered": True,
+            },
+        )
+        self.assertFalse(payment.cheque.is_registered)
+        self.assertEqual(payment.cheque.status, Cheque.Status.PENDING)
+
+    def test_the_date_written_on_the_cheque_is_kept(self):
+        """`registered_on` is the operator's to state, unlike the two axes."""
+        payment = register_payment(
+            actor=self.manager,
+            customer=self.customer,
+            method=Payment.Method.CHEQUE,
+            amount=Decimal("100.00"),
+            cheque={
+                "bank_name": "بانک ملت",
+                "serial_number": "9002",
+                "due_date": date(2027, 1, 1),
+                "registered_on": date(2026, 5, 4),
+            },
+        )
+        self.assertEqual(payment.cheque.registered_on, date(2026, 5, 4))
+
+    def test_registration_moves_without_touching_the_payment(self):
+        """حالت says where the paper is, not whether the money arrived.
+
+        Only وضعیت may credit or cancel anything. If registering a cheque
+        confirmed its payment, marking a stack of them as filed would post a
+        stack of credits nobody received.
+        """
+        payment = self.cheque_receipt()
+        before = payment.status
+        updated = set_cheque_registration(
+            actor=self.manager, cheque=payment.cheque, is_registered=True
+        )
+        payment.refresh_from_db()
+        self.assertTrue(updated.is_registered)
+        self.assertEqual(updated.status, Cheque.Status.PENDING)
+        self.assertEqual(payment.status, before)
+
+    def test_setting_the_registration_it_already_has_changes_nothing(self):
+        payment = self.cheque_receipt()
+        same = set_cheque_registration(
+            actor=self.manager, cheque=payment.cheque, is_registered=False
+        )
+        self.assertFalse(same.is_registered)
+
+    def test_registration_survives_a_status_move_and_the_other_way_round(self):
+        """The two axes are independent, which is the whole reason for the split."""
+        payment = self.cheque_receipt()
+        set_cheque_registration(
+            actor=self.manager, cheque=payment.cheque, is_registered=True
+        )
+        moved = transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.CLEARED
+        )
         self.assertTrue(moved.is_registered)
         self.assertEqual(moved.status, Cheque.Status.CLEARED)
 

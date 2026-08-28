@@ -141,6 +141,42 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         )
         Select(self.browser.find_element(By.ID, element_id)).select_by_value(str(value))
 
+    def choose_searchable(self, element_id, value):
+        """Pick from a search-box-over-select the way an operator does.
+
+        `Select.select_by_value` cannot be used once the script has swapped the
+        native control for the search box: Selenium refuses to drive an element
+        that is not visible, and rightly — nobody can click what nobody can see.
+        Typing and clicking a suggestion is the path a person actually takes, so
+        it is the one worth testing.
+        """
+        self.wait.until(
+            lambda driver: any(
+                option.get_attribute("value") == str(value)
+                for option in Select(
+                    driver.find_element(By.ID, element_id)
+                ).options
+            )
+        )
+        label = next(
+            option.text
+            for option in Select(self.browser.find_element(By.ID, element_id)).options
+            if option.get_attribute("value") == str(value)
+        )
+        search = self.browser.find_element(By.ID, f"{element_id}-search")
+        search.clear()
+        search.send_keys(label)
+        option = self.wait.until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, f"#{element_id}-options li")
+            )
+        )
+        option.click()
+        self.wait.until(
+            lambda driver: driver.find_element(By.ID, element_id).get_attribute("value")
+            == str(value)
+        )
+
     def value_of(self, element_id):
         return self.browser.find_element(By.ID, element_id).get_attribute("value")
 
@@ -263,7 +299,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # 6. Take a payment and allocate it to the invoice.
         self.browser.get(f"{self.live_server_url}/payments/")
         self.open_create_dialog("open-create-payment", "create-payment-dialog")
-        self.select_when_populated("create-payment-customer", self.customer.pk)
+        self.choose_searchable("create-payment-customer", self.customer.pk)
         # The method is a mode now, not a dropdown: each one shows only the
         # fields it collects. Cash is selected by default.
         self.assertEqual(
@@ -358,9 +394,9 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login(self.agent)
         sidebar = self.browser.find_element(By.ID, "app-sidebar").text
-        self.assertIn("اسناد بازرگانی", sidebar)
+        self.assertIn("اسناد فروش", sidebar)
         self.assertIn("انبار و موجودی", sidebar)
-        self.assertNotIn("صندوق و دریافت", sidebar)
+        self.assertNotIn("اسناد مالی", sidebar)
         self.assertNotIn("پیش‌فاکتور", sidebar)
 
         for path in (

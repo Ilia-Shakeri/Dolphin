@@ -6,12 +6,12 @@
 {% block breadcrumb_current %}گزارش پیامک ورودی{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <form id="inbound-sms-report-form" action="/api/v1/reports/inbound-sms/" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
-        <div><label class="form-label fw-semibold" for="inbound-sms-start">شروع بازه</label><input class="form-control form-control-solid w-auto flex-grow-1" id="inbound-sms-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-end">پایان بازه</label><input class="form-control form-control-solid w-auto flex-grow-1" id="inbound-sms-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-provider">کد سرویس‌دهنده</label><input class="form-control form-control-solid w-auto flex-grow-1" id="inbound-sms-provider" name="provider_code" maxlength="50" dir="ltr" placeholder="provider_code"></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-recipient">شماره گیرنده E.164</label><input class="form-control form-control-solid w-auto flex-grow-1" id="inbound-sms-recipient" name="recipient_normalized" maxlength="20" dir="ltr" placeholder="+989xxxxxxxxx"></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-state">وضعیت پردازش</label><select class="form-select form-select-solid w-auto flex-grow-1" id="inbound-sms-state" name="processing_state"><option value="">همه</option><option value="linked">متصل به مشتری</option><option value="unmatched">بدون تطبیق قطعی</option></select></div>
+    <form id="inbound-sms-report-form" action="/api/v1/reports/inbound-sms/" method="get" class="list-filters" novalidate>
+        <div><label class="form-label fw-semibold" for="inbound-sms-start">شروع بازه</label><input class="form-control form-control-solid" id="inbound-sms-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
+        <div><label class="form-label fw-semibold" for="inbound-sms-end">پایان بازه</label><input class="form-control form-control-solid" id="inbound-sms-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
+        <div><label class="form-label fw-semibold" for="inbound-sms-provider">کد سرویس‌دهنده</label><input class="form-control form-control-solid" id="inbound-sms-provider" name="provider_code" maxlength="50" dir="ltr" placeholder="provider_code"></div>
+        <div><label class="form-label fw-semibold" for="inbound-sms-recipient">شماره گیرنده E.164</label><input class="form-control form-control-solid" id="inbound-sms-recipient" name="recipient_normalized" maxlength="20" dir="ltr" placeholder="+989xxxxxxxxx"></div>
+        <div><label class="form-label fw-semibold" for="inbound-sms-state">وضعیت پردازش</label><select class="form-select form-select-solid" id="inbound-sms-state" name="processing_state"><option value="">همه</option><option value="linked">متصل به مشتری</option><option value="unmatched">بدون تطبیق قطعی</option></select></div>
         <button class="btn btn-primary" type="submit">ساخت گزارش</button>
     </form>
 </div></section>

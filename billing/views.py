@@ -20,6 +20,7 @@ from billing.models import (
     Quotation,
 )
 from billing.payments import (
+    set_cheque_registration,
     spend_received_cheque,
     allocate_payment,
     allocate_payment_across,
@@ -47,6 +48,7 @@ from billing.serializers import (
     AllocatePaymentAcrossSerializer,
     AllocatePaymentSerializer,
     ChequeSerializer,
+    ChequeRegistrationSerializer,
     ChequeSpendSerializer,
     ChequeStatusHistorySerializer,
     ChequeTransitionSerializer,
@@ -568,7 +570,7 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = Cheque.objects.none()
     serializer_class = ChequeSerializer
-    sensitive_actions = frozenset({"transition", "spend"})
+    sensitive_actions = frozenset({"transition", "spend", "registration"})
     search_fields = ["bank_name", "serial_number", "account_holder", "payment__customer__full_name"]
     ordering_fields = ["due_date", "amount", "created_at"]
     list_query_parameters = {"status", "customer", "is_registered"}
@@ -612,6 +614,25 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
         serializer = ChequeTransitionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cheque = transition_cheque(
+            actor=request.user, cheque=self.get_object(), **serializer.validated_data
+        )
+        return Response(self.get_serializer(cheque).data)
+
+    @extend_schema(
+        request=ChequeRegistrationSerializer,
+        responses={200: ChequeSerializer, **WRITE_RESPONSES},
+        description=(
+            "Move حالت — whether the cheque has been registered. This is the other "
+            "axis, and it moves on its own: registering an instrument records where "
+            "the paper is, not whether the money arrived, so it never credits, "
+            "cancels, or otherwise touches the payment underneath."
+        ),
+    )
+    @action(detail=True, methods=["post"])
+    def registration(self, request, pk=None):
+        serializer = ChequeRegistrationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cheque = set_cheque_registration(
             actor=request.user, cheque=self.get_object(), **serializer.validated_data
         )
         return Response(self.get_serializer(cheque).data)

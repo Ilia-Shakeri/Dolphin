@@ -24,12 +24,12 @@
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title w-100 m-0">
     {% comment %} جست‌وجو و مرتب‌سازی سمت راست، دکمهٔ اعمال سمت چپ، هر دو با فاصله
        از لبه‌های کارت. {% endcomment %}
-    <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="d-flex flex-wrap align-items-center justify-content-between gap-3 w-100 px-2 px-md-4 mb-5">
+    <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="list-filters">
         <div class="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
             <label class="sr-only" for="customer-search">جستجوی مشتری</label>
-            <input class="form-control form-control-solid w-auto flex-grow-1" id="customer-search" name="search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی، نشانی یا تاریخ">
+            <input class="form-control form-control-solid" id="customer-search" name="search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی، نشانی یا تاریخ">
             <label class="sr-only" for="customer-ordering">مرتب‌سازی</label>
-            <select class="form-select form-select-solid w-auto" id="customer-ordering" name="ordering">
+            <select class="form-select form-select-solid" id="customer-ordering" name="ordering">
                 <option value="-created_at">جدیدترین</option>
                 <option value="created_at">قدیمی‌ترین</option>
                 <option value="full_name">نام الفبایی</option>
@@ -40,12 +40,12 @@
                more controls that mean nothing under any other sort, so it starts hidden. {% endcomment %}
             <div id="customer-date-range" class="d-flex flex-wrap align-items-center gap-2" hidden>
                 <label class="sr-only" for="customer-created-from">از تاریخ</label>
-                <input class="form-control form-control-solid w-auto" id="customer-created-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
+                <input class="form-control form-control-solid" id="customer-created-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
                 <label class="sr-only" for="customer-created-to">تا تاریخ</label>
-                <input class="form-control form-control-solid w-auto" id="customer-created-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
+                <input class="form-control form-control-solid" id="customer-created-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
             </div>
         </div>
-        <button class="btn btn-light" type="submit">اعمال</button>
+        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
     </form>
 </div></div><div class="card-body pt-2">
     <div id="customers-loading" class="text-center text-gray-700 py-10">در حال دریافت مشتریان…</div>
@@ -83,9 +83,9 @@
             </div>
             <form id="customer-growth-range" class="d-flex flex-wrap align-items-center gap-3 mb-5" hidden>
                 <label class="sr-only" for="customer-growth-from">از تاریخ</label>
-                <input class="form-control form-control-solid form-control-sm w-auto" id="customer-growth-from" type="text" data-jalali="date" placeholder="از تاریخ">
+                <input class="form-control form-control-solid form-control-sm" id="customer-growth-from" type="text" data-jalali="date" placeholder="از تاریخ">
                 <label class="sr-only" for="customer-growth-to">تا تاریخ</label>
-                <input class="form-control form-control-solid form-control-sm w-auto" id="customer-growth-to" type="text" data-jalali="date" placeholder="تا تاریخ">
+                <input class="form-control form-control-solid form-control-sm" id="customer-growth-to" type="text" data-jalali="date" placeholder="تا تاریخ">
                 <button class="btn btn-sm btn-light" type="submit">اعمال</button>
             </form>
             <div id="customer-growth-chart" role="img" aria-label="نمودار تعداد مشتریان ثبت‌شده در طول زمان" hidden></div>

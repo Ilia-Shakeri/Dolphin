@@ -829,13 +829,39 @@ class PaymentDeskView(ActiveCrmView):
 
 
 class KarizPaymentListView(PaymentDeskView):
+    """Money coming in.
+
+    Receipts and disbursements are the same document read in two directions, so
+    they share one template and one page handler. What differs is the wording —
+    a receipt names a customer, a disbursement names whoever was paid — and that
+    is carried in the context rather than duplicated into a second copy of two
+    hundred lines of markup that would then drift.
+    """
+
     required_feature = "payments"
     template_name = "common/payments/list.html"
+    direction = "receipt"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["payment_direction"] = self.direction
+        return context
+
+
+class KarizDisbursementListView(KarizPaymentListView):
+    """Money going out. The same desk, facing the other way."""
+
+    direction = "disbursement"
 
 
 class KarizPaymentDetailView(PaymentDeskView, ScopedDetailView):
     required_feature = "payments"
     template_name = "common/payments/detail.html"
+    #: Whether this reader may correct a recorded document. The platform admin
+    #: may; everyone else sees the same page read-only. Checked here as well as
+    #: in the API — the field being editable on screen is a convenience, never
+    #: the authorisation.
+    
     object_id_kwarg = "payment_id"
     context_id_name = "payment_id"
     not_found_title = "دریافت پیدا نشد"
@@ -843,6 +869,13 @@ class KarizPaymentDetailView(PaymentDeskView, ScopedDetailView):
 
     def scoped_queryset(self):
         return payments_for(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["can_edit_payment"] = (
+            self.request.user.role == User.Role.PLATFORM_ADMIN
+        )
+        return context
 
 
 class KarizChequeListView(PaymentDeskView):

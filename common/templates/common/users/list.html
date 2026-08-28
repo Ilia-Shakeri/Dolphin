@@ -9,10 +9,10 @@
         <button id="open-create-user" class="btn btn-primary" type="button">کاربر جدید</button>
     </div>{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="user-search-form" action="{% url 'common_ui:users' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="user-search-form" action="{% url 'common_ui:users' %}" method="get" class="list-filters">
         <label class="sr-only" for="user-search">جستجوی کاربران</label>
-        <input class="form-control form-control-solid w-auto flex-grow-1" id="user-search" name="search" type="search" placeholder="نام، نام کاربری، ایمیل یا تلفن">
-        <button class="btn btn-light" type="submit">جستجو</button>
+        <input class="form-control form-control-solid" id="user-search" name="search" type="search" placeholder="نام، نام کاربری، ایمیل یا تلفن">
+        <button class="btn btn-light list-filters-submit" type="submit">جستجو</button>
     </form></div></div><div class="card-body pt-2">
     <div id="users-loading" class="text-center text-gray-700 py-10">در حال دریافت کاربران…</div>
     <div id="users-empty" class="text-center text-gray-700 py-10" hidden>کاربری پیدا نشد.</div>

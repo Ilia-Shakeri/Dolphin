@@ -393,6 +393,12 @@ class ChequeInputSerializer(RejectServerFieldsMixin, serializers.Serializer):
     )
     account_holder = serializers.CharField(max_length=255, required=False, allow_blank=True)
     due_date = serializers.DateField()
+    #: تاریخ ثبت چک — the date written on the instrument, which is the
+    #: operator's to state and is routinely earlier than the day it arrives.
+    #: `is_registered` is deliberately not accepted here: a cheque recorded from
+    #: a payment desk is always unregistered, and that is settled in the service
+    #: rather than left to whatever the caller sends.
+    registered_on = serializers.DateField(required=False, allow_null=True)
     notes = serializers.CharField(max_length=4000, required=False, allow_blank=True)
 
 
@@ -590,6 +596,13 @@ class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Seria
 
 class ChequeTransitionSerializer(RejectServerFieldsMixin, serializers.Serializer):
     to_status = serializers.ChoiceField(choices=Cheque.Status.choices)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class ChequeRegistrationSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """حالت — registered or not. One boolean, and why."""
+
+    is_registered = serializers.BooleanField()
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 

@@ -75,6 +75,7 @@ OPERATION_LABELS = {
     "payment.allocation_released": "آزادسازی تخصیص",
     "payment.cancelled": "ابطال سند مالی",
     "cheque.status_changed": "تغییر وضعیت چک",
+    "cheque.registration_changed": "تغییر حالت ثبت چک",
     "installment_plan.created": "ثبت طرح اقساط",
     "installment_plan.cancelled": "لغو طرح اقساط",
     # --- خدمات پس از فروش ---------------------------------------------------

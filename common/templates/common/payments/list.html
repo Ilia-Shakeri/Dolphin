@@ -1,26 +1,48 @@
 {% extends "common/base.html" %}
-{% block title %}دریافت‌ها{% endblock %}
+{% comment %} One template, two desks.
+
+   A receipt and a disbursement are the same document read in two directions.
+   Rather than a second copy of this file that would drift from it, the wording
+   comes from `payment_direction` and everything else is shared: the same
+   filters, the same table, the same dialog, the same handler in the script.
+
+   The only real differences are who the other party is — a receipt names a
+   customer, a disbursement names whoever was paid — and, on the cheque method,
+   whether an existing cheque may be spent onward. {% endcomment %}
+{% block title %}{% if payment_direction == "disbursement" %}پرداخت‌ها{% else %}دریافت‌ها{% endif %}{% endblock %}
 {% block page_id %}payments{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">صندوق و دریافت</span>{% endblock %}
-{% block page_title %}دریافت‌ها{% endblock %}
-{% block breadcrumb_current %}دریافت‌ها{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:cheques' %}">چک‌ها</a><a class="btn btn-light" href="{% url 'common_ui:installments' %}">اقساط</a><button id="open-create-payment" class="btn btn-primary" type="button">ثبت دریافت</button></div>{% endblock %}
+{% block body_data %} data-payment-direction="{{ payment_direction|default:'receipt' }}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد مالی</span>{% endblock %}
+{% block page_title %}{% if payment_direction == "disbursement" %}پرداخت‌ها{% else %}دریافت‌ها{% endif %}{% endblock %}
+{% block breadcrumb_current %}{% if payment_direction == "disbursement" %}پرداخت‌ها{% else %}دریافت‌ها{% endif %}{% endblock %}
+{% comment %} The cheque and instalment shortcuts are gone from here: they are
+   their own entries in the sidebar, and a page that lists one kind of document
+   should not be a launchpad for two others. {% endcomment %}
+{% block page_actions %}<button id="open-create-payment" class="btn btn-primary" type="button">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button>{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="payment-search-form" action="{% url 'common_ui:payments' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
-        <label class="sr-only" for="payment-search">جستجوی دریافت</label><input class="form-control form-control-solid w-auto flex-grow-1" id="payment-search" name="search" type="search" placeholder="شماره، مشتری یا شماره پیگیری">
-        <label class="sr-only" for="payment-status-filter">وضعیت</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="pending">در انتظار وصول</option><option value="confirmed">تأییدشده</option><option value="cancelled">ابطال‌شده</option></select>
-        <label class="sr-only" for="payment-method-filter">روش</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="card">کارت‌خوان</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
-        <label class="sr-only" for="payment-ordering">مرتب‌سازی</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-ordering" name="ordering"><option value="-received_at">تازه‌ترین</option><option value="received_at">قدیمی‌ترین</option><option value="-amount">بیشترین مبلغ</option></select>
-        <button class="btn btn-light" type="submit">اعمال</button>
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title w-100 m-0">
+{% comment %} The filters run the full width of the card and sit against its
+   inner edges rather than bunching in the middle: `list-filters` gives every
+   control an equal share of one row and drops them to a column on a narrow
+   screen. {% endcomment %}
+    <form id="payment-search-form" action="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}" method="get" class="list-filters">
+        <label class="sr-only" for="payment-search">جستجو</label><input class="form-control form-control-solid" id="payment-search" name="search" type="search" placeholder="{% if payment_direction == 'disbursement' %}شماره، گیرنده یا شماره پیگیری{% else %}شماره، مشتری یا شماره پیگیری{% endif %}">
+{% comment %} The status filter is gone. Its three values described a lifecycle
+   this desk no longer exposes — a document here is recorded, and cancelling it
+   is an action on the document itself. {% endcomment %}
+        <label class="sr-only" for="payment-method-filter">روش</label><select class="form-select form-select-solid" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
+        <label class="sr-only" for="payment-ordering">مرتب‌سازی</label><select class="form-select form-select-solid" id="payment-ordering" name="ordering"><option value="-received_at">تازه‌ترین</option><option value="received_at">قدیمی‌ترین</option><option value="-amount">بیشترین مبلغ</option></select>
+        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
     </form></div></div><div class="card-body pt-2">
-    <div id="payments-loading" class="text-center text-gray-700 py-10">در حال دریافت فهرست…</div><div id="payments-empty" class="text-center text-gray-700 py-10" hidden>دریافتی پیدا نشد.</div>
-    <div id="payments-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره</th><th>جهت</th><th>مشتری / گیرنده</th><th>روش</th><th>مبلغ</th><th>تخصیص‌یافته</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payments-table-body"></tbody></table></div>
+    <div id="payments-loading" class="text-center text-gray-700 py-10">در حال دریافت فهرست…</div><div id="payments-empty" class="text-center text-gray-700 py-10" hidden>سندی پیدا نشد.</div>
+{% comment %} No «جهت» column: each desk shows one direction, so a column
+   repeating it on every row said nothing. No «تخصیص‌یافته» either — allocation
+   belongs to the document, not to a scan of the list. {% endcomment %}
+    <div id="payments-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره</th><th>{% if payment_direction == "disbursement" %}گیرنده{% else %}مشتری{% endif %}</th><th>روش</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payments-table-body"></tbody></table></div>
     <nav id="payments-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="payments-prev" class="btn btn-light" type="button">قبلی</button><span id="payments-page-label"></span><button id="payments-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
 {% comment %} نمودار این صفحه. داده‌اش از همان selector ماژول می‌آید که جدول
-   بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. اگر
-   نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
-   صفحه دست‌نخورده کار می‌کند. {% endcomment %}
+   بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. {% endcomment %}
 <section class="card mb-5 mb-xl-8" data-list-chart="payments"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
         <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
@@ -30,64 +52,85 @@
 </div></section>
 <dialog id="create-payment-dialog" aria-labelledby="create-payment-title">
     <form id="create-payment-form" action="/api/v1/payments/" method="post" novalidate>
-        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-payment-title">ثبت دریافت</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-payment-title">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
 
-        {% comment %} جهت سند، بالای همه‌چیز: دریافتی پول ورودی است و پرداختی
-           پول خروجی. این دو قرینهٔ هم نیستند — فقط دریافتی به فاکتور تخصیص
-           می‌خورد، و دفتر مشتری در دو جهت مخالف حرکت می‌کند. {% endcomment %}
-        <div class="btn-group w-100 mb-4" role="group" aria-label="جهت سند">
-            <button type="button" class="btn btn-primary" data-payment-direction="receipt" aria-pressed="true">دریافتی</button>
-            <button type="button" class="btn btn-light" data-payment-direction="disbursement" aria-pressed="false">پرداختی</button>
-        </div>
-        <input type="hidden" id="create-payment-direction" name="direction" value="receipt">
+{% comment %} The direction is not a choice on this form. Each desk records one
+   kind of document, so asking again would only let an operator file a payment
+   in the wrong ledger from the wrong screen. {% endcomment %}
+        <input type="hidden" id="create-payment-direction" name="direction" value="{{ payment_direction|default:'receipt' }}">
 
-        {% comment %} روش سند به‌جای یک فهرست کشویی، حالت فرم است: هر روش
-           فیلدهای خودش را دارد و فیلد بی‌ربط اصلا دیده نمی‌شود. مقدار واقعی در
-           همان input مخفی زیر می‌نشیند، پس مسیر دادهٔ قبلی دست‌نخورده است.
-
-           «کارت» حذف نشد — داده‌های قبلی روی آن هست و مدل همچنان می‌پذیردش. فقط
-           آخر آمده و کم‌رنگ‌تر است، چون کاربرد روزمره‌اش کمتر است. {% endcomment %}
-        <div class="btn-group w-100 mb-6" role="group" aria-label="روش دریافت">
+{% comment %} The method is the shape of the form, not a dropdown: each one
+   brings its own fields and no irrelevant field is ever on screen. «کارت» is
+   gone from the choices — the model still accepts it and old rows keep it, so
+   nothing recorded is lost or reinterpreted; it simply cannot be chosen. {% endcomment %}
+        <div class="btn-group w-100 mb-6" role="group" aria-label="روش">
             <button type="button" class="btn btn-primary" data-payment-mode="cash" aria-pressed="true">نقدی</button>
             <button type="button" class="btn btn-light" data-payment-mode="bank_transfer" aria-pressed="false">حواله بانکی</button>
             <button type="button" class="btn btn-light" data-payment-mode="cheque" aria-pressed="false">چک</button>
-            <button type="button" class="btn btn-light" data-payment-mode="card" aria-pressed="false">کارت</button>
         </div>
         <input type="hidden" id="create-payment-method" name="method" value="cash">
 
         <div class="row g-5">
-            <div class="col-md-6" data-payment-field="customer"><label class="form-label fw-semibold" for="create-payment-customer"><span data-customer-label>مشتری</span></label><select class="form-select form-select-solid" id="create-payment-customer" name="customer"><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
-            {% comment %} گیرندهٔ پول در پرداختی. متن آزاد است چون اغلب مشتری نیست
-               و ساختن یک مدل تأمین‌کننده برای نگه داشتن یک نام، تصمیم بزرگ‌تری از
-               این کار است. {% endcomment %}
-            <div class="col-md-6" data-payment-field="payee" hidden><label class="form-label fw-semibold" for="create-payment-payee">گیرنده</label><input class="form-control form-control-solid" id="create-payment-payee" name="payee" maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="payee"></p></div>
+{% comment %} A searchable party, because the customer book is expected to grow
+   past the point where a plain dropdown is usable. The native `<select>` stays
+   underneath and remains the value that is submitted — the search box only
+   filters what it offers — so nothing downstream has to know this exists.
+   Once a name is chosen, only that name is shown. {% endcomment %}
+            <div class="col-md-6" data-payment-field="customer">
+                <label class="form-label fw-semibold" for="create-payment-customer-search">{% if payment_direction == "disbursement" %}گیرنده{% else %}مشتری{% endif %}</label>
+                <div class="searchable-select" data-searchable-select>
+                    <input class="form-control form-control-solid" id="create-payment-customer-search" type="search" autocomplete="off" placeholder="نام را بنویسید…" data-searchable-input hidden aria-controls="create-payment-customer-options" aria-expanded="false" role="combobox">
+                    <select class="form-select form-select-solid" id="create-payment-customer" name="customer" data-searchable-source><option value="">در حال دریافت…</option></select>
+                    <ul class="searchable-select-options" id="create-payment-customer-options" role="listbox" hidden></ul>
+                </div>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p>
+            </div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ (ریال)</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-received-at">تاریخ دریافت</label><input class="form-control form-control-solid" id="create-payment-received-at" name="received_at" type="text" data-jalali="date" placeholder="امروز"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-reference"><span data-reference-label>شماره رسید</span></label><input class="form-control form-control-solid" id="create-payment-reference" name="reference" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reference"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-received-at">{% if payment_direction == "disbursement" %}تاریخ پرداخت{% else %}تاریخ دریافت{% endif %}</label><input class="form-control form-control-solid" id="create-payment-received-at" name="received_at" type="text" data-jalali="date" placeholder="امروز"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
+{% comment %} «شماره رسید» is dropped from cash and cheque, where there is no
+   reference to carry. It survives only on a transfer, which really does have
+   one. {% endcomment %}
+            <div class="col-md-6" data-payment-field="reference" hidden><label class="form-label fw-semibold" for="create-payment-reference">شماره پیگیری</label><input class="form-control form-control-solid" id="create-payment-reference" name="reference" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reference"></p></div>
         </div>
 
-        {% comment %} فیلدهای حواله بانکی. مدل هر دو را اختیاری می‌داند: اپراتوری که
-           حواله را از روی صورتحساب ثبت می‌کند ممکن است شمارهٔ حساب مبدأ را نداشته
-           باشد، و رد کردن رسید به این دلیل یعنی پول ثبت نشود. {% endcomment %}
         <fieldset id="create-payment-bank-fields" class="mt-2" hidden>
             <div class="row g-5">
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-bank-name">نام بانک</label><input class="form-control form-control-solid" id="create-payment-bank-name" name="bank_name" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="bank_name"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-bank-account">شماره حساب / شبا</label><input class="form-control form-control-solid" id="create-payment-bank-account" name="bank_account" maxlength="64" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="bank_account"></p></div>
+{% comment %} The bank named on a transfer is the far end of it: where our money
+   went on a disbursement, where it came from on a receipt. The account number
+   is gone — it was optional, rarely filled, and told nobody anything the
+   reference did not. {% endcomment %}
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-bank-name">{% if payment_direction == "disbursement" %}بانک مبدأ{% else %}بانک مقصد{% endif %}</label><input class="form-control form-control-solid" id="create-payment-bank-name" name="bank_name" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="bank_name"></p></div>
             </div>
         </fieldset>
 
-        {% comment %} چک از همان مدل Cheque موجود استفاده می‌کند و در این دور
-           دست‌نخورده ماند — اصلاحش به فاز بعد موکول شده است. {% endcomment %}
         <fieldset id="create-payment-cheque-fields" class="mt-2" hidden>
-            <div class="row g-5">
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-bank">بانک</label><input class="form-control form-control-solid" id="create-cheque-bank" name="cheque_bank_name" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="cheque"></p></div>
+{% comment %} A disbursement may hand on a cheque already taken in, or write a
+   new one. Spending an existing cheque creates no second cheque and no second
+   document: it is the same instrument, moved. {% endcomment %}
+            <div class="row g-5" data-payment-field="cheque-source" hidden>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-source">نوع چک</label><select class="form-select form-select-solid" id="create-cheque-source" name="cheque_source"><option value="customer_endorsed">چک مشتری</option><option value="own">چک تازه</option></select></div>
+            </div>
+            <div class="row g-5" id="create-cheque-existing" hidden>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="create-cheque-existing-search">شماره چک</label>
+                    <div class="searchable-select" data-searchable-select>
+                        <input class="form-control form-control-solid" id="create-cheque-existing-search" type="search" autocomplete="off" placeholder="شماره چک را بنویسید…" data-searchable-input hidden aria-controls="create-cheque-existing-options" aria-expanded="false" role="combobox">
+                        <select class="form-select form-select-solid" id="create-cheque-existing-id" name="cheque_existing" data-searchable-source><option value="">در حال دریافت…</option></select>
+                        <ul class="searchable-select-options" id="create-cheque-existing-options" role="listbox" hidden></ul>
+                    </div>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="cheque_existing"></p>
+                </div>
+            </div>
+            <div class="row g-5" id="create-cheque-new-fields">
+{% comment %} On a cheque the bank named is the one it is drawn on — ours when we
+   write it, the customer's when we take one in. «شماره مرجع» and «صاحب حساب»
+   are gone: neither was ever required and neither appears on the printed
+   document. {% endcomment %}
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-bank">{% if payment_direction == "disbursement" %}بانک مقصد{% else %}بانک مبدأ{% endif %}</label><input class="form-control form-control-solid" id="create-cheque-bank" name="cheque_bank_name" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="cheque"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-account">شماره جاری</label><input class="form-control form-control-solid" id="create-cheque-account" name="cheque_bank_account" maxlength="64" dir="ltr"></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-branch">شعبه</label><input class="form-control form-control-solid" id="create-cheque-branch" name="cheque_branch_name" maxlength="120"></div>
-                {% comment %} فقط روی چک پرداختی معنا دارد. چک دریافتی همیشه مال
-                   مشتری است و همین که دریافت شده یعنی همان. {% endcomment %}
-                <div class="col-md-6" data-payment-field="cheque-source" hidden><label class="form-label fw-semibold" for="create-cheque-source">نوع چک</label><select class="form-select form-select-solid" id="create-cheque-source" name="cheque_source"><option value="own">چک خودمان</option></select></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-serial">شماره چک</label><input class="form-control form-control-solid" id="create-cheque-serial" name="cheque_serial_number" maxlength="64" dir="ltr"></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-holder">صاحب حساب</label><input class="form-control form-control-solid" id="create-cheque-holder" name="cheque_account_holder" maxlength="255"></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-registered-on">تاریخ ثبت چک</label><input class="form-control form-control-solid" id="create-cheque-registered-on" name="cheque_registered_on" type="text" data-jalali="date"></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-due">تاریخ سررسید چک</label><input class="form-control form-control-solid" id="create-cheque-due" name="cheque_due_date" type="text" data-jalali="date"></div>
             </div>
         </fieldset>
@@ -96,8 +139,8 @@
             <div class="col-12"><label class="form-label fw-semibold" for="create-payment-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-payment-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
 
-        <p class="text-muted fs-7 mt-5" id="create-payment-cheque-note" hidden>چک تا زمان وصول، حساب مشتری را بستانکار نمی‌کند؛ اثر مالی چک فقط پس از ثبت «وصول» روی خود چک ایجاد می‌شود.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت دریافت</button></div>
+        <p class="text-muted fs-7 mt-5" id="create-payment-cheque-note" hidden>چک تازه همیشه با وضعیت «در انتظار» و حالت «ثبت نشده» ساخته می‌شود؛ تغییرشان از صفحهٔ چک‌ها انجام می‌شود.</p>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button></div>
     </form>
 </dialog>
 {% endblock %}

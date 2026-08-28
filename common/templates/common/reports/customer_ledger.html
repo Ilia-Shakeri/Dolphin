@@ -5,9 +5,9 @@
 {% block page_title %}دفتر حساب مشتری{% endblock %}
 {% block breadcrumb_current %}دفتر حساب مشتری{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="ledger-filter-form" action="{% url 'common_ui:customer-ledger' %}" method="get" class="d-flex flex-wrap align-items-center gap-3 mb-5">
-        <label class="sr-only" for="ledger-customer">مشتری</label><select class="form-select form-select-solid w-auto flex-grow-1" id="ledger-customer" name="customer" required><option value="">در حال دریافت…</option></select>
-        <label class="sr-only" for="ledger-entry-type">نوع رویداد</label><select class="form-select form-select-solid w-auto flex-grow-1" id="ledger-entry-type" name="entry_type">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="ledger-filter-form" action="{% url 'common_ui:customer-ledger' %}" method="get" class="list-filters">
+        <label class="sr-only" for="ledger-customer">مشتری</label><select class="form-select form-select-solid" id="ledger-customer" name="customer" required><option value="">در حال دریافت…</option></select>
+        <label class="sr-only" for="ledger-entry-type">نوع رویداد</label><select class="form-select form-select-solid" id="ledger-entry-type" name="entry_type">
             <option value="">همه رویدادها</option>
             <option value="opening_balance">مانده اول دوره</option>
             <option value="invoice_issued">صدور فاکتور</option>

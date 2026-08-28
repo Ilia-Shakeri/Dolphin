@@ -51,8 +51,11 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 CHEQUE_FIELDS = {
     "bank_name", "bank_account", "branch_name", "serial_number",
     "account_holder", "due_date", "notes", "source",
-    # حالت, and the date written on the cheque. تاریخ روز is `created_at` and
-    # is deliberately not accepted here — the system stamps it.
+    # The date written on the cheque. تاریخ روز is `created_at` and is
+    # deliberately not accepted — the system stamps it. `is_registered` is
+    # accepted and then ignored: it was a caller-supplied field until 1.3.6, and
+    # dropping it from this set would turn an old call into an error rather than
+    # into the harmless no-op it now is.
     "is_registered", "registered_on",
 }
 
@@ -344,9 +347,15 @@ def _create_cheque(*, actor, payment, amount, data):
     if source and source not in Cheque.Source.values:
         raise BusinessRuleError({"cheque": "Unknown cheque source."})
     registered_on = data.get("registered_on") or None
-    # حالت is stated at registration and defaults to "not registered": a cheque
-    # that has just been handed over has not been submitted anywhere yet.
-    is_registered = bool(data.get("is_registered", False))
+    # Both axes are settled here and are not the caller's to choose.
+    #
+    # The product owner's rule is that a cheque recorded from a payment desk —
+    # taken in or written out, it makes no difference — always starts «در
+    # انتظار» and «ثبت نشده», and is moved by hand from the cheque page. Set
+    # here rather than trusted from the request so a crafted call cannot file an
+    # instrument into a state nobody chose, and so the two desks cannot drift
+    # apart on it.
+    is_registered = False
     try:
         return Cheque.objects.create(
             payment=payment,
@@ -396,6 +405,41 @@ def spend_received_cheque(*, actor, cheque, payee, reason=""):
     updated.paid_to = payee
     updated.save(update_fields=["paid_to", "updated_at"])
     return updated
+
+
+@transaction.atomic
+def set_cheque_registration(*, actor, cheque, is_registered, reason=""):
+    """Move حالت — the axis that says whether the cheque has been registered.
+
+    Separate from `transition_cheque` because the two axes are separate: a
+    cheque can be registered while still pending, or spent while never having
+    been registered. Folding this into the status graph would put them back into
+    the single enum the product owner asked us to take apart.
+
+    Deliberately has no effect on the payment underneath. Registering an
+    instrument says where the paper is, not whether the money arrived — that is
+    what وضعیت is for, and only it may cancel or credit anything.
+    """
+    actor = _lock_payment_manager(actor)
+    locked = Cheque.objects.select_for_update().get(pk=cheque.pk)
+    reason = _clean_text(reason, field="reason", limit=500)
+    target = bool(is_registered)
+    if locked.is_registered == target:
+        return locked
+
+    locked.is_registered = target
+    locked.save(update_fields=["is_registered", "updated_at"])
+    log_activity(
+        actor=actor,
+        operation="cheque.registration_changed",
+        instance=locked,
+        changes={
+            "payment": locked.payment_id,
+            "is_registered": target,
+            "reason_provided": bool(reason),
+        },
+    )
+    return locked
 
 
 def transition_cheque(*, actor, cheque, to_status, reason=""):

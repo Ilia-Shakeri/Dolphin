@@ -65,18 +65,26 @@ class AuthShellUnitTests(SimpleTestCase):
             re.M,
         )
         #
-        # The ceiling moved from 120 to 140 in 1.3.4, deliberately. It was set
-        # when this sheet held repairs, the brand mark and the print styles;
-        # that release added two things the theme genuinely cannot supply on its
-        # own — the glue that lets the sidebar collapse to a rail against this
-        # panel's own brand markup, and the styling of native select popups.
-        # Both are integration with the theme, not a replacement for it, which
-        # is what the assertions below actually guard.
+        # 120 -> 140 in 1.3.4, 140 -> 160 in 1.3.6. Both were decisions, and
+        # both are worth reading before a third:
         #
-        # Raising it is a decision, not a reflex: anything that needs another
-        # twenty declarations should be questioned first, and rebuilding a theme
-        # component stays forbidden at any size.
-        self.assertLess(len(declarations), 140, "the override sheet is growing into a design system")
+        # 1.3.4 added the glue for a sidebar that collapses to a rail, and the
+        # styling of native select popups. 1.3.6 added a filter grid and a
+        # searchable combobox — the latter is a component, which normally this
+        # test would be right to resist. It is here because the theme's own
+        # searchable select is select2, which lives in the 3.5 MB plugins bundle
+        # this deployment deliberately does not load, and the customer book is
+        # expected to outgrow a plain dropdown.
+        #
+        # So the rule this guards is not "few declarations". It is "do not
+        # rebuild what the theme already gives us", and that is what the
+        # assertions below check. A component the theme cannot supply is a
+        # different case from a second `.btn`.
+        #
+        # Before raising it again: look for declarations the theme already
+        # provides, as was done both times here, and be able to name what the
+        # new ones buy that the purchased theme does not.
+        self.assertLess(len(declarations), 160, "the override sheet is growing into a design system")
         # And it must not rebuild the theme's own components, at any size.
         for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
             self.assertNotIn(recreated, stylesheet, recreated)
