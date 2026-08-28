@@ -106,7 +106,7 @@ dialog::backdrop {
 .app-sidebar-logo-minimize { display: none !important; }
 
 [data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-default { display: none !important; }
-[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-minimize { display: block !important; }
+[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-minimize { display: flex !important; }
 
 /* The sidebar never re-sized when the toggle was clicked. It kept whatever
    width the page had been served with, and only a reload showed the change —
@@ -146,6 +146,24 @@ dialog::backdrop {
     overflow-x: hidden;
 }
 
+/* The wrapper has to narrow with the rail, and this is the whole reason the
+   collapsed sidebar looked empty.
+
+   The theme deliberately keeps the wrapper at the *full* width while collapsed
+   and lets the 75px sidebar clip it — that is how its own hover-to-peek mode
+   works, which this panel does not use. So the menu links stayed 234px wide,
+   and `justify-content: center` put each icon in the middle of 234px: measured
+   at x=1447 when the visible rail was 1510–1585. The icons were being drawn
+   perfectly, just outside the window.
+
+   Narrowing the wrapper makes the links 75px, so centring puts the icon where
+   the reader is looking. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .app-sidebar-menu,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar #kt_app_sidebar_menu_scroll {
+    width: var(--bs-app-sidebar-width);
+    margin-inline: 0;
+}
+
 /* The rail is 75px, so the logo block loses the padding that assumed 250px. */
 [data-kt-app-sidebar-minimize="on"] .app-sidebar-logo {
     padding-inline: 0.75rem !important;
@@ -179,11 +197,102 @@ dialog::backdrop {
 /* Points the way it will move: inward while open, outward while collapsed. */
 [data-kt-app-sidebar-minimize="on"] .app-sidebar-toggle i { transform: rotate(180deg); }
 
+/* The expander: the mark, with a chevron that appears under the pointer. */
+.app-sidebar-logo-minimize {
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    border-radius: 0.65rem;
+    transition: background-color 0.15s ease;
+}
+
+.app-sidebar-logo-minimize:hover,
+.app-sidebar-logo-minimize:focus-visible {
+    background-color: rgba(157, 225, 216, 0.12);
+}
+
+.app-sidebar-expand-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9de1d8;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.app-sidebar-logo-minimize:hover .app-sidebar-expand-hint,
+.app-sidebar-logo-minimize:focus-visible .app-sidebar-expand-hint {
+    opacity: 1;
+}
+
+/* Collapsed, the mark is the control, so the floating toggle would be a second
+   way to do the same thing sitting on top of the first. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .app-sidebar-toggle {
+    display: none;
+}
+
 /* The collapsed rail has no room for a wordmark or a section heading. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-title,
 [data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-arrow,
 [data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-bullet {
     display: none !important;
+}
+
+/* The title becomes a label beside the pointer instead of disappearing.
+   
+   A 75px rail of unlabelled icons asks the reader to memorise eleven glyphs.
+   The name is already in the DOM, so hovering floats it out of the rail rather
+   than adding a second copy in a `title` attribute — one source of the word,
+   and no native-tooltip delay before it appears. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-title {
+    position: absolute;
+    /* `inline-start`, not `-end`. Under RTL the inline start is the *right*
+       edge, so insetting the start by the row's full width pushes the label out
+       to the left — which is where the page is. Using `-end` pushed it right,
+       past the window edge, and the label was drawn off-screen. */
+    inset-inline-start: calc(100% + 0.5rem);
+    top: 50%;
+    transform: translateY(-50%);
+    display: block !important;
+    width: max-content;
+    max-width: 14rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.475rem;
+    background-color: #12374d;
+    color: #ffffff;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+    z-index: 105;
+}
+
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:hover .menu-title,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:focus-visible .menu-title {
+    opacity: 1;
+}
+
+/* The row the label belongs to has to be the positioning context, and the rail
+   must stop clipping at its own edge or the label would be cut off with it. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link {
+    position: relative;
+}
+
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .app-sidebar-menu,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar #kt_app_sidebar_menu_scroll {
+    overflow: visible !important;
+}
+
+/* And the icon lights up, so the pointer's position is obvious without reading. */
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:hover,
+[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:focus-visible {
+    background-color: rgba(157, 225, 216, 0.14);
 }
 
 [data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-link,

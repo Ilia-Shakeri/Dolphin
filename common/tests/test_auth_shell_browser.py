@@ -107,11 +107,21 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "profile-form")))
+        # The account button is the proof the shell rendered signed in. It is
+        # the button and not the name beside it: the name carries `d-none
+        # d-md-flex`, so a visibility wait on it can never pass on mobile.
+        #
+        # The profile form used to stand in for all of this and no longer can —
+        # it lives in a dialog now, and is not visible until it is opened.
         self.wait.until(
-            expected_conditions.text_to_be_present_in_element_value(
-                (By.ID, "profile-username"),
-                user.username,
+            expected_conditions.visibility_of_element_located((By.ID, "user-menu-toggle"))
+        )
+        # Read rather than seen, so this holds at any width: the element
+        # is in the DOM on mobile too, just not displayed.
+        self.wait.until(
+            lambda driver: user.get_full_name() or user.username
+            in driver.execute_script(
+                "return document.getElementById('user-menu-username').textContent"
             )
         )
 
@@ -134,8 +144,26 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login()
 
-        self.assertEqual(self.browser.find_element(By.ID, "profile-username").get_attribute("value"), self.platform.username)
+        # The profile moved out of the dashboard and into a dialog on the
+        # account menu, so reaching it is now part of what this test covers.
+        self.browser.find_element(By.ID, "user-menu-toggle").click()
+        self.browser.find_element(By.ID, "open-profile").click()
+        self.wait.until(
+            expected_conditions.visibility_of_element_located((By.ID, "profile-form"))
+        )
+        self.wait.until(
+            expected_conditions.text_to_be_present_in_element_value(
+                (By.ID, "profile-username"), self.platform.username
+            )
+        )
         self.assertEqual(self.browser.find_element(By.ID, "profile-role").get_attribute("value"), "مدیر پلتفرم")
+        # And it closes again, so the rest of the flow is not behind a modal.
+        self.browser.find_element(
+            By.CSS_SELECTOR, "#profile-dialog [data-close-dialog]"
+        ).click()
+        self.wait.until_not(
+            expected_conditions.visibility_of_element_located((By.ID, "profile-form"))
+        )
         self.assertTrue(self.browser.find_element(By.ID, "app-sidebar").is_displayed())
         sidebar_mark = self.browser.find_element(By.CSS_SELECTOR, ".brand-mark-sidebar")
         self.assertTrue(sidebar_mark.is_displayed())

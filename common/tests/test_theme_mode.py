@@ -121,6 +121,49 @@ class ThemeModeMarkupTests(TestCase):
         self.assertIn("theme-dark-show", self.markup)
 
 
+class AccountMenuTests(TestCase):
+    """The account menu carries the account's own things."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="acct.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+        self.markup = self.client.get("/customers/").content.decode("utf-8")
+
+    def test_the_button_wears_a_person(self):
+        """1.3.8 put the theme's sun/moon here, which made the account control
+        look like a theme switch. The theme reports itself on the «حالت» row
+        inside the menu, which is where a reader looks for it."""
+        button = self.markup[
+            self.markup.index('id="user-menu-toggle"') : self.markup.index('id="user-menu"')
+        ]
+        self.assertIn("ki-user", button)
+        self.assertNotIn("theme-light-show", button)
+
+    def test_the_profile_opens_a_dialog_rather_than_a_dashboard_anchor(self):
+        """It was a card on the home page, so editing it from anywhere else
+        meant navigating away and losing what you were doing."""
+        self.assertIn('id="profile-dialog"', self.markup)
+        entry = re.search(r'<[^>]*id="open-profile"[^>]*>', self.markup).group(0)
+        self.assertTrue(entry.startswith("<button"), entry)
+        self.assertNotIn("href", entry)
+
+    def test_the_profile_form_moved_rather_than_being_copied(self):
+        """Two copies of one form would drift, and `setupProfile()` binds by id
+        — so a second `#profile-form` would make which one it fills a matter of
+        document order."""
+        self.assertEqual(self.markup.count('id="profile-form"'), 1)
+        dialog = self.markup[self.markup.index('id="profile-dialog"') :]
+        self.assertIn('id="profile-form"', dialog[: dialog.index("</dialog>")])
+
+    def test_the_dashboard_no_longer_carries_the_profile(self):
+        home = self.client.get("/").content.decode("utf-8")
+        self.assertNotIn('id="profile-card"', home)
+        self.assertEqual(home.count('id="profile-form"'), 1, "only the dialog's")
+
+
 class ThemeBootstrapScriptTests(SimpleTestCase):
     """The inline script that beats the first paint."""
 

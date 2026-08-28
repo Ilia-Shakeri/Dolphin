@@ -452,7 +452,7 @@
     }
 
     async function setupDashboard() {
-        await Promise.all([setupProfile(), setupWorkQueue(), setupPerformancePanel("dashboard")]);
+        await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard")]);
     }
 
     function userRow(user) {
@@ -5838,6 +5838,52 @@
      * Opened on hover and on click. Hover alone would strand a touch screen,
      * where there is no hover at all, and a keyboard user who tabs to the row.
      */
+    /**
+     * The collapsed mark expands the sidebar.
+     *
+     * It defers to the real toggle rather than flipping the attribute itself,
+     * so `KTToggle` stays the only thing that owns the state and writes the
+     * cookie the server reads back. Two controls, one source of truth.
+     */
+    /**
+     * The profile dialog, opened from the account menu on any page.
+     *
+     * Loaded on first open rather than on page load: it lives in the shell now,
+     * so eagerly fetching it would add a request to every single screen for a
+     * form most visits never touch. Loaded once and kept, because reopening it
+     * to re-read what the reader just saved would be worse than stale.
+     */
+    function setupProfileDialog() {
+        const dialog = document.getElementById("profile-dialog");
+        const open = document.getElementById("open-profile");
+        if (!dialog || !open) return;
+        let loaded = false;
+
+        open.addEventListener("click", async () => {
+            dialog.showModal();
+            if (loaded) return;
+            loaded = true;
+            try {
+                await setupProfile();
+            } catch (error) {
+                // `setupProfile` reports its own failure into the dialog; this
+                // only stops one bad load from wedging the button shut.
+                loaded = false;
+                showError(error);
+            }
+        });
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) =>
+            button.addEventListener("click", () => dialog.close()),
+        );
+    }
+
+    function setupSidebarExpander() {
+        const expand = document.getElementById("app-sidebar-expand");
+        const toggle = document.getElementById("kt_app_sidebar_toggle");
+        if (!expand || !toggle) return;
+        expand.addEventListener("click", () => toggle.click());
+    }
+
     function setupThemeModePopup() {
         const item = document.querySelector("[data-theme-mode-item]");
         const trigger = document.getElementById("theme-mode-trigger");
@@ -5899,6 +5945,8 @@
 
     setupSearchableSelects();
     setupThemeModePopup();
+    setupSidebarExpander();
+    setupProfileDialog();
 
     // Any page that declares a chart card gets one, whichever page it is.
     setupListCharts();

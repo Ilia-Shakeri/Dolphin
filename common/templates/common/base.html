@@ -110,12 +110,11 @@
                                     aria-label="منوی کاربر">
                                 <span class="symbol symbol-35px symbol-circle">
                                     <span class="symbol-label bg-light-primary text-primary fw-bold">
-{% comment %} One of these two shows at a time; the theme's own `theme-light-show`
-   and `theme-dark-show` rules pick which, from `data-bs-theme` on `<html>`.
-   The button therefore reports the current theme without any script of ours,
-   and reports it correctly on the very first frame. {% endcomment %}
-                                        <i class="ki-duotone ki-night-day theme-light-show fs-2 text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span><span class="path6"></span><span class="path7"></span><span class="path8"></span><span class="path9"></span><span class="path10"></span></i>
-                                        <i class="ki-duotone ki-moon theme-dark-show fs-2 text-primary"><span class="path1"></span><span class="path2"></span></i>
+{% comment %} A person, because this is the user's own control. 1.3.8 put the
+   theme's sun/moon here instead, which made the account menu look like a theme
+   switch — the theme already reports itself on the «حالت» row inside the menu,
+   which is where a reader looks for it. {% endcomment %}
+                                        <i class="ki-duotone ki-user fs-2 text-primary"><span class="path1"></span><span class="path2"></span></i>
                                     </span>
                                 </span>
                                 <span class="d-none d-md-flex flex-column align-items-end ms-3">
@@ -140,7 +139,13 @@
                                 </div>
                                 <div class="separator my-2"></div>
                                 <div class="menu-item px-5">
-                                    <a id="open-profile" class="menu-link px-5" href="{% url 'common_ui:home' %}#profile-card">پروفایل من</a>
+{% comment %} A dialog rather than a link to an anchor on the dashboard.
+
+   The profile lived in a card on the home page, so editing it from any other
+   screen meant navigating away and losing what you were doing — and on the
+   dashboard it sat among company figures it has nothing to do with. It is the
+   account owner's own form, so it belongs to the account menu. {% endcomment %}
+                                    <button id="open-profile" class="menu-link px-5 w-100 text-start border-0 bg-transparent" type="button">پروفایل من</button>
                                 </div>
                                 <div class="menu-item px-5">
                                     <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
@@ -247,12 +252,27 @@
                         </picture>
                         <span>ForooshBin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span></span>
                     </a>
-                    <a class="brand app-sidebar-logo-minimize text-decoration-none" href="{% url 'common_ui:home' %}" aria-label="ForooshBin">
+{% comment %} Collapsed, the mark is the way back out.
+
+   It is a button rather than a link: in a 75px rail it is the only thing left
+   at the top, so the obvious click has to be the useful one — and "go to the
+   dashboard" is already the first item in the menu below it. Hovering dims the
+   mark and shows a chevron over it, so the button says what it does before it
+   is pressed.
+
+   It expands by clicking the real toggle, so `KTToggle` still owns the state
+   and still writes the cookie. Nothing here keeps a second copy of whether the
+   sidebar is open. {% endcomment %}
+                    <button type="button" class="brand app-sidebar-logo-minimize" id="app-sidebar-expand"
+                            aria-label="باز کردن فهرست" title="باز کردن فهرست">
                         <picture>
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="ForooshBin">
                         </picture>
-                    </a>
+                        <span class="app-sidebar-expand-hint" aria-hidden="true">
+                            <i class="ki-duotone ki-black-right-line fs-3"><span class="path1"></span><span class="path2"></span></i>
+                        </span>
+                    </button>
                     <button id="kt_app_sidebar_toggle" type="button"
                             class="app-sidebar-toggle btn btn-icon btn-sm h-28px w-28px{% if sidebar_minimized %} active{% endif %}"
                             data-kt-toggle="true" data-kt-toggle-state="active"
@@ -494,6 +514,25 @@
    focusable, closes on Escape, and needs no Bootstrap JavaScript. Sessions are
    identified by an opaque reference — the session key itself never reaches the
    browser. {% endcomment %}
+{% comment %} The same fields the dashboard card had, and the same endpoint. Only
+   the container changed, so `setupProfile()` binds to it unaltered. {% endcomment %}
+<dialog id="profile-dialog" aria-labelledby="profile-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5">
+        <h2 id="profile-dialog-title" class="fs-3 fw-bold text-gray-900 mb-0">پروفایل من</h2>
+        <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+    <div id="profile-loading" class="text-center text-gray-700 py-10">در حال دریافت پروفایل…</div>
+    <form id="profile-form" action="/api/v1/auth/me/" method="post" class="row g-5" hidden novalidate>
+        {% csrf_token %}
+        <div class="col-md-6"><label class="form-label fw-semibold" for="profile-username">نام کاربری</label><input class="form-control form-control-solid" id="profile-username" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="profile-role">نقش</label><input class="form-control form-control-solid" id="profile-role" type="text" disabled></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="profile-first-name">نام</label><input class="form-control form-control-solid" id="profile-first-name" name="first_name" type="text" maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="first_name"></p></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="profile-last-name">نام خانوادگی</label><input class="form-control form-control-solid" id="profile-last-name" name="last_name" type="text" maxlength="150"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="last_name"></p></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="profile-email">ایمیل</label><input class="form-control form-control-solid" id="profile-email" name="email" type="email" maxlength="254"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="email"></p></div>
+        <div class="col-md-6"><label class="form-label fw-semibold" for="profile-phone">تلفن</label><input class="form-control form-control-solid" id="profile-phone" name="phone" type="tel" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
+        <div class="col-12 d-flex justify-content-end gap-3 mt-2"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره پروفایل</button></div>
+    </form>
+</dialog>
 <dialog id="sessions-dialog" aria-labelledby="sessions-dialog-title">
     <div class="card">
         <div class="card-header align-items-center">

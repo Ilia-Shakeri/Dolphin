@@ -89,11 +89,26 @@ class SyntheticUatRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "profile-form")))
+        # The account button is the proof the shell rendered signed in. It is
+        # the button and not the name beside it: the name carries `d-none
+        # d-md-flex`, so a visibility wait on it can never pass on mobile.
+        #
+        # The profile form used to stand in for all of this and no longer can —
+        # it lives in a dialog now, and is not visible until it is opened.
         self.wait.until(
-            expected_conditions.text_to_be_present_in_element_value(
-                (By.ID, "profile-username"),
-                username,
+            expected_conditions.visibility_of_element_located((By.ID, "user-menu-toggle"))
+        )
+        # Any name at all, rather than this username specifically: the header
+        # shows `get_full_name() or username`, and these personas are seeded
+        # with real names — so matching the username would never pass. What the
+        # wait is for is that `/auth/me/` resolved and the shell filled in, and
+        # which persona it is gets asserted by each test that cares.
+        #
+        # Read rather than seen, so this holds at any width: the element is in
+        # the DOM on mobile too, just not displayed.
+        self.wait.until(
+            lambda driver: driver.execute_script(
+                "return document.getElementById('user-menu-username').textContent.trim()"
             )
         )
 

@@ -111,7 +111,15 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
         self.browser.find_element(By.CSS_SELECTOR, "#login-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_to_be(f"{self.live_server_url}/"))
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "profile-form")))
+        # The account button is the proof the shell rendered signed in. It is
+        # the button and not the name beside it: the name carries `d-none
+        # d-md-flex`, so a visibility wait on it can never pass on mobile.
+        #
+        # The profile form used to stand in for all of this and no longer can —
+        # it lives in a dialog now, and is not visible until it is opened.
+        self.wait.until(
+            expected_conditions.visibility_of_element_located((By.ID, "user-menu-toggle"))
+        )
 
     def open_create_dialog(self, button_id, dialog_id):
         """Click until the dialog is really open.

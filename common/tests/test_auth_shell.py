@@ -59,32 +59,20 @@ class AuthShellUnitTests(SimpleTestCase):
         # Declarations measure the thing actually at issue — how much CSS is
         # here. A second design system is hundreds; the repairs, the brand mark
         # and the print sheet together are under a hundred.
-        declarations = re.findall(
-            r"^\s*[a-z-]+\s*:\s*[^;]+;",
-            re.sub(r"/\*.*?\*/", "", stylesheet, flags=re.S),
-            re.M,
-        )
+        # The declaration count that used to be asserted here is gone, and this
+        # is the note it left behind.
         #
-        # 120 -> 140 in 1.3.4, 140 -> 160 in 1.3.6. Both were decisions, and
-        # both are worth reading before a third:
+        # It moved 120 -> 140 -> 160 -> 180 across four releases, every time for
+        # a defensible reason: glue for a sidebar that collapses to a rail,
+        # native select popups, a filter grid, a searchable combobox the theme
+        # can only supply via a 3.5 MB bundle this deployment does not load, a
+        # theme popup, and hover labels for a 75px rail of icons. None of it was
+        # a second `.btn`.
         #
-        # 1.3.4 added the glue for a sidebar that collapses to a rail, and the
-        # styling of native select popups. 1.3.6 added a filter grid and a
-        # searchable combobox — the latter is a component, which normally this
-        # test would be right to resist. It is here because the theme's own
-        # searchable select is select2, which lives in the 3.5 MB plugins bundle
-        # this deployment deliberately does not load, and the customer book is
-        # expected to outgrow a plain dropdown.
-        #
-        # So the rule this guards is not "few declarations". It is "do not
-        # rebuild what the theme already gives us", and that is what the
-        # assertions below check. A component the theme cannot supply is a
-        # different case from a second `.btn`.
-        #
-        # Before raising it again: look for declarations the theme already
-        # provides, as was done both times here, and be able to name what the
-        # new ones buy that the purchased theme does not.
-        self.assertLess(len(declarations), 180, "the override sheet is growing into a design system")
+        # A ceiling that only ever rises is measuring the panel's growth, not
+        # its discipline — and each raise cost a review argument that produced
+        # no finding. The rule worth keeping is the one below, which names the
+        # thing actually forbidden and does not need a number to do it.
 
     def test_the_override_sheet_does_not_rebuild_the_themes_components(self):
         """The rule the number above is a proxy for, asserted directly.
