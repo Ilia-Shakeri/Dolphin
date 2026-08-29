@@ -100,39 +100,61 @@ class SidebarCollapseStyleTests(SimpleTestCase):
     def setUp(self):
         self.css = PANEL_CSS.read_text(encoding="utf-8")
 
-    def test_the_collapsed_rail_may_shrink_below_its_content(self):
-        """A flex item defaults to `min-width: auto` — never smaller than what
-        is inside it. Without this the width variable says 75px, the rule reads
-        it, and the sidebar still measures its widest child."""
-        self.assertRegex(
-            self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{[^}]*min-width: 0',
-        )
+    def test_the_override_sheet_leaves_the_collapsed_sidebar_to_the_theme(self):
+        """Three releases of rules used to live here. None of them do now.
 
-    def test_the_expanded_brand_is_hidden_with_enough_weight_to_win(self):
-        """It carries Bootstrap's `d-flex`, which is `!important`."""
-        self.assertRegex(
-            self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar-logo-default \{'
-            r'[^}]*display: none !important',
-        )
+        The theme collapses the sidebar by itself — the two logos, the faded
+        titles, the 75px width and hover-to-peek are all its own, and the
+        vendor's demo does it with no custom CSS at all. Everything written here
+        was working around one bug in this project's markup, not in the theme:
+        the brand link carried Bootstrap's `d-flex`, which is `!important` and
+        beat the theme's `display: none`, so the wide block stayed in the flow
+        and — a flex item being `min-width: auto` — held the sidebar open at its
+        own content width.
 
-    def test_the_width_transition_is_off_so_the_toggle_actually_resizes(self):
-        """The collapse did nothing until the next page load, and this is why.
-
-        The sidebar's width is `var(--bs-app-sidebar-width)`, and the toggle
-        changes that custom property rather than the `width` declaration.
-        Chromium will not re-apply a width that resolves through `var()` while a
-        transition on `width` is armed: measured live, the variable moved 265px
-        to 75px on every click while the box stayed at 265px. The theme declares
-        that transition inside its own collapsed rule, so the selector is
-        repeated here to outrank it.
+        The fix is in the markup: `d-flex` sits on a span inside the link. This
+        test guards against the overrides creeping back, because each of them
+        looked reasonable in isolation and together they defeated the peek.
         """
-        self.assertRegex(
-            self.css,
-            r'\.app-sidebar,\s*\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{'
-            r"[^}]*transition: none",
+        forbidden = (
+            # The logo swap, which the theme does from its own two rules.
+            "app-sidebar-logo-minimize { display",
+            "app-sidebar-logo-default { display",
+            # A guard for a re-peek that does not happen: the toggle travels
+            # with the sidebar's edge, so collapsing leaves the pointer outside
+            # the rail already.
+            "peek-suspended",
+            # Both halves of the per-state width scheme.
+            "--bs-app-sidebar-width-actual",
         )
+        for rule in forbidden:
+            with self.subTest(rule=rule):
+                self.assertNotIn(rule, self.css, rule)
+        # And no hardcoded rail width, which one of those attempts introduced.
+        self.assertNotRegex(self.css, r"width:\s*75px")
+        # The toggle is placed by the theme's own utilities now. That retired a
+        # hand-rolled `inset-inline-start`, which had caused two RTL bugs — the
+        # theme's RTL build resolves `start-100` correctly on its own.
+        markup = (
+            REPOSITORY_ROOT / "common" / "templates" / "common" / "base.html"
+        ).read_text(encoding="utf-8")
+        toggle = re.search(r'<button id="kt_app_sidebar_toggle".*?>', markup, re.S).group(0)
+        for utility in ("position-absolute", "top-50", "start-100", "translate-middle", "rotate"):
+            with self.subTest(utility=utility):
+                self.assertIn(utility, toggle)
+
+    def test_the_brand_flex_is_not_on_the_element_the_theme_hides(self):
+        """The whole reason the overrides above are unnecessary.
+
+        `d-flex` is `!important`; the theme's collapse rule is not. With the
+        utility on the link the theme could never hide it.
+        """
+        markup = (
+            REPOSITORY_ROOT / "common" / "templates" / "common" / "base.html"
+        ).read_text(encoding="utf-8")
+        link = re.search(r'<a class="brand app-sidebar-logo-default[^"]*"', markup)
+        self.assertIsNotNone(link)
+        self.assertNotIn("d-flex", link.group(0))
 
     def test_the_brand_mark_has_an_explicit_auto_height(self):
         """Without it the collapsed logo renders as a 1230px-tall sliver.
@@ -144,44 +166,6 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         than the screen.
         """
         self.assertRegex(self.css, r"\.brand-mark \{[^}]*height: auto")
-
-    def test_the_collapsed_menu_narrows_to_the_rail(self):
-        """Without this the icons are drawn outside the visible strip.
-
-        The theme keeps the wrapper at the full width while collapsed and lets
-        the 75px sidebar clip it — that is how its own hover-to-peek mode works,
-        which this panel does not use. So the links stayed 234px and
-        `justify-content: center` put each icon in the middle of 234px:
-        measured at x=1447 while the visible rail was 1510-1585. The icons were
-        rendering perfectly, just off the edge of their own sidebar.
-        """
-        self.assertRegex(
-            self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \.app-sidebar-menu,'
-            r"[^{]*\{[^}]*width: var\(--bs-app-sidebar-width\)",
-        )
-
-    def test_the_collapsed_titles_become_labels_rather_than_vanishing(self):
-        """A rail of eleven unlabelled glyphs asks the reader to memorise them."""
-        self.assertRegex(
-            self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \.menu-title \{'
-            r"[^}]*position: absolute",
-        )
-        # Left of the rail, which under RTL means insetting the *start*.
-        self.assertRegex(
-            self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \.menu-title \{'
-            r"[^}]*inset-inline-start: calc\(100% \+",
-        )
-
-    def test_the_rail_stops_clipping_so_a_label_can_leave_it(self):
-        """`overflow: hidden` on the rail would cut the label off with it."""
-        self.assertRegex(
-            self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \.app-sidebar-menu,'
-            r"[^{]*\{[^}]*overflow: visible",
-        )
 
     def test_the_mobile_rule_outranks_the_themes_button_classes(self):
         """`.btn.btn-icon` is two classes; a single-class rule loses to it and
@@ -200,17 +184,35 @@ class CollapsedSidebarMarkupTests(TestCase):
         self.client.force_login(self.user)
         self.markup = self.client.get("/customers/").content.decode("utf-8")
 
-    def test_the_minimized_mark_is_a_button_not_a_link(self):
-        """Collapsed, it is the only control at the top of the rail, so the
-        obvious click has to be the useful one. Going to the dashboard is
-        already the first item in the menu underneath it."""
-        self.assertIn('id="app-sidebar-expand"', self.markup)
-        expander = re.search(r'<button[^>]*id="app-sidebar-expand"[^>]*>', self.markup)
-        self.assertIsNotNone(expander, "the mark should be a button")
-        self.assertIn("aria-label", expander.group(0))
+    def test_the_minimized_mark_is_a_plain_link_not_a_control(self):
+        """1.3.11 made this a button that expanded the sidebar and swapped the
+        mark for a chevron on hover. Withdrawn in 1.3.13 as confusing: a logo
+        that becomes a different control under the pointer does not tell you
+        which of the two you are about to get. It is a link home now, exactly
+        like the wide brand above it."""
+        self.assertNotIn('id="app-sidebar-expand"', self.markup)
+        self.assertNotIn("app-sidebar-expand-hint", self.markup)
+        mark = re.search(
+            r'<a[^>]*class="[^"]*app-sidebar-logo-minimize[^"]*"[^>]*>', self.markup
+        )
+        self.assertIsNotNone(mark, "the collapsed mark should be a link")
+        self.assertIn('href="/"', mark.group(0))
 
-    def test_the_expander_says_what_it_does_before_it_is_pressed(self):
-        self.assertIn("app-sidebar-expand-hint", self.markup)
+    def test_reopening_belongs_to_the_control_that_closed_it(self):
+        """The floating toggle was hidden while collapsed in 1.3.11, because the
+        mark had taken over that job. With the mark inert again it has to be
+        reachable, or a collapsed sidebar has no way back."""
+        css = PANEL_CSS.read_text(encoding="utf-8")
+        self.assertNotRegex(
+            css,
+            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \.app-sidebar-toggle \{'
+            r"\s*display: none",
+        )
+
+    def test_the_shell_asks_the_theme_for_hover_to_peek(self):
+        """The whole feature is this attribute: the theme implements the peek in
+        CSS with no JavaScript behind it."""
+        self.assertIn('data-kt-app-sidebar-hoverable="true"', self.markup)
 
 
 class SelectStyleTests(SimpleTestCase):

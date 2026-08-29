@@ -19,6 +19,7 @@ if SELENIUM_AVAILABLE:
     from selenium.webdriver.common.by import By
     from selenium.webdriver.support import expected_conditions
     from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.common.action_chains import ActionChains
 
 
 @unittest.skipUnless(SELENIUM_AVAILABLE, "Selenium is not installed.")
@@ -284,4 +285,76 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         agent_chart = self.chart_names("dashboard-performance-chart")
         self.assertIn(self.agent.username, agent_chart)
         self.assertNotIn(self.manager.username, agent_chart)
+        self.assert_browser_clean()
+
+    def test_the_collapsed_sidebar_peeks_open_on_hover_and_closes_again(self):
+        """Hover-to-peek, which only a real pointer can exercise.
+
+        Synthetic events cannot produce CSS `:hover`, so this behaviour is not
+        checkable from a script in the page — `ActionChains` moves the actual
+        pointer, which is why it is tested here rather than as a style rule.
+
+        The peek is the theme's own feature and is pure CSS; what is asserted is
+        that this panel has it switched on and has not smothered it with an
+        override, which is exactly what the 1.3.11 rail rules did.
+        """
+        self.browser.set_window_size(1440, 1000)
+        self.login()
+
+        sidebar = self.browser.find_element(By.ID, "app-sidebar")
+        width = lambda: self.browser.execute_script(
+            "return Math.round(arguments[0].getBoundingClientRect().width)", sidebar
+        )
+        expanded = width()
+        self.assertGreater(expanded, 200, "the sidebar should start open")
+
+        # Collapse it with the toggle — the control that must also reopen it.
+        toggle = self.browser.find_element(By.ID, "kt_app_sidebar_toggle")
+        toggle.click()
+        self.wait.until(lambda driver: width() < 100)
+        rail = width()
+
+        # The toggle stays reachable while collapsed; 1.3.11 hid it here and
+        # made the logo the way out, which was withdrawn.
+        self.assertTrue(toggle.is_displayed())
+
+        # Away from the sidebar first. The toggle travels with the sidebar's
+        # edge, so collapsing already leaves the pointer outside the 75px rail —
+        # which is why no suppression is needed to stop the peek reopening what
+        # was just closed, and why the vendor's demo does not have any.
+        content = self.browser.find_element(By.ID, "kt_app_main")
+        ActionChains(self.browser).move_to_element(content).perform()
+        self.assertLess(width(), 100, "it should stay a rail with the pointer away")
+
+        # Now point at it: it opens, without the collapsed state being forgotten.
+        ActionChains(self.browser).move_to_element(sidebar).perform()
+        self.wait.until(lambda driver: width() > 200)
+        self.assertEqual(
+            self.browser.execute_script(
+                "return document.body.getAttribute('data-kt-app-sidebar-minimize')"
+            ),
+            "on",
+            "a peek is not an un-collapse; the stored state must survive it",
+        )
+        # And the real labels are back, which is the point of peeking.
+        title = self.browser.find_element(By.CSS_SELECTOR, "#app-sidebar .menu-title")
+        self.assertEqual(
+            self.browser.execute_script(
+                "return getComputedStyle(arguments[0]).opacity", title
+            ),
+            "1",
+        )
+
+        # Leaving closes it again.
+        ActionChains(self.browser).move_to_element(content).perform()
+        self.wait.until(lambda driver: width() < 100)
+
+        # And the toggle still reopens it for good.
+        toggle.click()
+        self.wait.until(lambda driver: width() > 200)
+        self.assertIsNone(
+            self.browser.execute_script(
+                "return document.body.getAttribute('data-kt-app-sidebar-minimize')"
+            )
+        )
         self.assert_browser_clean()

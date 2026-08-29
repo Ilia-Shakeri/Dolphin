@@ -70,6 +70,16 @@
       data-kt-app-sidebar-push-header="true"
       data-kt-app-sidebar-push-toolbar="true"
       data-kt-app-sidebar-push-footer="true"
+      {% comment %} Hover-to-peek: while collapsed, pointing at the rail widens it
+         back to full width and letting go returns it. This is the theme's own
+         feature and lives entirely in its stylesheet — there is no JavaScript
+         behind it — so the attribute is the whole implementation.
+
+         It also changes what "collapsed" means structurally: with this on, the
+         theme keeps the menu wrapper at full width and lets the 75px sidebar
+         clip it, which is what makes the peek instant and label-complete. Any
+         rule that narrows the wrapper to the rail defeats it. {% endcomment %}
+      data-kt-app-sidebar-hoverable="true"
       {% if sidebar_minimized %}data-kt-app-sidebar-minimize="on"{% endif %}
       data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
 {% if request.user.is_authenticated %}
@@ -244,41 +254,59 @@
    body, and writes the cookie the context processor reads back. It sits on the
    sidebar's outer edge, vertically centred — always in the same place, never
    scrolling away with the menu, and reachable without hunting for it. {% endcomment %}
-                <div class="app-sidebar-logo px-6 py-6 d-flex align-items-center justify-content-center flex-column-auto position-relative" id="kt_app_sidebar_logo">
-                    <a class="brand app-sidebar-logo-default text-white fw-bold fs-3 text-decoration-none d-flex align-items-center gap-3 text-start" href="{% url 'common_ui:home' %}">
-                        <picture>
-                            <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
-                            <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
-                        </picture>
-                        <span>ForooshBin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span></span>
+                <div class="app-sidebar-logo px-6" id="kt_app_sidebar_logo">
+{% comment %} The block's own layout is the theme's: `.app-sidebar-logo` is already
+   `display: flex`, `align-items: center`, `justify-content: space-between`,
+   `position: relative` and a fixed header height. The utility classes that used
+   to be repeated here fought that — `justify-content-center` in particular
+   contradicted the theme's `space-between`. {% endcomment %}
+                    <a class="brand app-sidebar-logo-default text-white fw-bold fs-3 text-decoration-none text-start" href="{% url 'common_ui:home' %}">
+{% comment %} The flex lives on this inner span, not on the link. The theme hides
+   the wide brand while collapsed with a plain `display: none`, and Bootstrap's
+   `d-flex` is `!important` — so with the utility on the link itself the theme
+   lost, the wide block stayed in the DOM, and its content propped the rail open.
+   That is what the `!important` overrides in forooshbin.css existed to beat.
+   Moving the utility inward lets the theme's own rule win unaided. {% endcomment %}
+                        <span class="d-flex align-items-center gap-3">
+                            <picture>
+                                <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
+                                <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
+                            </picture>
+                            <span>ForooshBin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span></span>
+                        </span>
                     </a>
-{% comment %} Collapsed, the mark is the way back out.
+{% comment %} Collapsed, the mark alone. It is a link home, exactly like the wide
+   brand above it — the same element in a narrower space, not a different
+   control wearing the logo.
 
-   It is a button rather than a link: in a 75px rail it is the only thing left
-   at the top, so the obvious click has to be the useful one — and "go to the
-   dashboard" is already the first item in the menu below it. Hovering dims the
-   mark and shows a chevron over it, so the button says what it does before it
-   is pressed.
-
-   It expands by clicking the real toggle, so `KTToggle` still owns the state
-   and still writes the cookie. Nothing here keeps a second copy of whether the
-   sidebar is open. {% endcomment %}
-                    <button type="button" class="brand app-sidebar-logo-minimize" id="app-sidebar-expand"
-                            aria-label="باز کردن فهرست" title="باز کردن فهرست">
+   1.3.11 made this a button that expanded the sidebar, and dimmed the mark on
+   hover to show a chevron in its place. That was withdrawn as confusing: a logo
+   that turns into a different control under the pointer does not tell you which
+   of the two you are about to get. Reopening belongs to the toggle that closed
+   it, which now stays visible while collapsed. {% endcomment %}
+                    <a class="brand app-sidebar-logo-minimize" href="{% url 'common_ui:home' %}" aria-label="ForooshBin">
                         <picture>
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="ForooshBin">
                         </picture>
-                        <span class="app-sidebar-expand-hint" aria-hidden="true">
-                            <i class="ki-duotone ki-black-right-line fs-3"><span class="path1"></span><span class="path2"></span></i>
-                        </span>
-                    </button>
+                    </a>
+{% comment %} The theme's own toggle, class for class, with one change: it is a
+   `<button>` rather than the demo's `<div>`, so it is focusable and announces
+   itself.
+
+   `position-absolute top-50 start-100 translate-middle` is how the theme places
+   this button, and using it removes a hand-rolled `inset-inline-start` that had
+   already caused two RTL bugs — the theme's RTL build resolves these correctly
+   on its own. `rotate` on the button and `rotate-180` on the icon are likewise
+   the theme's: `[dir=rtl] .app-sidebar-toggle.active i` flips the chevron from
+   the `active` class KTToggle maintains, so no rule of ours decides which way
+   it points. {% endcomment %}
                     <button id="kt_app_sidebar_toggle" type="button"
-                            class="app-sidebar-toggle btn btn-icon btn-sm h-28px w-28px{% if sidebar_minimized %} active{% endif %}"
+                            class="app-sidebar-toggle btn btn-icon btn-shadow btn-sm btn-color-muted btn-active-color-primary h-30px w-30px position-absolute top-50 start-100 translate-middle rotate{% if sidebar_minimized %} active{% endif %}"
                             data-kt-toggle="true" data-kt-toggle-state="active"
                             data-kt-toggle-target="body" data-kt-toggle-name="app-sidebar-minimize"
                             aria-label="جمع کردن یا باز کردن فهرست" title="جمع کردن یا باز کردن فهرست">
-                        <i class="ki-duotone ki-black-left-line fs-4"><span class="path1"></span><span class="path2"></span></i>
+                        <i class="ki-duotone ki-black-left-line fs-3 rotate-180"><span class="path1"></span><span class="path2"></span></i>
                     </button>
                 </div>
                 <div class="app-sidebar-menu overflow-hidden flex-column-fluid">

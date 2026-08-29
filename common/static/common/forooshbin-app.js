@@ -6140,13 +6140,6 @@
         );
     }
 
-    function setupSidebarExpander() {
-        const expand = document.getElementById("app-sidebar-expand");
-        const toggle = document.getElementById("kt_app_sidebar_toggle");
-        if (!expand || !toggle) return;
-        expand.addEventListener("click", () => toggle.click());
-    }
-
     /**
      * Redraw every chart when the panel changes theme.
      *
@@ -6238,7 +6231,6 @@
     setupSearchableSelects();
     setupChartThemeRedraw();
     setupThemeModePopup();
-    setupSidebarExpander();
     setupProfileDialog();
 
     // Any page that declares a chart card gets one, whichever page it is.

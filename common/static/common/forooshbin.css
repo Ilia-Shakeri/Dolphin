@@ -88,229 +88,34 @@ dialog::backdrop {
 }
 
 /* 2b. Collapsed sidebar ---------------------------------------------------
-   The theme already knows how to collapse `.app-sidebar` — width, hidden menu
-   titles, and which of the two logos shows — all driven by
-   `[data-kt-app-sidebar-minimize=on]` on `<body>`. What it does not know is
-   this panel's own brand block, so only that is written here.
+   Deliberately almost empty, and that took three releases to arrive at.
 
-   Both logos live in the DOM at once; exactly one is displayed. Swapping the
-   image `src` instead would have reloaded a file on every toggle and left the
-   rail briefly empty. */
-/* `!important` on both, and not by preference. The expanded brand carries
-   Bootstrap's `d-flex`, which is itself `!important`, so a plain `display:none`
-   loses to it and the wide block stays in the DOM — and because `.app-sidebar`
-   is a flex item with the default `min-width: auto`, its own content then holds
-   it open. That was the whole bug: the width variable said 75px, the rule read
-   it, and the box still measured 265px because the brand text would not fit in
-   anything narrower. */
-.app-sidebar-logo-minimize { display: none !important; }
+   The theme collapses `.app-sidebar` on its own: it swaps the two logos, fades
+   the menu titles, and drives the width from `--bs-app-sidebar-width`, which its
+   own `[data-kt-app-sidebar-minimize=on]` rule sets to 75px. With
+   `data-kt-app-sidebar-hoverable="true"` on the body it also does hover-to-peek,
+   entirely in CSS. Verified against the vendor's own demo served locally: it
+   collapses to exactly 75px with `transition-property: width`, keeps the menu
+   wrapper at 265px, and lets the rail clip it.
 
-[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-default { display: none !important; }
-[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo-minimize { display: flex !important; }
+   1.3.11 and 1.3.13 both wrote rules here to force what the theme already does,
+   because the sidebar refused to narrow. The cause was never the theme: the
+   brand link carried Bootstrap's `d-flex`, which is `!important` and beat the
+   theme's `display: none`, so the wide block stayed in the flow and — a flex
+   item being `min-width: auto` — held the sidebar open at its own content
+   width. Everything built on top of that (a hardcoded rail width, per-state
+   width declarations, `min-width: 0`, `overflow-x`, re-centred icons, a
+   floating label for every title) was treating the symptom.
 
-/* The sidebar never re-sized when the toggle was clicked. It kept whatever
-   width the page had been served with, and only a reload showed the change —
-   so collapsing appeared to do nothing but hide the menu labels.
+   The fix is in the markup instead: `d-flex` moved to a span inside the link,
+   so the theme's own rule wins unaided. What was written here is gone with it.
 
-   The cause is the width transition, and the reason is specific: the sidebar's
-   width is `var(--bs-app-sidebar-width)`, and the toggle changes that custom
-   property rather than the `width` declaration itself. Chromium will not
-   re-apply a `width` that resolves through `var()` while a transition on
-   `width` is armed — the variable updates, the used width does not follow, and
-   nothing animates either. Measured in a live page: the variable moved 265px to
-   75px on every click while the box stayed at 265px, and switching the
-   transition off made the same clicks work immediately.
-
-   So the transition goes. The collapse is instant now, which is the right trade:
-   a sidebar that moves at once is better than an animation that never runs. The
-   theme's own declaration lives inside its `[data-kt-app-sidebar-minimize=on]`
-   rule and is two classes' worth of weight, so that selector is repeated here
-   to outrank it.
-
-   Scoped to the breakpoint where a collapsible sidebar exists at all. Below it
-   the sidebar is a drawer that slides on `transform`, and that animation is
-   untouched. */
-@media (min-width: 992px) {
-    .app-sidebar,
-    [data-kt-app-sidebar-minimize="on"] .app-sidebar {
-        transition: none;
-    }
-}
-
-/* Lets the rail actually reach its width instead of being propped open by
-   whatever is widest inside it. A flex item defaults to `min-width: auto`,
-   which means "never smaller than my content" — the one declaration that makes
-   a collapsing sidebar impossible. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar {
-    min-width: 0;
-    overflow-x: hidden;
-}
-
-/* The wrapper has to narrow with the rail, and this is the whole reason the
-   collapsed sidebar looked empty.
-
-   The theme deliberately keeps the wrapper at the *full* width while collapsed
-   and lets the 75px sidebar clip it — that is how its own hover-to-peek mode
-   works, which this panel does not use. So the menu links stayed 234px wide,
-   and `justify-content: center` put each icon in the middle of 234px: measured
-   at x=1447 when the visible rail was 1510–1585. The icons were being drawn
-   perfectly, just outside the window.
-
-   Narrowing the wrapper makes the links 75px, so centring puts the icon where
-   the reader is looking. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .app-sidebar-menu,
-[data-kt-app-sidebar-minimize="on"] .app-sidebar #kt_app_sidebar_menu_scroll {
-    width: var(--bs-app-sidebar-width);
-    margin-inline: 0;
-}
-
-/* The rail is 75px, so the logo block loses the padding that assumed 250px. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar-logo {
-    padding-inline: 0.75rem !important;
-}
-
-/* The toggle sits on the sidebar's inner edge, vertically centred on the logo
-   band: the same place on every screen, never scrolling away with the menu,
-   and reachable without hunting. `start: 100%` puts it on the edge facing the
-   content, which under RTL is the left one — the theme's own `rotate` class
-   turns the chevron to match the state. */
-.app-sidebar-toggle {
-    position: absolute;
-    top: 50%;
-    inset-inline-start: 100%;
-    transform: translate(50%, -50%);
-    z-index: 2;
-    color: #9de1d8;
-    background-color: #12374d;
-    border: 1px solid rgba(157, 225, 216, 0.25);
-    border-radius: 50%;
-}
-
-.app-sidebar-toggle:hover,
-.app-sidebar-toggle:focus-visible {
-    color: #ffffff;
-    background-color: #1b7f74;
-}
-
-.app-sidebar-toggle i { transition: transform 0.3s ease; }
-
-/* Points the way it will move: inward while open, outward while collapsed. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar-toggle i { transform: rotate(180deg); }
-
-/* The expander: the mark, with a chevron that appears under the pointer. */
-.app-sidebar-logo-minimize {
-    position: relative;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    border-radius: 0.65rem;
-    transition: background-color 0.15s ease;
-}
-
-.app-sidebar-logo-minimize:hover,
-.app-sidebar-logo-minimize:focus-visible {
-    background-color: rgba(157, 225, 216, 0.12);
-}
-
-.app-sidebar-expand-hint {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #9de1d8;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
-
-.app-sidebar-logo-minimize:hover .app-sidebar-expand-hint,
-.app-sidebar-logo-minimize:focus-visible .app-sidebar-expand-hint {
-    opacity: 1;
-}
-
-/* Collapsed, the mark is the control, so the floating toggle would be a second
-   way to do the same thing sitting on top of the first. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .app-sidebar-toggle {
-    display: none;
-}
-
-/* The collapsed rail has no room for a wordmark or a section heading. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-arrow,
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-bullet {
-    display: none !important;
-}
-
-/* The title becomes a label beside the pointer instead of disappearing.
-   
-   A 75px rail of unlabelled icons asks the reader to memorise eleven glyphs.
-   The name is already in the DOM, so hovering floats it out of the rail rather
-   than adding a second copy in a `title` attribute — one source of the word,
-   and no native-tooltip delay before it appears. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-title {
-    position: absolute;
-    /* `inline-start`, not `-end`. Under RTL the inline start is the *right*
-       edge, so insetting the start by the row's full width pushes the label out
-       to the left — which is where the page is. Using `-end` pushed it right,
-       past the window edge, and the label was drawn off-screen. */
-    inset-inline-start: calc(100% + 0.5rem);
-    top: 50%;
-    transform: translateY(-50%);
-    display: block !important;
-    width: max-content;
-    max-width: 14rem;
-    padding: 0.4rem 0.7rem;
-    border-radius: 0.475rem;
-    background-color: #12374d;
-    color: #ffffff;
-    font-size: 0.9rem;
-    white-space: nowrap;
-    box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.35);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.12s ease;
-    z-index: 105;
-}
-
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:hover .menu-title,
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:focus-visible .menu-title {
-    opacity: 1;
-}
-
-/* The row the label belongs to has to be the positioning context, and the rail
-   must stop clipping at its own edge or the label would be cut off with it. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link {
-    position: relative;
-}
-
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .app-sidebar-menu,
-[data-kt-app-sidebar-minimize="on"] .app-sidebar #kt_app_sidebar_menu_scroll {
-    overflow: visible !important;
-}
-
-/* And the icon lights up, so the pointer's position is obvious without reading. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:hover,
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link:focus-visible {
-    background-color: rgba(157, 225, 216, 0.14);
-}
-
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-link,
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-item > .menu-link {
-    justify-content: center;
-    padding-inline: 0;
-}
-
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-icon {
-    margin-inline-end: 0;
-    width: auto;
-}
-
-/* An accordion cannot open in a 75px rail; its children would have nowhere to
-   go and would overlap the icons. Collapsed, the rail is a set of links. */
-[data-kt-app-sidebar-minimize="on"] .app-sidebar .menu-sub-accordion {
-    display: none;
-}
+   A correction worth recording, because it was asserted twice in comments and
+   once in a test: **the claim that Chromium will not re-apply a `width` that
+   resolves through `var()` while a `width` transition is armed is wrong.** The
+   vendor demo does exactly that and animates correctly. The measurement behind
+   the claim was of a sidebar being propped open by its own content, which no
+   width rule of any kind could have shrunk. */
 
 /* Below the breakpoint the sidebar is a drawer that slides over the page, so
    collapsing it to a rail means nothing — the toggle would do something the
