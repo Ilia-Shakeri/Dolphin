@@ -124,14 +124,10 @@ class SidebarCollapseStyleTests(SimpleTestCase):
             # with the sidebar's edge, so collapsing leaves the pointer outside
             # the rail already.
             "peek-suspended",
-            # Both halves of the per-state width scheme.
-            "--bs-app-sidebar-width-actual",
         )
         for rule in forbidden:
             with self.subTest(rule=rule):
                 self.assertNotIn(rule, self.css, rule)
-        # And no hardcoded rail width, which one of those attempts introduced.
-        self.assertNotRegex(self.css, r"width:\s*75px")
         # The toggle is placed by the theme's own utilities now. That retired a
         # hand-rolled `inset-inline-start`, which had caused two RTL bugs — the
         # theme's RTL build resolves `start-100` correctly on its own.
@@ -155,6 +151,49 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         link = re.search(r'<a class="brand app-sidebar-logo-default[^"]*"', markup)
         self.assertIsNotNone(link)
         self.assertNotIn("d-flex", link.group(0))
+
+    def test_each_state_declares_its_own_width_so_the_sidebar_can_reopen(self):
+        """A defect in the theme, not a workaround for our own markup.
+
+        The theme drives the width from one declaration,
+        `.app-sidebar { width: var(--bs-app-sidebar-width) }`, and collapses by
+        changing that variable. Collapsing works. Expanding does not: the
+        variable returns to 265px and the used width stays at 75px, so a
+        collapsed sidebar can never be reopened.
+
+        Reproduced in the vendor's own demo served locally, with none of this
+        project's code loaded — after its own toggle, the variable read 265px
+        while the computed width read 75px. Giving each state its own `width`
+        declaration makes the matched rule change rather than the value inside
+        one, and that animates in both directions.
+        """
+        self.assertRegex(
+            self.css,
+            r"@media \(min-width: 992px\) \{\s*\.app-sidebar \{"
+            r"\s*width: var\(--bs-app-sidebar-width-actual\)",
+        )
+        self.assertRegex(
+            self.css,
+            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: 75px',
+        )
+
+    def test_the_rail_width_matches_the_theme(self):
+        """The one theme number copied into the override sheet, guarded so it
+        cannot drift silently."""
+        theme = (
+            REPOSITORY_ROOT / "assets" / "css" / "style.bundle.rtl.css"
+        ).read_text(encoding="utf-8", errors="ignore")
+        declared = re.search(
+            r"\[data-kt-app-sidebar-minimize=on\]\s*\{[^}]*?"
+            r"--bs-app-sidebar-width:\s*([0-9]+px)",
+            theme,
+        )
+        self.assertIsNotNone(declared, "the theme no longer declares a rail width")
+        self.assertRegex(
+            self.css,
+            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: '
+            + re.escape(declared.group(1)),
+        )
 
     def test_the_brand_mark_has_an_explicit_auto_height(self):
         """Without it the collapsed logo renders as a 1230px-tall sliver.

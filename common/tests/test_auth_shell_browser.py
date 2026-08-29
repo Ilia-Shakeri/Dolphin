@@ -318,12 +318,17 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         # made the logo the way out, which was withdrawn.
         self.assertTrue(toggle.is_displayed())
 
-        # Away from the sidebar first. The toggle travels with the sidebar's
-        # edge, so collapsing already leaves the pointer outside the 75px rail —
-        # which is why no suppression is needed to stop the peek reopening what
-        # was just closed, and why the vendor's demo does not have any.
+        # Away from the sidebar, which also releases the peek suspension. The
+        # pointer is still on the toggle after that click, and without the
+        # suspension the peek reopens what was just closed — the sidebar never
+        # narrows, so the toggle never moves out from under the pointer either.
         content = self.browser.find_element(By.ID, "kt_app_main")
         ActionChains(self.browser).move_to_element(content).perform()
+        self.wait.until(
+            lambda driver: driver.execute_script(
+                "return document.body.hasAttribute('data-kt-app-sidebar-hoverable')"
+            )
+        )
         self.assertLess(width(), 100, "it should stay a rail with the pointer away")
 
         # Now point at it: it opens, without the collapsed state being forgotten.

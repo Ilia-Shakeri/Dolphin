@@ -110,12 +110,38 @@ dialog::backdrop {
    The fix is in the markup instead: `d-flex` moved to a span inside the link,
    so the theme's own rule wins unaided. What was written here is gone with it.
 
-   A correction worth recording, because it was asserted twice in comments and
-   once in a test: **the claim that Chromium will not re-apply a `width` that
-   resolves through `var()` while a `width` transition is armed is wrong.** The
-   vendor demo does exactly that and animates correctly. The measurement behind
-   the claim was of a sidebar being propped open by its own content, which no
-   width rule of any kind could have shrunk. */
+   One rule does have to stay, and it is not a workaround for our own markup —
+   it is a defect in the theme, reproduced in the vendor's own demo.
+
+   The theme drives the width from a single declaration,
+   `.app-sidebar { width: var(--bs-app-sidebar-width) }`, and collapses by
+   changing that variable. Collapsing works. **Expanding does not**: the
+   variable goes back to 265px and the used width stays at 75px, so a collapsed
+   sidebar can never be reopened. Measured in the vendor demo served locally,
+   with no ForooshBin code involved at all — after its own toggle,
+   `--bs-app-sidebar-width` read 265px while the computed width read 75px.
+
+   The fix is to give each state its own `width` declaration, so what changes
+   between them is the matched rule and not the value inside one. That animates
+   in both directions. `--bs-app-sidebar-width-actual` is the theme's constant
+   for the open width and never moves. */
+@media (min-width: 992px) {
+    .app-sidebar {
+        width: var(--bs-app-sidebar-width-actual);
+    }
+
+    /* The rail width, and the one theme number copied into this sheet.
+       `test_the_rail_width_matches_the_theme` reads it back out of the theme's
+       own stylesheet and fails if the two ever diverge. It is a literal rather
+       than `var(--bs-app-sidebar-width)` because that variable is the one being
+       mutated, which is the dependency this rule exists to remove.
+
+       Hover-to-peek still works over the top of this: the theme's peek rule
+       carries two attributes, a class and `:hover`, so it outranks this one. */
+    [data-kt-app-sidebar-minimize="on"] .app-sidebar {
+        width: 75px;
+    }
+}
 
 /* Below the breakpoint the sidebar is a drawer that slides over the page, so
    collapsing it to a rail means nothing — the toggle would do something the

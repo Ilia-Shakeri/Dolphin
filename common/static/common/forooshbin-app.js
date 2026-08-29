@@ -6141,6 +6141,46 @@
     }
 
     /**
+     * Stops a collapse from immediately undoing itself.
+     *
+     * The toggle sits on the sidebar's outer edge but is a child of it, so the
+     * pointer that just clicked "collapse" is still inside the sidebar when the
+     * collapse finishes — and hover-to-peek reopens it at once. The sidebar
+     * never narrows, so the toggle never moves out from under the pointer
+     * either. Confirmed in a real browser: the click flipped the attribute and
+     * the width stayed at its full 265px until the pointer moved.
+     *
+     * The theme knows about this and holds the peek off for 300ms with an
+     * `.animating` class, which is long enough for the animation and not for a
+     * pointer that simply stays where it is.
+     *
+     * Suspending it by taking `data-kt-app-sidebar-hoverable` off the body,
+     * rather than by adding a class of our own, is what keeps this to one line
+     * of effect: every peek rule in the theme is keyed on that attribute, so
+     * dropping it turns off the widened width and the expanded contents
+     * together. A class fighting `:hover` would have suppressed the width and
+     * left the wide brand and labels rendering inside a 75px box.
+     *
+     * Only when the pointer is genuinely over the sidebar: reaching the toggle
+     * by keyboard leaves no pointer to wait for, and a suspension nothing would
+     * ever clear would disable the peek for the rest of the page's life.
+     */
+    function setupSidebarPeekGuard() {
+        const sidebar = document.getElementById("app-sidebar");
+        const toggle = document.getElementById("kt_app_sidebar_toggle");
+        if (!sidebar || !toggle) return;
+
+        const HOVERABLE = "data-kt-app-sidebar-hoverable";
+        toggle.addEventListener("click", () => {
+            if (!sidebar.matches(":hover")) return;
+            document.body.removeAttribute(HOVERABLE);
+        });
+        sidebar.addEventListener("mouseleave", () => {
+            document.body.setAttribute(HOVERABLE, "true");
+        });
+    }
+
+    /**
      * Redraw every chart when the panel changes theme.
      *
      * `KTThemeMode` writes `data-bs-theme` on `<html>`, and does it both when a
@@ -6230,6 +6270,7 @@
 
     setupSearchableSelects();
     setupChartThemeRedraw();
+    setupSidebarPeekGuard();
     setupThemeModePopup();
     setupProfileDialog();
 
