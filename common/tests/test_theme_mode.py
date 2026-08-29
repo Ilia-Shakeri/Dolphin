@@ -50,8 +50,15 @@ class ThemeModeMarkupTests(TestCase):
 
     def test_the_switcher_sits_inside_the_user_menu(self):
         """Where it was asked for, and — just as importantly — not in a nested
-        dropdown, which KTMenu would position with Popper. Popper is in the
-        plugins bundle this deployment does not load."""
+        dropdown that KTMenu would own.
+
+        The original reason was that Popper was absent, so a nested dropdown
+        could not have been positioned at all. That reason expired in 1.3.12:
+        the plugins bundle is loaded now, for ApexCharts, and Popper comes with
+        it. The requirement outlived its reason — this popup is opened and
+        placed by `setupThemeModePopup()` in this project's own script, and a
+        nested KTMenu would put a second thing in charge of where it sits.
+        """
         menu_start = self.markup.index('id="user-menu"')
         menu_end = self.markup.index('id="logout-form"')
         self.assertIn(

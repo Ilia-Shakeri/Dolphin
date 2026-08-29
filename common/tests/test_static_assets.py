@@ -32,6 +32,10 @@ REQUIRED = (
     "css/style.bundle.rtl.css",
     "plugins/global/plugins.bundle.rtl.css",
     "js/scripts.bundle.js",
+    # ApexCharts lives only in here, and every chart in the panel is drawn with
+    # it. Excluded from the image until 1.3.12, when the charts moved onto the
+    # theme's own library.
+    "plugins/global/plugins.bundle.js",
     "common/forooshbin.css",
     "common/forooshbin-app.js",
     "common/brand/Logo.webp",
@@ -54,7 +58,6 @@ EXCLUDED = (
     "js/custom",
     "plugins/global/fonts/line-awesome",
     "plugins/global/fonts/@fortawesome",
-    "plugins/global/plugins.bundle.js",
     "js/widgets.bundle.js",
     "css/style.bundle.css",
 )
@@ -196,7 +199,7 @@ class ImageBuildContextTests(SimpleTestCase):
                 or "/fonts/line-awesome/" in path
                 or "/fonts/@fortawesome/" in path
                 or "/fonts/bootstrap-icons/" in path
-                or path.endswith(("plugins.bundle.js", "widgets.bundle.js", "style.bundle.css"))
+                or path.endswith(("widgets.bundle.js", "style.bundle.css"))
             )
         )
         self.assertEqual(offenders, [])
@@ -237,3 +240,49 @@ class ImageBuildContextTests(SimpleTestCase):
                     self.assertTrue((collected / directory).is_dir(), directory)
         finally:
             shutil.rmtree(image, ignore_errors=True)
+
+
+class ChartLibraryTests(SimpleTestCase):
+    """The charts are the purchased theme's, which has a cost and a shape.
+
+    Asked for directly by the product owner — «use the charts inside the
+    template i bought ... the charts should be professional like the template»
+    — after being shown what the weight would be.
+    """
+
+    SHELL = TEMPLATES / "base.html"
+    SCRIPT = ROOT / "common" / "static" / "common" / "forooshbin-app.js"
+
+    def test_the_shell_loads_the_bundle_that_carries_apexcharts(self):
+        """ApexCharts ships only inside `plugins.bundle.js`; the theme has no
+        standalone build of it. Dropping this tag leaves every chart container
+        empty with a `ReferenceError` and nothing else to show for it."""
+        self.assertIn("plugins/global/plugins.bundle.js", self.SHELL.read_text(encoding="utf-8"))
+
+    def test_the_plugins_bundle_loads_before_the_theme_script(self):
+        """`scripts.bundle.js` expects Popper and jQuery to already exist, and
+        both arrive in the plugins bundle. Loading them the other way round
+        breaks the theme's own components rather than the charts, which makes
+        it an easy mistake to file under the wrong cause."""
+        shell = self.SHELL.read_text(encoding="utf-8")
+        self.assertLess(
+            shell.index("plugins/global/plugins.bundle.js"),
+            shell.index("js/scripts.bundle.js"),
+        )
+
+    def test_the_panel_draws_with_apexcharts_rather_than_by_hand(self):
+        """Until 1.3.12 these were hand-built SVG, to keep the bundle out. The
+        trade was made the other way; this stops it drifting back one renderer
+        at a time."""
+        script = self.SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("new ApexCharts(", script)
+        # The hand-drawn era's tell. Nothing in this script should be building
+        # SVG nodes itself any more.
+        self.assertNotIn("createElementNS", script)
+
+    def test_every_chart_is_destroyed_before_its_container_is_reused(self):
+        """Apex keeps its own DOM and listeners outside the container's
+        children, so redrawing without `destroy()` leaks one live chart per
+        filter submit — on a report page that is every click, for as long as
+        the tab is open."""
+        self.assertIn(".destroy()", self.SCRIPT.read_text(encoding="utf-8"))

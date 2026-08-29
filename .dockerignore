@@ -59,6 +59,10 @@ assets
 !assets/css/style.bundle.rtl.css
 !assets/js/scripts.bundle.js
 !assets/plugins/global/plugins.bundle.rtl.css
+# ApexCharts, which every chart in the panel is drawn with since 1.3.12. It
+# ships only inside this bundle — the theme has no standalone build — so all
+# 3.6 MB of it is runtime, not demo material.
+!assets/plugins/global/plugins.bundle.js
 !assets/plugins/global/fonts/keenicons
 !assets/fonts
 src

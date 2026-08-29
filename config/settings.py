@@ -116,6 +116,15 @@ STATICFILES_DIRS = [BASE_DIR / "assets"]
 #: names rather than paths. Everything here is unreachable from a served page:
 #: theme demo imagery, icon families the UI never uses, the LTR builds of the
 #: RTL bundles, and bundles nothing loads.
+#:
+#: `plugins.bundle.js` was on this list until 1.3.12 and is deliberately not any
+#: more. It carries ApexCharts, which is what the purchased theme draws its
+#: charts with and what this panel's charts now use. It is 3.6 MB and brings
+#: jQuery, select2 and dropzone that nothing here calls — the product owner was
+#: told the size and asked for the theme's own charts regardless. Re-adding it
+#: here does not fail any build: collectstatic still reports success and every
+#: chart silently 404s at runtime, which is why it is also pinned in
+#: scripts/validate_image_content.py and common/tests/test_static_assets.py.
 STATICFILES_COLLECT_IGNORE = [
     "media",              # ~46MB of theme stock photography and illustrations
     "custom",             # per-demo scripts and plugin bundles, none loaded
@@ -124,7 +133,6 @@ STATICFILES_COLLECT_IGNORE = [
     "line-awesome",
     "style.bundle.css",   # LTR builds; this deployment is RTL only
     "plugins.bundle.css",
-    "plugins.bundle.js",  # Bootstrap JS; the UI needs KTMenu/KTDrawer only
     "widgets.bundle.js",  # theme demo widgets, not loaded
     "*.map",
 ]

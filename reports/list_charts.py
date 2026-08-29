@@ -67,6 +67,29 @@ def _money(amount):
     return f"{'‏-' if negative else ''}{grouped} ریال"
 
 
+def totals_for(result):
+    """The whole the slices add up to, formatted the way the slices are.
+
+    The donut prints this in its middle, and only the server knows whether a
+    series counts documents or sums rial — the browser sees `value` as a bare
+    number either way, and formatting it there produced an ungrouped
+    `793125000` under a chart whose own labels read «۵۳۶٬۸۲۵٬۰۰۰ ریال».
+
+    Which of the two it is, is read back off `display` rather than threaded
+    through all twelve builders as a flag. `_money` and `_persian_digits` are
+    the only things that ever write that field, and `_money` always ends in the
+    currency word — so the question is already answered in the data.
+    """
+    if not result:
+        return {"total_display": "", "total_label": ""}
+    total = sum(Decimal(str(row["value"])) for row in result)
+    money = any(str(row.get("display", "")).endswith("ریال") for row in result)
+    return {
+        "total_display": _money(total) if money else _persian_digits(int(total)),
+        "total_label": "مجموع" if money else "مجموع تعداد",
+    }
+
+
 def _counted(rows, labels=None):
     """`[(key, count)]` into chart rows, largest first, with a grouped tail."""
     named = []

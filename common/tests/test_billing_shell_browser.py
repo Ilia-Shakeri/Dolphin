@@ -389,26 +389,50 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # sequence is the point and a missing bucket is the reader's good news.
         chart = self.browser.find_element(By.ID, "receivables-aging-chart")
         self.wait.until(lambda driver: chart.is_displayed())
-        bars = chart.find_elements(By.CLASS_NAME, "performance-chart-row")
-        self.assertEqual(len(bars), 5)
+        # ApexCharts draws asynchronously, so the container is displayed before
+        # the bars exist. Waiting on the bars is waiting on the actual thing
+        # being asserted.
+        self.wait.until(
+            lambda driver: len(chart.find_elements(By.CSS_SELECTOR, ".apexcharts-bar-area")) == 5
+        )
+        bars = chart.find_elements(By.CSS_SELECTOR, ".apexcharts-bar-area")
+
+        # The bucket names come off the category axis. Read from the `tspan`
+        # rather than the label group: Apex puts a `<title>` beside the tspan
+        # for its own tooltip, so the group's textContent has every name twice.
+        names = [
+            node.get_attribute("textContent").strip()
+            for node in chart.find_elements(By.CSS_SELECTOR, ".apexcharts-yaxis-label tspan")
+        ]
         self.assertEqual(
-            [bar.find_element(By.CLASS_NAME, "performance-chart-label").text for bar in bars],
+            names,
             ["سررسید نشده", "۱ تا ۳۰ روز", "۳۱ تا ۶۰ روز", "۶۱ تا ۹۰ روز", "بیش از ۹۰ روز"],
         )
+
+        figures = [
+            node.get_attribute("textContent").strip()
+            for node in chart.find_elements(By.CSS_SELECTOR, ".apexcharts-datalabels text")
+        ]
+        self.assertEqual(len(figures), 5)
         # Every figure is formatted rial, never a raw decimal - the defect the
         # shared renderer was written to make impossible.
-        for bar in bars:
-            with self.subTest(bar=bar.text[:20]):
-                self.assertRegex(bar.find_element(By.TAG_NAME, "strong").text, r"ریال$")
+        for figure in figures:
+            with self.subTest(figure=figure):
+                self.assertRegex(figure, r"ریال$")
+
         # The same string the summary card above shows, character for character:
         # `money()` groups with the Arabic comma but leaves the digits Latin,
         # and a chart that formatted them differently from the card beside it
         # would be its own kind of wrong.
-        self.assertIn("350 ریال", chart.text)
-        self.assertEqual(
-            self.browser.find_element(By.ID, "receivables-1-30").text,
-            bars[1].find_element(By.TAG_NAME, "strong").text,
-        )
+        self.assertIn("350 ریال", figures)
+        self.assertEqual(self.browser.find_element(By.ID, "receivables-1-30").text, figures[1])
+
+        # The five buckets escalate, so their colours have to as well - and each
+        # has to differ from the one before it, which is what went wrong when
+        # two of them shared the theme's single warning yellow.
+        fills = [bar.get_attribute("fill") for bar in bars]
+        self.assertEqual(len(set(fills)), 5, fills)
+
         self.assertTrue(chart.get_attribute("aria-label"))
 
         self.assert_browser_clean()

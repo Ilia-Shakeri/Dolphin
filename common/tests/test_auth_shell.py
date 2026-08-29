@@ -93,10 +93,25 @@ class AuthShellUnitTests(SimpleTestCase):
         # And it must not rebuild the theme's own components, at any size.
         for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
             self.assertNotIn(recreated, stylesheet, recreated)
-        # Layout, type scale and palette belong to the purchased bundle. The
-        # sheet may position a detail; it may not own any of these.
-        for owned_by_theme in ("font-family:", "--bs-primary:", "@font-face"):
+        # Layout and palette belong to the purchased bundle. The sheet may
+        # position a detail; it may not own any of these.
+        for owned_by_theme in ("--bs-primary:", "@font-face"):
             self.assertNotIn(owned_by_theme, stylesheet, owned_by_theme)
+        # Typeface was in that list until 1.3.12, as a flat ban. It is narrowed
+        # rather than dropped: the sheet still may not choose a typeface for the
+        # panel, but it must be able to undo one place where the vendor chose
+        # wrongly for it. The theme's own Apex stylesheet forces `Inter` with
+        # `!important` on chart text, and Inter has no Persian glyphs — so every
+        # axis label in this Persian panel fell through to an OS substitute.
+        #
+        # The narrow form: any `font-family` here has to sit on the theme's own
+        # `.apexcharts-*` text nodes. Anything else is the sheet owning the type
+        # again, which is what the ban was for.
+        for rule in stylesheet.split("}"):
+            if "font-family:" not in rule:
+                continue
+            selector = rule.split("{")[0]
+            self.assertIn("apexcharts", selector, selector.strip())
         # It keeps exactly the three things it is for.
         self.assertIn("[hidden]", stylesheet)
         self.assertIn("dialog {", stylesheet)

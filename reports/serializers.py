@@ -319,3 +319,7 @@ class ListChartSerializer(serializers.Serializer):
     key = serializers.CharField()
     title = serializers.CharField()
     results = ListChartRowSerializer(many=True)
+    #: What the slices add up to, already formatted. The donut prints it in its
+    #: middle; only the server knows whether the series is rial or a count.
+    total_display = serializers.CharField(allow_blank=True)
+    total_label = serializers.CharField(allow_blank=True)

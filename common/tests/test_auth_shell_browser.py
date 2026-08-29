@@ -240,6 +240,24 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
                     self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "غیرفعال کردن کاربر"))
                 self.assert_browser_clean()
 
+    def chart_names(self, chart_id):
+        """The category labels ApexCharts drew, once it has drawn them.
+
+        Two things this has to do that reading `.text` off the container did
+        not. Apex renders asynchronously, so the element is present and empty
+        for a moment after the panel's KPIs have already filled in — a bare read
+        races it. And Apex puts a `<title>` next to each label's `tspan` for its
+        own tooltip, so the label group's text contains every name twice; the
+        `tspan` alone is the name.
+        """
+        chart = self.browser.find_element(By.ID, chart_id)
+        selector = ".apexcharts-yaxis-label tspan"
+        self.wait.until(lambda driver: chart.find_elements(By.CSS_SELECTOR, selector))
+        return [
+            node.get_attribute("textContent").strip()
+            for node in chart.find_elements(By.CSS_SELECTOR, selector)
+        ]
+
     def test_manager_and_agent_dashboard_data_stay_role_scoped(self):
         self.browser.set_window_size(1440, 1000)
 
@@ -250,7 +268,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
             "2",
         )
         self.assertTrue(self.browser.find_element(By.ID, "dashboard-user").is_displayed())
-        manager_chart = self.browser.find_element(By.ID, "dashboard-performance-chart").text
+        manager_chart = self.chart_names("dashboard-performance-chart")
         self.assertIn(self.manager.username, manager_chart)
         self.assertIn(self.agent.username, manager_chart)
         self.assert_browser_clean()
@@ -263,7 +281,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
             "1",
         )
         self.assertEqual(self.browser.find_elements(By.ID, "dashboard-user"), [])
-        agent_chart = self.browser.find_element(By.ID, "dashboard-performance-chart").text
+        agent_chart = self.chart_names("dashboard-performance-chart")
         self.assertIn(self.agent.username, agent_chart)
         self.assertNotIn(self.manager.username, agent_chart)
         self.assert_browser_clean()

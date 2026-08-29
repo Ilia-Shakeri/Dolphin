@@ -568,6 +568,16 @@
    and each module would then initialise before the one it depends on had been
    assigned further down the same file. A body-end script still sees
    readyState "loading", so every module registers a real listener instead. {% endcomment %}
+{% comment %} The theme's plugin bundle, loaded for its charts.
+
+   It carries ApexCharts, which is what every chart in the purchased theme is
+   drawn with, and the product owner asked for those charts specifically and
+   accepted the weight: the bundle is 3.6 MB and brings jQuery, select2 and
+   dropzone along with ApexCharts, none of which this panel uses.
+
+   Vendor load order — plugins before scripts — because `scripts.bundle.js`
+   expects Popper and jQuery to already exist. {% endcomment %}
+<script src="{% static 'plugins/global/plugins.bundle.js' %}"></script>
 <script src="{% static 'js/scripts.bundle.js' %}"></script>
 <script src="{% static 'common/forooshbin-app.js' %}?v={{ forooshbin_version }}" defer></script>
 </body>

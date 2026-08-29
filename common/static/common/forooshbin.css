@@ -328,45 +328,6 @@ dialog::backdrop {
     margin-inline: auto;
 }
 
-/* The performance panel draws its bars from real report values. The theme has
-   no plain bar-list component, so these are the only bespoke visuals kept. */
-.performance-chart {
-    display: grid;
-    gap: 0.8rem;
-}
-
-.performance-chart-row {
-    display: grid;
-    grid-template-columns: minmax(5rem, auto) minmax(5rem, 1fr) auto;
-    align-items: center;
-    gap: 0.6rem;
-}
-
-.performance-chart-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.performance-chart-track {
-    display: block;
-    height: 0.75rem;
-    overflow: hidden;
-    border-radius: 999px;
-    background: var(--bs-gray-200);
-}
-
-.performance-chart-bar {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--bs-primary);
-}
-
-.performance-chart-row strong {
-    direction: ltr;
-    font-size: 0.82rem;
-}
 
 /* The header user menu. The theme styles the panel completely — surface,
    spacing, hover states, the `.show` rule that reveals it — and normally lets
@@ -661,6 +622,71 @@ textarea:focus-visible,
         box-shadow: none;
     }
 }
+
+/* Charts -----------------------------------------------------------------
+   Drawn by ApexCharts, which is the purchased theme's own chart library and
+   the one every chart in its demos uses. It ships only inside
+   `plugins/global/plugins.bundle.js`, so that whole bundle is loaded and the
+   panel's asset weight went from roughly 576 KB to about 4.2 MB. That was the
+   product owner's explicit call: the theme's charts, at the theme's cost.
+
+   Apex renders its own SVG and takes colours from the options object rather
+   than from CSS, so almost nothing is styled here — the light/dark following
+   happens in `chartPalette()` and `apexBase()` in forooshbin-app.js, which read
+   the theme's custom properties at draw time. What is left is the part Apex
+   cannot know: the container's size, and undoing the drop shadow it puts under
+   data labels, which on a light bar renders as grey mud.
+
+   The typeface is deliberately NOT set here. Apex applies `chart.fontFamily`
+   from its options to the text it draws, and typography belongs to the theme —
+   a `font-family` in this sheet is the exact thing
+   `test_the_override_sheet_does_not_rebuild_the_themes_components` refuses. */
+/* Apex measures its container on render. Inside a `display: none` card it
+   measures zero and draws a 0-height chart that never recovers, so a chart in a
+   hidden panel must be rendered after the panel is shown, not before. This is
+   a note, not a rule — there is nothing CSS can do about it. */
+
+/* The one typeface declaration in this sheet, and the reason it is allowed.
+
+   The theme's own `plugins.bundle.rtl.css` carries
+   `.apexcharts-text, .apexcharts-title-text, .apexcharts-legend-text
+   { font-family: Inter, ... !important }`. Apex sets IRANSansWeb inline from
+   `chart.fontFamily`, and the vendor's `!important` beats it — so every axis
+   and legend label came out in Inter while the panel around it was IRANSansWeb.
+   Inter carries no Persian glyphs at all, so those labels fell through to
+   whatever the OS happened to substitute, and the chart's type stopped matching
+   the card it sits in.
+
+   This is not a type scale: no size, weight or ramp is set here. It restores
+   the one the theme already chose for this deployment, on the one family of
+   nodes where the vendor hardcoded a Latin face. `!important` is required to
+   beat the vendor's own. */
+.apexcharts-text,
+.apexcharts-title-text,
+.apexcharts-legend-text {
+    font-family: IRANSansWeb, Helvetica, sans-serif !important;
+}
+
+/* Apex draws data labels with a shadow filter that is tuned for a dark plot
+   area. On this panel's cards it reads as a smudge behind every number. */
+.apexcharts-datalabels .apexcharts-text {
+    filter: none;
+}
+
+/* The tooltip is built outside the card, so the theme's surface variables are
+   the only thing keeping it legible in dark mode. */
+.apexcharts-tooltip {
+    background: var(--bs-body-bg) !important;
+    border-color: var(--bs-border-color) !important;
+    color: var(--bs-gray-800) !important;
+    box-shadow: var(--bs-box-shadow-sm);
+}
+
+.apexcharts-tooltip-title {
+    background: var(--bs-gray-100) !important;
+    border-color: var(--bs-border-color) !important;
+}
+
 
 /* Anything else focusable — links, buttons, menu entries, table row actions —
    gets a real outline. Without it a keyboard user cannot see where they are. */

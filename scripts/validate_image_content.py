@@ -69,7 +69,6 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     ("unused icon family", "assets/plugins/global/fonts/line-awesome"),
     ("unused LTR build", "assets/css/style.bundle.css"),
     ("unused LTR build", "assets/plugins/global/plugins.bundle.css"),
-    ("unloaded bundle", "assets/plugins/global/plugins.bundle.js"),
     ("unloaded bundle", "assets/js/widgets.bundle.js"),
     ("vendor demo tree", "src"),
     ("vendor demo tree", "dashboards"),
@@ -106,6 +105,10 @@ EXPECT_PRESENT: list[str] = [
     "assets/css/style.bundle.rtl.css",
     "assets/plugins/global/plugins.bundle.rtl.css",
     "assets/js/scripts.bundle.js",
+    # ApexCharts, which every chart in the panel is drawn with. It exists only
+    # inside this bundle — the theme ships no standalone build — so the whole
+    # 3.6 MB of it is a runtime file, not demo material.
+    "assets/plugins/global/plugins.bundle.js",
     "assets/fonts/IRANSansWeb.woff",
     "assets/fonts/IRANSansWeb.ttf",
     "assets/fonts/IRANSansWeb.eot",

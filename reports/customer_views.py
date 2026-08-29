@@ -29,7 +29,7 @@ from common.openapi import (
 )
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
-from reports.list_charts import LIST_CHARTS
+from reports.list_charts import LIST_CHARTS, totals_for
 from reports.customer_insights import (
     InvalidReportPeriod,
     build_customer_city_report,
@@ -151,7 +151,8 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
         feature, capabilities, builder, title = LIST_CHARTS[key]
         if not has_any_capability(request.user, *capabilities):
             raise PermissionDenied("Access to this chart is not allowed.")
-        payload = {"key": key, "title": title, "results": builder(request.user)}
+        results = builder(request.user)
+        payload = {"key": key, "title": title, "results": results, **totals_for(results)}
         response = Response(ListChartSerializer(payload).data)
         response["Cache-Control"] = "private, no-store"
         return response

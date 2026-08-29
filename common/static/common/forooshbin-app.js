@@ -1235,25 +1235,35 @@
             const empty = document.getElementById("customer-city-chart-empty");
             try {
                 const report = await apiRequest("/api/v1/reports/customer-cities/");
-                renderBarChart(
-                    cityChart,
-                    empty,
-                    report.results.map((row) => ({
-                        label: row.label,
-                        value: row.count,
-                        // Count and share together: the count is the fact, the
-                        // share is what makes two cities comparable.
-                        display: `${toPersianDigits(String(row.count))} (${toPersianDigits(String(row.percent))}٪)`,
-                    })),
-                    {
+                const rows = report.results.map((row) => ({
+                    label: row.label,
+                    value: row.count,
+                    // Count and share together: the count is the fact, the
+                    // share is what makes two cities comparable.
+                    display: `${toPersianDigits(String(row.count))} (${toPersianDigits(String(row.percent))}٪)`,
+                }));
+                const ariaLabel = `نمودار پراکندگی ${toPersianDigits(String(report.total))} مشتری در ${toPersianDigits(String(report.distinct_cities))} شهر`;
+                // A few cities are parts of one customer book, which is what a
+                // ring shows; many are a ranking, which is what bars show. Same
+                // rule as the list charts, so the two never disagree about the
+                // same shape of data.
+                const populated = rows.filter((row) => row.value > 0);
+                if (populated.length && populated.length <= 6) {
+                    renderDonutChart(cityChart, empty, rows, {
+                        ariaLabel,
+                        total: toPersianDigits(String(report.total)),
+                        totalLabel: "مشتری",
+                    });
+                } else {
+                    renderBarChart(cityChart, empty, rows, {
                         // Already ordered largest-first by the endpoint, with
                         // its two aggregate rows deliberately last. Re-sorting
                         // here would lift "سایر شهرها" into the middle of the
                         // real cities.
                         sort: false,
-                        ariaLabel: `نمودار پراکندگی ${toPersianDigits(String(report.total))} مشتری در ${toPersianDigits(String(report.distinct_cities))} شهر`,
-                    },
-                );
+                        ariaLabel,
+                    });
+                }
             } catch (error) {
                 if (cityChart) cityChart.hidden = true;
                 if (empty) {
@@ -1287,7 +1297,7 @@
                     display: `${toPersianDigits(String(row.cumulative))} مشتری (${toPersianDigits(String(row.count))} تازه)`,
                 }));
                 const added = report.closing_total - report.opening_total;
-                renderLineChart(growthChart, empty, points, {
+                renderAreaChart(growthChart, empty, points, {
                     ariaLabel: `نمودار رشد مشتریان از ${toPersianDigits(String(report.opening_total))} به ${toPersianDigits(String(report.closing_total))}`,
                     summary: `در این بازه ${toPersianDigits(String(added))} مشتری تازه ثبت شد؛ مجموع از ${toPersianDigits(String(report.opening_total))} به ${toPersianDigits(String(report.closing_total))} رسید.`,
                 });
@@ -1347,12 +1357,28 @@
             try {
                 const report = await apiRequest(`/api/v1/reports/list-chart/${key}/`);
                 if (heading && report.title) heading.textContent = report.title;
-                renderBarChart(canvas, empty, report.results, {
-                    // The builder already ordered them and put its grouped tail
-                    // last; re-sorting here would lift "سایر" into the middle.
-                    sort: false,
-                    ariaLabel: report.title,
-                });
+                // Every one of these is a breakdown of a total, so the shape is
+                // chosen by how many parts there are rather than by which page
+                // it is. Up to six, a ring compares the parts and names the
+                // whole in its middle. Past that the arcs get too small to
+                // compare and bars read better — the server caps the list at
+                // twelve plus a grouped «سایر», so both cases really occur.
+                const slices = report.results.filter((row) => Number(row.value) > 0);
+                if (slices.length && slices.length <= 6) {
+                    renderDonutChart(canvas, empty, report.results, {
+                        ariaLabel: report.title,
+                        total: report.total_display || null,
+                        totalLabel: report.total_label || "",
+                    });
+                } else {
+                    renderBarChart(canvas, empty, report.results, {
+                        // The builder already ordered them and put its grouped
+                        // tail last; re-sorting here would lift "سایر" into the
+                        // middle.
+                        sort: false,
+                        ariaLabel: report.title,
+                    });
+                }
             } catch (error) {
                 canvas.hidden = true;
                 empty.textContent = "نمودار این فهرست در دسترس نیست.";
@@ -2522,15 +2548,17 @@
             value: Number(item.inbound_sms_count),
             display: toPersianDigits(String(item.inbound_sms_count)),
         }));
-        renderBarChart(
-            document.getElementById("inbound-sms-chart"),
-            document.getElementById("inbound-sms-chart-empty"),
-            items,
-            {
-                sort: false,
-                ariaLabel: `نمودار تعداد پیامک ورودی در ${toPersianDigits(String(items.length))} بازه زمانی`,
-            },
-        );
+        // An area rather than bars: these are consecutive hours, and the
+        // question is the shape over time, not which single hour was tallest.
+        // One reading has no shape, so that case falls back to a bar.
+        const chart = document.getElementById("inbound-sms-chart");
+        const empty = document.getElementById("inbound-sms-chart-empty");
+        const ariaLabel = `نمودار تعداد پیامک ورودی در ${toPersianDigits(String(items.length))} بازه زمانی`;
+        if (items.length >= 2) {
+            renderAreaChart(chart, empty, items, {ariaLabel, maxLabels: 6});
+        } else {
+            renderBarChart(chart, empty, items, {sort: false, ariaLabel});
+        }
     }
 
     async function showInboundSMSMessage(messageId) {
@@ -2785,17 +2813,336 @@
      *   keepZero   draw zero-valued items as empty tracks instead of dropping
      *              them — for a fixed category, an empty bucket is information
      */
-    function renderBarChart(chart, empty, items, options = {}) {
-        const {ariaLabel = null, limit = 0, sort = true, keepZero = false} = options;
-        if (!chart || !empty) return;
+    /**
+     * The series colours, taken from the purchased theme rather than chosen.
+     *
+     * Read at draw time from the live custom properties, so a chart drawn in
+     * dark mode gets the theme's dark values — `--bs-primary` is `#1B84FF` in
+     * light and `#006AE6` in dark, and a hard-coded hex would be wrong in one
+     * of them.
+     */
+    function chartPalette() {
+        const style = getComputedStyle(document.documentElement);
+        const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
+        return [
+            read("--bs-primary", "#1B84FF"),
+            read("--bs-success", "#17C653"),
+            read("--bs-info", "#7239EA"),
+            read("--bs-warning", "#F6C000"),
+            read("--bs-danger", "#F8285A"),
+            read("--bs-dark", "#1E2129"),
+        ];
+    }
 
+    /**
+     * Five colours that escalate, for the receivables ageing buckets.
+     *
+     * Not decoration: the buckets run from "not yet due" to "over ninety days",
+     * so the colour has to carry the same direction the reader is already
+     * looking for — and it has to keep moving at every step. Built from the
+     * palette's own success/primary/warning/danger with Bootstrap's `--bs-orange`
+     * filling the gap between warning and danger, because the theme has no
+     * colour there and repeating the yellow made buckets three and four look
+     * equally bad when one is twice as old as the other.
+     */
+    function severityRamp() {
+        const palette = chartPalette();
+        const orange =
+            getComputedStyle(document.documentElement).getPropertyValue("--bs-orange").trim()
+            || "#fd7e14";
+        return [palette[1], palette[0], palette[3], orange, palette[4]];
+    }
+
+    function chartInk() {
+        const style = getComputedStyle(document.documentElement);
+        return {
+            grid: style.getPropertyValue("--bs-gray-300").trim() || "#DBDFE9",
+            muted: style.getPropertyValue("--bs-gray-500").trim() || "#99A1B7",
+            text: style.getPropertyValue("--bs-gray-800").trim() || "#252F4A",
+        };
+    }
+
+    /**
+     * Everything every chart on this panel shares.
+     *
+     * ApexCharts is the theme's own chart library and comes from its plugin
+     * bundle. What is set here is the part the theme cannot know: the panel is
+     * RTL and Persian, its type is IRANSansWeb, and it has a dark mode that the
+     * library has to be told about because Apex renders to SVG with its own
+     * colours rather than inheriting the page's.
+     */
+    function apexBase(height) {
+        const ink = chartInk();
+        const dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+        return {
+            chart: {
+                height,
+                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                // Apex flips its own axes and legend from this, so the whole
+                // chart reads right-to-left like the page around it.
+                defaultLocale: "en",
+                toolbar: {show: false},
+                // Off deliberately. Apex animates a chart from an empty state
+                // to its real geometry with requestAnimationFrame, so a chart
+                // that mounts where frames are not being produced — a
+                // background tab, a card still hidden, a headless browser — is
+                // left showing the empty first frame permanently. Measured
+                // exactly that: bars stuck at `M0.101 ... L0.101`, zero width,
+                // and an area path flat on its baseline below the plot.
+                //
+                // It also costs nothing to lose. These are dense financial
+                // report charts, not a landing page, and since a theme switch
+                // now redraws every chart, keeping it would replay a half-second
+                // grow on all of them each time the reader toggles light/dark.
+                animations: {enabled: false},
+                background: "transparent",
+            },
+            theme: {mode: dark ? "dark" : "light"},
+            grid: {
+                borderColor: ink.grid,
+                strokeDashArray: 4,
+                padding: {top: 0, right: 8, bottom: 0, left: 8},
+            },
+            tooltip: {
+                style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "13px"},
+            },
+            legend: {
+                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                labels: {colors: ink.muted},
+                markers: {radius: 3},
+            },
+            noData: {
+                text: "داده‌ای برای نمایش نیست.",
+                style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", color: ink.muted},
+            },
+        };
+    }
+
+    //: One live chart per container. Apex keeps its own DOM and listeners, so a
+    //: redraw has to destroy the previous instance or every reload leaves one
+    //: behind — on a page whose filters redraw on every submit, that is a leak
+    //: that grows for as long as the tab is open.
+    const liveCharts = new WeakMap();
+
+    //: What it would take to draw each chart on the page again, keyed by its
+    //: container. Apex bakes the palette into the SVG at draw time — including
+    //: the text colours — so a chart drawn in light mode keeps light-mode ink
+    //: after a switch to dark, where `--bs-gray-800` ink on a dark card is
+    //: nearly invisible. Redrawing is the only way to re-read the palette.
+    const chartRedraws = new Map();
+
+    function mountApex(chart, empty, options, ariaLabel) {
+        const existing = liveCharts.get(chart);
+        if (existing) {
+            existing.destroy();
+            liveCharts.delete(chart);
+        }
+        chart.replaceChildren();
+        chart.hidden = false;
+        empty.hidden = true;
+        const instance = new ApexCharts(chart, options);
+        instance.render();
+        liveCharts.set(chart, instance);
+        if (ariaLabel) chart.setAttribute("aria-label", ariaLabel);
+        return instance;
+    }
+
+    function showEmptyChart(chart, empty) {
+        const existing = liveCharts.get(chart);
+        if (existing) {
+            existing.destroy();
+            liveCharts.delete(chart);
+        }
+        chart.replaceChildren();
+        chart.hidden = true;
+        empty.hidden = false;
+    }
+
+    /**
+     * A donut, for "what is this total made of".
+     *
+     * Chosen over a pie because the hole carries the total, which is the number
+     * a reader wants first — and because a ring compares arc lengths, which the
+     * eye reads better than the wedge areas of a pie.
+     */
+    function renderDonutChart(chart, empty, items, options = {}) {
+        const {ariaLabel = null, total = null, totalLabel = ""} = options;
+        if (!chart || !empty) return;
+        chartRedraws.set(chart, () => renderDonutChart(chart, empty, items, options));
+
+        const usable = items.filter((item) => Number.isFinite(item.value) && item.value > 0);
+        if (!usable.length) {
+            showEmptyChart(chart, empty);
+            return;
+        }
+
+        const palette = chartPalette();
+        const ink = chartInk();
+        // The already-formatted strings, held beside the series so the tooltip
+        // and the centre can print rial rather than the bare number Apex has.
+        const displays = usable.map((item) => item.display ?? String(item.value));
+
+        mountApex(chart, empty, {
+            ...apexBase(320),
+            series: usable.map((item) => item.value),
+            labels: usable.map((item) => item.label),
+            colors: usable.map((item, index) => item.color || palette[index % palette.length]),
+            chart: {...apexBase(320).chart, type: "donut"},
+            stroke: {width: 2, colors: ["transparent"]},
+            dataLabels: {
+                enabled: true,
+                formatter: (percent) => `${toPersianDigits(String(Math.round(percent)))}٪`,
+                style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                dropShadow: {enabled: false},
+            },
+            legend: {...apexBase(320).legend, position: "bottom"},
+            tooltip: {
+                ...apexBase(320).tooltip,
+                y: {formatter: (_value, {seriesIndex}) => displays[seriesIndex]},
+            },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        size: "68%",
+                        labels: {
+                            show: true,
+                            // Apex would print the raw number here; the total is
+                            // formatted by the server, which is the only place
+                            // that knows whether this series is rial or a count.
+                            total: {
+                                show: true,
+                                showAlways: true,
+                                label: totalLabel || "مجموع",
+                                color: ink.muted,
+                                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                                formatter: () =>
+                                    total ||
+                                    toPersianDigits(
+                                        String(usable.reduce((carry, item) => carry + item.value, 0)),
+                                    ),
+                            },
+                            value: {
+                                color: ink.text,
+                                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                                fontSize: "20px",
+                                fontWeight: 700,
+                                formatter: (_value, opts) =>
+                                    displays[opts?.seriesIndex ?? 0] ?? _value,
+                            },
+                            name: {
+                                color: ink.muted,
+                                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            },
+                        },
+                    },
+                },
+            },
+        }, ariaLabel);
+    }
+
+    /**
+     * A filled area over a line, for a quantity moving through time.
+     *
+     * The fill is what separates this from a plain line: it gives the series a
+     * mass the eye can compare between periods, and the gradient fades it out
+     * before the axis so the shape stays legible where points sit close.
+     */
+    /**
+     * On the axis direction, so it is not re-litigated.
+     *
+     * The hand-drawn chart this replaced reversed its x-axis so the earliest
+     * point sat on the right, which is where a reader of an RTL panel starts.
+     * `xaxis.reversed: true` is the Apex equivalent and was tried here — it is
+     * a no-op in the build the purchased theme ships: measured, the earliest
+     * category stayed leftmost at x=66 with it set. On horizontal bars the same
+     * option is worse than a no-op and collapses every bar to zero width.
+     *
+     * The theme's own charts set neither `reversed` nor `opposite` and read
+     * left-to-right in its RTL build, so all of these do too. That is a real
+     * change from the hand-drawn behaviour, not an oversight.
+     */
+    function renderAreaChart(chart, empty, points, options = {}) {
+        const {ariaLabel = null, summary = "", maxLabels = 8} = options;
+        if (!chart || !empty) return;
+        chartRedraws.set(chart, () => renderAreaChart(chart, empty, points, options));
+
+        const usable = points.filter((point) => Number.isFinite(point.value));
+        // One point is not a line. Two are the fewest that can show a direction,
+        // and a direction is what this chart is for.
+        if (usable.length < 2) {
+            showEmptyChart(chart, empty);
+            return;
+        }
+
+        const palette = chartPalette();
+        const accent = options.color || palette[0];
+        const displays = usable.map((point) => point.display ?? String(point.value));
+        const base = apexBase(300);
+
+        mountApex(chart, empty, {
+            ...base,
+            chart: {...base.chart, type: "area"},
+            series: [{name: options.seriesName || "مقدار", data: usable.map((p) => p.value)}],
+            colors: [accent],
+            dataLabels: {enabled: false},
+            stroke: {curve: "smooth", width: 3},
+            fill: {
+                type: "gradient",
+                gradient: {shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100]},
+            },
+            markers: {size: 4, strokeWidth: 2, hover: {size: 6}},
+            xaxis: {
+                categories: usable.map((point) => point.label),
+                // Apex would print every category and let them collide; this is
+                // the same thinning the hand-drawn chart did, expressed as the
+                // most labels the axis may show.
+                tickAmount: Math.min(maxLabels, usable.length),
+                labels: {
+                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    hideOverlappingLabels: true,
+                    trim: true,
+                },
+                axisBorder: {show: false},
+                axisTicks: {show: false},
+            },
+            yaxis: {
+                labels: {
+                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    formatter: (value) => toPersianDigits(String(Math.round(value))),
+                },
+            },
+            tooltip: {
+                ...base.tooltip,
+                y: {formatter: (_value, {dataPointIndex}) => displays[dataPointIndex]},
+            },
+        }, ariaLabel);
+
+        if (summary) {
+            const note = document.createElement("p");
+            note.className = "text-muted fs-7 mt-3 mb-0 text-center";
+            note.textContent = summary;
+            chart.append(note);
+        }
+    }
+
+    /**
+     * A horizontal bar chart, for comparing named things against each other.
+     *
+     * Horizontal rather than vertical because the labels are Persian names of
+     * arbitrary length — customer names, product names, provinces — and a
+     * vertical chart has one column of width for each of them.
+     */
+    function renderBarChart(chart, empty, items, options = {}) {
+        const {ariaLabel = null, limit = 0, sort = true, keepZero = false, colorBy = null} = options;
+        if (!chart || !empty) return;
+        chartRedraws.set(chart, () => renderBarChart(chart, empty, items, options));
+
+        const palette = chartPalette();
         const usable = items.filter((item) => Number.isFinite(item.value) && item.value >= 0);
         const positive = usable.filter((item) => item.value > 0);
         // A chart of nothing but zeros is an empty chart, whatever keepZero says.
         if (!positive.length) {
-            chart.replaceChildren();
-            chart.hidden = true;
-            empty.hidden = false;
+            showEmptyChart(chart, empty);
             return;
         }
 
@@ -2803,176 +3150,82 @@
         if (sort) shown.sort((a, b) => b.value - a.value);
         if (limit > 0) shown = shown.slice(0, limit);
 
-        const maximum = Math.max(...shown.map((item) => item.value));
-        chart.replaceChildren(...shown.map((item) => {
-            const row = document.createElement("div");
-            row.className = "performance-chart-row";
+        // The server formats every value — rial with its separators, or a plain
+        // count — so the axis and the tooltip print what it sent rather than
+        // Apex's own idea of the number.
+        const displays = shown.map((item) => item.display ?? String(item.value));
+        const colours = shown.map(
+            (item, index) =>
+                item.color || (colorBy ? colorBy(item, index) : palette[index % palette.length]),
+        );
+        // Enough room per bar to stay readable, and a floor so a two-bar chart
+        // does not become two enormous slabs.
+        const height = Math.max(220, shown.length * 44 + 60);
+        const base = apexBase(height);
 
-            const label = document.createElement("span");
-            label.className = "performance-chart-label";
-            label.textContent = item.label;
-            // The label ellipsises; the title gives the reader the whole of it.
-            label.title = item.label;
-
-            const track = document.createElement("span");
-            track.className = "performance-chart-track";
-            const bar = document.createElement("span");
-            bar.className = "performance-chart-bar";
-            // A 2% floor keeps a small non-zero value visible as a bar; a real
-            // zero stays empty rather than being inflated into a false one.
-            const share = maximum > 0 ? (item.value / maximum) * 100 : 0;
-            bar.style.width = item.value > 0 ? `${Math.max(2, share)}%` : "0%";
-            track.appendChild(bar);
-
-            const value = document.createElement("strong");
-            value.textContent = item.display;
-
-            row.append(label, track, value);
-            return row;
-        }));
-
-        if (ariaLabel) chart.setAttribute("aria-label", ariaLabel);
-        chart.hidden = false;
-        empty.hidden = true;
+        mountApex(chart, empty, {
+            ...base,
+            chart: {...base.chart, type: "bar"},
+            series: [{name: options.seriesName || "مقدار", data: shown.map((item) => item.value)}],
+            colors: colours,
+            // Apex fills bars at 0.85 by default, which on a white card turns
+            // every one of these into a paler version of the colour that was
+            // chosen to mean something. The severity ramp only reads if the
+            // colours are the ones it names.
+            fill: {opacity: 1},
+            plotOptions: {
+                bar: {
+                    horizontal: true,
+                    borderRadius: 4,
+                    barHeight: "62%",
+                    // Without this every bar takes the first colour, because a
+                    // single series is one colour to Apex unless told otherwise.
+                    distributed: true,
+                },
+            },
+            // `distributed` gives each bar its own legend entry, which for a
+            // top-ten list is ten redundant swatches beside ten labelled bars.
+            legend: {show: false},
+            dataLabels: {
+                enabled: true,
+                formatter: (_value, {dataPointIndex}) => displays[dataPointIndex],
+                offsetX: 0,
+                style: {
+                    fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                },
+                dropShadow: {enabled: false},
+            },
+            xaxis: {
+                categories: shown.map((item) => item.label),
+                // Deliberately NOT `reversed: true`, which is the obvious way
+                // to make these read right-to-left. In the Apex build the theme
+                // ships, that option collapses every horizontal bar to zero
+                // width — measured: each path came out as `M0.101 ... L0.101`,
+                // a vertical line at the origin. The purchased theme never sets
+                // it either, and draws its own charts left-to-right in the RTL
+                // build. So do these.
+                labels: {show: false},
+                axisBorder: {show: false},
+                axisTicks: {show: false},
+            },
+            yaxis: {
+                labels: {
+                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    // A long customer name would otherwise push the plot into a
+                    // sliver; past this it ellipsises and the tooltip has it.
+                    maxWidth: 180,
+                },
+            },
+            grid: {...base.grid, xaxis: {lines: {show: true}}, yaxis: {lines: {show: false}}},
+            tooltip: {
+                ...base.tooltip,
+                y: {formatter: (_value, {dataPointIndex}) => displays[dataPointIndex]},
+            },
+        }, ariaLabel);
     }
 
-    const SVG_NS = "http://www.w3.org/2000/svg";
-
-    function svg(tag, attrs = {}) {
-        const node = document.createElementNS(SVG_NS, tag);
-        Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, String(value)));
-        return node;
-    }
-
-    /**
-     * A time series, drawn as SVG by hand.
-     *
-     * CHARTS_GROUNDWORK.md left one question open: what to do when a real time
-     * series arrived, given the panel ships no charting library. This is the
-     * answer taken - option A, extended rather than abandoned. ApexCharts is
-     * only available inside a 3.5 MB vendor bundle that collectstatic excludes,
-     * and a line over a few dozen monthly points does not need a library to
-     * draw it, nor the RTL and Persian configuration one would then require per
-     * chart.
-     *
-     * `points` is `[{label, value, display}]` in chronological order and is NOT
-     * reordered: the sequence is the entire meaning of a time series.
-     *
-     * The SVG scales with its container through `viewBox` and
-     * `preserveAspectRatio`, so it stays readable on a phone without measuring
-     * anything at runtime.
-     *
-     * options:
-     *   ariaLabel  what the chart says to a screen reader
-     *   summary    text placed under the line for readers who get nothing from it
-     *   maxLabels  how many x labels to print before thinning them out
-     */
-    function renderLineChart(chart, empty, points, options = {}) {
-        const {ariaLabel = null, summary = "", maxLabels = 8} = options;
-        if (!chart || !empty) return;
-
-        const usable = points.filter((point) => Number.isFinite(point.value));
-        // One point is not a line. Two are the minimum that can show a
-        // direction, and a direction is what this chart is for.
-        if (usable.length < 2) {
-            chart.replaceChildren();
-            chart.hidden = true;
-            empty.hidden = false;
-            return;
-        }
-
-        const WIDTH = 720;
-        const HEIGHT = 240;
-        const PAD_X = 48;
-        const PAD_TOP = 16;
-        const PAD_BOTTOM = 48;
-        const plotWidth = WIDTH - PAD_X * 2;
-        const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
-
-        const values = usable.map((point) => point.value);
-        const highest = Math.max(...values);
-        const lowest = Math.min(0, Math.min(...values));
-        // A flat series would divide by zero and collapse every point onto one
-        // line; giving it a span of 1 draws it flat along the bottom, which is
-        // what it is.
-        const span = highest - lowest || 1;
-
-        // RTL: the earliest point sits on the right, because that is where a
-        // reader of this panel starts. Reversing the x axis rather than the
-        // data keeps `points` in true chronological order for everything else.
-        const xFor = (index) =>
-            WIDTH - PAD_X - (index / (usable.length - 1)) * plotWidth;
-        const yFor = (value) =>
-            PAD_TOP + plotHeight - ((value - lowest) / span) * plotHeight;
-
-        const root = svg("svg", {
-            viewBox: `0 0 ${WIDTH} ${HEIGHT}`,
-            preserveAspectRatio: "xMidYMid meet",
-            class: "line-chart-canvas",
-            role: "presentation",
-        });
-
-        // Three horizontal guides. Low contrast on purpose: they orient the eye
-        // without competing with the data.
-        for (let step = 0; step <= 2; step += 1) {
-            const y = PAD_TOP + (plotHeight / 2) * step;
-            root.appendChild(svg("line", {
-                x1: PAD_X, x2: WIDTH - PAD_X, y1: y, y2: y, class: "line-chart-grid",
-            }));
-            const value = Math.round(highest - (span / 2) * step);
-            const label = svg("text", {
-                x: PAD_X - 8, y: y + 4, class: "line-chart-axis", "text-anchor": "end",
-            });
-            label.textContent = toPersianDigits(String(value));
-            root.appendChild(label);
-        }
-
-        const path = usable
-            .map((point, index) => `${index ? "L" : "M"}${xFor(index).toFixed(1)},${yFor(point.value).toFixed(1)}`)
-            .join(" ");
-        root.appendChild(svg("path", {d: path, class: "line-chart-line"}));
-
-        usable.forEach((point, index) => {
-            const dot = svg("circle", {
-                cx: xFor(index).toFixed(1),
-                cy: yFor(point.value).toFixed(1),
-                r: 3.5,
-                class: "line-chart-dot",
-            });
-            // Native SVG tooltip: no positioning code, works on hover, and is
-            // read out by a screen reader that lands on the point.
-            const tip = svg("title");
-            tip.textContent = `${point.label}: ${point.display}`;
-            dot.appendChild(tip);
-            root.appendChild(dot);
-        });
-
-        // Thin the x labels rather than overlapping them. Always keep the first
-        // and last, because the ends of the window are what a reader checks.
-        const stride = Math.max(1, Math.ceil(usable.length / maxLabels));
-        usable.forEach((point, index) => {
-            if (index % stride !== 0 && index !== usable.length - 1) return;
-            const label = svg("text", {
-                x: xFor(index).toFixed(1),
-                y: HEIGHT - PAD_BOTTOM + 20,
-                class: "line-chart-axis",
-                "text-anchor": "middle",
-            });
-            label.textContent = point.label;
-            root.appendChild(label);
-        });
-
-        chart.replaceChildren(root);
-        if (summary) {
-            const note = document.createElement("p");
-            note.className = "text-muted fs-7 mt-3 mb-0";
-            note.textContent = summary;
-            chart.appendChild(note);
-        }
-        if (ariaLabel) chart.setAttribute("aria-label", ariaLabel);
-        chart.hidden = false;
-        empty.hidden = true;
-    }
 
     function renderPerformanceChart(prefix, rows) {
         const items = rows.map((row) => ({
@@ -5565,6 +5818,10 @@
                 sort: false,
                 keepZero: true,
                 ariaLabel: "نمودار سنی مطالبات در پنج بازه سررسید",
+                // Not decoration: the buckets run from "not yet due" to "over
+                // ninety days", so the colour carries the same order the reader
+                // is already looking for.
+                colorBy: (item, index) => severityRamp()[index] || severityRamp()[0],
             },
         );
     }
@@ -5597,6 +5854,12 @@
             {
                 sort: false,
                 keepZero: true,
+                // Revenue is the whole, cost is what it ate, profit is what
+                // survived — so cost is warned and profit is green.
+                colorBy: (item, index) => {
+                    const palette = chartPalette();
+                    return [palette[0], palette[3], palette[1]][index] || palette[0];
+                },
                 ariaLabel: "نمودار مقایسه درآمد، بهای تمام‌شده و سود ناخالص",
             },
         );
@@ -5884,6 +6147,35 @@
         expand.addEventListener("click", () => toggle.click());
     }
 
+    /**
+     * Redraw every chart when the panel changes theme.
+     *
+     * `KTThemeMode` writes `data-bs-theme` on `<html>`, and does it both when a
+     * mode is picked and when a reader on "system" changes their OS setting, so
+     * watching the attribute covers both without knowing which happened.
+     */
+    function setupChartThemeRedraw() {
+        const root = document.documentElement;
+        let previous = root.getAttribute("data-bs-theme");
+        const observer = new MutationObserver(() => {
+            const current = root.getAttribute("data-bs-theme");
+            // The theme's own code touches this attribute on its way to the
+            // same value; a redraw per touch would be a visible flicker.
+            if (current === previous) return;
+            previous = current;
+            chartRedraws.forEach((redraw, chart) => {
+                // A chart whose page has been replaced under it is gone; its
+                // entry would otherwise keep the detached node alive.
+                if (!chart.isConnected) {
+                    chartRedraws.delete(chart);
+                    return;
+                }
+                redraw();
+            });
+        });
+        observer.observe(root, {attributes: true, attributeFilter: ["data-bs-theme"]});
+    }
+
     function setupThemeModePopup() {
         const item = document.querySelector("[data-theme-mode-item]");
         const trigger = document.getElementById("theme-mode-trigger");
@@ -5944,6 +6236,7 @@
     }
 
     setupSearchableSelects();
+    setupChartThemeRedraw();
     setupThemeModePopup();
     setupSidebarExpander();
     setupProfileDialog();
