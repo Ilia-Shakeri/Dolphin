@@ -416,6 +416,21 @@ class Invoice(CommercialDocument):
         max_length=DOCUMENT_NUMBER_MAX_LENGTH, blank=True, default="", db_index=True
     )
     issued_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    #: «تاریخ صدور» as the operator states it — the date written on the paper.
+    #:
+    #: Separate from `issued_at`, and deliberately so. `issued_at` is the
+    #: system's record of when this invoice was issued, and a check constraint
+    #: says a draft cannot have one, because issuing is the thing that sets it.
+    #: A stated document date is a different fact: it exists while the invoice
+    #: is still a draft, and it is not always the moment the invoice was keyed
+    #: in — a paper invoice carries the date it was written.
+    #:
+    #: A date rather than a datetime: nobody writes an hour on an invoice.
+    #:
+    #: `issue_invoice` fills this in from the issuing moment when it is empty,
+    #: so every issued invoice has one and the column reading it is never blank
+    #: for a document that has been issued.
+    document_date = models.DateField(null=True, blank=True, db_index=True)
     due_at = models.DateTimeField(null=True, blank=True, db_index=True)
     #: The canonical figure, maintained only by PaymentAllocation. Nothing in
     #: the manual-settlement block below ever writes to it.

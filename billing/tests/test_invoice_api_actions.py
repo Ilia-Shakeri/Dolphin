@@ -8,6 +8,7 @@ to tell a manual settlement from a real one.
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -235,18 +236,73 @@ class InvoiceHeaderFromCreationTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(Decimal(response.data["total_amount"]), Decimal("1800.00"))
 
+    def test_the_document_date_is_the_operators_and_survives_issuing(self):
+        """«تاریخ صدور» has its own field, and that is the whole point of it.
+
+        `issued_at` could not carry this: a check constraint,
+        `invoice_draft_has_no_issue_time`, says a draft must not have one,
+        because issuing is what sets it. A stated document date is a different
+        fact — it exists while the invoice is still a draft, and a paper invoice
+        carries the date it was written rather than the moment it was keyed in.
+        """
+        response = self.client.post(
+            "/api/v1/invoices/",
+            {
+                "customer": self.customer.pk,
+                "document_date": "2026-05-20",
+                "items": [{"product": self.product.pk, "quantity": 1}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        invoice = Invoice.objects.get(pk=response.data["id"])
+        self.assertEqual(str(invoice.document_date), "2026-05-20")
+        # And the invariant it was built around is untouched.
+        self.assertIsNone(invoice.issued_at)
+
+        issue_invoice(actor=self.manager, invoice=invoice)
+        invoice.refresh_from_db()
+        self.assertEqual(str(invoice.document_date), "2026-05-20")
+        self.assertIsNotNone(invoice.issued_at)
+
+    def test_an_unstated_document_date_is_filled_in_by_issuing(self):
+        """So the column reading it is never blank for an issued document."""
+        invoice = create_invoice(
+            actor=self.manager,
+            customer=self.customer,
+            items=[{"product": self.product, "quantity": 1}],
+        )
+        self.assertIsNone(invoice.document_date)
+        issue_invoice(actor=self.manager, invoice=invoice)
+        invoice.refresh_from_db()
+        self.assertIsNotNone(invoice.document_date)
+        self.assertEqual(invoice.document_date, timezone.localdate(invoice.issued_at))
+
+    def test_the_document_date_can_be_corrected_while_the_invoice_is_a_draft(self):
+        invoice = create_invoice(
+            actor=self.manager,
+            customer=self.customer,
+            items=[{"product": self.product, "quantity": 1}],
+        )
+        response = self.client.patch(
+            f"/api/v1/invoices/{invoice.pk}/", {"document_date": "2026-03-01"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        invoice.refresh_from_db()
+        self.assertEqual(str(invoice.document_date), "2026-03-01")
+
     def test_a_draft_still_refuses_an_issue_date(self):
-        """Asked for as an input on «فاکتور تازه», and not built.
+        """The invariant that `document_date` exists because of.
 
-        `Invoice` carries a check constraint — `invoice_draft_has_no_issue_time`
-        — that a draft's `issued_at` must be NULL, because issuing is the thing
-        that sets it. Accepting the field on the create form meant every save
-        failed the constraint, surfacing as a number conflict.
+        `invoice_draft_has_no_issue_time` says a draft's `issued_at` must be
+        NULL, because issuing is the thing that sets it. That is why the
+        operator's stated «تاریخ صدور» could not simply be written here: every
+        save would have failed the constraint, and it surfaced as a number
+        conflict rather than as anything resembling the real cause.
 
-        Storing an operator-stated document date is a real request and a real
-        decision: it needs either that invariant relaxed, or a separate field
-        holding the stated date until issue stamps it. Neither is something to
-        pick silently, so the field is not offered and this records why.
+        The product owner chose the separate field over relaxing this, so the
+        invariant stays and is pinned here — `issued_at` remains the system's
+        own record of issuing, and nothing outside `issue_invoice` may set it.
         """
         response = self.client.post(
             "/api/v1/invoices/",

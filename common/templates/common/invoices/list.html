@@ -48,6 +48,10 @@
             {% comment %} نوع فاکتور فقط تعیین می‌کند چه هویت‌هایی هنگام صدور لازم است.
                محاسبهٔ مالیات، ترتیب تخفیف و رند کردن دست‌نخورده می‌ماند. {% endcomment %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-type">نوع فاکتور</label><select class="form-select form-select-solid" id="create-invoice-type" name="invoice_type"><option value="unofficial">غیررسمی</option><option value="official">رسمی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice_type"></p></div>
+{% comment %} «تاریخ صدور» فیلد خودش را دارد و همان چیزی است که روی کاغذ نوشته
+   می‌شود. با `issued_at` یکی نیست: آن، ثبتِ سامانه از لحظهٔ صدور است و قید مدل
+   می‌گوید پیش‌نویس اصلاً نمی‌تواند داشته باشدش. خالی گذاشتنش یعنی روز صدور. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-document-date">تاریخ صدور</label><input class="form-control form-control-solid" id="create-invoice-document-date" name="document_date" type="text" data-jalali="date" placeholder="روز صدور"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="document_date"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="create-invoice-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
 {% comment %} تخفیف درصدی است و روی هر سطر می‌نشیند، چون خودِ سطر از قبل
    `discount_percent` دارد. این یعنی هیچ مفهوم تازه‌ای در سرور ساخته نشده و

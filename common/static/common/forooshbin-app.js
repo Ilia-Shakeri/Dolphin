@@ -855,6 +855,19 @@
         return shown === "—" ? "" : shown;
     }
 
+    /**
+     * A stored calendar day, for a `data-jalali="date"` input.
+     *
+     * `localDateValue` below reads an instant and drops its clock. This reads a
+     * day that never had one — `document_date` is a `DateField` and arrives as a
+     * bare `YYYY-MM-DD`. Putting that through the instant path would send it
+     * through a time zone and could land on the day before.
+     */
+    function localDayValue(value) {
+        const shown = displayDay(value);
+        return shown === "—" ? "" : shown;
+    }
+
     /** The same, for a `data-jalali="date"` input: the day without the time. */
     function localDateValue(value) {
         const shown = localDateTimeValue(value);
@@ -4390,7 +4403,14 @@
                 (row, item) => appendMoneyCell(row, item.total_amount).classList.add("text-center"),
                 (row, item) => appendMoneyCell(row, item.paid_amount).classList.add("text-center"),
                 (row, item) => appendMoneyCell(row, item.balance_due).classList.add("text-center"),
-                (row, item) => appendCell(row, displayDay(item.issued_at)).classList.add("text-center"),
+                // The date written on the document. Rows from before this field
+                // existed have none, so the issue timestamp stands in rather
+                // than leaving the column blank.
+                (row, item) =>
+                    appendCell(
+                        row,
+                        displayDay(item.document_date || item.issued_at),
+                    ).classList.add("text-center"),
                 // Was the due date, which this product never sets — a column of
                 // dashes. Whether an invoice is official is what a reader
                 // actually needs beside it, and it is also what the new filter
@@ -4426,6 +4446,11 @@
                         }))
                         .filter((line) => line.product && line.quantity > 0),
                 };
+                // The date on the document, if the operator wrote one. Left out
+                // rather than sent empty when they did not, because issuing
+                // fills it from the day it was issued.
+                const documentDate = apiDate(data.get("document_date"));
+                if (documentDate) body.document_date = documentDate;
                 return body;
             },
         });
@@ -4806,6 +4831,8 @@
                 typeSelect.disabled = invoice.status !== "draft";
             }
             syncOfficialInvoiceNotice(invoice);
+            document.getElementById("edit-invoice-document-date").value =
+                localDayValue(invoice.document_date);
             document.getElementById("invoice-issued-at").value = displayDay(invoice.issued_at);
             // Derived, and shown as such. It is the sum of the allocations made
             // against this invoice from the receipts desk; «مانده» follows it.
@@ -4854,6 +4881,9 @@
                 // Document discount and tax rate are not offered on this form.
                 const payload = {notes: String(data.get("notes") || "")};
                 payload.due_at = apiDateTime(textOrNull(data.get("due_at")));
+                // Null when cleared rather than omitted, so an operator can take
+                // a wrong date off a draft as well as correct one.
+                payload.document_date = apiDate(data.get("document_date"));
                 const typeField = document.getElementById("edit-invoice-type");
                 if (typeField && !typeField.disabled) payload.invoice_type = typeField.value;
                 const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});

@@ -59,6 +59,9 @@ QUOTATION_HEADER_FIELDS = {"discount_amount", "tax_rate", "valid_until", "notes"
 ORDER_HEADER_FIELDS = {"discount_amount", "tax_rate", "expected_delivery_at", "notes", "warehouse", "shipping_method"}
 INVOICE_HEADER_FIELDS = {
     "discount_amount", "tax_rate", "due_at", "notes", "warehouse", "invoice_type",
+    # The date the operator writes on the document. Not `issued_at`, which is
+    # the system's record of issuing and which a draft may not have at all.
+    "document_date",
 }
 
 
@@ -831,6 +834,10 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
             "sale": sale,
             "warehouse": _resolve_warehouse(header.get("warehouse")),
             "due_at": due_at,
+            # Same reason as `invoice_type` above: `_create_document` writes only
+            # the fields named here, so accepting the value and then not storing
+            # it would be worse than refusing it.
+            "document_date": header.get("document_date"),
         },
     )
     log_activity(
@@ -861,7 +868,7 @@ def update_invoice(*, actor, invoice, **changes):
         locked.warehouse = _resolve_warehouse(changes["warehouse"])
     header_discount = changes.get("discount_amount", locked.discount_amount)
     tax_rate = changes.get("tax_rate", locked.tax_rate)
-    for field in ("due_at", "notes"):
+    for field in ("due_at", "notes", "document_date"):
         if field in changes:
             setattr(locked, field, changes[field])
     _recompute_from_stored_lines(
@@ -1100,6 +1107,11 @@ def issue_invoice(*, actor, invoice):
     _snapshot_parties(locked)
 
     issued_at = timezone.now()
+    # An invoice that never had a stated document date gets the day it was
+    # issued, so the column reading this is never blank for an issued document.
+    # A date the operator did state is left exactly as they wrote it.
+    if locked.document_date is None:
+        locked.document_date = timezone.localdate(issued_at)
     # The cost snapshot and the stock movement are two separate things.
     #
     # The snapshot is a *read* of what the units cost, and gross profit is
@@ -1137,7 +1149,8 @@ def issue_invoice(*, actor, invoice):
     # `official_number` is in the same write as the status, so an invoice can
     # never be issued without its number, nor hold a number without being issued.
     locked.save(update_fields=[
-        "status", "issued_at", "stock_applied", "official_number", "updated_at",
+        "status", "issued_at", "document_date", "stock_applied", "official_number",
+        "updated_at",
         *PARTY_SNAPSHOT_FIELDS,
     ])
 

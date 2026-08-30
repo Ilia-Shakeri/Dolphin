@@ -39,9 +39,11 @@
 {% comment %} «سفارش» و «سررسید» برداشته شدند. هیچ‌کدام در این محصول پر نمی‌شد و
    ستون سررسید در فهرست هم ستونی از خط تیره بود؛ جای آن را «نوع فاکتور» گرفت.
 
-   «تاریخ صدور» خواندنی است، چون مدل یک قید دارد: فاکتور پیش‌نویس نمی‌تواند تاریخ
-   صدور داشته باشد — صدور همان چیزی است که آن را می‌گذارد. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-issued-at">تاریخ صدور</label><input class="form-control form-control-solid" id="invoice-issued-at" disabled></div>
+   «تاریخ صدور» فیلد خودش را دارد و تا وقتی فاکتور پیش‌نویس است قابل ویرایش. کنارش
+   «زمان ثبت صدور» خواندنی است: آن یکی ثبتِ سامانه از لحظهٔ صدور است و دست کسی
+   نیست. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-document-date">تاریخ صدور</label><input class="form-control form-control-solid" id="edit-invoice-document-date" name="document_date" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="document_date"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-issued-at">زمان ثبت صدور</label><input class="form-control form-control-solid" id="invoice-issued-at" disabled></div>
 {% comment %} «پرداخت شده» دیگر دست‌نویس نیست، برای هیچ نقشی.
 
    مقدارش جمع تخصیص‌هایی است که از «تخصیص به فاکتور» روی دریافت‌ها ثبت می‌شود، و
