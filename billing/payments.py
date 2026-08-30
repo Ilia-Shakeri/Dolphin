@@ -481,7 +481,23 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
     )
 
     payment = Payment.objects.select_for_update().get(pk=locked.payment_id)
-    if to_status == Cheque.Status.CLEARED and payment.status == Payment.Status.PENDING:
+    if to_status == Cheque.Status.PENDING and previous != Cheque.Status.BOUNCED:
+        # Undoing an operation, which every state may now do. A bounce already
+        # reversed the money on its way out, so returning from it costs nothing;
+        # leaving CLEARED has to give back the credit that clearing posted, and
+        # leaving SPENT has to undo the same reversal a spend performed.
+        #
+        # The payment goes back to PENDING either way, because that is what the
+        # cheque now is: waiting again, and able to clear a second time. Without
+        # this it would sit CANCELLED and a re-cleared cheque would credit
+        # nobody — the correction would look applied and move no money.
+        if payment.status == Payment.Status.CONFIRMED:
+            cancel_payment(actor=actor, payment=payment, reason=reason)
+            payment.refresh_from_db()
+        payment.status = Payment.Status.PENDING
+        payment.cancelled_at = None
+        payment.save(update_fields=["status", "cancelled_at", "updated_at"])
+    elif to_status == Cheque.Status.CLEARED and payment.status == Payment.Status.PENDING:
         payment.status = Payment.Status.CONFIRMED
         payment.save(update_fields=["status", "updated_at"])
         _post_payment_credit(actor=actor, payment=payment)

@@ -350,3 +350,86 @@ class BidirectionalPaymentTests(TestCase):
         self.assertTrue(settled.is_manually_settled)
         # Still no accounting record of its own, exactly as before.
         self.assertEqual(settled.paid_amount, Decimal("0.00"))
+
+
+class ChequeCorrectionTests(BidirectionalPaymentTests):
+    """A cheque operation can be undone, because operators press wrong buttons.
+
+    «وصول» and «خرج کردن» used to be terminal: one wrong click on a row was
+    permanent. The product owner asked for the operation to be changeable after
+    it has been performed, so every state can return to «در انتظار» — and only
+    there. Going anywhere else from a terminal state would be inventing a
+    movement nobody described.
+
+    What is actually being pinned here is that the money follows the correction.
+    A status that moved while the ledger did not would be worse than the
+    terminal state it replaced.
+    """
+
+    def test_returning_a_cleared_cheque_to_pending_gives_the_credit_back(self):
+        payment = self.cheque_receipt()
+        transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.CLEARED
+        )
+        credited = current_balance(self.customer)
+
+        transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.PENDING
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.cheque.status, Cheque.Status.PENDING)
+        # The credit is reversed, not deleted: the ledger is append-only, so the
+        # balance returns to where it was while both movements stay readable.
+        self.assertNotEqual(credited, current_balance(self.customer))
+        self.assertGreater(
+            CustomerLedgerEntry.objects.filter(customer=self.customer).count(), 1
+        )
+
+    def test_a_corrected_cheque_can_clear_again_and_credits_again(self):
+        """The correction has to leave the cheque usable.
+
+        This is the half that a status-only change would have missed. If the
+        payment were left cancelled, clearing a second time would move no money
+        and the operator would see the correction apply and nothing happen.
+        """
+        payment = self.cheque_receipt()
+        transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.CLEARED
+        )
+        cleared_once = current_balance(self.customer)
+        transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.PENDING
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+        self.assertIsNone(payment.cancelled_at)
+
+        transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.CLEARED
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.Status.CONFIRMED)
+        self.assertEqual(current_balance(self.customer), cleared_once)
+
+    def test_a_spent_cheque_can_be_taken_back(self):
+        payment = self.cheque_receipt()
+        spent = spend_received_cheque(
+            actor=self.manager, cheque=payment.cheque, payee="گیرنده"
+        )
+        transition_cheque(
+            actor=self.manager, cheque=spent, to_status=Cheque.Status.PENDING
+        )
+        payment.refresh_from_db()
+        self.assertEqual(payment.cheque.status, Cheque.Status.PENDING)
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+
+    def test_a_terminal_state_still_refuses_everything_except_pending(self):
+        """Only the undo was added. A cleared cheque still cannot be spent."""
+        payment = self.cheque_receipt()
+        transition_cheque(
+            actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.CLEARED
+        )
+        with self.assertRaises(BusinessRuleError):
+            transition_cheque(
+                actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.SPENT
+            )

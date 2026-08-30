@@ -3542,11 +3542,14 @@
     // Mirrors billing.models.Cheque.TRANSITIONS. Display only — the server
     // refuses a jump that is not in its own table regardless of what is offered
     // here, so a drift in this copy narrows the menu, it never widens access.
+    //: Mirrors `Cheque.TRANSITIONS` on the server, which refuses anything this
+    //: lets through anyway — this only spares the trip. Every state can return
+    //: to «در انتظار» so a wrong button on a row can be corrected.
     const CHEQUE_TRANSITIONS = Object.freeze({
         pending: ["cleared", "bounced", "spent"],
-        cleared: [],
+        cleared: ["pending"],
         bounced: ["pending"],
-        spent: [],
+        spent: ["pending"],
     });
     const INSTALLMENT_STATUS_TEXT = Object.freeze({
         pending: "پرداخت‌نشده",

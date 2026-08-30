@@ -769,15 +769,27 @@ class Cheque(TimeStampedModel):
         #: so this is a state of the row that already exists.
         SPENT = "spent", "خرج شده"
 
+    #: Every state can return to PENDING, and nothing else changed.
+    #:
+    #: «وصول» and «خرج کردن» used to be terminal, which meant one wrong button
+    #: on this row could never be corrected — the product owner asked for the
+    #: operation to be changeable after it has been performed. PENDING is the
+    #: only destination added: it is "this has not happened after all", which is
+    #: the correction an operator actually needs. Going somewhere else from a
+    #: terminal state would be inventing a movement nobody described.
+    #:
+    #: The money follows, and nothing is erased. Leaving CLEARED reverses the
+    #: credit it posted, exactly as a bounce does; the ledger is append-only, so
+    #: the credit and its reversal both stay visible and a re-cleared cheque
+    #: credits again as a third movement. A reader can see what was corrected
+    #: rather than finding a figure that quietly changed.
     TRANSITIONS = {
         # A cheque still waiting can clear, bounce, or be handed on.
         Status.PENDING: frozenset({Status.CLEARED, Status.BOUNCED, Status.SPENT}),
-        Status.CLEARED: frozenset(),
+        Status.CLEARED: frozenset({Status.PENDING}),
         # A bounced cheque can be presented again, so it returns to waiting.
         Status.BOUNCED: frozenset({Status.PENDING}),
-        # Terminal: the cheque is in someone else's hands and its fate is no
-        # longer ours to record.
-        Status.SPENT: frozenset(),
+        Status.SPENT: frozenset({Status.PENDING}),
     }
 
     class Source(models.TextChoices):
