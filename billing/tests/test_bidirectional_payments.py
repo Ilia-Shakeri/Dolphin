@@ -433,3 +433,37 @@ class ChequeCorrectionTests(BidirectionalPaymentTests):
             transition_cheque(
                 actor=self.manager, cheque=payment.cheque, to_status=Cheque.Status.SPENT
             )
+
+
+class SpentChequeIsFiledTests(BidirectionalPaymentTests):
+    """Handing a cheque on files it, and puts it on the payments desk."""
+
+    def test_spending_a_cheque_registers_it(self):
+        """A cheque that has left the building has been filed by definition.
+
+        It used to stay «ثبت نشده», so the cheques page showed a document that
+        had been handed to someone else as one nobody had recorded.
+        """
+        payment = self.cheque_receipt()
+        self.assertFalse(payment.cheque.is_registered)
+        spent = spend_received_cheque(
+            actor=self.manager, cheque=payment.cheque, payee="گیرنده"
+        )
+        self.assertEqual(spent.status, Cheque.Status.SPENT)
+        self.assertTrue(spent.is_registered)
+
+    def test_a_spent_cheque_reaches_the_disbursement_desk(self):
+        """It is a receipt by direction, so only the desk query brings it here.
+
+        The instrument moved; no second document was written, which is what
+        keeps the amount from being counted twice.
+        """
+        payment = self.cheque_receipt()
+        spend_received_cheque(actor=self.manager, cheque=payment.cheque, payee="گیرنده")
+        payment.refresh_from_db()
+        self.assertEqual(payment.direction, Payment.Direction.RECEIPT)
+        self.assertEqual(Payment.objects.count(), 1)
+        # And the status a reader sees on that desk is the cheque's own, which
+        # is «خرج شده» — not the receipt's, which closed when the cheque left.
+        self.assertEqual(payment.cheque.status, Cheque.Status.SPENT)
+        self.assertEqual(payment.status, Payment.Status.CANCELLED)

@@ -19,7 +19,8 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.cache import cache
 
 from accounts.models import User
-from billing.models import Invoice
+from billing.models import Cheque, Invoice, Payment
+from billing.payments import register_payment
 from inventory.models import StockItem
 from sales.services import create_customer_with_phone, create_product, create_product_category
 
@@ -513,3 +514,70 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "stock-search-form")))
         self.assertEqual(self.browser.find_elements(By.ID, "open-create-movement"), [])
         self.assertEqual(self.browser.find_elements(By.ID, "open-transfer-stock"), [])
+
+    def test_the_disbursement_cheque_form_asks_its_questions_in_order(self):
+        """«ثبت پرداخت» on the cheque method, which was reordered in 1.4.0.
+
+        نوع چک decides the shape of everything under it, so it comes first with
+        شماره چک beside it, and who receives the cheque sits under its own
+        heading. Which facts belong to that side differs by kind, and neither
+        omission is cosmetic — an endorsed cheque carries its own amount, and a
+        cheque we write has not been paid yet.
+        """
+        received = register_payment(
+            actor=self.manager,
+            customer=self.customer,
+            method=Payment.Method.CHEQUE,
+            amount=Decimal("500.00"),
+            cheque={
+                "bank_name": "بانک ملی",
+                "bank_account": "0201234567001",
+                "serial_number": "SPEND-1",
+                "due_date": "2026-12-01",
+            },
+        )
+        self.login(self.manager)
+        self.browser.get(f"{self.live_server_url}/disbursements/")
+        self.open_create_dialog("open-create-payment", "create-payment-dialog")
+        self.browser.find_element(By.CSS_SELECTOR, "[data-payment-mode='cheque']").click()
+
+        source = self.browser.find_element(By.ID, "create-cheque-source")
+        serial = self.browser.find_element(By.ID, "create-cheque-existing")
+        payee_block = self.browser.find_element(By.ID, "create-cheque-payee-block")
+        amount = self.browser.find_element(By.CSS_SELECTOR, "[data-payment-field='amount']")
+        date = self.browser.find_element(By.CSS_SELECTOR, "[data-payment-field='received-at']")
+
+        # چک مشتری: the instrument is chosen, not described, and its amount is
+        # its own.
+        self.assertTrue(source.is_displayed())
+        self.wait.until(lambda driver: serial.is_displayed())
+        self.assertTrue(payee_block.is_displayed())
+        self.assertFalse(amount.is_displayed())
+        self.assertTrue(date.is_displayed())
+        # The party moved under the heading rather than being duplicated.
+        self.assertIn(
+            "اطلاعات گیرنده",
+            self.browser.find_element(By.ID, "create-cheque-payee-block").text,
+        )
+
+        # چک تازه: an amount is needed, a payment date is not.
+        Select(source).select_by_value("own")
+        self.wait.until(lambda driver: amount.is_displayed())
+        self.assertFalse(date.is_displayed())
+        self.assertFalse(serial.is_displayed())
+
+        # Back to چک مشتری, and the instrument can be chosen by its number.
+        Select(source).select_by_value("customer_endorsed")
+        self.wait.until(lambda driver: serial.is_displayed())
+        self.set_hidden_select(
+            self.browser.find_element(By.ID, "create-cheque-existing-id"),
+            received.cheque.pk,
+        )
+        self.assertEqual(
+            self.browser.find_element(By.ID, "create-cheque-existing-id").get_attribute("value"),
+            str(received.cheque.pk),
+        )
+        # What happens on submit — the cheque is spent, filed, and appears on
+        # this desk reading «خرج شده» — is covered where it can be asserted
+        # deterministically, in billing/tests/test_bidirectional_payments.py.
+        self.assert_browser_clean()

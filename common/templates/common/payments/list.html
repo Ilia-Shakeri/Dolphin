@@ -92,8 +92,12 @@
                 </div>
                 <p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p>
             </div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ (ریال)</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-payment-received-at">{% if payment_direction == "disbursement" %}تاریخ پرداخت{% else %}تاریخ دریافت{% endif %}</label><input class="form-control form-control-solid" id="create-payment-received-at" name="received_at" type="text" data-jalali="date" placeholder="امروز"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
+{% comment %} On a cheque these three move under «اطلاعات گیرنده» below, and
+   which of them appear depends on the کind of cheque: an endorsed one already
+   carries its own amount, and a cheque we write has no payment date yet. The
+   script moves and hides them rather than the markup duplicating them. {% endcomment %}
+            <div class="col-md-6" data-payment-field="amount"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ (ریال)</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
+            <div class="col-md-6" data-payment-field="received-at"><label class="form-label fw-semibold" for="create-payment-received-at">{% if payment_direction == "disbursement" %}تاریخ پرداخت{% else %}تاریخ دریافت{% endif %}</label><input class="form-control form-control-solid" id="create-payment-received-at" name="received_at" type="text" data-jalali="date" placeholder="امروز"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
 {% comment %} «شماره رسید» is dropped from cash and cheque, where there is no
    reference to carry. It survives only on a transfer, which really does have
    one. {% endcomment %}
@@ -114,11 +118,13 @@
 {% comment %} A disbursement may hand on a cheque already taken in, or write a
    new one. Spending an existing cheque creates no second cheque and no second
    document: it is the same instrument, moved. {% endcomment %}
-            <div class="row g-5" data-payment-field="cheque-source" hidden>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-cheque-source">نوع چک</label><select class="form-select form-select-solid" id="create-cheque-source" name="cheque_source"><option value="customer_endorsed">چک مشتری</option><option value="own">چک تازه</option></select></div>
-            </div>
-            <div class="row g-5" id="create-cheque-existing" hidden>
-                <div class="col-md-6">
+{% comment %} نوع چک first, because it decides the shape of everything under it,
+   and شماره چک beside it — the two questions about which instrument this is,
+   answered together on one row. Everything about who receives it follows under
+   its own heading. {% endcomment %}
+            <div class="row g-5">
+                <div class="col-md-6" data-payment-field="cheque-source" hidden><label class="form-label fw-semibold" for="create-cheque-source">نوع چک</label><select class="form-select form-select-solid" id="create-cheque-source" name="cheque_source"><option value="customer_endorsed">چک مشتری</option><option value="own">چک تازه</option></select></div>
+                <div class="col-md-6" id="create-cheque-existing" hidden>
                     <label class="form-label fw-semibold" for="create-cheque-existing-search">شماره چک</label>
                     <div class="searchable-select" data-searchable-select>
                         <input class="form-control form-control-solid" id="create-cheque-existing-search" type="search" autocomplete="off" placeholder="شماره چک را بنویسید…" data-searchable-input hidden aria-controls="create-cheque-existing-options" aria-expanded="false" role="combobox">
@@ -127,6 +133,13 @@
                     </div>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="cheque_existing"></p>
                 </div>
+            </div>
+{% comment %} The receiving end of a cheque, gathered under one heading instead of
+   being scattered above and below the instrument's own details. The script moves
+   the party, amount and date rows in here on the cheque method. {% endcomment %}
+            <div id="create-cheque-payee-block" hidden>
+                <h3 class="fs-5 fw-bold text-gray-900 mt-6 mb-3">اطلاعات گیرنده</h3>
+                <div class="row g-5" id="create-cheque-payee-fields"></div>
             </div>
             <div class="row g-5" id="create-cheque-new-fields">
 {% comment %} On a cheque the bank named is the one it is drawn on — ours when we

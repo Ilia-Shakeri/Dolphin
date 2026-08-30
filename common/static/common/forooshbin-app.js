@@ -5035,22 +5035,65 @@
                 clearMessages(createForm);
             }
 
-            // «چک مشتری» spends an instrument already recorded, so the only
-            // thing to ask for is which one. «چک تازه» writes a new one and
-            // needs its details.
+            // Where the party, amount and date live on a non-cheque method, so
+            // they can be put back when the reader switches away from cheque.
+            const partyField = createForm.querySelector('[data-payment-field="customer"]');
+            const amountField = createForm.querySelector('[data-payment-field="amount"]');
+            const dateField = createForm.querySelector('[data-payment-field="received-at"]');
+            const headerRow = partyField?.parentElement || null;
+            const payeeBlock = document.getElementById("create-cheque-payee-block");
+            const payeeFields = document.getElementById("create-cheque-payee-fields");
+
+            /**
+             * The cheque form, in the order the questions are actually asked.
+             *
+             * نوع چک decides the shape, so it comes first, with شماره چک beside
+             * it. Then «اطلاعات گیرنده» — who this cheque goes to, and the one
+             * or two facts that belong to that side of it.
+             *
+             * Which of those facts appear differs by kind, and neither omission
+             * is cosmetic:
+             *
+             * «چک مشتری» hands on an instrument already recorded, so its amount
+             * is the cheque's own and asking for it again would invite a figure
+             * that disagrees with the document being spent. It takes a payment
+             * date instead.
+             *
+             * «چک تازه» writes a new instrument, so it needs an amount — and it
+             * has no payment date, because nothing has been paid yet: the cheque
+             * carries a due date of its own, which is already in its details.
+             */
             function applyChequeSource() {
+                const onCheque = methodField.value === "cheque";
                 const spending =
                     direction === "disbursement" &&
-                    methodField.value === "cheque" &&
+                    onCheque &&
                     chequeSource &&
                     chequeSource.value === "customer_endorsed";
                 if (existingChequeRow) existingChequeRow.hidden = !spending;
-                if (newChequeFields) {
-                    newChequeFields.hidden = methodField.value !== "cheque" || spending;
+                if (newChequeFields) newChequeFields.hidden = !onCheque || spending;
+                if (chequeNote) chequeNote.hidden = !onCheque || spending;
+
+                // Only the disbursement desk is rearranged. A cheque taken in
+                // is still a receipt with a party, an amount and the date it
+                // arrived — moving those under «اطلاعات گیرنده» would name the
+                // customer who paid us as the recipient, and hiding the date
+                // would take away the one this desk exists to record.
+                const grouped = onCheque && direction === "disbursement";
+                if (payeeBlock && payeeFields && headerRow) {
+                    payeeBlock.hidden = !grouped;
+                    const host = grouped ? payeeFields : headerRow;
+                    [partyField, amountField, dateField].forEach((field) => {
+                        if (field && field.parentElement !== host) host.append(field);
+                    });
+                    if (amountField) amountField.hidden = grouped && spending;
+                    if (dateField) dateField.hidden = grouped && !spending;
                 }
-                if (chequeNote) {
-                    chequeNote.hidden = methodField.value !== "cheque" || spending;
-                }
+                // A hidden required field blocks submission with a message the
+                // reader cannot see the field for, so `required` follows what is
+                // on screen rather than staying pinned to the markup.
+                const amountInput = document.getElementById("create-payment-amount");
+                if (amountInput) amountInput.required = !(grouped && spending);
             }
 
             if (chequeSource) chequeSource.addEventListener("change", applyChequeSource);
@@ -5090,6 +5133,16 @@
                         const payee = chosenCustomer
                             ? (document.getElementById("create-payment-customer-search").value || "")
                             : "";
+                        if (!payee) {
+                            const slot = createForm.querySelector('[data-error-for="customer"]');
+                            if (slot) slot.textContent = "گیرنده را انتخاب کنید.";
+                            return;
+                        }
+                        // No amount and no document: the instrument already
+                        // carries its figure, and spending it is a state change
+                        // on that row. It reaches this desk because the payments
+                        // list includes receipts whose cheque has been spent —
+                        // where it reads «خرج شده», the cheque's own status.
                         await apiRequest(`/api/v1/cheques/${chequeId}/spend/`, {
                             method: "POST",
                             body: {payee, reason: String(data.get("notes") || "")},

@@ -411,7 +411,16 @@ def spend_received_cheque(*, actor, cheque, payee, reason=""):
         actor=actor, cheque=locked, to_status=Cheque.Status.SPENT, reason=reason
     )
     updated.paid_to = payee
-    updated.save(update_fields=["paid_to", "updated_at"])
+    # Handing a cheque to someone else is the moment it is on the books as a
+    # real instrument, so حالت follows: a cheque that has been spent has been
+    # registered by definition, and leaving it «ثبت نشده» meant the cheques page
+    # showed a document that had left the building as one nobody had filed.
+    #
+    # Written directly rather than through `set_cheque_registration`, which locks
+    # the same row this function already holds locked and writes its own history
+    # for an axis the operator did not touch.
+    updated.is_registered = True
+    updated.save(update_fields=["paid_to", "is_registered", "updated_at"])
     return updated
 
 
