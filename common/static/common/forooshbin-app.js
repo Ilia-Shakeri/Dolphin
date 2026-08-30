@@ -4288,14 +4288,79 @@
     }
 
     async function setupInvoices() {
+        // Every line offers the same products, so they are fetched once and each
+        // row is filled from this list.
+        let invoiceProducts = [];
+        const lineHost = document.getElementById("create-invoice-lines");
+
+        function addInvoiceLine() {
+            if (!lineHost) return;
+            const row = document.createElement("div");
+            row.className = "d-flex flex-wrap align-items-center gap-3";
+            row.dataset.invoiceLine = "";
+
+            const picker = document.createElement("div");
+            picker.className = "searchable-select flex-grow-1";
+            picker.setAttribute("data-searchable-select", "");
+            const search = document.createElement("input");
+            search.className = "form-control form-control-solid";
+            search.type = "search";
+            search.autocomplete = "off";
+            search.placeholder = "نام یا کد کالا…";
+            search.setAttribute("data-searchable-input", "");
+            search.setAttribute("role", "combobox");
+            search.setAttribute("aria-label", "جستجوی کالا");
+            search.hidden = true;
+            const select = document.createElement("select");
+            select.className = "form-select form-select-solid";
+            select.dataset.lineProduct = "";
+            select.setAttribute("data-searchable-source", "");
+            select.setAttribute("aria-label", "کالا");
+            fillSelect(select, invoiceProducts, (item) => `${item.name} (${item.sku})`, "یک کالا انتخاب کنید");
+            const options = document.createElement("ul");
+            options.className = "searchable-select-options";
+            options.setAttribute("role", "listbox");
+            options.hidden = true;
+            picker.append(search, select, options);
+
+            const quantity = document.createElement("input");
+            quantity.className = "form-control form-control-solid w-auto";
+            quantity.type = "number";
+            quantity.min = "1";
+            quantity.step = "1";
+            quantity.value = "1";
+            quantity.dataset.lineQuantity = "";
+            quantity.setAttribute("aria-label", "تعداد");
+
+            const remove = document.createElement("button");
+            remove.className = "btn btn-icon btn-light-danger";
+            remove.type = "button";
+            remove.textContent = "×";
+            remove.setAttribute("aria-label", "حذف ردیف");
+            remove.addEventListener("click", () => {
+                row.remove();
+                // Never none: an invoice without a line cannot be submitted, so
+                // the form always offers one to fill.
+                if (!lineHost.children.length) addInvoiceLine();
+            });
+
+            row.append(picker, quantity, remove);
+            lineHost.append(row);
+            setupSearchableSelects(row);
+        }
+
         try {
-            await Promise.all([
+            const [, products] = await Promise.all([
                 loadCustomerOptions(document.getElementById("create-invoice-customer"), "یک مشتری انتخاب کنید"),
-                loadProductOptions(document.getElementById("create-invoice-product"), "یک کالا انتخاب کنید"),
+                loadAllPages("/api/v1/products/?is_active=true&ordering=name"),
             ]);
+            invoiceProducts = products;
+            setupSearchableSelects(document.getElementById("create-invoice-form"));
+            addInvoiceLine();
         } catch (error) {
             showError(error);
         }
+        document.getElementById("create-invoice-add-line")?.addEventListener("click", addInvoiceLine);
         setupDocumentList({
             key: "invoices",
             prefix: "invoice",
@@ -4339,11 +4404,29 @@
             createFields: (data) => {
                 // No warehouse: an invoice moves no stock, so naming one would
                 // suggest an effect it does not have.
-                return {
+                //
+                // `tax_rate` was collected by the form and then dropped here,
+                // which is why a rate typed on this dialog never reached the
+                // invoice: the field existed, the service accepted it, and the
+                // request simply never carried it.
+                const discountPercent = Number(data.get("discount_percent")) || 0;
+                const body = {
                     customer: Number(data.get("customer")),
                     invoice_type: String(data.get("invoice_type") || "unofficial"),
-                    items: documentFirstLine(data),
+                    tax_rate: Number(data.get("tax_rate")) || 0,
+                    // The discount is a percentage and rides on each line, which
+                    // already has `discount_percent`. Nothing new is invented
+                    // server-side and the order of calculation is the one the
+                    // line rules are already tested against.
+                    items: [...document.querySelectorAll("[data-invoice-line]")]
+                        .map((row) => ({
+                            product: Number(row.querySelector("[data-line-product]").value),
+                            quantity: Number(row.querySelector("[data-line-quantity]").value),
+                            discount_percent: discountPercent,
+                        }))
+                        .filter((line) => line.product && line.quantity > 0),
                 };
+                return body;
             },
         });
     }
@@ -4723,7 +4806,7 @@
                 typeSelect.disabled = invoice.status !== "draft";
             }
             syncOfficialInvoiceNotice(invoice);
-            document.getElementById("edit-invoice-issued-at").value = localDateValue(invoice.issued_at);
+            document.getElementById("invoice-issued-at").value = displayDay(invoice.issued_at);
             // Derived, and shown as such. It is the sum of the allocations made
             // against this invoice from the receipts desk; «مانده» follows it.
             if (paidInput) paidInput.value = money(invoice.paid_amount);

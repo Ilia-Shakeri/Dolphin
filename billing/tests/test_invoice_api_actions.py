@@ -174,3 +174,102 @@ class InvoiceActionApiTests(TestCase):
         unpaid = self.client_api.get("/api/v1/invoices/?settlement=unpaid").json()
         self.assertIn(invoice.pk, [row["id"] for row in paid["results"]])
         self.assertNotIn(invoice.pk, [row["id"] for row in unpaid["results"]])
+
+
+class InvoiceHeaderFromCreationTests(TestCase):
+    """A rate typed on the «فاکتور تازه» dialog has to reach the invoice.
+
+    It did not. The form collected `tax_rate`, the service accepted it, and the
+    request in between simply never carried the field — so the tax box on the
+    detail card stayed at zero and the total was the untaxed one, with nothing
+    on screen to say why. The same request now carries the issue date, which is
+    the document's own date rather than the moment it was keyed in.
+    """
+
+    def setUp(self):
+        self.manager = User.objects.create_user(
+            username="hdr.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.manager)
+        self.customer = create_customer_with_phone(
+            actor=self.manager,
+            full_name="مشتری سربرگ",
+            phone={"raw_phone": "09121250000", "is_primary": True},
+        )
+        self.product = create_product(
+            actor=self.manager, sku="HDR-1", name="کالا", current_price=Decimal("1000.00")
+        )
+
+    def test_a_tax_rate_sent_on_creation_reaches_the_totals(self):
+        response = self.client.post(
+            "/api/v1/invoices/",
+            {
+                "customer": self.customer.pk,
+                "tax_rate": "9.00",
+                "items": [{"product": self.product.pk, "quantity": 2}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Decimal(response.data["tax_rate"]), Decimal("9.00"))
+        self.assertGreater(Decimal(response.data["tax_amount"]), Decimal("0"))
+        self.assertEqual(
+            Decimal(response.data["total_amount"]),
+            Decimal(response.data["subtotal_amount"])
+            - Decimal(response.data["discount_amount"])
+            + Decimal(response.data["tax_amount"]),
+        )
+
+    def test_a_percentage_discount_rides_on_the_lines(self):
+        """The discount is a percentage and each line already has one, so no new
+        header concept was invented for it."""
+        response = self.client.post(
+            "/api/v1/invoices/",
+            {
+                "customer": self.customer.pk,
+                "items": [{"product": self.product.pk, "quantity": 2, "discount_percent": "10.00"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Decimal(response.data["total_amount"]), Decimal("1800.00"))
+
+    def test_a_draft_still_refuses_an_issue_date(self):
+        """Asked for as an input on «فاکتور تازه», and not built.
+
+        `Invoice` carries a check constraint — `invoice_draft_has_no_issue_time`
+        — that a draft's `issued_at` must be NULL, because issuing is the thing
+        that sets it. Accepting the field on the create form meant every save
+        failed the constraint, surfacing as a number conflict.
+
+        Storing an operator-stated document date is a real request and a real
+        decision: it needs either that invariant relaxed, or a separate field
+        holding the stated date until issue stamps it. Neither is something to
+        pick silently, so the field is not offered and this records why.
+        """
+        response = self.client.post(
+            "/api/v1/invoices/",
+            {
+                "customer": self.customer.pk,
+                "issued_at": "2026-05-20T08:30:00Z",
+                "items": [{"product": self.product.pk, "quantity": 1}],
+            },
+            format="json",
+        )
+        # Refused rather than accepted and dropped, which is the better of the
+        # two: a caller that sends a date is told it did not take effect.
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("issued_at", response.data)
+
+        # And the date still arrives the only way it can — by issuing.
+        # The service takes model instances; the pk form above is the API's.
+        invoice = create_invoice(
+            actor=self.manager,
+            customer=self.customer,
+            items=[{"product": self.product, "quantity": 1}],
+        )
+        self.assertIsNone(invoice.issued_at)
+        issue_invoice(actor=self.manager, invoice=invoice)
+        invoice.refresh_from_db()
+        self.assertIsNotNone(invoice.issued_at)

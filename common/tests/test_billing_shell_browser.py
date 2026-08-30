@@ -149,6 +149,28 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         )
         Select(self.browser.find_element(By.ID, element_id)).select_by_value(str(value))
 
+    def set_hidden_select(self, element, value):
+        """Choose a value on a `<select>` the searchable wrapper has hidden.
+
+        `choose_searchable` below is the right tool where the control has ids to
+        find it by. Rows built at runtime — an allocation line, an invoice line —
+        have no ids, and once the wrapper binds it hides the native control, so
+        Selenium will not click its options. Setting the value and firing the
+        `change` a click would have fired is the same end state.
+        """
+        self.wait.until(
+            lambda driver: any(
+                option.get_attribute("value") == str(value)
+                for option in Select(element).options
+            )
+        )
+        self.browser.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+            element,
+            str(value),
+        )
+
     def choose_searchable(self, element_id, value):
         """Pick from a search-box-over-select the way an operator does.
 
@@ -271,9 +293,17 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # it and attach it to the order afterwards.
         self.browser.get(f"{self.live_server_url}/invoices/")
         self.open_create_dialog("open-create-invoice", "create-invoice-dialog")
-        self.select_when_populated("create-invoice-customer", self.customer.pk)
-        self.select_when_populated("create-invoice-product", self.product.pk)
-        quantity = self.browser.find_element(By.ID, "create-invoice-quantity")
+        self.choose_searchable("create-invoice-customer", self.customer.pk)
+        # One line row is offered as soon as the products arrive; «افزودن کالا»
+        # adds more. An invoice can carry several products since 1.4.0, where it
+        # used to take exactly one.
+        line = self.wait.until(
+            lambda driver: driver.find_element(
+                By.CSS_SELECTOR, "#create-invoice-lines [data-invoice-line]"
+            )
+        )
+        self.set_hidden_select(line.find_element(By.CSS_SELECTOR, "[data-line-product]"), self.product.pk)
+        quantity = line.find_element(By.CSS_SELECTOR, "[data-line-quantity]")
         quantity.clear()
         quantity.send_keys("3")
         self.browser.find_element(By.CSS_SELECTOR, "#create-invoice-form button[type='submit']").click()
@@ -358,22 +388,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         picker = self.wait.until(
             lambda driver: driver.find_element(By.CSS_SELECTOR, "#payment-split-rows [data-split-invoice]")
         )
-        self.wait.until(
-            lambda driver: any(
-                option.get_attribute("value") == str(invoice_id)
-                for option in Select(picker).options
-            )
-        )
-        # Set by script rather than by clicking an option: once the searchable
-        # wrapper is bound it hides the real `<select>`, and Selenium refuses to
-        # click inside a hidden element. The value and the `change` it fires are
-        # exactly what a click would have produced.
-        self.browser.execute_script(
-            "arguments[0].value = arguments[1];"
-            "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
-            picker,
-            str(invoice_id),
-        )
+        self.set_hidden_select(picker, invoice_id)
         self.browser.find_element(By.CSS_SELECTOR, "#payment-allocate-form button[type='submit']").click()
         # «تخصیص‌یافته» left the detail card in 1.3.7 — allocation has its own
         # section with the invoices named, so the allocation row is the evidence.
