@@ -9,6 +9,7 @@
 {% block page_id %}payment-detail{% endblock %}
 {% block body_data %} data-payment-id="{{ payment_id }}" data-payment-direction="{{ payment_direction|default:'receipt' }}" data-nav-match="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}"{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد مالی</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-wallet page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{% if payment_direction == "disbursement" %}جزئیات پرداخت{% else %}جزئیات دریافت{% endif %}{% endblock %}
 {% block breadcrumb_current %}{% if payment_direction == "disbursement" %}جزئیات پرداخت{% else %}جزئیات دریافت{% endif %}{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}">بازگشت به فهرست</a>{% endblock %}

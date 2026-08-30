@@ -115,13 +115,13 @@ class CrmIdentitiesStayOutOfAdminEvenWhenEnabledTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertNotIn("Location", response)
 
-    def test_admin_login_page_is_persian_rtl_and_kariz_branded(self):
+    def test_admin_login_page_is_persian_rtl_and_dolphin_branded(self):
         response = self.client.get("/admin/login/")
         content = response.content.decode("utf-8")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('<html lang="fa" dir="rtl">', content)
-        self.assertContains(response, "مدیریت فروش‌بین")
+        self.assertContains(response, "مدیریت دلفین")
 
 
 class NginxDeniesAdminTests(SimpleTestCase):

@@ -36,7 +36,7 @@ class DirectoryExportView(APIView):
 
     renderer_classes = [XLSXNegotiationRenderer]
     throttle_classes = [SensitiveRateThrottle]
-    filename = "forooshbin-directory.xlsx"
+    filename = "dolphin-directory.xlsx"
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
@@ -59,7 +59,7 @@ class DirectoryExportView(APIView):
 
 
 class UserDirectoryExportView(DirectoryExportView):
-    filename = "forooshbin-users.xlsx"
+    filename = "dolphin-users.xlsx"
 
     @extend_schema(
         responses={
@@ -85,7 +85,7 @@ class UserDirectoryExportView(DirectoryExportView):
 
 class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
     required_feature = "customers"
-    filename = "forooshbin-customers.xlsx"
+    filename = "dolphin-customers.xlsx"
 
     @extend_schema(
         responses={
@@ -140,7 +140,7 @@ class ProductCatalogueExportView(FeatureGatedAPIMixin, DirectoryExportView):
     """
 
     required_feature = "products"
-    filename = "forooshbin-products.xlsx"
+    filename = "dolphin-products.xlsx"
 
     @extend_schema(
         responses={

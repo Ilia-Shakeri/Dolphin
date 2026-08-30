@@ -378,7 +378,7 @@ class UserPerformanceReportTests(TestCase):
         self.assertEqual(export_response["Content-Type"], XLSX_CONTENT_TYPE)
         self.assertEqual(
             export_response["Content-Disposition"],
-            'attachment; filename="forooshbin-user-performance.xlsx"',
+            'attachment; filename="dolphin-user-performance.xlsx"',
         )
         self.assertEqual(export_response["Cache-Control"], "private, no-store")
 

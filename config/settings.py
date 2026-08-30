@@ -108,7 +108,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # (`../fonts/IRANSansWeb.woff`, `fonts/keenicons/...`), so the directory shape
 # has to survive intact anyway.
 #
-# The favicon is a ForooshBin brand asset and lives with the application, so
+# The favicon is a Dolphin brand asset and lives with the application, so
 # the theme's demo media directory is not needed at runtime at all.
 STATICFILES_DIRS = [BASE_DIR / "assets"]
 #: Applied by common/management/commands/collectstatic.py on every invocation.
@@ -223,7 +223,7 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "ForooshBin API",
+    "TITLE": "Dolphin API",
     "VERSION": FOROOSHBIN_VERSION,
     "SERVE_INCLUDE_SCHEMA": False,
     # Several modules own a field called `status` or `to_status` over different

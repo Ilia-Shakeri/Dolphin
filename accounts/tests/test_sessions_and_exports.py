@@ -151,7 +151,7 @@ class DirectoryExportTests(TestCase):
         response = self.client.get("/api/v1/exports/users.xlsx")
         self.assertEqual(response.status_code, 200)
         self.assertIn("spreadsheetml", response["Content-Type"])
-        self.assertIn("forooshbin-users.xlsx", response["Content-Disposition"])
+        self.assertIn("dolphin-users.xlsx", response["Content-Disposition"])
 
         for role_user in (self.agent, self.other):
             self.client.force_login(role_user)
@@ -167,7 +167,7 @@ class DirectoryExportTests(TestCase):
         self.client.force_login(self.agent)
         response = self.client.get("/api/v1/exports/customers.xlsx")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("forooshbin-customers.xlsx", response["Content-Disposition"])
+        self.assertIn("dolphin-customers.xlsx", response["Content-Disposition"])
 
         listed = self.client.get("/api/v1/customers/").json()
         names = {row["full_name"] for row in listed["results"]}

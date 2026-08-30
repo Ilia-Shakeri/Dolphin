@@ -71,7 +71,7 @@ class FinancialExportMixin:
 
     renderer_classes = [XLSXNegotiationRenderer]
     workbook_builder = None
-    filename = "forooshbin-report.xlsx"
+    filename = "dolphin-report.xlsx"
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
@@ -122,7 +122,7 @@ class ReceivablesReportView(FinancialReportMixin, APIView):
 
 class ReceivablesExportView(FinancialExportMixin, ReceivablesReportView):
     workbook_builder = staticmethod(build_receivables_workbook)
-    filename = "forooshbin-receivables.xlsx"
+    filename = "dolphin-receivables.xlsx"
 
     @extend_schema(
         parameters=[ReceivablesQuerySerializer],
@@ -165,7 +165,7 @@ class ProfitReportView(FinancialReportMixin, APIView):
 
 class ProfitExportView(FinancialExportMixin, ProfitReportView):
     workbook_builder = staticmethod(build_profit_workbook)
-    filename = "forooshbin-profit.xlsx"
+    filename = "dolphin-profit.xlsx"
 
     @extend_schema(
         parameters=[ProfitQuerySerializer],
@@ -207,7 +207,7 @@ class InventoryValuationReportView(FinancialReportMixin, APIView):
 
 class InventoryValuationExportView(FinancialExportMixin, InventoryValuationReportView):
     workbook_builder = staticmethod(build_inventory_valuation_workbook)
-    filename = "forooshbin-stock-valuation.xlsx"
+    filename = "dolphin-stock-valuation.xlsx"
 
     @extend_schema(
         parameters=[InventoryValuationQuerySerializer],

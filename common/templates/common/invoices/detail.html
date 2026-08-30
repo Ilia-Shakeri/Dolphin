@@ -3,6 +3,7 @@
 {% block page_id %}invoice-detail{% endblock %}
 {% block body_data %} data-invoice-id="{{ invoice_id }}"{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد بازرگانی</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-bill page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات فاکتور{% endblock %}
 {% block breadcrumb_current %}جزئیات فاکتور{% endblock %}
 {% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:invoice-print' invoice_id %}">چاپ / ذخیره PDF</a><a class="btn btn-light" href="{% url 'common_ui:invoices' %}">بازگشت به فهرست</a></div>{% endblock %}
@@ -55,7 +56,12 @@
             <div class="col-12"><label class="form-label fw-semibold" for="edit-invoice-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-invoice-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
         <div id="invoice-edit-actions" class="d-flex justify-content-end gap-3 mt-6" hidden><button class="btn btn-primary" type="submit">ذخیره سربرگ</button></div>
-        <p id="invoice-locked-note" class="text-muted" hidden>فاکتور صادرشده تغییرناپذیر است: اقلام، مبالغ و بهای تمام‌شده آن ثابت‌اند. برای اصلاح، فاکتور را ابطال و فاکتور تازه صادر کنید.</p>
+{% comment %} Two different notes for two different reasons a form is locked.
+   Issued and correctable are not the same thing: the note stays open on an
+   issued invoice, and only the note; the ابطال note applies to the one status
+   where nothing at all may change. {% endcomment %}
+        <p id="invoice-issued-note" class="text-muted" hidden>فاکتور صادرشده تغییرناپذیر است: اقلام، مبالغ و بهای تمام‌شده آن ثابت‌اند. تنها «یادداشت» قابل اصلاح است.</p>
+        <p id="invoice-locked-note" class="text-muted" hidden>فاکتور ابطال‌شده تغییرناپذیر است. برای اصلاح، فاکتور تازه صادر کنید.</p>
     </form>
 </div></section>
 {% with doc="invoice" %}{% include "common/includes/document_lines.inc" %}{% endwith %}

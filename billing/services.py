@@ -854,27 +854,59 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
     return invoice
 
 
+#: The one field an operator may still correct once an invoice is issued.
+#:
+#: Everything else on the header either moves money (`discount_amount`,
+#: `tax_rate`, `document_date` feeding the tax point) or changes the document's
+#: legal shape (`invoice_type`, `warehouse`) — an issued invoice is a snapshot
+#: a customer has already been given, and none of that may drift under them.
+#: `notes` is free text with no accounting weight, which is what makes it the
+#: one thing worth reopening rather than requiring a cancel-and-reissue for a
+#: typo.
+INVOICE_ISSUED_EDITABLE_FIELDS = frozenset({"notes"})
+
+
 @transaction.atomic
 def update_invoice(*, actor, invoice, **changes):
     actor = _lock_document_writer(actor)
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
-    _require_editable(locked)
     unknown = set(changes) - INVOICE_HEADER_FIELDS
     if unknown:
         raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+
+    if locked.status == Invoice.Status.ISSUED:
+        # Narrower than `_require_editable`, and deliberately not that helper:
+        # a draft may change anything in `INVOICE_HEADER_FIELDS`, but an issued
+        # invoice may change only `notes`. Widening `_require_editable` itself
+        # would also loosen Quotation and Order, which is not what was asked.
+        blocked = set(changes) - INVOICE_ISSUED_EDITABLE_FIELDS
+        if blocked:
+            raise BusinessConflictError({
+                field: "Only notes can be changed on an issued invoice." for field in sorted(blocked)
+            })
+    else:
+        _require_editable(locked)
+
     if "notes" in changes:
         changes["notes"] = _clean_text(changes["notes"], field="notes", limit=FREE_TEXT_MAX_LENGTH)
     if "warehouse" in changes:
         locked.warehouse = _resolve_warehouse(changes["warehouse"])
-    header_discount = changes.get("discount_amount", locked.discount_amount)
-    tax_rate = changes.get("tax_rate", locked.tax_rate)
     for field in ("due_at", "notes", "document_date"):
         if field in changes:
             setattr(locked, field, changes[field])
-    _recompute_from_stored_lines(
-        locked, InvoiceItem, "invoice", header_discount=header_discount, tax_rate=tax_rate
-    )
-    locked.save()
+    if locked.status == Invoice.Status.ISSUED:
+        # Nothing here can change subtotal, discount or tax — `notes` is the
+        # only field this branch reaches — so the totals stay exactly the
+        # snapshot `issue_invoice` fixed. Recomputing would be a needless
+        # touch of frozen money fields for a change that is not about money.
+        locked.save(update_fields=["notes", "updated_at"])
+    else:
+        header_discount = changes.get("discount_amount", locked.discount_amount)
+        tax_rate = changes.get("tax_rate", locked.tax_rate)
+        _recompute_from_stored_lines(
+            locked, InvoiceItem, "invoice", header_discount=header_discount, tax_rate=tax_rate
+        )
+        locked.save()
     log_activity(
         actor=actor,
         operation="invoice.updated",

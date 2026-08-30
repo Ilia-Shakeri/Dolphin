@@ -77,8 +77,8 @@ class StaticResolutionTests(SimpleTestCase):
         manifest_path = ROOT / "common" / "static" / "common" / "brand" / "site.webmanifest"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-        self.assertEqual(manifest["name"], "FrooshBin")
-        self.assertEqual(manifest["short_name"], "FrooshBin")
+        self.assertEqual(manifest["name"], "Dolphin")
+        self.assertEqual(manifest["short_name"], "Dolphin")
         self.assertEqual(
             {(icon["src"], icon["sizes"]) for icon in manifest["icons"]},
             {

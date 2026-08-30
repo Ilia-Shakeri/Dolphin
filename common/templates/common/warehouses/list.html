@@ -2,6 +2,7 @@
 {% block title %}انبارها{% endblock %}
 {% block page_id %}warehouses{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">انبار و موجودی</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-cube-3 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}انبارها{% endblock %}
 {% block breadcrumb_current %}انبارها{% endblock %}
 {% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:stock-levels' %}">موجودی کالا</a>{% if can_manage_inventory %}<button id="open-create-warehouse" class="btn btn-primary" type="button">انبار تازه</button>{% endif %}</div>{% endblock %}

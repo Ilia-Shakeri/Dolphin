@@ -180,18 +180,43 @@ class DocumentStatusTests(BillingFixtureMixin, TestCase):
                 actor=self.manager, quotation=quotation, to_status=Quotation.Status.ACCEPTED
             )
 
-    def test_only_a_draft_may_be_edited(self):
+    def test_an_issued_invoices_lines_stay_frozen(self):
+        """The lines and everything they add up to are a snapshot the customer
+        has already been given; nothing here may move once issued."""
         invoice = self.draft_invoice()
         issue_invoice(actor=self.manager, invoice=invoice)
         invoice.refresh_from_db()
-        with self.assertRaises(BusinessConflictError):
-            update_invoice(actor=self.manager, invoice=invoice, notes="پس از صدور")
         with self.assertRaises(BusinessConflictError):
             replace_invoice_items(
                 actor=self.manager,
                 invoice=invoice,
                 items=[{"product": self.product, "quantity": 1}],
             )
+
+    def test_an_issued_invoice_may_only_have_its_note_corrected(self):
+        """The one narrow exception, added when the product owner asked for a
+        way to fix a note without cancelling and reissuing the whole document.
+
+        Everything with accounting or legal weight — discount, tax, the stated
+        document date, the official/unofficial type — stays refused exactly as
+        it was before this exception existed.
+        """
+        invoice = self.draft_invoice()
+        issue_invoice(actor=self.manager, invoice=invoice)
+        invoice.refresh_from_db()
+
+        updated = update_invoice(actor=self.manager, invoice=invoice, notes="پس از صدور")
+        self.assertEqual(updated.notes, "پس از صدور")
+
+        for changes in (
+            {"discount_amount": Decimal("10.00")},
+            {"tax_rate": Decimal("9.00")},
+            {"document_date": date(2026, 1, 1)},
+            {"invoice_type": Invoice.InvoiceType.OFFICIAL},
+        ):
+            with self.subTest(changes=changes):
+                with self.assertRaises(BusinessConflictError):
+                    update_invoice(actor=self.manager, invoice=invoice, **changes)
 
     def test_converting_an_unaccepted_quotation_is_refused(self):
         quotation = create_quotation(

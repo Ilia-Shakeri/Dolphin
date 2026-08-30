@@ -2926,6 +2926,13 @@
                 fontFamily: "IRANSansWeb, Helvetica, sans-serif",
                 labels: {colors: ink.muted},
                 markers: {radius: 3},
+                // Measured on a live legend: the marker's own edge landed
+                // exactly on the label's edge, a real 0px gap, not merely a
+                // tight one. Apex's built-in item spacing (an inline
+                // `margin: 2px 5px` on the whole item) puts room *between*
+                // items but nothing between a marker and its own label, so
+                // this is set explicitly rather than left to the default.
+                itemMargin: {horizontal: 10, vertical: 6},
             },
             noData: {
                 text: "داده‌ای برای نمایش نیست.",
@@ -4806,6 +4813,7 @@
         const form = document.getElementById("edit-invoice-form");
         const editActions = document.getElementById("invoice-edit-actions");
         const lockedNote = document.getElementById("invoice-locked-note");
+        const issuedNote = document.getElementById("invoice-issued-note");
         const planForm = document.getElementById("invoice-plan-form");
         const lines = documentLineEditor({doc: "invoice", endpoint, onSaved: (updated) => apply(updated)});
         let allocationsController = null;
@@ -4840,9 +4848,17 @@
             document.getElementById("invoice-balance").value = money(invoice.balance_due);
             document.getElementById("edit-invoice-notes").value = invoice.notes || "";
             const editable = invoice.status === "draft";
-            if (editActions) editActions.hidden = !editable;
-            if (lockedNote) lockedNote.hidden = editable;
-            form.querySelectorAll("input[name], textarea[name]").forEach((field) => { field.disabled = !editable; });
+            // Issued and correctable are not the same thing: an issued invoice
+            // can still have its note corrected, so the save action stays
+            // available and only the note field itself is enabled — everything
+            // that could move money or the document's legal shape stays locked.
+            const noteOnly = invoice.status === "issued";
+            if (editActions) editActions.hidden = !(editable || noteOnly);
+            if (issuedNote) issuedNote.hidden = !noteOnly;
+            if (lockedNote) lockedNote.hidden = editable || noteOnly;
+            form.querySelectorAll("input[name], textarea[name]").forEach((field) => {
+                field.disabled = noteOnly ? field.name !== "notes" : !editable;
+            });
             if (allocationsSection) allocationsSection.hidden = invoice.status !== "issued";
             if (invoice.status === "issued") {
                 allocationsController?.load();
@@ -4878,14 +4894,21 @@
             event.preventDefault();
             withSubmit(form, async () => {
                 const data = new FormData(form);
-                // Document discount and tax rate are not offered on this form.
+                // An issued invoice may correct only its note — the server
+                // enforces this too, but sending anything else here would fail
+                // on a field the reader never touched, since every disabled
+                // input still has whatever value it was showing. `due_at` has
+                // no field on this form since 1.4.0 and is never sent; sending
+                // it as `null` on every save was silently clearing a value nothing
+                // on screen offered to change.
                 const payload = {notes: String(data.get("notes") || "")};
-                payload.due_at = apiDateTime(textOrNull(data.get("due_at")));
-                // Null when cleared rather than omitted, so an operator can take
-                // a wrong date off a draft as well as correct one.
-                payload.document_date = apiDate(data.get("document_date"));
-                const typeField = document.getElementById("edit-invoice-type");
-                if (typeField && !typeField.disabled) payload.invoice_type = typeField.value;
+                if (current?.status !== "issued") {
+                    // Null when cleared rather than omitted, so an operator can
+                    // take a wrong date off a draft as well as correct one.
+                    payload.document_date = apiDate(data.get("document_date"));
+                    const typeField = document.getElementById("edit-invoice-type");
+                    if (typeField && !typeField.disabled) payload.invoice_type = typeField.value;
+                }
                 const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
                 apply(updated);
                 globalMessage("سربرگ فاکتور ذخیره شد.", true);

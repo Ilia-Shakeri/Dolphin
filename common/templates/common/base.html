@@ -3,10 +3,10 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="utf-8">
-    <meta name="description" content="سامانه مدیریت ارتباط با مشتری فروش‌بین">
+    <meta name="description" content="سامانه مدیریت ارتباط با مشتری دلفین">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
-    <title>{% block title %}خانه{% endblock %} | ForooshBin</title>
+    <title>{% block title %}خانه{% endblock %} | Dolphin</title>
     <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
@@ -14,7 +14,7 @@
     <link rel="manifest" href="{% static 'common/brand/site.webmanifest' %}">
 {% comment %} The purchased Metronic RTL build is the design system. Load order is the
    vendor's own: plugin styles, then the theme bundle, then only the
-   ForooshBin-specific overrides. `style.bundle.rtl.css` already resolves the
+   Dolphin-specific overrides. `style.bundle.rtl.css` already resolves the
    Persian IRANSans face from `fonts/`. {% endcomment %}
     <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}">
     <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}">
@@ -99,7 +99,7 @@
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-mobile" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
                         </picture>
-                        <span class="text-white fw-bold fs-4">ForooshBin</span>
+                        <span class="text-white fw-bold fs-4">Dolphin</span>
                     </a>
                 </div>
                 <div class="d-flex align-items-stretch justify-content-end flex-lg-grow-1">
@@ -272,7 +272,7 @@
                                 <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                                 <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
                             </picture>
-                            <span>ForooshBin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">فروش‌بین</span></span>
+                            <span>Dolphin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">دلفین</span></span>
                         </span>
                     </a>
 {% comment %} Collapsed, the mark alone. It is a link home, exactly like the wide
@@ -284,10 +284,10 @@
    that turns into a different control under the pointer does not tell you which
    of the two you are about to get. Reopening belongs to the toggle that closed
    it, which now stays visible while collapsed. {% endcomment %}
-                    <a class="brand app-sidebar-logo-minimize" href="{% url 'common_ui:home' %}" aria-label="ForooshBin">
+                    <a class="brand app-sidebar-logo-minimize" href="{% url 'common_ui:home' %}" aria-label="Dolphin">
                         <picture>
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
-                            <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="ForooshBin">
+                            <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="Dolphin">
                         </picture>
                     </a>
 {% comment %} The theme's own toggle, class for class, with one change: it is a
@@ -317,7 +317,7 @@
                              data-kt-scroll-wrappers="#kt_app_sidebar_menu_wrapper" data-kt-scroll-offset="5px">
                             <nav class="menu menu-column menu-rounded menu-sub-indention fw-semibold fs-6"
                                  id="kt_app_sidebar_menu" data-kt-menu="true" data-kt-menu-expand="false"
-                                 aria-label="فهرست بخش‌های فروش‌بین">
+                                 aria-label="فهرست بخش‌های دلفین">
 
                                 <div class="menu-item">
                                     <a data-module="dashboard" class="menu-link" href="{% url 'common_ui:home' %}">
@@ -492,7 +492,12 @@
                         <div id="kt_app_toolbar_container" class="app-container container-xxl d-flex flex-stack flex-wrap gap-3">
                             <div class="page-title d-flex flex-column justify-content-center flex-wrap me-3">
                                 {% block page_eyebrow %}{% endblock %}
-                                <h1 id="{% block page_heading_id %}page-heading{% endblock %}" class="page-heading d-flex text-gray-900 fw-bold fs-3 flex-column justify-content-center my-0">{% block page_title %}{% endblock %}</h1>
+{% comment %} `page_icon` is optional and empty by default, so a page that does
+   not fill it renders exactly as before — this is additive, not a redesign.
+   Where a page does fill it, the icon sits beside the title rather than above
+   or inside it, sized close to the text (`fs-2` against the title's `fs-3`)
+   so it reads as part of the heading rather than a second, competing element. {% endcomment %}
+                                <h1 id="{% block page_heading_id %}page-heading{% endblock %}" class="page-heading d-flex align-items-center gap-2 text-gray-900 fw-bold fs-3 my-0">{% block page_icon %}{% endblock %}<span>{% block page_title %}{% endblock %}</span></h1>
                                 <ul class="breadcrumb breadcrumb-separatorless fw-semibold fs-7 my-0 pt-1">
                                     <li class="breadcrumb-item text-muted"><a href="{% url 'common_ui:home' %}" class="text-muted text-hover-primary">خانه</a></li>
                                     {% block breadcrumb_trail %}{% endblock %}
@@ -531,7 +536,7 @@
                 <div id="kt_app_footer" class="app-footer">
                     <div class="app-container container-fluid d-flex flex-column flex-md-row flex-center flex-md-stack py-3">
                         <div class="text-gray-900 order-2 order-md-1">
-                            <span class="text-muted fw-semibold">ForooshBin | فروش‌بین</span>
+                            <span class="text-muted fw-semibold">Dolphin | دلفین</span>
                             {% comment %} نسخه در پاورقی است تا پشتیبانی بدون دسترسی به سرور
                                بداند کاربر دقیقاً کدام نسخه را می‌بیند. {% endcomment %}
                             <span class="text-muted fw-semibold ms-3" dir="ltr">v{{ forooshbin_version }}</span>

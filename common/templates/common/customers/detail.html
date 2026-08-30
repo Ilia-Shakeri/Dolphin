@@ -3,6 +3,7 @@
 {% block page_id %}customer-detail{% endblock %}
 {% block body_data %} data-customer-id="{{ customer_id }}"{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">دفتر مشتریان</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات مشتری{% endblock %}
 {% block breadcrumb_current %}جزئیات مشتری{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:customers' %}">بازگشت به فهرست</a>{% endblock %}

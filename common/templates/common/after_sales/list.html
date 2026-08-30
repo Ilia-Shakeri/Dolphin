@@ -2,6 +2,7 @@
 {% block title %}خدمات پس از فروش{% endblock %}
 {% block page_id %}after-sales{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">پیگیری کنترل‌شده درخواست مشتری</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-shield-tick page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{% if can_manage_after_sales %}خدمات پس از فروش{% else %}پرونده‌های خدمات من{% endif %}{% endblock %}
 {% block breadcrumb_current %}{% if can_manage_after_sales %}خدمات پس از فروش{% else %}پرونده‌های خدمات من{% endif %}{% endblock %}
 {% block page_actions %}{% if can_manage_after_sales %}<button id="open-create-after-sales" class="btn btn-primary" type="button">پرونده جدید</button>{% endif %}{% endblock %}

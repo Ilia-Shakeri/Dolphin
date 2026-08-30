@@ -1,4 +1,4 @@
-/* ForooshBin overrides on top of the purchased theme.
+/* Dolphin overrides on top of the purchased theme.
  *
  * The theme bundle is the design system: cards, tables, forms, buttons,
  * badges, spacing, typography and the RTL grid all come from it. Nothing here
@@ -168,6 +168,18 @@ dialog::backdrop {
     position: absolute;
     top: calc(100% + 0.5rem);
     inset-inline-end: 0;
+}
+
+/* 2c. Page header icon ----------------------------------------------------
+   Optional, and additive: `{% block page_icon %}` in base.html is empty by
+   default, so a page that fills nothing here looks exactly as it did before.
+   Where a page names one, this is the one place its size and colour are set,
+   so "consistent size across pages" is one rule rather than something copied
+   into every template. */
+.page-heading-icon {
+    font-size: 1.35rem;
+    line-height: 1;
+    color: var(--bs-primary);
 }
 
 /* 3. Print ---------------------------------------------------------------- */
@@ -536,6 +548,19 @@ textarea:focus-visible,
     border-color: var(--bs-border-color) !important;
     color: var(--bs-gray-800) !important;
     box-shadow: var(--bs-box-shadow-sm);
+}
+
+/* The marker and its label, which measured with a real 0px gap between
+   them — the marker's own edge landed exactly on the label's edge, not merely
+   close to it. Apex sets the marker's colour and size inline in JS and gives
+   the whole legend item a margin against its *neighbours*, but nothing
+   between the marker and the label inside one item; `itemMargin` in
+   forooshbin-app.js covers the neighbour spacing, this covers the inner gap.
+   `!important` is required to beat the inline style Apex sets on the same
+   element. Logical rather than physical: this panel is always RTL, so
+   `margin-inline-end` is the side that measured touching. */
+.apexcharts-legend-marker {
+    margin-inline-end: 0.5rem !important;
 }
 
 .apexcharts-tooltip-title {

@@ -37,8 +37,9 @@ Concise, stable rules only. This file replaces the former long `AGENTS.md` (dele
 
 ## Branding
 
-- Active first-party product branding is `ForooshBin` / `فروش‌بین` only. No customer name hardcoded into shared source, fixtures, tests, or default config.
+- Active first-party product branding is `Dolphin` / `دلفین` only (rebranded from `ForooshBin` / `فروش‌بین`). No customer name hardcoded into shared source, fixtures, tests, or default config.
 - Do not blindly rename stable vendor runtime identifiers (`KTMenu`, `KTDrawer`, `KTUtil`, `data-kt-*`) or delete required third-party `LICENSE`/`NOTICE` attribution.
+- The rebrand is display-text only. `forooshbin`/`Kariz` survive intentionally as internal, invisible identifiers and are **not** a branding violation: PostgreSQL database/role/user names and the ephemeral-database safety patterns in `config/postgres_*_guard.py` (renaming these could desynchronize from an already-deployed production database or defeat the test/production isolation guards), the `KarizXxxView` server-side view class names, the `forooshbin.css`/`forooshbin-app.js` static filenames and the `FOROOSHBIN_VERSION` settings constant, the `forooshbin.*` logger names, and internal engineering docs (`KARIZ_PROJECT_HANDOFF.md`, `KARIZ_CLIENT1_CODEX_ROADMAP.md`, `FOROOSHBIN_FEATURE_MAP_AND_ROADMAP.md`, `BACKEND_SPEC.md` body prose, and historical `CHANGELOG.md` entries). Do not rename these opportunistically; each is either a technical identifier with real backward-compatibility risk or a non-shipped internal document.
 
 ## Working style
 

@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 
 
 class HtmlBrandingRegressionTests(SimpleTestCase):
-    def test_first_party_html_has_only_kariz_branding(self):
+    def test_first_party_html_has_only_dolphin_branding(self):
         root = Path(__file__).resolve().parents[2]
         result = subprocess.run(
             [sys.executable, str(root / "scripts" / "check_html_branding.py")],

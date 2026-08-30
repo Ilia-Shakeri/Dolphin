@@ -341,7 +341,7 @@ class AuthShellBrowserTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertContains(response, "صفحه پیدا نشد", status_code=404)
-        self.assertContains(response, "ForooshBin | فروش‌بین", status_code=404)
+        self.assertContains(response, "Dolphin | دلفین", status_code=404)
 
 
 class AuthShellApiFlowTests(TestCase):

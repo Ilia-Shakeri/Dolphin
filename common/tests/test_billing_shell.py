@@ -378,7 +378,7 @@ class FinancialReportShellTests(CommercialWorldMixin, TestCase):
         export = self.client.get("/api/v1/exports/receivables.xlsx")
         self.assertEqual(export.status_code, 200)
         self.assertIn("spreadsheetml", export["Content-Type"])
-        self.assertIn("forooshbin-receivables.xlsx", export["Content-Disposition"])
+        self.assertIn("dolphin-receivables.xlsx", export["Content-Disposition"])
 
     def test_profit_report_sources_cost_from_the_issue_time_snapshot(self):
         self.collect(self.invoice)
