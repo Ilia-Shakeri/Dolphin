@@ -292,6 +292,13 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             if not str(order).isdigit():
                 raise ValidationError({"order": "Enter a numeric order id."})
             queryset = queryset.filter(order_id=int(order))
+        # Official against unofficial is the split a reader of this list works
+        # in, so it is a filter rather than something to find by scanning.
+        invoice_type = self.request.query_params.get("invoice_type")
+        if invoice_type is not None:
+            if invoice_type not in Invoice.InvoiceType.values:
+                raise ValidationError({"invoice_type": "Unknown invoice type."})
+            queryset = queryset.filter(invoice_type=invoice_type)
         settlement = self.request.query_params.get("settlement")
         if settlement is not None:
             if settlement not in Invoice.SettlementStatus.values:
@@ -317,6 +324,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             OpenApiParameter("status", str, enum=list(Invoice.Status.values)),
             OpenApiParameter("customer", int, description="Exact Customer ID inside actor scope."),
             OpenApiParameter("settlement", str, enum=list(Invoice.SettlementStatus.values)),
+            OpenApiParameter("invoice_type", str, enum=list(Invoice.InvoiceType.values)),
         ]
     )
     def list(self, request, *args, **kwargs):

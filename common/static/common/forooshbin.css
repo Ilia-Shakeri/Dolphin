@@ -337,6 +337,18 @@ textarea:focus-visible,
     grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     gap: 0.75rem;
     margin-bottom: 1.25rem;
+    /* The theme's own `.card-title` is `display: flex`, and every filter form
+       lives inside one. Without a width, a flex item sizes to its own content
+       on the main axis — a grid computing `auto-fit` against an undefined
+       width falls back to as few columns as it can, so every control stacked
+       one per row instead of sitting side by side. Measured: a four-control
+       form 1040px wide reporting `gridTemplateColumns: 217.2px`, one column,
+       on every page that used this class. `min-width: 0` is the matching half:
+       a flex item's default `min-width: auto` refuses to shrink below its
+       content, which for a grid can mean far more than the flex parent has to
+       give it. */
+    width: 100%;
+    min-width: 0;
 }
 
 .list-filters > .list-filters-submit {
@@ -348,6 +360,19 @@ textarea:focus-visible,
 @media (max-width: 575.98px) {
     .list-filters { grid-template-columns: 1fr; }
     .list-filters > .list-filters-submit { justify-self: stretch; }
+}
+
+/* Values sit at the reading edge, whichever direction the value itself runs.
+
+   A money field or a document number carries `dir="ltr"` so its digits are not
+   reordered — but `dir` also decides where the text sits, so those fields alone
+   were left-aligned while every Persian field beside them was right-aligned, in
+   the same column of the same form. `text-align` is the half that can be set
+   independently: the digits keep their own order and the value starts at the
+   same edge as everything else on the card. */
+.payment-detail-form .form-control[dir="ltr"],
+#edit-invoice-form .form-control[dir="ltr"] {
+    text-align: right;
 }
 
 /* Searchable select ----------------------------------------------------------

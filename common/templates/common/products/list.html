@@ -18,25 +18,24 @@
 {% block content %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
-        {% comment %} فیلترها تمام عرض کارت را می‌گیرند و جست‌وجو بزرگ‌ترین سهم را
-           دارد، چون پرکاربردترین است. مرتب‌سازی برداشته شد. {% endcomment %}
+        {% comment %} `list-filters` است، مثل بقیهٔ صفحه‌ها -- پیش از این یک شبکهٔ
+           بوت‌استرپ جدا داشت (`row g-3`) که کنار فیلترهای هم‌شکل صفحه‌های دیگر
+           به چشم می‌آمد. مرتب‌سازی برداشته شد. {% endcomment %}
         <div class="card-title w-100 m-0">
-            <form id="product-search-form" action="{% url 'common_ui:products' %}" method="get" class="row g-3 align-items-center w-100 m-0">
-                <div class="col-12 col-lg-6">
+            <form id="product-search-form" action="{% url 'common_ui:products' %}" method="get" class="list-filters">
+                <div>
                     <label class="sr-only" for="product-search">جستجوی محصول</label>
-                    <input class="form-control form-control-solid w-100" id="product-search" name="search" type="search" placeholder="نام، کد، برند یا شرح">
+                    <input class="form-control form-control-solid" id="product-search" name="search" type="search" placeholder="نام، کد، برند یا شرح">
                 </div>
-                <div class="col-6 col-lg-2">
+                <div>
                     <label class="sr-only" for="product-category-filter">دسته‌بندی</label>
-                    <select class="form-select form-select-solid w-100" id="product-category-filter" name="category"><option value="">همه دسته‌بندی‌ها</option></select>
+                    <select class="form-select form-select-solid" id="product-category-filter" name="category"><option value="">همه دسته‌بندی‌ها</option></select>
                 </div>
-                <div class="col-6 col-lg-2">
+                <div>
                     <label class="sr-only" for="product-status-filter">وضعیت محصول</label>
-                    <select class="form-select form-select-solid w-100" id="product-status-filter" name="is_active"><option value="">همه محصولات</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
+                    <select class="form-select form-select-solid" id="product-status-filter" name="is_active"><option value="">همه محصولات</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
                 </div>
-                <div class="col-12 col-lg-2 d-grid">
-                    <button class="btn btn-light" type="submit">اعمال</button>
-                </div>
+                <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
             </form>
         </div>
     </div>

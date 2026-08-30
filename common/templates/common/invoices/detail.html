@@ -8,7 +8,9 @@
 {% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:invoice-print' invoice_id %}">چاپ / ذخیره PDF</a><a class="btn btn-light" href="{% url 'common_ui:invoices' %}">بازگشت به فهرست</a></div>{% endblock %}
 {% block content %}
 <div id="invoice-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت فاکتور…</div></div>
-<section id="invoice-detail-content" class="card mb-5 mb-xl-8" hidden>
+{% comment %} `card-body` is what was missing: a bare `.card` carries no padding,
+   so every control in here sat flush against the card's edge. {% endcomment %}
+<section id="invoice-detail-content" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <form id="edit-invoice-form" action="/api/v1/invoices/{{ invoice_id }}/" method="post" novalidate>
         {% csrf_token %}
         <div class="row g-5">
@@ -34,19 +36,26 @@
             </div>
             {% comment %} وضعیت تسویه مشتق است و هیچ نقشی آن را تایپ نمی‌کند. {% endcomment %}
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-settlement">وضعیت تسویه</label><input class="form-control form-control-solid" id="invoice-settlement" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-order">سفارش</label><select class="form-select form-select-solid" id="invoice-order"><option value="">بدون سفارش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="order"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-issued-at">زمان صدور</label><input class="form-control form-control-solid" id="invoice-issued-at" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-due">سررسید</label><input class="form-control form-control-solid" id="edit-invoice-due" name="due_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="due_at"></p></div>
-            {% comment %} «پرداخت شده» را اپراتور وارد می‌کند. برابر شدن دقیقش با مانده،
-               فاکتور را برای همیشه تسویه‌شده می‌کند و هیچ سند حسابداری نمی‌سازد. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-paid">پرداخت شده</label><input class="form-control form-control-solid" id="invoice-paid" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
+{% comment %} «سفارش» و «سررسید» برداشته شدند. هیچ‌کدام در این محصول پر نمی‌شد و
+   ستون سررسید در فهرست هم ستونی از خط تیره بود؛ جای آن را «نوع فاکتور» گرفت.
+
+   «تاریخ صدور» حالا هنگام ساخت فاکتور وارد می‌شود، پس اینجا هم قابل ویرایش است
+   و دیگر فقط خواندنی نیست. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-invoice-issued-at">تاریخ صدور</label><input class="form-control form-control-solid" id="edit-invoice-issued-at" name="issued_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="issued_at"></p></div>
+{% comment %} «پرداخت شده» دیگر دست‌نویس نیست، برای هیچ نقشی.
+
+   مقدارش جمع تخصیص‌هایی است که از «تخصیص به فاکتور» روی دریافت‌ها ثبت می‌شود، و
+   «مانده» هم از همان کم می‌شود. عددی که اپراتور تایپ کند فاکتور را تسویه‌شده
+   نشان می‌داد بدون آنکه پولی رسیده باشد یا سندی ساخته شود — دو منبع برای یک
+   حقیقت، که یکی‌شان هیچ ردی در دفتر نداشت. {% endcomment %}
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-paid">پرداخت شده</label><input class="form-control form-control-solid" id="invoice-paid" disabled dir="ltr"></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-balance">مانده</label><input class="form-control form-control-solid" id="invoice-balance" disabled></div>
             <div class="col-12"><label class="form-label fw-semibold" for="edit-invoice-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-invoice-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
         <div id="invoice-edit-actions" class="d-flex justify-content-end gap-3 mt-6" hidden><button class="btn btn-primary" type="submit">ذخیره سربرگ</button></div>
         <p id="invoice-locked-note" class="text-muted" hidden>فاکتور صادرشده تغییرناپذیر است: اقلام، مبالغ و بهای تمام‌شده آن ثابت‌اند. برای اصلاح، فاکتور را ابطال و فاکتور تازه صادر کنید.</p>
     </form>
-</section>
+</div></section>
 {% with doc="invoice" %}{% include "common/includes/document_lines.inc" %}{% endwith %}
 {% comment %} باکس «صدور و ابطال» برداشته شد؛ چرخهٔ فاکتور از همان انتخابگر وضعیت
    بالای صفحه اداره می‌شود و سرویس همان قواعد گذار را اعمال می‌کند. {% endcomment %}

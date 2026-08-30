@@ -1,11 +1,17 @@
 {% extends "common/base.html" %}
-{% block title %}جزئیات دریافت{% endblock %}
+{% comment %} One route, two desks. A receipt and a disbursement are the same
+   document read in two directions, so `payment_direction` — resolved by the view
+   from the document itself — decides the wording, which list «بازگشت» returns
+   to, and which sidebar entry lights up. Before this the page called every
+   document a receipt and lit «دریافت‌ها» even when it had been opened from
+   «پرداخت‌ها». {% endcomment %}
+{% block title %}{% if payment_direction == "disbursement" %}جزئیات پرداخت{% else %}جزئیات دریافت{% endif %}{% endblock %}
 {% block page_id %}payment-detail{% endblock %}
-{% block body_data %} data-payment-id="{{ payment_id }}"{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">صندوق و دریافت</span>{% endblock %}
-{% block page_title %}جزئیات دریافت{% endblock %}
-{% block breadcrumb_current %}جزئیات دریافت{% endblock %}
-{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:payments' %}">بازگشت به فهرست</a>{% endblock %}
+{% block body_data %} data-payment-id="{{ payment_id }}" data-payment-direction="{{ payment_direction|default:'receipt' }}" data-nav-match="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد مالی</span>{% endblock %}
+{% block page_title %}{% if payment_direction == "disbursement" %}جزئیات پرداخت{% else %}جزئیات دریافت{% endif %}{% endblock %}
+{% block breadcrumb_current %}{% if payment_direction == "disbursement" %}جزئیات پرداخت{% else %}جزئیات دریافت{% endif %}{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}">بازگشت به فهرست</a>{% endblock %}
 {% block content %}
 <div id="payment-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت…</div></div>
 {% comment %} Two fields are never editable and that is not an oversight:
@@ -20,11 +26,13 @@
    «تخصیص‌یافته» and «تخصیص‌نیافته» are gone from this card. Allocation has its
    own section below with the invoices named; two figures at the top restated it
    without saying which invoice, and the reader had to scroll to find out. {% endcomment %}
-<section id="payment-detail-content" class="card mb-5 mb-xl-8" hidden>
-<form id="payment-edit-form" novalidate><div class="row g-5">
+{% comment %} `card-body` is what was missing: a bare `.card` has no padding of
+   its own, so every input in here was flush against the card's edge. {% endcomment %}
+<section id="payment-detail-content" class="card mb-5 mb-xl-8" hidden><div class="card-body">
+<form id="payment-edit-form" class="payment-detail-form" novalidate><div class="row g-5">
     <div class="col-md-6"><label class="form-label fw-semibold" for="payment-number">شماره</label><input class="form-control form-control-solid" id="payment-number" disabled dir="ltr"></div>
     <div class="col-md-6" data-payment-detail="customer">
-        <label class="form-label fw-semibold" for="payment-customer-search">مشتری</label>
+        <label class="form-label fw-semibold" for="payment-customer-search">{% if payment_direction == "disbursement" %}گیرنده{% else %}مشتری{% endif %}</label>
         <div class="searchable-select" data-searchable-select>
             <input class="form-control form-control-solid" id="payment-customer-search" type="search" autocomplete="off" placeholder="نام را بنویسید…" data-searchable-input hidden aria-controls="payment-customer-options" aria-expanded="false" role="combobox">
             <select class="form-select form-select-solid" id="payment-customer" name="customer" data-searchable-source><option value="">در حال دریافت…</option></select>
@@ -35,10 +43,16 @@
     <div class="col-md-6"><label class="form-label fw-semibold" for="payment-method">روش</label><input class="form-control form-control-solid" id="payment-method" disabled></div>
 {% comment %} Two values, and «در انتظار وصول» is not one of them: that is a
    state a cheque payment passes through on its own, not an answer an operator
-   gives. {% endcomment %}
-    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-status">وضعیت</label><select class="form-select form-select-solid" id="payment-status" name="status"><option value="confirmed">تأییدشده</option><option value="cancelled">ابطال‌شده</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
+   gives.
+
+   Hidden entirely on a cheque. There the document's status and the cheque's
+   status are two answers to one question, and the document's is the misleading
+   one — spending a cheque onward closes the receipt it arrived on, so this
+   control would read «ابطال‌شده» for a cheque that is alive and «خرج شده». The
+   cheque's own status is shown below and is the only one on screen. {% endcomment %}
+    <div class="col-md-6" data-payment-detail="status"><label class="form-label fw-semibold" for="payment-status">وضعیت</label><select class="form-select form-select-solid" id="payment-status" name="status"><option value="confirmed">تأییدشده</option><option value="cancelled">ابطال‌شده</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
     <div class="col-md-6"><label class="form-label fw-semibold" for="payment-amount">مبلغ</label><input class="form-control form-control-solid" id="payment-amount" name="amount" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
-    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-received-at">زمان دریافت</label><input class="form-control form-control-solid" id="payment-received-at" name="received_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
+    <div class="col-md-6"><label class="form-label fw-semibold" for="payment-received-at">{% if payment_direction == "disbursement" %}تاریخ پرداخت{% else %}تاریخ دریافت{% endif %}</label><input class="form-control form-control-solid" id="payment-received-at" name="received_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
     <div class="col-md-6"><label class="form-label fw-semibold" for="payment-received-by">ثبت‌کننده</label><input class="form-control form-control-solid" id="payment-received-by" disabled></div>
 {% comment %} A reference belongs to a transfer. On cash and on a cheque the row
    is not merely blank, it is absent. {% endcomment %}
@@ -67,40 +81,40 @@
 </div>
 {% endif %}
 </form>
-</section>
-<section id="payment-allocate-section" class="card mb-5 mb-xl-8" hidden>
-    <h2 class="fs-3 fw-bold text-gray-900 mb-5">تخصیص به فاکتور</h2>
-    <p class="text-muted">تخصیص نه از مانده تخصیص‌نیافته دریافت بیشتر می‌شود و نه از مانده فاکتور. یک دریافت می‌تواند بین چند فاکتور تقسیم شود و یک فاکتور می‌تواند از چند دریافت تسویه شود.</p>
-    <form id="payment-allocate-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
-        <label class="sr-only" for="payment-allocate-invoice">فاکتور صادرشده</label><select class="form-select form-select-solid w-auto flex-grow-1" id="payment-allocate-invoice" name="invoice" required><option value="">در حال دریافت…</option></select>
-        <label class="sr-only" for="payment-allocate-amount">مبلغ</label><input class="form-control form-control-solid w-auto flex-grow-1" id="payment-allocate-amount" name="amount" type="text" inputmode="numeric" data-money-input dir="ltr" placeholder="مبلغ به ریال (خالی = حداکثر ممکن)">
-        <button class="btn btn-primary" type="submit">تخصیص</button>
-    </form>
-    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice"></p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p>
+</div></section>
+{% comment %} Allocation, and only for money coming in.
 
-    <div class="separator separator-dashed my-6"></div>
-    <h3 class="fs-5 fw-bold text-gray-900 mb-2">تقسیم بین چند فاکتور</h3>
-    <p class="text-muted fs-7">مبلغ هر سطر را مشخص کنید؛ خالی گذاشتن یعنی تا سقف مانده همان فاکتور. همه سطرها با هم ثبت می‌شوند و اگر یکی رد شود، هیچ‌کدام ثبت نمی‌شود.</p>
-    <form id="payment-split-form" class="mb-5" novalidate>
+   A disbursement pays someone; there is no customer invoice for it to settle,
+   so this whole section is absent on that desk rather than present and inert.
+
+   The split form used to be a second form under its own heading, which asked
+   the reader to understand that "تخصیص به فاکتور" and "تقسیم بین چند فاکتور"
+   were the same operation at different arities. There is one form now: choose
+   an invoice and an amount, and «افزودن فاکتور» adds another pair. One invoice
+   is just the one-row case.
+
+   «ابطال دریافت» is gone from this page entirely. {% endcomment %}
+{% if payment_direction != "disbursement" %}
+<section id="payment-allocate-section" class="card mb-5 mb-xl-8" hidden><div class="card-body">
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">تخصیص به فاکتور</h2>
+    <p class="text-muted">تخصیص نه از ماندهٔ تخصیص‌نیافتهٔ دریافت بیشتر می‌شود و نه از ماندهٔ فاکتور. مبلغ هر سطر را خالی بگذارید تا تا سقف ماندهٔ همان فاکتور تخصیص یابد. همهٔ سطرها با هم ثبت می‌شوند و اگر یکی رد شود، هیچ‌کدام ثبت نمی‌شود.</p>
+    <form id="payment-allocate-form" novalidate>
         <div id="payment-split-rows" class="d-flex flex-column gap-3 mb-4"></div>
         <div class="d-flex flex-wrap align-items-center gap-3">
             <button class="btn btn-light-primary" type="button" id="payment-split-add">افزودن فاکتور</button>
             <span class="text-gray-700 fs-7">جمع تقسیم‌شده: <span id="payment-split-total" dir="ltr">—</span></span>
-            <button class="btn btn-primary ms-auto" type="submit">ثبت تقسیم</button>
+            <button class="btn btn-primary ms-auto" type="submit">ثبت تخصیص</button>
         </div>
         <p class="text-danger fs-8 mt-3 mb-0" data-error-for="splits"></p>
+        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice"></p>
+        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p>
     </form>
 
+    <div class="separator separator-dashed my-6"></div>
     <div id="payment-allocations-loading" class="text-center text-gray-700 py-10">در حال دریافت تخصیص‌ها…</div>
     <div id="payment-allocations-empty" class="text-center text-gray-700 py-10" hidden>هنوز تخصیصی ثبت نشده است.</div>
-    <div id="payment-allocations-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>فاکتور</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payment-allocations-table-body"></tbody></table></div>
+    <div id="payment-allocations-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0 text-center"><thead><tr class="text-center text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>فاکتور</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ ثبت</th><th>عملیات</th></tr></thead><tbody id="payment-allocations-table-body"></tbody></table></div>
     <nav id="payment-allocations-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="payment-allocations-prev" class="btn btn-light" type="button">قبلی</button><span id="payment-allocations-page-label"></span><button id="payment-allocations-next" class="btn btn-light" type="button">بعدی</button></nav>
-</section>
-<section id="payment-cancel-section" class="card mb-5 mb-xl-8 border border-danger border-dashed" hidden>
-    <h2 class="fs-3 fw-bold text-gray-900 mb-5">ابطال دریافت</h2>
-    <p class="text-muted">ابطال، همه تخصیص‌های فعال را آزاد می‌کند و یک بدهکاری جبرانی در دفتر حساب مشتری ثبت می‌کند. هیچ ردیفی حذف نمی‌شود.</p>
-    <label class="form-label fw-semibold" for="payment-cancel-reason">دلیل</label><textarea class="form-control form-control-solid" id="payment-cancel-reason" maxlength="500"></textarea>
-    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p>
-    <div class="d-flex justify-content-end gap-3 mt-6"><button id="cancel-payment" class="btn btn-danger" type="button">ابطال دریافت</button></div>
-</section>
+</div></section>
+{% endif %}
 {% endblock %}

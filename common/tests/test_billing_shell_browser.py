@@ -349,8 +349,31 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
             "تأییدشده",
         )
 
+        # One allocation form since 1.3.14, and it opens with a row already in
+        # it — settling a receipt against one invoice is the common case, so it
+        # should not start by asking the reader to press «افزودن فاکتور». The
+        # invoice picker is searchable now, but the real `<select>` underneath is
+        # still the value that submits, which is what this drives.
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "payment-allocate-form")))
-        self.select_when_populated("payment-allocate-invoice", invoice_id)
+        picker = self.wait.until(
+            lambda driver: driver.find_element(By.CSS_SELECTOR, "#payment-split-rows [data-split-invoice]")
+        )
+        self.wait.until(
+            lambda driver: any(
+                option.get_attribute("value") == str(invoice_id)
+                for option in Select(picker).options
+            )
+        )
+        # Set by script rather than by clicking an option: once the searchable
+        # wrapper is bound it hides the real `<select>`, and Selenium refuses to
+        # click inside a hidden element. The value and the `change` it fires are
+        # exactly what a click would have produced.
+        self.browser.execute_script(
+            "arguments[0].value = arguments[1];"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+            picker,
+            str(invoice_id),
+        )
         self.browser.find_element(By.CSS_SELECTOR, "#payment-allocate-form button[type='submit']").click()
         # «تخصیص‌یافته» left the detail card in 1.3.7 — allocation has its own
         # section with the invoices named, so the allocation row is the evidence.
@@ -363,10 +386,11 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # 7. The invoice now shows the payment, and prints the stored snapshot.
         self.browser.get(f"{self.live_server_url}/invoices/{invoice_id}/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
-        # The paid box is an editable money field, so it shows grouped
-        # digits without the currency word; the balance beside it is a
-        # read-only display and carries it.
-        self.wait.until(lambda driver: self.value_of("invoice-paid") == "250")
+        # «پرداخت شده» is read-only since 1.3.14 and is the sum of what the
+        # receipts desk allocated, so it carries the currency word like every
+        # other derived display on this card.
+        self.wait.until(lambda driver: self.value_of("invoice-paid") == "250 ریال")
+        self.assertFalse(self.browser.find_element(By.ID, "invoice-paid").is_enabled())
         self.assertEqual(self.value_of("invoice-balance"), "350 ریال")
         self.assertEqual(self.value_of("invoice-settlement"), "تسویه جزئی")  # canonical, not manual
 

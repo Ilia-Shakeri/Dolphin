@@ -875,6 +875,18 @@ class KarizPaymentDetailView(PaymentDeskView, ScopedDetailView):
         context["can_edit_payment"] = (
             self.request.user.role == User.Role.PLATFORM_ADMIN
         )
+        # Which desk this document belongs to, resolved here rather than left to
+        # the script. The page is titled and the sidebar is lit before any
+        # request completes, so a disbursement opened from «پرداخت‌ها» must not
+        # spend its first paint calling itself a receipt and lighting the
+        # «دریافت‌ها» entry — which is what it did, because both desks share this
+        # one route and the nav matches by URL prefix.
+        context["payment_direction"] = (
+            self.scoped_queryset()
+            .filter(pk=self.kwargs[self.object_id_kwarg])
+            .values_list("direction", flat=True)
+            .first()
+        )
         return context
 
 

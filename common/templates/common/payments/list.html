@@ -38,7 +38,14 @@
 {% comment %} No «جهت» column: each desk shows one direction, so a column
    repeating it on every row said nothing. No «تخصیص‌یافته» either — allocation
    belongs to the document, not to a scan of the list. {% endcomment %}
-    <div id="payments-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره</th><th>{% if payment_direction == "disbursement" %}گیرنده{% else %}مشتری{% endif %}</th><th>روش</th><th>مبلغ</th><th>وضعیت</th><th>زمان</th><th>عملیات</th></tr></thead><tbody id="payments-table-body"></tbody></table></div>
+    {% comment %} `text-center` on the table rather than on each cell: text-align
+   inherits, so one class centres every heading and every value the script
+   writes, and a column added later is centred without anyone remembering to.
+   The list had been a mix of left and centre with no rule behind it.
+
+   «زمان» is «تاریخ ثبت» now, and shows a date with no clock — the hour a
+   receipt was keyed in is not something this list is ever read for. {% endcomment %}
+    <div id="payments-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0 text-center"><thead><tr class="text-center text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شماره</th><th>{% if payment_direction == "disbursement" %}گیرنده{% else %}مشتری{% endif %}</th><th>روش</th><th>مبلغ</th><th>وضعیت</th><th>تاریخ ثبت</th><th>عملیات</th></tr></thead><tbody id="payments-table-body"></tbody></table></div>
     <nav id="payments-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="payments-prev" class="btn btn-light" type="button">قبلی</button><span id="payments-page-label"></span><button id="payments-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
 {% comment %} نمودار این صفحه. داده‌اش از همان selector ماژول می‌آید که جدول

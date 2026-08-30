@@ -22,12 +22,15 @@
 </div>{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title w-100 m-0">
-    {% comment %} جست‌وجو و مرتب‌سازی سمت راست، دکمهٔ اعمال سمت چپ، هر دو با فاصله
-       از لبه‌های کارت. {% endcomment %}
+    {% comment %} هر کنترل یک سلول مستقل از `list-filters` است -- همان الگویی که
+       بقیه صفحه‌ها دارند -- تا همه هم‌عرض و افقی کنار هم بنشینند، نه در یک بستهٔ
+       flex که سهم شبکه را از سه کنترل به یکی کاهش می‌داد. {% endcomment %}
     <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="list-filters">
-        <div class="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
-            <label class="sr-only" for="customer-search">جستجوی مشتری</label>
+        <div>
+            <label class="sr-only" for="customer-search">جست‌جوی مشتری</label>
             <input class="form-control form-control-solid" id="customer-search" name="search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی، نشانی یا تاریخ">
+        </div>
+        <div>
             <label class="sr-only" for="customer-ordering">مرتب‌سازی</label>
             <select class="form-select form-select-solid" id="customer-ordering" name="ordering">
                 <option value="-created_at">جدیدترین</option>
@@ -36,14 +39,16 @@
                 <option value="-updated_at">آخرین ویرایش</option>
                 <option value="registered">تاریخ ثبت</option>
             </select>
-            {% comment %} The date window appears only when "تاریخ ثبت" is chosen: it is two
-               more controls that mean nothing under any other sort, so it starts hidden. {% endcomment %}
-            <div id="customer-date-range" class="d-flex flex-wrap align-items-center gap-2" hidden>
-                <label class="sr-only" for="customer-created-from">از تاریخ</label>
-                <input class="form-control form-control-solid" id="customer-created-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
-                <label class="sr-only" for="customer-created-to">تا تاریخ</label>
-                <input class="form-control form-control-solid" id="customer-created-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
-            </div>
+        </div>
+        {% comment %} The date window appears only when «تاریخ ثبت» is chosen: it is two
+           more controls that mean nothing under any other sort, so it starts hidden.
+           Its own grid cell now, same as every other filter -- when it hides, the
+           grid recomputes with one fewer column rather than leaving a gap. {% endcomment %}
+        <div id="customer-date-range" class="d-flex flex-wrap align-items-center gap-2" hidden>
+            <label class="sr-only" for="customer-created-from">از تاریخ</label>
+            <input class="form-control form-control-solid" id="customer-created-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
+            <label class="sr-only" for="customer-created-to">تا تاریخ</label>
+            <input class="form-control form-control-solid" id="customer-created-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
         </div>
         <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
     </form>

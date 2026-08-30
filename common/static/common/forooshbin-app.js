@@ -159,7 +159,12 @@
     function setupNavActiveState() {
         const sidebar = document.getElementById("app-sidebar");
         if (!sidebar) return;
-        const path = window.location.pathname;
+        // Normally the current URL, but a page may name the entry it belongs to
+        // instead. Receipts and disbursements are one document behind one detail
+        // route, so `/payments/12/` prefix-matches «دریافت‌ها» whichever desk it
+        // was opened from — and a disbursement lit the wrong entry. The page
+        // knows its own direction server-side; this lets it say so.
+        const path = document.body.dataset.navMatch || window.location.pathname;
 
         let best = null;
         let bestLength = -1;
@@ -1067,8 +1072,6 @@
         const syncDateRange = () => {
             const active = orderingSelect.value === "registered";
             dateRange.hidden = !active;
-            // Give the range the room: the search keeps growing, the sort does not.
-            orderingSelect.classList.toggle("flex-grow-1", !active);
         };
         orderingSelect.addEventListener("change", syncDateRange);
         syncDateRange();
@@ -3518,6 +3521,14 @@
     });
     // وضعیت — one of the two axes a cheque has since 1.3.0. The other, حالت,
     // is a yes/no and is rendered by CHEQUE_REGISTRATION_TEXT below.
+    //: The server sends `invoice_type_display` already translated; this is the
+    //: fallback for a row that predates it, and the source for the filter's own
+    //: two options.
+    const INVOICE_TYPE_TEXT = Object.freeze({
+        official: "رسمی",
+        unofficial: "غیررسمی",
+    });
+
     const CHEQUE_STATUS_TEXT = Object.freeze({
         pending: "در انتظار",
         cleared: "وصول شده",
@@ -4294,6 +4305,8 @@
                 if (status) query.set("status", status);
                 const settlement = document.getElementById("invoice-settlement-filter").value;
                 if (settlement) query.set("settlement", settlement);
+                const invoiceType = document.getElementById("invoice-type-filter").value;
+                if (invoiceType) query.set("invoice_type", invoiceType);
                 query.set("ordering", document.getElementById("invoice-ordering").value);
                 return `/api/v1/invoices/?${query}`;
             },
@@ -4310,7 +4323,15 @@
                 (row, item) => appendMoneyCell(row, item.paid_amount).classList.add("text-center"),
                 (row, item) => appendMoneyCell(row, item.balance_due).classList.add("text-center"),
                 (row, item) => appendCell(row, displayDay(item.issued_at)).classList.add("text-center"),
-                (row, item) => appendCell(row, displayDay(item.due_at)).classList.add("text-center"),
+                // Was the due date, which this product never sets — a column of
+                // dashes. Whether an invoice is official is what a reader
+                // actually needs beside it, and it is also what the new filter
+                // narrows by.
+                (row, item) =>
+                    appendCell(
+                        row,
+                        item.invoice_type_display || labelled(INVOICE_TYPE_TEXT, item.invoice_type),
+                    ).classList.add("text-center"),
             ],
             createFields: (data) => {
                 // No warehouse: an invoice moves no stock, so naming one would
@@ -4669,7 +4690,6 @@
         const loading = document.getElementById("invoice-detail-loading");
         const content = document.getElementById("invoice-detail-content");
         const statusSelect = document.getElementById("invoice-status-select");
-        const orderSelect = document.getElementById("invoice-order");
         const paidInput = document.getElementById("invoice-paid");
         const allocationsSection = document.getElementById("invoice-allocations");
         const form = document.getElementById("edit-invoice-form");
@@ -4692,7 +4712,6 @@
             }
             // Settlement is derived and read-only for everyone.
             document.getElementById("invoice-settlement").value = labelled(SETTLEMENT_TEXT, invoice.settlement_status);
-            if (orderSelect) orderSelect.value = invoice.order ? String(invoice.order) : "";
             // Editable only while the invoice is a draft: after issue the type is
             // part of what was issued, and the service refuses to change it.
             const typeSelect = document.getElementById("edit-invoice-type");
@@ -4701,12 +4720,10 @@
                 typeSelect.disabled = invoice.status !== "draft";
             }
             syncOfficialInvoiceNotice(invoice);
-            document.getElementById("invoice-issued-at").value = displayDate(invoice.issued_at);
-            document.getElementById("edit-invoice-due").value = localDateValue(invoice.due_at);
-            // The typed figure is what the operator last entered; when nothing
-            // has been typed the canonical paid amount is shown instead.
-            paidInput.value = moneyDigits(invoice.manual_paid_entry ?? invoice.paid_amount);
-            paidInput.disabled = Boolean(invoice.is_manually_settled);
+            document.getElementById("edit-invoice-issued-at").value = localDateValue(invoice.issued_at);
+            // Derived, and shown as such. It is the sum of the allocations made
+            // against this invoice from the receipts desk; «مانده» follows it.
+            if (paidInput) paidInput.value = money(invoice.paid_amount);
             document.getElementById("invoice-balance").value = money(invoice.balance_due);
             document.getElementById("edit-invoice-notes").value = invoice.notes || "";
             const editable = invoice.status === "draft";
@@ -4794,56 +4811,17 @@
             }
         });
 
-        // Attaching the invoice to an order, after both already exist. Client-1
-        // raises the invoice first, so this is the normal order of events.
-        orderSelect?.addEventListener("change", async () => {
-            const chosen = numberOrNull(orderSelect.value);
-            if (!current || chosen === (current.order ?? null)) return;
-            orderSelect.disabled = true;
-            clearMessages();
-            try {
-                apply(await apiRequest(`${endpoint}link-order/`, {
-                    method: "POST", body: {order: chosen},
-                }));
-                globalMessage(chosen === null ? "پیوند سفارش برداشته شد." : "فاکتور به سفارش پیوند خورد.", true);
-            } catch (error) {
-                orderSelect.value = current.order ? String(current.order) : "";
-                showError(error);
-            } finally {
-                orderSelect.disabled = false;
-            }
-        });
-
-        // The typed "پرداخت شده" figure. Matching the outstanding amount settles
-        // the invoice for good; it writes no Payment, allocation or ledger entry.
         document.getElementById("edit-invoice-type")?.addEventListener("change", () => {
             syncOfficialInvoiceNotice(current);
         });
 
-        paidInput?.addEventListener("change", async () => {
-            if (!current || current.is_manually_settled) return;
-            const typed = moneyValue(paidInput.value);
-            if (!typed) return;
-            paidInput.disabled = true;
-            clearMessages();
-            try {
-                const updated = await apiRequest(`${endpoint}manual-paid/`, {
-                    method: "POST", body: {amount: typed},
-                });
-                apply(updated);
-                globalMessage(
-                    updated.is_manually_settled
-                        ? "فاکتور تسویه‌شده ثبت شد."
-                        : "مبلغ پرداخت‌شده ثبت شد.",
-                    true,
-                );
-            } catch (error) {
-                paidInput.value = moneyDigits(current.manual_paid_entry ?? current.paid_amount);
-                showError(error);
-            } finally {
-                paidInput.disabled = Boolean(current?.is_manually_settled);
-            }
-        });
+        // No handler for «پرداخت شده» any more, and none for «سفارش».
+        //
+        // The paid figure used to be typed here and posted to `manual-paid/`,
+        // which settled the invoice without writing a Payment, an allocation or
+        // a ledger entry — a second source of truth for how much had been paid,
+        // and the one with no trail behind it. It is now only ever the sum of
+        // the allocations recorded on the receipts desk.
 
         planForm?.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -4881,14 +4859,6 @@
 
         try {
             const [invoice] = await Promise.all([apiRequest(endpoint), lines.loadProducts()]);
-            if (orderSelect) {
-                // Only the caller's own orders for this customer are offered;
-                // the API refuses anything else regardless.
-                const orders = await loadAllPages(
-                    `/api/v1/orders/?customer=${invoice.customer}&ordering=-created_at`
-                );
-                fillSelect(orderSelect, orders, (item) => item.number, "بدون سفارش");
-            }
             apply(invoice);
             loading.hidden = true;
             content.hidden = false;
@@ -4912,8 +4882,21 @@
         appendCell(row, payment.customer_name || payment.payee || "—");
         appendCell(row, labelled(PAYMENT_METHOD_TEXT, payment.method));
         appendMoneyCell(row, payment.amount);
-        appendStatusBadgeCell(row, PAYMENT_STATUS_TEXT, payment.status);
-        appendCell(row, displayDate(payment.received_at));
+        // On a cheque the document's own status is the wrong answer. Spending a
+        // cheque onward closes the receipt it came in on, so the payment reads
+        // «ابطال‌شده» while the instrument is alive and «خرج شده» — the reader
+        // sees a cancelled receipt for a cheque that was never cancelled. The
+        // cheque's status is the one that describes where the money is, so on
+        // this method it is the one shown, and it is the same value the cheques
+        // page displays for the same row.
+        if (payment.method === "cheque" && payment.cheque_detail) {
+            appendStatusBadgeCell(row, CHEQUE_STATUS_TEXT, payment.cheque_detail.status);
+        } else {
+            appendStatusBadgeCell(row, PAYMENT_STATUS_TEXT, payment.status);
+        }
+        // The date it was recorded, without the hour: a clock reading is not
+        // what this column is ever scanned for.
+        appendCell(row, displayDay(payment.received_at));
         appendDetailLink(row, `/payments/${payment.id}/`);
         return row;
     }
@@ -5149,10 +5132,13 @@
         const loading = document.getElementById("payment-detail-loading");
         const content = document.getElementById("payment-detail-content");
         const allocateSection = document.getElementById("payment-allocate-section");
-        const cancelSection = document.getElementById("payment-cancel-section");
         const allocateForm = document.getElementById("payment-allocate-form");
         let payment;
         let allocationsController = null;
+        //: The invoices this payment may settle, held here rather than read back
+        //: out of a select on the page. Every allocation row is built from this
+        //: one list, so no two rows can offer different invoices.
+        let allocatableInvoices = [];
 
         function apply(value) {
             payment = value;
@@ -5222,28 +5208,26 @@
                     }
                 }
             }
+            // The document's own status is hidden on a cheque. There the
+            // cheque's status is the one that describes where the money is, and
+            // two controls answering the same question differently is worse than
+            // one — spending a cheque closes the receipt it arrived on, so this
+            // one would read «ابطال‌شده» for a cheque that is alive.
+            const statusRow = document.querySelector('[data-payment-detail="status"]');
+            if (statusRow) statusRow.hidden = payment.method === "cheque";
             if (allocateSection) allocateSection.hidden = payment.status !== "confirmed";
-            if (cancelSection) cancelSection.hidden = payment.status === "cancelled";
             if (payment.status === "confirmed") allocationsController?.load();
         }
 
-        // --- تقسیم یک دریافت بین چند فاکتور (بند ۳.۲) ----------------------
+        // --- تخصیص به فاکتور -----------------------------------------------
         //
-        // A second form rather than more controls on the first one. Allocating
-        // to a single invoice is the common action and stays a single line;
-        // dividing a receipt is a deliberate, multi-row decision and is worth
-        // its own submit. Both post to the same rules on the server.
-        const splitForm = document.getElementById("payment-split-form");
+        // One form, whatever the arity. There used to be two — "allocate to an
+        // invoice" and "split between several" — under separate headings, which
+        // asked the reader to work out that they were the same operation. A
+        // single invoice is the one-row case of a split, and it posts through
+        // the same endpoint and the same server rules either way.
         const splitRows = document.getElementById("payment-split-rows");
         const splitTotal = document.getElementById("payment-split-total");
-
-        function splitInvoiceOptions() {
-            // Cloned from the single-allocation select, which is already
-            // filtered to this customer's issued invoices that still owe
-            // something, so the two lists can never disagree.
-            const source = document.getElementById("payment-allocate-invoice");
-            return source ? source.innerHTML : "";
-        }
 
         function refreshSplitTotal() {
             if (!splitRows || !splitTotal) return;
@@ -5265,11 +5249,39 @@
             const row = document.createElement("div");
             row.className = "d-flex flex-wrap align-items-center gap-3";
             row.dataset.splitRow = "";
+            // A searchable invoice, because the one thing a reader knows is
+            // its number. The plain select showed nothing usable once a customer
+            // had more than a handful of open invoices and could not be typed
+            // into at all. The real `<select>` stays underneath and is still what
+            // is read on submit, so nothing below this cares.
+            const picker = document.createElement("div");
+            picker.className = "searchable-select w-auto flex-grow-1";
+            picker.setAttribute("data-searchable-select", "");
+            const search = document.createElement("input");
+            search.className = "form-control form-control-solid";
+            search.type = "search";
+            search.autocomplete = "off";
+            search.placeholder = "شماره فاکتور را بنویسید…";
+            search.setAttribute("data-searchable-input", "");
+            search.setAttribute("role", "combobox");
+            search.setAttribute("aria-label", "جستجوی فاکتور");
+            search.hidden = true;
             const select = document.createElement("select");
-            select.className = "form-select form-select-solid w-auto flex-grow-1";
+            select.className = "form-select form-select-solid";
             select.dataset.splitInvoice = "";
+            select.setAttribute("data-searchable-source", "");
             select.setAttribute("aria-label", "فاکتور");
-            select.innerHTML = splitInvoiceOptions();
+            fillSelect(
+                select,
+                allocatableInvoices,
+                (invoice) => `${invoice.number} — مانده ${money(invoice.balance_due)}`,
+                "یک فاکتور انتخاب کنید",
+            );
+            const options = document.createElement("ul");
+            options.className = "searchable-select-options";
+            options.setAttribute("role", "listbox");
+            options.hidden = true;
+            picker.append(search, select, options);
             const amount = document.createElement("input");
             amount.className = "form-control form-control-solid w-auto flex-grow-1";
             amount.type = "text";
@@ -5289,19 +5301,20 @@
                 row.remove();
                 refreshSplitTotal();
             });
-            row.append(select, amount, remove);
+            row.append(picker, amount, remove);
             splitRows.append(row);
             // Money grouping is wired once per input by the shared helper, which
             // guards against binding the same field twice.
             setupMoneyInputs(row);
+            setupSearchableSelects(row);
             refreshSplitTotal();
         }
 
         document.getElementById("payment-split-add")?.addEventListener("click", addSplitRow);
 
-        splitForm?.addEventListener("submit", (event) => {
+        allocateForm?.addEventListener("submit", (event) => {
             event.preventDefault();
-            withSubmit(splitForm, async () => {
+            withSubmit(allocateForm, async () => {
                 const splits = [];
                 splitRows.querySelectorAll("[data-split-row]").forEach((row) => {
                     const invoice = Number(row.querySelector("[data-split-invoice]").value);
@@ -5312,14 +5325,14 @@
                     splits.push(entry);
                 });
                 if (!splits.length) {
-                    const slot = splitForm.querySelector('[data-error-for="splits"]');
+                    const slot = allocateForm.querySelector('[data-error-for="splits"]');
                     if (slot) slot.textContent = "حداقل یک فاکتور را انتخاب کنید.";
                     return;
                 }
                 await apiRequest(`${endpoint}allocate-across/`, {method: "POST", body: {splits}});
-                globalMessage("دریافت بین فاکتورها تقسیم شد.", true);
+                globalMessage("دریافت به فاکتور تخصیص یافت.", true);
                 splitRows.replaceChildren();
-                refreshSplitTotal();
+                addSplitRow();
                 apply(await apiRequest(endpoint));
             });
         });
@@ -5385,35 +5398,6 @@
             });
         }
 
-        allocateForm?.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(allocateForm, async () => {
-                const data = new FormData(allocateForm);
-                const body = {invoice: Number(data.get("invoice"))};
-                const amount = moneyOrNull(data.get("amount"));
-                if (amount !== null) body.amount = amount;
-                await apiRequest(`${endpoint}allocate/`, {method: "POST", body});
-                globalMessage("دریافت به فاکتور تخصیص یافت.", true);
-                apply(await apiRequest(endpoint));
-            });
-        });
-
-        document.getElementById("cancel-payment")?.addEventListener("click", async () => {
-            if (!window.confirm("این دریافت ابطال شود؟ همه تخصیص‌های فعال آزاد می‌شوند.")) return;
-            const button = document.getElementById("cancel-payment");
-            button.disabled = true;
-            clearMessages();
-            try {
-                const reason = document.getElementById("payment-cancel-reason").value;
-                apply(await apiRequest(`${endpoint}cancel/`, {method: "POST", body: {reason}}));
-                globalMessage("دریافت ابطال شد.", true);
-            } catch (error) {
-                showError(error);
-            } finally {
-                button.disabled = false;
-            }
-        });
-
         allocationsController = setupPagedList({
             key: "payment-allocations",
             form: null,
@@ -5423,7 +5407,7 @@
                 appendCell(row, allocation.invoice_number).dir = "ltr";
                 appendMoneyCell(row, allocation.amount);
                 appendCell(row, allocation.is_reversed ? "آزادشده" : "فعال");
-                appendCell(row, displayDate(allocation.created_at));
+                appendCell(row, displayDay(allocation.created_at));
                 const actions = document.createElement("td");
                 actions.className = "row-actions";
                 if (!allocation.is_reversed) {
@@ -5452,16 +5436,19 @@
 
         try {
             const value = await apiRequest(endpoint);
-            const invoices = await loadAllPages(
-                `/api/v1/invoices/?status=issued&customer=${value.customer}&ordering=due_at`
-            );
-            fillSelect(
-                document.getElementById("payment-allocate-invoice"),
-                invoices.filter((invoice) => Number(invoice.balance_due) > 0),
-                (invoice) => `${invoice.number} — مانده ${money(invoice.balance_due)}`,
-                "یک فاکتور انتخاب کنید",
-            );
+            if (value.customer) {
+                const invoices = await loadAllPages(
+                    `/api/v1/invoices/?status=issued&customer=${value.customer}&ordering=due_at`
+                );
+                allocatableInvoices = invoices.filter(
+                    (invoice) => Number(invoice.balance_due) > 0,
+                );
+            }
             apply(value);
+            // One row to start with, so the common case — settle this against
+            // that invoice — is a form that is already there rather than one the
+            // reader has to summon with «افزودن فاکتور» first.
+            if (splitRows && !splitRows.children.length) addSplitRow();
             loading.hidden = true;
             content.hidden = false;
         } catch (error) {
