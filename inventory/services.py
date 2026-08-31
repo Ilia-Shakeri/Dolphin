@@ -13,7 +13,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from accounts.access import is_crm_identity
+from accounts.access import has_any_capability, is_crm_identity
 from accounts.models import User
 from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
@@ -31,7 +31,6 @@ from inventory.models import (
 from sales.models import Product
 
 
-ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
 WAREHOUSE_CREATE_FIELDS = {"code", "name", "address", "is_default"}
 WAREHOUSE_UPDATE_FIELDS = {"name", "address", "is_default"}
 MONEY = Decimal("0.01")
@@ -57,7 +56,7 @@ def _lock_active_actor(actor):
 
 def _lock_inventory_manager(actor):
     locked = _lock_active_actor(actor)
-    if locked.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(locked, "inventory.manage"):
         raise BusinessPermissionDenied("مدیریت انبار مجاز نیست.")
     return locked
 

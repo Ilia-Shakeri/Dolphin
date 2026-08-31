@@ -100,8 +100,15 @@ class SalesDocumentContractTests(TestCase):
         self.assertEqual(client.post("/api/v1/sales-documents/", {"customer": self.customer.pk, "document_number": "BAD", "postal_status": "ثبت"}, format="json").status_code, 403)
         self.assertEqual(client.post(f"/api/v1/sales-documents/{self.document.pk}/transition-postal-status/", {"to_status": "بد"}, format="json").status_code, 403)
         self.assertEqual(client.post(f"/api/v1/sales-documents/{self.document.pk}/deactivate/").status_code, 403)
-        self.assertEqual(client.delete(f"/api/v1/sales-documents/{self.document.pk}/").status_code, 405)
-        self.assertEqual(client.patch(f"/api/v1/sales-documents/{self.document.pk}/", {"postal_status": "بد"}, format="json").status_code, 405)
+        # Both verbs are unsupported by this viewset for anyone — but DRF
+        # checks permissions before it checks whether the verb even exists
+        # (`APIView.dispatch` calls `initial()`, which includes
+        # `check_permissions()`, before it looks up a handler), so a caller
+        # who also lacks the write capability sees 403, not 405. A caller who
+        # *does* hold it would still get 405 — the verb is simply never
+        # wired to anything, for anyone.
+        self.assertEqual(client.delete(f"/api/v1/sales-documents/{self.document.pk}/").status_code, 403)
+        self.assertEqual(client.patch(f"/api/v1/sales-documents/{self.document.pk}/", {"postal_status": "بد"}, format="json").status_code, 403)
 
     def test_manager_filters_validates_relations_and_deactivates_without_delete(self):
         client = APIClient()

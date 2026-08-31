@@ -164,7 +164,7 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     queryset = User.objects.none()
     serializer_class = UserSerializer
     permission_classes = [IsUserReader]
-    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "set_permissions", "reset_permissions"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions"})
     search_fields = ["username", "first_name", "last_name", "email", "phone"]
     ordering_fields = ["username", "role", "workstream", "is_active", "created_at"]
 
@@ -260,19 +260,6 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(SessionRevokeResultSerializer({"ended": ended}).data)
 
     @extend_schema(
-        responses={200: UserPermissionsSerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
-        description=(
-            "One user's Read/Edit permission matrix: their role, their effective per-module "
-            "access, and which rows are personal overrides rather than the role's own default. "
-            "Platform Admin only."
-        ),
-    )
-    @action(detail=True, methods=["get"], url_path="permissions")
-    def permissions(self, request, pk=None):
-        target = self.get_object()
-        return Response(UserPermissionsSerializer(user_permissions_for(actor=request.user, target=target)).data)
-
-    @extend_schema(
         request=PermissionMatrixUpdateSerializer,
         responses={
             200: UserPermissionsSerializer,
@@ -282,19 +269,24 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
             429: THROTTLED_RESPONSE,
         },
         description=(
-            "Sets this one user's personal permission overrides. A module turned on or off here "
-            "only ever affects this account — the role's own defaults, and every other user "
-            "holding that role, are untouched. Platform Admin only."
+            "GET: one user's Read/Edit permission matrix — their role, their effective "
+            "per-module access, and which rows are personal overrides rather than the role's "
+            "own default. PATCH: sets this one user's personal permission overrides; a module "
+            "turned on or off here only ever affects this account — the role's own defaults, "
+            "and every other user holding that role, are untouched. Platform Admin only."
         ),
     )
-    @action(detail=True, methods=["put"], url_path="permissions")
-    def set_permissions(self, request, pk=None):
+    @action(detail=True, methods=["get", "patch"], url_path="permissions")
+    def permissions(self, request, pk=None):
         target = self.get_object()
-        serializer = PermissionMatrixUpdateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        result = set_user_permission_overrides(
-            actor=request.user, target=target, matrix=serializer.validated_data["matrix"]
-        )
+        if request.method == "GET":
+            result = user_permissions_for(actor=request.user, target=target)
+        else:
+            serializer = PermissionMatrixUpdateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            result = set_user_permission_overrides(
+                actor=request.user, target=target, matrix=serializer.validated_data["matrix"]
+            )
         return Response(UserPermissionsSerializer(result).data)
 
     @extend_schema(

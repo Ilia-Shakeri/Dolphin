@@ -1,15 +1,12 @@
 from django.db import transaction
 from django.utils import timezone
 
-from accounts.access import crm_identities, is_crm_identity
+from accounts.access import crm_identities, has_any_capability, is_crm_identity
 from accounts.models import User
 from aftersales.models import AfterSalesHistory, AfterSalesRequest
 from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 from sales.models import Customer, Sale, SalesDocument
-
-
-ELEVATED = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
 
 
 def _clean(value, *, field, limit):
@@ -45,7 +42,7 @@ def _lock_eligible_operator(user):
 @transaction.atomic
 def create_after_sales_request(*, actor, customer, subject, description, status, sale=None, document=None, assigned_to=None):
     actor = _lock_actor(actor)
-    if actor.role not in ELEVATED:
+    if not has_any_capability(actor, "after_sales.manage"):
         raise BusinessPermissionDenied("ثبت درخواست خدمات پس از فروش مجاز نیست.")
     customer = Customer.objects.select_for_update().get(pk=customer.pk)
     sale = Sale.objects.select_for_update().get(pk=sale.pk) if sale is not None else None
@@ -70,7 +67,7 @@ def create_after_sales_request(*, actor, customer, subject, description, status,
 @transaction.atomic
 def assign_after_sales_request(*, actor, request, to_user, reason=""):
     actor = _lock_actor(actor)
-    if actor.role not in ELEVATED:
+    if not has_any_capability(actor, "after_sales.manage"):
         raise BusinessPermissionDenied("واگذاری درخواست خدمات پس از فروش مجاز نیست.")
     item = AfterSalesRequest.objects.select_for_update().get(pk=request.pk)
     if item.closed_at is not None:
@@ -93,7 +90,7 @@ def assign_after_sales_request(*, actor, request, to_user, reason=""):
 def transition_after_sales_status(*, actor, request, to_status, reason=""):
     actor = _lock_actor(actor)
     item = AfterSalesRequest.objects.select_for_update().get(pk=request.pk)
-    if actor.role not in ELEVATED and not (
+    if not has_any_capability(actor, "after_sales.manage") and not (
         actor.role == User.Role.SALES_AGENT and actor.workstream == User.Workstream.AFTER_SALES and item.assigned_to_id == actor.pk
     ):
         raise BusinessPermissionDenied("تغییر وضعیت خدمات پس از فروش مجاز نیست.")
@@ -116,7 +113,7 @@ def transition_after_sales_status(*, actor, request, to_status, reason=""):
 @transaction.atomic
 def close_after_sales_request(*, actor, request, reason=""):
     actor = _lock_actor(actor)
-    if actor.role not in ELEVATED:
+    if not has_any_capability(actor, "after_sales.manage"):
         raise BusinessPermissionDenied("بستن درخواست خدمات پس از فروش مجاز نیست.")
     item = AfterSalesRequest.objects.select_for_update().get(pk=request.pk)
     if item.closed_at is not None:

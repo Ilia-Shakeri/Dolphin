@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
+from accounts.access import has_any_capability
 from accounts.models import User
 from billing.ledger import current_balance
 from billing.models import (
@@ -391,14 +392,14 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     )
     @action(detail=True, methods=["post"])
     def issue(self, request, pk=None):
-        self._require_manager("Issuing an invoice is not allowed.")
+        self._require_manager("صدور فاکتور مجاز نیست.")
         invoice = issue_invoice(actor=request.user, invoice=self.get_object())
         return Response(self.get_serializer(invoice).data)
 
     @extend_schema(request=ReasonSerializer, responses={200: InvoiceSerializer, **WRITE_RESPONSES})
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        self._require_manager("Cancelling an invoice is not allowed.")
+        self._require_manager("لغو فاکتور مجاز نیست.")
         serializer = ReasonSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         invoice = cancel_invoice(
@@ -410,7 +411,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     @action(detail=True, methods=["post"])
     def reissue(self, request, pk=None):
         """بند ۸.۲ — cancel this invoice and raise a replacement draft."""
-        self._require_manager("Reissuing an invoice is not allowed.")
+        self._require_manager("صدور مجدد فاکتور مجاز نیست.")
         serializer = ReasonSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         replacement = reissue_invoice(
@@ -421,7 +422,8 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     @extend_schema(responses={200: PaymentAllocationSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
     @action(detail=True, methods=["get"])
     def allocations(self, request, pk=None):
-        self._require_manager("Payment details are not visible to this role.")
+        if not has_any_capability(self.request.user, "payments.company"):
+            raise PermissionDenied("جزئیات پرداخت برای این نقش قابل مشاهده نیست.")
         invoice = self.get_object()
         queryset = invoice.allocations.select_related("payment", "invoice", "created_by").all()
         page = self.paginate_queryset(queryset)
@@ -431,6 +433,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
 class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     required_feature = "payments"
     required_capabilities = ("payments.company",)
+    required_write_capabilities = ("payments.manage",)
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = Payment.objects.none()
     serializer_class = PaymentSerializer
@@ -583,6 +586,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
 class PaymentAllocationViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     required_feature = "payments"
     required_capabilities = ("payments.company",)
+    required_write_capabilities = ("payments.manage",)
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = PaymentAllocation.objects.none()
     serializer_class = PaymentAllocationSerializer
@@ -625,6 +629,7 @@ class PaymentAllocationViewSet(SensitiveActionThrottleMixin, StrictQueryParamete
 class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     required_feature = "payments"
     required_capabilities = ("payments.company",)
+    required_write_capabilities = ("payments.manage",)
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = Cheque.objects.none()
     serializer_class = ChequeSerializer
@@ -726,6 +731,7 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
 class InstallmentPlanViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     required_feature = "payments"
     required_capabilities = ("payments.company",)
+    required_write_capabilities = ("payments.manage",)
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
     queryset = InstallmentPlan.objects.none()
     serializer_class = InstallmentPlanSerializer

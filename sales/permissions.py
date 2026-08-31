@@ -1,9 +1,7 @@
-from rest_framework.permissions import BasePermission
-
-from accounts.access import has_any_capability
+from common.permissions import HasCapabilityForMethod
 
 
-class HasSalesCapability(BasePermission):
+class HasSalesCapability(HasCapabilityForMethod):
     """Answer 403 when the caller holds no capability for this module.
 
     Without this, a caller with no capability at all received `200` with an
@@ -16,7 +14,6 @@ class HasSalesCapability(BasePermission):
 
     This is role permission only. Feature availability is checked separately by
     `FeatureGatedAPIMixin`, and object scope separately again by each selector.
+    A viewset that also sets `required_write_capabilities` gets a second,
+    write-only gate on top — see `HasCapabilityForMethod`.
     """
-
-    def has_permission(self, request, view):
-        return has_any_capability(request.user, *view.required_capabilities)

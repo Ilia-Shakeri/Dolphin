@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from accounts.models import User
+from accounts.access import has_any_capability
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
     CONFLICT_RESPONSE,
@@ -27,12 +27,10 @@ from inventory.services import deactivate_warehouse, reactivate_warehouse, trans
 from rest_framework import mixins, viewsets
 
 
-ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
-
-
 class WarehouseViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "inventory"
     required_capabilities = ("inventory.read", "inventory.manage")
+    required_write_capabilities = ("inventory.manage",)
     permission_classes = [IsActiveAuthenticated, HasInventoryCapability]
     queryset = Warehouse.objects.none()
     serializer_class = WarehouseSerializer
@@ -55,7 +53,7 @@ class WarehouseViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def _require_manager(self):
-        if self.request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(self.request.user, "inventory.manage"):
             raise PermissionDenied("مدیریت انبار مجاز نیست.")
 
     def create(self, request, *args, **kwargs):
@@ -136,6 +134,7 @@ class StockItemViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixins
 class StockMovementViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     required_feature = "inventory"
     required_capabilities = ("inventory.read", "inventory.manage")
+    required_write_capabilities = ("inventory.manage",)
     permission_classes = [IsActiveAuthenticated, HasInventoryCapability]
     queryset = StockMovement.objects.none()
     serializer_class = StockMovementSerializer
@@ -174,7 +173,7 @@ class StockMovementViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMi
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        if request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(request.user, "inventory.manage"):
             raise PermissionDenied("مدیریت انبار مجاز نیست.")
         return super().create(request, *args, **kwargs)
 
@@ -191,7 +190,7 @@ class StockMovementViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMi
     )
     @action(detail=False, methods=["post"])
     def transfer(self, request):
-        if request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(request.user, "inventory.manage"):
             raise PermissionDenied("مدیریت انبار مجاز نیست.")
         serializer = StockTransferSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)

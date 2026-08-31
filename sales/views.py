@@ -45,6 +45,7 @@ def _start_of_day(day):
 class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "customers"
     required_capabilities = ("customers.scoped", "customers.company")
+    required_write_capabilities = ("customers.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Customer.objects.none()
     serializer_class = CustomerSerializer
@@ -246,6 +247,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "customers"
     required_capabilities = ("customers.scoped", "customers.company")
+    required_write_capabilities = ("customers.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = CustomerPhone.objects.none()
     serializer_class = CustomerPhoneSerializer
@@ -286,6 +288,7 @@ class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "leads"
     required_capabilities = ("leads.scoped", "leads.company")
+    required_write_capabilities = ("leads.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Lead.objects.none()
     serializer_class = LeadSerializer
@@ -378,6 +381,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 class InteractionViewSet(NoDestroyModelViewSet):
     required_feature = "leads"
     required_capabilities = ("interactions.scoped", "interactions.company")
+    required_write_capabilities = ("interactions.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Interaction.objects.none()
     serializer_class = InteractionSerializer
@@ -400,6 +404,7 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, NoDestroyModelVi
 
     required_feature = "leads"
     required_capabilities = ("leads.scoped", "leads.company")
+    required_write_capabilities = ("leads.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = TargetAudienceMember.objects.none()
     serializer_class = TargetAudienceMemberSerializer
@@ -421,7 +426,8 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, NoDestroyModelVi
 
 class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "products"
-    required_capabilities = ("products.read", "products.manage")
+    required_capabilities = ("product_categories.read", "product_categories.manage")
+    required_write_capabilities = ("product_categories.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = ProductCategory.objects.none()
     serializer_class = ProductCategorySerializer
@@ -444,7 +450,7 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet
         return super().list(request, *args, **kwargs)
 
     def _require_manager(self):
-        if self.request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(self.request.user, "product_categories.manage"):
             raise PermissionDenied("مدیریت دسته‌بندی کالا مجاز نیست.")
 
     def create(self, request, *args, **kwargs):
@@ -477,6 +483,7 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet
 class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "products"
     required_capabilities = ("products.read", "products.manage")
+    required_write_capabilities = ("products.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Product.objects.none()
     serializer_class = ProductSerializer
@@ -517,7 +524,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def _require_manager(self):
-        if self.request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(self.request.user, "products.manage"):
             raise PermissionDenied("مدیریت کالا مجاز نیست.")
 
     def create(self, request, *args, **kwargs):
@@ -620,6 +627,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "sales"
     required_capabilities = ("sales.own", "sales.company")
+    required_write_capabilities = ("sales.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = Sale.objects.none()
     serializer_class = SaleSerializer
@@ -664,6 +672,7 @@ class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "sales_documents"
     required_capabilities = ("sales_documents.scoped", "sales_documents.company")
+    required_write_capabilities = ("sales_documents.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = SalesDocument.objects.none()
     serializer_class = SalesDocumentSerializer
@@ -704,12 +713,12 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        if request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(request.user, "sales_documents.manage"):
             raise PermissionDenied("ثبت سند فروش مجاز نیست.")
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        if self.request.user.role not in ELEVATED_OPERATORS:
+        if not has_any_capability(self.request.user, "sales_documents.manage"):
             raise PermissionDenied("ثبت سند فروش مجاز نیست.")
         serializer.save()
 

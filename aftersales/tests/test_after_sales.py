@@ -176,10 +176,14 @@ class AfterSalesContractTests(TestCase):
                     self.assertEqual(client.get(f"/api/v1/{path}/").status_code, 200)
 
     def test_normal_agent_has_no_after_sales_access(self):
+        # A caller holding neither `after_sales.company` nor `.assigned` is
+        # refused outright (403) rather than shown an empty page — the same
+        # fix `HasSalesCapability` already applies to customers/leads/etc.,
+        # extended here by `HasAfterSalesCapability`.
         client = APIClient()
         client.force_authenticate(self.sales_agent)
-        self.assertEqual(client.get("/api/v1/after-sales/").data["count"], 0)
-        self.assertEqual(client.get(f"/api/v1/after-sales/{self.request.pk}/").status_code, 404)
+        self.assertEqual(client.get("/api/v1/after-sales/").status_code, 403)
+        self.assertEqual(client.get(f"/api/v1/after-sales/{self.request.pk}/").status_code, 403)
         self.assertEqual(client.post("/api/v1/after-sales/", {}, format="json").status_code, 403)
         self.client.force_login(self.sales_agent)
         self.assertEqual(self.client.get("/after-sales/").status_code, 403)

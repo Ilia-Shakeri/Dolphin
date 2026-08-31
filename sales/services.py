@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from accounts.access import is_crm_identity
+from accounts.access import has_any_capability, is_crm_identity
 from accounts.models import User
 from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
@@ -376,7 +376,7 @@ def update_lead(*, actor, lead, **changes):
 @transaction.atomic
 def create_product_category(*, actor, **data):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "product_categories.manage"):
         raise BusinessPermissionDenied("مدیریت دسته‌بندی کالا مجاز نیست.")
     unknown = set(data) - PRODUCT_CATEGORY_CREATE_FIELDS
     if unknown:
@@ -414,7 +414,7 @@ def create_product_category(*, actor, **data):
 @transaction.atomic
 def update_product_category(*, actor, category, **changes):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "product_categories.manage"):
         raise BusinessPermissionDenied("مدیریت دسته‌بندی کالا مجاز نیست.")
     locked = ProductCategory.objects.select_for_update().get(pk=category.pk)
     unknown = set(changes) - PRODUCT_CATEGORY_UPDATE_FIELDS
@@ -478,7 +478,7 @@ def _prepare_product_values(data):
 @transaction.atomic
 def create_product(*, actor, **data):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "products.manage"):
         raise BusinessPermissionDenied("مدیریت کالا مجاز نیست.")
     unknown = set(data) - PRODUCT_MUTABLE_FIELDS
     if unknown:
@@ -499,7 +499,7 @@ def create_product(*, actor, **data):
 @transaction.atomic
 def update_product(*, actor, product, **changes):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "products.manage"):
         raise BusinessPermissionDenied("مدیریت کالا مجاز نیست.")
     locked = Product.objects.select_for_update().get(pk=product.pk)
     unknown = set(changes) - PRODUCT_MUTABLE_FIELDS
@@ -684,7 +684,7 @@ def _clean_required_text(value, *, field, limit):
 @transaction.atomic
 def register_sales_document(*, actor, customer, document_number, postal_status, sale=None, notes=""):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "sales_documents.manage"):
         raise BusinessPermissionDenied("ثبت سند فروش مجاز نیست.")
     locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
     if not customers_for(actor).filter(pk=locked_customer.pk).exists():
@@ -732,7 +732,7 @@ def register_sales_document(*, actor, customer, document_number, postal_status, 
 @transaction.atomic
 def transition_postal_status(*, actor, document, to_status, reason=""):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "sales_documents.manage"):
         raise BusinessPermissionDenied("تغییر وضعیت پستی مجاز نیست.")
     locked = SalesDocument.objects.select_for_update().get(pk=document.pk)
     if not locked.is_active:
@@ -764,7 +764,7 @@ def transition_postal_status(*, actor, document, to_status, reason=""):
 @transaction.atomic
 def deactivate_sales_document(*, actor, document):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "sales_documents.manage"):
         raise BusinessPermissionDenied("غیرفعال‌سازی سند فروش مجاز نیست.")
     locked = SalesDocument.objects.select_for_update().get(pk=document.pk)
     if not locked.is_active:
@@ -851,7 +851,7 @@ def deactivate_product(*, actor, product):
 @transaction.atomic
 def deactivate_product_category(*, actor, category):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "product_categories.manage"):
         raise BusinessPermissionDenied("مدیریت دسته‌بندی کالا مجاز نیست.")
     category = ProductCategory.objects.select_for_update().get(pk=category.pk)
     if not category.is_active:
@@ -870,7 +870,7 @@ def deactivate_product_category(*, actor, category):
 @transaction.atomic
 def reactivate_product_category(*, actor, category):
     actor = _lock_active_actor(actor)
-    if actor.role not in ELEVATED_OPERATORS:
+    if not has_any_capability(actor, "product_categories.manage"):
         raise BusinessPermissionDenied("مدیریت دسته‌بندی کالا مجاز نیست.")
     category = ProductCategory.objects.select_for_update().get(pk=category.pk)
     if category.is_active:

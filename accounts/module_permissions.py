@@ -21,6 +21,18 @@ reissuing one stays Sales-Manager-and-above regardless, exactly as it always
 has, because those are policy decisions about a document's lifecycle, not
 data-entry rights). Modules with no write side at all — reports, ledger,
 inbound SMS — carry no edit capability and no `write` key.
+
+Known asymmetry, honestly noted rather than hidden: REVOKING edit for
+`quotations`, `orders`, `invoices`, or `payments` fully blocks basic
+create/update through this screen — the view-permission gate enforces it
+before any service function runs. GRANTING edit on those four modules to a
+role that never had it does not yet unlock the deeper service-layer gates
+(`billing._lock_document_writer`, `billing.payments._lock_payment_manager`),
+which are still plain role checks shared across several document types —
+threading a per-module capability through them safely is follow-up work,
+tracked in KARIZ_PROJECT_HANDOFF.md. Every other module's edit column (both
+directions) is enforced end to end, including granting beyond a role's
+default — see `accounts/tests/test_permission_overrides.py`.
 """
 
 from dataclasses import dataclass

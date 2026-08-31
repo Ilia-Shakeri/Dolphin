@@ -3,21 +3,29 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from accounts.models import User
+from accounts.access import has_any_capability
 from aftersales.models import AfterSalesRequest
+from aftersales.permissions import HasAfterSalesCapability
 from aftersales.selectors import after_sales_requests_for
 from aftersales.serializers import AfterSalesAssigneeSerializer, AfterSalesHistorySerializer, AfterSalesRequestSerializer, AssignmentSerializer, CloseSerializer, StatusTransitionSerializer
 from aftersales.services import assign_after_sales_request, close_after_sales_request, transition_after_sales_status
 from common.openapi import ACCESS_DENIED_RESPONSE, CONFLICT_RESPONSE, NOT_FOUND_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
+from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
 from common.viewsets import NoDestroyModelViewSet
 
 
-ELEVATED = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
-
-
 class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     required_feature = "after_sales"
+    #: Elevated roles hold `after_sales.company`; the after-sales workstream
+    #: agent instead holds `after_sales.assigned`/`.work` — a narrower,
+    #: assignment-scoped pair that `after_sales_requests_for` already limits
+    #: to the cases assigned to them, so it grants full read/write over that
+    #: assigned subset rather than being folded into the elevated `.manage`
+    #: gate below.
+    required_capabilities = ("after_sales.company", "after_sales.assigned")
+    required_write_capabilities = ("after_sales.manage", "after_sales.work")
+    permission_classes = [IsActiveAuthenticated, HasAfterSalesCapability]
     queryset = AfterSalesRequest.objects.none()
     serializer_class = AfterSalesRequestSerializer
     http_method_names = ["get", "post", "head", "options"]
@@ -48,14 +56,14 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewS
     def list(self, request, *args, **kwargs): return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        if request.user.role not in ELEVATED:
+        if not has_any_capability(request.user, "after_sales.manage"):
             raise PermissionDenied("ثبت درخواست خدمات پس از فروش مجاز نیست.")
         return super().create(request, *args, **kwargs)
 
     @extend_schema(responses={200: AfterSalesAssigneeSerializer(many=True), 403: ACCESS_DENIED_RESPONSE})
     @action(detail=False, methods=["get"])
     def assignees(self, request):
-        if request.user.role not in ELEVATED:
+        if not has_any_capability(request.user, "after_sales.manage"):
             raise PermissionDenied("مشاهده فهرست کارشناسان مجاز نیست.")
         serializer = AssignmentSerializer()
         queryset = serializer.fields["to_user"].queryset.order_by("username")

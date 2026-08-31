@@ -2,13 +2,46 @@ from django.http import Http404
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import BasePermission
 
-from accounts.access import is_crm_identity
+from accounts.access import has_any_capability, is_crm_identity
 from common.deployment.profile import feature_enabled
 
 
 class IsActiveAuthenticated(BasePermission):
     def has_permission(self, request, view):
         return is_crm_identity(request.user)
+
+
+#: HTTP methods that only ever read. Everything else — POST, PUT, PATCH, and
+#: DELETE, though `NoDestroyModelViewSet` already refuses DELETE everywhere —
+#: is a write for the purpose of `HasCapabilityForMethod` below.
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+class HasCapabilityForMethod(BasePermission):
+    """`has_any_capability`, aware of whether the request reads or writes.
+
+    `sales.permissions.HasSalesCapability`, `billing.permissions.
+    HasBillingCapability`, and `inventory.permissions.HasInventoryCapability`
+    all subclass this rather than reimplementing it, so the one rule lives in
+    one place: `view.required_capabilities` gates every method, same as
+    before this existed — a viewset that never sets
+    `required_write_capabilities` behaves exactly as it always has, holding
+    any listed capability is enough for both reading and writing.
+
+    A viewset that *does* set `required_write_capabilities` gets a genuine
+    second gate: an unsafe method additionally needs one of those. This is
+    what lets a per-user override make someone's access to a module
+    read-only — the override changes which capability `has_any_capability`
+    finds, not this check itself.
+    """
+
+    def has_permission(self, request, view):
+        if not has_any_capability(request.user, *getattr(view, "required_capabilities", ())):
+            return False
+        write_capabilities = getattr(view, "required_write_capabilities", None)
+        if write_capabilities is None or request.method in SAFE_METHODS:
+            return True
+        return has_any_capability(request.user, *write_capabilities)
 
 
 class FeatureGatedAPIMixin:
