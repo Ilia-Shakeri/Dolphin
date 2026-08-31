@@ -323,6 +323,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "accounts_user": "SELECT, INSERT, UPDATE",
             "accounts_user_groups": "SELECT, INSERT, DELETE",
             "accounts_user_user_permissions": "SELECT, INSERT, DELETE",
+            "accounts_usercapabilityoverride": "SELECT, INSERT, UPDATE, DELETE",
             "aftersales_aftersaleshistory": "SELECT, INSERT",
             "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE",
             "auditlog_activitylog": "SELECT, INSERT",

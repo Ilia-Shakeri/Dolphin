@@ -531,12 +531,28 @@
         const createForm = document.getElementById("create-user-form");
         document.getElementById("open-create-user").addEventListener("click", () => dialog.showModal());
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+
+        // Only a Sales Agent may run the after-sales workstream — the same
+        // rule `fillUser` enforces on the edit form, applied here so picking
+        // any other role locks the field back to the ordinary sales queue
+        // instead of letting the create call fail on it.
+        const createRole = document.getElementById("create-role");
+        const createWorkstream = document.getElementById("create-workstream");
+        function syncCreateWorkstream() {
+            const afterSalesOption = createWorkstream.querySelector('option[value="after_sales"]');
+            const isAgent = createRole.value === "sales_agent";
+            afterSalesOption.disabled = !isAgent;
+            if (!isAgent) createWorkstream.value = "sales";
+        }
+        createRole.addEventListener("change", syncCreateWorkstream);
+        syncCreateWorkstream();
+
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(createForm, async () => {
                 const user = await apiRequest(createForm.action, {
                     method: "POST",
-                    body: formPayload(createForm, ["username", "password", "first_name", "last_name", "email", "phone", "workstream"]),
+                    body: formPayload(createForm, ["username", "password", "first_name", "last_name", "email", "phone", "role", "workstream"]),
                 });
                 window.location.assign(`/users/${user.id}/`);
             });

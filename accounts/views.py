@@ -1,4 +1,5 @@
 from django.contrib.auth import login, logout
+from django.db.models import Exists, OuterRef
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
@@ -11,18 +12,21 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.access import crm_identities
-from accounts.models import User
+from accounts.models import User, UserCapabilityOverride
 from accounts.permissions import IsUserReader
 from accounts.sessions import active_sessions_for, record_session_device, revoke_sessions
 from accounts.serializers import (
     LoginSerializer,
     MeSerializer,
+    PermissionMatrixUpdateSerializer,
     RoleChangeSerializer,
     SessionListSerializer,
     SessionRevokeResultSerializer,
     SessionRevokeSerializer,
+    UserPermissionsSerializer,
     UserSerializer,
 )
+from accounts.services import reset_user_permissions, set_user_permission_overrides, user_permissions_for
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
     CONFLICT_RESPONSE,
@@ -160,7 +164,7 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     queryset = User.objects.none()
     serializer_class = UserSerializer
     permission_classes = [IsUserReader]
-    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "set_permissions", "reset_permissions"})
     search_fields = ["username", "first_name", "last_name", "email", "phone"]
     ordering_fields = ["username", "role", "workstream", "is_active", "created_at"]
 
@@ -170,6 +174,15 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
             queryset = queryset.filter(role=User.Role.SALES_AGENT)
         elif self.request.user.role == User.Role.COMPANY_IT:
             queryset = queryset.exclude(role=User.Role.PLATFORM_ADMIN)
+        # One correlated subquery per page rather than one row lookup per
+        # user — `UserSerializer.get_has_custom_permissions` reads this
+        # annotation instead of touching `capability_overrides` itself, so
+        # rendering a page of users stays flat instead of growing with it.
+        queryset = queryset.annotate(
+            _has_capability_overrides=Exists(
+                UserCapabilityOverride.objects.filter(user_id=OuterRef("pk"))
+            )
+        )
         return queryset
 
     def _require_admin(self):
@@ -245,3 +258,56 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
             reference=serializer.validated_data.get("reference") or None,
         )
         return Response(SessionRevokeResultSerializer({"ended": ended}).data)
+
+    @extend_schema(
+        responses={200: UserPermissionsSerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
+        description=(
+            "One user's Read/Edit permission matrix: their role, their effective per-module "
+            "access, and which rows are personal overrides rather than the role's own default. "
+            "Platform Admin only."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="permissions")
+    def permissions(self, request, pk=None):
+        target = self.get_object()
+        return Response(UserPermissionsSerializer(user_permissions_for(actor=request.user, target=target)).data)
+
+    @extend_schema(
+        request=PermissionMatrixUpdateSerializer,
+        responses={
+            200: UserPermissionsSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description=(
+            "Sets this one user's personal permission overrides. A module turned on or off here "
+            "only ever affects this account — the role's own defaults, and every other user "
+            "holding that role, are untouched. Platform Admin only."
+        ),
+    )
+    @action(detail=True, methods=["put"], url_path="permissions")
+    def set_permissions(self, request, pk=None):
+        target = self.get_object()
+        serializer = PermissionMatrixUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = set_user_permission_overrides(
+            actor=request.user, target=target, matrix=serializer.validated_data["matrix"]
+        )
+        return Response(UserPermissionsSerializer(result).data)
+
+    @extend_schema(
+        request=None,
+        responses={200: UserPermissionsSerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 429: THROTTLED_RESPONSE},
+        description=(
+            "Deletes this user's personal permission overrides, restoring their role's plain "
+            "defaults. Never changes the role itself and never touches another user. Platform "
+            "Admin only."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="permissions/reset")
+    def reset_permissions(self, request, pk=None):
+        target = self.get_object()
+        result = reset_user_permissions(actor=request.user, target=target)
+        return Response(UserPermissionsSerializer(result).data)

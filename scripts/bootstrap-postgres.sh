@@ -517,6 +517,10 @@ FROM (
         ('accounts_user', 'SELECT, INSERT, UPDATE'),
         ('accounts_user_groups', 'SELECT, INSERT, DELETE'),
         ('accounts_user_user_permissions', 'SELECT, INSERT, DELETE'),
+        -- A user's personal capability overrides: set, changed, and cleared
+        -- (reset to role defaults) by the permissions screen, never merely
+        -- appended.
+        ('accounts_usercapabilityoverride', 'SELECT, INSERT, UPDATE, DELETE'),
         ('aftersales_aftersaleshistory', 'SELECT, INSERT'),
         ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),

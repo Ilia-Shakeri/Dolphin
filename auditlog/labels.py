@@ -94,6 +94,8 @@ OPERATION_LABELS = {
     "user.updated": "ویرایش کاربر",
     "user.profile_updated": "ویرایش پروفایل",
     "user.role_changed": "تغییر نقش کاربر",
+    "user.permissions_overridden": "تغییر مجوزهای اختصاصی کاربر",
+    "user.permissions_reset": "بازنشانی مجوزهای کاربر به پیش‌فرض نقش",
     "user.sessions_revoked": "ابطال نشست‌های کاربر",
     "user.platform_admin_bootstrapped": "ایجاد مدیر پلتفرم",
     "user.uat_seeded": "ایجاد داده آزمایشی",

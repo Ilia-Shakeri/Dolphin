@@ -18,11 +18,16 @@ ROLE_CAPABILITIES = {
     User.Role.SALES_AGENT: frozenset({
         "dashboard.agent",
         "customers.scoped",
+        "customers.manage",
         "leads.scoped",
+        "leads.manage",
         "interactions.scoped",
+        "interactions.manage",
         "sales.own",
+        "sales.manage",
         "sales_documents.scoped",
         "products.read",
+        "product_categories.read",
         # An agent may read stock to answer "can we sell this", and may never
         # change a level: every movement is a manager operation.
         "inventory.read",
@@ -30,8 +35,11 @@ ROLE_CAPABILITIES = {
         # may not issue an invoice or take money — those are `*.company`
         # capabilities held only by elevated roles.
         "quotations.scoped",
+        "quotations.manage",
         "orders.scoped",
+        "orders.manage",
         "invoices.scoped",
+        "invoices.manage",
         "reports.own",
         # بند ۶.۳ — «آیا بازاریاب باید مانده مشتریان خودش را ببیند؟» «بله».
         #
@@ -46,20 +54,30 @@ ROLE_CAPABILITIES = {
     User.Role.SALES_MANAGER: frozenset({
         "dashboard.store",
         "customers.company",
+        "customers.manage",
         "leads.company",
+        "leads.manage",
         "interactions.company",
+        "interactions.manage",
         "sales.company",
+        "sales.manage",
         "sales_documents.company",
         "sales_documents.manage",
         "after_sales.company",
         "after_sales.manage",
         "products.manage",
+        "product_categories.read",
+        "product_categories.manage",
         "inventory.read",
         "inventory.manage",
         "quotations.company",
+        "quotations.manage",
         "orders.company",
+        "orders.manage",
         "invoices.company",
+        "invoices.manage",
         "payments.company",
+        "payments.manage",
         "ledger.company",
         "reports.company",
         "sms.company",
@@ -67,20 +85,30 @@ ROLE_CAPABILITIES = {
     User.Role.COMPANY_IT: frozenset({
         "dashboard.technical",
         "customers.company",
+        "customers.manage",
         "leads.company",
+        "leads.manage",
         "interactions.company",
+        "interactions.manage",
         "sales.company",
+        "sales.manage",
         "sales_documents.company",
         "sales_documents.manage",
         "after_sales.company",
         "after_sales.manage",
         "products.manage",
+        "product_categories.read",
+        "product_categories.manage",
         "inventory.read",
         "inventory.manage",
         "quotations.company",
+        "quotations.manage",
         "orders.company",
+        "orders.manage",
         "invoices.company",
+        "invoices.manage",
         "payments.company",
+        "payments.manage",
         "ledger.company",
         "reports.company",
         "sms.company",
@@ -89,20 +117,30 @@ ROLE_CAPABILITIES = {
     User.Role.PLATFORM_ADMIN: frozenset({
         "dashboard.platform",
         "customers.company",
+        "customers.manage",
         "leads.company",
+        "leads.manage",
         "interactions.company",
+        "interactions.manage",
         "sales.company",
+        "sales.manage",
         "sales_documents.company",
         "sales_documents.manage",
         "after_sales.company",
         "after_sales.manage",
         "products.manage",
+        "product_categories.read",
+        "product_categories.manage",
         "inventory.read",
         "inventory.manage",
         "quotations.company",
+        "quotations.manage",
         "orders.company",
+        "orders.manage",
         "invoices.company",
+        "invoices.manage",
         "payments.company",
+        "payments.manage",
         "ledger.company",
         "reports.company",
         "sms.company",
@@ -154,12 +192,58 @@ def is_crm_identity(user):
     )
 
 
-def capabilities_for(user):
+#: Capabilities a per-user override may never touch, regardless of who is
+#: signed in as Platform Admin at the time. User administration and the audit
+#: trail are the codebase's own hard security defaults (see the comment on
+#: `ROLE_CAPABILITIES` above) — a per-user permission matrix is a convenience
+#: for the ordinary business modules, not a back door around that boundary.
+#: Enforced twice on purpose: `set_user_permission_overrides` refuses to save
+#: a row naming one of these, and this function refuses to honour one even if
+#: a row existed anyway (a manual DB edit, a future bug elsewhere).
+PROTECTED_CAPABILITY_PREFIXES = ("users.", "audit.")
+
+
+def _is_protected_capability(capability):
+    return capability.startswith(PROTECTED_CAPABILITY_PREFIXES)
+
+
+def role_default_capabilities(user):
+    """What `user` holds from their role alone, before any personal override.
+
+    This is the function the rest of the codebase called `capabilities_for`
+    before per-user overrides existed, kept under its own name so the override
+    layer below has something stable to diff against — the permissions screen
+    shows an admin exactly which rows on a user's matrix differ from this.
+    """
     if not is_crm_identity(user):
         return frozenset()
     if user.role == User.Role.SALES_AGENT and user.workstream == User.Workstream.AFTER_SALES:
         return AFTER_SALES_AGENT_CAPABILITIES
     return ROLE_CAPABILITIES.get(user.role, frozenset())
+
+
+def capabilities_for(user):
+    base = role_default_capabilities(user)
+    if not is_crm_identity(user):
+        return base
+    overrides = getattr(user, "_capability_overrides_cache", None)
+    if overrides is None:
+        from accounts.models import UserCapabilityOverride
+
+        overrides = list(
+            UserCapabilityOverride.objects.filter(user_id=user.pk).values_list("capability", "granted")
+        )
+    if not overrides:
+        return base
+    result = set(base)
+    for capability, granted in overrides:
+        if _is_protected_capability(capability):
+            continue
+        if granted:
+            result.add(capability)
+        else:
+            result.discard(capability)
+    return frozenset(result)
 
 
 def has_any_capability(user, *capabilities):

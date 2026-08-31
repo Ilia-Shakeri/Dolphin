@@ -4,8 +4,20 @@ from django.db import IntegrityError, transaction
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-from accounts.access import crm_identities, is_crm_account, is_crm_identity
-from accounts.models import User
+from accounts.access import (
+    PROTECTED_CAPABILITY_PREFIXES,
+    assignable_roles,
+    crm_identities,
+    is_crm_account,
+    is_crm_identity,
+)
+from accounts.models import User, UserCapabilityOverride
+from accounts.module_permissions import (
+    effective_matrix_for_user,
+    governed_capabilities,
+    overrides_needed_for_matrix,
+    validate_matrix,
+)
 from accounts.platform_admin_guard import lock_platform_admin_guard
 from auditlog.services import log_activity
 from common.deployment.profile import feature_enabled
@@ -64,13 +76,14 @@ def _protect_last_active_platform_admin(*, target, next_role=None, next_is_activ
         raise BusinessConflictError({field: "حداقل یک مدیر پلتفرم فعال باید باقی بماند."})
 
 
-def _locked_users(actor, target=None):
+def _locked_users(actor, target=None, *, for_update=True):
     identifiers = {actor.pk}
     if target is not None:
         identifiers.add(target.pk)
+    base_queryset = User.objects.select_for_update() if for_update else User.objects
     users = {
         user.pk: user
-        for user in User.objects.select_for_update().filter(pk__in=identifiers).order_by("pk")
+        for user in base_queryset.filter(pk__in=identifiers).order_by("pk")
     }
     locked_actor = users.get(actor.pk)
     locked_target = users.get(target.pk) if target is not None else None
@@ -87,27 +100,46 @@ def _locked_users(actor, target=None):
     return locked_actor, locked_target
 
 
+def _validate_creatable_role(actor, role):
+    """Refuse a role the Create User form should never have offered `actor`.
+
+    Reuses `assignable_roles` rather than restating its rules — the role a
+    Platform Admin may hand a *new* account is exactly the role they may move
+    an *existing* one to (feature-gated `company_it`, `platform_admin` only
+    from another `platform_admin`), so the two pickers can never disagree
+    about what is on offer.
+    """
+    if role not in ROLE_RANK:
+        raise BusinessRuleError({"role": "نقش نامعتبر است."})
+    if role not in {value for value, _ in assignable_roles(actor)}:
+        raise BusinessPermissionDenied("این نقش برای شما در دسترس نیست.")
+
+
 @transaction.atomic
-def create_crm_user(*, actor, password, **data):
+def create_crm_user(*, actor, password, role, **data):
     actor, _ = _locked_users(actor)
     unknown = set(data) - USER_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
-    if data.get("workstream", User.Workstream.SALES) not in User.Workstream.values:
+    _validate_creatable_role(actor, role)
+    workstream = data.get("workstream", User.Workstream.SALES)
+    if workstream not in User.Workstream.values:
         raise BusinessRuleError({"workstream": "جریان کاری نامعتبر است."})
+    if role != User.Role.SALES_AGENT and workstream != User.Workstream.SALES:
+        raise BusinessRuleError({"workstream": "فقط حساب‌های بازاریاب می‌توانند از جریان کاری خدمات پس از فروش استفاده کنند."})
     try:
-        validate_password(password, user=User(**data))
+        validate_password(password, user=User(role=role, **data))
     except DjangoValidationError as exc:
         raise BusinessRuleError({"password": persian_password_messages(exc)}) from exc
     try:
-        target = User.objects.create_user(password=password, **data)
+        target = User.objects.create_user(password=password, role=role, **data)
     except IntegrityError as exc:
         raise BusinessConflictError({"username": "این نام کاربری قبلاً استفاده شده است."}) from exc
     log_activity(
         actor=actor,
         operation="user.created",
         instance=target,
-        changes={"fields": sorted(data), "password_set": True},
+        changes={"fields": sorted({*data, "role"}), "password_set": True, "role": role},
     )
     return target
 
@@ -180,7 +212,7 @@ def update_own_profile(*, actor, **changes):
 
 
 @transaction.atomic
-def change_user_role(*, actor, target, role):
+def change_user_role(*, actor, target, role, keep_custom_permissions=True):
     lock_platform_admin_guard()
     actor, target = _locked_users(actor, target)
     actor_role_at_action = actor.role
@@ -209,6 +241,19 @@ def change_user_role(*, actor, target, role):
         target.workstream = User.Workstream.SALES
         update_fields.append("workstream")
     target.save(update_fields=update_fields)
+    # A role change never silently destroys a customised permission matrix.
+    # `keep_custom_permissions` defaults to True — preserving is the choice
+    # that cannot surprise anyone — and the caller only sends False after the
+    # admin has explicitly said, in the role-change dialog, to reset instead.
+    if not keep_custom_permissions:
+        removed, _ = UserCapabilityOverride.objects.filter(user=target).delete()
+        if removed:
+            log_activity(
+                actor=actor,
+                operation="user.permissions_reset",
+                instance=target,
+                changes={"reason": "role_changed", "removed_overrides": removed},
+            )
     log_activity(
         actor=actor,
         operation="user.role_changed",
@@ -218,3 +263,101 @@ def change_user_role(*, actor, target, role):
         object_role_snapshot=previous,
     )
     return target
+
+
+def user_permissions_for(*, actor, target):
+    """The Read/Edit matrix screen's whole payload for one user: their role,
+    their effective matrix, and whether any row is a personal override.
+
+    Read-only, so `target` is fetched without `_locked_users`'s row lock —
+    the same admin-only authorization applies, just without holding a lock a
+    GET has no reason to take.
+    """
+    actor, target = _locked_users(actor, target, for_update=False)
+    matrix = effective_matrix_for_user(target)
+    return {
+        "role": target.role,
+        "workstream": target.workstream,
+        "matrix": matrix,
+        "has_custom_permissions": any(row["is_custom"] for row in matrix.values()),
+    }
+
+
+@transaction.atomic
+def set_user_permission_overrides(*, actor, target, matrix):
+    """Replace `target`'s personal overrides with exactly what `matrix` needs.
+
+    Only ever writes a row for a capability that actually disagrees with the
+    role's own default (`overrides_needed_for_matrix`), and removes any row
+    that no longer needs to exist — resaving a matrix that matches the role
+    exactly is indistinguishable from `reset_user_permissions`, on purpose.
+    """
+    actor, target = _locked_users(actor, target)
+    try:
+        normalised = validate_matrix(matrix)
+    except ValueError as exc:
+        raise BusinessRuleError({"matrix": str(exc)}) from exc
+    needed = overrides_needed_for_matrix(normalised, role=target.role, workstream=target.workstream)
+    if not set(needed).issubset(governed_capabilities()) or any(
+        capability.startswith(PROTECTED_CAPABILITY_PREFIXES) for capability in needed
+    ):
+        # Unreachable through `accounts.module_permissions.MODULES` as written
+        # — kept as a hard stop rather than a comment, so a future module
+        # naming a `users.*`/`audit.*` capability fails loudly here instead of
+        # quietly granting it.
+        raise BusinessPermissionDenied("این مجوز از این صفحه قابل تغییر نیست.")
+
+    existing = {
+        row.capability: row
+        for row in UserCapabilityOverride.objects.select_for_update().filter(user=target)
+    }
+    to_create, to_update, to_delete = [], [], []
+    for capability, row in existing.items():
+        if capability not in needed:
+            to_delete.append(row.pk)
+    for capability, granted in needed.items():
+        row = existing.get(capability)
+        if row is None:
+            to_create.append(UserCapabilityOverride(user=target, capability=capability, granted=granted))
+        elif row.granted != granted:
+            row.granted = granted
+            to_update.append(row)
+
+    if to_delete:
+        UserCapabilityOverride.objects.filter(pk__in=to_delete).delete()
+    if to_update:
+        UserCapabilityOverride.objects.bulk_update(to_update, ["granted", "updated_at"])
+    if to_create:
+        UserCapabilityOverride.objects.bulk_create(to_create)
+
+    if to_create or to_update or to_delete:
+        log_activity(
+            actor=actor,
+            operation="user.permissions_overridden",
+            instance=target,
+            changes={
+                "granted": sorted(c.capability for c in to_create if c.granted) + sorted(r.capability for r in to_update if r.granted),
+                "revoked": sorted(c.capability for c in to_create if not c.granted) + sorted(r.capability for r in to_update if not r.granted),
+                "cleared": sorted(capability for capability, row in existing.items() if row.pk in to_delete),
+            },
+        )
+    return user_permissions_for(actor=actor, target=target)
+
+
+@transaction.atomic
+def reset_user_permissions(*, actor, target):
+    """Delete every personal override `target` has, restoring their role's
+    plain defaults. Never touches the role itself, and never touches any
+    other user — see the model docstring for why absence of a row already
+    means "use the role default".
+    """
+    actor, target = _locked_users(actor, target)
+    removed, _ = UserCapabilityOverride.objects.filter(user=target).delete()
+    if removed:
+        log_activity(
+            actor=actor,
+            operation="user.permissions_reset",
+            instance=target,
+            changes={"reason": "manual", "removed_overrides": removed},
+        )
+    return user_permissions_for(actor=actor, target=target)

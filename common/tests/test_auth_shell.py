@@ -384,6 +384,7 @@ class AuthShellApiFlowTests(TestCase):
             {
                 "username": "made.by.shell",
                 "password": "Another-strong-731!",
+                "role": User.Role.SALES_AGENT,
                 "first_name": "کاربر",
                 "last_name": "آزمایشی",
                 "email": "shell@example.test",
@@ -408,7 +409,11 @@ class AuthShellApiFlowTests(TestCase):
         self.assertEqual(self._json("post", "/api/v1/auth/logout/").status_code, 204)
         self.assertEqual(self.client.get("/api/v1/auth/me/").status_code, 403)
 
-    def test_shell_never_submits_server_owned_role_in_create_or_edit(self):
+    def test_shell_offers_role_at_creation_but_never_in_the_edit_form(self):
+        # Role selection moved from server-controlled to a required Create
+        # User input (the whole point of the permission-matrix feature), but
+        # it still never appears on the *edit* form — a role change only ever
+        # happens through the dedicated, audited `change-role` flow.
         self.client.force_login(self.platform)
 
         listing = self.client.get("/users/").content.decode("utf-8")
@@ -416,7 +421,7 @@ class AuthShellApiFlowTests(TestCase):
 
         create_form = listing.split('id="create-user-form"', 1)[1].split("</form>", 1)[0]
         edit_form = detail.split('id="edit-user-form"', 1)[1].split("</form>", 1)[0]
-        self.assertNotIn('name="role"', create_form)
+        self.assertIn('name="role"', create_form)
         self.assertNotIn('name="is_active"', create_form)
         self.assertNotIn('name="role"', edit_form)
         self.assertNotIn('name="is_active"', edit_form)

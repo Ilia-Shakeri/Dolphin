@@ -44,15 +44,17 @@ class AccountSecurityTests(TestCase):
         response = client.post("/api/v1/users/", {
             "username": "bad",
             "password": "strong-pass-2",
+            "role": User.Role.SALES_AGENT,
             "is_superuser": True,
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("is_superuser", response.data)
-        for field, value in (("is_staff", True), ("groups", [1]), ("user_permissions", [1]), ("role", User.Role.PLATFORM_ADMIN)):
+        for field, value in (("is_staff", True), ("groups", [1]), ("user_permissions", [1])):
             with self.subTest(field=field):
                 response = client.post("/api/v1/users/", {
                     "username": f"blocked-{field}",
                     "password": "Long-Safe-Pass-741!",
+                    "role": User.Role.SALES_AGENT,
                     field: value,
                 }, format="json")
                 self.assertEqual(response.status_code, 400)
@@ -215,6 +217,7 @@ class AccountSecurityTests(TestCase):
         response = client.post("/api/v1/users/", {
             "username": "typo",
             "password": "Long-Safe-Pass-741!",
+            "role": User.Role.SALES_AGENT,
             "frist_name": "typo",
         }, format="json")
         self.assertEqual(response.status_code, 400)
@@ -276,6 +279,7 @@ class AccountSecurityTests(TestCase):
             {
                 "username": "bounded-after-sales-operator",
                 "password": "Long-Safe-Pass-741!",
+                "role": User.Role.SALES_AGENT,
                 "workstream": User.Workstream.AFTER_SALES,
             },
             format="json",
@@ -506,6 +510,7 @@ class AccountSecurityTests(TestCase):
         response = client.post("/api/v1/users/", {
             "username": "weak",
             "password": "12345678",
+            "role": User.Role.SALES_AGENT,
         }, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("password", response.data)
@@ -516,6 +521,7 @@ class AccountSecurityTests(TestCase):
         created = client.post("/api/v1/users/", {
             "username": "new-agent",
             "password": "Long-Safe-Pass-741!",
+            "role": User.Role.SALES_AGENT,
         }, format="json")
         self.assertEqual(created.status_code, 201)
         edited = client.patch(
@@ -538,6 +544,7 @@ class AccountSecurityTests(TestCase):
         created = client.post("/api/v1/users/", {
             "username": "no-reset",
             "password": "Long-Safe-Pass-741!",
+            "role": User.Role.SALES_AGENT,
         }, format="json")
         self.assertEqual(created.status_code, 201)
         target = User.objects.get(pk=created.data["id"])
@@ -559,18 +566,34 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(self.agent.role, User.Role.SALES_MANAGER)
         self.assertEqual(self.agent.first_name, "Fresh")
 
-    def test_user_service_rejects_server_role(self):
+    def test_user_service_allows_platform_admin_to_grant_any_fixed_role(self):
+        # `role` moved from server-controlled (rejected as an unknown field)
+        # to an explicit, required, validated creation input — a Platform
+        # Admin creating a peer Platform Admin is exactly what
+        # `assignable_roles` already allows a Platform Admin actor to do.
+        created = create_crm_user(
+            actor=self.platform,
+            username="new-admin",
+            password="Long-Safe-Pass-741!",
+            role=User.Role.PLATFORM_ADMIN,
+        )
+        self.assertEqual(created.role, User.Role.PLATFORM_ADMIN)
+
+    def test_user_service_rejects_unknown_role(self):
         with self.assertRaises(BusinessRuleError):
             create_crm_user(
                 actor=self.platform,
-                username="bypass",
+                username="bad-role-service",
                 password="Long-Safe-Pass-741!",
-                role=User.Role.PLATFORM_ADMIN,
+                role="not-a-real-role",
             )
 
     def test_user_service_rejects_weak_password(self):
         with self.assertRaises(BusinessRuleError):
-            create_crm_user(actor=self.platform, username="weak-service", password="12345678")
+            create_crm_user(
+                actor=self.platform, username="weak-service", password="12345678",
+                role=User.Role.SALES_AGENT,
+            )
 
     def test_inactive_user_is_rejected(self):
         self.agent.is_active = False
@@ -691,7 +714,7 @@ class AccountSecurityTests(TestCase):
         cache.clear()
         self.assertEqual(
             UserViewSet.sensitive_actions,
-            frozenset({"create", "update", "partial_update", "change_role"}),
+            frozenset({"create", "update", "partial_update", "change_role", "set_permissions", "reset_permissions"}),
         )
         client = APIClient()
         client.force_authenticate(self.platform)

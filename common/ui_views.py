@@ -307,6 +307,14 @@ class UserAdminView(ActiveCrmView):
 class KarizUserListView(UserAdminView):
     template_name = "common/users/list.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Create User offers exactly the roles `change-role` would also
+        # accept from this same admin — one list, so the two screens can
+        # never disagree about what is on offer.
+        context["assignable_roles"] = assignable_roles(self.request.user)
+        return context
+
 
 class KarizUserDetailView(UserAdminView):
     template_name = "common/users/detail.html"

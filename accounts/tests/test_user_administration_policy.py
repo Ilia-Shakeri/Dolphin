@@ -214,7 +214,8 @@ class ServiceLayerIsAuthoritativeTests(ThrottleIsolatedTestCase):
             with self.subTest(role=role):
                 with self.assertRaises(BusinessPermissionDenied):
                     create_crm_user(
-                        actor=actor, password="Long-Safe-Pass-741!", username=f"svc-new-{role}"
+                        actor=actor, password="Long-Safe-Pass-741!", username=f"svc-new-{role}",
+                        role=User.Role.SALES_AGENT,
                     )
                 with self.assertRaises(BusinessPermissionDenied):
                     update_crm_user(actor=actor, target=self.target, first_name="x")
@@ -239,7 +240,7 @@ class PlatformAdminRetainsFullAdministrationTests(ThrottleIsolatedTestCase):
 
         created = self.client_api.post(
             "/api/v1/users/",
-            {"username": "fresh-agent", "password": "Long-Safe-Pass-741!"},
+            {"username": "fresh-agent", "password": "Long-Safe-Pass-741!", "role": User.Role.SALES_AGENT},
             format="json",
         )
         self.assertEqual(created.status_code, 201)
