@@ -184,7 +184,7 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         day a deployment profile grants one of them a narrower capability.
         """
         if self.request.user.role != User.Role.PLATFORM_ADMIN:
-            raise PermissionDenied("User administration is not allowed.")
+            raise PermissionDenied("مدیریت کاربران مجاز نیست.")
 
     def perform_create(self, serializer):
         self._require_admin()

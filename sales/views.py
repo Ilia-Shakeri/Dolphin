@@ -81,7 +81,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         kind = self.request.query_params.get("kind")
         if kind is not None:
             if kind not in Customer.Kind.values:
-                raise ValidationError({"kind": "Select a customer kind from the list."})
+                raise ValidationError({"kind": "نوع مشتری را از فهرست انتخاب کنید."})
             queryset = queryset.filter(kind=kind)
         return self._filter_by_registration_date(queryset)
 
@@ -105,7 +105,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
                 continue
             value = parse_date(raw)
             if value is None:
-                errors[name] = ["Enter a date as YYYY-MM-DD."]
+                errors[name] = ["تاریخ را به قالب YYYY-MM-DD وارد کنید."]
             else:
                 parsed[name] = value
         if errors:
@@ -150,9 +150,9 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     def import_xlsx(self, request):
         upload = request.FILES.get("file")
         if upload is None:
-            raise ValidationError({"file": "Attach the completed spreadsheet."})
+            raise ValidationError({"file": "فایل تکمیل‌شده را پیوست کنید."})
         if not upload.name.lower().endswith(".xlsx"):
-            raise ValidationError({"file": "Only an .xlsx file is accepted."})
+            raise ValidationError({"file": "فقط فایل با پسوند xlsx. پذیرفته می‌شود."})
         result = import_customers_from_workbook(
             actor=request.user,
             stream=upload,
@@ -259,7 +259,7 @@ class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         customer_id = self.request.query_params.get("customer")
         if customer_id is not None:
             if not customer_id.isdecimal() or int(customer_id) < 1:
-                raise ValidationError({"customer": "Enter a positive integer."})
+                raise ValidationError({"customer": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(customer_id=int(customer_id))
         return queryset
 
@@ -317,7 +317,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     @action(detail=False, methods=["get"], url_path="work-queue")
     def work_queue(self, request):
         if request.user.role != User.Role.SALES_AGENT:
-            raise PermissionDenied("The work queue is available only to Sales Agents.")
+            raise PermissionDenied("صف کاری فقط برای بازاریاب‌ها در دسترس است.")
         queryset = lead_work_queue_for(request.user).select_related(
             "customer", "assigned_to", "assigned_by", "interested_product"
         )
@@ -329,7 +329,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     @action(detail=False, methods=["get"])
     def assignees(self, request):
         if request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Lead reassignment is not allowed.")
+            raise PermissionDenied("واگذاری مجدد سرنخ مجاز نیست.")
         queryset = crm_identities(
             User.objects.filter(role=User.Role.SALES_AGENT, is_active=True)
         ).order_by("username")
@@ -435,7 +435,7 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if is_active not in {"true", "false"}:
-                raise ValidationError({"is_active": "Must be true or false."})
+                raise ValidationError({"is_active": "مقدار باید true یا false باشد."})
             queryset = queryset.filter(is_active=is_active == "true")
         return queryset
 
@@ -445,7 +445,7 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet
 
     def _require_manager(self):
         if self.request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Product category management is not allowed.")
+            raise PermissionDenied("مدیریت دسته‌بندی کالا مجاز نیست.")
 
     def create(self, request, *args, **kwargs):
         self._require_manager()
@@ -490,16 +490,16 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if is_active not in {"true", "false"}:
-                raise ValidationError({"is_active": "Must be true or false."})
+                raise ValidationError({"is_active": "مقدار باید true یا false باشد."})
             queryset = queryset.filter(is_active=is_active == "true")
         category = self.request.query_params.get("category")
         if category is not None:
             try:
                 category_id = int(category)
             except (TypeError, ValueError) as exc:
-                raise ValidationError({"category": "Must be a positive integer."}) from exc
+                raise ValidationError({"category": "باید عددی صحیح و مثبت باشد."}) from exc
             if category_id < 1 or str(category_id) != category:
-                raise ValidationError({"category": "Must be a positive integer."})
+                raise ValidationError({"category": "باید عددی صحیح و مثبت باشد."})
             queryset = queryset.filter(category_id=category_id)
         return queryset
 
@@ -518,7 +518,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
     def _require_manager(self):
         if self.request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Product management is not allowed.")
+            raise PermissionDenied("مدیریت کالا مجاز نیست.")
 
     def create(self, request, *args, **kwargs):
         self._require_manager()
@@ -581,12 +581,12 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         # parsed at all — and so a file with no valid rows cannot answer 200 to
         # someone who was never allowed to import.
         if not has_any_capability(request.user, "products.manage"):
-            raise PermissionDenied("Product management is not allowed.")
+            raise PermissionDenied("مدیریت کالا مجاز نیست.")
         upload = request.FILES.get("file")
         if upload is None:
-            raise ValidationError({"file": "Attach the completed spreadsheet."})
+            raise ValidationError({"file": "فایل تکمیل‌شده را پیوست کنید."})
         if not upload.name.lower().endswith(".xlsx"):
-            raise ValidationError({"file": "Only an .xlsx file is accepted."})
+            raise ValidationError({"file": "فقط فایل با پسوند xlsx. پذیرفته می‌شود."})
         result = import_products_from_workbook(actor=request.user, stream=upload)
         return Response(ProductImportResultSerializer(result).data)
 
@@ -688,7 +688,7 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if is_active not in {"true", "false"}:
-                raise ValidationError({"is_active": "Must be true or false."})
+                raise ValidationError({"is_active": "مقدار باید true یا false باشد."})
             queryset = queryset.filter(is_active=is_active == "true")
         return queryset
 
@@ -705,12 +705,12 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
     def create(self, request, *args, **kwargs):
         if request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Sales document registration is not allowed.")
+            raise PermissionDenied("ثبت سند فروش مجاز نیست.")
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         if self.request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Sales document registration is not allowed.")
+            raise PermissionDenied("ثبت سند فروش مجاز نیست.")
         serializer.save()
 
     @extend_schema(request=PostalStatusTransitionSerializer, responses={200: SalesDocumentSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE})

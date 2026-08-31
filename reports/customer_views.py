@@ -54,7 +54,7 @@ class CustomerInsightMixin(FeatureGatedAPIMixin):
         # no capability: they are not asking for nothing, they are asking for
         # something they may not have.
         if not has_any_capability(request.user, "customers.scoped", "customers.company"):
-            raise PermissionDenied("Customer access is not allowed.")
+            raise PermissionDenied("دسترسی به مشتریان مجاز نیست.")
 
 
 class CustomerCityReportView(CustomerInsightMixin, APIView):
@@ -128,7 +128,7 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
         key = kwargs.get("key")
         entry = LIST_CHARTS.get(key)
         if entry is None:
-            raise NotFound("Unknown chart.")
+            raise NotFound("نمودار نامعتبر است.")
         self.required_feature = entry[0]
         # Runs the feature gate with the value just resolved.
         super().initial(request, *args, **kwargs)
@@ -150,7 +150,7 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
     def get(self, request, key):
         feature, capabilities, builder, title = LIST_CHARTS[key]
         if not has_any_capability(request.user, *capabilities):
-            raise PermissionDenied("Access to this chart is not allowed.")
+            raise PermissionDenied("دسترسی به این نمودار مجاز نیست.")
         results = builder(request.user)
         payload = {"key": key, "title": title, "results": results, **totals_for(results)}
         response = Response(ListChartSerializer(payload).data)

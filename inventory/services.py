@@ -51,51 +51,51 @@ def allow_negative_stock():
 def _lock_active_actor(actor):
     locked = User.objects.select_for_update().filter(pk=actor.pk, is_active=True).first()
     if locked is None or not is_crm_identity(locked):
-        raise BusinessPermissionDenied("Active user is required.")
+        raise BusinessPermissionDenied("کاربر باید فعال باشد.")
     return locked
 
 
 def _lock_inventory_manager(actor):
     locked = _lock_active_actor(actor)
     if locked.role not in ELEVATED_OPERATORS:
-        raise BusinessPermissionDenied("Inventory management is not allowed.")
+        raise BusinessPermissionDenied("مدیریت انبار مجاز نیست.")
     return locked
 
 
 def _clean_single_line(value, *, field, limit, required=False):
     cleaned = " ".join(unicodedata.normalize("NFKC", str(value or "")).translate(_PERSIAN_LETTERS).split())
     if required and not cleaned:
-        raise BusinessRuleError({field: "This field is required."})
+        raise BusinessRuleError({field: "این فیلد الزامی است."})
     if len(cleaned) > limit:
-        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+        raise BusinessRuleError({field: f"این فیلد نباید بیش از {limit} نویسه داشته باشد."})
     return cleaned
 
 
 def _clean_text(value, *, field, limit):
     text = unicodedata.normalize("NFKC", str(value or ""))
     if len(text) > limit:
-        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+        raise BusinessRuleError({field: f"این فیلد نباید بیش از {limit} نویسه داشته باشد."})
     return text
 
 
 def _clean_warehouse_code(value):
     code = unicodedata.normalize("NFKC", str(value or "")).strip().lower()
     if not code or len(code) > 64:
-        raise BusinessRuleError({"code": "Warehouse code is required."})
+        raise BusinessRuleError({"code": "کد انبار الزامی است."})
     if not all(character.isascii() and (character.isalnum() or character in "_-") for character in code):
-        raise BusinessRuleError({"code": "Use lowercase ASCII letters, digits, underscore, or hyphen."})
+        raise BusinessRuleError({"code": "فقط از حروف انگلیسی کوچک، عدد، خط زیر یا خط تیره استفاده کنید."})
     if not (code[0].isascii() and code[0].isalnum()):
-        raise BusinessRuleError({"code": "Warehouse code must start with a letter or digit."})
+        raise BusinessRuleError({"code": "کد انبار باید با حرف یا عدد شروع شود."})
     return code
 
 
 def _clean_quantity(value, *, field="quantity"):
     if isinstance(value, bool) or not isinstance(value, int):
-        raise BusinessRuleError({field: "Quantity must be a whole number."})
+        raise BusinessRuleError({field: "تعداد باید عددی صحیح باشد."})
     if value < 1:
-        raise BusinessRuleError({field: "Quantity must be positive."})
+        raise BusinessRuleError({field: "تعداد باید مثبت باشد."})
     if value > MAX_QUANTITY:
-        raise BusinessRuleError({field: "Quantity is too large."})
+        raise BusinessRuleError({field: "تعداد بیش از حد مجاز است."})
     return value
 
 
@@ -103,18 +103,18 @@ def _clean_money(value, *, field, allow_none=False):
     if value is None:
         if allow_none:
             return None
-        raise BusinessRuleError({field: "This field is required."})
+        raise BusinessRuleError({field: "این فیلد الزامی است."})
     try:
         amount = Decimal(str(value))
     except (ArithmeticError, TypeError, ValueError) as exc:
-        raise BusinessRuleError({field: "Enter a valid amount."}) from exc
+        raise BusinessRuleError({field: "مبلغ معتبر وارد کنید."}) from exc
     if not amount.is_finite():
-        raise BusinessRuleError({field: "Enter a valid amount."})
+        raise BusinessRuleError({field: "مبلغ معتبر وارد کنید."})
     amount = amount.quantize(MONEY, rounding=ROUND_HALF_UP)
     if amount < 0:
-        raise BusinessRuleError({field: "Amount cannot be negative."})
+        raise BusinessRuleError({field: "مبلغ نمی‌تواند منفی باشد."})
     if amount > MAX_MONEY:
-        raise BusinessRuleError({field: "Amount is too large."})
+        raise BusinessRuleError({field: "مبلغ بیش از حد مجاز است."})
     return amount
 
 
@@ -123,7 +123,7 @@ def create_warehouse(*, actor, **data):
     actor = _lock_inventory_manager(actor)
     unknown = set(data) - WAREHOUSE_CREATE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     code = _clean_warehouse_code(data.get("code"))
     name = _clean_single_line(data.get("name"), field="name", limit=120, required=True)
     address = _clean_text(data.get("address", ""), field="address", limit=WAREHOUSE_ADDRESS_MAX_LENGTH)
@@ -142,8 +142,8 @@ def create_warehouse(*, actor, **data):
         )
     except IntegrityError as exc:
         raise BusinessConflictError({
-            "code": "Warehouse code must be unique.",
-            "name": "Warehouse name must be unique.",
+            "code": "کد انبار باید یکتا باشد.",
+            "name": "نام انبار باید یکتا باشد.",
         }) from exc
     log_activity(actor=actor, operation="warehouse.created", instance=warehouse, changes={"code": code})
     return warehouse
@@ -164,7 +164,7 @@ def update_warehouse(*, actor, warehouse, **changes):
     locked = Warehouse.objects.select_for_update().get(pk=warehouse.pk)
     unknown = set(changes) - WAREHOUSE_UPDATE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     if "name" in changes:
         name = _clean_single_line(changes["name"], field="name", limit=120, required=True)
         changes["name"] = name
@@ -175,7 +175,7 @@ def update_warehouse(*, actor, warehouse, **changes):
         )
     if changes.get("is_default"):
         if not locked.is_active:
-            raise BusinessConflictError({"is_default": "An inactive warehouse cannot be the default."})
+            raise BusinessConflictError({"is_default": "انبار غیرفعال نمی‌تواند انبار پیش‌فرض باشد."})
         _clear_default_warehouse(actor=actor, keep_pk=locked.pk)
     changed_fields = [field for field, value in changes.items() if getattr(locked, field) != value]
     for field in changed_fields:
@@ -185,7 +185,7 @@ def update_warehouse(*, actor, warehouse, **changes):
         try:
             locked.save(update_fields=[*changed_fields, "updated_by", "updated_at"])
         except IntegrityError as exc:
-            raise BusinessConflictError({"name": "Warehouse name must be unique."}) from exc
+            raise BusinessConflictError({"name": "نام انبار باید یکتا باشد."}) from exc
         log_activity(
             actor=actor,
             operation="warehouse.updated",
@@ -200,12 +200,12 @@ def deactivate_warehouse(*, actor, warehouse):
     actor = _lock_inventory_manager(actor)
     locked = Warehouse.objects.select_for_update().get(pk=warehouse.pk)
     if not locked.is_active:
-        raise BusinessConflictError({"is_active": "Warehouse is already inactive."})
+        raise BusinessConflictError({"is_active": "این انبار قبلاً غیرفعال شده است."})
     # Deactivating a warehouse that still holds stock would strand that stock:
     # it stays in the ledger but leaves every level report. Transfer it first.
     if StockItem.objects.filter(warehouse=locked).exclude(quantity=0).exists():
         raise BusinessConflictError({
-            "warehouse": "Move remaining stock out of this warehouse before deactivating it."
+            "warehouse": "پیش از غیرفعال‌سازی این انبار، موجودی باقی‌مانده آن را خارج کنید."
         })
     locked.is_active = False
     locked.is_default = False
@@ -220,7 +220,7 @@ def reactivate_warehouse(*, actor, warehouse):
     actor = _lock_inventory_manager(actor)
     locked = Warehouse.objects.select_for_update().get(pk=warehouse.pk)
     if locked.is_active:
-        raise BusinessConflictError({"is_active": "Warehouse is already active."})
+        raise BusinessConflictError({"is_active": "این انبار قبلاً فعال شده است."})
     locked.is_active = True
     locked.updated_by = actor
     locked.save(update_fields=["is_active", "updated_by", "updated_at"])
@@ -277,7 +277,7 @@ def record_stock_movement(
     actor = _lock_inventory_manager(actor) if require_manager else _lock_active_actor(actor)
 
     if movement_type not in StockMovement.MovementType.values:
-        raise BusinessRuleError({"movement_type": "Unknown movement type."})
+        raise BusinessRuleError({"movement_type": "نوع تراکنش انبار نامعتبر است."})
     quantity = _clean_quantity(quantity)
     notes = _clean_text(notes, field="notes", limit=MOVEMENT_NOTES_MAX_LENGTH)
     reference_number = _clean_single_line(
@@ -287,11 +287,11 @@ def record_stock_movement(
         idempotency_key, field="idempotency_key", limit=IDEMPOTENCY_KEY_MAX_LENGTH
     )
     if reference_kind not in StockMovement.ReferenceKind.values:
-        raise BusinessRuleError({"reference_kind": "Unknown reference kind."})
+        raise BusinessRuleError({"reference_kind": "نوع مرجع نامعتبر است."})
     if reference_kind == StockMovement.ReferenceKind.MANUAL:
         reference_id = None
     elif reference_id is None:
-        raise BusinessRuleError({"reference_id": "A referenced movement needs its source id."})
+        raise BusinessRuleError({"reference_id": "تراکنش دارای مرجع باید شناسه مبدأ داشته باشد."})
 
     if idempotency_key:
         # A retry is the same movement asked for again, so the key is matched
@@ -314,7 +314,7 @@ def record_stock_movement(
                 or existing.reference_id != reference_id
             ):
                 raise BusinessConflictError({
-                    "idempotency_key": "This key was already used for a different movement."
+                    "idempotency_key": "این کلید قبلاً برای تراکنش دیگری استفاده شده است."
                 })
             # A retried request must not apply the same movement twice.
             return existing
@@ -325,16 +325,16 @@ def record_stock_movement(
     elif incoming:
         unit_cost = _clean_money(unit_cost, field="unit_cost", allow_none=True)
     elif unit_cost is not None:
-        raise BusinessRuleError({"unit_cost": "An outgoing movement consumes the average cost."})
+        raise BusinessRuleError({"unit_cost": "در تراکنش خروجی نباید بهای واحد وارد شود؛ میانگین بهای تمام‌شده استفاده می‌شود."})
 
     occurred_at = occurred_at or timezone.now()
 
     locked_warehouse = Warehouse.objects.select_for_update().get(pk=warehouse.pk)
     if not locked_warehouse.is_active:
-        raise BusinessConflictError({"warehouse": "Warehouse is inactive."})
+        raise BusinessConflictError({"warehouse": "انبار غیرفعال است."})
     locked_product = Product.objects.select_for_update().get(pk=product.pk)
     if not locked_product.is_active and incoming:
-        raise BusinessConflictError({"product": "Product is inactive."})
+        raise BusinessConflictError({"product": "کالا غیرفعال است."})
 
     item = _lock_stock_item(warehouse=locked_warehouse, product=locked_product)
     previous_quantity = item.quantity
@@ -357,14 +357,14 @@ def record_stock_movement(
         new_quantity = previous_quantity - quantity
         if new_quantity < 0 and not allow_negative_stock():
             raise BusinessConflictError({
-                "quantity": "Not enough stock in this warehouse for the requested quantity."
+                "quantity": "موجودی این انبار برای تعداد درخواستی کافی نیست."
             })
         new_cost = previous_cost
 
     if new_quantity > MAX_QUANTITY or new_quantity < -MAX_QUANTITY:
-        raise BusinessRuleError({"quantity": "Resulting stock level is out of range."})
+        raise BusinessRuleError({"quantity": "موجودی حاصل خارج از محدوده مجاز است."})
     if new_cost > MAX_MONEY:
-        raise BusinessRuleError({"unit_cost": "Resulting average cost is too large."})
+        raise BusinessRuleError({"unit_cost": "میانگین بهای تمام‌شده حاصل بیش از حد مجاز است."})
 
     try:
         movement = StockMovement.objects.create(
@@ -384,7 +384,7 @@ def record_stock_movement(
             notes=notes,
         )
     except IntegrityError as exc:
-        raise BusinessConflictError({"idempotency_key": "This movement was already recorded."}) from exc
+        raise BusinessConflictError({"idempotency_key": "این تراکنش قبلاً ثبت شده است."}) from exc
 
     item.quantity = new_quantity
     item.average_cost = new_cost
@@ -415,7 +415,7 @@ def transfer_stock(*, actor, from_warehouse, to_warehouse, product, quantity, oc
     """
     actor = _lock_inventory_manager(actor)
     if from_warehouse.pk == to_warehouse.pk:
-        raise BusinessRuleError({"to_warehouse": "Choose a different destination warehouse."})
+        raise BusinessRuleError({"to_warehouse": "انبار مقصد باید متفاوت باشد."})
     occurred_at = occurred_at or timezone.now()
     outgoing = record_stock_movement(
         actor=actor,

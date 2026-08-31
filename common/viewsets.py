@@ -18,12 +18,12 @@ class StrictQueryParametersMixin(FeatureGatedAPIMixin):
         if action_name == "list":
             allowed |= self.common_list_query_parameters | set(self.list_query_parameters)
         errors = {
-            name: ["Unknown query parameter."]
+            name: ["پارامتر نامعتبر است."]
             for name in sorted(set(request.query_params) - allowed)
         }
         for name in sorted(set(request.query_params) & allowed):
             if len(request.query_params.getlist(name)) > 1:
-                errors[name] = ["Query parameter must appear once."]
+                errors[name] = ["این پارامتر باید فقط یک‌بار وارد شود."]
         if errors:
             raise ValidationError(errors)
 

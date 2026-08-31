@@ -46,7 +46,7 @@ class WarehouseViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
             if is_active not in {"true", "false"}:
-                raise ValidationError({"is_active": "Must be true or false."})
+                raise ValidationError({"is_active": "مقدار باید true یا false باشد."})
             queryset = queryset.filter(is_active=is_active == "true")
         return queryset
 
@@ -56,7 +56,7 @@ class WarehouseViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
 
     def _require_manager(self):
         if self.request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Inventory management is not allowed.")
+            raise PermissionDenied("مدیریت انبار مجاز نیست.")
 
     def create(self, request, *args, **kwargs):
         self._require_manager()
@@ -106,7 +106,7 @@ class StockItemViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixins
         if value is None:
             return None
         if not value.lstrip("-").isdecimal() or (name != "below_or_equal" and int(value) < 1):
-            raise ValidationError({name: "Enter a valid integer."})
+            raise ValidationError({name: "عدد صحیح معتبر وارد کنید."})
         return int(value)
 
     def get_queryset(self):
@@ -152,12 +152,12 @@ class StockMovementViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMi
             value = self.request.query_params.get(parameter)
             if value is not None:
                 if not value.isdecimal() or int(value) < 1:
-                    raise ValidationError({parameter: "Enter a positive integer."})
+                    raise ValidationError({parameter: "یک عدد صحیح مثبت وارد کنید."})
                 queryset = queryset.filter(**{field: int(value)})
         movement_type = self.request.query_params.get("movement_type")
         if movement_type is not None:
             if movement_type not in StockMovement.MovementType.values:
-                raise ValidationError({"movement_type": "Unknown movement type."})
+                raise ValidationError({"movement_type": "نوع تراکنش انبار نامعتبر است."})
             queryset = queryset.filter(movement_type=movement_type)
         return queryset
 
@@ -175,7 +175,7 @@ class StockMovementViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMi
 
     def create(self, request, *args, **kwargs):
         if request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Inventory management is not allowed.")
+            raise PermissionDenied("مدیریت انبار مجاز نیست.")
         return super().create(request, *args, **kwargs)
 
     @extend_schema(
@@ -192,7 +192,7 @@ class StockMovementViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMi
     @action(detail=False, methods=["post"])
     def transfer(self, request):
         if request.user.role not in ELEVATED_OPERATORS:
-            raise PermissionDenied("Inventory management is not allowed.")
+            raise PermissionDenied("مدیریت انبار مجاز نیست.")
         serializer = StockTransferSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)

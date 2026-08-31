@@ -34,6 +34,80 @@
 
 ---
 
+## [1.6.2] — ۲۰۲۶-۰۸-۳۱
+
+### تغییر کرد — همهٔ ارورهای پنل، فارسی؛ بدون استثنا
+
+تصمیم صریح مالک محصول: کاربر و مدیر پلتفرم هر دو از داخل پنل کار می‌کنند و باید
+ارور را فارسی ببینند تا بفهمند مشکل از کجاست. **لاگ‌های سمت سرور همچنان
+انگلیسی می‌مانند** — آن‌ها را فقط توسعه‌دهنده می‌خواند و تغییری در آن‌ها داده
+نشد: نام تابع‌های لاگ، `operation=` و کلیدهای `changes=` در `log_activity`، و
+تمام کامنت‌های کد دست‌نخورده باقی ماندند.
+
+نکتهٔ «خارج از دامنه» ثبت‌شده در ۱.۶.۱ (بیش از ۱۶۵ پیام `BusinessRuleError` و
+مشابه‌هایش به انگلیسی) دیگر خارج از دامنه نیست — همان کار است.
+
+**دامنهٔ واقعی، پس از بررسی کامل کد، بزرگ‌تر از آن ۱۶۵ مورد بود.** هر پیامی که
+از طریق `BusinessRuleError`، `BusinessConflictError`، `BusinessPermissionDenied`،
+`IdempotencyConflict`، `ValidationError`، `PermissionDenied`، `NotFound` یا
+`ParseError` با متن دستی انگلیسی به پاسخ API می‌رسید ترجمه شد — نزدیک به ۳۰۰
+پیام، در ۳۶ فایل:
+
+- `billing/services.py`, `billing/payments.py`, `billing/ledger.py`,
+  `billing/money.py`, `billing/numbering.py`, `billing/serializers.py`,
+  `billing/views.py`
+- `sales/services.py`, `sales/serializers.py`, `sales/views.py`,
+  `sales/imports.py`, `sales/customer_imports.py`
+- `inventory/services.py`, `inventory/views.py`
+- `aftersales/services.py`, `aftersales/views.py`
+- `communications/services.py`, `communications/serializers.py`,
+  `communications/views.py`
+- `accounts/services.py`, `accounts/serializers.py`, `accounts/sessions.py`,
+  `accounts/views.py`
+- `reports/views.py`, `reports/serializers.py`, `reports/customer_views.py`,
+  `reports/directory_views.py`, `reports/financial_views.py`,
+  `reports/customer_insights.py`
+- `common/phones.py`, `common/serializers.py`, `common/viewsets.py`,
+  `common/parsers.py`, `common/exceptions.py`, `common/error_views.py`
+- `common/static/common/forooshbin-app.js` (یک پیام خطای سمت کلاینت)
+
+سه نکتهٔ فنی از دل این کار:
+
+- **کلید فیلدهای ارور دست‌نخورده ماندند.** `{"amount": "..."}`، `{"status":
+  "..."}` و مانند آن — این کلیدها همان نام فیلد HTML هستند که جاوااسکریپت
+  پنل (`data-error-for`) برایشان پیام را زیر همان فیلد می‌نشاند؛ فقط متنِ
+  پیام (سمت راست دیکشنری) فارسی شد، نه کلید.
+- **اعتبارسنج رمز عبور جنگو تا حدی خودش فارسی است.** با `LANGUAGE_CODE="fa"`
+  فعال، سه از چهار اعتبارسنج پیش‌فرض جنگو (رمز تکراری، رمز کاملاً عددی، رمز
+  شبیه نام‌کاربری) پیام فارسیِ خودِ جنگو را برمی‌گردانند — این تغییر نکرد،
+  چون سالم بود. تنها `MinimumLengthValidator` در فهرست ترجمهٔ خودِ جنگو برای
+  `fa` این نسخه خالی بود؛ یک تابع کوچک (`persian_password_messages` در
+  `accounts/services.py`) دقیقاً همان یک پیام را فارسی می‌کند و بقیه را
+  دست‌نخورده رد می‌کند — نه بازنویسی اعتبارسنج، فقط پر کردن همان یک خلأ.
+- **دو مسیر واقعاً پیام خام را به کاربر می‌رساندند، نه فقط دیکشنری ثابت:**
+  `reports/customer_views.py` یک `except InvalidReportPeriod as exc: ...
+  str(exc)` داشت که پیام را همان‌طور که در `reports/customer_insights.py`
+  نوشته شده بود عبور می‌داد — آن سه پیام در مبدأ ترجمه شدند. `sales/imports.py`
+  و `sales/customer_imports.py` هم برای هر ردیفِ ناموفقِ اکسل ورودی
+  (`note_error`) و برای `_price()` پیام آزاد می‌ساختند، نه دیکشنری ثابت —
+  همه ترجمه شدند.
+
+چیزی که **دست نخورد**: پیام‌های پیش‌فرض DRF/جنگو که خودشان از قبل با `fa`
+فارسی برمی‌گردند (۴۰۴، ۴۰۳، خطای پارس چندرسانه‌ای، و…) — این‌ها را قبلاً بررسی
+کرده بودیم؛ فقط جایی که کد ما رشتهٔ انگلیسیِ دستی می‌فرستاد دست بردیم.
+
+### شواهد
+
+پنج آزمون رشتهٔ دقیق انگلیسی انتظار داشتند؛ هر پنج به‌روزرسانی شدند تا با متن
+فارسی تازه مطابقت کنند (`accounts/tests/test_accounts.py`,
+`common/tests/test_system_api.py` ×۴, `reports/tests/test_user_performance.py`
+×۲). هیچ آزمون دیگری روی متن دقیق ارور فرض نکرده بود.
+
+`python manage.py test --settings=config.test_settings` → **۱۱۶۷ تست، OK،
+۱۵ skip**.
+
+---
+
 ## [1.6.1] — ۲۰۲۶-۰۸-۳۱
 
 بازبینی کامل و دستی پنل با دادهٔ واقعی، پیش از استقرار. **بدون تغییر کد. بدون

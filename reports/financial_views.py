@@ -55,15 +55,15 @@ class FinancialReportMixin(FeatureGatedAPIMixin):
 
     def build(self, request):
         if not has_any_capability(request.user, "reports.company"):
-            raise PermissionDenied("Report access is not allowed.")
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.")
         serializer = self.query_serializer_class(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         try:
             return type(self).builder(actor=request.user, **serializer.validated_data)
         except InvalidProfitPeriod as exc:
-            raise ValidationError({"period_end": "Invalid report period."}) from exc
+            raise ValidationError({"period_end": "بازه گزارش نامعتبر است."}) from exc
         except ReportAccessDenied as exc:
-            raise PermissionDenied("Report access is not allowed.") from exc
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.") from exc
 
 
 class FinancialExportMixin:

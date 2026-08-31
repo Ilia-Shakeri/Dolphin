@@ -62,7 +62,7 @@ def api_exception_handler(exc, context):
     if isinstance(exc, RequestDataTooBig):
         return Response(
             {
-                "detail": "Request body is too large.",
+                "detail": "حجم درخواست بیش از حد مجاز است.",
                 "error": {
                     "code": "payload_too_large",
                     "request_id": current_request_context().request_id,
@@ -83,7 +83,7 @@ def api_exception_handler(exc, context):
             pass
         return Response(
             {
-                "detail": "Internal server error.",
+                "detail": "خطای داخلی سامانه.",
                 "error": {
                     "code": "server_error",
                     "request_id": current_request_context().request_id,

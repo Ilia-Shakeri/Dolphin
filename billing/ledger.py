@@ -62,13 +62,13 @@ def append_ledger_entry(
     notes="",
 ):
     if entry_type not in CustomerLedgerEntry.EntryType.values:
-        raise BusinessRuleError({"entry_type": "Unknown ledger entry type."})
+        raise BusinessRuleError({"entry_type": "نوع سند دفتر نامعتبر است."})
     debit = quantize_money(debit or 0)
     credit = quantize_money(credit or 0)
     if (debit > 0) == (credit > 0):
-        raise BusinessRuleError({"amount": "A ledger entry carries exactly one of debit or credit."})
+        raise BusinessRuleError({"amount": "هر سند دفتر باید دقیقاً یکی از بدهکار یا بستانکار را داشته باشد."})
     if debit < 0 or credit < 0:
-        raise BusinessRuleError({"amount": "A ledger amount cannot be negative."})
+        raise BusinessRuleError({"amount": "مبلغ دفتر نمی‌تواند منفی باشد."})
 
     # Locking the customer serialises every posting for this account, which is
     # what makes the running balance correct under concurrency. `balance_after`
@@ -80,7 +80,7 @@ def append_ledger_entry(
     balance = current_balance(locked_customer) + debit - credit
     balance = quantize_money(balance)
     if abs(balance) > MAX_MONEY:
-        raise BusinessRuleError({"amount": "Resulting customer balance is out of range."})
+        raise BusinessRuleError({"amount": "مانده حاصل مشتری خارج از محدوده مجاز است."})
 
     entry = CustomerLedgerEntry.objects.create(
         customer=locked_customer,

@@ -9,8 +9,8 @@ class RejectServerFieldsMixin:
         supplied = set(getattr(self, "initial_data", {}))
         forbidden = supplied & (set(self.server_fields) | self.always_forbidden_fields)
         if forbidden:
-            raise serializers.ValidationError({name: "This field is server-controlled." for name in sorted(forbidden)})
+            raise serializers.ValidationError({name: "این فیلد توسط سامانه کنترل می‌شود." for name in sorted(forbidden)})
         unknown = supplied - set(self.fields)
         if unknown:
-            raise serializers.ValidationError({name: "Unknown field." for name in sorted(unknown)})
+            raise serializers.ValidationError({name: "فیلد نامعتبر است." for name in sorted(unknown)})
         return super().validate(attrs)

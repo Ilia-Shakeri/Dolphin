@@ -42,7 +42,7 @@ class UserPerformanceReportMixin(FeatureGatedAPIMixin):
 
     def get_report(self, request):
         if not has_any_capability(request.user, "reports.own", "reports.company"):
-            raise PermissionDenied("Report access is not allowed.")
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.")
         serializer = UserPerformanceQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         try:
@@ -51,11 +51,11 @@ class UserPerformanceReportMixin(FeatureGatedAPIMixin):
                 **serializer.validated_data,
             )
         except InvalidReportUser as exc:
-            raise ValidationError({"user_id": "Invalid user."}) from exc
+            raise ValidationError({"user_id": "کاربر نامعتبر است."}) from exc
         except InvalidReportPeriod as exc:
-            raise ValidationError({"period_end": "Invalid report period."}) from exc
+            raise ValidationError({"period_end": "بازه گزارش نامعتبر است."}) from exc
         except ReportAccessDenied as exc:
-            raise PermissionDenied("Report access is not allowed.") from exc
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.") from exc
 
 
 class UserPerformanceReportView(UserPerformanceReportMixin, APIView):
@@ -88,7 +88,7 @@ class UserPerformanceDetailView(UserPerformanceReportMixin, APIView):
     )
     def get(self, request):
         if not has_any_capability(request.user, "reports.own", "reports.company"):
-            raise PermissionDenied("Report access is not allowed.")
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.")
         serializer = UserPerformanceDetailQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         values = dict(serializer.validated_data)
@@ -96,11 +96,11 @@ class UserPerformanceDetailView(UserPerformanceReportMixin, APIView):
         try:
             record_type, queryset = user_performance_details(actor=request.user, **values)
         except InvalidReportUser as exc:
-            raise ValidationError({"user_id": "Invalid user."}) from exc
+            raise ValidationError({"user_id": "کاربر نامعتبر است."}) from exc
         except InvalidReportPeriod as exc:
-            raise ValidationError({"period_end": "Invalid report period."}) from exc
+            raise ValidationError({"period_end": "بازه گزارش نامعتبر است."}) from exc
         except ReportAccessDenied as exc:
-            raise PermissionDenied("Report access is not allowed.") from exc
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.") from exc
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(queryset, request, view=self)
         if record_type == "customer":
@@ -149,15 +149,15 @@ class SalesDocumentReportView(FeatureGatedAPIMixin, APIView):
     )
     def get(self, request):
         if not has_any_capability(request.user, "reports.own", "reports.company"):
-            raise PermissionDenied("Report access is not allowed.")
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.")
         serializer = SalesDocumentReportQuerySerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         try:
             report = build_sales_document_report(actor=request.user, **serializer.validated_data)
         except InvalidReportPeriod as exc:
-            raise ValidationError({"period_end": "Invalid report period."}) from exc
+            raise ValidationError({"period_end": "بازه گزارش نامعتبر است."}) from exc
         except ReportAccessDenied as exc:
-            raise PermissionDenied("Report access is not allowed.") from exc
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.") from exc
         response = Response(SalesDocumentReportSerializer(report).data)
         response["Cache-Control"] = "private, no-store"
         return response

@@ -28,7 +28,7 @@ def _reject_deep_json(value):
         elif character in "[{":
             depth += 1
             if depth > MAX_JSON_NESTING_DEPTH:
-                raise ParseError("JSON nesting is too deep.")
+                raise ParseError("ساختار JSON بیش از حد تودرتو است.")
         elif character in "]}":
             depth -= 1
 
@@ -47,10 +47,10 @@ class BoundedJSONParser(BaseParser):
         try:
             value = raw_value.decode(encoding) if isinstance(raw_value, bytes) else raw_value
         except UnicodeError as exc:
-            raise ParseError("Malformed JSON.") from exc
+            raise ParseError("ساختار JSON نامعتبر است.") from exc
         _reject_deep_json(value)
         try:
             parse_constant = json.strict_constant if self.strict else None
             return json.loads(value, parse_constant=parse_constant)
         except (ValueError, RecursionError) as exc:
-            raise ParseError("Malformed JSON.") from exc
+            raise ParseError("ساختار JSON نامعتبر است.") from exc

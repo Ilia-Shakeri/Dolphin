@@ -123,8 +123,8 @@ def _refuse_overpayment(*, customer, amount):
     if amount > outstanding:
         raise BusinessRuleError({
             "amount": (
-                "A receipt cannot exceed what the customer owes "
-                f"({outstanding}). Overpayment is not recorded."
+                "مبلغ رسید نمی‌تواند از بدهی مشتری "
+                f"({outstanding}) بیشتر باشد. اضافه‌پرداخت ثبت نمی‌شود."
             )
         })
 
@@ -132,25 +132,25 @@ def _refuse_overpayment(*, customer, amount):
 def _lock_payment_manager(actor):
     locked = User.objects.select_for_update().filter(pk=actor.pk, is_active=True).first()
     if locked is None or not is_crm_identity(locked):
-        raise BusinessPermissionDenied("Active user is required.")
+        raise BusinessPermissionDenied("کاربر باید فعال باشد.")
     if locked.role not in ELEVATED_OPERATORS:
-        raise BusinessPermissionDenied("Payment operations are not allowed.")
+        raise BusinessPermissionDenied("عملیات پرداخت مجاز نیست.")
     return locked
 
 
 def _clean_line(value, *, field, limit, required=False):
     cleaned = " ".join(unicodedata.normalize("NFKC", str(value or "")).split())
     if required and not cleaned:
-        raise BusinessRuleError({field: "This field is required."})
+        raise BusinessRuleError({field: "این فیلد الزامی است."})
     if len(cleaned) > limit:
-        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+        raise BusinessRuleError({field: f"این فیلد نباید بیش از {limit} نویسه داشته باشد."})
     return cleaned
 
 
 def _clean_text(value, *, field, limit):
     text = unicodedata.normalize("NFKC", str(value or ""))
     if len(text) > limit:
-        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+        raise BusinessRuleError({field: f"این فیلد نباید بیش از {limit} نویسه داشته باشد."})
     return text
 
 
@@ -181,15 +181,15 @@ def register_payment(
 ):
     actor = _lock_payment_manager(actor)
     if method not in Payment.Method.values:
-        raise BusinessRuleError({"method": "Unknown payment method."})
+        raise BusinessRuleError({"method": "روش پرداخت نامعتبر است."})
     if direction not in Payment.Direction.values:
-        raise BusinessRuleError({"direction": "Unknown payment direction."})
+        raise BusinessRuleError({"direction": "جهت پرداخت نامعتبر است."})
     payee = _clean_line(payee, field="payee", limit=255)
     is_receipt = direction == Payment.Direction.RECEIPT
     if is_receipt and customer is None:
-        raise BusinessRuleError({"customer": "A receipt names the customer it came from."})
+        raise BusinessRuleError({"customer": "برای رسید، مشتری پرداخت‌کننده باید مشخص شود."})
     if not is_receipt and not payee:
-        raise BusinessRuleError({"payee": "A disbursement names who was paid."})
+        raise BusinessRuleError({"payee": "برای پرداخت خروجی باید گیرنده مشخص شود."})
     amount = clean_money(amount, field="amount", allow_zero=False)
     reference = _clean_line(reference, field="reference", limit=REFERENCE_MAX_LENGTH)
     bank_name = _clean_line(bank_name, field="bank_name", limit=120)
@@ -198,8 +198,8 @@ def register_payment(
         # The database constraint says the same thing, but as an IntegrityError
         # naming a constraint. Refused here so the caller is told which field.
         raise BusinessRuleError({
-            "bank_name": "Bank details belong to a bank transfer.",
-            "bank_account": "Bank details belong to a bank transfer.",
+            "bank_name": "اطلاعات بانکی فقط برای پرداخت با حواله بانکی است.",
+            "bank_account": "اطلاعات بانکی فقط برای پرداخت با حواله بانکی است.",
         })
     idempotency_key = _clean_line(
         idempotency_key, field="idempotency_key", limit=IDEMPOTENCY_KEY_MAX_LENGTH
@@ -237,7 +237,7 @@ def register_payment(
         if existing is not None:
             if existing.method != method or existing.amount != amount:
                 raise BusinessConflictError({
-                    "idempotency_key": "This key was already used for a different payment."
+                    "idempotency_key": "این کلید قبلاً برای پرداخت دیگری استفاده شده است."
                 })
             return existing
 
@@ -247,7 +247,7 @@ def register_payment(
     if customer is not None:
         locked_customer = Customer.objects.select_for_update().get(pk=customer.pk)
         if not locked_customer.is_active:
-            raise BusinessConflictError({"customer": "Customer is inactive."})
+            raise BusinessConflictError({"customer": "مشتری غیرفعال است."})
 
     # بند ۳.۴ — overpayment is refused before anything is written.
     if direction == Payment.Direction.RECEIPT:
@@ -255,9 +255,9 @@ def register_payment(
 
     is_cheque = method == Payment.Method.CHEQUE
     if is_cheque and not isinstance(cheque, dict):
-        raise BusinessRuleError({"cheque": "Cheque details are required for a cheque payment."})
+        raise BusinessRuleError({"cheque": "برای پرداخت با چک، اطلاعات چک الزامی است."})
     if not is_cheque and cheque:
-        raise BusinessRuleError({"cheque": "Cheque details apply only to a cheque payment."})
+        raise BusinessRuleError({"cheque": "اطلاعات چک فقط برای پرداخت با چک کاربرد دارد."})
 
     confirmed_now = (not is_cheque) or cheque_credits_on_registration()
     status = Payment.Status.CONFIRMED if confirmed_now else Payment.Status.PENDING
@@ -280,7 +280,7 @@ def register_payment(
             notes=notes,
         )
     except IntegrityError as exc:
-        raise BusinessConflictError({"idempotency_key": "This payment was already registered."}) from exc
+        raise BusinessConflictError({"idempotency_key": "این پرداخت قبلاً ثبت شده است."}) from exc
 
     if is_cheque:
         _create_cheque(actor=actor, payment=payment, amount=amount, data=cheque)
@@ -347,13 +347,13 @@ def _post_payment_credit(*, actor, payment):
 def _create_cheque(*, actor, payment, amount, data):
     unknown = set(data) - CHEQUE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     due_date = data.get("due_date")
     if due_date is None:
-        raise BusinessRuleError({"cheque": "A cheque needs its due date."})
+        raise BusinessRuleError({"cheque": "برای چک باید تاریخ سررسید مشخص شود."})
     source = data.get("source", "") or ""
     if source and source not in Cheque.Source.values:
-        raise BusinessRuleError({"cheque": "Unknown cheque source."})
+        raise BusinessRuleError({"cheque": "منبع چک نامعتبر است."})
     registered_on = data.get("registered_on") or None
     # Both axes are settled here and are not the caller's to choose.
     #
@@ -382,7 +382,7 @@ def _create_cheque(*, actor, payment, amount, data):
         )
     except IntegrityError as exc:
         raise BusinessConflictError({
-            "cheque": "A cheque with this bank and serial number is already registered."
+            "cheque": "چکی با این بانک و شماره سریال قبلاً ثبت شده است."
         }) from exc
 
 
@@ -405,7 +405,7 @@ def spend_received_cheque(*, actor, cheque, payee, reason=""):
     locked = Cheque.objects.select_for_update().get(pk=cheque.pk)
     if locked.payment.direction != Payment.Direction.RECEIPT:
         raise BusinessRuleError({
-            "cheque": "Only a cheque received from a customer can be endorsed onward."
+            "cheque": "فقط چکی که از مشتری دریافت شده قابل خرج کردن است."
         })
     updated = transition_cheque(
         actor=actor, cheque=locked, to_status=Cheque.Status.SPENT, reason=reason
@@ -471,11 +471,11 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
     actor = _lock_payment_manager(actor)
     locked = Cheque.objects.select_for_update().select_related("payment").get(pk=cheque.pk)
     if to_status not in Cheque.Status.values:
-        raise BusinessRuleError({"status": "Unknown cheque status."})
+        raise BusinessRuleError({"status": "وضعیت چک نامعتبر است."})
     allowed = Cheque.TRANSITIONS.get(locked.status, frozenset())
     if to_status not in allowed:
         raise BusinessConflictError({
-            "status": f"A cheque in '{locked.status}' cannot move to '{to_status}'."
+            "status": f"چکی که در وضعیت «{locked.status}» است نمی‌تواند به «{to_status}» تغییر کند."
         })
     reason = _clean_text(reason, field="reason", limit=500)
     previous = locked.status
@@ -563,18 +563,18 @@ def allocate_payment_across(*, actor, payment, splits):
     """
     actor = _lock_payment_manager(actor)
     if not splits:
-        raise BusinessRuleError({"splits": "Choose at least one invoice."})
+        raise BusinessRuleError({"splits": "حداقل یک فاکتور را انتخاب کنید."})
 
     seen = set()
     for index, split in enumerate(splits):
         invoice = split.get("invoice")
         if invoice is None:
-            raise BusinessRuleError({f"splits.{index}.invoice": "This field is required."})
+            raise BusinessRuleError({f"splits.{index}.invoice": "این فیلد الزامی است."})
         # The same invoice twice would hit the unique constraint underneath and
         # surface as a conflict about an allocation the operator never made.
         if invoice.pk in seen:
             raise BusinessRuleError({
-                f"splits.{index}.invoice": "This invoice is listed more than once."
+                f"splits.{index}.invoice": "این فاکتور بیش از یک‌بار فهرست شده است."
             })
         seen.add(invoice.pk)
 
@@ -605,28 +605,28 @@ def allocate_payment(*, actor, payment, invoice, amount=None):
     # payment it points at. The test beside this is what keeps it honest.
     if locked_payment.direction != Payment.Direction.RECEIPT:
         raise BusinessRuleError({
-            "payment": "Only a receipt can be allocated to an invoice."
+            "payment": "فقط رسید را می‌توان به فاکتور تخصیص داد."
         })
     if locked_payment.status != Payment.Status.CONFIRMED:
-        raise BusinessConflictError({"payment": "Only a confirmed payment can be allocated."})
+        raise BusinessConflictError({"payment": "فقط پرداخت تأییدشده قابل تخصیص است."})
     locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if locked_invoice.status != Invoice.Status.ISSUED:
-        raise BusinessConflictError({"invoice": "Only an issued invoice can receive a payment."})
+        raise BusinessConflictError({"invoice": "فقط فاکتور صادرشده می‌تواند پرداخت دریافت کند."})
     if locked_invoice.customer_id != locked_payment.customer_id:
-        raise BusinessRuleError({"invoice": "Invoice and payment must belong to the same customer."})
+        raise BusinessRuleError({"invoice": "فاکتور و پرداخت باید متعلق به یک مشتری باشند."})
 
     available = locked_payment.unallocated_amount
     outstanding = locked_invoice.balance_due
     if available <= 0:
-        raise BusinessConflictError({"payment": "This payment is fully allocated."})
+        raise BusinessConflictError({"payment": "این پرداخت به‌طور کامل تخصیص یافته است."})
     if outstanding <= 0:
-        raise BusinessConflictError({"invoice": "This invoice is already settled."})
+        raise BusinessConflictError({"invoice": "این فاکتور قبلاً تسویه شده است."})
 
     amount = clean_money(amount, field="amount", allow_zero=False) if amount is not None else min(available, outstanding)
     if amount > available:
-        raise BusinessRuleError({"amount": "Amount exceeds the unallocated part of this payment."})
+        raise BusinessRuleError({"amount": "مبلغ از بخش تخصیص‌نیافته این پرداخت بیشتر است."})
     if amount > outstanding:
-        raise BusinessRuleError({"amount": "Amount exceeds the outstanding balance of this invoice."})
+        raise BusinessRuleError({"amount": "مبلغ از باقی‌مانده این فاکتور بیشتر است."})
 
     try:
         allocation = PaymentAllocation.objects.create(
@@ -634,7 +634,7 @@ def allocate_payment(*, actor, payment, invoice, amount=None):
         )
     except IntegrityError as exc:
         raise BusinessConflictError({
-            "invoice": "This payment is already allocated to this invoice."
+            "invoice": "این پرداخت قبلاً به این فاکتور تخصیص یافته است."
         }) from exc
 
     locked_payment.allocated_amount = quantize_money(locked_payment.allocated_amount + amount)
@@ -662,7 +662,7 @@ def release_allocation(*, actor, allocation, reason=""):
     actor = _lock_payment_manager(actor)
     locked = PaymentAllocation.objects.select_for_update().get(pk=allocation.pk)
     if locked.is_reversed:
-        raise BusinessConflictError({"is_reversed": "This allocation is already released."})
+        raise BusinessConflictError({"is_reversed": "این تخصیص قبلاً آزاد شده است."})
     payment = Payment.objects.select_for_update().get(pk=locked.payment_id)
     invoice = Invoice.objects.select_for_update().get(pk=locked.invoice_id)
 
@@ -727,16 +727,16 @@ def update_payment(*, actor, payment, cheque=None, **data):
     """
     actor = _lock_payment_manager(actor)
     if actor.role != User.Role.PLATFORM_ADMIN:
-        raise BusinessPermissionDenied("Correcting a payment is not allowed.")
+        raise BusinessPermissionDenied("اصلاح پرداخت مجاز نیست.")
 
     unknown = set(data) - PAYMENT_EDITABLE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
 
     locked = Payment.objects.select_for_update().get(pk=payment.pk)
     target_status = data.pop("status", locked.status)
     if target_status not in {Payment.Status.CONFIRMED, Payment.Status.CANCELLED}:
-        raise BusinessRuleError({"status": "A payment is either confirmed or cancelled."})
+        raise BusinessRuleError({"status": "پرداخت فقط می‌تواند تأییدشده یا لغوشده باشد."})
 
     was_confirmed = locked.status == Payment.Status.CONFIRMED
     # What the ledger currently believes, captured before anything moves.
@@ -749,7 +749,7 @@ def update_payment(*, actor, payment, cheque=None, **data):
         customer = data.pop("customer")
         if customer is None:
             if locked.direction == Payment.Direction.RECEIPT:
-                raise BusinessRuleError({"customer": "A receipt needs a customer."})
+                raise BusinessRuleError({"customer": "رسید باید مشتری داشته باشد."})
             locked.customer = None
         else:
             locked.customer = Customer.objects.select_for_update().get(pk=customer.pk)
@@ -815,7 +815,7 @@ def update_payment(*, actor, payment, cheque=None, **data):
         # mistake except two ledger lines, while re-recording leaves a document
         # whose number says when it was really entered.
         raise BusinessRuleError({
-            "status": "A cancelled payment cannot be confirmed again. Record it anew."
+            "status": "پرداخت لغوشده را نمی‌توان دوباره تأیید کرد. آن را از نو ثبت کنید."
         })
 
     # --- the cheque's own details -------------------------------------------
@@ -823,11 +823,11 @@ def update_payment(*, actor, payment, cheque=None, **data):
         unknown = set(cheque) - CHEQUE_EDITABLE_FIELDS
         if unknown:
             raise BusinessRuleError({
-                f"cheque.{field}": "Field cannot be set." for field in sorted(unknown)
+                f"cheque.{field}": "این فیلد قابل تنظیم نیست." for field in sorted(unknown)
             })
         instrument = Cheque.objects.select_for_update().filter(payment=locked).first()
         if instrument is None:
-            raise BusinessRuleError({"cheque": "This payment has no cheque."})
+            raise BusinessRuleError({"cheque": "این پرداخت چک ندارد."})
         for field, value in cheque.items():
             setattr(instrument, field, value)
         instrument.save()
@@ -854,7 +854,7 @@ def cancel_payment(*, actor, payment, reason=""):
     actor = _lock_payment_manager(actor)
     locked = Payment.objects.select_for_update().get(pk=payment.pk)
     if locked.status == Payment.Status.CANCELLED:
-        raise BusinessConflictError({"status": "Payment is already cancelled."})
+        raise BusinessConflictError({"status": "این پرداخت قبلاً لغو شده است."})
     was_confirmed = locked.status == Payment.Status.CONFIRMED
 
     for allocation in locked.allocations.filter(is_reversed=False):
@@ -953,29 +953,29 @@ def create_installment_plan(
     actor = _lock_payment_manager(actor)
     locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if locked_invoice.status != Invoice.Status.ISSUED:
-        raise BusinessConflictError({"invoice": "Only an issued invoice can be split into installments."})
+        raise BusinessConflictError({"invoice": "فقط فاکتور صادرشده قابل تقسیط است."})
     if InstallmentPlan.objects.filter(invoice=locked_invoice).exists():
-        raise BusinessConflictError({"invoice": "This invoice already has an installment plan."})
+        raise BusinessConflictError({"invoice": "این فاکتور قبلاً طرح اقساط دارد."})
     if isinstance(installment_count, bool) or not isinstance(installment_count, int):
-        raise BusinessRuleError({"installment_count": "Enter a whole number of installments."})
+        raise BusinessRuleError({"installment_count": "تعداد اقساط را به‌صورت عدد صحیح وارد کنید."})
     if installment_count < 1 or installment_count > 120:
-        raise BusinessRuleError({"installment_count": "Choose between 1 and 120 installments."})
+        raise BusinessRuleError({"installment_count": "تعداد اقساط باید بین ۱ تا ۱۲۰ باشد."})
     if interval_days is None:
         interval_days = int(getattr(settings, "BILLING_INSTALLMENT_INTERVAL_DAYS", 30))
     if isinstance(interval_days, bool) or not isinstance(interval_days, int) or not (1 <= interval_days <= 365):
-        raise BusinessRuleError({"interval_days": "Choose between 1 and 365 days."})
+        raise BusinessRuleError({"interval_days": "بازه باید بین ۱ تا ۳۶۵ روز باشد."})
     if start_date is None:
-        raise BusinessRuleError({"start_date": "A plan needs its first due date."})
+        raise BusinessRuleError({"start_date": "برای طرح باید تاریخ سررسید نخست مشخص شود."})
 
     total = locked_invoice.total_amount
     if total <= 0:
-        raise BusinessRuleError({"invoice": "An invoice with no amount cannot be split."})
+        raise BusinessRuleError({"invoice": "فاکتور بدون مبلغ قابل تقسیط نیست."})
     base = quantize_money(total / installment_count)
     amounts = [base] * installment_count
     amounts[0] = quantize_money(total - base * (installment_count - 1))
     if any(value <= 0 for value in amounts):
         raise BusinessRuleError({
-            "installment_count": "Too many installments for this amount; each one must be above zero."
+            "installment_count": "تعداد اقساط برای این مبلغ زیاد است؛ هر قسط باید بیشتر از صفر باشد."
         })
 
     plan = InstallmentPlan.objects.create(
@@ -1017,7 +1017,7 @@ def cancel_installment_plan(*, actor, plan, reason=""):
     actor = _lock_payment_manager(actor)
     locked = InstallmentPlan.objects.select_for_update().get(pk=plan.pk)
     if locked.status == InstallmentPlan.Status.CANCELLED:
-        raise BusinessConflictError({"status": "This plan is already cancelled."})
+        raise BusinessConflictError({"status": "این طرح قبلاً لغو شده است."})
     locked.status = InstallmentPlan.Status.CANCELLED
     locked.save(update_fields=["status", "updated_at"])
     locked.installments.exclude(status=Installment.Status.PAID).update(
@@ -1045,7 +1045,7 @@ def record_opening_balance(*, actor, customer, amount, occurred_at=None, notes="
     if CustomerLedgerEntry.objects.filter(
         customer=locked_customer, entry_type=CustomerLedgerEntry.EntryType.OPENING_BALANCE
     ).exists():
-        raise BusinessConflictError({"customer": "This customer already has an opening balance."})
+        raise BusinessConflictError({"customer": "این مشتری قبلاً مانده ابتدای دوره دارد."})
     return append_ledger_entry(
         actor=actor,
         customer=locked_customer,

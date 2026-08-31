@@ -1,3 +1,5 @@
+import re
+
 from django.db import IntegrityError, transaction
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -8,6 +10,25 @@ from accounts.platform_admin_guard import lock_platform_admin_guard
 from auditlog.services import log_activity
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
+
+
+#: Django's own `fa` translation catalog covers every stock password
+#: validator message except `MinimumLengthValidator`'s, so that one is
+#: translated by hand here rather than left to leak English into the panel.
+_MIN_LENGTH_MESSAGE = re.compile(
+    r"^This password is too short\. It must contain at least (\d+) characters?\.$"
+)
+
+
+def persian_password_messages(exc):
+    translated = []
+    for message in exc.messages:
+        match = _MIN_LENGTH_MESSAGE.match(message)
+        if match:
+            translated.append(f"رمز عبور بسیار کوتاه است. باید حداقل {match.group(1)} نویسه داشته باشد.")
+        else:
+            translated.append(message)
+    return translated
 
 
 ROLE_RANK = {
@@ -40,7 +61,7 @@ def _protect_last_active_platform_admin(*, target, next_role=None, next_is_activ
         ).exclude(pk=target.pk)
     ).exists():
         field = "role" if effective_role != User.Role.PLATFORM_ADMIN else "is_active"
-        raise BusinessConflictError({field: "At least one active Platform Admin must remain."})
+        raise BusinessConflictError({field: "حداقل یک مدیر پلتفرم فعال باید باقی بماند."})
 
 
 def _locked_users(actor, target=None):
@@ -54,15 +75,15 @@ def _locked_users(actor, target=None):
     locked_actor = users.get(actor.pk)
     locked_target = users.get(target.pk) if target is not None else None
     if locked_actor is None or not is_crm_identity(locked_actor) or locked_actor.role not in USER_ADMINS:
-        raise BusinessPermissionDenied("User administration is not allowed.")
+        raise BusinessPermissionDenied("مدیریت کاربران مجاز نیست.")
     if target is not None and locked_target is None:
-        raise BusinessRuleError({"user": "User does not exist."})
+        raise BusinessRuleError({"user": "کاربر وجود ندارد."})
     if locked_target is not None and not is_crm_account(locked_target):
-        raise BusinessPermissionDenied("User administration is not allowed.")
+        raise BusinessPermissionDenied("مدیریت کاربران مجاز نیست.")
     if locked_actor.role == User.Role.SALES_MANAGER and locked_target is not None and locked_target.role != User.Role.SALES_AGENT:
-        raise BusinessPermissionDenied("Sales Manager may manage Sales Agent accounts only.")
+        raise BusinessPermissionDenied("مدیر فروشگاه فقط می‌تواند حساب‌های بازاریاب را مدیریت کند.")
     if locked_actor.role == User.Role.COMPANY_IT and locked_target is not None and locked_target.role == User.Role.PLATFORM_ADMIN:
-        raise BusinessPermissionDenied("Company IT cannot manage Platform Admin access.")
+        raise BusinessPermissionDenied("مدیر فنی مشتری نمی‌تواند دسترسی مدیر پلتفرم را مدیریت کند.")
     return locked_actor, locked_target
 
 
@@ -71,17 +92,17 @@ def create_crm_user(*, actor, password, **data):
     actor, _ = _locked_users(actor)
     unknown = set(data) - USER_MUTABLE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     if data.get("workstream", User.Workstream.SALES) not in User.Workstream.values:
-        raise BusinessRuleError({"workstream": "Unknown workstream."})
+        raise BusinessRuleError({"workstream": "جریان کاری نامعتبر است."})
     try:
         validate_password(password, user=User(**data))
     except DjangoValidationError as exc:
-        raise BusinessRuleError({"password": list(exc.messages)}) from exc
+        raise BusinessRuleError({"password": persian_password_messages(exc)}) from exc
     try:
         target = User.objects.create_user(password=password, **data)
     except IntegrityError as exc:
-        raise BusinessConflictError({"username": "Username already exists."}) from exc
+        raise BusinessConflictError({"username": "این نام کاربری قبلاً استفاده شده است."}) from exc
     log_activity(
         actor=actor,
         operation="user.created",
@@ -98,12 +119,12 @@ def update_crm_user(*, actor, target, **changes):
     password = changes.pop("password", None)
     unknown = set(changes) - USER_MUTABLE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     if "workstream" in changes:
         if changes["workstream"] not in User.Workstream.values:
-            raise BusinessRuleError({"workstream": "Unknown workstream."})
+            raise BusinessRuleError({"workstream": "جریان کاری نامعتبر است."})
         if target.role != User.Role.SALES_AGENT and changes["workstream"] != User.Workstream.SALES:
-            raise BusinessRuleError({"workstream": "Only Sales Agent accounts may use the after-sales workstream."})
+            raise BusinessRuleError({"workstream": "فقط حساب‌های بازاریاب می‌توانند از جریان کاری خدمات پس از فروش استفاده کنند."})
     _protect_last_active_platform_admin(
         target=target,
         next_is_active=changes.get("is_active", target.is_active),
@@ -117,14 +138,14 @@ def update_crm_user(*, actor, target, **changes):
         try:
             validate_password(password, user=target)
         except DjangoValidationError as exc:
-            raise BusinessRuleError({"password": list(exc.messages)}) from exc
+            raise BusinessRuleError({"password": persian_password_messages(exc)}) from exc
         target.set_password(password)
         changed_fields.append("password")
     if changed_fields:
         try:
             target.save(update_fields=[*changed_fields, "updated_at"])
         except IntegrityError as exc:
-            raise BusinessConflictError({"username": "Username already exists."}) from exc
+            raise BusinessConflictError({"username": "این نام کاربری قبلاً استفاده شده است."}) from exc
         log_activity(
             actor=actor,
             operation="user.updated",
@@ -138,10 +159,10 @@ def update_crm_user(*, actor, target, **changes):
 def update_own_profile(*, actor, **changes):
     actor = User.objects.select_for_update().filter(pk=actor.pk, is_active=True, role__in=ROLE_RANK).first()
     if actor is None or not is_crm_identity(actor):
-        raise BusinessPermissionDenied("Active CRM user is required.")
+        raise BusinessPermissionDenied("کاربر فعال سامانه لازم است.")
     unknown = set(changes) - PROFILE_MUTABLE_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     changed_fields = []
     for field, value in changes.items():
         if getattr(actor, field) != value:
@@ -164,24 +185,24 @@ def change_user_role(*, actor, target, role):
     actor, target = _locked_users(actor, target)
     actor_role_at_action = actor.role
     if role not in ROLE_RANK:
-        raise BusinessRuleError({"role": "Unknown CRM role."})
+        raise BusinessRuleError({"role": "نقش نامعتبر است."})
     if role == User.Role.COMPANY_IT and not feature_enabled("internal_it_role"):
         # Feature availability is checked before role permission on purpose: a
         # deployment that does not run this role must refuse it even for a
         # Platform Admin, and refuse it at the API rather than only hiding the
         # option in the page.
-        raise BusinessPermissionDenied("This deployment does not use the Company IT role.")
+        raise BusinessPermissionDenied("این استقرار از نقش مدیر فنی مشتری استفاده نمی‌کند.")
     if actor.role == User.Role.SALES_MANAGER:
-        raise BusinessPermissionDenied("Sales Manager cannot change CRM roles.")
+        raise BusinessPermissionDenied("مدیر فروشگاه نمی‌تواند نقش کاربران را تغییر دهد.")
     if actor.role == User.Role.COMPANY_IT:
         if target.role == User.Role.PLATFORM_ADMIN or ROLE_RANK[role] > ROLE_RANK[User.Role.COMPANY_IT]:
-            raise BusinessPermissionDenied("Company IT cannot manage Platform Admin access.")
+            raise BusinessPermissionDenied("مدیر فنی مشتری نمی‌تواند دسترسی مدیر پلتفرم را مدیریت کند.")
     elif actor.role != User.Role.PLATFORM_ADMIN:
-        raise BusinessPermissionDenied("Role change is not allowed.")
+        raise BusinessPermissionDenied("تغییر نقش مجاز نیست.")
     _protect_last_active_platform_admin(target=target, next_role=role)
     previous = target.role
     if previous == role:
-        raise BusinessConflictError({"role": "User already has this role."})
+        raise BusinessConflictError({"role": "کاربر هم‌اکنون همین نقش را دارد."})
     target.role = role
     update_fields = ["role", "updated_at"]
     if role != User.Role.SALES_AGENT and target.workstream != User.Workstream.SALES:

@@ -72,39 +72,39 @@ def max_document_items():
 def _lock_active_actor(actor):
     locked = User.objects.select_for_update().filter(pk=actor.pk, is_active=True).first()
     if locked is None or not is_crm_identity(locked):
-        raise BusinessPermissionDenied("Active user is required.")
+        raise BusinessPermissionDenied("کاربر باید فعال باشد.")
     return locked
 
 
 def _lock_document_writer(actor):
     locked = _lock_active_actor(actor)
     if locked.role not in DOCUMENT_WRITERS:
-        raise BusinessPermissionDenied("Commercial document changes are not allowed.")
+        raise BusinessPermissionDenied("تغییر اسناد تجاری مجاز نیست.")
     if locked.role == User.Role.SALES_AGENT and locked.workstream == User.Workstream.AFTER_SALES:
-        raise BusinessPermissionDenied("Commercial document changes are not allowed.")
+        raise BusinessPermissionDenied("تغییر اسناد تجاری مجاز نیست.")
     return locked
 
 
 def _lock_billing_manager(actor):
     locked = _lock_active_actor(actor)
     if locked.role not in ELEVATED_OPERATORS:
-        raise BusinessPermissionDenied("This billing operation is not allowed.")
+        raise BusinessPermissionDenied("این عملیات مالی مجاز نیست.")
     return locked
 
 
 def _clean_text(value, *, field, limit):
     text = unicodedata.normalize("NFKC", str(value or ""))
     if len(text) > limit:
-        raise BusinessRuleError({field: f"Ensure this field has no more than {limit} characters."})
+        raise BusinessRuleError({field: f"این فیلد نباید بیش از {limit} نویسه داشته باشد."})
     return text
 
 
 def _in_scope_customer(actor, customer):
     if not customers_for(actor).filter(pk=customer.pk).exists():
-        raise BusinessPermissionDenied("Customer is outside your scope.")
+        raise BusinessPermissionDenied("این مشتری خارج از دسترسی شماست.")
     locked = Customer.objects.select_for_update().get(pk=customer.pk)
     if not locked.is_active:
-        raise BusinessConflictError({"customer": "Customer is inactive."})
+        raise BusinessConflictError({"customer": "مشتری غیرفعال است."})
     return locked
 
 
@@ -112,10 +112,10 @@ def _in_scope_lead(actor, lead, customer):
     if lead is None:
         return None
     if not leads_for(actor).filter(pk=lead.pk).exists():
-        raise BusinessPermissionDenied("Lead is outside your scope.")
+        raise BusinessPermissionDenied("این سرنخ خارج از دسترسی شماست.")
     locked = Lead.objects.select_for_update().get(pk=lead.pk)
     if locked.customer_id != customer.pk:
-        raise BusinessRuleError({"lead": "Lead must belong to the selected customer."})
+        raise BusinessRuleError({"lead": "سرنخ باید متعلق به مشتری انتخاب‌شده باشد."})
     return locked
 
 
@@ -126,27 +126,27 @@ def _build_lines(items):
     written, so a later catalogue change never rewrites an existing document.
     """
     if not isinstance(items, (list, tuple)):
-        raise BusinessRuleError({"items": "Provide a list of document lines."})
+        raise BusinessRuleError({"items": "فهرست ردیف‌های سند را وارد کنید."})
     if not items:
-        raise BusinessRuleError({"items": "A document needs at least one line."})
+        raise BusinessRuleError({"items": "سند باید حداقل یک ردیف داشته باشد."})
     if len(items) > max_document_items():
-        raise BusinessRuleError({"items": f"A document may carry at most {max_document_items()} lines."})
+        raise BusinessRuleError({"items": f"سند حداکثر می‌تواند {max_document_items()} ردیف داشته باشد."})
 
     prepared = []
     for index, raw in enumerate(items, start=1):
         if not isinstance(raw, dict):
-            raise BusinessRuleError({"items": "Each document line must be an object."})
+            raise BusinessRuleError({"items": "هر ردیف سند باید یک شیء باشد."})
         unknown = set(raw) - {
             "product", "quantity", "unit_price", "discount_percent", "discount_amount", "description",
         }
         if unknown:
-            raise BusinessRuleError({"items": f"Line {index}: unknown field {sorted(unknown)[0]}."})
+            raise BusinessRuleError({"items": f"ردیف {index}: فیلد {sorted(unknown)[0]} نامعتبر است."})
         product = raw.get("product")
         if not isinstance(product, Product):
-            raise BusinessRuleError({"items": f"Line {index}: a product is required."})
+            raise BusinessRuleError({"items": f"ردیف {index}: انتخاب کالا الزامی است."})
         locked_product = Product.objects.select_for_update().filter(pk=product.pk).first()
         if locked_product is None or not locked_product.is_active:
-            raise BusinessRuleError({"items": f"Line {index}: product is inactive."})
+            raise BusinessRuleError({"items": f"ردیف {index}: کالا غیرفعال است."})
         quantity = clean_quantity(raw.get("quantity"), field="items")
         unit_price = raw.get("unit_price")
         unit_price = (
@@ -194,17 +194,17 @@ def _apply_totals(document, prepared_lines, *, header_discount, tax_rate):
 def _require_editable(document):
     if document.status not in document.EDITABLE_STATUSES:
         raise BusinessConflictError({
-            "status": "Only a draft document can be changed. Cancel it and issue a new one instead."
+            "status": "فقط سند پیش‌نویس قابل تغییر است. آن را لغو کرده و سند جدیدی صادر کنید."
         })
 
 
 def _check_transition(document, to_status):
     if to_status not in type(document).Status.values:
-        raise BusinessRuleError({"status": "Unknown status."})
+        raise BusinessRuleError({"status": "وضعیت نامعتبر است."})
     allowed = document.TRANSITIONS.get(document.status, frozenset())
     if to_status not in allowed:
         raise BusinessConflictError({
-            "status": f"A document in '{document.status}' cannot move to '{to_status}'."
+            "status": f"سندی که در وضعیت «{document.status}» است نمی‌تواند به «{to_status}» تغییر کند."
         })
 
 
@@ -229,7 +229,7 @@ def _create_document(*, actor, model, item_model, customer, lead, items, header,
     try:
         document.save()
     except IntegrityError as exc:
-        raise BusinessConflictError({"number": "Document number is already in use."}) from exc
+        raise BusinessConflictError({"number": "شماره سند قبلاً استفاده شده است."}) from exc
     item_model.objects.bulk_create([
         item_model(**{model.__name__.lower(): document}, **line) for line in prepared
     ])
@@ -263,7 +263,7 @@ def _recompute_from_stored_lines(document, item_model, relation, *, header_disco
         item_model.objects.filter(**{relation: document}).values_list("line_total", flat=True)
     )
     if not totals:
-        raise BusinessRuleError({"items": "A document needs at least one line."})
+        raise BusinessRuleError({"items": "سند باید حداقل یک ردیف داشته باشد."})
     return _apply_totals(
         document,
         [{"line_total": value} for value in totals],
@@ -279,7 +279,7 @@ def create_quotation(*, actor, customer, items, lead=None, **header):
     actor = _lock_document_writer(actor)
     unknown = set(header) - QUOTATION_HEADER_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     locked_customer = _in_scope_customer(actor, customer)
     locked_lead = _in_scope_lead(actor, lead, locked_customer)
     valid_until = header.get("valid_until")
@@ -318,7 +318,7 @@ def update_quotation(*, actor, quotation, **changes):
     _require_editable(locked)
     unknown = set(changes) - QUOTATION_HEADER_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     if "notes" in changes:
         changes["notes"] = _clean_text(changes["notes"], field="notes", limit=FREE_TEXT_MAX_LENGTH)
     header_discount = changes.get("discount_amount", locked.discount_amount)
@@ -361,7 +361,7 @@ def transition_quotation(*, actor, quotation, to_status, reason=""):
     locked = Quotation.objects.select_for_update().get(pk=quotation.pk)
     _check_transition(locked, to_status)
     if to_status == Quotation.Status.SENT and not locked.items.exists():
-        raise BusinessConflictError({"items": "A quotation needs at least one line before it is sent."})
+        raise BusinessConflictError({"items": "پیش‌فاکتور پیش از ارسال باید حداقل یک ردیف داشته باشد."})
     previous = locked.status
     locked.status = to_status
     update_fields = ["status", "updated_at"]
@@ -390,14 +390,14 @@ def create_order(*, actor, customer, items, lead=None, quotation=None, **header)
     actor = _lock_document_writer(actor)
     unknown = set(header) - ORDER_HEADER_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     locked_customer = _in_scope_customer(actor, customer)
     locked_lead = _in_scope_lead(actor, lead, locked_customer)
     locked_quotation = None
     if quotation is not None:
         locked_quotation = Quotation.objects.select_for_update().get(pk=quotation.pk)
         if locked_quotation.customer_id != locked_customer.pk:
-            raise BusinessRuleError({"quotation": "Quotation must belong to the selected customer."})
+            raise BusinessRuleError({"quotation": "پیش‌فاکتور باید متعلق به مشتری انتخاب‌شده باشد."})
     order = _create_document(
         actor=actor,
         model=Order,
@@ -437,7 +437,7 @@ def update_order(*, actor, order, **changes):
     _require_editable(locked)
     unknown = set(changes) - ORDER_HEADER_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     if "notes" in changes:
         changes["notes"] = _clean_text(changes["notes"], field="notes", limit=FREE_TEXT_MAX_LENGTH)
     header_discount = changes.get("discount_amount", locked.discount_amount)
@@ -676,7 +676,7 @@ def transition_order(*, actor, order, to_status, reason=""):
     locked = Order.objects.select_for_update().get(pk=order.pk)
     _check_transition(locked, to_status)
     if to_status == Order.Status.CONFIRMED and not locked.items.exists():
-        raise BusinessConflictError({"items": "An order needs at least one line before it is confirmed."})
+        raise BusinessConflictError({"items": "سفارش پیش از تأیید باید حداقل یک ردیف داشته باشد."})
     previous = locked.status
     occurred_at = timezone.now()
 
@@ -754,9 +754,9 @@ def convert_quotation_to_order(*, actor, quotation, warehouse=None):
     actor = _lock_document_writer(actor)
     locked = Quotation.objects.select_for_update().get(pk=quotation.pk)
     if locked.status != Quotation.Status.ACCEPTED:
-        raise BusinessConflictError({"status": "Only an accepted quotation can become an order."})
+        raise BusinessConflictError({"status": "فقط پیش‌فاکتور پذیرفته‌شده می‌تواند به سفارش تبدیل شود."})
     if locked.orders.exclude(status=Order.Status.CANCELLED).exists():
-        raise BusinessConflictError({"quotation": "This quotation already has an order."})
+        raise BusinessConflictError({"quotation": "این پیش‌فاکتور قبلاً سفارش دارد."})
     items = _copy_lines(locked.items.select_related("product").all())
     order = create_order(
         actor=actor,
@@ -779,7 +779,7 @@ def _resolve_warehouse(warehouse):
         return None
     locked = Warehouse.objects.select_for_update().get(pk=warehouse.pk)
     if not locked.is_active:
-        raise BusinessConflictError({"warehouse": "Warehouse is inactive."})
+        raise BusinessConflictError({"warehouse": "انبار غیرفعال است."})
     return locked
 
 
@@ -788,27 +788,27 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
     actor = _lock_document_writer(actor)
     unknown = set(header) - INVOICE_HEADER_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be set." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     locked_customer = _in_scope_customer(actor, customer)
     locked_order = None
     if order is not None:
         locked_order = Order.objects.select_for_update().get(pk=order.pk)
         if locked_order.customer_id != locked_customer.pk:
-            raise BusinessRuleError({"order": "Order must belong to the selected customer."})
+            raise BusinessRuleError({"order": "سفارش باید متعلق به مشتری انتخاب‌شده باشد."})
     locked_quotation = None
     if quotation is not None:
         locked_quotation = Quotation.objects.select_for_update().get(pk=quotation.pk)
         if locked_quotation.customer_id != locked_customer.pk:
-            raise BusinessRuleError({"quotation": "Quotation must belong to the selected customer."})
+            raise BusinessRuleError({"quotation": "پیش‌فاکتور باید متعلق به مشتری انتخاب‌شده باشد."})
     if sale is not None and sale.customer_id != locked_customer.pk:
-        raise BusinessRuleError({"sale": "Sale must belong to the selected customer."})
+        raise BusinessRuleError({"sale": "فروش باید متعلق به مشتری انتخاب‌شده باشد."})
 
     invoice_type = header.get("invoice_type")
     if invoice_type is not None and invoice_type not in Invoice.InvoiceType.values:
         # Checked here as well as by the serializer, because the service is the
         # boundary a script or a management command also comes through, and the
         # database constraint would report this as something else entirely.
-        raise BusinessRuleError({"invoice_type": "Select an invoice type from the list."})
+        raise BusinessRuleError({"invoice_type": "نوع فاکتور را از فهرست انتخاب کنید."})
 
     due_at = header.get("due_at")
     if due_at is None:
@@ -872,7 +872,7 @@ def update_invoice(*, actor, invoice, **changes):
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
     unknown = set(changes) - INVOICE_HEADER_FIELDS
     if unknown:
-        raise BusinessRuleError({field: "Field cannot be changed." for field in sorted(unknown)})
+        raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
 
     if locked.status == Invoice.Status.ISSUED:
         # Narrower than `_require_editable`, and deliberately not that helper:
@@ -882,7 +882,7 @@ def update_invoice(*, actor, invoice, **changes):
         blocked = set(changes) - INVOICE_ISSUED_EDITABLE_FIELDS
         if blocked:
             raise BusinessConflictError({
-                field: "Only notes can be changed on an issued invoice." for field in sorted(blocked)
+                field: "در فاکتور صادرشده فقط یادداشت‌ها قابل تغییر است." for field in sorted(blocked)
             })
     else:
         _require_editable(locked)
@@ -957,28 +957,28 @@ def official_invoice_identity_errors(invoice):
 
     if not settings.SELLER_LEGAL_NAME:
         errors["seller_legal_name"] = (
-            "This deployment has no seller name configured, so it cannot issue an "
-            "official invoice. Set KARIZ_SELLER_LEGAL_NAME."
+            "نام حقوقی فروشنده در این استقرار تنظیم نشده و صدور فاکتور رسمی ممکن نیست. "
+            "مقدار KARIZ_SELLER_LEGAL_NAME را تنظیم کنید."
         )
     if not settings.SELLER_NATIONAL_ID:
         errors["seller_national_id"] = (
-            "This deployment has no seller national id configured. Set "
-            "KARIZ_SELLER_NATIONAL_ID."
+            "کد ملی فروشنده در این استقرار تنظیم نشده است. "
+            "مقدار KARIZ_SELLER_NATIONAL_ID را تنظیم کنید."
         )
     if not settings.SELLER_ECONOMIC_CODE:
         errors["seller_economic_code"] = (
-            "This deployment has no seller economic code configured. Set "
-            "KARIZ_SELLER_ECONOMIC_CODE."
+            "شناسه/کد اقتصادی فروشنده در این استقرار تنظیم نشده است. "
+            "مقدار KARIZ_SELLER_ECONOMIC_CODE را تنظیم کنید."
         )
 
     customer = invoice.customer
     if not (customer.national_id or "").strip():
         errors["customer_national_id"] = (
-            "An official invoice needs the buyer's national id."
+            "برای فاکتور رسمی، کد ملی خریدار لازم است."
         )
     if customer.kind == Customer.Kind.LEGAL and not (customer.economic_code or "").strip():
         errors["customer_economic_code"] = (
-            "A legal-entity buyer needs an economic code on an official invoice."
+            "برای خریدار حقوقی، درج کد اقتصادی در فاکتور رسمی الزامی است."
         )
     return errors
 
@@ -1059,7 +1059,7 @@ def reissue_invoice(*, actor, invoice, reason=""):
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if locked.status != Invoice.Status.ISSUED:
         raise BusinessConflictError({
-            "status": "Only an issued invoice can be reissued."
+            "status": "فقط فاکتور صادرشده قابل صدور مجدد است."
         })
 
     items = list(locked.items.select_related("product").order_by("line_number"))
@@ -1117,7 +1117,7 @@ def issue_invoice(*, actor, invoice):
     _check_transition(locked, Invoice.Status.ISSUED)
     items = list(locked.items.select_related("product").order_by("line_number"))
     if not items:
-        raise BusinessConflictError({"items": "An invoice needs at least one line before it is issued."})
+        raise BusinessConflictError({"items": "فاکتور پیش از صدور باید حداقل یک ردیف داشته باشد."})
 
     # An official invoice is a tax document, so it is refused rather than issued
     # incomplete. An unofficial one is unaffected and none of this runs for it.
@@ -1223,7 +1223,7 @@ def cancel_invoice(*, actor, invoice, reason=""):
     _check_transition(locked, Invoice.Status.CANCELLED)
     if locked.paid_amount > 0:
         raise BusinessConflictError({
-            "paid_amount": "Release the payments allocated to this invoice before cancelling it."
+            "paid_amount": "پیش از لغو این فاکتور، پرداخت‌های تخصیص‌یافته به آن را آزاد کنید."
         })
     cancelled_at = timezone.now()
     was_issued = locked.status == Invoice.Status.ISSUED
@@ -1293,9 +1293,9 @@ def convert_order_to_invoice(*, actor, order, warehouse=None):
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)
     if locked.status not in {Order.Status.CONFIRMED, Order.Status.FULFILLED}:
-        raise BusinessConflictError({"status": "Only a confirmed order can become an invoice."})
+        raise BusinessConflictError({"status": "فقط سفارش تأییدشده می‌تواند به فاکتور تبدیل شود."})
     if locked.invoices.exclude(status=Invoice.Status.CANCELLED).exists():
-        raise BusinessConflictError({"order": "This order already has an invoice."})
+        raise BusinessConflictError({"order": "این سفارش قبلاً فاکتور دارد."})
     items = _copy_lines(locked.items.select_related("product").all())
     return create_invoice(
         actor=actor,
@@ -1349,11 +1349,11 @@ def record_manual_paid_entry(*, actor, invoice, amount):
     actor = _lock_billing_manager(actor)
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if not invoices_for(actor).filter(pk=locked.pk).exists():
-        raise BusinessPermissionDenied("Invoice is outside your scope.")
+        raise BusinessPermissionDenied("این فاکتور خارج از دسترسی شماست.")
     entry = clean_money(amount, field="manual_paid_entry")
     if entry > locked.total_amount:
         raise BusinessRuleError(
-            {"manual_paid_entry": "Paid amount cannot exceed the invoice total."}
+            {"manual_paid_entry": "مبلغ پرداختی نمی‌تواند از مبلغ کل فاکتور بیشتر باشد."}
         )
 
     outstanding_before = locked.canonical_balance_due
@@ -1401,16 +1401,16 @@ def link_invoice_to_order(*, actor, invoice, order):
     actor = _lock_document_writer(actor)
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if not invoices_for(actor).filter(pk=locked.pk).exists():
-        raise BusinessPermissionDenied("Invoice is outside your scope.")
+        raise BusinessPermissionDenied("این فاکتور خارج از دسترسی شماست.")
 
     locked_order = None
     if order is not None:
         if not orders_for(actor).filter(pk=order.pk).exists():
-            raise BusinessPermissionDenied("Order is outside your scope.")
+            raise BusinessPermissionDenied("این سفارش خارج از دسترسی شماست.")
         locked_order = Order.objects.select_for_update().get(pk=order.pk)
         if locked_order.customer_id != locked.customer_id:
             raise BusinessRuleError(
-                {"order": "Order and invoice must belong to the same customer."}
+                {"order": "سفارش و فاکتور باید متعلق به یک مشتری باشند."}
             )
 
     previous = locked.order_id

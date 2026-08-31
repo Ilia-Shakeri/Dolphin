@@ -58,7 +58,7 @@ def _header_index(sheet):
     """Map our column names to their positions in the uploaded sheet."""
     header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), None)
     if header_row is None:
-        raise BusinessRuleError({"file": "The spreadsheet is empty."})
+        raise BusinessRuleError({"file": "فایل اکسل خالی است."})
     index = {}
     for position, value in enumerate(header_row):
         name = str(value or "").strip().lower()
@@ -68,8 +68,8 @@ def _header_index(sheet):
     if missing:
         raise BusinessRuleError({
             "file": (
-                "The spreadsheet is missing the columns "
-                f"{', '.join(missing)}. Export the catalogue first and write on that file."
+                "ستون‌های "
+                f"{', '.join(missing)} در فایل وجود ندارد. ابتدا فهرست کالاها را خروجی بگیرید و روی همان فایل بنویسید."
             )
         })
     return index
@@ -93,13 +93,13 @@ def _price(raw):
     """A price cell as a Decimal, accepting the grouping the panel displays."""
     text = str(raw).replace("،", "").replace(",", "").strip()
     if not text:
-        raise ValueError("A price is required.")
+        raise ValueError("قیمت الزامی است.")
     try:
         value = Decimal(text)
     except InvalidOperation as exc:
-        raise ValueError("The price is not a number.") from exc
+        raise ValueError("قیمت باید عدد باشد.") from exc
     if value <= 0:
-        raise ValueError("The price must be greater than zero.")
+        raise ValueError("قیمت باید بیشتر از صفر باشد.")
     return value
 
 
@@ -114,7 +114,7 @@ def import_products_from_workbook(*, actor, stream):
     try:
         workbook = load_workbook(stream, read_only=True, data_only=True)
     except Exception as exc:  # noqa: BLE001 - openpyxl raises several unrelated types
-        raise BusinessRuleError({"file": "The file could not be read as a spreadsheet."}) from exc
+        raise BusinessRuleError({"file": "فایل به‌عنوان اکسل قابل خواندن نبود."}) from exc
 
     sheet = workbook.active
     index = _header_index(sheet)
@@ -135,7 +135,7 @@ def import_products_from_workbook(*, actor, stream):
     ):
         if row_number - 1 > MAX_IMPORT_ROWS:
             raise BusinessRuleError({
-                "file": f"An import is limited to {MAX_IMPORT_ROWS} rows."
+                "file": f"هر بارگذاری حداکثر می‌تواند {MAX_IMPORT_ROWS} ردیف داشته باشد."
             })
         if row is None or all(value in (None, "") for value in row):
             continue
@@ -143,7 +143,7 @@ def import_products_from_workbook(*, actor, stream):
         sku = _cell(row, index, "sku")
         name = _cell(row, index, "name")
         if not sku or not name:
-            result.note_error(row_number, "Both a code and a name are required.")
+            result.note_error(row_number, "درج کد و نام الزامی است.")
             continue
 
         key = sku.casefold()
@@ -160,7 +160,7 @@ def import_products_from_workbook(*, actor, stream):
         unit_text = _cell(row, index, "unit")
         unit = PRODUCT_UNIT_INPUT.get(unit_text, "") if unit_text else ""
         if unit_text and not unit:
-            result.note_error(row_number, f"Unknown unit: {unit_text}")
+            result.note_error(row_number, f"واحد نامعتبر است: {unit_text}")
             continue
 
         category_code = _cell(row, index, "category_code")
@@ -168,7 +168,7 @@ def import_products_from_workbook(*, actor, stream):
         if category_code:
             category_pk = categories.get(category_code.casefold())
             if category_pk is None:
-                result.note_error(row_number, f"Unknown category code: {category_code}")
+                result.note_error(row_number, f"کد دسته‌بندی نامعتبر است: {category_code}")
                 continue
             category = ProductCategory.objects.get(pk=category_pk)
 

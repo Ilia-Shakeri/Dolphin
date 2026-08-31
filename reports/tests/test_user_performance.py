@@ -332,7 +332,7 @@ class UserPerformanceReportTests(TestCase):
 
         unknown = client.get(self.report_url, self._query(extra="value"))
         self.assertEqual(unknown.status_code, 400)
-        self.assertEqual([str(item) for item in unknown.data["extra"]], ["Unknown field."])
+        self.assertEqual([str(item) for item in unknown.data["extra"]], ["فیلد نامعتبر است."])
 
         repeated_query = urlencode(
             [
@@ -345,7 +345,7 @@ class UserPerformanceReportTests(TestCase):
         self.assertEqual(repeated.status_code, 400)
         self.assertEqual(
             [str(item) for item in repeated.data["period_start"]],
-            ["Query parameter must appear once."],
+            ["این پارامتر باید فقط یک‌بار وارد شود."],
         )
 
         naive = client.get(

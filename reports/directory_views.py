@@ -78,7 +78,7 @@ class UserDirectoryExportView(DirectoryExportView):
         from rest_framework.exceptions import PermissionDenied
 
         if request.user.role not in USER_ADMINS:
-            raise PermissionDenied("User administration is not allowed.")
+            raise PermissionDenied("مدیریت کاربران مجاز نیست.")
         users = crm_identities(User.objects.all()).order_by("username")
         return build_user_directory_workbook(users)
 
@@ -126,7 +126,7 @@ class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
         kind = request.query_params.get("kind")
         if kind is not None:
             if kind not in Customer.Kind.values:
-                raise ValidationError({"kind": "Select a customer kind from the list."})
+                raise ValidationError({"kind": "نوع مشتری را از فهرست انتخاب کنید."})
             customers = customers.filter(kind=kind)
         return build_customer_directory_workbook(customers)
 

@@ -78,14 +78,14 @@ def record_session_device(request):
 
 def _require_user_admin(actor):
     if not getattr(actor, "is_authenticated", False) or actor.role not in USER_ADMINS:
-        raise BusinessPermissionDenied("Session administration is not allowed.")
+        raise BusinessPermissionDenied("مدیریت نشست‌ها مجاز نیست.")
     return actor
 
 
 def _require_self_or_admin(actor, target):
     """Anyone may administer their own sessions; only an admin may touch another's."""
     if not getattr(actor, "is_authenticated", False):
-        raise BusinessPermissionDenied("Session administration is not allowed.")
+        raise BusinessPermissionDenied("مدیریت نشست‌ها مجاز نیست.")
     if actor.pk == target.pk:
         return actor
     return _require_user_admin(actor)
@@ -177,7 +177,7 @@ def revoke_sessions(*, actor, target, reference=None, keep_session_key=""):
     """
     actor = _require_self_or_admin(actor, target)
     if reference is not None and not isinstance(reference, str):
-        raise BusinessRuleError({"reference": "Enter a valid session reference."})
+        raise BusinessRuleError({"reference": "شناسه نشست معتبر وارد کنید."})
 
     keep_reference = session_reference(keep_session_key) if keep_session_key else ""
     keys = []
@@ -190,7 +190,7 @@ def revoke_sessions(*, actor, target, reference=None, keep_session_key=""):
         keys.append(session.session_key)
 
     if reference and not keys:
-        raise BusinessRuleError({"reference": "That session is no longer active."})
+        raise BusinessRuleError({"reference": "این نشست دیگر فعال نیست."})
 
     ended = Session.objects.filter(session_key__in=keys).delete()[0] if keys else 0
     log_activity(

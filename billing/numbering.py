@@ -41,7 +41,7 @@ def _format_for(kind):
         # A format without the counter would hand every document the same
         # number and fail at the unique constraint on the second one. Refuse it
         # where the operator can still see why.
-        raise BusinessRuleError({"number": "Document number format must include {sequence}."})
+        raise BusinessRuleError({"number": "قالب شماره سند باید شامل {sequence} باشد."})
     return template
 
 
@@ -49,16 +49,16 @@ def format_number(kind, sequence):
     try:
         number = _format_for(kind).format(sequence=sequence)
     except (IndexError, KeyError, ValueError) as exc:
-        raise BusinessRuleError({"number": "Document number format is invalid."}) from exc
+        raise BusinessRuleError({"number": "قالب شماره سند نامعتبر است."}) from exc
     if not _NUMBER_SHAPE.fullmatch(number):
-        raise BusinessRuleError({"number": "Document number format produces an unusable number."})
+        raise BusinessRuleError({"number": "قالب شماره سند، شماره‌ای غیرقابل استفاده تولید می‌کند."})
     return number
 
 
 @transaction.atomic
 def next_document_number(kind):
     if kind not in KINDS:
-        raise BusinessRuleError({"number": "Unknown document kind."})
+        raise BusinessRuleError({"number": "نوع سند نامعتبر است."})
     row = DocumentSequence.objects.select_for_update().filter(kind=kind).first()
     if row is None:
         DocumentSequence.objects.get_or_create(kind=kind)

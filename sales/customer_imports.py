@@ -61,7 +61,7 @@ class CustomerImportResult:
 def _header_index(sheet):
     header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), None)
     if header_row is None:
-        raise BusinessRuleError({"file": "The spreadsheet is empty."})
+        raise BusinessRuleError({"file": "فایل اکسل خالی است."})
     index = {}
     for position, value in enumerate(header_row):
         name = str(value or "").strip().lower()
@@ -71,8 +71,8 @@ def _header_index(sheet):
     if missing:
         raise BusinessRuleError({
             "file": (
-                f"The spreadsheet is missing the columns {', '.join(missing)}. "
-                "Export the list first and write on that file."
+                f"ستون‌های {', '.join(missing)} در فایل وجود ندارد. "
+                "ابتدا فهرست را خروجی بگیرید و روی همان فایل بنویسید."
             )
         })
     return index
@@ -102,12 +102,12 @@ def import_customers_from_workbook(*, actor, stream, kind):
     of a stray cell would not be what they asked for.
     """
     if kind not in Customer.Kind.values:
-        raise BusinessRuleError({"kind": "Select a customer kind from the list."})
+        raise BusinessRuleError({"kind": "نوع مشتری را از فهرست انتخاب کنید."})
 
     try:
         workbook = load_workbook(stream, read_only=True, data_only=True)
     except Exception as exc:  # noqa: BLE001 - openpyxl raises several unrelated types
-        raise BusinessRuleError({"file": "The file could not be read as a spreadsheet."}) from exc
+        raise BusinessRuleError({"file": "فایل به‌عنوان اکسل قابل خواندن نبود."}) from exc
 
     sheet = workbook.active
     index = _header_index(sheet)
@@ -128,13 +128,13 @@ def import_customers_from_workbook(*, actor, stream, kind):
 
     for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
         if row_number - 1 > MAX_IMPORT_ROWS:
-            raise BusinessRuleError({"file": f"An import is limited to {MAX_IMPORT_ROWS} rows."})
+            raise BusinessRuleError({"file": f"هر بارگذاری حداکثر می‌تواند {MAX_IMPORT_ROWS} ردیف داشته باشد."})
         if row is None or all(value in (None, "") for value in row):
             continue
 
         full_name = _cell(row, index, "full_name")
         if not full_name:
-            result.note_error(row_number, "A full name is required.")
+            result.note_error(row_number, "نام کامل الزامی است.")
             continue
 
         raw_phone = _cell(row, index, "primary_phone")
@@ -143,7 +143,7 @@ def import_customers_from_workbook(*, actor, stream, kind):
             try:
                 normalized = normalize_customer_phone(raw_phone)
             except DjangoValidationError:
-                result.note_error(row_number, f"Not a valid Iranian phone number: {raw_phone}")
+                result.note_error(row_number, f"شماره تلفن ایرانی معتبر نیست: {raw_phone}")
                 continue
 
         national_id = _cell(row, index, "national_id")
@@ -173,7 +173,7 @@ def import_customers_from_workbook(*, actor, stream, kind):
             # A phone this run did not know about — another session wrote it
             # between the read above and now. It is still a duplicate.
             raise BusinessRuleError({
-                "file": f"Row {row_number} conflicts with a customer created while this import was running.",
+                "file": f"ردیف {row_number} با مشتری‌ای که هنگام اجرای این بارگذاری ایجاد شد تداخل دارد.",
             }) from exc
 
         if normalized:

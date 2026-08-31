@@ -79,7 +79,7 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         try:
             return create_customer_with_phone(actor=self.context["request"].user, phone=phone, **validated_data)
         except IntegrityError as exc:
-            raise serializers.ValidationError({"phone": "Active phone conflicts with an existing phone for this customer."}) from exc
+            raise serializers.ValidationError({"phone": "این تلفن فعال با تلفن دیگری برای همین مشتری تداخل دارد."}) from exc
 
     def update(self, instance, validated_data):
         return update_customer(actor=self.context["request"].user, customer=instance, **validated_data)
@@ -87,7 +87,7 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if self.instance and "phone" in attrs:
-            raise serializers.ValidationError({"phone": "Phone can be supplied only when creating a customer."})
+            raise serializers.ValidationError({"phone": "تلفن فقط هنگام ایجاد مشتری قابل ثبت است."})
         return attrs
 
 
@@ -110,7 +110,7 @@ class CustomerPhoneSerializer(RejectServerFieldsMixin, serializers.ModelSerializ
         try:
             return create_customer_phone(actor=self.context["request"].user, **validated_data)
         except IntegrityError as exc:
-            raise serializers.ValidationError("Active phone or primary-phone constraint failed.") from exc
+            raise serializers.ValidationError("محدودیت تلفن فعال یا تلفن اصلی نقض شده است.") from exc
 
     def validate_raw_phone(self, value):
         normalize_customer_phone(value)
@@ -118,12 +118,12 @@ class CustomerPhoneSerializer(RejectServerFieldsMixin, serializers.ModelSerializ
 
     def update(self, instance, validated_data):
         if "customer" in validated_data and validated_data["customer"] != instance.customer:
-            raise serializers.ValidationError({"customer": "Phone ownership cannot change."})
+            raise serializers.ValidationError({"customer": "مالکیت تلفن قابل تغییر نیست."})
         validated_data.pop("customer", None)
         try:
             return update_customer_phone(actor=self.context["request"].user, phone=instance, **validated_data)
         except IntegrityError as exc:
-            raise serializers.ValidationError("Active phone or primary-phone constraint failed.") from exc
+            raise serializers.ValidationError("محدودیت تلفن فعال یا تلفن اصلی نقض شده است.") from exc
 
 
 class ProductCategorySerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
@@ -256,10 +256,10 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if self.instance and "customer" in attrs and attrs["customer"] != self.instance.customer:
-            raise serializers.ValidationError({"customer": "Lead customer cannot change."})
+            raise serializers.ValidationError({"customer": "مشتری سرنخ قابل تغییر نیست."})
         product = attrs.get("interested_product")
         if product and not product.is_active:
-            raise serializers.ValidationError({"interested_product": "Product is inactive."})
+            raise serializers.ValidationError({"interested_product": "کالا غیرفعال است."})
         return attrs
 
 
@@ -440,7 +440,7 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if self.instance and "lead" in attrs and attrs["lead"] != self.instance.lead:
-            raise serializers.ValidationError({"lead": "Interaction lead cannot change."})
+            raise serializers.ValidationError({"lead": "سرنخ تعامل قابل تغییر نیست."})
         return attrs
 
 

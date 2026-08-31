@@ -5,7 +5,13 @@ from rest_framework import serializers
 
 from accounts.access import capabilities_for, is_crm_identity
 from accounts.models import User
-from accounts.services import change_user_role, create_crm_user, update_crm_user, update_own_profile
+from accounts.services import (
+    change_user_role,
+    create_crm_user,
+    persian_password_messages,
+    update_crm_user,
+    update_own_profile,
+)
 from common.serializers import RejectServerFieldsMixin
 
 
@@ -17,7 +23,7 @@ class LoginSerializer(RejectServerFieldsMixin, serializers.Serializer):
         attrs = super().validate(attrs)
         user = authenticate(request=self.context.get("request"), username=attrs["username"], password=attrs["password"])
         if not is_crm_identity(user):
-            raise serializers.ValidationError("Invalid credentials.")
+            raise serializers.ValidationError("نام کاربری یا رمز عبور نادرست است.")
         attrs["user"] = user
         return attrs
 
@@ -67,19 +73,19 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
             try:
                 validate_password(password, user=candidate)
             except DjangoValidationError as exc:
-                raise serializers.ValidationError({"password": list(exc.messages)}) from exc
+                raise serializers.ValidationError({"password": persian_password_messages(exc)}) from exc
         return attrs
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)
         if not password:
-            raise serializers.ValidationError({"password": "Password is required."})
+            raise serializers.ValidationError({"password": "رمز عبور الزامی است."})
         return create_crm_user(actor=self.context["request"].user, password=password, **validated_data)
 
     def update(self, instance, validated_data):
         if "password" in validated_data:
             raise serializers.ValidationError(
-                {"password": "A password cannot be changed through this API."}
+                {"password": "رمز عبور از این مسیر قابل تغییر نیست."}
             )
         return update_crm_user(actor=self.context["request"].user, target=instance, **validated_data)
 

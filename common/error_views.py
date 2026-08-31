@@ -37,9 +37,9 @@ def payload_too_large(request):
             request,
             status=413,
             code="payload_too_large",
-            detail="Request body is too large.",
+            detail="حجم درخواست بیش از حد مجاز است.",
         )
-    return JsonResponse({"detail": "Request body is too large."}, status=413)
+    return JsonResponse({"detail": "حجم درخواست بیش از حد مجاز است."}, status=413)
 
 
 def bad_request(request, exception):
@@ -48,7 +48,7 @@ def bad_request(request, exception):
             request,
             status=400,
             code="bad_request",
-            detail="Bad request.",
+            detail="درخواست نامعتبر است.",
         )
     return _ui_error(
         request,
@@ -64,7 +64,7 @@ def permission_denied(request, exception):
             request,
             status=403,
             code="permission_denied",
-            detail="Permission denied.",
+            detail="دسترسی مجاز نیست.",
         )
     return _ui_error(
         request,
@@ -80,7 +80,7 @@ def csrf_failure(request, reason="", template_name="403_csrf.html"):
             request,
             status=403,
             code="csrf_failed",
-            detail="CSRF check failed.",
+            detail="بررسی امنیتی CSRF ناموفق بود.",
         )
     return _ui_error(
         request,
@@ -96,7 +96,7 @@ def page_not_found(request, exception):
             request,
             status=404,
             code="not_found",
-            detail="Not found.",
+            detail="یافت نشد.",
         )
     return _ui_error(
         request,
@@ -112,7 +112,7 @@ def server_error(request):
             request,
             status=500,
             code="server_error",
-            detail="Internal server error.",
+            detail="خطای داخلی سامانه.",
         )
     return _ui_error(
         request,

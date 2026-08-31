@@ -12,7 +12,7 @@ class OffsetAwareDateTimeField(serializers.DateTimeField):
         parsed = parse_datetime(value) if isinstance(value, str) else None
         if parsed is None or timezone.is_naive(parsed):
             raise serializers.ValidationError(
-                "Use an ISO 8601 timestamp with a timezone offset.",
+                "زمان را در قالب ISO 8601 همراه با منطقه زمانی وارد کنید.",
                 code="invalid",
             )
         return parsed.astimezone(UTC)
@@ -43,11 +43,11 @@ class UserPerformanceQuerySerializer(RejectServerFieldsMixin, serializers.Serial
             repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
             if repeated:
                 raise serializers.ValidationError(
-                    {name: "Query parameter must appear once." for name in repeated}
+                    {name: "این پارامتر باید فقط یک‌بار وارد شود." for name in repeated}
                 )
         if attrs["period_end"] <= attrs["period_start"]:
             raise serializers.ValidationError(
-                {"period_end": "Must be later than period_start."}
+                {"period_end": "باید پس از تاریخ شروع دوره باشد."}
             )
         return attrs
 
@@ -124,10 +124,10 @@ class SalesDocumentReportQuerySerializer(RejectServerFieldsMixin, serializers.Se
             repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
             if repeated:
                 raise serializers.ValidationError(
-                    {name: "Query parameter must appear once." for name in repeated}
+                    {name: "این پارامتر باید فقط یک‌بار وارد شود." for name in repeated}
                 )
         if attrs["period_end"] <= attrs["period_start"]:
-            raise serializers.ValidationError({"period_end": "Must be later than period_start."})
+            raise serializers.ValidationError({"period_end": "باید پس از تاریخ شروع دوره باشد."})
         return attrs
 
 
@@ -201,7 +201,7 @@ class ProfitQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if attrs["period_end"] <= attrs["period_start"]:
-            raise serializers.ValidationError({"period_end": "Must be later than period_start."})
+            raise serializers.ValidationError({"period_end": "باید پس از تاریخ شروع دوره باشد."})
         return attrs
 
 
@@ -284,7 +284,7 @@ class CustomerGrowthQuerySerializer(RejectServerFieldsMixin, serializers.Seriali
         start, end = attrs.get("period_start"), attrs.get("period_end")
         if start and end and end <= start:
             raise serializers.ValidationError(
-                {"period_end": "The period must end after it starts."}
+                {"period_end": "پایان دوره باید بعد از شروع آن باشد."}
             )
         return attrs
 

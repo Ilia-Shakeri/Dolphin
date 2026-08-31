@@ -140,7 +140,7 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
     gap is one month is a lie about the slope.
     """
     if granularity not in GRANULARITIES:
-        raise InvalidReportPeriod("Unknown granularity.")
+        raise InvalidReportPeriod("سطح تجمیع نامعتبر است.")
 
     now = timezone.now()
     if period_end is None:
@@ -148,7 +148,7 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
     if period_start is None:
         period_start = period_end - timedelta(days=365)
     if period_start >= period_end:
-        raise InvalidReportPeriod("The period must start before it ends.")
+        raise InvalidReportPeriod("تاریخ شروع دوره باید قبل از تاریخ پایان آن باشد.")
 
     scoped = customers_for(actor)
     truncate = _truncation(granularity)
@@ -173,7 +173,7 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
         sequence = _bucket_sequence(granularity, min(per_bucket), max(per_bucket))
         if len(sequence) > MAX_BUCKETS:
             raise InvalidReportPeriod(
-                "The period is too long to chart at this granularity."
+                "این بازه برای رسم نمودار با این سطح تجمیع بیش از حد طولانی است."
             )
         for bucket in sequence:
             count = per_bucket.get(bucket, 0)

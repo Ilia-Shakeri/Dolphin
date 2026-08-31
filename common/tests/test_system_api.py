@@ -276,14 +276,14 @@ class SystemApiTests(TestCase):
 
         unknown = client.get("/api/v1/customers/?typo=value")
         self.assertEqual(unknown.status_code, 400)
-        self.assertEqual([str(item) for item in unknown.data["typo"]], ["Unknown query parameter."])
+        self.assertEqual([str(item) for item in unknown.data["typo"]], ["پارامتر نامعتبر است."])
         self.assertEqual(unknown.data["error"]["code"], "validation_error")
 
         repeated = client.get("/api/v1/customers/?search=one&search=two")
         self.assertEqual(repeated.status_code, 400)
         self.assertEqual(
             [str(item) for item in repeated.data["search"]],
-            ["Query parameter must appear once."],
+            ["این پارامتر باید فقط یک‌بار وارد شود."],
         )
 
         detail_query = client.get("/api/v1/customers/999999/?search=value")
@@ -351,7 +351,7 @@ class SystemApiTests(TestCase):
         self.assertEqual(
             response.data,
             {
-                "detail": "Internal server error.",
+                "detail": "خطای داخلی سامانه.",
                 "error": {
                     "code": "server_error",
                     "request_id": "error-server-1",
@@ -373,7 +373,7 @@ class SystemApiTests(TestCase):
         self.assertEqual(
             api_response.json(),
             {
-                "detail": "Not found.",
+                "detail": "یافت نشد.",
                 "error": {
                     "code": "not_found",
                     "request_id": "error-route-1",

@@ -35,12 +35,12 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewS
         assigned_to = self.request.query_params.get("assigned_to")
         if assigned_to is not None:
             if not assigned_to.isdecimal() or int(assigned_to) < 1:
-                raise ValidationError({"assigned_to": "Enter a positive integer."})
+                raise ValidationError({"assigned_to": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(assigned_to_id=int(assigned_to))
         is_closed = self.request.query_params.get("is_closed")
         if is_closed is not None:
             if is_closed not in {"true", "false"}:
-                raise ValidationError({"is_closed": "Must be true or false."})
+                raise ValidationError({"is_closed": "مقدار باید true یا false باشد."})
             queryset = queryset.filter(closed_at__isnull=is_closed == "false")
         return queryset
 
@@ -49,14 +49,14 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewS
 
     def create(self, request, *args, **kwargs):
         if request.user.role not in ELEVATED:
-            raise PermissionDenied("After-sales request creation is not allowed.")
+            raise PermissionDenied("ثبت درخواست خدمات پس از فروش مجاز نیست.")
         return super().create(request, *args, **kwargs)
 
     @extend_schema(responses={200: AfterSalesAssigneeSerializer(many=True), 403: ACCESS_DENIED_RESPONSE})
     @action(detail=False, methods=["get"])
     def assignees(self, request):
         if request.user.role not in ELEVATED:
-            raise PermissionDenied("After-sales assignee list is not allowed.")
+            raise PermissionDenied("مشاهده فهرست کارشناسان مجاز نیست.")
         serializer = AssignmentSerializer()
         queryset = serializer.fields["to_user"].queryset.order_by("username")
         page = self.paginate_queryset(queryset)

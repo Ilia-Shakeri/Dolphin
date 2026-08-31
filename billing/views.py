@@ -102,7 +102,7 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 def _parse_date(value, field):
     parsed = parse_date(value)
     if parsed is None:
-        raise ValidationError({field: "Enter a valid ISO date."})
+        raise ValidationError({field: "تاریخ معتبر به قالب ISO وارد کنید."})
     return parsed
 
 
@@ -126,12 +126,12 @@ class CommercialDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelView
         status_value = self.request.query_params.get("status")
         if status_value is not None:
             if status_value not in self.status_enum.values:
-                raise ValidationError({"status": "Unknown status."})
+                raise ValidationError({"status": "وضعیت نامعتبر است."})
             queryset = queryset.filter(status=status_value)
         customer = self.request.query_params.get("customer")
         if customer is not None:
             if not customer.isdecimal() or int(customer) < 1:
-                raise ValidationError({"customer": "Enter a positive integer."})
+                raise ValidationError({"customer": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(customer_id=int(customer))
         return queryset
 
@@ -290,19 +290,19 @@ class InvoiceViewSet(CommercialDocumentViewSet):
         order = self.request.query_params.get("order")
         if order is not None:
             if not str(order).isdigit():
-                raise ValidationError({"order": "Enter a numeric order id."})
+                raise ValidationError({"order": "شناسه عددی سفارش را وارد کنید."})
             queryset = queryset.filter(order_id=int(order))
         # Official against unofficial is the split a reader of this list works
         # in, so it is a filter rather than something to find by scanning.
         invoice_type = self.request.query_params.get("invoice_type")
         if invoice_type is not None:
             if invoice_type not in Invoice.InvoiceType.values:
-                raise ValidationError({"invoice_type": "Unknown invoice type."})
+                raise ValidationError({"invoice_type": "نوع فاکتور نامعتبر است."})
             queryset = queryset.filter(invoice_type=invoice_type)
         settlement = self.request.query_params.get("settlement")
         if settlement is not None:
             if settlement not in Invoice.SettlementStatus.values:
-                raise ValidationError({"settlement": "Unknown settlement status."})
+                raise ValidationError({"settlement": "وضعیت تسویه نامعتبر است."})
             issued = queryset.filter(status=Invoice.Status.ISSUED)
             # A manually settled invoice reads as settled everywhere, so the
             # filter has to agree with what the document itself shows.
@@ -456,17 +456,17 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
         customer = self.request.query_params.get("customer")
         if customer is not None:
             if not customer.isdecimal() or int(customer) < 1:
-                raise ValidationError({"customer": "Enter a positive integer."})
+                raise ValidationError({"customer": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(customer_id=int(customer))
         status_value = self.request.query_params.get("status")
         if status_value is not None:
             if status_value not in Payment.Status.values:
-                raise ValidationError({"status": "Unknown status."})
+                raise ValidationError({"status": "وضعیت نامعتبر است."})
             queryset = queryset.filter(status=status_value)
         direction = self.request.query_params.get("direction")
         if direction is not None:
             if direction not in Payment.Direction.values:
-                raise ValidationError({"direction": "Unknown direction."})
+                raise ValidationError({"direction": "جهت نامعتبر است."})
             queryset = queryset.filter(direction=direction)
 
         # `desk` is what the two screens ask for, and it is not the same
@@ -485,7 +485,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
         desk = self.request.query_params.get("desk")
         if desk is not None:
             if desk not in Payment.Direction.values:
-                raise ValidationError({"desk": "Unknown desk."})
+                raise ValidationError({"desk": "باجه نامعتبر است."})
             if desk == Payment.Direction.DISBURSEMENT:
                 queryset = queryset.filter(
                     Q(direction=Payment.Direction.DISBURSEMENT)
@@ -496,7 +496,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, m
         method = self.request.query_params.get("method")
         if method is not None:
             if method not in Payment.Method.values:
-                raise ValidationError({"method": "Unknown payment method."})
+                raise ValidationError({"method": "روش پرداخت نامعتبر است."})
             queryset = queryset.filter(method=method)
         return queryset
 
@@ -598,7 +598,7 @@ class PaymentAllocationViewSet(SensitiveActionThrottleMixin, StrictQueryParamete
             value = self.request.query_params.get(parameter)
             if value is not None:
                 if not value.isdecimal() or int(value) < 1:
-                    raise ValidationError({parameter: "Enter a positive integer."})
+                    raise ValidationError({parameter: "یک عدد صحیح مثبت وارد کنید."})
                 queryset = queryset.filter(**{field: int(value)})
         return queryset
 
@@ -639,7 +639,7 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
         status_value = self.request.query_params.get("status")
         if status_value is not None:
             if status_value not in Cheque.Status.values:
-                raise ValidationError({"status": "Unknown cheque status."})
+                raise ValidationError({"status": "وضعیت چک نامعتبر است."})
             queryset = queryset.filter(status=status_value)
         # حالت is the axis that is not وضعیت, so it filters separately rather
         # than as another value of `status`. Only the two literals are accepted;
@@ -647,12 +647,12 @@ class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mi
         registered = self.request.query_params.get("is_registered")
         if registered is not None:
             if registered not in {"true", "false"}:
-                raise ValidationError({"is_registered": "Enter 'true' or 'false'."})
+                raise ValidationError({"is_registered": "مقدار «true» یا «false» را وارد کنید."})
             queryset = queryset.filter(is_registered=(registered == "true"))
         customer = self.request.query_params.get("customer")
         if customer is not None:
             if not customer.isdecimal() or int(customer) < 1:
-                raise ValidationError({"customer": "Enter a positive integer."})
+                raise ValidationError({"customer": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(payment__customer_id=int(customer))
         return queryset
 
@@ -741,12 +741,12 @@ class InstallmentPlanViewSet(SensitiveActionThrottleMixin, StrictQueryParameters
         status_value = self.request.query_params.get("status")
         if status_value is not None:
             if status_value not in InstallmentPlan.Status.values:
-                raise ValidationError({"status": "Unknown status."})
+                raise ValidationError({"status": "وضعیت نامعتبر است."})
             queryset = queryset.filter(status=status_value)
         invoice = self.request.query_params.get("invoice")
         if invoice is not None:
             if not invoice.isdecimal() or int(invoice) < 1:
-                raise ValidationError({"invoice": "Enter a positive integer."})
+                raise ValidationError({"invoice": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(invoice_id=int(invoice))
         return queryset
 
@@ -798,12 +798,12 @@ class InstallmentViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixi
         plan = self.request.query_params.get("plan")
         if plan is not None:
             if not plan.isdecimal() or int(plan) < 1:
-                raise ValidationError({"plan": "Enter a positive integer."})
+                raise ValidationError({"plan": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(plan_id=int(plan))
         status_value = self.request.query_params.get("status")
         if status_value is not None:
             if status_value not in Installment.Status.values:
-                raise ValidationError({"status": "Unknown status."})
+                raise ValidationError({"status": "وضعیت نامعتبر است."})
             queryset = queryset.filter(status=status_value)
         due_before = self.request.query_params.get("due_before")
         if due_before is not None:
@@ -840,12 +840,12 @@ class CustomerLedgerViewSet(SensitiveActionThrottleMixin, StrictQueryParametersM
         customer = self.request.query_params.get("customer")
         if customer is not None:
             if not customer.isdecimal() or int(customer) < 1:
-                raise ValidationError({"customer": "Enter a positive integer."})
+                raise ValidationError({"customer": "یک عدد صحیح مثبت وارد کنید."})
             queryset = queryset.filter(customer_id=int(customer))
         entry_type = self.request.query_params.get("entry_type")
         if entry_type is not None:
             if entry_type not in CustomerLedgerEntry.EntryType.values:
-                raise ValidationError({"entry_type": "Unknown entry type."})
+                raise ValidationError({"entry_type": "نوع سند نامعتبر است."})
             queryset = queryset.filter(entry_type=entry_type)
         return queryset
 
@@ -867,10 +867,10 @@ class CustomerLedgerViewSet(SensitiveActionThrottleMixin, StrictQueryParametersM
     def balance(self, request):
         customer = request.query_params.get("customer")
         if customer is None or not customer.isdecimal() or int(customer) < 1:
-            raise ValidationError({"customer": "Enter a positive integer."})
+            raise ValidationError({"customer": "یک عدد صحیح مثبت وارد کنید."})
         target = customers_for(request.user).filter(pk=int(customer)).first()
         if target is None:
-            raise ValidationError({"customer": "Invalid object."})
+            raise ValidationError({"customer": "مورد نامعتبر است."})
         return Response({"customer": target.pk, "balance": str(current_balance(target))})
 
     @extend_schema(

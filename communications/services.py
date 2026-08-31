@@ -56,22 +56,22 @@ class StoredInboundSMS:
 
 def _clean_metadata(metadata):
     if not isinstance(metadata, Mapping):
-        raise BusinessRuleError({"metadata": "Metadata must be an object."})
+        raise BusinessRuleError({"metadata": "متادیتا باید یک شیء باشد."})
     if len(metadata) > MAX_METADATA_KEYS:
-        raise BusinessRuleError({"metadata": f"Metadata may contain at most {MAX_METADATA_KEYS} fields."})
+        raise BusinessRuleError({"metadata": f"متادیتا حداکثر می‌تواند {MAX_METADATA_KEYS} فیلد داشته باشد."})
     cleaned = {}
     for key, value in metadata.items():
         if not isinstance(key, str) or not METADATA_KEY.fullmatch(key):
-            raise BusinessRuleError({"metadata": "Metadata contains an invalid field name."})
+            raise BusinessRuleError({"metadata": "نام یکی از فیلدهای متادیتا نامعتبر است."})
         if any(fragment in key for fragment in BLOCKED_METADATA_FRAGMENTS):
-            raise BusinessRuleError({"metadata": "Metadata contains a restricted field name."})
+            raise BusinessRuleError({"metadata": "متادیتا شامل نام فیلد محدودشده است."})
         if value is not None and (isinstance(value, float) or not isinstance(value, (str, int, bool))):
-            raise BusinessRuleError({"metadata": "Metadata values must be bounded scalar values."})
+            raise BusinessRuleError({"metadata": "مقادیر متادیتا باید مقدارهای ساده و محدود باشند."})
         if isinstance(value, str) and len(value) > MAX_METADATA_TEXT:
-            raise BusinessRuleError({"metadata": f"Metadata text may contain at most {MAX_METADATA_TEXT} characters."})
+            raise BusinessRuleError({"metadata": f"متن متادیتا حداکثر می‌تواند {MAX_METADATA_TEXT} نویسه داشته باشد."})
         cleaned[key] = value
     if len(json.dumps(cleaned, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > MAX_METADATA_BYTES:
-        raise BusinessRuleError({"metadata": f"Metadata may contain at most {MAX_METADATA_BYTES} bytes."})
+        raise BusinessRuleError({"metadata": f"متادیتا حداکثر می‌تواند {MAX_METADATA_BYTES} بایت باشد."})
     return cleaned
 
 
@@ -80,17 +80,17 @@ def _validate_event(event):
     provider_code = str(event.provider_code).strip().lower()
     external_message_id = str(event.external_message_id).strip()
     if not PROVIDER_CODE.fullmatch(provider_code):
-        errors["provider_code"] = "Provider code is invalid."
+        errors["provider_code"] = "کد ارائه‌دهنده نامعتبر است."
     if not external_message_id or len(external_message_id) > 160:
-        errors["external_message_id"] = "External message identifier is invalid."
+        errors["external_message_id"] = "شناسه پیام خارجی نامعتبر است."
     if not E164_NUMBER.fullmatch(str(event.sender_normalized)):
-        errors["sender_normalized"] = "Sender must be normalized E.164."
+        errors["sender_normalized"] = "شماره فرستنده باید در قالب استاندارد E.164 باشد."
     if not E164_NUMBER.fullmatch(str(event.recipient_normalized)):
-        errors["recipient_normalized"] = "Recipient must be normalized E.164."
+        errors["recipient_normalized"] = "شماره گیرنده باید در قالب استاندارد E.164 باشد."
     if event.direction != InboundSMS.Direction.INBOUND:
-        errors["direction"] = "Only inbound SMS is accepted."
+        errors["direction"] = "فقط پیامک ورودی پذیرفته می‌شود."
     if not isinstance(event.provider_received_at, datetime) or timezone.is_naive(event.provider_received_at):
-        errors["provider_received_at"] = "Provider timestamp must include a timezone offset."
+        errors["provider_received_at"] = "زمان دریافت از ارائه‌دهنده باید شامل منطقه زمانی باشد."
     if errors:
         raise BusinessRuleError(errors)
     return provider_code, external_message_id, _clean_metadata(event.metadata)
@@ -152,7 +152,7 @@ def store_normalized_inbound_sms(*, event, actor=None, system_received_at=None):
         )
         created = False
     if not created and not _same_canonical_event(message, event, metadata):
-        raise IdempotencyConflict({"external_message_id": "Identifier was already used for different normalized data."})
+        raise IdempotencyConflict({"external_message_id": "این شناسه قبلاً برای داده‌ای متفاوت استفاده شده است."})
     if created:
         log_activity(
             actor=actor,

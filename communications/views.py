@@ -26,7 +26,7 @@ class InboundSMSReportAccessMixin(FeatureGatedAPIMixin):
 
     def check_sms_access(self, request):
         if not has_any_capability(request.user, "sms.company"):
-            raise PermissionDenied("Inbound SMS report access is not allowed.")
+            raise PermissionDenied("دسترسی به گزارش پیامک‌های ورودی مجاز نیست.")
 
 
 class InboundSMSReportView(InboundSMSReportAccessMixin, APIView):

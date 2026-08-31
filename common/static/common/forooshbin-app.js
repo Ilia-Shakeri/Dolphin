@@ -971,7 +971,7 @@
             next = data.next;
             pages += 1;
         }
-        if (next) throw new Error("Result set is too large for this form.");
+        if (next) throw new Error("نتایج بیش از حد مجاز این فرم است.");
         return rows;
     }
 

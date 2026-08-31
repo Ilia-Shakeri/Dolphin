@@ -21,12 +21,12 @@ class InboundSMSReportQuerySerializer(RejectServerFieldsMixin, serializers.Seria
             repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
             if repeated:
                 raise serializers.ValidationError(
-                    {name: "Query parameter must appear once." for name in repeated}
+                    {name: "این پارامتر باید فقط یک‌بار وارد شود." for name in repeated}
                 )
         if attrs["period_end"] <= attrs["period_start"]:
-            raise serializers.ValidationError({"period_end": "Must be later than period_start."})
+            raise serializers.ValidationError({"period_end": "باید پس از تاریخ شروع دوره باشد."})
         if attrs["period_end"] - attrs["period_start"] > timedelta(days=366):
-            raise serializers.ValidationError({"period_end": "Report period may not exceed 366 days."})
+            raise serializers.ValidationError({"period_end": "بازه گزارش نمی‌تواند بیش از ۳۶۶ روز باشد."})
         return attrs
 
 

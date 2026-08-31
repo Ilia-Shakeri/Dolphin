@@ -650,7 +650,7 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(
             api_response.json(),
             {
-                "detail": "CSRF check failed.",
+                "detail": "بررسی امنیتی CSRF ناموفق بود.",
                 "error": {
                     "code": "csrf_failed",
                     "request_id": "csrf-login-1",

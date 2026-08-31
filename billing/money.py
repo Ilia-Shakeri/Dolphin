@@ -34,27 +34,27 @@ def _quantized_or_invalid(value, *, field):
     try:
         return quantize_money(value)
     except (InvalidOperation, ArithmeticError) as exc:
-        raise BusinessRuleError({field: "Amount is too large."}) from exc
+        raise BusinessRuleError({field: "مبلغ بیش از حد مجاز است."}) from exc
 
 
 def clean_money(value, *, field, allow_none=False, allow_zero=True):
     if value is None:
         if allow_none:
             return None
-        raise BusinessRuleError({field: "This field is required."})
+        raise BusinessRuleError({field: "این فیلد الزامی است."})
     try:
         amount = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
-        raise BusinessRuleError({field: "Enter a valid amount."}) from exc
+        raise BusinessRuleError({field: "مبلغ معتبر وارد کنید."}) from exc
     if not amount.is_finite():
-        raise BusinessRuleError({field: "Enter a valid amount."})
+        raise BusinessRuleError({field: "مبلغ معتبر وارد کنید."})
     amount = _quantized_or_invalid(amount, field=field)
     if amount < 0:
-        raise BusinessRuleError({field: "Amount cannot be negative."})
+        raise BusinessRuleError({field: "مبلغ نمی‌تواند منفی باشد."})
     if not allow_zero and amount == 0:
-        raise BusinessRuleError({field: "Amount must be greater than zero."})
+        raise BusinessRuleError({field: "مبلغ باید بیشتر از صفر باشد."})
     if amount > MAX_MONEY:
-        raise BusinessRuleError({field: "Amount is too large."})
+        raise BusinessRuleError({field: "مبلغ بیش از حد مجاز است."})
     return amount
 
 
@@ -64,25 +64,25 @@ def clean_percent(value, *, field, maximum=HUNDRED):
     try:
         percent = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError) as exc:
-        raise BusinessRuleError({field: "Enter a valid percentage."}) from exc
+        raise BusinessRuleError({field: "درصد معتبر وارد کنید."}) from exc
     if not percent.is_finite():
-        raise BusinessRuleError({field: "Enter a valid percentage."})
+        raise BusinessRuleError({field: "درصد معتبر وارد کنید."})
     try:
         percent = percent.quantize(PERCENT, rounding=ROUND_HALF_UP)
     except (InvalidOperation, ArithmeticError) as exc:
-        raise BusinessRuleError({field: "Enter a valid percentage."}) from exc
+        raise BusinessRuleError({field: "درصد معتبر وارد کنید."}) from exc
     if percent < 0 or percent > maximum:
-        raise BusinessRuleError({field: f"Percentage must be between 0 and {maximum}."})
+        raise BusinessRuleError({field: f"درصد باید بین ۰ و {maximum} باشد."})
     return percent
 
 
 def clean_quantity(value, *, field="quantity", maximum=1_000_000):
     if isinstance(value, bool) or not isinstance(value, int):
-        raise BusinessRuleError({field: "Quantity must be a whole number."})
+        raise BusinessRuleError({field: "تعداد باید عددی صحیح باشد."})
     if value < 1:
-        raise BusinessRuleError({field: "Quantity must be positive."})
+        raise BusinessRuleError({field: "تعداد باید مثبت باشد."})
     if value > maximum:
-        raise BusinessRuleError({field: "Quantity is too large."})
+        raise BusinessRuleError({field: "تعداد بیش از حد مجاز است."})
     return value
 
 
@@ -106,7 +106,7 @@ def line_amounts(*, quantity, unit_price, discount_percent=None, discount_amount
     gross = quantize_money(unit_price * quantity)
     if discount_percent is not None and discount_amount is not None:
         raise BusinessRuleError({
-            "discount_amount": "Give either a discount percentage or a discount amount, not both."
+            "discount_amount": "فقط یکی از درصد تخفیف یا مبلغ تخفیف را وارد کنید، نه هر دو را."
         })
     if discount_percent is not None:
         percent = clean_percent(discount_percent, field="discount_percent", maximum=max_discount_percent())
@@ -115,7 +115,7 @@ def line_amounts(*, quantity, unit_price, discount_percent=None, discount_amount
         percent = Decimal("0.00")
         amount = clean_money(discount_amount or 0, field="discount_amount")
     if amount > gross:
-        raise BusinessRuleError({"discount_amount": "Line discount cannot exceed the line amount."})
+        raise BusinessRuleError({"discount_amount": "تخفیف ردیف نمی‌تواند از مبلغ ردیف بیشتر باشد."})
     return percent, amount, quantize_money(gross - amount)
 
 
@@ -124,13 +124,13 @@ def document_totals(*, line_totals, header_discount, tax_rate):
     subtotal = quantize_money(sum(line_totals, Decimal("0.00")))
     discount = clean_money(header_discount or 0, field="discount_amount")
     if discount > subtotal:
-        raise BusinessRuleError({"discount_amount": "Discount cannot exceed the document subtotal."})
+        raise BusinessRuleError({"discount_amount": "تخفیف نمی‌تواند از جمع جزء سند بیشتر باشد."})
     taxable = quantize_money(subtotal - discount)
     rate = clean_percent(tax_rate, field="tax_rate")
     tax = quantize_money(taxable * rate / HUNDRED)
     total = quantize_money(taxable + tax)
     if total > MAX_MONEY:
-        raise BusinessRuleError({"total_amount": "Document total is too large."})
+        raise BusinessRuleError({"total_amount": "مبلغ کل سند بیش از حد مجاز است."})
     return subtotal, discount, rate, tax, total
 
 

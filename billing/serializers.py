@@ -151,13 +151,13 @@ class CommercialDocumentSerializer(ScopedLineItemsMixin, RejectServerFieldsMixin
     def validate(self, attrs):
         attrs = super().validate(attrs)
         if self.instance is None and not attrs.get("items"):
-            raise serializers.ValidationError({"items": "A document needs at least one line."})
+            raise serializers.ValidationError({"items": "سند باید حداقل یک ردیف داشته باشد."})
         if self.instance is not None and "items" in getattr(self, "initial_data", {}):
             raise serializers.ValidationError({
-                "items": "Use the document's items action to replace lines."
+                "items": "برای جایگزینی ردیف‌ها از عملیات ردیف‌های سند استفاده کنید."
             })
         if self.instance is not None and "customer" in attrs and attrs["customer"] != self.instance.customer:
-            raise serializers.ValidationError({"customer": "Document customer cannot change."})
+            raise serializers.ValidationError({"customer": "مشتری سند قابل تغییر نیست."})
         return attrs
 
 
@@ -583,13 +583,13 @@ class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Seria
 
     def validate_splits(self, value):
         if not value:
-            raise serializers.ValidationError("Choose at least one invoice.")
+            raise serializers.ValidationError("حداقل یک فاکتور را انتخاب کنید.")
         seen = set()
         for row in value:
             invoice = row["invoice"]
             if invoice.pk in seen:
                 raise serializers.ValidationError(
-                    "Each invoice may appear only once in a split."
+                    "هر فاکتور فقط می‌تواند یک‌بار در تقسیم ظاهر شود."
                 )
             seen.add(invoice.pk)
         return value
