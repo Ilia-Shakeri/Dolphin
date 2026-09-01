@@ -17,9 +17,12 @@
 <body>
 <div class="d-flex flex-column flex-center flex-column-fluid p-10" style="min-height:100vh">
     <section class="card mb-5 mb-xl-8" aria-labelledby="error-title"><div class="card-body">
+        {% comment %} This mark sits inside a light card, not the dark header/sidebar/login
+           chrome the default brand mark is drawn for — the white fin would vanish here, so
+           this is the one place that uses the light-background (navy) variant. {% endcomment %}
         <picture>
-            <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
-            <img class="brand-mark brand-mark-error mb-4" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
+            <source type="image/webp" srcset="{% static 'common/brand/Logo-light.webp' %}">
+            <img class="brand-mark brand-mark-error mb-4" src="{% static 'common/brand/Logo-light.png' %}" width="716" height="716" alt="">
         </picture>
         <p class="text-primary fw-bold fs-7 mb-1">Dolphin | دلفین</p>
         <p class="fs-2hx fw-bold text-danger mb-3">{{ status }}</p>

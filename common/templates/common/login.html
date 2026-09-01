@@ -39,12 +39,13 @@
         </div>
         <div class="d-flex flex-lg-row-fluid w-lg-50 bgi-size-cover bgi-position-center order-1 order-lg-2" style="background-color:#1e1e2d">
             <div class="d-flex flex-column flex-center py-15 px-5 px-md-15 w-100">
+                {% comment %} The full name lockup, not the bare icon plus separate headings: on
+                   this dark aside it is the one place the brand gets to be the whole story,
+                   large and on its own. {% endcomment %}
                 <picture>
-                    <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
-                    <img class="brand-mark brand-mark-login mb-7" src="{% static 'common/brand/Logo.png' %}" width="1278" height="1230" alt="">
+                    <source type="image/webp" srcset="{% static 'common/brand/Logo-With-Name.webp' %}">
+                    <img class="brand-mark brand-mark-login mb-7" src="{% static 'common/brand/Logo-With-Name.png' %}" width="1343" height="1024" alt="Dolphin | دلفین">
                 </picture>
-                <h1 class="text-white fs-2qx fw-bolder text-center mb-3">Dolphin</h1>
-                <div class="text-white fs-2 fw-bold text-center mb-7">دلفین</div>
                 <div class="text-gray-400 fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
             </div>
         </div>
