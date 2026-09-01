@@ -29,4 +29,4 @@ def product_version(request):
     in `base.html` and every template extends it — including the login page and
     the error pages, which are rendered by views that share no base class.
     """
-    return {"forooshbin_version": settings.FOROOSHBIN_VERSION}
+    return {"dolphin_version": settings.DOLPHIN_VERSION}

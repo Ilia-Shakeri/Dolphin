@@ -97,7 +97,7 @@ docker compose run --rm --no-deps migrate python manage.py migrate --plan
 - [ ] Runtime role can update mutable CRM rows and delete sessions, but cannot update/delete audit or history rows and cannot run DDL.
 - [ ] Static files served through Nginx and unversioned asset paths revalidate instead of receiving a stale multi-day freshness lifetime.
 - [ ] Nginx rate, timeout, request-ID, and safe error behavior proved.
-- [ ] Base Compose mounted `# kariz-write-stop: off`; override Compose mounted `# kariz-write-stop: on` at `/etc/nginx/write-stop.conf`.
+- [ ] Base Compose mounted `# dolphin-write-stop: off`; override Compose mounted `# dolphin-write-stop: on` at `/etc/nginx/write-stop.conf`.
 - [ ] With stop on, edge health `GET`/`HEAD` stayed live and safe-path `POST`/`PUT`/`PATCH`/`DELETE` each returned stable JSON `503` with matching header/body request IDs.
 - [ ] With stop off again, the safe write probe no longer returned the edge write-stop response.
 - [ ] Restart-policy and bounded-log behavior proved.
@@ -130,7 +130,7 @@ docker compose exec web python manage.py bootstrap_platform_admin --username $ap
 - [ ] Sales Agent, Sales Manager, Company IT, and Platform Admin list/detail/write/action/filter scope passed with approved non-production fixtures.
 - [ ] Customer/phone uniqueness, Lead assignment/history, Interaction append-only, positive Product, Sale create/cancel, and audit critical paths passed.
 - [ ] Report JSON/XLSX scope, formulas, non-enumerating Product filter, exact money text, parity, cache, and download passed.
-- [ ] Persian/RTL root/admin, ForooshBin brand, static assets, target viewports, and clean browser console/network passed.
+- [ ] Persian/RTL root/admin, Dolphin brand, static assets, target viewports, and clean browser console/network passed.
 - [ ] Capacity/load target passed on production-shaped infrastructure through the bounded read-only procedure in [LOAD_TEST.md](LOAD_TEST.md), or through one separately approved exact tool and contract, with external resource and abort evidence.
 
 ## Rollback and incident gates
@@ -140,9 +140,9 @@ Run this exact reversible edge drill only on the approved target. Use the no-bod
 ```powershell
 docker compose -f compose.yml -f compose.write-stop.yml config --quiet
 docker compose -f compose.yml -f compose.write-stop.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 docker compose -f compose.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml exec -T nginx grep -F '# kariz-write-stop: off' /etc/nginx/write-stop.conf
+docker compose -f compose.yml exec -T nginx grep -F '# dolphin-write-stop: off' /etc/nginx/write-stop.conf
 ```
 
 - [ ] Prior application artifact can be selected without live Git reset or file overwrite.

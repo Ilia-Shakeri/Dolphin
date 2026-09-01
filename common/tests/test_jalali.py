@@ -22,7 +22,7 @@ from common import jalali
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "common" / "static" / "common" / "forooshbin-app.js"
+SCRIPT = ROOT / "common" / "static" / "common" / "dolphin-app.js"
 
 # Published Gregorian/Jalali pairs. Nowruz is the year boundary, so these pin
 # both the epoch and the leap rule.

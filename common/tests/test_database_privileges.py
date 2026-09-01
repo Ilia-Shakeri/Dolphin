@@ -205,8 +205,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertNotIn("REASSIGN OWNED", self.bootstrap)
 
     def test_backup_role_is_read_only_and_future_safe(self):
-        self.assertIn("FrooshBin managed backup role v1", self.bootstrap)
-        self.assertIn("POSTGRES_BACKUP_USER already exists but is not FrooshBin-managed.", self.bootstrap)
+        self.assertIn("Dolphin managed backup role v1", self.bootstrap)
+        self.assertIn("POSTGRES_BACKUP_USER already exists but is not Dolphin-managed.", self.bootstrap)
         self.assertIn("REVOKE ALL ON DATABASE %I FROM %I', :'db_name', :'backup_user'", self.bootstrap)
         self.assertIn("GRANT CONNECT ON DATABASE %I TO %I', :'db_name', :'backup_user'", self.bootstrap)
         self.assertIn("REVOKE ALL ON SCHEMA public FROM %I', :'backup_user'", self.bootstrap)
@@ -266,7 +266,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         )
         self.assertEqual(backup["tmpfs"], ["/tmp:size=16m,mode=1777"])
         self.assertEqual(backup["environment"]["POSTGRES_BACKUP_ROOT"], "/backups")
-        self.assertIn("KARIZ_BACKUP_ROOT_V1", self.backup_script)
+        self.assertIn("DOLPHIN_BACKUP_ROOT_V1", self.backup_script)
         self.assertIn("--username=\"$POSTGRES_BACKUP_USER\"", self.backup_script)
         self.assertIn("--no-password", self.backup_script)
         self.assertNotIn("POSTGRES_INIT_PASSWORD", self.backup_script)
@@ -448,18 +448,18 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         # Production keeps psql's interactive `\password`; the non-interactive
         # branch exists only for the disposable proof harness and must be
         # unreachable without an explicit opt-in and throwaway identifiers.
-        self.assertIn('NONINTERACTIVE_PASSWORD="${KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"', self.bootstrap)
+        self.assertIn('NONINTERACTIVE_PASSWORD="${DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"', self.bootstrap)
         self.assertIn(
-            "EPHEMERAL_DB_PATTERN='^(test|contract|restore)_frooshbin_[0-9a-f]{32}$'",
+            "EPHEMERAL_DB_PATTERN='^(test|contract|restore)_dolphin_[0-9a-f]{32}$'",
             self.bootstrap,
         )
         self.assertIn(
-            "EPHEMERAL_ROLE_PATTERN='^frooshbin_(migration|app|backup)_[0-9a-f]{32}$'",
+            "EPHEMERAL_ROLE_PATTERN='^dolphin_(migration|app|backup)_[0-9a-f]{32}$'",
             self.bootstrap,
         )
         self.assertIn("Refusing the non-interactive password path.", self.bootstrap)
         self.assertIn(
-            "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD must be unset, '0', or '1'.",
+            "DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD must be unset, '0', or '1'.",
             self.bootstrap,
         )
         # A stored password that is not a SCRAM verifier must abort the run.
@@ -476,18 +476,18 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         for path in ("compose.yml", "compose.restore-verify.yml", "compose.write-stop.yml", ".env.example"):
             with self.subTest(path=path):
                 self.assertNotIn(
-                    "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
+                    "DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
                     (ROOT / path).read_text(encoding="utf-8"),
                 )
 
         bootstrap_service = self.services["db-bootstrap"]
         self.assertNotIn(
-            "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
+            "DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
             bootstrap_service["environment"],
         )
-        self.assertNotIn("KARIZ_BOOTSTRAP_PYTHON", bootstrap_service["environment"])
+        self.assertNotIn("DOLPHIN_BOOTSTRAP_PYTHON", bootstrap_service["environment"])
         self.assertNotIn(
-            "KARIZ_BOOTSTRAP_SCRAM_HELPER", bootstrap_service["environment"]
+            "DOLPHIN_BOOTSTRAP_SCRAM_HELPER", bootstrap_service["environment"]
         )
         # Only the bootstrap script itself is mounted, so the helper the
         # non-interactive path requires is not even present in that container.
@@ -543,7 +543,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertNotIn("drop database", self.bootstrap.lower())
         self.assertIn("PostgreSQL role names must be distinct.", self.bootstrap)
         self.assertIn("PostgreSQL role passwords must be distinct.", self.bootstrap)
-        self.assertIn("already exists but is not FrooshBin-managed", self.bootstrap)
+        self.assertIn("already exists but is not Dolphin-managed", self.bootstrap)
         self.assertIn("ALTER ROLE %I RESET ALL", self.bootstrap)
         self.assertIn("ALTER ROLE %I IN DATABASE %I RESET ALL", self.bootstrap)
         self.assertIn("SET search_path TO public, pg_catalog", self.bootstrap)

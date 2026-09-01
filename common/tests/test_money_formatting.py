@@ -18,7 +18,7 @@ from common.templatetags.money_tags import money
 
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
-APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin-app.js"
+APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
 PRINT_TEMPLATES = (
     REPOSITORY_ROOT / "common" / "templates" / "common" / "invoices" / "print.html",
 )
@@ -88,7 +88,7 @@ class MoneyFilterTests(SimpleTestCase):
     def test_the_separator_matches_the_one_the_application_javascript_uses(self):
         source = APP_JS.read_text(encoding="utf-8")
         grouping = re.search(r'whole\.replace\(/\\B\(\?=\(\\d\{3\}\)\+\(\?!\\d\)\)/g, "(.)"\)', source)
-        self.assertIsNotNone(grouping, "forooshbin-app.js no longer groups thousands as expected")
+        self.assertIsNotNone(grouping, "dolphin-app.js no longer groups thousands as expected")
         self.assertEqual(grouping.group(1), "،")
 
     def test_the_currency_word_matches_the_one_the_javascript_appends(self):

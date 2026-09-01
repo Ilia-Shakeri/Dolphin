@@ -91,7 +91,7 @@ ROLE_LABELS = {
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
-class KarizLoginView(TemplateView):
+class DolphinLoginView(TemplateView):
     template_name = "common/login.html"
 
     def dispatch(self, request, *args, **kwargs):
@@ -189,7 +189,7 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         return context
 
 
-class KarizHomeView(ActiveCrmView):
+class DolphinHomeView(ActiveCrmView):
     template_name = "common/home.html"
 
     def get_context_data(self, **kwargs):
@@ -304,7 +304,7 @@ class UserAdminView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizUserListView(UserAdminView):
+class DolphinUserListView(UserAdminView):
     template_name = "common/users/list.html"
 
     def get_context_data(self, **kwargs):
@@ -316,7 +316,7 @@ class KarizUserListView(UserAdminView):
         return context
 
 
-class KarizUserDetailView(UserAdminView):
+class DolphinUserDetailView(UserAdminView):
     template_name = "common/users/detail.html"
 
     def get(self, request, *args, **kwargs):
@@ -343,7 +343,7 @@ class KarizUserDetailView(UserAdminView):
         return context
 
 
-class KarizCustomerListView(ActiveCrmView):
+class DolphinCustomerListView(ActiveCrmView):
     required_feature = "customers"
     template_name = "common/customers/list.html"
 
@@ -376,7 +376,7 @@ class ScopedDetailView(ActiveCrmView):
         return context
 
 
-class KarizCustomerDetailView(ScopedDetailView):
+class DolphinCustomerDetailView(ScopedDetailView):
     required_feature = "customers"
     template_name = "common/customers/detail.html"
     object_id_kwarg = "customer_id"
@@ -388,12 +388,12 @@ class KarizCustomerDetailView(ScopedDetailView):
         return customers_for(self.request.user)
 
 
-class KarizLeadListView(ActiveCrmView):
+class DolphinLeadListView(ActiveCrmView):
     required_feature = "leads"
     template_name = "common/leads/list.html"
 
 
-class KarizLeadDetailView(ScopedDetailView):
+class DolphinLeadDetailView(ScopedDetailView):
     required_feature = "leads"
     template_name = "common/leads/detail.html"
     object_id_kwarg = "lead_id"
@@ -421,12 +421,12 @@ class KarizLeadDetailView(ScopedDetailView):
         return context
 
 
-class KarizInteractionListView(ActiveCrmView):
+class DolphinInteractionListView(ActiveCrmView):
     required_feature = "leads"
     template_name = "common/interactions/list.html"
 
 
-class KarizInteractionDetailView(ScopedDetailView):
+class DolphinInteractionDetailView(ScopedDetailView):
     required_feature = "leads"
     template_name = "common/interactions/detail.html"
     object_id_kwarg = "interaction_id"
@@ -438,17 +438,17 @@ class KarizInteractionDetailView(ScopedDetailView):
         return interactions_for(self.request.user)
 
 
-class KarizProductListView(ActiveCrmView):
+class DolphinProductListView(ActiveCrmView):
     required_feature = "products"
     template_name = "common/products/list.html"
 
 
-class KarizProductCategoryListView(ActiveCrmView):
+class DolphinProductCategoryListView(ActiveCrmView):
     required_feature = "products"
     template_name = "common/product_categories/list.html"
 
 
-class KarizProductCategoryDetailView(ScopedDetailView):
+class DolphinProductCategoryDetailView(ScopedDetailView):
     required_feature = "products"
     template_name = "common/product_categories/detail.html"
     object_id_kwarg = "category_id"
@@ -460,7 +460,7 @@ class KarizProductCategoryDetailView(ScopedDetailView):
         return product_categories_for(self.request.user)
 
 
-class KarizProductDetailView(ScopedDetailView):
+class DolphinProductDetailView(ScopedDetailView):
     required_feature = "products"
     template_name = "common/products/detail.html"
     object_id_kwarg = "product_id"
@@ -470,12 +470,12 @@ class KarizProductDetailView(ScopedDetailView):
         return products_for(self.request.user)
 
 
-class KarizSaleListView(ActiveCrmView):
+class DolphinSaleListView(ActiveCrmView):
     required_feature = "sales"
     template_name = "common/sales/list.html"
 
 
-class KarizSaleDetailView(ScopedDetailView):
+class DolphinSaleDetailView(ScopedDetailView):
     required_feature = "sales"
     template_name = "common/sales/detail.html"
     object_id_kwarg = "sale_id"
@@ -485,12 +485,12 @@ class KarizSaleDetailView(ScopedDetailView):
         return sales_for(self.request.user)
 
 
-class KarizSalesDocumentListView(ActiveCrmView):
+class DolphinSalesDocumentListView(ActiveCrmView):
     required_feature = "sales_documents"
     template_name = "common/sales_documents/list.html"
 
 
-class KarizSalesDocumentDetailView(ScopedDetailView):
+class DolphinSalesDocumentDetailView(ScopedDetailView):
     required_feature = "sales_documents"
     template_name = "common/sales_documents/detail.html"
     object_id_kwarg = "document_id"
@@ -502,7 +502,7 @@ class KarizSalesDocumentDetailView(ScopedDetailView):
         return sales_documents_for(self.request.user)
 
 
-class KarizUserPerformanceView(ActiveCrmView):
+class DolphinUserPerformanceView(ActiveCrmView):
     required_feature = "reports"
     template_name = "common/reports/user_performance.html"
 
@@ -515,7 +515,7 @@ class KarizUserPerformanceView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizSalesDocumentReportView(ActiveCrmView):
+class DolphinSalesDocumentReportView(ActiveCrmView):
     required_feature = "sales_documents"
     template_name = "common/reports/sales_documents.html"
 
@@ -528,7 +528,7 @@ class KarizSalesDocumentReportView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizInboundSMSReportView(ActiveCrmView):
+class DolphinInboundSMSReportView(ActiveCrmView):
     required_feature = "inbound_sms"
     template_name = "common/reports/inbound_sms.html"
 
@@ -553,12 +553,12 @@ class AfterSalesAccessView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizAfterSalesListView(AfterSalesAccessView):
+class DolphinAfterSalesListView(AfterSalesAccessView):
     required_feature = "after_sales"
     template_name = "common/after_sales/list.html"
 
 
-class KarizAfterSalesDetailView(AfterSalesAccessView, ScopedDetailView):
+class DolphinAfterSalesDetailView(AfterSalesAccessView, ScopedDetailView):
     required_feature = "after_sales"
     template_name = "common/after_sales/detail.html"
     object_id_kwarg = "request_id"
@@ -586,12 +586,12 @@ class AuditReaderView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizActivityLogListView(AuditReaderView):
+class DolphinActivityLogListView(AuditReaderView):
     required_feature = "audit_log"
     template_name = "common/activity_logs/list.html"
 
 
-class KarizActivityLogDetailView(AuditReaderView, ScopedDetailView):
+class DolphinActivityLogDetailView(AuditReaderView, ScopedDetailView):
     required_feature = "audit_log"
     template_name = "common/activity_logs/detail.html"
     object_id_kwarg = "activity_log_id"
@@ -603,12 +603,12 @@ class KarizActivityLogDetailView(AuditReaderView, ScopedDetailView):
 
 # --- Inventory pages ---------------------------------------------------------
 
-class KarizWarehouseListView(ActiveCrmView):
+class DolphinWarehouseListView(ActiveCrmView):
     required_feature = "inventory"
     template_name = "common/warehouses/list.html"
 
 
-class KarizWarehouseDetailView(ScopedDetailView):
+class DolphinWarehouseDetailView(ScopedDetailView):
     required_feature = "inventory"
     template_name = "common/warehouses/detail.html"
     object_id_kwarg = "warehouse_id"
@@ -620,24 +620,24 @@ class KarizWarehouseDetailView(ScopedDetailView):
         return warehouses_for(self.request.user)
 
 
-class KarizStockLevelListView(ActiveCrmView):
+class DolphinStockLevelListView(ActiveCrmView):
     required_feature = "inventory"
     template_name = "common/inventory/stock_levels.html"
 
 
-class KarizStockMovementListView(ActiveCrmView):
+class DolphinStockMovementListView(ActiveCrmView):
     required_feature = "inventory"
     template_name = "common/inventory/stock_movements.html"
 
 
 # --- Commercial document pages ----------------------------------------------
 
-class KarizOrderListView(ActiveCrmView):
+class DolphinOrderListView(ActiveCrmView):
     required_feature = "orders"
     template_name = "common/orders/list.html"
 
 
-class KarizOrderDetailView(ScopedDetailView):
+class DolphinOrderDetailView(ScopedDetailView):
     required_feature = "orders"
     template_name = "common/orders/detail.html"
     object_id_kwarg = "order_id"
@@ -649,12 +649,12 @@ class KarizOrderDetailView(ScopedDetailView):
         return orders_for(self.request.user)
 
 
-class KarizInvoiceListView(ActiveCrmView):
+class DolphinInvoiceListView(ActiveCrmView):
     required_feature = "invoices"
     template_name = "common/invoices/list.html"
 
 
-class KarizInvoiceDetailView(ScopedDetailView):
+class DolphinInvoiceDetailView(ScopedDetailView):
     required_feature = "invoices"
     template_name = "common/invoices/detail.html"
     object_id_kwarg = "invoice_id"
@@ -748,7 +748,7 @@ class DocumentPdfView(PrintableDocumentView):
         return pdf
 
 
-class KarizInvoicePrintView(PrintableDocumentView):
+class DolphinInvoicePrintView(PrintableDocumentView):
     required_feature = "invoices"
     template_name = "common/invoices/print.html"
     object_id_kwarg = "invoice_id"
@@ -818,7 +818,7 @@ class KarizInvoicePrintView(PrintableDocumentView):
         return context
 
 
-class KarizInvoicePdfView(DocumentPdfView, KarizInvoicePrintView):
+class DolphinInvoicePdfView(DocumentPdfView, DolphinInvoicePrintView):
     pdf_name_prefix = "invoice"
 
 
@@ -836,7 +836,7 @@ class PaymentDeskView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizPaymentListView(PaymentDeskView):
+class DolphinPaymentListView(PaymentDeskView):
     """Money coming in.
 
     Receipts and disbursements are the same document read in two directions, so
@@ -856,13 +856,13 @@ class KarizPaymentListView(PaymentDeskView):
         return context
 
 
-class KarizDisbursementListView(KarizPaymentListView):
+class DolphinDisbursementListView(DolphinPaymentListView):
     """Money going out. The same desk, facing the other way."""
 
     direction = "disbursement"
 
 
-class KarizPaymentDetailView(PaymentDeskView, ScopedDetailView):
+class DolphinPaymentDetailView(PaymentDeskView, ScopedDetailView):
     required_feature = "payments"
     template_name = "common/payments/detail.html"
     #: Whether this reader may correct a recorded document. The platform admin
@@ -898,17 +898,17 @@ class KarizPaymentDetailView(PaymentDeskView, ScopedDetailView):
         return context
 
 
-class KarizChequeListView(PaymentDeskView):
+class DolphinChequeListView(PaymentDeskView):
     required_feature = "payments"
     template_name = "common/payments/cheques.html"
 
 
-class KarizInstallmentListView(PaymentDeskView):
+class DolphinInstallmentListView(PaymentDeskView):
     required_feature = "payments"
     template_name = "common/payments/installments.html"
 
 
-class KarizCustomerLedgerView(ActiveCrmView):
+class DolphinCustomerLedgerView(ActiveCrmView):
     required_feature = "customer_ledger"
     template_name = "common/reports/customer_ledger.html"
 
@@ -937,16 +937,16 @@ class CompanyReportView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class KarizReceivablesReportView(CompanyReportView):
+class DolphinReceivablesReportView(CompanyReportView):
     required_feature = "invoices"
     template_name = "common/reports/receivables.html"
 
 
-class KarizProfitReportView(CompanyReportView):
+class DolphinProfitReportView(CompanyReportView):
     required_feature = "invoices"
     template_name = "common/reports/profit.html"
 
 
-class KarizStockValuationReportView(CompanyReportView):
+class DolphinStockValuationReportView(CompanyReportView):
     required_feature = "inventory"
     template_name = "common/reports/stock_valuation.html"

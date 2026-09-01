@@ -19,7 +19,7 @@ from accounts.sessions import session_reference
 PASSWORD = "Strong-pass-937!"
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 TEMPLATE_ROOT = REPOSITORY_ROOT / "common" / "templates" / "common"
-APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin-app.js"
+APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
 
 
 class HeaderUserMenuTests(TestCase):

@@ -16,7 +16,7 @@ shaping, which is why `common/pdf.py` refuses to hand-roll its own engine. Addin
 a dependency would mean regenerating the hash-pinned lock on a Linux host
 (`docs/ops/DEPENDENCIES.md`) for something this small.
 
-The frontend performs the same conversion in `forooshbin-app.js`; the two are held
+The frontend performs the same conversion in `dolphin-app.js`; the two are held
 to the same reference vectors by `common/tests/test_jalali.py`.
 """
 

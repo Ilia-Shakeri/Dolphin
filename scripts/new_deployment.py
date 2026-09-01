@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Provision a new ForooshBin deployment: its .env, its identifiers, its secrets.
+"""Provision a new Dolphin deployment: its .env, its identifiers, its secrets.
 
 Every deployment this product ships is the same code with a different `.env`, a
 different set of volumes, and a signed manifest naming the features it may run.
@@ -19,7 +19,7 @@ running application can never disagree about what a feature is or what it needs.
 
 Usage:
 
-    scripts/new_deployment.py --slug tiara --host crm.tiara.ir --out /srv/forooshbin/tiara
+    scripts/new_deployment.py --slug tiara --host crm.tiara.ir --out /srv/dolphin/tiara
 
 Add `--features customers,products,invoices` to choose explicitly; omit it and
 the deployment gets this release's default set. `--list-features` prints what is
@@ -278,12 +278,12 @@ def report(*, slug, host, out_dir, env_path, features, added, profile):
     print("     ./scripts/deploy.sh <image-tag>")
     print("     docker compose run --rm web python manage.py bootstrap_platform_admin --username admin")
     print()
-    print("Full detail: docs/ops/FOROOSHBIN_DEPLOYMENT_RUNBOOK.md")
+    print("Full detail: docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md")
 
 
 def parse_arguments(argv):
     parser = argparse.ArgumentParser(
-        description="Provision a new ForooshBin deployment.",
+        description="Provision a new Dolphin deployment.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--list-features", action="store_true",
@@ -294,9 +294,9 @@ def parse_arguments(argv):
     parser.add_argument("--features", default=None,
                         help="comma-separated; omit for this release's default set")
     parser.add_argument("--profile", default="client-1", choices=sorted(PROFILES))
-    parser.add_argument("--image", default="forooshbin-app:latest",
+    parser.add_argument("--image", default="dolphin-app:latest",
                         help="application image reference for the first release")
-    parser.add_argument("--manifest-path", default="/srv/forooshbin/secrets/manifest.json")
+    parser.add_argument("--manifest-path", default="/srv/dolphin/secrets/manifest.json")
     parser.add_argument("--manifest-keys", default="REPLACE-WITH-key-id:base64-ed25519-public-key")
     parser.add_argument("--retention-days", type=int, default=0,
                         help="backup retention; 0 keeps everything")

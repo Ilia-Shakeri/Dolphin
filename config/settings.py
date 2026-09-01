@@ -13,9 +13,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # The fallback covers a container built without the file: the application must
 # still start, and an unknown version is better than a wrong one.
 try:
-    FOROOSHBIN_VERSION = (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+    DOLPHIN_VERSION = (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
 except OSError:
-    FOROOSHBIN_VERSION = "unknown"
+    DOLPHIN_VERSION = "unknown"
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-development-key-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = [value.strip() for value in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if value.strip()]
@@ -78,8 +78,8 @@ ASGI_APPLICATION = "config.asgi.application"
 
 DATABASES = {"default": {
     "ENGINE": "django.db.backends.postgresql",
-    "NAME": os.environ.get("POSTGRES_DB", "frooshbin"),
-    "USER": os.environ.get("POSTGRES_USER", "frooshbin_app"),
+    "NAME": os.environ.get("POSTGRES_DB", "dolphin"),
+    "USER": os.environ.get("POSTGRES_USER", "dolphin_app"),
     "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
     "HOST": os.environ.get("POSTGRES_HOST", "127.0.0.1"),
     "PORT": os.environ.get("POSTGRES_PORT", "5432"),
@@ -190,12 +190,12 @@ LOGGING = {
         },
     },
     "loggers": {
-        "forooshbin.request": {
+        "dolphin.request": {
             "handlers": ["request_console"],
             "level": "INFO",
             "propagate": False,
         },
-        "forooshbin.server_fault": {
+        "dolphin.server_fault": {
             "handlers": ["server_fault_console"],
             "level": "ERROR",
             "propagate": False,
@@ -224,7 +224,7 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Dolphin API",
-    "VERSION": FOROOSHBIN_VERSION,
+    "VERSION": DOLPHIN_VERSION,
     "SERVE_INCLUDE_SCHEMA": False,
     # Several modules own a field called `status` or `to_status` over different
     # vocabularies. Naming each enum after its module keeps the generated

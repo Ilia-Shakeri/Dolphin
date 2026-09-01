@@ -6,8 +6,8 @@ from pathlib import Path
 from common.request_context import current_request_context
 
 
-REQUEST_LOGGER_NAME = "forooshbin.request"
-SERVER_FAULT_LOGGER_NAME = "forooshbin.server_fault"
+REQUEST_LOGGER_NAME = "dolphin.request"
+SERVER_FAULT_LOGGER_NAME = "dolphin.server_fault"
 request_logger = logging.getLogger(REQUEST_LOGGER_NAME)
 server_fault_logger = logging.getLogger(SERVER_FAULT_LOGGER_NAME)
 

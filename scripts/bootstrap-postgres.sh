@@ -85,9 +85,9 @@ fi
 # bootstrap; there is no fallback to a weaker method, and production is
 # unreachable from this branch because a production database and role name can
 # never match the disposable-proof patterns below.
-NONINTERACTIVE_PASSWORD="${KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"
-EPHEMERAL_DB_PATTERN='^(test|contract|restore)_frooshbin_[0-9a-f]{32}$'
-EPHEMERAL_ROLE_PATTERN='^frooshbin_(migration|app|backup)_[0-9a-f]{32}$'
+NONINTERACTIVE_PASSWORD="${DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD:-0}"
+EPHEMERAL_DB_PATTERN='^(test|contract|restore)_dolphin_[0-9a-f]{32}$'
+EPHEMERAL_ROLE_PATTERN='^dolphin_(migration|app|backup)_[0-9a-f]{32}$'
 VERIFIER_PATTERN='^SCRAM-SHA-256\$[0-9]+:[A-Za-z0-9+/]+=*\$[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*$'
 
 refuse_noninteractive() {
@@ -98,10 +98,10 @@ refuse_noninteractive() {
 
 require_ephemeral_proof_context() {
     printf '%s' "$POSTGRES_DB" | LC_ALL=C grep -Eq "$EPHEMERAL_DB_PATTERN" || \
-        refuse_noninteractive "POSTGRES_DB is not a disposable FrooshBin proof database."
+        refuse_noninteractive "POSTGRES_DB is not a disposable Dolphin proof database."
     for proof_role in "$POSTGRES_MIGRATION_USER" "$POSTGRES_APP_USER" "$POSTGRES_BACKUP_USER"; do
         printf '%s' "$proof_role" | LC_ALL=C grep -Eq "$EPHEMERAL_ROLE_PATTERN" || \
-            refuse_noninteractive "A managed role name is not a disposable FrooshBin proof role."
+            refuse_noninteractive "A managed role name is not a disposable Dolphin proof role."
     done
     if [ "$POSTGRES_HOST" != "127.0.0.1" ]; then
         refuse_noninteractive "The non-interactive path is limited to the IPv4 loopback host."
@@ -111,11 +111,11 @@ require_ephemeral_proof_context() {
        [ "$POSTGRES_PORT" -eq 5432 ]; then
         refuse_noninteractive "The non-interactive path requires a high local port other than 5432."
     fi
-    if [ -z "${KARIZ_BOOTSTRAP_SCRAM_HELPER:-}" ] || [ ! -f "$KARIZ_BOOTSTRAP_SCRAM_HELPER" ]; then
-        refuse_noninteractive "KARIZ_BOOTSTRAP_SCRAM_HELPER must point at the client-side verifier helper."
+    if [ -z "${DOLPHIN_BOOTSTRAP_SCRAM_HELPER:-}" ] || [ ! -f "$DOLPHIN_BOOTSTRAP_SCRAM_HELPER" ]; then
+        refuse_noninteractive "DOLPHIN_BOOTSTRAP_SCRAM_HELPER must point at the client-side verifier helper."
     fi
-    if ! command -v "${KARIZ_BOOTSTRAP_PYTHON:-python3}" >/dev/null 2>&1; then
-        refuse_noninteractive "KARIZ_BOOTSTRAP_PYTHON must name an available interpreter."
+    if ! command -v "${DOLPHIN_BOOTSTRAP_PYTHON:-python3}" >/dev/null 2>&1; then
+        refuse_noninteractive "DOLPHIN_BOOTSTRAP_PYTHON must name an available interpreter."
     fi
 }
 
@@ -126,7 +126,7 @@ case "$NONINTERACTIVE_PASSWORD" in
         require_ephemeral_proof_context
         ;;
     *)
-        echo "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD must be unset, '0', or '1'." >&2
+        echo "DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD must be unset, '0', or '1'." >&2
         exit 2
         ;;
 esac
@@ -153,7 +153,7 @@ set_role_password_from_client_hash() {
     # literal, or a psql variable; only the derived verifier is sent.
     role_name="$1"
     role_password="$2"
-    role_verifier=$(printf '%s' "$role_password" | "${KARIZ_BOOTSTRAP_PYTHON:-python3}" "$KARIZ_BOOTSTRAP_SCRAM_HELPER") || \
+    role_verifier=$(printf '%s' "$role_password" | "${DOLPHIN_BOOTSTRAP_PYTHON:-python3}" "$DOLPHIN_BOOTSTRAP_SCRAM_HELPER") || \
         refuse_noninteractive "Client-side SCRAM-SHA-256 derivation failed."
     printf '%s' "$role_verifier" | LC_ALL=C grep -Eq "$VERIFIER_PATTERN" || \
         refuse_noninteractive "Client-side SCRAM-SHA-256 derivation produced no usable verifier."
@@ -171,9 +171,9 @@ SELECT COALESCE(
 \if :stored_password_is_scram
 \else
     \echo 'The managed role password was not stored as a SCRAM-SHA-256 verifier.'
-    DO $frooshbin_guard$ BEGIN
+    DO $dolphin_guard$ BEGIN
         RAISE EXCEPTION 'The managed role password was not stored as a SCRAM-SHA-256 verifier.';
-    END $frooshbin_guard$;
+    END $dolphin_guard$;
 \endif
 SQL
     } | psql \
@@ -215,9 +215,9 @@ SELECT EXISTS (
 \if :init_is_superuser
 \else
     \echo 'POSTGRES_INIT_USER must be an existing PostgreSQL superuser.'
-    DO $frooshbin_guard$ BEGIN
+    DO $dolphin_guard$ BEGIN
         RAISE EXCEPTION 'POSTGRES_INIT_USER must be an existing PostgreSQL superuser.';
-    END $frooshbin_guard$;
+    END $dolphin_guard$;
 \endif
 
 SELECT (:'migration_is_legacy' = '0' AND NOT EXISTS (
@@ -227,16 +227,18 @@ SELECT (:'migration_is_legacy' = '0' AND NOT EXISTS (
     FROM pg_roles
     WHERE rolname = :'migration_user'
       AND (
-        shobj_description(oid, 'pg_authid') = 'FrooshBin managed migration role v1'
-        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') = 'Kariz managed migration role v1')
+        shobj_description(oid, 'pg_authid') = 'Dolphin managed migration role v1'
+        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') IN (
+            'FrooshBin managed migration role v1', 'Kariz managed migration role v1'
+        ))
       )
 ) AS migration_role_is_managed \gset
 \if :migration_role_is_managed
 \else
-    \echo 'POSTGRES_MIGRATION_USER already exists but is not FrooshBin-managed.'
-    DO $frooshbin_guard$ BEGIN
-        RAISE EXCEPTION 'POSTGRES_MIGRATION_USER already exists but is not FrooshBin-managed.';
-    END $frooshbin_guard$;
+    \echo 'POSTGRES_MIGRATION_USER already exists but is not Dolphin-managed.'
+    DO $dolphin_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_MIGRATION_USER already exists but is not Dolphin-managed.';
+    END $dolphin_guard$;
 \endif
 
 SELECT (:'app_is_legacy' = '0' AND NOT EXISTS (
@@ -246,16 +248,18 @@ SELECT (:'app_is_legacy' = '0' AND NOT EXISTS (
     FROM pg_roles
     WHERE rolname = :'app_user'
       AND (
-        shobj_description(oid, 'pg_authid') = 'FrooshBin managed application role v1'
-        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') = 'Kariz managed application role v1')
+        shobj_description(oid, 'pg_authid') = 'Dolphin managed application role v1'
+        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') IN (
+            'FrooshBin managed application role v1', 'Kariz managed application role v1'
+        ))
       )
 ) AS app_role_is_managed \gset
 \if :app_role_is_managed
 \else
-    \echo 'POSTGRES_APP_USER already exists but is not FrooshBin-managed.'
-    DO $frooshbin_guard$ BEGIN
-        RAISE EXCEPTION 'POSTGRES_APP_USER already exists but is not FrooshBin-managed.';
-    END $frooshbin_guard$;
+    \echo 'POSTGRES_APP_USER already exists but is not Dolphin-managed.'
+    DO $dolphin_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_APP_USER already exists but is not Dolphin-managed.';
+    END $dolphin_guard$;
 \endif
 
 SELECT (:'backup_is_legacy' = '0' AND NOT EXISTS (
@@ -265,16 +269,18 @@ SELECT (:'backup_is_legacy' = '0' AND NOT EXISTS (
     FROM pg_roles
     WHERE rolname = :'backup_user'
       AND (
-        shobj_description(oid, 'pg_authid') = 'FrooshBin managed backup role v1'
-        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') = 'Kariz managed backup role v1')
+        shobj_description(oid, 'pg_authid') = 'Dolphin managed backup role v1'
+        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') IN (
+            'FrooshBin managed backup role v1', 'Kariz managed backup role v1'
+        ))
       )
 ) AS backup_role_is_managed \gset
 \if :backup_role_is_managed
 \else
-    \echo 'POSTGRES_BACKUP_USER already exists but is not FrooshBin-managed.'
-    DO $frooshbin_guard$ BEGIN
-        RAISE EXCEPTION 'POSTGRES_BACKUP_USER already exists but is not FrooshBin-managed.';
-    END $frooshbin_guard$;
+    \echo 'POSTGRES_BACKUP_USER already exists but is not Dolphin-managed.'
+    DO $dolphin_guard$ BEGIN
+        RAISE EXCEPTION 'POSTGRES_BACKUP_USER already exists but is not Dolphin-managed.';
+    END $dolphin_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -285,10 +291,10 @@ SELECT NOT EXISTS (
 ) AS managed_roles_have_no_members \gset
 \if :managed_roles_have_no_members
 \else
-    \echo 'A FrooshBin-managed PostgreSQL role is granted to another role.'
-    DO $frooshbin_guard$ BEGIN
-        RAISE EXCEPTION 'A FrooshBin-managed PostgreSQL role is granted to another role.';
-    END $frooshbin_guard$;
+    \echo 'A Dolphin-managed PostgreSQL role is granted to another role.'
+    DO $dolphin_guard$ BEGIN
+        RAISE EXCEPTION 'A Dolphin-managed PostgreSQL role is granted to another role.';
+    END $dolphin_guard$;
 \endif
 
 SELECT format('CREATE ROLE %I', :'migration_user')
@@ -328,17 +334,17 @@ SELECT format(
 SELECT format(
     'COMMENT ON ROLE %I IS %L',
     :'migration_user',
-    'FrooshBin managed migration role v1'
+    'Dolphin managed migration role v1'
 ) \gexec
 SELECT format(
     'COMMENT ON ROLE %I IS %L',
     :'app_user',
-    'FrooshBin managed application role v1'
+    'Dolphin managed application role v1'
 ) \gexec
 SELECT format(
     'COMMENT ON ROLE %I IS %L',
     :'backup_user',
-    'FrooshBin managed backup role v1'
+    'Dolphin managed backup role v1'
 ) \gexec
 
 SELECT format('REVOKE %I FROM %I', granted.rolname, :'migration_user')
@@ -465,9 +471,9 @@ SELECT NOT EXISTS (
 \if :relation_owners_are_safe
 \else
     \echo 'A first-party public relation has an unapproved owner.'
-    DO $frooshbin_guard$ BEGIN
+    DO $dolphin_guard$ BEGIN
         RAISE EXCEPTION 'A first-party public relation has an unapproved owner.';
-    END $frooshbin_guard$;
+    END $dolphin_guard$;
 \endif
 
 SELECT NOT EXISTS (
@@ -488,9 +494,9 @@ SELECT NOT EXISTS (
 \if :routine_owners_are_safe
 \else
     \echo 'A first-party public routine has an unapproved owner.'
-    DO $frooshbin_guard$ BEGIN
+    DO $dolphin_guard$ BEGIN
         RAISE EXCEPTION 'A first-party public routine has an unapproved owner.';
-    END $frooshbin_guard$;
+    END $dolphin_guard$;
 \endif
 
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'db_name') \gexec

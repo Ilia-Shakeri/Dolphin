@@ -1,8 +1,8 @@
 #!/bin/sh
 # Build the application image, tagged from VERSION.
 #
-#   ./scripts/build-image.sh            build, tagged forooshbin-app:v<VERSION>
-#   ./scripts/build-image.sh --save     also write forooshbin-app-v<VERSION>.tar.gz
+#   ./scripts/build-image.sh            build, tagged dolphin-app:v<VERSION>
+#   ./scripts/build-image.sh --save     also write dolphin-app-v<VERSION>.tar.gz
 #
 # Two frictions this removes, both met in practice:
 #
@@ -27,7 +27,7 @@ cd "$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 
 version="$(tr -d '[:space:]' < VERSION)"
 [ -n "$version" ] || fail "VERSION is empty."
-image="forooshbin-app:v${version}"
+image="dolphin-app:v${version}"
 
 # The base image is pinned by digest and reviewed before use, so it is not
 # guessed here. Set it in the environment, or record it in .python-base-image
@@ -78,7 +78,7 @@ built="$(docker run --rm --entrypoint cat "$image" /app/VERSION 2>/dev/null | tr
 echo "==> $image contains VERSION=$built"
 
 if [ "${1:-}" = "--save" ]; then
-    archive="forooshbin-app-v${version}.tar.gz"
+    archive="dolphin-app-v${version}.tar.gz"
     echo "==> saving $archive"
     docker save "$image" | gzip > "$archive"
     ls -lh "$archive"

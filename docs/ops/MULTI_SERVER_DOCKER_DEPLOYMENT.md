@@ -1,12 +1,12 @@
 # Multi-server Docker deployment
 
-> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> **Deployment and startup live in [`DOLPHIN_DEPLOYMENT_RUNBOOK.md`](DOLPHIN_DEPLOYMENT_RUNBOOK.md).**
 > That runbook is canonical for installing, starting, updating, backing up,
 > restoring and recovering the stack. This document covers multi-host topologies and the split-server override in more
 > depth and does not restate the procedure; where the two differ, the runbook
 > is correct.
 
-How to bring ForooshBin up on **clean Linux servers**, in three topologies:
+How to bring Dolphin up on **clean Linux servers**, in three topologies:
 
 1. one server running the application and PostgreSQL together;
 2. the application and PostgreSQL on separate servers;
@@ -93,7 +93,7 @@ Never publish 5432. See §8.
 Use one directory per deployment. Everything outside Git lives here.
 
 ```text
-/srv/forooshbin/<deployment-name>/
+/srv/dolphin/<deployment-name>/
 ├── compose.yml                  # copied from the release artifact
 ├── compose.restore-verify.yml   # copied from the release artifact
 ├── compose.write-stop.yml       # copied from the release artifact
@@ -115,8 +115,8 @@ Use one directory per deployment. Everything outside Git lives here.
 ```
 
 ```bash
-sudo install -d -m 755 -o "$USER" -g "$USER" /srv/forooshbin/<deployment-name>
-cd /srv/forooshbin/<deployment-name>
+sudo install -d -m 755 -o "$USER" -g "$USER" /srv/dolphin/<deployment-name>
+cd /srv/dolphin/<deployment-name>
 install -d -m 700 secrets secrets/tls
 ```
 
@@ -137,7 +137,7 @@ export PYTHON_BASE_IMAGE='python@sha256:<reviewed-64-hex-digest>'
 docker build \
   --platform linux/amd64 \
   --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
-  --tag forooshbin:<release-version> \
+  --tag dolphin:<release-version> \
   .
 ```
 
@@ -145,9 +145,9 @@ Then prove the image ships nothing it should not — no docs, no tests, no
 repository metadata, no scripts, no signing key:
 
 ```bash
-docker create --name forooshbin-check forooshbin:<release-version>
-docker export forooshbin-check | tar -t > /tmp/image-listing.txt
-docker rm forooshbin-check
+docker create --name dolphin-check dolphin:<release-version>
+docker export dolphin-check | tar -t > /tmp/image-listing.txt
+docker rm dolphin-check
 python scripts/validate_image_content.py --listing /tmp/image-listing.txt
 ```
 
@@ -155,16 +155,16 @@ Push to the registry the customer host can reach, then **record the digest** —
 the digest, not the tag, is what the deployment pins:
 
 ```bash
-docker push <registry>/forooshbin:<release-version>
-docker inspect --format='{{index .RepoDigests 0}}' <registry>/forooshbin:<release-version>
+docker push <registry>/dolphin:<release-version>
+docker inspect --format='{{index .RepoDigests 0}}' <registry>/dolphin:<release-version>
 ```
 
 For an air-gapped site, move the image as a file instead:
 
 ```bash
-docker save forooshbin:<release-version> | gzip > forooshbin-<release-version>.tar.gz
+docker save dolphin:<release-version> | gzip > dolphin-<release-version>.tar.gz
 # transfer, then on the target:
-gunzip -c forooshbin-<release-version>.tar.gz | docker load
+gunzip -c dolphin-<release-version>.tar.gz | docker load
 ```
 
 ### Optional: server-generated PDF
@@ -282,7 +282,7 @@ recorded in `../backend/DEPLOYMENT_PROFILE.md`. Transfer `manifest.json` to
 The shipped `compose.yml` describes exactly this. Recommended for a single site.
 
 ```bash
-cd /srv/forooshbin/<deployment-name>
+cd /srv/dolphin/<deployment-name>
 docker compose --env-file secrets/.env config >/dev/null   # validates, prints nothing secret
 docker compose --env-file secrets/.env pull
 docker compose --env-file secrets/.env up -d
@@ -442,7 +442,7 @@ deployment its own everything:
 
 | Per deployment | How |
 |---|---|
-| Directory | `/srv/forooshbin/<customer>/` |
+| Directory | `/srv/dolphin/<customer>/` |
 | Compose project | distinct `KARIZ_COMPOSE_PROJECT_NAME` |
 | Database volume | distinct `POSTGRES_DATA_VOLUME` |
 | Backup volume | distinct `POSTGRES_BACKUP_VOLUME` |
@@ -493,7 +493,7 @@ curl -fsS http://127.0.0.1/health/live/ && echo
 curl -fsS "https://<public-host>/api/v1/health/ready/" && echo
 
 # Static assets are served by Nginx from the shared volume.
-curl -fsS -o /dev/null -w '%{http_code}\n' "https://<public-host>/static/common/forooshbin.css"
+curl -fsS -o /dev/null -w '%{http_code}\n' "https://<public-host>/static/common/dolphin.css"
 ```
 
 Prove nothing sensitive is published:
@@ -558,11 +558,11 @@ backup:
 
 ```bash
 docker run --rm -v <deployment>_postgres_backups:/backups -v "$PWD":/out alpine \
-  tar czf /out/forooshbin-backups-$(date -u +%Y%m%dT%H%M%SZ).tar.gz -C /backups .
+  tar czf /out/dolphin-backups-$(date -u +%Y%m%dT%H%M%SZ).tar.gz -C /backups .
 # Encrypt before it leaves the host; keep the passphrase in your secret manager.
-gpg --symmetric --cipher-algo AES256 forooshbin-backups-*.tar.gz
-scp forooshbin-backups-*.tar.gz.gpg <operator>@<backup-destination>:<path>/
-shred -u forooshbin-backups-*.tar.gz
+gpg --symmetric --cipher-algo AES256 dolphin-backups-*.tar.gz
+scp dolphin-backups-*.tar.gz.gpg <operator>@<backup-destination>:<path>/
+shred -u dolphin-backups-*.tar.gz
 ```
 
 **A backup is only real once restored.** The repository ships an isolated
@@ -700,14 +700,14 @@ copy it off the host.** Then confirm you are in the right directory and
 targeting the right project — the volume names are the point of no return.
 
 ```bash
-cd /srv/forooshbin/<deployment-name>
+cd /srv/dolphin/<deployment-name>
 docker compose --env-file secrets/.env config --format json | grep -o '"name": *"[^"]*"' | head -1
 
 docker compose --env-file secrets/.env down --remove-orphans   # keeps volumes
 docker volume rm <deployment>_postgres_data                    # irreversible
 docker volume rm <deployment>_postgres_backups                 # irreversible
 
-sudo rm -rf /srv/forooshbin/<deployment-name>
+sudo rm -rf /srv/dolphin/<deployment-name>
 docker image rm <app-image-digest> <postgres-image-digest> <nginx-image-digest>
 docker system prune -f
 ```

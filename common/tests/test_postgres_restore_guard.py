@@ -23,13 +23,13 @@ TOKEN = "0123456789abcdef0123456789abcdef"
 
 def valid_environment(**overrides):
     environment = {
-        "KARIZ_PG_RESTORE": "1",
-        "KARIZ_PG_RESTORE_TOKEN": TOKEN,
-        "KARIZ_PG_RESTORE_HOST": "127.0.0.1",
-        "KARIZ_PG_RESTORE_PORT": "54321",
-        "KARIZ_PG_RESTORE_NAME": f"restore_frooshbin_{TOKEN}",
-        "KARIZ_PG_RESTORE_USER": f"frooshbin_app_{TOKEN}",
-        "KARIZ_PG_RESTORE_PASSWORD": "restore-proof-secret-value",
+        "DOLPHIN_PG_RESTORE": "1",
+        "DOLPHIN_PG_RESTORE_TOKEN": TOKEN,
+        "DOLPHIN_PG_RESTORE_HOST": "127.0.0.1",
+        "DOLPHIN_PG_RESTORE_PORT": "54321",
+        "DOLPHIN_PG_RESTORE_NAME": f"restore_dolphin_{TOKEN}",
+        "DOLPHIN_PG_RESTORE_USER": f"dolphin_app_{TOKEN}",
+        "DOLPHIN_PG_RESTORE_PASSWORD": "restore-proof-secret-value",
     }
     environment.update(overrides)
     return environment
@@ -37,21 +37,21 @@ def valid_environment(**overrides):
 
 class EphemeralRestoreNameTests(SimpleTestCase):
     def test_accepts_only_the_exact_ephemeral_pattern(self):
-        self.assertTrue(is_ephemeral_restore_database(f"restore_frooshbin_{TOKEN}"))
+        self.assertTrue(is_ephemeral_restore_database(f"restore_dolphin_{TOKEN}"))
 
     def test_rejects_non_ephemeral_names(self):
         for name in (
             "postgres",
             "template0",
             "template1",
-            "kariz",
-            "kariz_production",
-            "restore_frooshbin_",
-            "restore_frooshbin_short",
-            f"restore_frooshbin_{TOKEN}x",
-            f"x_restore_frooshbin_{TOKEN}",
-            f"restore_frooshbin_{TOKEN.upper()}",
-            f"restore_frooshbin_{TOKEN}; DROP DATABASE kariz",
+            "dolphin",
+            "dolphin_production",
+            "restore_dolphin_",
+            "restore_dolphin_short",
+            f"restore_dolphin_{TOKEN}x",
+            f"x_restore_dolphin_{TOKEN}",
+            f"restore_dolphin_{TOKEN.upper()}",
+            f"restore_dolphin_{TOKEN}; DROP DATABASE dolphin",
             "",
             None,
         ):
@@ -62,52 +62,52 @@ class EphemeralRestoreNameTests(SimpleTestCase):
 class RestoreSettingsGuardTests(SimpleTestCase):
     def test_valid_environment_builds_the_expected_connection(self):
         database = build_postgres_restore_database(valid_environment())
-        self.assertEqual(database["NAME"], f"restore_frooshbin_{TOKEN}")
-        self.assertEqual(database["USER"], f"frooshbin_app_{TOKEN}")
+        self.assertEqual(database["NAME"], f"restore_dolphin_{TOKEN}")
+        self.assertEqual(database["USER"], f"dolphin_app_{TOKEN}")
         self.assertEqual(database["HOST"], "127.0.0.1")
         self.assertEqual(database["ENGINE"], "django.db.backends.postgresql")
 
     def test_requires_the_explicit_flag(self):
         with self.assertRaises(ImproperlyConfigured):
-            build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE="0"))
+            build_postgres_restore_database(valid_environment(DOLPHIN_PG_RESTORE="0"))
 
     def test_rejects_non_loopback_host(self):
         for host in ("localhost", "10.0.0.5", "0.0.0.0", ""):
             with self.subTest(host=host):
                 with self.assertRaises(ImproperlyConfigured):
-                    build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE_HOST=host))
+                    build_postgres_restore_database(valid_environment(DOLPHIN_PG_RESTORE_HOST=host))
 
     def test_rejects_default_and_privileged_ports(self):
         for value in ("5432", "80", "1024", "not-a-port", ""):
             with self.subTest(port=value):
                 with self.assertRaises(ImproperlyConfigured):
-                    build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE_PORT=value))
+                    build_postgres_restore_database(valid_environment(DOLPHIN_PG_RESTORE_PORT=value))
 
     def test_rejects_a_database_outside_the_run_token(self):
-        for name in ("postgres", "kariz", f"restore_frooshbin_{'f' * 32}", "restore_frooshbin_x"):
+        for name in ("postgres", "dolphin", f"restore_dolphin_{'f' * 32}", "restore_dolphin_x"):
             with self.subTest(name=name):
                 with self.assertRaises(ImproperlyConfigured):
-                    build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE_NAME=name))
+                    build_postgres_restore_database(valid_environment(DOLPHIN_PG_RESTORE_NAME=name))
 
     def test_rejects_elevated_logins(self):
         # The restore proof exists to show the ordinary runtime login works, so
         # an elevated login must not be able to stand in for it.
         for user in (
-            f"frooshbin_migration_{TOKEN}",
-            f"kariz_backup_{TOKEN}",
-            "frooshbin_test_admin",
+            f"dolphin_migration_{TOKEN}",
+            f"dolphin_backup_{TOKEN}",
+            "dolphin_test_admin",
             "postgres",
         ):
             with self.subTest(user=user):
                 with self.assertRaises(ImproperlyConfigured):
-                    build_postgres_restore_database(valid_environment(KARIZ_PG_RESTORE_USER=user))
+                    build_postgres_restore_database(valid_environment(DOLPHIN_PG_RESTORE_USER=user))
 
     def test_rejects_weak_or_absent_secret(self):
         for password in ("", "short", "x" * 15):
             with self.subTest(password_length=len(password)):
                 with self.assertRaises(ImproperlyConfigured):
                     build_postgres_restore_database(
-                        valid_environment(KARIZ_PG_RESTORE_PASSWORD=password)
+                        valid_environment(DOLPHIN_PG_RESTORE_PASSWORD=password)
                     )
 
 
@@ -123,7 +123,7 @@ class HarnessRestoreContractTests(SimpleTestCase):
         self.assertIn("--single-transaction", self.source)
 
     def test_restore_target_is_a_separate_database(self):
-        self.assertIn('$restoreDatabaseName = "restore_frooshbin_$runToken"', self.source)
+        self.assertIn('$restoreDatabaseName = "restore_dolphin_$runToken"', self.source)
         self.assertIn("Restore target must be a new, separate database.", self.source)
 
     def test_drop_is_guarded_by_the_ephemeral_name_check(self):
@@ -136,7 +136,7 @@ class HarnessRestoreContractTests(SimpleTestCase):
 
     def test_guard_requires_the_run_token(self):
         self.assertIn("EndsWith($runToken", self.source)
-        self.assertIn("^(test|contract|restore)_frooshbin_[a-f0-9]{32}$", self.source)
+        self.assertIn("^(test|contract|restore)_dolphin_[a-f0-9]{32}$", self.source)
 
     def test_cleanup_runs_in_finally(self):
         # The outermost finally is the only one at column 0; nested helpers use

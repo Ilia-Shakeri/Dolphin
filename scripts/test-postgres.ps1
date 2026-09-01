@@ -10,16 +10,16 @@ $runToken = [Guid]::NewGuid().ToString("N")
 $repoPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $managePath = Join-Path $repoPath "manage.py"
 $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
-$dataPath = [IO.Path]::GetFullPath((Join-Path $tempRoot "frooshbin-pgtest-$runToken"))
-$safePrefix = [IO.Path]::GetFullPath((Join-Path $tempRoot "frooshbin-pgtest-"))
+$dataPath = [IO.Path]::GetFullPath((Join-Path $tempRoot "dolphin-pgtest-$runToken"))
+$safePrefix = [IO.Path]::GetFullPath((Join-Path $tempRoot "dolphin-pgtest-"))
 $logPath = Join-Path $dataPath "postgres.log"
-$databaseName = "test_frooshbin_$runToken"
-$databaseUser = "frooshbin_test_admin"
-$contractDatabaseName = "contract_frooshbin_$runToken"
-$restoreDatabaseName = "restore_frooshbin_$runToken"
-$migrationUser = "frooshbin_migration_$runToken"
-$applicationUser = "frooshbin_app_$runToken"
-$backupUser = "frooshbin_backup_$runToken"
+$databaseName = "test_dolphin_$runToken"
+$databaseUser = "dolphin_test_admin"
+$contractDatabaseName = "contract_dolphin_$runToken"
+$restoreDatabaseName = "restore_dolphin_$runToken"
+$migrationUser = "dolphin_migration_$runToken"
+$applicationUser = "dolphin_app_$runToken"
+$backupUser = "dolphin_backup_$runToken"
 $initPassword = "Initial!$runToken"
 $migrationPassword = "Migration!$runToken"
 $applicationPassword = "Application!$runToken"
@@ -33,26 +33,26 @@ $scramHelperPath = Join-Path $repoPath "scripts\pg_scram_verifier.py"
 $started = $false
 $restoreDatabaseCreated = $false
 $testVariables = @(
-    "KARIZ_PG_TEST",
-    "KARIZ_PG_TEST_TOKEN",
-    "KARIZ_PG_TEST_HOST",
-    "KARIZ_PG_TEST_PORT",
-    "KARIZ_PG_TEST_NAME",
-    "KARIZ_PG_TEST_USER",
-    "KARIZ_PG_CONTRACT",
-    "KARIZ_PG_CONTRACT_TOKEN",
-    "KARIZ_PG_CONTRACT_HOST",
-    "KARIZ_PG_CONTRACT_PORT",
-    "KARIZ_PG_CONTRACT_NAME",
-    "KARIZ_PG_CONTRACT_USER",
-    "KARIZ_PG_CONTRACT_PASSWORD",
-    "KARIZ_PG_RESTORE",
-    "KARIZ_PG_RESTORE_TOKEN",
-    "KARIZ_PG_RESTORE_HOST",
-    "KARIZ_PG_RESTORE_PORT",
-    "KARIZ_PG_RESTORE_NAME",
-    "KARIZ_PG_RESTORE_USER",
-    "KARIZ_PG_RESTORE_PASSWORD",
+    "DOLPHIN_PG_TEST",
+    "DOLPHIN_PG_TEST_TOKEN",
+    "DOLPHIN_PG_TEST_HOST",
+    "DOLPHIN_PG_TEST_PORT",
+    "DOLPHIN_PG_TEST_NAME",
+    "DOLPHIN_PG_TEST_USER",
+    "DOLPHIN_PG_CONTRACT",
+    "DOLPHIN_PG_CONTRACT_TOKEN",
+    "DOLPHIN_PG_CONTRACT_HOST",
+    "DOLPHIN_PG_CONTRACT_PORT",
+    "DOLPHIN_PG_CONTRACT_NAME",
+    "DOLPHIN_PG_CONTRACT_USER",
+    "DOLPHIN_PG_CONTRACT_PASSWORD",
+    "DOLPHIN_PG_RESTORE",
+    "DOLPHIN_PG_RESTORE_TOKEN",
+    "DOLPHIN_PG_RESTORE_HOST",
+    "DOLPHIN_PG_RESTORE_PORT",
+    "DOLPHIN_PG_RESTORE_NAME",
+    "DOLPHIN_PG_RESTORE_USER",
+    "DOLPHIN_PG_RESTORE_PASSWORD",
     "POSTGRES_HOST",
     "POSTGRES_PORT",
     "POSTGRES_DB",
@@ -64,10 +64,10 @@ $testVariables = @(
     "POSTGRES_APP_PASSWORD",
     "POSTGRES_BACKUP_USER",
     "POSTGRES_BACKUP_PASSWORD",
-    "FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES",
-    "KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
-    "KARIZ_BOOTSTRAP_PYTHON",
-    "KARIZ_BOOTSTRAP_SCRAM_HELPER",
+    "DOLPHIN_ALLOW_LEGACY_DB_IDENTITIES",
+    "DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD",
+    "DOLPHIN_BOOTSTRAP_PYTHON",
+    "DOLPHIN_BOOTSTRAP_SCRAM_HELPER",
     "PGPASSWORD"
 )
 $savedValues = @{}
@@ -142,8 +142,8 @@ function Assert-EphemeralDatabaseName {
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Name)
 
-    if ($Name -notmatch '^(test|contract|restore)_frooshbin_[a-f0-9]{32}$') {
-        throw "Refusing to touch a database that is not an ephemeral FrooshBin proof database."
+    if ($Name -notmatch '^(test|contract|restore)_dolphin_[a-f0-9]{32}$') {
+        throw "Refusing to touch a database that is not an ephemeral Dolphin proof database."
     }
     if (-not $Name.EndsWith($runToken, [StringComparison]::Ordinal)) {
         throw "Refusing to touch an ephemeral database from a different harness run."
@@ -207,7 +207,7 @@ $listener.Stop()
 if ($port -eq 5432 -or $port -le 1024) {
     throw "Safe high test port was not found."
 }
-if (-not $dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path $dataPath -Leaf) -ne "frooshbin-pgtest-$runToken") {
+if (-not $dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -or (Split-Path $dataPath -Leaf) -ne "dolphin-pgtest-$runToken") {
     throw "Unsafe PostgreSQL test data path."
 }
 
@@ -225,12 +225,12 @@ try {
     $started = $true
     $env:PATH = "$resolvedBin;$savedPath"
 
-    $env:KARIZ_PG_TEST = "1"
-    $env:KARIZ_PG_TEST_TOKEN = $runToken
-    $env:KARIZ_PG_TEST_HOST = "127.0.0.1"
-    $env:KARIZ_PG_TEST_PORT = [string]$port
-    $env:KARIZ_PG_TEST_NAME = $databaseName
-    $env:KARIZ_PG_TEST_USER = $databaseUser
+    $env:DOLPHIN_PG_TEST = "1"
+    $env:DOLPHIN_PG_TEST_TOKEN = $runToken
+    $env:DOLPHIN_PG_TEST_HOST = "127.0.0.1"
+    $env:DOLPHIN_PG_TEST_PORT = [string]$port
+    $env:DOLPHIN_PG_TEST_NAME = $databaseName
+    $env:DOLPHIN_PG_TEST_USER = $databaseUser
 
     & $PythonCommand $managePath check --settings=config.postgres_test_settings
     if ($LASTEXITCODE -ne 0) { throw "Django check failed." }
@@ -258,7 +258,7 @@ try {
     $env:POSTGRES_APP_PASSWORD = $applicationPassword
     $env:POSTGRES_BACKUP_USER = $backupUser
     $env:POSTGRES_BACKUP_PASSWORD = $backupPassword
-    $env:FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES = "false"
+    $env:DOLPHIN_ALLOW_LEGACY_DB_IDENTITIES = "false"
 
     # The production bootstrap sets role passwords with psql's interactive
     # `\password`, which reads the console device and therefore blocks forever
@@ -266,9 +266,9 @@ try {
     # derives the identical SCRAM-SHA-256 verifier on the client. It refuses to
     # act unless the database name, role names, host, and port are this run's
     # throwaway values, so it cannot be reached by a production bootstrap.
-    $env:KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD = "1"
-    $env:KARIZ_BOOTSTRAP_PYTHON = $PythonCommand
-    $env:KARIZ_BOOTSTRAP_SCRAM_HELPER = $scramHelperPath.Replace("\", "/")
+    $env:DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD = "1"
+    $env:DOLPHIN_BOOTSTRAP_PYTHON = $PythonCommand
+    $env:DOLPHIN_BOOTSTRAP_SCRAM_HELPER = $scramHelperPath.Replace("\", "/")
 
     # The bootstrap runs under a POSIX shell that must see the same PostgreSQL
     # binaries and interpreter as this harness. Fail here with a clear cause
@@ -281,13 +281,13 @@ try {
     & $bash $bootstrapPath
     if ($LASTEXITCODE -ne 0) { throw "PostgreSQL pre-migration role bootstrap failed." }
 
-    $env:KARIZ_PG_CONTRACT = "1"
-    $env:KARIZ_PG_CONTRACT_TOKEN = $runToken
-    $env:KARIZ_PG_CONTRACT_HOST = "127.0.0.1"
-    $env:KARIZ_PG_CONTRACT_PORT = [string]$port
-    $env:KARIZ_PG_CONTRACT_NAME = $contractDatabaseName
-    $env:KARIZ_PG_CONTRACT_USER = $migrationUser
-    $env:KARIZ_PG_CONTRACT_PASSWORD = $migrationPassword
+    $env:DOLPHIN_PG_CONTRACT = "1"
+    $env:DOLPHIN_PG_CONTRACT_TOKEN = $runToken
+    $env:DOLPHIN_PG_CONTRACT_HOST = "127.0.0.1"
+    $env:DOLPHIN_PG_CONTRACT_PORT = [string]$port
+    $env:DOLPHIN_PG_CONTRACT_NAME = $contractDatabaseName
+    $env:DOLPHIN_PG_CONTRACT_USER = $migrationUser
+    $env:DOLPHIN_PG_CONTRACT_PASSWORD = $migrationPassword
 
     & $PythonCommand $managePath migrate --noinput --settings=config.postgres_contract_settings
     if ($LASTEXITCODE -ne 0) { throw "PostgreSQL contract migrations failed." }
@@ -295,7 +295,7 @@ try {
     Invoke-ContractSql `
         -User $migrationUser `
         -Password $migrationPassword `
-        -Sql "CREATE FUNCTION public.frooshbin_contract_probe() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'"
+        -Sql "CREATE FUNCTION public.dolphin_contract_probe() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'"
 
     & $bash $bootstrapPath
     if ($LASTEXITCODE -ne 0) { throw "PostgreSQL post-migration privilege finalizer failed." }
@@ -337,7 +337,7 @@ try {
     Invoke-ContractSql `
         -User $migrationUser `
         -Password $migrationPassword `
-        -Sql "CREATE TABLE public.frooshbin_future_table (id integer); CREATE SEQUENCE public.frooshbin_future_sequence; CREATE FUNCTION public.frooshbin_future_probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'"
+        -Sql "CREATE TABLE public.dolphin_future_table (id integer); CREATE SEQUENCE public.dolphin_future_sequence; CREATE FUNCTION public.dolphin_future_probe() RETURNS integer LANGUAGE sql AS 'SELECT 1'"
 
     $sessionKey = "acl$runToken"
     Invoke-ContractSql `
@@ -353,15 +353,15 @@ try {
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM sales_productcategory WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "UPDATE aftersales_aftersaleshistory SET reason = reason WHERE FALSE" -ShouldPass $false
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "DELETE FROM aftersales_aftersalesrequest WHERE FALSE" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "CREATE TABLE public.frooshbin_forbidden_table (id integer)" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.frooshbin_contract_probe()" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT * FROM public.frooshbin_future_table" -ShouldPass $false
-    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.frooshbin_future_probe()" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "CREATE TABLE public.dolphin_forbidden_table (id integer)" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.dolphin_contract_probe()" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT * FROM public.dolphin_future_table" -ShouldPass $false
+    Invoke-ContractSql -User $applicationUser -Password $applicationPassword -Sql "SELECT public.dolphin_future_probe()" -ShouldPass $false
 
-    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT * FROM public.frooshbin_future_table"
+    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT * FROM public.dolphin_future_table"
     Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('backup-denied', '', CURRENT_TIMESTAMP)" -ShouldPass $false
-    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "CREATE TABLE public.frooshbin_backup_forbidden (id integer)" -ShouldPass $false
-    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT public.frooshbin_future_probe()" -ShouldPass $false
+    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "CREATE TABLE public.dolphin_backup_forbidden (id integer)" -ShouldPass $false
+    Invoke-ContractSql -User $backupUser -Password $backupPassword -Sql "SELECT public.dolphin_future_probe()" -ShouldPass $false
 
     # Deterministic synthetic rows across related Tier-A models, written before
     # the dump so the archive carries them and the restore can be checked for
@@ -511,15 +511,15 @@ print("SENTINEL_OK")
         -Sql "INSERT INTO django_session (session_key, session_data, expire_date) VALUES ('$restoreSessionKey', '', CURRENT_TIMESTAMP + INTERVAL '1 hour'); UPDATE django_session SET session_data = 'x' WHERE session_key = '$restoreSessionKey'; DELETE FROM django_session WHERE session_key = '$restoreSessionKey'"
     Invoke-ContractSql -User $applicationUser -Password $applicationPassword `
         -Database $restoreDatabaseName `
-        -Sql "CREATE TABLE public.frooshbin_restore_forbidden (id integer)" -ShouldPass $false
+        -Sql "CREATE TABLE public.dolphin_restore_forbidden (id integer)" -ShouldPass $false
 
-    $env:KARIZ_PG_RESTORE = "1"
-    $env:KARIZ_PG_RESTORE_TOKEN = $runToken
-    $env:KARIZ_PG_RESTORE_HOST = "127.0.0.1"
-    $env:KARIZ_PG_RESTORE_PORT = [string]$port
-    $env:KARIZ_PG_RESTORE_NAME = $restoreDatabaseName
-    $env:KARIZ_PG_RESTORE_USER = $applicationUser
-    $env:KARIZ_PG_RESTORE_PASSWORD = $applicationPassword
+    $env:DOLPHIN_PG_RESTORE = "1"
+    $env:DOLPHIN_PG_RESTORE_TOKEN = $runToken
+    $env:DOLPHIN_PG_RESTORE_HOST = "127.0.0.1"
+    $env:DOLPHIN_PG_RESTORE_PORT = [string]$port
+    $env:DOLPHIN_PG_RESTORE_NAME = $restoreDatabaseName
+    $env:DOLPHIN_PG_RESTORE_USER = $applicationUser
+    $env:DOLPHIN_PG_RESTORE_PASSWORD = $applicationPassword
     & $PythonCommand $managePath showmigrations --settings=config.postgres_restore_settings | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Application role could not read the restored database through Django."
@@ -546,7 +546,7 @@ print("SENTINEL_OK")
     Invoke-ContractSql `
         -User $databaseUser `
         -Password $initPassword `
-        -Sql "CREATE TABLE public.frooshbin_rollback_probe (id integer); CREATE TABLE public.frooshbin_unsafe_owner (id integer); ALTER TABLE public.frooshbin_unsafe_owner OWNER TO $applicationUser"
+        -Sql "CREATE TABLE public.dolphin_rollback_probe (id integer); CREATE TABLE public.dolphin_unsafe_owner (id integer); ALTER TABLE public.dolphin_unsafe_owner OWNER TO $applicationUser"
     & $bash $bootstrapPath
     if ($LASTEXITCODE -eq 0) { throw "PostgreSQL rollback injection did not fail closed." }
 
@@ -563,7 +563,7 @@ print("SENTINEL_OK")
             --tuples-only `
             --no-align `
             --set=ON_ERROR_STOP=1 `
-            --command="SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'public.frooshbin_rollback_probe'::regclass"
+            --command="SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid = 'public.dolphin_rollback_probe'::regclass"
         if ($LASTEXITCODE -ne 0) { throw "PostgreSQL rollback owner proof failed." }
         $rollbackOwner = ($ownerOutput | Out-String).Trim()
         if ($rollbackOwner -ne $databaseUser) {
@@ -573,7 +573,7 @@ print("SENTINEL_OK")
         [Environment]::SetEnvironmentVariable("PGPASSWORD", $previousPassword, "Process")
     }
 
-    $rogueRole = "frooshbin_rogue_$runToken"
+    $rogueRole = "dolphin_rogue_$runToken"
     Invoke-ContractSql `
         -User $databaseUser `
         -Password $initPassword `
@@ -645,7 +645,7 @@ print("SENTINEL_OK")
     }
     [Environment]::SetEnvironmentVariable("PATH", $savedPath, "Process")
 
-    if ($dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -and (Split-Path $dataPath -Leaf) -eq "frooshbin-pgtest-$runToken") {
+    if ($dataPath.StartsWith($safePrefix, [StringComparison]::OrdinalIgnoreCase) -and (Split-Path $dataPath -Leaf) -eq "dolphin-pgtest-$runToken") {
         if (Test-Path -LiteralPath $dataPath) {
             Remove-Item -LiteralPath $dataPath -Recurse -Force
         }

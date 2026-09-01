@@ -1,7 +1,7 @@
 # Target site survey (phase P0R.1)
 
 Fill this in before any deployment design is finalised. Every field is
-currently **unanswered**; the reported values in `KARIZ_PROJECT_HANDOFF.md` §10
+currently **unanswered**; the reported values in `DOLPHIN_PROJECT_HANDOFF.md` §10
 are customer claims, not verified facts, and must not be designed against.
 
 This phase is `BLOCKED_EXTERNAL`: it needs answers from the customer and the
@@ -50,7 +50,7 @@ R2, the deployment cannot proceed on that OS. Two supported paths exist:
 
 - **Path 1 — dedicated appliance/server:** a separate supported machine
   (Linux host recommended, since the application image is `linux/amd64`) used
-  only for ForooshBin.
+  only for Dolphin.
 - **Path 2 — OS upgrade:** upgrade the existing host to a supported Windows
   Server release with a container/virtualisation layer.
 
@@ -158,5 +158,5 @@ records who is accountable for running it.
 
 This survey is complete when every table above is filled and the OS decision
 gate in section 1 has an approved path. Record the outcome in
-`KARIZ_PROJECT_HANDOFF.md` §10 and §14, replacing the current unverified
+`DOLPHIN_PROJECT_HANDOFF.md` §10 and §14, replacing the current unverified
 claims with verified facts. Then P14 (real network/TLS/VPN build-out) may start.

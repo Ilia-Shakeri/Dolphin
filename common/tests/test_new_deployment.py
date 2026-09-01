@@ -49,9 +49,9 @@ def provision(**overrides):
     options = {
         "slug": "tiara",
         "host": "crm.tiara.ir",
-        "image": "forooshbin-app:v1.1.1",
+        "image": "dolphin-app:v1.1.1",
         "profile": "client-1",
-        "manifest_path": "/srv/forooshbin/secrets/manifest.json",
+        "manifest_path": "/srv/dolphin/secrets/manifest.json",
         "manifest_keys": "k1:AAAA",
         "retention_days": 0,
     }
@@ -129,7 +129,7 @@ class GeneratedEnvironmentTests(SimpleTestCase):
 
     def test_the_project_name_never_carries_a_version(self):
         """A project per version is what put two servers on one data directory."""
-        env = provision(image="forooshbin-app:v9.9.9")
+        env = provision(image="dolphin-app:v9.9.9")
         self.assertNotIn("9", env["KARIZ_COMPOSE_PROJECT_NAME"])
         self.assertIn("v9.9.9", env["KARIZ_APP_IMAGE"])
 

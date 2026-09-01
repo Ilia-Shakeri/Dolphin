@@ -120,7 +120,7 @@ dialog::backdrop {
    changing that variable. Collapsing works. **Expanding does not**: the
    variable goes back to 265px and the used width stays at 75px, so a collapsed
    sidebar can never be reopened. Measured in the vendor demo served locally,
-   with no ForooshBin code involved at all — after its own toggle,
+   with no Dolphin code involved at all — after its own toggle,
    `--bs-app-sidebar-width` read 265px while the computed width read 75px.
 
    The fix is to give each state its own `width` declaration, so what changes
@@ -502,7 +502,7 @@ textarea:focus-visible,
 
    Apex renders its own SVG and takes colours from the options object rather
    than from CSS, so almost nothing is styled here — the light/dark following
-   happens in `chartPalette()` and `apexBase()` in forooshbin-app.js, which read
+   happens in `chartPalette()` and `apexBase()` in dolphin-app.js, which read
    the theme's custom properties at draw time. What is left is the part Apex
    cannot know: the container's size, and undoing the drop shadow it puts under
    data labels, which on a light bar renders as grey mud.
@@ -557,7 +557,7 @@ textarea:focus-visible,
    close to it. Apex sets the marker's colour and size inline in JS and gives
    the whole legend item a margin against its *neighbours*, but nothing
    between the marker and the label inside one item; `itemMargin` in
-   forooshbin-app.js covers the neighbour spacing, this covers the inner gap.
+   dolphin-app.js covers the neighbour spacing, this covers the inner gap.
    `!important` is required to beat the inline style Apex sets on the same
    element. Logical rather than physical: this panel is always RTL, so
    `margin-inline-end` is the side that measured touching. */
@@ -705,10 +705,10 @@ dialog {
    nothing reflows. */
 @media (prefers-reduced-motion: no-preference) {
     dialog[open] {
-        animation: forooshbin-dialog-in 160ms ease-out;
+        animation: dolphin-dialog-in 160ms ease-out;
     }
 
-    @keyframes forooshbin-dialog-in {
+    @keyframes dolphin-dialog-in {
         from {
             opacity: 0;
             transform: scale(0.98);

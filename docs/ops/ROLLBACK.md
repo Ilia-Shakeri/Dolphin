@@ -1,6 +1,6 @@
 # Rollback procedure
 
-> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> **Deployment and startup live in [`DOLPHIN_DEPLOYMENT_RUNBOOK.md`](DOLPHIN_DEPLOYMENT_RUNBOOK.md).**
 > That runbook is canonical for installing, starting, updating, backing up,
 > restoring and recovering the stack. This document covers rollback detail in more
 > depth and does not restate the procedure; where the two differ, the runbook
@@ -52,7 +52,7 @@ $env:KARIZ_APP_IMAGE = Read-Host 'Prior approved application repository@sha256 d
 python scripts/validate_release_images.py
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose config --quiet
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop up -d --no-build --no-deps --force-recreate nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose pull web migrate
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose stop --timeout 30 nginx
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose run --rm --no-deps migrate python manage.py collectstatic --clear --noinput
@@ -60,7 +60,7 @@ docker compose --project-name $approvedProjectName --env-file $approvedProtected
 if ($LASTEXITCODE -ne 0) { throw 'Prior application failed its health gate.' }
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose ps web
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop up -d --no-build --no-deps --force-recreate nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 ```
 
 The explicit one-off command overrides the `migrate` service command and runs only `collectstatic` from the prior image. Stopping Nginx first prevents clients from seeing a half-regenerated shared static volume. If static collection or web health fails, keep Nginx stopped and writes closed; regenerate from the reviewed current or prior image according to the rollback decision. Do not run a schema migration during an application-only rollback.
@@ -82,11 +82,11 @@ $priorReleaseRoot = (Resolve-Path (Read-Host 'Approved prior release artifact di
 $priorCompose = Join-Path $priorReleaseRoot 'compose.yml'
 $priorWriteStop = Join-Path $priorReleaseRoot 'compose.write-stop.yml'
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop up -d --no-build --no-deps --force-recreate nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose -f $priorWriteStop config --quiet
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose pull nginx
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose -f $priorWriteStop up -d --no-build --no-deps --force-recreate nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose -f $priorWriteStop exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose -f $priorWriteStop exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose ps nginx web db
 ```
 
@@ -94,7 +94,7 @@ Prove edge liveness, HTTPS/TLS, request IDs, safe errors, static revalidation, a
 
 ```powershell
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose up -d --no-build --no-deps --force-recreate nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose exec -T nginx grep -F '# kariz-write-stop: off' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $priorCompose exec -T nginx grep -F '# dolphin-write-stop: off' /etc/nginx/write-stop.conf
 ```
 
 Record both artifact paths, their release reference, the stable project name, protected-input change if any, and all health/smoke evidence. These commands recreate only `nginx`; they do not recreate `web`, run migrations, or alter database/static volumes. If the prior configuration changes a database or application contract, this path is forbidden; choose a separately reviewed application or database recovery plan.
@@ -141,7 +141,7 @@ Repeat all applicable deployment gates:
 - login/logout and CSRF;
 - one scoped read per fixed CRM role;
 - Customer, Lead assignment, Product, Sale, audit, report, and XLSX critical paths using approved fixtures;
-- static, Persian/RTL, ForooshBin brand, browser console/network, and HTTPS checks;
+- static, Persian/RTL, Dolphin brand, browser console/network, and HTTPS checks;
 - backup job and alert path.
 
 Keep the incident open if any gate lacks proof.

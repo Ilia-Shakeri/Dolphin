@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 
 ROOT = Path(".").resolve()
-OUTPUT = ROOT / "forooshbin_review_bundle.txt"
+OUTPUT = ROOT / "dolphin_review_bundle.txt"
 
 # ---------------------------------------------------------
 # Only first-party / operational files needed for review
@@ -14,8 +14,8 @@ OUTPUT = ROOT / "forooshbin_review_bundle.txt"
 INCLUDE_ROOT_FILES = {
     "AGENTS.md",
     "BACKEND_SPEC.md",
-    "KARIZ_PROJECT_HANDOFF.md",
-    "KARIZ_CLIENT1_CODEX_ROADMAP.md",
+    "DOLPHIN_PROJECT_HANDOFF.md",
+    "DOLPHIN_CLIENT1_CODEX_ROADMAP.md",
     ".env.example",
     ".gitignore",
     ".dockerignore",
@@ -366,7 +366,7 @@ def main():
         errors="replace",
     ) as outfile:
 
-        outfile.write("KARIZ CRM REVIEW BUNDLE\n")
+        outfile.write("DOLPHIN CRM REVIEW BUNDLE\n")
         outfile.write(
             f"Generated: {datetime.now().isoformat(timespec='seconds')}\n"
         )
@@ -517,7 +517,7 @@ def main():
             )
         )
 
-        outfile.write("\n\nEND OF KARIZ REVIEW BUNDLE\n")
+        outfile.write("\n\nEND OF DOLPHIN REVIEW BUNDLE\n")
 
     size_mb = OUTPUT.stat().st_size / (1024 * 1024)
 

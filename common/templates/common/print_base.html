@@ -23,8 +23,8 @@
    that moves, a browser holding yesterday's copy keeps using it after a deploy,
    and the panel runs new markup against old CSS and old script. The vendor
    bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
-    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}?v={{ forooshbin_version }}">
-    <script src="{% static 'common/forooshbin-app.js' %}?v={{ forooshbin_version }}" defer></script>
+    <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
+    <script src="{% static 'common/dolphin-app.js' %}?v={{ dolphin_version }}" defer></script>
 {% endif %}
 </head>
 {% comment %} The printable document has no navigation and no controls beyond printing.

@@ -36,8 +36,8 @@ REQUIRED = (
     # it. Excluded from the image until 1.3.12, when the charts moved onto the
     # theme's own library.
     "plugins/global/plugins.bundle.js",
-    "common/forooshbin.css",
-    "common/forooshbin-app.js",
+    "common/dolphin.css",
+    "common/dolphin-app.js",
     "common/brand/Logo.webp",
     "common/brand/Logo.png",
     "common/brand/Logo-light.webp",
@@ -137,7 +137,7 @@ class CollectStaticContentTests(SimpleTestCase):
         )
 
     def test_collected_output_has_what_is_needed_and_not_what_is_not(self):
-        destination = Path(tempfile.mkdtemp(prefix="forooshbin-static-"))
+        destination = Path(tempfile.mkdtemp(prefix="dolphin-static-"))
         try:
             with override_settings(STATIC_ROOT=str(destination)):
                 call_command("collectstatic", interactive=False, verbosity=0)
@@ -214,7 +214,7 @@ class ImageBuildContextTests(SimpleTestCase):
         import subprocess
         import sys
 
-        image = Path(tempfile.mkdtemp(prefix="forooshbin-image-"))
+        image = Path(tempfile.mkdtemp(prefix="dolphin-image-"))
         try:
             for relative in self._context_paths():
                 source = ROOT / relative
@@ -255,7 +255,7 @@ class ChartLibraryTests(SimpleTestCase):
     """
 
     SHELL = TEMPLATES / "base.html"
-    SCRIPT = ROOT / "common" / "static" / "common" / "forooshbin-app.js"
+    SCRIPT = ROOT / "common" / "static" / "common" / "dolphin-app.js"
 
     def test_the_shell_loads_the_bundle_that_carries_apexcharts(self):
         """ApexCharts ships only inside `plugins.bundle.js`; the theme has no

@@ -23,7 +23,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$backupNamePattern = "^(?:frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$"
+$backupNamePattern = "^(?:dolphin|frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$"
 
 function Test-SamePath {
     param(
@@ -59,7 +59,11 @@ function Get-ValidatedBackupRoot {
     if ($resolved.TrimEnd($trimCharacters) -eq $volumeRoot.TrimEnd($trimCharacters)) {
         throw "BackupRoot cannot be a filesystem root."
     }
+    # A real backup root created under either earlier project name still carries
+    # its old sentinel file; both are accepted so an already-deployed backup
+    # root keeps working without a manual fix-up before this script runs again.
     $sentinels = @(
+        @{ Path = (Join-Path $resolved ".dolphin-backup-root"); Value = "DOLPHIN_BACKUP_ROOT_V1" },
         @{ Path = (Join-Path $resolved ".frooshbin-backup-root"); Value = "FROOSHBIN_BACKUP_ROOT_V1" },
         @{ Path = (Join-Path $resolved ".kariz-backup-root"); Value = "KARIZ_BACKUP_ROOT_V1" }
     )
@@ -141,7 +145,7 @@ if (-not (Test-SamePath -Left (Split-Path $resolvedBackupFile -Parent) -Right $r
 }
 $backupLeaf = Split-Path $resolvedBackupFile -Leaf
 if ($backupLeaf -notmatch $backupNamePattern) {
-    throw "BackupFile name does not match the FrooshBin or legacy Kariz backup pattern."
+    throw "BackupFile name does not match the Dolphin, FrooshBin, or Kariz backup pattern."
 }
 $checksumPath = "$resolvedBackupFile.sha256"
 if (-not (Test-Path -LiteralPath $checksumPath -PathType Leaf)) {
@@ -177,8 +181,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $runToken = [Guid]::NewGuid().ToString("N")
-$databaseName = "frooshbin_restore_verify_$runToken"
-$databaseNamePattern = "^frooshbin_restore_verify_[0-9a-f]{32}$"
+$databaseName = "dolphin_restore_verify_$runToken"
+$databaseNamePattern = "^dolphin_restore_verify_[0-9a-f]{32}$"
 if ($databaseName -notmatch $databaseNamePattern) {
     throw "Generated restore database name is unsafe."
 }
@@ -221,12 +225,12 @@ try {
     }
     $verificationOutput = & $psql @connectionArguments "--dbname=$databaseName" "--tuples-only" "--no-align" "--set=ON_ERROR_STOP=1" "--file=$verificationSql"
     if ($LASTEXITCODE -ne 0 -or (($verificationOutput | ForEach-Object { [string]$_ }) -join "").Trim() -ne "1") {
-        throw "Restored FrooshBin schema verification failed."
+        throw "Restored Dolphin schema verification failed."
     }
     $verified = $true
 } finally {
     if ($created) {
-        $expectedDatabaseName = "frooshbin_restore_verify_$runToken"
+        $expectedDatabaseName = "dolphin_restore_verify_$runToken"
         if ($databaseName -cne $expectedDatabaseName -or $databaseName -notmatch $databaseNamePattern) {
             throw "Unsafe disposable database cleanup target."
         }

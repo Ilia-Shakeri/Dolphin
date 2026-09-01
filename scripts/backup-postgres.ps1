@@ -24,8 +24,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$backupNamePattern = "^(?:frooshbin|kariz)-pg-(?<timestamp>[0-9]{8}T[0-9]{6}Z)-(?<token>[0-9a-f]{32})[.]dump$"
-$checksumNamePattern = "^(?:frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump[.]sha256$"
+# Accepts backup files already on disk under either of the two earlier project
+# names alongside the current one, so a real backup root does not need every
+# existing file renamed before this script recognizes it again.
+$backupNamePattern = "^(?:dolphin|frooshbin|kariz)-pg-(?<timestamp>[0-9]{8}T[0-9]{6}Z)-(?<token>[0-9a-f]{32})[.]dump$"
+$checksumNamePattern = "^(?:dolphin|frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump[.]sha256$"
 
 function Test-SamePath {
     param(
@@ -61,7 +64,11 @@ function Get-ValidatedBackupRoot {
     if ($resolved.TrimEnd($trimCharacters) -eq $volumeRoot.TrimEnd($trimCharacters)) {
         throw "BackupRoot cannot be a filesystem root."
     }
+    # A real backup root created under either earlier project name still carries
+    # its old sentinel file; both are accepted so an already-deployed backup
+    # root keeps working without a manual fix-up before this script runs again.
     $sentinels = @(
+        @{ Path = (Join-Path $resolved ".dolphin-backup-root"); Value = "DOLPHIN_BACKUP_ROOT_V1" },
         @{ Path = (Join-Path $resolved ".frooshbin-backup-root"); Value = "FROOSHBIN_BACKUP_ROOT_V1" },
         @{ Path = (Join-Path $resolved ".kariz-backup-root"); Value = "KARIZ_BACKUP_ROOT_V1" }
     )
@@ -190,7 +197,7 @@ if ($DatabaseName.Contains("=") -or $DatabaseName.Contains("://")) {
 
 $runToken = [Guid]::NewGuid().ToString("N")
 $timestamp = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ", [Globalization.CultureInfo]::InvariantCulture)
-$backupName = "frooshbin-pg-$timestamp-$runToken.dump"
+$backupName = "dolphin-pg-$timestamp-$runToken.dump"
 if ($backupName -notmatch $backupNamePattern) {
     throw "Generated backup name is unsafe."
 }

@@ -234,7 +234,7 @@ SELECT (
     \echo 'PostgreSQL schema contract failed.'
     -- psql's \quit takes no argument and exits 0, so announcing the failure is
     -- not enough: raise, and let ON_ERROR_STOP=1 give a non-zero exit.
-    DO $frooshbin_guard$ BEGIN
+    DO $dolphin_guard$ BEGIN
         RAISE EXCEPTION 'PostgreSQL schema contract failed.';
-    END $frooshbin_guard$;
+    END $dolphin_guard$;
 \endif

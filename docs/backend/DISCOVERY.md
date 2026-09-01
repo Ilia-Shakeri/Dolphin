@@ -1,10 +1,10 @@
 # Backend discovery
 
-> This document is a technical discovery snapshot, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+> This document is a technical discovery snapshot, not live project status. Current progress, blockers, evidence, and exact next action exist only in `DOLPHIN_PROJECT_HANDOFF.md`.
 
 ## Repository state at the discovery snapshot
 
-The active root is `Kariz-CRM`. It contains a Django modular-monolith backend, PostgreSQL production settings, migrations, tests, Docker Compose, Nginx configuration, a large static template tree, and local Git metadata with initial commit `ef1c7f4`.
+The active root is `Dolphin-CRM`. It contains a Django modular-monolith backend, PostgreSQL production settings, migrations, tests, Docker Compose, Nginx configuration, a large static template tree, and local Git metadata with initial commit `ef1c7f4`.
 
 `BACKEND_SPEC.md` is now present and is the provisional authoritative business source. The older named backend prompt and frontend context files remain absent under canonical or obvious suffixed root names. Work must use the specification, durable goal, approved backend documents, current migrations, and tests without treating demo pages as business truth.
 
@@ -48,4 +48,4 @@ Git exists, user identity is configured, and reviewed baseline commit `50a978a` 
 - Record one user-approved immutable release reference and regenerate proof against it.
 - Prove PostgreSQL role/grant/migration behavior, container boot, proxy/static/direct TLS, browser paths, backup/restore, alerts, and recovery on approved external runtimes.
 
-See `KARIZ_PROJECT_HANDOFF.md` for live status, completed work, assumptions, blockers, and exact continuation commands.
+See `DOLPHIN_PROJECT_HANDOFF.md` for live status, completed work, assumptions, blockers, and exact continuation commands.

@@ -29,7 +29,7 @@ parsed, so no re-serialisation can change what was signed.
 {
   "manifest_version": 1,
   "algorithm": "ed25519",
-  "key_id": "kariz-2026",
+  "key_id": "dolphin-2026",
   "payload": "<base64 of the payload JSON below>",
   "signature": "<base64 of the 64-byte Ed25519 signature>"
 }
@@ -70,8 +70,8 @@ Generate the signing key once, with OpenSSL, on a machine the platform owner
 controls:
 
 ```bash
-openssl genpkey -algorithm ed25519 -out kariz-manifest-signing.pem
-openssl pkey -in kariz-manifest-signing.pem -pubout -outform DER | tail -c 32 | base64
+openssl genpkey -algorithm ed25519 -out dolphin-manifest-signing.pem
+openssl pkey -in dolphin-manifest-signing.pem -pubout -outform DER | tail -c 32 | base64
 ```
 
 The private key never reaches a customer host and never enters this repository.
@@ -81,8 +81,8 @@ manifest with:
 
 ```bash
 python scripts/sign_deployment_manifest.py \
-    --private-key kariz-manifest-signing.pem \
-    --key-id kariz-2026 \
+    --private-key dolphin-manifest-signing.pem \
+    --key-id dolphin-2026 \
     --profile-id client-1 \
     --feature customers --feature leads --feature sales \
     --output manifest.json
@@ -206,5 +206,5 @@ them needs a separate product-owner decision.
 Signature verification raises the effort of tampering and makes it detectable.
 It does not defeat an attacker who owns the hardware and is willing to patch the
 verification out of the binary. That matches the threat model in
-`KARIZ_PROJECT_HANDOFF.md` section 8 and is the reason this work pairs with the
+`DOLPHIN_PROJECT_HANDOFF.md` section 8 and is the reason this work pairs with the
 backend packaging question in roadmap phase P12 rather than closing it.

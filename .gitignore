@@ -16,7 +16,7 @@ media/
 uploads/
 exports/
 backups/
-.kariz-backup-root
+.dolphin-backup-root
 logs/
 *.log
 *.db

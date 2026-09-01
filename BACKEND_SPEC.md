@@ -1,9 +1,9 @@
-# ForooshBin — Backend Specification
+# Dolphin — Backend Specification
 
-**Document status:** Provisional authoritative implementation specification assembled from the established ForooshBin conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit 2026-08-14, corrected P0R 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `KARIZ_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. P0 corrected §2.3/§2.4 (stale postal/SMS blocked-module claims contradicting this document's own §5.7A/§5.9 and the actual code). P0R corrected an over-expanded Client-1 scope claim (§2.6, now three explicit tiers), an incorrect Sales Manager user-administration rule (§4/§4.1, `BIZ-005`), and an ambiguous "Linux target" architecture line — all verified by direct code inspection, not by re-reading old prose.
+**Document status:** Provisional authoritative implementation specification assembled from the established Dolphin conversation context and confirmed decisions. Newer explicit user decisions override this document. **Disposition (P0 audit 2026-08-14, corrected P0R 2026-08-14): KEEP_AND_REWRITE.** This document remains the normative business/backend contract; live status, evidence, and the single decision register live only in `DOLPHIN_PROJECT_HANDOFF.md`. Section 15 below no longer duplicates that register. P0 corrected §2.3/§2.4 (stale postal/SMS blocked-module claims contradicting this document's own §5.7A/§5.9 and the actual code). P0R corrected an over-expanded Client-1 scope claim (§2.6, now three explicit tiers), an incorrect Sales Manager user-administration rule (§4/§4.1, `BIZ-005`), and an ambiguous "Linux target" architecture line — all verified by direct code inspection, not by re-reading old prose.
 
-**Product:** ForooshBin / فروش‌بین
-**Architecture:** Django + Django REST Framework + PostgreSQL + Docker Compose + Nginx, modular monolith. **Correction (P0R, 2026-08-14):** "Linux target" describes the *application container image* (Linux/amd64, per `Dockerfile`/`docs/ops/DEPENDENCIES.md`) — it is not a claim about the customer's physical hosting architecture. Whether the target host runs Linux directly, Windows Server with a Hyper-V/container layer, or a dedicated appliance is unresolved and depends on the infrastructure survey in `KARIZ_CLIENT1_CODEX_ROADMAP.md`'s early infrastructure-survey gate; see `KARIZ_PROJECT_HANDOFF.md` for the exact open questions.
+**Product:** Dolphin / دلفین
+**Architecture:** Django + Django REST Framework + PostgreSQL + Docker Compose + Nginx, modular monolith. **Correction (P0R, 2026-08-14):** "Linux target" describes the *application container image* (Linux/amd64, per `Dockerfile`/`docs/ops/DEPENDENCIES.md`) — it is not a claim about the customer's physical hosting architecture. Whether the target host runs Linux directly, Windows Server with a Hyper-V/container layer, or a dedicated appliance is unresolved and depends on the infrastructure survey in `DOLPHIN_CLIENT1_CODEX_ROADMAP.md`'s early infrastructure-survey gate; see `DOLPHIN_PROJECT_HANDOFF.md` for the exact open questions.
 **Deployment model:** Single-tenant deployment and separate database per client company, one shared codebase
 
 ---
@@ -13,9 +13,9 @@
 Every requirement in this document has one of these states:
 
 - **CONFIRMED:** explicitly stated or accepted; implement as the current requirement.
-- **WORKING ASSUMPTION:** a safe default that may be implemented only when it does not lock an unresolved business decision; record it in `KARIZ_PROJECT_HANDOFF.md`.
+- **WORKING ASSUMPTION:** a safe default that may be implemented only when it does not lock an unresolved business decision; record it in `DOLPHIN_PROJECT_HANDOFF.md`.
 - **RECOMMENDED:** technical/delivery guidance, not a contractual business rule.
-- **UNRESOLVED:** do not invent; isolate/defer the affected behavior and record it in `KARIZ_PROJECT_HANDOFF.md`.
+- **UNRESOLVED:** do not invent; isolate/defer the affected behavior and record it in `DOLPHIN_PROJECT_HANDOFF.md`.
 - **BLOCKED:** implementation must not be claimed complete until the named decision/source exists.
 
 Frontend labels, badges, demo data, fake submit handlers, and template pages are never authoritative business rules.
@@ -26,7 +26,7 @@ Frontend labels, badges, demo data, fake submit handlers, and template pages are
 
 ### 2.1 Confirmed product goal
 
-ForooshBin is an internal sales and customer-operations CRM for companies that receive phone/SMS-originated leads, distribute work to sales agents, track manual calls/interactions and successful sales, monitor performance, and export predefined reports to XLSX.
+Dolphin is an internal sales and customer-operations CRM for companies that receive phone/SMS-originated leads, distribute work to sales agents, track manual calls/interactions and successful sales, monitor performance, and export predefined reports to XLSX.
 
 ### 2.2 Core V1 scope
 
@@ -92,9 +92,9 @@ What that authorised, and what it did **not**:
 
 `FINAL_WAVE_LOW` (used in older prose/Git history for the Tier-B financial/inventory/file families) meant "required but last in implementation order," not optional. It is superseded by Tier B above; do not reintroduce it as a separate label.
 
-All new entities, statuses, transitions, formulas, role/workstream rules, report units, provider adapters, integration directions, storage policies, migrations, routes, and acceptance criteria remain **UNRESOLVED/BLOCKED** until the exact decisions recorded in `KARIZ_PROJECT_HANDOFF.md` are approved. No model, endpoint, UI route, or authorization change is authorized by tier membership alone — Tier B membership means "must eventually be decided and built," not "already approved to implement."
+All new entities, statuses, transitions, formulas, role/workstream rules, report units, provider adapters, integration directions, storage policies, migrations, routes, and acceptance criteria remain **UNRESOLVED/BLOCKED** until the exact decisions recorded in `DOLPHIN_PROJECT_HANDOFF.md` are approved. No model, endpoint, UI route, or authorization change is authorized by tier membership alone — Tier B membership means "must eventually be decided and built," not "already approved to implement."
 
-**Explicit non-invention guard (P0R, 2026-08-14):** being technically conventional is not the same as being approved. Do not invent or silently approve any of the following merely because they are common ERP/accounting patterns: the exact source of an Invoice (whether it may be created directly from a Customer, only from a Sale, only from an Order/Quotation, or several ways); a mandatory Order→Invoice or Quotation→Order conversion step; mandatory Inventory reservation on Order/Quotation; a mandatory Payment→Invoice allocation model (payment-on-account without an Invoice must remain a considered option, not excluded by default); the accounting basis for profit/loss (cash versus accrual, cost source); tax rules of any kind; or ledger debit/credit sign conventions. `KARIZ_CLIENT1_CODEX_ROADMAP.md` §7.4 lists several possible workflow shapes as non-exhaustive examples only — none of them is an approval.
+**Explicit non-invention guard (P0R, 2026-08-14):** being technically conventional is not the same as being approved. Do not invent or silently approve any of the following merely because they are common ERP/accounting patterns: the exact source of an Invoice (whether it may be created directly from a Customer, only from a Sale, only from an Order/Quotation, or several ways); a mandatory Order→Invoice or Quotation→Order conversion step; mandatory Inventory reservation on Order/Quotation; a mandatory Payment→Invoice allocation model (payment-on-account without an Invoice must remain a considered option, not excluded by default); the accounting basis for profit/loss (cash versus accrual, cost source); tax rules of any kind; or ledger debit/credit sign conventions. `DOLPHIN_CLIENT1_CODEX_ROADMAP.md` §7.4 lists several possible workflow shapes as non-exhaustive examples only — none of them is an approval.
 
 ---
 
@@ -150,8 +150,8 @@ The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 
 - `sales_agent`: `بازاریاب (کال سنتر)`; a User and never a Customer; every marketer has an individual account; shared marketer accounts are prohibited.
 - `sales_manager`: `مدیر فروشگاه`; the first client's store/sales manager; operational business data only, **no user-administration capability**.
-- `company_it`: `مدیر فنی مشتری`; **disabled by default for Client 1** (see `PROFILE-001` / `DOC-COMPANY-IT-001` in `KARIZ_PROJECT_HANDOFF.md`); a future limited account requires a separate approved contract and must never grant, target, modify, or administer `platform_admin`.
-- `platform_admin`: `مدیر پلتفرم`; reserved for the Kariz owner/developer team only; for Client 1 this is the **only** role permitted to create, edit, deactivate, or reactivate application users, and the only role permitted to change application role or operator workstream. Django Admin and server/database administration are not exposed to customer users under any role.
+- `company_it`: `مدیر فنی مشتری`; **disabled by default for Client 1** (see `PROFILE-001` / `DOC-COMPANY-IT-001` in `DOLPHIN_PROJECT_HANDOFF.md`); a future limited account requires a separate approved contract and must never grant, target, modify, or administer `platform_admin`.
+- `platform_admin`: `مدیر پلتفرم`; reserved for the Dolphin owner/developer team only; for Client 1 this is the **only** role permitted to create, edit, deactivate, or reactivate application users, and the only role permitted to change application role or operator workstream. Django Admin and server/database administration are not exposed to customer users under any role.
 
 **Correction (product-owner decision, 2026-08-18): activation state is Platform Admin only.** Turning a customer or a product active/inactive is reserved for `platform_admin`. Operational roles keep every other write on those records. Deactivation continues to hide rather than delete: every order, invoice, payment and ledger row survives untouched, and reactivation restores the record.
 
@@ -695,7 +695,7 @@ Exact final Lead statuses, Interaction outcomes, decimal/rounding behavior, and 
 
 ### 10.1 Confirmed high-level requirement
 
-- Reports are visible inside ForooshBin.
+- Reports are visible inside Dolphin.
 - The same approved filtered result can be exported to XLSX.
 - V1 uses predefined reports, not a dynamic report builder.
 - Client-1 includes a bounded dynamic report builder in `FINAL_WAVE_LOW`, but its allowlisted sources/fields/joins/aggregates, ownership/sharing, authorization, query/export limits, audit, and acceptance rules remain **BLOCKED**. It does not alter the current predefined-report contract.
@@ -731,7 +731,7 @@ Do not publish misleading generic metrics until approved:
 - conversion rate denominator and reassignment policy;
 - final answered/qualifying call outcome grouping.
 
-Implement the unambiguous report foundation, filters, role scoping, XLSX, OpenAPI, and deterministic tests while recording unresolved metrics in `KARIZ_PROJECT_HANDOFF.md`.
+Implement the unambiguous report foundation, filters, role scoping, XLSX, OpenAPI, and deterministic tests while recording unresolved metrics in `DOLPHIN_PROJECT_HANDOFF.md`.
 
 ### 10.4 Candidate filters
 
@@ -840,8 +840,8 @@ Use deterministic factories/fixtures and avoid real personal data.
 
 - Template/demo files provide visible form/table/action evidence only.
 - Many original scripts simulate success and are not real API integrations.
-- Build small Kariz-specific API/page modules rather than connecting every demo script.
-- Active product branding is `ForooshBin` / `فروش‌بین`.
+- Build small Dolphin-specific API/page modules rather than connecting every demo script.
+- Active product branding is `Dolphin` / `دلفین`.
 - Replace user-visible Metronic/KeenThemes branding, titles, login/footer text, and vendor/demo links.
 - Do not blindly rename runtime identifiers such as `KTMenu`, `KTDrawer`, `KTUtil`, `data-kt-*`, or vendor API names when behavior depends on them.
 - Preserve legally required third-party notices outside user-visible product branding.
@@ -851,7 +851,7 @@ Use deterministic factories/fixtures and avoid real personal data.
 
 ## 15. Open unresolved decisions
 
-**Correction (P0 audit, 2026-08-14):** this section previously duplicated a numbered decision list (with a numbering bug — two items both labeled "17") that drifts out of sync with the live register. There is now exactly one live, numbered register of open decisions: `KARIZ_PROJECT_HANDOFF.md` §14. This document does not maintain a second copy.
+**Correction (P0 audit, 2026-08-14):** this section previously duplicated a numbered decision list (with a numbering bug — two items both labeled "17") that drifts out of sync with the live register. There is now exactly one live, numbered register of open decisions: `DOLPHIN_PROJECT_HANDOFF.md` §14. This document does not maintain a second copy.
 
 Two decisions affecting this document's own rules are resolved and stay recorded here as provenance:
 

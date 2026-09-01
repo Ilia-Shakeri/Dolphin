@@ -23,7 +23,7 @@
    that moves, a browser holding yesterday's copy keeps using it after a deploy,
    and the panel runs new markup against old CSS and old script. The vendor
    bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
-    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}?v={{ forooshbin_version }}">
+    <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
 {% comment %} The theme is applied before the stylesheets get a chance to paint.
 
    `KTThemeMode` sets `data-bs-theme` itself, but it runs on DOMContentLoaded —
@@ -61,7 +61,7 @@
 </head>
 {% comment %} Metronic's dark-sidebar layout is the one canonical shell for this product;
    no other demo variant is mixed in. `data-page` stays because it selects the
-   single page handler in forooshbin-app.js. {% endcomment %}
+   single page handler in dolphin-app.js. {% endcomment %}
 <body id="kt_app_body" class="app-default"
       data-kt-app-layout="dark-sidebar"
       data-kt-app-header-fixed="true"
@@ -108,7 +108,7 @@
                            this application rather than by KTMenu: KTMenu places a dropdown with
                            Popper, which lives in the 3.5 MB plugins bundle this deployment does
                            not load. The theme's own `.show` rule already supplies the whole panel;
-                           only the anchoring is ours, in forooshbin.css. Same trade as the native
+                           only the anchoring is ours, in dolphin.css. Same trade as the native
                            dialog elements used instead of Bootstrap modals.
 
                            Everything the account owner may do lives here, which is why the sidebar
@@ -265,7 +265,7 @@
    the wide brand while collapsed with a plain `display: none`, and Bootstrap's
    `d-flex` is `!important` — so with the utility on the link itself the theme
    lost, the wide block stayed in the DOM, and its content propped the rail open.
-   That is what the `!important` overrides in forooshbin.css existed to beat.
+   That is what the `!important` overrides in dolphin.css existed to beat.
    Moving the utility inward lets the theme's own rule win unaided. {% endcomment %}
                         <span class="d-flex align-items-center gap-3">
                             <picture>
@@ -547,7 +547,7 @@
                             <span class="text-muted fw-semibold">Dolphin | دلفین</span>
                             {% comment %} نسخه در پاورقی است تا پشتیبانی بدون دسترسی به سرور
                                بداند کاربر دقیقاً کدام نسخه را می‌بیند. {% endcomment %}
-                            <span class="text-muted fw-semibold ms-3" dir="ltr">v{{ forooshbin_version }}</span>
+                            <span class="text-muted fw-semibold ms-3" dir="ltr">v{{ dolphin_version }}</span>
                         </div>
                     </div>
                 </div>
@@ -620,6 +620,6 @@
    expects Popper and jQuery to already exist. {% endcomment %}
 <script src="{% static 'plugins/global/plugins.bundle.js' %}"></script>
 <script src="{% static 'js/scripts.bundle.js' %}"></script>
-<script src="{% static 'common/forooshbin-app.js' %}?v={{ forooshbin_version }}" defer></script>
+<script src="{% static 'common/dolphin-app.js' %}?v={{ dolphin_version }}" defer></script>
 </body>
 </html>

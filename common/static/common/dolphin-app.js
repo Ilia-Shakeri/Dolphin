@@ -202,7 +202,7 @@
      * normally toggle that class and position the panel with Popper, which
      * lives in the plugins bundle this deployment does not load. Toggling the
      * class here is the whole of what was missing — placement is two CSS lines
-     * in forooshbin.css.
+     * in dolphin.css.
      */
     function setupUserMenu() {
         const toggle = document.getElementById("user-menu-toggle");

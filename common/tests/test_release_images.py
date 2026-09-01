@@ -98,7 +98,7 @@ class ReleaseImageContractTests(SimpleTestCase):
         self.assertNotIn("print(value", source)
 
     def test_validator_accepts_exact_refs_and_rejects_mutable_or_bad_digest(self):
-        exact = "registry.example/kariz@sha256:" + "a" * 64
+        exact = "registry.example/dolphin@sha256:" + "a" * 64
         environment = {
             **os.environ,
             "KARIZ_APP_IMAGE": exact,

@@ -1,7 +1,7 @@
-# ForooshBin — deployment and operations runbook
+# Dolphin — deployment and operations runbook
 
 **This is the canonical document for installing, starting, updating, backing up,
-restoring and recovering ForooshBin.** Where any other document disagrees with
+restoring and recovering Dolphin.** Where any other document disagrees with
 this one, this one is correct.
 
 Written for a Linux administrator who does not know the codebase. Every command
@@ -33,7 +33,7 @@ v2, PostgreSQL and nginx in containers, and a Django/Gunicorn application image
 | [9. Security and secrets](#9-security-and-secrets) | Always |
 
 Throughout, `$DEPLOY` is the deployment directory — this runbook uses
-`/srv/forooshbin/client-1`. Adjust once and stay consistent.
+`/srv/dolphin/client-1`. Adjust once and stay consistent.
 
 Every Compose command needs `--env-file secrets/.env`. Compose does **not** read
 that path automatically, and without it the stack fails on missing variables.
@@ -47,7 +47,7 @@ happens on the machine you develop on. The longer sections below explain what
 these do and what to reach for when something is wrong — this is the path when
 nothing is.
 
-`$DEPLOY` is the deployment directory, `/srv/forooshbin/FrooshBin` on the
+`$DEPLOY` is the deployment directory, `/srv/dolphin/Dolphin` on the
 current host. `v1.1.2` stands in for the version being shipped.
 
 ### 1. On the development machine
@@ -92,7 +92,7 @@ Use the `RepoDigests` value, not the image ID from `docker image ls`. An image
 ID names the config on one machine and will not resolve anywhere else.
 
 ```bash
-scp forooshbin-app-v1.1.2.tar.gz deploy@<server>:/srv/forooshbin/
+scp dolphin-app-v1.1.2.tar.gz deploy@<server>:/srv/dolphin/
 ```
 
 ### 2. On the server
@@ -100,7 +100,7 @@ scp forooshbin-app-v1.1.2.tar.gz deploy@<server>:/srv/forooshbin/
 Load the image:
 
 ```bash
-docker load -i /srv/forooshbin/forooshbin-app-v1.1.2.tar.gz
+docker load -i /srv/dolphin/dolphin-app-v1.1.2.tar.gz
 ```
 
 Pull the checkout and release:
@@ -146,7 +146,7 @@ never for one holding data you would miss.
 ### Two rules this deployment learned the hard way
 
 **One Compose project, one database volume.** The project name is stable
-(`forooshbin`); the version lives in the image tag and nowhere else. Standing up
+(`dolphin`); the version lives in the image tag and nowhere else. Standing up
 a second project beside the live one looks like a safe way to trial a release
 and is not: both publish 80 and 443, and both name the same external volume, so
 two PostgreSQL servers end up writing one data directory. `postmaster.pid` does
@@ -261,8 +261,8 @@ for path in \
   /static/css/style.bundle.rtl.css \
   /static/plugins/global/plugins.bundle.rtl.css \
   /static/js/scripts.bundle.js \
-  /static/common/forooshbin.css \
-  /static/common/forooshbin-app.js \
+  /static/common/dolphin.css \
+  /static/common/dolphin-app.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
   /static/fonts/IRANSansWeb.woff \
@@ -345,9 +345,9 @@ sudo ufw status verbose
 ### 1.4 Directories and ownership
 
 ```bash
-sudo mkdir -p /srv/forooshbin/client-1
-sudo chown "$USER":"$USER" /srv/forooshbin/client-1
-cd /srv/forooshbin/client-1
+sudo mkdir -p /srv/dolphin/client-1
+sudo chown "$USER":"$USER" /srv/dolphin/client-1
+cd /srv/dolphin/client-1
 mkdir -p secrets/tls
 chmod 700 secrets
 chmod 700 secrets/tls
@@ -402,15 +402,15 @@ Offline host — transfer and load. On the build machine:
 
 ```bash
 docker save <app-repository>@sha256:<digest> <postgres-repository>@sha256:<digest> <nginx-repository>@sha256:<digest> \
-  | gzip > forooshbin-images.tar.gz
-sha256sum forooshbin-images.tar.gz
+  | gzip > dolphin-images.tar.gz
+sha256sum dolphin-images.tar.gz
 ```
 
 Copy the archive across, verify the checksum matches what the build machine
 printed, then:
 
 ```bash
-gunzip -c forooshbin-images.tar.gz | docker load
+gunzip -c dolphin-images.tar.gz | docker load
 docker images --digests | grep -E 'app-repository|postgres|nginx'
 ```
 
@@ -424,8 +424,8 @@ invent them. Creating them by hand is deliberate: it makes accidental data loss
 through `docker compose down -v` impossible.
 
 ```bash
-docker volume create forooshbin_postgres_data
-docker volume create forooshbin_postgres_backups
+docker volume create dolphin_postgres_data
+docker volume create dolphin_postgres_backups
 ```
 
 The backup volume needs a one-time sentinel before the backup job will write to
@@ -436,7 +436,7 @@ it — see [4.1](#41-prepare-the-backup-volume-once).
 **Generate it rather than writing it by hand:**
 
 ```bash
-python3 scripts/new_deployment.py --slug <customer> --host <public-hostname> --out /srv/forooshbin/<customer>
+python3 scripts/new_deployment.py --slug <customer> --host <public-hostname> --out /srv/dolphin/<customer>
 ```
 
 One answer set produces the whole file: the project name, the database, all four
@@ -486,14 +486,14 @@ Values that decide behaviour rather than identity:
 | `KARIZ_DEPLOYMENT_MANIFEST_PATH` | path to the signed manifest | See [1.10](#110-signed-deployment-manifest) |
 | `KARIZ_DEPLOYMENT_MANIFEST_KEYS` | `key_id:base64_public_key` | Public key only. The private key never reaches this host |
 | `KARIZ_TLS_CERT_PATH` / `KARIZ_TLS_KEY_PATH` | `secrets/tls/fullchain.pem` / `privkey.pem` | |
-| `POSTGRES_*_USER` / `POSTGRES_DB` | any safe lowercase identifier | Fresh installs get `forooshbin*` names from the template; an existing deployment keeps whatever it already has |
+| `POSTGRES_*_USER` / `POSTGRES_DB` | any safe lowercase identifier | Fresh installs get `dolphin*` names from the template; an existing deployment keeps whatever it already has |
 | `KARIZ_BILLING_INVOICE_AFFECTS_STOCK` | **leave unset** | See [1.11](#111-client-1-business-switches) |
 
-> **Why the `KARIZ_` prefix is still there.** It is a compatibility contract, not
+> **Why the `DOLPHIN_` prefix is still there.** It is a compatibility contract, not
 > branding: `compose.yml`, the nginx envsubst filter, `config/production_env.py`
 > and every existing `.env` read these exact names. Renaming them would break a
 > running deployment on upgrade for no functional gain. Everything a customer
-> sees says ForooshBin / فروش‌بین.
+> sees says Dolphin / دلفین.
 
 ### 1.9 `AUDIT_TRUSTED_PROXY_CIDRS`
 
@@ -676,7 +676,7 @@ work goes through the authorised CRM paths.
 ### 1.16 Smoke check
 
 1. Open `https://${PUBLIC}/` and sign in as the Platform Admin.
-2. The dashboard renders with the dark sidebar, Persian RTL, and the ForooshBin
+2. The dashboard renders with the dark sidebar, Persian RTL, and the Dolphin
    logo. If it is unstyled, go to [8.1](#81-the-panel-loads-unstyled-or-theme-assets-404).
 3. The sidebar shows the current page highlighted, and **no پیش‌فاکتور entry**.
 4. Create a customer, then a campaign (سرنخ), then add someone to its جامعه هدف.
@@ -707,7 +707,7 @@ and self-correcting; the restart policy handles it.
 systemctl is-active docker && systemctl is-enabled docker
 
 # 2. Every long-running service is up
-cd /srv/forooshbin/client-1
+cd /srv/dolphin/client-1
 docker compose --env-file secrets/.env ps
 
 # 3. Reconcile anything that did not come back
@@ -763,7 +763,7 @@ rather than from memory.
 ./scripts/deploy.sh --status
 ```
 
-What is running now: project, image tag, database volume, and every ForooshBin
+What is running now: project, image tag, database volume, and every Dolphin
 container on the host with its ports. Use it when returning to a deployment you
 have not touched for a while.
 
@@ -810,7 +810,7 @@ role this step just configured, so a successful backup is the proof.
 `POSTGRES_DATA_VOLUME` a single fixed volume. The version belongs to the image
 tag, never to the project name.
 
-Standing up `forooshbin-v110` and `forooshbin-v111` as parallel Compose projects
+Standing up `dolphin-v110` and `dolphin-v111` as parallel Compose projects
 looks like a safe way to trial a release, and is not: both publish 80 and 443,
 so the second cannot bind, and both name the same external database volume, so
 two PostgreSQL servers fight over one data directory. Upgrading in place has
@@ -843,7 +843,7 @@ Use this when the script cannot run, or to understand what it does.
 6. **Update the runtime files** if the release changed `compose.yml`, the nginx
    configuration or the scripts:
    ```bash
-   git -C /srv/forooshbin/client-1 pull --ff-only
+   git -C /srv/dolphin/client-1 pull --ff-only
    ```
 7. **Migrations and static files:**
    ```bash
@@ -902,7 +902,7 @@ half-prepared directory, never an inhabited one.
 ```bash
 docker compose --env-file secrets/.env --profile backup run --rm --no-deps \
   --user root --cap-add CHOWN --entrypoint sh backup -c \
-  'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chown postgres:postgres /backups'
+  'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" DOLPHIN_BACKUP_ROOT_V1 > /backups/.dolphin-backup-root; chmod 0600 /backups/.dolphin-backup-root; chown postgres:postgres /backups/.dolphin-backup-root; chown postgres:postgres /backups'
 ```
 
 ### 4.2 Take a backup
@@ -920,7 +920,7 @@ The `backup` profile means a plain `docker compose up -d` never starts it.
 
 ### 4.3 Where the files are
 
-Archives are named `frooshbin-pg-<UTC timestamp>-<32 hex>.dump`, each beside its
+Archives are named `dolphin-pg-<UTC timestamp>-<32 hex>.dump`, each beside its
 `.sha256`, on the `backup_data` volume.
 
 ```bash
@@ -933,7 +933,7 @@ docker compose --env-file secrets/.env --profile backup run --rm --no-deps \
 As the deployment user, `crontab -e`:
 
 ```
-15 2 * * * cd /srv/forooshbin/client-1 && docker compose --env-file secrets/.env --profile backup run --rm backup >> /var/log/forooshbin-backup.log 2>&1
+15 2 * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile backup run --rm backup >> /var/log/dolphin-backup.log 2>&1
 ```
 
 Retention is `POSTGRES_BACKUP_RETENTION_DAYS` in `.env`. `0` keeps everything —
@@ -943,7 +943,7 @@ Also schedule expired-session cleanup. Django stops honouring expired sessions
 but never deletes the rows, so `django_session` grows forever:
 
 ```
-30 3 * * 0 cd /srv/forooshbin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup >> /var/log/forooshbin-session-cleanup.log 2>&1
+30 3 * * 0 cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup >> /var/log/dolphin-session-cleanup.log 2>&1
 ```
 
 ### 4.5 Verify a restore — into a disposable database
@@ -953,7 +953,7 @@ database and never touches the live one.
 
 ```bash
 docker compose --env-file secrets/.env -f compose.restore-verify.yml --profile restore-verify config --quiet
-docker compose --env-file secrets/.env -f compose.restore-verify.yml --profile restore-verify run --rm --no-deps restore-verify frooshbin-pg-<timestamp>-<token>.dump
+docker compose --env-file secrets/.env -f compose.restore-verify.yml --profile restore-verify run --rm --no-deps restore-verify dolphin-pg-<timestamp>-<token>.dump
 ```
 
 The script checks the sentinel, the exact archive name shape and the SHA-256
@@ -997,7 +997,7 @@ Then re-run the [1.14](#114-verify-before-anyone-logs-in) checks.
 reviewed tag and recreate only what changed:
 
 ```bash
-git -C /srv/forooshbin/client-1 checkout <previous-tag>
+git -C /srv/dolphin/client-1 checkout <previous-tag>
 docker compose --env-file secrets/.env up -d --force-recreate nginx
 ```
 
@@ -1098,7 +1098,7 @@ TLS still applies: there is no plain-HTTP mode and cookies are secure-only.
    Both, together. The validator refuses one without the other.
 3. **Certificate — generate it on the server** so the private key never travels:
    ```bash
-   cd /srv/forooshbin/client-1
+   cd /srv/dolphin/client-1
    openssl req -x509 -nodes -newkey rsa:4096 -days 397 \
      -keyout secrets/tls/privkey.pem \
      -out    secrets/tls/fullchain.pem \
@@ -1161,7 +1161,7 @@ docker compose --env-file secrets/.env up -d --force-recreate nginx
 ```
 
 Then hard-refresh the browser (`Ctrl+F5`). The application's own CSS and JS were
-renamed to `forooshbin.css` / `forooshbin-app.js`; a cache holding the old names
+renamed to `dolphin.css` / `dolphin-app.js`; a cache holding the old names
 renders the page unstyled even when the server is correct.
 
 ### 8.2 `collectstatic` fails or collects almost nothing

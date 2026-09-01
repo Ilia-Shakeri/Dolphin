@@ -1,19 +1,16 @@
 # Deployment profile — design options (phase P0R.3)
 
-ForooshBin ships one shared codebase to multiple customer deployments. Feature
+Dolphin ships one shared codebase to multiple customer deployments. Feature
 availability, role permission, and object/data scope are three separate
 controls; this document is only about the first one — how a deployment learns
 which features it is allowed to run.
 
-**Status: comparison only. No option is approved.** `PROFILE-001` in
-`KARIZ_PROJECT_HANDOFF.md` records that architecture discovery is approved and
-implementation is not. No `DeploymentProfile` model, migration, or feature-gate
-code may be written until the product owner selects one option below.
-
-**Nothing here is implemented today.** The current code has no profile or
-feature-flag mechanism of any kind. Client-1 policies such as "`company_it` is
-disabled by default" are today operational policy (never create such an
-account), not a technical lock.
+**Status: historical — decided.** `PROFILE-001` selected **Option C** below;
+the implemented design is in
+[`DEPLOYMENT_PROFILE.md`](DEPLOYMENT_PROFILE.md), which is the current
+reference. This document is kept for the comparison and rationale that led to
+that choice, cited from there rather than repeated. Nothing below should be
+read as still open.
 
 ## Requirements every option must satisfy
 
@@ -68,7 +65,7 @@ Option C — signed manifest plus runtime database cache
 - No option achieves absolute secrecy or absolute tamper-proofing against an
   attacker who owns the hardware and is willing to patch the binary. Signature
   verification raises effort and makes tampering detectable; it does not make
-  it impossible. This matches the threat model in `KARIZ_PROJECT_HANDOFF.md` §8.
+  it impossible. This matches the threat model in `DOLPHIN_PROJECT_HANDOFF.md` §8.
 - Signing only helps if the verification path itself is not trivially patched
   out. That argues for combining this work with the backend packaging decision
   in P12 rather than treating it as fully solved on its own.

@@ -68,8 +68,8 @@ show_status() {
     echo
     $COMPOSE ps
     echo
-    note "every ForooshBin container on this host:"
-    docker ps --filter "name=forooshbin" \
+    note "every Dolphin container on this host:"
+    docker ps --filter "name=dolphin" \
         --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 }
 
@@ -206,7 +206,7 @@ check_backup_volume_is_prepared() {
         note "cannot read volume $volume from here — skipping the backup-volume check."
         return 0
     fi
-    if [ -f "$mountpoint/.frooshbin-backup-root" ] || [ -f "$mountpoint/.kariz-backup-root" ]; then
+    if [ -f "$mountpoint/.dolphin-backup-root" ] || [ -f "$mountpoint/.dolphin-backup-root" ]; then
         return 0
     fi
     echo "error: the backup volume ($volume) has no sentinel, so the backup job will" >&2
@@ -216,7 +216,7 @@ check_backup_volume_is_prepared() {
     # Quoted so the shell expands nothing: this is text to be copied, and the
     # inner $(find ...) must reach the reader intact.
     cat >&2 <<'PREPARE'
-    docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chown postgres:postgres /backups'
+    docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" DOLPHIN_BACKUP_ROOT_V1 > /backups/.dolphin-backup-root; chmod 0600 /backups/.dolphin-backup-root; chown postgres:postgres /backups/.dolphin-backup-root; chown postgres:postgres /backups'
 PREPARE
     echo >&2
     exit 2
@@ -229,7 +229,7 @@ deploy() {
     case "$target" in
         *:*) image="$target" ;;
         # A bare tag is the usual case; spell out the repository for the caller.
-        *)   image="forooshbin-app:$target" ;;
+        *)   image="dolphin-app:$target" ;;
     esac
 
     current="$(env_value KARIZ_APP_IMAGE)"

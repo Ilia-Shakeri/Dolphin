@@ -22,7 +22,7 @@ from common.context_processors import SIDEBAR_MINIMIZE_COOKIE
 
 PASSWORD = "Strong-pass-937!"
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
-PANEL_CSS = REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin.css"
+PANEL_CSS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css"
 
 
 class SidebarCollapseRenderingTests(TestCase):

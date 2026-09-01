@@ -64,14 +64,27 @@ if [ ! -d "$POSTGRES_BACKUP_ROOT" ] || [ -L "$POSTGRES_BACKUP_ROOT" ]; then
     exit 2
 fi
 
-new_sentinel="$POSTGRES_BACKUP_ROOT/.frooshbin-backup-root"
-legacy_sentinel="$POSTGRES_BACKUP_ROOT/.kariz-backup-root"
-if [ ! -e "$new_sentinel" ] && [ ! -e "$legacy_sentinel" ]; then
-    echo "The backup volume sentinel is missing or invalid." >&2
-    exit 2
-fi
-if { [ -e "$new_sentinel" ] && { [ ! -f "$new_sentinel" ] || [ -L "$new_sentinel" ] || [ "$(cat "$new_sentinel")" != "FROOSHBIN_BACKUP_ROOT_V1" ]; }; } || \
-   { [ -e "$legacy_sentinel" ] && { [ ! -f "$legacy_sentinel" ] || [ -L "$legacy_sentinel" ] || [ "$(cat "$legacy_sentinel")" != "KARIZ_BACKUP_ROOT_V1" ]; }; }; then
+# A real backup root created under either earlier project name still carries
+# its old sentinel file; all three are checked so an already-deployed backup
+# root keeps working without a manual fix-up before this script runs again.
+sentinel_seen=0
+for sentinel_pair in \
+    ".dolphin-backup-root:DOLPHIN_BACKUP_ROOT_V1" \
+    ".frooshbin-backup-root:FROOSHBIN_BACKUP_ROOT_V1" \
+    ".kariz-backup-root:KARIZ_BACKUP_ROOT_V1"; do
+    sentinel_name="${sentinel_pair%%:*}"
+    sentinel_value="${sentinel_pair#*:}"
+    sentinel_path="$POSTGRES_BACKUP_ROOT/$sentinel_name"
+    if [ -e "$sentinel_path" ]; then
+        sentinel_seen=1
+        if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
+           [ "$(cat "$sentinel_path")" != "$sentinel_value" ]; then
+            echo "The backup volume sentinel is missing or invalid." >&2
+            exit 2
+        fi
+    fi
+done
+if [ "$sentinel_seen" -eq 0 ]; then
     echo "The backup volume sentinel is missing or invalid." >&2
     exit 2
 fi
@@ -84,13 +97,13 @@ if ! printf '%s' "$token" | grep -Eq '^[0-9a-f]{32}$'; then
     exit 3
 fi
 
-backup_name="frooshbin-pg-$timestamp-$token.dump"
+backup_name="dolphin-pg-$timestamp-$token.dump"
 checksum_name="$backup_name.sha256"
 temp_dump="$POSTGRES_BACKUP_ROOT/.$backup_name.tmp"
 temp_checksum="$POSTGRES_BACKUP_ROOT/.$checksum_name.tmp"
 final_dump="$POSTGRES_BACKUP_ROOT/$backup_name"
 final_checksum="$POSTGRES_BACKUP_ROOT/$checksum_name"
-lock_dir="$POSTGRES_BACKUP_ROOT/.frooshbin-backup.lock"
+lock_dir="$POSTGRES_BACKUP_ROOT/.dolphin-backup.lock"
 published=0
 lock_held=0
 
@@ -129,7 +142,7 @@ lock_held=1
 
 export LC_ALL=C
 export PGPASSWORD="$POSTGRES_BACKUP_PASSWORD"
-export PGAPPNAME=frooshbin_backup_job
+export PGAPPNAME=dolphin_backup_job
 
 pg_dump \
     --format=custom \
@@ -159,19 +172,19 @@ published=1
 
 if [ "$POSTGRES_BACKUP_RETENTION_DAYS" -gt 0 ]; then
     retention_age=$((POSTGRES_BACKUP_RETENTION_DAYS - 1))
-    candidate_list="/tmp/frooshbin-backup-retention-$token"
+    candidate_list="/tmp/dolphin-backup-retention-$token"
     find "$POSTGRES_BACKUP_ROOT" \
         -mindepth 1 \
         -maxdepth 1 \
         -type f \
-        \( -name 'frooshbin-pg-*.dump' -o -name 'kariz-pg-*.dump' \) \
+        \( -name 'dolphin-pg-*.dump' -o -name 'frooshbin-pg-*.dump' -o -name 'kariz-pg-*.dump' \) \
         -mtime "+$retention_age" \
         -print >"$candidate_list"
     while IFS= read -r candidate; do
         [ "$candidate" != "$final_dump" ] || continue
         candidate_name="$(basename "$candidate")"
         if ! printf '%s' "$candidate_name" | grep -Eq \
-            '^(frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
+            '^(dolphin|frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
             continue
         fi
         checksum_path="$POSTGRES_BACKUP_ROOT/$candidate_name.sha256"

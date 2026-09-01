@@ -1,6 +1,6 @@
 # SMS provider adapter activation requirements
 
-Current state: `BLOCKED_EXTERNAL`. Kariz stores and reports normalized inbound envelopes internally. It has no live provider adapter and exposes no webhook.
+Current state: `BLOCKED_EXTERNAL`. Dolphin stores and reports normalized inbound envelopes internally. It has no live provider adapter and exposes no webhook.
 
 The following exact external material is required before a provider route can be designed or enabled:
 

@@ -4,7 +4,7 @@ from django.contrib.staticfiles import finders
 from django.test import SimpleTestCase, TestCase
 
 
-class KarizHomeTests(TestCase):
+class DolphinHomeTests(TestCase):
     def setUp(self):
         from accounts.models import User
 
@@ -27,7 +27,7 @@ class KarizHomeTests(TestCase):
         self.assertNotIn('href="http', content)
 
     def test_home_stylesheet_is_first_party_static(self):
-        self.assertIsNotNone(finders.find("common/forooshbin.css"))
+        self.assertIsNotNone(finders.find("common/dolphin.css"))
         favicon = settings.BASE_DIR / "common" / "static" / "common" / "brand" / "favicon.ico"
         self.assertTrue(favicon.is_file())
         response = self.client.get("/")

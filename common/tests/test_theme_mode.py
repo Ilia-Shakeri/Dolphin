@@ -107,7 +107,7 @@ class ThemeModeMarkupTests(TestCase):
         """It carries the theme's `.menu-sub`, which is `display: none` until
         KTMenu adds `.show`. Nothing adds `.show` here — this project's script
         opens it — so without an explicit display it stayed 0x0 forever."""
-        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin.css").read_text(
+        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(
             encoding="utf-8"
         )
         self.assertIn(".theme-mode-popup { display: block; }", css)
@@ -116,7 +116,7 @@ class ThemeModeMarkupTests(TestCase):
     def test_the_popup_can_flip_to_whichever_side_has_room(self):
         """The user menu sits against one edge, so the preferred side is not
         always the one with space."""
-        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "forooshbin.css").read_text(
+        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(
             encoding="utf-8"
         )
         self.assertIn(".theme-mode-popup.is-flipped", css)

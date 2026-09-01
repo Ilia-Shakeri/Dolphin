@@ -35,7 +35,7 @@ The stop blocks `POST`, `PUT`, `PATCH`, and `DELETE` at both Nginx listeners wit
 Show the state mounted in the running edge:
 
 ```powershell
-docker compose exec -T nginx grep -E '^# kariz-write-stop: (on|off)$' /etc/nginx/write-stop.conf
+docker compose exec -T nginx grep -E '^# dolphin-write-stop: (on|off)$' /etc/nginx/write-stop.conf
 ```
 
 Enable it without restarting the application or database:
@@ -43,7 +43,7 @@ Enable it without restarting the application or database:
 ```powershell
 docker compose -f compose.yml -f compose.write-stop.yml config --quiet
 docker compose -f compose.yml -f compose.write-stop.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 ```
 
 Use a non-business probe path. Send no cookie, token, or body:
@@ -64,7 +64,7 @@ Disable it with base Compose, then prove the off marker:
 ```powershell
 docker compose -f compose.yml config --quiet
 docker compose -f compose.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml exec -T nginx grep -F '# kariz-write-stop: off' /etc/nginx/write-stop.conf
+docker compose -f compose.yml exec -T nginx grep -F '# dolphin-write-stop: off' /etc/nginx/write-stop.conf
 curl.exe --silent --show-error --include --request POST "https://$approvedHost/api/v1/write-stop-probe/"
 ```
 

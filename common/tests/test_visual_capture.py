@@ -2,7 +2,7 @@
 
 Not an assertion suite: this drives the real browser against the real static
 files so a human (or the agent) can compare the result with the Metronic
-reference. It is skipped unless KARIZ_VISUAL_CAPTURE names an output directory,
+reference. It is skipped unless DOLPHIN_VISUAL_CAPTURE names an output directory,
 so it never runs as part of the normal suite.
 """
 
@@ -24,7 +24,7 @@ from sales.services import create_customer_with_phone, create_lead, create_produ
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
-CAPTURE_DIR = os.environ.get("KARIZ_VISUAL_CAPTURE", "")
+CAPTURE_DIR = os.environ.get("DOLPHIN_VISUAL_CAPTURE", "")
 
 if SELENIUM_AVAILABLE:
     from selenium import webdriver
@@ -34,7 +34,7 @@ if SELENIUM_AVAILABLE:
     from selenium.webdriver.support.ui import WebDriverWait
 
 
-@unittest.skipUnless(SELENIUM_AVAILABLE and CAPTURE_DIR, "Set KARIZ_VISUAL_CAPTURE to a directory.")
+@unittest.skipUnless(SELENIUM_AVAILABLE and CAPTURE_DIR, "Set DOLPHIN_VISUAL_CAPTURE to a directory.")
 class VisualCaptureTests(StaticLiveServerTestCase):
     password = "Strong-pass-983!"
 

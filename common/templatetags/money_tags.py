@@ -1,6 +1,6 @@
 """Render a stored amount the way every screen in the product renders it.
 
-The served pages group thousands in JavaScript (`money()` in `forooshbin-app.js`).
+The served pages group thousands in JavaScript (`money()` in `dolphin-app.js`).
 The print and PDF documents are rendered by Django and had no equivalent, so a
 printed invoice showed `12500000.00` where the same amount on screen showed
 `12،500،000.00`. On a rial total that is not cosmetic: an unseparated eight-digit
@@ -18,7 +18,7 @@ from django import template
 
 register = template.Library()
 
-# U+060C ARABIC COMMA — the separator `forooshbin-app.js` already uses, so the
+# U+060C ARABIC COMMA — the separator `dolphin-app.js` already uses, so the
 # printed document and the screen agree character for character.
 GROUP_SEPARATOR = "،"
 
@@ -56,7 +56,7 @@ def money(value):
     if not whole.isdigit():
         # Not a number we recognise; show it unchanged rather than mangling it.
         return str(value)
-    # Ceiling, matching `money()` in forooshbin-app.js: any fraction at all
+    # Ceiling, matching `money()` in dolphin-app.js: any fraction at all
     # rounds up. A printed document and the screen it was checked against must
     # agree to the rial, so both use the same rule and neither may drift.
     if fraction and any(digit in "123456789" for digit in fraction):

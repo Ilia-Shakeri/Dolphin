@@ -58,8 +58,8 @@ class SyntheticUatRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get_log("browser")
         self.browser.get_log("performance")
         environment = {
-            "KARIZ_ALLOW_UAT_SEED": "1",
-            "KARIZ_UAT_PASSWORD": self.password,
+            "DOLPHIN_ALLOW_UAT_SEED": "1",
+            "DOLPHIN_UAT_PASSWORD": self.password,
             "TEMP": tempfile.gettempdir(),
             "TMP": tempfile.gettempdir(),
         }

@@ -49,7 +49,7 @@ $approvedWall = Read-Host 'Approved whole-run wall limit seconds'
 $approvedP95 = Read-Host 'Approved maximum p95 milliseconds'
 $approvedRate = Read-Host 'Approved minimum successful requests per second'
 python scripts/load_readiness.py `
-  --sentinel KARIZ_READ_ONLY_LOAD_V1 `
+  --sentinel DOLPHIN_READ_ONLY_LOAD_V1 `
   --base-url $approvedBaseUrl `
   --confirm-host $confirmedHost `
   --path $approvedPath `

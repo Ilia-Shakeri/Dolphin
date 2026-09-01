@@ -1,14 +1,14 @@
 # Deployment procedure
 
-> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> **Deployment and startup live in [`DOLPHIN_DEPLOYMENT_RUNBOOK.md`](DOLPHIN_DEPLOYMENT_RUNBOOK.md).**
 > That runbook is canonical for installing, starting, updating, backing up,
 > restoring and recovering the stack. This document covers release gates and the edge write-stop in more
 > depth and does not restate the procedure; where the two differ, the runbook
 > is correct.
 
-> This document defines an operations procedure, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+> This document defines an operations procedure, not live project status. Current progress, blockers, evidence, and exact next action exist only in `DOLPHIN_PROJECT_HANDOFF.md`.
 
-Procedure snapshot: repository procedure was complete at its recorded release reference; use `KARIZ_PROJECT_HANDOFF.md` for the current proof state.
+Procedure snapshot: repository procedure was complete at its recorded release reference; use `DOLPHIN_PROJECT_HANDOFF.md` for the current proof state.
 
 This guide uses the current [Compose definition](../../compose.yml), [production settings](../../config/production_settings.py), [database-role guide](DATABASE_ROLES.md), health routes, and [backup guide](BACKUP_RESTORE.md). It does not prove that a host is ready.
 
@@ -76,7 +76,7 @@ Enable and prove the current release write-stop through its approved override. K
 ```powershell
 docker compose -f compose.yml -f compose.write-stop.yml config --quiet
 docker compose -f compose.yml -f compose.write-stop.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 ```
 
 If the current database already has the managed backup role and bundled job, create the recovery point with the current PostgreSQL image and retention disabled for this run:
@@ -131,14 +131,14 @@ docker compose -f compose.yml -f compose.write-stop.yml config --quiet
 Show current runtime state:
 
 ```powershell
-docker compose exec -T nginx grep -E '^# kariz-write-stop: (on|off)$' /etc/nginx/write-stop.conf
+docker compose exec -T nginx grep -E '^# dolphin-write-stop: (on|off)$' /etc/nginx/write-stop.conf
 ```
 
 If the candidate edge must be recreated before application acceptance, recreate it only with the write-stop override and prove the on mount:
 
 ```powershell
 docker compose -f compose.yml -f compose.write-stop.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 ```
 
 Run the safe health and write probes in [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md). Reopen writes only after the release owner passes the required data, readiness, role, audit, TLS, and browser gates.
@@ -204,7 +204,7 @@ $approvedHost = Read-Host 'Approved HTTPS host'
 Invoke-WebRequest -UseBasicParsing -Uri "https://$approvedHost/api/v1/health/ready/"
 ```
 
-Then run controlled browser smoke for `/`, `/login/`, login/logout with CSRF, one safe read per CRM role, static delivery, RTL/Persian output, ForooshBin branding, responsive viewports, and clean console/network behavior. Never use production customer data for smoke fixtures.
+Then run controlled browser smoke for `/`, `/login/`, login/logout with CSRF, one safe read per CRM role, static delivery, RTL/Persian output, Dolphin branding, responsive viewports, and clean console/network behavior. Never use production customer data for smoke fixtures.
 
 `/admin/` is **not** part of the smoke path and must return 404: the Django
 admin is unregistered in production (`ENABLE_DJANGO_ADMIN` defaults false,
@@ -215,7 +215,7 @@ Only after every acceptance gate and reopen approval passes, recreate just Nginx
 
 ```powershell
 docker compose -f compose.yml up -d --no-deps --force-recreate nginx
-docker compose -f compose.yml exec -T nginx grep -F '# kariz-write-stop: off' /etc/nginx/write-stop.conf
+docker compose -f compose.yml exec -T nginx grep -F '# dolphin-write-stop: off' /etc/nginx/write-stop.conf
 ```
 
 This recreates only `nginx`; it does not stop `web` or `db`.
@@ -229,7 +229,7 @@ $approvedProjectName = Read-Host 'Unchanged approved Compose project name'
 $restoreProjectName = "${approvedProjectName}-restore-verify"
 $approvedProtectedEnv = (Resolve-Path (Read-Host 'Approved protected environment file')).Path
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml up -d --no-deps --force-recreate nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml --profile backup ps --all db-bootstrap migrate db-finalize backup
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml --profile backup run --rm -e POSTGRES_BACKUP_RETENTION_DAYS=0 backup
 $approvedArchive = Read-Host 'Exact archive leaf printed by the successful backup job'
@@ -247,7 +247,7 @@ The database, backup, and static volumes remain. Resume the same reviewed releas
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml up -d --no-build --no-deps --wait db
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml up -d --no-build --no-deps --wait web
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml up -d --no-build --no-deps --wait nginx
-docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# kariz-write-stop: on' /etc/nginx/write-stop.conf
+docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 ```
 
 Repeat database readiness, role, static, HTTPS, and business smoke before the approved base-Compose Nginx recreation reopens writes. If any service fails, keep writes stopped and use the rollback guide. Never change `KARIZ_COMPOSE_PROJECT_NAME`, delete a container volume, or start a second project as a recovery shortcut.

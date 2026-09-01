@@ -1,12 +1,12 @@
 # Client-1 Linux staging guide
 
-> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> **Deployment and startup live in [`DOLPHIN_DEPLOYMENT_RUNBOOK.md`](DOLPHIN_DEPLOYMENT_RUNBOOK.md).**
 > That runbook is canonical for installing, starting, updating, backing up,
 > restoring and recovering the stack. This document covers the original Client-1 staging walkthrough in more
 > depth and does not restate the procedure; where the two differ, the runbook
 > is correct.
 
-Bring ForooshBin up on a **fresh Linux amd64 server**, from nothing to a stack
+Bring Dolphin up on a **fresh Linux amd64 server**, from nothing to a stack
 you can hand to UAT. Follow it top to bottom; each section ends with something
 you can check.
 
@@ -156,7 +156,7 @@ cookies are secure-only. Without a domain the certificate must be self-signed,
 generated **on the server** so the private key never travels:
 
 ```bash
-cd /srv/forooshbin/client-1
+cd /srv/dolphin/client-1
 openssl req -x509 -nodes -newkey rsa:4096 -days 397 \
   -keyout secrets/tls/privkey.pem \
   -out    secrets/tls/fullchain.pem \
@@ -218,13 +218,13 @@ sudo ufw status verbose
 ## 3. Directory layout
 
 ```bash
-sudo install -d -m 755 -o "$USER" -g "$USER" /srv/forooshbin/client-1
-cd /srv/forooshbin/client-1
+sudo install -d -m 755 -o "$USER" -g "$USER" /srv/dolphin/client-1
+cd /srv/dolphin/client-1
 install -d -m 700 secrets secrets/tls
 ```
 
 ```text
-/srv/forooshbin/client-1/
+/srv/dolphin/client-1/
 ├── compose.yml                  ── from the release artifact
 ├── compose.restore-verify.yml
 ├── compose.write-stop.yml
@@ -248,14 +248,14 @@ Build on your build machine, not the customer's. The Dockerfile is
 hash-pinned and platform-pinned and refuses anything else.
 
 ```bash
-git clone <repository-url> forooshbin-src && cd forooshbin-src
+git clone <repository-url> dolphin-src && cd dolphin-src
 git checkout <reviewed-release-commit>
 
 export PYTHON_BASE_IMAGE='python@sha256:<reviewed-64-hex-digest>'
 docker build \
   --platform linux/amd64 \
   --build-arg "PYTHON_BASE_IMAGE=${PYTHON_BASE_IMAGE}" \
-  --tag forooshbin:<release-version> .
+  --tag dolphin:<release-version> .
 ```
 
 ### Image-content validation — do not skip
@@ -264,9 +264,9 @@ Proves the image ships no documentation, tests, repository metadata, ops
 scripts or signing material:
 
 ```bash
-docker create --name forooshbin-check forooshbin:<release-version>
-docker export forooshbin-check | tar -t > /tmp/image-listing.txt
-docker rm forooshbin-check
+docker create --name dolphin-check dolphin:<release-version>
+docker export dolphin-check | tar -t > /tmp/image-listing.txt
+docker rm dolphin-check
 python scripts/validate_image_content.py --listing /tmp/image-listing.txt   # expect IMAGE_CONTENT_PASS
 ```
 
@@ -274,16 +274,16 @@ Push and **record the digest** — the digest, not the tag, is what the deployme
 pins:
 
 ```bash
-docker push <registry>/forooshbin:<release-version>
-docker inspect --format='{{index .RepoDigests 0}}' <registry>/forooshbin:<release-version>
+docker push <registry>/dolphin:<release-version>
+docker inspect --format='{{index .RepoDigests 0}}' <registry>/dolphin:<release-version>
 ```
 
 Air-gapped alternative:
 
 ```bash
-docker save forooshbin:<release-version> | gzip > forooshbin-<release-version>.tar.gz
+docker save dolphin:<release-version> | gzip > dolphin-<release-version>.tar.gz
 # transfer, then on the server:
-gunzip -c forooshbin-<release-version>.tar.gz | docker load
+gunzip -c dolphin-<release-version>.tar.gz | docker load
 ```
 
 ### Optional: server-side PDF
@@ -413,7 +413,7 @@ Transfer to `secrets/manifest.json`, then `chmod 600 secrets/manifest.json`.
 ## 8. Bring the stack up
 
 ```bash
-cd /srv/forooshbin/client-1
+cd /srv/dolphin/client-1
 docker compose --env-file secrets/.env config >/dev/null   # validates; prints nothing secret
 docker compose --env-file secrets/.env pull
 ```
@@ -464,8 +464,8 @@ for path in \
   /static/css/style.bundle.rtl.css \
   /static/plugins/global/plugins.bundle.rtl.css \
   /static/js/scripts.bundle.js \
-  /static/common/forooshbin.css \
-  /static/common/forooshbin-app.js \
+  /static/common/dolphin.css \
+  /static/common/dolphin-app.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
   /static/fonts/IRANSansWeb.woff \
@@ -563,7 +563,7 @@ data only.
 - `/payments/` reached directly returns a Persian 403 card, not a blank page.
 - Can prepare a quotation; cannot issue an invoice or move stock.
 
-**Presentation**, on every page: Persian RTL, ForooshBin branding, dates Jalali
+**Presentation**, on every page: Persian RTL, Dolphin branding, dates Jalali
 (`۱۴۰۵/۰۵/۲۵`), no English UI text, no theme or language switcher, no social
 sign-in, no placeholder control.
 
@@ -625,10 +625,10 @@ docker run --rm -v client1_postgres_backups:/backups alpine ls -la /backups
 
 # Off-host copy — a backup on the same disk is not a backup
 docker run --rm -v client1_postgres_backups:/backups -v "$PWD":/out alpine \
-  tar czf /out/forooshbin-backups-$(date -u +%Y%m%dT%H%M%SZ).tar.gz -C /backups .
-gpg --symmetric --cipher-algo AES256 forooshbin-backups-*.tar.gz
-scp forooshbin-backups-*.tar.gz.gpg <operator>@<backup-destination>:<path>/
-shred -u forooshbin-backups-*.tar.gz
+  tar czf /out/dolphin-backups-$(date -u +%Y%m%dT%H%M%SZ).tar.gz -C /backups .
+gpg --symmetric --cipher-algo AES256 dolphin-backups-*.tar.gz
+scp dolphin-backups-*.tar.gz.gpg <operator>@<backup-destination>:<path>/
+shred -u dolphin-backups-*.tar.gz
 
 # A backup is only real once restored — isolated, network_mode: none
 docker compose --env-file secrets/.env -f compose.restore-verify.yml \
@@ -676,7 +676,7 @@ the stack. Put it on a weekly timer as the deployment user:
 
 ```bash
 # crontab -e   — 03:30 every Sunday
-30 3 * * 0 cd /srv/forooshbin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup >> /var/log/forooshbin-session-cleanup.log 2>&1
+30 3 * * 0 cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup >> /var/log/dolphin-session-cleanup.log 2>&1
 ```
 
 It is safe to run at any time: it deletes only rows whose expiry has already
@@ -746,11 +746,11 @@ docker compose --env-file secrets/.env logs --tail 60 db-bootstrap migrate db-fi
 copy it off the host.**
 
 ```bash
-cd /srv/forooshbin/client-1
+cd /srv/dolphin/client-1
 docker compose --env-file secrets/.env down --remove-orphans   # keeps volumes
 docker volume rm client1_postgres_data                         # irreversible
 docker volume rm client1_postgres_backups                      # irreversible
-sudo rm -rf /srv/forooshbin/client-1
+sudo rm -rf /srv/dolphin/client-1
 docker image rm <app-digest> <postgres-digest> <nginx-digest>
 ```
 

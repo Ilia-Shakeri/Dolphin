@@ -13,6 +13,6 @@ set -eu
 # The wrapper stays so the preflight flag keeps working and so there is a place
 # to put a real check if one is ever needed.
 
-[ "${1:-}" != "--frooshbin-preflight-only" ] || exit 0
+[ "${1:-}" != "--dolphin-preflight-only" ] || exit 0
 
 exec /usr/local/bin/docker-entrypoint.sh "$@"

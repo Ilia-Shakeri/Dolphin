@@ -6,8 +6,8 @@ host. The application can only verify.
 
 Generate a signing key once, with OpenSSL rather than with this file:
 
-    openssl genpkey -algorithm ed25519 -out forooshbin-manifest-signing.pem
-    openssl pkey -in forooshbin-manifest-signing.pem -pubout -outform DER \\
+    openssl genpkey -algorithm ed25519 -out dolphin-manifest-signing.pem
+    openssl pkey -in dolphin-manifest-signing.pem -pubout -outform DER \\
         | tail -c 32 | base64
 
 Keep the private key off every customer host and out of this repository. The
@@ -17,8 +17,8 @@ deployments that must trust it.
 Usage:
 
     python scripts/sign_deployment_manifest.py \\
-        --private-key forooshbin-manifest-signing.pem \\
-        --key-id kariz-2026 \\
+        --private-key dolphin-manifest-signing.pem \\
+        --key-id dolphin-2026 \\
         --profile-id client-1 \\
         --feature customers --feature leads ... \\
         --output manifest.json

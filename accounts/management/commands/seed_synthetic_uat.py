@@ -28,7 +28,7 @@ from sales.services import (
 )
 
 
-POSTGRES_UAT_NAME = re.compile(r"\Auat_forooshbin_[a-z0-9]+(?:_[a-z0-9]+)*\Z")
+POSTGRES_UAT_NAME = re.compile(r"\Auat_dolphin_[a-z0-9]+(?:_[a-z0-9]+)*\Z")
 SQLITE_MEMORY_TEST_NAME = re.compile(
     r"\Afile:memorydb_[A-Za-z0-9_]+\?mode=memory&cache=shared\Z"
 )
@@ -65,7 +65,7 @@ def database_identity_is_allowed(vendor, name, *, django_test_settings=False):
         is_memory = name == ":memory:" or bool(
             SQLITE_MEMORY_TEST_NAME.fullmatch(name)
         )
-        test_file = Path(tempfile.gettempdir()) / f"test_frooshbin_{os.getpid()}.sqlite3"
+        test_file = Path(tempfile.gettempdir()) / f"test_dolphin_{os.getpid()}.sqlite3"
         is_process_test_file = Path(name).resolve() == test_file.resolve()
         return django_test_settings and (is_memory or is_process_test_file)
     if vendor == "postgresql":
@@ -84,7 +84,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        if os.environ.get("KARIZ_ALLOW_UAT_SEED") != "1":
+        if os.environ.get("DOLPHIN_ALLOW_UAT_SEED") != "1":
             raise CommandError("UAT seed environment gate is closed.")
         if not options["confirm_synthetic_data"]:
             raise CommandError("Synthetic-data confirmation flag is required.")
@@ -92,9 +92,9 @@ class Command(BaseCommand):
             raise CommandError("Database is not an allowed isolated UAT target.")
         self._assert_guarded_tables_empty()
 
-        password = os.environ.get("KARIZ_UAT_PASSWORD")
+        password = os.environ.get("DOLPHIN_UAT_PASSWORD")
         if not password:
-            raise CommandError("KARIZ_UAT_PASSWORD is required.")
+            raise CommandError("DOLPHIN_UAT_PASSWORD is required.")
         users = self._build_and_validate_users(password)
 
         with transaction.atomic():

@@ -33,9 +33,9 @@ from sales.models import (
 TEST_PASSWORD = "Uat-Only-Safe-Pass-963!"
 
 
-# seed_synthetic_uat deliberately accepts only `uat_forooshbin_*` databases on
+# seed_synthetic_uat deliberately accepts only `uat_dolphin_*` databases on
 # PostgreSQL, and on SQLite only the `config.test_settings` database. The
-# isolated PostgreSQL harness runs against `test_frooshbin_<token>`, so the command
+# isolated PostgreSQL harness runs against `test_dolphin_<token>`, so the command
 # refuses it by design. The tests below need to get past that guard to exercise
 # the command body, so they run on SQLite. The guard itself is covered on every
 # vendor by test_database_identity_guard_is_narrow.
@@ -54,8 +54,8 @@ class SeedSyntheticUatTests(TestCase):
         stdout = StringIO()
         stderr = StringIO()
         environment = {
-            "KARIZ_ALLOW_UAT_SEED": "1",
-            "KARIZ_UAT_PASSWORD": password,
+            "DOLPHIN_ALLOW_UAT_SEED": "1",
+            "DOLPHIN_UAT_PASSWORD": password,
             "TEMP": tempfile.gettempdir(),
             "TMP": tempfile.gettempdir(),
         }
@@ -73,7 +73,7 @@ class SeedSyntheticUatTests(TestCase):
     def test_requires_environment_gate_before_any_write(self):
         with patch.dict(
             os.environ,
-            {"KARIZ_ALLOW_UAT_SEED": "0", "KARIZ_UAT_PASSWORD": TEST_PASSWORD},
+            {"DOLPHIN_ALLOW_UAT_SEED": "0", "DOLPHIN_UAT_PASSWORD": TEST_PASSWORD},
             clear=True,
         ):
             with self.assertRaisesMessage(CommandError, "environment gate"):
@@ -89,18 +89,18 @@ class SeedSyntheticUatTests(TestCase):
         allowed = (
             ("sqlite", ":memory:", True),
             ("sqlite", "file:memorydb_default?mode=memory&cache=shared", True),
-            ("sqlite", str(Path(tempfile.gettempdir()) / f"test_frooshbin_{os.getpid()}.sqlite3"), True),
-            ("postgresql", "uat_forooshbin_team_1", False),
+            ("sqlite", str(Path(tempfile.gettempdir()) / f"test_dolphin_{os.getpid()}.sqlite3"), True),
+            ("postgresql", "uat_dolphin_team_1", False),
         )
         denied = (
             ("sqlite", ":memory:", False),
-            ("sqlite", "forooshbin.sqlite3", True),
-            ("sqlite", str(Path(tempfile.gettempdir()) / "test_frooshbin_999999.sqlite3"), True),
-            ("postgresql", "forooshbin", False),
-            ("postgresql", "uat_forooshbin_", False),
-            ("postgresql", "uat_forooshbin_BAD", False),
-            ("postgresql", "uat_forooshbin_bad-name", False),
-            ("mysql", "uat_forooshbin_team_1", False),
+            ("sqlite", "dolphin.sqlite3", True),
+            ("sqlite", str(Path(tempfile.gettempdir()) / "test_dolphin_999999.sqlite3"), True),
+            ("postgresql", "dolphin", False),
+            ("postgresql", "uat_dolphin_", False),
+            ("postgresql", "uat_dolphin_BAD", False),
+            ("postgresql", "uat_dolphin_bad-name", False),
+            ("mysql", "uat_dolphin_team_1", False),
         )
         for vendor, name, test_settings in allowed:
             with self.subTest(vendor=vendor, name=name):
@@ -128,7 +128,7 @@ class SeedSyntheticUatTests(TestCase):
         ):
             with patch.dict(
                 os.environ,
-                {"KARIZ_ALLOW_UAT_SEED": "1"},
+                {"DOLPHIN_ALLOW_UAT_SEED": "1"},
                 clear=True,
             ):
                 with self.assertRaisesMessage(CommandError, "not an allowed"):
@@ -149,7 +149,7 @@ class SeedSyntheticUatTests(TestCase):
         )
         with patch.dict(
             os.environ,
-            {"KARIZ_ALLOW_UAT_SEED": "1"},
+            {"DOLPHIN_ALLOW_UAT_SEED": "1"},
             clear=True,
         ):
             with self.assertRaisesMessage(CommandError, "empty guarded tables"):
@@ -164,10 +164,10 @@ class SeedSyntheticUatTests(TestCase):
     def test_requires_validated_password_before_any_write(self):
         with patch.dict(
             os.environ,
-            {"KARIZ_ALLOW_UAT_SEED": "1"},
+            {"DOLPHIN_ALLOW_UAT_SEED": "1"},
             clear=True,
         ):
-            with self.assertRaisesMessage(CommandError, "KARIZ_UAT_PASSWORD"):
+            with self.assertRaisesMessage(CommandError, "DOLPHIN_UAT_PASSWORD"):
                 call_command(
                     "seed_synthetic_uat",
                     confirm_synthetic_data=True,

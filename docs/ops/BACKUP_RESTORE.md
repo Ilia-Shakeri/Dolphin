@@ -1,6 +1,6 @@
 # PostgreSQL backup and restore verification
 
-> **Deployment and startup live in [`FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](FOROOSHBIN_DEPLOYMENT_RUNBOOK.md).**
+> **Deployment and startup live in [`DOLPHIN_DEPLOYMENT_RUNBOOK.md`](DOLPHIN_DEPLOYMENT_RUNBOOK.md).**
 > That runbook is canonical for installing, starting, updating, backing up,
 > restoring and recovering the stack. This document covers backup internals and the restore-verification contract in more
 > depth and does not restate the procedure; where the two differ, the runbook
@@ -28,12 +28,12 @@ docker volume create $approvedBackupVolume
 After the protected environment points to that new empty volume, initialize its fixed sentinel and owner once. This command refuses a nonempty destination and refuses to replace a sentinel:
 
 ```powershell
-docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown postgres:postgres /backups; chmod 0700 /backups; printf "%s\n" FROOSHBIN_BACKUP_ROOT_V1 > /backups/.frooshbin-backup-root; chown postgres:postgres /backups/.frooshbin-backup-root; chmod 0600 /backups/.frooshbin-backup-root'
+docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown postgres:postgres /backups; chmod 0700 /backups; printf "%s\n" DOLPHIN_BACKUP_ROOT_V1 > /backups/.dolphin-backup-root; chown postgres:postgres /backups/.dolphin-backup-root; chmod 0600 /backups/.dolphin-backup-root'
 ```
 
 Do not run the initializer to adopt an existing destination. Prove its exact volume record, sentinel, access, backup pairs, and recovery history instead. The backup service runs as `postgres`, has a read-only root filesystem and no Linux capabilities, and is the only service that mounts `backup_data`.
 
-Existing destinations may keep the exact legacy `.kariz-backup-root` sentinel and exact `kariz-pg-...` archives as read-only compatibility input. New jobs always publish `frooshbin-pg-...`. If both old and new sentinel files exist, both must carry their exact valid values or all backup and restore work fails closed.
+Existing destinations may keep the exact legacy `.dolphin-backup-root` sentinel and exact `dolphin-pg-...` archives as read-only compatibility input. New jobs always publish `dolphin-pg-...`. If both old and new sentinel files exist, both must carry their exact valid values or all backup and restore work fails closed.
 
 ## Run the bundled backup job
 
@@ -43,13 +43,13 @@ docker compose --profile backup run --rm backup
 
 The profile prevents a normal `docker compose up -d` from starting a backup. The explicit command joins only the backend network, waits for database health, reads with `POSTGRES_BACKUP_USER`, and receives no init, migration, or application password. The job validates the fixed mount and sentinel, writes a temporary custom-format archive, runs `pg_restore --list`, calculates SHA-256, writes the checksum sidecar, and renames both files to final names on the same volume. It prints only the generated backup filename. A nonzero exit is failure and must reach the approved alert path.
 
-The job atomically creates the exact `/backups/.frooshbin-backup.lock` directory before it connects to PostgreSQL. A second or overlapping run exits nonzero and publishes no archive. Normal exit and handled signals release the lock after exact temporary-file cleanup. An unhandled container kill can leave the lock in place and deliberately blocks later jobs until an operator proves that no backup runs.
+The job atomically creates the exact `/backups/.dolphin-backup.lock` directory before it connects to PostgreSQL. A second or overlapping run exits nonzero and publishes no archive. Normal exit and handled signals release the lock after exact temporary-file cleanup. An unhandled container kill can leave the lock in place and deliberately blocks later jobs until an operator proves that no backup runs.
 
 Final names use only this form:
 
 ```text
-frooshbin-pg-YYYYMMDDTHHMMSSZ-32_lowercase_hex.dump
-frooshbin-pg-YYYYMMDDTHHMMSSZ-32_lowercase_hex.dump.sha256
+dolphin-pg-YYYYMMDDTHHMMSSZ-32_lowercase_hex.dump
+dolphin-pg-YYYYMMDDTHHMMSSZ-32_lowercase_hex.dump.sha256
 ```
 
 Temporary or failed outputs are removed only by their exact generated paths.
@@ -73,7 +73,7 @@ docker compose --profile backup ps --all backup
 Only after the job owner proves that no backup container or external scheduler run is active may an approved operator remove the one empty stale lock directory:
 
 ```powershell
-docker compose --profile backup run --rm --no-deps --entrypoint sh backup -c 'set -eu; test -d /backups/.frooshbin-backup.lock; test ! -L /backups/.frooshbin-backup.lock; rmdir /backups/.frooshbin-backup.lock'
+docker compose --profile backup run --rm --no-deps --entrypoint sh backup -c 'set -eu; test -d /backups/.dolphin-backup.lock; test ! -L /backups/.dolphin-backup.lock; rmdir /backups/.dolphin-backup.lock'
 ```
 
 `rmdir` refuses a nonempty lock. If it fails, preserve the directory and investigate; do not recursively delete it or any backup path. Record the failed run, process proof, approval, exact command, UTC time, and next successful backup/restore result. Docker/Compose does not provide the scheduler or alert system. Destination, schedule, retention, operator, recovery-time target, recovery-point target, alert path, and off-host replication remain explicit deployment inputs.
@@ -104,15 +104,15 @@ For a separately approved backup root already accessible to the host, use only a
 
 ```powershell
 .\scripts\verify-postgres-restore.ps1 `
-  -BackupRoot 'D:\FrooshBinBackups' `
-  -BackupFile 'D:\FrooshBinBackups\frooshbin-pg-20260809T010203Z-0123456789abcdef0123456789abcdef.dump' `
+  -BackupRoot 'D:\DolphinBackups' `
+  -BackupFile 'D:\DolphinBackups\dolphin-pg-20260809T010203Z-0123456789abcdef0123456789abcdef.dump' `
   -TargetHost '127.0.0.1' `
   -TargetPort 55432 `
-  -DatabaseUser 'frooshbin_restore' `
+  -DatabaseUser 'dolphin_restore' `
   -PostgresBin 'C:\Program Files\PostgreSQL\17\bin'
 ```
 
-The host verifier chooses a new database named `frooshbin_restore_verify_<32_lowercase_hex>`. It first proves that name does not exist, creates it, restores with owner and privilege replay disabled, and runs the same shared SQL contract. It drops only that exact generated database in `finally` and refuses any caller-selected target database name.
+The host verifier chooses a new database named `dolphin_restore_verify_<32_lowercase_hex>`. It first proves that name does not exist, creates it, restores with owner and privilege replay disabled, and runs the same shared SQL contract. It drops only that exact generated database in `finally` and refuses any caller-selected target database name.
 
 Never point this verifier at production or staging, even through a tunnel. A successful local guard test is not a real restore drill; final evidence needs a live disposable PostgreSQL engine and recorded operator results without credentials.
 

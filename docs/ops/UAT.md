@@ -6,11 +6,11 @@ The UAT seed command creates one fixed, obviously synthetic CRM graph for accept
 
 The command runs only when every guard passes:
 
-1. `KARIZ_ALLOW_UAT_SEED` equals `1`.
+1. `DOLPHIN_ALLOW_UAT_SEED` equals `1`.
 2. `--confirm-synthetic-data` is present.
-3. The database is either the repo test settings' Django in-memory database or PostgreSQL with a lowercase safe name shaped like `uat_kariz_team_1`.
+3. The database is either the repo test settings' Django in-memory database or PostgreSQL with a lowercase safe name shaped like `uat_dolphin_team_1`.
 4. User, Customer, Product Category, Product, Lead, Interaction, Sale, After-sales Request, and ActivityLog tables are all empty.
-5. `KARIZ_UAT_PASSWORD` is present and passes the configured Django password validators for all five fixed identities.
+5. `DOLPHIN_UAT_PASSWORD` is present and passes the configured Django password validators for all five fixed identities.
 
 The command checks emptiness again inside the write transaction. A failed row or audit rolls back the full graph. A second run refuses the nonempty database.
 
@@ -21,11 +21,11 @@ Set a strong password made only for this isolated UAT environment. Do not reuse 
 PowerShell:
 
 ```powershell
-$env:KARIZ_ALLOW_UAT_SEED = "1"
-$env:KARIZ_UAT_PASSWORD = Read-Host "UAT password" -MaskInput
+$env:DOLPHIN_ALLOW_UAT_SEED = "1"
+$env:DOLPHIN_UAT_PASSWORD = Read-Host "UAT password" -MaskInput
 python manage.py seed_synthetic_uat --confirm-synthetic-data
-Remove-Item Env:KARIZ_UAT_PASSWORD
-Remove-Item Env:KARIZ_ALLOW_UAT_SEED
+Remove-Item Env:DOLPHIN_UAT_PASSWORD
+Remove-Item Env:DOLPHIN_ALLOW_UAT_SEED
 ```
 
 The success output contains no password or password hash.

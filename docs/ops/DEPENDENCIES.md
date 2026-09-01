@@ -1,6 +1,6 @@
 # Dependency lock
 
-> This document records the dependency contract and dated evidence, not live project status. Current progress, blockers, evidence, and exact next action exist only in `KARIZ_PROJECT_HANDOFF.md`.
+> This document records the dependency contract and dated evidence, not live project status. Current progress, blockers, evidence, and exact next action exist only in `DOLPHIN_PROJECT_HANDOFF.md`.
 
 ## Files
 
@@ -32,7 +32,7 @@ Validate all four release image inputs before a build or deploy. The check print
 
 ```powershell
 python scripts/validate_release_images.py
-docker build --platform linux/amd64 --build-arg PYTHON_BASE_IMAGE=$env:PYTHON_BASE_IMAGE --tag kariz-review-build .
+docker build --platform linux/amd64 --build-arg PYTHON_BASE_IMAGE=$env:PYTHON_BASE_IMAGE --tag dolphin-review-build .
 ```
 
 Push the reviewed application build, resolve its registry digest, and set that exact digest as `KARIZ_APP_IMAGE`. Both `migrate` and `web` use that one image. Production Compose never builds local source.

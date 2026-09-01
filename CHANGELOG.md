@@ -55,6 +55,89 @@
 
 ---
 
+## [1.6.9] — ۲۰۲۶-۰۹-۰۱
+
+جارو کامل نام‌های داخلی قدیمی. طبق تصمیم مستقیم مالک محصول: هیچ‌جا در کدبیس
+نباید «کاریز» یا «فروش‌بین» بماند — نه فقط متن نمایشی (که در رفع‌برندسازیِ
+پیشین انجام شده بود)، بلکه شناسه‌های فنیِ داخلی هم که تا امروز عمداً
+دست‌نخورده مانده بودند (بخش Branding در `CLAUDE.md`).
+
+### تغییر کرد — کاملاً بی‌خطر، بدون وابستگی به محیط واقعاً دیپلوی‌شده
+
+- کلاس‌های ویو سمت سرور: `KarizXxxView` → `DolphinXxxView` (۸۰+ کلاس، هر ارجاع
+  در `common/ui_urls.py` هم‌زمان به‌روز شد).
+- فایل‌های استاتیک: `forooshbin.css` → `common/static/common/dolphin.css`،
+  `forooshbin-app.js` → `dolphin-app.js` (با `git mv`، تاریخچه حفظ شد).
+- ثابت نسخه: `FOROOSHBIN_VERSION` → `DOLPHIN_VERSION`؛ متغیر context قالب:
+  `forooshbin_version` → `dolphin_version`.
+- نام‌های logger: `forooshbin.request`، `forooshbin.server_fault` →
+  `dolphin.*`.
+- نام‌های پیش‌فرض دیتابیس/رول تازه‌نصب (`POSTGRES_DB`، `POSTGRES_*_USER` در
+  `.env.example`) → `dolphin`/`dolphin_*`. یک نصب واقعیِ از قبل دیپلوی‌شده هرگز
+  از این پیش‌فرض استفاده نمی‌کند — مقدار خودش را همیشه صریح در `.env` می‌گذارد.
+- الگوهای CI-only دیتابیس/بازیابی/قرارداد ایزوله (`config/postgres_*_guard.py`،
+  `KARIZ_PG_TEST_*`/`KARIZ_PG_RESTORE_*`/`KARIZ_PG_CONTRACT_*` →
+  `DOLPHIN_PG_TEST_*` و مشابه، `KARIZ_BOOTSTRAP_*` → `DOLPHIN_BOOTSTRAP_*`) —
+  این‌ها فقط لحظه‌ای و محلی‌اند، هیچ سروری آن‌ها را نگه نمی‌دارد.
+- تمام مستندات (`docs/backend/`, `docs/ops/`, `BACKEND_SPEC.md`) و کل درخت
+  دموی فروشنده (`assets/`, `apps/`, `dashboards/`, ...) — که هیچ‌کدام سرو
+  نمی‌شوند، فقط مرجع بصری‌اند.
+- نام‌گذاری مجدد فایل‌ها: `KARIZ_PROJECT_HANDOFF.md` →
+  `DOLPHIN_PROJECT_HANDOFF.md`، `KARIZ_CLIENT1_CODEX_ROADMAP.md` →
+  `DOLPHIN_CLIENT1_CODEX_ROADMAP.md`، `FOROOSHBIN_FEATURE_MAP_AND_ROADMAP.md` →
+  `DOLPHIN_FEATURE_MAP_AND_ROADMAP.md`،
+  `docs/ops/FOROOSHBIN_DEPLOYMENT_RUNBOOK.md` →
+  `docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`،
+  `docs/FOROOSHBIN_CAPABILITIES_FOR_INVOICE_FA.txt` →
+  `docs/DOLPHIN_CAPABILITIES_FOR_INVOICE_FA.txt`.
+
+### عمداً حفظ شد — شناسه‌های فنی که یک محیط واقعاً دیپلوی‌شده به آن‌ها وابسته است
+
+- **متغیرهای محیطیِ استقرار** (`KARIZ_PUBLIC_HOST`، `KARIZ_COMPOSE_PROJECT_NAME`،
+  `KARIZ_*_IMAGE`، `KARIZ_HSTS_HEADER`، `KARIZ_TLS_*`، `KARIZ_DEPLOYMENT_MANIFEST_*`،
+  `KARIZ_DATABASE_ROLE`، `KARIZ_BILLING_*`، `KARIZ_SELLER_*`، `KARIZ_PDF_*`،
+  `KARIZ_NUMBER_FORMAT_*`، `KARIZ_INVENTORY_ALLOW_NEGATIVE_STOCK`) — نامشان
+  **عوض نشد**. `compose.yml`، فیلتر envsubst در nginx، و
+  `config/production_env.py` دقیقاً همین اسم‌ها را می‌خوانند، و یک `.env`
+  واقعیِ روی استیجینگ (Nerkhbaan) یا پروداکشن (TIARA) همین اسم‌ها را دارد —
+  خودِ `.env.example` هم از قبل این را «قرارداد سازگاری، نه برندسازی» خوانده
+  بود. عوض‌کردن این‌ها یعنی هر استقرار واقعی، بعد از آپدیت به این نسخه، تا
+  زمانی که `.env` آن دستی به همین اسم‌ها به‌روز نشود، بالا نمی‌آید.
+- **کامنتِ «رول مدیریت‌شده» روی نقش‌های واقعیِ Postgres**
+  (`scripts/bootstrap-postgres.sh`): چک اصلی حالا دنبال
+  `'Dolphin managed … role v1'` می‌گردد، اما `'FrooshBin managed … role v1'` و
+  `'Kariz managed … role v1'` به‌عنوان مقدار قدیمیِ پذیرفته‌شده باقی ماندند —
+  دقیقاً همان الگویی که خودِ اسکریپت قبلاً برای گذار Kariz→FrooshBin داشت.
+  بدون این، اسکریپت روی یک نقش از قبل دیپلوی‌شده «مدیریت‌نشده» تشخیص می‌داد و
+  رد می‌کرد.
+- **سنتینل و الگوی نام‌گذاریِ پشتیبان‌ها**
+  (`scripts/backup-postgres.{sh,ps1}`, `scripts/verify-postgres-restore.{sh,ps1}`):
+  فایل sentinel تازه (`.dolphin-backup-root`) اضافه شد، اما
+  `.frooshbin-backup-root` و `.kariz-backup-root` هم پذیرفته می‌مانند؛ الگوی
+  نام آرشیو هم هر سه پیشوند (`dolphin|frooshbin|kariz`) را می‌شناسد — یک پوشهٔ
+  پشتیبانِ واقعی از قبل بدون اصلاح دستی کار می‌کند.
+
+### شواهد اجراشده
+
+`python manage.py test --settings=config.test_settings` → **۱۱۸۷ تست، OK،
+۱۵ skip**. `scripts/check_html_branding.py` → `HTML_BRANDING_PASS files=243`.
+بازبینی زندهٔ پنل در مرورگر (ورود، فهرست کاربران، بدون خطای کنسول/شبکه) با
+`dolphin.css`/`dolphin-app.js` سرو شده روی نسخهٔ تازه.
+
+### مستندسازی
+
+- `README.md` تازه نوشته شد.
+- `docs/backend/DEPLOYMENT_PROFILE_OPTIONS.md` وضعیتش اصلاح شد («تصمیم‌گیری
+  شد»، نه «هنوز باز»)؛ خودش می‌گفت گزینهٔ C انتخاب شده اما بنر بالای فایل
+  هنوز می‌گفت «هیچ گزینه‌ای تأیید نشده».
+- بررسی مستندات برای پیدا کردن سند «اضافه»: هیچ سند واقعاً تکراری/متروک پیدا
+  نشد — هر سند مرجع در `docs/ops/` صراحتاً به رانبوک اصلی ارجاع می‌دهد و
+  می‌گوید خودش رویهٔ کلی را تکرار نمی‌کند؛ `AUDIT_FINDINGS.md` و
+  `OPEN_FINANCIAL_QUESTIONS.md` هم صراحتاً به‌عنوان سابقهٔ بسته‌شده نگه داشته
+  شده‌اند، نه سند فعال فراموش‌شده. چیزی حذف نشد.
+
+---
+
 ## [1.6.7] — ۲۰۲۶-۰۹-۰۱
 
 رفع همان یافتهٔ جانبیِ ثبت‌شده در ورودی `[1.6.6]`: صفحهٔ ارور مشترک
@@ -2333,7 +2416,8 @@ ApexCharts همچنان فقط داخل باندل ۳٫۵ مگابایتی در 
 ### اضافه شد
 
 - دارایی‌های هویتی برند: favicon، مانیفست سایت، لوگو.
-- [`docs/ops/FOROOSHBIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/FOROOSHBIN_DEPLOYMENT_RUNBOOK.md)
+- [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md)
+  (named `FOROOSHBIN_DEPLOYMENT_RUNBOOK.md` at the time of this entry, renamed 2026-09-01)
   — تنها سند مرجع نصب، راه‌اندازی، به‌روزرسانی، پشتیبان‌گیری، بازیابی و
   عیب‌یابی. هر دستور آن در برابر خود مخزن بررسی شده است.
 

@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class SalesShellContractTests(SimpleTestCase):
     def test_client_covers_all_required_pages_and_states(self):
-        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
         for page in ("customers", "customer-detail", "leads", "lead-detail", "interactions", "interaction-detail"):
             self.assertIn(f'page === "{page}"', script)
         for status in (403, 404, 409, 429):
@@ -65,7 +65,7 @@ class SalesShellContractTests(SimpleTestCase):
     def test_customer_profile_has_new_fields_relations_and_deactivate_only(self):
         customer_list = (ROOT / "common" / "templates" / "common" / "customers" / "list.html").read_text(encoding="utf-8")
         customer_detail = (ROOT / "common" / "templates" / "common" / "customers" / "detail.html").read_text(encoding="utf-8")
-        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
 
         for field in ("postal_code", "category"):
             self.assertIn(f'name="{field}"', customer_list)
@@ -139,7 +139,7 @@ class SalesShellContractTests(SimpleTestCase):
             "company_it": "مدیر فنی مشتری",
             "platform_admin": "مدیر پلتفرم",
         }
-        script = (ROOT / "common" / "static" / "common" / "forooshbin-app.js").read_text(encoding="utf-8")
+        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
         views = (ROOT / "common" / "ui_views.py").read_text(encoding="utf-8")
         user_detail = (ROOT / "common" / "templates" / "common" / "users" / "detail.html").read_text(encoding="utf-8")
         from accounts.access import ROLE_LABELS

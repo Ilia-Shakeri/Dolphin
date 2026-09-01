@@ -96,7 +96,7 @@ def inline_stylesheet():
     files are collected or served from the app directory.
     """
     if "css" not in _STYLESHEET_CACHE:
-        path = finders.find("common/forooshbin.css")
+        path = finders.find("common/dolphin.css")
         _STYLESHEET_CACHE["css"] = Path(path).read_text(encoding="utf-8") if path else ""
     return _STYLESHEET_CACHE["css"]
 
@@ -145,7 +145,7 @@ def render_html_to_pdf(html):
 
 
 def _print_with_chromium(html, *, binary, timeout):
-    workspace = Path(tempfile.mkdtemp(prefix="forooshbin-pdf-"))
+    workspace = Path(tempfile.mkdtemp(prefix="dolphin-pdf-"))
     try:
         source = workspace / "document.html"
         target = workspace / "document.pdf"

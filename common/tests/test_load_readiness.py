@@ -303,7 +303,7 @@ class LoadReadinessTests(SimpleTestCase):
     def test_runbook_keeps_the_read_only_contract_and_proof_boundary(self):
         runbook = LOAD_RUNBOOK.read_text(encoding="utf-8")
         script = LOAD_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn("KARIZ_READ_ONLY_LOAD_V1", runbook)
+        self.assertIn("DOLPHIN_READ_ONLY_LOAD_V1", runbook)
         for path in load_readiness.ALLOWED_PATHS:
             self.assertIn(path, runbook)
         self.assertIn("follows no redirect", runbook)

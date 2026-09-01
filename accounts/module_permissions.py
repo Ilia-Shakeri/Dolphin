@@ -30,7 +30,7 @@ role that never had it does not yet unlock the deeper service-layer gates
 (`billing._lock_document_writer`, `billing.payments._lock_payment_manager`),
 which are still plain role checks shared across several document types —
 threading a per-module capability through them safely is follow-up work,
-tracked in KARIZ_PROJECT_HANDOFF.md. Every other module's edit column (both
+tracked in DOLPHIN_PROJECT_HANDOFF.md. Every other module's edit column (both
 directions) is enforced end to end, including granting beyond a role's
 default — see `accounts/tests/test_permission_overrides.py`.
 """

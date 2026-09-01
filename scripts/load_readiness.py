@@ -20,7 +20,7 @@ from urllib.request import (
 )
 
 
-READ_ONLY_SENTINEL = "KARIZ_READ_ONLY_LOAD_V1"
+READ_ONLY_SENTINEL = "DOLPHIN_READ_ONLY_LOAD_V1"
 ALLOWED_PATHS = frozenset(
     {
         "/health/live/",
@@ -78,7 +78,7 @@ class ProbeResult:
 
 def build_parser():
     parser = SafeArgumentParser(
-        description="Run a bounded, GET-only Kariz health readiness load check."
+        description="Run a bounded, GET-only Dolphin health readiness load check."
     )
     parser.add_argument("--sentinel", required=True)
     parser.add_argument("--base-url", required=True)
@@ -293,7 +293,7 @@ def execute_load(config, *, probe=_probe):
     workers = [
         threading.Thread(
             target=worker,
-            name=f"forooshbin-readiness-{index}",
+            name=f"dolphin-readiness-{index}",
             daemon=True,
         )
         for index in range(config.concurrency)

@@ -28,10 +28,10 @@ VALID_PRODUCTION_ENVIRONMENT = {
     "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS": "false",
     "DJANGO_SECURE_HSTS_PRELOAD": "false",
     "KARIZ_HSTS_HEADER": "max-age=31536000",
-    "POSTGRES_DB": "frooshbin",
-    "POSTGRES_INIT_USER": "frooshbin_init",
-    "POSTGRES_MIGRATION_USER": "frooshbin_migration",
-    "POSTGRES_APP_USER": "frooshbin_app",
+    "POSTGRES_DB": "dolphin",
+    "POSTGRES_INIT_USER": "dolphin_init",
+    "POSTGRES_MIGRATION_USER": "dolphin_migration",
+    "POSTGRES_APP_USER": "dolphin_app",
     "POSTGRES_APP_PASSWORD": "test-only-app-password-741",
     "KARIZ_DATABASE_ROLE": "app",
     "POSTGRES_HOST": "db",
@@ -56,7 +56,7 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertEqual(settings_module.REST_FRAMEWORK["NUM_PROXIES"], 1)
         self.assertEqual(settings_module.ALLOWED_HOSTS, ["crm.example.test"])
         self.assertEqual(settings_module.DATABASES["default"]["HOST"], "db")
-        self.assertEqual(settings_module.DATABASES["default"]["USER"], "frooshbin_app")
+        self.assertEqual(settings_module.DATABASES["default"]["USER"], "dolphin_app")
         self.assertEqual(settings_module.DATABASES["default"]["CONN_MAX_AGE"], 60)
         self.assertEqual(
             settings_module.CACHES["default"]["BACKEND"],
@@ -64,7 +64,7 @@ class ProductionSettingsTests(SimpleTestCase):
         )
         self.assertEqual(
             settings_module.CACHES["default"]["LOCATION"],
-            str(Path(tempfile.gettempdir()) / "forooshbin-throttle-cache"),
+            str(Path(tempfile.gettempdir()) / "dolphin-throttle-cache"),
         )
         self.assertLessEqual(
             settings_module.CACHES["default"]["OPTIONS"]["MAX_ENTRIES"],
@@ -163,7 +163,7 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_database_roles_are_distinct_and_access_mode_is_closed(self):
         duplicate = {
             **VALID_PRODUCTION_ENVIRONMENT,
-            "POSTGRES_APP_USER": "frooshbin_migration",
+            "POSTGRES_APP_USER": "dolphin_migration",
         }
         with self.assertRaisesMessage(ImproperlyConfigured, "must be distinct"):
             validate_production_environment(duplicate)
@@ -178,17 +178,17 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_a_deployment_may_name_its_database_and_roles_whatever_it_likes(self):
         """The name is a deployment's own choice, so any safe identifier works.
 
-        A brand gate used to refuse anything without a `frooshbin_` prefix. It
+        A brand gate used to refuse anything without a `dolphin_` prefix. It
         protected nothing — the protections are the identifier shape, the
         reserved `pg_` prefix, role distinctness and password strength, all
         checked below — and it stopped a staging deployment whose roles already
         existed under their own names.
         """
         for names in (
-            {"POSTGRES_DB": "kariz", "POSTGRES_INIT_USER": "kariz_init",
-             "POSTGRES_MIGRATION_USER": "kariz_migration", "POSTGRES_APP_USER": "kariz_app"},
-            {"POSTGRES_DB": "forooshbin", "POSTGRES_INIT_USER": "forooshbin_init",
-             "POSTGRES_MIGRATION_USER": "forooshbin_migration", "POSTGRES_APP_USER": "forooshbin_app"},
+            {"POSTGRES_DB": "dolphin", "POSTGRES_INIT_USER": "dolphin_init",
+             "POSTGRES_MIGRATION_USER": "dolphin_migration", "POSTGRES_APP_USER": "dolphin_app"},
+            {"POSTGRES_DB": "dolphin", "POSTGRES_INIT_USER": "dolphin_init",
+             "POSTGRES_MIGRATION_USER": "dolphin_migration", "POSTGRES_APP_USER": "dolphin_app"},
             {"POSTGRES_DB": "crm", "POSTGRES_INIT_USER": "crm_init",
              "POSTGRES_MIGRATION_USER": "crm_migration", "POSTGRES_APP_USER": "crm_app"},
         ):
@@ -221,7 +221,7 @@ class ProductionSettingsTests(SimpleTestCase):
         }
         environment.pop("POSTGRES_APP_PASSWORD")
         validated = validate_production_environment(environment)
-        self.assertEqual(validated["DATABASE"]["USER"], "frooshbin_migration")
+        self.assertEqual(validated["DATABASE"]["USER"], "dolphin_migration")
         self.assertEqual(
             validated["DATABASE"]["PASSWORD"],
             "test-only-migration-password-852",
@@ -465,7 +465,7 @@ class ProductionSettingsTests(SimpleTestCase):
         log_format = next(
             line.strip()
             for line in config.splitlines()
-            if line.strip().startswith("log_format kariz_json ")
+            if line.strip().startswith("log_format dolphin_json ")
         )
         self.assertIn("escape=json", log_format)
         self.assertIn('"request_id":"$request_id"', log_format)
@@ -479,7 +479,7 @@ class ProductionSettingsTests(SimpleTestCase):
         ):
             with self.subTest(variable=unsafe_variable):
                 self.assertNotIn(unsafe_variable, log_format)
-        self.assertIn("access_log /dev/stdout kariz_json;", config)
+        self.assertIn("access_log /dev/stdout dolphin_json;", config)
         self.assertIn("error_log /dev/stderr alert;", config)
         self.assertNotIn("/var/log/nginx/", config)
         self.assertIn("proxy_connect_timeout 5s;", config)
@@ -566,20 +566,20 @@ class ProductionSettingsTests(SimpleTestCase):
         override = (root / "compose.write-stop.yml").read_text(encoding="utf-8")
 
         self.assertIn("include /etc/nginx/write-stop.conf;", config)
-        self.assertEqual(config.count("if ($kariz_write_stop) {"), 2)
+        self.assertEqual(config.count("if ($dolphin_write_stop) {"), 2)
         self.assertEqual(config.count("return 418;"), 2)
         self.assertIn("location @write_stopped_http {", config)
         self.assertIn("location @write_stopped {", config)
         self.assertIn('"code":"server_error"', config)
         self.assertIn('"request_id":"$request_id"', config)
 
-        self.assertIn("# kariz-write-stop: off", off)
+        self.assertIn("# dolphin-write-stop: off", off)
         self.assertIn("default 0;", off)
         for method in ("POST", "PUT", "PATCH", "DELETE"):
             with self.subTest(method=method):
                 self.assertNotIn(f"{method} 1;", off)
                 self.assertIn(f"{method} 1;", on)
-        self.assertIn("# kariz-write-stop: on", on)
+        self.assertIn("# dolphin-write-stop: on", on)
         self.assertIn("default 0;", on)
         self.assertNotIn("GET 1;", on)
         self.assertNotIn("HEAD 1;", on)

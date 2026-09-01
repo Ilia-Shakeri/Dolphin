@@ -1,4 +1,33 @@
-# FrooshBin project handoff
+# Dolphin project handoff
+
+## جارو کامل نام‌های داخلی Kariz/ForooshBin (۲۰۲۶/۰۹/۰۱، نسخهٔ `1.6.9`)
+
+شرح کامل در ورودی `[1.6.9]` فایل `CHANGELOG.md`. طبق تصمیم مستقیم مالک
+محصول، «کاریز»/«فروش‌بین» دیگر هیچ‌جای کدبیس نیستند — کلاس‌های ویو، فایل‌های
+استاتیک، ثابت نسخه، نام‌های logger، مستندات، و کل درخت دموی فروشنده، همه
+Dolphin شدند.
+
+**عمداً حفظ شد:** متغیرهای محیطیِ استقرار (`KARIZ_PUBLIC_HOST` و ~۳۰ متغیر
+مشابه که `compose.yml`/nginx/`config/production_env.py` می‌خوانند) نام‌شان
+عوض نشد — یک `.env` واقعی روی Nerkhbaan یا TIARA دقیقاً همین اسم‌ها را دارد؛
+عوض‌کردن آن‌ها یعنی آن دو محیط تا وقتی `.env`شان دستی به‌روز نشود بالا
+نمی‌آیند. کامنتِ «رول مدیریت‌شده» روی نقش‌های واقعی Postgres و سنتینل/الگوی
+نام‌گذاریِ پشتیبان‌ها هم به همین دلیل حالت «قبول قدیمی + بنویس تازه» دارند،
+نه جایگزینیِ کامل — جزئیات در `CHANGELOG.md`.
+
+اگر کار بعدی محیط واقعی را هم می‌خواهد عوض کند: فهرست کامل متغیرهای
+`KARIZ_*` که عمداً دست‌نخورده ماندند در همان ورودی `CHANGELOG.md` آمده؛
+عوض‌کردن‌شان نیازمند به‌روزرسانی همزمان `.env` روی هر دو محیط دیپلوی‌شده است،
+نه فقط کد.
+
+### شواهد اجراشده
+
+`python manage.py test --settings=config.test_settings` → **۱۱۸۷ تست، OK،
+۱۵ skip**. `scripts/check_html_branding.py` → `HTML_BRANDING_PASS files=243`.
+بازبینی زنده در مرورگر: ورود و فهرست کاربران با `dolphin.css`/`dolphin-app.js`
+سرو شده، بدون خطای کنسول یا شبکه.
+
+---
 
 ## رفع باگ CSS صفحهٔ ارور (۲۰۲۶/۰۹/۰۱، نسخهٔ `1.6.7`)
 
@@ -183,8 +212,8 @@ Logos/` جایگزین شد: نسخهٔ سفید برای زمینه‌های ت
 
 ### دو نکتهٔ روشی
 
-**۱. شناسهٔ فنی با متن نمایشی یکی نیست.** `frooshbin_app`، `KarizXxxView`،
-`forooshbin.css`، لاگرها، اسکریپت‌های بکاپ/ریستور پستگرس — همه عمداً دست‌نخورده
+**۱. شناسهٔ فنی با متن نمایشی یکی نیست.** `dolphin_app`، `DolphinXxxView`،
+`dolphin.css`، لاگرها، اسکریپت‌های بکاپ/ریستور پستگرس — همه عمداً دست‌نخورده
 ماندند چون یا به دادهٔ تولیدِ از قبل مستقر وابسته‌اند یا گیت امنیتی جداسازی
 تست/تولید هستند. تصمیم و دلیلش در `CLAUDE.md` بخش Branding ثبت شد.
 
@@ -352,7 +381,7 @@ select2 و dropzone هم با آن می‌آیند و هیچ‌کدام استف
 از پنجره فرستاد. هر جای دیگری که چیزی باید کنارِ چیزی باز شود، اول همین را چک
 کنید.
 
-**۲. سقف اعلان‌های `forooshbin.css` حذف شد.** چهار نسخه پیاپی بالا رفته بود.
+**۲. سقف اعلان‌های `dolphin.css` حذف شد.** چهار نسخه پیاپی بالا رفته بود.
 قاعدهٔ واقعی («کامپوننت قالب را از نو نساز») تست خودش را دارد. عدد برنگردانید؛
 اگر نگرانی از رشد شیوه‌نامه هست، همان تست را قوی‌تر کنید.
 
@@ -413,18 +442,18 @@ select2 و dropzone هم با آن می‌آیند و هیچ‌کدام استف
 
 ---
 
-## FrooshBin database identity and quotation panel cut (2026-08-19)
+## Dolphin database identity and quotation panel cut (2026-08-19)
 
-- Fresh database identity is `frooshbin`: roles are `frooshbin_init`, `frooshbin_migration`, `frooshbin_app`, and `frooshbin_backup`. Stable `KARIZ_*` environment keys remain compatibility contracts.
-- `FROOSHBIN_ALLOW_LEGACY_DB_IDENTITIES=false` is the default. Setting it to `true` permits an existing `kariz_*` or `forooshbin_*` installation to boot; it never renames a live role or owner.
+- Fresh database identity is `dolphin`: roles are `dolphin_init`, `dolphin_migration`, `dolphin_app`, and `dolphin_backup`. Stable `DOLPHIN_*` environment keys remain compatibility contracts.
+- `DOLPHIN_ALLOW_LEGACY_DB_IDENTITIES=false` is the default. Setting it to `true` permits an existing `kariz_*` or `frooshbin_*` installation to boot; it never renames a live role or owner.
 - PostgreSQL image startup now runs `scripts/postgres-entrypoint.sh` before the official entrypoint. A fresh invalid database or init-role prefix fails before role creation.
-- New archives, sentinels, locks, proof roles, proof databases, and temporary proof paths use `frooshbin`. Exact old Kariz archive and sentinel forms remain read-only restore/retention input.
+- New archives, sentinels, locks, proof roles, proof databases, and temporary proof paths use `dolphin`. Exact old Dolphin archive and sentinel forms remain read-only restore/retention input.
 - The quotation browser panel is removed: no menu item, template, JavaScript handler, or `/quotations/...` UI route remains. The quotation API, models, rows, audit history, permissions, feature flag, and optional order/invoice links remain unchanged.
 - The browser billing proof creates an order directly, then confirms it, raises an invoice, and takes payment.
 
 This section supersedes older inventory tables or notes that describe quotation list/detail/print pages as live panel UI.
 
-این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `KARIZ_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
+این فایل تنها منبع زنده وضعیت، پیشرفت، blocker، شاهد و تصمیم باز پروژه است. `BACKEND_SPEC.md` قرارداد normative پیاده‌سازی است؛ `docs/backend/*.md` قراردادهای فنی جزئی، `docs/ops/*.md` runbookهای عملیاتی، و `DOLPHIN_CLIENT1_CODEX_ROADMAP.md` نقشه فازبندی‌شده است. هیچ‌کدام جایگزین وضعیت زنده همین فایل نیستند. سوابق checkpoint قدیمی‌تر از این بازنویسی (P0 — ۲۰۲۶/۰۸/۱۴) در `git log` و در تاریخچه همین فایل قابل بازیابی است؛ اینجا فقط نتیجه نهایی و شواهد فعلی نگه داشته می‌شود.
 
 ## میز دریافت/پرداخت، اصلاح سند، و رفع باگ سایدبار (۱.۳.۶ تا ۱.۳.۸)
 
@@ -455,14 +484,14 @@ This section supersedes older inventory tables or notes that describe quotation 
 
 ### تصمیم روشی — نسخه روی دارایی‌های ایستا
 
-`forooshbin.css` و `forooshbin-app.js` حالا با `?v=<version>` لینک می‌شوند. در
+`dolphin.css` و `dolphin-app.js` حالا با `?v=<version>` لینک می‌شوند. در
 جریان همین کار سه بار پیش آمد که تغییر روی سرور بود و مرورگر نسخهٔ کهنه را اجرا
 می‌کرد؛ همین در تولید یعنی پنل پس از هر دیپلوی، مارک‌آپ تازه را روی CSS کهنه
 اجرا می‌کند.
 
 ### هشدار پابرجا — سقف شیوه‌نامه
 
-سقف اعلان‌های `forooshbin.css` سه نسخهٔ پیاپی بالا رفته: ۱۲۰ → ۱۴۰ → ۱۶۰ → ۱۸۰.
+سقف اعلان‌های `dolphin.css` سه نسخهٔ پیاپی بالا رفته: ۱۲۰ → ۱۴۰ → ۱۶۰ → ۱۸۰.
 هر بار با دلیل موجه و هر بار پس از حذف اعلان‌های زائد. **این یعنی عدد ابزار
 درستی نیست.** قاعدهٔ واقعی («کامپوننت‌های قالب را بازنساز») حالا تست مستقل خودش
 را دارد. پیش از بالا بردن دوبارهٔ عدد، جایش را با آن تست عوض کنید.
@@ -561,7 +590,7 @@ This section supersedes older inventory tables or notes that describe quotation 
 - `python manage.py test --settings=config.test_settings` → **۱۰۱۷ تست، OK،
   ۱۵ skip** (۱۸۸ ثانیه). این اجرا **پس از** همهٔ تغییرهای این فاز گرفته شد.
 - `python manage.py makemigrations --check --dry-run` → بدون تغییر.
-- `node --check common/static/common/forooshbin-app.js` → بدون خطا.
+- `node --check common/static/common/dolphin-app.js` → بدون خطا.
 - بیلد ایمیج **گرفته نشده**. مهاجرت تازه‌ای در این نسخه **نیست**.
 
 ### شش اشکال واقعی که پیدا و رفع شد
@@ -604,7 +633,7 @@ This section supersedes older inventory tables or notes that describe quotation 
   (`total_in_words` عدد نیست و نباید از فیلتر `money` بگذرد)، و یکی تست مرورگر
   که رشتهٔ انگلیسی `sale.cancelled` را انتظار داشت و حالا «ابطال فروش» می‌بیند.
 - `python manage.py check` → بدون خطا.
-- `node --check common/static/common/forooshbin-app.js` → بدون خطا.
+- `node --check common/static/common/dolphin-app.js` → بدون خطا.
 - بیلد ایمیج در این فاز **گرفته نشده است**.
 
 ### آنچه بسته شد
@@ -652,7 +681,7 @@ This section supersedes older inventory tables or notes that describe quotation 
 - `python manage.py test --settings=config.test_settings` → **۹۴۴ تست، OK،
   ۱۵ skip** (۳۲۴ ثانیه). این اجرا **پس از** همهٔ تغییرهای این فاز گرفته شد.
 - `python manage.py makemigrations --check --dry-run` → `No changes detected`.
-- `node --check common/static/common/forooshbin-app.js` → بدون خطا.
+- `node --check common/static/common/dolphin-app.js` → بدون خطا.
 - بیلد ایمیج در این فاز **گرفته نشده است**.
 
 ### آنچه بسته شد
@@ -858,9 +887,9 @@ savepoint تثبیت شده، نه با اجرای واقعی؛ و سرویس `s
 | شدت | یافته | رفع |
 |---|---|---|
 | MEDIUM | `docs/ops/DEPLOYMENT.md` به اپراتور می‌گفت `/admin/login/` را در browser smoke بررسی کند — مسیری که در تولید **عمدا ۴۰۴** است (`ENABLE_DJANGO_ADMIN` پیش‌فرض false و nginx هم prefix را رد می‌کند). دنبال‌کردن runbook یک شکست کاذب تولید می‌کرد | مسیر به `/login/` اصلاح شد و صریحا نوشته شد که ۲۰۰ روی `/admin/` یک پیکربندی نادرست است، نه یک تست موفق |
-| MEDIUM | `docs/backend/API_CONTRACT.md` نام فایل XLSX را `kariz-user-performance.xlsx` اعلام می‌کرد؛ کد `forooshbin-*` تولید می‌کند — قرارداد API مستند با کد تناقض داشت | نام اصلاح شد |
+| MEDIUM | `docs/backend/API_CONTRACT.md` نام فایل XLSX را `dolphin-user-performance.xlsx` اعلام می‌کرد؛ کد `dolphin-*` تولید می‌کند — قرارداد API مستند با کد تناقض داشت | نام اصلاح شد |
 | MEDIUM | `docs/codebase/BRANDING_CLEANUP.md` (که اکنون حذف شده) ادعا می‌کرد هیچ favicon توسط پوسته فعال ارجاع نمی‌شود؛ پس از rebrand این نادرست است | ادعا به «هیچ دارایی **راه‌دور**؛ یک favicon محلی در دایرکتوری استاتیک خود اپلیکیشن» اصلاح شد |
-| LOW | `jalaliDateValue()` در `forooshbin-app.js` تعریف شده و هرگز فراخوانی نمی‌شد (کد first-party غیرقابل‌دسترس) | حذف شد؛ `displayDay()` همان کار را می‌کند |
+| LOW | `jalaliDateValue()` در `dolphin-app.js` تعریف شده و هرگز فراخوانی نمی‌شد (کد first-party غیرقابل‌دسترس) | حذف شد؛ `displayDay()` همان کار را می‌کند |
 | LOW | `common/tests/test_deployment_profile.py` تنها فایل مخزن با BOM بود و `ast.parse` ساده را می‌شکست | BOM حذف شد |
 | LOW | دو `except Exception: pass` دور لاگ‌گیری بدون توضیح | توضیح اضافه شد: شکست لاگ نباید خطای مدیریت‌شده را با خطای دیگری جایگزین کند یا پاسخ موفق را به خطا تبدیل کند |
 
@@ -914,7 +943,7 @@ savepoint تثبیت شده، نه با اجرای واقعی؛ و سرویس `s
 ۲.  ساخت ایمیج روی لینوکس amd64 با PYTHON_BASE_IMAGE به‌صورت digest
 ۳.  اعتبارسنجی محتوای ایمیج:  scripts/validate_image_content.py --listing <export>
 ۴.  push و ثبت digest  (نه tag)
-۵.  /srv/kariz/<name>/  با secrets/ روی 700 و .env روی 600
+۵.  /srv/dolphin/<name>/  با secrets/ روی 700 و .env روی 600
 ۶.  docker volume create  برای هر دو volume خارجی
 ۷.  قراردادن manifest امضاشده staging (کلید staging، نه کلید تولید)
 ۸.  docker compose up db   سپس   run --rm db-bootstrap   (متصل — پرامپت تعاملی دارد)
@@ -937,7 +966,7 @@ savepoint تثبیت شده، نه با اجرای واقعی؛ و سرویس `s
 
 ### دارایی‌هایی که بارگذاری می‌شوند (و آن‌که نمی‌شود)
 
-`plugins.bundle.rtl.css`، `style.bundle.rtl.css`، `scripts.bundle.js`، فونت keenicons، فونت فارسی IRANSans، به‌علاوه `forooshbin.css`/`forooshbin-app.js`.
+`plugins.bundle.rtl.css`، `style.bundle.rtl.css`، `scripts.bundle.js`، فونت keenicons، فونت فارسی IRANSans، به‌علاوه `dolphin.css`/`dolphin-app.js`.
 
 **`plugins.bundle.js` با ۳٫۵ مگابایت عمدا بارگذاری نمی‌شود.** صفحه‌ها به `KTMenu` و `KTDrawer` نیاز دارند که در `scripts.bundle.js` هستند؛ به جاوااسکریپت Bootstrap نیازی نیست چون مودال‌ها `<dialog>` بومی‌اند. صفحه‌های سرو‌شده بدون آن **صفر خطای severe** در کنسول دارند.
 
@@ -979,7 +1008,7 @@ sidebar دو سازوکار باز/بسته داشت: drawer قالب، به‌�
 
 ## ۰ ماتریس مرجع تطبیق نیازمندی‌های مشتری با کد اجراشدنی (۲۰۲۶/۰۸/۱۶)
 
-**این تنها ماتریس معتبر وضعیت است.** مرجع شماره‌گذاری: `docs/FOROOSHBIN_CAPABILITIES_FOR_INVOICE_FA.txt` (۷۴ ردیف، ۱۰ بخش). آن سند در تاریخ ۲۰۲۶/۰۸/۱۰ نوشته شده و **وضعیت‌های آن کهنه است** (آن روز انبار، فاکتور، پرداخت و PDF وجود نداشتند)؛ فقط شماره و متن نیازمندی از آن گرفته می‌شود و وضعیت واقعی همین جدول است.
+**این تنها ماتریس معتبر وضعیت است.** مرجع شماره‌گذاری: `docs/DOLPHIN_CAPABILITIES_FOR_INVOICE_FA.txt` (۷۴ ردیف، ۱۰ بخش). آن سند در تاریخ ۲۰۲۶/۰۸/۱۰ نوشته شده و **وضعیت‌های آن کهنه است** (آن روز انبار، فاکتور، پرداخت و PDF وجود نداشتند)؛ فقط شماره و متن نیازمندی از آن گرفته می‌شود و وضعیت واقعی همین جدول است.
 
 هر ردیف دقیقا یکی از پنج برچسب را دارد:
 
@@ -1192,7 +1221,7 @@ sidebar دو سازوکار باز/بسته داشت: drawer قالب، به‌�
 
 **پایگاه داده و API دست‌نخورده:** بدون migration، بدون تغییر schema، بدون تغییر در بدنه درخواست/پاسخ.
 
-**کجا پیاده شد:** دو پیاده‌سازی از یک الگوریتم، چون مرورگر باید بدون رفت‌وبرگشت تبدیل کند و سرور باید چاپ/PDF/XLSX را render کند — `common/jalali.py` (+ `common/templatetags/jalali_tags.py`) و بخش تاریخ در `forooshbin-app.js`. هیچ تبدیل موردی در قالب‌ها پخش نشد.
+**کجا پیاده شد:** دو پیاده‌سازی از یک الگوریتم، چون مرورگر باید بدون رفت‌وبرگشت تبدیل کند و سرور باید چاپ/PDF/XLSX را render کند — `common/jalali.py` (+ `common/templatetags/jalali_tags.py`) و بخش تاریخ در `dolphin-app.js`. هیچ تبدیل موردی در قالب‌ها پخش نشد.
 
 **درستی، اثبات‌شده نه فرض‌شده:** تبدیل در برابر ICU روی **۱۶۸۰۱ روز پیاپی (۱۹۹۰ تا ۲۰۳۵)، هر دو جهت، برای هر دو پیاده‌سازی، با صفر اختلاف** بررسی شد. پیش‌نویس اول یک روز در مبدا خطا داشت و دقیقا همین مقایسه آن را گرفت.
 
@@ -1277,7 +1306,7 @@ check → 0 | makemigrations --check → No changes detected
 spectacular --validate --fail-on-warn   → 0
 collectstatic --dry-run                 → 0 (۱۷۹ فایل)
 check_html_branding.py                  → PASS files=249
-node --check forooshbin-app.js               → 0
+node --check dolphin-app.js               → 0
 validate_image_content --context        → PASS files=209
 git diff --check                        → 0
 ماتریس مرورگر (شامل زنجیره بازرگانی)     → سبز
@@ -1285,7 +1314,7 @@ git diff --check                        → 0
 
 ### پاکسازی
 
-پس از اجرا شمارش شد: صفر فرآیند `postgres`، صفر فرآیند `psql`، صفر پوشه `frooshbin-pgtest-*`.
+پس از اجرا شمارش شد: صفر فرآیند `postgres`، صفر فرآیند `psql`، صفر پوشه `dolphin-pgtest-*`.
 
 ### آنچه هنوز انجام نشده و blocker دقیق آن
 
@@ -1366,7 +1395,7 @@ Ran 7 tests — OK
 
 1. **مسموم‌سازی schema (شدید).** `PostgresMigrationUpgradeTests` اپ `sales` را به 0004 برمی‌گرداند و فقط تا 0010 جلو می‌برد — حتی در `finally`. چون `TransactionTestCase` است، schema برنمی‌گردد و **هر تست بعدی** دیتابیسی بدون `postal_code` و بدون جداول 0011-0013 می‌دید. برگرداندن `sales` همچنین migrationهای وابسته (`aftersales`، `communications`) را unapply می‌کند، پس بازیابی اکنون leaf همه اپ‌ها را هدف می‌گیرد. روی SQLite این تست همیشه skip بود و باگ نامرئی مانده بود.
 2. **`ENABLE_API_DOCS` غایب** در `config/postgres_test_settings.py` (در `test_settings` هست) → مسیرهای schema/docs ثبت نمی‌شدند و ۷ تست system-API فقط به‌خاطر ماژول تنظیمات ۴۰۴ می‌گرفتند.
-3. **گیت دیتابیس `seed_synthetic_uat`** روی PostgreSQL فقط `uat_kariz_*` را می‌پذیرد؛ دیتابیس harness `test_kariz_*` است، پس دستور **درست** آن را رد می‌کند. پنج تست به دیتابیس seed-pذیر محدود شدند؛ **گیت تولید تضعیف نشد** و خودش با `test_database_identity_guard_is_narrow` روی هر vendor پوشش دارد.
+3. **گیت دیتابیس `seed_synthetic_uat`** روی PostgreSQL فقط `uat_dolphin_*` را می‌پذیرد؛ دیتابیس harness `test_dolphin_*` است، پس دستور **درست** آن را رد می‌کند. پنج تست به دیتابیس seed-pذیر محدود شدند؛ **گیت تولید تضعیف نشد** و خودش با `test_database_identity_guard_is_narrow` روی هر vendor پوشش دارد.
 4. **رقابت (race) در تست‌های مرورگر.** هر صفحه handler دیالوگ را فقط **پس از** resolve شدن بارگذاری اولیه API متصل می‌کند؛ روی SQLite این میکروثانیه است، ولی تاخیر واقعی دیتابیس باعث می‌شد کلیک زودتر برسد و بی‌صدا دور ریخته شود. تست‌ها اکنون تا باز شدن واقعی دیالوگ کلیک را تکرار می‌کنند. (نکته محصولی، نه نقص: دکمه‌ای که ~۲۰۰ms ابتدای بارگذاری بی‌اثر است.)
 
 ### تفاوت‌های واقعی SQLite/PostgreSQL که مشاهده شد
@@ -1412,8 +1441,8 @@ Ran 7 tests — OK
 
 **رفتار تولید دست‌نخورده است.** `\password` همچنان مسیر `db-bootstrap` در Compose است. یک شاخه opt-in و fail-closed اضافه شد که از هیچ پیکربندی تولیدی قابل دسترسی نیست:
 
-- فقط با `KARIZ_BOOTSTRAP_NONINTERACTIVE_PASSWORD=1` صریح فعال می‌شود؛ هر مقدار دیگر غیرخالی کل bootstrap را متوقف می‌کند؛
-- حتی آن‌وقت هم رد می‌کند مگر `POSTGRES_DB` با `(test|contract|restore)_kariz_<۳۲ hex>` و هر نقش مدیریت‌شده با `kariz_(migration|app|backup)_<۳۲ hex>` مطابق باشد، host دقیقا `127.0.0.1` و port یک پورت بالا غیر از ۵۴۳۲ باشد — مقادیری که یک استقرار تولیدی نمی‌تواند داشته باشد؛
+- فقط با `DOLPHIN_BOOTSTRAP_NONINTERACTIVE_PASSWORD=1` صریح فعال می‌شود؛ هر مقدار دیگر غیرخالی کل bootstrap را متوقف می‌کند؛
+- حتی آن‌وقت هم رد می‌کند مگر `POSTGRES_DB` با `(test|contract|restore)_dolphin_<۳۲ hex>` و هر نقش مدیریت‌شده با `dolphin_(migration|app|backup)_<۳۲ hex>` مطابق باشد، host دقیقا `127.0.0.1` و port یک پورت بالا غیر از ۵۴۳۲ باشد — مقادیری که یک استقرار تولیدی نمی‌تواند داشته باشد؛
 - همان verifier SCRAM-SHA-256 را سمت کلاینت با `scripts/pg_scram_verifier.py` می‌سازد، پس **plaintext همچنان به سرور نمی‌رسد**؛ رمز فقط روی stdin آن helper می‌رود و هرگز آرگومان یا literal SQL نمی‌شود؛
 - سپس بررسی می‌کند که `pg_authid.rolpassword` واقعا یک verifier `SCRAM-SHA-256$...` است و در غیر این صورت abort می‌کند.
 
@@ -1478,7 +1507,7 @@ manage.py test → Ran 466 tests, OK (skipped=7)
 
 ### پاکسازی
 
-هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `frooshbin-pgtest-*` باقی نماند (پس از اجرا شمارش شد: صفر و صفر).
+هیچ cluster موقت، هیچ فرآیند `postgres`/`psql`، و هیچ پوشه `dolphin-pgtest-*` باقی نماند (پس از اجرا شمارش شد: صفر و صفر).
 
 ## ۰.۰ تلاش قبلی فاز `P0R.2` — **`BLOCKED_ENVIRONMENT`** (۲۰۲۶/۰۸/۱۵، منسوخ‌شده توسط بخش بالا)
 
@@ -1511,13 +1540,13 @@ communications.tests.test_sms.InboundSMSConcurrencyTests
 
 ### ممیزی ایمنی harness (ایستا — قبول)
 
-`scripts/test-postgres.ps1` پیش از هر تلاش اجرا کامل خوانده شد. نمی‌تواند به دیتابیس تولید یا هر سرور موجود برسد: با `initdb` یک cluster یک‌بارمصرف تازه در temp می‌سازد (به سرور موجود وصل نمی‌شود)؛ مسیر داده باید با پیشوند `frooshbin-pgtest-<guid>` مطابقت کند و این هم پیش از ساخت و هم پیش از حذف بررسی می‌شود و در غیر این صورت throw می‌کند؛ فقط `127.0.0.1` روی یک پورت بالای تصادفی bind می‌شود و پورت ۵۴۳۲ و ≤۱۰۲۴ صریحا رد می‌شوند؛ نام دیتابیس/نقش/رمز همگی به run token تصادفی گره خورده‌اند؛ `config/postgres_test_guard.py` مستقلا همه این‌ها را دوباره اعتبارسنجی می‌کند و fail-closed است؛ هر متغیر محیطی و `PATH` در `finally` بازگردانده می‌شود و هیچ رمزی چاپ نمی‌شود.
+`scripts/test-postgres.ps1` پیش از هر تلاش اجرا کامل خوانده شد. نمی‌تواند به دیتابیس تولید یا هر سرور موجود برسد: با `initdb` یک cluster یک‌بارمصرف تازه در temp می‌سازد (به سرور موجود وصل نمی‌شود)؛ مسیر داده باید با پیشوند `dolphin-pgtest-<guid>` مطابقت کند و این هم پیش از ساخت و هم پیش از حذف بررسی می‌شود و در غیر این صورت throw می‌کند؛ فقط `127.0.0.1` روی یک پورت بالای تصادفی bind می‌شود و پورت ۵۴۳۲ و ≤۱۰۲۴ صریحا رد می‌شوند؛ نام دیتابیس/نقش/رمز همگی به run token تصادفی گره خورده‌اند؛ `config/postgres_test_guard.py` مستقلا همه این‌ها را دوباره اعتبارسنجی می‌کند و fail-closed است؛ هر متغیر محیطی و `PATH` در `finally` بازگردانده می‌شود و هیچ رمزی چاپ نمی‌شود.
 
 با اجرا تایید شد: در نبود ابزار، harness در مرحله تشخیص ابزار متوقف می‌شود (`CommandNotFoundException` روی `initdb`) و **به هیچ سرور دیگری fallback نمی‌کند**.
 
 ### شکاف پوشش کشف‌شده حین ممیزی
 
-harness فقط ثابت می‌کند نقش backup می‌تواند `pg_dump` بگیرد؛ **هرگز `pg_restore` را صدا نمی‌زند**. تنها تاییدکننده restore یعنی `scripts/verify-postgres-restore.sh` وابسته به کانتینر است (مسیرهای ثابت `/backups` و `/ops` و sentinel `.frooshbin-backup-root`) و روی ویندوز به‌صورت native اجرا نمی‌شود.
+harness فقط ثابت می‌کند نقش backup می‌تواند `pg_dump` بگیرد؛ **هرگز `pg_restore` را صدا نمی‌زند**. تنها تاییدکننده restore یعنی `scripts/verify-postgres-restore.sh` وابسته به کانتینر است (مسیرهای ثابت `/backups` و `/ops` و sentinel `.dolphin-backup-root`) و روی ویندوز به‌صورت native اجرا نمی‌شود.
 
 یعنی حتی پس از نصب PostgreSQL، نیمه «restore ایزوله» از گیت P0R.2 به یکی از این دو نیاز دارد: Docker به‌همراه profile `restore-verify`، یا افزودن یک گام restore native کوچک به harness (`createdb` دوم، `pg_restore`، سپس اجرای `verify-postgres-schema.sql` روی آن). این یک شکاف ابزار است، نه نقص اپلیکیشن.
 
@@ -1626,7 +1655,7 @@ PROBE_DEFECTIVE  maxLength=500  attr='500><p class='  err_p=0  input_has_dataerr
 جست‌وجوی الگویی در کل `common/templates/common/**`:
 
 ```text
-href="#"            → 1 مورد، و مرده نیست (forooshbin-app.js:787 آن را مقداردهی می‌کند)
+href="#"            → 1 مورد، و مرده نیست (dolphin-app.js:787 آن را مقداردهی می‌کند)
 javascript:void(0)  → صفر
 form بدون action    → صفر
 action=""           → صفر
@@ -1653,7 +1682,7 @@ python manage.py makemigrations --check --dry-run       exit=0  No changes detec
 python manage.py spectacular --validate --fail-on-warn  exit=0
 python manage.py collectstatic --dry-run --noinput      exit=0
 python scripts/check_html_branding.py                   exit=0  files=228
-node --check common/static/common/forooshbin-app.js          exit=0
+node --check common/static/common/dolphin-app.js          exit=0
 python scripts/validate_image_content.py --context      exit=0  files=147 PASS
 git diff --check                                        exit=0
 python manage.py test                                   Ran 356 tests — OK (skipped=7)
@@ -1700,8 +1729,8 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 ## ۱. عکس فوری وضعیت — ۲۰۲۶/۰۸/۱۴ — فاز اصلاحی P0R
 
-- ریشه مخزن: `C:\Users\Dear-OTCamp-User\Desktop\Kariz-CRM`. شاخه: `main`. **HEAD واقعی الان: `122b4707bbdd92c095fe85917cdb4ed72c66083d`** («chore: remove AGENTS.md as part of repository cleanup»)، یک commit جلوتر از `fde384a`.
-- `fde384a` («docs: reconcile client 1 scope and repository truth») commit مستندسازی فاز P0 است — همان فازی که این سند، Roadmap، و اصلاح هدفمند `BACKEND_SPEC.md` را نوشت. آن commit سه فایل را تغییر داد: `BACKEND_SPEC.md` (+۵۰/-)، `KARIZ_CLIENT1_CODEX_ROADMAP.md` (۱۵۹۰ خط کاهش خالص)، `KARIZ_PROJECT_HANDOFF.md` (۲۷۸۸ خط کاهش خالص) — جمعا ۴۶۳ افزوده و ۳۹۶۵ کاسته نسبت به نسخه پیشین.
+- ریشه مخزن: `C:\Users\Dear-OTCamp-User\Desktop\Dolphin-CRM`. شاخه: `main`. **HEAD واقعی الان: `122b4707bbdd92c095fe85917cdb4ed72c66083d`** («chore: remove AGENTS.md as part of repository cleanup»)، یک commit جلوتر از `fde384a`.
+- `fde384a` («docs: reconcile client 1 scope and repository truth») commit مستندسازی فاز P0 است — همان فازی که این سند، Roadmap، و اصلاح هدفمند `BACKEND_SPEC.md` را نوشت. آن commit سه فایل را تغییر داد: `BACKEND_SPEC.md` (+۵۰/-)، `DOLPHIN_CLIENT1_CODEX_ROADMAP.md` (۱۵۹۰ خط کاهش خالص)، `DOLPHIN_PROJECT_HANDOFF.md` (۲۷۸۸ خط کاهش خالص) — جمعا ۴۶۳ افزوده و ۳۹۶۵ کاسته نسبت به نسخه پیشین.
 - **فاز فعلی: `P0R` — اصلاح مستندات پیش از هر پیاده‌سازی feature.** این فاز فقط مستندات را اصلاح می‌کند (`BACKEND_SPEC.md`، همین فایل، Roadmap، و افزودن `CLAUDE.md`)؛ هیچ کد اپلیکیشن، migration، وابستگی، تست، Dockerfile یا Compose تغییر نکرد؛ هیچ `git add`/`commit`/`push` در این فاز اجرا نشد — کل diff برای بازبینی انسانی در working tree باقی می‌ماند.
 - `git status --short` فعلی (بعد از commit مستقل `AGENTS.md`) **خالی است** — درخت پیش از این فاز کاملا تمیز بود؛ حذف `AGENTS.md` کار از پیش موجود و عمدی کاربر بود و در این فاز بازگردانده نشد.
 - **اصلاح:** عکس فوری قبلی این بخش HEAD `58b25a1` را به‌عنوان HEAD «فعلی» معرفی می‌کرد. آن دیگر درست نیست — `58b25a1` والد `fde384a` است و `fde384a` خودش والد HEAD فعلی (`122b470`) است. این خودش یک نمونه دیگر از «prose در برابر شاهد اجراشده» است که این فاز اصلاحی موظف به رفع آن بود.
@@ -1746,7 +1775,7 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 - `Invoice.invoice_type` (رسمی/غیررسمی، پیش‌فرض غیررسمی) — پاسخ D.2.
 - `Customer.economic_code` برای مشتری حقوقی؛ `national_id` برای حقیقی کافی است.
-- هویت فروشنده در `.env` (سه کلید `KARIZ_SELLER_*`)، نه در سطح فاکتور.
+- هویت فروشنده در `.env` (سه کلید `DOLPHIN_SELLER_*`)، نه در سطح فاکتور.
 - صدور فاکتور رسمی بدون هویت کامل رد می‌شود (`official_invoice_identity_errors`).
 
 **همچنان باز — در کد حدس زده نشده:** D.3 تا D.7 (نرخ مالیات، شمول قیمت، ترتیب
@@ -1766,13 +1795,13 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 این‌ها تصمیم مالک محصول برای برنامه‌ریزی هستند و بر prose قدیمی هر سند دیگر اولویت دارند:
 
-- محصول ForooshBin / فروش‌بین؛ رابط کاربر نهایی نگهداری‌شده فارسی-only، RTL، responsive و same-origin است. Monolith ماژولار می‌ماند مگر کد موجود خلاف آن را ثابت کند (کد فعلی این‌طور است: یک Django project با appهای `accounts/sales/aftersales/communications/auditlog/reports/common`، بدون microservice).
+- محصول Dolphin / دلفین؛ رابط کاربر نهایی نگهداری‌شده فارسی-only، RTL، responsive و same-origin است. Monolith ماژولار می‌ماند مگر کد موجود خلاف آن را ثابت کند (کد فعلی این‌طور است: یک Django project با appهای `accounts/sales/aftersales/communications/auditlog/reports/common`، بدون microservice).
 - یک کدبیس مشترک برای چند استقرار مشتری؛ فورک یا شاخه دائمی مشتری‌محور ممنوع؛ هر استقرار DB/secret/runtime identity/backup/branding/feature-profile جدا دارد؛ `if client_name == ...` در کد پخش نشود؛ فعال/غیرفعال بودن feature از role permission و object scope جدا است؛ غیرفعال‌کردن feature داده تاریخی را پاک نمی‌کند؛ profile یا dependency ناشناخته fail-closed است. **وضعیت فعلی کد: هیچ مدل/مکانیزم DeploymentProfile یا FeatureFlag در کد وجود ندارد (تایید شد — هیچ چنین کلاسی در هیچ app پیدا نشد). این یک اصل تاییدشده برای طراحی آینده است، نه یک قابلیت پیاده‌سازی‌شده.** به بخش ۷.
-- **نقش‌های ثابت Client 1 — سیاست نهایی، بسته (`BIZ-005` resolved، ۲۰۲۶/۰۸/۱۴):** کد فعلی دقیقا همین چهار نقش را دارد (تایید شد در `accounts/models.py`): `platform_admin` (فقط تیم مالک/توسعه فروش‌بین)، `sales_manager` (مدیر فروشگاه مشتری)، `sales_agent` (بازاریاب/فروشنده، حساب کاربری جدا برای هرکس، حساب اشتراکی ممنوع)، `company_it` (**غیرفعال به‌صورت پیش‌فرض برای Client 1**؛ یک حساب فنی محدود آینده نیازمند قرارداد تصویب‌شده جداست و هرگز نباید `platform_admin` را اعطا/هدف‌گیری/مدیریت کند). **فقط `platform_admin` مجاز به ساخت، ویرایش، غیرفعال‌سازی، فعال‌سازی مجدد، یا reset رمز کاربران است؛ فقط `platform_admin` مجاز به تغییر نقش یا workstream عملیاتی است. `sales_manager` هیچ قابلیت مدیریت کاربر ندارد** — فقط داده/گزارش عملیاتی کسب‌وکار. این یک تصمیم بسته است، نه یک گزینه مشروط به تصمیم بعدی؛ ببینید بخش ۶ برای شکاف دقیق بین این سیاست و رفتار فعلی کد. Django Admin و مدیریت سرور/دیتابیس هرگز به کاربر مشتری افشا نمی‌شود. احراز هویت فعلی نام‌کاربری/رمز است؛ دسترسی فقط از سیستم‌های کنترل‌شده شرکت در دفتر تهران روی مسیر شبکه خصوصی درنظر گرفته می‌شود.
+- **نقش‌های ثابت Client 1 — سیاست نهایی، بسته (`BIZ-005` resolved، ۲۰۲۶/۰۸/۱۴):** کد فعلی دقیقا همین چهار نقش را دارد (تایید شد در `accounts/models.py`): `platform_admin` (فقط تیم مالک/توسعه دلفین)، `sales_manager` (مدیر فروشگاه مشتری)، `sales_agent` (بازاریاب/فروشنده، حساب کاربری جدا برای هرکس، حساب اشتراکی ممنوع)، `company_it` (**غیرفعال به‌صورت پیش‌فرض برای Client 1**؛ یک حساب فنی محدود آینده نیازمند قرارداد تصویب‌شده جداست و هرگز نباید `platform_admin` را اعطا/هدف‌گیری/مدیریت کند). **فقط `platform_admin` مجاز به ساخت، ویرایش، غیرفعال‌سازی، فعال‌سازی مجدد، یا reset رمز کاربران است؛ فقط `platform_admin` مجاز به تغییر نقش یا workstream عملیاتی است. `sales_manager` هیچ قابلیت مدیریت کاربر ندارد** — فقط داده/گزارش عملیاتی کسب‌وکار. این یک تصمیم بسته است، نه یک گزینه مشروط به تصمیم بعدی؛ ببینید بخش ۶ برای شکاف دقیق بین این سیاست و رفتار فعلی کد. Django Admin و مدیریت سرور/دیتابیس هرگز به کاربر مشتری افشا نمی‌شود. احراز هویت فعلی نام‌کاربری/رمز است؛ دسترسی فقط از سیستم‌های کنترل‌شده شرکت در دفتر تهران روی مسیر شبکه خصوصی درنظر گرفته می‌شود.
 - هدف کامل محصول Client 1 (بخش ۴) شامل موجودی/مالی/حسابداری هم می‌شود؛ جمله قدیمی «Inventory و مالی همیشه خارج از هدف Client-1 هستند» دیگر معتبر نیست، ولی این ماژول‌ها تا عبور از gate خودشان `ABSENT`/`BLOCKED_DECISION` علامت می‌مانند.
 - محدودیت‌های deployment گزارش‌شده توسط مشتری (بخش ۱۰) ورودی بیرونی تاییدنشده هستند، نه fact اثبات‌شده؛ تا شواهد `winver`/`systeminfo` واقعی، Windows Server 2008 هدف تولید تلقی نمی‌شود.
 - مدل تهدید حفاظت سورس (بخش ۸): مالک فیزیکی هاست دسترسی Administrator دارد؛ رازداری مطلق سورس از مالک فیزیکی خصمانه فنی تضمین‌شدنی نیست؛ هدف واقعی نبود repo/toolchain/تست/مستندات توسعه در محیط تحویل و کنترل توزیع/rollback فقط توسط مالک پلتفرم است.
-- برندینگ: برند فعال فقط `ForooshBin`/`فروش‌بین`؛ هیچ نام مشتری در سورس مشترک hardcode نشود؛ شناسه‌های runtime پایدار مثل `KTMenu`/`data-kt-*` کورکورانه rename نشوند؛ notice/license شخص‌ثالث حذف نشود.
+- برندینگ: برند فعال فقط `Dolphin`/`دلفین`؛ هیچ نام مشتری در سورس مشترک hardcode نشود؛ شناسه‌های runtime پایدار مثل `KTMenu`/`data-kt-*` کورکورانه rename نشوند؛ notice/license شخص‌ثالث حذف نشود.
 
 ## ۳. پایه فعلی پیاده‌سازی‌شده (baseline تایید شده با کد واقعی)
 
@@ -1845,7 +1874,7 @@ python manage.py test                                   Ran 356 tests — OK (sk
 
 ### وضعیت اتصال frontend↔backend
 
-ممیزی مستقل خط‌به‌خط (۲۵ route در `common/ui_urls.py`، هر ۲۵ تابع `setup*` در `forooshbin-app.js`، هر endpoint در پنج app) نتیجه داد: **اتصال واقعی و کامل است، نه partial و نه فقط shell.** هیچ دکمه/لینک مرده، هیچ `data-page` بی‌صاحب، هیچ fetch به مسیر ناموجود، هیچ پیام موفقیت جعلی، و هیچ قابلیت backend بدون UI متصل پیدا نشد. تنها نقص واقعی یافت‌شده یک باگ HTML کوچک است (بخش ۹).
+ممیزی مستقل خط‌به‌خط (۲۵ route در `common/ui_urls.py`، هر ۲۵ تابع `setup*` در `dolphin-app.js`، هر endpoint در پنج app) نتیجه داد: **اتصال واقعی و کامل است، نه partial و نه فقط shell.** هیچ دکمه/لینک مرده، هیچ `data-page` بی‌صاحب، هیچ fetch به مسیر ناموجود، هیچ پیام موفقیت جعلی، و هیچ قابلیت backend بدون UI متصل پیدا نشد. تنها نقص واقعی یافت‌شده یک باگ HTML کوچک است (بخش ۹).
 
 صفحات نمایشی/فروشنده (Metronic/KeenThemes زیر `assets/`, `src/`, `dashboards/`, `pages/`, و مشابه) صرفا مرجع بصری bounded هستند، جزو اپلیکیشن served نیستند و در `.dockerignore` صریحا exclude شده‌اند — تایید شد.
 
@@ -1879,7 +1908,7 @@ Selected: Option C
   verified runtime database cache     = derived state only
 
 پیاده‌سازی انجام شد؛ شاهد هر قاعده در بخش ۰.۰۰۰. قواعد الزامی آن فاز:
-  - کلید امضای خصوصی تحت کنترل فروش‌بین می‌ماند و هرگز به مشتری تحویل
+  - کلید امضای خصوصی تحت کنترل دلفین می‌ماند و هرگز به مشتری تحویل
     نمی‌شود؛ اپلیکیشن فقط کلید عمومی راستی‌آزمایی را دارد.
   - manifest نامعتبر یا ناشناخته fail-closed است.
   - کش دیتابیس هرگز مرجع نیست؛ restore یک دیتابیس قدیمی نباید manifest
@@ -1898,7 +1927,7 @@ Selected: Option C
 
 مالک فیزیکی هاست (مشتری) طبق تصمیم مستقیم ممکن است دسترسی Administrator داشته باشد؛ رازداری مطلق سورس از چنین مالکی تضمین فنی ندارد. وضعیت فعلی واقعی، نه فرضی:
 
-- **یافته: ریسک تاییدشده در سطح تعریف build، نه یک artifact ساخته‌شده و بازرسی‌شده.** `Dockerfile` با `COPY . .` (خط ۱۵) کل build context را کپی می‌کند. `.dockerignore` مسیرهای vendor/demo، `.git`، `.env*` و فایل‌های secret-shaped را exclude می‌کند اما **`docs/**`، فایل‌های ریشه `*.md` (شامل `BACKEND_SPEC.md`، همین `KARIZ_PROJECT_HANDOFF.md`، `KARIZ_CLIENT1_CODEX_ROADMAP.md`)، کل `*/tests/**`، `scripts/**`، `nginx/**`، `compose*.yml`، `requirements-direct.txt` را exclude نمی‌کند.** دقت لازم درباره این یافته (اصلاح P0R):
+- **یافته: ریسک تاییدشده در سطح تعریف build، نه یک artifact ساخته‌شده و بازرسی‌شده.** `Dockerfile` با `COPY . .` (خط ۱۵) کل build context را کپی می‌کند. `.dockerignore` مسیرهای vendor/demo، `.git`، `.env*` و فایل‌های secret-shaped را exclude می‌کند اما **`docs/**`، فایل‌های ریشه `*.md` (شامل `BACKEND_SPEC.md`، همین `DOLPHIN_PROJECT_HANDOFF.md`، `DOLPHIN_CLIENT1_CODEX_ROADMAP.md`)، کل `*/tests/**`، `scripts/**`، `nginx/**`، `compose*.yml`، `requirements-direct.txt` را exclude نمی‌کند.** دقت لازم درباره این یافته (اصلاح P0R):
   - این نتیجه از **بازرسی ایستای تعریف build** (`Dockerfile` + `.dockerignore`) به‌دست آمده — اثبات می‌کند که تعریف فعلی build، محتوای ممنوعه را وارد می‌کند.
   - P0/P0R هیچ ایمیج Docker واقعی build و extract نکردند (Docker روی این هاست نصب نیست، تایید شد در بخش ۱۱)؛ بنابراین این یافته **اثبات نمی‌کند** که هر نشتی ممکن دیگر هم فهرست شده — فقط همین gap مشخص در همین دو فایل تایید شده است.
   - سخت‌سازی `.dockerignore` به‌تنهایی منطق کسب‌وکار پایتون خوانا را پنهان نمی‌کند؛ حتی با `.dockerignore` کامل، سورس `.py` غیر-compiled همچنان در ایمیج باقی می‌ماند و برای هرکس با دسترسی به ایمیج/هاست قابل خواندن است.
@@ -1916,12 +1945,12 @@ Selected: Option C
 | 1ب | الگوهای `__pycache__`/`*.pyc`/`*.log` در `.dockerignore` root-anchored بودند و bytecode توسعه‌دهنده وارد ایمیج می‌شد | P1 — برطرف شد | `.dockerignore` | فرم‌های `**/` اضافه شدند (بخش ۰). |
 | 2 | تناقض داخلی `BACKEND_SPEC.md` بخش ۲.۳/۲.۴ (وضعیت پستی و گزارش پیامک ورودی را «blocked» می‌گفت درحالی‌که در همان سند بخش ۵.۷A/۵.۹ و در کد واقعی پیاده شده‌اند) | P1 مستندات | `BACKEND_SPEC.md` | در همین فاز اصلاح شد (بخش زیر). |
 | 3 | خطای HTML: `sales_documents/detail.html:16` — attribute `maxlength="500` بدون quote بسته؛ پاراگراف خطای فیلد «reason» در DOM ساخته نمی‌شد و پیام خطای سرور به کاربر نشان داده نمی‌شد | P1 — **برطرف شد در `P2` (۲۰۲۶/۰۸/۱۵)** | همان فایل | یک کوتیشن بسته اضافه شد. پوشش رگرسیون در سطح DOM و مرورگر واقعی، هر دو تاییدشده با اجرای پیش از اصلاح. ادعای قبلی درباره از کار افتادن `maxlength` با اندازه‌گیری در Chrome رد شد — بخش ۰. |
-| 4 | ~~`docs/KARIZ_CAPABILITIES_FOR_INVOICE_FA.txt` بروز نیست~~ **رفع شد ۲۰۲۶/۰۸/۱۶** | — | `docs/FOROOSHBIN_CAPABILITIES_FOR_INVOICE_FA.txt` | فایل تغییر نام یافت، هشدار کهنگی وضعیت به ابتدای آن اضافه شد، و وضعیت واقعی هر ۷۴ ردیف در ماتریس بخش ۰ همین فایل ثبت شد. |
+| 4 | ~~`docs/DOLPHIN_CAPABILITIES_FOR_INVOICE_FA.txt` بروز نیست~~ **رفع شد ۲۰۲۶/۰۸/۱۶** | — | `docs/DOLPHIN_CAPABILITIES_FOR_INVOICE_FA.txt` | فایل تغییر نام یافت، هشدار کهنگی وضعیت به ابتدای آن اضافه شد، و وضعیت واقعی هر ۷۴ ردیف در ماتریس بخش ۰ همین فایل ثبت شد. |
 | 6 | Django Admin بدون گیت تنظیمات ثبت شده بود و در شبکه قابل دسترسی بود | **MEDIUM — برطرف شد در `P1.7`** | `config/settings.py`, `config/production_settings.py`, `config/urls.py`, `nginx/default.conf` | **دو لایه دفاعی مستقل اضافه شد.** لایه اپلیکیشن: تنظیم جدید `ENABLE_DJANGO_ADMIN` که پیش‌فرض `false` است و **مستقل از `DEBUG`** عمل می‌کند؛ در `production_settings.py` صریحا `False` است؛ مسیر `admin/` فقط وقتی ثبت می‌شود که این پرچم روشن باشد، پس روی استقرار مشتری `/admin/` اصلا وجود ندارد (۴۰۴). لایه edge: بلوک `location ^~ /admin/ { return 404; }` در `nginx/default.conf` که به‌خاطر `^~` بر همه location‌های regex اولویت دارد و هیچ درخواستی را proxy نمی‌کند. تست: `common/tests/test_admin_exposure.py` (۱۳ تست). allowlist شبکه مدیریت عمدا حدس زده نشد و به `P14` موکول شد. |
 | 7 | عملگر after-sales روی `customers`/`leads`/`sales` پاسخ `200` با صفر ردیف می‌گرفت، درحالی‌که `users`/`activity-logs`/`inbound-sms` `403` می‌دهند | LOW — **برطرف شد** (۲۰۲۶/۰۸/۱۵) | `sales/permissions.py` (جدید)، `sales/views.py` | `HasSalesCapability` اضافه شد: هر ViewSet اپ `sales` اکنون `required_capabilities` صریح دارد و نبود capability `403` می‌دهد، نه «این هم لیست خالی». هر هشت ViewSet پوشش داده شدند تا ناسازگاری تازه ساخته نشود. **هیچ نقشی محدودتر نشد** — تست جدید `test_sales_roles_still_reach_their_own_modules` برای هر چهار نقش دارنده capability `200` را اثبات می‌کند. این کنترل نقش است و از feature-gate (`P3`) و object scope جداست. |
 | 5 | عدم‌تطابق نسخه Python: هاست توسعه فعلی `Python 3.14.5` دارد؛ `Dockerfile` فقط base image با `sys.version_info[:2] == (3, 13)` را می‌پذیرد | اطلاع‌رسانی، نه نقص | `Dockerfile:12` | تست‌های محلی روی 3.14.5 pass شدند ولی رفتار دقیق production روی 3.13 محلی proof نشده؛ در build واقعی هدف تایید شود. |
 | 8 | **fail-open در گیت‌های امنیتی دیتابیس:** `\quit <status>` در psql وجود ندارد؛ گیت پیام شکست را چاپ می‌کرد و با کد ۰ خارج می‌شد. ۸ مورد در `bootstrap-postgres.sh` و ۲ مورد در verifierهای SQL | **HIGH — برطرف شد در `P0R.2`** | `scripts/bootstrap-postgres.sh`, `scripts/verify-postgres-privileges.sql`, `scripts/verify-postgres-schema.sql` | همه به `RAISE EXCEPTION` تبدیل شدند تا با `ON_ERROR_STOP=1` خروج غیرصفر بدهند. اثر بالقوه: `db-bootstrap`/`db-finalize` نقض قرارداد مالکیت/ACL را اعلام و «موفق» گزارش می‌کردند و Compose اجازه شروع `migrate`/`web` می‌داد. رگرسیون: `test_every_bootstrap_guard_actually_exits_non_zero`. جزئیات و شاهد اجراشده در بخش ۰.۰۰. |
-| 9 | کنترل‌های فرانت در ~۲۰۰ms اول بارگذاری بی‌اثر بودند (شنونده پس از `await` شبکه‌ای وصل می‌شد) در `setupProducts`، `setupPerformancePanel` و `setupAfterSales` | LOW/MEDIUM — برطرف شد در `P0R.2` | `common/static/common/forooshbin-app.js` | شنونده‌ها پیش از هر `await` وصل شدند. فقط با تاخیر واقعی PostgreSQL دیده می‌شد؛ روی SQLite همیشه pass بود. بخش ۰.۰۰. |
+| 9 | کنترل‌های فرانت در ~۲۰۰ms اول بارگذاری بی‌اثر بودند (شنونده پس از `await` شبکه‌ای وصل می‌شد) در `setupProducts`، `setupPerformancePanel` و `setupAfterSales` | LOW/MEDIUM — برطرف شد در `P0R.2` | `common/static/common/dolphin-app.js` | شنونده‌ها پیش از هر `await` وصل شدند. فقط با تاخیر واقعی PostgreSQL دیده می‌شد؛ روی SQLite همیشه pass بود. بخش ۰.۰۰. |
 
 ## ۱۰. blockerهای بیرونی deployment (ورودی گزارش‌شده، نه fact اثبات‌شده)
 
@@ -1942,7 +1971,7 @@ python manage.py test --settings=config.test_settings -v 1
     → "Ran 342 tests ... OK (skipped=7)"؛ ۷ skip همگی PostgreSQL-only
 python manage.py collectstatic --dry-run --noinput --settings=config.test_settings -v 0
     → exit 0، بدون خطا
-node --check common/static/common/forooshbin-app.js
+node --check common/static/common/dolphin-app.js
     → exit 0
 python scripts/check_html_branding.py
     → "HTML_BRANDING_PASS files=228"
@@ -1954,11 +1983,11 @@ which docker / which psql (bash)     → یافت نشد
 بخش ب — دوباره اجراشده در فاز P0R (بعد از commit مستقل `AGENTS.md`، همین هاست):
 
 ```text
-git rev-parse --show-toplevel        → C:/Users/Dear-OTCamp-User/Desktop/Kariz-CRM
+git rev-parse --show-toplevel        → C:/Users/Dear-OTCamp-User/Desktop/Dolphin-CRM
 git branch --show-current            → main
 git rev-parse HEAD                   → 122b4707bbdd92c095fe85917cdb4ed72c66083d
 git status --short (قبل از ویرایش‌های P0R) → خالی
-git status --short (حین ویرایش‌های P0R)   → " M BACKEND_SPEC.md" و " M KARIZ_PROJECT_HANDOFF.md" (unstaged، طبق دستور)
+git status --short (حین ویرایش‌های P0R)   → " M BACKEND_SPEC.md" و " M DOLPHIN_PROJECT_HANDOFF.md" (unstaged، طبق دستور)
 git diff --check                     → exit 0 (فقط هشدار تبدیل خط CRLF/LF گیت، نه خطای whitespace واقعی)
 python manage.py check --settings=config.test_settings
     → "System check identified no issues (0 silenced)."

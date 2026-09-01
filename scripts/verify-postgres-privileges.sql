@@ -178,7 +178,7 @@ SELECT (
     AND has_sequence_privilege(:'app_user', 'accounts_user_id_seq', 'USAGE')
     AND has_sequence_privilege(:'app_user', 'accounts_user_id_seq', 'SELECT')
     AND NOT has_sequence_privilege(:'app_user', 'auth_permission_id_seq', 'USAGE')
-    AND NOT has_function_privilege(:'app_user', 'public.frooshbin_contract_probe()', 'EXECUTE')
+    AND NOT has_function_privilege(:'app_user', 'public.dolphin_contract_probe()', 'EXECUTE')
     AND has_database_privilege(:'backup_user', current_database(), 'CONNECT')
     AND NOT has_database_privilege(:'backup_user', current_database(), 'CREATE')
     AND NOT has_database_privilege(:'backup_user', current_database(), 'TEMP')
@@ -198,7 +198,7 @@ SELECT (
     AND NOT has_table_privilege(:'backup_user', 'communications_inboundsms', 'DELETE')
     AND has_sequence_privilege(:'backup_user', 'accounts_user_id_seq', 'SELECT')
     AND NOT has_sequence_privilege(:'backup_user', 'accounts_user_id_seq', 'USAGE')
-    AND NOT has_function_privilege(:'backup_user', 'public.frooshbin_contract_probe()', 'EXECUTE')
+    AND NOT has_function_privilege(:'backup_user', 'public.dolphin_contract_probe()', 'EXECUTE')
 ) AS privilege_contract_ok \gset
 
 \if :privilege_contract_ok
@@ -206,7 +206,7 @@ SELECT (
     \echo 'PostgreSQL runtime privilege contract failed.'
     -- psql's \quit takes no argument and exits 0, so announcing the failure is
     -- not enough: raise, and let ON_ERROR_STOP=1 give a non-zero exit.
-    DO $frooshbin_guard$ BEGIN
+    DO $dolphin_guard$ BEGIN
         RAISE EXCEPTION 'PostgreSQL runtime privilege contract failed.';
-    END $frooshbin_guard$;
+    END $dolphin_guard$;
 \endif

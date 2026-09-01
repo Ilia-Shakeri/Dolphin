@@ -1,6 +1,6 @@
 # Open business decisions — elaboration (phase P1)
 
-`KARIZ_PROJECT_HANDOFF.md` §14 is the authoritative register of which decisions
+`DOLPHIN_PROJECT_HANDOFF.md` §14 is the authoritative register of which decisions
 are open. This file is subordinate to it: it only expands the Tier-B families
 into precise, answerable questions so the product owner can settle them without
 a further round trip. If the two ever disagree, §14 wins.

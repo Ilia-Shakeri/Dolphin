@@ -255,7 +255,7 @@ class SystemApiTests(TestCase):
 
         for content_type in (
             "application/x-www-form-urlencoded",
-            "multipart/form-data; boundary=kariz-boundary",
+            "multipart/form-data; boundary=dolphin-boundary",
         ):
             with self.subTest(content_type=content_type):
                 response = client.post(

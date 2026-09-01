@@ -6,7 +6,7 @@ Option A was taken: no charting library, one shared renderer, bars drawn from
 ## What ships
 
 `renderBarChart(chart, empty, items, options)` in
-`common/static/common/forooshbin-app.js` is the only chart renderer. `items` is
+`common/static/common/dolphin-app.js` is the only chart renderer. `items` is
 `[{label, value, display}]` — `value` sizes the bar, `display` is the already
 formatted text the reader sees. Keeping those apart is deliberate: it is what
 stops a chart printing `12500000.00` beside tables reading `۱۲،۵۰۰،۰۰۰ ریال`.
@@ -31,7 +31,7 @@ And one line chart, through `renderLineChart`:
 |---|---|---|
 | customer growth | customers list | cumulative total per week or month |
 
-Styling is `.performance-chart*` in `common/static/common/forooshbin.css`. Every
+Styling is `.performance-chart*` in `common/static/common/dolphin.css`. Every
 chart carries an `aria-label`, because bars announce nothing on their own, and
 every one of these pages has an XLSX export that is the real accessible
 alternative.

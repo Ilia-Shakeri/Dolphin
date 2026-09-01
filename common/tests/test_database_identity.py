@@ -25,14 +25,14 @@ class DatabaseIdentityContractTests(SimpleTestCase):
         enforced in config/production_env.py before Django starts.
         """
         for values in (
-            {"POSTGRES_DB": "frooshbin", "POSTGRES_USER": "frooshbin_init"},
-            {"POSTGRES_DB": "forooshbin", "POSTGRES_USER": "forooshbin_init"},
-            {"POSTGRES_DB": "kariz", "POSTGRES_USER": "kariz_init"},
+            {"POSTGRES_DB": "dolphin", "POSTGRES_USER": "dolphin_init"},
+            {"POSTGRES_DB": "dolphin", "POSTGRES_USER": "dolphin_init"},
+            {"POSTGRES_DB": "dolphin", "POSTGRES_USER": "dolphin_init"},
             {"POSTGRES_DB": "crm", "POSTGRES_USER": "crm_init"},
         ):
             with self.subTest(values=values):
                 result = subprocess.run(
-                    [BASH, "scripts/postgres-entrypoint.sh", "--frooshbin-preflight-only"],
+                    [BASH, "scripts/postgres-entrypoint.sh", "--dolphin-preflight-only"],
                     cwd=ROOT,
                     env={**os.environ, **values},
                     capture_output=True,
@@ -53,14 +53,14 @@ class DatabaseIdentityContractTests(SimpleTestCase):
             ROOT / "scripts" / "test-postgres.ps1",
         )
         forbidden = (
-            "POSTGRES_DB=forooshbin",
+            "POSTGRES_DB=frooshbin",
             "POSTGRES_DB=kariz",
-            "test_forooshbin_",
-            "contract_forooshbin_",
-            "restore_forooshbin_",
-            "forooshbin_test_",
-            "forooshbin_migration_",
-            "forooshbin_app_",
+            "test_frooshbin_",
+            "contract_frooshbin_",
+            "restore_frooshbin_",
+            "frooshbin_test_",
+            "frooshbin_migration_",
+            "frooshbin_app_",
             '"kariz-pgtest-',
         )
         offenders = []
@@ -71,13 +71,13 @@ class DatabaseIdentityContractTests(SimpleTestCase):
                     offenders.append(f"{path.relative_to(ROOT)}: {token}")
         self.assertEqual(offenders, [])
 
-    def test_new_backup_writer_uses_only_frooshbin_name(self):
+    def test_new_backup_writer_uses_only_dolphin_name(self):
         shell = (ROOT / "scripts" / "backup-postgres.sh").read_text(encoding="utf-8")
         powershell = (ROOT / "scripts" / "backup-postgres.ps1").read_text(encoding="utf-8")
-        self.assertIn('backup_name="frooshbin-pg-', shell)
-        self.assertIn('$backupName = "frooshbin-pg-', powershell)
-        self.assertNotIn('backup_name="kariz-pg-', shell)
-        self.assertNotIn('$backupName = "kariz-pg-', powershell)
+        self.assertIn('backup_name="dolphin-pg-', shell)
+        self.assertIn('$backupName = "dolphin-pg-', powershell)
+        self.assertNotIn('backup_name="frooshbin-pg-', shell)
+        self.assertNotIn('$backupName = "frooshbin-pg-', powershell)
 
     def test_bootstrap_only_touches_roles_this_stack_manages(self):
         """The real guard: an existing role that is not ours is never taken over.
@@ -91,7 +91,7 @@ class DatabaseIdentityContractTests(SimpleTestCase):
         for role in ("migration", "app", "backup"):
             self.assertIn(f":'{role}_is_legacy' = '0' AND NOT EXISTS", source)
             self.assertIn(
-                f"FrooshBin managed {role if role != 'app' else 'application'} role v1", source
+                f"Dolphin managed {role if role != 'app' else 'application'} role v1", source
             )
         self.assertIn("allow_legacy_comments", source)
         # No brand gate remains in the script.
@@ -109,8 +109,8 @@ class DatabaseIdentityContractTests(SimpleTestCase):
         branding, so it survives the removal of the brand gate.
         """
         source = (ROOT / "scripts" / "bootstrap-postgres.sh").read_text(encoding="utf-8")
-        database_pattern = "^(test|contract|restore)_frooshbin_[0-9a-f]{32}$"
-        role_pattern = "^frooshbin_(migration|app|backup)_[0-9a-f]{32}$"
+        database_pattern = "^(test|contract|restore)_dolphin_[0-9a-f]{32}$"
+        role_pattern = "^dolphin_(migration|app|backup)_[0-9a-f]{32}$"
         self.assertIn(database_pattern, source)
         self.assertIn(role_pattern, source)
         # Defined once and actually applied, rather than merely present.
