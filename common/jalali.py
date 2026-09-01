@@ -14,7 +14,7 @@ integer arithmetic over a fixed 33-year leap cycle, roughly forty lines, and
 fully checkable against published reference dates — unlike Persian *text*
 shaping, which is why `common/pdf.py` refuses to hand-roll its own engine. Adding
 a dependency would mean regenerating the hash-pinned lock on a Linux host
-(`docs/ops/DEPENDENCIES.md`) for something this small.
+(the "Dependency lock" section of docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md) for something this small.
 
 The frontend performs the same conversion in `dolphin-app.js`; the two are held
 to the same reference vectors by `common/tests/test_jalali.py`.

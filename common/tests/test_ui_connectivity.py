@@ -206,7 +206,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     repository, so what is checked here is that the intended set is internally
     consistent — every dependency satisfied, every name registered — and that
     the one withheld module is a real choice rather than an oversight.
-    Documented in `docs/backend/DEPLOYMENT_PROFILE.md`.
+    Documented in the "Deployment profile — implemented design" section of `BACKEND_SPEC.md`.
     """
 
     day_one = frozenset({

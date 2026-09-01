@@ -16,7 +16,27 @@ RESTORE_SCRIPT = REPO_ROOT / "scripts" / "verify-postgres-restore.ps1"
 CONTAINER_RESTORE_SCRIPT = REPO_ROOT / "scripts" / "verify-postgres-restore.sh"
 RESTORE_SCHEMA = REPO_ROOT / "scripts" / "verify-postgres-schema.sql"
 RESTORE_COMPOSE = REPO_ROOT / "compose.restore-verify.yml"
+DEPLOYMENT_RUNBOOK = REPO_ROOT / "docs" / "ops" / "DOLPHIN_DEPLOYMENT_RUNBOOK.md"
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
+
+
+def runbook_section(former_filename):
+    """One former ops doc's own content, isolated from the merged runbook.
+
+    DEPLOYMENT.md, ROLLBACK.md, RELEASE_CHECKLIST.md, BACKUP_RESTORE.md and
+    TLS.md were merged into this one file (2026-09-01); each still occupies
+    one contiguous block, marked by the `*(from `docs/ops/<name>`)*` note this
+    merge inserted under its heading. Slicing that block back out keeps every
+    `.index()`-based ordering assertion below meaningful — searching the whole
+    5000-line file instead would find the *first* match anywhere in it, not
+    the one inside the section a check actually means to test.
+    """
+    text = DEPLOYMENT_RUNBOOK.read_text(encoding="utf-8")
+    marker = f"*(from `docs/ops/{former_filename}`)*"
+    start = text.index(marker) + len(marker)
+    next_marker = text.find("*(from `docs/ops/", start)
+    end = next_marker if next_marker != -1 else len(text)
+    return text[start:end]
 
 
 class BackupScriptTests(SimpleTestCase):
@@ -236,19 +256,16 @@ class BackupScriptTests(SimpleTestCase):
         self.assertNotIn("SELECT *", schema.upper())
 
     def test_ops_order_and_rollback_contracts_match_the_stack(self):
-        deployment = (REPO_ROOT / "docs" / "ops" / "DEPLOYMENT.md").read_text(
-            encoding="utf-8"
-        )
-        rollback = (REPO_ROOT / "docs" / "ops" / "ROLLBACK.md").read_text(
-            encoding="utf-8"
-        )
-        checklist = (
-            REPO_ROOT / "docs" / "ops" / "RELEASE_CHECKLIST.md"
-        ).read_text(encoding="utf-8")
-        backup_restore = (
-            REPO_ROOT / "docs" / "ops" / "BACKUP_RESTORE.md"
-        ).read_text(encoding="utf-8")
-        tls = (REPO_ROOT / "docs" / "ops" / "TLS.md").read_text(encoding="utf-8")
+        # DEPLOYMENT.md, ROLLBACK.md, RELEASE_CHECKLIST.md, BACKUP_RESTORE.md and
+        # TLS.md were merged into DOLPHIN_DEPLOYMENT_RUNBOOK.md (2026-09-01, one
+        # ops doc per direct product-owner decision); runbook_section() isolates
+        # each former file's own text so every `.index()`-based ordering check
+        # below still proves the same thing it always did.
+        deployment = runbook_section("DEPLOYMENT.md")
+        rollback = runbook_section("ROLLBACK.md")
+        checklist = runbook_section("RELEASE_CHECKLIST.md")
+        backup_restore = runbook_section("BACKUP_RESTORE.md")
+        tls = runbook_section("TLS.md")
 
         current_recovery = deployment.index("## Current-compatible write-stop and recovery point")
         target_preflight = deployment.index("## Target preflight")

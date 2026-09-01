@@ -7,7 +7,7 @@ material that could forge a manifest.
 
 Why an in-repository implementation rather than a library: the production
 dependency set is hash-pinned and must be resolved in a clean Linux CPython 3.13
-image (`docs/ops/DEPENDENCIES.md`), which is not possible from the current
+image (the "Dependency lock" section of docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md), which is not possible from the current
 development host. This module keeps the phase unblocked with no new dependency.
 It is deliberately the RFC 8032 reference algorithm, and
 `common/tests/test_deployment_profile.py` checks it against the official RFC

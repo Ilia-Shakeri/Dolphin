@@ -537,7 +537,7 @@ class AccountSecurityTests(TestCase):
 
         A forgotten password is recovered on the host with
         `manage.py changepassword`, which needs server access rather than a
-        session — see docs/ops/CLIENT1_LINUX_STAGING_GUIDE.md.
+        session — see the "Client-1 Linux staging guide" section of docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md.
         """
         client = APIClient()
         client.force_authenticate(self.platform)

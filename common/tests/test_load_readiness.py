@@ -18,7 +18,10 @@ from scripts import load_readiness
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOAD_SCRIPT = REPO_ROOT / "scripts" / "load_readiness.py"
-LOAD_RUNBOOK = REPO_ROOT / "docs" / "ops" / "LOAD_TEST.md"
+# LOAD_TEST.md was merged into DOLPHIN_DEPLOYMENT_RUNBOOK.md (2026-09-01, one
+# ops doc per direct product-owner decision); its content is intact as one
+# section of that file.
+LOAD_RUNBOOK = REPO_ROOT / "docs" / "ops" / "DOLPHIN_DEPLOYMENT_RUNBOOK.md"
 
 
 class _HealthHandler(BaseHTTPRequestHandler):

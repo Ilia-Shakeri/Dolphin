@@ -73,7 +73,9 @@ By default this runs against SQLite with no extra setup. For a real
 PostgreSQL stack (the shape production actually runs), see
 [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md)
 — the canonical, no-assumptions guide for installing, updating, backing up,
-and recovering a real deployment.
+and recovering a real deployment, and now the *only* ops document: every
+other `docs/ops/*.md` file was merged into it 2026-09-01 (one doc, not
+fourteen), each former file preserved intact as its own section.
 
 ## Testing
 
@@ -83,21 +85,24 @@ python manage.py test --settings=config.test_settings
 
 Runs the full suite (1,000+ tests) against an isolated SQLite database — no
 external services required. For the isolated-PostgreSQL proof suite that
-exercises the real role/grant contract, see
-[`docs/backend/POSTGRES_TESTING.md`](docs/backend/POSTGRES_TESTING.md).
+exercises the real role/grant contract, see the "Isolated PostgreSQL
+testing" section of [`BACKEND_SPEC.md`](BACKEND_SPEC.md).
 
 ## Documentation map
 
 | Document | What it's for |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Repository rules: authority order, architecture, branding, working style |
-| [`BACKEND_SPEC.md`](BACKEND_SPEC.md) | The normative business/backend contract |
+| [`BACKEND_SPEC.md`](BACKEND_SPEC.md) | The normative business/backend contract, plus the merged entity/relationship/API/semantics reference (see its Appendix) |
 | [`DOLPHIN_PROJECT_HANDOFF.md`](DOLPHIN_PROJECT_HANDOFF.md) | The live status and evidence register |
-| [`DOLPHIN_CLIENT1_CODEX_ROADMAP.md`](DOLPHIN_CLIENT1_CODEX_ROADMAP.md) | The phased delivery plan |
+| [`DOLPHIN_CLIENT1_CODEX_ROADMAP.md`](DOLPHIN_CLIENT1_CODEX_ROADMAP.md) | The phased delivery plan and forward roadmap |
 | [`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md`](DOLPHIN_FEATURE_MAP_AND_ROADMAP.md) | What exists today vs. what's next |
 | [`CHANGELOG.md`](CHANGELOG.md) | Every release, what changed and why |
-| [`docs/backend/`](docs/backend) | Entity/relationship/API contracts, business semantics |
-| [`docs/ops/`](docs/ops) | Deployment, backup/restore, rollback, security, incident response |
+| [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md) | Deployment, backup/restore, rollback, security, incident response — the one ops document |
+
+`docs/backend/` and `docs/frontend/` no longer exist: their thirteen and two
+files respectively were merged into `BACKEND_SPEC.md`'s Appendix the same day,
+for the same reason.
 
 ## Versioning
 

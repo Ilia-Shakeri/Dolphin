@@ -20,7 +20,7 @@ That choice has consequences worth stating plainly:
   no network request while printing. It is given a throwaway profile
   directory and a timeout, and never a URL from user input.
 
-`docs/ops/MULTI_SERVER_DOCKER_DEPLOYMENT.md` records how to put a browser in
+the "Multi-server Docker deployment" section of docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md records how to put a browser in
 the deployed image, and what that costs.
 """
 

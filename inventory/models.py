@@ -1,7 +1,7 @@
 """Warehouses, per-warehouse stock, and the append-only stock movement ledger.
 
 Bounded semantics recorded here because no external contract fixed them
-(`docs/backend/INVENTORY_SEMANTICS.md` holds the full statement):
+(the "Inventory semantics" section of `BACKEND_SPEC.md` holds the full statement):
 
 * **Quantities are whole units.** `sales.Sale.quantity` is already a positive
   integer, so a fractional unit could never be sold through the existing path.

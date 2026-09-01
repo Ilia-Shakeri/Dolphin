@@ -12,12 +12,27 @@ COMPOSE = ROOT / "compose.yml"
 RESTORE_COMPOSE = ROOT / "compose.restore-verify.yml"
 DOCKERFILE = ROOT / "Dockerfile"
 VALIDATOR = ROOT / "scripts" / "validate_release_images.py"
-SECURITY_SCANS = ROOT / "docs" / "ops" / "SECURITY_SCANS.md"
+# SECURITY_SCANS.md was merged into DOLPHIN_DEPLOYMENT_RUNBOOK.md (2026-09-01,
+# one ops doc per direct product-owner decision); its content is intact as one
+# section of that file, isolated below so an `assertNotIn` over `source` still
+# means "not in the security-scans procedure" rather than "not anywhere in the
+# whole 5000-line merged file" (which a phrase like "docker build" legitimately
+# appears elsewhere in, in an unrelated context).
+SECURITY_SCANS = ROOT / "docs" / "ops" / "DOLPHIN_DEPLOYMENT_RUNBOOK.md"
+
+
+def _security_scans_section():
+    text = SECURITY_SCANS.read_text(encoding="utf-8")
+    marker = "*(from `docs/ops/SECURITY_SCANS.md`)*"
+    start = text.index(marker) + len(marker)
+    next_marker = text.find("*(from `docs/ops/", start)
+    end = next_marker if next_marker != -1 else len(text)
+    return text[start:end]
 
 
 class ReleaseImageContractTests(SimpleTestCase):
     def test_security_scan_runbook_binds_source_image_tools_and_outputs(self):
-        source = SECURITY_SCANS.read_text(encoding="utf-8")
+        source = _security_scans_section()
         for variable in (
             "$approvedReleaseCommit",
             "$appImage",

@@ -1,7 +1,7 @@
 """Payments, allocation to invoices, cheque lifecycle, and installment plans.
 
 Money handling rules this module enforces, all recorded in
-`docs/backend/BILLING_SEMANTICS.md`:
+the "Billing semantics" section of `BACKEND_SPEC.md`:
 
 * **A payment is registered once.** An `idempotency_key` makes a retried
   request return the original payment instead of taking the money twice.

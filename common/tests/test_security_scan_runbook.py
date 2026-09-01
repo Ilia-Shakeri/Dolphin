@@ -9,17 +9,31 @@ from django.test import SimpleTestCase
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RUNBOOK = REPO_ROOT / "docs" / "ops" / "SECURITY_SCANS.md"
+# SECURITY_SCANS.md was merged into DOLPHIN_DEPLOYMENT_RUNBOOK.md (2026-09-01,
+# one ops doc per direct product-owner decision); its content is intact as one
+# section of that file, isolated below the same way `test_backup_scripts.py`
+# does it, so a count or an `assertNotIn` over `cls.source` still means what it
+# always did rather than matching the whole 5000-line merged file.
+RUNBOOK = REPO_ROOT / "docs" / "ops" / "DOLPHIN_DEPLOYMENT_RUNBOOK.md"
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell") or shutil.which(
     "powershell.exe"
 )
+
+
+def _security_scans_section():
+    text = RUNBOOK.read_text(encoding="utf-8")
+    marker = "*(from `docs/ops/SECURITY_SCANS.md`)*"
+    start = text.index(marker) + len(marker)
+    next_marker = text.find("*(from `docs/ops/", start)
+    end = next_marker if next_marker != -1 else len(text)
+    return text[start:end]
 
 
 class SecurityScanRunbookTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.source = RUNBOOK.read_text(encoding="utf-8")
+        cls.source = _security_scans_section()
         cls.powershell_blocks = re.findall(
             r"```powershell\r?\n(.*?)\r?\n```",
             cls.source,

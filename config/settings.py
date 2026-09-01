@@ -281,7 +281,7 @@ def _manifest_public_keys(raw):
 # None of these encode a legal, tax, or accounting requirement. They are the
 # conservative bounded defaults this codebase applies where no approved external
 # contract fixed the rule, and every one is per-deployment configurable.
-# `docs/backend/INVENTORY_SEMANTICS.md` and `docs/backend/BILLING_SEMANTICS.md`
+# the "Inventory semantics" and "Billing semantics" sections of `BACKEND_SPEC.md`
 # state each choice and what would change it.
 
 # Refuse an issue that would drive a warehouse level below zero. A deployment

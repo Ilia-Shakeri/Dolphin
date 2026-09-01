@@ -6,7 +6,7 @@ tracking record) are deliberately left untouched: an Invoice may reference a
 Sale, but neither replaces the other and no existing row is rewritten.
 
 Bounded semantics, all configurable and all recorded in
-`docs/backend/BILLING_SEMANTICS.md` because no external contract fixed them:
+the "Billing semantics" section of `BACKEND_SPEC.md` because no external contract fixed them:
 
 * **Money is `Decimal(18, 2)`, rounded half-up at every step.** One currency per
   deployment; no currency column, because a second currency needs a rate policy
