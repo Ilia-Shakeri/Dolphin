@@ -12,7 +12,14 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'common/brand/apple-touch-icon.png' %}">
     <link rel="manifest" href="{% static 'common/brand/site.webmanifest' %}">
-    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}">
+{% comment %} This page never loaded the theme bundle, so `card`, `card-body` and
+   `btn btn-primary` below were dead classes — the "card" had no border or
+   shadow and the link back home rendered as bare underlined text. Same load
+   order as base.html: plugin styles, then the theme bundle, then the
+   Dolphin-specific overrides. {% endcomment %}
+    <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}">
+    <link rel="stylesheet" href="{% static 'common/forooshbin.css' %}?v={{ forooshbin_version }}">
 </head>
 <body>
 <div class="d-flex flex-column flex-center flex-column-fluid p-10" style="min-height:100vh">

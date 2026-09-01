@@ -343,6 +343,20 @@ class AuthShellBrowserTests(TestCase):
         self.assertContains(response, "صفحه پیدا نشد", status_code=404)
         self.assertContains(response, "Dolphin | دلفین", status_code=404)
 
+    def test_the_error_shell_loads_the_theme_its_classes_come_from(self):
+        """`error.html` used `card` and `btn btn-primary` without ever loading
+        the stylesheet those classes come from — the "card" had no border or
+        shadow and the link home rendered as bare underlined text. Pinned the
+        same way `ChartLibraryTests` pins the load order in base.html."""
+        content = self.client.get("/route-that-does-not-exist/").content.decode("utf-8")
+
+        self.assertIn('/static/plugins/global/plugins.bundle.rtl.css', content)
+        self.assertIn('/static/css/style.bundle.rtl.css', content)
+        self.assertLess(
+            content.index("plugins.bundle.rtl.css"),
+            content.index("style.bundle.rtl.css"),
+        )
+
 
 class AuthShellApiFlowTests(TestCase):
     def setUp(self):
