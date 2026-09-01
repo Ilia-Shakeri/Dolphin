@@ -201,3 +201,48 @@ class WriteTests(SimpleTestCase):
             path = Path(directory) / ".env"
             provisioning.write_env(path, ["POSTGRES_DB=x"])
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+
+class MainEntryPointTests(SimpleTestCase):
+    """Where `main()` actually writes the file — DEPLOY-ENV-001.
+
+    A fresh install used to get its `.env` at the deployment directory's own
+    root, while the runbook's first-install sequence, `deploy.sh`, and every
+    documented `docker compose` example all read `secrets/.env`. Nothing
+    reconciled the two on its own; an operator had to notice and
+    `cp .env secrets/.env` by hand.
+    """
+
+    def test_the_env_lands_at_secrets_env_not_the_bare_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "deployment"
+            exit_code = provisioning.main([
+                "--slug", "acme", "--host", "crm.acme.ir", "--out", str(out_dir),
+            ])
+            self.assertEqual(exit_code, 0)
+            self.assertTrue((out_dir / "secrets" / ".env").is_file())
+            self.assertFalse((out_dir / ".env").exists())
+
+    def test_the_secrets_directory_is_created_owner_only(self):
+        if os.name != "posix":
+            self.skipTest("POSIX file modes; this host does not have them")
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "deployment"
+            provisioning.main([
+                "--slug", "acme", "--host", "crm.acme.ir", "--out", str(out_dir),
+            ])
+            self.assertEqual((out_dir / "secrets").stat().st_mode & 0o777, 0o700)
+
+    def test_a_second_run_refuses_rather_than_replacing_the_secrets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "deployment"
+            first = provisioning.main([
+                "--slug", "acme", "--host", "crm.acme.ir", "--out", str(out_dir),
+            ])
+            self.assertEqual(first, 0)
+            original = (out_dir / "secrets" / ".env").read_text(encoding="utf-8")
+            second = provisioning.main([
+                "--slug", "acme", "--host", "crm.acme.ir", "--out", str(out_dir),
+            ])
+            self.assertEqual(second, 2)
+            self.assertEqual((out_dir / "secrets" / ".env").read_text(encoding="utf-8"), original)

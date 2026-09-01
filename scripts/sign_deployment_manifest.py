@@ -28,6 +28,7 @@ import argparse
 import base64
 import hashlib
 import json
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,22 @@ from common.deployment.registry import (  # noqa: E402
 )
 
 
+def derive_public_key(private_scalar_seed):
+    """The 32-byte Ed25519 public key for a private key seed.
+
+    Split out of `sign()` so a caller who only wants to *display* the public
+    key — to paste into `KARIZ_DEPLOYMENT_MANIFEST_KEYS` — never has to sign an
+    arbitrary throwaway message to get one.
+    """
+    if len(private_scalar_seed) != 32:
+        raise ValueError("An Ed25519 private key seed is 32 bytes.")
+    digest = hashlib.sha512(private_scalar_seed).digest()
+    scalar = int.from_bytes(digest[:32], "little")
+    scalar &= (1 << 254) - 8
+    scalar |= 1 << 254
+    return _compress(ed25519._point_multiply(scalar, ed25519.BASE_POINT))
+
+
 def sign(private_scalar_seed, message):
     """Produce an Ed25519 signature (RFC 8032 section 5.1.6) for `message`."""
     if len(private_scalar_seed) != 32:
@@ -55,8 +72,7 @@ def sign(private_scalar_seed, message):
     scalar |= 1 << 254
     prefix = digest[32:]
 
-    public_point = ed25519._point_multiply(scalar, ed25519.BASE_POINT)
-    public_key = _compress(public_point)
+    public_key = derive_public_key(private_scalar_seed)
 
     nonce = int.from_bytes(hashlib.sha512(prefix + message).digest(), "little") % ed25519.Q
     nonce_point = _compress(ed25519._point_multiply(nonce, ed25519.BASE_POINT))
@@ -128,20 +144,106 @@ def build_manifest(*, seed, key_id, profile_id, features, issued_at):
     ).encode("utf-8")
 
 
+def format_public_key(key_id, public_key):
+    """The exact `key_id:base64` line `KARIZ_DEPLOYMENT_MANIFEST_KEYS` expects.
+
+    Validated here rather than left to whoever pastes it: a public key that
+    decodes to anything but 32 bytes cannot be a real Ed25519 key, and
+    `production_env.py` finding out at container start — after a `sed` wrote
+    an empty or truncated value because the key it read from did not exist —
+    is exactly the failure this exists to catch earlier.
+    """
+    if len(public_key) != 32:
+        raise ValueError("An Ed25519 public key is 32 bytes.")
+    encoded = base64.b64encode(public_key).decode("ascii")
+    if len(encoded) != 44:
+        raise ValueError(f"Encoded public key is {len(encoded)} characters, expected 44.")
+    return f"{key_id}:{encoded}"
+
+
+def generate_key(path):
+    """Generate a new Ed25519 private key with OpenSSL, refusing to overwrite.
+
+    Shells out to the same `openssl genpkey` this script's own docstring told
+    an operator to run by hand — the file format `read_private_seed` parses is
+    exactly OpenSSL's, so generating any other way risks a mismatch this
+    script cannot read back.
+    """
+    destination = Path(path)
+    if destination.exists():
+        raise ProvisioningLikeError(
+            f"{destination} already exists. Generating would replace a key "
+            "that may already have signed a manifest in use. Move it aside "
+            "first if you truly mean to replace it."
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(
+        ["openssl", "genpkey", "-algorithm", "ed25519", "-out", str(destination)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise ProvisioningLikeError(
+            f"openssl genpkey failed: {result.stderr.strip() or 'no output'}"
+        )
+    destination.chmod(0o600)
+
+
+class ProvisioningLikeError(Exception):
+    """Something the operator must fix; reported without a traceback."""
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--private-key", required=True)
-    parser.add_argument("--key-id", required=True)
-    parser.add_argument("--profile-id", required=True, choices=sorted(PROFILES))
+    parser.add_argument(
+        "--generate-key", metavar="PATH",
+        help="generate a new Ed25519 private key at PATH and exit; every other option is ignored",
+    )
+    parser.add_argument(
+        "--print-public-key", action="store_true",
+        help="print 'key_id:base64publickey' for --private-key/--key-id and exit, signing nothing",
+    )
+    parser.add_argument("--private-key")
+    parser.add_argument("--key-id")
+    parser.add_argument("--profile-id", choices=sorted(PROFILES))
     parser.add_argument("--feature", action="append", default=[], dest="features")
     parser.add_argument("--issued-at", default=None)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--output")
     arguments = parser.parse_args(argv)
 
-    issued_at = arguments.issued_at or datetime.now(timezone.utc).isoformat(
-        timespec="seconds"
-    ).replace("+00:00", "Z")
     try:
+        if arguments.generate_key:
+            generate_key(arguments.generate_key)
+            read_private_seed(arguments.generate_key)  # proves it reads back before reporting success
+            sys.stdout.write(
+                f"Generated {arguments.generate_key} (mode 0600).\n\n"
+                "Next, get its public key with a key id:\n\n"
+                f"    python {sys.argv[0]} --print-public-key "
+                f"--private-key {arguments.generate_key} --key-id <id>\n"
+            )
+            return 0
+
+        if arguments.print_public_key:
+            if not arguments.private_key or not arguments.key_id:
+                sys.stderr.write("--print-public-key needs --private-key and --key-id.\n")
+                return 2
+            public_key = derive_public_key(read_private_seed(arguments.private_key))
+            line = format_public_key(arguments.key_id, public_key)
+            sys.stdout.write(f"{line}\n")
+            sys.stdout.write(
+                "\nPaste the line above, unmodified, as one value in "
+                "KARIZ_DEPLOYMENT_MANIFEST_KEYS.\n"
+            )
+            return 0
+
+        for name in ("private_key", "key_id", "profile_id", "output"):
+            if not getattr(arguments, name):
+                sys.stderr.write(f"--{name.replace('_', '-')} is required to sign a manifest.\n")
+                return 2
+
+        issued_at = arguments.issued_at or datetime.now(timezone.utc).isoformat(
+            timespec="seconds"
+        ).replace("+00:00", "Z")
         manifest = build_manifest(
             seed=read_private_seed(arguments.private_key),
             key_id=arguments.key_id,
@@ -149,12 +251,17 @@ def main(argv=None):
             features=arguments.features,
             issued_at=issued_at,
         )
-    except ValueError as error:
+    except (ValueError, ProvisioningLikeError) as error:
         sys.stderr.write(f"{error}\n")
         return 2
+    # 0644, not the private key's 0600: this file is signed, not secret, and
+    # the application container reads it as a non-root user. Setting the mode
+    # here means it is correct from the moment it is written, on the signing
+    # machine, before a copy to the customer host has any chance to lose it.
     Path(arguments.output).write_bytes(manifest)
+    Path(arguments.output).chmod(0o644)
     sys.stdout.write(
-        f"Wrote {arguments.output} for profile {arguments.profile_id} "
+        f"Wrote {arguments.output} (mode 0644) for profile {arguments.profile_id} "
         f"({len(arguments.features)} features).\n"
     )
     return 0

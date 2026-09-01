@@ -28,6 +28,7 @@ v2, PostgreSQL and nginx in containers, and a Django/Gunicorn application image
 | [4. Backup and restore](#4-backup-and-restore) | Routine and disaster |
 | [5. Rollback](#5-rollback) | A release went wrong |
 | [6. Domain deployment](#6-domain-deployment) | Recommended production |
+| [6a. Internal hostname with a private CA](#6a-internal-only-hostname-with-a-private-ca) | Internal-only, real hostname, no public CA |
 | [7. Static-IP deployment](#7-static-ip-deployment) | Staging / internal only |
 | [8. Troubleshooting](#8-troubleshooting) | Something is broken |
 | [9. Security and secrets](#9-security-and-secrets) | Always |
@@ -167,6 +168,33 @@ because it authenticates as the role that step just configured.
 ## 0. Cheat sheet
 
 Run all of these from `$DEPLOY`.
+
+**VALIDATE** (catches a missing or malformed variable before anything starts)
+
+```bash
+docker compose --env-file secrets/.env config --quiet
+```
+
+That only proves Compose can resolve every `${VARIABLE}` — it does not read the
+manifest, sign anything, or touch the database. The real preflight, once `web`
+has an image to run and a manifest to read, is Django's own:
+
+```bash
+docker compose --env-file secrets/.env run --rm --no-deps web python manage.py check
+```
+
+Prefer this over any ad hoc `python -c 'from django.conf import settings; ...'`
+one-liner — Django settings are lazy, so a bare import can succeed while the
+same host later fails to actually start; only `manage.py check` (or a real
+`runserver`/`gunicorn` boot) forces every setting to actually resolve,
+including the deployment manifest's signature.
+
+**PREPARE THE BACKUP VOLUME** (once, before the first backup or the first
+release — see [4.1](#41-prepare-the-backup-volume-once))
+
+```bash
+./scripts/prepare-backup-volume.sh --env-file secrets/.env
+```
 
 **STATUS**
 
@@ -372,6 +400,7 @@ nginx/default.conf
 nginx/write-stop-off.conf
 nginx/write-stop-on.conf
 scripts/deploy.sh
+scripts/prepare-backup-volume.sh
 scripts/bootstrap-postgres.sh
 scripts/postgres-entrypoint.sh
 scripts/backup-postgres.sh
@@ -521,6 +550,21 @@ Production refuses to start without one that verifies.
 **Sign it on the platform owner's machine, never on the customer host.** The
 private key must not travel.
 
+No signing key yet, or not sure the one you have still matches what a
+deployment trusts? Generate one and get its public key back safely — this
+refuses to overwrite an existing key, and refuses to print anything but a
+correctly-shaped public key, rather than the empty or truncated value a failed
+manual `openssl` pipeline can silently produce:
+
+```bash
+python scripts/sign_deployment_manifest.py --generate-key <owner-private-key-path>
+python scripts/sign_deployment_manifest.py --print-public-key \
+  --private-key <owner-private-key-path> --key-id <key-id>
+```
+
+The second command prints exactly the `key_id:base64publickey` line that goes
+into `KARIZ_DEPLOYMENT_MANIFEST_KEYS` — copy it as-is.
+
 ```bash
 python scripts/sign_deployment_manifest.py \
   --private-key <owner-private-key-path> \
@@ -533,8 +577,19 @@ python scripts/sign_deployment_manifest.py \
   --output manifest.json
 ```
 
+This writes `manifest.json` at mode `0644` already — see why below before
+changing it.
+
 Copy `manifest.json` to `secrets/` on the host and point
-`KARIZ_DEPLOYMENT_MANIFEST_PATH` at it.
+`KARIZ_DEPLOYMENT_MANIFEST_PATH` at it. **Unlike everything else in `secrets/`,
+this file must stay world-readable: `chmod 644 secrets/manifest.json`.** The
+application runs as a non-root user inside the container and reads it as a
+bind mount; a manifest copied in at `0600` reads back as
+`PermissionError: [Errno 13] Permission denied` the first time anything
+actually loads settings, not at copy time. It is safe to leave readable: a
+signed manifest is a public, verifiable feature list, not a secret — hiding it
+protects nothing, since anyone with host access can already read `secrets/.env`
+sitting right next to it.
 
 Two deliberate omissions from that list:
 
@@ -886,24 +941,23 @@ Stop and roll back ([section 5](#5-rollback)) if any of these is true after step
 The backup job refuses to write to a volume without its sentinel — that is what
 stops it writing into the wrong place.
 
-The order below is not arbitrary. The `backup` service runs with `cap_drop:
-ALL`, and this command adds only `CHOWN`. `chmod` on a path you do not own needs
-`CAP_FOWNER`, which is not there — so every `chmod` has to happen while root
-still owns the path, before the matching `chown`. `/backups` itself is handed
-over last, because once it belongs to `postgres` at mode `0700` a root without
-`DAC_OVERRIDE` can no longer write the sentinel into it.
-
-It reclaims ownership of `/backups` first so it can be re-run. An earlier
-attempt that chowned the directory and then failed leaves it owned by
-`postgres`, and without this the retry fails at the same `chmod` as the first
-run did. The emptiness test still guards the volume: this recovers a
-half-prepared directory, never an inhabited one.
-
 ```bash
-docker compose --env-file secrets/.env --profile backup run --rm --no-deps \
-  --user root --cap-add CHOWN --entrypoint sh backup -c \
-  'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" DOLPHIN_BACKUP_ROOT_V1 > /backups/.dolphin-backup-root; chmod 0600 /backups/.dolphin-backup-root; chown postgres:postgres /backups/.dolphin-backup-root; chown postgres:postgres /backups'
+./scripts/prepare-backup-volume.sh --env-file secrets/.env
 ```
+
+It is safe to run again later — on an already-prepared volume it just reports
+that and exits, rather than failing the same way whether the volume is already
+done or genuinely holds something unsafe, which is what the raw command it
+wraps used to do (its own emptiness check treats the sentinel it just wrote as
+"not empty" on a second run).
+
+Doing this by hand is unusual enough to be worth understanding, not just
+running: the `backup` service runs with `cap_drop: ALL`, and the script adds
+only `CHOWN`. `chmod` on a path you do not own needs `CAP_FOWNER`, which is not
+there — so every `chmod` has to happen while root still owns the path, before
+the matching `chown`. `/backups` itself is handed over last, because once it
+belongs to `postgres` at mode `0700` a root without `DAC_OVERRIDE` can no
+longer write the sentinel into it.
 
 ### 4.2 Take a backup
 
@@ -1072,6 +1126,83 @@ accepted in writing.
    openssl x509 -in secrets/tls/fullchain.pem -noout -dates
    ```
    Diarise renewal well before expiry. Nothing in the stack renews automatically.
+
+### 6a. Internal-only hostname with a private CA
+
+A company's own `something.internal` name, reachable only inside its network,
+with a certificate that a public CA will never issue for a name it cannot
+verify anyone owns — because it does not resolve on the public Internet at
+all. This is still the domain shape, not the static-IP one below: the
+difference is *who signs the certificate*, not how HTTPS or HSTS behave.
+
+1. **DNS** — an internal `A` record, on whatever resolves inside that network
+   (central DNS is the goal; see the note at the end of this section).
+   ```bash
+   dig +short pannel.company.internal
+   ```
+2. **`.env`** — same as [step 2](#6-domain-deployment) above, with the
+   internal name in all three.
+3. **A private root CA, once, off this host if at all possible:**
+   ```bash
+   openssl genrsa -out Company-Root-CA.key 4096
+   openssl req -x509 -new -sha256 -key Company-Root-CA.key -days 3650 \
+     -out Company-Root-CA.crt -subj '/C=XX/O=Company/CN=Company Internal Root CA'
+   ```
+   The CA's private key (`Company-Root-CA.key`) is the whole trust chain for
+   every certificate it will ever sign. It must not sit on the application
+   host permanently — generate it, sign what you need, and move it to secure
+   or offline custody. It is never distributed to anyone.
+4. **A leaf certificate for the hostname, signed by that CA:**
+   ```bash
+   openssl req -new -nodes -newkey rsa:2048 \
+     -keyout secrets/tls/privkey.pem -out server.csr \
+     -subj '/CN=pannel.company.internal' \
+     -addext 'subjectAltName=DNS:pannel.company.internal'
+   openssl x509 -req -in server.csr -CA Company-Root-CA.crt -CAkey Company-Root-CA.key \
+     -CAcreateserial -days 3650 -out secrets/tls/fullchain.pem \
+     -extfile <(printf 'subjectAltName=DNS:pannel.company.internal')
+   chmod 600 secrets/tls/privkey.pem
+   chmod 644 secrets/tls/fullchain.pem
+   ```
+   `subjectAltName=DNS:` is not optional here either — the same browser rule
+   from [section 7](#7-static-ip-deployment) applies.
+5. **HSTS** — the domain policy, not the static-IP one: this is a real
+   hostname, so keep `DJANGO_SECURE_HSTS_SECONDS=31536000` and
+   `KARIZ_HSTS_HEADER=max-age=31536000`. HSTS only pins "always HTTPS for this
+   host"; it does not pin which CA signed the certificate, so rotating the
+   leaf certificate later — even re-issuing under a new CA — needs no HSTS
+   change.
+6. **Trust distribution.** Every machine that will use the panel needs
+   `Company-Root-CA.crt` (never the `.key`) installed as a trusted root —
+   otherwise every browser shows the same warning a self-signed certificate
+   would. Two ways, in order of preference:
+   * **Central: Group Policy / MDM.** Push the root CA to every managed
+     machine at once; nothing per-user to run or maintain.
+   * **Per-machine, until central distribution exists.** A reviewed onboarding
+     script is shipped at
+     `scripts/windows-employee-onboarding.ps1` — it verifies the CA
+     certificate's SHA-256 against a value you set at the top of the script,
+     installs it into `LocalMachine\Root`, optionally adds a hosts-file
+     mapping, flushes DNS, confirms resolution, and opens the panel. It never
+     bypasses a certificate warning; a warning it cannot clear is treated as
+     "stop and check", not "click through". Give employees only the `.crt`/
+     `.cer` file and this script — never the CA's private key.
+7. **What public ACME (Let's Encrypt and similar) does not do here.** A public
+   CA cannot and will not issue for a name that only resolves internally, so
+   there is nothing to "switch to" later for this hostname short of moving to
+   a real public domain (see [section 6](#6-domain-deployment) above, which
+   this deployment can move to without changing anything else in the stack).
+8. **Renewal and CA lifecycle.** Renewing the leaf certificate is step 6 in
+   [section 6](#6-domain-deployment) above, unchanged. The root CA itself is
+   good for as long as its `-days` said (10 years above) — diarise that
+   separately, since letting it expire invalidates every certificate it ever
+   signed at once, on every trusting machine, the same day.
+
+State this in writing to the customer, the same way section 7 does for a
+static IP: every employee machine needs the CA installed before the panel
+works without a warning, and central DNS plus GPO/MDM distribution is the
+target state — hosts-file edits and one-off imports are a bridge, not the
+plan.
 
 ---
 
@@ -1389,7 +1520,10 @@ rows keep the wrong address; only new ones are correct.
 
 * **`secrets/` is never committed.** It holds `.env`, the TLS private key and the
   signed manifest. `chmod 700 secrets`, `chmod 600 secrets/.env`,
-  `chmod 600 secrets/tls/privkey.pem`.
+  `chmod 600 secrets/tls/privkey.pem`. **`secrets/manifest.json` is the one
+  exception: `chmod 644`.** It is a signed, public feature list the
+  non-root application container must read, not a secret — see
+  [1.10](#110-signed-deployment-manifest).
 * **Never reuse staging secrets in production.** Every `POSTGRES_*_PASSWORD` and
   `DJANGO_SECRET_KEY` is generated fresh per environment.
 * **The manifest signing private key never reaches a customer host.** Only the

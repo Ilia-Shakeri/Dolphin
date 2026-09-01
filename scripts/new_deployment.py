@@ -271,7 +271,7 @@ def report(*, slug, host, out_dir, env_path, features, added, profile):
     print("  4. Copy the runtime files into the deployment directory, then bring")
     print("     the database up once so it initialises:")
     print()
-    print(f"     cd {out_dir} && docker compose up -d db")
+    print(f"     cd {out_dir} && docker compose --env-file secrets/.env up -d db")
     print()
     print("  5. Release, and create the first administrator:")
     print()
@@ -346,7 +346,17 @@ def main(argv=None):
         features, added = resolve_features(requested)
 
         out_dir = Path(arguments.out)
-        env_path = out_dir / ".env"
+        # The canonical runtime path, everywhere else in this project: the
+        # runbook's own first-install sequence, deploy.sh, and every documented
+        # `docker compose` example all read `secrets/.env`, never a bare `.env`
+        # in the deployment directory. Writing there directly is what closes
+        # DEPLOY-ENV-001 — a fresh deployment used to need a manual
+        # `cp .env secrets/.env` to reconcile the two, and `deploy.sh` never
+        # looked at the copy it produced.
+        secrets_dir = out_dir / "secrets"
+        env_path = secrets_dir / ".env"
+        secrets_dir.mkdir(parents=True, exist_ok=True)
+        secrets_dir.chmod(0o700)
         write_env(env_path, env_lines(
             slug=arguments.slug,
             host=arguments.host,

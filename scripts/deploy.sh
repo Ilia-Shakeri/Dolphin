@@ -1,16 +1,19 @@
 #!/bin/sh
 # Move this deployment to a given application image tag, or back to a previous
-# one. Run from the deployment directory — the one holding compose.yml and .env.
+# one. Run from the deployment directory — the one holding compose.yml and
+# secrets/.env.
 #
 #   ./scripts/deploy.sh v1.1.1     switch to that tag
 #   ./scripts/deploy.sh --status   what is running now
 #   ./scripts/deploy.sh --rollback go back to the tag this script last replaced
 #
-#   --no-backup   proceed without one. For a deployment whose backup path is
-#                 not working yet; never for one holding data you would miss.
+#   --no-backup       proceed without one. For a deployment whose backup path
+#                     is not working yet; never for one holding data you would
+#                     miss.
+#   --env-file PATH   use this env file instead of the default secrets/.env.
 #
-# This exists because the upgrade is a fixed sequence with three steps that are
-# easy to forget and quiet when skipped:
+# This exists because the upgrade is a fixed sequence with steps that are easy
+# to forget and quiet when skipped:
 #
 #   * `nginx/default.conf` is bind-mounted from this checkout rather than baked
 #     into the image, so a release that changed it does nothing until the
@@ -18,12 +21,15 @@
 #   * a second Compose project left running holds ports 80 and 443, and the new
 #     stack half-starts — database and application up, nginx refused.
 #   * migrations must run before the new application serves traffic.
+#   * a released migration can add a table, and only `db-finalize` grants the
+#     application role privileges on a table that did not exist when
+#     `db-bootstrap` last ran — skip it and the new table is unreadable by the
+#     running application until someone notices and runs it by hand.
 #
 # The script refuses to continue rather than half-applying any of them.
 set -eu
 
-COMPOSE="docker compose"
-ENV_FILE=".env"
+ENV_FILE=""
 SKIP_BACKUP=0
 STATE_FILE=".deploy-previous-image"
 
@@ -34,11 +40,16 @@ fail() {
 
 note() { echo "==> $1"; }
 
-env_value() {
-    # The value of one key in .env, empty if absent. Deliberately not `source`:
-    # this file holds secrets and must never be executed.
-    sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1
+env_value_in() {
+    # The value of one key in a given env file, empty if absent. Deliberately
+    # not `source`: this file holds secrets and must never be executed.
+    file="$1"
+    key="$2"
+    [ -f "$file" ] || return 0
+    sed -n "s/^$key=//p" "$file" | tail -n 1
 }
+
+env_value() { env_value_in "$ENV_FILE" "$1"; }
 
 set_env_value() {
     key="$1"
@@ -50,15 +61,60 @@ set_env_value() {
         cat "$ENV_FILE" > "$tmp"
         printf '%s=%s\n' "$key" "$value" >> "$tmp"
     fi
-    # Preserve the original permissions: .env holds secrets and mktemp's
-    # ownership is not necessarily the same.
+    # Preserve the original permissions: the env file holds secrets and
+    # mktemp's ownership is not necessarily the same.
     cat "$tmp" > "$ENV_FILE"
     rm -f "$tmp"
 }
 
+resolve_env_file() {
+    # secrets/.env is canonical everywhere else in this project — the
+    # runbook's own first-install sequence and every documented `docker
+    # compose` example read it, and `scripts/new_deployment.py` writes there
+    # directly. This script used to default to a bare `.env` instead, which is
+    # what made it read a stale or empty file while a real deployment's
+    # database, roles and manifest all came from secrets/.env — one install
+    # ran the two paths against different identities and could not tell why a
+    # release looked like it was fighting its own running stack.
+    if [ -n "$ENV_FILE" ]; then
+        [ -f "$ENV_FILE" ] || fail "$ENV_FILE does not exist."
+        return 0
+    fi
+    if [ -f secrets/.env ] && [ -f .env ]; then
+        # Both exist. Harmless if they agree — a checkout can carry .env.example
+        # renamed by hand as a personal note — but not if they name different
+        # deployments; that is exactly the state a half-finished migration to
+        # secrets/.env leaves behind, and guessing which one is current would
+        # silently act on the wrong database.
+        project_secrets="$(env_value_in secrets/.env KARIZ_COMPOSE_PROJECT_NAME)"
+        project_root="$(env_value_in .env KARIZ_COMPOSE_PROJECT_NAME)"
+        db_secrets="$(env_value_in secrets/.env POSTGRES_DB)"
+        db_root="$(env_value_in .env POSTGRES_DB)"
+        if [ "$project_secrets" != "$project_root" ] || [ "$db_secrets" != "$db_root" ]; then
+            fail "both secrets/.env and .env exist and name different deployments
+       (project: '$project_secrets' vs '$project_root'; database:
+       '$db_secrets' vs '$db_root'). secrets/.env is the one this script and
+       the runbook use. Remove or reconcile whichever .env is stale, or pass
+       --env-file explicitly to say which one you mean."
+        fi
+        ENV_FILE="secrets/.env"
+        return 0
+    fi
+    if [ -f secrets/.env ]; then
+        ENV_FILE="secrets/.env"
+        return 0
+    fi
+    if [ -f .env ]; then
+        ENV_FILE=".env"
+        return 0
+    fi
+    fail "no secrets/.env or .env here. Run this from the deployment directory."
+}
+
 require_deployment_directory() {
-    [ -f compose.yml ] || fail "no compose.yml here. Run this from the deployment directory."
-    [ -f "$ENV_FILE" ] || fail "no $ENV_FILE here. Run this from the deployment directory."
+    resolve_env_file
+    note "env file: $ENV_FILE"
+    COMPOSE="docker compose --env-file $ENV_FILE"
 }
 
 show_status() {
@@ -206,20 +262,50 @@ check_backup_volume_is_prepared() {
         note "cannot read volume $volume from here — skipping the backup-volume check."
         return 0
     fi
-    if [ -f "$mountpoint/.dolphin-backup-root" ] || [ -f "$mountpoint/.dolphin-backup-root" ]; then
-        return 0
-    fi
+    for sentinel in .dolphin-backup-root .frooshbin-backup-root .kariz-backup-root; do
+        if [ -f "$mountpoint/$sentinel" ]; then
+            return 0
+        fi
+    done
     echo "error: the backup volume ($volume) has no sentinel, so the backup job will" >&2
     echo "       refuse to write to it. Prepare it once (runbook 4.1), from this" >&2
     echo "       directory, then run this script again:" >&2
     echo >&2
-    # Quoted so the shell expands nothing: this is text to be copied, and the
-    # inner $(find ...) must reach the reader intact.
-    cat >&2 <<'PREPARE'
-    docker compose --profile backup run --rm --no-deps --user root --cap-add CHOWN --entrypoint sh backup -c 'set -eu; test -z "$(find /backups -mindepth 1 -maxdepth 1 -print -quit)"; chown root:root /backups; chmod 0700 /backups; printf "%s\n" DOLPHIN_BACKUP_ROOT_V1 > /backups/.dolphin-backup-root; chmod 0600 /backups/.dolphin-backup-root; chown postgres:postgres /backups/.dolphin-backup-root; chown postgres:postgres /backups'
-PREPARE
+    echo "    ./scripts/prepare-backup-volume.sh --env-file $ENV_FILE" >&2
     echo >&2
     exit 2
+}
+
+check_manifest_and_tls_files_are_readable() {
+    # Compose's own "config --quiet" (run by hand, or by check_ports_are_free
+    # etc. failing loudly instead) proves every ${VARIABLE} resolves; it does
+    # not prove the paths those variables name actually exist or can be read.
+    # A missing or unreadable manifest or TLS file otherwise surfaces only
+    # once `migrate` or `nginx` is already starting, partway through a release
+    # that has, by then, already taken a backup and reprovisioned roles.
+    manifest="$(env_value KARIZ_DEPLOYMENT_MANIFEST_PATH)"
+    if [ -n "$manifest" ]; then
+        [ -f "$manifest" ] || fail "KARIZ_DEPLOYMENT_MANIFEST_PATH ($manifest) does not exist."
+        [ -r "$manifest" ] || fail "KARIZ_DEPLOYMENT_MANIFEST_PATH ($manifest) is not readable by this user."
+        # The container reads it as a non-root user, not as whoever runs this
+        # script, so ordinary read access here is not sufficient by itself —
+        # but a manifest that is not even other-readable is unambiguously
+        # wrong, and worth catching before anything starts rather than after.
+        mode="$(stat -c '%a' "$manifest" 2>/dev/null || stat -f '%Lp' "$manifest" 2>/dev/null || true)"
+        case "$mode" in
+            *4|*5|*6|*7) ;;  # world-readable
+            "") note "could not read the mode of $manifest — skipping that part of the check." ;;
+            *) fail "$manifest is mode $mode, not world-readable. The application
+       container reads it as a non-root user:
+
+           chmod 644 $manifest" ;;
+        esac
+    fi
+    for variable in KARIZ_TLS_CERT_PATH KARIZ_TLS_KEY_PATH; do
+        path="$(env_value "$variable")"
+        [ -n "$path" ] || continue
+        [ -f "$path" ] || fail "$variable ($path) does not exist."
+    done
 }
 
 # --- the release ----------------------------------------------------------
@@ -239,6 +325,7 @@ deploy() {
     check_image_exists "$image"
     check_image_version_matches_tag "$image"
     check_nginx_config_is_current
+    check_manifest_and_tls_files_are_readable
     check_ports_are_free
     check_database_is_not_shared
     if [ "$SKIP_BACKUP" -eq 0 ]; then
@@ -253,31 +340,44 @@ deploy() {
         note "recorded $current for --rollback"
     fi
 
+    # Provisioning the managed roles is not part of taking a backup — it also
+    # has to run before `migrate` authenticates as the migration role, on
+    # every release, backup or not. It used to live only inside the backup
+    # branch below, so `--no-backup` skipped it too, and a release whose .env
+    # had just had a password rotated would fail migrate's own login before
+    # ever reaching the reason why.
+    #
+    # bootstrap prints "Enter new password for user ..." three times here and
+    # that is expected, not a fault. bootstrap-postgres.sh reaches those roles
+    # through psql's \password, piping each value in on stdin; psql echoes the
+    # prompt but reads what was piped. The non-interactive path beside it is
+    # restricted to disposable proof databases on a loopback high port, so it
+    # is unavailable to a real deployment by design.
+    #
+    # -T is kept because a release should allocate no terminal, not because it
+    # silences the prompts. It does not: they appear with or without it.
+    note "provisioning managed roles"
+    $COMPOSE run --rm -T db-bootstrap
+
     if [ "$SKIP_BACKUP" -eq 1 ]; then
         note "SKIPPING THE BACKUP because --no-backup was given."
     else
-        note "backing up the database first"
-        # `backup` depends on `db` alone, so on a stack whose roles have not been
-        # provisioned against this database it authenticates before
-        # `db-bootstrap` has ever had a chance to set their passwords. Bootstrap
-        # first, so the backup meets the credentials the .env actually describes.
-        # bootstrap prints "Enter new password for user ..." three times here
-        # and that is expected, not a fault. bootstrap-postgres.sh reaches those
-        # roles through psql's \password, piping each value in on stdin; psql
-        # echoes the prompt but reads what was piped. The non-interactive path
-        # beside it is restricted to disposable proof databases on a loopback
-        # high port, so it is unavailable to a real deployment by design.
-        #
-        # -T is kept because a release should allocate no terminal, not because
-        # it silences the prompts. It does not: they appear with or without it.
-        # The proof that the piped values land is the backup immediately below,
-        # which authenticates as the role this step just configured.
-        $COMPOSE run --rm -T db-bootstrap
+        note "backing up the database"
         $COMPOSE --profile backup run --rm -T backup
     fi
 
     note "applying migrations and collecting static files"
     $COMPOSE run --rm -T migrate
+
+    # A migration that added a table left it with no grant at all until this
+    # ran: db-bootstrap's grant loop only touches tables that already existed
+    # when it ran, before migrate created the new one. Skipping this step is
+    # not offered as an option — an application role that cannot read a table
+    # of its own is not a smaller failure than a missing backup, just a
+    # quieter one, since nothing here fails loudly until a request touches
+    # that table.
+    note "locking down grants for anything migrate just created"
+    $COMPOSE run --rm -T db-finalize
 
     note "starting the stack"
     $COMPOSE up -d
@@ -304,24 +404,35 @@ rollback() {
     deploy "$previous"
 }
 
-require_deployment_directory
+[ -f compose.yml ] || fail "no compose.yml here. Run this from the deployment directory."
 
-# --no-backup may come before or after the tag; take it from anywhere.
+# --no-backup and --env-file may come before or after the tag; take them from
+# anywhere. --env-file must be resolved before require_deployment_directory,
+# which is what actually opens the file.
 args=""
+take_next_as_env_file=0
 for arg in "$@"; do
-    if [ "$arg" = "--no-backup" ]; then
+    if [ "$take_next_as_env_file" -eq 1 ]; then
+        ENV_FILE="$arg"
+        take_next_as_env_file=0
+    elif [ "$arg" = "--no-backup" ]; then
         SKIP_BACKUP=1
+    elif [ "$arg" = "--env-file" ]; then
+        take_next_as_env_file=1
     else
         args="${args:+$args }$arg"
     fi
 done
+[ "$take_next_as_env_file" -eq 0 ] || fail "--env-file needs a path."
 # shellcheck disable=SC2086
 set -- $args
+
+require_deployment_directory
 
 case "${1:-}" in
     --status|"") show_status ;;
     --rollback)  rollback ;;
-    -h|--help)   sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
+    -h|--help)   sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' ;;
     -*)          fail "unknown option: $1" ;;
     *)           deploy "$1" ;;
 esac

@@ -42,6 +42,12 @@ secrets/
 *.key
 *.p12
 *.pfx
+# A signed deployment manifest is one customer's runtime artifact (see
+# scripts/sign_deployment_manifest.py), not source. It belongs at
+# secrets/manifest.json on the customer host, which secrets/ above already
+# excludes; this catches the same file signed at the repo root by habit
+# before being copied into place, which is not otherwise excluded.
+/manifest.json
 dist/
 build/
 .cache/
