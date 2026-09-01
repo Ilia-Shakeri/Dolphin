@@ -33,6 +33,15 @@
         <p class="text-danger fs-8 mt-1 mb-0" data-error-for="role"></p>
         <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">تغییر نقش</button></div>
     </div></form>{% endif %}
+    <dialog id="role-change-access-dialog" aria-labelledby="role-change-access-title">
+        <h2 id="role-change-access-title" class="mb-4">مجوزهای اختصاصی این کاربر</h2>
+        <p class="text-muted">این کاربر مجوزهایی جدا از پیش‌فرض نقش فعلی‌اش دارد. با تغییر نقش، این مجوزهای اختصاصی چه سرنوشتی داشته باشند؟</p>
+        <div class="d-flex flex-column gap-3 mt-5">
+            <button id="role-change-keep" class="btn btn-light-primary text-start" type="button">حفظ مجوزهای اختصاصی فعلی (پیشنهادی)</button>
+            <button id="role-change-reset" class="btn btn-light-danger text-start" type="button">بازنشانی به پیش‌فرض نقش تازه</button>
+            <button class="btn btn-light" type="button" data-close-dialog>انصراف از تغییر نقش</button>
+        </div>
+    </dialog>
     {% if can_change_roles %}<section class="card mb-5 mb-xl-8"><div class="card-body">
         <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
             <div><h2 class="fs-3 fw-bold text-gray-900 mb-5">نشست‌های فعال</h2><p class="text-muted">هر نشست یک ورود فعال این کاربر است. پایان‌دادن نشست، کاربر را از آن مرورگر خارج می‌کند و حساب او را غیرفعال نمی‌کند.</p></div>

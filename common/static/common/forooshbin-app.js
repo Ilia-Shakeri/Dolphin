@@ -473,11 +473,20 @@
         statusCell.appendChild(status);
         row.appendChild(statusCell);
         const actionCell = document.createElement("td");
+        actionCell.className = "row-actions";
         const link = document.createElement("a");
         link.className = "btn btn-sm btn-light";
         link.href = `/users/${user.id}/`;
         link.textContent = "جزئیات";
         actionCell.appendChild(link);
+        const permissionsButton = document.createElement("button");
+        permissionsButton.className = "btn btn-sm btn-light";
+        permissionsButton.type = "button";
+        permissionsButton.dataset.permissionsButton = "";
+        permissionsButton.dataset.userId = String(user.id);
+        permissionsButton.dataset.userName = displayName === "—" ? user.username : displayName;
+        permissionsButton.textContent = "مجوزها";
+        actionCell.appendChild(permissionsButton);
         row.appendChild(actionCell);
         return row;
     }
@@ -557,7 +566,206 @@
                 window.location.assign(`/users/${user.id}/`);
             });
         });
+
+        setupPermissionsDialog();
+        tableBody.addEventListener("click", (event) => {
+            const button = event.target.closest("[data-permissions-button]");
+            if (!button) return;
+            openPermissionsDialog(button.dataset.userId, button.dataset.userName);
+        });
+
         loadUsers();
+    }
+
+    /**
+     * The "Permissions" modal: view mode first, an explicit "Edit
+     * Permissions" step before anything becomes editable, and the
+     * edit-implies-read rule enforced live as the two checkboxes on a row
+     * are ticked — matching the server-side rule in
+     * `accounts.module_permissions.validate_matrix` so nothing the UI
+     * allows can ever be rejected by the save call for that reason.
+     */
+    function setupPermissionsDialog() {
+        const dialog = document.getElementById("permissions-dialog");
+        if (!dialog) return;
+        const loading = document.getElementById("permissions-loading");
+        const body = document.getElementById("permissions-body");
+        const errorBox = document.getElementById("permissions-error");
+        const tableBody = document.getElementById("permissions-table-body");
+        const customNote = document.getElementById("permissions-custom-note");
+        const nameField = document.getElementById("permissions-user-name");
+        const roleField = document.getElementById("permissions-user-role");
+        const editButton = document.getElementById("permissions-edit");
+        const saveButton = document.getElementById("permissions-save");
+        const cancelEditButton = document.getElementById("permissions-cancel-edit");
+        const resetButton = document.getElementById("permissions-reset");
+
+        let userId = null;
+        let current = null; // last server-confirmed {role, matrix, has_custom_permissions}
+        let editing = false;
+
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => {
+            button.addEventListener("click", () => dialog.close());
+        });
+
+        function showError(message) {
+            errorBox.textContent = message;
+            errorBox.hidden = false;
+        }
+
+        function renderRows() {
+            const rows = Object.entries(current.matrix).map(([key, entry]) => {
+                const row = document.createElement("tr");
+
+                const labelCell = document.createElement("td");
+                labelCell.textContent = entry.is_custom ? `${entry.label} *` : entry.label;
+                row.appendChild(labelCell);
+
+                const readCell = document.createElement("td");
+                readCell.className = "text-center";
+                const readInput = document.createElement("input");
+                readInput.type = "checkbox";
+                readInput.className = "form-check-input";
+                readInput.checked = entry.read;
+                readInput.disabled = !editing;
+                readInput.dataset.module = key;
+                readInput.dataset.axis = "read";
+                readInput.setAttribute("aria-label", `خواندن — ${entry.label}`);
+                readCell.appendChild(readInput);
+                row.appendChild(readCell);
+
+                const writeCell = document.createElement("td");
+                writeCell.className = "text-center";
+                if (entry.supports_write) {
+                    const writeInput = document.createElement("input");
+                    writeInput.type = "checkbox";
+                    writeInput.className = "form-check-input";
+                    writeInput.checked = entry.write;
+                    writeInput.disabled = !editing;
+                    writeInput.dataset.module = key;
+                    writeInput.dataset.axis = "write";
+                    writeInput.setAttribute("aria-label", `ویرایش — ${entry.label}`);
+                    writeCell.appendChild(writeInput);
+                } else {
+                    writeCell.textContent = "—";
+                }
+                row.appendChild(writeCell);
+                return row;
+            });
+            tableBody.replaceChildren(...rows);
+        }
+
+        function render() {
+            nameField.textContent = dialog.dataset.userName || "";
+            roleField.textContent = ROLE_LABELS[current.role] || current.role;
+            customNote.hidden = !current.has_custom_permissions;
+            editButton.hidden = editing;
+            saveButton.hidden = !editing;
+            cancelEditButton.hidden = !editing;
+            renderRows();
+        }
+
+        // Edit always implies Read; unchecking Read while Edit is on turns
+        // Edit off too — the same rule the server enforces, applied live so
+        // the checkboxes never sit in a state the save call would reject.
+        tableBody.addEventListener("change", (event) => {
+            const input = event.target.closest('input[type="checkbox"]');
+            if (!input) return;
+            const moduleKey = input.dataset.module;
+            const readInput = tableBody.querySelector(`input[data-module="${moduleKey}"][data-axis="read"]`);
+            const writeInput = tableBody.querySelector(`input[data-module="${moduleKey}"][data-axis="write"]`);
+            if (input.dataset.axis === "write" && input.checked && readInput) {
+                readInput.checked = true;
+            } else if (input.dataset.axis === "read" && !input.checked && writeInput) {
+                writeInput.checked = false;
+            }
+        });
+
+        function collectMatrix() {
+            const matrix = {};
+            tableBody.querySelectorAll("tr").forEach((row) => {
+                const readInput = row.querySelector('input[data-axis="read"]');
+                const writeInput = row.querySelector('input[data-axis="write"]');
+                if (!readInput) return;
+                matrix[readInput.dataset.module] = {
+                    read: readInput.checked,
+                    write: writeInput ? writeInput.checked : false,
+                };
+            });
+            return matrix;
+        }
+
+        async function load() {
+            loading.hidden = false;
+            body.hidden = true;
+            errorBox.hidden = true;
+            editing = false;
+            try {
+                current = await apiRequest(`/api/v1/users/${userId}/permissions/`);
+                loading.hidden = true;
+                body.hidden = false;
+                render();
+            } catch (error) {
+                loading.hidden = true;
+                showError(errorText(error));
+            }
+        }
+
+        editButton.addEventListener("click", () => {
+            editing = true;
+            render();
+        });
+
+        cancelEditButton.addEventListener("click", () => {
+            editing = false;
+            render();
+        });
+
+        saveButton.addEventListener("click", async () => {
+            errorBox.hidden = true;
+            saveButton.disabled = true;
+            try {
+                current = await apiRequest(`/api/v1/users/${userId}/permissions/`, {
+                    method: "PATCH",
+                    body: {matrix: collectMatrix()},
+                });
+                editing = false;
+                render();
+                globalMessage("مجوزهای کاربر ذخیره شد.", true);
+            } catch (error) {
+                showError(errorText(error));
+            } finally {
+                saveButton.disabled = false;
+            }
+        });
+
+        resetButton.addEventListener("click", async () => {
+            if (!window.confirm("مجوزهای اختصاصی این کاربر حذف و به پیش‌فرض نقشش بازگردانده شود؟")) return;
+            resetButton.disabled = true;
+            try {
+                current = await apiRequest(`/api/v1/users/${userId}/permissions/reset/`, {method: "POST", body: {}});
+                editing = false;
+                render();
+                globalMessage("مجوزهای کاربر به پیش‌فرض نقش بازنشانی شد.", true);
+            } catch (error) {
+                showError(errorText(error));
+            } finally {
+                resetButton.disabled = false;
+            }
+        });
+
+        permissionsDialogOpener = (id, name) => {
+            userId = id;
+            dialog.dataset.userName = name;
+            dialog.showModal();
+            load();
+        };
+    }
+
+    let permissionsDialogOpener = null;
+
+    function openPermissionsDialog(id, name) {
+        if (permissionsDialogOpener) permissionsDialogOpener(id, name);
     }
 
     function fillUser(user) {
@@ -610,10 +818,49 @@
 
         const roleForm = document.getElementById("change-role-form");
         if (roleForm) {
+            const permissionsDialog = document.getElementById("role-change-access-dialog");
+            permissionsDialog.querySelectorAll("[data-close-dialog]").forEach((button) => {
+                button.addEventListener("click", () => permissionsDialog.close());
+            });
+
+            // Resolves to `true`/`false` for keep/reset once the admin picks
+            // one of the dialog's two decision buttons, or to `null` if they
+            // close it any other way — cancelling the role change entirely,
+            // never silently picking one of the two for them.
+            function askKeepCustomPermissions() {
+                return new Promise((resolve) => {
+                    let decided = false;
+                    const keepButton = document.getElementById("role-change-keep");
+                    const resetButton = document.getElementById("role-change-reset");
+                    const onKeep = () => { decided = true; permissionsDialog.close(); resolve(true); };
+                    const onReset = () => { decided = true; permissionsDialog.close(); resolve(false); };
+                    const onClose = () => {
+                        keepButton.removeEventListener("click", onKeep);
+                        resetButton.removeEventListener("click", onReset);
+                        permissionsDialog.removeEventListener("close", onClose);
+                        if (!decided) resolve(null);
+                    };
+                    keepButton.addEventListener("click", onKeep);
+                    resetButton.addEventListener("click", onReset);
+                    permissionsDialog.addEventListener("close", onClose);
+                    permissionsDialog.showModal();
+                });
+            }
+
             roleForm.addEventListener("submit", (event) => {
                 event.preventDefault();
                 withSubmit(roleForm, async () => {
-                    user = await apiRequest(roleForm.action, {method: "POST", body: formPayload(roleForm, ["role"])});
+                    const nextRole = new FormData(roleForm).get("role");
+                    let keepCustomPermissions = true;
+                    if (user.has_custom_permissions && nextRole !== user.role) {
+                        const choice = await askKeepCustomPermissions();
+                        if (choice === null) return; // admin backed out; role stays as it was
+                        keepCustomPermissions = choice;
+                    }
+                    user = await apiRequest(roleForm.action, {
+                        method: "POST",
+                        body: {...formPayload(roleForm, ["role"]), keep_custom_permissions: keepCustomPermissions},
+                    });
                     fillUser(user);
                     globalMessage("نقش کاربر تغییر کرد.", true);
                 });

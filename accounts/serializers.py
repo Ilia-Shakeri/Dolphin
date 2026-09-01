@@ -161,6 +161,8 @@ class RoleChangeSerializer(RejectServerFieldsMixin, serializers.Serializer):
 
 
 class PermissionMatrixEntrySerializer(serializers.Serializer):
+    label = serializers.CharField(read_only=True, required=False)
+    supports_write = serializers.BooleanField(read_only=True, required=False)
     read = serializers.BooleanField()
     write = serializers.BooleanField(required=False, default=False)
     is_custom = serializers.BooleanField(read_only=True, required=False)

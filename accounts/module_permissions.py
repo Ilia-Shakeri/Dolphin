@@ -118,6 +118,8 @@ def effective_matrix_for_user(user):
         write = any(capability in held for capability in module.write) if module.write else False
         default = defaults[module.key]
         matrix[module.key] = {
+            "label": module.label,
+            "supports_write": bool(module.write),
             "read": read,
             "write": write,
             "is_custom": read != default["read"] or write != default["write"],

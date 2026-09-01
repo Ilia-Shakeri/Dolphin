@@ -329,7 +329,7 @@
 {% comment %} A link needs both an enabling capability (role) and an enabled feature
    (deployment profile). The two are separate controls: the backend enforces
    each independently, and this markup is display only. {% endcomment %}
-                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities %}
+                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="call-center" data-nav-group="call-center" class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-phone fs-2"><span class="path1"></span><span class="path2"></span></i></span>
@@ -337,9 +337,13 @@
                                         <span class="menu-arrow"></span>
                                     </span>
                                     <div class="menu-sub menu-sub-accordion">
+                                        {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities %}
                                         <div class="menu-item"><a data-module="customers" class="menu-link" href="{% url 'common_ui:customers' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">مشتریان</span></a></div>
-                                        {% if "leads" in features %}
+                                        {% endif %}
+                                        {% if "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities %}
                                         <div class="menu-item"><a data-module="leads" class="menu-link" href="{% url 'common_ui:leads' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}صف سرنخ من{% else %}سرنخ‌ها{% endif %}</span></a></div>
+                                        {% endif %}
+                                        {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
                                         <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز تماس{% endif %}</span></a></div>
                                         {% endif %}
                                     </div>
@@ -418,7 +422,7 @@
                                 </div>
                                 {% endif %}
 
-                                {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities %}
+                                {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="catalog" data-nav-group="catalog" class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-basket fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i></span>
@@ -426,8 +430,12 @@
                                         <span class="menu-arrow"></span>
                                     </span>
                                     <div class="menu-sub menu-sub-accordion">
+                                        {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities %}
                                         <div class="menu-item"><a data-module="products" class="menu-link" href="{% url 'common_ui:products' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">محصولات{% if request.user.role == 'sales_agent' %} (فقط خواندنی){% endif %}</span></a></div>
+                                        {% endif %}
+                                        {% if "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
                                         <div class="menu-item"><a data-module="product-categories" class="menu-link" href="{% url 'common_ui:product-categories' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">دسته‌بندی‌ها{% if request.user.role == 'sales_agent' %} (فقط خواندنی){% endif %}</span></a></div>
+                                        {% endif %}
                                     </div>
                                 </div>
                                 {% endif %}
