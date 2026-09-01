@@ -108,6 +108,7 @@ moves which digit.
 ---
 
 <sub>Internal engineering identifiers from the product's earlier names
-(`forooshbin`, `Kariz`) do not appear anywhere in this codebase as of
-2026-09-01 — see `CLAUDE.md`'s Branding section for exactly what changed and
-why.</sub>
+(`forooshbin`, `Kariz`) were fully renamed to Dolphin as of 2026-09-01, with
+one deliberate exception: a fixed set of `KARIZ_*` deployment environment
+variable names, which an already-deployed `.env` reads by that exact name —
+see `CLAUDE.md`'s Branding section for the complete list and why.</sub>
