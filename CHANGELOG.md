@@ -34,6 +34,27 @@
 
 ---
 
+## [1.6.8] — ۲۰۲۶-۰۹-۰۱
+
+ریپازیتوری و پوشهٔ محلی به `Dolphin` تغییر نام دادند
+(`github.com/Ilia-Shakeri/Dolphin`)؛ ریموت `origin` به همان نشانی به‌روز
+شد. هیچ نشانی قدیمی به‌صورت سخت‌کد در کد یا مستندات پیدا نشد.
+
+### تغییر کرد
+
+- `common/static/common/brand/android-chrome-192x192.png` و
+  `android-chrome-512x512.png` حالا همان فایل‌های اصلیِ `assets/Dolphin
+  Logos/` هستند، نه نسخهٔ بزرگ‌نمایی‌شده از `apple-touch-icon.png` که
+  در ۱.۶.۶ ساخته شده بود — این دو فایل در آن نسخه در پوشهٔ منبع بودند اما
+  هنوز اضافه نشده بودند و از قلم افتادند.
+
+### شواهد اجراشده
+
+`python manage.py test common.tests.test_static_assets --settings=config.test_settings`
+→ OK. `scripts/check_html_branding.py` → `HTML_BRANDING_PASS files=243`.
+
+---
+
 ## [1.6.7] — ۲۰۲۶-۰۹-۰۱
 
 رفع همان یافتهٔ جانبیِ ثبت‌شده در ورودی `[1.6.6]`: صفحهٔ ارور مشترک
