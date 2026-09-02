@@ -638,6 +638,29 @@ summary:focus-visible,
     margin-inline-start: 8px;
 }
 
+/* The same 13px-root shortfall, closed at its actual source instead of one
+   template at a time.
+
+   Bootstrap's `.gap-2` promises `0.5rem`, which is 8px at the 16px root the
+   utility was designed against. On this theme's 13px root that is 6.5px —
+   under the touch-spacing minimum on every button row, badge row, and filter
+   row that uses it, not only the handful this project had already found and
+   patched one template at a time (`1.7.2`, `1.7.3`). Fixed here, once, for
+   the class itself, so no future `gap-2` anywhere in the app can reintroduce
+   the same shortfall.
+
+   `!important`: measured first — every one of the theme's own spacing
+   utilities, `.gap-2` included, is `!important` in the compiled bundle
+   (`assets/css/style.bundle.rtl.css`). A plain declaration here, loaded
+   after that bundle, still loses to it; only `!important` actually wins.
+
+   `gap-3` and up are already `0.75rem` (9.75px at this root) in the theme's
+   own bundle — already past the 8px minimum this rule exists to guarantee —
+   so they are left untouched. */
+.gap-2 {
+    gap: 8px !important;
+}
+
 /* Identifier and amount columns are set `dir="ltr"` by the renderers — prices,
    invoice numbers, phone numbers, references, IP addresses. They are read down
    the column rather than across the row, and proportional digits make that
