@@ -1,0 +1,93 @@
+{% extends "common/base.html" %}
+{% block title %}پروفایل {{ target_display_name }}{% endblock %}
+{% block page_id %}user-profile{% endblock %}
+{% block body_data %} data-user-id="{{ target_user_id }}"{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">عملکرد فردی</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
+{% block page_title %}{% if is_own_profile %}پروفایل من{% else %}پروفایل {{ target_display_name }}{% endif %}{% endblock %}
+{% block breadcrumb_current %}{% if is_own_profile %}پروفایل من{% else %}پروفایل بازاریاب{% endif %}{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2">
+    {% if not is_own_profile %}<a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست کاربران</a>{% endif %}
+    {% if can_manage_users and not is_own_profile %}<a class="btn btn-light" href="{% url 'common_ui:user-detail' target_user_id %}">ویرایش کاربر</a>{% endif %}
+</div>{% endblock %}
+{% block content %}
+<section id="user-profile-content" data-target-user-id="{{ target_user_id }}" data-target-username="{{ target_username }}">
+    {% comment %} The header: identity rendered straight from the server, since it
+       is already validated in scope by the view — no client round trip needed just
+       to show a name. Only the numbers below it are loaded, because they come from
+       the reports API and its own period filter. {% endcomment %}
+    <div class="card mb-5 mb-xl-8"><div class="card-body pt-9 pb-9">
+        <div class="d-flex flex-wrap flex-sm-nowrap">
+            <div class="me-7 mb-4">
+                <div class="symbol symbol-100px symbol-lg-160px symbol-fixed">
+                    <div class="symbol-label fs-1 fw-bold text-primary bg-light-primary">{{ target_initials }}</div>
+                </div>
+            </div>
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                    <div class="d-flex flex-column">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="text-gray-900 fs-2 fw-bold me-3">{{ target_display_name }}</span>
+                            <span class="badge {% if target_is_active %}badge-light-success{% else %}badge-light-danger{% endif %}">{% if target_is_active %}فعال{% else %}غیرفعال{% endif %}</span>
+                        </div>
+                        <div class="d-flex flex-wrap fw-semibold fs-6 mb-2 pe-2 text-gray-500">
+                            <span class="d-flex align-items-center me-5 mb-2"><i class="ki-duotone ki-profile-circle fs-4 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{{ target_role_label }}</span>
+                            <span class="d-flex align-items-center me-5 mb-2"><i class="ki-duotone ki-user-tick fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>{{ target_username }}</span>
+                            {% if target_phone %}<span class="d-flex align-items-center me-5 mb-2"><i class="ki-duotone ki-phone fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>{{ target_phone }}</span>{% endif %}
+                            {% if target_email %}<span class="d-flex align-items-center mb-2"><i class="ki-duotone ki-sms fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>{{ target_email }}</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form id="profile-performance-filter-form" class="d-flex flex-wrap align-items-end gap-3 mt-4 pt-4 border-top border-gray-200" novalidate>
+            <input type="hidden" id="profile-user-id" name="user_id" value="{{ target_user_id }}">
+            <div><label class="form-label fw-semibold" for="profile-period-start">شروع بازه</label><input class="form-control form-control-solid form-control-sm" id="profile-period-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
+            <div><label class="form-label fw-semibold" for="profile-period-end">پایان بازه</label><input class="form-control form-control-solid form-control-sm" id="profile-period-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
+            <button class="btn btn-sm btn-primary" type="submit">به‌روزرسانی</button>
+        </form>
+        <div id="profile-performance-loading" class="text-center text-gray-700 py-6" hidden>در حال دریافت عملکرد…</div>
+        <div id="profile-performance-error" class="text-center text-danger py-6" role="alert" hidden>عملکرد دریافت نشد.</div>
+        <div class="d-flex flex-wrap mt-5">
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-kpi="customers_created_count">—</div><div class="fw-semibold fs-6 text-gray-500">مشتری ثبت‌شده</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-kpi="sales_count">—</div><div class="fw-semibold fs-6 text-gray-500">فروش تأییدشده</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-150px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-kpi="sales_amount">—</div><div class="fw-semibold fs-6 text-gray-500">مبلغ فروش تأییدشده</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-150px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-kpi="average_sale_amount">—</div><div class="fw-semibold fs-6 text-gray-500">میانگین مبلغ فروش</div></div>
+        </div>
+    </div></div>
+
+    <div class="row g-5 g-xl-8">
+        <div class="col-xl-7">
+            <section class="card h-100"><div class="card-body">
+                <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-4">
+                    <h2 class="fs-3 fw-bold text-gray-900 mb-0">روند فروش تأییدشده</h2>
+                    <div class="btn-group" role="group" aria-label="بازه زمانی نمودار روند">
+                        <button type="button" class="btn btn-sm btn-light" data-trend-range="week" aria-pressed="false">هفتگی</button>
+                        <button type="button" class="btn btn-sm btn-primary" data-trend-range="month" aria-pressed="true">ماهانه</button>
+                    </div>
+                </div>
+                <p class="text-muted fs-7 mb-5">مبلغ فروش تأییدشده این کاربر در یک سال اخیر، به تفکیک بازه انتخابی. بازه بدون فروش با صفر رسم می‌شود تا شیب نمودار درست بماند.</p>
+                <div id="profile-trend-chart" role="img" aria-label="نمودار روند فروش تأییدشده" hidden></div>
+                <p id="profile-trend-chart-empty" class="text-center text-gray-700 py-10" hidden>در یک سال اخیر فروش تأییدشده‌ای ثبت نشده است.</p>
+            </div></section>
+        </div>
+        <div class="col-xl-5">
+            <section class="card h-100"><div class="card-body">
+                <h2 class="fs-3 fw-bold text-gray-900 mb-4">جزئیات همین بازه</h2>
+                <div class="d-flex flex-wrap gap-3 mb-5">
+                    <button class="btn btn-light" type="button" data-performance-detail="customers_created_count">مشتری‌های پشت این عدد</button>
+                    <button class="btn btn-light" type="button" data-performance-detail="sales_count">فروش‌های پشت این عدد</button>
+                </div>
+                <section id="profile-performance-details" hidden>
+                    <p id="profile-details-scope" class="text-muted mb-4"></p>
+                    <div id="profile-details-loading" class="text-center text-gray-700 py-10" hidden>در حال دریافت جزئیات…</div>
+                    <div id="profile-details-error" class="text-center text-danger py-10" role="alert" hidden>جزئیات دریافت نشد.</div>
+                    <div id="profile-details-empty" class="text-center text-gray-700 py-10" hidden>رکوردی برای این شاخص نیست.</div>
+                    <div id="profile-details-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>نوع</th><th>مشتری</th><th>کاربر</th><th>محصول</th><th>مبلغ</th><th>زمان</th><th>عمل</th></tr></thead><tbody id="profile-details-body"></tbody></table></div>
+                    <nav id="profile-details-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی جزئیات" hidden><button id="profile-details-prev" class="btn btn-light" type="button">قبلی</button><span id="profile-details-page-label"></span><button id="profile-details-next" class="btn btn-light" type="button">بعدی</button></nav>
+                </section>
+            </div></section>
+        </div>
+    </div>
+</section>
+{% endblock %}

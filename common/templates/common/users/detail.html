@@ -6,7 +6,10 @@
 {% block page_icon %}<i class="ki-duotone ki-user page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات کاربر{% endblock %}
 {% block breadcrumb_current %}جزئیات کاربر{% endblock %}
-{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a>{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-light" href="{% url 'common_ui:user-profile' target_user_id %}">مشاهده پروفایل</a>
+    <a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a>
+</div>{% endblock %}
 {% block content %}
 <div id="user-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت کاربر…</div></div>
 <section id="user-detail-content" hidden>

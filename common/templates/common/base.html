@@ -157,6 +157,9 @@
    account owner's own form, so it belongs to the account menu. {% endcomment %}
                                     <button id="open-profile" class="menu-link px-5 w-100 text-start border-0 bg-transparent" type="button">پروفایل من</button>
                                 </div>
+                                {% if can_view_own_profile %}<div class="menu-item px-5">
+                                    <a id="open-own-performance" class="menu-link px-5" href="{% url 'common_ui:my-profile' %}">عملکرد من</a>
+                                </div>{% endif %}
                                 <div class="menu-item px-5">
                                     <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
                                 </div>

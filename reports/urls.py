@@ -20,6 +20,7 @@ from reports.financial_views import (
     ReceivablesReportView,
 )
 from reports.views import SalesDocumentReportView, UserPerformanceDetailView, UserPerformanceExportView, UserPerformanceReportView
+from reports.profile_views import SalesGrowthReportView
 
 
 urlpatterns = [
@@ -28,6 +29,7 @@ urlpatterns = [
     path("reports/customer-growth/", CustomerGrowthReportView.as_view(), name="customer-growth-report"),
     path("reports/user-performance/", UserPerformanceReportView.as_view(), name="user-performance-report"),
     path("reports/user-performance/details/", UserPerformanceDetailView.as_view(), name="user-performance-detail"),
+    path("reports/user-performance/trend/", SalesGrowthReportView.as_view(), name="user-performance-trend"),
     path("reports/sales-documents/", SalesDocumentReportView.as_view(), name="sales-document-report"),
     path("reports/receivables/", ReceivablesReportView.as_view(), name="receivables-report"),
     path("reports/profit/", ProfitReportView.as_view(), name="profit-report"),

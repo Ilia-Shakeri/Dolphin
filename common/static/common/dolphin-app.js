@@ -474,6 +474,11 @@
         row.appendChild(statusCell);
         const actionCell = document.createElement("td");
         actionCell.className = "row-actions";
+        const profileLink = document.createElement("a");
+        profileLink.className = "btn btn-sm btn-light";
+        profileLink.href = `/users/${user.id}/profile/`;
+        profileLink.textContent = "پروفایل";
+        actionCell.appendChild(profileLink);
         const link = document.createElement("a");
         link.className = "btn btn-sm btn-light";
         link.href = `/users/${user.id}/`;
@@ -3607,6 +3612,11 @@
             appendMoneyCell(row, item.average_sale_amount);
             const actions = document.createElement("td");
             actions.className = "row-actions";
+            const profileLink = document.createElement("a");
+            profileLink.className = "btn btn-sm btn-light";
+            profileLink.href = `/users/${item.user_id}/profile/`;
+            profileLink.textContent = "پروفایل";
+            actions.appendChild(profileLink);
             [
                 ["customers_created_count", "مشتری‌ها", item.customers_created_count],
                 ["sales_count", "فروش‌ها", item.sales_count],
@@ -3704,6 +3714,101 @@
 
     async function setupUserPerformance() {
         await setupPerformancePanel("report");
+    }
+
+    /**
+     * One seller's profile page: identity is already server-rendered — this
+     * only fills the parts that come from the reports API, locked to the one
+     * user the URL names via the hidden `user_id` field `reportQuery` already
+     * knows to read. The backend re-checks that scope on every request this
+     * makes; nothing here is the authorization, only the display.
+     */
+    async function setupSellerProfile() {
+        const section = document.getElementById("user-profile-content");
+        if (!section) return;
+        const targetUserId = section.dataset.targetUserId;
+        const targetUsername = section.dataset.targetUsername || "";
+
+        const form = document.getElementById("profile-performance-filter-form");
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        document.getElementById("profile-period-start").value = localDateTimeValue(start);
+        document.getElementById("profile-period-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
+
+        async function loadPerformance() {
+            clearMessages(form);
+            const loading = document.getElementById("profile-performance-loading");
+            const errorNode = document.getElementById("profile-performance-error");
+            loading.hidden = false;
+            errorNode.hidden = true;
+            document.getElementById("profile-performance-details").hidden = true;
+            const query = reportQuery(form);
+            try {
+                const report = await apiRequest(`/api/v1/reports/user-performance/?${query}`);
+                const MONEY_KPIS = new Set(["sales_amount", "average_sale_amount"]);
+                Object.entries(report.summary).forEach(([name, value]) => {
+                    const node = section.querySelector(`[data-kpi="${name}"]`);
+                    if (node) node.textContent = MONEY_KPIS.has(name) ? money(value) : toPersianDigits(String(value));
+                });
+                section.querySelectorAll("[data-performance-detail]").forEach((button) => {
+                    const metric = button.dataset.performanceDetail;
+                    const count = report.summary[metric === "customers_created_count" ? metric : "sales_count"];
+                    button.disabled = Number(count) === 0;
+                });
+            } catch (error) {
+                errorNode.textContent = errorText(error);
+                errorNode.hidden = false;
+                showError(error, form);
+            } finally {
+                loading.hidden = true;
+            }
+        }
+        form.addEventListener("submit", (event) => { event.preventDefault(); loadPerformance(); });
+
+        let granularity = "month";
+        async function loadTrend() {
+            const chart = document.getElementById("profile-trend-chart");
+            const empty = document.getElementById("profile-trend-chart-empty");
+            try {
+                const query = new URLSearchParams({user_id: targetUserId, granularity});
+                const report = await apiRequest(`/api/v1/reports/user-performance/trend/?${query}`);
+                const points = report.results.map((row) => ({
+                    label: displayDay(row.bucket),
+                    value: Number(row.sales_amount),
+                    display: money(row.sales_amount),
+                }));
+                renderAreaChart(chart, empty, points, {
+                    ariaLabel: "نمودار روند فروش تأییدشده",
+                    seriesName: "مبلغ فروش تأییدشده",
+                });
+            } catch (error) {
+                if (chart) chart.hidden = true;
+                if (empty) {
+                    empty.textContent = "نمودار روند در دسترس نیست.";
+                    empty.hidden = false;
+                }
+            }
+        }
+        document.querySelectorAll("[data-trend-range]").forEach((button) => {
+            button.addEventListener("click", () => {
+                granularity = button.dataset.trendRange;
+                document.querySelectorAll("[data-trend-range]").forEach((other) => {
+                    const active = other === button;
+                    other.classList.toggle("btn-primary", active);
+                    other.classList.toggle("btn-light", !active);
+                    other.setAttribute("aria-pressed", String(active));
+                });
+                loadTrend();
+            });
+        });
+
+        section.querySelectorAll("[data-performance-detail]").forEach((button) => {
+            button.addEventListener("click", () => {
+                loadPerformanceDetails("profile", targetUserId, targetUsername, button.dataset.performanceDetail);
+            });
+        });
+
+        await Promise.all([loadPerformance(), loadTrend()]);
     }
 
     function activityLogRow(item) {
@@ -6739,6 +6844,7 @@
     if (page === "sales-documents") setupSalesDocuments();
     if (page === "sales-document-detail") setupSalesDocumentDetail();
     if (page === "user-performance") setupUserPerformance();
+    if (page === "user-profile") setupSellerProfile();
     if (page === "sales-document-report") setupSalesDocumentReport();
     if (page === "inbound-sms-report") setupInboundSMSReport();
     if (page === "after-sales") setupAfterSales();

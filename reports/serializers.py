@@ -306,6 +306,49 @@ class CustomerGrowthReportSerializer(serializers.Serializer):
     results = CustomerGrowthRowSerializer(many=True)
 
 
+class SalesGrowthQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    user_id = serializers.IntegerField(
+        min_value=1,
+        required=False,
+        help_text="Whose confirmed sales to trend. Defaults to the caller's own row.",
+    )
+    granularity = serializers.ChoiceField(choices=["week", "month"], required=False)
+    period_start = OffsetAwareDateTimeField(required=False)
+    period_end = OffsetAwareDateTimeField(required=False)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        getlist = getattr(self.initial_data, "getlist", None)
+        if getlist:
+            repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
+            if repeated:
+                raise serializers.ValidationError(
+                    {name: "این پارامتر باید فقط یک‌بار وارد شود." for name in repeated}
+                )
+        start, end = attrs.get("period_start"), attrs.get("period_end")
+        if start and end and end <= start:
+            raise serializers.ValidationError(
+                {"period_end": "پایان دوره باید بعد از شروع آن باشد."}
+            )
+        return attrs
+
+
+class SalesGrowthRowSerializer(serializers.Serializer):
+    #: The first day of the bucket, as a plain calendar date — read as written,
+    #: the same convention `CustomerGrowthRowSerializer.bucket` uses.
+    bucket = serializers.CharField()
+    sales_count = serializers.IntegerField(min_value=0)
+    sales_amount = serializers.DecimalField(max_digits=38, decimal_places=2, coerce_to_string=True)
+
+
+class SalesGrowthReportSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(min_value=1)
+    granularity = serializers.CharField()
+    period_start = serializers.CharField()
+    period_end = serializers.CharField()
+    results = SalesGrowthRowSerializer(many=True)
+
+
 class ListChartRowSerializer(serializers.Serializer):
     label = serializers.CharField()
     value = serializers.FloatField()

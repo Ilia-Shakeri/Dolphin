@@ -36,6 +36,7 @@ from billing.selectors import (
     payments_for,
 )
 from inventory.selectors import stock_items_for, stock_movements_for, warehouses_for
+from reports.selectors import users_for_performance_report
 from sales.selectors import (
     customers_for,
     interactions_for,
@@ -182,6 +183,12 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             capabilities.intersection({"ledger.company", "ledger.own"})
         )
         context["can_view_sms_report"] = "sms.company" in capabilities
+        # The same pair `DolphinUserProfileView` and the user-performance report
+        # itself require — an after-sales agent holds neither, so they get no
+        # "عملکرد من" entry pointing at a page that would just refuse them.
+        context["can_view_own_profile"] = bool(
+            {"reports.own", "reports.company"}.intersection(capabilities)
+        )
         context["can_view_audit"] = feature_enabled("audit_log") and bool(
             {"audit.non_platform", "audit.all"}.intersection(capabilities)
         )
@@ -341,6 +348,97 @@ class DolphinUserDetailView(UserAdminView):
         context["target_user_id"] = self.kwargs["user_id"]
         context["assignable_roles"] = assignable_roles(self.request.user)
         return context
+
+
+def _profile_initials(user):
+    """One or two letters for the avatar circle — there is no photo upload."""
+    name = (user.get_full_name() or user.username).strip()
+    parts = [part for part in name.split() if part]
+    if len(parts) >= 2:
+        return (parts[0][0] + parts[1][0]).upper()
+    return name[:2].upper() if name else "?"
+
+
+class DolphinUserProfileView(ActiveCrmView):
+    """One seller's own page: identity, and the performance report scoped to them alone.
+
+    Gated on `reports.own`/`reports.company` — the same pair the company
+    performance report requires — rather than on `users.manage_*`, which only
+    Platform Admin ever holds (see `accounts.access.ROLE_CAPABILITIES`). A
+    Sales Manager already sees every seller's rows on that company report; this
+    is the same data, addressed one seller at a time, so it asks the same
+    permission rather than the user-administration one `DolphinUserDetailView`
+    and `/users/` themselves require.
+
+    `users_for_performance_report(request.user)` is the actual scope boundary:
+    for a Sales Agent it is themselves alone, so this page is their own and
+    nobody else's; for an elevated role it is every crm identity, so any
+    seller's page opens. The reports API re-derives the identical scope on
+    every request this page makes, so nothing here is the authorization by
+    itself — only what decides whether the shell renders at all.
+    """
+
+    required_feature = "reports"
+    template_name = "common/users/profile.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not is_crm_identity(request.user):
+            if request.user.is_authenticated or SESSION_KEY in request.session:
+                logout(request)
+            return redirect("common_ui:login")
+        if not has_any_capability(request.user, "reports.own", "reports.company"):
+            return self.render_to_response(
+                self.get_context_data(
+                    error_status=403,
+                    error_title="دسترسی مجاز نیست",
+                    error_message="شما اجازه مشاهده این پروفایل را ندارید.",
+                ),
+                status=403,
+            )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        target = users_for_performance_report(request.user).filter(pk=kwargs["user_id"]).first()
+        if target is None:
+            return self.render_to_response(
+                self.get_context_data(
+                    error_status=404,
+                    error_title="پروفایل پیدا نشد",
+                    error_message="این پروفایل در محدوده دسترسی شما وجود ندارد.",
+                ),
+                status=404,
+            )
+        self._target = target
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        target = getattr(self, "_target", None)
+        if target is None:
+            return context
+        context["target_user_id"] = target.pk
+        context["target_username"] = target.username
+        context["target_display_name"] = target.get_full_name() or target.username
+        context["target_role_label"] = ROLE_LABELS.get(target.role, target.role)
+        context["target_phone"] = target.phone
+        context["target_email"] = target.email
+        context["target_is_active"] = target.is_active
+        context["target_initials"] = _profile_initials(target)
+        context["is_own_profile"] = target.pk == self.request.user.pk
+        return context
+
+
+class DolphinMyProfileView(ActiveCrmView):
+    """`/profile/` — "my own profile", with no id to look up first.
+
+    A redirect rather than a second template, so there is exactly one profile
+    page and one place its permission and rendering logic can drift.
+    """
+
+    required_feature = "reports"
+
+    def get(self, request, *args, **kwargs):
+        return redirect("common_ui:user-profile", user_id=request.user.pk)
 
 
 class DolphinCustomerListView(ActiveCrmView):
