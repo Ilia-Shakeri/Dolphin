@@ -58,7 +58,15 @@
         const node = document.getElementById("global-message");
         if (!node) return;
         node.textContent = message;
-        node.classList.toggle("success", success);
+        // The markup ships hard-coded `alert-danger` — right for the far more
+        // common error case, wrong for a success message with no matching CSS
+        // of its own. `alert-success` is the theme's own real class (`style.
+        // bundle.rtl.css` styles it already); this swaps the two rather than
+        // toggling a bare `.success` modifier that nothing in the stylesheet
+        // has ever answered, which is why every past success message here —
+        // "کاربر ذخیره شد" and the rest — still painted the danger red.
+        node.classList.toggle("alert-success", success);
+        node.classList.toggle("alert-danger", !success);
         node.hidden = false;
         node.focus?.();
     }
@@ -997,6 +1005,12 @@
     const DAY_MS = 86400000;
     const JALALI_MONTH_OFFSETS = [0, 31, 62, 93, 124, 155, 186, 216, 246, 276, 306, 336];
     const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+    //: Matches `JALALI_MONTHS` in `common/jalali.py` exactly — the one other
+    //: place this product spells out a Jalali month by name.
+    const JALALI_MONTH_NAMES = [
+        "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
+        "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+    ];
 
     function isJalaliLeap(year) {
         return (((year + 12) % 33) % 4) === 1;
@@ -1981,6 +1995,127 @@
                 window.location.assign(`/leads/${lead.id}/`);
             });
         });
+    }
+
+    /**
+     * The lead follow-up calendar.
+     *
+     * FullCalendar draws a Gregorian grid — the theme's own bundled build
+     * carries no Jalali locale — so every label a reader actually reads (the
+     * day-of-month number, the month/year title) is overwritten with its
+     * Jalali equivalent after render. The grid's own navigation stays
+     * Gregorian internally; only what it says on screen is not.
+     *
+     * Events come from `leads_for(user)` through the ordinary `/api/v1/leads/`
+     * endpoint, narrowed to the visible range by `follow_up_from`/`follow_up_to`
+     * — the same scope and the same rows the leads list page would show for
+     * the same reader, just laid out by date instead of in a table.
+     */
+    async function setupLeadCalendar() {
+        const container = document.getElementById("lead-calendar");
+        if (!container || typeof FullCalendar === "undefined") return;
+        const loading = document.getElementById("lead-calendar-loading");
+        const errorNode = document.getElementById("lead-calendar-error");
+
+        function jalaliDayLabel(date) {
+            const [, , day] = gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+            return toPersianDigits(String(day));
+        }
+
+        function jalaliTitle(date) {
+            const [year, month] = gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+            return `${JALALI_MONTH_NAMES[month - 1]} ${toPersianDigits(String(year))}`;
+        }
+
+        const palette = chartPalette();
+        // pending/completed/cancelled — the three backend-owned Lead statuses,
+        // same order and same colours `sales_by_agent`-style charts already use
+        // for "needs attention" (primary), "done" (success), "closed out, no
+        // action" (danger).
+        const STATUS_COLOR = {pending: palette[0], completed: palette[1], cancelled: palette[4]};
+        const STATUS_LABEL = {pending: "در انتظار تکمیل", completed: "تکمیل", cancelled: "کنسل شده"};
+
+        const calendar = new FullCalendar.Calendar(container, {
+            direction: "rtl",
+            height: "auto",
+            firstDay: 6, // Saturday — the Iranian week start.
+            headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,listMonth"},
+            buttonText: {today: "امروز", month: "ماه", list: "فهرست"},
+            dayHeaderContent: (arg) => ["ی", "د", "س", "چ", "پ", "ج", "ش"][arg.date.getDay()],
+            dayCellContent: (arg) => jalaliDayLabel(arg.date),
+            datesSet: (info) => {
+                // The visible grid's own centre, not `currentStart` — a month
+                // view's first cell is often still the tail of the previous
+                // Jalali month, which would title "شهریور" a grid that reads
+                // as "مهر" to anyone looking at it.
+                const middle = new Date((info.view.currentStart.getTime() + info.view.currentEnd.getTime()) / 2);
+                const titleEl = container.querySelector(".fc-toolbar-title");
+                if (titleEl) titleEl.textContent = jalaliTitle(middle);
+            },
+            editable: true,
+            eventStartEditable: true,
+            eventDurationEditable: false,
+            dayMaxEvents: true,
+            events: async (fetchInfo, successCallback, failureCallback) => {
+                try {
+                    const query = new URLSearchParams({
+                        follow_up_from: fetchInfo.startStr,
+                        follow_up_to: fetchInfo.endStr,
+                    });
+                    const leads = await loadAllPages(`/api/v1/leads/?${query}`);
+                    loading.hidden = true;
+                    errorNode.hidden = true;
+                    container.hidden = false;
+                    successCallback(leads.map((lead) => {
+                        // A follow-up set from the date-only picker lands on
+                        // Tehran midnight; that is what "all day" means here —
+                        // a time-precise one (set from an interaction's own
+                        // datetime field) keeps its clock.
+                        const parts = tehranParts(lead.next_follow_up_at);
+                        const allDay = Boolean(parts && parts.hour === 0 && parts.minute === 0);
+                        const color = STATUS_COLOR[lead.status] || palette[0];
+                        return {
+                            id: String(lead.id),
+                            title: lead.customer_name
+                                ? `${lead.customer_name}${lead.assigned_to_display ? " — " + lead.assigned_to_display : ""}`
+                                : `سرنخ بدون مشتری${lead.assigned_to_display ? " — " + lead.assigned_to_display : ""}`,
+                            start: lead.next_follow_up_at,
+                            allDay,
+                            backgroundColor: color,
+                            borderColor: color,
+                            extendedProps: {statusLabel: STATUS_LABEL[lead.status] || lead.status},
+                        };
+                    }));
+                } catch (error) {
+                    loading.hidden = true;
+                    errorNode.textContent = errorText(error);
+                    errorNode.hidden = false;
+                    failureCallback(error);
+                }
+            },
+            eventClick: (info) => {
+                window.location.href = `/leads/${info.event.id}/`;
+            },
+            eventDrop: async (info) => {
+                try {
+                    await apiRequest(`/api/v1/leads/${info.event.id}/`, {
+                        method: "PATCH",
+                        body: {next_follow_up_at: info.event.start.toISOString()},
+                    });
+                    globalMessage("تاریخ پیگیری به‌روزرسانی شد.", true);
+                } catch (error) {
+                    info.revert();
+                    showError(error);
+                }
+            },
+            eventDidMount: (info) => {
+                const when = info.event.allDay
+                    ? displayDay(info.event.startStr)
+                    : displayDate(info.event.startStr);
+                info.el.title = `${info.event.title} — ${info.event.extendedProps.statusLabel} — ${when}`;
+            },
+        });
+        calendar.render();
     }
 
     async function setupLeadDetail() {
@@ -6832,6 +6967,7 @@
     if (page === "customers") setupCustomers();
     if (page === "customer-detail") setupCustomerDetail();
     if (page === "leads") setupLeads();
+    if (page === "lead-calendar") setupLeadCalendar();
     if (page === "lead-detail") setupLeadDetail();
     if (page === "interactions") setupInteractions();
     if (page === "interaction-detail") setupInteractionDetail();

@@ -24,6 +24,10 @@
    and the panel runs new markup against old CSS and old script. The vendor
    bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
     <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
+{% comment %} Extension point for a page that needs one more vendor bundle the
+   shell does not load for everyone — e.g. the lead follow-up calendar's
+   FullCalendar stylesheet. Empty for every other page. {% endcomment %}
+    {% block extra_head %}{% endblock %}
 {% comment %} The theme is applied before the stylesheets get a chance to paint.
 
    `KTThemeMode` sets `data-bs-theme` itself, but it runs on DOMContentLoaded —
@@ -345,6 +349,7 @@
                                         {% endif %}
                                         {% if "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities %}
                                         <div class="menu-item"><a data-module="leads" class="menu-link" href="{% url 'common_ui:leads' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}صف سرنخ من{% else %}سرنخ‌ها{% endif %}</span></a></div>
+                                        <div class="menu-item"><a data-module="lead-calendar" class="menu-link" href="{% url 'common_ui:lead-calendar' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تقویم پیگیری</span></a></div>
                                         {% endif %}
                                         {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
                                         <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز تماس{% endif %}</span></a></div>
@@ -624,5 +629,9 @@
 <script src="{% static 'plugins/global/plugins.bundle.js' %}"></script>
 <script src="{% static 'js/scripts.bundle.js' %}"></script>
 <script src="{% static 'common/dolphin-app.js' %}?v={{ dolphin_version }}" defer></script>
+{% comment %} Paired with `extra_head` above — a page-specific vendor bundle,
+   loaded after the shell's own scripts since the theme's plugin bundle (jQuery,
+   Popper) already ran and this is what such an extra bundle expects to find. {% endcomment %}
+{% block extra_scripts %}{% endblock %}
 </body>
 </html>

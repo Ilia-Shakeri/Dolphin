@@ -766,3 +766,37 @@ dialog {
 .line-chart-dot:hover {
     r: 5.5;
 }
+
+/* The lead follow-up calendar's status legend — three dots, matching the
+   colours `setupLeadCalendar()` gives the FullCalendar events themselves. */
+.calendar-legend-dot {
+    display: inline-block;
+    width: .65rem;
+    height: .65rem;
+    border-radius: 50%;
+}
+.calendar-legend-dot[data-status="pending"] { background-color: var(--bs-primary); }
+.calendar-legend-dot[data-status="completed"] { background-color: var(--bs-success); }
+.calendar-legend-dot[data-status="cancelled"] { background-color: var(--bs-danger); }
+
+/* FullCalendar's own bundle ships fixed colours, not the theme's variables —
+   it was never built with this theme's dark mode in mind. These are FullCalendar's
+   own documented CSS custom properties (https://fullcalendar.io/docs/css-customization),
+   repointed at the same tokens every other chart on this page already reads,
+   so a reader who switches to dark mode does not land on a bright white grid. */
+#lead-calendar {
+    --fc-border-color: var(--bs-gray-300);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: var(--bs-gray-100);
+    --fc-list-event-hover-bg-color: var(--bs-gray-100);
+    color: var(--bs-gray-800);
+}
+#lead-calendar .fc-toolbar-title,
+#lead-calendar .fc-col-header-cell-cushion,
+#lead-calendar .fc-daygrid-day-number {
+    color: var(--bs-gray-800);
+}
+#lead-calendar .fc-button-primary {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}

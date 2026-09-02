@@ -1,7 +1,7 @@
 from datetime import datetime, time, timedelta
 
 from django.utils import timezone
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -295,7 +295,11 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     sensitive_actions = frozenset({"reassign"})
     search_fields = ["customer__full_name", "source", "campaign_or_batch", "notes"]
     ordering_fields = ["created_at", "next_follow_up_at", "assigned_at"]
-    list_query_parameters = {"status"}
+    #: `follow_up_from`/`follow_up_to` are the follow-up calendar's own window —
+    #: both bounds are exact ISO instants, because the calendar grid already
+    #: knows precisely where each visible cell starts and ends, unlike a plain
+    #: registration-date filter where a person types a bare day.
+    list_query_parameters = {"status", "follow_up_from", "follow_up_to"}
     action_query_parameters = {
         "assignees": {"page"},
         "assignment_history": {"page"},
@@ -307,9 +311,41 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         status_value = self.request.query_params.get("status")
         if status_value is not None:
             queryset = queryset.filter(status=status_value)
+        return self._filter_by_follow_up(queryset)
+
+    def _filter_by_follow_up(self, queryset):
+        """Narrow to a `next_follow_up_at` window — the follow-up calendar's own filter.
+
+        A lead with no follow-up date set is excluded by the bound comparison
+        itself, which is exactly what a calendar wants: nothing to draw for it.
+        """
+        bounds = {
+            "follow_up_from": self.request.query_params.get("follow_up_from"),
+            "follow_up_to": self.request.query_params.get("follow_up_to"),
+        }
+        parsed = {}
+        errors = {}
+        for name, raw in bounds.items():
+            if not raw:
+                continue
+            value = parse_datetime(raw)
+            if value is None or timezone.is_naive(value):
+                errors[name] = ["زمان را در قالب ISO 8601 همراه با منطقه زمانی وارد کنید."]
+            else:
+                parsed[name] = value
+        if errors:
+            raise ValidationError(errors)
+        if "follow_up_from" in parsed:
+            queryset = queryset.filter(next_follow_up_at__gte=parsed["follow_up_from"])
+        if "follow_up_to" in parsed:
+            queryset = queryset.filter(next_follow_up_at__lt=parsed["follow_up_to"])
         return queryset
 
-    @extend_schema(parameters=[OpenApiParameter("status", str, description="Exact backend-owned lead status value.")])
+    @extend_schema(parameters=[
+        OpenApiParameter("status", str, description="Exact backend-owned lead status value."),
+        OpenApiParameter("follow_up_from", str, description="Inclusive ISO 8601 instant; narrows to next_follow_up_at."),
+        OpenApiParameter("follow_up_to", str, description="Exclusive ISO 8601 instant; narrows to next_follow_up_at."),
+    ])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 

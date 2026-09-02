@@ -1,0 +1,33 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% block title %}تقویم پیگیری سرنخ‌ها{% endblock %}
+{% block page_id %}lead-calendar{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مرکز تماس</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-calendar page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}تقویم پیگیری سرنخ‌ها{% endblock %}
+{% block breadcrumb_current %}تقویم پیگیری{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:leads' %}">فهرست سرنخ‌ها</a>{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css' %}">
+{% endblock %}
+{% block content %}
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+        <div>
+            <h2 class="fs-3 fw-bold text-gray-900 mb-1">پیگیری‌های زمان‌بندی‌شده</h2>
+            <p class="text-muted fs-7 mb-0">هر رویداد یعنی «پیگیری بعدی» ثبت‌شدهٔ یک سرنخ در محدودهٔ دسترسی شماست — همان محدوده‌ای که فهرست سرنخ‌ها نشان می‌دهد. برای دیدن جزئیات کلیک کنید؛ برای تغییر تاریخ پیگیری، رویداد را به روز دیگری بکشید.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-4">
+            <span class="d-flex align-items-center gap-2 fs-7 text-gray-700"><span class="calendar-legend-dot" data-status="pending"></span>در انتظار تکمیل</span>
+            <span class="d-flex align-items-center gap-2 fs-7 text-gray-700"><span class="calendar-legend-dot" data-status="completed"></span>تکمیل</span>
+            <span class="d-flex align-items-center gap-2 fs-7 text-gray-700"><span class="calendar-legend-dot" data-status="cancelled"></span>کنسل شده</span>
+        </div>
+    </div>
+    <div id="lead-calendar-loading" class="text-center text-gray-700 py-10">در حال دریافت سرنخ‌ها…</div>
+    <div id="lead-calendar-error" class="text-center text-danger py-10" role="alert" hidden>سرنخ‌ها دریافت نشدند.</div>
+    <div id="lead-calendar" hidden></div>
+</div></section>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.js' %}"></script>
+{% endblock %}

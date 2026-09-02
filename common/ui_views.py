@@ -491,6 +491,21 @@ class DolphinLeadListView(ActiveCrmView):
     template_name = "common/leads/list.html"
 
 
+class DolphinLeadCalendarView(ActiveCrmView):
+    """The same leads, drawn on a month grid by `next_follow_up_at`.
+
+    No extra permission check beyond the feature gate: exactly like
+    `DolphinLeadListView`, the page renders for anyone whose deployment runs
+    `leads`, and `leads_for`/`leads.scoped`/`leads.company` on the API behind
+    it are what actually decide whose leads it can ever draw. A viewer with
+    neither capability opens an empty calendar, the same way they would see
+    an empty list on the ordinary leads page.
+    """
+
+    required_feature = "leads"
+    template_name = "common/leads/calendar.html"
+
+
 class DolphinLeadDetailView(ScopedDetailView):
     required_feature = "leads"
     template_name = "common/leads/detail.html"
