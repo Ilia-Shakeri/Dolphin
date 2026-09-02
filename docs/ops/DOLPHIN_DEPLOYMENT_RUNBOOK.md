@@ -316,6 +316,16 @@ what any of those already check or refuse. Read 1.1–1.16 once regardless: this
 is what to fall back to when a step fails, and what `--dry-run` prints a plan
 against.
 
+**The GitHub repo is private**, so the one thing neither `quickstart.sh` nor
+1.1–1.16 does for you is getting the code onto whichever machine builds the
+image (never the customer host itself — 1.6). Use a read-only,
+single-repository SSH deploy key (GitHub → repo → Settings → Deploy keys),
+not a personal access token tied to your whole account:
+
+```bash
+git clone git@github.com:<org>/Dolphin.git && cd Dolphin
+```
+
 Reviewed image, a manifest signed elsewhere, a real certificate — the
 documented model, unchanged:
 
@@ -324,6 +334,15 @@ sudo ./scripts/quickstart.sh --slug client1 --host crm.client1.ir \
     --app-image ghcr.io/you/dolphin-app@sha256:<digest> \
     --manifest /path/to/signed-manifest.json --manifest-keys 'k1:AAAA...' \
     --tls-cert /path/to/fullchain.pem --tls-key /path/to/privkey.pem
+```
+
+If that image lives in a private registry (GHCR keeps a private repo's
+packages private by default), the customer host needs one `docker login`
+before this pulls anything — a PAT scoped to `read:packages` only, not the
+deploy key above:
+
+```bash
+echo "$GHCR_PULL_TOKEN" | docker login ghcr.io -u <github-username> --password-stdin
 ```
 
 A single dedicated server you fully control end-to-end, with nothing
