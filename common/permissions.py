@@ -12,8 +12,9 @@ class IsActiveAuthenticated(BasePermission):
 
 
 #: HTTP methods that only ever read. Everything else — POST, PUT, PATCH, and
-#: DELETE, though `NoDestroyModelViewSet` already refuses DELETE everywhere —
-#: is a write for the purpose of `HasCapabilityForMethod` below.
+#: DELETE — is a write for the purpose of `HasCapabilityForMethod` below.
+#: DELETE additionally needs a Platform Admin actor, checked inside
+#: `common.viewsets.HardDeleteMixin` itself rather than here.
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 

@@ -342,12 +342,15 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
         self.assertEqual(self.agent.first_name, "")
 
-    def test_role_field_and_delete_stay_rejected_for_platform_admin(self):
+    def test_role_field_stays_rejected_on_plain_update_for_platform_admin(self):
         client = APIClient()
         client.force_authenticate(self.platform)
 
         # `role` is server-controlled even for the only administrator role: it
         # may only change through the dedicated audited change-role action.
+        # (DELETE used to be rejected here too, before the 2026-09-02 change
+        # that gave a Platform Admin real deletion — see
+        # accounts/tests/test_user_hard_delete.py for that behaviour now.)
         update_escalation = client.patch(
             f"/api/v1/users/{self.agent.pk}/",
             {"role": User.Role.SALES_MANAGER},
@@ -355,7 +358,6 @@ class AccountSecurityTests(TestCase):
         )
         self.assertEqual(update_escalation.status_code, 400)
         self.assertIn("role", update_escalation.data)
-        self.assertEqual(client.delete(f"/api/v1/users/{self.agent.pk}/").status_code, 405)
         self.agent.refresh_from_db()
         self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
 
@@ -437,14 +439,9 @@ class AccountSecurityTests(TestCase):
             ).exists()
         )
 
-    def test_user_delete_route_is_not_available(self):
-        client = APIClient()
-        client.force_authenticate(self.platform)
-
-        response = client.delete(f"/api/v1/users/{self.agent.pk}/")
-
-        self.assertEqual(response.status_code, 405)
-        self.assertTrue(User.objects.filter(pk=self.agent.pk, is_active=True).exists())
+    # DELETE on a user was rejected outright before the 2026-09-02 change that
+    # gave a Platform Admin real, audited deletion of a mistaken entry — see
+    # accounts/tests/test_user_hard_delete.py for that route's coverage now.
 
     def test_role_change_audit_has_safe_codes_only(self):
         change_user_role(actor=self.platform, target=self.agent, role=User.Role.SALES_MANAGER)
@@ -566,18 +563,29 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(self.agent.role, User.Role.SALES_MANAGER)
         self.assertEqual(self.agent.first_name, "Fresh")
 
-    def test_user_service_allows_platform_admin_to_grant_any_fixed_role(self):
+    def test_user_service_allows_platform_admin_to_grant_any_other_fixed_role(self):
         # `role` moved from server-controlled (rejected as an unknown field)
-        # to an explicit, required, validated creation input — a Platform
-        # Admin creating a peer Platform Admin is exactly what
-        # `assignable_roles` already allows a Platform Admin actor to do.
+        # to an explicit, required, validated creation input — every role
+        # `assignable_roles` offers a Platform Admin actor except its own:
+        # see PlatformAdminSingletonTests in test_user_administration_policy.py
+        # for why `platform_admin` itself is refused even for this actor.
         created = create_crm_user(
             actor=self.platform,
-            username="new-admin",
+            username="new-manager",
             password="Long-Safe-Pass-741!",
-            role=User.Role.PLATFORM_ADMIN,
+            role=User.Role.SALES_MANAGER,
         )
-        self.assertEqual(created.role, User.Role.PLATFORM_ADMIN)
+        self.assertEqual(created.role, User.Role.SALES_MANAGER)
+
+    def test_user_service_refuses_platform_admin_even_for_platform_admin_actor(self):
+        with self.assertRaises(BusinessPermissionDenied):
+            create_crm_user(
+                actor=self.platform,
+                username="new-admin",
+                password="Long-Safe-Pass-741!",
+                role=User.Role.PLATFORM_ADMIN,
+            )
+        self.assertFalse(User.objects.filter(username="new-admin").exists())
 
     def test_user_service_rejects_unknown_role(self):
         with self.assertRaises(BusinessRuleError):

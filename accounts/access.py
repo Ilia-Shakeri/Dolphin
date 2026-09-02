@@ -261,12 +261,22 @@ ROLE_LABELS = {
 
 
 def assignable_roles(actor):
-    """The roles `actor` may move somebody to, in display order.
+    """The roles `actor` may move somebody to, or create a new account as, in
+    display order.
 
-    Two independent gates, in this order: a role its deployment does not run is
-    absent for everyone, and Platform Admin is offered only to a Platform Admin.
+    Platform Admin is never in this list, for anyone, including an acting
+    Platform Admin: the product keeps exactly one Platform Admin account at a
+    time, provisioned only out-of-band by `bootstrap_platform_admin` (which
+    itself refuses to run a second time), never through the CRM's own create-
+    user or change-role paths — see `_protect_last_active_platform_admin` for
+    the matching floor (never drop below one) that this function is the
+    ceiling for (never rise above one). `actor` is still a parameter, kept for
+    a future per-actor gate and so callers need not change, even though no
+    current rule depends on it beyond the deployment-wide feature flag below.
+
     The template renders this list rather than hardcoding options, so the page
-    and `change_user_role` can never disagree about what is allowed.
+    and `change_user_role`/`create_crm_user` can never disagree about what is
+    allowed.
     """
     from common.deployment.profile import feature_enabled
 
@@ -274,13 +284,10 @@ def assignable_roles(actor):
         User.Role.SALES_AGENT,
         User.Role.SALES_MANAGER,
         User.Role.COMPANY_IT,
-        User.Role.PLATFORM_ADMIN,
     )
     allowed = []
     for role in order:
         if role == User.Role.COMPANY_IT and not feature_enabled("internal_it_role"):
-            continue
-        if role == User.Role.PLATFORM_ADMIN and getattr(actor, "role", None) != User.Role.PLATFORM_ADMIN:
             continue
         allowed.append((role.value, ROLE_LABELS[role]))
     return allowed

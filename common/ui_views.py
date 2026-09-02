@@ -193,6 +193,13 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             {"audit.non_platform", "audit.all"}.intersection(capabilities)
         )
         context["is_platform_navigation"] = "dashboard.platform" in capabilities
+        # 2026-09-02: real, irreversible row deletion — single or bulk, on
+        # every list page — for a Platform Admin only, to correct a mistaken
+        # entry. Everyone else still deactivates, same as before. Set once
+        # here rather than per list view since every list page shares this
+        # one root; the backend gate in `common.viewsets.HardDeleteMixin` is
+        # what actually decides, regardless of what this hides or shows.
+        context["can_hard_delete"] = self.request.user.role == User.Role.PLATFORM_ADMIN
         return context
 
 

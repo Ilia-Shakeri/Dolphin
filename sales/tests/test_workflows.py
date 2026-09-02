@@ -1072,11 +1072,15 @@ class CoreWorkflowTests(TestCase):
         self.assertEqual(sale_response.status_code, 400)
         self.assertIn("sold_by", sale_response.data)
 
-    def test_historical_objects_have_no_delete_route(self):
+    def test_historical_objects_are_not_deletable_by_a_non_admin(self):
+        # Real DELETE exists since the 2026-09-02 change (see
+        # common/tests/test_hard_delete.py), but only a Platform Admin may
+        # ever use it — a Sales Manager gets 403 here, same as any other
+        # write this role does not hold.
         client = APIClient()
         client.force_authenticate(self.manager)
-        self.assertEqual(client.delete(f"/api/v1/customers/{self.customer.pk}/").status_code, 405)
-        self.assertEqual(client.delete(f"/api/v1/leads/{self.lead.pk}/").status_code, 405)
+        self.assertEqual(client.delete(f"/api/v1/customers/{self.customer.pk}/").status_code, 403)
+        self.assertEqual(client.delete(f"/api/v1/leads/{self.lead.pk}/").status_code, 403)
 
     def test_agent_cannot_retrieve_other_agents_objects_by_id(self):
         other_customer, other_lead, interaction, sale = self._create_other_private_sales_objects()

@@ -65,6 +65,13 @@ assets
 !assets/plugins/global/plugins.bundle.js
 !assets/plugins/global/fonts/keenicons
 !assets/fonts
+# The lead follow-up calendar (1.7.1) draws with this bundle — the theme has
+# no standalone build of it either. Missing until 1.7.5: the blanket `assets`
+# exclusion above was never given a matching re-inclusion for it, so the
+# calendar page loaded, called FullCalendar, and there was no FullCalendar —
+# in any deployment that actually builds this Dockerfile, never in `runserver`,
+# which serves straight from the repository and never consults this file.
+!assets/plugins/custom/fullcalendar
 src
 asides
 dashboards

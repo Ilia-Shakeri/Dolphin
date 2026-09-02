@@ -35,8 +35,16 @@ INTERPOLATION_RE = re.compile(r"\$\{[^}]*\}")
 def _concrete(path):
     """Turn a script template literal into a path the resolver can accept."""
     path = path.split("?", 1)[0]
-    # Any interpolated segment is an id in practice; 1 resolves wherever an id
-    # is expected and leaves a trailing slash intact.
+    # `${key}` is the one interpolation that is not an id: `setupRowSelection`
+    # (2026-09-02, the hard-delete feature) builds `/api/v1/${key}/bulk-
+    # delete/` from `setupPagedList`'s own `key`, which is always a real REST
+    # resource segment (`"customers"`, `"leads"`, …), never a row id. Resolved
+    # against one real one — `customers` — rather than substituted with "1"
+    # like every other interpolation below, which would look for a route at
+    # `/api/v1/1/bulk-delete/` that was never meant to exist.
+    path = path.replace("${key}", "customers")
+    # Any other interpolated segment is an id in practice; 1 resolves
+    # wherever an id is expected and leaves a trailing slash intact.
     path = INTERPOLATION_RE.sub("1", path)
     return re.sub(r"/{2,}", "/", path)
 

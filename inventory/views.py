@@ -13,7 +13,7 @@ from common.openapi import (
 )
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
-from common.viewsets import NoDestroyModelViewSet, StrictQueryParametersMixin
+from common.viewsets import AdminHardDeleteModelViewSet, StrictQueryParametersMixin
 from inventory.models import StockItem, StockMovement, Warehouse
 from inventory.permissions import HasInventoryCapability
 from inventory.selectors import stock_items_for, stock_movements_for, warehouses_for
@@ -27,7 +27,7 @@ from inventory.services import deactivate_warehouse, reactivate_warehouse, trans
 from rest_framework import mixins, viewsets
 
 
-class WarehouseViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class WarehouseViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "inventory"
     required_capabilities = ("inventory.read", "inventory.manage")
     required_write_capabilities = ("inventory.manage",)

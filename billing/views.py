@@ -93,7 +93,7 @@ from common.openapi import (
 )
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
-from common.viewsets import NoDestroyModelViewSet, StrictQueryParametersMixin
+from common.viewsets import AdminHardDeleteModelViewSet, HardDeleteMixin, StrictQueryParametersMixin
 from sales.selectors import customers_for
 
 
@@ -116,7 +116,7 @@ WRITE_RESPONSES = {
 }
 
 
-class CommercialDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class CommercialDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     """Shared list/filter/items behaviour of Quotation, Order, and Invoice."""
 
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
@@ -430,7 +430,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
         return self.get_paginated_response(PaymentAllocationSerializer(page, many=True).data)
 
 
-class PaymentViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+class PaymentViewSet(SensitiveActionThrottleMixin, HardDeleteMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     required_feature = "payments"
     required_capabilities = ("payments.company",)
     required_write_capabilities = ("payments.manage",)

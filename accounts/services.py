@@ -224,6 +224,14 @@ def change_user_role(*, actor, target, role, keep_custom_permissions=True):
         # Platform Admin, and refuse it at the API rather than only hiding the
         # option in the page.
         raise BusinessPermissionDenied("این استقرار از نقش مدیر فنی مشتری استفاده نمی‌کند.")
+    if role == User.Role.PLATFORM_ADMIN:
+        # Checked here too, not only in `assignable_roles` (which the page's
+        # dropdown reads): a hidden option is never authorization, and this is
+        # the actual boundary a direct API call would hit. Exactly one active
+        # Platform Admin exists at a time, provisioned only by
+        # `bootstrap_platform_admin`; even a Platform Admin actor cannot mint a
+        # second one by promoting someone else through this endpoint.
+        raise BusinessPermissionDenied("نقش مدیر پلتفرم از این مسیر قابل اعطا نیست.")
     if actor.role == User.Role.SALES_MANAGER:
         raise BusinessPermissionDenied("مدیر فروشگاه نمی‌تواند نقش کاربران را تغییر دهد.")
     if actor.role == User.Role.COMPANY_IT:

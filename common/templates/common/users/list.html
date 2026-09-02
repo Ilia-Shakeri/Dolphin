@@ -15,11 +15,17 @@
         <input class="form-control form-control-solid" id="user-search" name="search" type="search" placeholder="نام، نام کاربری، ایمیل یا تلفن">
         <button class="btn btn-light list-filters-submit" type="submit">جستجو</button>
     </form></div></div><div class="card-body pt-2">
+    {% if can_hard_delete %}
+    <div class="d-flex align-items-center gap-3 mb-4" data-users-toolbar="selected" hidden>
+        <span class="fw-bold text-gray-800"><span data-users-select="selected_count">0</span> مورد انتخاب شد</span>
+        <button type="button" class="btn btn-sm btn-danger" data-users-select="delete_selected">حذف موارد انتخاب‌شده</button>
+    </div>
+    {% endif %}
     <div id="users-loading" class="text-center text-gray-700 py-10">در حال دریافت کاربران…</div>
     <div id="users-empty" class="text-center text-gray-700 py-10" hidden>کاربری پیدا نشد.</div>
     <div class="table-responsive" id="users-table-wrap" hidden>
         <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
-            <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>نام کاربری</th><th>نام</th><th>نقش</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+            <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">{% if can_hard_delete %}<th class="w-25px"><input class="form-check-input" type="checkbox" data-users-select="all" aria-label="انتخاب همه"></th>{% endif %}<th>نام کاربری</th><th>نام</th><th>نقش</th><th>وضعیت</th><th>عملیات</th></tr></thead>
             <tbody id="users-table-body"></tbody>
         </table>
     </div>

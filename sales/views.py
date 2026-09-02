@@ -19,7 +19,7 @@ from common.openapi import (
 )
 from common.throttles import SensitiveActionThrottleMixin
 from common.permissions import IsActiveAuthenticated
-from common.viewsets import NoDestroyModelViewSet
+from common.viewsets import AdminHardDeleteModelViewSet
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
@@ -42,7 +42,7 @@ def _start_of_day(day):
     return timezone.make_aware(datetime.combine(day, time.min))
 
 
-class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "customers"
     required_capabilities = ("customers.scoped", "customers.company")
     required_write_capabilities = ("customers.manage",)
@@ -244,7 +244,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return self.get_paginated_response(serializer.data)
 
 
-class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class CustomerPhoneViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "customers"
     required_capabilities = ("customers.scoped", "customers.company")
     required_write_capabilities = ("customers.manage",)
@@ -285,7 +285,7 @@ class CustomerPhoneViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(self.get_serializer(phone).data)
 
 
-class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "leads"
     required_capabilities = ("leads.scoped", "leads.company")
     required_write_capabilities = ("leads.manage",)
@@ -414,7 +414,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(self.get_serializer(lead).data)
 
 
-class InteractionViewSet(NoDestroyModelViewSet):
+class InteractionViewSet(AdminHardDeleteModelViewSet):
     required_feature = "leads"
     required_capabilities = ("interactions.scoped", "interactions.company")
     required_write_capabilities = ("interactions.manage",)
@@ -429,7 +429,7 @@ class InteractionViewSet(NoDestroyModelViewSet):
         return interactions_for(self.request.user).select_related("lead", "customer", "agent")
 
 
-class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     """The campaign target audience ("جامعه هدف").
 
     Read scope follows the lead, so a marketer sees the audience of campaigns
@@ -460,7 +460,7 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, NoDestroyModelVi
         return queryset
 
 
-class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class ProductCategoryViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "products"
     required_capabilities = ("product_categories.read", "product_categories.manage")
     required_write_capabilities = ("product_categories.manage",)
@@ -516,7 +516,7 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet
         return Response(self.get_serializer(category).data)
 
 
-class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class ProductViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "products"
     required_capabilities = ("products.read", "products.manage")
     required_write_capabilities = ("products.manage",)
@@ -660,7 +660,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(self.get_serializer(product).data)
 
 
-class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class SaleViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "sales"
     required_capabilities = ("sales.own", "sales.company")
     required_write_capabilities = ("sales.manage",)
@@ -705,7 +705,7 @@ class SaleViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
         return Response(self.get_serializer(sale).data)
 
 
-class SalesDocumentViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "sales_documents"
     required_capabilities = ("sales_documents.scoped", "sales_documents.company")
     required_write_capabilities = ("sales_documents.manage",)

@@ -130,7 +130,14 @@ class ProductCategoryContractTests(TestCase):
             current_price=Decimal("12.00"),
         )
         endpoint = f"/api/v1/product-categories/{category.pk}/"
-        self.assertEqual(self.manager_client.delete(endpoint).status_code, 405)
+        # A Sales Manager cannot hard-delete at all (403, not the old
+        # blanket 405) — and even a Platform Admin, who can, is stopped by
+        # the `product.category` foreign key's `PROTECT` while an active
+        # product still points at this category (409, not a silent orphan).
+        self.assertEqual(self.manager_client.delete(endpoint).status_code, 403)
+        status_admin_client = APIClient()
+        status_admin_client.force_authenticate(self.status_admin)
+        self.assertEqual(status_admin_client.delete(endpoint).status_code, 409)
         blocked = self.manager_client.post(f"{endpoint}deactivate/")
         self.assertEqual(blocked.status_code, 409)
         self.assertIn("category", blocked.data)

@@ -12,10 +12,10 @@ from aftersales.services import assign_after_sales_request, close_after_sales_re
 from common.openapi import ACCESS_DENIED_RESPONSE, CONFLICT_RESPONSE, NOT_FOUND_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
-from common.viewsets import NoDestroyModelViewSet
+from common.viewsets import AdminHardDeleteModelViewSet
 
 
-class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "after_sales"
     #: Elevated roles hold `after_sales.company`; the after-sales workstream
     #: agent instead holds `after_sales.assigned`/`.work` — a narrower,

@@ -125,9 +125,48 @@ STATICFILES_DIRS = [BASE_DIR / "assets"]
 #: here does not fail any build: collectstatic still reports success and every
 #: chart silently 404s at runtime, which is why it is also pinned in
 #: scripts/validate_image_content.py and common/tests/test_static_assets.py.
+#:
+#: `plugins/custom/*` was a single bare `"custom"` entry — matched by basename
+#: while walking, so it pruned the whole directory — until 1.7.5. That was
+#: correct when the comment said "none loaded"; it silently broke the day the
+#: lead calendar started loading `plugins/custom/fullcalendar/fullcalendar.
+#: bundle.js`. `collectstatic` still reported success (an ignored file is not
+#: a missing one), so the failure only ever showed up as the calendar page's
+#: own "در حال دریافت سرنخ‌ها…" never resolving in a deployment that actually
+#: runs `collectstatic` — `runserver` serves straight from `STATICFILES_DIRS`
+#: without it, which is why this did not reproduce locally. Listed below by
+#: name instead, one entry per still-unused bundle under `plugins/custom/`,
+#: so a future one gets the same silent-404 fate only on purpose.
 STATICFILES_COLLECT_IGNORE = [
     "media",              # ~46MB of theme stock photography and illustrations
-    "custom",             # per-demo scripts and plugin bundles, none loaded
+    "ckeditor",           # plugins/custom/* demo bundles, none loaded —
+    "cookiealert",        # `fullcalendar` is the one exception (see above),
+    "cropper",            # so it is not in this list.
+    "datatables",
+    "draggable",
+    "flotcharts",
+    "formrepeater",
+    "fslightbox",
+    "jkanban",
+    "jstree",
+    "leaflet",
+    "prismjs",
+    "tinymce",
+    "typedjs",
+    "vis-timeline",
+    # `assets/js/custom/*` — per-demo page scripts, also nothing loads any of
+    # these. A bare `"custom"` would prune `plugins/custom` again too (see
+    # above): a directory is matched by name alone while walking, with no way
+    # to say "custom, but only under js/" — so this is every subdirectory and
+    # top-level file `js/custom` actually holds, named individually instead.
+    "account",
+    "apps",
+    "authentication",
+    "pages",
+    "utilities",
+    "landing.js",
+    "widgets.js",          # assets/js/custom/widgets.js — distinct from
+                            # assets/js/widgets.bundle.js, excluded below too
     "@fortawesome",       # icon families the UI does not use; it uses keenicons
     "bootstrap-icons",
     "line-awesome",

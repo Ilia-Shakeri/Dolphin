@@ -331,8 +331,12 @@ class AuthShellBrowserTests(TestCase):
 
         content = self.client.get(f"/users/{self.agent.pk}/").content.decode("utf-8")
 
-        for role in ("sales_agent", "sales_manager", "company_it", "platform_admin"):
+        for role in ("sales_agent", "sales_manager", "company_it"):
             self.assertEqual(content.count(f'<option value="{role}">'), 1)
+        # `platform_admin` is never an option, not even for a Platform Admin
+        # actor — exactly one Platform Admin exists at a time, provisioned
+        # only by `bootstrap_platform_admin`.
+        self.assertNotIn('<option value="platform_admin">', content)
         self.assertNotIn("permission", content.lower())
 
     @override_settings(DEBUG=False)

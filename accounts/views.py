@@ -37,7 +37,7 @@ from common.openapi import (
 )
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin, SensitiveRateThrottle
-from common.viewsets import NoDestroyModelViewSet
+from common.viewsets import AdminHardDeleteModelViewSet
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -160,7 +160,7 @@ class MySessionsView(APIView):
         return Response(SessionRevokeResultSerializer({"ended": ended}).data)
 
 
-class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
+class UserViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     queryset = User.objects.none()
     serializer_class = UserSerializer
     permission_classes = [IsUserReader]
@@ -206,6 +206,18 @@ class UserViewSet(SensitiveActionThrottleMixin, NoDestroyModelViewSet):
     def perform_update(self, serializer):
         self._require_admin()
         serializer.save()
+
+    def _extra_delete_guard(self, request, instance):
+        # Two failure modes `HardDeleteMixin`'s blanket Platform-Admin-only
+        # gate does not cover on its own: deleting your own signed-in account
+        # (locking yourself out, or an accidental self-click in a bulk
+        # selection), and deleting the Platform Admin account at all — this
+        # product keeps exactly one, and this endpoint is not the door for
+        # removing it (see `accounts.access.assignable_roles`).
+        if instance.pk == request.user.pk:
+            raise PermissionDenied("حذف حساب کاربری خودتان از این مسیر ممکن نیست.")
+        if instance.role == User.Role.PLATFORM_ADMIN:
+            raise PermissionDenied("حساب مدیر پلتفرم از این مسیر قابل حذف نیست.")
 
     @extend_schema(
         request=RoleChangeSerializer,

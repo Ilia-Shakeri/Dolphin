@@ -515,6 +515,7 @@
         const next = document.getElementById("users-next");
         let currentPage = 1;
         let search = "";
+        const selection = setupRowSelection({key: "users", body: tableBody, reload: () => loadUsers(currentPage)});
 
         async function loadUsers(page = 1) {
             loading.hidden = false;
@@ -522,11 +523,12 @@
             tableWrap.hidden = true;
             pagination.hidden = true;
             clearMessages();
+            selection.resetSelection();
             try {
                 const query = new URLSearchParams({page: String(page)});
                 if (search) query.set("search", search);
                 const data = await apiRequest(`/api/v1/users/?${query}`);
-                tableBody.replaceChildren(...data.results.map(userRow));
+                tableBody.replaceChildren(...data.results.map((item) => selection.decorateRow(item, userRow(item))));
                 loading.hidden = true;
                 if (!data.results.length) { empty.hidden = false; return; }
                 tableWrap.hidden = false;
@@ -1274,6 +1276,102 @@
         select.replaceChildren(...options);
     }
 
+    /**
+     * Row selection + real, bulk deletion for one `setupPagedList` table.
+     *
+     * 2026-09-02: every list page gets a checkbox column and a Delete
+     * action, but only for a Platform Admin — `common.ui_views.ActiveCrmView`
+     * sets `can_hard_delete` once for every page, and each list template
+     * renders this whole block (the header checkbox, the selected-count
+     * toolbar) only under `{% if can_hard_delete %}`. That template
+     * condition is the only gate this function reads: if the checkbox column
+     * is not in the DOM, nothing here does anything — no role is read in
+     * JavaScript, and the actual boundary is `common.viewsets.HardDeleteMixin`
+     * on the server regardless of what got rendered.
+     *
+     * `key` doubles as the REST resource name for every page that uses this
+     * (`/api/v1/customers/`, `/api/v1/leads/`, …), so the bulk-delete
+     * endpoint is derived from it rather than threaded through every one of
+     * `setupPagedList`'s dozen call sites.
+     */
+    function setupRowSelection({key, body, reload}) {
+        const selectAll = document.querySelector(`[data-${key}-select="all"]`);
+        if (!selectAll) return {decorateRow: (item, row) => row, resetSelection() {}};
+        const toolbar = document.querySelector(`[data-${key}-toolbar="selected"]`);
+        const countNode = document.querySelector(`[data-${key}-select="selected_count"]`);
+        const deleteButton = document.querySelector(`[data-${key}-select="delete_selected"]`);
+        let selected = new Set();
+
+        function resetSelection() {
+            selected = new Set();
+            updateToolbar();
+        }
+
+        function updateToolbar() {
+            const boxes = Array.from(body.querySelectorAll("[data-row-select]"));
+            if (toolbar) toolbar.hidden = selected.size === 0;
+            if (countNode) countNode.textContent = toPersianDigits(String(selected.size));
+            selectAll.checked = boxes.length > 0 && selected.size === boxes.length;
+            selectAll.indeterminate = selected.size > 0 && selected.size < boxes.length;
+        }
+
+        selectAll.addEventListener("change", () => {
+            const boxes = Array.from(body.querySelectorAll("[data-row-select]"));
+            selected = new Set(selectAll.checked ? boxes.map((box) => Number(box.dataset.rowSelect)) : []);
+            boxes.forEach((box) => { box.checked = selectAll.checked; });
+            updateToolbar();
+        });
+
+        deleteButton?.addEventListener("click", async () => {
+            const ids = Array.from(selected);
+            if (!ids.length) return;
+            const count = toPersianDigits(String(ids.length));
+            // Spelled out every time, not just "مطمئنید؟": this is the one
+            // control in the panel that does not deactivate — it is asked
+            // for by name (nothing here should surprise the admin clicking
+            // it), so the warning names the alternative right where the
+            // decision is made rather than only in documentation.
+            if (!window.confirm(
+                `${count} مورد برای همیشه حذف شود؟ این کار قابل بازگشت نیست. رکوردی که سابقهٔ دیگری به آن وابسته است حذف نخواهد شد. اگر مطمئن نیستید، به‌جای حذف، از غیرفعال‌سازی در همان صفحهٔ رکورد استفاده کنید.`
+            )) return;
+            try {
+                const result = await apiRequest(`/api/v1/${key}/bulk-delete/`, {method: "POST", body: {ids}});
+                const deletedCount = result.deleted?.length || 0;
+                const blockedCount = (result.protected?.length || 0) + (result.denied?.length || 0);
+                const parts = [];
+                if (deletedCount) parts.push(`${toPersianDigits(String(deletedCount))} مورد حذف شد`);
+                if (result.protected?.length) parts.push(`${toPersianDigits(String(result.protected.length))} مورد سابقهٔ وابسته داشت و حذف نشد`);
+                if (result.denied?.length) parts.push(`${toPersianDigits(String(result.denied.length))} مورد مجاز به حذف نبود`);
+                resetSelection();
+                // `reload()` starts with `clearMessages()` (same as every
+                // other `load()` in this file) — called first so it cannot
+                // erase the very message it is about to show.
+                await reload();
+                globalMessage(parts.join(" — ") || "موردی حذف نشد.", deletedCount > 0 && blockedCount === 0);
+            } catch (error) {
+                showError(error);
+            }
+        });
+
+        function decorateRow(item, row) {
+            const cell = document.createElement("td");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.className = "form-check-input";
+            checkbox.dataset.rowSelect = String(item.id);
+            checkbox.setAttribute("aria-label", "انتخاب ردیف");
+            checkbox.addEventListener("change", () => {
+                if (checkbox.checked) selected.add(item.id); else selected.delete(item.id);
+                updateToolbar();
+            });
+            cell.appendChild(checkbox);
+            row.insertBefore(cell, row.firstChild);
+            return row;
+        }
+
+        return {decorateRow, resetSelection};
+    }
+
     function setupPagedList({key, form, endpoint, renderRow}) {
         const loading = document.getElementById(`${key}-loading`);
         if (!loading) return null;
@@ -1284,6 +1382,7 @@
         const previous = document.getElementById(`${key}-prev`);
         const next = document.getElementById(`${key}-next`);
         let currentPage = 1;
+        const selection = setupRowSelection({key, body, reload: () => load(currentPage)});
 
         async function load(page = 1) {
             loading.hidden = false;
@@ -1291,9 +1390,10 @@
             wrap.hidden = true;
             pagination.hidden = true;
             clearMessages();
+            selection.resetSelection();
             try {
                 const data = await apiRequest(endpoint(page));
-                body.replaceChildren(...data.results.map(renderRow));
+                body.replaceChildren(...data.results.map((item) => selection.decorateRow(item, renderRow(item))));
                 loading.hidden = true;
                 if (!data.results.length) { empty.hidden = false; return; }
                 wrap.hidden = false;

@@ -53,12 +53,39 @@ REQUIRED = (
     "common/brand/site.webmanifest",
     "fonts/IRANSansWeb.woff",
     "plugins/global/fonts/keenicons/keenicons-duotone.woff",
+    # The lead follow-up calendar (1.7.1) draws with this bundle — the theme
+    # has no standalone build of it. Missing until 1.7.5: `plugins/custom`
+    # was ignored wholesale by both `STATICFILES_COLLECT_IGNORE` and
+    # `.dockerignore`, so this collected nowhere in a real deployment and the
+    # calendar page's own loading state never resolved. `runserver` serves
+    # straight from `STATICFILES_DIRS`, without either gate, which is why
+    # this did not reproduce locally.
+    "plugins/custom/fullcalendar/fullcalendar.bundle.js",
+    "plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css",
 )
 
 #: Theme material no served page can reach.
 EXCLUDED = (
     "media",
-    "plugins/custom",
+    # `plugins/custom` was one blanket entry here until 1.7.5, when
+    # `fullcalendar` turned out to be a real exception (see REQUIRED above).
+    # Listed per-bundle instead, so the exclusion still holds for the 15
+    # vendor bundles nothing loads.
+    "plugins/custom/ckeditor",
+    "plugins/custom/cookiealert",
+    "plugins/custom/cropper",
+    "plugins/custom/datatables",
+    "plugins/custom/draggable",
+    "plugins/custom/flotcharts",
+    "plugins/custom/formrepeater",
+    "plugins/custom/fslightbox",
+    "plugins/custom/jkanban",
+    "plugins/custom/jstree",
+    "plugins/custom/leaflet",
+    "plugins/custom/prismjs",
+    "plugins/custom/tinymce",
+    "plugins/custom/typedjs",
+    "plugins/custom/vis-timeline",
     "js/custom",
     "plugins/global/fonts/line-awesome",
     "plugins/global/fonts/@fortawesome",
@@ -199,7 +226,14 @@ class ImageBuildContextTests(SimpleTestCase):
             for path in context
             if path.startswith("assets/")
             and (
-                path.startswith(("assets/media/", "assets/plugins/custom/", "assets/js/custom/"))
+                path.startswith(("assets/media/", "assets/js/custom/"))
+                # `assets/plugins/custom/fullcalendar/` is the one exception
+                # (see REQUIRED in StaticResolutionTests above) — every other
+                # bundle under `plugins/custom/` still is not.
+                or (
+                    path.startswith("assets/plugins/custom/")
+                    and not path.startswith("assets/plugins/custom/fullcalendar/")
+                )
                 or "/fonts/line-awesome/" in path
                 or "/fonts/@fortawesome/" in path
                 or "/fonts/bootstrap-icons/" in path

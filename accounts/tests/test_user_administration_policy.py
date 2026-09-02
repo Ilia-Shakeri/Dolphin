@@ -392,7 +392,9 @@ class InternalItRoleGateTests(TestCase):
         self.assertNotIn('value="company_it"', content)
         self.assertIn('value="sales_agent"', content)
         self.assertIn('value="sales_manager"', content)
-        self.assertIn('value="platform_admin"', content)
+        # `platform_admin` is never offered, deployment feature flags aside —
+        # see PlatformAdminSingletonTests.
+        self.assertNotIn('value="platform_admin"', content)
 
     def test_a_deployment_that_runs_the_role_still_offers_and_accepts_it(self):
         self.client.force_login(self.admin)
@@ -402,11 +404,64 @@ class InternalItRoleGateTests(TestCase):
         self.agent.refresh_from_db()
         self.assertEqual(self.agent.role, User.Role.COMPANY_IT)
 
-    def test_a_sales_manager_is_never_offered_the_platform_admin_role(self):
+    def test_nobody_is_ever_offered_the_platform_admin_role(self):
         manager = User.objects.create_user(
             username="gate.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER
         )
         self.assertNotIn(
             "platform_admin", [value for value, _ in assignable_roles(manager)]
         )
-        self.assertIn("platform_admin", [value for value, _ in assignable_roles(self.admin)])
+        # Not even a Platform Admin actor gets it — see PlatformAdminSingletonTests.
+        self.assertNotIn("platform_admin", [value for value, _ in assignable_roles(self.admin)])
+
+
+class PlatformAdminSingletonTests(ThrottleIsolatedTestCase):
+    """Exactly one active Platform Admin exists at a time.
+
+    `bootstrap_platform_admin` is the only door in (and already refuses to run
+    a second time — see `test_bootstrap_platform_admin.py`); the CRM's own
+    create-user and change-role paths must never open a second one, even for
+    an acting Platform Admin, even by direct API call bypassing the page.
+    """
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="singleton.admin", password="Strong-pass-937!", role=User.Role.PLATFORM_ADMIN
+        )
+        self.agent = User.objects.create_user(
+            username="singleton.agent", password="Strong-pass-937!", role=User.Role.SALES_AGENT
+        )
+
+    def test_create_crm_user_refuses_platform_admin(self):
+        with self.assertRaises(BusinessPermissionDenied):
+            create_crm_user(
+                actor=self.admin,
+                password="Strong-pass-937!",
+                username="singleton.new-admin",
+                role=User.Role.PLATFORM_ADMIN,
+            )
+        self.assertFalse(User.objects.filter(username="singleton.new-admin").exists())
+
+    def test_change_user_role_refuses_to_promote_to_platform_admin(self):
+        with self.assertRaises(BusinessPermissionDenied):
+            change_user_role(actor=self.admin, target=self.agent, role=User.Role.PLATFORM_ADMIN)
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
+
+    def test_the_change_role_api_refuses_it_too(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            f"/api/v1/users/{self.agent.pk}/change-role/",
+            data={"role": "platform_admin"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.role, User.Role.SALES_AGENT)
+
+    def test_the_users_page_create_form_never_offers_platform_admin(self):
+        self.client.force_login(self.admin)
+        content = self.client.get("/users/").content.decode("utf-8")
+        self.assertNotIn('value="platform_admin"', content)
+        self.assertIn('value="sales_agent"', content)
+        self.assertIn('value="sales_manager"', content)

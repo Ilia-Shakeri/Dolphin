@@ -62,7 +62,28 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     # inside it is denied by path instead, and the runtime files it does need
     # are asserted in EXPECT_PRESENT below.
     ("theme demo imagery", "assets/media"),
-    ("theme demo plugins", "assets/plugins/custom"),
+    # `assets/plugins/custom` was one blanket entry here until 1.7.5, when the
+    # lead follow-up calendar's `fullcalendar` bundle turned out to be inside
+    # it — collected nowhere, and the calendar page's "در حال دریافت
+    # سرنخ‌ها…" state never resolved in any deployment that actually builds
+    # this image. Listed per-bundle instead, so a future one used by a served
+    # page only fails this gate the same way a required-but-missing file
+    # would (see EXPECT_PRESENT below), not silently.
+    ("theme demo plugin", "assets/plugins/custom/ckeditor"),
+    ("theme demo plugin", "assets/plugins/custom/cookiealert"),
+    ("theme demo plugin", "assets/plugins/custom/cropper"),
+    ("theme demo plugin", "assets/plugins/custom/datatables"),
+    ("theme demo plugin", "assets/plugins/custom/draggable"),
+    ("theme demo plugin", "assets/plugins/custom/flotcharts"),
+    ("theme demo plugin", "assets/plugins/custom/formrepeater"),
+    ("theme demo plugin", "assets/plugins/custom/fslightbox"),
+    ("theme demo plugin", "assets/plugins/custom/jkanban"),
+    ("theme demo plugin", "assets/plugins/custom/jstree"),
+    ("theme demo plugin", "assets/plugins/custom/leaflet"),
+    ("theme demo plugin", "assets/plugins/custom/prismjs"),
+    ("theme demo plugin", "assets/plugins/custom/tinymce"),
+    ("theme demo plugin", "assets/plugins/custom/typedjs"),
+    ("theme demo plugin", "assets/plugins/custom/vis-timeline"),
     ("theme demo scripts", "assets/js/custom"),
     ("unused icon family", "assets/plugins/global/fonts/@fortawesome"),
     ("unused icon family", "assets/plugins/global/fonts/bootstrap-icons"),
@@ -109,6 +130,11 @@ EXPECT_PRESENT: list[str] = [
     # inside this bundle — the theme ships no standalone build — so the whole
     # 3.6 MB of it is a runtime file, not demo material.
     "assets/plugins/global/plugins.bundle.js",
+    # The lead follow-up calendar's bundle (1.7.1) — the theme has no
+    # standalone build of it either, so all of it is runtime, not demo
+    # material. See the 1.7.5 comment on DENY_PATTERNS above.
+    "assets/plugins/custom/fullcalendar/fullcalendar.bundle.js",
+    "assets/plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css",
     "assets/fonts/IRANSansWeb.woff",
     "assets/fonts/IRANSansWeb.ttf",
     "assets/fonts/IRANSansWeb.eot",

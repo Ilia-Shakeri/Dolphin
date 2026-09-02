@@ -41,9 +41,15 @@
         </div>
     </div>
     <div class="card-body pt-2">
+        {% if can_hard_delete %}
+        <div class="d-flex align-items-center gap-3 mb-4" data-products-toolbar="selected" hidden>
+            <span class="fw-bold text-gray-800"><span data-products-select="selected_count">0</span> مورد انتخاب شد</span>
+            <button type="button" class="btn btn-sm btn-danger" data-products-select="delete_selected">حذف موارد انتخاب‌شده</button>
+        </div>
+        {% endif %}
         <div id="products-loading" class="text-center text-gray-700 py-10">در حال دریافت محصولات…</div>
         <div id="products-empty" class="text-center text-gray-700 py-10" hidden>محصولی پیدا نشد.</div>
-        <div id="products-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>کد</th><th>نام</th><th>دسته‌بندی</th><th>برند</th><th>واحد</th><th>قیمت جاری</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="products-table-body"></tbody></table></div>
+        <div id="products-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">{% if can_hard_delete %}<th class="w-25px"><input class="form-check-input" type="checkbox" data-products-select="all" aria-label="انتخاب همه"></th>{% endif %}<th>کد</th><th>نام</th><th>دسته‌بندی</th><th>برند</th><th>واحد</th><th>قیمت جاری</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="products-table-body"></tbody></table></div>
         <nav id="products-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="products-prev" class="btn btn-light" type="button">قبلی</button><span id="products-page-label"></span><button id="products-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div>
 </section>
