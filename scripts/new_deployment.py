@@ -288,6 +288,14 @@ def parse_arguments(argv):
     )
     parser.add_argument("--list-features", action="store_true",
                         help="print the features this release ships, and exit")
+    parser.add_argument(
+        "--print-resolved-features", action="store_true",
+        help="resolve --features (or the default set) with its dependencies "
+             "added, print it as one comma-separated line, and exit. Writes "
+             "nothing — for a caller (scripts/quickstart.sh) that has to sign "
+             "a manifest naming the exact same set this tool would report, "
+             "without guessing the dependency rules a second time.",
+    )
     parser.add_argument("--slug", help="lowercase identifier; names the project, database, roles and volumes")
     parser.add_argument("--host", help="public hostname, e.g. crm.example.ir")
     parser.add_argument("--out", help="deployment directory to write the .env into")
@@ -317,6 +325,20 @@ def main(argv=None):
         print("\nProfiles:")
         for name, description in sorted(PROFILES.items()):
             print(f"  {name}: {description}")
+        return 0
+
+    if arguments.print_resolved_features:
+        requested = (
+            {name.strip() for name in arguments.features.split(",") if name.strip()}
+            if arguments.features is not None
+            else set(DEFAULT_FEATURES)
+        )
+        try:
+            features, _added = resolve_features(requested)
+        except ProvisioningError as error:
+            sys.stderr.write(f"error: {error}\n")
+            return 2
+        print(",".join(sorted(features)))
         return 0
 
     for name in ("slug", "host", "out"):

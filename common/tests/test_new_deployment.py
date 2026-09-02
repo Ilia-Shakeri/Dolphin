@@ -16,9 +16,11 @@ and never written anywhere but the file.
 """
 
 import importlib.util
+import io
 import os
 import re
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
 
 from django.test import SimpleTestCase
@@ -246,3 +248,41 @@ class MainEntryPointTests(SimpleTestCase):
             ])
             self.assertEqual(second, 2)
             self.assertEqual((out_dir / "secrets" / ".env").read_text(encoding="utf-8"), original)
+
+
+class PrintResolvedFeaturesTests(SimpleTestCase):
+    """`--print-resolved-features` — what `scripts/quickstart.sh` signs a
+    self-generated manifest for, so it never re-derives the dependency rules
+    (and risks disagreeing with them) in shell."""
+
+    def _run(self, argv):
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            exit_code = provisioning.main(argv)
+        return exit_code, buffer.getvalue().strip()
+
+    def test_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "deployment"
+            exit_code, _ = self._run(["--print-resolved-features"])
+            self.assertEqual(exit_code, 0)
+            self.assertFalse(out_dir.exists())
+
+    def test_default_set_matches_the_registry_default(self):
+        from common.deployment.registry import DEFAULT_FEATURES
+
+        exit_code, output = self._run(["--print-resolved-features"])
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(set(output.split(",")), set(DEFAULT_FEATURES))
+
+    def test_a_dependency_is_added_and_reported(self):
+        exit_code, output = self._run(["--print-resolved-features", "--features", "invoices"])
+        self.assertEqual(exit_code, 0)
+        resolved = set(output.split(","))
+        self.assertIn("invoices", resolved)
+        self.assertIn("customers", resolved)
+        self.assertIn("products", resolved)
+
+    def test_an_unknown_feature_is_refused(self):
+        exit_code, _ = self._run(["--print-resolved-features", "--features", "not-a-real-feature"])
+        self.assertEqual(exit_code, 2)

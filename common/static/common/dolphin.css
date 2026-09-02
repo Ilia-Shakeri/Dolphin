@@ -50,6 +50,20 @@ dialog::backdrop {
 
 /* 2. Brand ---------------------------------------------------------------- */
 
+/* The theme's own `.app-sidebar-logo` is `justify-content: space-between`,
+   built for a layout with two flex participants — the brand and a header
+   action beside it. This one has only ever had one: the toggle button sits
+   over it at `position: absolute` (the theme's own placement, kept as-is —
+   see the markup comment in base.html), so it is not a flex participant and
+   `space-between` had nothing to space the single remaining item against.
+   The visible effect was the wordmark pinned to the header's own edge
+   instead of centred in it. Safe to override because of exactly that: the
+   toggle's positioning does not come from flow, so centring what does has
+   nothing to collide with. */
+.app-sidebar-logo {
+    justify-content: center;
+}
+
 .app-sidebar-logo .brand {
     line-height: 1.2;
 }
@@ -86,7 +100,41 @@ dialog::backdrop {
 }
 
 .brand-mark-minimize {
-    width: 2.25rem;
+    width: 2rem;
+}
+
+/* The collapsed rail renders this mark at ~29px. Checked directly — the
+   computed `box-shadow`/`filter`/`background` are `none` on the image and on
+   every ancestor up to the page root — so the soft "glow" reported at that
+   size is not a stray CSS rule: it is this mark's own glossy, softly-shaded
+   artwork (right for the large lockup on the login page) losing definition
+   once shrunk this far, with nothing behind it to give its blurred edge a
+   boundary. A flat, high-contrast icon-only asset would be the complete fix
+   and does not exist yet; this gives the existing mark's soft edge somewhere
+   to stop instead — the same tinted-square treatment behind a small mark
+   this theme's own demo uses elsewhere. */
+/* Matches the theme's own two conditions for actually showing this element,
+   selector for selector — including the `.app-sidebar-logo` ancestor class
+   the theme's own rule carries and a shorter version here first did not —
+   rather than a bare `.app-sidebar-logo-minimize`, on purpose: this project
+   always sets `data-kt-app-sidebar-hoverable="true"` (base.html), so
+   collapsed-and-hovering peeks the full sidebar back open and the theme's
+   own rule reverts this element to `display: none`. Missing that one class
+   made this rule *less* specific than the theme's, not more — so `display:
+   flex` lost outright, silently, to the theme's own `display: none` base
+   rule, and only `width`/`height`/`background-color` (nothing else here
+   sets those) ever visibly applied. Caught by re-deriving the computed
+   `display` after publishing, not by assuming the rule that compiled was
+   the rule that won. */
+[data-kt-app-sidebar-minimize="on"]:not([data-kt-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-logo .app-sidebar-logo-minimize,
+[data-kt-app-sidebar-minimize="on"][data-kt-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-logo .app-sidebar-logo-minimize {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background-color: rgba(27, 132, 255, 0.14);
 }
 
 /* 2b. Collapsed sidebar ---------------------------------------------------

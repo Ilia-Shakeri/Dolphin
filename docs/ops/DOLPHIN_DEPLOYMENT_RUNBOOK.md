@@ -307,6 +307,47 @@ All nine must print `200`. Anything else — go to
 
 ## 1. First install on a fresh server
 
+### 1.0 The one-command path
+
+`scripts/quickstart.sh` runs every subsection below (1.1–1.16, minus the
+smoke check) in order, by calling the same tools each subsection tells you to
+run by hand — nothing here is a new mechanism, and nothing it does bypasses
+what any of those already check or refuse. Read 1.1–1.16 once regardless: this
+is what to fall back to when a step fails, and what `--dry-run` prints a plan
+against.
+
+Reviewed image, a manifest signed elsewhere, a real certificate — the
+documented model, unchanged:
+
+```bash
+sudo ./scripts/quickstart.sh --slug client1 --host crm.client1.ir \
+    --app-image ghcr.io/you/dolphin-app@sha256:<digest> \
+    --manifest /path/to/signed-manifest.json --manifest-keys 'k1:AAAA...' \
+    --tls-cert /path/to/fullchain.pem --tls-key /path/to/privkey.pem
+```
+
+A single dedicated server you fully control end-to-end, with nothing
+pre-built and no certificate issued yet:
+
+```bash
+sudo ./scripts/quickstart.sh --slug client1 --host 203.0.113.10 \
+    --build --self-sign --self-signed-tls
+```
+
+`--build`, `--self-sign` and `--self-signed-tls` each trade one safety
+boundary documented below (1.6: an image built and reviewed elsewhere; 1.10:
+a signing key that never touches the customer host; 1.12: a real certificate)
+for convenience. That trade is reasonable for one server only you operate;
+it is not the model for a signing identity or an image shared across several
+customer deployments — use `--app-image`/`--manifest`/`--tls-cert` there
+instead, each produced the documented way, off this host.
+
+`--dry-run` prints the exact plan — every command it would run, in the order
+it would run them, with every value resolved — without touching the host, an
+image, or any file outside a throwaway directory. `./scripts/quickstart.sh
+--help` lists every option; `--skip-os-setup` skips 1.1–1.3 for a host
+already prepared, and `--skip-admin` skips 1.15 to run it separately later.
+
 ### 1.1 Operating system
 
 ```bash

@@ -2122,9 +2122,14 @@
             return toPersianDigits(String(day));
         }
 
-        function jalaliTitle(date) {
-            const [year, month] = gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
-            return `${JALALI_MONTH_NAMES[month - 1]} ${toPersianDigits(String(year))}`;
+        function jalaliTitle(date, exact) {
+            const [year, month, day] = gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+            const monthYear = `${JALALI_MONTH_NAMES[month - 1]} ${toPersianDigits(String(year))}`;
+            // `exact`: the day view has only one date on screen and nothing
+            // else naming it, unlike month view (numbered cells) or week view
+            // (a date under each column's own header) — so its title is the
+            // one place that has to carry the day-of-month too.
+            return exact ? `${toPersianDigits(String(day))} ${monthYear}` : monthYear;
         }
 
         const palette = chartPalette();
@@ -2139,18 +2144,27 @@
             direction: "rtl",
             height: "auto",
             firstDay: 6, // Saturday — the Iranian week start.
-            headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,listMonth"},
-            buttonText: {today: "امروز", month: "ماه", list: "فهرست"},
-            dayHeaderContent: (arg) => ["ی", "د", "س", "چ", "پ", "ج", "ش"][arg.date.getDay()],
+            headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,timeGridWeek,timeGridDay"},
+            buttonText: {today: "امروز", month: "ماه", week: "هفته", day: "روز"},
+            dayHeaderContent: (arg) => {
+                const weekday = ["ی", "د", "س", "چ", "پ", "ج", "ش"][arg.date.getDay()];
+                if (arg.view.type === "dayGridMonth") return weekday;
+                return `${weekday} ${jalaliDayLabel(arg.date)}`;
+            },
             dayCellContent: (arg) => jalaliDayLabel(arg.date),
             datesSet: (info) => {
+                if (info.view.type === "timeGridDay") {
+                    const titleEl = container.querySelector(".fc-toolbar-title");
+                    if (titleEl) titleEl.textContent = jalaliTitle(info.view.currentStart, true);
+                    return;
+                }
                 // The visible grid's own centre, not `currentStart` — a month
                 // view's first cell is often still the tail of the previous
                 // Jalali month, which would title "شهریور" a grid that reads
                 // as "مهر" to anyone looking at it.
                 const middle = new Date((info.view.currentStart.getTime() + info.view.currentEnd.getTime()) / 2);
                 const titleEl = container.querySelector(".fc-toolbar-title");
-                if (titleEl) titleEl.textContent = jalaliTitle(middle);
+                if (titleEl) titleEl.textContent = jalaliTitle(middle, false);
             },
             editable: true,
             eventStartEditable: true,
