@@ -5,7 +5,7 @@
 {% block page_icon %}<i class="ki-duotone ki-category page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}دسته‌بندی محصولات{% endblock %}
 {% block breadcrumb_current %}دسته‌بندی محصولات{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:products' %}">محصولات</a>{% if can_manage_products %}<button id="open-create-product-category" class="btn btn-primary" type="button">دسته‌بندی تازه</button>{% endif %}</div>{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3"><a class="btn btn-light" href="{% url 'common_ui:products' %}">محصولات</a>{% if can_manage_products %}<button id="open-create-product-category" class="btn btn-primary" type="button">دسته‌بندی تازه</button>{% endif %}</div>{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="product-category-search-form" action="{% url 'common_ui:product-categories' %}" method="get" class="list-filters">
         <label class="sr-only" for="product-category-search">جستجوی دسته‌بندی</label><input class="form-control form-control-solid" id="product-category-search" name="search" type="search" placeholder="نام، کد یا شرح دسته‌بندی">

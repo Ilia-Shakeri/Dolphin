@@ -6,7 +6,7 @@
 {% block page_icon %}<i class="ki-duotone ki-cube-3 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات انبار{% endblock %}
 {% block breadcrumb_current %}جزئیات انبار{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:stock-levels' %}?warehouse={{ warehouse_id }}">موجودی این انبار</a><a class="btn btn-light" href="{% url 'common_ui:warehouses' %}">بازگشت به فهرست</a></div>{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3"><a class="btn btn-light" href="{% url 'common_ui:stock-levels' %}?warehouse={{ warehouse_id }}">موجودی این انبار</a><a class="btn btn-light" href="{% url 'common_ui:warehouses' %}">بازگشت به فهرست</a></div>{% endblock %}
 {% block content %}
 <div id="warehouse-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت انبار…</div></div>
 <section id="warehouse-detail-content" class="card mb-5 mb-xl-8" hidden>

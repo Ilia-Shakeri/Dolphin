@@ -5,7 +5,7 @@
 {% block page_icon %}<i class="ki-duotone ki-user page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{{ user_admin_label }}{% endblock %}
 {% block breadcrumb_current %}{{ user_admin_label }}{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2">
+{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3">
         <a class="btn btn-light" href="/api/v1/exports/users.xlsx">دریافت XLSX</a>
         <button id="open-create-user" class="btn btn-primary" type="button">کاربر جدید</button>
     </div>{% endblock %}

@@ -6,7 +6,7 @@
 {% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
 {% block page_title %}{% if is_own_profile %}پروفایل من{% else %}پروفایل {{ target_display_name }}{% endif %}{% endblock %}
 {% block breadcrumb_current %}{% if is_own_profile %}پروفایل من{% else %}پروفایل بازاریاب{% endif %}{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2">
+{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3">
     {% if not is_own_profile %}<a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست کاربران</a>{% endif %}
     {% if can_manage_users and not is_own_profile %}<a class="btn btn-light" href="{% url 'common_ui:user-detail' target_user_id %}">ویرایش کاربر</a>{% endif %}
 </div>{% endblock %}

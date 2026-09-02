@@ -628,9 +628,14 @@ summary:focus-visible,
    Targeted on the buttons rather than on `.row-actions`, because only three of
    the ten action cells in the application carry that class and the rest are
    bare `<td>`. `margin-inline-start` rather than `margin-left`: the panel is
-   RTL and the logical property is the one that follows the text direction. */
+   RTL and the logical property is the one that follows the text direction.
+
+   A flat `8px` instead of `0.5rem`: the theme's own root font-size is `13px`
+   (`0.5rem` measured `6.5px` on a real page — under the 8px minimum this rule
+   exists to guarantee, on any screen, regardless of what the root happens to
+   be). */
 .table td .btn:not(:first-child) {
-    margin-inline-start: 0.5rem;
+    margin-inline-start: 8px;
 }
 
 /* Identifier and amount columns are set `dir="ltr"` by the renderers — prices,

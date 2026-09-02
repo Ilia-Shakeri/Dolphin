@@ -6,7 +6,7 @@
 {% block page_icon %}<i class="ki-duotone ki-bill page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات فاکتور{% endblock %}
 {% block breadcrumb_current %}جزئیات فاکتور{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:invoice-print' invoice_id %}">چاپ / ذخیره PDF</a><a class="btn btn-light" href="{% url 'common_ui:invoices' %}">بازگشت به فهرست</a></div>{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3"><a class="btn btn-light" href="{% url 'common_ui:invoice-print' invoice_id %}">چاپ / ذخیره PDF</a><a class="btn btn-light" href="{% url 'common_ui:invoices' %}">بازگشت به فهرست</a></div>{% endblock %}
 {% block content %}
 <div id="invoice-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت فاکتور…</div></div>
 {% comment %} `card-body` is what was missing: a bare `.card` carries no padding,

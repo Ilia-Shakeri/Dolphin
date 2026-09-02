@@ -5,7 +5,7 @@
 {% block page_icon %}<i class="ki-duotone ki-package page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}موجودی کالا{% endblock %}
 {% block breadcrumb_current %}موجودی کالا{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2"><a class="btn btn-light" href="{% url 'common_ui:stock-movements' %}">گردش انبار</a>{% if can_manage_inventory %}<button id="open-create-movement" class="btn btn-primary" type="button">ثبت حرکت انبار</button><button id="open-transfer-stock" class="btn btn-light" type="button">انتقال بین انبار</button>{% endif %}</div>{% endblock %}
+{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3"><a class="btn btn-light" href="{% url 'common_ui:stock-movements' %}">گردش انبار</a>{% if can_manage_inventory %}<button id="open-create-movement" class="btn btn-primary" type="button">ثبت حرکت انبار</button><button id="open-transfer-stock" class="btn btn-light" type="button">انتقال بین انبار</button>{% endif %}</div>{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="stock-search-form" action="{% url 'common_ui:stock-levels' %}" method="get" class="list-filters">
         <label class="sr-only" for="stock-search">جستجوی کالا</label><input class="form-control form-control-solid" id="stock-search" name="search" type="search" placeholder="نام، کد یا بارکد کالا">
