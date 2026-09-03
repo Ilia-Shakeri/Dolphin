@@ -111,6 +111,44 @@ def transition_after_sales_status(*, actor, request, to_status, reason=""):
 
 
 @transaction.atomic
+def schedule_after_sales_appointment(*, actor, request, appointment_at=None, reason=""):
+    """Set or clear the case's next appointment — the after-sales side of
+    the follow-up calendar (DOLPHIN_FEATURE_MAP_AND_ROADMAP.md §7 phase E).
+
+    Same permission shape as `transition_after_sales_status`: an elevated
+    role, or the after-sales-workstream agent this specific case is assigned
+    to — never any other agent, and never an unassigned case for an agent.
+    `appointment_at=None` clears a previously scheduled appointment rather
+    than being refused, since "no appointment" is this field's own null
+    state, not an error.
+    """
+    actor = _lock_actor(actor)
+    item = AfterSalesRequest.objects.select_for_update().get(pk=request.pk)
+    if not has_any_capability(actor, "after_sales.manage") and not (
+        actor.role == User.Role.SALES_AGENT and actor.workstream == User.Workstream.AFTER_SALES and item.assigned_to_id == actor.pk
+    ):
+        raise BusinessPermissionDenied("زمان‌بندی قرار خدمات پس از فروش مجاز نیست.")
+    if item.closed_at is not None:
+        raise BusinessConflictError({"closed_at": "درخواست بسته‌شده قابل زمان‌بندی نیست."})
+    reason = reason.strip() if isinstance(reason, str) else ""
+    if len(reason) > 500:
+        raise BusinessRuleError({"reason": "این فیلد نباید بیش از ۵۰۰ نویسه داشته باشد."})
+    if item.next_appointment_at == appointment_at:
+        raise BusinessConflictError({"appointment_at": "زمان قرار هم‌اکنون همین مقدار است."})
+    item.next_appointment_at = appointment_at
+    item.save(update_fields=["next_appointment_at", "updated_at"])
+    AfterSalesHistory.objects.create(
+        request=item, event=AfterSalesHistory.Event.APPOINTMENT_SCHEDULED, actor=actor,
+        appointment_at=appointment_at, reason=reason,
+    )
+    log_activity(
+        actor=actor, operation="after_sales.appointment_scheduled", instance=item,
+        changes={"next_appointment_at": appointment_at.isoformat() if appointment_at else None, "reason_provided": bool(reason)},
+    )
+    return item
+
+
+@transaction.atomic
 def close_after_sales_request(*, actor, request, reason=""):
     actor = _lock_actor(actor)
     if not has_any_capability(actor, "after_sales.manage"):

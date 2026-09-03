@@ -1,10 +1,12 @@
 from decimal import Decimal
 from unittest import mock
 
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -13,8 +15,10 @@ from aftersales.services import (
     assign_after_sales_request,
     close_after_sales_request,
     create_after_sales_request,
+    schedule_after_sales_appointment,
     transition_after_sales_status,
 )
+from common.exceptions import BusinessConflictError, BusinessPermissionDenied
 from auditlog.models import ActivityLog
 from sales.services import (
     assign_lead,
@@ -288,3 +292,102 @@ class AfterSalesContractTests(TestCase):
         self.assertContains(page, 'id="after-sales-status-form"')
         self.assertNotContains(page, 'id="after-sales-assign-form"')
         self.assertEqual(self.client.get(f"/after-sales/{hidden.pk}/").status_code, 404)
+
+
+class AfterSalesAppointmentTests(AfterSalesContractTests):
+    """The after-sales side of the follow-up calendar
+    (DOLPHIN_FEATURE_MAP_AND_ROADMAP.md §7 phase E) — same setUp fixture.
+    """
+
+    def setUp(self):
+        super().setUp()
+        # `schedule-appointment` is a `sensitive_actions` route (throttled at
+        # 30/min per user). The test DB's rolled-back autoincrement can hand a
+        # later test's user the same pk an earlier test's user already spent
+        # throttle quota under, in the same process-wide cache — this class
+        # exercises several sensitive POSTs, so it clears the slate rather
+        # than risk leaking a 429 into whatever test runs next (the same
+        # defensive clear already used by billing/tests/test_payment_
+        # correction.py and several others). Cleared on both ends: setUp so
+        # an earlier test's pollution cannot reach this class, tearDown so
+        # this class's own sensitive POSTs cannot reach whatever runs next.
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+    def test_a_manager_schedules_and_then_clears_an_appointment(self):
+        when = timezone.now() + timezone.timedelta(days=2)
+        item = schedule_after_sales_appointment(actor=self.manager, request=self.request, appointment_at=when, reason="هماهنگی با مشتری")
+        self.assertEqual(item.next_appointment_at, when)
+        self.assertTrue(
+            AfterSalesHistory.objects.filter(request=item, event="appointment_scheduled", appointment_at=when).exists()
+        )
+        self.assertTrue(ActivityLog.objects.filter(operation="after_sales.appointment_scheduled", object_id=str(item.pk)).exists())
+
+        cleared = schedule_after_sales_appointment(actor=self.manager, request=item, appointment_at=None)
+        self.assertIsNone(cleared.next_appointment_at)
+        self.assertTrue(AfterSalesHistory.objects.filter(request=item, event="appointment_scheduled", appointment_at__isnull=True).exists())
+
+    def test_the_assigned_operator_may_schedule_their_own_case(self):
+        when = timezone.now() + timezone.timedelta(days=1)
+        item = schedule_after_sales_appointment(actor=self.operator, request=self.request, appointment_at=when)
+        self.assertEqual(item.next_appointment_at, when)
+
+    def test_an_operator_not_assigned_to_the_case_is_refused(self):
+        with self.assertRaises(BusinessPermissionDenied):
+            schedule_after_sales_appointment(
+                actor=self.other_operator, request=self.request, appointment_at=timezone.now() + timezone.timedelta(days=1),
+            )
+
+    def test_a_plain_sales_agent_is_refused(self):
+        with self.assertRaises(BusinessPermissionDenied):
+            schedule_after_sales_appointment(
+                actor=self.sales_agent, request=self.request, appointment_at=timezone.now() + timezone.timedelta(days=1),
+            )
+
+    def test_a_closed_case_cannot_be_scheduled(self):
+        close_after_sales_request(actor=self.manager, request=self.request, reason="تمام")
+        with self.assertRaises(BusinessConflictError):
+            schedule_after_sales_appointment(actor=self.manager, request=self.request, appointment_at=timezone.now())
+
+    def test_scheduling_the_exact_same_value_again_is_a_conflict(self):
+        with self.assertRaises(BusinessConflictError):
+            schedule_after_sales_appointment(actor=self.manager, request=self.request, appointment_at=None)
+
+    def test_the_endpoint_schedules_and_the_calendar_window_filters_by_it(self):
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        when = timezone.now().replace(microsecond=0) + timezone.timedelta(days=3)
+        scheduled = client.post(
+            f"/api/v1/after-sales/{self.request.pk}/schedule-appointment/",
+            {"appointment_at": when.isoformat()}, format="json",
+        )
+        self.assertEqual(scheduled.status_code, 200, scheduled.data)
+        self.assertEqual(parse_datetime(scheduled.data["next_appointment_at"]), when)
+
+        inside = client.get("/api/v1/after-sales/", {
+            "appointment_from": (when - timezone.timedelta(hours=1)).isoformat(),
+            "appointment_to": (when + timezone.timedelta(hours=1)).isoformat(),
+        })
+        self.assertEqual(inside.status_code, 200)
+        self.assertIn(self.request.pk, [row["id"] for row in inside.data["results"]])
+
+        outside = client.get("/api/v1/after-sales/", {
+            "appointment_from": (when + timezone.timedelta(days=10)).isoformat(),
+            "appointment_to": (when + timezone.timedelta(days=20)).isoformat(),
+        })
+        self.assertEqual(outside.status_code, 200)
+        self.assertNotIn(self.request.pk, [row["id"] for row in outside.data["results"]])
+
+    def test_next_appointment_at_is_read_only_on_plain_create(self):
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        response = client.post(
+            "/api/v1/after-sales/",
+            {
+                "customer": self.customer.pk, "subject": "تلاش نوشتن مستقیم", "description": "شرح",
+                "status": "جدید", "next_appointment_at": timezone.now().isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("next_appointment_at", response.data)

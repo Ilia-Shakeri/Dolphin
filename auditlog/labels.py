@@ -84,6 +84,7 @@ OPERATION_LABELS = {
     "after_sales.assigned": "واگذاری درخواست پس از فروش",
     "after_sales.status_changed": "تغییر وضعیت درخواست پس از فروش",
     "after_sales.closed": "بستن درخواست پس از فروش",
+    "after_sales.appointment_scheduled": "زمان‌بندی قرار پس از فروش",
     # --- مدارک و پیامک ------------------------------------------------------
     "sales_document.registered": "ثبت مدرک فروش",
     "sales_document.postal_status_changed": "تغییر وضعیت پستی مدرک",

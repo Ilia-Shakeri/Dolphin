@@ -1,3 +1,5 @@
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -7,8 +9,21 @@ from accounts.access import has_any_capability
 from aftersales.models import AfterSalesRequest
 from aftersales.permissions import HasAfterSalesCapability
 from aftersales.selectors import after_sales_requests_for
-from aftersales.serializers import AfterSalesAssigneeSerializer, AfterSalesHistorySerializer, AfterSalesRequestSerializer, AssignmentSerializer, CloseSerializer, StatusTransitionSerializer
-from aftersales.services import assign_after_sales_request, close_after_sales_request, transition_after_sales_status
+from aftersales.serializers import (
+    AfterSalesAssigneeSerializer,
+    AfterSalesHistorySerializer,
+    AfterSalesRequestSerializer,
+    AppointmentSerializer,
+    AssignmentSerializer,
+    CloseSerializer,
+    StatusTransitionSerializer,
+)
+from aftersales.services import (
+    assign_after_sales_request,
+    close_after_sales_request,
+    schedule_after_sales_appointment,
+    transition_after_sales_status,
+)
 from common.openapi import ACCESS_DENIED_RESPONSE, CONFLICT_RESPONSE, NOT_FOUND_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
@@ -29,10 +44,13 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMode
     queryset = AfterSalesRequest.objects.none()
     serializer_class = AfterSalesRequestSerializer
     http_method_names = ["get", "post", "head", "options"]
-    sensitive_actions = frozenset({"create", "assign", "transition_status", "close"})
+    sensitive_actions = frozenset({"create", "assign", "transition_status", "close", "schedule_appointment"})
     search_fields = ["subject", "customer__full_name", "status"]
-    ordering_fields = ["created_at", "updated_at", "closed_at", "status"]
-    list_query_parameters = {"status", "assigned_to", "is_closed"}
+    ordering_fields = ["created_at", "updated_at", "closed_at", "next_appointment_at", "status"]
+    #: `appointment_from`/`appointment_to` are the after-sales calendar's own
+    #: window — the exact same shape as leads' `follow_up_from`/`follow_up_to`
+    #: (sales/views.py), both exact ISO instants a calendar grid already knows.
+    list_query_parameters = {"status", "assigned_to", "is_closed", "appointment_from", "appointment_to"}
     action_query_parameters = {"history": {"page"}, "assignees": {"page"}}
 
     def get_queryset(self):
@@ -50,9 +68,43 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMode
             if is_closed not in {"true", "false"}:
                 raise ValidationError({"is_closed": "مقدار باید true یا false باشد."})
             queryset = queryset.filter(closed_at__isnull=is_closed == "false")
+        return self._filter_by_appointment(queryset)
+
+    def _filter_by_appointment(self, queryset):
+        """Narrow to a `next_appointment_at` window — the after-sales calendar's
+        own filter, the exact mirror of `LeadViewSet._filter_by_follow_up`.
+
+        A case with no appointment scheduled is excluded by the bound
+        comparison itself, which is exactly what a calendar wants: nothing to
+        draw for it.
+        """
+        bounds = {
+            "appointment_from": self.request.query_params.get("appointment_from"),
+            "appointment_to": self.request.query_params.get("appointment_to"),
+        }
+        parsed = {}
+        errors = {}
+        for name, raw in bounds.items():
+            if not raw:
+                continue
+            value = parse_datetime(raw)
+            if value is None or timezone.is_naive(value):
+                errors[name] = ["زمان را در قالب ISO 8601 همراه با منطقه زمانی وارد کنید."]
+            else:
+                parsed[name] = value
+        if errors:
+            raise ValidationError(errors)
+        if "appointment_from" in parsed:
+            queryset = queryset.filter(next_appointment_at__gte=parsed["appointment_from"])
+        if "appointment_to" in parsed:
+            queryset = queryset.filter(next_appointment_at__lt=parsed["appointment_to"])
         return queryset
 
-    @extend_schema(parameters=[OpenApiParameter("status", str), OpenApiParameter("assigned_to", int), OpenApiParameter("is_closed", bool)])
+    @extend_schema(parameters=[
+        OpenApiParameter("status", str), OpenApiParameter("assigned_to", int), OpenApiParameter("is_closed", bool),
+        OpenApiParameter("appointment_from", str, description="Inclusive ISO 8601 instant; narrows to next_appointment_at."),
+        OpenApiParameter("appointment_to", str, description="Exclusive ISO 8601 instant; narrows to next_appointment_at."),
+    ])
     def list(self, request, *args, **kwargs): return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
@@ -89,6 +141,13 @@ class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMode
     def close(self, request, pk=None):
         serializer = CloseSerializer(data=request.data); serializer.is_valid(raise_exception=True)
         item = close_after_sales_request(actor=request.user, request=self.get_object(), **serializer.validated_data)
+        return Response(self.get_serializer(item).data)
+
+    @extend_schema(request=AppointmentSerializer, responses={200: AfterSalesRequestSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE})
+    @action(detail=True, methods=["post"], url_path="schedule-appointment")
+    def schedule_appointment(self, request, pk=None):
+        serializer = AppointmentSerializer(data=request.data); serializer.is_valid(raise_exception=True)
+        item = schedule_after_sales_appointment(actor=request.user, request=self.get_object(), **serializer.validated_data)
         return Response(self.get_serializer(item).data)
 
     @extend_schema(responses={200: AfterSalesHistorySerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})

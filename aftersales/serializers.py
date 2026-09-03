@@ -9,7 +9,7 @@ from sales.models import Customer, Sale, SalesDocument
 
 
 class AfterSalesRequestSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "created_at", "updated_at"}
+    server_fields = {"customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "next_appointment_at", "created_at", "updated_at"}
     customer_name = serializers.CharField(source="customer.full_name", read_only=True)
     assigned_to_display = serializers.SerializerMethodField()
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -20,9 +20,14 @@ class AfterSalesRequestSerializer(RejectServerFieldsMixin, serializers.ModelSeri
         fields = [
             "id", "customer", "customer_name", "sale", "document", "subject", "description",
             "status", "assigned_to", "assigned_to_display", "created_by", "created_by_display",
-            "closed_at", "created_at", "updated_at",
+            "closed_at", "next_appointment_at", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "created_at", "updated_at"]
+        # next_appointment_at is read-only here on purpose: it changes only
+        # through schedule_after_sales_appointment (the schedule-appointment
+        # action below), never through a plain create/update, so its own
+        # permission rule (elevated, or the assigned technician) cannot be
+        # bypassed by writing the field directly on this serializer.
+        read_only_fields = ["id", "customer_name", "assigned_to_display", "created_by", "created_by_display", "closed_at", "next_appointment_at", "created_at", "updated_at"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -75,6 +80,13 @@ class CloseSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
+class AppointmentSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """`appointment_at=null` clears a previously scheduled appointment."""
+
+    appointment_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
 class AfterSalesHistorySerializer(serializers.ModelSerializer):
     actor_display = serializers.SerializerMethodField()
     from_user_display = serializers.SerializerMethodField()
@@ -82,7 +94,7 @@ class AfterSalesHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AfterSalesHistory
-        fields = ["id", "request", "event", "actor", "actor_display", "from_status", "to_status", "from_user", "from_user_display", "to_user", "to_user_display", "reason", "created_at"]
+        fields = ["id", "request", "event", "actor", "actor_display", "from_status", "to_status", "from_user", "from_user_display", "to_user", "to_user_display", "appointment_at", "reason", "created_at"]
         read_only_fields = fields
 
     def _display(self, user) -> str | None:

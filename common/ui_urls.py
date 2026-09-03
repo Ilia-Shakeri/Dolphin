@@ -3,6 +3,7 @@ from django.urls import path
 from common.ui_views import (
     DolphinActivityLogDetailView,
     DolphinActivityLogListView,
+    DolphinAfterSalesCalendarView,
     DolphinAfterSalesDetailView,
     DolphinAfterSalesListView,
     DolphinChequeListView,
@@ -92,6 +93,7 @@ urlpatterns = [
     path("sales-documents/", DolphinSalesDocumentListView.as_view(), name="sales-documents"),
     path("sales-documents/<int:document_id>/", DolphinSalesDocumentDetailView.as_view(), name="sales-document-detail"),
     path("after-sales/", DolphinAfterSalesListView.as_view(), name="after-sales"),
+    path("after-sales/calendar/", DolphinAfterSalesCalendarView.as_view(), name="after-sales-calendar"),
     path("after-sales/<int:request_id>/", DolphinAfterSalesDetailView.as_view(), name="after-sales-detail"),
     path("reports/user-performance/", DolphinUserPerformanceView.as_view(), name="user-performance"),
     path("reports/sales-documents/", DolphinSalesDocumentReportView.as_view(), name="sales-document-report"),

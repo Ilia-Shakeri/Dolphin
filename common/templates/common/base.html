@@ -428,6 +428,12 @@
                                         <span class="menu-title">{% if request.user.role == 'sales_agent' %}پرونده‌های خدمات من{% else %}خدمات پس از فروش{% endif %}</span>
                                     </a>
                                 </div>
+                                <div class="menu-item">
+                                    <a data-module="after-sales-calendar" class="menu-link" href="{% url 'common_ui:after-sales-calendar' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-calendar fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">تقویم خدمات پس از فروش</span>
+                                    </a>
+                                </div>
                                 {% endif %}
 
                                 {% if can_send_sms and "outbound_sms" in features %}

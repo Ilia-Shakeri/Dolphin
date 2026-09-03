@@ -708,6 +708,15 @@ class AfterSalesAccessView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
+class DolphinAfterSalesCalendarView(AfterSalesAccessView):
+    """The same after-sales cases, drawn on a month grid by
+    `next_appointment_at` — the after-sales mirror of `DolphinLeadCalendarView`.
+    """
+
+    required_feature = "after_sales"
+    template_name = "common/after_sales/calendar.html"
+
+
 class DolphinAfterSalesListView(AfterSalesAccessView):
     required_feature = "after_sales"
     template_name = "common/after_sales/list.html"
