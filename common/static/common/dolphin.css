@@ -854,6 +854,24 @@ dialog {
 .calendar-legend-dot[data-status="pending"] { background-color: var(--bs-primary); }
 .calendar-legend-dot[data-status="completed"] { background-color: var(--bs-success); }
 .calendar-legend-dot[data-status="cancelled"] { background-color: var(--bs-danger); }
+/* A ring, not a fill: "overdue" is a second, independent fact about a
+   pending follow-up (its own dot above already carries the real status
+   colour), not a fourth status — so this reads as an overlay, not a peer. */
+.calendar-legend-dot[data-status="overdue"] {
+    background-color: transparent;
+    border: 2px dashed var(--bs-danger);
+    width: .55rem;
+    height: .55rem;
+}
+
+/* A still-pending follow-up whose date has already passed — status colour
+   stays (the dot above is still the source of truth for status), but the
+   dashed border says "this one needs attention now" without adding a
+   fourth colour to learn. */
+.fc-event-overdue {
+    border-style: dashed !important;
+    border-width: 2px !important;
+}
 
 /* FullCalendar's own bundle ships fixed colours, not the theme's variables —
    it was never built with this theme's dark mode in mind. These are FullCalendar's
@@ -875,4 +893,11 @@ dialog {
 #lead-calendar .fc-button-primary {
     background-color: var(--bs-primary);
     border-color: var(--bs-primary);
+}
+
+/* The hover preview `setupLeadCalendar()` builds per event — wider than
+   Bootstrap's popover default so the notes preview does not wrap into an
+   unreadably narrow column. */
+.lead-calendar-popover {
+    max-width: 20rem;
 }
