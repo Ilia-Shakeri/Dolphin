@@ -30,3 +30,23 @@ def product_version(request):
     the error pages, which are rendered by views that share no base class.
     """
     return {"dolphin_version": settings.DOLPHIN_VERSION}
+
+
+def brand(request):
+    """The name/logo every template should render — same reasoning as
+    `product_version` above: the login page and the error pages need this
+    too, and neither shares a base view class with the rest of the panel.
+
+    `common.branding.effective_brand` already folds the `custom_branding`
+    feature gate in, so this stays a thin pass-through rather than a second
+    place that decision could drift from the one in `common/branding.py`.
+    """
+    from common.branding import effective_brand
+
+    result = effective_brand()
+    return {
+        "brand_name": result["name"],
+        "brand_subtitle": result["subtitle"],
+        "brand_is_custom": result["is_custom"],
+        "brand_logo_updated_at": result["logo_updated_at"],
+    }

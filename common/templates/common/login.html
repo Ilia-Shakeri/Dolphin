@@ -41,11 +41,18 @@
             <div class="d-flex flex-column flex-center py-15 px-5 px-md-15 w-100">
                 {% comment %} The full name lockup, not the bare icon plus separate headings: on
                    this dark aside it is the one place the brand gets to be the whole story,
-                   large and on its own. {% endcomment %}
+                   large and on its own. A custom brand has no equivalent combined-lockup
+                   image to upload (only a plain logo mark), so it gets the mark plus the
+                   name as text instead of the same single pre-composed asset. {% endcomment %}
+                {% if brand_is_custom %}
+                <img class="brand-mark brand-mark-login mb-4" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" style="max-height:120px" onerror="this.hidden=true">
+                <div class="text-white fs-2 fw-bold mb-3">{{ brand_name }}</div>
+                {% else %}
                 <picture>
                     <source type="image/webp" srcset="{% static 'common/brand/Logo-With-Name.webp' %}">
                     <img class="brand-mark brand-mark-login mb-7" src="{% static 'common/brand/Logo-With-Name.png' %}" width="1343" height="1024" alt="Dolphin | دلفین">
                 </picture>
+                {% endif %}
                 <div class="text-gray-400 fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
             </div>
         </div>

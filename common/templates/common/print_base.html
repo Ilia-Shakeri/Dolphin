@@ -3,10 +3,10 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="utf-8">
-    <meta name="description" content="سامانه مدیریت ارتباط با مشتری دلفین">
+    <meta name="description" content="سامانه مدیریت ارتباط با مشتری {{ brand_name }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
-    <title>{% block title %}سند{% endblock %} | Dolphin</title>
+    <title>{% block title %}سند{% endblock %} | {{ brand_name }}</title>
 {% if pdf_mode %}
     {% comment %} Printed by the server: the stylesheet is inlined and the script, favicon,
        and toolbar are dropped, so the rendering browser issues no network

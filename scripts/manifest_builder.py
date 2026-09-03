@@ -6,11 +6,26 @@ This is "Level 1 + Level 2" of the mini-app idea recorded in
 and, optionally, a matching `.env` draft — still no SSH, no server access, no
 customer host ever reachable from here.
 
-There is no "brand colour" field, even though the §6 sketch names one: no
-setting in this codebase reads a per-deployment brand colour today (branding
-is fixed to Dolphin / دلفین — see `CLAUDE.md`'s Branding section), so a field
-that fed nothing would be a decoration, not a feature. Add it here only once
-some real setting exists to write it into.
+There is still no "brand colour" field, even though the §6 sketch names one:
+no setting in this codebase reads a per-deployment brand colour (see
+`CLAUDE.md`'s Branding section — the fixed Dolphin / دلفین identifiers that
+rule covers are the *engineering* names, e.g. `dolphin.css`, never the
+*rendered* name/logo, which is exactly what `custom_branding` now controls).
+A customer's own name and logo (2026-09-03, `common.branding`) is instead a
+feature like any other: this form's checklist toggles `custom_branding` on
+or off exactly like `customers` or `inventory`, and — once on — the
+deployment's own Platform Admin sets the actual name/logo from inside their
+own panel (`/branding/`), not from here. This tool never touches that value;
+it only decides whether the option exists for that deployment at all.
+
+There is no "manage every deployment's config from one dashboard" feature
+either, for the same reason `.env` regeneration already draws a line at
+files: every change this tool makes reaches a customer's server only as a
+file the operator hands over and installs there — never a live push over a
+network this tool holds open to that server (see the console's own warning
+banner). "Modular and remotely configurable" in the product sense is this:
+re-tick the features a customer should have, sign a fresh manifest, deliver
+it — the same three steps regardless of which feature changed.
 
 Same platform-owner-only boundary as `sign_deployment_manifest.py`, and for
 the same reason: whoever runs this needs the signing private key on the same
@@ -41,6 +56,14 @@ Usage:
     # then open http://127.0.0.1:8799/ in a browser on the same machine
 
     python scripts/manifest_builder.py --port 8850 --no-browser
+
+    # A real desktop window instead of a browser tab — the "desktop mini-app"
+    # (DOLPHIN_FEATURE_MAP_AND_ROADMAP.md §6). Needs `pip install pywebview`
+    # first; nothing else in this repository depends on that package, so it
+    # is never installed into a shipped image, only on the operator's own
+    # machine. Same server, same routes, same 127.0.0.1-only boundary — this
+    # only changes what opens to show them.
+    python scripts/manifest_builder.py --desktop
 """
 
 import argparse
@@ -48,6 +71,7 @@ import html
 import json
 import re
 import sys
+import threading
 import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -767,15 +791,64 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write(f"{self.log_date_time_string()} {format_string % args}\n")
 
 
+def _run_desktop_window(url):
+    """Open `url` in a real desktop window instead of the default browser.
+
+    `pywebview` is imported here, not at module load time, so every other use
+    of this file (the plain browser mode, and every test that imports this
+    module by path) never requires it to be installed — only `--desktop`
+    does. Not part of `requirements.txt`/`requirements-direct.txt`: those
+    describe the shipped container image, and `scripts/` never ships in it
+    (see this file's own module docstring); an operator installs this
+    locally with `pip install pywebview` (see `scripts/requirements-console.
+    txt`), same as any other tool that only ever runs on their own machine.
+    """
+    try:
+        import webview
+    except ImportError:
+        sys.stderr.write(
+            "«--desktop» به pywebview نیاز دارد که نصب نیست:\n"
+            "    pip install pywebview\n"
+            "یا: pip install -r scripts/requirements-console.txt\n"
+            "بدون آن فقط حالت مرورگر معمولی (بدون --desktop) در دسترس است.\n"
+        )
+        return 1
+    # `easy_drag`/native chrome are the library's defaults; only size and
+    # title are worth pinning here — everything else about how the window
+    # looks is the operating system's own window chrome, not this tool's.
+    webview.create_window("کنسول دلفین", url, width=1180, height=820, min_size=(760, 560))
+    webview.start()
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--port", type=int, default=8799)
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser tab automatically")
+    parser.add_argument(
+        "--desktop", action="store_true",
+        help="open in a native desktop window instead of the default browser (needs `pip install pywebview`)",
+    )
     arguments = parser.parse_args(argv)
 
     server = ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler)
     url = f"http://127.0.0.1:{arguments.port}/"
     sys.stdout.write(f"Serving on {url} (Ctrl+C to stop). Bound to 127.0.0.1 only.\n")
+
+    if arguments.desktop:
+        # The window's own event loop blocks the main thread (on some
+        # platforms it must run there), so the HTTP server needs its own
+        # thread — the same `ThreadingHTTPServer` already used for every
+        # concurrent request, just started explicitly instead of by
+        # `serve_forever()` blocking this thread directly.
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        try:
+            return _run_desktop_window(url)
+        finally:
+            server.shutdown()
+            server.server_close()
+
     if not arguments.no_browser:
         webbrowser.open(url)
     try:

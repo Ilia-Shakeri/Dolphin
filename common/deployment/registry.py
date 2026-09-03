@@ -72,6 +72,14 @@ FEATURE_DEPENDENCIES = {
     # and the service refuses it — existing rows keep working and are never
     # deleted, exactly as with any other disabled feature.
     "internal_it_role": frozenset(),
+    # common.BrandSettings — like internal_it_role, this gates a capability
+    # rather than a data model: whether this deployment's own Platform Admin
+    # may replace the Dolphin/دلفین name and logo shown across the panel with
+    # their own (common/branding.py). No non-nullable FK forces a dependency
+    # (BrandSettings stands alone), and turning it off does not delete a
+    # customer's saved name/logo — it just stops being shown, exactly like any
+    # other disabled feature; turning it back on shows the same row again.
+    "custom_branding": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -83,7 +91,12 @@ FEATURE_DEPENDENCIES = {
 #: whose signed manifest names `quotations` gets it back with nothing to
 #: rebuild. This only decides what a deployment gets when nobody has said
 #: otherwise.
-DEFAULT_OFF_FEATURES = frozenset({"quotations"})
+#:
+#: `custom_branding` joins it for a different reason: the product-owner
+#: decision behind it (2026-09-03) is that a deployment shows Dolphin/دلفین
+#: branding *unless* someone deliberately turns white-labelling on for that
+#: customer — the safe default is the platform's own brand, not a customer's.
+DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
 

@@ -229,7 +229,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_four_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_five_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
@@ -240,12 +240,19 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # (Client-1) is frozen as of 2026-09-03 pending a new-feature contract
         # — see DOLPHIN_FEATURE_MAP_AND_ROADMAP.md §8 — not because anything
         # about it is unfinished; a later Client-1 manifest can enable it with
-        # no code change.
-        self.assertEqual(withheld, frozenset({"inbound_sms", "outbound_sms", "internal_it_role", "attachments"}))
+        # no code change. `custom_branding` (2026-09-03) is withheld for the
+        # same reason `DEFAULT_OFF_FEATURES` withholds it everywhere: Client-1
+        # never asked to replace Dolphin's own name/logo with its own, and the
+        # safe default is the platform's brand, not a customer's — a later
+        # Client-1 manifest can turn it on with no code change either.
+        self.assertEqual(
+            withheld,
+            frozenset({"inbound_sms", "outbound_sms", "internal_it_role", "attachments", "custom_branding"}),
+        )
 
     def test_nothing_depends_on_a_withheld_feature(self):
         for feature, requires in FEATURE_DEPENDENCIES.items():
-            for withheld in ("inbound_sms", "outbound_sms", "internal_it_role", "attachments"):
+            for withheld in ("inbound_sms", "outbound_sms", "internal_it_role", "attachments", "custom_branding"):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 
 

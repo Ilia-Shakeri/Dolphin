@@ -7614,6 +7614,70 @@
 
     }
 
+    /**
+     * `/branding/` — this deployment's own name/logo, Platform Admin only.
+     *
+     * Same shape as the attachments panel above: GET to fill the form, a
+     * plain multipart POST (never JSON — `raw: true`) so the optional file
+     * input rides along unencoded, and a re-fetch of the logo preview after
+     * a successful save so the page reflects exactly what the server now
+     * holds rather than assuming the upload matched what was picked.
+     */
+    function setupBrandingSettings() {
+        const form = document.getElementById("branding-form");
+        if (!form) return;
+        const loading = document.getElementById("branding-loading");
+        const nameField = document.getElementById("branding-display-name");
+        const preview = document.getElementById("branding-logo-preview");
+        const emptyNote = document.getElementById("branding-logo-empty");
+        const removeRow = document.getElementById("branding-remove-logo-row");
+        const removeBox = document.getElementById("branding-remove-logo");
+
+        function showLogo(hasLogo) {
+            if (hasLogo) {
+                preview.src = `/api/v1/branding/logo/?v=${Date.now()}`;
+                preview.classList.remove("d-none");
+                emptyNote.classList.add("d-none");
+            } else {
+                preview.classList.add("d-none");
+                preview.removeAttribute("src");
+                emptyNote.classList.remove("d-none");
+            }
+            removeRow.hidden = !hasLogo;
+            removeBox.checked = false;
+        }
+
+        async function load() {
+            try {
+                const data = await apiRequest("/api/v1/branding/");
+                nameField.value = data.display_name || "";
+                showLogo(Boolean(data.has_logo));
+                loading.classList.add("d-none");
+                form.classList.remove("d-none");
+            } catch (error) {
+                showError(error);
+                loading.classList.add("d-none");
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const payload = new FormData();
+                payload.set("display_name", nameField.value);
+                const file = document.getElementById("branding-logo-file").files[0];
+                if (file) payload.set("logo", file);
+                if (removeBox.checked) payload.set("remove_logo", "true");
+                const data = await apiRequest("/api/v1/branding/", {method: "POST", body: payload, raw: true});
+                document.getElementById("branding-logo-file").value = "";
+                showLogo(Boolean(data.has_logo));
+                globalMessage("تنظیمات برند ذخیره شد.", true);
+            });
+        });
+
+        load();
+    }
+
     setupSearchableSelects();
     setupChartThemeRedraw();
     setupSidebarPeekGuard();
@@ -7673,6 +7737,7 @@
     if (page === "receivables-report") setupReceivablesReport();
     if (page === "profit-report") setupProfitReport();
     if (page === "stock-valuation-report") setupStockValuationReport();
+    if (page === "branding-settings") setupBrandingSettings();
     // `document-print` is the print base's own id, used when a printable page
     // does not override it; every printable page needs the print button wired.
     if (page === "invoice-print" || page === "document-print") setupDocumentPrint();

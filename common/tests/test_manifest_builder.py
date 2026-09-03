@@ -24,9 +24,12 @@ import http.client
 import importlib.util
 import json
 import shutil
+import sys
 import tempfile
 import threading
+import types
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
@@ -315,9 +318,17 @@ class PageRenderTests(SimpleTestCase):
         self.assertIn('name="deploy_host"', builder._page())
 
     def test_no_brand_colour_field_exists(self):
-        """Documented decision (module docstring): nothing reads one yet."""
+        """Documented decision (module docstring): nothing reads one yet.
+
+        `custom_branding` (2026-09-03, `common.branding` — the customer's own
+        name/logo, toggled per deployment exactly like every other feature)
+        legitimately contains "brand" now, so the blanket substring check
+        this test used before that feature existed would reject its own
+        checkbox — `feature="custom_branding"` is named for what it is.
+        """
         self.assertNotIn("رنگ برند", builder._page())
-        self.assertNotIn("brand", builder._page().lower())
+        self.assertNotIn("brand-colour", builder._page().lower())
+        self.assertNotIn("brand_color", builder._page().lower())
 
 
 class ConsolePageTests(SimpleTestCase):
@@ -544,3 +555,49 @@ class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
     def test_deleting_an_unregistered_slug_is_a_404_not_a_crash(self):
         status, _ = self.request("POST", "/console/does-not-exist/delete", body="")
         self.assertEqual(status, 404)
+
+
+class DesktopModeTests(SimpleTestCase):
+    """`--desktop` (the desktop mini-app window, `_run_desktop_window`).
+
+    Neither test here actually opens a window: `pywebview` is genuinely not
+    installed in this environment (confirmed by `test_..._is_not_installed_
+    here`, which is itself part of the contract — this repository has no
+    dependency on it, see `scripts/requirements-console.txt`), so the two
+    behaviours worth proving are the missing-dependency message and, with a
+    fake `webview` module injected the same way a real install would provide
+    one, that the real function is actually called with the real URL.
+    """
+
+    def test_pywebview_is_not_installed_in_this_environment(self):
+        """The premise every other test in this class depends on: if this
+        ever starts failing because pywebview became an actual project
+        dependency, the two tests below need to be revisited, not silently
+        left half-covering a package that is now always present.
+        """
+        self.assertNotIn("webview", sys.modules)
+        with self.assertRaises(ImportError):
+            __import__("webview")
+
+    def test_without_pywebview_it_explains_itself_and_returns_a_failure_code(self):
+        with patch.dict(sys.modules, {"webview": None}):
+            exit_code = builder._run_desktop_window("http://127.0.0.1:8799/")
+        self.assertEqual(exit_code, 1)
+
+    def test_with_pywebview_available_it_opens_the_real_url(self):
+        fake_webview = types.SimpleNamespace(create_window=MagicMock(), start=MagicMock())
+        with patch.dict(sys.modules, {"webview": fake_webview}):
+            exit_code = builder._run_desktop_window("http://127.0.0.1:8799/")
+        self.assertEqual(exit_code, 0)
+        fake_webview.create_window.assert_called_once()
+        self.assertEqual(fake_webview.create_window.call_args.args[1], "http://127.0.0.1:8799/")
+        fake_webview.start.assert_called_once()
+
+    def test_main_wires_the_flag_all_the_way_through(self):
+        """A real `main(["--desktop", ...])` call, not just the parser: this
+        is what actually proves the flag reaches `_run_desktop_window` and
+        that the server it started in the background is shut down again
+        afterwards rather than left running on the port for the next test.
+        """
+        exit_code = builder.main(["--desktop", "--port", "0"])
+        self.assertEqual(exit_code, 1)  # pywebview genuinely absent here

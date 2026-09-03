@@ -94,6 +94,7 @@ OPERATION_LABELS = {
     "outbound_sms.failed": "ارسال ناموفق پیامک",
     "attachment.uploaded": "افزودن پیوست",
     "attachment.deleted": "حذف پیوست",
+    "brand_settings.updated": "تغییر برند پنل",
     # --- کاربران ------------------------------------------------------------
     "user.created": "ثبت کاربر",
     "user.updated": "ویرایش کاربر",

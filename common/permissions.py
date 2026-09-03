@@ -3,12 +3,26 @@ from rest_framework.exceptions import NotFound
 from rest_framework.permissions import BasePermission
 
 from accounts.access import has_any_capability, is_crm_identity
+from accounts.models import User
 from common.deployment.profile import feature_enabled
 
 
 class IsActiveAuthenticated(BasePermission):
     def has_permission(self, request, view):
         return is_crm_identity(request.user)
+
+
+class IsPlatformAdmin(BasePermission):
+    """This deployment's own top role — never "Dolphin the company"'s.
+
+    Each deployment has a separate database, so a Platform Admin here is
+    simply whoever administers *this* customer's install. Used for settings
+    a lower role must not touch even though it costs the deployment nothing
+    to display — `common.branding` (white-label name/logo) is the first.
+    """
+
+    def has_permission(self, request, view):
+        return is_crm_identity(request.user) and request.user.role == User.Role.PLATFORM_ADMIN
 
 
 #: HTTP methods that only ever read. Everything else — POST, PUT, PATCH, and

@@ -1,0 +1,60 @@
+{% extends "common/base.html" %}
+{% block title %}برند و لوگوی پنل{% endblock %}
+{% block page_id %}branding-settings{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">تنظیمات استقرار</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-picture page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}برند و لوگوی پنل{% endblock %}
+{% block breadcrumb_current %}برند و لوگو{% endblock %}
+{% block content %}
+<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
+    <div class="d-flex flex-stack flex-grow-1">
+        <div class="fw-semibold">
+            <div class="fs-6 text-gray-700">
+                این تنظیم فقط برای همین استقرار است و بلافاصله روی همین پنل اثر می‌گذارد — نیازی به
+                ساخت دوبارهٔ manifest یا هماهنگی با کنسول نیست. نام و لوگو را خالی بگذارید تا پنل
+                همچنان با نام و لوگوی دلفین نمایش داده شود.
+            </div>
+        </div>
+    </div>
+</div>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title"><h2>نام و لوگوی این پنل</h2></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="branding-loading" class="text-center text-gray-700 py-10">در حال دریافت تنظیمات فعلی…</div>
+        <form id="branding-form" class="d-none" novalidate>
+            {% csrf_token %}
+            <div class="row g-5 mb-6">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="branding-display-name">نام نمایشی</label>
+                    <input class="form-control form-control-solid" id="branding-display-name" name="display_name"
+                           maxlength="80" placeholder="مثلاً: تیارا">
+                    <p class="text-muted fs-7 mt-1 mb-0">در سربرگ، نوار کناری و عنوان صفحات نمایش داده می‌شود.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="display_name"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="branding-logo-file">لوگو</label>
+                    <div class="d-flex align-items-center gap-4 mb-2">
+                        <img id="branding-logo-preview" src="" alt="" class="d-none"
+                             style="max-width:64px;max-height:64px;border-radius:.5rem;background:#1e1e2d;padding:.4rem">
+                        <span id="branding-logo-empty" class="text-muted fs-7">لوگویی تنظیم نشده — لوگوی دلفین نمایش داده می‌شود.</span>
+                    </div>
+                    <input class="form-control form-control-solid" id="branding-logo-file" name="logo" type="file"
+                           accept="image/jpeg,image/png,image/webp">
+                    <p class="text-muted fs-7 mt-1 mb-0">jpeg، png یا webp — حداکثر ۲ مگابایت.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="logo"></p>
+                    <div class="form-check form-check-custom form-check-solid mt-3" id="branding-remove-logo-row" hidden>
+                        <input class="form-check-input" type="checkbox" id="branding-remove-logo" name="remove_logo">
+                        <label class="form-check-label" for="branding-remove-logo">حذف لوگوی فعلی و بازگشت به لوگوی دلفین</label>
+                    </div>
+                </div>
+            </div>
+            <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>
+            <div class="d-flex justify-content-end">
+                <button class="btn btn-primary" type="submit">ذخیره</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

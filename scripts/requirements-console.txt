@@ -1,0 +1,13 @@
+# Optional, operator-machine-only dependency for `scripts/manifest_builder.py
+# --desktop` — the local deployment console's desktop mini-app window
+# (DOLPHIN_FEATURE_MAP_AND_ROADMAP.md §6). Nothing else in this repository
+# imports pywebview, and this file is never read by anything that builds the
+# shipped application image (see requirements.txt / requirements-direct.txt
+# for that, and scripts/manifest_builder.py's own module docstring for why
+# `scripts/` never ships in an image at all). Install only if you actually
+# want the desktop window; the plain browser mode (no `--desktop`) needs
+# nothing beyond the Python standard library.
+#
+#     pip install -r scripts/requirements-console.txt
+#
+pywebview>=5,<6

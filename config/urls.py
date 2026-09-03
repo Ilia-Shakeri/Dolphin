@@ -18,6 +18,7 @@ def build_urlpatterns():
         path("api/v1/", include("inventory.urls")),
         path("api/v1/", include("billing.urls")),
         path("api/v1/", include("attachments.urls")),
+        path("api/v1/", include("common.urls")),
         path("api/v1/health/", HealthView.as_view(), name="health"),
         path("api/v1/health/live/", LivenessView.as_view(), name="health-live"),
         path("api/v1/health/ready/", ReadinessView.as_view(), name="health-ready"),

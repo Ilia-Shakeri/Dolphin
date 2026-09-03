@@ -222,6 +222,12 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # one root; the backend gate in `common.viewsets.HardDeleteMixin` is
         # what actually decides, regardless of what this hides or shows.
         context["can_hard_delete"] = self.request.user.role == User.Role.PLATFORM_ADMIN
+        # Mirrors DolphinBrandingSettingsView's own two gates exactly (feature
+        # then role) — this only decides whether the link is offered; the
+        # view enforces both again regardless of what this hid or showed.
+        context["can_manage_branding"] = (
+            feature_enabled("custom_branding") and self.request.user.role == User.Role.PLATFORM_ADMIN
+        )
         return context
 
 
@@ -1114,3 +1120,27 @@ class DolphinProfitReportView(CompanyReportView):
 class DolphinStockValuationReportView(CompanyReportView):
     required_feature = "inventory"
     template_name = "common/reports/stock_valuation.html"
+
+
+class DolphinBrandingSettingsView(ActiveCrmView):
+    """`/branding/` — this deployment's own choice of name/logo.
+
+    Feature-gated (`required_feature`, inherited dispatch: 404 when this
+    deployment's manifest never turned `custom_branding` on — the page looks
+    exactly like one that was never built, same as every other disabled
+    module) and, on top of that, restricted to a Platform Admin — the same
+    dispatch-override-then-403 shape `DolphinCustomerLedgerView` and
+    `CompanyReportView` already use, so a lower role sees a plain "access
+    denied" card, not a login redirect or a stack trace.
+    """
+
+    required_feature = "custom_branding"
+    template_name = "common/branding/settings.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and request.user.role != User.Role.PLATFORM_ADMIN:
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="تغییر نام و لوگوی پنل فقط برای مدیر پلتفرم مجاز است.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)

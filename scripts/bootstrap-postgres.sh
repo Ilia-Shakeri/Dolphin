@@ -557,6 +557,10 @@ FROM (
         -- once and never rewritten, same as the inbound table above.
         ('communications_outboundsms', 'SELECT, INSERT'),
         ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
+        -- One singleton row for the whole deployment (common.branding); a
+        -- logo is cleared by writing NULL back into it, never by deleting
+        -- the row, so no DELETE.
+        ('common_brandsettings', 'SELECT, INSERT, UPDATE'),
         -- Inventory. The movement ledger is append-only; the derived level row
         -- is rewritten under a row lock by the movement service.
         ('inventory_stockitem', 'SELECT, INSERT, UPDATE'),

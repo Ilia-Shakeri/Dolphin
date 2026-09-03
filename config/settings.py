@@ -72,6 +72,7 @@ TEMPLATES = [{
         "django.contrib.messages.context_processors.messages",
         "common.context_processors.product_version",
         "common.context_processors.sidebar_state",
+        "common.context_processors.brand",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"

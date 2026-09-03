@@ -359,6 +359,10 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # rewrites it, which is safe precisely because it never authorises
             # anything; the manifest alone does.
             "common_deploymentprofilecache": "SELECT, INSERT, UPDATE",
+            # One singleton row for the whole deployment's white-label choice
+            # (common.branding). A logo is cleared by writing NULL back into
+            # this same row, never by deleting it — no DELETE.
+            "common_brandsettings": "SELECT, INSERT, UPDATE",
             "auth_group": "SELECT, INSERT, UPDATE, DELETE",
             "auth_group_permissions": "SELECT, INSERT, DELETE",
             "auth_permission": "SELECT",

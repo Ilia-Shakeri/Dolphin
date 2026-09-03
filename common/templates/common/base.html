@@ -3,10 +3,10 @@
 <html lang="fa" dir="rtl">
 <head>
     <meta charset="utf-8">
-    <meta name="description" content="سامانه مدیریت ارتباط با مشتری دلفین">
+    <meta name="description" content="سامانه مدیریت ارتباط با مشتری {{ brand_name }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
-    <title>{% block title %}خانه{% endblock %} | Dolphin</title>
+    <title>{% block title %}خانه{% endblock %} | {{ brand_name }}</title>
     <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">
     <link rel="icon" type="image/png" sizes="16x16" href="{% static 'common/brand/favicon-16x16.png' %}">
@@ -99,11 +99,15 @@
                 </div>
                 <div class="d-flex align-items-center flex-grow-1 flex-lg-grow-0">
                     <a class="d-lg-none d-flex align-items-center gap-2 text-decoration-none" href="{% url 'common_ui:home' %}">
+                        {% if brand_is_custom %}
+                        <img class="brand-mark brand-mark-mobile" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" onerror="this.hidden=true">
+                        {% else %}
                         <picture>
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-mobile" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="">
                         </picture>
-                        <span class="text-white fw-bold fs-4">Dolphin</span>
+                        {% endif %}
+                        <span class="text-white fw-bold fs-4">{{ brand_name }}</span>
                     </a>
                 </div>
                 <div class="d-flex align-items-stretch justify-content-end flex-lg-grow-1">
@@ -275,11 +279,16 @@
    That is what the `!important` overrides in dolphin.css existed to beat.
    Moving the utility inward lets the theme's own rule win unaided. {% endcomment %}
                         <span class="d-flex align-items-center gap-3">
+                            {% if brand_is_custom %}
+                            <img class="brand-mark brand-mark-sidebar" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" onerror="this.hidden=true">
+                            <span>{{ brand_name }}</span>
+                            {% else %}
                             <picture>
                                 <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                                 <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="">
                             </picture>
-                            <span>Dolphin<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">دلفین</span></span>
+                            <span>{{ brand_name }}<span class="d-block fs-7 fw-semibold" style="color:#9de1d8">{{ brand_subtitle }}</span></span>
+                            {% endif %}
                         </span>
                     </a>
 {% comment %} Collapsed, the mark alone. It is a link home, exactly like the wide
@@ -291,11 +300,15 @@
    that turns into a different control under the pointer does not tell you which
    of the two you are about to get. Reopening belongs to the toggle that closed
    it, which now stays visible while collapsed. {% endcomment %}
-                    <a class="brand app-sidebar-logo-minimize" href="{% url 'common_ui:home' %}" aria-label="Dolphin">
+                    <a class="brand app-sidebar-logo-minimize" href="{% url 'common_ui:home' %}" aria-label="{{ brand_name }}">
+                        {% if brand_is_custom %}
+                        <img class="brand-mark brand-mark-minimize" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="{{ brand_name }}" onerror="this.hidden=true">
+                        {% else %}
                         <picture>
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
-                            <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="Dolphin">
+                            <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="{{ brand_name }}">
                         </picture>
+                        {% endif %}
                     </a>
 {% comment %} The theme's own toggle, class for class, with one change: it is a
    real button element rather than the demo's plain container, so it is
@@ -324,7 +337,7 @@
                              data-kt-scroll-wrappers="#kt_app_sidebar_menu_wrapper" data-kt-scroll-offset="5px">
                             <nav class="menu menu-column menu-rounded menu-sub-indention fw-semibold fs-6"
                                  id="kt_app_sidebar_menu" data-kt-menu="true" data-kt-menu-expand="false"
-                                 aria-label="فهرست بخش‌های دلفین">
+                                 aria-label="فهرست بخش‌های {{ brand_name }}">
 
                                 <div class="menu-item">
                                     <a data-module="dashboard" class="menu-link" href="{% url 'common_ui:home' %}">
@@ -482,7 +495,7 @@
                                 </div>
                                 {% endif %}
 
-                                {% if can_view_audit or can_manage_users %}
+                                {% if can_view_audit or can_manage_users or can_manage_branding %}
                                 <div data-kt-menu-trigger="click" data-nav-group="administration"{% if is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-setting-2 fs-2"><span class="path1"></span><span class="path2"></span></i></span>
@@ -492,6 +505,7 @@
                                     <div class="menu-sub menu-sub-accordion">
                                         {% if can_view_audit %}<div class="menu-item"><a data-module="audit" class="menu-link" href="{% url 'common_ui:activity-logs' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">رویدادهای سامانه</span></a></div>{% endif %}
                                         {% if can_manage_users %}<div class="menu-item"><a data-module="users" class="menu-link" href="{% url 'common_ui:users' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{{ user_admin_label }}</span></a></div>{% endif %}
+                                        {% if can_manage_branding %}<div class="menu-item"><a data-module="branding-settings" class="menu-link" href="{% url 'common_ui:branding-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">برند و لوگوی پنل</span></a></div>{% endif %}
                                     </div>
                                 </div>
                                 {% endif %}
@@ -567,7 +581,7 @@
                 <div id="kt_app_footer" class="app-footer">
                     <div class="app-container container-fluid d-flex flex-column flex-md-row flex-center flex-md-stack py-3">
                         <div class="text-gray-900 order-2 order-md-1">
-                            <span class="text-muted fw-semibold">Dolphin | دلفین</span>
+                            <span class="text-muted fw-semibold">{{ brand_name }}{% if brand_subtitle %} | {{ brand_subtitle }}{% endif %}</span>
                             {% comment %} نسخه در پاورقی است تا پشتیبانی بدون دسترسی به سرور
                                بداند کاربر دقیقاً کدام نسخه را می‌بیند. {% endcomment %}
                             <span class="text-muted fw-semibold ms-3" dir="ltr">v{{ dolphin_version }}</span>
