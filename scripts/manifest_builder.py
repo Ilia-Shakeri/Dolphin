@@ -64,15 +64,26 @@ Usage:
     # machine. Same server, same routes, same 127.0.0.1-only boundary — this
     # only changes what opens to show them.
     python scripts/manifest_builder.py --desktop
+
+The form also has a "پیش‌نمایش زنده" (live preview) button — tick features,
+type the customer's name if they want their own branding, and a real
+throwaway instance of this codebase boots on another local port so the
+operator can click through exactly what that customer would see before
+signing anything for real (`scripts/preview_runner.py`). And once a real
+manifest is signed with slug+host filled in, the result offers a single
+deployment-bundle zip (manifest + .env draft + a short customer-specific
+run sheet) instead of two separate downloads to carry to the server by hand.
 """
 
 import argparse
 import html
+import io
 import json
 import re
 import sys
 import threading
 import webbrowser
+import zipfile
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -83,7 +94,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from common.deployment.registry import FEATURE_DEPENDENCIES, PROFILES  # noqa: E402
-from scripts import deployment_records  # noqa: E402
+from scripts import deployment_records, preview_runner  # noqa: E402
 from scripts.new_deployment import (  # noqa: E402
     HOST_PATTERN,
     SLUG_PATTERN,
@@ -109,6 +120,8 @@ _STYLE = """
   h2 { font-size: 1.1rem; }
   .warning { background: #4a1414; border: 1px solid #a33; border-radius: .4rem; padding: .8rem 1rem; margin-bottom: 1.5rem; }
   .notice { background: #17202b; border: 1px solid #2b3a4a; border-radius: .4rem; padding: .8rem 1rem; margin-bottom: 1.5rem; }
+  .preview-live { background: #1b2e12; border: 1px solid #3d8a2a; border-radius: .4rem; padding: .8rem 1rem; margin-bottom: 1.5rem; }
+  button.secondary { background: #3a3d46; }
   fieldset { border: 1px solid #3a3d46; border-radius: .4rem; margin-bottom: 1rem; padding: .8rem 1rem; }
   legend { padding: 0 .5rem; }
   label { display: block; margin: .4rem 0; }
@@ -169,9 +182,33 @@ document.getElementById("feature-list").addEventListener("change", (event) => {
 """
 
 
+def _preview_status_html():
+    """A persistent banner, shown on every page load, naming whatever
+    preview is currently running (if any) — so the operator never loses
+    track of an open preview across other clicks in this tool, and always
+    has the stop button and login details in front of them.
+    """
+    state = preview_runner.status()
+    if state is None:
+        return ""
+    url = f"http://127.0.0.1:{state['port']}/"
+    label = html.escape(state["display_name"]) if state["display_name"] else "(بدون نام سفارشی)"
+    feature_count = len(state["features"])
+    return f"""<div class="preview-live">
+  <strong>پیش‌نمایش زنده در حال اجراست</strong> — {label}، {feature_count} فیچر، نسخهٔ {html.escape(state['profile_id'])}.
+  <p><a class="nav" href="{url}" target="_blank" rel="noopener">باز کردن پیش‌نمایش ↗</a></p>
+  <p><small>ورود پیش‌نمایش — نام کاربری: <code>{html.escape(state['username'])}</code>،
+     گذرواژه: <code>{html.escape(state['password'])}</code>. این ورود فقط برای همین پنجرهٔ
+     موقت است و با توقف پیش‌نمایش از بین می‌رود.</small></p>
+  <form method="post" action="/preview/stop">
+    <button type="submit" class="danger">توقف پیش‌نمایش</button>
+  </form>
+</div>"""
+
+
 def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
           deploy_slug="", deploy_host="", deploy_image="", deploy_manifest_path="/srv/dolphin/secrets/manifest.json",
-          deploy_retention_days="0", result_html=""):
+          deploy_retention_days="0", preview_display_name="", result_html=""):
     """Render the whole page: warning banner, the form (repopulated with
     whatever was just submitted, so a mistake does not mean retyping
     everything), and a result section — success or error — from the last
@@ -194,6 +231,7 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
   که کلید خصوصی امضا رویش نگه‌داری می‌شود — هرگز روی سرور مشتری. کلید خصوصی
   از مسیر فایل زیر خوانده می‌شود؛ هیچ‌جا لاگ، ذخیره یا نمایش داده نمی‌شود.
 </div>
+{_preview_status_html()}
 <form method="post" action="/build">
   <fieldset>
     <legend>هویت manifest</legend>
@@ -215,6 +253,20 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
        هم دوباره، قطعی، سمت سرور موقع امضا) — دقیقاً همان قاعده‌ای که
        <code>scripts/new_deployment.py --print-resolved-features</code>
        استفاده می‌کند.</small></p>
+  </fieldset>
+  <fieldset>
+    <legend>پیش‌نمایش زنده (اختیاری، بدون نیاز به کلید خصوصی)</legend>
+    <p><small>مشتری زنگ زده، اسم و ماژول‌های موردنظرش را گفته؟ فیچرهای بالا را
+       تیک بزنید، اسمش را اینجا بنویسید و «پیش‌نمایش زنده» را بزنید — یک نمونهٔ
+       واقعی و موقت از پنل، دقیقاً با همین فیچرها، روی یک پورت محلی دیگر بالا
+       می‌آید تا پیش از هر تعهدی کامل چک‌اش کنید. این اسم فقط برای همین
+       پیش‌نمایش است؛ نه در manifest/.env خروجی می‌رود و نه جایی ذخیره می‌شود —
+       برند واقعی را خودِ مشتری، بعد از استقرار، از <code>/branding/</code> در
+       پنل خودش تنظیم می‌کند.</small></p>
+    <label>نام مشتری (فقط برای پیش‌نمایش)
+      <input type="text" name="preview_display_name" value="{html.escape(preview_display_name)}" placeholder="تیارا">
+    </label>
+    <button type="submit" formaction="/preview/start" formnovalidate class="secondary">پیش‌نمایش زنده</button>
   </fieldset>
   <fieldset>
     <legend>پیش‌نویس .env (اختیاری — سطح ۲)</legend>
@@ -246,6 +298,62 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
 <script>{_FEATURE_DEPENDENCY_SCRIPT}</script>
 </body>
 </html>"""
+
+
+def _deploy_steps_text(*, slug, host, image, manifest_keys_line, manifest_path):
+    """The short, customer-specific cheat sheet bundled into the deployment
+    zip — not a copy of the runbook (which stays the single source of truth
+    and could drift from a duplicated copy), just this deployment's own
+    values dropped into the one command `docs/ops/DOLPHIN_DEPLOYMENT_
+    RUNBOOK.md` section 1.0 already documents as the one-command path.
+    """
+    return f"""راهنمای استقرار — {slug}
+====================================
+
+این بسته شامل manifest.json امضاشده و یک پیش‌نویس .env است. راهنمای کامل:
+docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md (بخش ۱).
+
+## راه پیشنهادی — رمزها روی خودِ سرور مشتری ساخته شوند (امن‌ترین حالت)
+
+روی سرور مشتری، از ریشهٔ یک checkout از مخزن Dolphin:
+
+    sudo ./scripts/quickstart.sh --slug {slug} --host {host} \\
+        --app-image {image} \\
+        --manifest /path/to/manifest.json --manifest-keys '{manifest_keys_line}' \\
+        --tls-cert /path/to/fullchain.pem --tls-key /path/to/privkey.pem
+
+(مسیر manifest.json را به فایل هم‌پیوستِ همین بسته اشاره دهید. اگر گواهی
+TLS واقعی هنوز آماده نیست، دو فلگ TLS بالا را با --self-signed-tls
+جایگزین کنید — فقط برای تست، نه استقرار نهایی.)
+
+## راه دوم — همین .env پیوست را مستقیم استفاده کنید
+
+اگر ترجیح می‌دهید به‌جای رمزهای تازهٔ سرور، همان dolphin.env این بسته
+(رمزهای تولیدشده روی لپ‌تاپ شما) را به کار ببرید، آن را روی سرور در
+secrets/.env کپی کنید و طبق بخش ۱.۱۶ راهنما ادامه دهید — نه هر دو راه را
+با هم.
+
+مسیر manifest روی سرور مقصد که در این .env فرض شده: {manifest_path}
+
+## کلید عمومی manifest (برای هر دو راه، عیناً)
+
+{manifest_keys_line}
+"""
+
+
+def _deployment_bundle_zip_hex(*, manifest_bytes, env_content, deploy_steps_text):
+    """A single zip — manifest.json, dolphin.env (when there is one), and
+    DEPLOY-STEPS.txt — built in memory, never written to this machine's own
+    disk, hex-encoded the same way the individual downloads already are so
+    the browser reconstructs it client-side without a second HTTP round trip.
+    """
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", manifest_bytes)
+        if env_content is not None:
+            archive.writestr("dolphin.env", env_content)
+        archive.writestr("DEPLOY-STEPS.txt", deploy_steps_text)
+    return buffer.getvalue().hex()
 
 
 def _build_result_html(form):
@@ -387,13 +495,33 @@ def _build_result_html(form):
     except deployment_records.DeploymentRecordError:
         console_note = '<p><small>ثبت در کنسول ناموفق بود؛ خودِ manifest و .env بالا هنوز معتبرند.</small></p>'
 
+    deploy_steps_text = _deploy_steps_text(
+        slug=deploy_slug, host=deploy_host, image=deploy_image,
+        manifest_keys_line=public_key_line, manifest_path=deploy_manifest_path,
+    )
+    bundle_hex = _deployment_bundle_zip_hex(
+        manifest_bytes=manifest_bytes, env_content=env_content, deploy_steps_text=deploy_steps_text,
+    )
+
     env_block = f"""<div class="result-ok">
   <strong>پیش‌نویس .env هم ساخته شد</strong> — رمزهای تصادفی تازه، فقط همین یک بار نمایش داده می‌شوند
   (هیچ‌جای سرور این ابزار ذخیره نمی‌شوند).
   <p><small>پیش از استفادهٔ واقعی: <code>KARIZ_APP_IMAGE</code> و مسیرهای TLS را با مقادیر واقعی
      جایگزین کنید — این‌ها فقط پیش‌نویس‌اند.</small></p>
   {console_note}
-  <a class="download" download="dolphin.env" id="download-link-env" href="#">دانلود .env</a>
+  <p>
+    <a class="download" download="dolphin-deploy-{html.escape(deploy_slug)}.zip" id="download-link-bundle" href="#">دانلود بستهٔ استقرار (zip)</a>
+    <small>— manifest.json + dolphin.env + راهنمای گام‌به‌گام، یک فایل برای کپی به سرور مشتری.</small>
+  </p>
+  <script>
+    (() => {{
+      const hex = "{bundle_hex}";
+      const bytes = new Uint8Array(hex.match(/.{{2}}/g).map((pair) => parseInt(pair, 16)));
+      const url = URL.createObjectURL(new Blob([bytes], {{type: "application/zip"}}));
+      document.getElementById("download-link-bundle").href = url;
+    }})();
+  </script>
+  <a class="download" download="dolphin.env" id="download-link-env" href="#">دانلود .env (تکی)</a>
   <script>
     (() => {{
       const hex = "{env_hex}";
@@ -406,6 +534,52 @@ def _build_result_html(form):
   <pre>{html.escape(env_content)}</pre>
 </div>"""
     return manifest_block + env_block
+
+
+def _build_preview_result_html(form):
+    """Start (or restart) the live preview from the ticked features and the
+    optional customer name. No key required — `preview_runner.start` signs
+    with a one-time in-memory key, never the operator's real one.
+
+    Returns only an *error* block on failure; on success the persistent
+    `_preview_status_html()` banner at the top of `_page()` already shows
+    everything there is to show, so this returns nothing rather than saying
+    the same thing twice.
+    """
+    profile_id = (form.get("profile_id", [""])[0] or "").strip()
+    requested_features = set(form.get("feature", []))
+    display_name = (form.get("preview_display_name", [""])[0] or "").strip()
+
+    if profile_id not in PROFILES:
+        return '<div class="result-error"><strong>پیش‌نمایش ساخته نشد:</strong> شناسهٔ نسخه نامعتبر است.</div>'
+    if not requested_features:
+        return '<div class="result-error"><strong>پیش‌نمایش ساخته نشد:</strong> دست‌کم یک فیچر را تیک بزنید.</div>'
+
+    # A typed name means "show me this with the customer's own brand" —
+    # the same auto-completion spirit as a feature's own dependencies,
+    # just one level up: a name with no custom_branding feature would
+    # preview as plain Dolphin branding, which is not what typing a name
+    # asked for.
+    if display_name:
+        requested_features = requested_features | {"custom_branding"}
+
+    try:
+        features, _added = resolve_features(requested_features)
+    except ProvisioningError as error:
+        return f'<div class="result-error"><strong>پیش‌نمایش ساخته نشد:</strong> {html.escape(str(error))}</div>'
+
+    try:
+        preview_runner.start(profile_id=profile_id, features=features, display_name=display_name)
+    except preview_runner.PreviewError as error:
+        return f'<div class="result-error"><strong>پیش‌نمایش بالا نیامد:</strong> {html.escape(str(error))}</div>'
+    except Exception as error:  # noqa: BLE001 — a subprocess/OS failure here
+        # must become a readable message, never a stack trace in the
+        # browser (the same guarantee `_build_result_html` gives for
+        # signing failures) — `preview_runner.start` already guarantees any
+        # partially-started subprocess/temp directory was cleaned up before
+        # this was raised.
+        return f'<div class="result-error"><strong>پیش‌نمایش بالا نیامد:</strong> {html.escape(str(error))}</div>'
+    return ""
 
 
 def _build_reissue_result_html(record, form):
@@ -730,8 +904,30 @@ class Handler(BaseHTTPRequestHandler):
                 deploy_image=(form.get("deploy_image", [""])[0] or ""),
                 deploy_manifest_path=(form.get("deploy_manifest_path", [""])[0] or "/srv/dolphin/secrets/manifest.json"),
                 deploy_retention_days=(form.get("deploy_retention_days", [""])[0] or "0"),
+                preview_display_name=(form.get("preview_display_name", [""])[0] or ""),
                 result_html=result_html,
             ))
+            return
+
+        if self.path == "/preview/start":
+            form = self._read_form()
+            result_html = _build_preview_result_html(form)
+            self._send_html(_page(
+                profile_id=(form.get("profile_id", [""])[0] or ""),
+                checked_features=form.get("feature", []),
+                deploy_slug=(form.get("deploy_slug", [""])[0] or ""),
+                deploy_host=(form.get("deploy_host", [""])[0] or ""),
+                deploy_image=(form.get("deploy_image", [""])[0] or ""),
+                deploy_manifest_path=(form.get("deploy_manifest_path", [""])[0] or "/srv/dolphin/secrets/manifest.json"),
+                deploy_retention_days=(form.get("deploy_retention_days", [""])[0] or "0"),
+                preview_display_name=(form.get("preview_display_name", [""])[0] or ""),
+                result_html=result_html,
+            ))
+            return
+
+        if self.path == "/preview/stop":
+            preview_runner.stop()
+            self._redirect("/")
             return
 
         action_match = _CONSOLE_ACTION_RE.match(self.path)

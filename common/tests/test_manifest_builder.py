@@ -22,12 +22,14 @@ Four things are worth proving, not assuming:
 import html
 import http.client
 import importlib.util
+import io
 import json
 import shutil
 import sys
 import tempfile
 import threading
 import types
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -317,6 +319,19 @@ class PageRenderTests(SimpleTestCase):
         self.assertIn('name="deploy_slug"', builder._page())
         self.assertIn('name="deploy_host"', builder._page())
 
+    def test_the_preview_button_skips_html5_validation_of_the_key_fields(self):
+        """A live-browser click on «پیش‌نمایش زنده» once did nothing at all:
+        `key_id`/`private_key_path` carry `required`, and a browser enforces
+        every `required` field in a `<form>` before submitting it through
+        *any* button inside it — including one with its own `formaction` —
+        unless that button also opts out with `formnovalidate`. No amount of
+        server-side testing sees this; only an actual browser blocking the
+        submit does. Kept here as the cheapest regression guard available
+        outside a real browser.
+        """
+        page = builder._page()
+        self.assertIn('formaction="/preview/start" formnovalidate', page)
+
     def test_no_brand_colour_field_exists(self):
         """Documented decision (module docstring): nothing reads one yet.
 
@@ -601,3 +616,213 @@ class DesktopModeTests(SimpleTestCase):
         """
         exit_code = builder.main(["--desktop", "--port", "0"])
         self.assertEqual(exit_code, 1)  # pywebview genuinely absent here
+
+
+class PreviewButtonTests(SimpleTestCase):
+    """`_build_preview_result_html` and `_preview_status_html` —
+    `scripts.preview_runner` itself is mocked throughout, so these run fast
+    and prove only what belongs to `manifest_builder.py`: form validation,
+    the "a typed name implies custom_branding" rule, and rendering. The real
+    subprocess mechanics have their own dedicated, much slower suite,
+    `common/tests/test_preview_runner.py`.
+    """
+
+    def build(self, **fields):
+        form = {"profile_id": [""], "feature": []}
+        form.update({key: (value if isinstance(value, list) else [value]) for key, value in fields.items()})
+        return builder._build_preview_result_html(form)
+
+    def test_an_invalid_profile_is_refused_before_calling_preview_runner(self):
+        with patch.object(builder.preview_runner, "start") as start:
+            page = self.build(profile_id="not-a-real-profile", feature=["customers"])
+        start.assert_not_called()
+        self.assertIn("پیش‌نمایش ساخته نشد", page)
+
+    def test_no_features_is_refused_before_calling_preview_runner(self):
+        with patch.object(builder.preview_runner, "start") as start:
+            page = self.build(profile_id="demo")
+        start.assert_not_called()
+        self.assertIn("پیش‌نمایش ساخته نشد", page)
+
+    def test_a_typed_name_adds_custom_branding_to_the_requested_features(self):
+        with patch.object(builder.preview_runner, "start") as start:
+            self.build(profile_id="demo", feature=["customers"], preview_display_name="تیارا")
+        start.assert_called_once()
+        self.assertIn("custom_branding", start.call_args.kwargs["features"])
+        self.assertEqual(start.call_args.kwargs["display_name"], "تیارا")
+
+    def test_no_name_does_not_add_custom_branding_on_its_own(self):
+        with patch.object(builder.preview_runner, "start") as start:
+            self.build(profile_id="demo", feature=["customers"])
+        self.assertNotIn("custom_branding", start.call_args.kwargs["features"])
+
+    def test_a_missing_dependency_is_still_completed_for_the_preview(self):
+        with patch.object(builder.preview_runner, "start") as start:
+            self.build(profile_id="demo", feature=["payments"])
+        features = start.call_args.kwargs["features"]
+        self.assertIn("invoices", features)
+        self.assertIn("customers", features)
+
+    def test_a_preview_error_becomes_a_readable_message_not_a_crash(self):
+        with patch.object(builder.preview_runner, "start", side_effect=builder.preview_runner.PreviewError("خطا")):
+            page = self.build(profile_id="demo", feature=["customers"])
+        self.assertIn("پیش‌نمایش بالا نیامد", page)
+        self.assertIn("خطا", page)
+
+    def test_an_unexpected_exception_from_preview_runner_also_becomes_a_message(self):
+        with patch.object(builder.preview_runner, "start", side_effect=OSError("disk full")):
+            page = self.build(profile_id="demo", feature=["customers"])
+        self.assertIn("پیش‌نمایش بالا نیامد", page)
+
+    def test_success_returns_no_extra_block_the_banner_already_covers_it(self):
+        with patch.object(builder.preview_runner, "start", return_value={"port": 8918}):
+            page = self.build(profile_id="demo", feature=["customers"])
+        self.assertEqual(page, "")
+
+    def test_status_banner_is_empty_when_nothing_is_running(self):
+        with patch.object(builder.preview_runner, "status", return_value=None):
+            self.assertEqual(builder._preview_status_html(), "")
+
+    def test_status_banner_shows_the_running_previews_own_details(self):
+        state = {
+            "port": 8918, "username": "preview_admin", "password": "s3cr3t",
+            "display_name": "تیارا", "profile_id": "demo", "features": ("customers", "leads"),
+            "started_at": "2026-01-01T00:00:00Z",
+        }
+        with patch.object(builder.preview_runner, "status", return_value=state):
+            banner = builder._preview_status_html()
+        self.assertIn("تیارا", banner)
+        self.assertIn("8918", banner)
+        self.assertIn("s3cr3t", banner)
+        self.assertIn("/preview/stop", banner)
+
+
+class PreviewRouteTests(SimpleTestCase):
+    """The HTTP routes, over a real `ThreadingHTTPServer` — same live-server
+    pattern as `LiveServerTests` below — but with `preview_runner` mocked so
+    no real subprocess is ever involved here.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.server = builder.ThreadingHTTPServer(("127.0.0.1", 0), builder.Handler)
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(timeout=5)
+        super().tearDownClass()
+
+    def request(self, method, path, *, body=None):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        try:
+            conn.putrequest(method, path, skip_host=True)
+            conn.putheader("Host", "127.0.0.1")
+            if body is not None:
+                conn.putheader("Content-Type", "application/x-www-form-urlencoded")
+                conn.putheader("Content-Length", str(len(body)))
+            conn.endheaders(body.encode("utf-8") if body is not None else None)
+            response = conn.getresponse()
+            return response.status, response.read().decode("utf-8")
+        finally:
+            conn.close()
+
+    def test_preview_start_over_real_http_calls_preview_runner_and_renders_the_page(self):
+        # `quote` matters here, not decoration: an un-encoded non-ASCII value
+        # in a raw request body makes `len(body)` (characters) disagree with
+        # its actual UTF-8 byte length, so `Content-Length` undercounts and
+        # the server-side read truncates mid-character.
+        from urllib.parse import quote
+
+        with patch.object(builder.preview_runner, "start", return_value={"port": 8918}) as start:
+            status, page = self.request(
+                "POST", "/preview/start",
+                body=f"profile_id=demo&feature=customers&preview_display_name={quote('تیارا')}",
+            )
+        self.assertEqual(status, 200)
+        start.assert_called_once()
+        self.assertIn("تیارا", page)  # the form field is repopulated
+
+    def test_preview_start_failure_shows_the_error_and_stays_200(self):
+        with patch.object(builder.preview_runner, "start", side_effect=builder.preview_runner.PreviewError("مشکل")):
+            status, page = self.request("POST", "/preview/start", body="profile_id=demo&feature=customers")
+        self.assertEqual(status, 200)
+        self.assertIn("پیش‌نمایش بالا نیامد", page)
+
+    def test_preview_stop_calls_preview_runner_and_redirects_home(self):
+        with patch.object(builder.preview_runner, "stop") as stop:
+            status, _ = self.request("POST", "/preview/stop", body="")
+        self.assertEqual(status, 303)
+        stop.assert_called_once()
+
+    def test_the_home_page_shows_a_running_previews_banner(self):
+        state = {
+            "port": 8918, "username": "preview_admin", "password": "s3cr3t",
+            "display_name": "", "profile_id": "demo", "features": ("customers",),
+            "started_at": "2026-01-01T00:00:00Z",
+        }
+        with patch.object(builder.preview_runner, "status", return_value=state):
+            status, page = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertIn("پیش‌نمایش زنده در حال اجراست", page)
+
+
+class DeploymentBundleTests(SimpleTestCase):
+    """The deployment-bundle zip `_build_result_html` offers once slug+host
+    are both given — no mocking needed, it is pure computation over bytes
+    already in hand.
+    """
+
+    def setUp(self):
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        self.key_path = str(Path(tmp_dir) / "signing.pem")
+        signer.generate_key(self.key_path)
+        self._real_store_path = deployment_records.DEFAULT_STORE_PATH
+        deployment_records.DEFAULT_STORE_PATH = Path(tmp_dir) / "deployments.json"
+        self.addCleanup(self._restore_store_path)
+
+    def _restore_store_path(self):
+        deployment_records.DEFAULT_STORE_PATH = self._real_store_path
+
+    def build(self, **fields):
+        form = {"profile_id": [""], "key_id": [""], "private_key_path": [""], "feature": []}
+        form.update({key: (value if isinstance(value, list) else [value]) for key, value in fields.items()})
+        return builder._build_result_html(form)
+
+    def test_the_bundle_download_only_appears_once_slug_and_host_are_given(self):
+        manifest_only = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path, feature=["customers"],
+        )
+        self.assertNotIn("بستهٔ استقرار", manifest_only)
+
+    def test_the_bundle_zip_contains_the_manifest_env_and_deploy_steps(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("بستهٔ استقرار", page)
+        # Three downloads on this page each have their own `const hex = "..."`
+        # script (manifest, bundle, env, in that order) — anchor on the
+        # bundle's own element id rather than picking the first match, which
+        # would silently grab the manifest's hex instead.
+        bundle_section = page.split('id="download-link-bundle"')[1]
+        bundle_hex = bundle_section.split('const hex = "')[1].split('"')[0]
+        archive = zipfile.ZipFile(io.BytesIO(bytes.fromhex(bundle_hex)))
+        names = set(archive.namelist())
+        self.assertEqual(names, {"manifest.json", "dolphin.env", "DEPLOY-STEPS.txt"})
+
+        manifest_in_zip = json.loads(archive.read("manifest.json"))
+        self.assertEqual(manifest_in_zip["key_id"], "k1")
+
+        env_in_zip = archive.read("dolphin.env").decode("utf-8")
+        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", env_in_zip)
+
+        steps = archive.read("DEPLOY-STEPS.txt").decode("utf-8")
+        self.assertIn("--slug tiara --host crm.tiara.ir", steps)
+        self.assertIn("quickstart.sh", steps)
