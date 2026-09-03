@@ -1,8 +1,16 @@
-"""A small local web form over `sign_deployment_manifest.py` (PROFILE-001,
-Option C) — tick features in a browser instead of typing `--feature` once per
-name on a command line. This is "Level 1" of the mini-app idea recorded in
-`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §6: a form that builds a signed manifest,
-nothing more — no `.env` generation, no SSH, no server access.
+"""A small local web form over `sign_deployment_manifest.py` and
+`new_deployment.py` (PROFILE-001, Option C) — tick features and fill in one
+deployment's identity in a browser instead of running two CLI tools by hand.
+This is "Level 1 + Level 2" of the mini-app idea recorded in
+`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §6: a form that builds a signed manifest
+and, optionally, a matching `.env` draft — still no SSH, no server access, no
+customer host ever reachable from here.
+
+There is no "brand colour" field, even though the §6 sketch names one: no
+setting in this codebase reads a per-deployment brand colour today (branding
+is fixed to Dolphin / دلفین — see `CLAUDE.md`'s Branding section), so a field
+that fed nothing would be a decoration, not a feature. Add it here only once
+some real setting exists to write it into.
 
 Same platform-owner-only boundary as `sign_deployment_manifest.py`, and for
 the same reason: whoever runs this needs the signing private key on the same
@@ -50,7 +58,13 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from common.deployment.registry import FEATURE_DEPENDENCIES, PROFILES  # noqa: E402
-from scripts.new_deployment import ProvisioningError, resolve_features  # noqa: E402
+from scripts.new_deployment import (  # noqa: E402
+    HOST_PATTERN,
+    SLUG_PATTERN,
+    ProvisioningError,
+    env_lines,
+    resolve_features,
+)
 from scripts.sign_deployment_manifest import (  # noqa: E402
     ProvisioningLikeError,
     build_manifest,
@@ -60,7 +74,9 @@ from scripts.sign_deployment_manifest import (  # noqa: E402
 )
 
 
-def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(), result_html=""):
+def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
+          deploy_slug="", deploy_host="", deploy_image="", deploy_manifest_path="/srv/dolphin/secrets/manifest.json",
+          deploy_retention_days="0", result_html=""):
     """Render the whole page: warning banner, the form (repopulated with
     whatever was just submitted, so a mistake does not mean retyping
     everything), and a result section — success or error — from the last
@@ -132,6 +148,30 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
        <code>scripts/new_deployment.py --print-resolved-features</code>
        استفاده می‌کند.</small></p>
   </fieldset>
+  <fieldset>
+    <legend>پیش‌نویس .env (اختیاری — سطح ۲)</legend>
+    <p><small>هردو فیلد «شناسهٔ استقرار» و «دامنه یا آی‌پی» را پر کنید تا کنار
+       manifest، یک <code>secrets/.env</code> پیش‌نویس هم با رمزهای تصادفی تازه
+       ساخته شود — دقیقاً همان چیزی که
+       <code>scripts/new_deployment.py</code> می‌سازد. خالی بگذارید تا فقط
+       manifest ساخته شود.</small></p>
+    <label>شناسهٔ استقرار (slug)
+      <input type="text" name="deploy_slug" value="{html.escape(deploy_slug)}" placeholder="tiara">
+    </label>
+    <label>دامنه یا آی‌پی عمومی
+      <input type="text" name="deploy_host" value="{html.escape(deploy_host)}" placeholder="crm.tiara.ir">
+    </label>
+    <label>ایمیج اپلیکیشن (رفرنس reviewed، با digest)
+      <input type="text" name="deploy_image" value="{html.escape(deploy_image)}"
+             placeholder="ghcr.io/you/dolphin-app@sha256:...">
+    </label>
+    <label>مسیر manifest روی سرور مقصد
+      <input type="text" name="deploy_manifest_path" value="{html.escape(deploy_manifest_path)}">
+    </label>
+    <label>نگه‌داری بکاپ (روز، ۰ یعنی همیشه)
+      <input type="text" name="deploy_retention_days" value="{html.escape(deploy_retention_days)}">
+    </label>
+  </fieldset>
   <button type="submit">ساخت و امضای Manifest</button>
 </form>
 {result_html}
@@ -171,6 +211,12 @@ def _build_result_html(form):
     key_id = (form.get("key_id", [""])[0] or "").strip()
     private_key_path = (form.get("private_key_path", [""])[0] or "").strip()
     requested_features = set(form.get("feature", []))
+    deploy_slug = (form.get("deploy_slug", [""])[0] or "").strip()
+    deploy_host = (form.get("deploy_host", [""])[0] or "").strip()
+    deploy_image = (form.get("deploy_image", [""])[0] or "").strip() or "dolphin-app:latest"
+    deploy_manifest_path = (form.get("deploy_manifest_path", [""])[0] or "").strip() \
+        or "/srv/dolphin/secrets/manifest.json"
+    deploy_retention_days_raw = (form.get("deploy_retention_days", [""])[0] or "").strip() or "0"
 
     try:
         if profile_id not in PROFILES:
@@ -181,6 +227,32 @@ def _build_result_html(form):
             raise ProvisioningError("مسیر فایل کلید خصوصی الزامی است.")
         if not requested_features:
             raise ProvisioningError("دست‌کم یک فیچر را تیک بزنید.")
+
+        # The .env fields are all-or-nothing: either both slug and host are
+        # given and a full draft is generated, or neither is and this call
+        # behaves exactly like Level 1 (manifest only). One filled in without
+        # the other is treated as a mistake, not a partial request — a slug
+        # with no host cannot become DJANGO_ALLOWED_HOSTS, and a host with no
+        # slug cannot name a database.
+        want_env = bool(deploy_slug or deploy_host)
+        if want_env:
+            if not deploy_slug or not deploy_host:
+                raise ProvisioningError(
+                    "برای پیش‌نویس .env هم «شناسهٔ استقرار» و هم «دامنه یا آی‌پی» لازم است."
+                )
+            if not SLUG_PATTERN.match(deploy_slug) or deploy_slug.startswith("pg_"):
+                raise ProvisioningError(
+                    "شناسهٔ استقرار باید ۲ تا ۴۱ کاراکتر، حروف کوچک لاتین، شروع‌شونده با حرف "
+                    "باشد و نباید با pg_ شروع شود — نام دیتابیس و نقش‌های PostgreSQL از رویش ساخته می‌شود."
+                )
+            if not HOST_PATTERN.match(deploy_host):
+                raise ProvisioningError("دامنه یا آی‌پی نامعتبر است — بدون scheme، پورت یا مسیر.")
+            try:
+                deploy_retention_days = int(deploy_retention_days_raw)
+                if deploy_retention_days < 0:
+                    raise ValueError
+            except ValueError as error:
+                raise ProvisioningError("نگه‌داری بکاپ باید یک عدد صحیح غیرمنفی باشد.") from error
 
         features, added = resolve_features(requested_features)
         seed = read_private_seed(private_key_path)
@@ -204,7 +276,7 @@ def _build_result_html(form):
         added_note = f"<p>به‌خاطر وابستگی، این‌ها هم اضافه شدند: {html.escape(added_list)}</p>"
 
     feature_list = "، ".join(sorted(features))
-    return f"""<div class="result-ok">
+    manifest_block = f"""<div class="result-ok">
   <strong>Manifest ساخته و امضا شد</strong> — {len(features)} فیچر، نسخهٔ {html.escape(profile_id)}.
   {added_note}
   <p>فیچرهای نهاییِ امضاشده: {html.escape(feature_list)}</p>
@@ -222,6 +294,39 @@ def _build_result_html(form):
   <p><small>محتوای فایل:</small></p>
   <pre>{html.escape(manifest_json)}</pre>
 </div>"""
+
+    if not want_env:
+        return manifest_block
+
+    # Reuses new_deployment.env_lines verbatim — same secret generation
+    # (secrets.token_urlsafe(48)), same ordering, same comments — so this
+    # draft and the CLI tool can never quietly disagree about what a fresh
+    # .env looks like. manifest_keys is the line just derived above, so the
+    # draft already points at the manifest this same submission signed.
+    env_content = "\n".join(env_lines(
+        slug=deploy_slug, host=deploy_host, image=deploy_image, profile=profile_id,
+        manifest_path=deploy_manifest_path, manifest_keys=public_key_line,
+        retention_days=deploy_retention_days,
+    ))
+    env_hex = env_content.encode("utf-8").hex()
+    env_block = f"""<div class="result-ok">
+  <strong>پیش‌نویس .env هم ساخته شد</strong> — رمزهای تصادفی تازه، فقط همین یک بار نمایش داده می‌شوند
+  (هیچ‌جای سرور این ابزار ذخیره نمی‌شوند).
+  <p><small>پیش از استفادهٔ واقعی: <code>KARIZ_APP_IMAGE</code> و مسیرهای TLS را با مقادیر واقعی
+     جایگزین کنید — این‌ها فقط پیش‌نویس‌اند.</small></p>
+  <a class="download" download="dolphin.env" id="download-link-env" href="#">دانلود .env</a>
+  <script>
+    (() => {{
+      const hex = "{env_hex}";
+      const bytes = new Uint8Array(hex.match(/.{{2}}/g).map((pair) => parseInt(pair, 16)));
+      const url = URL.createObjectURL(new Blob([bytes], {{type: "text/plain"}}));
+      document.getElementById("download-link-env").href = url;
+    }})();
+  </script>
+  <p><small>محتوای فایل:</small></p>
+  <pre>{html.escape(env_content)}</pre>
+</div>"""
+    return manifest_block + env_block
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -269,6 +374,11 @@ class Handler(BaseHTTPRequestHandler):
             key_id=(form.get("key_id", [""])[0] or ""),
             private_key_path=(form.get("private_key_path", [""])[0] or ""),
             checked_features=form.get("feature", []),
+            deploy_slug=(form.get("deploy_slug", [""])[0] or ""),
+            deploy_host=(form.get("deploy_host", [""])[0] or ""),
+            deploy_image=(form.get("deploy_image", [""])[0] or ""),
+            deploy_manifest_path=(form.get("deploy_manifest_path", [""])[0] or "/srv/dolphin/secrets/manifest.json"),
+            deploy_retention_days=(form.get("deploy_retention_days", [""])[0] or "0"),
             result_html=result_html,
         ))
 

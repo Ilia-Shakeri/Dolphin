@@ -1,8 +1,8 @@
-"""The local-only web form over `sign_deployment_manifest.py`
-(`scripts/manifest_builder.py`, "Level 1" of the mini-app idea in
-`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §6).
+"""The local-only web form over `sign_deployment_manifest.py` and
+`new_deployment.py` (`scripts/manifest_builder.py`, "Level 1 + Level 2" of the
+mini-app idea in `DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §6).
 
-Three things are worth proving, not assuming:
+Four things are worth proving, not assuming:
 
 * it signs nothing this codebase's own verifier would refuse — every manifest
   this test builds is round-tripped through `common.deployment.manifest`, the
@@ -11,6 +11,9 @@ Three things are worth proving, not assuming:
 * a missing dependency really is completed, not merely accepted, because a
   manifest naming `payments` without `invoices` and `customers` is exactly
   the kind of file this tool exists to make impossible to produce by mistake;
+* the optional Level-2 `.env` draft really does come out of
+  `new_deployment.env_lines` — the same function the CLI uses — and really is
+  all-or-nothing on slug/host, not silently half-built;
 * the server really does refuse a request that does not name 127.0.0.1 or
   localhost in its `Host` header, since binding to the loopback interface is
   not the only thing standing between this and a wider network.
@@ -129,6 +132,127 @@ class ResultHtmlTests(SimpleTestCase):
         self.assertNotIn(seed.hex(), page)
 
 
+class EnvDraftTests(SimpleTestCase):
+    """Level 2: the optional `.env` draft alongside the signed manifest."""
+
+    def setUp(self):
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        self.key_path = str(Path(tmp_dir) / "signing.pem")
+        signer.generate_key(self.key_path)
+
+    def build(self, **fields):
+        form = {"profile_id": [""], "key_id": [""], "private_key_path": [""], "feature": []}
+        form.update({key: (value if isinstance(value, list) else [value]) for key, value in fields.items()})
+        return builder._build_result_html(form)
+
+    def test_no_slug_or_host_means_manifest_only_like_level_1(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"],
+        )
+        self.assertIn("ساخته و امضا شد", page)
+        self.assertNotIn("پیش‌نویس .env هم ساخته شد", page)
+
+    def test_slug_and_host_together_produce_a_real_env_lines_draft(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("پیش‌نویس .env هم ساخته شد", page)
+        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page)
+        self.assertIn("DJANGO_ALLOWED_HOSTS=crm.tiara.ir", page)
+        self.assertIn("POSTGRES_DB=tiara", page)
+        # The manifest's own public-key line lands directly in the draft, so
+        # the two artefacts from one submission already agree with each other.
+        public_key = builder.derive_public_key(builder.read_private_seed(self.key_path))
+        line = builder.format_public_key("k1", public_key)
+        self.assertIn(f"KARIZ_DEPLOYMENT_MANIFEST_KEYS={line}", page)
+
+    def test_slug_without_host_is_refused_before_signing(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara",
+        )
+        self.assertIn("ساخته نشد", page)
+        self.assertNotIn("ساخته و امضا شد", page)
+
+    def test_host_without_slug_is_refused_before_signing(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("ساخته نشد", page)
+        self.assertNotIn("ساخته و امضا شد", page)
+
+    def test_an_invalid_slug_is_refused(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="Not Valid!", deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("ساخته نشد", page)
+
+    def test_a_pg_prefixed_slug_is_refused(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="pg_tiara", deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("ساخته نشد", page)
+
+    def test_an_invalid_host_is_refused(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="https://crm.tiara.ir/",
+        )
+        self.assertIn("ساخته نشد", page)
+
+    def test_an_ip_only_host_is_accepted(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="203.0.113.10",
+        )
+        self.assertIn("پیش‌نویس .env هم ساخته شد", page)
+        self.assertIn("DJANGO_ALLOWED_HOSTS=203.0.113.10", page)
+
+    def test_a_negative_retention_days_is_refused(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+            deploy_retention_days="-1",
+        )
+        self.assertIn("ساخته نشد", page)
+
+    def test_a_non_numeric_retention_days_is_refused(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+            deploy_retention_days="not-a-number",
+        )
+        self.assertIn("ساخته نشد", page)
+
+    def test_blank_image_and_manifest_path_fall_back_to_documented_defaults(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("KARIZ_APP_IMAGE=dolphin-app:latest", page)
+        self.assertIn("KARIZ_DEPLOYMENT_MANIFEST_PATH=/srv/dolphin/secrets/manifest.json", page)
+
+    def test_each_submission_generates_fresh_random_secrets(self):
+        """No caching, no server-side state: two builds, two different .envs."""
+        first = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        second = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        first_secret = html.unescape(first.split("DJANGO_SECRET_KEY=")[1].split("\n")[0])
+        second_secret = html.unescape(second.split("DJANGO_SECRET_KEY=")[1].split("\n")[0])
+        self.assertNotEqual(first_secret, second_secret)
+
+
 class PageRenderTests(SimpleTestCase):
     def test_every_registered_feature_is_offered(self):
         page = builder._page()
@@ -137,6 +261,15 @@ class PageRenderTests(SimpleTestCase):
 
     def test_the_platform_owner_warning_is_present(self):
         self.assertIn("فقط برای مالک پلتفرم", builder._page())
+
+    def test_the_env_draft_fieldset_is_present(self):
+        self.assertIn('name="deploy_slug"', builder._page())
+        self.assertIn('name="deploy_host"', builder._page())
+
+    def test_no_brand_colour_field_exists(self):
+        """Documented decision (module docstring): nothing reads one yet."""
+        self.assertNotIn("رنگ برند", builder._page())
+        self.assertNotIn("brand", builder._page().lower())
 
 
 class LiveServerTests(SimpleTestCase):
@@ -199,3 +332,17 @@ class LiveServerTests(SimpleTestCase):
             status, page = self.request("POST", "/build", body=body)
         self.assertEqual(status, 200)
         self.assertIn("ساخته و امضا شد", page)
+
+    def test_a_real_post_with_slug_and_host_also_produces_an_env_draft(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = str(Path(tmp) / "signing.pem")
+            signer.generate_key(key_path)
+            body = (
+                f"profile_id=demo&key_id=k1&private_key_path={key_path.replace(chr(92), '%5C')}"
+                "&feature=customers&deploy_slug=tiara&deploy_host=crm.tiara.ir"
+            )
+            status, page = self.request("POST", "/build", body=body)
+        self.assertEqual(status, 200)
+        self.assertIn("ساخته و امضا شد", page)
+        self.assertIn("پیش‌نویس .env هم ساخته شد", page)
+        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page)
