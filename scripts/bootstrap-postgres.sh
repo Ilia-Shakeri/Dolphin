@@ -528,6 +528,9 @@ FROM (
         -- appended.
         ('accounts_usercapabilityoverride', 'SELECT, INSERT, UPDATE, DELETE'),
         ('aftersales_aftersaleshistory', 'SELECT, INSERT'),
+        -- One row per uploaded file; deletion (elevated roles only, from the
+        -- application) is a real DELETE, unlike the append-only tables above.
+        ('attachments_attachment', 'SELECT, INSERT, DELETE'),
         ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),
         -- Billing. A commercial document header is updated (status, totals);

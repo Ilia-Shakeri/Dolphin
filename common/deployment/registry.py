@@ -37,6 +37,14 @@ FEATURE_DEPENDENCIES = {
     # number is a valid recipient too), so no non-nullable FK forces a
     # dependency; the sending UI still points at a customer/lead in practice.
     "outbound_sms": frozenset(),
+    # attachments.Attachment — every one of its five parent FKs is nullable
+    # (a CheckConstraint requires exactly one, not any particular one), so no
+    # single feature is a hard dependency by the "non-nullable FK" rule. In
+    # practice an attachment is useless without at least customers enabled
+    # (every one of the five parent types is itself customer-shaped or reachable
+    # only through a customer), so customers is named explicitly here as a
+    # practical dependency even though the schema alone would not force it.
+    "attachments": frozenset({"customers"}),
     # inventory.Warehouse / StockItem / StockMovement — StockItem.product is
     # NOT NULL, and the ledger's soft reference to a billing document is
     # deliberately not a foreign key so inventory stays usable on its own.

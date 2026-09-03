@@ -91,6 +91,8 @@ OPERATION_LABELS = {
     "inbound_sms.stored": "دریافت پیامک",
     "outbound_sms.sent": "ارسال پیامک",
     "outbound_sms.failed": "ارسال ناموفق پیامک",
+    "attachment.uploaded": "افزودن پیوست",
+    "attachment.deleted": "حذف پیوست",
     # --- کاربران ------------------------------------------------------------
     "user.created": "ثبت کاربر",
     "user.updated": "ویرایش کاربر",

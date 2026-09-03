@@ -346,6 +346,10 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "billing_quotationitem": "SELECT, INSERT, DELETE",
             "communications_inboundsms": "SELECT, INSERT",
             "communications_outboundsms": "SELECT, INSERT",
+            # Unlike the append-only tables here, an attachment really can be
+            # deleted (elevated roles only, enforced by the service layer —
+            # attachments/services.py) — DELETE is real, not merely absent.
+            "attachments_attachment": "SELECT, INSERT, DELETE",
             # Inventory. The movement ledger is append-only; the derived level
             # row is rewritten by the movement service under a row lock.
             "inventory_stockitem": "SELECT, INSERT, UPDATE",

@@ -1754,6 +1754,103 @@
      * says so in the space the chart would have taken - a chart is never worth
      * taking a page down for.
      */
+    /**
+     * The attachments panel (common/includes/attachments_panel.inc), reused
+     * on all five detail pages that carry one: customer, lead, invoice,
+     * sales-document, after-sales. One generic function rather than five
+     * near-duplicates — the only thing that varies per page is which parent
+     * field the panel names and which of `document.body.dataset` already
+     * carries that record's id.
+     */
+    const ATTACHMENTS_PARENT_ID_KEY = {
+        customer: "customerId",
+        lead: "leadId",
+        invoice: "invoiceId",
+        sales_document: "salesDocumentId",
+        after_sales_request: "afterSalesId",
+    };
+
+    function humanFileSize(bytes) {
+        const value = Number(bytes) || 0;
+        if (value < 1024) return `${toPersianDigits(String(value))} بایت`;
+        const kb = value / 1024;
+        if (kb < 1024) return `${toPersianDigits(kb.toFixed(1))} کیلوبایت`;
+        return `${toPersianDigits((kb / 1024).toFixed(1))} مگابایت`;
+    }
+
+    function attachmentRow(panel, item) {
+        const row = document.createElement("tr");
+        const nameCell = document.createElement("td");
+        const link = document.createElement("a");
+        link.href = `/api/v1/attachments/${item.id}/download/`;
+        link.textContent = item.original_filename;
+        link.target = "_blank";
+        link.rel = "noopener";
+        nameCell.appendChild(link);
+        row.appendChild(nameCell);
+        [item.content_type, humanFileSize(item.size_bytes), item.uploaded_by_name, displayDate(item.uploaded_at)]
+            .forEach((value) => appendCell(row, value));
+        const actions = document.createElement("td");
+        if (panel.dataset.canDelete === "true") {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn btn-sm btn-light-danger";
+            button.textContent = "حذف";
+            button.addEventListener("click", async () => {
+                if (!window.confirm("این پیوست برای همیشه حذف شود؟")) return;
+                try {
+                    await apiRequest(`/api/v1/attachments/${item.id}/delete/`, {method: "POST"});
+                    await loadAttachments(panel);
+                } catch (error) {
+                    showError(error);
+                }
+            });
+            actions.appendChild(button);
+        }
+        row.appendChild(actions);
+        return row;
+    }
+
+    async function loadAttachments(panel) {
+        const field = panel.dataset.attachmentsField;
+        const parentId = document.body.dataset[ATTACHMENTS_PARENT_ID_KEY[field]];
+        const empty = panel.querySelector("[data-attachments-empty]");
+        const wrap = panel.querySelector("[data-attachments-table-wrap]");
+        const body = panel.querySelector("[data-attachments-table-body]");
+        try {
+            const items = await apiRequest(`/api/v1/attachments/?${new URLSearchParams({[field]: parentId})}`);
+            const rows = items.map((item) => attachmentRow(panel, item));
+            body.replaceChildren(...rows);
+            empty.hidden = Boolean(rows.length);
+            wrap.hidden = !rows.length;
+        } catch (error) {
+            showError(error);
+        }
+    }
+
+    function setupAttachmentsPanel() {
+        document.querySelectorAll("[data-attachments-panel]").forEach((panel) => {
+            loadAttachments(panel);
+            const form = panel.querySelector("[data-attachments-upload-form]");
+            if (!form) return;
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(form, async () => {
+                    const field = panel.dataset.attachmentsField;
+                    const parentId = document.body.dataset[ATTACHMENTS_PARENT_ID_KEY[field]];
+                    const file = form.querySelector("[data-attachments-file]").files[0];
+                    if (!file) return;
+                    const payload = new FormData();
+                    payload.set("file", file);
+                    payload.set(field, parentId);
+                    await apiRequest("/api/v1/attachments/", {method: "POST", body: payload, raw: true});
+                    form.reset();
+                    await loadAttachments(panel);
+                });
+            });
+        });
+    }
+
     async function setupListCharts() {
         const cards = Array.from(document.querySelectorAll("[data-list-chart]"));
         await Promise.all(cards.map(async (card) => {
@@ -7257,6 +7354,10 @@
     setupSidebarPeekGuard();
     setupThemeModePopup();
     setupProfileDialog();
+
+    // Any page that declares an attachments panel gets one wired up,
+    // whichever page it is — same reasoning as the chart cards below.
+    setupAttachmentsPanel();
 
     // Any page that declares a chart card gets one, whichever page it is.
     setupListCharts();

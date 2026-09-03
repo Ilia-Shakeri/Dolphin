@@ -85,4 +85,7 @@
     <div id="invoice-plan-summary" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>قسط</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>وضعیت</th></tr></thead><tbody id="invoice-plan-body"></tbody></table></div>
 </section>
 {% endif %}
+{% if "attachments" in features %}
+{% include "common/includes/attachments_panel.inc" with attachments_field="invoice" can_upload=can_upload_attachment.invoice %}
+{% endif %}
 {% endblock %}

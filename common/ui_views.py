@@ -187,6 +187,24 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # `send_outbound_sms` (communications/services.py): sending is a
         # manager-and-up capability for now, not yet opened to sales_agent.
         context["can_send_sms"] = "sms.company" in capabilities
+        # Attachments: upload capability mirrors exactly the capability each
+        # domain's own service layer already requires to write that parent
+        # record (attachments/selectors.py's PARENT_WRITE_CAPABILITY) — shown
+        # opportunistically per detail page; the API enforces it regardless.
+        context["can_upload_attachment"] = {
+            "customer": "customers.manage" in capabilities,
+            "lead": "leads.manage" in capabilities,
+            "invoice": "invoices.manage" in capabilities,
+            "sales_document": "sales_documents.manage" in capabilities,
+            "after_sales_request": bool({"after_sales.manage", "after_sales.work"}.intersection(capabilities)),
+        }
+        # Deletion is elevated-role-only regardless of parent type (product-
+        # owner decision, 2026-09-03) — attachments/services.py's
+        # ELEVATED_OPERATORS, checked here by role since it is not a
+        # capability of its own.
+        context["can_delete_attachments"] = is_crm_identity(self.request.user) and self.request.user.role in {
+            "sales_manager", "company_it", "platform_admin",
+        }
         # The same pair `DolphinUserProfileView` and the user-performance report
         # itself require — an after-sales agent holds neither, so they get no
         # "عملکرد من" entry pointing at a page that would just refuse them.

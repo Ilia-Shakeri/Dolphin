@@ -229,19 +229,23 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_three_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_four_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
         # Client-1 yet; enabling either would show a report or a send button
         # with nothing real behind it (`KARIZ_SMS_PROVIDER` unset). `internal_
         # it_role` is withheld by Client-1 policy: only a Platform Admin
-        # administers users there.
-        self.assertEqual(withheld, frozenset({"inbound_sms", "outbound_sms", "internal_it_role"}))
+        # administers users there. `attachments` is withheld because TIARA
+        # (Client-1) is frozen as of 2026-09-03 pending a new-feature contract
+        # — see DOLPHIN_FEATURE_MAP_AND_ROADMAP.md §8 — not because anything
+        # about it is unfinished; a later Client-1 manifest can enable it with
+        # no code change.
+        self.assertEqual(withheld, frozenset({"inbound_sms", "outbound_sms", "internal_it_role", "attachments"}))
 
     def test_nothing_depends_on_a_withheld_feature(self):
         for feature, requires in FEATURE_DEPENDENCIES.items():
-            for withheld in ("inbound_sms", "outbound_sms", "internal_it_role"):
+            for withheld in ("inbound_sms", "outbound_sms", "internal_it_role", "attachments"):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 
 

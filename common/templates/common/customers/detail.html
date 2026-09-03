@@ -64,6 +64,9 @@
         <nav id="customer-invoices-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی فاکتورهای مرتبط" hidden><button id="customer-invoices-prev" class="btn btn-light" type="button">قبلی</button><span id="customer-invoices-page-label"></span><button id="customer-invoices-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div></section>
     {% endif %}
+    {% if "attachments" in features %}
+    {% include "common/includes/attachments_panel.inc" with attachments_field="customer" can_upload=can_upload_attachment.customer %}
+    {% endif %}
     {% comment %} بلوک «غیرفعال‌سازی» برداشته شد. وضعیت فعال/غیرفعال حالا یک انتخابگر
        در بالای همین صفحه است و فقط مدیر پلتفرم آن را می‌بیند و تغییر می‌دهد. هیچ
        حذفی در کار نبود و همچنان نیست. {% endcomment %}

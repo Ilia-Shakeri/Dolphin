@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "inventory",
     "billing",
     "reports",
+    "attachments",
 ]
 
 MIDDLEWARE = [
@@ -187,15 +188,31 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # the edge refuses what the application would have accepted.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024
 
+# Attachments (Customer/Lead/Invoice/SalesDocument/AfterSalesRequest).
+# Product-owner decision 2026-09-03: image (jpeg/png/webp) and PDF only, 10 MB
+# per file — see attachments/models.py for the full record and for why this is
+# a setting AND a fixed database CheckConstraint at the same value: the
+# constraint is the hard ceiling migrations move deliberately, this setting
+# may only ever tighten it further, never raise it past that ceiling.
+ATTACHMENT_MAX_BYTES = int(os.environ.get("KARIZ_ATTACHMENT_MAX_BYTES", str(10 * 1024 * 1024)))
+
 # Routes that accept a real file rather than a JSON document, and the bound that
-# applies to them. Only the product spreadsheet import today. Kept explicit and
-# still bounded: a file larger than this is a data-migration task, not something
-# to push through a web request.
+# applies to them. Kept explicit and still bounded: a file larger than this is a
+# data-migration task (for the spreadsheet routes) or simply refused (for
+# attachments — ATTACHMENT_MAX_BYTES above is the real, tighter limit; this is
+# only what reaches Django's request-body middleware at all).
 FILE_UPLOAD_PATHS = (
     "/api/v1/products/import-xlsx/",
     "/api/v1/customers/import-xlsx/",
+    "/api/v1/attachments/",
 )
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
+# The larger of what any FILE_UPLOAD_PATHS route needs, plus a fixed margin for
+# multipart boundaries/headers around the attachment bytes themselves — a flat
+# per-path allowance was not built into RequestBodyLimitMiddleware, so this one
+# number has to cover every route above without narrowing the xlsx import's own
+# real behaviour, which nginx/default.conf still bounds at 5 MB for those two
+# routes specifically regardless of this being raised for attachments.
+FILE_UPLOAD_MAX_MEMORY_SIZE = max(5 * 1024 * 1024, ATTACHMENT_MAX_BYTES + 64 * 1024)
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"

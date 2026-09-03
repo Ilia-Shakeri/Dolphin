@@ -70,4 +70,7 @@
     </form>
 </dialog>
 {% endif %}
+{% if "attachments" in features %}
+{% include "common/includes/attachments_panel.inc" with attachments_field="lead" can_upload=can_upload_attachment.lead %}
+{% endif %}
 {% endblock %}
