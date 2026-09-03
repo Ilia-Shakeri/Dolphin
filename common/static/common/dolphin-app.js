@@ -2218,6 +2218,30 @@
      * — the same scope and the same rows the leads list page would show for
      * the same reader, just laid out by date instead of in a table.
      */
+    /**
+     * The clock labels both calendars draw, and the fix-up the format options
+     * cannot express on their own.
+     *
+     * The bundle carries no Jalali/Persian locale, so FullCalendar formatted
+     * every clock label through its English default: a grid whose day numbers,
+     * month title and weekday names were all deliberately localised was still
+     * labelling each event `8:50p`, and the week/day hour axis `12am, 1am, …`.
+     * The format below settles the shape — 24 hour, the Iranian convention,
+     * zero-padded — and the two helpers settle the digits, which no format
+     * option covers.
+     */
+    const CALENDAR_TIME_FORMAT = {hour: "2-digit", minute: "2-digit", hour12: false};
+
+    function persianiseEventTime(info) {
+        const node = info.el.querySelector(".fc-event-time");
+        if (node) node.textContent = toPersianDigits(node.textContent);
+    }
+
+    /** The week/day view's hour axis, in Persian digits. */
+    function persianSlotLabel(arg) {
+        return toPersianDigits(arg.text);
+    }
+
     async function setupLeadCalendar() {
         const container = document.getElementById("lead-calendar");
         if (!container || typeof FullCalendar === "undefined") return;
@@ -2361,6 +2385,11 @@
             // follow-up the same full-colour chip regardless of view, so
             // status is readable at a glance everywhere, not just in week/day.
             eventDisplay: "block",
+            eventTimeFormat: CALENDAR_TIME_FORMAT,
+            slotLabelFormat: CALENDAR_TIME_FORMAT,
+            slotLabelContent: persianSlotLabel,
+            allDayText: "تمام‌روز",
+            moreLinkText: (count) => `+${toPersianDigits(String(count))} مورد دیگر`,
             events: async (fetchInfo, successCallback, failureCallback) => {
                 try {
                     const query = new URLSearchParams({
@@ -2420,6 +2449,7 @@
                 }
             },
             eventDidMount: (info) => {
+                persianiseEventTime(info);
                 const {lead, meta, overdue} = info.event.extendedProps;
                 // FullCalendar's day-limit ("+N more") layout pass mounts an
                 // event element to measure it before every event is known to
@@ -2569,6 +2599,11 @@
             eventDurationEditable: false,
             dayMaxEvents: true,
             eventDisplay: "block",
+            eventTimeFormat: CALENDAR_TIME_FORMAT,
+            slotLabelFormat: CALENDAR_TIME_FORMAT,
+            slotLabelContent: persianSlotLabel,
+            allDayText: "تمام‌روز",
+            moreLinkText: (count) => `+${toPersianDigits(String(count))} مورد دیگر`,
             events: async (fetchInfo, successCallback, failureCallback) => {
                 try {
                     const query = new URLSearchParams({
@@ -2623,6 +2658,7 @@
                 }
             },
             eventDidMount: (info) => {
+                persianiseEventTime(info);
                 const {item, overdue} = info.event.extendedProps;
                 if (!item) return;
                 const when = info.event.allDay

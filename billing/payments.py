@@ -387,7 +387,6 @@ def _create_cheque(*, actor, payment, amount, data):
 
 
 @transaction.atomic
-@transaction.atomic
 def spend_received_cheque(*, actor, cheque, payee, reason=""):
     """Endorse a received cheque to a third party.
 
