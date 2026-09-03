@@ -57,14 +57,17 @@ def _persian_digits(value):
 def _money(amount):
     """Grouped rial, matching `money()` in the panel exactly.
 
-    The separator is U+060C and the fraction is dropped, because that is what
-    every other amount in the product looks like and a chart that formatted
-    money its own way would be its own kind of wrong.
+    The separator is U+060C, the digits are Persian (since 1.7.14 — matching
+    every count on this same chart, drawn through `_persian_digits` below,
+    and every date anywhere else in the product), and the fraction is
+    dropped, because that is what every other amount in the product looks
+    like and a chart that formatted money its own way would be its own kind
+    of wrong.
     """
     whole = int(Decimal(amount or 0).quantize(Decimal("1")))
     negative = whole < 0
     grouped = f"{abs(whole):,}".replace(",", "،")
-    return f"{'‏-' if negative else ''}{grouped} ریال"
+    return _persian_digits(f"{'‏-' if negative else ''}{grouped} ریال")
 
 
 def totals_for(result):

@@ -279,7 +279,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # 3 × 200 with tax off by default.
         # Every amount on a served page now reads as grouped rial with no
         # fraction — the same string a person sees.
-        self.assertEqual(self.value_of("order-total"), "600 ریال")
+        self.assertEqual(self.value_of("order-total"), "۶۰۰ ریال")
         order_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
         # Approving the warehouse-backed order moves stock once.
         Select(self.browser.find_element(By.ID, "order-status-select")).select_by_value("confirmed")
@@ -395,7 +395,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # section with the invoices named, so the allocation row is the evidence.
         self.wait.until(
             expected_conditions.text_to_be_present_in_element(
-                (By.ID, "payment-allocations-table-body"), "250"
+                (By.ID, "payment-allocations-table-body"), "۲۵۰"
             )
         )
 
@@ -405,9 +405,9 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # «پرداخت شده» is read-only since 1.3.14 and is the sum of what the
         # receipts desk allocated, so it carries the currency word like every
         # other derived display on this card.
-        self.wait.until(lambda driver: self.value_of("invoice-paid") == "250 ریال")
+        self.wait.until(lambda driver: self.value_of("invoice-paid") == "۲۵۰ ریال")
         self.assertFalse(self.browser.find_element(By.ID, "invoice-paid").is_enabled())
-        self.assertEqual(self.value_of("invoice-balance"), "350 ریال")
+        self.assertEqual(self.value_of("invoice-balance"), "۳۵۰ ریال")
         self.assertEqual(self.value_of("invoice-settlement"), "تسویه جزئی")  # canonical, not manual
 
         self.browser.get(f"{self.live_server_url}/invoices/{invoice_id}/print/")
@@ -415,14 +415,14 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         printed = self.browser.find_element(By.CSS_SELECTOR, ".print-sheet").text
         self.assertIn("مشتری بازرگانی", printed)
         self.assertIn("BR-1", printed)
-        self.assertIn("600 ریال", printed)
+        self.assertIn("۶۰۰ ریال", printed)
         # The printed page carries no navigation to click away from.
         self.assertEqual(self.browser.find_elements(By.ID, "app-sidebar"), [])
 
         # 8. The receivables report reflects the same numbers.
         self.browser.get(f"{self.live_server_url}/reports/receivables/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "receivables-table-wrap")))
-        self.assertEqual(self.browser.find_element(By.ID, "receivables-total").text, "350 ریال")
+        self.assertEqual(self.browser.find_element(By.ID, "receivables-total").text, "۳۵۰ ریال")
 
         # The ageing chart draws the same money the cards above it show. All
         # five buckets are present even where a bucket is empty, because the
@@ -461,10 +461,10 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
                 self.assertRegex(figure, r"ریال$")
 
         # The same string the summary card above shows, character for character:
-        # `money()` groups with the Arabic comma but leaves the digits Latin,
-        # and a chart that formatted them differently from the card beside it
-        # would be its own kind of wrong.
-        self.assertIn("350 ریال", figures)
+        # `money()` groups with the Arabic comma and Persian digits, and a
+        # chart that formatted them differently from the card beside it would
+        # be its own kind of wrong.
+        self.assertIn("۳۵۰ ریال", figures)
         self.assertEqual(self.browser.find_element(By.ID, "receivables-1-30").text, figures[1])
 
         # The five buckets escalate, so their colours have to as well - and each

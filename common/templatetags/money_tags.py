@@ -15,6 +15,8 @@ from decimal import Decimal
 
 from django import template
 
+from common.jalali import to_persian_digits
+
 
 register = template.Library()
 
@@ -68,4 +70,10 @@ def money(value):
         grouped = digit + grouped
     # U+200F keeps the minus sign attached to the number inside RTL text.
     body = f"‏-{grouped}" if negative and grouped != "0" else grouped
-    return f"{body} {CURRENCY_LABEL}"
+    # Persian digits, same as `jalali_tags.py` already renders every date on
+    # this same printed document — `dolphin-app.js`'s `money()` matches this
+    # since 1.7.14 (found missing in the 1.7.13 debug sweep: a rial figure
+    # was the one place on screen still reading in Latin numerals next to
+    # Jalali dates and counts). Converted last, after grouping and the sign,
+    # so the digit-walk above still reasons in plain Latin digits throughout.
+    return to_persian_digits(f"{body} {CURRENCY_LABEL}")

@@ -156,7 +156,7 @@ class ListChartWithDataTests(TestCase):
             method=Payment.Method.CASH, amount=Decimal("12500000.00"),
         )
         row = LIST_CHARTS["payments"][2](self.manager)[0]
-        self.assertEqual(row["display"], "12،500،000 ریال")
+        self.assertEqual(row["display"], "۱۲،۵۰۰،۰۰۰ ریال")
 
     def test_counts_are_formatted_in_persian_digits(self):
         from sales.services import create_product

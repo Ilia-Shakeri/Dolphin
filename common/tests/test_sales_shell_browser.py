@@ -329,7 +329,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.open_create_dialog("open-create-sale", "create-sale-dialog")
         self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sale-lead")).options) > 1)
         Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("مشتری فروش مرورگر — ثبت مستقیم مرورگر")
-        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — 15 ریال")
+        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — ۱۵ ریال")
         quantity = self.browser.find_element(By.ID, "create-sale-quantity")
         quantity.clear()
         quantity.send_keys("2")
@@ -338,7 +338,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
         # The box shows the formatted amount now, not the raw decimal, so
         # this reads what a person reads.
-        self.assertEqual(self.browser.find_element(By.ID, "sale-total").get_attribute("value"), "30 ریال")
+        self.assertEqual(self.browser.find_element(By.ID, "sale-total").get_attribute("value"), "۳۰ ریال")
         self.assertEqual(self.browser.find_element(By.ID, "sale-seller").get_attribute("value"), self.platform.username)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-cancel-section")))
         self.browser.find_element(By.ID, "cancel-sale-reason").send_keys("لغو مجاز مرورگر")
@@ -573,7 +573,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/sales/?lead={lead_id}")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-sale-dialog")))
         self.assertEqual(Select(self.browser.find_element(By.ID, "create-sale-lead")).first_selected_option.get_attribute("value"), lead_id)
-        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول روزانه — 20 ریال")
+        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول روزانه — ۲۰ ریال")
         self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
         sale_url = self.browser.current_url
@@ -605,7 +605,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         # It used to print here as the raw `20.00` the API serialises, because
         # this table sent its two money columns through the plain cell renderer
         # instead of the money one — the only table in the panel that did.
-        self.assertIn("20 ریال", report_text)
+        self.assertIn("۲۰ ریال", report_text)
         self.assertNotIn("20.00", report_text)
         # The one deliberate denial above: a marketer opening a customer they
         # did not enter.

@@ -4869,7 +4869,16 @@
         }
         const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "،");
         const body = negative && grouped !== "0" ? `‏-${grouped}` : grouped;
-        return withCurrency ? `${body} ریال` : body;
+        // Persian digits, same as every date and count elsewhere in the
+        // panel — found missing in the 1.7.13 debug sweep, where a rial
+        // figure was the one place still reading in Latin numerals next to
+        // Jalali dates and Persian-digit counts on the same page. `dir:
+        // ltr` on the cell (appendMoneyCell) keeps the digit order left to
+        // right regardless of script, so this is display-only: the grouping
+        // and rounding above are untouched, and moneyValue() below still
+        // reads Persian digits back into what the API expects.
+        const shown = withCurrency ? `${body} ریال` : body;
+        return toPersianDigits(shown);
     }
 
     /** The same grouping for a text input, without the currency word. */
