@@ -46,6 +46,7 @@ Usage:
 import argparse
 import html
 import json
+import re
 import sys
 import webbrowser
 from datetime import datetime, timezone
@@ -58,6 +59,7 @@ if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from common.deployment.registry import FEATURE_DEPENDENCIES, PROFILES  # noqa: E402
+from scripts import deployment_records  # noqa: E402
 from scripts.new_deployment import (  # noqa: E402
     HOST_PATTERN,
     SLUG_PATTERN,
@@ -74,21 +76,45 @@ from scripts.sign_deployment_manifest import (  # noqa: E402
 )
 
 
-def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
-          deploy_slug="", deploy_host="", deploy_image="", deploy_manifest_path="/srv/dolphin/secrets/manifest.json",
-          deploy_retention_days="0", result_html=""):
-    """Render the whole page: warning banner, the form (repopulated with
-    whatever was just submitted, so a mistake does not mean retyping
-    everything), and a result section — success or error — from the last
-    submission, if any.
-    """
-    checked = set(checked_features)
-    profile_options = "\n".join(
+#: Shared inline CSS for every page this tool serves — the console pages
+#: included, so switching between the quick form and the console never
+#: looks like switching tools.
+_STYLE = """
+  body { font-family: Tahoma, sans-serif; max-width: 56rem; margin: 2rem auto; padding: 0 1rem; background: #14161c; color: #e4e6eb; }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1.1rem; }
+  .warning { background: #4a1414; border: 1px solid #a33; border-radius: .4rem; padding: .8rem 1rem; margin-bottom: 1.5rem; }
+  .notice { background: #17202b; border: 1px solid #2b3a4a; border-radius: .4rem; padding: .8rem 1rem; margin-bottom: 1.5rem; }
+  fieldset { border: 1px solid #3a3d46; border-radius: .4rem; margin-bottom: 1rem; padding: .8rem 1rem; }
+  legend { padding: 0 .5rem; }
+  label { display: block; margin: .4rem 0; }
+  input[type=text], select, textarea { width: 100%; box-sizing: border-box; padding: .4rem; background: #1e2028; color: #e4e6eb; border: 1px solid #3a3d46; border-radius: .3rem; }
+  ul { list-style: none; padding: 0; margin: 0; columns: 2; }
+  small { color: #9aa0ac; }
+  button { background: #1b84ff; color: #fff; border: 0; border-radius: .3rem; padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }
+  button.danger { background: #a33; }
+  .result-ok { background: #12331f; border: 1px solid #2a8a4a; border-radius: .4rem; padding: .8rem 1rem; margin-top: 1.5rem; }
+  .result-error { background: #4a1414; border: 1px solid #a33; border-radius: .4rem; padding: .8rem 1rem; margin-top: 1.5rem; }
+  code, pre { direction: ltr; text-align: left; display: block; background: #1e2028; padding: .5rem; border-radius: .3rem; overflow-x: auto; unicode-bidi: plaintext; }
+  a.download { display: inline-block; margin-top: .5rem; background: #1b84ff; color: #fff; padding: .5rem 1rem; border-radius: .3rem; text-decoration: none; }
+  a.nav { color: #6cb2ff; }
+  table { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+  th, td { text-align: right; padding: .5rem; border-bottom: 1px solid #2a2d36; }
+  th { color: #9aa0ac; font-weight: normal; }
+"""
+
+
+def _profile_options_html(profile_id):
+    return "\n".join(
         f'<option value="{html.escape(pid)}"{" selected" if pid == profile_id else ""}>'
         f'{html.escape(pid)} — {html.escape(description)}</option>'
         for pid, description in sorted(PROFILES.items())
     )
-    feature_rows = "\n".join(
+
+
+def _feature_checkboxes_html(checked_features):
+    checked = set(checked_features)
+    return "\n".join(
         f'<li><label>'
         f'<input type="checkbox" name="feature" value="{html.escape(name)}"'
         f'{" checked" if name in checked else ""} data-requires="{html.escape(",".join(sorted(requires)))}">'
@@ -97,30 +123,48 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
         f'</label></li>'
         for name, requires in sorted(FEATURE_DEPENDENCIES.items())
     )
+
+
+#: The client-side dependency auto-check script, identical on every page
+#: that offers the feature checklist — extracted so the console's pages and
+#: the quick form share the exact same behaviour rather than three copies
+#: that could drift apart.
+_FEATURE_DEPENDENCY_SCRIPT = """
+document.getElementById("feature-list").addEventListener("change", (event) => {
+    const box = event.target;
+    if (!(box instanceof HTMLInputElement) || box.type !== "checkbox" || !box.checked) return;
+    const requires = (box.dataset.requires || "").split(",").filter(Boolean);
+    requires.forEach((name) => {
+        const dependency = document.querySelector(`input[name="feature"][value="${CSS.escape(name)}"]`);
+        if (dependency && !dependency.checked) {
+            dependency.checked = true;
+            dependency.dispatchEvent(new Event("change", {bubbles: true}));
+        }
+    });
+});
+"""
+
+
+def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
+          deploy_slug="", deploy_host="", deploy_image="", deploy_manifest_path="/srv/dolphin/secrets/manifest.json",
+          deploy_retention_days="0", result_html=""):
+    """Render the whole page: warning banner, the form (repopulated with
+    whatever was just submitted, so a mistake does not mean retyping
+    everything), and a result section — success or error — from the last
+    submission, if any.
+    """
+    profile_options = _profile_options_html(profile_id)
+    feature_rows = _feature_checkboxes_html(checked_features)
     return f"""<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8">
 <title>ابزار ساخت Manifest</title>
-<style>
-  body {{ font-family: Tahoma, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; background: #14161c; color: #e4e6eb; }}
-  h1 {{ font-size: 1.3rem; }}
-  .warning {{ background: #4a1414; border: 1px solid #a33; border-radius: .4rem; padding: .8rem 1rem; margin-bottom: 1.5rem; }}
-  fieldset {{ border: 1px solid #3a3d46; border-radius: .4rem; margin-bottom: 1rem; padding: .8rem 1rem; }}
-  legend {{ padding: 0 .5rem; }}
-  label {{ display: block; margin: .4rem 0; }}
-  input[type=text], select {{ width: 100%; box-sizing: border-box; padding: .4rem; background: #1e2028; color: #e4e6eb; border: 1px solid #3a3d46; border-radius: .3rem; }}
-  ul {{ list-style: none; padding: 0; margin: 0; columns: 2; }}
-  small {{ color: #9aa0ac; }}
-  button {{ background: #1b84ff; color: #fff; border: 0; border-radius: .3rem; padding: .6rem 1.2rem; font-size: 1rem; cursor: pointer; }}
-  .result-ok {{ background: #12331f; border: 1px solid #2a8a4a; border-radius: .4rem; padding: .8rem 1rem; margin-top: 1.5rem; }}
-  .result-error {{ background: #4a1414; border: 1px solid #a33; border-radius: .4rem; padding: .8rem 1rem; margin-top: 1.5rem; }}
-  code, pre {{ direction: ltr; text-align: left; display: block; background: #1e2028; padding: .5rem; border-radius: .3rem; overflow-x: auto; unicode-bidi: plaintext; }}
-  a.download {{ display: inline-block; margin-top: .5rem; background: #1b84ff; color: #fff; padding: .5rem 1rem; border-radius: .3rem; text-decoration: none; }}
-</style>
+<style>{_STYLE}</style>
 </head>
 <body>
 <h1>ابزار ساخت Manifest امضاشده</h1>
+<p><a class="nav" href="/console/">→ کنسول مدیریت همهٔ استقرارها</a></p>
 <div class="warning">
   <strong>فقط برای مالک پلتفرم.</strong> این ابزار را فقط روی ماشینی اجرا کنید
   که کلید خصوصی امضا رویش نگه‌داری می‌شود — هرگز روی سرور مشتری. کلید خصوصی
@@ -175,24 +219,7 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
   <button type="submit">ساخت و امضای Manifest</button>
 </form>
 {result_html}
-<script>
-// Client-side convenience only — the server resolves dependencies again,
-// authoritatively, before it ever signs anything, so a disabled or broken
-// script here can make the form less pleasant but never sign an
-// inconsistent manifest.
-document.getElementById("feature-list").addEventListener("change", (event) => {{
-    const box = event.target;
-    if (!(box instanceof HTMLInputElement) || box.type !== "checkbox" || !box.checked) return;
-    const requires = (box.dataset.requires || "").split(",").filter(Boolean);
-    requires.forEach((name) => {{
-        const dependency = document.querySelector(`input[name="feature"][value="${{CSS.escape(name)}}"]`);
-        if (dependency && !dependency.checked) {{
-            dependency.checked = true;
-            dependency.dispatchEvent(new Event("change", {{bubbles: true}}));
-        }}
-    }});
-}});
-</script>
+<script>{_FEATURE_DEPENDENCY_SCRIPT}</script>
 </body>
 </html>"""
 
@@ -309,11 +336,39 @@ def _build_result_html(form):
         retention_days=deploy_retention_days,
     ))
     env_hex = env_content.encode("utf-8").hex()
+
+    # A slug names a real deployment, so this submission is worth
+    # remembering — the console (`/console/`) is exactly this list. Purely
+    # additive bookkeeping: it cannot fail the request that already
+    # succeeded above, and a record store that cannot be written to (a
+    # read-only checkout, a permissions problem) degrades to "this build
+    # was not recorded", not to an error on a manifest that already signed
+    # correctly.
+    console_note = ""
+    try:
+        existing_record = deployment_records.get(deploy_slug)
+        deployment_records.upsert(deployment_records.DeploymentRecord(
+            slug=deploy_slug,
+            display_name=existing_record.display_name if existing_record else "",
+            host=deploy_host, profile_id=profile_id,
+            features=tuple(sorted(features)), key_id=key_id, app_image=deploy_image,
+            manifest_path=deploy_manifest_path, retention_days=deploy_retention_days,
+            manifest_issued_at=issued_at,
+            notes=existing_record.notes if existing_record else "",
+        ))
+        console_note = (
+            f'<p><small>در کنسول هم ثبت شد: '
+            f'<a class="nav" href="/console/{html.escape(deploy_slug)}/">{html.escape(deploy_slug)}</a></small></p>'
+        )
+    except deployment_records.DeploymentRecordError:
+        console_note = '<p><small>ثبت در کنسول ناموفق بود؛ خودِ manifest و .env بالا هنوز معتبرند.</small></p>'
+
     env_block = f"""<div class="result-ok">
   <strong>پیش‌نویس .env هم ساخته شد</strong> — رمزهای تصادفی تازه، فقط همین یک بار نمایش داده می‌شوند
   (هیچ‌جای سرور این ابزار ذخیره نمی‌شوند).
   <p><small>پیش از استفادهٔ واقعی: <code>KARIZ_APP_IMAGE</code> و مسیرهای TLS را با مقادیر واقعی
      جایگزین کنید — این‌ها فقط پیش‌نویس‌اند.</small></p>
+  {console_note}
   <a class="download" download="dolphin.env" id="download-link-env" href="#">دانلود .env</a>
   <script>
     (() => {{
@@ -329,6 +384,262 @@ def _build_result_html(form):
     return manifest_block + env_block
 
 
+def _build_reissue_result_html(record, form):
+    """Sign a fresh manifest for an existing console record, and — only if
+    asked for — a fresh `.env` draft alongside it. Mirrors
+    `_build_result_html` closely (same validation order, same signing call),
+    but starts from a stored record instead of a blank form, and always
+    updates that record with what this actually just signed, so the console
+    keeps reflecting the last thing handed to this customer.
+
+    `.env` regeneration is opt-in (`regenerate_env` checkbox) rather than
+    automatic like the create form's all-or-nothing slug+host rule: this
+    record already has a slug and host, so every reissue could otherwise
+    silently mint a fresh `.env` full of brand-new random secrets — which
+    would stop matching whatever the customer's server is actually running
+    until someone updates it there too. A manifest-only reissue (a feature
+    flipped on, a profile changed) should not carry that side effect unless
+    it is actually wanted.
+    """
+    key_id = (form.get("key_id", [""])[0] or "").strip()
+    private_key_path = (form.get("private_key_path", [""])[0] or "").strip()
+    profile_id = (form.get("profile_id", [""])[0] or "").strip()
+    requested_features = set(form.get("feature", []))
+    deploy_image = (form.get("deploy_image", [""])[0] or "").strip() or record.app_image or "dolphin-app:latest"
+    regenerate_env = bool(form.get("regenerate_env", [""])[0])
+
+    try:
+        if profile_id not in PROFILES:
+            raise ProvisioningError("شناسهٔ نسخه نامعتبر است.")
+        if not key_id:
+            raise ProvisioningError("شناسهٔ کلید الزامی است.")
+        if not private_key_path:
+            raise ProvisioningError("مسیر فایل کلید خصوصی الزامی است.")
+        if not requested_features:
+            raise ProvisioningError("دست‌کم یک فیچر را تیک بزنید.")
+
+        features, added = resolve_features(requested_features)
+        seed = read_private_seed(private_key_path)
+        public_key = derive_public_key(seed)
+        issued_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+        manifest_bytes = build_manifest(
+            seed=seed, key_id=key_id, profile_id=profile_id,
+            features=sorted(features), issued_at=issued_at,
+        )
+    except (ProvisioningError, ProvisioningLikeError, ValueError, OSError) as error:
+        return f'<div class="result-error"><strong>ساخته نشد:</strong> {html.escape(str(error))}</div>'
+
+    manifest_json = json.dumps(json.loads(manifest_bytes), ensure_ascii=False, indent=2)
+    manifest_b64 = manifest_bytes.hex()
+    public_key_line = format_public_key(key_id, public_key)
+    added_note = ""
+    if added:
+        added_list = ", ".join(
+            f"{feature} (نیازمند {', '.join(sorted(requires))})" for feature, requires in sorted(added.items())
+        )
+        added_note = f"<p>به‌خاطر وابستگی، این‌ها هم اضافه شدند: {html.escape(added_list)}</p>"
+
+    feature_list = "، ".join(sorted(features))
+    manifest_block = f"""<div class="result-ok">
+  <strong>Manifest تازه ساخته و امضا شد</strong> — {len(features)} فیچر، نسخهٔ {html.escape(profile_id)}.
+  {added_note}
+  <p>فیچرهای نهاییِ امضاشده: {html.escape(feature_list)}</p>
+  <p>کلید عمومی — این خط را عیناً در <code>KARIZ_DEPLOYMENT_MANIFEST_KEYS</code> بگذارید:</p>
+  <pre>{html.escape(public_key_line)}</pre>
+  <a class="download" download="manifest.json" id="download-link" href="#">دانلود manifest.json</a>
+  <script>
+    (() => {{
+      const hex = "{manifest_b64}";
+      const bytes = new Uint8Array(hex.match(/.{{2}}/g).map((pair) => parseInt(pair, 16)));
+      const url = URL.createObjectURL(new Blob([bytes], {{type: "application/json"}}));
+      document.getElementById("download-link").href = url;
+    }})();
+  </script>
+  <p><small>محتوای فایل:</small></p>
+  <pre>{html.escape(manifest_json)}</pre>
+</div>"""
+
+    env_block = ""
+    if regenerate_env:
+        env_content = "\n".join(env_lines(
+            slug=record.slug, host=record.host, image=deploy_image, profile=profile_id,
+            manifest_path=record.manifest_path, manifest_keys=public_key_line,
+            retention_days=record.retention_days,
+        ))
+        env_hex = env_content.encode("utf-8").hex()
+        env_block = f"""<div class="result-ok">
+  <strong>پیش‌نویس .env تازه هم ساخته شد</strong> — رمزهای تصادفی تازه، فقط همین یک بار نمایش داده می‌شوند.
+  <p><small>این رمزها با آنچه سرور مشتری همین الان اجرا می‌کند فرق دارد — پیش از استفادهٔ واقعی،
+     رمزهای دیتابیس/سرویس‌ها را روی خودِ سرور هم به‌روز کنید، وگرنه سرویس بالا نمی‌آید.</small></p>
+  <a class="download" download="dolphin.env" id="download-link-env" href="#">دانلود .env</a>
+  <script>
+    (() => {{
+      const hex = "{env_hex}";
+      const bytes = new Uint8Array(hex.match(/.{{2}}/g).map((pair) => parseInt(pair, 16)));
+      const url = URL.createObjectURL(new Blob([bytes], {{type: "text/plain"}}));
+      document.getElementById("download-link-env").href = url;
+    }})();
+  </script>
+  <p><small>محتوای فایل:</small></p>
+  <pre>{html.escape(env_content)}</pre>
+</div>"""
+
+    deployment_records.upsert(deployment_records.DeploymentRecord(
+        slug=record.slug, display_name=record.display_name, host=record.host,
+        profile_id=profile_id, features=tuple(sorted(features)), key_id=key_id,
+        app_image=deploy_image, manifest_path=record.manifest_path,
+        retention_days=record.retention_days, manifest_issued_at=issued_at,
+        notes=record.notes,
+    ))
+    return manifest_block + env_block
+
+
+def _console_list_page(records, *, message=""):
+    """`/console/` — every deployment recorded so far, newest signature
+    first. This is purely a read of `deployment_records.load_all()`; nothing
+    here reaches any customer host.
+    """
+    message_html = f'<div class="notice">{html.escape(message)}</div>' if message else ""
+    if not records:
+        body = (
+            '<p>هنوز هیچ استقراری در کنسول ثبت نشده. برای ثبت اولین مورد، '
+            '<a class="nav" href="/">فرم ساخت manifest</a> را با «شناسهٔ استقرار» و '
+            '«دامنه یا آی‌پی» پر کنید.</p>'
+        )
+    else:
+        rows = "\n".join(
+            f"""<tr>
+              <td><a class="nav" href="/console/{html.escape(record.slug)}/">{html.escape(record.display_name or record.slug)}</a></td>
+              <td dir="ltr">{html.escape(record.host) or '—'}</td>
+              <td>{html.escape(record.profile_id) or '—'}</td>
+              <td>{len(record.features)}</td>
+              <td dir="ltr">{html.escape(record.app_image) or '—'}</td>
+              <td dir="ltr">{html.escape(record.manifest_issued_at) or '—'}</td>
+            </tr>"""
+            for record in sorted(records.values(), key=lambda r: r.manifest_issued_at, reverse=True)
+        )
+        body = f"""<table>
+  <thead><tr><th>مشتری</th><th>دامنه</th><th>نسخه</th><th>فیچر</th><th>ایمیج</th><th>آخرین امضا</th></tr></thead>
+  <tbody>{rows}</tbody>
+</table>"""
+    return f"""<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>کنسول همهٔ استقرارها</title>
+<style>{_STYLE}</style>
+</head>
+<body>
+<h1>کنسول مدیریت همهٔ استقرارها</h1>
+<p><a class="nav" href="/">→ فرم ساخت manifest تکی</a></p>
+{message_html}
+<div class="warning">
+  <strong>فقط بایگانی محلی.</strong> این فهرست فقط روی همین ماشین ذخیره می‌شود و به هیچ سروری
+  از هیچ مشتری وصل نمی‌شود. «آخرین امضا» یعنی آخرین چیزی که خودِ همین ابزار امضا کرده — نه
+  وضعیت زندهٔ آن سرور.
+</div>
+{body}
+</body>
+</html>"""
+
+
+def _console_detail_page(record, *, result_html="", message="", key_id="", private_key_path="",
+                          profile_id=None, checked_features=None):
+    """`/console/<slug>/` — one recorded deployment: a reissue form
+    (pre-filled with its last known profile/features, empty key fields since
+    those are never stored), a lightweight bookkeeping-only edit form, and a
+    delete action.
+
+    `profile_id`/`checked_features` default to the stored record, but a
+    caller re-rendering after a rejected submission passes what was actually
+    submitted instead — the same "don't make a mistake mean retyping
+    everything" behaviour the quick form already has.
+    """
+    profile_options = _profile_options_html(record.profile_id if profile_id is None else profile_id)
+    feature_rows = _feature_checkboxes_html(record.features if checked_features is None else checked_features)
+    message_html = f'<div class="notice">{html.escape(message)}</div>' if message else ""
+    slug = html.escape(record.slug)
+    return f"""<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>{html.escape(record.display_name or record.slug)} — کنسول</title>
+<style>{_STYLE}</style>
+</head>
+<body>
+<h1>{html.escape(record.display_name or record.slug)}</h1>
+<p><a class="nav" href="/console/">→ کنسول همهٔ استقرارها</a></p>
+{message_html}
+<div class="notice">
+  شناسه: <code dir="ltr">{slug}</code> —
+  دامنه: <code dir="ltr">{html.escape(record.host) or '—'}</code> —
+  آخرین امضا: <code dir="ltr">{html.escape(record.manifest_issued_at) or 'هنوز امضا نشده'}</code>
+</div>
+
+<form method="post" action="/console/{slug}/reissue">
+  <fieldset>
+    <legend>امضای manifest تازه</legend>
+    <label>شناسهٔ نسخه (profile)
+      <select name="profile_id" required>{profile_options}</select>
+    </label>
+    <label>شناسهٔ کلید (key id)
+      <input type="text" name="key_id" value="{html.escape(key_id or record.key_id)}" placeholder="dolphin-2026" required>
+    </label>
+    <label>مسیر فایل کلید خصوصی، روی همین ماشین (هر بار دوباره وارد کنید — ذخیره نمی‌شود)
+      <input type="text" name="private_key_path" value="{html.escape(private_key_path)}"
+             placeholder="C:\\keys\\dolphin-manifest-signing.pem" required>
+    </label>
+    <ul id="feature-list">{feature_rows}</ul>
+    <label>ایمیج اپلیکیشن
+      <input type="text" name="deploy_image" value="{html.escape(record.app_image)}">
+    </label>
+    <label><input type="checkbox" name="regenerate_env" value="1">
+      پیش‌نویس .env تازه هم بساز (رمزهای تصادفی <strong>جدید</strong> — فقط اگر واقعاً لازم است)</label>
+  </fieldset>
+  <button type="submit">امضای manifest تازه</button>
+</form>
+{result_html}
+<script>{_FEATURE_DEPENDENCY_SCRIPT}</script>
+
+<form method="post" action="/console/{slug}/update">
+  <fieldset>
+    <legend>ویرایش اطلاعات (بدون نیاز به کلید خصوصی)</legend>
+    <label>نام نمایشی
+      <input type="text" name="display_name" value="{html.escape(record.display_name)}" placeholder="{slug}">
+    </label>
+    <label>یادداشت
+      <textarea name="notes" rows="3">{html.escape(record.notes)}</textarea>
+    </label>
+  </fieldset>
+  <button type="submit">ذخیره</button>
+</form>
+
+<form method="post" action="/console/{slug}/delete"
+      onsubmit="return confirm('این رکورد فقط از کنسول محلی حذف می‌شود؛ روی سرور مشتری هیچ اثری ندارد. حذف شود؟');">
+  <button type="submit" class="danger">حذف رکورد از کنسول</button>
+</form>
+</body>
+</html>"""
+
+
+def _not_found_console_page(slug):
+    return f"""<!doctype html>
+<html lang="fa" dir="rtl">
+<head><meta charset="utf-8"><title>پیدا نشد</title><style>{_STYLE}</style></head>
+<body>
+<h1>استقراری با این شناسه پیدا نشد</h1>
+<p><a class="nav" href="/console/">→ کنسول همهٔ استقرارها</a></p>
+<div class="result-error">هیچ رکوردی با شناسهٔ <code dir="ltr">{html.escape(slug)}</code> در کنسول ثبت نشده.</div>
+</body>
+</html>"""
+
+
+#: Matches `/console/<slug>/` (list is `/console/` alone, handled separately)
+#: and `/console/<slug>/<action>` for the reissue/update/delete POST routes.
+_CONSOLE_DETAIL_RE = re.compile(r"\A/console/(?P<slug>[^/]+)/\Z")
+_CONSOLE_ACTION_RE = re.compile(r"\A/console/(?P<slug>[^/]+)/(?P<action>reissue|update|delete)\Z")
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "DolphinManifestBuilder/1"
 
@@ -341,45 +652,110 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
-    def _send_html(self, body):
+    def _send_html(self, body, status=200):
         encoded = body.encode("utf-8")
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _redirect(self, location):
+        self.send_response(303)
+        self.send_header("Location", location)
+        self.end_headers()
+
+    def _read_form(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        raw = self.rfile.read(length)
+        return parse_qs(raw.decode("utf-8"))
+
     def do_GET(self):
         if not self._refuse_unless_local():
             return
-        if self.path != "/":
-            self.send_response(404)
-            self.end_headers()
+        if self.path == "/":
+            self._send_html(_page())
             return
-        self._send_html(_page())
+        if self.path == "/console/":
+            self._send_html(_console_list_page(deployment_records.load_all()))
+            return
+        detail_match = _CONSOLE_DETAIL_RE.match(self.path)
+        if detail_match:
+            record = deployment_records.get(detail_match.group("slug"))
+            if record is None:
+                self._send_html(_not_found_console_page(detail_match.group("slug")), status=404)
+                return
+            self._send_html(_console_detail_page(record))
+            return
+        self.send_response(404)
+        self.end_headers()
 
     def do_POST(self):
         if not self._refuse_unless_local():
             return
-        if self.path != "/build":
+        if self.path == "/build":
+            form = self._read_form()
+            result_html = _build_result_html(form)
+            self._send_html(_page(
+                profile_id=(form.get("profile_id", [""])[0] or ""),
+                key_id=(form.get("key_id", [""])[0] or ""),
+                private_key_path=(form.get("private_key_path", [""])[0] or ""),
+                checked_features=form.get("feature", []),
+                deploy_slug=(form.get("deploy_slug", [""])[0] or ""),
+                deploy_host=(form.get("deploy_host", [""])[0] or ""),
+                deploy_image=(form.get("deploy_image", [""])[0] or ""),
+                deploy_manifest_path=(form.get("deploy_manifest_path", [""])[0] or "/srv/dolphin/secrets/manifest.json"),
+                deploy_retention_days=(form.get("deploy_retention_days", [""])[0] or "0"),
+                result_html=result_html,
+            ))
+            return
+
+        action_match = _CONSOLE_ACTION_RE.match(self.path)
+        if not action_match:
             self.send_response(404)
             self.end_headers()
             return
-        length = int(self.headers.get("Content-Length", "0"))
-        raw = self.rfile.read(length)
-        form = parse_qs(raw.decode("utf-8"))
-        result_html = _build_result_html(form)
-        self._send_html(_page(
-            profile_id=(form.get("profile_id", [""])[0] or ""),
+
+        slug = action_match.group("slug")
+        action = action_match.group("action")
+        record = deployment_records.get(slug)
+        if record is None:
+            self._send_html(_not_found_console_page(slug), status=404)
+            return
+
+        form = self._read_form()
+
+        if action == "delete":
+            # The only console action that removes the page it was called
+            # from, so it redirects back to the list rather than re-rendering
+            # a detail page for a record that no longer exists.
+            deployment_records.delete(slug)
+            self._redirect("/console/")
+            return
+
+        if action == "update":
+            deployment_records.upsert(deployment_records.DeploymentRecord(
+                slug=record.slug,
+                display_name=(form.get("display_name", [""])[0] or "").strip(),
+                host=record.host, profile_id=record.profile_id, features=record.features,
+                key_id=record.key_id, app_image=record.app_image,
+                manifest_path=record.manifest_path, retention_days=record.retention_days,
+                manifest_issued_at=record.manifest_issued_at,
+                notes=(form.get("notes", [""])[0] or "").strip(),
+            ))
+            self._send_html(_console_detail_page(
+                deployment_records.get(slug), message="اطلاعات ذخیره شد.",
+            ))
+            return
+
+        # action == "reissue"
+        result_html = _build_reissue_result_html(record, form)
+        self._send_html(_console_detail_page(
+            deployment_records.get(slug), result_html=result_html,
             key_id=(form.get("key_id", [""])[0] or ""),
             private_key_path=(form.get("private_key_path", [""])[0] or ""),
+            profile_id=(form.get("profile_id", [""])[0] or ""),
             checked_features=form.get("feature", []),
-            deploy_slug=(form.get("deploy_slug", [""])[0] or ""),
-            deploy_host=(form.get("deploy_host", [""])[0] or ""),
-            deploy_image=(form.get("deploy_image", [""])[0] or ""),
-            deploy_manifest_path=(form.get("deploy_manifest_path", [""])[0] or "/srv/dolphin/secrets/manifest.json"),
-            deploy_retention_days=(form.get("deploy_retention_days", [""])[0] or "0"),
-            result_html=result_html,
         ))
 
     def log_message(self, format_string, *args):

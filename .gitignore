@@ -38,6 +38,10 @@ pgpass.conf
 .npmrc
 pip.conf
 secrets/
+# The deployment console's local record of every customer (slug, host,
+# features) — scripts/deployment_records.py. Non-secret bookkeeping, but
+# customer names/hosts must never enter shared source (CLAUDE.md).
+scripts/.dolphin-console/
 *.pem
 *.key
 *.p12

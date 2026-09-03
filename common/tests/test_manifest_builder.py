@@ -32,6 +32,7 @@ from django.test import SimpleTestCase
 
 from common.deployment.manifest import decode_public_keys, verify_manifest_bytes
 from common.deployment.registry import FEATURE_DEPENDENCIES
+from scripts import deployment_records
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPOSITORY_ROOT / "scripts" / "manifest_builder.py"
@@ -53,6 +54,26 @@ builder = load_script("manifest_builder", SCRIPT)
 # anything with, so it loads the CLI module directly, the same way
 # `test_deployment_profile.py` and `test_new_deployment.py` already do.
 signer = load_script("sign_deployment_manifest", SIGNER_SCRIPT)
+
+
+class ConsoleStoreIsolationMixin:
+    """Any test that submits `deploy_slug`+`deploy_host` now also registers a
+    console record (`scripts/deployment_records.py`) as a side effect — so
+    every such test must point the store at a throwaway temp directory
+    first, or it would write into this checkout's real
+    `scripts/.dolphin-console/` on every run.
+    """
+
+    def setUp(self):
+        super().setUp()
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        self._real_store_path = deployment_records.DEFAULT_STORE_PATH
+        deployment_records.DEFAULT_STORE_PATH = Path(tmp_dir) / "deployments.json"
+        self.addCleanup(self._restore_store_path)
+
+    def _restore_store_path(self):
+        deployment_records.DEFAULT_STORE_PATH = self._real_store_path
 
 
 class ResultHtmlTests(SimpleTestCase):
@@ -132,10 +153,11 @@ class ResultHtmlTests(SimpleTestCase):
         self.assertNotIn(seed.hex(), page)
 
 
-class EnvDraftTests(SimpleTestCase):
+class EnvDraftTests(ConsoleStoreIsolationMixin, SimpleTestCase):
     """Level 2: the optional `.env` draft alongside the signed manifest."""
 
     def setUp(self):
+        super().setUp()
         tmp_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
         self.key_path = str(Path(tmp_dir) / "signing.pem")
@@ -238,6 +260,32 @@ class EnvDraftTests(SimpleTestCase):
         self.assertIn("KARIZ_APP_IMAGE=dolphin-app:latest", page)
         self.assertIn("KARIZ_DEPLOYMENT_MANIFEST_PATH=/srv/dolphin/secrets/manifest.json", page)
 
+    def test_a_slug_and_host_submission_also_registers_a_console_record(self):
+        page = self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        self.assertIn("در کنسول هم ثبت شد", page)
+        self.assertIn("/console/tiara/", page)
+        record = deployment_records.get("tiara")
+        self.assertIsNotNone(record)
+        self.assertEqual(record.host, "crm.tiara.ir")
+        self.assertEqual(record.profile_id, "demo")
+        self.assertEqual(record.features, ("customers",))
+
+    def test_reusing_the_same_slug_updates_the_existing_record_not_a_duplicate(self):
+        self.build(
+            profile_id="demo", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        self.build(
+            profile_id="client-1", key_id="k1", private_key_path=self.key_path,
+            feature=["payments"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
+        )
+        self.assertEqual(len(deployment_records.load_all()), 1)
+        record = deployment_records.get("tiara")
+        self.assertEqual(record.profile_id, "client-1")
+
     def test_each_submission_generates_fresh_random_secrets(self):
         """No caching, no server-side state: two builds, two different .envs."""
         first = self.build(
@@ -272,7 +320,55 @@ class PageRenderTests(SimpleTestCase):
         self.assertNotIn("brand", builder._page().lower())
 
 
-class LiveServerTests(SimpleTestCase):
+class ConsolePageTests(SimpleTestCase):
+    """The console's page-builder functions, given records directly — no
+    HTTP, no store I/O. `LiveServerTests` below exercises the same pages
+    through the real routes.
+    """
+
+    def test_the_list_page_explains_itself_when_empty(self):
+        page = builder._console_list_page({})
+        self.assertIn("هنوز هیچ استقراری در کنسول ثبت نشده", page)
+
+    def test_the_list_page_shows_every_recorded_deployment(self):
+        record = deployment_records.DeploymentRecord(
+            slug="tiara", display_name="Tiara CRM", host="crm.tiara.ir",
+            profile_id="demo", features=("customers",), app_image="dolphin-app:v1",
+            manifest_issued_at="2026-01-01T00:00:00Z",
+        )
+        page = builder._console_list_page({"tiara": record})
+        self.assertIn("Tiara CRM", page)
+        self.assertIn("/console/tiara/", page)
+        self.assertIn("crm.tiara.ir", page)
+
+    def test_the_list_page_never_claims_a_live_connection(self):
+        """The console is a local archive, not a health dashboard — the page
+        itself must keep saying so, not just this module's docstring.
+        """
+        page = builder._console_list_page({})
+        self.assertIn("بایگانی محلی", page)
+
+    def test_the_detail_page_shows_the_records_own_state(self):
+        record = deployment_records.DeploymentRecord(
+            slug="tiara", display_name="Tiara CRM", host="crm.tiara.ir",
+            profile_id="demo", features=("customers", "audit_log"),
+            notes="یادداشت تست",
+        )
+        page = builder._console_detail_page(record)
+        self.assertIn("Tiara CRM", page)
+        self.assertIn('value="customers" checked', page)
+        self.assertIn('value="audit_log" checked', page)
+        self.assertIn("یادداشت تست", page)
+        # The private key is never stored, so its field must render blank
+        # even though the key id is repopulated.
+        self.assertIn('name="private_key_path" value=""', page)
+
+    def test_the_not_found_page_names_the_missing_slug(self):
+        page = builder._not_found_console_page("ghost")
+        self.assertIn("ghost", page)
+
+
+class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
     """The actual `ThreadingHTTPServer`, on an OS-assigned loopback port."""
 
     @classmethod
@@ -346,3 +442,105 @@ class LiveServerTests(SimpleTestCase):
         self.assertIn("ساخته و امضا شد", page)
         self.assertIn("پیش‌نویس .env هم ساخته شد", page)
         self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page)
+
+    def _register(self, *, slug="tiara", host="crm.tiara.ir", key_path):
+        body = (
+            f"profile_id=demo&key_id=k1&private_key_path={key_path.replace(chr(92), '%5C')}"
+            f"&feature=customers&deploy_slug={slug}&deploy_host={host}"
+        )
+        return self.request("POST", "/build", body=body)
+
+    def test_the_console_list_is_empty_until_something_is_registered(self):
+        status, page = self.request("GET", "/console/")
+        self.assertEqual(status, 200)
+        self.assertIn("هنوز هیچ استقراری در کنسول ثبت نشده", page)
+
+    def test_a_registered_deployment_appears_in_the_console_and_its_own_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = str(Path(tmp) / "signing.pem")
+            signer.generate_key(key_path)
+            self._register(key_path=key_path)
+
+            list_status, list_page = self.request("GET", "/console/")
+            self.assertEqual(list_status, 200)
+            self.assertIn("/console/tiara/", list_page)
+
+            detail_status, detail_page = self.request("GET", "/console/tiara/")
+        self.assertEqual(detail_status, 200)
+        self.assertIn("tiara", detail_page)
+        self.assertIn('value="customers" checked', detail_page)
+
+    def test_an_unregistered_slug_detail_page_is_a_clear_404_not_a_crash(self):
+        status, page = self.request("GET", "/console/does-not-exist/")
+        self.assertEqual(status, 404)
+        self.assertIn("پیدا نشد", page)
+
+    def test_reissue_signs_a_fresh_manifest_and_updates_the_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = str(Path(tmp) / "signing.pem")
+            signer.generate_key(key_path)
+            self._register(key_path=key_path)
+
+            body = (
+                f"profile_id=demo&key_id=k1&private_key_path={key_path.replace(chr(92), '%5C')}"
+                "&feature=customers&feature=audit_log"
+            )
+            status, page = self.request("POST", "/console/tiara/reissue", body=body)
+        self.assertEqual(status, 200)
+        self.assertIn("Manifest تازه ساخته و امضا شد", page)
+        record = deployment_records.get("tiara")
+        self.assertEqual(record.features, ("audit_log", "customers"))
+
+    def test_reissue_only_regenerates_env_when_asked_to(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = str(Path(tmp) / "signing.pem")
+            signer.generate_key(key_path)
+            self._register(key_path=key_path)
+
+            without = (
+                f"profile_id=demo&key_id=k1&private_key_path={key_path.replace(chr(92), '%5C')}"
+                "&feature=customers"
+            )
+            _, page_without = self.request("POST", "/console/tiara/reissue", body=without)
+            self.assertNotIn("پیش‌نویس .env تازه هم ساخته شد", page_without)
+
+            with_env = without + "&regenerate_env=1"
+            status, page_with = self.request("POST", "/console/tiara/reissue", body=with_env)
+        self.assertEqual(status, 200)
+        self.assertIn("پیش‌نویس .env تازه هم ساخته شد", page_with)
+        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page_with)
+
+    def test_reissue_of_an_unregistered_slug_is_a_404(self):
+        status, _ = self.request("POST", "/console/does-not-exist/reissue", body="profile_id=demo")
+        self.assertEqual(status, 404)
+
+    def test_update_changes_only_bookkeeping_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = str(Path(tmp) / "signing.pem")
+            signer.generate_key(key_path)
+            self._register(key_path=key_path)
+
+            status, page = self.request(
+                "POST", "/console/tiara/update",
+                body="display_name=Tiara+CRM&notes=%D9%85%D8%B4%D8%AA%D8%B1%DB%8C+%D9%85%D9%87%D9%85",
+            )
+        self.assertEqual(status, 200)
+        self.assertIn("اطلاعات ذخیره شد", page)
+        record = deployment_records.get("tiara")
+        self.assertEqual(record.display_name, "Tiara CRM")
+        self.assertEqual(record.host, "crm.tiara.ir")  # untouched by this action
+        self.assertEqual(record.features, ("customers",))  # untouched by this action
+
+    def test_delete_removes_the_record_and_redirects_to_the_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = str(Path(tmp) / "signing.pem")
+            signer.generate_key(key_path)
+            self._register(key_path=key_path)
+
+            status, _ = self.request("POST", "/console/tiara/delete", body="")
+        self.assertEqual(status, 303)
+        self.assertIsNone(deployment_records.get("tiara"))
+
+    def test_deleting_an_unregistered_slug_is_a_404_not_a_crash(self):
+        status, _ = self.request("POST", "/console/does-not-exist/delete", body="")
+        self.assertEqual(status, 404)
