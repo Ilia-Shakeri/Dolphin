@@ -4,6 +4,8 @@ from communications.views import (
     InboundSMSDrilldownView,
     InboundSMSMessageDetailView,
     InboundSMSReportView,
+    OutboundSMSListView,
+    SendOutboundSMSView,
 )
 
 
@@ -15,4 +17,6 @@ urlpatterns = [
         InboundSMSMessageDetailView.as_view(),
         name="inbound-sms-message-detail",
     ),
+    path("outbound-sms/", OutboundSMSListView.as_view(), name="outbound-sms-list"),
+    path("outbound-sms/send/", SendOutboundSMSView.as_view(), name="outbound-sms-send"),
 ]

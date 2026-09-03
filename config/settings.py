@@ -424,6 +424,27 @@ PDF_RENDERER = os.environ.get("KARIZ_PDF_RENDERER", "")
 PDF_CHROMIUM_BINARY = os.environ.get("KARIZ_PDF_CHROMIUM_BINARY", "")
 PDF_RENDER_TIMEOUT_SECONDS = int(os.environ.get("KARIZ_PDF_RENDER_TIMEOUT_SECONDS", "20"))
 
+# Outbound SMS. Off unless a deployment sets a provider, for the same reason
+# the PDF renderer is off unless configured: a control that cannot act is
+# never shown. Supported value: "http" — a generic HTTP request built
+# entirely from these settings. See communications/sms.py for why no specific
+# vendor (Kavenegar, Melipayamak, Ghasedak, ...) is integrated in shared
+# source, and for the exact placeholder tokens KARIZ_SMS_API_BODY_TEMPLATE
+# uses. Each deployment's own .env supplies its own gateway's real values —
+# never a name or a request shape hardcoded here.
+SMS_PROVIDER = os.environ.get("KARIZ_SMS_PROVIDER", "").strip().lower()
+SMS_API_URL = os.environ.get("KARIZ_SMS_API_URL", "").strip()
+# A JSON object, e.g. {"receptor": "__SMS_TO__", "message": "__SMS_BODY__",
+# "sender": "__SMS_SENDER__"} — adapted per gateway; the three placeholder
+# tokens are substituted after the JSON is parsed, never into raw text.
+SMS_API_BODY_TEMPLATE = os.environ.get("KARIZ_SMS_API_BODY_TEMPLATE", "").strip()
+# A JSON object of extra HTTP headers (the gateway's API key/token usually
+# goes here). Content-Type: application/json is always sent and cannot be
+# overridden by this.
+SMS_API_HEADERS = os.environ.get("KARIZ_SMS_API_HEADERS", "").strip()
+SMS_SENDER_ID = os.environ.get("KARIZ_SMS_SENDER_ID", "").strip()
+SMS_API_TIMEOUT_SECONDS = int(os.environ.get("KARIZ_SMS_API_TIMEOUT_SECONDS", "10"))
+
 # Deployment profile (PROFILE-001, Option C). The signed external manifest is
 # the source of truth for feature availability; the database table of the same
 # name is a derived cache that never authorises anything. Feature availability,

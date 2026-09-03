@@ -550,6 +550,9 @@ FROM (
         ('billing_quotation', 'SELECT, INSERT, UPDATE'),
         ('billing_quotationitem', 'SELECT, INSERT, DELETE'),
         ('communications_inboundsms', 'SELECT, INSERT'),
+        -- One row per send attempt, sent or failed; the outcome is recorded
+        -- once and never rewritten, same as the inbound table above.
+        ('communications_outboundsms', 'SELECT, INSERT'),
         ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
         -- Inventory. The movement ledger is append-only; the derived level row
         -- is rewritten under a row lock by the movement service.

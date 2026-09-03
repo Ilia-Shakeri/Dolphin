@@ -1,15 +1,21 @@
 import json
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Mapping
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from accounts.access import has_any_capability, is_crm_identity
+from accounts.models import User
 from auditlog.services import log_activity
-from common.exceptions import BusinessConflictError, BusinessRuleError
-from communications.models import InboundSMS
+from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
+from common.phones import normalize_customer_phone
+from communications import sms
+from communications.models import InboundSMS, OutboundSMS
 from sales.models import CustomerPhone
 
 
@@ -170,3 +176,101 @@ def store_normalized_inbound_sms(*, event, actor=None, system_received_at=None):
             },
         )
     return StoredInboundSMS(message=message, created=created)
+
+
+# --- Outbound SMS ------------------------------------------------------------
+#
+# The permission model is deliberately conservative for a first version: only
+# `sms.company` — the same capability the inbound report already requires,
+# held by sales_manager, company_it and platform_admin, not sales_agent — may
+# send. Whether an agent should be able to message their own customers is a
+# real product question nobody has asked for yet; narrowing later is a
+# capability addition, not a migration, so nothing here forecloses it.
+
+SMS_BODY_MAX_LENGTH = 640  # ~4 concatenated GSM-7 segments; a generous, bounded cap, not a carrier's exact limit
+
+
+def _lock_active_actor(actor):
+    locked = User.objects.select_for_update().filter(pk=actor.pk, is_active=True).first()
+    if locked is None or not is_crm_identity(locked):
+        raise BusinessPermissionDenied("کاربر باید فعال باشد.")
+    return locked
+
+
+def _lock_sms_sender(actor):
+    locked = _lock_active_actor(actor)
+    if not has_any_capability(locked, "sms.company"):
+        raise BusinessPermissionDenied("ارسال پیامک مجاز نیست.")
+    return locked
+
+
+def _clean_body(body):
+    cleaned = unicodedata.normalize("NFKC", str(body or "")).strip()
+    if not cleaned:
+        raise BusinessRuleError({"body": "متن پیامک الزامی است."})
+    if len(cleaned) > SMS_BODY_MAX_LENGTH:
+        raise BusinessRuleError({"body": f"متن پیامک نباید بیش از {SMS_BODY_MAX_LENGTH} نویسه باشد."})
+    return cleaned
+
+
+def _resolve_recipient(*, customer, phone):
+    if customer is not None:
+        # `CustomerPhone.Meta.ordering` puts an active primary phone first;
+        # a customer with no active phone at all has nothing to send to.
+        primary = customer.phones.filter(is_active=True).first()
+        if primary is None:
+            raise BusinessRuleError({"customer": "این مشتری شماره تلفن فعال ندارد."})
+        return primary.normalized_phone
+    if phone:
+        try:
+            return normalize_customer_phone(phone)
+        except ValidationError as error:
+            raise BusinessRuleError({"phone": "؛ ".join(error.messages)}) from error
+    raise BusinessRuleError({"phone": "شماره گیرنده یا مشتری الزامی است."})
+
+
+def send_outbound_sms(*, actor, body, customer=None, lead=None, phone=""):
+    """Send one SMS and record exactly one outcome row for the attempt.
+
+    Validation that can be checked before anything is attempted (permission,
+    an empty body, no usable recipient, no provider configured at all) raises
+    `BusinessRuleError`/`BusinessPermissionDenied` and writes nothing. Once an
+    attempt is made — the provider was at least reachable enough to answer —
+    the outcome (`sent` or `failed`) is always persisted and returned, never
+    raised, so a provider-side failure is an auditable fact, not a swallowed
+    exception. The row-lock on the actor happens in its own short transaction,
+    released before the network call: an outbound HTTP request never runs
+    while holding a database row lock.
+    """
+    with transaction.atomic():
+        locked_actor = _lock_sms_sender(actor)
+
+    cleaned_body = _clean_body(body)
+    if lead is not None and customer is None:
+        customer = lead.customer
+    if lead is not None and customer is not None and lead.customer_id != customer.pk:
+        raise BusinessRuleError({"lead": "سرنخ متعلق به این مشتری نیست."})
+    recipient = _resolve_recipient(customer=customer, phone=phone)
+
+    if not sms.provider_is_available():
+        raise BusinessRuleError({"provider": "سرویس ارسال پیامک برای این استقرار تنظیم نشده است."})
+
+    result = sms.send_via_configured_provider(to=recipient, body=cleaned_body)
+
+    with transaction.atomic():
+        message = OutboundSMS.objects.create(
+            provider_code=result.provider_code,
+            recipient_normalized=recipient,
+            body_text=cleaned_body,
+            status=OutboundSMS.Status.SENT if result.success else OutboundSMS.Status.FAILED,
+            status_detail=result.status_detail[:255],
+            customer=customer,
+            lead=lead,
+            sent_by=locked_actor,
+        )
+        changes = {"fields": ["recipient_normalized", "status", "customer", "lead"]}
+        if result.success:
+            log_activity(actor=locked_actor, operation="outbound_sms.sent", instance=message, changes=changes)
+        else:
+            log_activity(actor=locked_actor, operation="outbound_sms.failed", instance=message, changes=changes)
+    return message

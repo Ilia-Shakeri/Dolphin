@@ -1,0 +1,26 @@
+{% extends "common/base.html" %}
+{% block title %}ارسال پیامک{% endblock %}
+{% block page_id %}outbound-sms{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">هستهٔ ارسال پیامک</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-sms page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}ارسال پیامک{% endblock %}
+{% block breadcrumb_current %}ارسال پیامک{% endblock %}
+{% block content %}
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <form id="outbound-sms-send-form" action="/api/v1/outbound-sms/send/" method="post" class="list-filters" novalidate>
+        <div><label class="form-label fw-semibold" for="outbound-sms-customer">شناسهٔ مشتری (اختیاری)</label><input class="form-control form-control-solid" id="outbound-sms-customer" name="customer" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۱۲"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+        <div><label class="form-label fw-semibold" for="outbound-sms-lead">شناسهٔ سرنخ (اختیاری)</label><input class="form-control form-control-solid" id="outbound-sms-lead" name="lead" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۴۵"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lead"></p></div>
+        <div><label class="form-label fw-semibold" for="outbound-sms-phone">یا شمارهٔ گیرنده</label><input class="form-control form-control-solid" id="outbound-sms-phone" name="phone" type="text" dir="ltr" placeholder="۰۹xxxxxxxxx"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
+        <div class="w-100"><label class="form-label fw-semibold" for="outbound-sms-body">متن پیامک</label><textarea class="form-control form-control-solid" id="outbound-sms-body" name="body" rows="3" maxlength="2000" required></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="body"></p></div>
+        <p class="text-danger fs-8 mt-1 mb-0 w-100" data-error-for="provider"></p>
+        <button class="btn btn-primary" type="submit">ارسال پیامک</button>
+        <p class="text-muted fs-8 mt-2 mb-0 w-100">دقیقاً یکی از «مشتری»، «سرنخ» یا «شماره» را پر کنید — مشتری اولویت دارد و شمارهٔ تلفن فعالِ اصلی او مقصد ارسال است.</p>
+    </form>
+</div></section>
+<section class="card mb-5 mb-xl-8">
+    <h2 class="fs-3 fw-bold text-gray-900 mb-5">پیامک‌های اخیر</h2>
+    <p id="outbound-sms-empty" class="text-center text-gray-700 py-10" hidden>پیامکی ثبت نشده است.</p>
+    <div id="outbound-sms-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>زمان</th><th>گیرنده</th><th>مشتری/سرنخ</th><th>وضعیت</th><th>جزئیات</th><th>متن</th></tr></thead><tbody id="outbound-sms-table-body"></tbody></table></div>
+    <div id="outbound-sms-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" hidden><button id="outbound-sms-prev" class="btn btn-light" type="button">قبل</button><span id="outbound-sms-page"></span><button id="outbound-sms-next" class="btn btn-light" type="button">بعد</button></div>
+</section>
+{% endblock %}

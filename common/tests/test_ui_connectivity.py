@@ -229,17 +229,19 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_two_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_three_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
-        # `inbound_sms` is built and provider-neutral, but no provider contract,
-        # credential, or owner has arrived; enabling it would show a report with
-        # nothing behind it. `internal_it_role` is withheld by Client-1 policy:
-        # only a Platform Admin administers users there.
-        self.assertEqual(withheld, frozenset({"inbound_sms", "internal_it_role"}))
+        # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
+        # but no real gateway contract, credential, or owner has arrived for
+        # Client-1 yet; enabling either would show a report or a send button
+        # with nothing real behind it (`KARIZ_SMS_PROVIDER` unset). `internal_
+        # it_role` is withheld by Client-1 policy: only a Platform Admin
+        # administers users there.
+        self.assertEqual(withheld, frozenset({"inbound_sms", "outbound_sms", "internal_it_role"}))
 
     def test_nothing_depends_on_a_withheld_feature(self):
         for feature, requires in FEATURE_DEPENDENCIES.items():
-            for withheld in ("inbound_sms", "internal_it_role"):
+            for withheld in ("inbound_sms", "outbound_sms", "internal_it_role"):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 
 

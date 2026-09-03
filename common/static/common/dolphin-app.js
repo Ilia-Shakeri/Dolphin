@@ -3345,6 +3345,73 @@
         await load();
     }
 
+    function outboundSmsRow(item) {
+        const row = document.createElement("tr");
+        appendCell(row, displayDate(item.sent_at));
+        appendCell(row, item.recipient_normalized);
+        appendCell(row, item.customer_name || item.lead_label || "—");
+        const statusCell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `badge ${item.status === "sent" ? "badge-light-success" : "badge-light-danger"}`;
+        badge.textContent = item.status === "sent" ? "ارسال شد" : "ناموفق";
+        statusCell.appendChild(badge);
+        row.appendChild(statusCell);
+        appendCell(row, item.status_detail || "—");
+        const bodyCell = document.createElement("td");
+        bodyCell.textContent = item.body_text.length > 60 ? `${item.body_text.slice(0, 60)}…` : item.body_text;
+        row.appendChild(bodyCell);
+        return row;
+    }
+
+    async function loadOutboundSmsLog(url) {
+        const empty = document.getElementById("outbound-sms-empty");
+        const wrap = document.getElementById("outbound-sms-table-wrap");
+        const pager = document.getElementById("outbound-sms-pagination");
+        try {
+            const data = await apiRequest(url);
+            const rows = data.results.map(outboundSmsRow);
+            document.getElementById("outbound-sms-table-body").replaceChildren(...rows);
+            empty.hidden = Boolean(rows.length);
+            wrap.hidden = !rows.length;
+            pager.hidden = !data.previous && !data.next;
+            const previous = document.getElementById("outbound-sms-prev");
+            const next = document.getElementById("outbound-sms-next");
+            previous.disabled = !data.previous;
+            next.disabled = !data.next;
+            previous.onclick = () => data.previous && loadOutboundSmsLog(data.previous);
+            next.onclick = () => data.next && loadOutboundSmsLog(data.next);
+        } catch (error) {
+            showError(error);
+        }
+    }
+
+    async function setupOutboundSms() {
+        const form = document.getElementById("outbound-sms-send-form");
+        await loadOutboundSmsLog("/api/v1/outbound-sms/");
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const data = formPayload(form, ["customer", "lead", "phone", "body"]);
+                const payload = {body: data.body};
+                if (data.customer) payload.customer = data.customer;
+                if (data.lead) payload.lead = data.lead;
+                if (data.phone) payload.phone = data.phone;
+                const sent = await apiRequest("/api/v1/outbound-sms/send/", {method: "POST", body: payload});
+                form.reset();
+                // The request itself succeeded (HTTP 200) either way — the
+                // attempt was recorded — but the provider may still have
+                // refused the message, which is a distinct outcome the
+                // operator needs to see, not a silent "sent".
+                if (sent.status === "sent") {
+                    globalMessage("پیامک ارسال شد.", true);
+                } else {
+                    globalMessage(`ارسال ناموفق بود: ${sent.status_detail || "دلیل نامشخص"}`);
+                }
+                await loadOutboundSmsLog("/api/v1/outbound-sms/");
+            });
+        });
+    }
+
     function afterSalesRow(item) {
         const row = document.createElement("tr");
         [item.subject, item.customer_name || item.customer, item.status, item.assigned_to_display || "تخصیص‌نیافته", item.closed_at ? "بسته" : "باز", displayDate(item.created_at)].forEach((value) => appendCell(row, value));
@@ -7218,6 +7285,7 @@
     if (page === "user-profile") setupSellerProfile();
     if (page === "sales-document-report") setupSalesDocumentReport();
     if (page === "inbound-sms-report") setupInboundSMSReport();
+    if (page === "outbound-sms") setupOutboundSms();
     if (page === "after-sales") setupAfterSales();
     if (page === "after-sales-detail") setupAfterSalesDetail();
     if (page === "activity-logs") setupActivityLogs();

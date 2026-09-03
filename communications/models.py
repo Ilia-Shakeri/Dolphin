@@ -103,3 +103,80 @@ class InboundSMS(TimeStampedModel):
             models.Index(fields=["customer", "-provider_received_at"]),
             models.Index(fields=["lead", "-provider_received_at"]),
         ]
+
+
+class OutboundSMS(TimeStampedModel):
+    """One attempt to send an SMS this deployment originated.
+
+    Unlike `InboundSMS`, the body is retained: this codebase wrote it, not a
+    third party, so the privacy reasoning that keeps an inbound body out of the
+    database does not apply — and a support agent re-reading what was actually
+    sent is the whole point of keeping a log at all.
+
+    A row is written for every attempt, successful or not — `status` records
+    the outcome instead of the write failing, so a failed send is still an
+    auditable fact rather than a silently swallowed exception. `send_outbound_
+    sms` (communications/services.py) is the only place that creates one.
+    """
+
+    class Status(models.TextChoices):
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    provider_code = models.CharField(max_length=50)
+    recipient_normalized = models.CharField(max_length=20, db_index=True)
+    body_text = models.TextField()
+    status = models.CharField(max_length=20, choices=Status.choices, db_index=True)
+    status_detail = models.CharField(max_length=255, blank=True)
+    customer = models.ForeignKey(
+        Customer,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="outbound_sms_messages",
+    )
+    lead = models.ForeignKey(
+        Lead,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="outbound_sms_messages",
+    )
+    sent_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    sent_at = models.DateTimeField(default=timezone.now, editable=False, db_index=True)
+
+    class Meta:
+        ordering = ["-sent_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(provider_code__regex=r"\A[a-z0-9][a-z0-9_-]{0,49}\Z"),
+                name="outbound_sms_provider_code_shape",
+            ),
+            models.CheckConstraint(
+                condition=Q(recipient_normalized__regex=r"\A\+[1-9][0-9]{7,14}\Z"),
+                name="outbound_sms_recipient_e164",
+            ),
+            models.CheckConstraint(
+                condition=Q(body_text__regex=r"\S"),
+                name="outbound_sms_body_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=["sent", "failed"]),
+                name="outbound_sms_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(lead__isnull=True) | Q(customer__isnull=False),
+                name="outbound_sms_lead_requires_customer",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["customer", "-sent_at"]),
+            models.Index(fields=["lead", "-sent_at"]),
+            models.Index(fields=["status", "-sent_at"]),
+        ]

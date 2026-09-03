@@ -183,6 +183,10 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             capabilities.intersection({"ledger.company", "ledger.own"})
         )
         context["can_view_sms_report"] = "sms.company" in capabilities
+        # Same capability as the inbound report, and the same reasoning as
+        # `send_outbound_sms` (communications/services.py): sending is a
+        # manager-and-up capability for now, not yet opened to sales_agent.
+        context["can_send_sms"] = "sms.company" in capabilities
         # The same pair `DolphinUserProfileView` and the user-performance report
         # itself require — an after-sales agent holds neither, so they get no
         # "عملکرد من" entry pointing at a page that would just refuse them.
@@ -657,6 +661,19 @@ class DolphinInboundSMSReportView(ActiveCrmView):
             return self.render_to_response(self.get_context_data(
                 error_status=403, error_title="دسترسی مجاز نیست",
                 error_message="شما اجازه مشاهده گزارش پیامک ورودی را ندارید.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class DolphinOutboundSMSView(ActiveCrmView):
+    required_feature = "outbound_sms"
+    template_name = "common/sms/outbound.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and not has_any_capability(request.user, "sms.company"):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="شما اجازه ارسال یا مشاهده پیامک را ندارید.",
             ), status=403)
         return super().dispatch(request, *args, **kwargs)
 

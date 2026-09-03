@@ -89,6 +89,8 @@ OPERATION_LABELS = {
     "sales_document.postal_status_changed": "تغییر وضعیت پستی مدرک",
     "sales_document.deactivated": "غیرفعال‌سازی مدرک فروش",
     "inbound_sms.stored": "دریافت پیامک",
+    "outbound_sms.sent": "ارسال پیامک",
+    "outbound_sms.failed": "ارسال ناموفق پیامک",
     # --- کاربران ------------------------------------------------------------
     "user.created": "ثبت کاربر",
     "user.updated": "ویرایش کاربر",

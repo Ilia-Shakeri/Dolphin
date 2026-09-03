@@ -33,6 +33,10 @@ FEATURE_DEPENDENCIES = {
     "after_sales": frozenset({"customers"}),
     # communications.InboundSMS — provider-neutral internal storage and report
     "inbound_sms": frozenset(),
+    # communications.OutboundSMS — customer/lead are nullable (an ad-hoc
+    # number is a valid recipient too), so no non-nullable FK forces a
+    # dependency; the sending UI still points at a customer/lead in practice.
+    "outbound_sms": frozenset(),
     # inventory.Warehouse / StockItem / StockMovement — StockItem.product is
     # NOT NULL, and the ledger's soft reference to a billing document is
     # deliberately not a foreign key so inventory stays usable on its own.

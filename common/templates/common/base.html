@@ -430,6 +430,15 @@
                                 </div>
                                 {% endif %}
 
+                                {% if can_send_sms and "outbound_sms" in features %}
+                                <div class="menu-item">
+                                    <a data-module="outbound-sms" class="menu-link" href="{% url 'common_ui:outbound-sms' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-sms fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">ارسال پیامک</span>
+                                    </a>
+                                </div>
+                                {% endif %}
+
                                 {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="catalog" data-nav-group="catalog" class="menu-item menu-accordion">
                                     <span class="menu-link">

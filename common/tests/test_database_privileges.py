@@ -345,6 +345,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "billing_quotation": "SELECT, INSERT, UPDATE",
             "billing_quotationitem": "SELECT, INSERT, DELETE",
             "communications_inboundsms": "SELECT, INSERT",
+            "communications_outboundsms": "SELECT, INSERT",
             # Inventory. The movement ledger is append-only; the derived level
             # row is rewritten by the movement service under a row lock.
             "inventory_stockitem": "SELECT, INSERT, UPDATE",
@@ -399,6 +400,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         for table_name in (
             "auditlog_activitylog",
             "communications_inboundsms",
+            "communications_outboundsms",
             "sales_leadassignmenthistory",
             "sales_interaction",
             "sales_postalstatushistory",
