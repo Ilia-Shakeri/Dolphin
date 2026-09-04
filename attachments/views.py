@@ -117,6 +117,12 @@ class AttachmentDeleteView(AttachmentAccessMixin, APIView):
     """
 
     @extend_schema(
+        # The attachment is named by the URL and there is no body to send.
+        # Said explicitly because the schema generator otherwise tries to
+        # guess a request serializer for a write method, finds none on a
+        # plain `APIView`, and fails generation — the same reason every
+        # other bodyless POST in this codebase declares it.
+        request=None,
         responses={204: None, 403: ACCESS_DENIED_RESPONSE, 404: None, 429: THROTTLED_RESPONSE},
         description="Permanently deletes one attachment. Elevated roles only (sales_manager, company_it, platform_admin).",
     )

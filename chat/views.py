@@ -151,6 +151,11 @@ class ChatThreadReadView(ChatAccessMixin, APIView):
     """
 
     @extend_schema(
+        # "Read up to now" carries no body — the thread is in the URL and the
+        # timestamp is the server's. Declared for the same reason as
+        # `AttachmentDeleteView`: without it the generator tries to guess a
+        # request serializer for a write method and fails.
+        request=None,
         responses={204: None, 403: ACCESS_DENIED_RESPONSE, 404: None, 429: THROTTLED_RESPONSE},
         description="Marks the thread read for the caller as of now.",
     )
