@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from accounts.access import has_any_capability
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
-from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
+from common.permissions import FeatureGatedAPIMixin, HasCapabilityForMethod, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
 from communications import services
 from communications.reports import build_inbound_sms_report, inbound_sms_drilldown
@@ -100,8 +100,22 @@ class InboundSMSMessageDetailView(InboundSMSReportAccessMixin, APIView):
 
 
 class OutboundSMSAccessMixin(FeatureGatedAPIMixin):
+    """Feature, then role, then object scope — the three kept separate.
+
+    `HasCapabilityForMethod` is here for the same reason
+    `sales.permissions.HasSalesCapability` exists: without it a caller with
+    no `sms.company` capability received `200` and an empty page, because
+    `outbound_sms_for` returns an empty queryset for them. Never a leak — the
+    boundary held — but inconsistent with the `/sms/` page itself, which
+    answers `403` to exactly those callers, and with `users`,
+    `activity-logs` and `inbound-sms`, which have always answered `403`.
+    Someone without the capability is not asking for an empty log; they are
+    asking for something that is not theirs.
+    """
+
     required_feature = "outbound_sms"
-    permission_classes = [IsActiveAuthenticated]
+    required_capabilities = ("sms.company",)
+    permission_classes = [IsActiveAuthenticated, HasCapabilityForMethod]
     throttle_classes = [SensitiveRateThrottle]
 
 

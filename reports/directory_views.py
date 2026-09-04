@@ -17,7 +17,7 @@ from accounts.access import crm_identities
 from accounts.models import User
 from accounts.services import USER_ADMINS
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE
-from common.permissions import FeatureGatedAPIMixin
+from common.permissions import FeatureGatedAPIMixin, HasCapabilityForMethod
 from common.throttles import SensitiveRateThrottle
 from reports.views import XLSX_CONTENT_TYPE, XLSXNegotiationRenderer
 from reports.xlsx import (
@@ -84,7 +84,20 @@ class UserDirectoryExportView(DirectoryExportView):
 
 
 class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
+    """The customer book, scoped exactly as the list endpoint scopes it.
+
+    The capability check is the same one `sales.permissions.
+    HasSalesCapability` applies to `/api/v1/customers/`: without it a caller
+    holding no customer capability got `200` and a workbook containing only
+    its header row, while the list endpoint answered `403` for the same
+    request. The rows were never wrong — `customers_for` had already emptied
+    them — but an empty file is a worse answer than a refusal, because it
+    reads as "there are no customers" rather than "this is not yours".
+    """
+
     required_feature = "customers"
+    required_capabilities = ("customers.scoped", "customers.company")
+    permission_classes = [HasCapabilityForMethod]
     filename = "dolphin-customers.xlsx"
 
     @extend_schema(
@@ -140,6 +153,11 @@ class ProductCatalogueExportView(FeatureGatedAPIMixin, DirectoryExportView):
     """
 
     required_feature = "products"
+    #: Same reasoning as the customer export above: `/api/v1/products/`
+    #: answers 403 to a caller without one of these, so this must not answer
+    #: 200 with an empty catalogue.
+    required_capabilities = ("products.read", "products.manage")
+    permission_classes = [HasCapabilityForMethod]
     filename = "dolphin-products.xlsx"
 
     @extend_schema(

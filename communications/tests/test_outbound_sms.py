@@ -283,12 +283,20 @@ class OutboundSMSAPITests(EchoServerCase, TestCase):
         self.assertEqual(log.data["results"][0]["body_text"], "سلام از API")
 
     def test_an_agent_is_refused_send_and_the_log(self):
+        """Both halves are a refusal, which is what this test's name says.
+
+        Until 1.8.5 the second half asserted `200` with `count == 0`: the
+        selector had already emptied the page, so nothing leaked, but the
+        answer disagreed with the `/sms/` page (403 for this same caller) and
+        with `inbound-sms`, which has always answered 403. The route-by-role
+        sweep in that debug pass surfaced the disagreement, and the endpoint
+        now answers like everything else that asks for `sms.company`.
+        """
         client = self.client_for(self.agent)
         with override_settings(SMS_PROVIDER="http", SMS_API_URL=self.url, SMS_API_BODY_TEMPLATE=BODY_TEMPLATE):
             send = client.post("/api/v1/outbound-sms/send/", {"phone": "09121110000", "body": "سلام"}, format="json")
         self.assertEqual(send.status_code, 403)
-        self.assertEqual(client.get("/api/v1/outbound-sms/").status_code, 200)
-        self.assertEqual(client.get("/api/v1/outbound-sms/").data["count"], 0)
+        self.assertEqual(client.get("/api/v1/outbound-sms/").status_code, 403)
 
     def test_naming_both_customer_and_phone_is_rejected_by_the_serializer(self):
         response = self.client_for(self.manager).post(
