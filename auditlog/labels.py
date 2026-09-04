@@ -95,6 +95,8 @@ OPERATION_LABELS = {
     "attachment.uploaded": "افزودن پیوست",
     "attachment.deleted": "حذف پیوست",
     "brand_settings.updated": "تغییر برند پنل",
+    "chat_thread.started": "شروع گفت‌وگو",
+    "chat_message.sent": "ارسال پیام گفت‌وگو",
     # --- کاربران ------------------------------------------------------------
     "user.created": "ثبت کاربر",
     "user.updated": "ویرایش کاربر",

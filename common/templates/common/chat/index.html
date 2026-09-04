@@ -1,0 +1,72 @@
+{% extends "common/base.html" %}
+{% block title %}گفت‌وگوی داخلی{% endblock %}
+{% block page_id %}chat{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">هماهنگی داخلی</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-message-text-2 page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
+{% block page_title %}گفت‌وگوی داخلی{% endblock %}
+{% block breadcrumb_current %}گفت‌وگو{% endblock %}
+{% block body_data %} data-chat-user-id="{{ request.user.pk }}"{% endblock %}
+{% block content %}
+<div class="d-flex flex-column flex-lg-row">
+    <div class="flex-column flex-lg-row-auto w-100 w-lg-300px mb-10 mb-lg-0 me-lg-7 me-xl-10">
+        <section class="card card-flush">
+            <div class="card-header pt-7">
+                <div class="card-title"><h2>گفت‌وگوها</h2></div>
+                <div class="card-toolbar">
+                    <button id="chat-open-new" class="btn btn-sm btn-icon btn-light-primary" type="button" aria-label="گفت‌وگوی تازه">
+                        <i class="ki-duotone ki-plus fs-2"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body pt-3">
+                <div id="chat-threads-loading" class="text-center text-gray-700 py-10">در حال دریافت گفت‌وگوها…</div>
+                <div id="chat-threads-empty" class="text-center text-gray-700 py-10" hidden>
+                    هنوز گفت‌وگویی ندارید — با دکمهٔ «+» گفت‌وگوی تازه بسازید.
+                </div>
+                <div id="chat-thread-list" class="d-flex flex-column gap-1" hidden></div>
+            </div>
+        </section>
+    </div>
+    <div class="flex-lg-row-fluid">
+        <section class="card" id="chat-empty-state">
+            <div class="card-body text-center text-gray-700 py-20">
+                یک گفت‌وگو را از فهرست کنار انتخاب کنید یا گفت‌وگوی تازه بسازید.
+            </div>
+        </section>
+        <section class="card" id="chat-messenger" hidden aria-labelledby="chat-messenger-peer-name">
+            <div class="card-header" id="chat-messenger-header">
+                <div class="card-title">
+                    <div class="d-flex justify-content-center flex-column">
+                        <span id="chat-messenger-peer-name" class="fs-4 fw-bold text-gray-900 mb-1 lh-1"></span>
+                        <span id="chat-messenger-peer-role" class="fs-7 fw-semibold text-muted"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="chat-messages" class="scroll-y me-n5 pe-5 h-300px h-lg-auto" style="max-height: 55vh;" data-chat-messages></div>
+                <p id="chat-messages-empty" class="text-center text-gray-700 py-10" hidden>هنوز پیامی در این گفت‌وگو نیست.</p>
+            </div>
+            <div class="card-footer pt-4">
+                <form id="chat-send-form" novalidate>
+                    <textarea id="chat-message-input" class="form-control form-control-flush mb-3" rows="2" maxlength="4000"
+                              placeholder="نوشتن پیام… (Enter برای ارسال، Shift+Enter برای خط تازه)"></textarea>
+                    <p class="text-danger fs-8 mb-3" data-error-for="body"></p>
+                    <div class="d-flex flex-stack">
+                        <span class="text-muted fs-7">Enter برای ارسال</span>
+                        <button class="btn btn-primary" type="submit">ارسال</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+<dialog id="chat-new-dialog" aria-labelledby="chat-new-title">
+    <div class="d-flex flex-stack align-items-center mb-5">
+        <h2 id="chat-new-title">گفت‌وگوی تازه</h2>
+        <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+    <div id="chat-colleagues-loading" class="text-center text-gray-700 py-10">در حال دریافت فهرست همکاران…</div>
+    <div id="chat-colleagues-empty" class="text-center text-gray-700 py-10" hidden>همکار دیگری در این استقرار نیست.</div>
+    <div id="chat-colleagues-list" class="d-flex flex-column gap-1" hidden></div>
+</dialog>
+{% endblock %}

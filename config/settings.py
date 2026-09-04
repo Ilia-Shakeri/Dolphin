@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "billing",
     "reports",
     "attachments",
+    "chat",
 ]
 
 MIDDLEWARE = [

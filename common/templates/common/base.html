@@ -458,6 +458,16 @@
                                 </div>
                                 {% endif %}
 
+                                {% if "internal_chat" in features %}
+                                <div class="menu-item">
+                                    <a data-module="chat" class="menu-link" href="{% url 'common_ui:chat' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-message-text-2 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
+                                        <span class="menu-title">گفت‌وگوی داخلی</span>
+                                        <span class="menu-badge" data-chat-unread-badge hidden><span class="badge badge-circle badge-danger" data-chat-unread-count>0</span></span>
+                                    </a>
+                                </div>
+                                {% endif %}
+
                                 {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="catalog" data-nav-group="catalog" class="menu-item menu-accordion">
                                     <span class="menu-link">

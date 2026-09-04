@@ -363,6 +363,13 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # (common.branding). A logo is cleared by writing NULL back into
             # this same row, never by deleting it — no DELETE.
             "common_brandsettings": "SELECT, INSERT, UPDATE",
+            # Internal chat (chat/). A thread's `last_message_at` and a
+            # participant's own `last_read_at` are both rewritten in place by
+            # the service layer; a message, once sent, is never edited or
+            # deleted — no UPDATE or DELETE on the message table.
+            "chat_chatthread": "SELECT, INSERT, UPDATE",
+            "chat_chatparticipant": "SELECT, INSERT, UPDATE",
+            "chat_chatmessage": "SELECT, INSERT",
             "auth_group": "SELECT, INSERT, UPDATE, DELETE",
             "auth_group_permissions": "SELECT, INSERT, DELETE",
             "auth_permission": "SELECT",

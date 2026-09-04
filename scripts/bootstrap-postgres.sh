@@ -561,6 +561,12 @@ FROM (
         -- logo is cleared by writing NULL back into it, never by deleting
         -- the row, so no DELETE.
         ('common_brandsettings', 'SELECT, INSERT, UPDATE'),
+        -- Internal chat (chat/). A thread's last_message_at and a
+        -- participant's own last_read_at are rewritten in place; a message,
+        -- once sent, is never edited or deleted.
+        ('chat_chatthread', 'SELECT, INSERT, UPDATE'),
+        ('chat_chatparticipant', 'SELECT, INSERT, UPDATE'),
+        ('chat_chatmessage', 'SELECT, INSERT'),
         -- Inventory. The movement ledger is append-only; the derived level row
         -- is rewritten under a row lock by the movement service.
         ('inventory_stockitem', 'SELECT, INSERT, UPDATE'),

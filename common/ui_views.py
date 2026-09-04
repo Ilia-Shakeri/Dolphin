@@ -1144,3 +1144,14 @@ class DolphinBrandingSettingsView(ActiveCrmView):
                 error_message="تغییر نام و لوگوی پنل فقط برای مدیر پلتفرم مجاز است.",
             ), status=403)
         return super().dispatch(request, *args, **kwargs)
+
+
+class DolphinChatView(ActiveCrmView):
+    """`/chat/` — internal coordination chat between colleagues.
+
+    Feature-gated only, no further role restriction on top: every ordinary
+    role may use it, the same as `chat/services.py`'s own docstring explains.
+    """
+
+    required_feature = "internal_chat"
+    template_name = "common/chat/index.html"

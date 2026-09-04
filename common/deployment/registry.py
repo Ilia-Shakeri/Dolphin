@@ -80,6 +80,10 @@ FEATURE_DEPENDENCIES = {
     # customer's saved name/logo — it just stops being shown, exactly like any
     # other disabled feature; turning it back on shows the same row again.
     "custom_branding": frozenset(),
+    # chat.ChatThread / ChatParticipant / ChatMessage — internal coordination
+    # chat between colleagues of the same deployment. No non-nullable FK into
+    # any other module forces a dependency; the three models stand alone.
+    "internal_chat": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -96,7 +100,12 @@ FEATURE_DEPENDENCIES = {
 #: decision behind it (2026-09-03) is that a deployment shows Dolphin/دلفین
 #: branding *unless* someone deliberately turns white-labelling on for that
 #: customer — the safe default is the platform's own brand, not a customer's.
-DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding"})
+#:
+#: `internal_chat` (2026-09-04) joins it the same way `custom_branding` did:
+#: a real, finished module nobody has asked for yet on any live deployment,
+#: opt-in per customer through the same manifest, with nothing to rebuild
+#: when one does.
+DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
 

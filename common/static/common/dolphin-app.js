@@ -7687,6 +7687,297 @@
         load();
     }
 
+    /**
+     * The sidebar's chat badge, on every page — not only `/chat/` itself.
+     *
+     * `setupChat()` below updates it immediately from the thread list it
+     * already has whenever *that* page changes it; this is the only thing
+     * that keeps it truthful everywhere else, since the badge markup itself
+     * lives in the shared sidebar template that every page renders.
+     */
+    function updateChatUnreadBadge(totalUnread) {
+        const badge = document.querySelector("[data-chat-unread-badge]");
+        const count = document.querySelector("[data-chat-unread-count]");
+        if (!badge || !count) return;
+        badge.hidden = totalUnread <= 0;
+        count.textContent = toPersianDigits(String(totalUnread));
+    }
+
+    function setupChatUnreadPoll() {
+        if (!document.querySelector("[data-chat-unread-badge]")) return;
+        async function poll() {
+            try {
+                const data = await apiRequest("/api/v1/chat/unread-count/");
+                updateChatUnreadBadge(data.count);
+            } catch (error) {
+                // A missed poll tick is not worth bothering anyone about.
+            }
+        }
+        poll();
+        setInterval(poll, 20000);
+    }
+
+    /**
+     * Internal chat: a thread list and one active conversation, polled.
+     *
+     * No websocket in this codebase (no channel-layer infrastructure exists
+     * anywhere else here), so "live" means polling — the same choice the
+     * agent work queue and every report already make. Two independent
+     * intervals: the thread list (previews, unread counts) refreshes slowly
+     * since it is a side-glance; the open thread polls faster since that is
+     * what someone is actually looking at right now. Both are cleared the
+     * moment the page navigates away, same as any other interval-driven
+     * script here — there is no SPA router keeping this alive past that.
+     */
+    function setupChat() {
+        const threadListEl = document.getElementById("chat-thread-list");
+        if (!threadListEl) return;
+
+        const threadsLoading = document.getElementById("chat-threads-loading");
+        const threadsEmpty = document.getElementById("chat-threads-empty");
+        const emptyState = document.getElementById("chat-empty-state");
+        const messenger = document.getElementById("chat-messenger");
+        const messagesEl = document.getElementById("chat-messages");
+        const messagesEmpty = document.getElementById("chat-messages-empty");
+        const peerNameEl = document.getElementById("chat-messenger-peer-name");
+        const peerRoleEl = document.getElementById("chat-messenger-peer-role");
+        const sendForm = document.getElementById("chat-send-form");
+        const messageInput = document.getElementById("chat-message-input");
+        const newDialog = document.getElementById("chat-new-dialog");
+        const colleaguesLoading = document.getElementById("chat-colleagues-loading");
+        const colleaguesEmpty = document.getElementById("chat-colleagues-empty");
+        const colleaguesList = document.getElementById("chat-colleagues-list");
+        const myUserId = Number(document.body.dataset.chatUserId);
+
+        const AVATAR_COLORS = ["primary", "success", "info", "warning", "danger"];
+        function avatarColor(userId) {
+            return AVATAR_COLORS[Math.abs(Number(userId)) % AVATAR_COLORS.length];
+        }
+        function avatarSymbol(name, userId) {
+            const symbol = document.createElement("div");
+            symbol.className = "symbol symbol-45px symbol-circle";
+            const label = document.createElement("span");
+            label.className = `symbol-label bg-light-${avatarColor(userId)} text-${avatarColor(userId)} fw-bold`;
+            label.textContent = (name || "?").trim().charAt(0);
+            symbol.appendChild(label);
+            return symbol;
+        }
+
+        let activeThreadId = null;
+        let lastMessageId = 0;
+        let threads = [];
+
+        function renderThreadList() {
+            threadListEl.replaceChildren();
+            updateChatUnreadBadge(threads.reduce((sum, thread) => sum + thread.unread_count, 0));
+            threadsEmpty.hidden = threads.length > 0;
+            threadListEl.hidden = threads.length === 0;
+            threads.forEach((thread) => {
+                const row = document.createElement("button");
+                row.type = "button";
+                row.className = "btn btn-flush d-flex align-items-center justify-content-between w-100 py-3 px-2 text-start rounded";
+                row.dataset.chatThreadRow = String(thread.id);
+                if (thread.id === activeThreadId) row.classList.add("bg-light-primary");
+
+                const left = document.createElement("div");
+                left.className = "d-flex align-items-center overflow-hidden";
+                left.appendChild(avatarSymbol(thread.peer.display_name, thread.peer.id));
+                const details = document.createElement("div");
+                details.className = "ms-3 text-start overflow-hidden";
+                const nameLine = document.createElement("div");
+                nameLine.className = "fs-6 fw-bold text-gray-900 text-truncate";
+                nameLine.textContent = thread.peer.display_name;
+                const previewLine = document.createElement("div");
+                previewLine.className = "fs-7 text-muted text-truncate";
+                previewLine.textContent = thread.last_message_body || "—";
+                details.append(nameLine, previewLine);
+                left.appendChild(details);
+                row.appendChild(left);
+
+                if (thread.unread_count > 0) {
+                    const badge = document.createElement("span");
+                    badge.className = "badge badge-circle badge-danger ms-2";
+                    badge.textContent = toPersianDigits(String(thread.unread_count));
+                    row.appendChild(badge);
+                }
+                row.addEventListener("click", () => openThread(thread.id));
+                threadListEl.appendChild(row);
+            });
+        }
+
+        async function loadThreads() {
+            try {
+                threads = await apiRequest("/api/v1/chat/threads/");
+                threadsLoading.hidden = true;
+                renderThreadList();
+            } catch (error) {
+                threadsLoading.hidden = true;
+                showError(error);
+            }
+        }
+
+        function appendMessageBubble(message) {
+            const row = document.createElement("div");
+            row.className = `d-flex mb-6 ${message.mine ? "justify-content-end" : "justify-content-start"}`;
+            const wrap = document.createElement("div");
+            wrap.className = `d-flex flex-column ${message.mine ? "align-items-end" : "align-items-start"}`;
+
+            const meta = document.createElement("div");
+            meta.className = "d-flex align-items-center mb-2";
+            const metaName = document.createElement("span");
+            metaName.className = "fs-7 fw-bold text-gray-900 mx-2";
+            metaName.textContent = message.mine ? "شما" : message.sender_display_name;
+            const metaTime = document.createElement("span");
+            metaTime.className = "fs-8 text-muted";
+            metaTime.textContent = displayDate(message.created_at);
+            meta.append(metaName, metaTime);
+
+            const bubble = document.createElement("div");
+            bubble.className = `p-4 rounded fw-semibold mw-lg-400px ${message.mine ? "bg-light-primary text-end" : "bg-light-info text-start"}`;
+            bubble.style.whiteSpace = "pre-wrap";
+            bubble.style.wordBreak = "break-word";
+            bubble.textContent = message.body;
+
+            wrap.append(meta, bubble);
+            row.appendChild(wrap);
+            messagesEl.appendChild(row);
+        }
+
+        function scrollMessagesToBottom() {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        async function openThread(threadId) {
+            activeThreadId = threadId;
+            lastMessageId = 0;
+            renderThreadList();
+            emptyState.hidden = true;
+            messenger.hidden = false;
+            const thread = threads.find((item) => item.id === threadId);
+            if (thread) {
+                peerNameEl.textContent = thread.peer.display_name;
+                peerRoleEl.textContent = thread.peer.role_label;
+            }
+            messagesEl.replaceChildren();
+            messagesEmpty.hidden = true;
+            try {
+                const messages = await apiRequest(`/api/v1/chat/threads/${threadId}/messages/`);
+                messagesEmpty.hidden = messages.length > 0;
+                messages.forEach(appendMessageBubble);
+                if (messages.length) lastMessageId = messages[messages.length - 1].id;
+                scrollMessagesToBottom();
+                // Opening it just marked it read server-side; reflect that locally
+                // without waiting for the next thread-list poll.
+                const row = threads.find((item) => item.id === threadId);
+                if (row) row.unread_count = 0;
+                renderThreadList();
+            } catch (error) {
+                showError(error);
+            }
+            messageInput.focus();
+        }
+
+        async function pollActiveThread() {
+            if (!activeThreadId) return;
+            try {
+                const messages = await apiRequest(
+                    `/api/v1/chat/threads/${activeThreadId}/messages/?after_id=${lastMessageId}`,
+                );
+                if (!messages.length) return;
+                messagesEmpty.hidden = true;
+                messages.forEach(appendMessageBubble);
+                lastMessageId = messages[messages.length - 1].id;
+                scrollMessagesToBottom();
+                // A message that arrived while the thread was open is read the
+                // moment it is drawn — mark it so the badge never lags what the
+                // reader can already see on screen.
+                await apiRequest(`/api/v1/chat/threads/${activeThreadId}/read/`, {method: "POST"});
+            } catch (error) {
+                // A transient poll failure is not worth interrupting anyone
+                // over; the next tick tries again.
+            }
+        }
+
+        sendForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            if (!activeThreadId) return;
+            withSubmit(sendForm, async () => {
+                const body = messageInput.value;
+                const message = await apiRequest(`/api/v1/chat/threads/${activeThreadId}/messages/`, {
+                    method: "POST", body: {body},
+                });
+                messageInput.value = "";
+                messagesEmpty.hidden = true;
+                appendMessageBubble(message);
+                lastMessageId = message.id;
+                scrollMessagesToBottom();
+                loadThreads();
+            });
+        });
+
+        messageInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendForm.requestSubmit();
+            }
+        });
+
+        async function loadColleagues() {
+            try {
+                const colleagues = await apiRequest("/api/v1/chat/colleagues/");
+                colleaguesLoading.hidden = true;
+                colleaguesEmpty.hidden = colleagues.length > 0;
+                colleaguesList.hidden = colleagues.length === 0;
+                colleaguesList.replaceChildren();
+                colleagues.forEach((colleague) => {
+                    const row = document.createElement("button");
+                    row.type = "button";
+                    row.className = "btn btn-flush d-flex align-items-center w-100 py-3 px-2 text-start rounded";
+                    row.appendChild(avatarSymbol(colleague.display_name, colleague.id));
+                    const details = document.createElement("div");
+                    details.className = "ms-3 text-start";
+                    const nameLine = document.createElement("div");
+                    nameLine.className = "fs-6 fw-bold text-gray-900";
+                    nameLine.textContent = colleague.display_name;
+                    const roleLine = document.createElement("div");
+                    roleLine.className = "fs-7 text-muted";
+                    roleLine.textContent = colleague.role_label;
+                    details.append(nameLine, roleLine);
+                    row.appendChild(details);
+                    row.addEventListener("click", async () => {
+                        try {
+                            const thread = await apiRequest("/api/v1/chat/threads/", {
+                                method: "POST", body: {other_user_id: colleague.id},
+                            });
+                            newDialog.close();
+                            const exists = threads.some((item) => item.id === thread.id);
+                            if (!exists) threads.unshift(thread);
+                            renderThreadList();
+                            openThread(thread.id);
+                        } catch (error) {
+                            showError(error);
+                        }
+                    });
+                    colleaguesList.appendChild(row);
+                });
+            } catch (error) {
+                colleaguesLoading.hidden = true;
+                showError(error);
+            }
+        }
+
+        document.getElementById("chat-open-new").addEventListener("click", () => {
+            newDialog.showModal();
+            loadColleagues();
+        });
+        newDialog.querySelectorAll("[data-close-dialog]").forEach((button) =>
+            button.addEventListener("click", () => newDialog.close()));
+
+        loadThreads();
+        setInterval(loadThreads, 12000);
+        setInterval(pollActiveThread, 4000);
+    }
+
     setupSearchableSelects();
     setupChartThemeRedraw();
     setupSidebarPeekGuard();
@@ -7700,9 +7991,14 @@
     // Any page that declares a chart card gets one, whichever page it is.
     setupListCharts();
 
+    // The chat badge lives in the sidebar, so every page that has it polls
+    // it, not only `/chat/` — same reasoning as the two lines above.
+    setupChatUnreadPoll();
+
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();
     if (page === "dashboard") setupDashboard();
+    if (page === "chat") setupChat();
     if (page === "users") setupUsers();
     if (page === "user-detail") setupUserDetail();
     if (page === "customers") setupCustomers();
