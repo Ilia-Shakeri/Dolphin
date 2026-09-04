@@ -37,7 +37,6 @@ class AuthShellUnitTests(SimpleTestCase):
         the theme does not cover, the brand mark, and the print sheet — and this
         test fails if a parallel design system starts growing back.
         """
-        stylesheet = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
         shell = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
 
         # The theme provides the shell.

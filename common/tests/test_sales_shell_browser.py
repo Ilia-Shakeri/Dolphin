@@ -659,7 +659,6 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.ID, "create-sales-document-status").send_keys("ثبت اولیه")
         self.browser.find_element(By.CSS_SELECTOR, "#create-sales-document-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/sales-documents/\d+/$"))
-        document_url = self.browser.current_url
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-detail-content")))
         self.assertEqual(self.browser.find_element(By.ID, "sales-document-address").get_attribute("value"), "نشانی ثابت مرورگر")
         self.browser.find_element(By.ID, "postal-to-status").send_keys("تحویل پست")

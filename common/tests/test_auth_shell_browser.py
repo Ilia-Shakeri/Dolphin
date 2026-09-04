@@ -316,7 +316,6 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         toggle = self.browser.find_element(By.ID, "kt_app_sidebar_toggle")
         toggle.click()
         self.wait.until(lambda driver: width() < 100)
-        rail = width()
 
         # The toggle stays reachable while collapsed; 1.3.11 hid it here and
         # made the logo the way out, which was withdrawn.
