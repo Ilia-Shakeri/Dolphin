@@ -105,6 +105,13 @@ FEATURE_DEPENDENCIES = {
     # attachments, SMS) is checked for its own feature at read time and left
     # out when that module is off.
     "customer_timeline": frozenset({"customers"}),
+    # common/dashboard.py — the home page's KPI strip, sales trend and status
+    # breakdown. No table, and no dependency: each of its sources (sales,
+    # invoices, leads, after-sales) is checked for its own feature at read
+    # time, so a deployment running any one of them gets the parts it can
+    # fill and a deployment running none gets a page that looks exactly as
+    # it did before this existed.
+    "dashboard_insights": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -135,9 +142,9 @@ FEATURE_DEPENDENCIES = {
 #: `leads` and says nothing else should get the bell that makes those leads'
 #: own follow-up dates visible. It stays a named feature (any deployment can
 #: still turn it off through its manifest, like anything else here); it just
-#: does not default to off. `global_search` and `customer_timeline`
-#: (both 2026-09-04) are absent for exactly the same reason and on the same
-#: reasoning.
+#: does not default to off. `global_search`, `customer_timeline` and
+#: `dashboard_insights` (all 2026-09-04) are absent for exactly the same
+#: reason and on the same reasoning.
 DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)

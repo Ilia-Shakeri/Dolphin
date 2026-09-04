@@ -465,7 +465,140 @@
     }
 
     async function setupDashboard() {
-        await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard")]);
+        await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard"), setupDashboardInsights()]);
+    }
+
+    /**
+     * The role's own KPI strip, sales trend and status breakdown.
+     *
+     * Every part is optional and the server decides which parts exist: a
+     * reader who may not see sales gets no trend, and this draws nothing
+     * rather than an empty card promising a chart that will never arrive.
+     * The whole section stays hidden until at least one part came back, so
+     * a deployment with none of the sources looks exactly as it did before
+     * this was added.
+     *
+     * Charts reuse the shared helpers, so they take their colours from the
+     * theme's own CSS variables and redraw themselves on a light/dark
+     * switch like every other chart in the panel.
+     */
+    async function setupDashboardInsights() {
+        const section = document.getElementById("dashboard-insights");
+        if (!section) return;
+        let data;
+        try {
+            data = await apiRequest("/api/v1/dashboard/");
+        } catch (error) {
+            // The tiles, the work queue and the performance panel above are
+            // what this page is; a failed side panel must not replace them
+            // with an error card.
+            return;
+        }
+
+        // Unhidden *before* any chart mounts, not after. ApexCharts measures
+        // its container at render time, and a container inside a
+        // `display: none` ancestor measures zero — the chart then draws at
+        // zero width and never recovers on its own. This project has already
+        // paid for that once (1.7.19, "chart mounts at zero width"); the
+        // section is revealed first and the parts fill in behind it.
+        section.hidden = false;
+
+        const strip = document.getElementById("dashboard-kpis");
+        data.kpis.forEach((kpi) => strip.appendChild(kpiCard(kpi)));
+
+        if (data.trend) {
+            const card = document.getElementById("dashboard-trend-card");
+            document.getElementById("dashboard-trend-title").textContent = data.trend.title;
+            document.getElementById("dashboard-trend-summary").textContent = data.trend.summary;
+            card.hidden = false;
+            renderAreaChart(
+                document.getElementById("dashboard-trend-chart"),
+                document.getElementById("dashboard-trend-empty"),
+                data.trend.points,
+                {seriesName: "فروش", summary: data.trend.summary, ariaLabel: data.trend.title},
+            );
+        }
+
+        if (data.breakdown) {
+            const card = document.getElementById("dashboard-breakdown-card");
+            document.getElementById("dashboard-breakdown-title").textContent = data.breakdown.title;
+            const slot = document.getElementById("dashboard-breakdown-link-slot");
+            slot.replaceChildren();
+            const link = document.createElement("a");
+            link.className = "text-primary fw-semibold fs-8 text-decoration-none";
+            link.id = "dashboard-breakdown-link";
+            link.href = data.breakdown.url;
+            link.textContent = "همه";
+            slot.appendChild(link);
+            card.hidden = false;
+            renderDonutChart(
+                document.getElementById("dashboard-breakdown-chart"),
+                document.getElementById("dashboard-breakdown-empty"),
+                data.breakdown.items,
+                {ariaLabel: data.breakdown.title},
+            );
+        }
+
+        // Nothing to show after all: put it back, so a deployment with none
+        // of the sources renders exactly the page it rendered before this
+        // section existed.
+        if (!data.kpis.length && !data.trend && !data.breakdown) section.hidden = true;
+    }
+
+    function kpiCard(kpi) {
+        const column = document.createElement("div");
+        column.className = "col-sm-6 col-xl-3";
+
+        // A link when the figure has somewhere to go, a plain card when it
+        // does not — rather than an anchor with a dead href.
+        const card = document.createElement(kpi.url ? "a" : "div");
+        card.className = "card card-flush h-100 text-decoration-none"
+            + (kpi.url ? " border-hover-primary" : "");
+        if (kpi.url) card.href = kpi.url;
+        // Deliberately not `data-kpi`: the performance panel further down
+        // this same page already owns that attribute for its own four
+        // figures, and one selector meaning two different things is a trap
+        // for the next reader (and for a test that queries it).
+        card.dataset.dashboardKpi = kpi.key;
+
+        const body = document.createElement("div");
+        body.className = "card-body d-flex flex-column justify-content-between py-6";
+
+        const top = document.createElement("div");
+        top.className = "d-flex align-items-center justify-content-between mb-4";
+        const symbol = document.createElement("span");
+        symbol.className = "symbol symbol-40px";
+        const symbolLabel = document.createElement("span");
+        symbolLabel.className = `symbol-label bg-light-${kpi.accent}`;
+        const icon = document.createElement("i");
+        icon.className = `ki-duotone ${kpi.icon} fs-2 text-${kpi.accent}`;
+        // Per-glyph path count, sent by the server for the same reason the
+        // reminder bell and the timeline take it from there.
+        for (let index = 1; index <= (kpi.icon_paths || 2); index += 1) {
+            const path = document.createElement("span");
+            path.className = `path${index}`;
+            icon.appendChild(path);
+        }
+        symbolLabel.appendChild(icon);
+        symbol.appendChild(symbolLabel);
+        top.appendChild(symbol);
+
+        const value = document.createElement("span");
+        value.className = "text-gray-900 fw-bolder fs-2hx lh-1";
+        value.textContent = kpi.display;
+
+        const label = document.createElement("span");
+        label.className = "text-gray-700 fw-semibold fs-7 mt-2";
+        label.textContent = kpi.label;
+
+        const hint = document.createElement("span");
+        hint.className = "text-muted fs-8 mt-1";
+        hint.textContent = kpi.hint;
+
+        body.append(top, value, label, hint);
+        card.appendChild(body);
+        column.appendChild(card);
+        return column;
     }
 
     function userRow(user) {

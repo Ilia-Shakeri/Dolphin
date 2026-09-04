@@ -23,6 +23,7 @@ forced by the data model rather than chosen:
   summed per warehouse in the query.
 """
 
+from common import formatting
 from decimal import Decimal
 
 from django.db.models import Case, Count, DecimalField, F, Q, Sum, Value, When
@@ -50,24 +51,12 @@ TOP_N = 12
 UNLABELLED = "نامشخص"
 
 
-def _persian_digits(value):
-    return str(value).translate(str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹"))
-
-
-def _money(amount):
-    """Grouped rial, matching `money()` in the panel exactly.
-
-    The separator is U+060C, the digits are Persian (since 1.7.14 — matching
-    every count on this same chart, drawn through `_persian_digits` below,
-    and every date anywhere else in the product), and the fraction is
-    dropped, because that is what every other amount in the product looks
-    like and a chart that formatted money its own way would be its own kind
-    of wrong.
-    """
-    whole = int(Decimal(amount or 0).quantize(Decimal("1")))
-    negative = whole < 0
-    grouped = f"{abs(whole):,}".replace(",", "،")
-    return _persian_digits(f"{'‏-' if negative else ''}{grouped} ریال")
+#: Both moved to `common/formatting.py` when the dashboard needed the same
+#: two formatters (1.8.6); read from there so the product has one grouped-rial
+#: rule on the Python side rather than one per consumer. The local names stay
+#: so nothing in this module's own body changed.
+_persian_digits = formatting.persian_digits
+_money = formatting.money
 
 
 def totals_for(result):

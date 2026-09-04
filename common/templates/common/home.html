@@ -34,6 +34,47 @@
     </div>
     {% endfor %}
 </section>
+{% comment %} پنل نقش‌محور. کاشی‌های بالا «چند تا؟» را جواب می‌دهند؛ این بخش
+   «چطور پیش می‌رود؟» را: رقم با مقایسهٔ دوره، روند فروش، و اینکه کار کجا
+   نشسته است. هر سه بخش اختیاری‌اند — خواننده‌ای که منبعش را نمی‌بیند، آن بخش
+   را اصلاً نمی‌گیرد. نقطهٔ انتهایی مستقل از این نشانه‌گذاری هم فیچر و دامنه را
+   بررسی می‌کند. {% endcomment %}
+{% if "dashboard_insights" in features %}
+<section id="dashboard-insights" aria-label="نمای عملکرد" hidden>
+    <div id="dashboard-kpis" class="row g-5 mb-6"></div>
+    <div class="row g-5 mb-6">
+        <div class="col-12 col-xl-8" id="dashboard-trend-card" hidden>
+            <div class="card card-flush h-100"><div class="card-body">
+                <h2 class="fs-4 fw-bold text-gray-900 mb-1" id="dashboard-trend-title"></h2>
+                <p class="text-muted fs-7 mb-4" id="dashboard-trend-summary"></p>
+                <div id="dashboard-trend-chart"></div>
+                <p id="dashboard-trend-empty" class="text-center text-gray-600 fs-7 py-10 mb-0" hidden>
+                    هنوز فروشی در این بازه ثبت نشده است.
+                </p>
+            </div></div>
+        </div>
+        <div class="col-12 col-xl-4" id="dashboard-breakdown-card" hidden>
+            <div class="card card-flush h-100"><div class="card-body">
+                <div class="d-flex flex-stack align-items-center mb-4">
+                    <h2 class="fs-4 fw-bold text-gray-900 mb-0" id="dashboard-breakdown-title"></h2>
+{% comment %} The link is built by the script rather than shipped as an
+                       `href="#"` placeholder: which page it points at depends on
+                       which breakdown this role gets (leads or after-sales
+                       cases), and this shell's own test forbids a placeholder
+                       href in the rendered dashboard — rightly, since a link
+                       that reaches the browser pointing at nothing is a link
+                       that can ship pointing at nothing. {% endcomment %}
+                    <span id="dashboard-breakdown-link-slot"></span>
+                </div>
+                <div id="dashboard-breakdown-chart"></div>
+                <p id="dashboard-breakdown-empty" class="text-center text-gray-600 fs-7 py-10 mb-0" hidden>
+                    موردی برای نمایش نیست.
+                </p>
+            </div></div>
+        </div>
+    </div>
+</section>
+{% endif %}
 {% if 'reports.own' in capabilities or 'reports.company' in capabilities %}
     {% include "common/includes/performance_panel.inc" with panel_prefix="dashboard" %}
 {% endif %}

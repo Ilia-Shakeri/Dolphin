@@ -229,7 +229,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_nine_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_ten_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
@@ -256,14 +256,16 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # feature is opt-in. `global_search` (2026-09-04) sits with
         # `reminders` for the same reason and on the same reasoning: on by
         # default everywhere, absent here only because Client-1's manifest
-        # is frozen and predates it. `customer_timeline` (2026-09-04) is the
-        # third of that group, and the last of them.
+        # is frozen and predates it. `customer_timeline` and
+        # `dashboard_insights` (both 2026-09-04) complete that group: on by
+        # default for any new deployment, absent from Client-1's own frozen
+        # set only because its manifest predates them.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
-                "customer_timeline",
+                "customer_timeline", "dashboard_insights",
             }),
         )
 
@@ -272,7 +274,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
             for withheld in (
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
-                "customer_timeline",
+                "customer_timeline", "dashboard_insights",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 
