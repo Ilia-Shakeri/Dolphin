@@ -229,7 +229,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_six_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_seven_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
@@ -248,12 +248,17 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # `internal_chat` (2026-09-04) is withheld for the same freeze reason
         # as `attachments`: nobody at Client-1 has asked for an in-panel chat
         # yet, and the module stays reusable with no code change once someone
-        # does.
+        # does. `reminders` (2026-09-04) is withheld for that freeze reason
+        # too, and *only* that one: unlike the others it is on by default for
+        # any new deployment (`DEFAULT_OFF_FEATURES` deliberately omits it —
+        # see `common/deployment/registry.py`), so this line records that
+        # Client-1's own frozen day-one manifest predates it, not that the
+        # feature is opt-in.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
-                "custom_branding", "internal_chat",
+                "custom_branding", "internal_chat", "reminders",
             }),
         )
 
@@ -261,7 +266,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         for feature, requires in FEATURE_DEPENDENCIES.items():
             for withheld in (
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
-                "custom_branding", "internal_chat",
+                "custom_branding", "internal_chat", "reminders",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

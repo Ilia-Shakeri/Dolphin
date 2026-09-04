@@ -112,6 +112,39 @@
                 </div>
                 <div class="d-flex align-items-stretch justify-content-end flex-lg-grow-1">
                     <div class="app-navbar flex-shrink-0 align-items-center">
+{% comment %} The reminder bell. Same trade as the user menu below: the theme's own
+   panel markup and classes, opened by this application rather than by KTMenu,
+   because Popper lives in the plugins bundle this deployment does not load.
+
+   Feature-gated in the template *and* in the API — a hidden control is never
+   authorisation (repository rule), so `/api/v1/reminders/` answers 404 on a
+   deployment without the feature whatever this template did. {% endcomment %}
+                        {% if "reminders" in features %}
+                        <div class="app-navbar-item ms-1 ms-md-3 position-relative" id="reminder-bell-wrap">
+                            <button id="reminder-bell-toggle" type="button"
+                                    class="btn btn-icon btn-flex bg-hover-light-primary w-40px h-40px position-relative"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="reminder-bell-menu"
+                                    aria-label="یادآورها">
+                                <i class="ki-duotone ki-notification-bing fs-2 text-gray-600"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                <span class="reminder-bell-badge badge badge-circle badge-danger" data-reminder-badge hidden><span data-reminder-count>0</span></span>
+                            </button>
+                            <div id="reminder-bell-menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-primary fw-semibold py-4 fs-6 w-300px w-md-350px">
+                                <div class="menu-item px-3">
+                                    <div class="menu-content d-flex align-items-center justify-content-between px-3 pb-3 border-bottom border-gray-200">
+                                        <span class="text-gray-900 fw-bold fs-6">یادآورها</span>
+                                        <span class="text-muted fw-semibold fs-8" data-reminder-summary>در حال دریافت…</span>
+                                    </div>
+                                </div>
+                                <div id="reminder-bell-body" class="reminder-bell-body px-3 pt-2"></div>
+                                <div id="reminder-bell-empty" class="text-center text-gray-600 fs-7 py-6 px-3" hidden>
+                                    کار سررسیدشده‌ای ندارید.
+                                </div>
+                                <div id="reminder-bell-error" class="text-center text-danger fs-7 py-6 px-3" hidden>
+                                    دریافت یادآورها ممکن نشد.
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                         {% comment %} The theme's user-menu panel, with its markup and classes, opened by
                            this application rather than by KTMenu: KTMenu places a dropdown with
                            Popper, which lives in the 3.5 MB plugins bundle this deployment does

@@ -220,6 +220,68 @@ dialog::backdrop {
     inset-inline-end: 0;
 }
 
+/* The reminder bell, anchored the same way and for the same reason. The panel
+   itself is the theme's; only its placement, its badge and a scroll ceiling on
+   the list are set here — a user with forty overdue instalments must not get a
+   dropdown taller than the window with no way back to the page. */
+#reminder-bell-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    max-width: calc(100vw - 1.5rem);
+}
+
+.reminder-bell-body {
+    max-height: min(60vh, 26rem);
+    overflow-y: auto;
+}
+
+/* Anchored to the icon's corner rather than laid out in flow, so the count
+   never changes the button's own size as it grows from one digit to three.
+
+   Selected through the button's id deliberately. The theme ships
+   `.btn .badge { position: relative; top: -1px; }` (style.bundle.css), which
+   outranks a single class here — a plain `.reminder-bell-badge` rule lost,
+   the badge stayed in flow, and it rendered *beside* the bell inside the
+   40px button instead of over its corner, squeezing the icon. Found in the
+   live browser, not by any test. An id beats the theme's two classes
+   without reaching for `!important`. */
+#reminder-bell-toggle .reminder-bell-badge {
+    position: absolute;
+    top: 0.15rem;
+    inset-inline-end: 0.15rem;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding-inline: 0.25rem;
+    font-size: 0.65rem;
+    line-height: 1;
+}
+
+.reminder-group + .reminder-group {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--bs-gray-200);
+}
+
+.reminder-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.475rem;
+    text-decoration: none;
+}
+
+.reminder-item:hover {
+    background: var(--bs-gray-100);
+}
+
+/* Overdue is carried by a text colour on the due date, not by a coloured row:
+   a list where every second row is red stops reading as a warning. */
+.reminder-item-due {
+    white-space: nowrap;
+}
+
 /* 2c. Page header icon ----------------------------------------------------
    Optional, and additive: `{% block page_icon %}` in base.html is empty by
    default, so a page that fills nothing here looks exactly as it did before.

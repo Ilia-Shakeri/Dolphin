@@ -84,6 +84,15 @@ FEATURE_DEPENDENCIES = {
     # chat between colleagues of the same deployment. No non-nullable FK into
     # any other module forces a dependency; the three models stand alone.
     "internal_chat": frozenset(),
+    # common/reminders.py — the topbar bell. Like `custom_branding` and
+    # `internal_it_role` this gates a capability rather than a data model:
+    # there is no reminder table, only a read across due dates other modules
+    # already own (lead follow-ups, after-sales appointments, cheque and
+    # instalment due dates). Deliberately no dependency: each of those four
+    # sources is checked for its own feature at read time and simply omitted
+    # when that module is off, so this stays useful on a deployment running
+    # any one of them and shows nothing at all on a deployment running none.
+    "reminders": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -105,6 +114,16 @@ FEATURE_DEPENDENCIES = {
 #: a real, finished module nobody has asked for yet on any live deployment,
 #: opt-in per customer through the same manifest, with nothing to rebuild
 #: when one does.
+#:
+#: `reminders` (2026-09-04) is deliberately **not** here, unlike the three
+#: above, and the difference is the point: it is not a module a customer
+#: would buy separately and it holds no data of its own. It surfaces rows the
+#: signed-in user can already open by hand, from modules that deployment has
+#: already been given, on pages it already has — so a deployment that gets
+#: `leads` and says nothing else should get the bell that makes those leads'
+#: own follow-up dates visible. It stays a named feature (any deployment can
+#: still turn it off through its manifest, like anything else here); it just
+#: does not default to off.
 DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
