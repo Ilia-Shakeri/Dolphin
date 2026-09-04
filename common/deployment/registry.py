@@ -93,6 +93,12 @@ FEATURE_DEPENDENCIES = {
     # when that module is off, so this stays useful on a deployment running
     # any one of them and shows nothing at all on a deployment running none.
     "reminders": frozenset(),
+    # common/search.py — the header search box. Same shape as `reminders`
+    # again: no table of its own, and no dependency, because each of its
+    # eight sources is checked for its own feature at read time and simply
+    # left out when that module is off. A deployment running only
+    # `customers` gets a search box that finds customers.
+    "global_search": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -123,7 +129,8 @@ FEATURE_DEPENDENCIES = {
 #: `leads` and says nothing else should get the bell that makes those leads'
 #: own follow-up dates visible. It stays a named feature (any deployment can
 #: still turn it off through its manifest, like anything else here); it just
-#: does not default to off.
+#: does not default to off. `global_search` (2026-09-04) is absent for
+#: exactly the same reason and on the same reasoning.
 DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)

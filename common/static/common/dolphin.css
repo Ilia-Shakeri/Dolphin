@@ -257,13 +257,53 @@ dialog::backdrop {
     line-height: 1;
 }
 
-.reminder-group + .reminder-group {
+/* Global search, anchored and scroll-capped exactly like the bell above. */
+#global-search-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    max-width: calc(100vw - 1.5rem);
+}
+
+.global-search-body {
+    max-height: min(55vh, 24rem);
+    overflow-y: auto;
+}
+
+/* On a phone both panels have to stop following their own button.
+   Anchored to the button (`inset-inline-end: 0` on an absolutely positioned
+   panel), each one starts wherever its icon sits in the header and runs
+   300px from there — which put the search panel's far edge 38px past a
+   375px viewport and clipped it, and left the bell only just fitting, so a
+   320px phone would have clipped that too. Seen in the live browser at
+   375px; no test could have seen it.
+
+   Below the `sm` breakpoint they are pinned to the viewport instead: fixed
+   position, their inline-start edge a gutter in from the screen's own edge,
+   and the top taken from the theme's own `--bs-app-header-height` so a
+   panel always opens just under the header rather than at a number guessed
+   here. The width stays the theme's `w-300px` — that utility is
+   `!important` and not worth an escalation, and 300px inside a 375px phone
+   reads well. Only one inline edge is set, deliberately: setting both while
+   a fixed width is in force is over-constrained, and which edge the browser
+   then drops is not a thing to build a layout on. */
+@media (max-width: 575.98px) {
+    #global-search-menu,
+    #reminder-bell-menu {
+        position: fixed;
+        top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
+        inset-inline-start: 0.75rem;
+        inset-inline-end: auto;
+    }
+}
+
+.topbar-list-group + .topbar-list-group {
     margin-top: 0.75rem;
     padding-top: 0.75rem;
     border-top: 1px solid var(--bs-gray-200);
 }
 
-.reminder-item {
+.topbar-list-item {
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
@@ -272,13 +312,14 @@ dialog::backdrop {
     text-decoration: none;
 }
 
-.reminder-item:hover {
+.topbar-list-item:hover {
     background: var(--bs-gray-100);
 }
 
-/* Overdue is carried by a text colour on the due date, not by a coloured row:
-   a list where every second row is red stops reading as a warning. */
-.reminder-item-due {
+/* The trailing column of a row — a due date in the bell, nothing in search.
+   Overdue is carried by a text colour here, not by a coloured row: a list
+   where every second row is red stops reading as a warning. */
+.topbar-list-meta {
     white-space: nowrap;
 }
 

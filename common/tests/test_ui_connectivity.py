@@ -229,7 +229,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_seven_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_eight_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
@@ -253,12 +253,15 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # any new deployment (`DEFAULT_OFF_FEATURES` deliberately omits it —
         # see `common/deployment/registry.py`), so this line records that
         # Client-1's own frozen day-one manifest predates it, not that the
-        # feature is opt-in.
+        # feature is opt-in. `global_search` (2026-09-04) sits with
+        # `reminders` for the same reason and on the same reasoning: on by
+        # default everywhere, absent here only because Client-1's manifest
+        # is frozen and predates it.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
-                "custom_branding", "internal_chat", "reminders",
+                "custom_branding", "internal_chat", "reminders", "global_search",
             }),
         )
 
@@ -266,7 +269,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         for feature, requires in FEATURE_DEPENDENCIES.items():
             for withheld in (
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
-                "custom_branding", "internal_chat", "reminders",
+                "custom_branding", "internal_chat", "reminders", "global_search",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

@@ -119,6 +119,41 @@
    Feature-gated in the template *and* in the API — a hidden control is never
    authorisation (repository rule), so `/api/v1/reminders/` answers 404 on a
    deployment without the feature whatever this template did. {% endcomment %}
+{% comment %} Global search. One control at every width rather than a wide input on
+   desktop and something else on a phone: the header already carries a nav
+   toggle, the brand, this, the bell and the user menu, and 375px has no room
+   for a text field. Ctrl/⌘+K opens it, which is where a keyboard reaches for
+   a search box.
+
+   Feature-gated here and in the API both — a hidden control is never
+   authorisation. {% endcomment %}
+                        {% if "global_search" in features %}
+                        <div class="app-navbar-item ms-1 ms-md-3 position-relative" id="global-search-wrap">
+                            <button id="global-search-toggle" type="button"
+                                    class="btn btn-icon btn-flex bg-hover-light-primary w-40px h-40px"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="global-search-menu"
+                                    aria-label="جست‌وجوی سراسری">
+                                <i class="ki-duotone ki-magnifier fs-2 text-gray-600"><span class="path1"></span><span class="path2"></span></i>
+                            </button>
+                            <div id="global-search-menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg menu-state-primary fw-semibold py-4 fs-6 w-300px w-md-400px">
+                                <div class="px-5 pb-3 border-bottom border-gray-200">
+                                    <label class="form-label fs-8 text-muted" for="global-search-input">جست‌وجو در همهٔ بخش‌ها</label>
+                                    <input id="global-search-input" class="form-control form-control-sm" type="search"
+                                           autocomplete="off" placeholder="نام مشتری، شماره تلفن، شمارهٔ فاکتور…">
+                                </div>
+                                <div id="global-search-body" class="global-search-body px-3 pt-2"></div>
+                                <div id="global-search-hint" class="text-center text-gray-600 fs-8 py-5 px-3">
+                                    دست‌کم دو نویسه بنویسید.
+                                </div>
+                                <div id="global-search-empty" class="text-center text-gray-600 fs-7 py-5 px-3" hidden>
+                                    چیزی پیدا نشد.
+                                </div>
+                                <div id="global-search-error" class="text-center text-danger fs-7 py-5 px-3" hidden>
+                                    جست‌وجو ممکن نشد.
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                         {% if "reminders" in features %}
                         <div class="app-navbar-item ms-1 ms-md-3 position-relative" id="reminder-bell-wrap">
                             <button id="reminder-bell-toggle" type="button"
