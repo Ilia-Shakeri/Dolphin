@@ -4423,10 +4423,19 @@
             return row;
         });
         document.getElementById(`${prefix}-performance-table-body`).replaceChildren(...rows);
-        renderPerformanceChart(prefix, report.results);
+        // The content wrapper has to become visible *before* the chart mounts
+        // inside it, not after: ApexCharts measures its container's real width
+        // at render time, and a container still under `hidden` (`display:none`)
+        // measures zero — the chart then draws with `width: 0` and stays that
+        // way forever, since `animations: {enabled: false}` (set for a
+        // different, related reason above) means nothing ever retries the
+        // measurement. Reproduced live: a fresh page load raced the fetch
+        // against layout and mounted the chart at 0×220 while this div was
+        // still hidden, leaving the whole chart panel blank with no error.
         const hasActivity = Number(report.summary.customers_created_count) > 0 || Number(report.summary.sales_count) > 0;
         document.getElementById(`${prefix}-performance-empty`).hidden = hasActivity;
         document.getElementById(`${prefix}-performance-content`).hidden = false;
+        renderPerformanceChart(prefix, report.results);
         panel.querySelectorAll("[data-performance-detail]").forEach((button) => {
             const metric = button.dataset.performanceDetail;
             button.disabled = Number(report.summary[metric === "customers_created_count" ? metric : "sales_count"]) === 0;

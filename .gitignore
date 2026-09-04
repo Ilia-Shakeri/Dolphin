@@ -1,5 +1,6 @@
 .env*
 !.env.example
+config/devcheck_settings.py
 __pycache__/
 *.py[cod]
 .venv/

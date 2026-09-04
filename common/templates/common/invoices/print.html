@@ -73,7 +73,7 @@
             <td dir="ltr">{{ row.item.product_sku_snapshot }}</td>
             <td>{{ row.item.product_name_snapshot }}{% if row.item.description %} — {{ row.item.description }}{% endif %}</td>
             <td>{{ row.item.quantity }}</td>
-            <td>{{ row.item.product.unit|default:"—" }}</td>
+            <td>{{ row.item.product.get_unit_display|default:"—" }}</td>
             <td dir="ltr">{{ row.item.unit_price|money }}</td>
             <td dir="ltr">{{ row.gross|money }}</td>
             <td dir="ltr">{{ row.discount|money }}</td>

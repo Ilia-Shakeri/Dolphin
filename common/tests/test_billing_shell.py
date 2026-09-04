@@ -22,6 +22,7 @@ from common.templatetags.money_tags import money
 from billing.services import (
     convert_order_to_invoice,
     convert_quotation_to_order,
+    create_invoice,
     create_quotation,
     issue_invoice,
     transition_order,
@@ -31,6 +32,7 @@ from common.deployment.profile import DeploymentProfile, override_active_profile
 from common.deployment.registry import ALL_FEATURES
 from inventory.models import StockMovement
 from inventory.services import create_warehouse, record_stock_movement
+from sales.models import Product
 from sales.services import create_customer_with_phone, create_product, create_product_category
 
 
@@ -233,6 +235,33 @@ class BillingPageAccessTests(CommercialWorldMixin, TestCase):
         # The print page carries no navigation and no editing control.
         self.assertNotIn('id="app-sidebar"', content)
         self.assertNotIn("data-close-dialog", content)
+
+    def test_printed_invoice_shows_the_persian_unit_label_not_the_stored_code(self):
+        # Regression guard: the print template used to read
+        # `row.item.product.unit` straight off the model, which is the
+        # TextChoices *value* ("piece"), not its Persian label — every other
+        # surface in the panel goes through `unit_display`/`get_unit_display`
+        # and never showed this. Found live: a printed invoice read "1 piece"
+        # instead of "۱ عدد". `create_invoice` builds its own product here
+        # rather than reusing `self.product` from `build_world`, which is
+        # deliberately left with a blank unit for the other tests in this
+        # class.
+        unit_product = create_product(
+            actor=self.manager,
+            sku="SHELL-UNIT-1",
+            name="کالای واحددار آزمون",
+            category=self.product.category,
+            current_price=Decimal("300.00"),
+            unit=Product.Unit.PIECE,
+        )
+        invoice = create_invoice(
+            actor=self.manager, customer=self.customer, items=[{"product": unit_product, "quantity": 1}],
+        )
+        invoice = issue_invoice(actor=self.manager, invoice=invoice)
+        self.client.force_login(self.manager)
+        content = self.client.get(f"/invoices/{invoice.pk}/print/").content.decode("utf-8")
+        self.assertIn("عدد", content)
+        self.assertNotIn(">piece<", content)
 
     def test_agent_prepares_documents_and_is_refused_every_money_page(self):
         self.client.force_login(self.agent)
