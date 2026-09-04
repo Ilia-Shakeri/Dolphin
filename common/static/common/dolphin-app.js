@@ -5720,13 +5720,16 @@
         return row;
     }
 
-    function setupDocumentList({key, prefix, endpoint, columns, detailPath, createFields}) {
+    function setupDocumentList({key, prefix, endpoint, columns, detailPath, createFields, onOpen}) {
         const form = document.getElementById(`${prefix}-search-form`);
         const dialog = document.getElementById(`create-${prefix}-dialog`);
         let controller = null;
         if (dialog) {
             const createForm = document.getElementById(`create-${prefix}-form`);
-            document.getElementById(`open-create-${prefix}`).addEventListener("click", () => dialog.showModal());
+            document.getElementById(`open-create-${prefix}`).addEventListener("click", () => {
+                onOpen?.();
+                dialog.showModal();
+            });
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -5749,26 +5752,197 @@
         return controller;
     }
 
-    function documentFirstLine(data) {
-        const line = {product: Number(data.get("product")), quantity: Number(data.get("quantity"))};
-        return [line];
+    /**
+     * Wire a real Metronic `KTStepper` inside a create dialog's `.stepper`.
+     *
+     * The vendor component only tracks the current step and toggles its own
+     * `current`/`completed`/`pending`/`first`/`between`/`last` classes — the
+     * already-loaded theme stylesheet is what shows and hides the previous/
+     * next/submit buttons from those. Advancing past "next" is left to the
+     * page on purpose (this is how the vendor's own reference wizard is
+     * wired too): it is the one place worth gating on the step's own
+     * required fields, the same native check the browser would already run
+     * on submit if these forms were not marked `novalidate`. No form-
+     * validation library or SweetAlert is pulled in for it — neither is used
+     * anywhere else in this codebase, and `showError`/`data-error-for`
+     * already cover the server's own validation once the form is sent.
+     *
+     * The submit button stays a plain `type="submit"` inside the form, so
+     * the existing `setupDocumentList` submit handler needs no change at
+     * all: the wizard only decides which step is visible.
+     */
+    function setupWizard(dialog, {onReachLastStep} = {}) {
+        const root = dialog?.querySelector(".stepper");
+        if (!root) return null;
+        const stepper = new KTStepper(root);
+        const totalSteps = root.querySelectorAll('[data-kt-stepper-element="nav"]').length;
+        const contentOf = (index) => root.querySelectorAll('[data-kt-stepper-element="content"]')[index - 1];
+        stepper.on("kt.stepper.next", () => {
+            const invalid = contentOf(stepper.getCurrentStepIndex())?.querySelector(":invalid");
+            if (invalid) {
+                invalid.reportValidity();
+                return;
+            }
+            stepper.goNext();
+            dialog.scrollTop = 0;
+            if (stepper.getCurrentStepIndex() === totalSteps) onReachLastStep?.();
+        });
+        stepper.on("kt.stepper.previous", () => {
+            stepper.goPrevious();
+            dialog.scrollTop = 0;
+        });
+        return stepper;
+    }
+
+    /**
+     * One dynamic "product + quantity" row, shared by the invoice and order
+     * creation wizards. `host` is the container the rows live in; `products`
+     * is the shared catalogue list the caller has already fetched once.
+     */
+    function createLineItemRows(host, products) {
+        function addLine() {
+            if (!host) return;
+            const row = document.createElement("div");
+            row.className = "d-flex flex-wrap align-items-center gap-3";
+            row.dataset.lineRow = "";
+
+            const picker = document.createElement("div");
+            picker.className = "searchable-select flex-grow-1";
+            picker.setAttribute("data-searchable-select", "");
+            const search = document.createElement("input");
+            search.className = "form-control form-control-solid";
+            search.type = "search";
+            search.autocomplete = "off";
+            search.placeholder = "نام یا کد کالا…";
+            search.setAttribute("data-searchable-input", "");
+            search.setAttribute("role", "combobox");
+            search.setAttribute("aria-label", "جستجوی کالا");
+            search.hidden = true;
+            const select = document.createElement("select");
+            select.className = "form-select form-select-solid";
+            select.dataset.lineProduct = "";
+            select.setAttribute("data-searchable-source", "");
+            select.setAttribute("aria-label", "کالا");
+            fillSelect(select, products, (item) => `${item.name} (${item.sku})`, "یک کالا انتخاب کنید");
+            const options = document.createElement("ul");
+            options.className = "searchable-select-options";
+            options.setAttribute("role", "listbox");
+            options.hidden = true;
+            picker.append(search, select, options);
+
+            const quantity = document.createElement("input");
+            quantity.className = "form-control form-control-solid w-auto";
+            quantity.type = "number";
+            quantity.min = "1";
+            quantity.step = "1";
+            quantity.value = "1";
+            quantity.dataset.lineQuantity = "";
+            quantity.setAttribute("aria-label", "تعداد");
+
+            const remove = document.createElement("button");
+            remove.className = "btn btn-icon btn-light-danger";
+            remove.type = "button";
+            remove.textContent = "×";
+            remove.setAttribute("aria-label", "حذف ردیف");
+            remove.addEventListener("click", () => {
+                row.remove();
+                // Never none: a document without a line cannot be submitted,
+                // so the form always offers one to fill.
+                if (!host.children.length) addLine();
+            });
+
+            row.append(picker, quantity, remove);
+            host.append(row);
+            setupSearchableSelects(row);
+        }
+
+        function reset() {
+            if (!host) return;
+            host.innerHTML = "";
+            addLine();
+        }
+
+        function collect() {
+            if (!host) return [];
+            return [...host.querySelectorAll("[data-line-row]")]
+                .map((row) => ({
+                    product: Number(row.querySelector("[data-line-product]").value),
+                    quantity: Number(row.querySelector("[data-line-quantity]").value),
+                }))
+                .filter((line) => line.product && line.quantity > 0);
+        }
+
+        return {addLine, reset, collect};
+    }
+
+    /** A field's chosen option text for a review step, or an em dash for one
+     * nothing has been picked for yet. */
+    function selectedOptionText(select) {
+        return select?.selectedOptions[0]?.textContent || "—";
+    }
+
+    /** Fill a wizard's review step from `[label, value]` pairs. Read at the
+     * moment the step is shown, never kept live — the review step's only job
+     * is to reflect what is about to be sent, not to recompute it. */
+    function renderWizardReview(container, rows) {
+        if (!container) return;
+        container.innerHTML = "";
+        rows.forEach(([label, value]) => {
+            const col = document.createElement("div");
+            col.className = "col-md-6";
+            const labelEl = document.createElement("span");
+            labelEl.className = "text-muted d-block fs-7";
+            labelEl.textContent = label;
+            const valueEl = document.createElement("span");
+            valueEl.className = "fw-bold fs-6";
+            valueEl.textContent = value;
+            col.append(labelEl, valueEl);
+            container.append(col);
+        });
     }
 
     async function setupOrders() {
+        const lineHost = document.getElementById("create-order-lines");
+        // Replaced once the catalogue arrives below; a no-op stub means an
+        // impatient click on "افزودن کالا" before then does nothing instead
+        // of throwing.
+        let lines = {addLine() {}, reset() {}, collect: () => []};
+        const dialog = document.getElementById("create-order-dialog");
+        const wizard = setupWizard(dialog, {onReachLastStep: () => renderReview()});
+
+        function renderReview() {
+            renderWizardReview(document.getElementById("create-order-review"), [
+                ["مشتری", selectedOptionText(document.getElementById("create-order-customer"))],
+                ["انبار", selectedOptionText(document.getElementById("create-order-warehouse"))],
+                ["روش ارسال", selectedOptionText(document.getElementById("create-order-shipping"))],
+                ["تاریخ ارسال", document.getElementById("create-order-delivery")?.value || "تعیین نشده"],
+                ["تعداد اقلام", toPersianDigits(String(lines.collect().length))],
+            ]);
+        }
+
         try {
-            await Promise.all([
+            const [, , products] = await Promise.all([
                 loadCustomerOptions(document.getElementById("create-order-customer"), "یک مشتری انتخاب کنید"),
-                loadProductOptions(document.getElementById("create-order-product"), "یک کالا انتخاب کنید"),
                 // The order names the warehouse its goods leave from on approval.
                 loadWarehouseOptions(document.getElementById("create-order-warehouse"), "بدون اثر انبار"),
+                loadAllPages("/api/v1/products/?is_active=true&ordering=name"),
             ]);
+            lines = createLineItemRows(lineHost, products);
+            setupSearchableSelects(dialog);
+            lines.addLine();
         } catch (error) {
             showError(error);
         }
+        document.getElementById("create-order-add-line")?.addEventListener("click", () => lines.addLine());
         setupDocumentList({
             key: "orders",
             prefix: "order",
             detailPath: "/orders/",
+            onOpen: () => {
+                document.getElementById("create-order-form")?.reset();
+                lines.reset();
+                wizard?.goFirst();
+            },
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("order-search").value.trim();
@@ -5797,7 +5971,7 @@
             createFields: (data) => {
                 const payload = {
                     customer: Number(data.get("customer")),
-                    items: documentFirstLine(data),
+                    items: lines.collect(),
                     notes: String(data.get("notes") || ""),
                     shipping_method: String(data.get("shipping_method") || ""),
                 };
@@ -5810,65 +5984,22 @@
     }
 
     async function setupInvoices() {
-        // Every line offers the same products, so they are fetched once and each
-        // row is filled from this list.
-        let invoiceProducts = [];
         const lineHost = document.getElementById("create-invoice-lines");
+        let lines = {addLine() {}, reset() {}, collect: () => []};
+        const dialog = document.getElementById("create-invoice-dialog");
+        const wizard = setupWizard(dialog, {onReachLastStep: () => renderReview()});
 
-        function addInvoiceLine() {
-            if (!lineHost) return;
-            const row = document.createElement("div");
-            row.className = "d-flex flex-wrap align-items-center gap-3";
-            row.dataset.invoiceLine = "";
-
-            const picker = document.createElement("div");
-            picker.className = "searchable-select flex-grow-1";
-            picker.setAttribute("data-searchable-select", "");
-            const search = document.createElement("input");
-            search.className = "form-control form-control-solid";
-            search.type = "search";
-            search.autocomplete = "off";
-            search.placeholder = "نام یا کد کالا…";
-            search.setAttribute("data-searchable-input", "");
-            search.setAttribute("role", "combobox");
-            search.setAttribute("aria-label", "جستجوی کالا");
-            search.hidden = true;
-            const select = document.createElement("select");
-            select.className = "form-select form-select-solid";
-            select.dataset.lineProduct = "";
-            select.setAttribute("data-searchable-source", "");
-            select.setAttribute("aria-label", "کالا");
-            fillSelect(select, invoiceProducts, (item) => `${item.name} (${item.sku})`, "یک کالا انتخاب کنید");
-            const options = document.createElement("ul");
-            options.className = "searchable-select-options";
-            options.setAttribute("role", "listbox");
-            options.hidden = true;
-            picker.append(search, select, options);
-
-            const quantity = document.createElement("input");
-            quantity.className = "form-control form-control-solid w-auto";
-            quantity.type = "number";
-            quantity.min = "1";
-            quantity.step = "1";
-            quantity.value = "1";
-            quantity.dataset.lineQuantity = "";
-            quantity.setAttribute("aria-label", "تعداد");
-
-            const remove = document.createElement("button");
-            remove.className = "btn btn-icon btn-light-danger";
-            remove.type = "button";
-            remove.textContent = "×";
-            remove.setAttribute("aria-label", "حذف ردیف");
-            remove.addEventListener("click", () => {
-                row.remove();
-                // Never none: an invoice without a line cannot be submitted, so
-                // the form always offers one to fill.
-                if (!lineHost.children.length) addInvoiceLine();
-            });
-
-            row.append(picker, quantity, remove);
-            lineHost.append(row);
-            setupSearchableSelects(row);
+        function renderReview() {
+            const taxRate = document.getElementById("create-invoice-tax")?.value || "0";
+            const discount = document.getElementById("create-invoice-discount")?.value || "0";
+            renderWizardReview(document.getElementById("create-invoice-review"), [
+                ["مشتری", selectedOptionText(document.getElementById("create-invoice-customer"))],
+                ["نوع فاکتور", selectedOptionText(document.getElementById("create-invoice-type"))],
+                ["تاریخ صدور", document.getElementById("create-invoice-document-date")?.value || "روز صدور"],
+                ["نرخ مالیات", `${toPersianDigits(taxRate)}٪`],
+                ["تخفیف", `${toPersianDigits(discount)}٪`],
+                ["تعداد اقلام", toPersianDigits(String(lines.collect().length))],
+            ]);
         }
 
         try {
@@ -5876,17 +6007,22 @@
                 loadCustomerOptions(document.getElementById("create-invoice-customer"), "یک مشتری انتخاب کنید"),
                 loadAllPages("/api/v1/products/?is_active=true&ordering=name"),
             ]);
-            invoiceProducts = products;
-            setupSearchableSelects(document.getElementById("create-invoice-form"));
-            addInvoiceLine();
+            lines = createLineItemRows(lineHost, products);
+            setupSearchableSelects(dialog);
+            lines.addLine();
         } catch (error) {
             showError(error);
         }
-        document.getElementById("create-invoice-add-line")?.addEventListener("click", addInvoiceLine);
+        document.getElementById("create-invoice-add-line")?.addEventListener("click", () => lines.addLine());
         setupDocumentList({
             key: "invoices",
             prefix: "invoice",
             detailPath: "/invoices/",
+            onOpen: () => {
+                document.getElementById("create-invoice-form")?.reset();
+                lines.reset();
+                wizard?.goFirst();
+            },
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("invoice-search").value.trim();
@@ -5933,11 +6069,6 @@
             createFields: (data) => {
                 // No warehouse: an invoice moves no stock, so naming one would
                 // suggest an effect it does not have.
-                //
-                // `tax_rate` was collected by the form and then dropped here,
-                // which is why a rate typed on this dialog never reached the
-                // invoice: the field existed, the service accepted it, and the
-                // request simply never carried it.
                 const discountPercent = Number(data.get("discount_percent")) || 0;
                 const body = {
                     customer: Number(data.get("customer")),
@@ -5947,13 +6078,7 @@
                     // already has `discount_percent`. Nothing new is invented
                     // server-side and the order of calculation is the one the
                     // line rules are already tested against.
-                    items: [...document.querySelectorAll("[data-invoice-line]")]
-                        .map((row) => ({
-                            product: Number(row.querySelector("[data-line-product]").value),
-                            quantity: Number(row.querySelector("[data-line-quantity]").value),
-                            discount_percent: discountPercent,
-                        }))
-                        .filter((line) => line.product && line.quantity > 0),
+                    items: lines.collect().map((line) => ({...line, discount_percent: discountPercent})),
                 };
                 // The date on the document, if the operator wrote one. Left out
                 // rather than sent empty when they did not, because issuing

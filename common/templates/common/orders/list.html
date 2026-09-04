@@ -37,19 +37,58 @@
 <dialog id="create-order-dialog" aria-labelledby="create-order-title">
     <form id="create-order-form" action="/api/v1/orders/" method="post" novalidate>
         {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">سفارش تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-customer">مشتری</label><select class="form-select form-select-solid" id="create-order-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
-            {% comment %} نرخ مالیات از این فرم برداشته شد. تاریخ ثبت را سرور می‌زند و
-               تغییرپذیر نیست، پس اینجا هم پرسیده نمی‌شود. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-warehouse">انبار</label><select class="form-select form-select-solid" id="create-order-warehouse" name="warehouse"><option value="">بدون اثر انبار</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-product">کالا</label><select class="form-select form-select-solid" id="create-order-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="items"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-quantity">تعداد</label><input class="form-control form-control-solid" id="create-order-quantity" name="quantity" type="number" min="1" step="1" value="1" required></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-shipping">روش ارسال</label><select class="form-select form-select-solid" id="create-order-shipping" name="shipping_method"><option value="">انتخاب نشده</option><option value="post">پست</option><option value="courier">پیک</option></select></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-delivery">تاریخ ارسال</label><input class="form-control form-control-solid" id="create-order-delivery" name="expected_delivery_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="expected_delivery_at"></p></div>
-            <div class="col-12"><label class="form-label fw-semibold" for="create-order-notes">توضیحات</label><textarea class="form-control form-control-solid" id="create-order-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+{% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ مترونیک (همان `KTStepper` واقعی
+   که فاکتور تازه هم از آن استفاده می‌کند). کالا دیگر یک ردیف ثابت نیست: همان
+   افزودن‌ردیفِ فاکتور اینجا هم هست، پس چند کالا از همین‌جا قابل ثبت است و
+   سطرهای بعدی همچنان از صفحهٔ جزئیات هم قابل افزودن‌اند. {% endcomment %}
+        <div class="stepper stepper-links d-flex flex-column" id="create-order-stepper">
+            <div class="stepper-nav py-5">
+                <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">مشتری و ارسال</h3></div>
+                <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">اقلام سفارش</h3></div>
+                <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
+            </div>
+            <div class="current" data-kt-stepper-element="content">
+                <div class="row g-5">
+{% comment %} A searchable customer, matching the invoice wizard's own —
+   the book is the same one, and reading a plain dropdown stops being
+   practical at the same size for either document. {% endcomment %}
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="create-order-customer-search">مشتری</label>
+                        <div class="searchable-select" data-searchable-select>
+                            <input class="form-control form-control-solid" id="create-order-customer-search" type="search" autocomplete="off" placeholder="نام را بنویسید…" data-searchable-input hidden aria-controls="create-order-customer-options" aria-expanded="false" role="combobox">
+                            <select class="form-select form-select-solid" id="create-order-customer" name="customer" data-searchable-source required><option value="">در حال دریافت…</option></select>
+                            <ul class="searchable-select-options" id="create-order-customer-options" role="listbox" hidden></ul>
+                        </div>
+                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p>
+                    </div>
+                    {% comment %} نرخ مالیات از این فرم برداشته شد. تاریخ ثبت را سرور می‌زند و
+                       تغییرپذیر نیست، پس اینجا هم پرسیده نمی‌شود. {% endcomment %}
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-warehouse">انبار</label><select class="form-select form-select-solid" id="create-order-warehouse" name="warehouse"><option value="">بدون اثر انبار</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-shipping">روش ارسال</label><select class="form-select form-select-solid" id="create-order-shipping" name="shipping_method"><option value="">انتخاب نشده</option><option value="post">پست</option><option value="courier">پیک</option></select></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-order-delivery">تاریخ ارسال</label><input class="form-control form-control-solid" id="create-order-delivery" name="expected_delivery_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="expected_delivery_at"></p></div>
+                    <div class="col-12"><label class="form-label fw-semibold" for="create-order-notes">توضیحات</label><textarea class="form-control form-control-solid" id="create-order-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+                </div>
+            </div>
+            <div data-kt-stepper-element="content">
+                <h3 class="fs-5 fw-bold text-gray-900 mb-3">اقلام سفارش</h3>
+                <div id="create-order-lines" class="d-flex flex-column gap-3 mb-4"></div>
+                <button class="btn btn-light-primary" type="button" id="create-order-add-line">افزودن کالا</button>
+                <p class="text-danger fs-8 mt-3 mb-0" data-error-for="items"></p>
+            </div>
+            <div data-kt-stepper-element="content">
+                <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سفارش</h3>
+                <div class="row g-3 mb-4" id="create-order-review"></div>
+                <p class="text-muted">سفارش به‌صورت پیش‌نویس ثبت می‌شود؛ افزودن یا ویرایش سطرها پس از ثبت هم از صفحهٔ جزئیات ممکن است.</p>
+            </div>
+            <div class="d-flex flex-stack pt-5">
+                <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+                <div class="d-flex gap-3">
+                    <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+                    <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                    <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت سفارش</button>
+                </div>
+            </div>
         </div>
-        <p class="text-muted">سفارش به‌صورت پیش‌نویس با یک سطر ساخته می‌شود؛ سطرهای بعدی در صفحه جزئیات ثبت می‌شوند.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت سفارش</button></div>
     </form>
 </dialog>
 {% endblock %}

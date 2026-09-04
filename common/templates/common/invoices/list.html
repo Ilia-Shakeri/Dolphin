@@ -39,40 +39,69 @@
 <dialog id="create-invoice-dialog" aria-labelledby="create-invoice-title">
     <form id="create-invoice-form" action="/api/v1/invoices/" method="post" novalidate>
         {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-invoice-title">فاکتور تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="row g-5">
+{% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ مترونیک: همان مؤلفهٔ واقعی
+   `KTStepper` که تم با خودش آورده (بدون کتابخانهٔ اعتبارسنجی یا مودال
+   بوت‌استرپ که این پروژه اصلاً بارگذاری نمی‌کند). مرحلهٔ بعد فقط با معتبر بودن
+   فیلدهای الزامیِ همان مرحله باز می‌شود؛ دکمهٔ ثبت واقعی همان submit فرم است،
+   پس منطق ارسال قبلی دست‌نخورده مانده. {% endcomment %}
+        <div class="stepper stepper-links d-flex flex-column" id="create-invoice-stepper">
+            <div class="stepper-nav py-5">
+                <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">مشتری و نوع فاکتور</h3></div>
+                <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">اقلام و تخفیف</h3></div>
+                <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
+            </div>
+            <div class="current" data-kt-stepper-element="content">
+                <div class="row g-5">
 {% comment %} A searchable customer, because the book is expected to grow past
    the point where reading a dropdown is practical. The real `<select>` stays
    underneath and is still what submits. {% endcomment %}
-            <div class="col-md-6">
-                <label class="form-label fw-semibold" for="create-invoice-customer-search">مشتری</label>
-                <div class="searchable-select" data-searchable-select>
-                    <input class="form-control form-control-solid" id="create-invoice-customer-search" type="search" autocomplete="off" placeholder="نام را بنویسید…" data-searchable-input hidden aria-controls="create-invoice-customer-options" aria-expanded="false" role="combobox">
-                    <select class="form-select form-select-solid" id="create-invoice-customer" name="customer" data-searchable-source required><option value="">در حال دریافت…</option></select>
-                    <ul class="searchable-select-options" id="create-invoice-customer-options" role="listbox" hidden></ul>
-                </div>
-                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p>
-            </div>
-            {% comment %} نوع فاکتور فقط تعیین می‌کند چه هویت‌هایی هنگام صدور لازم است.
-               محاسبهٔ مالیات، ترتیب تخفیف و رند کردن دست‌نخورده می‌ماند. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-type">نوع فاکتور</label><select class="form-select form-select-solid" id="create-invoice-type" name="invoice_type"><option value="unofficial">غیررسمی</option><option value="official">رسمی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice_type"></p></div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="create-invoice-customer-search">مشتری</label>
+                        <div class="searchable-select" data-searchable-select>
+                            <input class="form-control form-control-solid" id="create-invoice-customer-search" type="search" autocomplete="off" placeholder="نام را بنویسید…" data-searchable-input hidden aria-controls="create-invoice-customer-options" aria-expanded="false" role="combobox">
+                            <select class="form-select form-select-solid" id="create-invoice-customer" name="customer" data-searchable-source required><option value="">در حال دریافت…</option></select>
+                            <ul class="searchable-select-options" id="create-invoice-customer-options" role="listbox" hidden></ul>
+                        </div>
+                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p>
+                    </div>
+                    {% comment %} نوع فاکتور فقط تعیین می‌کند چه هویت‌هایی هنگام صدور لازم است.
+                       محاسبهٔ مالیات، ترتیب تخفیف و رند کردن دست‌نخورده می‌ماند. {% endcomment %}
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-type">نوع فاکتور</label><select class="form-select form-select-solid" id="create-invoice-type" name="invoice_type"><option value="unofficial">غیررسمی</option><option value="official">رسمی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice_type"></p></div>
 {% comment %} «تاریخ صدور» فیلد خودش را دارد و همان چیزی است که روی کاغذ نوشته
    می‌شود. با `issued_at` یکی نیست: آن، ثبتِ سامانه از لحظهٔ صدور است و قید مدل
    می‌گوید پیش‌نویس اصلاً نمی‌تواند داشته باشدش. خالی گذاشتنش یعنی روز صدور. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-document-date">تاریخ صدور</label><input class="form-control form-control-solid" id="create-invoice-document-date" name="document_date" type="text" data-jalali="date" placeholder="روز صدور"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="document_date"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="create-invoice-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-document-date">تاریخ صدور</label><input class="form-control form-control-solid" id="create-invoice-document-date" name="document_date" type="text" data-jalali="date" placeholder="روز صدور"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="document_date"></p></div>
+                </div>
+            </div>
+            <div data-kt-stepper-element="content">
+                <div class="row g-5 mb-4">
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-tax">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="create-invoice-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
 {% comment %} تخفیف درصدی است و روی هر سطر می‌نشیند، چون خودِ سطر از قبل
    `discount_percent` دارد. این یعنی هیچ مفهوم تازه‌ای در سرور ساخته نشده و
    ترتیب محاسبه همان است که برای سطرها آزموده شده. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-discount">تخفیف (٪)</label><input class="form-control form-control-solid" id="create-invoice-discount" name="discount_percent" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="items"></p></div>
-        </div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-discount">تخفیف (٪)</label><input class="form-control form-control-solid" id="create-invoice-discount" name="discount_percent" type="number" min="0" max="100" step="0.01" value="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="items"></p></div>
+                </div>
 {% comment %} چند کالا در یک فاکتور. پیش از این فقط یک ردیف بود و برای فاکتور دوم
    باید سند تازه‌ای ساخته می‌شد. {% endcomment %}
-        <h3 class="fs-5 fw-bold text-gray-900 mt-6 mb-3">اقلام فاکتور</h3>
-        <div id="create-invoice-lines" class="d-flex flex-column gap-3 mb-4"></div>
-        <button class="btn btn-light-primary" type="button" id="create-invoice-add-line">افزودن کالا</button>
-        <p class="text-danger fs-8 mt-3 mb-0" data-error-for="items"></p>
-        <p class="text-muted">فاکتور پیش‌نویس ساخته می‌شود و هیچ اثری روی موجودی یا حساب مشتری ندارد. اثر مالی و انبار فقط هنگام «صدور فاکتور» ثبت می‌شود.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت فاکتور</button></div>
+                <h3 class="fs-5 fw-bold text-gray-900 mb-3">اقلام فاکتور</h3>
+                <div id="create-invoice-lines" class="d-flex flex-column gap-3 mb-4"></div>
+                <button class="btn btn-light-primary" type="button" id="create-invoice-add-line">افزودن کالا</button>
+                <p class="text-danger fs-8 mt-3 mb-0" data-error-for="items"></p>
+            </div>
+            <div data-kt-stepper-element="content">
+                <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی فاکتور</h3>
+                <div class="row g-3 mb-4" id="create-invoice-review"></div>
+                <p class="text-muted">فاکتور پیش‌نویس ساخته می‌شود و هیچ اثری روی موجودی یا حساب مشتری ندارد. اثر مالی و انبار فقط هنگام «صدور فاکتور» ثبت می‌شود.</p>
+            </div>
+            <div class="d-flex flex-stack pt-5">
+                <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+                <div class="d-flex gap-3">
+                    <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+                    <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                    <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت فاکتور</button>
+                </div>
+            </div>
+        </div>
     </form>
 </dialog>
 {% endblock %}

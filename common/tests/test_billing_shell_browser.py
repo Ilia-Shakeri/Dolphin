@@ -211,6 +211,26 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
     def value_of(self, element_id):
         return self.browser.find_element(By.ID, element_id).get_attribute("value")
 
+    def advance_wizard(self, dialog_id):
+        """Click a create dialog's own "بعدی" past the step currently shown.
+
+        The invoice and order dialogs became real `KTStepper` wizards in
+        1.11.0: a later step's fields are not visible — and Selenium refuses
+        to click what is not visible — until that step becomes current. A
+        click that `KTStepper` itself refused (an invalid required field on
+        the step being left) leaves the same content div "current", which is
+        exactly what this waits past.
+        """
+        current = self.browser.find_element(
+            By.CSS_SELECTOR, f"#{dialog_id} [data-kt-stepper-element='content'].current"
+        )
+        self.browser.find_element(
+            By.CSS_SELECTOR, f"#{dialog_id} [data-kt-stepper-action='next']"
+        ).click()
+        self.wait.until(
+            lambda driver: "current" not in current.get_attribute("class").split()
+        )
+
     def assert_browser_clean(self):
         self.assertEqual(self.browser.execute_script("return document.documentElement.lang"), "fa")
         self.assertEqual(self.browser.execute_script("return document.documentElement.dir"), "rtl")
@@ -265,14 +285,26 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         )
 
         # 3. Build the order directly from the catalogue.
+        # The dialog became a 3-step wizard in 1.11.0: customer/warehouse/
+        # shipping first, the (now multi-capable) item rows second, a review
+        # step last — `advance_wizard` is what moves between them.
         self.browser.get(f"{self.live_server_url}/orders/")
         self.open_create_dialog("open-create-order", "create-order-dialog")
-        self.select_when_populated("create-order-customer", self.customer.pk)
+        self.choose_searchable("create-order-customer", self.customer.pk)
         self.select_when_populated("create-order-warehouse", warehouse_id)
-        self.select_when_populated("create-order-product", self.product.pk)
-        order_quantity = self.browser.find_element(By.ID, "create-order-quantity")
+        self.advance_wizard("create-order-dialog")
+        order_line = self.wait.until(
+            lambda driver: driver.find_element(
+                By.CSS_SELECTOR, "#create-order-lines [data-line-row]"
+            )
+        )
+        self.set_hidden_select(
+            order_line.find_element(By.CSS_SELECTOR, "[data-line-product]"), self.product.pk
+        )
+        order_quantity = order_line.find_element(By.CSS_SELECTOR, "[data-line-quantity]")
         order_quantity.clear()
         order_quantity.send_keys("3")
+        self.advance_wizard("create-order-dialog")
         self.browser.find_element(By.CSS_SELECTOR, "#create-order-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/orders/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "order-detail-content")))
@@ -295,18 +327,22 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/invoices/")
         self.open_create_dialog("open-create-invoice", "create-invoice-dialog")
         self.choose_searchable("create-invoice-customer", self.customer.pk)
+        # The dialog became a 3-step wizard in 1.11.0: customer/type/date
+        # first, the item rows and discount second, a review step last.
+        self.advance_wizard("create-invoice-dialog")
         # One line row is offered as soon as the products arrive; «افزودن کالا»
         # adds more. An invoice can carry several products since 1.4.0, where it
         # used to take exactly one.
         line = self.wait.until(
             lambda driver: driver.find_element(
-                By.CSS_SELECTOR, "#create-invoice-lines [data-invoice-line]"
+                By.CSS_SELECTOR, "#create-invoice-lines [data-line-row]"
             )
         )
         self.set_hidden_select(line.find_element(By.CSS_SELECTOR, "[data-line-product]"), self.product.pk)
         quantity = line.find_element(By.CSS_SELECTOR, "[data-line-quantity]")
         quantity.clear()
         quantity.send_keys("3")
+        self.advance_wizard("create-invoice-dialog")
         self.browser.find_element(By.CSS_SELECTOR, "#create-invoice-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/invoices/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
