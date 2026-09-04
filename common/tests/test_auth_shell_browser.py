@@ -242,20 +242,24 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
                 self.assert_browser_clean()
 
     def chart_names(self, chart_id):
-        """The category labels ApexCharts drew, once it has drawn them.
+        """The category names a horizontal bar chart drew, once it has drawn them.
 
-        Two things this has to do that reading `.text` off the container did
-        not. Apex renders asynchronously, so the element is present and empty
-        for a moment after the panel's KPIs have already filled in — a bare read
-        races it. And Apex puts a `<title>` next to each label's `tspan` for its
-        own tooltip, so the label group's text contains every name twice; the
-        `tspan` alone is the name.
+        A bar's own name and its figure are one combined label, drawn past
+        the bar's own tip, rather than the name sitting in a separate
+        y-axis column — Apex's own gutter-width calculation for that column
+        measured badly for this panel's Persian labels (see
+        `common/tests/test_chart_labels.py`), so the column was dropped and
+        the name joined the value it used to sit beside instead. Waiting on
+        the datalabels rather than reading `.text` off the container
+        immediately matters for the same reason it always did: Apex renders
+        asynchronously, and the element is present and empty for a moment
+        after the panel's KPIs have already filled in.
         """
         chart = self.browser.find_element(By.ID, chart_id)
-        selector = ".apexcharts-yaxis-label tspan"
+        selector = ".apexcharts-datalabels text"
         self.wait.until(lambda driver: chart.find_elements(By.CSS_SELECTOR, selector))
         return [
-            node.get_attribute("textContent").strip()
+            node.get_attribute("textContent").strip().split(" — ")[0]
             for node in chart.find_elements(By.CSS_SELECTOR, selector)
         ]
 

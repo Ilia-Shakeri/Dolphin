@@ -7,7 +7,6 @@ from common.ui_views import (
     DolphinAfterSalesDetailView,
     DolphinAfterSalesListView,
     DolphinBrandingSettingsView,
-    DolphinChatView,
     DolphinChequeListView,
     DolphinCustomerDetailView,
     DolphinCustomerLedgerView,
@@ -108,5 +107,4 @@ urlpatterns = [
     path("activity-logs/", DolphinActivityLogListView.as_view(), name="activity-logs"),
     path("activity-logs/<int:activity_log_id>/", DolphinActivityLogDetailView.as_view(), name="activity-log-detail"),
     path("branding/", DolphinBrandingSettingsView.as_view(), name="branding-settings"),
-    path("chat/", DolphinChatView.as_view(), name="chat"),
 ]

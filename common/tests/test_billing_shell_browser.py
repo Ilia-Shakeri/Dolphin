@@ -437,23 +437,23 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         )
         bars = chart.find_elements(By.CSS_SELECTOR, ".apexcharts-bar-area")
 
-        # The bucket names come off the category axis. Read from the `tspan`
-        # rather than the label group: Apex puts a `<title>` beside the tspan
-        # for its own tooltip, so the group's textContent has every name twice.
-        names = [
-            node.get_attribute("textContent").strip()
-            for node in chart.find_elements(By.CSS_SELECTOR, ".apexcharts-yaxis-label tspan")
-        ]
-        self.assertEqual(
-            names,
-            ["سررسید نشده", "۱ تا ۳۰ روز", "۳۱ تا ۶۰ روز", "۶۱ تا ۹۰ روز", "بیش از ۹۰ روز"],
-        )
-
+        # The bucket's own name and its figure are one combined label now,
+        # drawn past the bar's own tip rather than the name sitting in a
+        # separate y-axis column — Apex's own gutter-width calculation for
+        # that column measured badly for this panel's Persian labels (see
+        # `common/tests/test_chart_labels.py`), so the column was dropped
+        # and the name joined the value it used to sit beside instead.
         figures = [
             node.get_attribute("textContent").strip()
             for node in chart.find_elements(By.CSS_SELECTOR, ".apexcharts-datalabels text")
         ]
         self.assertEqual(len(figures), 5)
+        names = [figure.split(" — ")[0] for figure in figures]
+        self.assertEqual(
+            names,
+            ["سررسید نشده", "۱ تا ۳۰ روز", "۳۱ تا ۶۰ روز", "۶۱ تا ۹۰ روز", "بیش از ۹۰ روز"],
+        )
+
         # Every figure is formatted rial, never a raw decimal - the defect the
         # shared renderer was written to make impossible.
         for figure in figures:
@@ -463,9 +463,13 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # The same string the summary card above shows, character for character:
         # `money()` groups with the Arabic comma and Persian digits, and a
         # chart that formatted them differently from the card beside it would
-        # be its own kind of wrong.
-        self.assertIn("۳۵۰ ریال", figures)
-        self.assertEqual(self.browser.find_element(By.ID, "receivables-1-30").text, figures[1])
+        # be its own kind of wrong. The chart's own label carries the bucket
+        # name in front of it now, so this checks the figure ends with the
+        # card's own text rather than equalling it outright.
+        self.assertTrue(any(figure.endswith("۳۵۰ ریال") for figure in figures))
+        self.assertTrue(
+            figures[1].endswith(self.browser.find_element(By.ID, "receivables-1-30").text)
+        )
 
         # The five buckets escalate, so their colours have to as well - and each
         # has to differ from the one before it, which is what went wrong when

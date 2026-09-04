@@ -1137,12 +1137,11 @@ class DolphinBrandingSettingsView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class DolphinChatView(ActiveCrmView):
-    """`/chat/` — internal coordination chat between colleagues.
-
-    Feature-gated only, no further role restriction on top: every ordinary
-    role may use it, the same as `chat/services.py`'s own docstring explains.
-    """
-
-    required_feature = "internal_chat"
-    template_name = "common/chat/index.html"
+#: `DolphinChatView` (the standalone `/chat/` page) was retired in 1.9.0.
+#: Internal chat is now a header-icon-triggered drawer rendered on every
+#: authenticated page by `common/templates/common/base.html` itself, matching
+#: the purchased theme's own `kt_drawer_chat` pattern — a full page next to
+#: that drawer would be a second, divergent chat UI, not a fallback for it.
+#: Feature availability and role permission are unchanged: still gated on
+#: `internal_chat` and open to every ordinary role, just no longer through a
+#: dedicated URL. `chat/urls.py`'s API is untouched.

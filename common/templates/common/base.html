@@ -85,6 +85,12 @@
          rule that narrows the wrapper to the rail defeats it. {% endcomment %}
       data-kt-app-sidebar-hoverable="true"
       {% if sidebar_minimized %}data-kt-app-sidebar-minimize="on"{% endif %}
+      {% comment %} The chat drawer lives here, not only on a `/chat/`-specific page —
+         it opens from a header icon on every page, so the id it needs
+         (`chat-drawer.js`'s `myUserId`) is set on the shell itself rather than
+         through a page's own `body_data` override. Blank for an anonymous
+         visitor; the drawer that would read it is never rendered for one. {% endcomment %}
+      data-chat-user-id="{{ request.user.pk|default_if_none:'' }}"
       data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
 {% if request.user.is_authenticated %}
 <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
@@ -178,6 +184,25 @@
                                     دریافت یادآورها ممکن نشد.
                                 </div>
                             </div>
+                        </div>
+                        {% endif %}
+{% comment %} Internal chat: a header icon opening a slide-in drawer, matching the
+   purchased theme's own `kt_drawer_chat` pattern exactly — `data-kt-drawer`
+   is the theme's real drawer component (the same one the sidebar itself
+   uses), not a re-implementation, so open/close, the overlay and the
+   responsive width are all the theme's own behaviour. The markup for the
+   drawer itself sits right before `</body>`, at the theme's own placement
+   for drawers — see the comment there for why it cannot live inside the
+   header alongside this toggle. {% endcomment %}
+                        {% if "internal_chat" in features %}
+                        <div class="app-navbar-item ms-1 ms-md-3 position-relative">
+                            <button id="kt_drawer_chat_toggle" type="button"
+                                    class="btn btn-icon btn-flex bg-hover-light-primary w-40px h-40px position-relative"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="kt_drawer_chat"
+                                    aria-label="گفت‌وگوی داخلی">
+                                <i class="ki-duotone ki-message-text-2 fs-2 text-gray-600"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                <span class="reminder-bell-badge badge badge-circle badge-danger" data-chat-unread-badge hidden><span data-chat-unread-count>0</span></span>
+                            </button>
                         </div>
                         {% endif %}
                         {% comment %} The theme's user-menu panel, with its markup and classes, opened by
@@ -526,15 +551,11 @@
                                 </div>
                                 {% endif %}
 
-                                {% if "internal_chat" in features %}
-                                <div class="menu-item">
-                                    <a data-module="chat" class="menu-link" href="{% url 'common_ui:chat' %}">
-                                        <span class="menu-icon"><i class="ki-duotone ki-message-text-2 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
-                                        <span class="menu-title">گفت‌وگوی داخلی</span>
-                                        <span class="menu-badge" data-chat-unread-badge hidden><span class="badge badge-circle badge-danger" data-chat-unread-count>0</span></span>
-                                    </a>
-                                </div>
-                                {% endif %}
+{% comment %} Internal chat moved off the sidebar in 1.9.0 and onto a header icon +
+   slide-in drawer, matching the purchased theme's own chat pattern
+   (`kt_drawer_chat` in its demo pages) — the theme itself never puts chat in
+   the sidebar either. The toggle button and the drawer markup are further
+   down this file, beside the reminder bell and search. {% endcomment %}
 
                                 {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="catalog" data-nav-group="catalog" class="menu-item menu-accordion">
@@ -711,6 +732,85 @@
         </div>
     </div>
 </dialog>
+{% comment %} Internal chat's drawer. `data-kt-drawer` is the theme's own component —
+   the same one `#app-sidebar` above uses — so open/close, the overlay, the
+   direction (`end`, the leading edge in this RTL panel) and the responsive
+   width are all genuinely the theme's, not re-implemented. Markup and class
+   names are the theme's own `kt_drawer_chat` demo pattern (`data-kt-element`
+   naming, `card`/`card-header`/`card-body`/`card-footer`, the message-bubble
+   classes below), with the header/body swapped between two states in script
+   — a thread list, or one open conversation — since the demo shows one
+   fixed conversation and this panel has many.
+
+   Nested here rather than at the very end of the document: the theme's own
+   fixed positioning does not depend on being a sibling of `<body>`, the
+   sidebar drawer already proves that nested placement works, and staying
+   inside the `is_authenticated` block keeps this from ever rendering for a
+   signed-out visitor without a second condition. {% endcomment %}
+{% if "internal_chat" in features %}
+<div id="kt_drawer_chat" class="bg-body" data-kt-drawer="true" data-kt-drawer-name="chat"
+     data-kt-drawer-activate="true" data-kt-drawer-overlay="true"
+     data-kt-drawer-width="{default:'300px', 'md': '450px'}" data-kt-drawer-direction="end"
+     data-kt-drawer-toggle="#kt_drawer_chat_toggle" data-kt-drawer-close="#kt_drawer_chat_close">
+    <div class="card w-100 border-0 rounded-0 d-flex flex-column h-100" id="kt_drawer_chat_messenger">
+        <div class="card-header align-items-center" id="chat-drawer-header">
+            <div class="card-title mb-0" id="chat-drawer-list-title">
+                <h2 class="mb-0">گفت‌وگوها</h2>
+            </div>
+            <div class="card-title align-items-center mb-0 d-none" id="chat-drawer-peer-title">
+                <button type="button" class="btn btn-sm btn-icon btn-active-color-primary me-2" id="chat-drawer-back" aria-label="بازگشت به فهرست گفت‌وگوها">
+                    <i class="ki-duotone ki-arrow-left fs-2"><span class="path1"></span><span class="path2"></span></i>
+                </button>
+                <div class="d-flex flex-column">
+                    <span id="chat-drawer-peer-name" class="fs-5 fw-bold text-gray-900 lh-1"></span>
+                    <span id="chat-drawer-peer-role" class="fs-8 text-muted"></span>
+                </div>
+            </div>
+            <div class="card-toolbar">
+                <button type="button" class="btn btn-sm btn-icon btn-active-color-primary" id="chat-drawer-open-new" aria-label="گفت‌وگوی تازه">
+                    <i class="ki-duotone ki-plus fs-2"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-icon btn-active-color-primary" id="kt_drawer_chat_close" aria-label="بستن">
+                    <i class="ki-duotone ki-cross-square fs-2"><span class="path1"></span><span class="path2"></span></i>
+                </button>
+            </div>
+        </div>
+        <div class="card-body pt-3 flex-grow-1 d-flex flex-column overflow-hidden">
+            <div id="chat-drawer-list-panel" class="flex-grow-1 overflow-auto">
+                <div id="chat-drawer-threads-loading" class="text-center text-gray-700 py-10">در حال دریافت گفت‌وگوها…</div>
+                <div id="chat-drawer-threads-empty" class="text-center text-gray-700 py-10" hidden>
+                    هنوز گفت‌وگویی ندارید — با دکمهٔ «+» گفت‌وگوی تازه بسازید.
+                </div>
+                <div id="chat-drawer-thread-list" class="d-flex flex-column gap-1" hidden></div>
+            </div>
+            <div id="chat-drawer-conversation-panel" class="d-none flex-grow-1 d-flex flex-column overflow-hidden">
+                <div id="chat-drawer-messages" class="scroll-y me-n5 pe-5 flex-grow-1" data-chat-messages></div>
+                <p id="chat-drawer-messages-empty" class="text-center text-gray-700 py-10" hidden>هنوز پیامی در این گفت‌وگو نیست.</p>
+            </div>
+        </div>
+        <div class="card-footer pt-4 d-none" id="chat-drawer-footer">
+            <form id="chat-drawer-send-form" novalidate>
+                <textarea id="chat-drawer-message-input" class="form-control form-control-flush mb-3" rows="1" maxlength="4000"
+                          placeholder="نوشتن پیام… (Enter برای ارسال، Shift+Enter برای خط تازه)"></textarea>
+                <p class="text-danger fs-8 mb-3" data-error-for="body"></p>
+                <div class="d-flex flex-stack">
+                    <span class="text-muted fs-7">Enter برای ارسال</span>
+                    <button class="btn btn-primary" type="submit">ارسال</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<dialog id="chat-drawer-new-dialog" aria-labelledby="chat-drawer-new-title">
+    <div class="d-flex flex-stack align-items-center mb-5">
+        <h2 id="chat-drawer-new-title">گفت‌وگوی تازه</h2>
+        <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+    <div id="chat-drawer-colleagues-loading" class="text-center text-gray-700 py-10">در حال دریافت فهرست همکاران…</div>
+    <div id="chat-drawer-colleagues-empty" class="text-center text-gray-700 py-10" hidden>همکار دیگری در این استقرار نیست.</div>
+    <div id="chat-drawer-colleagues-list" class="d-flex flex-column gap-1" hidden></div>
+</dialog>
+{% endif %}
             </div>
         </div>
     </div>

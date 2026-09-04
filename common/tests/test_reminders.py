@@ -466,12 +466,19 @@ class BadgeStyleTests(SimpleTestCase):
     ).read_text(encoding="utf-8")
 
     def test_the_badge_rule_is_selected_through_the_button_id(self):
-        self.assertIn("#reminder-bell-toggle .reminder-bell-badge {", self.css)
+        self.assertIn("#reminder-bell-toggle .reminder-bell-badge,", self.css)
+        self.assertIn("#kt_drawer_chat_toggle .reminder-bell-badge {", self.css)
 
     def test_the_badge_is_taken_out_of_the_buttons_flow(self):
-        rule = self.css.split("#reminder-bell-toggle .reminder-bell-badge {")[1].split("}")[0]
+        rule = self._rule()
         self.assertIn("position: absolute", rule)
 
     def test_the_fix_does_not_reach_for_important(self):
-        rule = self.css.split("#reminder-bell-toggle .reminder-bell-badge {")[1].split("}")[0]
+        rule = self._rule()
         self.assertNotIn("!important", rule)
+
+    def _rule(self):
+        # 1.9.0 joined a second id-anchored selector to the same rule when
+        # the chat unread badge got its own header icon — same shape, same
+        # fix, so the declaration block is shared rather than duplicated.
+        return self.css.split("#reminder-bell-toggle .reminder-bell-badge,")[1].split("{")[1].split("}")[0]

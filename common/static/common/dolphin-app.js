@@ -4101,6 +4101,32 @@
      *   keepZero   draw zero-valued items as empty tracks instead of dropping
      *              them — for a fixed category, an empty bucket is information
      */
+    //: One offscreen canvas, reused rather than created per call — this is
+    //: called once per category on every horizontal bar chart the panel
+    //: draws, and a `<canvas>` is not free to allocate.
+    let _measureCanvas = null;
+
+    /**
+     * How wide a string actually renders in a given font, in CSS pixels.
+     *
+     * Exists because ApexCharts' own automatic y-axis gutter sizing — meant
+     * to reserve enough room for the longest category label before drawing
+     * the plot — measured badly for this panel's Persian category names and
+     * IRANSansWeb: on a live chart the gutter came out at 45px for labels
+     * that render 150–160px wide, so every bar's own opening third drew
+     * directly under the category name instead of the label sitting beside
+     * it. Measuring the text ourselves and setting the gutter from that
+     * number, rather than trusting Apex's own calculation, is what actually
+     * keeps a bar chart's "keys" — its category names — outside the bars,
+     * the same way its values now sit outside them too.
+     */
+    function measureTextWidth(text, font) {
+        _measureCanvas ??= document.createElement("canvas");
+        const context = _measureCanvas.getContext("2d");
+        context.font = font;
+        return context.measureText(text).width;
+    }
+
     /**
      * The series colours, taken from the purchased theme rather than chosen.
      *
@@ -4284,13 +4310,26 @@
             colors: usable.map((item, index) => item.color || palette[index % palette.length]),
             chart: {...apexBase(320).chart, type: "donut"},
             stroke: {width: 2, colors: ["transparent"]},
-            dataLabels: {
-                enabled: true,
-                formatter: (percent) => `${toPersianDigits(String(Math.round(percent)))}٪`,
-                style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
-                dropShadow: {enabled: false},
+            // No text drawn on the wedges themselves. A percentage printed on a
+            // thin slice either overlaps its neighbour or gets clipped outside
+            // the ring — the smaller the share, the less room its own label
+            // has. The legend below is already outside the chart and has all
+            // the room it needs, so the percentage moves there instead of
+            // living on the drawing.
+            dataLabels: {enabled: false},
+            legend: {
+                ...apexBase(320).legend,
+                position: "bottom",
+                // Name and share together, entirely outside the ring: "شهر X
+                // — ۴۲٪" rather than a bare label the reader has to match back
+                // to a wedge by colour alone.
+                formatter: (label, opts) => {
+                    const value = opts.w.globals.series[opts.seriesIndex];
+                    const total = opts.w.globals.series.reduce((sum, each) => sum + each, 0);
+                    const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+                    return `${label} — ${toPersianDigits(String(percent))}٪`;
+                },
             },
-            legend: {...apexBase(320).legend, position: "bottom"},
             tooltip: {
                 ...apexBase(320).tooltip,
                 y: {formatter: (_value, {seriesIndex}) => displays[seriesIndex]},
@@ -4449,6 +4488,45 @@
         // count — so the axis and the tooltip print what it sent rather than
         // Apex's own idea of the number.
         const displays = shown.map((item) => item.display ?? String(item.value));
+        // The bar's own "key" and its value, combined into one label drawn
+        // past the bar's tip. A separate y-axis column for the category name
+        // was the first cut here, and it does not work: Apex reserves that
+        // column's own width from an internal text measurement that came out
+        // wrong for Persian names in IRANSansWeb on a live chart — a 45px
+        // gutter for labels that render 150–160px wide, so every bar's own
+        // opening third drew directly *under* its own name. `grid.padding.
+        // left` does not move that gutter either; measured with it set to
+        // 180px, the bars had not shifted a pixel. Rather than fight an
+        // internal calculation this codebase cannot see into, the name joins
+        // the value as one string, drawn through the *other* label mechanism
+        // — the per-bar dataLabel already proven to land outside the bar's
+        // own tip (see the `offsetX`/`textAnchor` reasoning below) — and the
+        // y-axis column is turned off outright rather than left half-working.
+        const combined = shown.map((item) => `${item.label} — ${item.display ?? String(item.value)}`);
+        const LABEL_FONT = "600 12px IRANSansWeb, Helvetica, sans-serif";
+        // How far past the longest bar's own tip its label needs the axis to
+        // reach — measured in real pixels against this chart's own rendered
+        // width, not guessed as a flat percentage. A flat percentage was the
+        // first cut here too: it happened to clear a short value-only label,
+        // and would not have scaled to a name-and-value string roughly twice
+        // as wide. `chart` is the actual container element already in the
+        // DOM (`mountApex` below hands it straight to ApexCharts), so its
+        // real width is known before a single option is decided from it.
+        const CLEARANCE_PX = 56; // the 40px offset below, plus a few px of breathing room
+        const widestLabelPx = Math.max(...combined.map((text) => measureTextWidth(text, LABEL_FONT)));
+        const neededPx = widestLabelPx + CLEARANCE_PX;
+        const plotWidthPx = chart.clientWidth - 24; // grid.padding's own left+right, roughly
+        const maxValue = Math.max(...shown.map((item) => item.value));
+        const axisMax =
+            plotWidthPx > neededPx
+                ? (maxValue * plotWidthPx) / (plotWidthPx - neededPx)
+                // The container has no real width yet — mounted while still
+                // hidden, the one situation `chart.clientWidth` cannot answer
+                // for. A generous fixed multiple keeps the chart readable
+                // rather than betting on an unmeasurable number; a chart that
+                // becomes visible without a resize/redraw is an existing,
+                // separate concern (`chartRedraws`), not one this guards.
+                : maxValue * 3;
         const colours = shown.map(
             (item, index) =>
                 item.color || (colorBy ? colorBy(item, index) : palette[index % palette.length]),
@@ -4476,6 +4554,15 @@
                     // Without this every bar takes the first colour, because a
                     // single series is one colour to Apex unless told otherwise.
                     distributed: true,
+                    // The value used to print at the *inside* end of the bar —
+                    // set in the same colour the bar was filled, on a short bar
+                    // that is white-on-white and unreadable, and on a long one
+                    // it sits crammed against the tip with nothing behind it
+                    // but the bar's own fill. `"top"` draws it just past the
+                    // bar's own end instead, outside the coloured shape
+                    // entirely, so it reads the same for the shortest bar and
+                    // the longest one.
+                    dataLabels: {position: "top", maxItems: 100},
                 },
             },
             // `distributed` gives each bar its own legend entry, which for a
@@ -4483,12 +4570,35 @@
             legend: {show: false},
             dataLabels: {
                 enabled: true,
-                formatter: (_value, {dataPointIndex}) => displays[dataPointIndex],
-                offsetX: 0,
+                formatter: (_value, {dataPointIndex}) => combined[dataPointIndex],
+                // 40px, not a token gesture of a few pixels: measured
+                // directly against the rendered SVG, Apex places a bar's
+                // dataLabel anchor a fixed ~29px *inside* the bar's own tip
+                // regardless of `plotOptions.bar.dataLabels.position`, which
+                // (for a plain, non-stacked horizontal bar, unlike a stacked
+                // one) turned out not to move that anchor at all. 40px of
+                // offset is what actually pushes the anchor past the tip
+                // with a few pixels to spare, not merely past the point
+                // where `position: "top"` stopped helping.
+                offsetX: 40,
+                // The SVG `text-anchor` axis follows the element's own
+                // reading direction, inherited here as RTL from the page —
+                // measured both ways rather than assumed from the property
+                // name: `"start"` keeps the text's *right* edge at the
+                // anchor and grows it leftward, back over the bar; `"end"`
+                // keeps the *left* edge at the anchor and grows rightward,
+                // away from the bar, which is the one that actually clears
+                // it.
+                textAnchor: "end",
                 style: {
                     fontFamily: "IRANSansWeb, Helvetica, sans-serif",
                     fontSize: "12px",
                     fontWeight: 600,
+                    // Drawn outside the bar now, against the card's own
+                    // background — so this reads with the page's own ink
+                    // colour rather than the white Apex assumes for a label
+                    // sitting on top of a filled shape.
+                    colors: [chartInk().text],
                 },
                 dropShadow: {enabled: false},
             },
@@ -4504,14 +4614,16 @@
                 labels: {show: false},
                 axisBorder: {show: false},
                 axisTicks: {show: false},
+                max: axisMax,
             },
+            // No separate label column — see the comment above `combined`.
+            // The category names still reach the tooltip: Apex reads them
+            // from `xaxis.categories` below regardless of whether this axis
+            // draws its own text, so hovering a bar still names it.
             yaxis: {
-                labels: {
-                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
-                    // A long customer name would otherwise push the plot into a
-                    // sliver; past this it ellipsises and the tooltip has it.
-                    maxWidth: 180,
-                },
+                labels: {show: false},
+                axisBorder: {show: false},
+                axisTicks: {show: false},
             },
             grid: {...base.grid, xaxis: {lines: {show: true}}, yaxis: {lines: {show: false}}},
             tooltip: {
@@ -8255,44 +8367,57 @@
     }
 
     /**
-     * Internal chat: a thread list and one active conversation, polled.
+     * Internal chat: a slide-in drawer, matching the purchased theme's own
+     * `kt_drawer_chat` pattern (header icon, `data-kt-drawer`, the same
+     * message-bubble classes) with two states inside it — a thread list, or
+     * one open conversation — since the theme's own demo shows a single
+     * fixed conversation and this panel has many.
      *
      * No websocket in this codebase (no channel-layer infrastructure exists
      * anywhere else here), so "live" means polling — the same choice the
-     * agent work queue and every report already make. Two independent
-     * intervals: the thread list (previews, unread counts) refreshes slowly
-     * since it is a side-glance; the open thread polls faster since that is
-     * what someone is actually looking at right now. Both are cleared the
-     * moment the page navigates away, same as any other interval-driven
-     * script here — there is no SPA router keeping this alive past that.
+     * agent work queue and every report already make. What makes this feel
+     * live rather than merely refreshed: both intervals run only while the
+     * drawer is actually open (checked against the theme's own `drawer-on`
+     * class on every tick, the same class the drawer gets however it was
+     * opened — the header icon, or the theme's own overlay/Escape handling),
+     * and opening the drawer polls immediately rather than waiting for the
+     * next tick. A closed drawer costs nothing; an open one updates every
+     * few seconds without anyone touching it.
      */
     function setupChat() {
-        const threadListEl = document.getElementById("chat-thread-list");
-        if (!threadListEl) return;
+        const drawer = document.getElementById("kt_drawer_chat");
+        const toggle = document.getElementById("kt_drawer_chat_toggle");
+        const threadListEl = document.getElementById("chat-drawer-thread-list");
+        if (!drawer || !toggle || !threadListEl) return;
 
-        const threadsLoading = document.getElementById("chat-threads-loading");
-        const threadsEmpty = document.getElementById("chat-threads-empty");
-        const emptyState = document.getElementById("chat-empty-state");
-        const messenger = document.getElementById("chat-messenger");
-        const messagesEl = document.getElementById("chat-messages");
-        const messagesEmpty = document.getElementById("chat-messages-empty");
-        const peerNameEl = document.getElementById("chat-messenger-peer-name");
-        const peerRoleEl = document.getElementById("chat-messenger-peer-role");
-        const sendForm = document.getElementById("chat-send-form");
-        const messageInput = document.getElementById("chat-message-input");
-        const newDialog = document.getElementById("chat-new-dialog");
-        const colleaguesLoading = document.getElementById("chat-colleagues-loading");
-        const colleaguesEmpty = document.getElementById("chat-colleagues-empty");
-        const colleaguesList = document.getElementById("chat-colleagues-list");
-        const myUserId = Number(document.body.dataset.chatUserId);
+        const threadsLoading = document.getElementById("chat-drawer-threads-loading");
+        const threadsEmpty = document.getElementById("chat-drawer-threads-empty");
+        const listTitle = document.getElementById("chat-drawer-list-title");
+        const peerTitle = document.getElementById("chat-drawer-peer-title");
+        const listPanel = document.getElementById("chat-drawer-list-panel");
+        const conversationPanel = document.getElementById("chat-drawer-conversation-panel");
+        const footer = document.getElementById("chat-drawer-footer");
+        const messagesEl = document.getElementById("chat-drawer-messages");
+        const messagesEmpty = document.getElementById("chat-drawer-messages-empty");
+        const peerNameEl = document.getElementById("chat-drawer-peer-name");
+        const peerRoleEl = document.getElementById("chat-drawer-peer-role");
+        const backButton = document.getElementById("chat-drawer-back");
+        const sendForm = document.getElementById("chat-drawer-send-form");
+        const messageInput = document.getElementById("chat-drawer-message-input");
+        const newDialog = document.getElementById("chat-drawer-new-dialog");
+        const colleaguesLoading = document.getElementById("chat-drawer-colleagues-loading");
+        const colleaguesEmpty = document.getElementById("chat-drawer-colleagues-empty");
+        const colleaguesList = document.getElementById("chat-drawer-colleagues-list");
 
         const AVATAR_COLORS = ["primary", "success", "info", "warning", "danger"];
         function avatarColor(userId) {
             return AVATAR_COLORS[Math.abs(Number(userId)) % AVATAR_COLORS.length];
         }
+        // 35px, matching the purchased theme's own drawer-chat avatar size
+        // exactly (its message rows and its contact rows both use it).
         function avatarSymbol(name, userId) {
             const symbol = document.createElement("div");
-            symbol.className = "symbol symbol-45px symbol-circle";
+            symbol.className = "symbol symbol-35px symbol-circle";
             const label = document.createElement("span");
             label.className = `symbol-label bg-light-${avatarColor(userId)} text-${avatarColor(userId)} fw-bold`;
             label.textContent = (name || "?").trim().charAt(0);
@@ -8304,6 +8429,29 @@
         let lastMessageId = 0;
         let threads = [];
 
+        function isOpen() {
+            return drawer.classList.contains("drawer-on");
+        }
+
+        function showList() {
+            activeThreadId = null;
+            listTitle.classList.remove("d-none");
+            peerTitle.classList.add("d-none");
+            listPanel.classList.remove("d-none");
+            listPanel.hidden = false;
+            conversationPanel.classList.add("d-none");
+            footer.classList.add("d-none");
+            renderThreadList();
+        }
+
+        function showConversation() {
+            listTitle.classList.add("d-none");
+            peerTitle.classList.remove("d-none");
+            listPanel.classList.add("d-none");
+            conversationPanel.classList.remove("d-none");
+            footer.classList.remove("d-none");
+        }
+
         function renderThreadList() {
             threadListEl.replaceChildren();
             updateChatUnreadBadge(threads.reduce((sum, thread) => sum + thread.unread_count, 0));
@@ -8314,7 +8462,6 @@
                 row.type = "button";
                 row.className = "btn btn-flush d-flex align-items-center justify-content-between w-100 py-3 px-2 text-start rounded";
                 row.dataset.chatThreadRow = String(thread.id);
-                if (thread.id === activeThreadId) row.classList.add("bg-light-primary");
 
                 const left = document.createElement("div");
                 left.className = "d-flex align-items-center overflow-hidden";
@@ -8361,16 +8508,30 @@
 
             const meta = document.createElement("div");
             meta.className = "d-flex align-items-center mb-2";
-            const metaName = document.createElement("span");
-            metaName.className = "fs-7 fw-bold text-gray-900 mx-2";
-            metaName.textContent = message.mine ? "شما" : message.sender_display_name;
-            const metaTime = document.createElement("span");
-            metaTime.className = "fs-8 text-muted";
-            metaTime.textContent = displayDate(message.created_at);
-            meta.append(metaName, metaTime);
+            const senderId = message.mine
+                ? Number(document.body.dataset.chatUserId)
+                : (threads.find((t) => t.id === activeThreadId)?.peer.id ?? 0);
+            const senderName = message.mine ? "شما" : message.sender_display_name;
+            if (message.mine) {
+                const metaTime = document.createElement("span");
+                metaTime.className = "fs-8 text-muted me-1";
+                metaTime.textContent = displayDate(message.created_at);
+                const metaName = document.createElement("span");
+                metaName.className = "fs-7 fw-bold text-gray-900 ms-1";
+                metaName.textContent = senderName;
+                meta.append(metaTime, metaName, avatarSymbol(senderName, senderId));
+            } else {
+                const metaName = document.createElement("span");
+                metaName.className = "fs-7 fw-bold text-gray-900 me-1";
+                metaName.textContent = senderName;
+                const metaTime = document.createElement("span");
+                metaTime.className = "fs-8 text-muted ms-1";
+                metaTime.textContent = displayDate(message.created_at);
+                meta.append(avatarSymbol(senderName, senderId), metaName, metaTime);
+            }
 
             const bubble = document.createElement("div");
-            bubble.className = `p-4 rounded fw-semibold mw-lg-400px ${message.mine ? "bg-light-primary text-end" : "bg-light-info text-start"}`;
+            bubble.className = `p-4 rounded fw-semibold mw-lg-300px ${message.mine ? "bg-light-primary text-end" : "bg-light-info text-start"}`;
             bubble.style.whiteSpace = "pre-wrap";
             bubble.style.wordBreak = "break-word";
             bubble.textContent = message.body;
@@ -8387,9 +8548,7 @@
         async function openThread(threadId) {
             activeThreadId = threadId;
             lastMessageId = 0;
-            renderThreadList();
-            emptyState.hidden = true;
-            messenger.hidden = false;
+            showConversation();
             const thread = threads.find((item) => item.id === threadId);
             if (thread) {
                 peerNameEl.textContent = thread.peer.display_name;
@@ -8407,7 +8566,7 @@
                 // without waiting for the next thread-list poll.
                 const row = threads.find((item) => item.id === threadId);
                 if (row) row.unread_count = 0;
-                renderThreadList();
+                updateChatUnreadBadge(threads.reduce((sum, item) => sum + item.unread_count, 0));
             } catch (error) {
                 showError(error);
             }
@@ -8415,7 +8574,7 @@
         }
 
         async function pollActiveThread() {
-            if (!activeThreadId) return;
+            if (!activeThreadId || !isOpen()) return;
             try {
                 const messages = await apiRequest(
                     `/api/v1/chat/threads/${activeThreadId}/messages/?after_id=${lastMessageId}`,
@@ -8433,6 +8592,11 @@
                 // A transient poll failure is not worth interrupting anyone
                 // over; the next tick tries again.
             }
+        }
+
+        async function pollThreads() {
+            if (!isOpen()) return;
+            await loadThreads();
         }
 
         sendForm.addEventListener("submit", (event) => {
@@ -8457,6 +8621,11 @@
                 event.preventDefault();
                 sendForm.requestSubmit();
             }
+        });
+
+        backButton.addEventListener("click", () => {
+            showList();
+            loadThreads();
         });
 
         async function loadColleagues() {
@@ -8489,7 +8658,6 @@
                             newDialog.close();
                             const exists = threads.some((item) => item.id === thread.id);
                             if (!exists) threads.unshift(thread);
-                            renderThreadList();
                             openThread(thread.id);
                         } catch (error) {
                             showError(error);
@@ -8503,16 +8671,28 @@
             }
         }
 
-        document.getElementById("chat-open-new").addEventListener("click", () => {
+        document.getElementById("chat-drawer-open-new").addEventListener("click", () => {
             newDialog.showModal();
             loadColleagues();
         });
         newDialog.querySelectorAll("[data-close-dialog]").forEach((button) =>
             button.addEventListener("click", () => newDialog.close()));
 
-        loadThreads();
-        setInterval(loadThreads, 12000);
-        setInterval(pollActiveThread, 4000);
+        // The theme's own KTDrawer binds its open/close click on this same
+        // button; this listener runs alongside it, not instead of it, and
+        // only reacts to the drawer actually being open — a click that
+        // closes it triggers no wasted request.
+        toggle.addEventListener("click", () => {
+            // KTDrawer flips its own `drawer-on` class synchronously inside
+            // the same click handler, but listener order between it and this
+            // one is not something to depend on — a microtask delay reads the
+            // class after every same-tick handler has run either way.
+            Promise.resolve().then(() => { if (isOpen()) loadThreads(); });
+        });
+
+        showList();
+        setInterval(pollThreads, 8000);
+        setInterval(pollActiveThread, 3000);
     }
 
     setupSearchableSelects();
@@ -8528,16 +8708,17 @@
     // Any page that declares a chart card gets one, whichever page it is.
     setupListCharts();
 
-    // The chat badge lives in the sidebar, so every page that has it polls
-    // it, not only `/chat/` — same reasoning as the two lines above.
+    // The chat drawer, the reminder bell and search all live in the header
+    // shell, so every page that has one wires it up — same reasoning as the
+    // two lines above, not only a page named after the feature.
     setupGlobalSearch();
     setupReminderBell();
     setupChatUnreadPoll();
+    setupChat();
 
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();
     if (page === "dashboard") setupDashboard();
-    if (page === "chat") setupChat();
     if (page === "users") setupUsers();
     if (page === "user-detail") setupUserDetail();
     if (page === "customers") setupCustomers();

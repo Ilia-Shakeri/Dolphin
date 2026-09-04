@@ -245,8 +245,14 @@ dialog::backdrop {
    the badge stayed in flow, and it rendered *beside* the bell inside the
    40px button instead of over its corner, squeezing the icon. Found in the
    live browser, not by any test. An id beats the theme's two classes
-   without reaching for `!important`. */
-#reminder-bell-toggle .reminder-bell-badge {
+   without reaching for `!important`.
+
+   `#kt_drawer_chat_toggle` joined this rule in 1.9.0 when the chat unread
+   badge moved off the sidebar and onto its own header icon, the same shape
+   as the bell it sits beside — reusing the class rather than writing the
+   fix a second time. */
+#reminder-bell-toggle .reminder-bell-badge,
+#kt_drawer_chat_toggle .reminder-bell-badge {
     position: absolute;
     top: 0.15rem;
     inset-inline-end: 0.15rem;
@@ -255,6 +261,25 @@ dialog::backdrop {
     padding-inline: 0.25rem;
     font-size: 0.65rem;
     line-height: 1;
+}
+
+/* The chat drawer's internal scrolling. The theme's own `.drawer` rule
+   (`assets/css/style.bundle.css`) gives `#kt_drawer_chat` a real height —
+   `position: fixed; top: 0; bottom: 0` — so `.h-100` on the card inside it
+   resolves to an actual pixel height, not an auto one. What Bootstrap's
+   utilities do not supply is `min-height: 0` on the flex chain between that
+   card and the scrollable message list: a flex item defaults to
+   `min-height: auto`, which refuses to shrink below its content's own
+   height, so without this the message list would grow the whole card past
+   the drawer's height instead of scrolling inside it — the drawer itself
+   would scroll as one long page, header and footer included, exactly the
+   `overflow: auto` its own CSS rule already carries as a fallback for
+   content that does not manage its own internal scrolling. */
+#kt_drawer_chat_messenger,
+#kt_drawer_chat_messenger .card-body,
+#chat-drawer-list-panel,
+#chat-drawer-conversation-panel {
+    min-height: 0;
 }
 
 /* The customer page's 360° history strip.
