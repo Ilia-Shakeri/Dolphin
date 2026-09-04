@@ -598,6 +598,48 @@ textarea:focus-visible,
     .list-filters > .list-filters-submit { justify-self: stretch; }
 }
 
+/* The filter popover `setupListFilterPopovers()` builds around every one of
+   the twenty-five `.list-filters` forms above. Anchored and scroll-capped
+   the same way the reminder bell and the search box already are — same
+   `top`/`inset-inline-end` offset, so every dropdown in the header row and
+   every one of these opens to the same place relative to its own button —
+   and the same narrow-screen pin those two use, for the same reason: a
+   fixed-width panel anchored to a button near the page's own edge runs off
+   a 375px screen otherwise. */
+.list-filters-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    z-index: 105;
+    max-width: calc(100vw - 1.5rem);
+}
+
+/* Inside a ~300px popover, `.list-filters`'s own `auto-fit` grid already
+   collapses to one column on its own — no override needed — since two
+   11rem tracks plus their gap do not fit a track this narrow. What the grid
+   does not know on its own is that it is no longer sitting in a wide card
+   header: this removes the bottom margin meant for a filter row with page
+   content following it, now that the form is the popover's entire body. */
+.list-filters-panel .list-filters {
+    margin-bottom: 0;
+}
+
+@media (max-width: 575.98px) {
+    /* The width stays the theme's own `w-300px !important` — not worth an
+       escalation, and 300px inside a 375px phone reads well; only one inline
+       edge is pinned, the same choice made for the reminder bell and search
+       box's own narrow-screen rule and for the same reason: pinning both
+       edges while a fixed `!important` width is also in force is
+       over-constrained, and which one a browser then drops is not a thing
+       to build a layout on. */
+    .list-filters-panel {
+        position: fixed;
+        top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
+        inset-inline-start: 0.75rem;
+        inset-inline-end: auto;
+    }
+}
+
 /* Values sit at the reading edge, whichever direction the value itself runs.
 
    A money field or a document number carries `dir="ltr"` so its digits are not

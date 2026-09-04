@@ -8695,11 +8695,123 @@
         setInterval(pollActiveThread, 3000);
     }
 
+    /**
+     * Every list page's filter row, collapsed behind a header button that
+     * opens a dropdown panel — the purchased theme's own filter pattern
+     * (the vendor demo's own customers list page — its "فیلتر" button + its
+     * `.menu.menu-sub.menu-sub-dropdown` panel), applied generically rather
+     * than rebuilt per page.
+     *
+     * Twenty-five templates carry `<form class="list-filters">`, each with
+     * its own fields and its own `setupPagedList({form, ...})` submit
+     * listener already attached directly to that form element. This moves
+     * the existing form node — never clones it — into a new panel, so every
+     * one of those listeners, and every input's id the page's own script
+     * reads by `getElementById`, survives untouched; `getElementById` finds
+     * an element wherever it sits in the document, so nothing about *where*
+     * the form now lives affects any lookup already written against it.
+     *
+     * Opened and closed the same hand-rolled way as the reminder bell, the
+     * search box and the user menu — `.show`, not `data-kt-menu-trigger` —
+     * for the same reason all three of those are: `KTMenu` positions its
+     * panel with Popper, and Popper lives in the plugins bundle this
+     * deployment does not load.
+     */
+    function setupListFilterPopovers() {
+        document.querySelectorAll("form.list-filters").forEach((form) => {
+            const anchor = document.createElement("div");
+            anchor.className = "list-filters-popover position-relative d-inline-block";
+
+            const toggle = document.createElement("button");
+            toggle.type = "button";
+            toggle.className = "btn btn-light-primary";
+            toggle.setAttribute("aria-haspopup", "true");
+            toggle.setAttribute("aria-expanded", "false");
+            // Named after the form it opens, since the form's own id is the
+            // one stable thing about it that already varies meaningfully
+            // page to page — a test or a future script can find "the filter
+            // button for the product list" without this module inventing a
+            // second id for the same relationship.
+            if (form.id) toggle.dataset.filterToggleFor = form.id;
+            const icon = document.createElement("i");
+            icon.className = "ki-duotone ki-filter fs-2 me-1";
+            icon.append(document.createElement("span"), document.createElement("span"));
+            icon.children[0].className = "path1";
+            icon.children[1].className = "path2";
+            toggle.append(icon, document.createTextNode("فیلتر"));
+
+            const panel = document.createElement("div");
+            panel.className = "menu menu-sub menu-sub-dropdown menu-column w-300px w-md-350px list-filters-panel";
+            const header = document.createElement("div");
+            header.className = "px-6 py-4 fs-5 fw-bold text-gray-900";
+            header.textContent = "فیلتر";
+            const separator = document.createElement("div");
+            separator.className = "separator border-gray-200";
+            const body = document.createElement("div");
+            body.className = "px-6 py-5";
+            panel.append(header, separator, body);
+
+            form.parentElement.insertBefore(anchor, form);
+            anchor.append(toggle, panel);
+            body.appendChild(form);
+            form.classList.add("mb-0");
+
+            // The theme's own filter panel pairs "ریست" beside "تایید" in one
+            // row; these forms only ever shipped the one submit button, so
+            // the reset button is built here rather than in twenty-five
+            // templates. A native `type="reset"` needs no per-page knowledge
+            // of which fields exist — the browser already knows how to put a
+            // form back to its own defaults.
+            const submit = form.querySelector(".list-filters-submit, button[type='submit']");
+            if (submit) {
+                const actions = document.createElement("div");
+                actions.className = "d-flex justify-content-end gap-2";
+                const reset = document.createElement("button");
+                reset.type = "reset";
+                reset.className = "btn btn-light";
+                reset.textContent = "بازنشانی";
+                submit.replaceWith(actions);
+                actions.append(reset, submit);
+            }
+
+            function setOpen(open) {
+                panel.classList.toggle("show", open);
+                toggle.setAttribute("aria-expanded", String(open));
+            }
+            toggle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                setOpen(!panel.classList.contains("show"));
+            });
+            document.addEventListener("click", (event) => {
+                if (!panel.contains(event.target) && event.target !== toggle && !toggle.contains(event.target)) {
+                    setOpen(false);
+                }
+            });
+            document.addEventListener("keydown", (event) => {
+                if (event.key === "Escape" && panel.classList.contains("show")) {
+                    setOpen(false);
+                    toggle.focus();
+                }
+            });
+            // Closes the popover on a successful apply, matching the theme's
+            // own `data-kt-menu-dismiss` on its filter panel's submit button.
+            form.addEventListener("submit", () => setOpen(false));
+            // A native reset only restores the fields; nothing here re-asks
+            // for the now-default list on its own. Resubmitting after the
+            // browser's own reset has already run — not before it — is what
+            // makes "بازنشانی" behave like "clear the filters and reload"
+            // rather than "clear the filters, and reload whenever something
+            // else happens to next."
+            form.addEventListener("reset", () => setTimeout(() => form.requestSubmit()));
+        });
+    }
+
     setupSearchableSelects();
     setupChartThemeRedraw();
     setupSidebarPeekGuard();
     setupThemeModePopup();
     setupProfileDialog();
+    setupListFilterPopovers();
 
     // Any page that declares an attachments panel gets one wired up,
     // whichever page it is — same reasoning as the chart cards below.

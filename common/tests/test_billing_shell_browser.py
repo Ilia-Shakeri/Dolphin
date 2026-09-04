@@ -514,8 +514,11 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         )
 
         # The stock page is readable and offers the agent no way to change it.
+        # `presence`, not `visibility`: the filter form now lives collapsed
+        # inside its own popover (`setupListFilterPopovers()`) until someone
+        # opens it, so this only needs to know the page finished rendering.
         self.browser.get(f"{self.live_server_url}/stock/")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "stock-search-form")))
+        self.wait.until(expected_conditions.presence_of_element_located((By.ID, "stock-search-form")))
         self.assertEqual(self.browser.find_elements(By.ID, "open-create-movement"), [])
         self.assertEqual(self.browser.find_elements(By.ID, "open-transfer-stock"), [])
 

@@ -177,6 +177,22 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.wait.until(_click_until_open)
 
+    def open_filters(self, form_id):
+        """Open a list page's filter popover, so its fields can be used.
+
+        `setupListFilterPopovers()` collapses every `.list-filters` form
+        behind a header button; a field or the submit button inside one is
+        neither visible nor interactable to Selenium until that button has
+        been clicked open.
+        """
+        toggle = self.wait.until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, f'[data-filter-toggle-for="{form_id}"]')
+            )
+        )
+        toggle.click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, form_id)))
+
     def submit_performance_filter(self, prefix="report"):
         """Filter a performance report only once the panel is really ready.
 
@@ -304,6 +320,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.browser.get(f"{self.live_server_url}/products/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "open-create-product")))
+        self.open_filters("product-search-form")
         Select(self.browser.find_element(By.ID, "product-status-filter")).select_by_value("false")
         self.browser.find_element(By.CSS_SELECTOR, "#product-search-form button[type='submit']").click()
         self.wait.until(
@@ -651,6 +668,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "postal-history-table-body"), "تحویل پست"))
 
         self.browser.get(f"{self.live_server_url}/reports/sales-documents/")
+        self.open_filters("sales-document-report-form")
         self.browser.find_element(By.CSS_SELECTOR, "#sales-document-report-form button[type='submit']").click()
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-report-content")))
         self.assertEqual(self.browser.find_element(By.ID, "sales-document-report-total").text, "1")
