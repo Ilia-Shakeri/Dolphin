@@ -15,6 +15,7 @@ from accounts.access import (
     is_crm_identity,
 )
 from accounts.models import User
+from common import labels
 from common.deployment.profile import active_profile, feature_enabled
 from common.pdf import (
     PdfRendererBusy,
@@ -51,22 +52,12 @@ from sales.selectors import (
 # Persian labels for backend-owned status vocabularies. The backend value stays
 # the single source of truth; these are presentation only and a value with no
 # entry falls back to the raw code rather than being hidden.
-DOCUMENT_STATUS_LABELS = {
-    "draft": "پیش‌نویس",
-    "sent": "ارسال‌شده",
-    "accepted": "پذیرفته‌شده",
-    "rejected": "ردشده",
-    "expired": "منقضی‌شده",
-    "cancelled": "لغوشده",
-    "confirmed": "تأییدشده",
-    "fulfilled": "تحویل‌شده",
-    "issued": "صادرشده",
-}
-SETTLEMENT_LABELS = {
-    "unpaid": "تسویه‌نشده",
-    "partially_paid": "تسویه جزئی",
-    "paid": "تسویه کامل",
-}
+#: Re-exported, not redefined: these moved to `common/labels.py` when the
+#: customer timeline needed the same words server-side, so the Python side
+#: has one copy rather than two. Imported under their old names here because
+#: this module's own readers (the printed invoice context below) use them.
+DOCUMENT_STATUS_LABELS = labels.DOCUMENT_STATUS_LABELS
+SETTLEMENT_LABELS = labels.SETTLEMENT_LABELS
 
 #: How each dashboard tile is presented: a keenicon from the theme's own set and
 #: a Metronic accent. Purely visual — the figure and its scope come from the

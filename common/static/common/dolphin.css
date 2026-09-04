@@ -257,6 +257,52 @@ dialog::backdrop {
     line-height: 1;
 }
 
+/* The customer page's 360° history strip.
+
+   The theme has no timeline component (`widgets/feeds.html` is a feed of
+   cards, not a dated rail), so the rail itself is here: a marker column and
+   a continuous line drawn between the markers with a pseudo-element rather
+   than a border on the row, so it stops cleanly at the last entry instead of
+   trailing past it. Everything inside a row — the badge, the type colours,
+   the text sizes — is the theme's. */
+.customer-timeline-entry {
+    position: relative;
+    display: flex;
+    gap: 1rem;
+    padding-bottom: 1.5rem;
+}
+
+.customer-timeline-entry:last-child {
+    padding-bottom: 0;
+}
+
+/* The line. Drawn from the marker down to the next one, and omitted on the
+   last entry so the rail ends with the story rather than after it. */
+.customer-timeline-entry:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 2.5rem;
+    bottom: 0.25rem;
+    inset-inline-start: 1.2rem;
+    width: 1px;
+    background: var(--bs-gray-300);
+}
+
+.customer-timeline-marker {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+}
+
+.customer-timeline-body {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
 /* Global search, anchored and scroll-capped exactly like the bell above. */
 #global-search-menu {
     position: absolute;

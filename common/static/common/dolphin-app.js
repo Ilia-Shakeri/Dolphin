@@ -2076,6 +2076,86 @@
             ));
         }
 
+        /**
+         * The 360° history strip.
+         *
+         * Loaded after the page is already usable and outside the `try`
+         * that gates it, deliberately: the boxes above are what this page
+         * *is*, and a timeline that failed to load must not blank the
+         * customer's own record behind an error card. It reports its own
+         * failure in its own section and leaves everything else standing.
+         */
+        async function loadTimeline() {
+            const list = document.getElementById("customer-timeline-list");
+            if (!list) return;
+            const timelineLoading = document.getElementById("customer-timeline-loading");
+            const empty = document.getElementById("customer-timeline-empty");
+            const failed = document.getElementById("customer-timeline-error");
+            const more = document.getElementById("customer-timeline-more");
+            try {
+                const data = await apiRequest(`/api/v1/customers/${customerId}/timeline/`);
+                list.replaceChildren();
+                data.events.forEach((event) => list.appendChild(timelineEntry(event)));
+                timelineLoading.hidden = true;
+                list.hidden = data.events.length === 0;
+                empty.hidden = data.events.length > 0;
+                // `count` is everything found; `events` is the page shown.
+                if (data.count > data.events.length) {
+                    more.textContent = `${toPersianDigits(String(data.count - data.events.length))} رویداد قدیمی‌تر نشان داده نشده است.`;
+                    more.hidden = false;
+                }
+            } catch (error) {
+                timelineLoading.hidden = true;
+                failed.hidden = false;
+            }
+        }
+
+        function timelineEntry(event) {
+            const item = document.createElement("li");
+            item.className = "customer-timeline-entry";
+
+            const marker = document.createElement("span");
+            marker.className = `customer-timeline-marker bg-light-${event.accent}`;
+            const icon = document.createElement("i");
+            icon.className = `ki-duotone ${event.icon} fs-5 text-${event.accent}`;
+            for (let index = 1; index <= (event.icon_paths || 2); index += 1) {
+                icon.append(timelinePath(index));
+            }
+            marker.appendChild(icon);
+
+            const box = document.createElement("div");
+            box.className = "customer-timeline-body";
+
+            const head = document.createElement("div");
+            head.className = "d-flex flex-wrap align-items-center justify-content-between gap-2";
+            const kind = document.createElement("span");
+            kind.className = `badge badge-light-${event.accent} fs-8`;
+            kind.textContent = event.label;
+            const when = document.createElement("span");
+            when.className = "text-muted fs-8";
+            when.textContent = displayDate(event.at);
+            head.append(kind, when);
+
+            const title = document.createElement("a");
+            title.className = "d-block text-gray-900 fw-semibold fs-6 mt-1 text-decoration-none";
+            title.href = event.url;
+            title.textContent = event.title;
+
+            const subtitle = document.createElement("span");
+            subtitle.className = "d-block text-muted fs-7";
+            subtitle.textContent = event.subtitle;
+
+            box.append(head, title, subtitle);
+            item.append(marker, box);
+            return item;
+        }
+
+        function timelinePath(index) {
+            const span = document.createElement("span");
+            span.className = `path${index}`;
+            return span;
+        }
+
         try {
             await loadCustomer();
             await loadPhones();
@@ -2087,6 +2167,7 @@
             showError(error);
             return;
         }
+        loadTimeline();
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
@@ -7737,7 +7818,9 @@
             left.className = "d-flex align-items-center gap-2";
             const icon = document.createElement("i");
             icon.className = `ki-duotone ${group.icon} fs-5 text-${group.accent}`;
-            icon.append(searchPathSpan(1), searchPathSpan(2));
+            for (let index = 1; index <= (group.icon_paths || 2); index += 1) {
+                icon.append(searchPathSpan(index));
+            }
             const label = document.createElement("span");
             label.className = "text-gray-700 fw-bold fs-8";
             label.textContent = `${group.label} (${toPersianDigits(String(group.count))})`;
@@ -7923,9 +8006,12 @@
             heading.className = "d-flex align-items-center gap-2 px-2 mb-1";
             const icon = document.createElement("i");
             icon.className = `ki-duotone ${group.icon} fs-5 text-${group.accent}`;
-            // Keenicon duotone glyphs are drawn from nested `.path*` spans; two
-            // is what every icon named here uses.
-            icon.append(pathSpan(1), pathSpan(2));
+            // A duotone keenicon is drawn from nested `.path*` spans, and the
+            // count differs per glyph — `ki-call` has eight. The server sends
+            // it with the group, the same way the dashboard tiles carry
+            // `icon_paths`; drawing two for an eight-path icon draws a
+            // quarter of it.
+            for (let index = 1; index <= (group.icon_paths || 2); index += 1) icon.append(pathSpan(index));
             const label = document.createElement("span");
             label.className = "text-gray-700 fw-bold fs-8";
             label.textContent = `${group.label} (${toPersianDigits(String(group.count))})`;

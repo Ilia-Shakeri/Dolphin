@@ -99,6 +99,12 @@ FEATURE_DEPENDENCIES = {
     # left out when that module is off. A deployment running only
     # `customers` gets a search box that finds customers.
     "global_search": frozenset(),
+    # common/customer_timeline.py — the customer page's history strip. Needs
+    # `customers` and nothing else: a timeline is *about* a customer, and
+    # every other source it reads (calls, invoices, payments, after-sales,
+    # attachments, SMS) is checked for its own feature at read time and left
+    # out when that module is off.
+    "customer_timeline": frozenset({"customers"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -129,8 +135,9 @@ FEATURE_DEPENDENCIES = {
 #: `leads` and says nothing else should get the bell that makes those leads'
 #: own follow-up dates visible. It stays a named feature (any deployment can
 #: still turn it off through its manifest, like anything else here); it just
-#: does not default to off. `global_search` (2026-09-04) is absent for
-#: exactly the same reason and on the same reasoning.
+#: does not default to off. `global_search` and `customer_timeline`
+#: (both 2026-09-04) are absent for exactly the same reason and on the same
+#: reasoning.
 DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)

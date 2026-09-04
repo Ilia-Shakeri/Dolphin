@@ -225,8 +225,29 @@ def reminder_count_for(user, *, now=None):
     return total
 
 
+#: How many `.path*` spans each keenicon needs. A duotone glyph is drawn
+#: from nested spans, and rendering fewer than it has draws a partial icon —
+#: `ki-call` has eight. Sent with the group rather than hardcoded in the
+#: script for the same reason `WIDGET_STYLE` in `common/ui_views.py` sends
+#: `icon_paths` for the dashboard tiles: the count belongs with the icon.
+ICON_PATHS = {
+    "ki-call": 8,
+    "ki-calendar-tick": 6,
+    "ki-bank": 2,
+    "ki-wallet": 4,
+}
+
+
 def _group(kind, label, icon, accent, count, items):
-    return {"kind": kind, "label": label, "icon": icon, "accent": accent, "count": count, "items": items}
+    return {
+        "kind": kind,
+        "label": label,
+        "icon": icon,
+        "icon_paths": ICON_PATHS.get(icon, 2),
+        "accent": accent,
+        "count": count,
+        "items": items,
+    }
 
 
 def _end_of_today(now):

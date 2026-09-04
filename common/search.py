@@ -247,6 +247,20 @@ def search(user, query):
     return {"query": text, "count": sum(group["count"] for group in groups), "groups": groups}
 
 
+#: See `common.reminders.ICON_PATHS` — a duotone keenicon is drawn from that
+#: many nested spans, and drawing fewer draws a partial glyph.
+ICON_PATHS = {
+    "ki-profile-user": 4,
+    "ki-call": 8,
+    "ki-package": 3,
+    "ki-document": 2,
+    "ki-basket": 4,
+    "ki-dollar": 3,
+    "ki-delivery": 5,
+    "ki-wrench": 2,
+}
+
+
 def _group(kind, label, icon, accent, list_url, queryset, describe):
     """Build one group, counting the whole match but listing only a page."""
     total = queryset.count()
@@ -258,6 +272,7 @@ def _group(kind, label, icon, accent, list_url, queryset, describe):
         "kind": kind,
         "label": label,
         "icon": icon,
+        "icon_paths": ICON_PATHS.get(icon, 2),
         "accent": accent,
         "list_url": list_url,
         "count": total,
