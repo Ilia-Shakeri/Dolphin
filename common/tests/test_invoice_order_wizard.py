@@ -149,7 +149,7 @@ class ScriptBehaviourTests(SimpleTestCase):
                 self.assertIn("wizard?.goFirst();", body)
 
     def test_open_create_dialog_calls_onopen_before_showing_it(self):
-        body = _function_body("setupDocumentList", "\n    /**\n     * Wire a real Metronic")
+        body = _function_body("setupDocumentList", "\n    /**\n     * Wire the theme's own real")
         self.assertIn("onOpen?.();", body)
         self.assertIn("dialog.showModal();", body)
         # `onOpen` must run first — reset before reveal, not after.

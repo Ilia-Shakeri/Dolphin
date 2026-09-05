@@ -406,6 +406,20 @@ dialog::backdrop {
     color: var(--bs-primary);
 }
 
+/* The login page's brand aside is a fixed `#1e1e2d`, same as the print sheet's
+   reasoning below: its background does not follow the reader's own light/dark
+   choice, so text on it cannot either. This tagline used the theme's own
+   `.text-gray-400`, whose colour flips per theme — 10:1 for a light-mode
+   reader, whose page is otherwise light, but only 1.8:1 for a dark-mode
+   reader, on this same always-dark panel, well under the 4.5:1 AA floor.
+   Measured, not assumed: light mode's own `--bs-gray-400` (#C4CADA) reads at
+   10:1 against this exact background regardless of which theme resolved it,
+   so that value is fixed here rather than left to vary with a reader it was
+   never actually paired against. */
+.login-aside-subtitle {
+    color: #C4CADA;
+}
+
 /* 3. Print ---------------------------------------------------------------- */
 
 /* The printed invoice and quotation deliberately do not use the theme: paper
@@ -858,8 +872,16 @@ summary:focus-visible,
 /* Metronic's `.text-muted` is #99A1B7 — 2.58:1 on a white card, below the 4.5:1
    AA needs for body text, and it carries the KPI labels and every empty state.
    `--bs-gray-700` is the theme's own next step up and reads at 5.9:1, so this
-   stays inside the palette instead of introducing a colour. */
-.text-muted {
+   stays inside the palette instead of introducing a colour.
+
+   `.text-gray-500` is the same token under a different utility name — Bootstrap's
+   own `--bs-text-gray-500` mirrors `--bs-gray-500` exactly in both themes — and
+   measured the same way it comes out just as low: 3.14:1 on a dark card, still
+   short of 4.5:1. It carries real sentences here (the login page's instruction
+   line, a profile's KPI labels), not only a decorative icon, so it gets the
+   identical one-step fix. */
+.text-muted,
+.text-gray-500 {
     color: var(--bs-gray-700) !important;
 }
 

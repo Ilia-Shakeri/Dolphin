@@ -53,7 +53,11 @@
                     <img class="brand-mark brand-mark-login mb-7" src="{% static 'common/brand/Logo-With-Name.png' %}" width="1343" height="1024" alt="Dolphin | دلفین">
                 </picture>
                 {% endif %}
-                <div class="text-gray-400 fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
+                {% comment %} Not `.text-gray-400`: that colour flips with the reader's
+                   own light/dark choice, but this aside's background never does
+                   (`style="background-color:#1e1e2d"` above) — see `.login-aside-subtitle`
+                   in dolphin.css for the measured reason. {% endcomment %}
+                <div class="login-aside-subtitle fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
             </div>
         </div>
     </div>

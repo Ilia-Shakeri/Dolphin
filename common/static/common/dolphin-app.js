@@ -5753,7 +5753,7 @@
     }
 
     /**
-     * Wire a real Metronic `KTStepper` inside a create dialog's `.stepper`.
+     * Wire the theme's own real `KTStepper` inside a create dialog's `.stepper`.
      *
      * The vendor component only tracks the current step and toggles its own
      * `current`/`completed`/`pending`/`first`/`between`/`last` classes — the
