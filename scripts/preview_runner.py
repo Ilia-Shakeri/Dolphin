@@ -42,7 +42,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from common.deployment.registry import PROFILES  # noqa: E402
+from common.deployment.registry import valid_profile_id  # noqa: E402
 from scripts.sign_deployment_manifest import (  # noqa: E402
     build_manifest,
     derive_public_key,
@@ -222,7 +222,11 @@ def start(*, profile_id, features, display_name=""):
     """
     if not features:
         raise PreviewError("دست‌کم یک فیچر لازم است.")
-    if profile_id not in PROFILES:
+    # Not `in PROFILES`: previewing a brand-new customer's own not-yet-real
+    # profile id is exactly the case this exists for (2026-09-05 — see the
+    # comment above `PROFILES` in common/deployment/registry.py). Still
+    # refuses anything malformed.
+    if not valid_profile_id(profile_id):
         raise PreviewError(f"شناسهٔ نسخهٔ نامعتبر: {profile_id}")
 
     stop()

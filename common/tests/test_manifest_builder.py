@@ -19,9 +19,11 @@ Four things are worth proving, not assuming:
   not the only thing standing between this and a wider network.
 """
 
+import base64
 import html
 import http.client
 import importlib.util
+import inspect
 import io
 import json
 import shutil
@@ -126,9 +128,21 @@ class ResultHtmlTests(SimpleTestCase):
         self.assertIn("ساخته نشد", page)
         self.assertIn("فیچر", page)
 
-    def test_an_unknown_profile_is_refused(self):
+    def test_an_unfamiliar_but_well_formed_profile_now_signs_not_refuses(self):
+        """2026-09-05 design change: a profile id this release has never
+        seen (well-formed, not one of the three in `PROFILES`) is exactly
+        how a real new customer is onboarded with no code change — see the
+        comment above `PROFILES` in `common/deployment/registry.py`. Until
+        this date this exact input was refused."""
         page = self.build(
-            profile_id="not-a-real-profile", key_id="k1", private_key_path=self.key_path,
+            profile_id="a-brand-new-customer", key_id="k1", private_key_path=self.key_path,
+            feature=["customers"],
+        )
+        self.assertIn("ساخته و امضا شد", page)
+
+    def test_a_malformed_profile_is_still_refused(self):
+        page = self.build(
+            profile_id="Not A Valid Shape!", key_id="k1", private_key_path=self.key_path,
             feature=["customers"],
         )
         self.assertIn("ساخته نشد", page)
@@ -345,6 +359,76 @@ class PageRenderTests(SimpleTestCase):
         self.assertNotIn("brand-colour", builder._page().lower())
         self.assertNotIn("brand_color", builder._page().lower())
 
+    def test_select_all_and_select_none_buttons_are_present(self):
+        page = builder._page()
+        self.assertIn('data-feature-select="all"', page)
+        self.assertIn('data-feature-select="none"', page)
+
+    def test_the_home_link_is_present(self):
+        self.assertIn('href="/start/"', builder._page())
+
+
+class StyleTests(SimpleTestCase):
+    """The 2026-09-05 visual pass (product-owner request): a real embedded
+    typeface instead of the system-default Tahoma this tool started with,
+    and consistent spacing tokens instead of ad-hoc pixel values repeated
+    per rule.
+    """
+
+    def test_the_product_font_is_embedded_not_left_to_the_system_default(self):
+        self.assertIn("@font-face", builder._STYLE)
+        self.assertIn("IRANSansWeb", builder._STYLE)
+        self.assertNotIn("Tahoma, sans-serif;", builder._STYLE.split("font-family:")[1][:40])
+
+    def test_the_embedded_font_data_actually_loaded_from_the_repository_asset(self):
+        """Distinguishes a real embed from a silently-empty one: the same
+        `assets/fonts/IRANSansWeb.woff2` the served product itself loads
+        (`assets/css/style.bundle.rtl.css`) is what this reads, so a
+        near-tiny base64 string here would mean the read quietly failed
+        rather than that the font is genuinely small.
+        """
+        self.assertGreater(len(builder._IRANSANS_WOFF2_BASE64), 10_000)
+
+    def test_spacing_uses_shared_tokens_not_repeated_magic_numbers(self):
+        self.assertIn("--gap:", builder._STYLE)
+        self.assertIn("var(--gap)", builder._STYLE)
+
+
+class LandingPageTests(SimpleTestCase):
+    """`/start/` — what actually opens when the tool launches (2026-09-05
+    product-owner request: "two options, not straight into the form").
+    """
+
+    def test_it_offers_exactly_two_options(self):
+        page = builder._landing_page()
+        self.assertEqual(page.count('class="option-card"'), 2)
+
+    def test_one_option_leads_to_the_quick_form(self):
+        page = builder._landing_page()
+        self.assertIn('href="/"', page)
+        self.assertIn("ساخت جدید", page)
+
+    def test_the_other_leads_to_the_console(self):
+        page = builder._landing_page()
+        self.assertIn('href="/console/"', page)
+        self.assertIn("مدیریت همهٔ استقرارها", page)
+
+    def test_main_opens_the_landing_page_not_the_form_directly(self):
+        """The regression this whole page exists to prevent: `main()` used
+        to point `webbrowser.open`/the desktop window at `/` — the form —
+        directly. If either ever silently reverts to that, this page still
+        renders fine but nothing sends anyone to it.
+        """
+        with patch.object(builder, "webbrowser") as mock_webbrowser, \
+             patch.object(builder, "ThreadingHTTPServer") as mock_server_cls:
+            mock_server = MagicMock()
+            mock_server.server_forever = MagicMock()
+            mock_server_cls.return_value = mock_server
+            mock_server.serve_forever.side_effect = KeyboardInterrupt
+            builder.main(["--port", "18799"])
+        opened_url = mock_webbrowser.open.call_args.args[0]
+        self.assertTrue(opened_url.endswith("/start/"), opened_url)
+
 
 class ConsolePageTests(SimpleTestCase):
     """The console's page-builder functions, given records directly — no
@@ -389,9 +473,192 @@ class ConsolePageTests(SimpleTestCase):
         # even though the key id is repopulated.
         self.assertIn('name="private_key_path" value=""', page)
 
+    def test_the_detail_pages_reissue_form_also_offers_select_all_and_none(self):
+        record = deployment_records.DeploymentRecord(
+            slug="tiara", display_name="Tiara CRM", host="crm.tiara.ir",
+            profile_id="demo", features=("customers",),
+        )
+        page = builder._console_detail_page(record)
+        self.assertIn('data-feature-select="all"', page)
+        self.assertIn('data-feature-select="none"', page)
+
+    def test_every_console_page_links_back_to_the_landing_page(self):
+        empty_list = builder._console_list_page({})
+        record = deployment_records.DeploymentRecord(slug="tiara", profile_id="demo", features=("customers",))
+        detail = builder._console_detail_page(record)
+        not_found = builder._not_found_console_page("ghost")
+        for page in (empty_list, detail, not_found):
+            self.assertIn('href="/start/"', page)
+
     def test_the_not_found_page_names_the_missing_slug(self):
         page = builder._not_found_console_page("ghost")
         self.assertIn("ghost", page)
+
+
+class ImportManifestTests(ConsoleStoreIsolationMixin, SimpleTestCase):
+    """Bringing an already-signed manifest into the local console archive
+    with no private key and no re-signing (2026-09-05 product-owner
+    request: TIARA's real manifest.json, signed by hand with
+    `sign_deployment_manifest.py` two days before the console existed, has
+    never appeared at `/console/` for exactly this reason).
+    """
+
+    def setUp(self):
+        super().setUp()
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir, ignore_errors=True)
+        self.tmp_dir = tmp_dir
+        key_path = str(Path(tmp_dir) / "signing.pem")
+        signer.generate_key(key_path)
+        self.seed = signer.read_private_seed(key_path)
+
+    def write_manifest(self, *, key_id="tiara-2026", profile_id="client-1",
+                        features=("customers", "leads"), issued_at="2026-09-01T09:51:39Z"):
+        manifest_bytes = signer.build_manifest(
+            seed=self.seed, key_id=key_id, profile_id=profile_id,
+            features=list(features), issued_at=issued_at,
+        )
+        path = Path(self.tmp_dir) / "to_import.json"
+        path.write_bytes(manifest_bytes)
+        return str(path)
+
+    def build(self, **fields):
+        form = {"import_slug": [""], "import_manifest_path": [""],
+                "import_display_name": [""], "import_host": [""]}
+        form.update({key: (value if isinstance(value, list) else [value]) for key, value in fields.items()})
+        return builder._build_import_result_html(form)
+
+    def test_importing_needs_no_private_key_at_all(self):
+        """The defining constraint: nothing about the signing key — not its
+        path, not its bytes — appears anywhere in the import form or path."""
+        source = inspect.getsource(builder._build_import_result_html)
+        source += inspect.getsource(builder._decode_manifest_payload)
+        self.assertNotIn("private_key", source)
+        self.assertNotIn("read_private_seed", source)
+
+    def test_a_well_formed_manifest_is_imported_as_an_editable_record(self):
+        manifest_path = self.write_manifest(
+            key_id="tiara-2026", profile_id="client-1",
+            features=("customers", "leads", "sales"),
+            issued_at="2026-09-01T09:51:39Z",
+        )
+        page = self.build(import_slug="tiara", import_manifest_path=manifest_path,
+                           import_display_name="TIARA")
+        self.assertIn("به بایگانی کنسول اضافه شد", page)
+        record = deployment_records.get("tiara")
+        self.assertIsNotNone(record)
+        self.assertEqual(record.profile_id, "client-1")
+        self.assertEqual(set(record.features), {"customers", "leads", "sales"})
+        self.assertEqual(record.key_id, "tiara-2026")
+        self.assertEqual(record.manifest_issued_at, "2026-09-01T09:51:39Z")
+        self.assertEqual(record.display_name, "TIARA")
+
+    def test_the_imported_record_is_reachable_and_pre_ticked_on_its_own_console_page(self):
+        manifest_path = self.write_manifest(features=("customers", "leads", "after_sales"))
+        self.build(import_slug="tiara", import_manifest_path=manifest_path)
+        record = deployment_records.get("tiara")
+        detail_page = builder._console_detail_page(record)
+        for feature in ("customers", "leads", "after_sales"):
+            self.assertIn(f'value="{feature}" checked', detail_page)
+        self.assertIn('value="client-1"', detail_page)
+
+    def test_reissuing_from_an_imported_record_only_adds_the_requested_feature(self):
+        """The other half of the concrete verification this feature was
+        built against: import, then sign fresh with one feature added, and
+        the decoded payload must be exactly the original set plus that one
+        — nothing dropped, nothing else added."""
+        original_features = ("after_sales", "audit_log", "customer_ledger", "customers",
+                              "inbound_sms", "inventory", "invoices", "leads", "orders",
+                              "payments", "products", "reports", "sales", "sales_documents")
+        manifest_path = self.write_manifest(features=original_features)
+        self.build(import_slug="tiara", import_manifest_path=manifest_path)
+        record = deployment_records.get("tiara")
+
+        new_key_path = str(Path(self.tmp_dir) / "reissue-signing.pem")
+        signer.generate_key(new_key_path)
+        reissue_form = {
+            "profile_id": [record.profile_id],
+            "key_id": [record.key_id],
+            "private_key_path": [new_key_path],
+            "feature": list(record.features) + ["attachments"],
+            "deploy_image": [""],
+            "regenerate_env": [""],
+        }
+        reissue_html = builder._build_reissue_result_html(record, reissue_form)
+        envelope = json.loads(html.unescape(reissue_html.split("<pre>")[-1].split("</pre>")[0]))
+        payload = json.loads(base64.b64decode(envelope["payload"]))
+        self.assertEqual(set(payload["features"]), set(original_features) | {"attachments"})
+        self.assertEqual(payload["profile_id"], "client-1")
+
+    def test_the_real_repo_root_manifest_is_importable_and_left_untouched(self):
+        """The exact concrete scenario reported: TIARA's real manifest.json
+        at the repository root, signed before the console existed."""
+        repo_manifest = REPOSITORY_ROOT / "manifest.json"
+        if not repo_manifest.exists():
+            self.skipTest("no repo-root manifest.json in this checkout")
+        original_bytes = repo_manifest.read_bytes()
+        page = self.build(import_slug="tiara", import_manifest_path=str(repo_manifest))
+        self.assertIn("به بایگانی کنسول اضافه شد", page)
+        record = deployment_records.get("tiara")
+        self.assertEqual(record.profile_id, "client-1")
+        self.assertEqual(len(record.features), 14)
+        self.assertEqual(repo_manifest.read_bytes(), original_bytes)
+
+    def test_a_missing_slug_is_refused(self):
+        manifest_path = self.write_manifest()
+        page = self.build(import_manifest_path=manifest_path)
+        self.assertIn("درون‌ریزی نشد", page)
+        self.assertIsNone(deployment_records.get("tiara"))
+
+    def test_a_missing_file_path_is_refused(self):
+        page = self.build(import_slug="tiara")
+        self.assertIn("درون‌ریزی نشد", page)
+
+    def test_a_nonexistent_file_produces_a_readable_error_not_a_crash(self):
+        page = self.build(import_slug="tiara", import_manifest_path=str(Path(self.tmp_dir) / "ghost.json"))
+        self.assertIn("درون‌ریزی نشد", page)
+
+    def test_malformed_json_produces_a_readable_error_not_a_crash(self):
+        path = Path(self.tmp_dir) / "bad.json"
+        path.write_text("{not valid json", encoding="utf-8")
+        page = self.build(import_slug="tiara", import_manifest_path=str(path))
+        self.assertIn("درون‌ریزی نشد", page)
+
+    def test_a_malformed_profile_id_inside_the_payload_is_refused(self):
+        """Reading is not the same as trusting blindly: even a
+        structurally-fine envelope with a payload that itself violates the
+        same shape rule `common/deployment/manifest.py` enforces is refused,
+        not imported as-is."""
+        payload = json.dumps(
+            {"manifest_version": 1, "profile_id": "Not Valid!", "issued_at": "2026-01-01T00:00:00Z",
+             "features": ["customers"]},
+            sort_keys=True, separators=(",", ":"),
+        ).encode("utf-8")
+        _, signature = signer.sign(self.seed, payload)
+        envelope = {
+            "manifest_version": 1, "algorithm": "ed25519", "key_id": "k1",
+            "payload": base64.b64encode(payload).decode("ascii"),
+            "signature": base64.b64encode(signature).decode("ascii"),
+        }
+        path = Path(self.tmp_dir) / "bad_profile.json"
+        path.write_text(json.dumps(envelope), encoding="utf-8")
+        page = self.build(import_slug="tiara", import_manifest_path=str(path))
+        self.assertIn("درون‌ریزی نشد", page)
+        self.assertIsNone(deployment_records.get("tiara"))
+
+    def test_importing_twice_updates_the_same_record_not_a_duplicate(self):
+        manifest_path = self.write_manifest(features=("customers",))
+        self.build(import_slug="tiara", import_manifest_path=manifest_path)
+        first = deployment_records.get("tiara")
+
+        manifest_path_2 = self.write_manifest(features=("customers", "leads"), issued_at="2026-09-02T00:00:00Z")
+        self.build(import_slug="tiara", import_manifest_path=manifest_path_2)
+        second = deployment_records.get("tiara")
+
+        self.assertEqual(len(deployment_records.load_all()), 1)
+        self.assertEqual(set(second.features), {"customers", "leads"})
+        # `created_at` is preserved across the update, same as a reissue.
+        self.assertEqual(first.created_at, second.created_at)
 
 
 class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
@@ -430,6 +697,11 @@ class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
         status, page = self.request("GET", "/")
         self.assertEqual(status, 200)
         self.assertIn("ابزار ساخت Manifest", page)
+
+    def test_the_landing_page_loads_over_a_real_request_too(self):
+        status, page = self.request("GET", "/start/")
+        self.assertEqual(status, 200)
+        self.assertEqual(page.count('class="option-card"'), 2)
 
     def test_a_spoofed_host_header_is_refused(self):
         status, _ = self.request("GET", "/", host="evil.example.com")
@@ -632,9 +904,17 @@ class PreviewButtonTests(SimpleTestCase):
         form.update({key: (value if isinstance(value, list) else [value]) for key, value in fields.items()})
         return builder._build_preview_result_html(form)
 
-    def test_an_invalid_profile_is_refused_before_calling_preview_runner(self):
+    def test_an_unfamiliar_but_well_formed_profile_previews_not_refuses(self):
+        """Same 2026-09-05 change as ResultHtmlTests — previewing a
+        brand-new customer's own not-yet-real profile id is exactly the
+        case this button exists for."""
         with patch.object(builder.preview_runner, "start") as start:
-            page = self.build(profile_id="not-a-real-profile", feature=["customers"])
+            self.build(profile_id="a-brand-new-customer", feature=["customers"])
+        start.assert_called_once()
+
+    def test_a_malformed_profile_is_refused_before_calling_preview_runner(self):
+        with patch.object(builder.preview_runner, "start") as start:
+            page = self.build(profile_id="Not A Valid Shape!", feature=["customers"])
         start.assert_not_called()
         self.assertIn("پیش‌نمایش ساخته نشد", page)
 
@@ -695,6 +975,21 @@ class PreviewButtonTests(SimpleTestCase):
         self.assertIn("8918", banner)
         self.assertIn("s3cr3t", banner)
         self.assertIn("/preview/stop", banner)
+
+    def test_the_username_and_password_each_get_their_own_copy_button(self):
+        """2026-09-05 product-owner request: these are the only two values on
+        any page this tool renders that a reader would otherwise retype by
+        hand off the screen character-for-character."""
+        state = {
+            "port": 8918, "username": "preview_admin", "password": "s3cr3t",
+            "display_name": "", "profile_id": "demo", "features": ("customers",),
+            "started_at": "2026-01-01T00:00:00Z",
+        }
+        with patch.object(builder.preview_runner, "status", return_value=state):
+            banner = builder._preview_status_html()
+        self.assertIn('data-copy="preview_admin"', banner)
+        self.assertIn('data-copy="s3cr3t"', banner)
+        self.assertEqual(banner.count("data-copy="), 2)
 
 
 class PreviewRouteTests(SimpleTestCase):

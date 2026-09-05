@@ -40,9 +40,9 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from common.deployment import ed25519  # noqa: E402
 from common.deployment.registry import (  # noqa: E402
-    PROFILES,
     missing_dependencies,
     unknown_features,
+    valid_profile_id,
 )
 
 
@@ -106,8 +106,8 @@ def read_private_seed(path):
 
 
 def build_manifest(*, seed, key_id, profile_id, features, issued_at):
-    if profile_id not in PROFILES:
-        raise ValueError(f"Unknown profile id: {profile_id}")
+    if not valid_profile_id(profile_id):
+        raise ValueError(f"Malformed profile id: {profile_id!r}")
     absent = unknown_features(features)
     if absent:
         raise ValueError(f"Unknown features: {', '.join(sorted(absent))}")
@@ -205,7 +205,12 @@ def main(argv=None):
     )
     parser.add_argument("--private-key")
     parser.add_argument("--key-id")
-    parser.add_argument("--profile-id", choices=sorted(PROFILES))
+    # No `choices=` restriction: a profile id this release has never seen
+    # before is exactly how a new customer is onboarded (see the 2026-09-05
+    # comment above `PROFILES` in common/deployment/registry.py). Malformed
+    # is still refused, by `build_manifest`'s own `valid_profile_id` check
+    # below, with the same clean CLI error every other validation here uses.
+    parser.add_argument("--profile-id")
     parser.add_argument("--feature", action="append", default=[], dest="features")
     parser.add_argument("--issued-at", default=None)
     parser.add_argument("--output")

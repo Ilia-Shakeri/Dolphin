@@ -1552,10 +1552,30 @@ default-open branch, a manifest that is:
 - signed by a key id that is not configured as trusted (an empty trusted-key
   mapping therefore verifies nothing);
 - tampered with in any byte of payload or signature;
-- issued for a `profile_id` this release does not know;
+- carrying a `profile_id` that is not a well-formed identifier (empty,
+  oversized, or outside `[a-z][a-z0-9_-]{1,63}`);
 - naming a feature this release does not ship;
 - naming a feature whose dependencies are not also enabled;
 - repeating a feature, or missing `issued_at`.
+
+**2026-09-05 — `profile_id` is no longer checked against a fixed set.**
+Until this date the check above was "issued for a `profile_id` this release
+does not know" — `PROFILES` in `common/deployment/registry.py` had exactly
+three entries (`client-1`, `demo`, `development`), and a correctly-signed
+manifest naming any other value was refused. That made onboarding a real new
+customer beyond Client-1 require editing that dict and shipping a release,
+for a check that a full-codebase search showed carries no actual privilege:
+`feature_enabled()` — the one function every authorisation-relevant read
+goes through — reads only `active_profile().features`, never `.profile_id`.
+The real fail-closed guarantees are the Ed25519 signature (proves the
+manifest came from a trusted key holder) and the feature-set checks in this
+same list; neither depends on `profile_id` being one of a fixed set. A
+well-formed profile id this release has never seen is now accepted, which is
+what lets `scripts/manifest_builder.py`'s console mint one for a brand-new
+customer with no code change — see
+`docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md` §7. `PROFILES` still names the
+three ids already in real use, now only as descriptions for the console's
+and CLI's own suggestion/default UI.
 
 A refusal raises `ImproperlyConfigured` from `AppConfig.ready`, so the process
 does not start. In addition, `feature_enabled()` returns `False` for any name

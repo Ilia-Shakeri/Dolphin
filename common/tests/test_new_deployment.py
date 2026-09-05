@@ -235,6 +235,31 @@ class MainEntryPointTests(SimpleTestCase):
             ])
             self.assertEqual((out_dir / "secrets").stat().st_mode & 0o777, 0o700)
 
+    def test_a_brand_new_profile_id_is_accepted_no_code_change_needed(self):
+        """2026-09-05 design change: `--profile` is no longer restricted to
+        `PROFILES`'s three existing entries — see the comment above that
+        dict in `common/deployment/registry.py`. Onboarding a real new
+        customer beyond Client-1 with its own profile id is exactly this."""
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "deployment"
+            exit_code = provisioning.main([
+                "--slug", "acme", "--host", "crm.acme.ir", "--out", str(out_dir),
+                "--profile", "acme-corp",
+            ])
+            self.assertEqual(exit_code, 0)
+            env_text = (out_dir / "secrets" / ".env").read_text(encoding="utf-8")
+            self.assertIn("# Profile: acme-corp", env_text)
+
+    def test_a_malformed_profile_id_is_still_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out_dir = Path(directory) / "deployment"
+            exit_code = provisioning.main([
+                "--slug", "acme", "--host", "crm.acme.ir", "--out", str(out_dir),
+                "--profile", "Not Valid!",
+            ])
+            self.assertEqual(exit_code, 2)
+            self.assertFalse((out_dir / "secrets" / ".env").exists())
+
     def test_a_second_run_refuses_rather_than_replacing_the_secrets(self):
         with tempfile.TemporaryDirectory() as directory:
             out_dir = Path(directory) / "deployment"

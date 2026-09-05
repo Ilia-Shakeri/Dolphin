@@ -30,6 +30,7 @@ from common.deployment.registry import (
     PROFILES,
     missing_dependencies,
     unknown_features,
+    valid_profile_id,
 )
 from common.models import DeploymentProfileCache
 from sales.models import Customer, Sale
@@ -215,12 +216,12 @@ class ManifestVerificationTests(SimpleTestCase):
         with self.assertRaisesMessage(ManifestError, "algorithm is not supported"):
             verify_manifest_bytes(raw, trusted_keys())
 
-    def test_an_unknown_profile_is_refused_even_when_correctly_signed(self):
+    def _resign_with_profile(self, profile_id):
         envelope = json.loads(signed_manifest())
         payload = json.dumps(
             {
                 "manifest_version": 1,
-                "profile_id": "client-99",
+                "profile_id": profile_id,
                 "issued_at": "2026-08-15T00:00:00Z",
                 "features": ["customers"],
             },
@@ -230,8 +231,31 @@ class ManifestVerificationTests(SimpleTestCase):
         _, signature = signer.sign(TEST_SEED, payload)
         envelope["payload"] = base64.b64encode(payload).decode("ascii")
         envelope["signature"] = base64.b64encode(signature).decode("ascii")
-        with self.assertRaisesMessage(ManifestError, "unknown profile"):
-            verify_manifest_bytes(json.dumps(envelope).encode("utf-8"), trusted_keys())
+        return json.dumps(envelope).encode("utf-8")
+
+    def test_a_correctly_signed_new_profile_is_accepted_not_refused(self):
+        """2026-09-05 design change: `profile_id` is a descriptive label, not
+        a privilege — grepping the whole codebase turned up nothing that
+        branches on it (`feature_enabled()`, the one function every real
+        access decision goes through, reads only `.features`). A well-formed
+        profile id this release has never seen is exactly how a real new
+        customer beyond the three already in `PROFILES` gets onboarded with
+        no code change — see the comment above `PROFILES` in
+        `common/deployment/registry.py`. Until this date this same input
+        (`profile_id="client-99"`, correctly signed) was refused; that was
+        the behaviour under test here before, and it was never a real
+        security boundary, only an unnecessary one.
+        """
+        verified = verify_manifest_bytes(self._resign_with_profile("client-99"), trusted_keys())
+        self.assertEqual(verified.profile_id, "client-99")
+
+    def test_a_malformed_profile_id_is_still_refused(self):
+        """The thing that actually stayed a fail-closed guard after the
+        change above: shape, not membership in a fixed dict."""
+        for bad in ("", "Client-1", "1client", "client 1", "a", "x" * 65):
+            with self.subTest(profile_id=bad):
+                with self.assertRaisesMessage(ManifestError, "profile id is malformed"):
+                    verify_manifest_bytes(self._resign_with_profile(bad), trusted_keys())
 
     def test_an_unknown_feature_is_refused(self):
         raw = signed_manifest(features=("customers", "invoicing"))
@@ -409,6 +433,70 @@ class FeatureRegistryTests(SimpleTestCase):
         self.assertIn("development", PROFILES)
         self.assertIn("client-1", PROFILES)
         self.assertIn("demo", PROFILES)
+
+    def test_nothing_in_the_codebase_branches_on_profile_id(self):
+        """The evidence the 2026-09-05 design change rests on, checked
+        directly rather than only asserted in a comment: `feature_enabled()`
+        — the one function every real authorisation decision goes through —
+        must never read `.profile_id`, only `.features`. If this ever
+        changes, the "profile id carries no privilege" reasoning behind
+        accepting an unfamiliar one (see `PROFILES` in this module) needs
+        re-examining, not silently drifting out of date.
+        """
+        import inspect
+
+        from common.deployment import profile as profile_module
+
+        source = inspect.getsource(profile_module.feature_enabled)
+        self.assertNotIn("profile_id", source)
+
+
+class ProfileIdValidationTests(SimpleTestCase):
+    """`valid_profile_id` / `PROFILE_ID_PATTERN` — shape only, not membership
+    in `PROFILES`. This is the one thing that stayed a real refusal after
+    the 2026-09-05 change documented above `PROFILES` in registry.py: a
+    manifest may now name any profile id this release has never heard of,
+    but not one that is empty, oversized, or carries a character the rest
+    of this codebase's identifiers never do.
+    """
+
+    def test_the_three_existing_ids_are_all_well_formed(self):
+        for existing in PROFILES:
+            with self.subTest(profile_id=existing):
+                self.assertTrue(valid_profile_id(existing))
+
+    def test_a_brand_new_lowercase_identifier_is_well_formed(self):
+        self.assertTrue(valid_profile_id("acme-corp-2026"))
+        self.assertTrue(valid_profile_id("tiara2"))
+        self.assertTrue(valid_profile_id("a_b"))
+
+    def test_not_a_string_is_never_valid(self):
+        for bad in (None, 123, ["client-1"], {"client-1"}):
+            with self.subTest(value=bad):
+                self.assertFalse(valid_profile_id(bad))
+
+    def test_empty_or_oversized_is_invalid(self):
+        self.assertFalse(valid_profile_id(""))
+        self.assertFalse(valid_profile_id("a"))  # one character alone is too short
+        self.assertFalse(valid_profile_id("a" * 65))
+        self.assertTrue(valid_profile_id("a" * 64))
+
+    def test_must_start_with_a_lowercase_letter(self):
+        self.assertFalse(valid_profile_id("1client"))
+        self.assertFalse(valid_profile_id("-client"))
+        self.assertFalse(valid_profile_id("_client"))
+
+    def test_uppercase_and_whitespace_are_invalid(self):
+        self.assertFalse(valid_profile_id("Client-1"))
+        self.assertFalse(valid_profile_id("client 1"))
+        self.assertFalse(valid_profile_id("client\t1"))
+
+    def test_hyphen_and_underscore_are_both_allowed_mid_string(self):
+        """Unlike `new_deployment.py`'s own `SLUG_PATTERN`, which forbids a
+        hyphen — this pattern must keep accepting the existing `client-1`
+        verbatim, which a slug-only pattern would reject."""
+        self.assertTrue(valid_profile_id("client-1"))
+        self.assertTrue(valid_profile_id("client_1"))
 
 
 class FeatureGateEnforcementTests(TestCase):
@@ -642,12 +730,22 @@ class SigningToolSafetyTests(SimpleTestCase):
         self.assertNotIn("PRIVATE KEY", settings_text)
         self.assertIn("DEPLOYMENT_MANIFEST_PUBLIC_KEYS", settings_text)
 
-    def test_the_tool_refuses_an_unknown_profile_or_feature(self):
+    def test_the_tool_accepts_a_new_profile_but_refuses_bad_shape_or_feature(self):
+        # A profile id this release has never seen is exactly the onboarding
+        # path (2026-09-05 design change) — see the comment above `PROFILES`
+        # in common/deployment/registry.py — so this must build, not raise.
+        signer.build_manifest(
+            seed=TEST_SEED,
+            key_id=KEY_ID,
+            profile_id="client-99",
+            features=["customers"],
+            issued_at="2026-08-15T00:00:00Z",
+        )
         with self.assertRaises(ValueError):
             signer.build_manifest(
                 seed=TEST_SEED,
                 key_id=KEY_ID,
-                profile_id="client-99",
+                profile_id="Client-1",  # uppercase — malformed shape, still refused
                 features=["customers"],
                 issued_at="2026-08-15T00:00:00Z",
             )

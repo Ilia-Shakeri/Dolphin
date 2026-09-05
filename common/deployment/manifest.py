@@ -9,8 +9,13 @@ issue or alter one that verifies.
 Every rejection path raises `ManifestError`. There is no partially-trusted
 outcome and no default-open branch: a manifest that is missing, malformed,
 unsigned, signed by an unknown key, signed with an unknown algorithm, tampered
-with, issued for an unknown profile, naming an unknown feature, or naming a
-feature whose dependencies are unmet is refused outright.
+with, carrying a malformed profile id, naming an unknown feature, or naming a
+feature whose dependencies are unmet is refused outright. A profile id this
+release has never seen before is accepted, not refused, as long as it is
+well-formed and the signature verifies — see the 2026-09-05 comment above
+`PROFILES` in `common/deployment/registry.py` for why that is the safe
+choice: nothing here or anywhere else branches on `profile_id`, so its
+membership in a fixed set was never the thing keeping this fail-closed.
 """
 
 import base64
@@ -20,9 +25,9 @@ import json
 
 from common.deployment import ed25519
 from common.deployment.registry import (
-    PROFILES,
     missing_dependencies,
     unknown_features,
+    valid_profile_id,
 )
 
 
@@ -111,9 +116,14 @@ def verify_manifest_bytes(raw, public_keys):
     if payload.get("manifest_version") != SUPPORTED_MANIFEST_VERSION:
         raise ManifestError("The signed manifest payload version is not supported.")
 
+    # `profile_id` is a descriptive label, not a privilege: nothing in this
+    # codebase branches on it (see the 2026-09-05 comment above `PROFILES` in
+    # registry.py). Malformed is refused; unfamiliar is not — a manifest
+    # naming a profile id this release has never seen before is exactly how
+    # a new customer is onboarded without a code change.
     profile_id = payload.get("profile_id")
-    if not isinstance(profile_id, str) or profile_id not in PROFILES:
-        raise ManifestError("The deployment manifest names an unknown profile.")
+    if not valid_profile_id(profile_id):
+        raise ManifestError("The deployment manifest's profile id is malformed.")
 
     features = payload.get("features")
     if not isinstance(features, list) or not all(isinstance(item, str) for item in features):

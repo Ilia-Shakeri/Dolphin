@@ -16,6 +16,8 @@ depends on another only where a *non-nullable* foreign key makes its rows
 impossible without the other module's rows.
 """
 
+import re
+
 
 # feature name -> features it cannot function without
 FEATURE_DEPENDENCIES = {
@@ -176,14 +178,52 @@ ALL_FEATURES = FEATURES
 #: ships, minus the modules that are off by default.
 DEFAULT_FEATURES = ALL_FEATURES - DEFAULT_OFF_FEATURES
 
-# Known deployment profile identifiers. An id absent from this table is refused
-# even when its signature is valid, so a manifest issued for a deployment this
-# release does not know about cannot start it.
+# A deployment's own descriptive label, not an access-control boundary.
+#
+# 2026-09-05 revision: until this date, `common/deployment/manifest.py`
+# refused any manifest whose `profile_id` was absent from this dict, even
+# with a genuine signature — the console and both signing scripts enforced
+# the same closed set. That made onboarding a real new customer beyond the
+# three ids already here (a paying SaaS customer, not Client-1) require
+# editing this file and shipping a release, for a check that traced (grepped
+# across the whole codebase) to carry no actual privilege: nothing reads
+# `DeploymentProfile.profile_id` to decide what a deployment may do —
+# `feature_enabled()`, the one function every authorisation-relevant read
+# goes through, consults only `active_profile().features`, never
+# `.profile_id`. The real fail-closed guarantees are the Ed25519 signature
+# (proves the manifest came from a trusted key holder) and
+# `unknown_features`/`missing_dependencies` below (prove the *feature set*
+# — the thing that actually grants access — is valid and self-consistent).
+# Neither depends on `profile_id` being one of a fixed set.
+#
+# `profile_id` is now validated only for shape (`PROFILE_ID_MAX_LENGTH`,
+# `valid_profile_id()`), so a deployment console can mint a brand-new one for
+# a brand-new customer with no code change and no release — see
+# `docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md` §7 for the operator-facing
+# version of this. This dict itself is kept only as a source of the three
+# ids Client-1/demo/development already use, and their descriptions, for the
+# console's and CLI's own suggestion/default UI — not as a validation gate.
 PROFILES = {
     "client-1": "First operational customer deployment.",
     "demo": "Reduced demonstration deployment.",
     "development": "Local development and automated tests only.",
 }
+
+#: A profile id is an operator-chosen label carried inside a signed
+#: manifest, not a database key and not a URL segment on its own — but it is
+#: cached verbatim in `common.models.DeploymentProfileCache.profile_id`
+#: (`max_length=64`), so the bound here matches that column exactly rather
+#: than inventing a second number that could drift from it.
+PROFILE_ID_MAX_LENGTH = 64
+#: Same character set `scripts/new_deployment.py`'s `SLUG_PATTERN` uses for a
+#: deployment slug, plus a hyphen — required to keep accepting the existing
+#: `client-1` verbatim, which a slug-only pattern would reject.
+PROFILE_ID_PATTERN = re.compile(rf"\A[a-z][a-z0-9_-]{{1,{PROFILE_ID_MAX_LENGTH - 1}}}\Z")
+
+
+def valid_profile_id(value):
+    """Well-formed, not necessarily one of the ids already in `PROFILES`."""
+    return isinstance(value, str) and bool(PROFILE_ID_PATTERN.match(value))
 
 
 def unknown_features(names):

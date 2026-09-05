@@ -48,6 +48,7 @@ from common.deployment.registry import (  # noqa: E402
     PROFILES,
     missing_dependencies,
     unknown_features,
+    valid_profile_id,
 )
 
 
@@ -186,7 +187,10 @@ def env_lines(*, slug, host, image, profile, manifest_path, manifest_keys, reten
         "KARIZ_SELLER_ECONOMIC_CODE=",
         "",
         "# --- signed deployment manifest ---------------------------------------",
-        f"# Profile: {profile} — {PROFILES[profile]}",
+        # `PROFILES.get(...)` rather than `[...]`: a profile id for a new
+        # customer beyond the three already in that dict is valid and has no
+        # description to print — the comment just names the id then.
+        f"# Profile: {profile}" + (f" — {PROFILES[profile]}" if profile in PROFILES else ""),
         f"KARIZ_DEPLOYMENT_MANIFEST_PATH={manifest_path}",
         f"KARIZ_DEPLOYMENT_MANIFEST_KEYS={manifest_keys}",
         "",
@@ -309,7 +313,11 @@ def parse_arguments(argv):
     parser.add_argument("--out", help="deployment directory to write the .env into")
     parser.add_argument("--features", default=None,
                         help="comma-separated; omit for this release's default set")
-    parser.add_argument("--profile", default="client-1", choices=sorted(PROFILES))
+    # No `choices=` restriction: a profile id this release has never seen
+    # before is exactly how a new customer is onboarded, with no code change
+    # (see the 2026-09-05 comment above `PROFILES` in
+    # common/deployment/registry.py). Malformed is still refused below.
+    parser.add_argument("--profile", default="client-1")
     parser.add_argument("--image", default="dolphin-app:latest",
                         help="application image reference for the first release")
     parser.add_argument("--manifest-path", default="/srv/dolphin/secrets/manifest.json")
@@ -364,6 +372,11 @@ def main(argv=None):
         if not HOST_PATTERN.match(arguments.host):
             raise ProvisioningError(
                 "--host must be a bare hostname: no scheme, no port, no path."
+            )
+        if not valid_profile_id(arguments.profile):
+            raise ProvisioningError(
+                "--profile must be 2-64 characters, lowercase letters/digits/"
+                "underscore/hyphen, starting with a letter."
             )
 
         requested = (

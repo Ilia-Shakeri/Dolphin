@@ -83,6 +83,13 @@ class PreviewHelperTests(SimpleTestCase):
         preview_runner.stop()  # in case an earlier test in this run left one
         self.assertIsNone(preview_runner.status())
 
+    def test_a_malformed_profile_id_is_refused_before_any_subprocess_work(self):
+        """Still refused after the 2026-09-05 relaxation (see the comment
+        above `PROFILES` in common/deployment/registry.py) — only shape is
+        checked now, not membership in a fixed set."""
+        with self.assertRaises(preview_runner.PreviewError):
+            preview_runner.start(profile_id="Not Valid!", features={"customers"})
+
     def test_stop_with_nothing_running_is_a_safe_no_op(self):
         preview_runner.stop()
         preview_runner.stop()  # twice in a row must not raise either
