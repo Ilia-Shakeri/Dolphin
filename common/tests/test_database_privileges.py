@@ -31,14 +31,14 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertNotIn("env_file", self.services["migrate"])
 
         web_environment = self.services["web"]["environment"]
-        self.assertEqual(web_environment["KARIZ_DATABASE_ROLE"], "app")
+        self.assertEqual(web_environment["DOLPHIN_DATABASE_ROLE"], "app")
         self.assertIn("POSTGRES_APP_PASSWORD", web_environment)
         self.assertNotIn("POSTGRES_MIGRATION_PASSWORD", web_environment)
         self.assertNotIn("POSTGRES_INIT_PASSWORD", web_environment)
         self.assertNotIn("POSTGRES_BACKUP_PASSWORD", web_environment)
 
         migration_environment = self.services["migrate"]["environment"]
-        self.assertEqual(migration_environment["KARIZ_DATABASE_ROLE"], "migration")
+        self.assertEqual(migration_environment["DOLPHIN_DATABASE_ROLE"], "migration")
         self.assertIn("POSTGRES_MIGRATION_PASSWORD", migration_environment)
         self.assertNotIn("POSTGRES_APP_PASSWORD", migration_environment)
         self.assertNotIn("POSTGRES_INIT_PASSWORD", migration_environment)

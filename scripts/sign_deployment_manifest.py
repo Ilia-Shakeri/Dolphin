@@ -50,7 +50,7 @@ def derive_public_key(private_scalar_seed):
     """The 32-byte Ed25519 public key for a private key seed.
 
     Split out of `sign()` so a caller who only wants to *display* the public
-    key — to paste into `KARIZ_DEPLOYMENT_MANIFEST_KEYS` — never has to sign an
+    key — to paste into `DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` — never has to sign an
     arbitrary throwaway message to get one.
     """
     if len(private_scalar_seed) != 32:
@@ -145,7 +145,7 @@ def build_manifest(*, seed, key_id, profile_id, features, issued_at):
 
 
 def format_public_key(key_id, public_key):
-    """The exact `key_id:base64` line `KARIZ_DEPLOYMENT_MANIFEST_KEYS` expects.
+    """The exact `key_id:base64` line `DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` expects.
 
     Validated here rather than left to whoever pastes it: a public key that
     decodes to anything but 32 bytes cannot be a real Ed25519 key, and
@@ -237,7 +237,7 @@ def main(argv=None):
             sys.stdout.write(f"{line}\n")
             sys.stdout.write(
                 "\nPaste the line above, unmodified, as one value in "
-                "KARIZ_DEPLOYMENT_MANIFEST_KEYS.\n"
+                "DOLPHIN_DEPLOYMENT_MANIFEST_KEYS.\n"
             )
             return 0
 

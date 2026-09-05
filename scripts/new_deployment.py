@@ -131,10 +131,10 @@ def env_lines(*, slug, host, image, profile, manifest_path, manifest_keys, reten
         "# Stable for the life of the deployment. The version belongs to the",
         "# image tag and must never be put here: a project name per version means",
         "# two stacks sharing one database volume, which corrupts it.",
-        f"KARIZ_COMPOSE_PROJECT_NAME={slug}",
-        f"KARIZ_APP_IMAGE={image}",
-        "KARIZ_POSTGRES_IMAGE=postgres:17-alpine",
-        "KARIZ_NGINX_IMAGE=nginx:alpine",
+        f"DOLPHIN_COMPOSE_PROJECT_NAME={slug}",
+        f"DOLPHIN_APP_IMAGE={image}",
+        "DOLPHIN_POSTGRES_IMAGE=postgres:17-alpine",
+        "DOLPHIN_NGINX_IMAGE=nginx:alpine",
         "# PYTHON_BASE_IMAGE is deliberately absent. It is a Dockerfile build",
         "# argument, not a runtime setting, and a customer host never builds.",
         "",
@@ -143,18 +143,18 @@ def env_lines(*, slug, host, image, profile, manifest_path, manifest_keys, reten
         "DJANGO_DEBUG=false",
         f"DJANGO_ALLOWED_HOSTS={host}",
         f"DJANGO_CSRF_TRUSTED_ORIGINS=https://{host}",
-        f"KARIZ_PUBLIC_HOST={host}",
+        f"DOLPHIN_PUBLIC_HOST={host}",
         "AUDIT_TRUSTED_PROXY_CIDRS=172.16.0.0/12",
         "DJANGO_SECURE_SSL_REDIRECT=true",
         "DJANGO_SECURE_HSTS_SECONDS=31536000",
         "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=false",
         "DJANGO_SECURE_HSTS_PRELOAD=false",
-        "KARIZ_HSTS_HEADER=max-age=31536000",
+        "DOLPHIN_HSTS_HEADER=max-age=31536000",
         "",
         "# TLS. These two paths are the only values here you must still fill in:",
         "# a certificate is obtained per deployment and cannot be generated here.",
-        "KARIZ_TLS_CERT_PATH=REPLACE-WITH-THE-CERTIFICATE-CHAIN-PATH",
-        "KARIZ_TLS_KEY_PATH=REPLACE-WITH-THE-PRIVATE-KEY-PATH",
+        "DOLPHIN_TLS_CERT_PATH=REPLACE-WITH-THE-CERTIFICATE-CHAIN-PATH",
+        "DOLPHIN_TLS_KEY_PATH=REPLACE-WITH-THE-PRIVATE-KEY-PATH",
         "",
         "# --- PostgreSQL -------------------------------------------------------",
         "# Four roles with four distinct passwords, by design: the application",
@@ -182,30 +182,30 @@ def env_lines(*, slug, host, image, profile, manifest_path, manifest_keys, reten
         "# an invoice official, and is refused at issue rather than printing a tax",
         "# document with no seller on it. Fill them in only when this customer",
         "# actually issues official invoices.",
-        "KARIZ_SELLER_LEGAL_NAME=",
-        "KARIZ_SELLER_NATIONAL_ID=",
-        "KARIZ_SELLER_ECONOMIC_CODE=",
+        "DOLPHIN_SELLER_LEGAL_NAME=",
+        "DOLPHIN_SELLER_NATIONAL_ID=",
+        "DOLPHIN_SELLER_ECONOMIC_CODE=",
         "",
         "# --- signed deployment manifest ---------------------------------------",
         # `PROFILES.get(...)` rather than `[...]`: a profile id for a new
         # customer beyond the three already in that dict is valid and has no
         # description to print — the comment just names the id then.
         f"# Profile: {profile}" + (f" — {PROFILES[profile]}" if profile in PROFILES else ""),
-        f"KARIZ_DEPLOYMENT_MANIFEST_PATH={manifest_path}",
-        f"KARIZ_DEPLOYMENT_MANIFEST_KEYS={manifest_keys}",
+        f"DOLPHIN_DEPLOYMENT_MANIFEST_PATH={manifest_path}",
+        f"DOLPHIN_DEPLOYMENT_MANIFEST_KEYS={manifest_keys}",
         "",
         "# --- optional ---------------------------------------------------------",
-        "KARIZ_PDF_RENDERER=",
-        "KARIZ_PDF_CHROMIUM_BINARY=",
-        "KARIZ_PDF_RENDER_TIMEOUT_SECONDS=20",
+        "DOLPHIN_PDF_RENDERER=",
+        "DOLPHIN_PDF_CHROMIUM_BINARY=",
+        "DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS=20",
         "# Outbound SMS. Empty leaves the outbound_sms feature non-functional even",
         "# if the signed manifest enables it. See communications/sms.py.",
-        "KARIZ_SMS_PROVIDER=",
-        "KARIZ_SMS_API_URL=",
-        "KARIZ_SMS_API_BODY_TEMPLATE=",
-        "KARIZ_SMS_API_HEADERS=",
-        "KARIZ_SMS_SENDER_ID=",
-        "KARIZ_SMS_API_TIMEOUT_SECONDS=10",
+        "DOLPHIN_SMS_PROVIDER=",
+        "DOLPHIN_SMS_API_URL=",
+        "DOLPHIN_SMS_API_BODY_TEMPLATE=",
+        "DOLPHIN_SMS_API_HEADERS=",
+        "DOLPHIN_SMS_SENDER_ID=",
+        "DOLPHIN_SMS_API_TIMEOUT_SECONDS=10",
         "POSTGRES_SSLMODE=",
         "POSTGRES_SSLROOTCERT=",
         "",
@@ -261,7 +261,7 @@ def report(*, slug, host, out_dir, env_path, features, added, profile):
     print("Next, in order:")
     print()
     print("  1. Put the TLS certificate and key on the host, then set")
-    print("     KARIZ_TLS_CERT_PATH and KARIZ_TLS_KEY_PATH in the .env.")
+    print("     DOLPHIN_TLS_CERT_PATH and DOLPHIN_TLS_KEY_PATH in the .env.")
     print()
     print("  2. Sign the deployment manifest, on the machine holding the private")
     print("     key - never on the customer host:")
@@ -272,8 +272,8 @@ def report(*, slug, host, out_dir, env_path, features, added, profile):
         print(f"       --feature {feature} \\")
     print("       --output <manifest.json>")
     print()
-    print("     Copy the manifest to KARIZ_DEPLOYMENT_MANIFEST_PATH and put its")
-    print("     public key in KARIZ_DEPLOYMENT_MANIFEST_KEYS.")
+    print("     Copy the manifest to DOLPHIN_DEPLOYMENT_MANIFEST_PATH and put its")
+    print("     public key in DOLPHIN_DEPLOYMENT_MANIFEST_KEYS.")
     print()
     print("  3. Create the two external volumes:")
     print()

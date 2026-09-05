@@ -1593,7 +1593,7 @@ openssl pkey -in dolphin-manifest-signing.pem -pubout -outform DER | tail -c 32 
 
 The private key never reaches a customer host and never enters this repository.
 Only the base64 public key is configured, through
-`KARIZ_DEPLOYMENT_MANIFEST_KEYS` as `key_id:base64_public_key` pairs. Issue a
+`DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` as `key_id:base64_public_key` pairs. Issue a
 manifest with:
 
 ```bash
@@ -1645,7 +1645,7 @@ with the cache following.
 `config/production_settings.py` sets `DEPLOYMENT_MANIFEST_REQUIRED = True`, so a
 customer deployment refuses to start without a manifest that verifies. The
 manifest is bind-mounted read-only into the `web` and `migrate` services at
-`/profile/manifest.json` from `KARIZ_DEPLOYMENT_MANIFEST_PATH`.
+`/profile/manifest.json` from `DOLPHIN_DEPLOYMENT_MANIFEST_PATH`.
 
 Development and the automated test suite may run without a manifest. They then
 use the built-in profile named `development`, which enables every registered
@@ -2494,7 +2494,7 @@ is not even present there. Covered by
 
 The repository does specify a version: `docs/ops/DEPLOYMENT.md` states the `db`
 service is **PostgreSQL 17**. Use that. The Compose image is pinned by digest
-through `KARIZ_POSTGRES_IMAGE`, so the digest — not a tag — is the release
+through `DOLPHIN_POSTGRES_IMAGE`, so the digest — not a tag — is the release
 contract. `psycopg[binary]==3.2.13` is the client and imposes no narrower bound.
 
 #### Tooling probe

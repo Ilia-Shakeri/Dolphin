@@ -3,10 +3,10 @@ import re
 
 
 IMAGE_INPUTS = (
-    "KARIZ_APP_IMAGE",
+    "DOLPHIN_APP_IMAGE",
     "PYTHON_BASE_IMAGE",
-    "KARIZ_POSTGRES_IMAGE",
-    "KARIZ_NGINX_IMAGE",
+    "DOLPHIN_POSTGRES_IMAGE",
+    "DOLPHIN_NGINX_IMAGE",
 )
 DIGEST_REFERENCE = re.compile(r"\A[^\s@]+@sha256:[0-9a-f]{64}\Z")
 

@@ -73,17 +73,17 @@ class ReleaseImageContractTests(SimpleTestCase):
         services = compose["services"]
 
         for service in ("db", "db-bootstrap", "db-finalize", "backup"):
-            self.assertIn("${KARIZ_POSTGRES_IMAGE:?", services[service]["image"])
+            self.assertIn("${DOLPHIN_POSTGRES_IMAGE:?", services[service]["image"])
         for service in ("migrate", "web"):
-            self.assertIn("${KARIZ_APP_IMAGE:?", services[service]["image"])
+            self.assertIn("${DOLPHIN_APP_IMAGE:?", services[service]["image"])
             self.assertNotIn("build", services[service])
-        self.assertIn("${KARIZ_NGINX_IMAGE:?", services["nginx"]["image"])
+        self.assertIn("${DOLPHIN_NGINX_IMAGE:?", services["nginx"]["image"])
         for mutable_ref in ("postgres:17-alpine", "nginx:1.27-alpine", "build: ."):
             self.assertNotIn(mutable_ref, source)
 
         restore_source = RESTORE_COMPOSE.read_text(encoding="utf-8")
         restore_service = yaml.safe_load(restore_source)["services"]["restore-verify"]
-        self.assertIn("${KARIZ_POSTGRES_IMAGE:?", restore_service["image"])
+        self.assertIn("${DOLPHIN_POSTGRES_IMAGE:?", restore_service["image"])
         self.assertNotIn("build", restore_service)
         self.assertNotIn("postgres:17-alpine", restore_source)
 
@@ -104,10 +104,10 @@ class ReleaseImageContractTests(SimpleTestCase):
     def test_validator_checks_all_four_refs_without_printing_them(self):
         source = VALIDATOR.read_text(encoding="utf-8")
         for name in (
-            "KARIZ_APP_IMAGE",
+            "DOLPHIN_APP_IMAGE",
             "PYTHON_BASE_IMAGE",
-            "KARIZ_POSTGRES_IMAGE",
-            "KARIZ_NGINX_IMAGE",
+            "DOLPHIN_POSTGRES_IMAGE",
+            "DOLPHIN_NGINX_IMAGE",
         ):
             self.assertIn(f'"{name}"', source)
         self.assertNotIn("print(value", source)
@@ -116,10 +116,10 @@ class ReleaseImageContractTests(SimpleTestCase):
         exact = "registry.example/dolphin@sha256:" + "a" * 64
         environment = {
             **os.environ,
-            "KARIZ_APP_IMAGE": exact,
+            "DOLPHIN_APP_IMAGE": exact,
             "PYTHON_BASE_IMAGE": exact,
-            "KARIZ_POSTGRES_IMAGE": exact,
-            "KARIZ_NGINX_IMAGE": exact,
+            "DOLPHIN_POSTGRES_IMAGE": exact,
+            "DOLPHIN_NGINX_IMAGE": exact,
         }
         accepted = subprocess.run(
             [sys.executable, str(VALIDATOR)],
@@ -135,7 +135,7 @@ class ReleaseImageContractTests(SimpleTestCase):
 
         for bad_ref in ("postgres:17-alpine", "repo/app@sha256:" + "A" * 64, "repo/app@sha256:abc"):
             with self.subTest(bad_ref=bad_ref):
-                rejected_environment = {**environment, "KARIZ_APP_IMAGE": bad_ref}
+                rejected_environment = {**environment, "DOLPHIN_APP_IMAGE": bad_ref}
                 rejected = subprocess.run(
                     [sys.executable, str(VALIDATOR)],
                     cwd=ROOT,

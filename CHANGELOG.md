@@ -39,6 +39,60 @@
 
 ---
 
+## [2.0.0] — ۲۰۲۶-۰۹-۰۵
+
+### جارو نهایی: آخرین اثر کاریز/فروش‌بین حذف شد — `KARIZ_*` → `DOLPHIN_*`
+
+طبق دستور مستقیم مالک محصول: «توی کل کدبیس نباید اسمی از کاریز و فروش‌بین
+باشه». استثنای مستندشدهٔ `CLAUDE.md` §۱۰.۱ (متغیرهای محیطی استقرار، عمداً
+از `[1.6.9]` دست‌نخورده مانده — چون یک `.env` واقعیِ در حال اجرا دقیقاً همان
+اسم‌ها را دارد) امروز با تصمیم صریح مالک محصول بسته شد.
+
+**چرا نسخهٔ MAJOR:** طبق قاعدهٔ نسخه‌گذاری خودِ این فایل — «قراردادی که
+مشتری روی آن حساب کرده می‌شکند» — این دقیقاً همان است: یک `.env` واقعیِ
+موجود (TIARA، صحنه‌آزمایی) بعد از آپدیت به این نسخه، تا وقتی دستی به اسم‌های
+تازه به‌روز نشود، بالا نمی‌آید. راهنمای مهاجرت یک‌باره در
+`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md` (بخش «۳. Application update»، زیربخش
+تازه) اضافه شد.
+
+**تغییر کرد — ~۴۰ متغیر محیطی، همه‌جا هم‌زمان:**
+`config/settings.py`، `config/production_env.py`، `compose.yml`،
+`compose.restore-verify.yml`، `nginx/default.conf`، `.env.example`، هر پنج
+اسکریپت استقرار (`deploy.sh`، `quickstart.sh`، `backup-postgres.{sh,ps1}`،
+`verify-postgres-restore.{sh,ps1}`، `manifest_builder.py`،
+`new_deployment.py`، `preview_runner.py`، `sign_deployment_manifest.py`،
+`validate_release_images.py`)، و کد اپلیکیشن (`attachments/models.py`،
+`billing/services.py`، `communications/sms.py`). فهرست کامل قبل/بعد در
+`BACKEND_SPEC.md`، بخش «Deployment profile — implemented design».
+
+**همچنین حذف شد — آخرین دو مکانیزم پذیرش نام قدیمی:**
+- `scripts/bootstrap-postgres.sh`: چک کامنت «مدیریت‌شده» روی نقش‌های واقعی
+  Postgres دیگر مقادیر `'FrooshBin managed ... v1'`/`'Kariz managed ... v1'`
+  را نمی‌پذیرد — فقط `'Dolphin managed ... v1'`.
+- سنتینل و الگوی نام‌گذاری پشتیبان‌ها (`.sh` و `.ps1`، هر چهار اسکریپت
+  backup/restore/prepare-volume/deploy): فقط `.dolphin-backup-root` و
+  `dolphin-pg-*.dump` شناخته می‌شوند؛ `.frooshbin-backup-root`،
+  `.kariz-backup-root`، `frooshbin-pg-*.dump`، `kariz-pg-*.dump` دیگر
+  شناسایی نمی‌شوند.
+
+**اثر عملیاتی واقعی این دو مورد** (در راهنمای مهاجرت هم آمده): یک حجم
+پشتیبان که از دوران Kariz/FrooshBin هرگز لمس نشده و هنوز فقط سنتینل قدیمی
+دارد، یک‌بار نیاز به `./scripts/prepare-backup-volume.sh` دارد. آرشیوهای
+`.dump` قدیمی‌نام‌گذاری‌شده پاک نمی‌شوند، فقط دیگر توسط پاکسازی نگه‌داری
+خودکار در نظر گرفته نمی‌شوند.
+
+**مستندات:** `BACKEND_SPEC.md`، `docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`،
+`docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md`، `README.md`، `CLAUDE.md` §۱۰.۱
+(اکنون این استثنا را به‌عنوان بسته‌شده، نه فعال، مستند می‌کند) به‌روز شدند.
+ورودی‌های تاریخیِ همین فایل، `DOLPHIN_PROJECT_HANDOFF.md` و
+`DOLPHIN_CLIENT1_CODEX_ROADMAP.md` که رفتار آن زمان را درست توصیف می‌کردند
+عمداً بازنویسی نشدند — طبق قاعدهٔ همیشگیِ این فایل.
+
+**تست‌ها:** تست‌های `test_backup_scripts.py`، `test_deploy_script.py` که قبلاً
+پذیرش سه‌گانهٔ نام قدیمی را الزامی می‌کردند، به رد صریح نام قدیمی اصلاح
+شدند؛ تست‌های واحد جدید برای هر دو رفتار (سنتینل ناشناخته نادیده گرفته
+می‌شود، آرشیو قدیمی از پاکسازی حذف می‌شود) اضافه شد.
+
 ## [1.14.0] — ۲۰۲۶-۰۹-۰۵
 
 ### کنسول: درون‌ریزی manifest موجود + مشتری تازه بدون ریلیز

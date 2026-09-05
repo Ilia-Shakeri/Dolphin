@@ -47,7 +47,7 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 #: Product-owner decision, 2026-09-03: 10 MB per file. A real setting
-#: (`ATTACHMENT_MAX_BYTES`, `KARIZ_ATTACHMENT_MAX_BYTES`) rather than only
+#: (`ATTACHMENT_MAX_BYTES`, `DOLPHIN_ATTACHMENT_MAX_BYTES`) rather than only
 #: this constant — `attachments/services.py` reads the setting; this name
 #: stays as the constraint's own fallback and the value the setting defaults
 #: to, so the two can never quietly disagree.

@@ -630,7 +630,7 @@ def _build_result_html(form):
   <strong>Manifest ساخته و امضا شد</strong> — {len(features)} فیچر، نسخهٔ {html.escape(profile_id)}.
   {added_note}
   <p>فیچرهای نهاییِ امضاشده: {html.escape(feature_list)}</p>
-  <p>کلید عمومی — این خط را عیناً در <code>KARIZ_DEPLOYMENT_MANIFEST_KEYS</code> بگذارید:</p>
+  <p>کلید عمومی — این خط را عیناً در <code>DOLPHIN_DEPLOYMENT_MANIFEST_KEYS</code> بگذارید:</p>
   <pre>{html.escape(public_key_line)}</pre>
   <a class="download" download="manifest.json" id="download-link" href="#">دانلود manifest.json</a>
   <script>
@@ -697,7 +697,7 @@ def _build_result_html(form):
     env_block = f"""<div class="result-ok">
   <strong>پیش‌نویس .env هم ساخته شد</strong> — رمزهای تصادفی تازه، فقط همین یک بار نمایش داده می‌شوند
   (هیچ‌جای سرور این ابزار ذخیره نمی‌شوند).
-  <p><small>پیش از استفادهٔ واقعی: <code>KARIZ_APP_IMAGE</code> و مسیرهای TLS را با مقادیر واقعی
+  <p><small>پیش از استفادهٔ واقعی: <code>DOLPHIN_APP_IMAGE</code> و مسیرهای TLS را با مقادیر واقعی
      جایگزین کنید — این‌ها فقط پیش‌نویس‌اند.</small></p>
   {console_note}
   <p>
@@ -840,7 +840,7 @@ def _build_reissue_result_html(record, form):
   <strong>Manifest تازه ساخته و امضا شد</strong> — {len(features)} فیچر، نسخهٔ {html.escape(profile_id)}.
   {added_note}
   <p>فیچرهای نهاییِ امضاشده: {html.escape(feature_list)}</p>
-  <p>کلید عمومی — این خط را عیناً در <code>KARIZ_DEPLOYMENT_MANIFEST_KEYS</code> بگذارید:</p>
+  <p>کلید عمومی — این خط را عیناً در <code>DOLPHIN_DEPLOYMENT_MANIFEST_KEYS</code> بگذارید:</p>
   <pre>{html.escape(public_key_line)}</pre>
   <a class="download" download="manifest.json" id="download-link" href="#">دانلود manifest.json</a>
   <script>

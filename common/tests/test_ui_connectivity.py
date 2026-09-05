@@ -234,7 +234,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
         # Client-1 yet; enabling either would show a report or a send button
-        # with nothing real behind it (`KARIZ_SMS_PROVIDER` unset). `internal_
+        # with nothing real behind it (`DOLPHIN_SMS_PROVIDER` unset). `internal_
         # it_role` is withheld by Client-1 policy: only a Platform Admin
         # administers users there. `attachments` is withheld because TIARA
         # (Client-1) is frozen as of 2026-09-03 pending a new-feature contract

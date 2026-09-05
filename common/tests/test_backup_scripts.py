@@ -58,7 +58,10 @@ class BackupScriptTests(SimpleTestCase):
         restore = RESTORE_SCRIPT.read_text(encoding="utf-8")
 
         self.assertIn("DOLPHIN_BACKUP_ROOT_V1", backup)
-        self.assertIn("Get-Content -LiteralPath $sentinel.Path -Raw", backup)
+        # 2026-09-05 — `$sentinel.Path` was the multi-sentinel loop variable
+        # this simplified to a single `$sentinelPath` when the Kariz/FrooshBin
+        # fallback sentinels were removed (see the CHANGELOG `[2.0.0]` entry).
+        self.assertIn("Get-Content -LiteralPath $sentinelPath -Raw", backup)
         self.assertIn("pg_restore", backup)
         self.assertIn("Get-FileHash -LiteralPath $tempDumpPath -Algorithm SHA256", backup)
         self.assertIn("Move-Item -LiteralPath $tempDumpPath", backup)
@@ -135,7 +138,7 @@ class BackupScriptTests(SimpleTestCase):
         self.assertIn("POSTGRES_RESTORE_TMPFS_SIZE_BYTES", service["tmpfs"][0])
         self.assertTrue(compose["volumes"]["backup_data"]["external"])
 
-        self.assertIn("Pass one exact Dolphin, FrooshBin, or Kariz archive name.", restore)
+        self.assertIn("Pass one exact Dolphin archive name.", restore)
         self.assertIn("DOLPHIN_BACKUP_ROOT_V1", restore)
         self.assertIn("sha256sum", restore)
         self.assertIn("pg_restore --list", restore)
@@ -151,12 +154,18 @@ class BackupScriptTests(SimpleTestCase):
         self.assertNotIn("dropdb", restore)
 
     def test_script_filename_contract_is_exact(self):
+        """2026-09-05 — the `frooshbin`/`kariz` alternation this test used to
+        require is gone on purpose (product-owner decision to remove every
+        remaining trace of the two earlier project names): a backup archive
+        or checksum file still named under either old prefix needs a
+        one-time manual rename before this script's next run — see the
+        migration note in docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md."""
         backup = BACKUP_SCRIPT.read_text(encoding="utf-8")
         restore = RESTORE_SCRIPT.read_text(encoding="utf-8")
         for script in (backup, restore):
             self.assertIn("dolphin", script)
-            self.assertIn("frooshbin", script)
-            self.assertIn("kariz", script)
+            self.assertNotIn("frooshbin", script)
+            self.assertNotIn("kariz", script)
             self.assertIn("[0-9]{8}T[0-9]{6}Z-", script)
             self.assertIn("[0-9a-f]{32}", script)
         self.assertIn('"$hash  $backupName`n"', backup)
@@ -287,9 +296,9 @@ class BackupScriptTests(SimpleTestCase):
         self.assertIn("spectacular --validate --fail-on-warn", deployment)
         self.assertIn("spectacular --validate --fail-on-warn", checklist)
         self.assertIn("Current-compatible write-stop, backup, and disposable restore", checklist)
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME", deployment)
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME", rollback)
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME", checklist)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME", deployment)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME", rollback)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME", checklist)
         self.assertIn(
             "docker compose -f compose.yml -f compose.write-stop.yml up -d --no-build",
             deployment,
@@ -407,13 +416,10 @@ class BackupScriptTests(SimpleTestCase):
         self.assertIn("connection string", (result.stdout + result.stderr).lower())
 
     @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
-    def test_backup_rejects_one_bad_sentinel_when_both_exist(self):
+    def test_backup_rejects_an_invalid_dolphin_sentinel_value(self):
         with tempfile.TemporaryDirectory() as backup_root:
             root = Path(backup_root)
-            (root / ".dolphin-backup-root").write_text(
-                "DOLPHIN_BACKUP_ROOT_V1\n", encoding="ascii"
-            )
-            (root / ".frooshbin-backup-root").write_text("bad\n", encoding="ascii")
+            (root / ".dolphin-backup-root").write_text("bad\n", encoding="ascii")
             result = self._run_script(
                 BACKUP_SCRIPT,
                 "-BackupRoot",
@@ -429,6 +435,36 @@ class BackupScriptTests(SimpleTestCase):
             )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("sentinel value is invalid", (result.stdout + result.stderr).lower())
+
+    @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
+    def test_a_stray_old_named_sentinel_is_ignored_not_trusted(self):
+        """2026-09-05 — the `.frooshbin-backup-root`/`.kariz-backup-root`
+        fallback this behaviour used to have is gone on purpose (product-
+        owner decision to remove every remaining Kariz/FrooshBin trace):
+        only `.dolphin-backup-root` is ever consulted now, so a leftover
+        file under either old name is simply invisible to this script — its
+        own content, valid or not, can no longer substitute for the real
+        sentinel."""
+        with tempfile.TemporaryDirectory() as backup_root:
+            root = Path(backup_root)
+            (root / ".frooshbin-backup-root").write_text(
+                "FROOSHBIN_BACKUP_ROOT_V1\n", encoding="ascii"
+            )
+            result = self._run_script(
+                BACKUP_SCRIPT,
+                "-BackupRoot",
+                root,
+                "-DatabaseHost",
+                "127.0.0.1",
+                "-DatabasePort",
+                "5432",
+                "-DatabaseName",
+                "dolphin",
+                "-DatabaseUser",
+                "dolphin_backup",
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("sentinel is missing", (result.stdout + result.stderr).lower())
 
     @unittest.skipUnless(POWERSHELL, "PowerShell is not installed.")
     def test_restore_refuses_unsafe_target_before_backup_or_tool_lookup(self):

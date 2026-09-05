@@ -64,27 +64,9 @@ if [ ! -d "$POSTGRES_BACKUP_ROOT" ] || [ -L "$POSTGRES_BACKUP_ROOT" ]; then
     exit 2
 fi
 
-# A real backup root created under either earlier project name still carries
-# its old sentinel file; all three are checked so an already-deployed backup
-# root keeps working without a manual fix-up before this script runs again.
-sentinel_seen=0
-for sentinel_pair in \
-    ".dolphin-backup-root:DOLPHIN_BACKUP_ROOT_V1" \
-    ".frooshbin-backup-root:FROOSHBIN_BACKUP_ROOT_V1" \
-    ".kariz-backup-root:KARIZ_BACKUP_ROOT_V1"; do
-    sentinel_name="${sentinel_pair%%:*}"
-    sentinel_value="${sentinel_pair#*:}"
-    sentinel_path="$POSTGRES_BACKUP_ROOT/$sentinel_name"
-    if [ -e "$sentinel_path" ]; then
-        sentinel_seen=1
-        if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
-           [ "$(cat "$sentinel_path")" != "$sentinel_value" ]; then
-            echo "The backup volume sentinel is missing or invalid." >&2
-            exit 2
-        fi
-    fi
-done
-if [ "$sentinel_seen" -eq 0 ]; then
+sentinel_path="$POSTGRES_BACKUP_ROOT/.dolphin-backup-root"
+if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
+   [ "$(cat "$sentinel_path")" != "DOLPHIN_BACKUP_ROOT_V1" ]; then
     echo "The backup volume sentinel is missing or invalid." >&2
     exit 2
 fi
@@ -177,14 +159,14 @@ if [ "$POSTGRES_BACKUP_RETENTION_DAYS" -gt 0 ]; then
         -mindepth 1 \
         -maxdepth 1 \
         -type f \
-        \( -name 'dolphin-pg-*.dump' -o -name 'frooshbin-pg-*.dump' -o -name 'kariz-pg-*.dump' \) \
+        -name 'dolphin-pg-*.dump' \
         -mtime "+$retention_age" \
         -print >"$candidate_list"
     while IFS= read -r candidate; do
         [ "$candidate" != "$final_dump" ] || continue
         candidate_name="$(basename "$candidate")"
         if ! printf '%s' "$candidate_name" | grep -Eq \
-            '^(dolphin|frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
+            '^dolphin-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
             continue
         fi
         checksum_path="$POSTGRES_BACKUP_ROOT/$candidate_name.sha256"

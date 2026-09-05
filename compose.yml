@@ -1,4 +1,4 @@
-name: ${KARIZ_COMPOSE_PROJECT_NAME:?KARIZ_COMPOSE_PROJECT_NAME must name the approved stable Compose project}
+name: ${DOLPHIN_COMPOSE_PROJECT_NAME:?DOLPHIN_COMPOSE_PROJECT_NAME must name the approved stable Compose project}
 
 x-django-environment: &django-environment
   DJANGO_SETTINGS_MODULE: config.production_settings
@@ -6,13 +6,13 @@ x-django-environment: &django-environment
   DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
   DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
   DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS}
-  KARIZ_PUBLIC_HOST: ${KARIZ_PUBLIC_HOST}
+  DOLPHIN_PUBLIC_HOST: ${DOLPHIN_PUBLIC_HOST}
   AUDIT_TRUSTED_PROXY_CIDRS: ${AUDIT_TRUSTED_PROXY_CIDRS:-}
   DJANGO_SECURE_SSL_REDIRECT: ${DJANGO_SECURE_SSL_REDIRECT}
   DJANGO_SECURE_HSTS_SECONDS: ${DJANGO_SECURE_HSTS_SECONDS}
   DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS: ${DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS:-false}
   DJANGO_SECURE_HSTS_PRELOAD: ${DJANGO_SECURE_HSTS_PRELOAD:-false}
-  KARIZ_HSTS_HEADER: ${KARIZ_HSTS_HEADER}
+  DOLPHIN_HSTS_HEADER: ${DOLPHIN_HSTS_HEADER}
   POSTGRES_DB: ${POSTGRES_DB}
   POSTGRES_HOST: db
   POSTGRES_PORT: "5432"
@@ -24,8 +24,8 @@ x-django-environment: &django-environment
   # read-only and is the sole source of truth for feature availability; only
   # public verification keys are configured here. Production refuses to start
   # without a manifest that verifies.
-  KARIZ_DEPLOYMENT_MANIFEST: /profile/manifest.json
-  KARIZ_DEPLOYMENT_MANIFEST_KEYS: ${KARIZ_DEPLOYMENT_MANIFEST_KEYS:?KARIZ_DEPLOYMENT_MANIFEST_KEYS must list the trusted key_id:base64_public_key pairs}
+  DOLPHIN_DEPLOYMENT_MANIFEST: /profile/manifest.json
+  DOLPHIN_DEPLOYMENT_MANIFEST_KEYS: ${DOLPHIN_DEPLOYMENT_MANIFEST_KEYS:?DOLPHIN_DEPLOYMENT_MANIFEST_KEYS must list the trusted key_id:base64_public_key pairs}
   # Transport security to PostgreSQL. Empty keeps libpq's default, which is
   # right here because `backend` is an internal network the database never
   # leaves. A split app/database deployment must set verify-full and mount a CA.
@@ -33,13 +33,13 @@ x-django-environment: &django-environment
   POSTGRES_SSLROOTCERT: ${POSTGRES_SSLROOTCERT:-}
   # Server-generated PDF. Off unless the image actually contains a browser;
   # browser print / save-as-PDF works either way.
-  KARIZ_PDF_RENDERER: ${KARIZ_PDF_RENDERER:-}
-  KARIZ_PDF_CHROMIUM_BINARY: ${KARIZ_PDF_CHROMIUM_BINARY:-}
-  KARIZ_PDF_RENDER_TIMEOUT_SECONDS: ${KARIZ_PDF_RENDER_TIMEOUT_SECONDS:-20}
+  DOLPHIN_PDF_RENDERER: ${DOLPHIN_PDF_RENDERER:-}
+  DOLPHIN_PDF_CHROMIUM_BINARY: ${DOLPHIN_PDF_CHROMIUM_BINARY:-}
+  DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS: ${DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS:-20}
 
 services:
   db:
-    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
     entrypoint: ["sh", "/ops/postgres-entrypoint.sh"]
     command:
@@ -87,7 +87,7 @@ services:
       retries: 5
 
   db-bootstrap:
-    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: "no"
     logging:
       driver: json-file
@@ -116,7 +116,7 @@ services:
       - backend
 
   migrate:
-    image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: "no"
     logging:
       driver: json-file
@@ -125,7 +125,7 @@ services:
         max-file: "5"
     environment:
       <<: *django-environment
-      KARIZ_DATABASE_ROLE: migration
+      DOLPHIN_DATABASE_ROLE: migration
       POSTGRES_MIGRATION_PASSWORD: ${POSTGRES_MIGRATION_PASSWORD}
     depends_on:
       db-bootstrap:
@@ -133,12 +133,12 @@ services:
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
     volumes:
       - static_data:/app/staticfiles
-      - ${KARIZ_DEPLOYMENT_MANIFEST_PATH:?KARIZ_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
     networks:
       - backend
 
   db-finalize:
-    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: "no"
     logging:
       driver: json-file
@@ -167,7 +167,7 @@ services:
       - backend
 
   backup:
-    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     profiles: ["backup"]
     restart: "no"
     user: postgres
@@ -208,7 +208,7 @@ services:
   # never starts with the stack; the operator runs it from cron. See
   # docs/ops/CLIENT1_LINUX_STAGING_GUIDE.md section 18.
   session-cleanup:
-    image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     profiles: ["maintenance"]
     restart: "no"
     read_only: true
@@ -223,21 +223,21 @@ services:
         max-file: "5"
     environment:
       <<: *django-environment
-      KARIZ_DATABASE_ROLE: app
+      DOLPHIN_DATABASE_ROLE: app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
     depends_on:
       db:
         condition: service_healthy
     command: ["python", "manage.py", "clearsessions"]
     volumes:
-      - ${KARIZ_DEPLOYMENT_MANIFEST_PATH:?KARIZ_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
     tmpfs:
       - /tmp:size=16m,mode=1777
     networks:
       - backend
 
   web:
-    image: ${KARIZ_APP_IMAGE:?KARIZ_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
     read_only: true
     # The application already runs as the non-root `appuser` and binds 8000, so
@@ -256,14 +256,14 @@ services:
         max-file: "5"
     environment:
       <<: *django-environment
-      KARIZ_DATABASE_ROLE: app
+      DOLPHIN_DATABASE_ROLE: app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
     depends_on:
       db-finalize:
         condition: service_completed_successfully
     volumes:
       - static_data:/app/staticfiles:ro
-      - ${KARIZ_DEPLOYMENT_MANIFEST_PATH:?KARIZ_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
     tmpfs:
       - /tmp:size=64m,mode=1777
     networks:
@@ -278,7 +278,7 @@ services:
       retries: 3
 
   nginx:
-    image: ${KARIZ_NGINX_IMAGE:?KARIZ_NGINX_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_NGINX_IMAGE:?DOLPHIN_NGINX_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
     logging:
       driver: json-file
@@ -289,9 +289,9 @@ services:
       web:
         condition: service_healthy
     environment:
-      KARIZ_PUBLIC_HOST: ${KARIZ_PUBLIC_HOST}
-      KARIZ_HSTS_HEADER: ${KARIZ_HSTS_HEADER}
-      NGINX_ENVSUBST_FILTER: KARIZ_PUBLIC_HOST|KARIZ_HSTS_HEADER
+      DOLPHIN_PUBLIC_HOST: ${DOLPHIN_PUBLIC_HOST}
+      DOLPHIN_HSTS_HEADER: ${DOLPHIN_HSTS_HEADER}
+      NGINX_ENVSUBST_FILTER: DOLPHIN_PUBLIC_HOST|DOLPHIN_HSTS_HEADER
     ports:
       - "80:80"
       - "443:443"
@@ -306,11 +306,11 @@ services:
         target: /etc/nginx/write-stop.conf
         read_only: true
       - type: bind
-        source: ${KARIZ_TLS_CERT_PATH:?KARIZ_TLS_CERT_PATH must name the approved certificate chain file}
+        source: ${DOLPHIN_TLS_CERT_PATH:?DOLPHIN_TLS_CERT_PATH must name the approved certificate chain file}
         target: /etc/nginx/tls/fullchain.pem
         read_only: true
       - type: bind
-        source: ${KARIZ_TLS_KEY_PATH:?KARIZ_TLS_KEY_PATH must name the approved private key file}
+        source: ${DOLPHIN_TLS_KEY_PATH:?DOLPHIN_TLS_KEY_PATH must name the approved private key file}
         target: /etc/nginx/tls/privkey.pem
         read_only: true
     networks:

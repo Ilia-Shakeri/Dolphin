@@ -86,8 +86,8 @@ resolve_env_file() {
         # deployments; that is exactly the state a half-finished migration to
         # secrets/.env leaves behind, and guessing which one is current would
         # silently act on the wrong database.
-        project_secrets="$(env_value_in secrets/.env KARIZ_COMPOSE_PROJECT_NAME)"
-        project_root="$(env_value_in .env KARIZ_COMPOSE_PROJECT_NAME)"
+        project_secrets="$(env_value_in secrets/.env DOLPHIN_COMPOSE_PROJECT_NAME)"
+        project_root="$(env_value_in .env DOLPHIN_COMPOSE_PROJECT_NAME)"
         db_secrets="$(env_value_in secrets/.env POSTGRES_DB)"
         db_root="$(env_value_in .env POSTGRES_DB)"
         if [ "$project_secrets" != "$project_root" ] || [ "$db_secrets" != "$db_root" ]; then
@@ -118,8 +118,8 @@ require_deployment_directory() {
 }
 
 show_status() {
-    note "project:  $(env_value KARIZ_COMPOSE_PROJECT_NAME)"
-    note "image:    $(env_value KARIZ_APP_IMAGE)"
+    note "project:  $(env_value DOLPHIN_COMPOSE_PROJECT_NAME)"
+    note "image:    $(env_value DOLPHIN_APP_IMAGE)"
     note "database: $(env_value POSTGRES_DATA_VOLUME)"
     echo
     $COMPOSE ps
@@ -262,11 +262,9 @@ check_backup_volume_is_prepared() {
         note "cannot read volume $volume from here — skipping the backup-volume check."
         return 0
     fi
-    for sentinel in .dolphin-backup-root .frooshbin-backup-root .kariz-backup-root; do
-        if [ -f "$mountpoint/$sentinel" ]; then
-            return 0
-        fi
-    done
+    if [ -f "$mountpoint/.dolphin-backup-root" ]; then
+        return 0
+    fi
     echo "error: the backup volume ($volume) has no sentinel, so the backup job will" >&2
     echo "       refuse to write to it. Prepare it once (runbook 4.1), from this" >&2
     echo "       directory, then run this script again:" >&2
@@ -283,10 +281,10 @@ check_manifest_and_tls_files_are_readable() {
     # A missing or unreadable manifest or TLS file otherwise surfaces only
     # once `migrate` or `nginx` is already starting, partway through a release
     # that has, by then, already taken a backup and reprovisioned roles.
-    manifest="$(env_value KARIZ_DEPLOYMENT_MANIFEST_PATH)"
+    manifest="$(env_value DOLPHIN_DEPLOYMENT_MANIFEST_PATH)"
     if [ -n "$manifest" ]; then
-        [ -f "$manifest" ] || fail "KARIZ_DEPLOYMENT_MANIFEST_PATH ($manifest) does not exist."
-        [ -r "$manifest" ] || fail "KARIZ_DEPLOYMENT_MANIFEST_PATH ($manifest) is not readable by this user."
+        [ -f "$manifest" ] || fail "DOLPHIN_DEPLOYMENT_MANIFEST_PATH ($manifest) does not exist."
+        [ -r "$manifest" ] || fail "DOLPHIN_DEPLOYMENT_MANIFEST_PATH ($manifest) is not readable by this user."
         # The container reads it as a non-root user, not as whoever runs this
         # script, so ordinary read access here is not sufficient by itself —
         # but a manifest that is not even other-readable is unambiguously
@@ -301,7 +299,7 @@ check_manifest_and_tls_files_are_readable() {
            chmod 644 $manifest" ;;
         esac
     fi
-    for variable in KARIZ_TLS_CERT_PATH KARIZ_TLS_KEY_PATH; do
+    for variable in DOLPHIN_TLS_CERT_PATH DOLPHIN_TLS_KEY_PATH; do
         path="$(env_value "$variable")"
         [ -n "$path" ] || continue
         [ -f "$path" ] || fail "$variable ($path) does not exist."
@@ -318,7 +316,7 @@ deploy() {
         *)   image="dolphin-app:$target" ;;
     esac
 
-    current="$(env_value KARIZ_APP_IMAGE)"
+    current="$(env_value DOLPHIN_APP_IMAGE)"
     note "current image: ${current:-none}"
     note "target image:  $image"
 
@@ -336,7 +334,7 @@ deploy() {
         note "already on that image; continuing so migrations and static files are refreshed."
     else
         printf '%s\n' "$current" > "$STATE_FILE"
-        set_env_value KARIZ_APP_IMAGE "$image"
+        set_env_value DOLPHIN_APP_IMAGE "$image"
         note "recorded $current for --rollback"
     fi
 

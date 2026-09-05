@@ -359,15 +359,18 @@ or live documentation.
 
 Do not blindly rename identifiers merely because their names are historical or vendor-derived.
 
-Stable technical identifiers may be intentionally preserved for compatibility.
+Stable technical identifiers may be intentionally preserved for compatibility — but only for as long
+as the product owner has not explicitly decided otherwise. A preserved identifier is a standing
+default, not a permanent one.
 
-In particular:
-
-• KARIZ_* deployment environment variable names are a deliberate compatibility exception.
-• Do not rename them to DOLPHIN_* unless the product owner explicitly decides to perform a
-coordinated deployment migration.
-• Existing deployments, compose configuration, production configuration, and operational scripts
-may depend on those exact environment variable names.
+Former exception, now closed (2026-09-05): KARIZ_* deployment environment variable names were a
+deliberate compatibility exception from 2026-09-01 until the product owner explicitly requested a
+coordinated deployment migration on 2026-09-05. Every environment variable name in this codebase is
+now DOLPHIN_*; nothing reads a KARIZ_* name anymore. This is recorded here as a worked example of the
+one condition under which such an exception may be lifted — an explicit, direct product-owner
+decision, not a default first-party rename pass — not as a precedent for changing it back. An
+already-deployed customer's own `.env` file may still use the old names; see the migration note in
+`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md` for what that requires before its next deploy.
 
 Also preserve required vendor/runtime identifiers when changing them would break the purchased
 template or third-party runtime, including examples such as:
@@ -1085,8 +1088,10 @@ Changes to:
 
 must consider existing deployments and upgrade behavior.
 
-The KARIZ_* environment-variable compatibility exception is intentional. Do not rename those
-variables casually.
+Do not rename an existing environment-variable contract casually, without weighing existing
+deployments and upgrade behavior — see §10.1's KARIZ_*→DOLPHIN_* rename (2026-09-05) for what
+"casually" is not: an explicit product-owner decision, a hard cutover with no dual-read fallback, and
+a documented migration note for every already-deployed customer.
 
 When deployment behavior changes, update relevant docs/ops/*.md, examples, and scripts together.
 

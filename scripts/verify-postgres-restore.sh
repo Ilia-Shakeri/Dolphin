@@ -2,7 +2,7 @@
 set -eu
 
 if [ "$#" -ne 1 ]; then
-    echo "Pass one exact Dolphin, FrooshBin, or Kariz archive name." >&2
+    echo "Pass one exact Dolphin archive name." >&2
     exit 2
 fi
 archive_name="$1"
@@ -14,32 +14,14 @@ if [ ! -d "$backup_root" ] || [ -L "$backup_root" ]; then
     exit 2
 fi
 if ! printf '%s' "$archive_name" | LC_ALL=C grep -Eq \
-    '^(dolphin|frooshbin|kariz)-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
-    echo "The restore input must be one exact Dolphin, FrooshBin, or Kariz archive name." >&2
+    '^dolphin-pg-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}[.]dump$'; then
+    echo "The restore input must be one exact Dolphin archive name." >&2
     exit 2
 fi
 
-# A real backup root created under either earlier project name still carries
-# its old sentinel file; all three are checked so an already-deployed backup
-# root keeps working without a manual fix-up before this script runs again.
-sentinel_seen=0
-for sentinel_pair in \
-    ".dolphin-backup-root:DOLPHIN_BACKUP_ROOT_V1" \
-    ".frooshbin-backup-root:FROOSHBIN_BACKUP_ROOT_V1" \
-    ".kariz-backup-root:KARIZ_BACKUP_ROOT_V1"; do
-    sentinel_name="${sentinel_pair%%:*}"
-    sentinel_value="${sentinel_pair#*:}"
-    sentinel_path="$backup_root/$sentinel_name"
-    if [ -e "$sentinel_path" ]; then
-        sentinel_seen=1
-        if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
-           [ "$(cat "$sentinel_path")" != "$sentinel_value" ]; then
-            echo "The backup volume sentinel is missing or invalid." >&2
-            exit 2
-        fi
-    fi
-done
-if [ "$sentinel_seen" -eq 0 ]; then
+sentinel_path="$backup_root/.dolphin-backup-root"
+if [ ! -f "$sentinel_path" ] || [ -L "$sentinel_path" ] || \
+   [ "$(cat "$sentinel_path")" != "DOLPHIN_BACKUP_ROOT_V1" ]; then
     echo "The backup volume sentinel is missing or invalid." >&2
     exit 2
 fi

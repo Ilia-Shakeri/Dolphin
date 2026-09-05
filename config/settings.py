@@ -195,7 +195,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 256 * 1024
 # a setting AND a fixed database CheckConstraint at the same value: the
 # constraint is the hard ceiling migrations move deliberately, this setting
 # may only ever tighten it further, never raise it past that ceiling.
-ATTACHMENT_MAX_BYTES = int(os.environ.get("KARIZ_ATTACHMENT_MAX_BYTES", str(10 * 1024 * 1024)))
+ATTACHMENT_MAX_BYTES = int(os.environ.get("DOLPHIN_ATTACHMENT_MAX_BYTES", str(10 * 1024 * 1024)))
 
 # Routes that accept a real file rather than a JSON document, and the bound that
 # applies to them. Kept explicit and still bounded: a file larger than this is a
@@ -328,7 +328,7 @@ def _manifest_public_keys(raw):
         key_id, separator, value = entry.partition(":")
         if not separator or not key_id.strip() or not value.strip():
             raise ValueError(
-                "KARIZ_DEPLOYMENT_MANIFEST_KEYS entries must be key_id:base64_public_key."
+                "DOLPHIN_DEPLOYMENT_MANIFEST_KEYS entries must be key_id:base64_public_key."
             )
         keys[key_id.strip()] = value.strip()
     return keys
@@ -344,31 +344,31 @@ def _manifest_public_keys(raw):
 # Refuse an issue that would drive a warehouse level below zero. A deployment
 # that genuinely sells before receipting sets this to true deliberately.
 INVENTORY_ALLOW_NEGATIVE_STOCK = (
-    os.environ.get("KARIZ_INVENTORY_ALLOW_NEGATIVE_STOCK", "false").lower() == "true"
+    os.environ.get("DOLPHIN_INVENTORY_ALLOW_NEGATIVE_STOCK", "false").lower() == "true"
 )
 
 # Document numbering. `{sequence}` is a gap-free per-kind counter. The format is
 # validated at use, so a deployment cannot configure a format that drops the
 # counter and produces duplicates.
 BILLING_NUMBER_FORMATS = {
-    "quotation": os.environ.get("KARIZ_NUMBER_FORMAT_QUOTATION", "QT-{sequence:06d}"),
-    "order": os.environ.get("KARIZ_NUMBER_FORMAT_ORDER", "SO-{sequence:06d}"),
-    "invoice": os.environ.get("KARIZ_NUMBER_FORMAT_INVOICE", "INV-{sequence:06d}"),
-    "payment": os.environ.get("KARIZ_NUMBER_FORMAT_PAYMENT", "PY-{sequence:06d}"),
+    "quotation": os.environ.get("DOLPHIN_NUMBER_FORMAT_QUOTATION", "QT-{sequence:06d}"),
+    "order": os.environ.get("DOLPHIN_NUMBER_FORMAT_ORDER", "SO-{sequence:06d}"),
+    "invoice": os.environ.get("DOLPHIN_NUMBER_FORMAT_INVOICE", "INV-{sequence:06d}"),
+    "payment": os.environ.get("DOLPHIN_NUMBER_FORMAT_PAYMENT", "PY-{sequence:06d}"),
 }
 
 # Tax is OFF by default and this code claims no tax compliance for any
 # jurisdiction. It applies the configured percentage to one taxable base
 # (subtotal minus header discount) and nothing more.
-BILLING_DEFAULT_TAX_RATE = os.environ.get("KARIZ_BILLING_DEFAULT_TAX_RATE", "0.00")
+BILLING_DEFAULT_TAX_RATE = os.environ.get("DOLPHIN_BILLING_DEFAULT_TAX_RATE", "0.00")
 
 # Upper bound on a single line discount, as a percentage.
-BILLING_MAX_DISCOUNT_PERCENT = os.environ.get("KARIZ_BILLING_MAX_DISCOUNT_PERCENT", "100.00")
+BILLING_MAX_DISCOUNT_PERCENT = os.environ.get("DOLPHIN_BILLING_MAX_DISCOUNT_PERCENT", "100.00")
 
 # Default validity window of a quotation, and default payment term of an
 # invoice, both in days. Zero due days means the invoice is due on issue.
-BILLING_QUOTATION_VALID_DAYS = int(os.environ.get("KARIZ_BILLING_QUOTATION_VALID_DAYS", "30"))
-BILLING_INVOICE_DUE_DAYS = int(os.environ.get("KARIZ_BILLING_INVOICE_DUE_DAYS", "0"))
+BILLING_QUOTATION_VALID_DAYS = int(os.environ.get("DOLPHIN_BILLING_QUOTATION_VALID_DAYS", "30"))
+BILLING_INVOICE_DUE_DAYS = int(os.environ.get("DOLPHIN_BILLING_INVOICE_DUE_DAYS", "0"))
 
 # Whether issuing an invoice moves stock.
 #
@@ -381,7 +381,7 @@ BILLING_INVOICE_DUE_DAYS = int(os.environ.get("KARIZ_BILLING_INVOICE_DUE_DAYS", 
 # straight out of stock, with no order step, is a legitimate configuration — it
 # just is not this one.
 BILLING_INVOICE_AFFECTS_STOCK = (
-    os.environ.get("KARIZ_BILLING_INVOICE_AFFECTS_STOCK", "false").lower() == "true"
+    os.environ.get("DOLPHIN_BILLING_INVOICE_AFFECTS_STOCK", "false").lower() == "true"
 )
 
 # When a cheque payment credits the customer account: on clearing (default) or
@@ -391,14 +391,14 @@ BILLING_INVOICE_AFFECTS_STOCK = (
 #: only once the bank pays it (`cleared`). The product owner chose arrival
 #: in 1.3.0; a bounce then reverses the credit. See
 #: `billing.payments.cheque_credits_on_registration`.
-BILLING_CHEQUE_CREDITS_ON = os.environ.get("KARIZ_BILLING_CHEQUE_CREDITS_ON", "registration")
+BILLING_CHEQUE_CREDITS_ON = os.environ.get("DOLPHIN_BILLING_CHEQUE_CREDITS_ON", "registration")
 
 # Default spacing between installments, in days, and the hard ceiling on how
 # many lines or installments one document may carry.
 BILLING_INSTALLMENT_INTERVAL_DAYS = int(
-    os.environ.get("KARIZ_BILLING_INSTALLMENT_INTERVAL_DAYS", "30")
+    os.environ.get("DOLPHIN_BILLING_INSTALLMENT_INTERVAL_DAYS", "30")
 )
-BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("KARIZ_BILLING_MAX_DOCUMENT_ITEMS", "200"))
+BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("DOLPHIN_BILLING_MAX_DOCUMENT_ITEMS", "200"))
 
 # The seller's own legal identity, as it must appear on an official invoice.
 #
@@ -414,9 +414,9 @@ BILLING_MAX_DOCUMENT_ITEMS = int(os.environ.get("KARIZ_BILLING_MAX_DOCUMENT_ITEM
 #
 # Nothing here is a tax rule. These are three identifiers printed on a document;
 # what tax applies to it, and how it is computed, stays open (D.3-D.6).
-SELLER_LEGAL_NAME = os.environ.get("KARIZ_SELLER_LEGAL_NAME", "").strip()
-SELLER_NATIONAL_ID = os.environ.get("KARIZ_SELLER_NATIONAL_ID", "").strip()
-SELLER_ECONOMIC_CODE = os.environ.get("KARIZ_SELLER_ECONOMIC_CODE", "").strip()
+SELLER_LEGAL_NAME = os.environ.get("DOLPHIN_SELLER_LEGAL_NAME", "").strip()
+SELLER_NATIONAL_ID = os.environ.get("DOLPHIN_SELLER_NATIONAL_ID", "").strip()
+SELLER_ECONOMIC_CODE = os.environ.get("DOLPHIN_SELLER_ECONOMIC_CODE", "").strip()
 #: The rest of مشخصات فروشنده as the printed document sets it out. These are
 #: deployment identity, not business data, which is why they are environment and
 #: not a model: one deployment is one seller, and a second seller would be a
@@ -426,50 +426,50 @@ SELLER_ECONOMIC_CODE = os.environ.get("KARIZ_SELLER_ECONOMIC_CODE", "").strip()
 #: identify the seller for tax. The address block is printed when present and
 #: does not block issuing, because a deployment that has not filled it in should
 #: still be able to invoice.
-SELLER_REGISTRATION_NUMBER = os.environ.get("KARIZ_SELLER_REGISTRATION_NUMBER", "").strip()
-SELLER_ADDRESS = os.environ.get("KARIZ_SELLER_ADDRESS", "").strip()
-SELLER_POSTAL_CODE = os.environ.get("KARIZ_SELLER_POSTAL_CODE", "").strip()
-SELLER_CITY = os.environ.get("KARIZ_SELLER_CITY", "").strip()
-SELLER_PHONE = os.environ.get("KARIZ_SELLER_PHONE", "").strip()
+SELLER_REGISTRATION_NUMBER = os.environ.get("DOLPHIN_SELLER_REGISTRATION_NUMBER", "").strip()
+SELLER_ADDRESS = os.environ.get("DOLPHIN_SELLER_ADDRESS", "").strip()
+SELLER_POSTAL_CODE = os.environ.get("DOLPHIN_SELLER_POSTAL_CODE", "").strip()
+SELLER_CITY = os.environ.get("DOLPHIN_SELLER_CITY", "").strip()
+SELLER_PHONE = os.environ.get("DOLPHIN_SELLER_PHONE", "").strip()
 
 # Server-generated PDF. Off unless a deployment sets a renderer, because the
 # only supported renderer needs a browser binary on the host and a control that
 # cannot act is never shown. Browser print / save-as-PDF works regardless.
 # Supported value: "chromium". See common/pdf.py for why no PDF library is used.
-PDF_RENDERER = os.environ.get("KARIZ_PDF_RENDERER", "")
+PDF_RENDERER = os.environ.get("DOLPHIN_PDF_RENDERER", "")
 # Optional explicit path. When empty, a browser already on PATH is accepted,
 # which is the normal case inside an image that installed one.
-PDF_CHROMIUM_BINARY = os.environ.get("KARIZ_PDF_CHROMIUM_BINARY", "")
-PDF_RENDER_TIMEOUT_SECONDS = int(os.environ.get("KARIZ_PDF_RENDER_TIMEOUT_SECONDS", "20"))
+PDF_CHROMIUM_BINARY = os.environ.get("DOLPHIN_PDF_CHROMIUM_BINARY", "")
+PDF_RENDER_TIMEOUT_SECONDS = int(os.environ.get("DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS", "20"))
 
 # Outbound SMS. Off unless a deployment sets a provider, for the same reason
 # the PDF renderer is off unless configured: a control that cannot act is
 # never shown. Supported value: "http" — a generic HTTP request built
 # entirely from these settings. See communications/sms.py for why no specific
 # vendor (Kavenegar, Melipayamak, Ghasedak, ...) is integrated in shared
-# source, and for the exact placeholder tokens KARIZ_SMS_API_BODY_TEMPLATE
+# source, and for the exact placeholder tokens DOLPHIN_SMS_API_BODY_TEMPLATE
 # uses. Each deployment's own .env supplies its own gateway's real values —
 # never a name or a request shape hardcoded here.
-SMS_PROVIDER = os.environ.get("KARIZ_SMS_PROVIDER", "").strip().lower()
-SMS_API_URL = os.environ.get("KARIZ_SMS_API_URL", "").strip()
+SMS_PROVIDER = os.environ.get("DOLPHIN_SMS_PROVIDER", "").strip().lower()
+SMS_API_URL = os.environ.get("DOLPHIN_SMS_API_URL", "").strip()
 # A JSON object, e.g. {"receptor": "__SMS_TO__", "message": "__SMS_BODY__",
 # "sender": "__SMS_SENDER__"} — adapted per gateway; the three placeholder
 # tokens are substituted after the JSON is parsed, never into raw text.
-SMS_API_BODY_TEMPLATE = os.environ.get("KARIZ_SMS_API_BODY_TEMPLATE", "").strip()
+SMS_API_BODY_TEMPLATE = os.environ.get("DOLPHIN_SMS_API_BODY_TEMPLATE", "").strip()
 # A JSON object of extra HTTP headers (the gateway's API key/token usually
 # goes here). Content-Type: application/json is always sent and cannot be
 # overridden by this.
-SMS_API_HEADERS = os.environ.get("KARIZ_SMS_API_HEADERS", "").strip()
-SMS_SENDER_ID = os.environ.get("KARIZ_SMS_SENDER_ID", "").strip()
-SMS_API_TIMEOUT_SECONDS = int(os.environ.get("KARIZ_SMS_API_TIMEOUT_SECONDS", "10"))
+SMS_API_HEADERS = os.environ.get("DOLPHIN_SMS_API_HEADERS", "").strip()
+SMS_SENDER_ID = os.environ.get("DOLPHIN_SMS_SENDER_ID", "").strip()
+SMS_API_TIMEOUT_SECONDS = int(os.environ.get("DOLPHIN_SMS_API_TIMEOUT_SECONDS", "10"))
 
 # Deployment profile (PROFILE-001, Option C). The signed external manifest is
 # the source of truth for feature availability; the database table of the same
 # name is a derived cache that never authorises anything. Feature availability,
 # role permission, and object scope stay three separate controls.
-DEPLOYMENT_MANIFEST_PATH = os.environ.get("KARIZ_DEPLOYMENT_MANIFEST", "")
+DEPLOYMENT_MANIFEST_PATH = os.environ.get("DOLPHIN_DEPLOYMENT_MANIFEST", "")
 DEPLOYMENT_MANIFEST_PUBLIC_KEYS = _manifest_public_keys(
-    os.environ.get("KARIZ_DEPLOYMENT_MANIFEST_KEYS", "")
+    os.environ.get("DOLPHIN_DEPLOYMENT_MANIFEST_KEYS", "")
 )
 # Development and the test suite may run without a manifest. Production sets
 # this to True, so a customer deployment refuses to start without one.

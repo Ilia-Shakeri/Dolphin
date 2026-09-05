@@ -958,17 +958,17 @@ def official_invoice_identity_errors(invoice):
     if not settings.SELLER_LEGAL_NAME:
         errors["seller_legal_name"] = (
             "نام حقوقی فروشنده در این استقرار تنظیم نشده و صدور فاکتور رسمی ممکن نیست. "
-            "مقدار KARIZ_SELLER_LEGAL_NAME را تنظیم کنید."
+            "مقدار DOLPHIN_SELLER_LEGAL_NAME را تنظیم کنید."
         )
     if not settings.SELLER_NATIONAL_ID:
         errors["seller_national_id"] = (
             "کد ملی فروشنده در این استقرار تنظیم نشده است. "
-            "مقدار KARIZ_SELLER_NATIONAL_ID را تنظیم کنید."
+            "مقدار DOLPHIN_SELLER_NATIONAL_ID را تنظیم کنید."
         )
     if not settings.SELLER_ECONOMIC_CODE:
         errors["seller_economic_code"] = (
             "شناسه/کد اقتصادی فروشنده در این استقرار تنظیم نشده است. "
-            "مقدار KARIZ_SELLER_ECONOMIC_CODE را تنظیم کنید."
+            "مقدار DOLPHIN_SELLER_ECONOMIC_CODE را تنظیم کنید."
         )
 
     customer = invoice.customer

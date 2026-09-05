@@ -21,19 +21,19 @@ VALID_PRODUCTION_ENVIRONMENT = {
     "DJANGO_SECRET_KEY": "test-only-long-private-value-for-production-settings-check-1234567890",
     "DJANGO_ALLOWED_HOSTS": "crm.example.test",
     "DJANGO_CSRF_TRUSTED_ORIGINS": "https://crm.example.test",
-    "KARIZ_PUBLIC_HOST": "crm.example.test",
+    "DOLPHIN_PUBLIC_HOST": "crm.example.test",
     "AUDIT_TRUSTED_PROXY_CIDRS": "10.20.0.0/24",
     "DJANGO_SECURE_SSL_REDIRECT": "true",
     "DJANGO_SECURE_HSTS_SECONDS": "31536000",
     "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS": "false",
     "DJANGO_SECURE_HSTS_PRELOAD": "false",
-    "KARIZ_HSTS_HEADER": "max-age=31536000",
+    "DOLPHIN_HSTS_HEADER": "max-age=31536000",
     "POSTGRES_DB": "dolphin",
     "POSTGRES_INIT_USER": "dolphin_init",
     "POSTGRES_MIGRATION_USER": "dolphin_migration",
     "POSTGRES_APP_USER": "dolphin_app",
     "POSTGRES_APP_PASSWORD": "test-only-app-password-741",
-    "KARIZ_DATABASE_ROLE": "app",
+    "DOLPHIN_DATABASE_ROLE": "app",
     "POSTGRES_HOST": "db",
     "POSTGRES_PORT": "5432",
     "POSTGRES_CONNECT_TIMEOUT": "3",
@@ -92,7 +92,7 @@ class ProductionSettingsTests(SimpleTestCase):
             ("DJANGO_ALLOWED_HOSTS", "*"),
             ("DJANGO_CSRF_TRUSTED_ORIGINS", "http://crm.example.test"),
             ("DJANGO_CSRF_TRUSTED_ORIGINS", "https://crm.example.test:bad"),
-            ("KARIZ_PUBLIC_HOST", "Bad Host"),
+            ("DOLPHIN_PUBLIC_HOST", "Bad Host"),
             ("POSTGRES_APP_PASSWORD", "short"),
             ("POSTGRES_PORT", "not-a-port"),
             ("POSTGRES_APP_USER", "Unsafe-Role"),
@@ -170,9 +170,9 @@ class ProductionSettingsTests(SimpleTestCase):
 
         invalid_mode = {
             **VALID_PRODUCTION_ENVIRONMENT,
-            "KARIZ_DATABASE_ROLE": "owner",
+            "DOLPHIN_DATABASE_ROLE": "owner",
         }
-        with self.assertRaisesMessage(ImproperlyConfigured, "KARIZ_DATABASE_ROLE"):
+        with self.assertRaisesMessage(ImproperlyConfigured, "DOLPHIN_DATABASE_ROLE"):
             validate_production_environment(invalid_mode)
 
     def test_a_deployment_may_name_its_database_and_roles_whatever_it_likes(self):
@@ -216,7 +216,7 @@ class ProductionSettingsTests(SimpleTestCase):
     def test_migration_mode_uses_only_migration_login(self):
         environment = {
             **VALID_PRODUCTION_ENVIRONMENT,
-            "KARIZ_DATABASE_ROLE": "migration",
+            "DOLPHIN_DATABASE_ROLE": "migration",
             "POSTGRES_MIGRATION_PASSWORD": "test-only-migration-password-852",
         }
         environment.pop("POSTGRES_APP_PASSWORD")
@@ -248,16 +248,16 @@ class ProductionSettingsTests(SimpleTestCase):
 
         mismatch = {
             **VALID_PRODUCTION_ENVIRONMENT,
-            "KARIZ_PUBLIC_HOST": "other.example.test",
+            "DOLPHIN_PUBLIC_HOST": "other.example.test",
         }
-        with self.assertRaisesMessage(ImproperlyConfigured, "KARIZ_PUBLIC_HOST"):
+        with self.assertRaisesMessage(ImproperlyConfigured, "DOLPHIN_PUBLIC_HOST"):
             validate_production_environment(mismatch)
 
         bad_hsts_header = {
             **VALID_PRODUCTION_ENVIRONMENT,
-            "KARIZ_HSTS_HEADER": "max-age=0",
+            "DOLPHIN_HSTS_HEADER": "max-age=0",
         }
-        with self.assertRaisesMessage(ImproperlyConfigured, "KARIZ_HSTS_HEADER"):
+        with self.assertRaisesMessage(ImproperlyConfigured, "DOLPHIN_HSTS_HEADER"):
             validate_production_environment(bad_hsts_header)
 
     def test_ip_only_deployment_may_disable_hsts_but_not_weaken_it(self):
@@ -268,9 +268,9 @@ class ProductionSettingsTests(SimpleTestCase):
             **VALID_PRODUCTION_ENVIRONMENT,
             "DJANGO_ALLOWED_HOSTS": "203.0.113.10",
             "DJANGO_CSRF_TRUSTED_ORIGINS": "https://203.0.113.10",
-            "KARIZ_PUBLIC_HOST": "203.0.113.10",
+            "DOLPHIN_PUBLIC_HOST": "203.0.113.10",
             "DJANGO_SECURE_HSTS_SECONDS": "0",
-            "KARIZ_HSTS_HEADER": "",
+            "DOLPHIN_HSTS_HEADER": "",
         }
         validated = validate_production_environment(ip_only)
         self.assertEqual(validated["SECURE_HSTS_SECONDS"], 0)
@@ -280,7 +280,7 @@ class ProductionSettingsTests(SimpleTestCase):
         # Disabling it at one layer only would leave the browser pinned by the
         # edge while Django believes HSTS is off.
         for label, override in (
-            ("edge still sends a pin", {"KARIZ_HSTS_HEADER": "max-age=31536000"}),
+            ("edge still sends a pin", {"DOLPHIN_HSTS_HEADER": "max-age=31536000"}),
             ("subdomains claimed while off", {"DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS": "true"}),
             ("preload claimed while off", {"DJANGO_SECURE_HSTS_PRELOAD": "true"}),
         ):
@@ -294,7 +294,7 @@ class ProductionSettingsTests(SimpleTestCase):
                 weakened = {
                     **ip_only,
                     "DJANGO_SECURE_HSTS_SECONDS": weak,
-                    "KARIZ_HSTS_HEADER": f"max-age={weak}",
+                    "DOLPHIN_HSTS_HEADER": f"max-age={weak}",
                 }
                 with self.assertRaisesMessage(
                     ImproperlyConfigured, "DJANGO_SECURE_HSTS_SECONDS"
@@ -438,15 +438,15 @@ class ProductionSettingsTests(SimpleTestCase):
         config = (root / "nginx" / "default.conf").read_text(encoding="utf-8")
         compose = (root / "compose.yml").read_text(encoding="utf-8")
         self.assertIn("listen 80 default_server;", config)
-        self.assertIn("return 308 https://${KARIZ_PUBLIC_HOST}$request_uri;", config)
+        self.assertIn("return 308 https://${DOLPHIN_PUBLIC_HOST}$request_uri;", config)
         self.assertIn("listen 443 ssl default_server;", config)
-        self.assertIn("server_name ${KARIZ_PUBLIC_HOST};", config)
+        self.assertIn("server_name ${DOLPHIN_PUBLIC_HOST};", config)
         self.assertIn("ssl_certificate /etc/nginx/tls/fullchain.pem;", config)
         self.assertIn("ssl_certificate_key /etc/nginx/tls/privkey.pem;", config)
         self.assertIn("ssl_protocols TLSv1.2 TLSv1.3;", config)
         self.assertIn("ssl_session_tickets off;", config)
         self.assertIn(
-            'add_header Strict-Transport-Security "${KARIZ_HSTS_HEADER}" always;',
+            'add_header Strict-Transport-Security "${DOLPHIN_HSTS_HEADER}" always;',
             config,
         )
         proxied = config.count("proxy_pass http://web:8000;")
@@ -455,10 +455,10 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertEqual(config.count("proxy_set_header X-Forwarded-Proto https;"), proxied)
         self.assertNotIn("proxy_set_header X-Forwarded-Proto $scheme;", config)
         self.assertIn('- "443:443"', compose)
-        self.assertIn("KARIZ_TLS_CERT_PATH must name the approved certificate chain file", compose)
-        self.assertIn("KARIZ_TLS_KEY_PATH must name the approved private key file", compose)
+        self.assertIn("DOLPHIN_TLS_CERT_PATH must name the approved certificate chain file", compose)
+        self.assertIn("DOLPHIN_TLS_KEY_PATH must name the approved private key file", compose)
         self.assertIn("/etc/nginx/templates/default.conf.template", compose)
-        self.assertIn("NGINX_ENVSUBST_FILTER: KARIZ_PUBLIC_HOST|KARIZ_HSTS_HEADER", compose)
+        self.assertIn("NGINX_ENVSUBST_FILTER: DOLPHIN_PUBLIC_HOST|DOLPHIN_HSTS_HEADER", compose)
 
     def test_edge_log_is_structured_bounded_and_query_free(self):
         config = (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8")
@@ -503,7 +503,7 @@ class ProductionSettingsTests(SimpleTestCase):
         restore = yaml.safe_load(
             (root / "compose.restore-verify.yml").read_text(encoding="utf-8")
         )
-        self.assertIn("${KARIZ_COMPOSE_PROJECT_NAME:?", compose["name"])
+        self.assertIn("${DOLPHIN_COMPOSE_PROJECT_NAME:?", compose["name"])
         self.assertEqual(
             restore["name"],
             compose["name"] + "-restore-verify",
@@ -537,7 +537,7 @@ class ProductionSettingsTests(SimpleTestCase):
             ],
         )
         env_example = (root / ".env.example").read_text(encoding="utf-8")
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=replace-with-", env_example)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME=replace-with-", env_example)
 
     def test_edge_short_circuit_errors_use_stable_json_and_request_id(self):
         config = (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8")

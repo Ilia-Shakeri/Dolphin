@@ -113,7 +113,9 @@ moves which digit.
 ---
 
 <sub>Internal engineering identifiers from the product's earlier names
-(`forooshbin`, `Kariz`) were fully renamed to Dolphin as of 2026-09-01, with
-one deliberate exception: a fixed set of `KARIZ_*` deployment environment
-variable names, which an already-deployed `.env` reads by that exact name —
-see `CLAUDE.md`'s Branding section for the complete list and why.</sub>
+(`forooshbin`, `Kariz`) were fully renamed to Dolphin as of 2026-09-01. A
+fixed set of `KARIZ_*` deployment environment variable names was deliberately
+kept until 2026-09-05, when the product owner closed that last exception
+too — every `.env`-facing name is now `DOLPHIN_*`. An already-deployed
+`.env` still using the old names needs a one-time manual update before its
+next deploy; see the migration note in `docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`.</sub>

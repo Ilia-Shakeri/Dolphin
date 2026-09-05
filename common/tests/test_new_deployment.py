@@ -112,7 +112,7 @@ class GeneratedEnvironmentTests(SimpleTestCase):
     def test_identifiers_all_derive_from_the_one_slug(self):
         """They must agree: three separate places read the same role name."""
         env = provision(slug="acme")
-        self.assertEqual(env["KARIZ_COMPOSE_PROJECT_NAME"], "acme")
+        self.assertEqual(env["DOLPHIN_COMPOSE_PROJECT_NAME"], "acme")
         self.assertEqual(env["POSTGRES_DB"], "acme")
         self.assertEqual(env["POSTGRES_APP_USER"], "acme_app")
         self.assertEqual(env["POSTGRES_BACKUP_USER"], "acme_backup")
@@ -132,8 +132,8 @@ class GeneratedEnvironmentTests(SimpleTestCase):
     def test_the_project_name_never_carries_a_version(self):
         """A project per version is what put two servers on one data directory."""
         env = provision(image="dolphin-app:v9.9.9")
-        self.assertNotIn("9", env["KARIZ_COMPOSE_PROJECT_NAME"])
-        self.assertIn("v9.9.9", env["KARIZ_APP_IMAGE"])
+        self.assertNotIn("9", env["DOLPHIN_COMPOSE_PROJECT_NAME"])
+        self.assertIn("v9.9.9", env["DOLPHIN_APP_IMAGE"])
 
 
 class SecretTests(SimpleTestCase):
@@ -168,7 +168,7 @@ class SecretTests(SimpleTestCase):
 
         env = provision()
         # compose.yml supplies this per service rather than through .env.
-        env["KARIZ_DATABASE_ROLE"] = "app"
+        env["DOLPHIN_DATABASE_ROLE"] = "app"
         validate_production_environment(env)  # raises if the deployment is unstartable
 
     def test_secrets_cannot_be_reinterpreted_by_a_shell_or_by_compose(self):

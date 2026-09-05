@@ -313,11 +313,11 @@ run $PYTHON_BIN scripts/new_deployment.py \
     --retention-days "$RETENTION_DAYS"
 # new_deployment.py writes the TLS lines as REPLACE-WITH-* placeholders — it
 # cannot know these paths before this script resolved them above. The
-# variable name is KARIZ_TLS_*, deliberately not renamed — see CLAUDE.md's
+# variable name is DOLPHIN_TLS_*, deliberately not renamed — see CLAUDE.md's
 # Branding section and .env.example's own comment on why.
 if [ "$DRY_RUN" -eq 0 ]; then
-    sed -i "s|^KARIZ_TLS_CERT_PATH=.*|KARIZ_TLS_CERT_PATH=$TLS_CERT_DEST|" "$ENV_FILE"
-    sed -i "s|^KARIZ_TLS_KEY_PATH=.*|KARIZ_TLS_KEY_PATH=$TLS_KEY_DEST|" "$ENV_FILE"
+    sed -i "s|^DOLPHIN_TLS_CERT_PATH=.*|DOLPHIN_TLS_CERT_PATH=$TLS_CERT_DEST|" "$ENV_FILE"
+    sed -i "s|^DOLPHIN_TLS_KEY_PATH=.*|DOLPHIN_TLS_KEY_PATH=$TLS_KEY_DEST|" "$ENV_FILE"
 fi
 
 # --- 7. Bring the stack up ---------------------------------------------------

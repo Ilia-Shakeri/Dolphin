@@ -123,7 +123,7 @@ drifted, which is the only reason that failure is visible.
 ### 3. Confirm
 
 Log in and read the version in the panel footer. It must show the version just
-shipped; if it shows the previous one, `KARIZ_APP_IMAGE` did not change.
+shipped; if it shows the previous one, `DOLPHIN_APP_IMAGE` did not change.
 
 ```bash
 cd $DEPLOY && ./scripts/deploy.sh --status
@@ -567,16 +567,16 @@ Values that decide behaviour rather than identity:
 
 | Variable | Value | Why |
 |---|---|---|
-| `KARIZ_COMPOSE_PROJECT_NAME` | stable lowercase name | Renaming it orphans the running containers |
-| `KARIZ_APP_IMAGE` / `KARIZ_POSTGRES_IMAGE` / `KARIZ_NGINX_IMAGE` | `repo@sha256:digest` | Pinning by digest, not tag |
-| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `KARIZ_PUBLIC_HOST` | domain, or the static IP | All three must agree — see [6](#6-domain-deployment) / [7](#7-static-ip-deployment) |
+| `DOLPHIN_COMPOSE_PROJECT_NAME` | stable lowercase name | Renaming it orphans the running containers |
+| `DOLPHIN_APP_IMAGE` / `DOLPHIN_POSTGRES_IMAGE` / `DOLPHIN_NGINX_IMAGE` | `repo@sha256:digest` | Pinning by digest, not tag |
+| `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DOLPHIN_PUBLIC_HOST` | domain, or the static IP | All three must agree — see [6](#6-domain-deployment) / [7](#7-static-ip-deployment) |
 | `AUDIT_TRUSTED_PROXY_CIDRS` | the Compose frontend subnet | **Must not be empty.** See [1.9](#19-audit_trusted_proxy_cidrs) |
-| `DJANGO_SECURE_HSTS_SECONDS` + `KARIZ_HSTS_HEADER` | `31536000` + `max-age=31536000`, **or** `0` + empty | Only these two combinations are accepted |
-| `KARIZ_DEPLOYMENT_MANIFEST_PATH` | path to the signed manifest | See [1.10](#110-signed-deployment-manifest) |
-| `KARIZ_DEPLOYMENT_MANIFEST_KEYS` | `key_id:base64_public_key` | Public key only. The private key never reaches this host |
-| `KARIZ_TLS_CERT_PATH` / `KARIZ_TLS_KEY_PATH` | `secrets/tls/fullchain.pem` / `privkey.pem` | |
+| `DJANGO_SECURE_HSTS_SECONDS` + `DOLPHIN_HSTS_HEADER` | `31536000` + `max-age=31536000`, **or** `0` + empty | Only these two combinations are accepted |
+| `DOLPHIN_DEPLOYMENT_MANIFEST_PATH` | path to the signed manifest | See [1.10](#110-signed-deployment-manifest) |
+| `DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` | `key_id:base64_public_key` | Public key only. The private key never reaches this host |
+| `DOLPHIN_TLS_CERT_PATH` / `DOLPHIN_TLS_KEY_PATH` | `secrets/tls/fullchain.pem` / `privkey.pem` | |
 | `POSTGRES_*_USER` / `POSTGRES_DB` | any safe lowercase identifier | Fresh installs get `dolphin*` names from the template; an existing deployment keeps whatever it already has |
-| `KARIZ_BILLING_INVOICE_AFFECTS_STOCK` | **leave unset** | See [1.11](#111-client-1-business-switches) |
+| `DOLPHIN_BILLING_INVOICE_AFFECTS_STOCK` | **leave unset** | See [1.11](#111-client-1-business-switches) |
 
 > **Why the `DOLPHIN_` prefix is still there.** It is a compatibility contract, not
 > branding: `compose.yml`, the nginx envsubst filter, `config/production_env.py`
@@ -595,7 +595,7 @@ The template ships `172.16.0.0/12`, which covers Docker's usual range. Narrow it
 to the real subnet once the stack is up:
 
 ```bash
-docker network inspect "${KARIZ_COMPOSE_PROJECT_NAME}_frontend" \
+docker network inspect "${DOLPHIN_COMPOSE_PROJECT_NAME}_frontend" \
   --format '{{(index .IPAM.Config 0).Subnet}}'
 ```
 
@@ -623,7 +623,7 @@ python scripts/sign_deployment_manifest.py --print-public-key \
 ```
 
 The second command prints exactly the `key_id:base64publickey` line that goes
-into `KARIZ_DEPLOYMENT_MANIFEST_KEYS` — copy it as-is.
+into `DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` — copy it as-is.
 
 ```bash
 python scripts/sign_deployment_manifest.py \
@@ -641,7 +641,7 @@ This writes `manifest.json` at mode `0644` already — see why below before
 changing it.
 
 Copy `manifest.json` to `secrets/` on the host and point
-`KARIZ_DEPLOYMENT_MANIFEST_PATH` at it. **Unlike everything else in `secrets/`,
+`DOLPHIN_DEPLOYMENT_MANIFEST_PATH` at it. **Unlike everything else in `secrets/`,
 this file must stay world-readable: `chmod 644 secrets/manifest.json`.** The
 application runs as a non-root user inside the container and reads it as a
 bind mount; a manifest copied in at `0600` reads back as
@@ -662,7 +662,7 @@ Two deliberate omissions from that list:
 
 ### 1.11 Client-1 business switches
 
-**`KARIZ_BILLING_INVOICE_AFFECTS_STOCK` must stay unset (it defaults to false).**
+**`DOLPHIN_BILLING_INVOICE_AFFECTS_STOCK` must stay unset (it defaults to false).**
 
 The order owns the inventory lifecycle: stock leaves the warehouse when an order
 is approved and returns when it is cancelled, exactly once each. If invoices also
@@ -919,9 +919,57 @@ The prompts appear with or without `-T`. If you want to know whether the values
 actually landed, look at the backup that follows: it authenticates as the backup
 role this step just configured, so a successful backup is the proof.
 
+### One-time migration — `KARIZ_*` → `DOLPHIN_*` (read this if you deployed before 2026-09-05)
+
+As of this release, every environment variable this application reads is named
+`DOLPHIN_*`. Nothing reads a `KARIZ_*` name anymore — the compatibility
+exception documented in earlier releases (`CLAUDE.md` §10.1) is closed. **A
+deployment whose `secrets/.env` still uses the old names will not start**
+after updating to this version: `config/settings.py`, `compose.yml`, and
+`nginx/default.conf` all look for the new names only, with no fallback.
+
+Do this once, before running `./scripts/deploy.sh` with this version or later:
+
+1. **Rename every `KARIZ_*` key to `DOLPHIN_*` in `secrets/.env`**, keeping
+   its value unchanged — this is a key rename, not a new secret. Every
+   variable this file can contain is listed in [§1.8](#18-env); anything
+   there spelled `KARIZ_*` becomes `DOLPHIN_*` and nothing else about it
+   changes.
+2. **Verify Compose agrees before touching anything live:**
+   ```bash
+   docker compose --env-file secrets/.env config --quiet
+   ```
+   A missing or misnamed variable fails this command loudly, before any
+   container is touched — the same check step 5 of
+   ["The same sequence by hand"](#the-same-sequence-by-hand) already uses.
+3. **Check the backup volume's sentinel.** A backup root prepared before
+   2026-09-05 carries `.dolphin-backup-root` already if it was ever touched
+   by a release from 2026-09-01 onward (`[1.6.9]`); this needs nothing. Only
+   a backup root that has sat completely untouched since the original
+   `Kariz`/`FrooshBin` era — carrying only `.frooshbin-backup-root` or
+   `.kariz-backup-root` and no `.dolphin-backup-root` — needs a one-time fix,
+   since this release's scripts recognise only the `Dolphin` sentinel:
+   ```bash
+   ./scripts/prepare-backup-volume.sh --env-file secrets/.env
+   ```
+   Safe to run against an already-prepared volume — it recognises its own
+   sentinel and reports "already prepared" rather than touching anything.
+4. **Old-named backup archives are not deleted, only no longer
+   auto-cleaned.** A `frooshbin-pg-*.dump` or `kariz-pg-*.dump` file already
+   on the backup volume stays exactly where it is; retention cleanup
+   (§4.4) now only ever considers `dolphin-pg-*.dump` files, so an old-named
+   archive past its retention window is no longer removed automatically. If
+   reclaiming that space matters, delete it by hand once you have confirmed
+   it is not still needed for a restore.
+5. **Continue with the ordinary release** — [§3, "The short way"](#the-short-way)
+   or ["Shipping a change"](#shipping-a-change), whichever applies.
+
+This is a one-time step. Once `secrets/.env` uses only `DOLPHIN_*` names,
+nothing here applies to any later release.
+
 ### One stack, not one per version
 
-`KARIZ_COMPOSE_PROJECT_NAME` names a **stable** project, and
+`DOLPHIN_COMPOSE_PROJECT_NAME` names a **stable** project, and
 `POSTGRES_DATA_VOLUME` a single fixed volume. The version belongs to the image
 tag, never to the project name.
 
@@ -949,7 +997,7 @@ Use this when the script cannot run, or to understand what it does.
 3. **Load the new reviewed image** — [1.6](#16-images). Never build on this host.
 4. **Record the digest you are leaving.** Rollback needs it:
    ```bash
-   grep KARIZ_APP_IMAGE secrets/.env
+   grep DOLPHIN_APP_IMAGE secrets/.env
    ```
 5. **Point `.env` at the new digest**, then verify Compose agrees:
    ```bash
@@ -1164,7 +1212,7 @@ accepted in writing.
    ```
    DJANGO_ALLOWED_HOSTS=crm.company.com
    DJANGO_CSRF_TRUSTED_ORIGINS=https://crm.company.com
-   KARIZ_PUBLIC_HOST=crm.company.com
+   DOLPHIN_PUBLIC_HOST=crm.company.com
    ```
    Exactly one host, no wildcard, no leading dot, no port, no trailing slash —
    production validation refuses all of those.
@@ -1176,7 +1224,7 @@ accepted in writing.
 5. **HSTS** — keep the default:
    ```
    DJANGO_SECURE_HSTS_SECONDS=31536000
-   KARIZ_HSTS_HEADER=max-age=31536000
+   DOLPHIN_HSTS_HEADER=max-age=31536000
    ```
    These two must agree. Only one year (or more) and exactly `0` are accepted —
    a short pin looks like protection without being any.
@@ -1228,7 +1276,7 @@ difference is *who signs the certificate*, not how HTTPS or HSTS behave.
    from [section 7](#7-static-ip-deployment) applies.
 5. **HSTS** — the domain policy, not the static-IP one: this is a real
    hostname, so keep `DJANGO_SECURE_HSTS_SECONDS=31536000` and
-   `KARIZ_HSTS_HEADER=max-age=31536000`. HSTS only pins "always HTTPS for this
+   `DOLPHIN_HSTS_HEADER=max-age=31536000`. HSTS only pins "always HTTPS for this
    host"; it does not pin which CA signed the certificate, so rotating the
    leaf certificate later — even re-issuing under a new CA — needs no HSTS
    change.
@@ -1277,14 +1325,14 @@ TLS still applies: there is no plain-HTTP mode and cookies are secure-only.
    ```
    DJANGO_ALLOWED_HOSTS=203.0.113.10
    DJANGO_CSRF_TRUSTED_ORIGINS=https://203.0.113.10
-   KARIZ_PUBLIC_HOST=203.0.113.10
+   DOLPHIN_PUBLIC_HOST=203.0.113.10
    ```
 2. **HSTS must be off.** A one-year pin on an address presenting a self-signed
    certificate stops anyone clicking through the warning for a year, on their own
    machine, with no server-side undo:
    ```
    DJANGO_SECURE_HSTS_SECONDS=0
-   KARIZ_HSTS_HEADER=
+   DOLPHIN_HSTS_HEADER=
    ```
    Both, together. The validator refuses one without the other.
 3. **Certificate — generate it on the server** so the private key never travels:
@@ -1415,7 +1463,7 @@ not the release you expected.
 **Diagnose**
 
 ```bash
-grep KARIZ_APP_IMAGE secrets/.env
+grep DOLPHIN_APP_IMAGE secrets/.env
 docker images --digests | grep <app-repository>
 docker compose --env-file secrets/.env images
 ```
@@ -1567,7 +1615,7 @@ proxy's own address.
 docker compose --env-file secrets/.env exec db \
   psql -U "$POSTGRES_APP_USER" -d "$POSTGRES_DB" \
   -c "SELECT ip_address, count(*) FROM auditlog_activitylog GROUP BY 1 ORDER BY 2 DESC LIMIT 5;"
-docker network inspect "${KARIZ_COMPOSE_PROJECT_NAME}_frontend" --format '{{(index .IPAM.Config 0).Subnet}}'
+docker network inspect "${DOLPHIN_COMPOSE_PROJECT_NAME}_frontend" --format '{{(index .IPAM.Config 0).Subnet}}'
 ```
 
 **Remediate** — set `AUDIT_TRUSTED_PROXY_CIDRS` to that subnet, then
@@ -1864,7 +1912,7 @@ before section 3.
 
 The deployment has exactly one public identity — one hostname **or** one IP —
 and it appears in four places that must agree: `DJANGO_ALLOWED_HOSTS`,
-`DJANGO_CSRF_TRUSTED_ORIGINS`, `KARIZ_PUBLIC_HOST`, and the certificate. The
+`DJANGO_CSRF_TRUSTED_ORIGINS`, `DOLPHIN_PUBLIC_HOST`, and the certificate. The
 application refuses to start if they disagree; that check is the reason a
 mistake here fails at boot instead of at login.
 
@@ -1882,9 +1930,9 @@ Pick the scenario the customer is actually in.
 ```dotenv
 DJANGO_ALLOWED_HOSTS=crm.example.com
 DJANGO_CSRF_TRUSTED_ORIGINS=https://crm.example.com
-KARIZ_PUBLIC_HOST=crm.example.com
+DOLPHIN_PUBLIC_HOST=crm.example.com
 DJANGO_SECURE_HSTS_SECONDS=31536000
-KARIZ_HSTS_HEADER=max-age=31536000
+DOLPHIN_HSTS_HEADER=max-age=31536000
 ```
 
 #### Scenario B — no domain, static public IP only
@@ -1897,10 +1945,10 @@ address `ip addr` shows on the server.
 ```dotenv
 DJANGO_ALLOWED_HOSTS=203.0.113.10
 DJANGO_CSRF_TRUSTED_ORIGINS=https://203.0.113.10
-KARIZ_PUBLIC_HOST=203.0.113.10
+DOLPHIN_PUBLIC_HOST=203.0.113.10
 # HSTS off — see the limitations below. These two must both be set.
 DJANGO_SECURE_HSTS_SECONDS=0
-KARIZ_HSTS_HEADER=
+DOLPHIN_HSTS_HEADER=
 ```
 
 TLS still applies: the stack has no plain-HTTP mode, port 80 only redirects, and
@@ -2046,7 +2094,7 @@ off and users still get correct Persian PDFs through their browser's
 print / save-as-PDF — that is the supported day-one path.
 
 To enable the server-side download, add Chromium to the image and set
-`KARIZ_PDF_RENDERER=chromium`. The trade is real: about 300–400 MB and an `apt`
+`DOLPHIN_PDF_RENDERER=chromium`. The trade is real: about 300–400 MB and an `apt`
 layer that is **not** hash-pinned the way `requirements.txt` is. Record the
 installed version in the release notes if you take it.
 
@@ -2066,17 +2114,17 @@ chmod 600 secrets/.env
 
 | Key | Must be | Status |
 |---|---|---|
-| `KARIZ_COMPOSE_PROJECT_NAME` | stable, lowercase, unique on this host | — |
-| `KARIZ_APP_IMAGE`, `KARIZ_POSTGRES_IMAGE`, `KARIZ_NGINX_IMAGE` | `repository@sha256:<digest>` — never a tag | — |
+| `DOLPHIN_COMPOSE_PROJECT_NAME` | stable, lowercase, unique on this host | — |
+| `DOLPHIN_APP_IMAGE`, `DOLPHIN_POSTGRES_IMAGE`, `DOLPHIN_NGINX_IMAGE` | `repository@sha256:<digest>` — never a tag | — |
 | `DJANGO_SECRET_KEY` | long random, unique to this deployment | **FINAL INPUT** for production |
-| `DJANGO_ALLOWED_HOSTS`, `KARIZ_PUBLIC_HOST` | the hostname users type — or the public IP, §2 scenario B | **FINAL INPUT** |
+| `DJANGO_ALLOWED_HOSTS`, `DOLPHIN_PUBLIC_HOST` | the hostname users type — or the public IP, §2 scenario B | **FINAL INPUT** |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://` + that same hostname or IP | **FINAL INPUT** |
-| `DJANGO_SECURE_HSTS_SECONDS`, `KARIZ_HSTS_HEADER` | `31536000` + `max-age=31536000` with a real certificate; `0` + empty for IP-only staging. Nothing in between is accepted | — |
+| `DJANGO_SECURE_HSTS_SECONDS`, `DOLPHIN_HSTS_HEADER` | `31536000` + `max-age=31536000` with a real certificate; `0` + empty for IP-only staging. Nothing in between is accepted | — |
 | `AUDIT_TRUSTED_PROXY_CIDRS` | the Compose network nginx proxies from — **not empty**, see below | — |
 | `POSTGRES_INIT/MIGRATION/APP/BACKUP_PASSWORD` | four independent values, ≥16 chars | **FINAL INPUT** for production |
-| `KARIZ_TLS_CERT_PATH`, `KARIZ_TLS_KEY_PATH` | absolute paths under `secrets/tls/` | **FINAL INPUT** |
-| `KARIZ_DEPLOYMENT_MANIFEST_PATH` | absolute path to `secrets/manifest.json` | — |
-| `KARIZ_DEPLOYMENT_MANIFEST_KEYS` | `key-id:base64-ed25519-**public**-key` | **FINAL INPUT** |
+| `DOLPHIN_TLS_CERT_PATH`, `DOLPHIN_TLS_KEY_PATH` | absolute paths under `secrets/tls/` | **FINAL INPUT** |
+| `DOLPHIN_DEPLOYMENT_MANIFEST_PATH` | absolute path to `secrets/manifest.json` | — |
+| `DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` | `key-id:base64-ed25519-**public**-key` | **FINAL INPUT** |
 | `POSTGRES_DATA_VOLUME`, `POSTGRES_BACKUP_VOLUME` | the external volume names from §6 | — |
 | `POSTGRES_BACKUP_RETENTION_DAYS` | a deliberate whole-day number | — |
 | `POSTGRES_SSLMODE` | leave **empty** on a single host; the database is only on an internal Docker network | — |
@@ -2096,7 +2144,7 @@ The placeholder `172.16.0.0/12` covers Docker's usual private range. Confirm the
 real subnet once the stack is up and narrow it:
 
 ```bash
-docker network inspect "${KARIZ_COMPOSE_PROJECT_NAME}_frontend" \
+docker network inspect "${DOLPHIN_COMPOSE_PROJECT_NAME}_frontend" \
   --format '{{(index .IPAM.Config 0).Subnet}}'
 ```
 
@@ -2474,13 +2522,13 @@ Keep the previous image digest written down. It is what rollback needs.
 | 400 on every request | `DJANGO_ALLOWED_HOSTS` lacks the hostname in use | `.env` vs the browser URL |
 | CSRF failure on login | `DJANGO_CSRF_TRUSTED_ORIGINS` missing the `https://` origin | `.env` |
 | Nginx will not start | certificate or key path wrong or unreadable | `docker compose logs nginx`; `ls -l secrets/tls/` |
-| `KARIZ_HSTS_HEADER must exactly match` | the edge header and `DJANGO_SECURE_HSTS_SECONDS` disagree | §2 — both on, or both off |
+| `DOLPHIN_HSTS_HEADER must exactly match` | the edge header and `DJANGO_SECURE_HSTS_SECONDS` disagree | §2 — both on, or both off |
 | `DJANGO_SECURE_HSTS_SECONDS must be between…` | a value between 0 and one year was set | §2 — only `0` or `31536000`+ |
 | Browser warns about the certificate on an IP deployment | expected, self-signed | §2 scenario B limitation 1 |
 | Browser refuses to open the site at all, no click-through | HSTS was once enabled on this host name and the browser still holds the pin | clear the pin in the browser's HSTS settings; keep §2 scenario B's `0` |
 | Page renders unstyled | theme bundles 404 | §9 |
 | Persian text falls back, sidebar icons blank | IRANSans or keenicons 404 | §9 |
-| PDF button absent | no renderer configured — expected unless §4's optional step was taken | `KARIZ_PDF_RENDERER` |
+| PDF button absent | no renderer configured — expected unless §4's optional step was taken | `DOLPHIN_PDF_RENDERER` |
 | Dates show Gregorian | you are looking at the API or the XLSX `filters` sheet, both canonical by design | `../backend/DATE_AND_CALENDAR.md` |
 
 First move for any start-up failure — every gate reports its own reason:
@@ -2653,7 +2701,7 @@ python scripts/validate_release_images.py
 docker build --platform linux/amd64 --build-arg PYTHON_BASE_IMAGE=$env:PYTHON_BASE_IMAGE --tag dolphin-review-build .
 ```
 
-Push the reviewed application build, resolve its registry digest, and set that exact digest as `KARIZ_APP_IMAGE`. Both `migrate` and `web` use that one image. Production Compose never builds local source.
+Push the reviewed application build, resolve its registry digest, and set that exact digest as `DOLPHIN_APP_IMAGE`. Both `migrate` and `web` use that one image. Production Compose never builds local source.
 
 ### Open reproducibility gaps
 
@@ -2674,7 +2722,7 @@ This guide uses the current [Compose definition](../../compose.yml), [production
 
 ### Current topology and limits
 
-- `KARIZ_COMPOSE_PROJECT_NAME` fixes one reviewed Compose project identity across release directories. The standalone restore verifier derives a separate `<project>-restore-verify` identity. Never change the base project name during deploy, restart, or rollback.
+- `DOLPHIN_COMPOSE_PROJECT_NAME` fixes one reviewed Compose project identity across release directories. The standalone restore verifier derives a separate `<project>-restore-verify` identity. Never change the base project name during deploy, restart, or rollback.
 - `db` is PostgreSQL 17 on an internal Compose network and a named `postgres_data` volume. No database port is published.
 - `db-bootstrap` waits for database health, creates or repairs distinct migration-owner, application, and backup roles in place, prepares narrow grants, and exits.
 - `migrate` receives only the migration-owner secret, waits for `db-bootstrap`, runs `migrate --noinput`, then runs `collectstatic --noinput` into `static_data`.
@@ -2695,7 +2743,7 @@ This guide uses the current [Compose definition](../../compose.yml), [production
 Do not begin a live change until all items exist:
 
 - exact reviewed release reference and prior release artifact;
-- exact stable lowercase `KARIZ_COMPOSE_PROJECT_NAME`, unchanged from the current deployment record;
+- exact stable lowercase `DOLPHIN_COMPOSE_PROJECT_NAME`, unchanged from the current deployment record;
 - exact reviewed `repository@sha256:...` references for the application, Python build base, PostgreSQL, and Nginx; the application ref must be shared by `migrate` and `web`;
 - protected `.env` owned by the deployment operator, never committed or printed;
 - exact approved existing external PostgreSQL volume name, or explicit new-install approval to create one;
@@ -2706,7 +2754,7 @@ Do not begin a live change until all items exist:
 - rollback decision owner, maintenance window, and user notice path.
 - approved write-stop owner plus enable, probe, disable, and reopen criteria.
 
-The production environment must provide every required name from [`.env.example`](../../.env.example). `KARIZ_COMPOSE_PROJECT_NAME` must use the Compose lowercase name rules and must stay identical across release directories and rollback artifacts. `DJANGO_SECRET_KEY` must be private and at least 50 characters. Each database password must be private and at least 16 characters. The init, migration, application, and backup role names must be safe, lowercase, pairwise distinct, and use pairwise distinct passwords. `POSTGRES_RESTORE_TMPFS_SIZE_BYTES` must be an approved capacity for a full disposable restore. `DJANGO_ALLOWED_HOSTS` must contain only `KARIZ_PUBLIC_HOST`; `DJANGO_CSRF_TRUSTED_ORIGINS` must contain only `https://` plus that exact host, with no wildcard, dot prefix, sibling, port, slash, or extra entry. A trusted-proxy list may be empty or contain reviewed CIDRs, but IPv4 and IPv6 `/0` are rejected. SSL redirect must be true and HSTS must be at least one year. TLS chain/key host paths are mandatory. Boolean and numeric settings fail closed. Do not display the environment file to collect evidence.
+The production environment must provide every required name from [`.env.example`](../../.env.example). `DOLPHIN_COMPOSE_PROJECT_NAME` must use the Compose lowercase name rules and must stay identical across release directories and rollback artifacts. `DJANGO_SECRET_KEY` must be private and at least 50 characters. Each database password must be private and at least 16 characters. The init, migration, application, and backup role names must be safe, lowercase, pairwise distinct, and use pairwise distinct passwords. `POSTGRES_RESTORE_TMPFS_SIZE_BYTES` must be an approved capacity for a full disposable restore. `DJANGO_ALLOWED_HOSTS` must contain only `DOLPHIN_PUBLIC_HOST`; `DJANGO_CSRF_TRUSTED_ORIGINS` must contain only `https://` plus that exact host, with no wildcard, dot prefix, sibling, port, slash, or extra entry. A trusted-proxy list may be empty or contain reviewed CIDRs, but IPv4 and IPv6 `/0` are rejected. SSL redirect must be true and HSTS must be at least one year. TLS chain/key host paths are mandatory. Boolean and numeric settings fail closed. Do not display the environment file to collect evidence.
 
 For an existing `postgres_data` volume, read and complete the in-place upgrade steps in the [database-role guide](#postgresql-role-split) before starting the new stack. Never delete or recreate the volume to adopt the role split.
 
@@ -2910,7 +2958,7 @@ docker compose --project-name $approvedProjectName --env-file $approvedProtected
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f compose.yml -f compose.write-stop.yml exec -T nginx grep -F '# dolphin-write-stop: on' /etc/nginx/write-stop.conf
 ```
 
-Repeat database readiness, role, static, HTTPS, and business smoke before the approved base-Compose Nginx recreation reopens writes. If any service fails, keep writes stopped and use the rollback guide. Never change `KARIZ_COMPOSE_PROJECT_NAME`, delete a container volume, or start a second project as a recovery shortcut.
+Repeat database readiness, role, static, HTTPS, and business smoke before the approved base-Compose Nginx recreation reopens writes. If any service fails, keep writes stopped and use the rollback guide. Never change `DOLPHIN_COMPOSE_PROJECT_NAME`, delete a container volume, or start a second project as a recovery shortcut.
 
 ### Evidence boundary
 
@@ -3191,7 +3239,7 @@ placeholder. Commands that would print a secret are written so they do not.
 Read this before planning, because it decides what each topology costs.
 
 * `compose.yml` has **no `build:` section**. It only *pulls* images by digest
-  (`KARIZ_APP_IMAGE`, `KARIZ_POSTGRES_IMAGE`, `KARIZ_NGINX_IMAGE`). Building is
+  (`DOLPHIN_APP_IMAGE`, `DOLPHIN_POSTGRES_IMAGE`, `DOLPHIN_NGINX_IMAGE`). Building is
   a separate, earlier step (§3) and is not done on the customer's server.
 * The `backend` network is `internal: true`. The database is reachable only
   from containers on that network — never from the host or the outside.
@@ -3343,8 +3391,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 ```
 
-Then set in `.env`: `KARIZ_PDF_RENDERER=chromium`. Leave
-`KARIZ_PDF_CHROMIUM_BINARY` empty so the binary is found on `PATH`. The download
+Then set in `.env`: `DOLPHIN_PDF_RENDERER=chromium`. Leave
+`DOLPHIN_PDF_CHROMIUM_BINARY` empty so the binary is found on `PATH`. The download
 button appears in the UI only when the server confirms a working renderer.
 
 ---
@@ -3373,13 +3421,13 @@ Values that must match reality rather than being invented:
 
 | Key | Must be |
 |---|---|
-| `KARIZ_COMPOSE_PROJECT_NAME` | stable, lowercase, unique per deployment on the host |
-| `KARIZ_APP_IMAGE` / `KARIZ_POSTGRES_IMAGE` / `KARIZ_NGINX_IMAGE` | `repository@sha256:<digest>` — never a tag |
-| `DJANGO_ALLOWED_HOSTS`, `KARIZ_PUBLIC_HOST` | the real hostname users type |
+| `DOLPHIN_COMPOSE_PROJECT_NAME` | stable, lowercase, unique per deployment on the host |
+| `DOLPHIN_APP_IMAGE` / `DOLPHIN_POSTGRES_IMAGE` / `DOLPHIN_NGINX_IMAGE` | `repository@sha256:<digest>` — never a tag |
+| `DJANGO_ALLOWED_HOSTS`, `DOLPHIN_PUBLIC_HOST` | the real hostname users type |
 | `DJANGO_CSRF_TRUSTED_ORIGINS` | `https://` + that hostname |
-| `KARIZ_TLS_CERT_PATH` / `KARIZ_TLS_KEY_PATH` | absolute paths under `secrets/tls/` |
-| `KARIZ_DEPLOYMENT_MANIFEST_PATH` | absolute path to `secrets/manifest.json` |
-| `KARIZ_DEPLOYMENT_MANIFEST_KEYS` | `key-id:base64-ed25519-public-key` — the **public** key only |
+| `DOLPHIN_TLS_CERT_PATH` / `DOLPHIN_TLS_KEY_PATH` | absolute paths under `secrets/tls/` |
+| `DOLPHIN_DEPLOYMENT_MANIFEST_PATH` | absolute path to `secrets/manifest.json` |
+| `DOLPHIN_DEPLOYMENT_MANIFEST_KEYS` | `key-id:base64-ed25519-public-key` — the **public** key only |
 | `POSTGRES_DATA_VOLUME` / `POSTGRES_BACKUP_VOLUME` | the external volume names from §5 |
 | `POSTGRES_BACKUP_RETENTION_DAYS` | a deliberate whole-day number |
 
@@ -3483,11 +3531,11 @@ Run PostgreSQL 17 with **TLS enabled** and reachable only from the application
 server's address. Create `compose.db.yml` on server B:
 
 ```yaml
-name: ${KARIZ_COMPOSE_PROJECT_NAME}-db
+name: ${DOLPHIN_COMPOSE_PROJECT_NAME}-db
 
 services:
   db:
-    image: ${KARIZ_POSTGRES_IMAGE}
+    image: ${DOLPHIN_POSTGRES_IMAGE}
     restart: unless-stopped
     command:
       - postgres
@@ -3598,7 +3646,7 @@ deployment its own everything:
 | Per deployment | How |
 |---|---|
 | Directory | `/srv/dolphin/<customer>/` |
-| Compose project | distinct `KARIZ_COMPOSE_PROJECT_NAME` |
+| Compose project | distinct `DOLPHIN_COMPOSE_PROJECT_NAME` |
 | Database volume | distinct `POSTGRES_DATA_VOLUME` |
 | Backup volume | distinct `POSTGRES_BACKUP_VOLUME` |
 | Database name and all four role passwords | distinct |
@@ -3775,7 +3823,7 @@ Follow the “Deployment procedure” section of this document for the full gate
 1. Take a fresh backup **and disposable-restore it** (§13). Do not skip this.
 2. Enable the edge write-stop (`compose.write-stop.yml`) so no write lands
    mid-upgrade.
-3. Update `KARIZ_APP_IMAGE` to the new **digest** in `secrets/.env`.
+3. Update `DOLPHIN_APP_IMAGE` to the new **digest** in `secrets/.env`.
 4. `docker compose --env-file secrets/.env pull`
 5. `docker compose --env-file secrets/.env up -d` — the ordered jobs re-run and
    `migrate` applies new migrations.
@@ -3835,7 +3883,7 @@ this at least once before a customer relies on it.
 | CSRF failures on login | `DJANGO_CSRF_TRUSTED_ORIGINS` missing the `https://` origin | `.env` |
 | Nginx will not start | certificate or key path wrong, or unreadable | `docker compose logs nginx`, then `ls -l secrets/tls/` |
 | Static assets 404 | `migrate` (which runs `collectstatic`) did not complete | re-run it, then check the `static_data` volume |
-| PDF download button absent | no renderer configured — expected unless §3's optional step was taken | `KARIZ_PDF_RENDERER` |
+| PDF download button absent | no renderer configured — expected unless §3's optional step was taken | `DOLPHIN_PDF_RENDERER` |
 | Split topology cannot connect | TLS, `pg_hba.conf`, firewall, or bind address | §8 |
 
 A useful first move for any start-up failure, since every gate reports its own
@@ -3887,7 +3935,7 @@ Any `FAIL`, missing recovery point, unresolved P0/P1 defect, or unapproved data/
 
 - [ ] Exact commit/release artifact recorded and reviewed.
 - [ ] Prior release artifact exists outside the live worktree.
-- [ ] One approved `KARIZ_COMPOSE_PROJECT_NAME` is recorded and unchanged across current, restart, rollback, and prior-artifact commands; restore verification uses only its derived `-restore-verify` project.
+- [ ] One approved `DOLPHIN_COMPOSE_PROJECT_NAME` is recorded and unchanged across current, restart, rollback, and prior-artifact commands; restore verification uses only its derived `-restore-verify` project.
 - [ ] Release, database, security, business, rollback, and evidence owners named.
 - [ ] Maintenance window, user notice, success window, and abort threshold approved.
 - [ ] Known limitations and open decisions reviewed for this release.
@@ -3921,7 +3969,7 @@ Repository gates do not prove PostgreSQL, containers, proxy, TLS, or browser beh
 - [ ] Protected `.env` exists through the approved secret process and is not printed or committed.
 - [ ] Exact external backup volume, managed backup role/secret, explicit retention-days value, and disposable-restore tmpfs byte limit are approved; no other base service receives the backup password or mounts the backup volume.
 - [ ] Required secret, host, HTTPS CSRF origin, database, timeout, HSTS, and proxy inputs pass strict production validation.
-- [ ] Allowed hosts contain only `KARIZ_PUBLIC_HOST`; CSRF origins contain only `https://KARIZ_PUBLIC_HOST`, with no wildcard, dot prefix, sibling, port, slash, or extra entry.
+- [ ] Allowed hosts contain only `DOLPHIN_PUBLIC_HOST`; CSRF origins contain only `https://DOLPHIN_PUBLIC_HOST`, with no wildcard, dot prefix, sibling, port, slash, or extra entry.
 - [ ] Approved certificate chain/key files are mounted read-only and pass the [TLS procedure](#tls-edge-procedure).
 - [ ] Exact trusted proxy CIDR matches the approved one-proxy topology; no wildcard host or broad trust range.
 - [ ] Trusted proxy validation rejects both IPv4 and IPv6 `/0` networks.
@@ -4067,7 +4115,7 @@ Before release, record:
 
 - current and prior exact release references;
 - a separately stored prior release artifact or image;
-- the unchanged approved `KARIZ_COMPOSE_PROJECT_NAME` and protected environment path;
+- the unchanged approved `DOLPHIN_COMPOSE_PROJECT_NAME` and protected environment path;
 - current and prior reviewed Compose, write-stop, and Nginx configuration artifacts;
 - migration plan and compatibility review;
 - fresh verified pre-migration backup and checksum;
@@ -4092,14 +4140,14 @@ Keep raw logs restricted. Do not paste credentials, environment output, request 
 
 #### Application-only rollback
 
-Use this only when review proves the deployed schema is backward-compatible with the prior application. First enable and prove the edge write-stop. Through the approved protected-secret process, atomically replace only `KARIZ_APP_IMAGE` in the durable deployment input with the separately recorded prior digest. Do not use a broad text rewrite, display the protected file, or rely on a temporary shell value as the rollback record. Load the same prior digest plus the other three unchanged reviewed image references into the command process without printing them, then validate and pull:
+Use this only when review proves the deployed schema is backward-compatible with the prior application. First enable and prove the edge write-stop. Through the approved protected-secret process, atomically replace only `DOLPHIN_APP_IMAGE` in the durable deployment input with the separately recorded prior digest. Do not use a broad text rewrite, display the protected file, or rely on a temporary shell value as the rollback record. Load the same prior digest plus the other three unchanged reviewed image references into the command process without printing them, then validate and pull:
 
 ```powershell
 $approvedProjectName = Read-Host 'Unchanged approved Compose project name'
 $approvedProtectedEnv = (Resolve-Path (Read-Host 'Approved protected environment file')).Path
 $currentCompose = (Resolve-Path '.\compose.yml').Path
 $currentWriteStop = (Resolve-Path '.\compose.write-stop.yml').Path
-$env:KARIZ_APP_IMAGE = Read-Host 'Prior approved application repository@sha256 digest'
+$env:DOLPHIN_APP_IMAGE = Read-Host 'Prior approved application repository@sha256 digest'
 python scripts/validate_release_images.py
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose config --quiet
 docker compose --project-name $approvedProjectName --env-file $approvedProtectedEnv -f $currentCompose -f $currentWriteStop up -d --no-build --no-deps --force-recreate nginx
@@ -4122,7 +4170,7 @@ After prior-image web health, start Nginx with the write-stop override, prove st
 
 Use this when review isolates the fault to Compose-controlled Nginx image or edge configuration and proves that the prior edge artifact still matches the running application, certificates, public host, and Compose schema. Keep the current application and database images unchanged. Obtain the prior release directory from the approved artifact store; do not rewrite the live worktree or copy one loose configuration file over it.
 
-First enable and prove write-stop with the current reviewed configuration by running the first two Compose commands below. If the edge image also changes, then atomically restore the prior `KARIZ_NGINX_IMAGE` in the protected deployment input. Validate and select the complete prior Compose plus write-stop pair under the same stable project name with the remaining commands:
+First enable and prove write-stop with the current reviewed configuration by running the first two Compose commands below. If the edge image also changes, then atomically restore the prior `DOLPHIN_NGINX_IMAGE` in the protected deployment input. Validate and select the complete prior Compose plus write-stop pair under the same stable project name with the remaining commands:
 
 ```powershell
 $approvedProjectName = Read-Host 'Unchanged approved Compose project name'
@@ -4221,7 +4269,7 @@ This procedure creates evidence for one immutable source commit, all three exact
 
 - Run this from a clean checkout at the approved release commit on an isolated evidence host. Do not run the image scanners through a production container engine.
 - Use only scanner images whose exact released tool version was reviewed and resolved to an immutable registry digest. `latest`, branch, tag-only, or locally named references are forbidden.
-- Use the exact deployable `KARIZ_APP_IMAGE`, `KARIZ_POSTGRES_IMAGE`, and `KARIZ_NGINX_IMAGE` `repository@sha256:digest` references. Record the exact `PYTHON_BASE_IMAGE` digest from the approved build record. Do not scan a local build tag as release proof.
+- Use the exact deployable `DOLPHIN_APP_IMAGE`, `DOLPHIN_POSTGRES_IMAGE`, and `DOLPHIN_NGINX_IMAGE` `repository@sha256:digest` references. Record the exact `PYTHON_BASE_IMAGE` digest from the approved build record. Do not scan a local build tag as release proof.
 - Pre-create one approved, encrypted, restricted evidence root outside the repository, checkout parent, temporary directories, and shared or synchronized user folders. The commands create one new child and never overwrite a prior run.
 - Registry authentication, when needed, must already exist in the host's approved credential helper. Never put a registry password or token in a command, environment variable, report, or transcript.
 - The source report is a deliberately reduced report. It stores rule, repository path, line range, and commit only. It never stores the matched line or suspected value.
@@ -4873,9 +4921,9 @@ Before starting the stack, the deployment owner must approve:
 - protected host paths for the chain and key;
 - the renewal owner and renewal test date.
 
-Set `KARIZ_PUBLIC_HOST` to the exact host. `DJANGO_ALLOWED_HOSTS` must contain only that one value. `DJANGO_CSRF_TRUSTED_ORIGINS` must contain only `https://` plus that exact host, with no wildcard, dot prefix, sibling, port, slash, or extra entry. Set `KARIZ_TLS_CERT_PATH` and `KARIZ_TLS_KEY_PATH` to the approved host files. Compose mounts both read-only at fixed Nginx paths. Never place certificate or key content in the repository, image, command line, log, or evidence record.
+Set `DOLPHIN_PUBLIC_HOST` to the exact host. `DJANGO_ALLOWED_HOSTS` must contain only that one value. `DJANGO_CSRF_TRUSTED_ORIGINS` must contain only `https://` plus that exact host, with no wildcard, dot prefix, sibling, port, slash, or extra entry. Set `DOLPHIN_TLS_CERT_PATH` and `DOLPHIN_TLS_KEY_PATH` to the approved host files. Compose mounts both read-only at fixed Nginx paths. Never place certificate or key content in the repository, image, command line, log, or evidence record.
 
-Production validation rejects SSL redirect off, HSTS below one year, unsafe host values, host/origin mismatch, and any edge HSTS text that differs from the Django settings. The single exception is an explicit `DJANGO_SECURE_HSTS_SECONDS=0` with an empty `KARIZ_HSTS_HEADER`, which turns HSTS off entirely — intended for a staging or IP-only deployment on a self-signed certificate, where a one-year pin would leave the operator unable to click past their own warning; see the “Client-1 Linux staging guide” section of this document §2 scenario B. Off must be off at both layers: subdomain and preload HSTS are refused alongside it, and Nginx emits no header for an empty value. Nginx owns that checked header on every HTTPS status, including static and edge-generated errors; it hides the upstream copy to prevent duplicate policy headers. Subdomain HSTS and preload stay off unless the owner proves every affected subdomain is HTTPS and approves the wider scope.
+Production validation rejects SSL redirect off, HSTS below one year, unsafe host values, host/origin mismatch, and any edge HSTS text that differs from the Django settings. The single exception is an explicit `DJANGO_SECURE_HSTS_SECONDS=0` with an empty `DOLPHIN_HSTS_HEADER`, which turns HSTS off entirely — intended for a staging or IP-only deployment on a self-signed certificate, where a one-year pin would leave the operator unable to click past their own warning; see the “Client-1 Linux staging guide” section of this document §2 scenario B. Off must be off at both layers: subdomain and preload HSTS are refused alongside it, and Nginx emits no header for an empty value. Nginx owns that checked header on every HTTPS status, including static and edge-generated errors; it hides the upstream copy to prevent duplicate policy headers. Subdomain HSTS and preload stay off unless the owner proves every affected subdomain is HTTPS and approves the wider scope.
 
 ### Preflight
 

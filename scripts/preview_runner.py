@@ -118,8 +118,8 @@ def _preview_env(*, temp_dir, settings_module, manifest_path, manifest_keys_line
         parts.append(existing_pythonpath)
     env["PYTHONPATH"] = os.pathsep.join(parts)
     env["DJANGO_SETTINGS_MODULE"] = settings_module
-    env["KARIZ_DEPLOYMENT_MANIFEST"] = str(manifest_path)
-    env["KARIZ_DEPLOYMENT_MANIFEST_KEYS"] = manifest_keys_line
+    env["DOLPHIN_DEPLOYMENT_MANIFEST"] = str(manifest_path)
+    env["DOLPHIN_DEPLOYMENT_MANIFEST_KEYS"] = manifest_keys_line
     return env
 
 

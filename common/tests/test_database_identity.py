@@ -84,8 +84,11 @@ class DatabaseIdentityContractTests(SimpleTestCase):
 
         The brand gate that sat beside it is gone — a role's name is the
         deployment's choice — but the management-comment check is what stops the
-        script adopting somebody else's role, so it stays, and it still accepts
-        the comment an earlier release wrote.
+        script adopting somebody else's role, so it stays. As of the 2026-09-05
+        hard cutover (CHANGELOG `[2.0.0]`), it no longer accepts the FrooshBin/
+        Kariz comments an earlier release wrote — only the Dolphin comment is
+        recognised now, so a role commented under either old name is treated as
+        unmanaged and refused, same as any other foreign role.
         """
         source = (ROOT / "scripts" / "bootstrap-postgres.sh").read_text(encoding="utf-8")
         for role in ("migration", "app", "backup"):
@@ -93,7 +96,9 @@ class DatabaseIdentityContractTests(SimpleTestCase):
             self.assertIn(
                 f"Dolphin managed {role if role != 'app' else 'application'} role v1", source
             )
-        self.assertIn("allow_legacy_comments", source)
+        self.assertNotIn("allow_legacy_comments", source)
+        self.assertNotIn("FrooshBin managed", source)
+        self.assertNotIn("Kariz managed", source)
         # No brand gate remains in the script.
         self.assertNotIn("require_role_identity", source)
         self.assertNotIn("require_database_identity", source)

@@ -10,7 +10,7 @@ about a PDF library for a parallel reason and the comment there explains the
 trade-off in full; the short version is: **no new Python dependency**, so
 `requirements.txt`'s hash-pinned lock stays untouched, and the one supported
 provider is a generic HTTP request built entirely from this deployment's own
-settings (`KARIZ_SMS_*`, read in `config/settings.py`) — never a name or a
+settings (`DOLPHIN_SMS_*`, read in `config/settings.py`) — never a name or a
 request shape hardcoded into shared source.
 
 A deployment that has not configured a provider gets `configured_provider()
@@ -45,7 +45,7 @@ class SmsSendResult:
     provider_code: str
     success: bool
     #: Short, safe-to-store diagnostic text — never headers, never the API
-    #: key/token from `KARIZ_SMS_API_HEADERS`, only an HTTP status and a
+    #: key/token from `DOLPHIN_SMS_API_HEADERS`, only an HTTP status and a
     #: truncated response body (or a connection-error class name).
     status_detail: str
 
@@ -113,20 +113,20 @@ def send_via_configured_provider(*, to, body):
 def _send_via_http(*, to, body):
     url = str(_setting("SMS_API_URL", "")).strip()
     if not url:
-        return SmsSendResult(provider_code="http", success=False, status_detail="misconfigured: KARIZ_SMS_API_URL is empty")
+        return SmsSendResult(provider_code="http", success=False, status_detail="misconfigured: DOLPHIN_SMS_API_URL is empty")
 
     template_text = str(_setting("SMS_API_BODY_TEMPLATE", "")).strip()
     if not template_text:
         return SmsSendResult(
             provider_code="http", success=False,
-            status_detail="misconfigured: KARIZ_SMS_API_BODY_TEMPLATE is empty",
+            status_detail="misconfigured: DOLPHIN_SMS_API_BODY_TEMPLATE is empty",
         )
     try:
         template = json.loads(template_text)
     except ValueError:
         return SmsSendResult(
             provider_code="http", success=False,
-            status_detail="misconfigured: KARIZ_SMS_API_BODY_TEMPLATE is not valid JSON",
+            status_detail="misconfigured: DOLPHIN_SMS_API_BODY_TEMPLATE is not valid JSON",
         )
     sender = str(_setting("SMS_SENDER_ID", "")).strip()
     payload = _substitute(template, to=to, body=body, sender=sender)
@@ -137,12 +137,12 @@ def _send_via_http(*, to, body):
         try:
             extra = json.loads(raw_headers)
             if not isinstance(extra, dict):
-                raise ValueError("KARIZ_SMS_API_HEADERS must be a JSON object")
+                raise ValueError("DOLPHIN_SMS_API_HEADERS must be a JSON object")
             headers.update({str(key): str(value) for key, value in extra.items()})
         except ValueError:
             return SmsSendResult(
                 provider_code="http", success=False,
-                status_detail="misconfigured: KARIZ_SMS_API_HEADERS is not a valid JSON object",
+                status_detail="misconfigured: DOLPHIN_SMS_API_HEADERS is not a valid JSON object",
             )
 
     try:

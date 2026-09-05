@@ -201,14 +201,14 @@ class EnvDraftTests(ConsoleStoreIsolationMixin, SimpleTestCase):
             feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
         )
         self.assertIn("پیش‌نویس .env هم ساخته شد", page)
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME=tiara", page)
         self.assertIn("DJANGO_ALLOWED_HOSTS=crm.tiara.ir", page)
         self.assertIn("POSTGRES_DB=tiara", page)
         # The manifest's own public-key line lands directly in the draft, so
         # the two artefacts from one submission already agree with each other.
         public_key = builder.derive_public_key(builder.read_private_seed(self.key_path))
         line = builder.format_public_key("k1", public_key)
-        self.assertIn(f"KARIZ_DEPLOYMENT_MANIFEST_KEYS={line}", page)
+        self.assertIn(f"DOLPHIN_DEPLOYMENT_MANIFEST_KEYS={line}", page)
 
     def test_slug_without_host_is_refused_before_signing(self):
         page = self.build(
@@ -276,8 +276,8 @@ class EnvDraftTests(ConsoleStoreIsolationMixin, SimpleTestCase):
             profile_id="demo", key_id="k1", private_key_path=self.key_path,
             feature=["customers"], deploy_slug="tiara", deploy_host="crm.tiara.ir",
         )
-        self.assertIn("KARIZ_APP_IMAGE=dolphin-app:latest", page)
-        self.assertIn("KARIZ_DEPLOYMENT_MANIFEST_PATH=/srv/dolphin/secrets/manifest.json", page)
+        self.assertIn("DOLPHIN_APP_IMAGE=dolphin-app:latest", page)
+        self.assertIn("DOLPHIN_DEPLOYMENT_MANIFEST_PATH=/srv/dolphin/secrets/manifest.json", page)
 
     def test_a_slug_and_host_submission_also_registers_a_console_record(self):
         page = self.build(
@@ -739,7 +739,7 @@ class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
         self.assertEqual(status, 200)
         self.assertIn("ساخته و امضا شد", page)
         self.assertIn("پیش‌نویس .env هم ساخته شد", page)
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME=tiara", page)
 
     def _register(self, *, slug="tiara", host="crm.tiara.ir", key_path):
         body = (
@@ -806,7 +806,7 @@ class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
             status, page_with = self.request("POST", "/console/tiara/reissue", body=with_env)
         self.assertEqual(status, 200)
         self.assertIn("پیش‌نویس .env تازه هم ساخته شد", page_with)
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", page_with)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME=tiara", page_with)
 
     def test_reissue_of_an_unregistered_slug_is_a_404(self):
         status, _ = self.request("POST", "/console/does-not-exist/reissue", body="profile_id=demo")
@@ -1116,7 +1116,7 @@ class DeploymentBundleTests(SimpleTestCase):
         self.assertEqual(manifest_in_zip["key_id"], "k1")
 
         env_in_zip = archive.read("dolphin.env").decode("utf-8")
-        self.assertIn("KARIZ_COMPOSE_PROJECT_NAME=tiara", env_in_zip)
+        self.assertIn("DOLPHIN_COMPOSE_PROJECT_NAME=tiara", env_in_zip)
 
         steps = archive.read("DEPLOY-STEPS.txt").decode("utf-8")
         self.assertIn("--slug tiara --host crm.tiara.ir", steps)

@@ -148,7 +148,7 @@ def validate_production_environment(environment):
     csrf_origins = _csv(environment, "DJANGO_CSRF_TRUSTED_ORIGINS", required=True)
     _validate_csrf_origins(csrf_origins)
 
-    raw_public_host = _required(environment, "KARIZ_PUBLIC_HOST")
+    raw_public_host = _required(environment, "DOLPHIN_PUBLIC_HOST")
     public_host = raw_public_host.lower()
     if (
         raw_public_host != public_host
@@ -158,19 +158,19 @@ def validate_production_environment(environment):
         or any(character.isspace() for character in public_host)
         or not _PUBLIC_HOST.fullmatch(public_host)
     ):
-        _fail("KARIZ_PUBLIC_HOST must be one safe lowercase hostname.")
+        _fail("DOLPHIN_PUBLIC_HOST must be one safe lowercase hostname.")
     if allowed_hosts != [public_host]:
-        _fail("DJANGO_ALLOWED_HOSTS must contain only the exact KARIZ_PUBLIC_HOST value.")
+        _fail("DJANGO_ALLOWED_HOSTS must contain only the exact DOLPHIN_PUBLIC_HOST value.")
     expected_csrf_origin = f"https://{public_host}"
     if csrf_origins != [expected_csrf_origin]:
         _fail(
             "DJANGO_CSRF_TRUSTED_ORIGINS must contain only the exact HTTPS "
-            "KARIZ_PUBLIC_HOST origin."
+            "DOLPHIN_PUBLIC_HOST origin."
         )
 
-    database_role = environment.get("KARIZ_DATABASE_ROLE", "").strip()
+    database_role = environment.get("DOLPHIN_DATABASE_ROLE", "").strip()
     if database_role not in {"app", "migration"}:
-        _fail("KARIZ_DATABASE_ROLE must be app or migration.")
+        _fail("DOLPHIN_DATABASE_ROLE must be app or migration.")
 
     role_names = {
         "init": _validate_database_identity(environment, "POSTGRES_INIT_USER", role=True),
@@ -255,9 +255,9 @@ def validate_production_environment(environment):
     # When HSTS is off the edge header must be empty, and nginx omits a header
     # whose value is an empty string — so the two layers stay in agreement
     # instead of Django saying "off" while the proxy still pins the browser.
-    supplied_hsts_header = (environment.get("KARIZ_HSTS_HEADER") or "").strip()
+    supplied_hsts_header = (environment.get("DOLPHIN_HSTS_HEADER") or "").strip()
     if supplied_hsts_header != expected_hsts_header:
-        _fail("KARIZ_HSTS_HEADER must exactly match the approved HSTS settings.")
+        _fail("DOLPHIN_HSTS_HEADER must exactly match the approved HSTS settings.")
 
     secure_ssl_redirect = _strict_bool(
         environment,

@@ -142,9 +142,6 @@ emit_variables() {
     printf "\\set migration_is_legacy '0'\n"
     printf "\\set app_is_legacy '0'\n"
     printf "\\set backup_is_legacy '0'\n"
-    # A role created by an earlier release carries the older management comment.
-    # It is still a role this stack owns, so it is still recognised.
-    printf "\\set allow_legacy_comments '1'\n"
 }
 
 set_role_password_from_client_hash() {
@@ -228,9 +225,6 @@ SELECT (:'migration_is_legacy' = '0' AND NOT EXISTS (
     WHERE rolname = :'migration_user'
       AND (
         shobj_description(oid, 'pg_authid') = 'Dolphin managed migration role v1'
-        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') IN (
-            'FrooshBin managed migration role v1', 'Kariz managed migration role v1'
-        ))
       )
 ) AS migration_role_is_managed \gset
 \if :migration_role_is_managed
@@ -249,9 +243,6 @@ SELECT (:'app_is_legacy' = '0' AND NOT EXISTS (
     WHERE rolname = :'app_user'
       AND (
         shobj_description(oid, 'pg_authid') = 'Dolphin managed application role v1'
-        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') IN (
-            'FrooshBin managed application role v1', 'Kariz managed application role v1'
-        ))
       )
 ) AS app_role_is_managed \gset
 \if :app_role_is_managed
@@ -270,9 +261,6 @@ SELECT (:'backup_is_legacy' = '0' AND NOT EXISTS (
     WHERE rolname = :'backup_user'
       AND (
         shobj_description(oid, 'pg_authid') = 'Dolphin managed backup role v1'
-        OR (:'allow_legacy_comments' = '1' AND shobj_description(oid, 'pg_authid') IN (
-            'FrooshBin managed backup role v1', 'Kariz managed backup role v1'
-        ))
       )
 ) AS backup_role_is_managed \gset
 \if :backup_role_is_managed

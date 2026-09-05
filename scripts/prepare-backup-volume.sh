@@ -53,7 +53,7 @@ if [ -n "$mountpoint" ] && [ -d "$mountpoint" ]; then
     # only possible at all when the local driver backs it. Where it is not
     # possible, fall through to letting the container-side check decide —
     # slower, but it always works.
-    for sentinel in .dolphin-backup-root .frooshbin-backup-root .kariz-backup-root; do
+    for sentinel in .dolphin-backup-root; do
         if [ -f "$mountpoint/$sentinel" ]; then
             echo "==> already prepared ($sentinel found). Nothing to do."
             exit 0
@@ -65,7 +65,7 @@ echo "==> preparing (this must be the volume's first use — it refuses a volume
 docker compose --env-file "$ENV_FILE" --profile backup run --rm --no-deps \
     --user root --cap-add CHOWN --entrypoint sh backup -c '
 set -eu
-for sentinel in .dolphin-backup-root .frooshbin-backup-root .kariz-backup-root; do
+for sentinel in .dolphin-backup-root; do
     if [ -f "/backups/$sentinel" ]; then
         echo "already prepared ($sentinel found)."
         exit 0

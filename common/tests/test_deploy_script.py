@@ -76,13 +76,17 @@ class DeployScriptEnvFileTests(SimpleTestCase):
         deploy_body = self.text[self.text.index("deploy() {"):]
         self.assertIn("check_manifest_and_tls_files_are_readable", deploy_body[:deploy_body.index("check_ports_are_free")])
 
-    def test_the_backup_sentinel_check_recognises_every_project_name(self):
-        """Collapsed to a self-comparison once already by a careless
-        find-and-replace; a real backup volume prepared under an earlier
-        project name must still be recognised."""
-        for sentinel in (".dolphin-backup-root", ".frooshbin-backup-root", ".kariz-backup-root"):
-            with self.subTest(sentinel=sentinel):
-                self.assertIn(sentinel, self.text)
+    def test_the_backup_sentinel_check_recognises_the_dolphin_name(self):
+        """2026-09-05 — product-owner decision to remove every remaining
+        Kariz/FrooshBin trace from the codebase: the `.frooshbin-backup-root`/
+        `.kariz-backup-root` fallback this test used to require is gone on
+        purpose, not a regression. A backup volume prepared under either
+        older project name needs a one-time manual fix before this script's
+        next run — see the migration note in
+        docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md."""
+        self.assertIn(".dolphin-backup-root", self.text)
+        self.assertNotIn(".frooshbin-backup-root", self.text)
+        self.assertNotIn(".kariz-backup-root", self.text)
 
     def test_the_backup_volume_hint_points_at_the_prepare_script(self):
         self.assertIn("./scripts/prepare-backup-volume.sh", self.text)
@@ -95,11 +99,14 @@ class DeployScriptEnvFileTests(SimpleTestCase):
 class PrepareBackupVolumeScriptTests(SimpleTestCase):
     SCRIPT = REPOSITORY_ROOT / "scripts" / "prepare-backup-volume.sh"
 
-    def test_it_recognises_every_sentinel_name_before_trying_to_prepare(self):
+    def test_it_recognises_the_dolphin_sentinel_only(self):
+        """2026-09-05 — same removal as deploy.sh's own sentinel check; see
+        the comment on `test_the_backup_sentinel_check_recognises_the_dolphin_name`
+        above."""
         text = self.SCRIPT.read_text(encoding="utf-8")
-        for sentinel in (".dolphin-backup-root", ".frooshbin-backup-root", ".kariz-backup-root"):
-            with self.subTest(sentinel=sentinel):
-                self.assertIn(sentinel, text)
+        self.assertIn(".dolphin-backup-root", text)
+        self.assertNotIn(".frooshbin-backup-root", text)
+        self.assertNotIn(".kariz-backup-root", text)
 
     def test_it_reports_already_prepared_rather_than_failing_on_a_second_run(self):
         text = self.SCRIPT.read_text(encoding="utf-8")

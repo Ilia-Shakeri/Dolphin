@@ -1,8 +1,8 @@
-name: ${KARIZ_COMPOSE_PROJECT_NAME:?KARIZ_COMPOSE_PROJECT_NAME must name the approved stable Compose project}-restore-verify
+name: ${DOLPHIN_COMPOSE_PROJECT_NAME:?DOLPHIN_COMPOSE_PROJECT_NAME must name the approved stable Compose project}-restore-verify
 
 services:
   restore-verify:
-    image: ${KARIZ_POSTGRES_IMAGE:?KARIZ_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
     profiles: ["restore-verify"]
     restart: "no"
     user: postgres
