@@ -77,7 +77,6 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     ("theme demo plugin", "assets/plugins/custom/flotcharts"),
     ("theme demo plugin", "assets/plugins/custom/formrepeater"),
     ("theme demo plugin", "assets/plugins/custom/fslightbox"),
-    ("theme demo plugin", "assets/plugins/custom/jkanban"),
     ("theme demo plugin", "assets/plugins/custom/jstree"),
     ("theme demo plugin", "assets/plugins/custom/leaflet"),
     ("theme demo plugin", "assets/plugins/custom/prismjs"),
@@ -135,6 +134,10 @@ EXPECT_PRESENT: list[str] = [
     # material. See the 1.7.5 comment on DENY_PATTERNS above.
     "assets/plugins/custom/fullcalendar/fullcalendar.bundle.js",
     "assets/plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css",
+    # The leads Kanban board's bundle (lead_kanban feature, 2026-09-05) — same
+    # reasoning as fullcalendar directly above.
+    "assets/plugins/custom/jkanban/jkanban.bundle.js",
+    "assets/plugins/custom/jkanban/jkanban.bundle.rtl.css",
     "assets/fonts/IRANSansWeb.woff",
     "assets/fonts/IRANSansWeb.ttf",
     "assets/fonts/IRANSansWeb.eot",

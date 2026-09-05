@@ -532,6 +532,26 @@ class DolphinLeadCalendarView(ActiveCrmView):
     template_name = "common/leads/calendar.html"
 
 
+class DolphinLeadBoardView(ActiveCrmView):
+    """The same leads, grouped into status columns instead of a table.
+
+    Gated by its own `lead_kanban` feature on top of `leads` — unlike
+    `DolphinLeadCalendarView` above, which needs no feature of its own. The
+    board is a bigger, separately opt-in thing: a new frontend dependency
+    (the theme's `jkanban` bundle) and a drag interaction, not a read-only
+    reshuffling of a page every `leads` deployment already has. See the
+    reasoning beside `lead_kanban` in `common/deployment/registry.py`.
+
+    No extra permission check beyond both feature gates, same as the
+    calendar: the page renders for anyone whose deployment runs them, and
+    `leads_for`/`leads.scoped`/`leads.company`/`leads.manage` on the API
+    behind it are what actually decide whose leads it can ever show or move.
+    """
+
+    required_feature = "lead_kanban"
+    template_name = "common/leads/board.html"
+
+
 class DolphinLeadDetailView(ScopedDetailView):
     required_feature = "leads"
     template_name = "common/leads/detail.html"

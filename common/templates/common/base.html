@@ -456,6 +456,9 @@
                                         {% if "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities %}
                                         <div class="menu-item"><a data-module="leads" class="menu-link" href="{% url 'common_ui:leads' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}صف سرنخ من{% else %}سرنخ‌ها{% endif %}</span></a></div>
                                         <div class="menu-item"><a data-module="lead-calendar" class="menu-link" href="{% url 'common_ui:lead-calendar' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تقویم پیگیری</span></a></div>
+                                        {% if "lead_kanban" in features %}
+                                        <div class="menu-item"><a data-module="lead-board" class="menu-link" href="{% url 'common_ui:lead-board' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تابلوی سرنخ‌ها</span></a></div>
+                                        {% endif %}
                                         {% endif %}
                                         {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
                                         <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز تماس{% endif %}</span></a></div>

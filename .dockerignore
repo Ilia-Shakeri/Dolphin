@@ -72,6 +72,11 @@ assets
 # in any deployment that actually builds this Dockerfile, never in `runserver`,
 # which serves straight from the repository and never consults this file.
 !assets/plugins/custom/fullcalendar
+# The leads Kanban board (lead_kanban feature, 2026-09-05) draws with this one
+# — same reasoning as fullcalendar directly above, and the same mistake would
+# repeat here if this line were forgotten: the theme ships no standalone
+# jKanban build either.
+!assets/plugins/custom/jkanban
 src
 asides
 dashboards

@@ -1139,3 +1139,72 @@ dialog {
 .lead-calendar-popover {
     max-width: 20rem;
 }
+
+/* 7. Lead Kanban board ------------------------------------------------------ */
+
+/* jKanban's own bundle ships flat hard-coded colours (`#e2e4e6`, `#fff`) and
+   physical `float: left` — built with neither this theme's dark mode nor RTL
+   in mind, the same situation FullCalendar was in above. Repointed at the
+   same tokens every other surface already reads, and `float` replaced with a
+   flex row so a Persian reader's first, most-urgent column ("در انتظار
+   تکمیل") lands on the right, where every list/table in this panel already
+   starts reading from.
+
+   Plain `row`, not `row-reverse`: this container inherits `direction: rtl`
+   from `<html>`, and flexbox's own main-start for `row` is already the
+   inline-start edge — the *right* edge in RTL — so the first DOM board
+   already lands there with no reverse needed. Checked by rendering both:
+   `row-reverse` measured with the first board on the *left* instead, because
+   it swaps main-start to the inline-*end* on top of a start RTL had already
+   moved once. */
+#lead-board .kanban-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+#lead-board .kanban-board {
+    float: none;
+    background-color: var(--bs-gray-100);
+    border-radius: 0.75rem;
+}
+/* jKanban's own inline `width`/`margin-left`/`margin-right` (set once, at
+   `init()`, from `widthBoard`/`gutter` — see the comment beside `new
+   jKanban(...)` in dolphin-app.js) can only be beaten by `!important` here.
+   Full width and no side margin: three side-by-side 300px boards do not fit
+   a phone, so each becomes its own full-width stacked section instead —
+   simpler than a horizontal-scrolling board for only three fixed columns. */
+@media (max-width: 767.98px) {
+    #lead-board .kanban-board {
+        width: 100% !important;
+        margin-inline: 0 !important;
+    }
+}
+#lead-board .kanban-board header {
+    border-bottom: 1px solid var(--bs-gray-300);
+}
+#lead-board .kanban-board header .kanban-title-board {
+    color: var(--bs-gray-900);
+    font-size: 1.05rem;
+}
+#lead-board .kanban-item {
+    background-color: var(--bs-body-bg);
+    border-radius: 0.6rem;
+    box-shadow: var(--bs-card-box-shadow, 0 0.1rem 0.5rem rgba(0, 0, 0, 0.05));
+}
+/* The one card-shaped exception: the "load more" control this file's own
+   `setupLeadBoard()` appends past jKanban's own item list is a real `<button>`
+   built directly, not one of jKanban's items, so it gets its own look instead
+   of the white card surface above. */
+#lead-board .lead-board-load-more {
+    margin-top: 0.5rem;
+}
+/* jKanban's `not-draggable` class only stops *dragula* from picking the node
+   up (`jkanban.bundle.js` cancels the drag itself on that class) — the CSS
+   above still gives it `cursor: move` through `.kanban-item:hover`. This
+   control is neither an item nor draggable, so it should not look like one. */
+#lead-board .kanban-item.not-draggable:hover {
+    cursor: default;
+}
+#lead-board .lead-board-empty {
+    color: var(--bs-gray-600);
+}

@@ -1,0 +1,32 @@
+{% extends "common/base.html" %}
+{% load static %}
+{% block title %}تابلوی سرنخ‌ها{% endblock %}
+{% block page_id %}lead-board{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">پیگیری فروش</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-category page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>{% endblock %}
+{% block page_title %}تابلوی سرنخ‌ها{% endblock %}
+{% block breadcrumb_current %}تابلوی سرنخ‌ها{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:leads' %}">فهرست سرنخ‌ها</a>{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'plugins/custom/jkanban/jkanban.bundle.rtl.css' %}">
+{% endblock %}
+{% block content %}
+{% comment %} همان سرنخ‌هایی که فهرست نشان می‌دهد، فقط ستون‌بندی‌شده به‌جای جدول.
+   وضعیت‌ها دقیقاً سه مقدار واقعی مدل هستند (sales.Lead.Status) — چیزی این‌جا
+   اختراع نشده. کشیدن یک کارت به ستون دیگر همان PATCH فهرست و تقویم را می‌زند،
+   پس دامنه و مجوز دقیقاً همان‌هاست. {% endcomment %}
+<section class="card mb-5 mb-xl-8"><div class="card-body">
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+        <div>
+            <h2 class="fs-3 fw-bold text-gray-900 mb-1">سرنخ‌ها بر اساس وضعیت</h2>
+            <p class="text-muted fs-7 mb-0">هر کارت یک سرنخ در محدودهٔ دسترسی شماست — همان محدوده‌ای که فهرست سرنخ‌ها نشان می‌دهد. برای دیدن جزئیات کامل کلیک کنید؛ برای تغییر وضعیت، کارت را به ستون دیگری بکشید.</p>
+        </div>
+    </div>
+    <div id="lead-board-loading" class="text-center text-gray-700 py-10">در حال دریافت سرنخ‌ها…</div>
+    <div id="lead-board-error" class="text-center text-danger py-10" role="alert" hidden>سرنخ‌ها دریافت نشدند.</div>
+    <div id="lead-board" data-can-manage-leads="{% if 'leads.manage' in capabilities %}true{% else %}false{% endif %}" hidden></div>
+</div></section>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{% static 'plugins/custom/jkanban/jkanban.bundle.js' %}"></script>
+{% endblock %}

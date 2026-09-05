@@ -229,7 +229,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_ten_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_eleven_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
@@ -259,13 +259,18 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # is frozen and predates it. `customer_timeline` and
         # `dashboard_insights` (both 2026-09-04) complete that group: on by
         # default for any new deployment, absent from Client-1's own frozen
-        # set only because its manifest predates them.
+        # set only because its manifest predates them. `lead_kanban`
+        # (2026-09-05) is withheld for the same reason as `custom_branding`/
+        # `internal_chat`, not the freeze: it defaults off everywhere in
+        # `DEFAULT_OFF_FEATURES`, so Client-1's absence here is the ordinary
+        # opt-in case, not a freeze artefact — see the reasoning beside it in
+        # `common/deployment/registry.py`.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
-                "customer_timeline", "dashboard_insights",
+                "customer_timeline", "dashboard_insights", "lead_kanban",
             }),
         )
 
@@ -274,7 +279,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
             for withheld in (
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
-                "customer_timeline", "dashboard_insights",
+                "customer_timeline", "dashboard_insights", "lead_kanban",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

@@ -62,6 +62,10 @@ REQUIRED = (
     # this did not reproduce locally.
     "plugins/custom/fullcalendar/fullcalendar.bundle.js",
     "plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css",
+    # The leads Kanban board (`lead_kanban` feature, 2026-09-05) draws with
+    # this one — same reasoning as fullcalendar directly above.
+    "plugins/custom/jkanban/jkanban.bundle.js",
+    "plugins/custom/jkanban/jkanban.bundle.rtl.css",
 )
 
 #: Theme material no served page can reach.
@@ -79,7 +83,6 @@ EXCLUDED = (
     "plugins/custom/flotcharts",
     "plugins/custom/formrepeater",
     "plugins/custom/fslightbox",
-    "plugins/custom/jkanban",
     "plugins/custom/jstree",
     "plugins/custom/leaflet",
     "plugins/custom/prismjs",
@@ -227,12 +230,14 @@ class ImageBuildContextTests(SimpleTestCase):
             if path.startswith("assets/")
             and (
                 path.startswith(("assets/media/", "assets/js/custom/"))
-                # `assets/plugins/custom/fullcalendar/` is the one exception
-                # (see REQUIRED in StaticResolutionTests above) — every other
-                # bundle under `plugins/custom/` still is not.
+                # `assets/plugins/custom/fullcalendar/` and `.../jkanban/` are
+                # the two exceptions (see REQUIRED in StaticResolutionTests
+                # above) — every other bundle under `plugins/custom/` still
+                # is not.
                 or (
                     path.startswith("assets/plugins/custom/")
                     and not path.startswith("assets/plugins/custom/fullcalendar/")
+                    and not path.startswith("assets/plugins/custom/jkanban/")
                 )
                 or "/fonts/line-awesome/" in path
                 or "/fonts/@fortawesome/" in path

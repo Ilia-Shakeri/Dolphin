@@ -112,6 +112,17 @@ FEATURE_DEPENDENCIES = {
     # fill and a deployment running none gets a page that looks exactly as
     # it did before this existed.
     "dashboard_insights": frozenset(),
+    # The leads board (/leads/board/) — the same Lead rows the ordinary list
+    # page shows, as a status-column view instead of a table. No table of its
+    # own and no mutation path of its own: dragging a card between columns
+    # goes through the existing `PATCH /api/v1/leads/<id>/` (LeadSerializer.
+    # update -> sales.services.update_lead), the same endpoint the ordinary
+    # list and the follow-up calendar already use, so it is scoped and
+    # permission-checked exactly like they are. `leads` is a real hard
+    # dependency, unlike the read-only additions above: a board with nothing
+    # to group is not a smaller version of this feature, it is not this
+    # feature.
+    "lead_kanban": frozenset({"leads"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -145,7 +156,15 @@ FEATURE_DEPENDENCIES = {
 #: does not default to off. `global_search`, `customer_timeline` and
 #: `dashboard_insights` (all 2026-09-04) are absent for exactly the same
 #: reason and on the same reasoning.
-DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat"})
+#:
+#: `lead_kanban` (2026-09-05) joins the default-off side instead, and for the
+#: same reason `internal_chat` did rather than the reason `reminders` did not:
+#: it is not a read-only convenience layered onto a page every deployment
+#: already has, it is a second, separately meaningful *page* built around a
+#: new frontend dependency (the theme's own `jkanban` bundle) and a drag
+#: interaction some deployments may not want offered on their sales floor at
+#: all. A deployment gets it by asking, the same way it gets chat.
+DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat", "lead_kanban"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
 

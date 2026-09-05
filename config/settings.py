@@ -143,14 +143,13 @@ STATICFILES_DIRS = [BASE_DIR / "assets"]
 STATICFILES_COLLECT_IGNORE = [
     "media",              # ~46MB of theme stock photography and illustrations
     "ckeditor",           # plugins/custom/* demo bundles, none loaded —
-    "cookiealert",        # `fullcalendar` is the one exception (see above),
-    "cropper",            # so it is not in this list.
+    "cookiealert",        # `fullcalendar` and `jkanban` are the two loaded
+    "cropper",            # exceptions (see above), so neither is in this list.
     "datatables",
     "draggable",
     "flotcharts",
     "formrepeater",
     "fslightbox",
-    "jkanban",
     "jstree",
     "leaflet",
     "prismjs",
