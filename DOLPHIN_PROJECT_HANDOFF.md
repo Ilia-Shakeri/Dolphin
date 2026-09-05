@@ -31,6 +31,27 @@
 روزها ثبت کرده بودند — بازنویسی نشدند؛ فقط این ورودی تازه رفتار امروز را
 ثبت می‌کند.
 
+**تأیید نهایی (همان روز):** کل مجموعهٔ تست غیرمرورگری (۱۷۳۶ تست) هم زیر
+Postgres (`config.settings`) و هم زیر SQLite (`config.test_settings`) دوباره
+اجرا شد. دو رگرسیون واقعیِ ناشی از همین جارو پیدا و رفع شد —
+`common/tests/test_backup_scripts.py::test_scripts_have_guarded_file_and_database_targets`
+(ارجاع به متغیر حلقهٔ چندسنتینلیِ حذف‌شده در `.ps1`) و
+`common/tests/test_database_identity.py::test_bootstrap_only_touches_roles_this_stack_manages`
+(انتظار وجود `allow_legacy_comments` که عمداً حذف شد) — هردو با شواهد دوباره
+اجرا و تأیید شدند. بقیهٔ خطاهای آن اجرای اول (۵ مورد در
+`accounts.tests.test_seed_synthetic_uat`، و ۷ مورد throttle در
+`billing.tests.test_invoice_api_actions`/`test_payment_correction` زیر
+SQLite) بی‌ربط به این جارو بودند — به‌ترتیب یک ناهماهنگی `--settings` در
+فراخوانی تست (با `config.test_settings` درست، ۹ از ۹ پاس) و آلودگیِ کش
+throttle از اجرای کل مجموعه در یک پردازش (هرکدام مجزا ۳۱ از ۳۱ پاس). هر ۶
+فایل تست واقعیِ مرورگری (`common/tests/test_*_browser.py`) هم جداگانه با
+timeout محدود اجرا شدند: ۵ تا پاس؛ `test_billing_shell_browser.py::CommercialChainRealBrowserTests`
+با `TimeoutException` روی `advance_wizard` (ویزارد سفارش، از ویژگی `1.11.0`)
+دو بار پشت‌سرهم و به‌طور یکسان شکست خورد — هیچ فایل مرتبط با آن در این جارو
+دست نخورده (`git status` تأیید می‌کند)، پس یک نقص/شکنندگیِ از پیش موجود و
+بی‌ربط به این کار است، نه رگرسیون این جارو؛ اینجا فقط ثبت می‌شود، رفع آن
+خارج از محدودهٔ همین جارو است.
+
 ## کنسول: راهنمای عملیاتی + درون‌ریزی manifest + مشتری تازه بدون ریلیز (۲۰۲۶/۰۹/۰۵، نسخه‌های `1.13.0`-`1.14.0`)
 
 سه کار مستقل، هرکدام با ورژن جدا:
