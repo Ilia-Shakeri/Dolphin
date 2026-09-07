@@ -205,14 +205,15 @@ ATTACHMENT_MAX_BYTES = int(os.environ.get("DOLPHIN_ATTACHMENT_MAX_BYTES", str(10
 FILE_UPLOAD_PATHS = (
     "/api/v1/products/import-xlsx/",
     "/api/v1/customers/import-xlsx/",
+    "/api/v1/target-audience/import-xlsx/",
     "/api/v1/attachments/",
 )
 # The larger of what any FILE_UPLOAD_PATHS route needs, plus a fixed margin for
 # multipart boundaries/headers around the attachment bytes themselves — a flat
 # per-path allowance was not built into RequestBodyLimitMiddleware, so this one
 # number has to cover every route above without narrowing the xlsx import's own
-# real behaviour, which nginx/default.conf still bounds at 5 MB for those two
-# routes specifically regardless of this being raised for attachments.
+# real behaviour, which nginx/default.conf still bounds at 5 MB for those three
+# spreadsheet routes specifically regardless of this being raised for attachments.
 FILE_UPLOAD_MAX_MEMORY_SIZE = max(5 * 1024 * 1024, ATTACHMENT_MAX_BYTES + 64 * 1024)
 
 SESSION_COOKIE_HTTPONLY = True

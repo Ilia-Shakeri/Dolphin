@@ -68,7 +68,7 @@
 {% comment %} باکس «صدور و ابطال» برداشته شد؛ چرخهٔ فاکتور از همان انتخابگر وضعیت
    بالای صفحه اداره می‌شود و سرویس همان قواعد گذار را اعمال می‌کند. {% endcomment %}
 {% if can_handle_payments %}
-<section id="invoice-allocations" class="card mb-5 mb-xl-8" hidden>
+<section id="invoice-allocations" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">دریافت‌های تخصیص‌یافته</h2>
     <div id="invoice-allocations-loading" class="text-center text-gray-700 py-10">در حال دریافت تخصیص‌ها…</div>
     <div id="invoice-allocations-empty" class="text-center text-gray-700 py-10" hidden>هنوز دریافتی به این فاکتور تخصیص نیافته است.</div>
@@ -83,7 +83,7 @@
         <button class="btn btn-light" type="submit">ساخت قسط‌بندی</button>
     </form>
     <div id="invoice-plan-summary" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>قسط</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>وضعیت</th></tr></thead><tbody id="invoice-plan-body"></tbody></table></div>
-</section>
+</div></section>
 {% endif %}
 {% if "attachments" in features %}
 {% include "common/includes/attachments_panel.inc" with attachments_field="invoice" can_upload=can_upload_attachment.invoice %}

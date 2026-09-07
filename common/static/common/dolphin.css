@@ -1132,8 +1132,12 @@ dialog {
    it was never built with this theme's dark mode in mind. These are FullCalendar's
    own documented CSS custom properties (https://fullcalendar.io/docs/css-customization),
    repointed at the same tokens every other chart on this page already reads,
-   so a reader who switches to dark mode does not land on a bright white grid. */
-#lead-calendar {
+   so a reader who switches to dark mode does not land on a bright white grid.
+   Shared by both calendars this product has (lead follow-up and after-sales) —
+   the after-sales one previously carried none of this at all and rendered on
+   FullCalendar's raw, un-themed defaults. */
+#lead-calendar,
+#after-sales-calendar {
     --fc-border-color: var(--bs-gray-300);
     --fc-page-bg-color: transparent;
     --fc-neutral-bg-color: var(--bs-gray-100);
@@ -1142,12 +1146,26 @@ dialog {
 }
 #lead-calendar .fc-toolbar-title,
 #lead-calendar .fc-col-header-cell-cushion,
-#lead-calendar .fc-daygrid-day-number {
+#lead-calendar .fc-daygrid-day-number,
+#after-sales-calendar .fc-toolbar-title,
+#after-sales-calendar .fc-col-header-cell-cushion,
+#after-sales-calendar .fc-daygrid-day-number {
     color: var(--bs-gray-800);
 }
-#lead-calendar .fc-button-primary {
+/* The toolbar buttons (prev/next, "امروز", the month/week/day switcher) are
+   all `.fc-button-primary` regardless of which is the active view — FullCalendar
+   does not give the inactive ones a lighter variant of their own. Colouring the
+   background here without also setting the text left it on this theme's default
+   button text colour, a muted grey meant for a dark, low-emphasis surface
+   (`.btn-light`'s own colour on this theme) — unreadable against a bright
+   primary-blue fill. `.btn-primary` elsewhere on this same blue already answers
+   the question correctly: white text, `font-weight: 500`. */
+#lead-calendar .fc-button-primary,
+#after-sales-calendar .fc-button-primary {
     background-color: var(--bs-primary);
     border-color: var(--bs-primary);
+    color: var(--bs-white);
+    font-weight: 500;
 }
 
 /* The hover preview `setupLeadCalendar()` builds per event — wider than

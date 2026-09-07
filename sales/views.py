@@ -1,5 +1,6 @@
 from datetime import datetime, time, timedelta
 
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from rest_framework.decorators import action
@@ -25,7 +26,8 @@ from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, Pr
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceMemberSerializer
+from sales.target_audience_imports import import_target_audience_from_workbook
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
 from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -444,7 +446,7 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteM
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = TargetAudienceMember.objects.none()
     serializer_class = TargetAudienceMemberSerializer
-    sensitive_actions = frozenset({"create", "update", "partial_update"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "import_xlsx"})
     search_fields = ["full_name", "normalized_phone", "raw_phone"]
     ordering_fields = ["full_name", "status", "created_at"]
     list_query_parameters = {"lead", "status"}
@@ -458,6 +460,51 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteM
         if status_filter:
             queryset = queryset.filter(status=status_filter)
         return queryset
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "format": "binary"},
+                    "lead": {"type": "integer"},
+                },
+            }
+        },
+        responses={
+            200: TargetAudienceImportResultSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+        },
+        description=(
+            "Add target-audience identities in bulk from a filled export of "
+            "GET /api/v1/exports/target-audience.xlsx. Columns are matched by header "
+            "name. `lead` names the campaign every row is added to. A row whose phone "
+            "already exists in that campaign is skipped and counted as a duplicate — "
+            "an import never overwrites an existing identity."
+        ),
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="import-xlsx",
+        parser_classes=[MultiPartParser],
+    )
+    def import_xlsx(self, request):
+        upload = request.FILES.get("file")
+        if upload is None:
+            raise ValidationError({"file": "فایل تکمیل‌شده را پیوست کنید."})
+        if not upload.name.lower().endswith(".xlsx"):
+            raise ValidationError({"file": "فقط فایل با پسوند xlsx. پذیرفته می‌شود."})
+        lead_id = request.data.get("lead")
+        try:
+            lead_id = int(lead_id)
+        except (TypeError, ValueError) as exc:
+            raise ValidationError({"lead": "باید عددی صحیح و مثبت باشد."}) from exc
+        lead = get_object_or_404(leads_for(request.user), pk=lead_id)
+        result = import_target_audience_from_workbook(actor=request.user, lead=lead, stream=upload)
+        return Response(TargetAudienceImportResultSerializer(result).data)
 
 
 class ProductCategoryViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):

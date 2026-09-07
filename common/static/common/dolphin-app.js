@@ -3312,6 +3312,48 @@
             });
         }
 
+        /**
+         * Upload a filled target-audience export back as new identities.
+         *
+         * Same round trip as `setupProductImport`: the marketer exports first,
+         * writes rows on that file, and returns it — the server matches columns
+         * by name and decides what is a duplicate, what is invalid and what was
+         * added. This only reports what it says and refreshes the table.
+         */
+        const importOpen = document.getElementById("open-import-target-audience");
+        const importPicker = document.getElementById("import-target-audience-file");
+        if (importOpen && importPicker) {
+            importOpen.addEventListener("click", () => importPicker.click());
+            importPicker.addEventListener("change", async () => {
+                const file = importPicker.files && importPicker.files[0];
+                if (!file) return;
+                const body = new FormData();
+                body.append("file", file);
+                body.append("lead", leadId);
+                importOpen.disabled = true;
+                clearMessages();
+                try {
+                    const result = await apiRequest("/api/v1/target-audience/import-xlsx/", {
+                        method: "POST", body, raw: true,
+                    });
+                    const parts = [`${toPersianDigits(String(result.created))} مورد به جامعه هدف افزوده شد.`];
+                    if (result.duplicates) {
+                        parts.push(`${toPersianDigits(String(result.duplicates))} مورد تکراری بود و اضافه نشد.`);
+                    }
+                    if (result.invalid) {
+                        parts.push(`${toPersianDigits(String(result.invalid))} ردیف نامعتبر بود و رد شد.`);
+                    }
+                    globalMessage(parts.join(" "), result.created > 0);
+                    await loadTargetAudience(1);
+                } catch (error) {
+                    showError(error);
+                } finally {
+                    importOpen.disabled = false;
+                    importPicker.value = "";
+                }
+            });
+        }
+
         await loadTargetAudience(1);
     }
 
@@ -8426,7 +8468,6 @@
 
         const input = document.getElementById("global-search-input");
         const body = document.getElementById("global-search-body");
-        const hint = document.getElementById("global-search-hint");
         const empty = document.getElementById("global-search-empty");
         const errorNote = document.getElementById("global-search-error");
         const SEARCH_DEBOUNCE_MS = 250;
@@ -8441,8 +8482,10 @@
             if (open) input.focus();
         };
 
+        // `node` is `null` before typing starts — an empty box, not an
+        // instructional message, product-owner decision 2026-09-08.
         function show(node) {
-            [hint, empty, errorNote].forEach((each) => { each.hidden = each !== node; });
+            [empty, errorNote].forEach((each) => { each.hidden = each !== node; });
         }
 
         function renderGroup(group) {
@@ -8525,7 +8568,7 @@
                 // fill a box the user has just cleared.
                 sequence += 1;
                 body.replaceChildren();
-                show(hint);
+                show(null);
                 return;
             }
             timer = setTimeout(() => run(query), SEARCH_DEBOUNCE_MS);

@@ -4,14 +4,20 @@
             <h2 id="{{ panel_prefix }}-performance-title">{% if can_view_company_reports %}عملکرد عملیاتی شرکت{% else %}عملکرد عملیاتی من{% endif %}</h2>
             <p class="text-muted">مشتری‌های ثبت‌شده و فروش‌های تأییدشده در بازه انتخابی.</p>
         </div>
+        {% comment %} بالا سمت چپ باکس، کنار عنوان — نه پایینِ فرم فیلتر —
+           محصول‌مالک ۲۰۲۶/۰۹/۰۸. دکمهٔ «به‌روزرسانی» با `form="..."` به فرم
+           پایین وصل می‌ماند، بدون این‌که خودش داخلش باشد. {% endcomment %}
+        <div class="d-flex flex-wrap gap-3">
+            <a id="{{ panel_prefix }}-performance-xlsx" class="btn btn-light" href="/api/v1/exports/user-performance.xlsx" download>دریافت XLSX</a>
+            <button class="btn btn-primary" type="submit" form="{{ panel_prefix }}-performance-filter-form">به‌روزرسانی</button>
+        </div>
     </div>
     <form id="{{ panel_prefix }}-performance-filter-form" class="mt-5 mb-6" action="/api/v1/reports/user-performance/" method="get" novalidate>
         <div class="row g-5">
             <div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-period-start">شروع بازه</label><input class="form-control form-control-solid" id="{{ panel_prefix }}-period-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
             <div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-period-end">پایان بازه</label><input class="form-control form-control-solid" id="{{ panel_prefix }}-period-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
             {% if can_view_company_reports %}<div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-user">کاربر</label><select class="form-select form-select-solid" id="{{ panel_prefix }}-user" name="user_id"><option value="">همه کاربران مجاز</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="user_id"></p></div>{% endif %}
-            <div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-product">محصول فروش</label><select class="form-select form-select-solid" id="{{ panel_prefix }}-product" name="sales_product_id"><option value="">همه محصولات مجاز</option></select><p class="muted field-hint">این فیلتر فقط شاخص‌های فروش را تغییر می‌دهد.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sales_product_id"></p></div>
-            <div class="col-12 d-flex justify-content-end gap-3"><a id="{{ panel_prefix }}-performance-xlsx" class="btn btn-light" href="/api/v1/exports/user-performance.xlsx" download>دریافت XLSX</a><button class="btn btn-primary" type="submit">به‌روزرسانی</button></div>
+            <div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-product">محصول فروش</label><select class="form-select form-select-solid" id="{{ panel_prefix }}-product" name="sales_product_id"><option value="">همه محصولات مجاز</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sales_product_id"></p></div>
         </div>
     </form>
     <div id="{{ panel_prefix }}-performance-loading" class="text-center text-gray-700 py-10" hidden>در حال دریافت عملکرد…</div>

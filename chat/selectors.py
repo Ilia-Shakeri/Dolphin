@@ -5,6 +5,11 @@ routes to a *parent's* own scope), chat has no parent record to defer to —
 the scope rule is the thread's own membership, so it is defined here.
 """
 
+from functools import reduce
+from operator import or_
+
+from django.db.models import Count, Max, Q
+
 from chat.models import ChatMessage, ChatParticipant, ChatThread
 
 
@@ -47,12 +52,65 @@ def unread_count_for(user, thread_id):
     return messages.count()
 
 
+def last_messages_for(thread_ids):
+    """The most recent message per thread, in two fixed queries.
+
+    `ChatThreadListView` used to call `thread.messages.order_by(...).first()`
+    once per thread in the list — one query per conversation the caller is
+    in, on an endpoint the topbar polls every eight seconds regardless of
+    whether the panel is even open. `Max("id")` groups every thread's rows in
+    one query (message ids are already in send order, `Meta.ordering`), and
+    the second fetches exactly those rows — two queries whether the caller
+    has one thread or two hundred, not `2N`.
+    """
+    if not thread_ids:
+        return {}
+    latest_ids = (
+        ChatMessage.objects.filter(thread_id__in=thread_ids)
+        .values("thread_id")
+        .annotate(last_id=Max("id"))
+    )
+    ids = [row["last_id"] for row in latest_ids]
+    messages = ChatMessage.objects.filter(pk__in=ids)
+    return {message.thread_id: message for message in messages}
+
+
+def unread_counts_for(user, last_read_at_by_thread):
+    """Unread counts for several threads at once, in one query.
+
+    `last_read_at_by_thread` is `{thread_id: last_read_at_or_None}` for
+    `user` — the caller already has this from the same `participants__user`
+    prefetch it uses for the peer's name, so building it costs no extra
+    query. Each thread's own cutoff becomes its own `Q`, and the `Q`s are
+    OR'd into a single `WHERE`, grouped by thread — one query, not `2N`
+    (`unread_count_for` above, called once per thread, was a lookup query
+    *and* a count query each).
+    """
+    if not last_read_at_by_thread:
+        return {}
+    clauses = [
+        Q(thread_id=thread_id) if last_read_at is None else Q(thread_id=thread_id, created_at__gt=last_read_at)
+        for thread_id, last_read_at in last_read_at_by_thread.items()
+    ]
+    counts = (
+        ChatMessage.objects.filter(reduce(or_, clauses))
+        .exclude(sender=user)
+        .values("thread_id")
+        .annotate(count=Count("id"))
+    )
+    return {row["thread_id"]: row["count"] for row in counts}
+
+
 def total_unread_count(user):
-    """Unread messages across every thread this user is in — the topbar badge."""
-    total = 0
-    for participant in ChatParticipant.objects.filter(user=user).select_related("thread"):
-        messages = ChatMessage.objects.filter(thread_id=participant.thread_id).exclude(sender=user)
-        if participant.last_read_at is not None:
-            messages = messages.filter(created_at__gt=participant.last_read_at)
-        total += messages.count()
-    return total
+    """Unread messages across every thread this user is in — the topbar badge.
+
+    Polled every few seconds on every open page (`setupChatUnreadPoll`), so
+    the per-thread loop this used to run — a query to count each thread's
+    unread messages, one thread at a time — was real, continuous load in
+    proportion to how many conversations someone had accumulated. Reuses
+    `unread_counts_for`'s single grouped query instead.
+    """
+    last_read_at_by_thread = dict(
+        ChatParticipant.objects.filter(user=user).values_list("thread_id", "last_read_at")
+    )
+    return sum(unread_counts_for(user, last_read_at_by_thread).values())

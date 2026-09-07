@@ -353,3 +353,26 @@ def build_product_catalogue_workbook(products):
             "yes" if product.is_active else "no",
         ))
     return _finish(workbook, sheet)
+
+
+#: The target-audience export and `sales.target_audience_imports` share this
+#: header row, the same round trip as the customer and product pairs above:
+#: the marketer exports the current campaign audience, writes new rows on that
+#: file, and returns it. `id` and `status` are present as reference only — an
+#: import always creates, and status is derived, never typed in.
+TARGET_AUDIENCE_HEADERS = ("id", "full_name", "raw_phone", "status", "notes")
+
+
+def build_target_audience_workbook(members):
+    """One campaign's target audience, in the shape the importer reads back."""
+    workbook, sheet = _new_workbook("target-audience")
+    sheet.append(TARGET_AUDIENCE_HEADERS)
+    for member in members:
+        sheet.append((
+            member.pk,
+            safe_spreadsheet_text(member.full_name),
+            safe_spreadsheet_text(member.raw_phone),
+            safe_spreadsheet_text(member.get_status_display()),
+            safe_spreadsheet_text(member.notes),
+        ))
+    return _finish(workbook, sheet)

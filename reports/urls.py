@@ -8,6 +8,7 @@ from reports.customer_views import (
 from reports.directory_views import (
     CustomerDirectoryExportView,
     ProductCatalogueExportView,
+    TargetAudienceExportView,
     UserDirectoryExportView,
 )
 
@@ -38,6 +39,7 @@ urlpatterns = [
     path("exports/users.xlsx", UserDirectoryExportView.as_view(), name="user-directory-export"),
     path("exports/customers.xlsx", CustomerDirectoryExportView.as_view(), name="customer-directory-export"),
     path("exports/products.xlsx", ProductCatalogueExportView.as_view(), name="product-catalogue-export"),
+    path("exports/target-audience.xlsx", TargetAudienceExportView.as_view(), name="target-audience-export"),
     path("exports/receivables.xlsx", ReceivablesExportView.as_view(), name="receivables-export"),
     path("exports/profit.xlsx", ProfitExportView.as_view(), name="profit-export"),
     path("exports/stock-valuation.xlsx", InventoryValuationExportView.as_view(), name="stock-valuation-export"),

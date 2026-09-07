@@ -32,7 +32,17 @@
     <section class="card mb-5 mb-xl-8" id="target-audience-card"><div class="card-body">
         <div class="d-flex flex-wrap flex-stack align-items-center mb-5">
             <div><h2 class="fs-3 fw-bold text-gray-900 mb-1">جامعه هدف</h2><p class="text-gray-700 fs-7 mb-0">افرادی که این کمپین روی آن‌ها کار می‌شود.</p></div>
-            {% if can_edit_target_audience %}<button id="open-add-target-member" class="btn btn-primary" type="button">افزودن منبع جدید</button>{% endif %}
+            <div class="d-flex flex-wrap gap-2 gap-lg-3">
+                <a id="target-audience-export" class="btn btn-light" href="/api/v1/exports/target-audience.xlsx?lead={{ lead_id }}" download>خروجی اکسل</a>
+                {% if can_edit_target_audience %}
+                {% comment %} همان الگوی ورودی محصولات: خروجی بگیر، روی همان فایل چند
+                   ردیف بنویس، برگردان. ستون‌ها با نام تطبیق داده می‌شوند، نه با
+                   موقعیت، و شماره تکراری در همین کمپین رد می‌شود، نه بازنویسی. {% endcomment %}
+                <button id="open-import-target-audience" class="btn btn-light" type="button">ورودی اکسل</button>
+                <input id="import-target-audience-file" type="file" accept=".xlsx" hidden>
+                <button id="open-add-target-member" class="btn btn-primary" type="button">افزودن منبع جدید</button>
+                {% endif %}
+            </div>
         </div>
         <div id="target-audience-loading" class="text-center text-gray-700 py-10">در حال دریافت جامعه هدف…</div>
         <div id="target-audience-empty" class="text-center text-gray-700 py-10" hidden>هنوز کسی به جامعه هدف این کمپین افزوده نشده است.</div>

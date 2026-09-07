@@ -338,6 +338,15 @@ class ProductActivationSerializer(RejectServerFieldsMixin, serializers.Serialize
     is_active = serializers.BooleanField()
 
 
+class TargetAudienceImportResultSerializer(serializers.Serializer):
+    """What one target-audience spreadsheet upload did, counted by outcome."""
+
+    created = serializers.IntegerField(read_only=True)
+    duplicates = serializers.IntegerField(read_only=True)
+    invalid = serializers.IntegerField(read_only=True)
+    errors = serializers.ListField(child=serializers.DictField(), read_only=True)
+
+
 class CustomerActivationSerializer(RejectServerFieldsMixin, serializers.Serializer):
     """The one field the activation endpoint accepts."""
 

@@ -34,12 +34,12 @@
 <body data-page="{% block page_id %}document-print{% endblock %}">
 <div class="print-page">
     {% if error_status %}
-        <section class="card error-card">
+        <section class="card error-card"><div class="card-body">
             <p class="status-code">{{ error_status }}</p>
             <h1>{{ error_title }}</h1>
             <p>{{ error_message }}</p>
             <a class="button" href="{% url 'common_ui:home' %}">بازگشت به خانه</a>
-        </section>
+        </div></section>
     {% else %}
         {% if not pdf_mode %}
         <div class="print-toolbar">

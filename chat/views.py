@@ -12,6 +12,7 @@ from chat.serializers import (
     ChatStartThreadSerializer,
     ChatThreadSerializer,
     serialize_thread,
+    serialize_threads,
 )
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
@@ -45,7 +46,7 @@ class ChatThreadListView(ChatAccessMixin, APIView):
     )
     def get(self, request):
         threads = threads_for(request.user).prefetch_related("participants__user")
-        data = [serialize_thread(thread, viewer=request.user) for thread in threads]
+        data = serialize_threads(threads, viewer=request.user)
         response = Response(data)
         response["Cache-Control"] = "private, no-store"
         return response

@@ -23,12 +23,13 @@ from reports.views import XLSX_CONTENT_TYPE, XLSXNegotiationRenderer
 from reports.xlsx import (
     build_customer_directory_workbook,
     build_product_catalogue_workbook,
+    build_target_audience_workbook,
     build_user_directory_workbook,
 )
 from rest_framework.exceptions import ValidationError
 
 from sales.models import Customer
-from sales.selectors import customers_for, products_for
+from sales.selectors import customers_for, products_for, target_audience_for
 
 
 class DirectoryExportView(APIView):
@@ -182,3 +183,50 @@ class ProductCatalogueExportView(FeatureGatedAPIMixin, DirectoryExportView):
             products_for(request.user).select_related("category").order_by("name", "pk")
         )
         return build_product_catalogue_workbook(products)
+
+
+class TargetAudienceExportView(FeatureGatedAPIMixin, DirectoryExportView):
+    """One campaign's target audience, in the shape the importer reads back.
+
+    `lead` narrows to one campaign, which is how the lead-detail panel always
+    calls this — the marketer exports the audience they are looking at, writes
+    new rows on that file, and returns it through
+    `POST /api/v1/target-audience/import-xlsx/`. Omitted, it exports every
+    identity the caller may read across every campaign, same narrowing-only
+    behaviour as the customer export's `kind` parameter above.
+    """
+
+    required_feature = "leads"
+    required_capabilities = ("leads.scoped", "leads.company")
+    permission_classes = [HasCapabilityForMethod]
+    filename = "dolphin-target-audience.xlsx"
+
+    @extend_schema(
+        responses={
+            (200, XLSX_CONTENT_TYPE): OpenApiResponse(
+                response=OpenApiTypes.BINARY, description="Target audience in the caller's scope."
+            ),
+            (403, "application/json"): ACCESS_DENIED_RESPONSE,
+            (429, "application/json"): THROTTLED_RESPONSE,
+        },
+        parameters=[
+            OpenApiParameter("lead", int, description="Narrow to one campaign's audience."),
+        ],
+        description=(
+            "Target audience as XLSX, scoped exactly like the target-audience list endpoint. "
+            "Its header row is what POST /api/v1/target-audience/import-xlsx/ reads."
+        ),
+    )
+    def get(self, request):
+        return super().get(request)
+
+    def workbook(self, request):
+        members = target_audience_for(request.user).order_by("full_name", "pk")
+        lead = request.query_params.get("lead")
+        if lead is not None:
+            try:
+                lead_id = int(lead)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError({"lead": "باید عددی صحیح و مثبت باشد."}) from exc
+            members = members.filter(lead_id=lead_id)
+        return build_target_audience_workbook(members)

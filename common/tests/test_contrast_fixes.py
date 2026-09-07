@@ -68,3 +68,25 @@ class LoginAsideContrastTests(TestCase):
         rule = _rule(CSS, ".login-aside-subtitle {")
         self.assertIn("#C4CADA", rule)
         self.assertNotIn("var(", rule)
+
+
+class CalendarToolbarButtonContrastTests(SimpleTestCase):
+    """FullCalendar's toolbar (prev/next, "امروز", the view switcher) is
+    `.fc-button-primary` on every button regardless of which is active. The
+    theme's background override for it (2026-09-07) left the text on the
+    panel's default *muted* colour — `.btn-light`'s own colour, meant for a
+    dark, low-emphasis surface — which read as unreadable grey-on-blue.
+    `.btn-primary` elsewhere on this exact background already answers the
+    question correctly: white text, `font-weight: 500`.
+    """
+
+    def test_the_lead_calendar_button_gets_readable_text(self):
+        rule = _rule(CSS, "#lead-calendar .fc-button-primary,\n#after-sales-calendar .fc-button-primary {")
+        self.assertIn("var(--bs-white)", rule)
+        self.assertIn("font-weight: 500", rule)
+
+    def test_the_after_sales_calendar_carries_the_same_theme_variables_as_the_lead_one(self):
+        """The after-sales calendar previously had none of this at all and
+        rendered on FullCalendar's raw, un-themed defaults."""
+        rule = _rule(CSS, "#lead-calendar,\n#after-sales-calendar {")
+        self.assertIn("--fc-border-color: var(--bs-gray-300);", rule)
