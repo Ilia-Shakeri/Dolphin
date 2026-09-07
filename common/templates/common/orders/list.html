@@ -35,18 +35,26 @@
     <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
 </div></section>
 <dialog id="create-order-dialog" aria-labelledby="create-order-title">
-    <form id="create-order-form" action="/api/v1/orders/" method="post" novalidate>
-        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">سفارش تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">سفارش تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
 {% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ مترونیک (همان `KTStepper` واقعی
    که فاکتور تازه هم از آن استفاده می‌کند). کالا دیگر یک ردیف ثابت نیست: همان
    افزودن‌ردیفِ فاکتور اینجا هم هست، پس چند کالا از همین‌جا قابل ثبت است و
-   سطرهای بعدی همچنان از صفحهٔ جزئیات هم قابل افزودن‌اند. {% endcomment %}
+   سطرهای بعدی همچنان از صفحهٔ جزئیات هم قابل افزودن‌اند.
+
+   فرم داخلی، فرزند مستقیم `.stepper` است، نه پوشانندهٔ آن — دقیقاً همان‌طور که
+   مرجع خودِ Metronic برای این نوع ویزارد ساخته (نمونه:
+   `utilities/modals/wizards/create-account.html`، `.stepper-links`).
+   `KTStepper._refreshUI` موقعیت هر مرحله را از `KTUtil.index(el)` می‌گیرد که
+   فقط جایگاه بین خواهر و برادرهای مستقیم را می‌شمرد؛ اگر `.stepper-nav` و
+   بخش‌های محتوا هر دو مستقیماً زیر `.stepper` باشند، آن شمارش یکی جابه‌جا
+   می‌شود و مرحلهٔ دوم هیچ‌وقت واقعاً «current» نمی‌شود. {% endcomment %}
         <div class="stepper stepper-links d-flex flex-column" id="create-order-stepper">
             <div class="stepper-nav py-5">
                 <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">مشتری و ارسال</h3></div>
                 <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">اقلام سفارش</h3></div>
                 <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
             </div>
+            <form id="create-order-form" action="/api/v1/orders/" method="post" novalidate>
             <div class="current" data-kt-stepper-element="content">
                 <div class="row g-5">
 {% comment %} A searchable customer, matching the invoice wizard's own —
@@ -80,6 +88,7 @@
                 <div class="row g-3 mb-4" id="create-order-review"></div>
                 <p class="text-muted">سفارش به‌صورت پیش‌نویس ثبت می‌شود؛ افزودن یا ویرایش سطرها پس از ثبت هم از صفحهٔ جزئیات ممکن است.</p>
             </div>
+            {% csrf_token %}
             <div class="d-flex flex-stack pt-5">
                 <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
                 <div class="d-flex gap-3">
@@ -88,7 +97,7 @@
                     <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت سفارش</button>
                 </div>
             </div>
+            </form>
         </div>
-    </form>
 </dialog>
 {% endblock %}
