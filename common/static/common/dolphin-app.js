@@ -1351,12 +1351,329 @@
         return `${pad4(year)}-${pad2(month)}-${pad2(day)}`;
     }
 
+    //: Standard Iranian week, شنبه first — the same order the lead and
+    //: after-sales calendars already render (`setupLeadCalendar`,
+    //: `setupAfterSalesCalendar`, both driven by FullCalendar's own
+    //: `firstDay: 6`).
+    const JALALI_WEEKDAY_LETTERS = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
+
+    /** Gregorian day-of-week (0=Saturday..6=Friday) for a Jalali calendar day. */
+    function jalaliWeekday(year, month, day) {
+        const [gy, gm, gd] = jalaliToGregorian(year, month, day);
+        const sunday0 = new Date(Date.UTC(gy, gm - 1, gd)).getUTCDay(); // 0=Sun..6=Sat
+        return (sunday0 + 1) % 7; // 0=Sat..6=Fri
+    }
+
+    let closeOpenJalaliPicker = null; // the open picker's own teardown, or null
+    let openJalaliPickerField = null; // which field it belongs to
+
+    /**
+     * A small popup calendar for a `data-jalali` field, opened on focus/click.
+     *
+     * Built in-house rather than adapted from a vendor picker: the theme
+     * bundles flatpickr (`assets/plugins/global/plugins.bundle.js`), but it
+     * draws its grid straight from JS `Date` with no hook for a different
+     * calendar system — there is no Jalali build of it in this bundle, and
+     * retrofitting one would mean fighting its internals rather than using
+     * them. This project already carries a complete, tested Jalali <->
+     * Gregorian conversion layer (`jalaliToGregorian`, `gregorianToJalali`,
+     * `jalaliMonthLength` — the same functions every `apiDate`/`apiDateTime`
+     * call already runs through), so the grid is drawn from that instead.
+     *
+     * The popup's shell is still entirely the theme's own:
+     * `.menu.menu-sub.menu-sub-dropdown`, the exact classes `#user-menu` and
+     * `setupListFilterPopovers()`'s own panel already use, so it inherits the
+     * theme's light/dark background, box-shadow, border-radius and
+     * fade/move-in animation for free — no separate design system, and no
+     * dark-mode work of its own to get wrong. Only the day grid itself is
+     * custom CSS (`.jalali-picker-*` in dolphin.css), because Metronic has no
+     * component for a Jalali calendar to adapt.
+     *
+     * Typing the date directly keeps working exactly as it always did
+     * (`parseJalaliInput` on blur, below) — this only adds a second way to
+     * fill the same field, not a replacement for the first.
+     */
+    function openJalaliPicker(field) {
+        if (openJalaliPickerField === field) return;
+        if (closeOpenJalaliPicker) closeOpenJalaliPicker();
+
+        const wantsTime = field.dataset.jalali === "datetime";
+        let parsed;
+        try { parsed = parseJalaliInput(field.value, {requireTime: wantsTime}); } catch { parsed = null; }
+        const nowParts = tehranParts(new Date());
+        const [todayYear, todayMonth, todayDay] = gregorianToJalali(nowParts.year, nowParts.month, nowParts.day);
+
+        let viewYear = parsed ? parsed.jalali[0] : todayYear;
+        let viewMonth = parsed ? parsed.jalali[1] : todayMonth;
+        let selected = parsed ? {year: parsed.jalali[0], month: parsed.jalali[1], day: parsed.jalali[2]} : null;
+        let hour = parsed ? parsed.hour : nowParts.hour;
+        let minute = parsed ? parsed.minute : nowParts.minute;
+
+        const panel = document.createElement("div");
+        panel.className = "menu menu-sub menu-sub-dropdown menu-column jalali-picker";
+        panel.dir = "rtl";
+        panel.setAttribute("role", "dialog");
+        panel.setAttribute("aria-label", wantsTime ? "انتخاب تاریخ و زمان" : "انتخاب تاریخ");
+
+        function navButton(glyph, label) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn btn-icon btn-sm btn-color-muted btn-active-color-primary";
+            button.setAttribute("aria-label", label);
+            button.textContent = glyph;
+            return button;
+        }
+
+        const header = document.createElement("div");
+        header.className = "jalali-picker-header";
+        const nextYearBtn = navButton("»", "سال بعد");
+        const nextMonthBtn = navButton("›", "ماه بعد");
+        const title = document.createElement("span");
+        title.className = "jalali-picker-title";
+        const prevMonthBtn = navButton("‹", "ماه قبل");
+        const prevYearBtn = navButton("«", "سال قبل");
+        // DOM order is visual order in this `dir="rtl"` row: right to left,
+        // "far future ... title ... far past" — the same right-is-earlier
+        // spatial reading the lead/after-sales calendars already use.
+        header.append(nextYearBtn, nextMonthBtn, title, prevMonthBtn, prevYearBtn);
+
+        const weekdays = document.createElement("div");
+        weekdays.className = "jalali-picker-weekdays";
+        JALALI_WEEKDAY_LETTERS.forEach((letter) => {
+            const cell = document.createElement("span");
+            cell.textContent = letter;
+            weekdays.append(cell);
+        });
+
+        const days = document.createElement("div");
+        days.className = "jalali-picker-days";
+
+        let timeRow = null;
+        let hourSelect = null;
+        let minuteSelect = null;
+        if (wantsTime) {
+            timeRow = document.createElement("div");
+            timeRow.className = "jalali-picker-time";
+            hourSelect = document.createElement("select");
+            hourSelect.className = "form-select form-select-solid form-select-sm";
+            hourSelect.setAttribute("aria-label", "ساعت");
+            for (let h = 0; h <= 23; h += 1) {
+                const option = document.createElement("option");
+                option.value = String(h);
+                option.textContent = toPersianDigits(pad2(h));
+                hourSelect.append(option);
+            }
+            const separator = document.createElement("span");
+            separator.textContent = ":";
+            minuteSelect = document.createElement("select");
+            minuteSelect.className = "form-select form-select-solid form-select-sm";
+            minuteSelect.setAttribute("aria-label", "دقیقه");
+            // Five-minute steps cover the ordinary case; the field's own
+            // exact minute (typed by hand, or already stored) is added too
+            // so opening the picker on an existing value never rounds it
+            // away silently.
+            const minuteOptions = new Set([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, minute]);
+            Array.from(minuteOptions).sort((a, b) => a - b).forEach((m) => {
+                const option = document.createElement("option");
+                option.value = String(m);
+                option.textContent = toPersianDigits(pad2(m));
+                minuteSelect.append(option);
+            });
+            hourSelect.value = String(hour);
+            minuteSelect.value = String(minute);
+            timeRow.append(hourSelect, separator, minuteSelect);
+        }
+
+        const footer = document.createElement("div");
+        footer.className = "jalali-picker-footer";
+        const clearBtn = document.createElement("button");
+        clearBtn.type = "button";
+        clearBtn.className = "btn btn-sm btn-light";
+        clearBtn.textContent = "پاک‌کردن";
+        const todayBtn = document.createElement("button");
+        todayBtn.type = "button";
+        todayBtn.className = "btn btn-sm btn-light-primary";
+        todayBtn.textContent = "امروز";
+        footer.append(clearBtn, todayBtn);
+        let confirmBtn = null;
+        if (wantsTime) {
+            confirmBtn = document.createElement("button");
+            confirmBtn.type = "button";
+            confirmBtn.className = "btn btn-sm btn-primary";
+            confirmBtn.textContent = "تأیید";
+            footer.append(confirmBtn);
+        }
+
+        panel.append(header, weekdays, days, ...(timeRow ? [timeRow] : []), footer);
+
+        function updateTitle() {
+            title.textContent = `${JALALI_MONTH_NAMES[viewMonth - 1]} ${toPersianDigits(String(viewYear))}`;
+        }
+
+        function renderDays() {
+            days.replaceChildren();
+            const leading = jalaliWeekday(viewYear, viewMonth, 1);
+            const length = jalaliMonthLength(viewYear, viewMonth);
+            const totalCells = 42; // 6 full weeks, so the popup never resizes month to month.
+            for (let cellIndex = 0; cellIndex < totalCells; cellIndex += 1) {
+                const day = cellIndex - leading + 1;
+                if (day < 1 || day > length) {
+                    days.append(document.createElement("span"));
+                    continue;
+                }
+                const isToday = viewYear === todayYear && viewMonth === todayMonth && day === todayDay;
+                const isSelected = !!selected && selected.year === viewYear && selected.month === viewMonth && selected.day === day;
+                const cell = document.createElement("button");
+                cell.type = "button";
+                cell.textContent = toPersianDigits(String(day));
+                cell.className = "btn btn-icon jalali-picker-day " + (
+                    isSelected ? "btn-primary"
+                    : isToday ? "btn-active-light-primary border border-primary text-primary"
+                    : "btn-color-gray-700 btn-active-light-primary"
+                );
+                if (isSelected) cell.setAttribute("aria-current", "date");
+                cell.addEventListener("click", () => {
+                    selected = {year: viewYear, month: viewMonth, day};
+                    commit();
+                    if (wantsTime) {
+                        renderDays();
+                    } else {
+                        close();
+                    }
+                });
+                days.append(cell);
+            }
+        }
+
+        function commit() {
+            if (!selected) return;
+            const text = wantsTime
+                ? toPersianDigits(`${pad4(selected.year)}/${pad2(selected.month)}/${pad2(selected.day)} ${pad2(hour)}:${pad2(minute)}`)
+                : toPersianDigits(`${pad4(selected.year)}/${pad2(selected.month)}/${pad2(selected.day)}`);
+            field.value = text;
+            field.dispatchEvent(new Event("input", {bubbles: true}));
+            field.dispatchEvent(new Event("change", {bubbles: true}));
+            field.dispatchEvent(new Event("blur"));
+        }
+
+        function shiftMonth(delta) {
+            let year = viewYear;
+            let month = viewMonth + delta;
+            while (month < 1) { month += 12; year -= 1; }
+            while (month > 12) { month -= 12; year += 1; }
+            viewYear = year;
+            viewMonth = month;
+            updateTitle();
+            renderDays();
+        }
+
+        prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
+        nextMonthBtn.addEventListener("click", () => shiftMonth(1));
+        prevYearBtn.addEventListener("click", () => { viewYear -= 1; updateTitle(); renderDays(); });
+        nextYearBtn.addEventListener("click", () => { viewYear += 1; updateTitle(); renderDays(); });
+
+        if (hourSelect) {
+            hourSelect.addEventListener("change", () => { hour = Number(hourSelect.value); if (selected) commit(); });
+            minuteSelect.addEventListener("change", () => { minute = Number(minuteSelect.value); if (selected) commit(); });
+        }
+        clearBtn.addEventListener("click", () => {
+            field.value = "";
+            field.dispatchEvent(new Event("input", {bubbles: true}));
+            field.dispatchEvent(new Event("change", {bubbles: true}));
+            field.dispatchEvent(new Event("blur"));
+            close();
+        });
+        todayBtn.addEventListener("click", () => {
+            viewYear = todayYear;
+            viewMonth = todayMonth;
+            selected = {year: todayYear, month: todayMonth, day: todayDay};
+            if (wantsTime) {
+                hour = nowParts.hour;
+                minute = nowParts.minute;
+                hourSelect.value = String(hour);
+                minuteSelect.value = String(minute);
+            }
+            updateTitle();
+            renderDays();
+            commit();
+            if (!wantsTime) close();
+        });
+        confirmBtn?.addEventListener("click", () => close());
+
+        function position() {
+            const anchor = field.getBoundingClientRect();
+            const panelRect = panel.getBoundingClientRect();
+            const margin = 8;
+            let top = anchor.bottom + margin;
+            if (top + panelRect.height > window.innerHeight - margin) {
+                top = Math.max(margin, anchor.top - panelRect.height - margin);
+            }
+            let left = anchor.right - panelRect.width;
+            left = Math.min(Math.max(left, margin), window.innerWidth - margin - panelRect.width);
+            panel.style.top = `${top}px`;
+            panel.style.left = `${left}px`;
+        }
+
+        function onDocumentMouseDown(event) {
+            if (panel.contains(event.target) || event.target === field) return;
+            close();
+        }
+        function onKeyDown(event) {
+            if (event.key === "Escape") {
+                event.stopPropagation();
+                close();
+                field.focus();
+            }
+        }
+
+        function close() {
+            if (openJalaliPickerField !== field) return;
+            document.removeEventListener("mousedown", onDocumentMouseDown, true);
+            document.removeEventListener("keydown", onKeyDown, true);
+            panel.remove();
+            openJalaliPickerField = null;
+            closeOpenJalaliPicker = null;
+        }
+
+        // A field inside a native <dialog> renders in the browser's own top
+        // layer; a picker appended to <body> would paint *behind* the open
+        // dialog's backdrop and be unreachable. Appending inside the dialog
+        // keeps it in that same promoted stacking context. Neither this nor
+        // <body> is `position: relative`, which is fine — the panel is
+        // `position: fixed` (dolphin.css) and positioned in viewport
+        // coordinates below, not relative to its parent.
+        (field.closest("dialog") || document.body).appendChild(panel);
+        updateTitle();
+        renderDays();
+        // Measured before it is shown: `.jalali-picker` has no size of its
+        // own to reason about until its content exists, and `position()`
+        // needs that real size to decide whether it fits below the field.
+        panel.style.visibility = "hidden";
+        panel.style.display = "flex";
+        position();
+        panel.style.visibility = "";
+        panel.style.display = "";
+        // `.show` added only now, after the panel already has its final
+        // position — the theme's own fade/move-in animation
+        // (`.menu-sub-dropdown.show`) plays from there, not from wherever
+        // the hidden measurement pass happened to leave it.
+        panel.classList.add("show");
+
+        document.addEventListener("mousedown", onDocumentMouseDown, true);
+        document.addEventListener("keydown", onKeyDown, true);
+
+        openJalaliPickerField = field;
+        closeOpenJalaliPicker = close;
+    }
+
     /**
      * Give every Jalali input the same behaviour once, at start-up.
      *
      * Persian digits are accepted as typed and the field reports its own error
      * on blur, so a bad date is caught where it was entered rather than as a
-     * 400 from the server after submit.
+     * 400 from the server after submit. `openJalaliPicker` above is a second,
+     * additive way to fill the same field — typing still works exactly as it
+     * did before that function existed.
      */
     function setupJalaliInputs(root = document) {
         root.querySelectorAll("input[data-jalali]").forEach((field) => {
@@ -1369,6 +1686,8 @@
             if (!field.placeholder) {
                 field.placeholder = wantsTime ? "۱۴۰۵/۰۵/۲۵ ۱۴:۳۰" : "۱۴۰۵/۰۵/۲۵";
             }
+            field.addEventListener("focus", () => openJalaliPicker(field));
+            field.addEventListener("click", () => openJalaliPicker(field));
             field.addEventListener("blur", () => {
                 const target = document.querySelector(`[data-error-for="${field.name}"]`);
                 if (!field.value.trim()) {
@@ -5103,7 +5422,13 @@
             const loading = document.getElementById(`${prefix}-performance-loading`);
             const errorNode = document.getElementById(`${prefix}-performance-error`);
             const content = document.getElementById(`${prefix}-performance-content`);
-            const button = form.querySelector("button[type='submit']");
+            // Not `form.querySelector(...)`: the submit button moved out of
+            // the form and into the panel's header (2026-09-08, "بالا سمت چپ
+            // باکس" — `performance_panel.inc`), wired back only through its
+            // own `form="..."` HTML attribute, so it is a sibling of `<form>`
+            // now, not a descendant. Found the same way the browser itself
+            // associates it with the form it submits.
+            const button = document.querySelector(`button[type="submit"][form="${form.id}"]`);
             loading.hidden = false;
             errorNode.hidden = true;
             content.hidden = true;

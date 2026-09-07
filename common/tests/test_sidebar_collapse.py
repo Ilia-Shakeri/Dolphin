@@ -177,6 +177,38 @@ class SidebarCollapseStyleTests(SimpleTestCase):
             r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: 75px',
         )
 
+    def test_hovering_a_collapsed_sidebar_pushes_the_panel_with_it(self):
+        """Product-owner decision: hover-to-peek must not lay the sidebar over
+        the panel the way the theme's own demo does it — `.app-main` has to
+        shift with it, smoothly.
+
+        The margin is the *difference* between the rail and the open width,
+        not the open width itself, because `.app-wrapper`'s own theme-driven
+        `margin-right` (still stuck at the rail's 75px on hover, same root
+        cause as `test_each_state_declares_its_own_width...` above) stays in
+        effect underneath this rule and already accounts for that 75px.
+        """
+        match = re.search(
+            r'\[data-kt-app-sidebar-minimize="on"\]\[data-kt-app-sidebar-hoverable="true"\] '
+            r"\.app-sidebar:hover:not\(\.animating\) ~ \.app-main \{([^}]*)\}",
+            self.css,
+        )
+        self.assertIsNotNone(
+            match, "hover-to-peek should push .app-main, not just overlay it"
+        )
+        body = match.group(1)
+        self.assertIn(
+            "margin-right: calc(var(--bs-app-sidebar-width-actual) - "
+            "var(--bs-app-sidebar-width))",
+            body,
+        )
+        # Not a second transition here: `.app-main` already carries
+        # `transition: margin 0.3s ease` unconditionally at this breakpoint
+        # (style.bundle.rtl.css) — redeclaring it would risk a different
+        # easing/duration that desyncs the panel from the sidebar's own
+        # `width 0.3s ease`.
+        self.assertNotIn("transition", body)
+
     def test_the_rail_width_matches_the_theme(self):
         """The one theme number copied into the override sheet, guarded so it
         cannot drift silently."""

@@ -353,6 +353,54 @@ class MarkupCollisionTests(SimpleTestCase):
         self.assertNotIn("data-dashboard-kpi", panel)
 
 
+class PerformancePanelSubmitButtonTests(SimpleTestCase):
+    """The panel's own submit button moved out of `<form>`; the script that
+    disables it during a fetch has to look for it the same way the browser
+    does.
+
+    `performance_panel.inc` moved «به‌روزرسانی» out of the filter `<form>`
+    and into the panel's header (2026-09-08, "بالا سمت چپ باکس"), keeping it
+    wired only through its own `form="..."` HTML attribute — a real submit
+    button that is a *sibling* of the form it submits, not a descendant.
+    `setupPerformancePanel()` still looked it up with
+    `form.querySelector("button[type='submit']")`, which searches
+    descendants only, so it always found nothing: every load of this panel
+    (dashboard, the dedicated performance report, the profile page) threw
+    `Cannot set properties of null` before the fetch it was guarding even
+    started, and the panel never populated. Caught live, not by any
+    existing test — none of this file's or `test_sales_shell.py`'s browser
+    checks happened to load a page carrying this exact panel and then wait
+    long enough to notice the report never arrived.
+    """
+
+    script = (
+        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    ).read_text(encoding="utf-8")
+    panel = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "common" / "templates" / "common" / "includes" / "performance_panel.inc"
+    ).read_text(encoding="utf-8")
+
+    def test_the_button_is_a_sibling_of_the_form_not_a_descendant(self):
+        """Guards the fixture this test class exists for: if the button ever
+        moved back inside `<form>`, the fix below would go untested."""
+        before_form, _, after_form_open = self.panel.partition('<form id="{{ panel_prefix }}-performance-filter-form"')
+        self.assertIn('type="submit" form="{{ panel_prefix }}-performance-filter-form"', before_form)
+
+    def test_the_script_finds_it_through_the_form_attribute_not_a_form_query(self):
+        """The same `form.querySelector("button[type='submit']")` shape is
+        valid and unrelated elsewhere in this file, for forms whose button
+        really is a descendant — the check below is scoped to this one
+        function, not the whole script."""
+        start = self.script.index("async function setupPerformancePanel(")
+        end = self.script.index("\n    async function setupUserPerformance(", start)
+        body = self.script[start:end]
+        self.assertIn(
+            'document.querySelector(`button[type="submit"][form="${form.id}"]`)', body
+        )
+        self.assertNotIn('form.querySelector("button[type=\'submit\']")', body)
+
+
 class ChartMountOrderTests(SimpleTestCase):
     """The section is revealed before a chart mounts inside it.
 
