@@ -16,6 +16,53 @@
 > (نه صرفاً قدیمی) در `DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` بخش ۸
 > فهرست‌بندی شده‌اند.
 
+## بورد کانبان سفارش‌ها — پیاده و آزموده محلی، هنوز کامیت/دیپلوی نشده (۲۰۲۶/۰۹/۰۷)
+
+به دستور صریح «برد سفارش‌ها رو بساز» — اولویت اولِ همان گزارش ترندهای CRM
+۲۰۲۶ که همین روز تحویل مالک محصول شد. پیاده‌سازی دقیقاً معماری بورد کانبان
+سرنخِ `[1.12.0]` را یک ماژول آن‌طرف‌تر تکرار می‌کند؛ شرح کامل تصمیم‌ها و
+تفاوت‌های واقعی (مسیر جهش `POST .../transition/` به‌جای `PATCH` خام، محدودیت
+`dragTo` بر اساس `Order.TRANSITIONS`) در `CHANGELOG.md` ورودی `[2.3.0]`.
+
+فایل‌های تغییریافته: `common/deployment/registry.py` (فیچر `order_kanban`)،
+`common/ui_views.py` (`DolphinOrderBoardView`)، `common/ui_urls.py`،
+`common/templates/common/orders/board.html` (تازه)،
+`common/templates/common/base.html` (لینک منو زیر «اسناد فروش»)،
+`common/static/common/dolphin-app.js` (`ORDER_TRANSITIONS`,
+`setupOrderBoard()`)، `common/static/common/dolphin.css` (بخش ۷ تعمیم‌یافته
+به هر دو بورد)، `common/tests/test_order_board.py` (تازه)،
+`common/tests/test_lead_board.py` و `common/tests/test_ui_connectivity.py`
+(اصلاح ادعاهای دقیقِ رشته‌ای که با تعمیم CSS/ثبت فیچر تازه به‌هم می‌خورد).
+
+**یک ریگرسیون نامرتبط هم همین دور کشف و رفع شد:** کامنت تقویم شمسی
+`[2.2.0]` کلمهٔ «Metronic» را مستقیم در `dolphin-app.js` گذاشته بود —
+دقیقاً همان چیزی که `test_ui_connectivity.
+ScriptEndpointTests.test_the_script_carries_no_placeholder_or_third_party_reference`
+رد می‌کند. تا این دور اجرا نشده بود چون آن نسخه فقط با
+`test_jalali_picker.py` تنها تأیید شده بود، نه با کل `test_ui_
+connectivity`. رفع شد با بازنویسی همان یک جمله؛ کد رفتاری تغییر نکرد.
+
+**شواهد اجراشده:** دو دور جدا، هر دو با `--settings=config.devcheck_
+settings` — `test_order_board`/`test_lead_board`/`test_ui_connectivity`/
+`test_deployment_profile`/`test_static_assets` (۱۳۳ تست) و
+`billing`/`test_billing_shell`/`test_document_pdf` (۳۶۰ تست) → مجموعاً
+۴۹۳ تست، صفر شکست. تأیید زندهٔ مرورگری روی `devcheck` (نه صحنه‌آزمایی):
+کاربر واقعی، ۵ سفارش نمونهٔ ساخته‌شده با `create_order`/`transition_order`
+واقعی در هر چهار وضعیت، چهار ستون با شمار درست، ترتیب RTL درست (پیش‌نویس
+راست‌ترین)، پیوند هر کارت به `/orders/<id>/`، لینک منو زیر اکاردئون «اسناد
+فروش»، صفر خطای کنسول/شبکه. کشیدن با موس واقعی خودکار تکرار نشد — همان
+محدودیت شناخته‌شدهٔ `[1.12.0]`؛ `dragTo` با خواندن مستقیم سورس
+`jkanban.bundle.js` (نه فقط با فرض) تأیید شد.
+
+**هنوز باقی‌مانده، عمداً:** کامیت، پوش، و دیپلوی صحنه‌آزمایی — درخواست فعلی
+فقط «بساز» بود، نه «کامیت/پوش/دیپلوی کن» (طبق `CLAUDE.md` §22، این‌ها فقط
+با درخواست صریح انجام می‌شوند). دیف کامل روی working tree آمادهٔ بازبینی
+است؛ دیپلوی صحنه‌آزمایی هم نیاز به همان چرخهٔ امضای مانیفست دارد که
+`lead_kanban`/`dashboard_insights` نیاز داشتند (افزودن `order_kanban` به
+فهرست فیچرهای فعالِ مانیفست امضاشده + `docker compose restart web`).
+
+---
+
 ## بازرسی سراسری دور `2.2.0`: بقیهٔ صفحه‌ها، و یک نمودار رشد دوم که همان مشکل را داشت (۲۰۲۶/۰۹/۰۷)
 
 به دستور «بقیه صفحه‌ها رو هم... چک کن»، هر ۴ موردِ بند `2.2.0` روی

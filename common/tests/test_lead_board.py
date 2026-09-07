@@ -211,12 +211,12 @@ class StylingTests(SimpleTestCase):
         swaps flexbox's main-start to the inline-end on top of the flip
         `direction: rtl` (inherited from `<html>`) already gives plain `row`.
         """
-        self.assertIn("#lead-board .kanban-container {", CSS)
-        rule = CSS.split("#lead-board .kanban-container {")[1].split("}")[0]
+        self.assertIn("#lead-board .kanban-container,\n#order-board .kanban-container {", CSS)
+        rule = CSS.split("#order-board .kanban-container {")[1].split("}")[0]
         self.assertIn("flex-direction: row", rule)
         self.assertNotIn("row-reverse", rule)
 
     def test_hardcoded_bundle_colours_are_repointed_at_theme_tokens(self):
-        self.assertIn("#lead-board .kanban-board {", CSS)
-        rule = CSS.split("#lead-board .kanban-board {")[1].split("}")[0]
+        self.assertIn("#lead-board .kanban-board,\n#order-board .kanban-board {", CSS)
+        rule = CSS.split("#order-board .kanban-board {")[1].split("}")[0]
         self.assertIn("var(--bs-gray-100)", rule)

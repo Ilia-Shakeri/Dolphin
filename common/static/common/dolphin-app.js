@@ -1386,8 +1386,8 @@
      * theme's light/dark background, box-shadow, border-radius and
      * fade/move-in animation for free — no separate design system, and no
      * dark-mode work of its own to get wrong. Only the day grid itself is
-     * custom CSS (`.jalali-picker-*` in dolphin.css), because Metronic has no
-     * component for a Jalali calendar to adapt.
+     * custom CSS (`.jalali-picker-*` in dolphin.css), because the purchased
+     * theme has no component for a Jalali calendar to adapt.
      *
      * Typing the date directly keeps working exactly as it always did
      * (`parseJalaliInput` on blur, below) — this only adds a second way to
@@ -3249,6 +3249,245 @@
                         // `eventDrop` performs with `info.revert()` above —
                         // jKanban carries no equivalent, so this does the
                         // same thing by hand.
+                        source.append(el);
+                        renderEmptyState(fromStatus);
+                        renderEmptyState(toStatus);
+                        showError(error);
+                    }
+                },
+            });
+
+            STATUSES.forEach((status) => {
+                renderLoadMore(status);
+                renderEmptyState(status);
+            });
+        } catch (error) {
+            loading.hidden = true;
+            errorNode.textContent = errorText(error);
+            errorNode.hidden = false;
+        }
+    }
+
+    /**
+     * The same orders `setupOrders`' table shows, grouped into status
+     * columns instead — the order-side sibling of `setupLeadBoard` above,
+     * built on the same `jKanban` library. Two real differences from the
+     * lead board, both driven by `billing.models.Order` actually having a
+     * `TRANSITIONS` table where `sales.Lead` has none:
+     *
+     * - Dropping a card POSTs `/api/v1/orders/<id>/transition/` with
+     *   `{to_status}` — `OrderViewSet.transition` ->
+     *   `billing.services.transition_order` — the same endpoint and body
+     *   `setupOrderDetail`'s own status `<select>` already uses, not a bare
+     *   PATCH like the lead board's status field. That function is what
+     *   reserves or releases stock and what can silently redirect a
+     *   `confirmed` drop to `cancelled` on a stock shortage; this handler
+     *   only has to show whatever status the response actually reports.
+     * - Each column declares jKanban's own `dragTo` option from
+     *   `ORDER_TRANSITIONS`, so an invalid drop (e.g. `fulfilled` back to
+     *   `draft`) is refused by jKanban itself — a greyed-out target and an
+     *   auto-reverted drop — before any request is sent. This is display
+     *   convenience only: `ORDER_TRANSITIONS` drifting out of sync with the
+     *   server's own table could only ever narrow the board's menu, never
+     *   widen access, because `transition_order` re-validates independently.
+     */
+    async function setupOrderBoard() {
+        const container = document.getElementById("order-board");
+        if (!container || typeof jKanban === "undefined") return;
+        const loading = document.getElementById("order-board-loading");
+        const errorNode = document.getElementById("order-board-error");
+        const canManage = container.dataset.canManageOrders === "true";
+
+        // draft/confirmed/fulfilled/cancelled, the exact order
+        // billing.models.Order.Status and ORDER_TRANSITIONS both use.
+        const STATUSES = Object.keys(ORDER_TRANSITIONS);
+        const pageState = {};
+
+        function boardTitle(status, count) {
+            const wrap = document.createElement("div");
+            wrap.className = "d-flex align-items-center gap-2";
+            const text = document.createElement("span");
+            text.textContent = labelled(DOCUMENT_STATUS_TEXT, status);
+            const badge = document.createElement("span");
+            badge.className = "badge badge-light-secondary";
+            badge.textContent = toPersianDigits(String(count));
+            wrap.append(text, badge);
+            return wrap.innerHTML;
+        }
+
+        /**
+         * Every piece of text below goes through `textContent`; `innerHTML`
+         * is read once, at the end, only because jKanban's own API takes an
+         * item's content as an HTML string — the same escape-then-serialise
+         * pattern `setupLeadBoard`'s own `cardContent` uses for the same
+         * reason.
+         */
+        function cardContent(order) {
+            const wrap = document.createElement("div");
+
+            const title = document.createElement("div");
+            title.className = "fw-bold fs-6 mb-2 text-gray-900";
+            title.textContent = order.customer_name || `سفارش ${order.number || ""}`.trim();
+            wrap.append(title);
+
+            const number = document.createElement("div");
+            number.className = "fs-8 text-gray-600 mb-1";
+            number.dir = "ltr";
+            number.textContent = order.number || "—";
+            wrap.append(number);
+
+            const amount = document.createElement("div");
+            amount.className = "fs-8 text-gray-700 fw-semibold mb-1";
+            amount.textContent = money(order.total_amount);
+            wrap.append(amount);
+
+            if (order.expected_delivery_at) {
+                const row = document.createElement("div");
+                row.className = "fs-8 text-gray-600 mb-1";
+                row.textContent = `تحویل: ${displayDay(order.expected_delivery_at)}`;
+                wrap.append(row);
+            }
+
+            const creator = order.created_by_display || order.created_by;
+            if (creator) {
+                const row = document.createElement("div");
+                row.className = "fs-8 text-gray-600 mb-1";
+                row.textContent = `ثبت‌شده توسط: ${creator}`;
+                wrap.append(row);
+            }
+
+            const link = document.createElement("a");
+            link.className = "fs-8 fw-semibold mt-1 d-inline-block";
+            link.href = `/orders/${order.id}/`;
+            link.textContent = "مشاهدهٔ جزئیات";
+            wrap.append(link);
+
+            return wrap.innerHTML;
+        }
+
+        function toItem(order) {
+            return {id: String(order.id), title: cardContent(order)};
+        }
+
+        function boardElement(status) {
+            return container.querySelector(`.kanban-board[data-id="${status}"] .kanban-drag`);
+        }
+
+        const counts = {};
+
+        function updateBoardCount(status, delta) {
+            counts[status] += delta;
+            const badge = container.querySelector(
+                `.kanban-board[data-id="${status}"] .kanban-title-board .badge`,
+            );
+            if (badge) badge.textContent = toPersianDigits(String(counts[status]));
+        }
+
+        function renderLoadMore(status) {
+            const drag = boardElement(status);
+            if (!drag) return;
+            drag.querySelector(".lead-board-load-more")?.remove();
+            const state = pageState[status];
+            if (!state?.next) return;
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn btn-sm btn-light-primary w-100 not-draggable lead-board-load-more";
+            button.textContent = "بارگذاری بیشتر";
+            button.addEventListener("click", () => loadMore(status));
+            drag.append(button);
+        }
+
+        function renderEmptyState(status) {
+            const drag = boardElement(status);
+            if (!drag || drag.querySelector(".kanban-item")) return;
+            const empty = document.createElement("div");
+            empty.className = "not-draggable lead-board-empty text-center fs-8 py-6";
+            empty.textContent = "سفارشی در این وضعیت نیست.";
+            drag.append(empty);
+        }
+
+        async function loadMore(status) {
+            const state = pageState[status];
+            if (!state?.next) return;
+            try {
+                const data = await apiRequest(state.next);
+                data.results.forEach((order) => kanban.addElement(status, toItem(order)));
+                state.next = data.next;
+                renderLoadMore(status);
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        let kanban;
+
+        loading.hidden = false;
+        errorNode.hidden = true;
+        container.hidden = true;
+        try {
+            const pages = await Promise.all(
+                STATUSES.map((status) =>
+                    apiRequest(`/api/v1/orders/?status=${status}&ordering=-created_at&page=1`),
+                ),
+            );
+            loading.hidden = true;
+            container.hidden = false;
+
+            const boards = STATUSES.map((status, index) => {
+                const data = pages[index];
+                pageState[status] = {next: data.next};
+                counts[status] = data.count;
+                return {
+                    id: status,
+                    title: boardTitle(status, data.count),
+                    item: data.results.map(toItem),
+                    // Restricts valid drop targets to ORDER_TRANSITIONS[status]
+                    // via jKanban's own dragTo option (see the function
+                    // docstring above) — a terminal status (fulfilled,
+                    // cancelled) gets an empty array, so every other column
+                    // refuses a drop from it.
+                    dragTo: ORDER_TRANSITIONS[status],
+                };
+            });
+
+            kanban = new jKanban({
+                element: "#order-board",
+                gutter: "0.75rem",
+                widthBoard: "300px",
+                dragBoards: false,
+                dragItems: canManage,
+                boards,
+                click: (el) => {
+                    window.location.href = `/orders/${el.dataset.eid}/`;
+                },
+                dropEl: async (el, target, source) => {
+                    const orderId = el.dataset.eid;
+                    const toStatus = target.parentNode.dataset.id;
+                    const fromStatus = source.parentNode.dataset.id;
+                    if (toStatus === fromStatus) return;
+                    try {
+                        const updated = await apiRequest(`/api/v1/orders/${orderId}/transition/`, {
+                            method: "POST",
+                            body: {to_status: toStatus},
+                        });
+                        // transition_order can silently redirect a shortage-hit
+                        // confirm to cancelled instead — the same case
+                        // setupOrderDetail's own status select reports; the
+                        // board reflects whatever status actually came back
+                        // rather than assuming the drop landed where dropped.
+                        const landedStatus = updated.status;
+                        if (landedStatus !== toStatus) {
+                            el.remove();
+                            kanban.addElement(landedStatus, toItem(updated));
+                            globalMessage("موجودی کافی نبود؛ سفارش لغو شد.");
+                        } else {
+                            globalMessage("وضعیت سفارش به‌روزرسانی شد.", true);
+                        }
+                        updateBoardCount(fromStatus, -1);
+                        updateBoardCount(landedStatus, 1);
+                        renderEmptyState(fromStatus);
+                        renderEmptyState(landedStatus);
+                    } catch (error) {
                         source.append(el);
                         renderEmptyState(fromStatus);
                         renderEmptyState(toStatus);
@@ -5697,6 +5936,18 @@
         cleared: ["pending"],
         bounced: ["pending"],
         spent: ["pending"],
+    });
+    // Mirrors billing.models.Order.TRANSITIONS. Display only — the server
+    // refuses a jump that is not in its own table regardless of what is offered
+    // here, so a drift in this copy narrows the menu, it never widens access.
+    // The order board's own dragTo restriction (setupOrderBoard) reads this
+    // same table, so a drop this omits is one jKanban itself already refuses
+    // before the request is ever sent.
+    const ORDER_TRANSITIONS = Object.freeze({
+        draft: ["confirmed", "cancelled"],
+        confirmed: ["fulfilled", "cancelled"],
+        fulfilled: [],
+        cancelled: [],
     });
     const INSTALLMENT_STATUS_TEXT = Object.freeze({
         pending: "پرداخت‌نشده",
@@ -9624,6 +9875,7 @@
     if (page === "stock-levels") setupStockLevels();
     if (page === "stock-movements") setupStockMovements();
     if (page === "orders") setupOrders();
+    if (page === "order-board") setupOrderBoard();
     if (page === "order-detail") setupOrderDetail();
     if (page === "invoices") setupInvoices();
     if (page === "invoice-detail") setupInvoiceDetail();

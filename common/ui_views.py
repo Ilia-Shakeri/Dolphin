@@ -830,6 +830,26 @@ class DolphinOrderDetailView(ScopedDetailView):
         return orders_for(self.request.user)
 
 
+class DolphinOrderBoardView(ActiveCrmView):
+    """The same orders, grouped into status columns instead of a table.
+
+    Mirrors `DolphinLeadBoardView` above exactly: gated by its own
+    `order_kanban` feature on top of `orders`, a separately opt-in page built
+    around the theme's `jkanban` bundle and a drag interaction, not a
+    read-only reshuffling of a page every `orders` deployment already has.
+    See the reasoning beside `order_kanban` in `common/deployment/registry.py`.
+
+    No extra permission check beyond both feature gates: the page renders
+    for anyone whose deployment runs them, and `orders_for`/`orders.scoped`/
+    `orders.company` on the API behind it — plus `DOCUMENT_WRITERS` inside
+    `billing.services.transition_order` for the actual move — are what
+    decide whose orders it can ever show or move.
+    """
+
+    required_feature = "order_kanban"
+    template_name = "common/orders/board.html"
+
+
 class DolphinInvoiceListView(ActiveCrmView):
     required_feature = "invoices"
     template_name = "common/invoices/list.html"

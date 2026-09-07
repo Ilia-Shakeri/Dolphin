@@ -125,6 +125,17 @@ FEATURE_DEPENDENCIES = {
     # to group is not a smaller version of this feature, it is not this
     # feature.
     "lead_kanban": frozenset({"leads"}),
+
+    # Order kanban board (سفارش‌ها): same shape as lead_kanban, one module
+    # over. It has no mutation path of its own either — dragging a card
+    # between columns goes through the existing
+    # `POST /api/v1/orders/<id>/transition/` (OrderViewSet.transition ->
+    # billing.services.transition_order), the same endpoint an order detail
+    # page's own status controls already use, so stock reservation/release
+    # and the DOCUMENT_WRITERS permission check apply exactly as they do
+    # there. `orders` is a real hard dependency for the same reason `leads`
+    # is above: a board with nothing to group is not this feature.
+    "order_kanban": frozenset({"orders"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -166,7 +177,12 @@ FEATURE_DEPENDENCIES = {
 #: new frontend dependency (the theme's own `jkanban` bundle) and a drag
 #: interaction some deployments may not want offered on their sales floor at
 #: all. A deployment gets it by asking, the same way it gets chat.
-DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat", "lead_kanban"})
+#:
+#: `order_kanban` (2026-09-07) joins for the identical reason: it is the same
+#: `jkanban` dependency and the same drag-to-move interaction, just aimed at
+#: `orders` instead of `leads` — a deployment that wants a leads board does
+#: not thereby want an orders board dragged onto its sales floor too.
+DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat", "lead_kanban", "order_kanban"})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
 

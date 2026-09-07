@@ -482,6 +482,7 @@
                                     </span>
                                     <div class="menu-sub menu-sub-accordion">
                                         {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities %}<div class="menu-item"><a data-module="orders" class="menu-link" href="{% url 'common_ui:orders' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">سفارش‌ها</span></a></div>{% endif %}
+                                        {% if "order_kanban" in features and "orders.scoped" in capabilities or "order_kanban" in features and "orders.company" in capabilities %}<div class="menu-item"><a data-module="order-board" class="menu-link" href="{% url 'common_ui:order-board' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تابلوی سفارش‌ها</span></a></div>{% endif %}
                                         {% if "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}<div class="menu-item"><a data-module="invoices" class="menu-link" href="{% url 'common_ui:invoices' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">فاکتورها</span></a></div>{% endif %}
                                     </div>
                                 </div>

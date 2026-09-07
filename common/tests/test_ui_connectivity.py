@@ -264,13 +264,14 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # `internal_chat`, not the freeze: it defaults off everywhere in
         # `DEFAULT_OFF_FEATURES`, so Client-1's absence here is the ordinary
         # opt-in case, not a freeze artefact — see the reasoning beside it in
-        # `common/deployment/registry.py`.
+        # `common/deployment/registry.py`. `order_kanban` (2026-09-07) joins
+        # for the identical reason, one module over from `lead_kanban`.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
-                "customer_timeline", "dashboard_insights", "lead_kanban",
+                "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
             }),
         )
 
@@ -279,7 +280,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
             for withheld in (
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
-                "customer_timeline", "dashboard_insights", "lead_kanban",
+                "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 
