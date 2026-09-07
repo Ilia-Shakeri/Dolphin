@@ -1445,8 +1445,11 @@ round trip and the server must render print, PDF, and XLSX:
   `|jalali_datetime`, `|jalali_long`) and by `reports/xlsx.py`.
 * `common/static/common/dolphin-app.js` — the same arithmetic, plus
   `displayDate` / `displayDay` for rendering, `apiDate` / `apiDateTime` for
-  submitting, and `setupJalaliInputs` which gives every `[data-jalali]` field
-  its behaviour once at start-up.
+  submitting, `setupJalaliInputs` which gives every `[data-jalali]` field
+  its behaviour once at start-up, and `openJalaliPicker` (2026-09-07) — a
+  themed popup calendar every such field opens on focus/click, built on
+  this same conversion layer rather than a second one. Typing the value
+  directly still works exactly as before; the picker is additive.
 
 There is deliberately **no per-template conversion**: a template calls a filter,
 a script call site calls a helper, and the arithmetic exists in exactly two
