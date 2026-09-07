@@ -2806,6 +2806,19 @@
             return container.querySelector(`.kanban-board[data-id="${status}"] .kanban-drag`);
         }
 
+        // Kept alongside the DOM rather than re-read from it: the badge text
+        // is Persian digits, and counting from a known number is simpler and
+        // less fragile than parsing them back out on every drop.
+        const counts = {};
+
+        function updateBoardCount(status, delta) {
+            counts[status] += delta;
+            const badge = container.querySelector(
+                `.kanban-board[data-id="${status}"] .kanban-title-board .badge`,
+            );
+            if (badge) badge.textContent = toPersianDigits(String(counts[status]));
+        }
+
         function renderLoadMore(status) {
             const drag = boardElement(status);
             if (!drag) return;
@@ -2863,6 +2876,7 @@
             const boards = STATUSES.map((status, index) => {
                 const data = pages[index];
                 pageState[status] = {next: data.next};
+                counts[status] = data.count;
                 // No `dragTo` restriction: nothing in `_validate_lead_status`
                 // (sales/services.py) restricts which of the three statuses a
                 // lead may move to from which, so every column accepts a drop
@@ -2905,6 +2919,8 @@
                             body: {status: toStatus},
                         });
                         globalMessage("وضعیت سرنخ به‌روزرسانی شد.", true);
+                        updateBoardCount(fromStatus, -1);
+                        updateBoardCount(toStatus, 1);
                         renderEmptyState(fromStatus);
                         renderEmptyState(toStatus);
                     } catch (error) {
@@ -4966,7 +4982,19 @@
             appendMoneyCell(row, item.sales_amount);
             appendMoneyCell(row, item.average_sale_amount);
             const actions = document.createElement("td");
-            actions.className = "row-actions";
+            // Three buttons in one narrow column, unlike every other
+            // `row-actions` cell in the app (one or two, which the
+            // `margin-inline-start` rule in dolphin.css handles fine) —
+            // narrow enough that they wrapped onto their own lines with no
+            // gap between them. `flex-wrap` first tried here fixed the gap
+            // but not the wrapping itself: three stacked lines multiplied
+            // across every `<td>` in the row (they all share one height),
+            // and the whole table grew a few hundred pixels of dead space
+            // per row for it. `flex-nowrap` keeps the three side by side, as
+            // asked, and any overflow is exactly what `.table-responsive`
+            // (this table already sits in one) is for — a horizontal
+            // scrollbar the panel already uses on nine-column tables.
+            actions.className = "row-actions d-flex flex-nowrap gap-2";
             const profileLink = document.createElement("a");
             profileLink.className = "btn btn-sm btn-light";
             profileLink.href = `/users/${item.user_id}/profile/`;

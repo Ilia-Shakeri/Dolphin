@@ -12,6 +12,7 @@
 <section id="order-detail-content" class="card mb-5 mb-xl-8" hidden>
     <form id="edit-order-form" action="/api/v1/orders/{{ order_id }}/" method="post" novalidate>
         {% csrf_token %}
+        <div class="card-body">
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="order-number">شماره سفارش</label><input class="form-control form-control-solid" id="order-number" disabled dir="ltr"></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="order-customer">مشتری</label><input class="form-control form-control-solid" id="order-customer" disabled></div>
@@ -29,6 +30,7 @@
         </div>
         <div id="order-edit-actions" class="d-flex justify-content-end gap-3 mt-6" hidden><button class="btn btn-primary" type="submit">ذخیره سربرگ</button></div>
         <p id="order-locked-note" class="text-muted" hidden>این سند دیگر پیش‌نویس نیست، پس اقلام و مبالغ آن ثابت است.</p>
+        </div>
     </form>
 </section>
 {% with doc="order" %}{% include "common/includes/document_lines.inc" %}{% endwith %}

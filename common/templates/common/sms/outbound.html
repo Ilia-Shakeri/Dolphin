@@ -7,7 +7,7 @@
 {% block breadcrumb_current %}ارسال پیامک{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
-    <form id="outbound-sms-send-form" action="/api/v1/outbound-sms/send/" method="post" class="list-filters" novalidate>
+    <form id="outbound-sms-send-form" action="/api/v1/outbound-sms/send/" method="post" class="form-grid" novalidate>
         <div><label class="form-label fw-semibold" for="outbound-sms-customer">شناسهٔ مشتری (اختیاری)</label><input class="form-control form-control-solid" id="outbound-sms-customer" name="customer" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۱۲"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
         <div><label class="form-label fw-semibold" for="outbound-sms-lead">شناسهٔ سرنخ (اختیاری)</label><input class="form-control form-control-solid" id="outbound-sms-lead" name="lead" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۴۵"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lead"></p></div>
         <div><label class="form-label fw-semibold" for="outbound-sms-phone">یا شمارهٔ گیرنده</label><input class="form-control form-control-solid" id="outbound-sms-phone" name="phone" type="text" dir="ltr" placeholder="۰۹xxxxxxxxx"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>

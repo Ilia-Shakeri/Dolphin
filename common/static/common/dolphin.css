@@ -582,7 +582,12 @@ textarea:focus-visible,
    A grid rather than flex, because the point is equal shares. The submit button
    sizes to its own text — stretching «اعمال» across a third of the row would
    look like a fourth filter. */
-.list-filters {
+/* `.form-grid` shares this layout for a form that is not a filter — the
+   outbound-SMS compose form's fields, one grid item apiece — without
+   qualifying for `setupListFilterPopovers()`'s `form.list-filters` selector,
+   which would otherwise hide it behind a "فیلتر" toggle button. Composing a
+   message is the page's primary action, not a filter on it. */
+.list-filters, .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
     gap: 0.75rem;
@@ -958,6 +963,18 @@ summary:focus-visible,
 .table th[dir="ltr"] {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
+}
+
+/* Every list/table reads more evenly with its text and numbers centred in
+   the column rather than pinned to the row's start — product-owner decision
+   2026-09-08. Every header row in the app carries Bootstrap's own
+   `.text-start` (`text-align: right !important` in this RTL build), so the
+   override needs both `!important` and one more selector's worth of
+   specificity to win; source order alone would not, since that utility is
+   itself `!important`. */
+.table th,
+.table td {
+    text-align: center !important;
 }
 
 /* A row highlight on hover. These tables are wide — a customer row runs to nine

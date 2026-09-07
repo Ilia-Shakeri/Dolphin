@@ -12,6 +12,7 @@
 <section id="warehouse-detail-content" class="card mb-5 mb-xl-8" hidden>
     <form id="edit-warehouse-form" action="/api/v1/warehouses/{{ warehouse_id }}/" method="post" novalidate>
         {% csrf_token %}
+        <div class="card-body">
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-warehouse-code">کد انبار</label><input class="form-control form-control-solid" id="edit-warehouse-code" disabled dir="ltr"></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="edit-warehouse-name">نام</label><input class="form-control form-control-solid" id="edit-warehouse-name" name="name" maxlength="120" {% if not can_manage_inventory %}disabled{% endif %}><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
@@ -22,6 +23,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="warehouse-updated-by">آخرین ویرایش</label><input class="form-control form-control-solid" id="warehouse-updated-by" disabled></div>
         </div>
         {% if can_manage_inventory %}<div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره انبار</button></div>{% endif %}
+        </div>
     </form>
 </section>
 {% if can_manage_inventory %}

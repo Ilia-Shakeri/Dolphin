@@ -9,7 +9,7 @@
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:interactions' %}">بازگشت به فهرست</a>{% endblock %}
 {% block content %}
 <div id="interaction-detail-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10">در حال دریافت تماس…</div></div>
-<section id="interaction-detail-content" class="card mb-5 mb-xl-8" hidden>
+<section id="interaction-detail-content" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">اطلاعات ثبت‌شده</h2>
     <div class="row g-5">
         <div class="col-md-6"><label class="form-label fw-semibold" for="interaction-lead">سرنخ</label><input class="form-control form-control-solid" id="interaction-lead" type="text" disabled></div>
@@ -23,5 +23,5 @@
         <div class="col-12"><label class="form-label fw-semibold" for="interaction-notes">یادداشت</label><textarea class="form-control form-control-solid" id="interaction-notes" disabled></textarea></div>
     </div>
     <p class="text-muted">تماس‌ها سابقه‌محور هستند و از این صفحه ویرایش یا حذف نمی‌شوند.</p>
-</section>
+</div></section>
 {% endblock %}

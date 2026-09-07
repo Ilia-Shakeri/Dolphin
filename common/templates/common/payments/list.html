@@ -21,7 +21,7 @@
    should not be a launchpad for two others. {% endcomment %}
 {% block page_actions %}<button id="open-create-payment" class="btn btn-primary" type="button">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button>{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title w-100 m-0">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0">
 {% comment %} The filters run the full width of the card and sit against its
    inner edges rather than bunching in the middle: `list-filters` gives every
    control an equal share of one row and drops them to a column on a narrow

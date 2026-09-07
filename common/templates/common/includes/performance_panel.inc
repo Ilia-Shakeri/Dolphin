@@ -5,7 +5,7 @@
             <p class="text-muted">مشتری‌های ثبت‌شده و فروش‌های تأییدشده در بازه انتخابی.</p>
         </div>
     </div>
-    <form id="{{ panel_prefix }}-performance-filter-form" class="mt-5" action="/api/v1/reports/user-performance/" method="get" novalidate>
+    <form id="{{ panel_prefix }}-performance-filter-form" class="mt-5 mb-6" action="/api/v1/reports/user-performance/" method="get" novalidate>
         <div class="row g-5">
             <div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-period-start">شروع بازه</label><input class="form-control form-control-solid" id="{{ panel_prefix }}-period-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
             <div class="col-md-6 col-xl-3"><label class="form-label fw-semibold" for="{{ panel_prefix }}-period-end">پایان بازه</label><input class="form-control form-control-solid" id="{{ panel_prefix }}-period-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
