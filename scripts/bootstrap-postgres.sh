@@ -544,6 +544,11 @@ FROM (
         -- One row per send attempt, sent or failed; the outcome is recorded
         -- once and never rewritten, same as the inbound table above.
         ('communications_outboundsms', 'SELECT, INSERT'),
+        -- One singleton row for this deployment's own outbound SMS gateway
+        -- (the settings page at /settings/sms-provider/) — rewritten in
+        -- place by a Platform Admin, same convention as
+        -- common_brandsettings below.
+        ('communications_smsprovidersettings', 'SELECT, INSERT, UPDATE'),
         ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
         -- One singleton row for the whole deployment (common.branding); a
         -- logo is cleared by writing NULL back into it, never by deleting

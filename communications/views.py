@@ -1,17 +1,24 @@
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.access import has_any_capability
+from common.deployment.profile import feature_enabled
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
-from common.permissions import FeatureGatedAPIMixin, HasCapabilityForMethod, IsActiveAuthenticated
+from common.permissions import (
+    FeatureGatedAPIMixin,
+    HasCapabilityForMethod,
+    IsActiveAuthenticated,
+    IsPlatformAdmin,
+)
 from common.throttles import SensitiveRateThrottle
-from communications import services
+from communications import services, sms
 from communications.reports import build_inbound_sms_report, inbound_sms_drilldown
 from communications.selectors import inbound_sms_for, outbound_sms_for
+from communications.sms_provider_settings import get_sms_provider_settings, update_sms_provider_settings
 from communications.serializers import (
     InboundSMSDetailSerializer,
     InboundSMSDrilldownQuerySerializer,
@@ -19,6 +26,8 @@ from communications.serializers import (
     InboundSMSReportSerializer,
     OutboundSMSDetailSerializer,
     OutboundSMSSendSerializer,
+    SmsProviderSettingsSerializer,
+    SmsProviderSettingsUpdateSerializer,
 )
 
 
@@ -159,6 +168,80 @@ class OutboundSMSListView(OutboundSMSAccessMixin, APIView):
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(queryset, request, view=self)
         response = paginator.get_paginated_response(OutboundSMSDetailSerializer(page, many=True).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class SmsProviderSettingsAccessMixin:
+    """Feature, then role — the same two-gate shape `BrandSettingsView`/
+    `DolphinBrandingSettingsView` already use for a Platform-Admin-only
+    settings screen: 404 (not 403) when the deployment never turned the
+    underlying module on at all, so a lower role or a deployment without the
+    module sees no evidence the page exists.
+    """
+
+    required_feature = "outbound_sms"
+    permission_classes = [IsPlatformAdmin]
+    throttle_classes = [SensitiveRateThrottle]
+
+    def initial(self, request, *args, **kwargs):
+        if not feature_enabled(self.required_feature):
+            raise NotFound()
+        super().initial(request, *args, **kwargs)
+
+
+class SmsProviderSettingsView(SmsProviderSettingsAccessMixin, APIView):
+    """`/api/v1/sms-provider-settings/` — the settings page itself."""
+
+    @extend_schema(
+        responses={200: SmsProviderSettingsSerializer, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
+        description="This deployment's outbound SMS gateway configuration. token_password is never returned.",
+    )
+    def get(self, request):
+        response = Response(SmsProviderSettingsSerializer(get_sms_provider_settings()).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @extend_schema(
+        request=SmsProviderSettingsUpdateSerializer,
+        responses={
+            200: SmsProviderSettingsSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description="Updates any subset of the gateway configuration; every field is independent and optional.",
+    )
+    def post(self, request):
+        serializer = SmsProviderSettingsUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        row = update_sms_provider_settings(actor=request.user, **serializer.validated_data)
+        response = Response(SmsProviderSettingsSerializer(row).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class TestSmsProviderConnectionView(SmsProviderSettingsAccessMixin, APIView):
+    """`/api/v1/sms-provider-settings/test/` — the settings page's own "تست
+    اتصال" button. Tests the currently *saved* row (an admin saves, then
+    tests) — never the request body, so this endpoint carries no risk of
+    running a request built from unvalidated input.
+    """
+
+    @extend_schema(
+        request=None,
+        responses={200: dict, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
+        description=(
+            "Calls the saved test_url (a GET) with whichever auth the saved row resolves to. "
+            "Takes no request body — it tests the row already saved, not anything sent here. "
+            "Returns {success, status_detail} — a failed test is a 200 with success: false, "
+            "not an HTTP error, since the test itself succeeded at running."
+        ),
+    )
+    def post(self, request):
+        row = get_sms_provider_settings()
+        result = sms.test_connectivity(sms.config_from_row(row))
+        response = Response({"success": result.success, "status_detail": result.status_detail})
         response["Cache-Control"] = "private, no-store"
         return response
 

@@ -606,6 +606,7 @@
                                         {% if can_view_audit %}<div class="menu-item"><a data-module="audit" class="menu-link" href="{% url 'common_ui:activity-logs' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">رویدادهای سامانه</span></a></div>{% endif %}
                                         {% if can_manage_users %}<div class="menu-item"><a data-module="users" class="menu-link" href="{% url 'common_ui:users' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{{ user_admin_label }}</span></a></div>{% endif %}
                                         {% if can_manage_branding %}<div class="menu-item"><a data-module="branding-settings" class="menu-link" href="{% url 'common_ui:branding-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">برند و لوگوی پنل</span></a></div>{% endif %}
+                                        {% if can_manage_sms_provider %}<div class="menu-item"><a data-module="sms-provider-settings" class="menu-link" href="{% url 'common_ui:sms-provider-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تنظیمات سامانهٔ پیامک</span></a></div>{% endif %}
                                     </div>
                                 </div>
                                 {% endif %}

@@ -26,6 +26,7 @@ from common.pdf import (
 )
 from common.permissions import FeatureGatedViewMixin
 from auditlog.selectors import activity_logs_for
+from communications import sms
 from aftersales.selectors import after_sales_requests_for
 from billing.money import printed_line_breakdown
 from billing.words import amount_in_words
@@ -218,6 +219,11 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # view enforces both again regardless of what this hid or showed.
         context["can_manage_branding"] = (
             feature_enabled("custom_branding") and self.request.user.role == User.Role.PLATFORM_ADMIN
+        )
+        # Mirrors DolphinSmsProviderSettingsView's own two gates exactly
+        # (feature, then role) — same reasoning as can_manage_branding above.
+        context["can_manage_sms_provider"] = (
+            feature_enabled("outbound_sms") and self.request.user.role == User.Role.PLATFORM_ADMIN
         )
         return context
 
@@ -709,6 +715,38 @@ class DolphinOutboundSMSView(ActiveCrmView):
             return self.render_to_response(self.get_context_data(
                 error_status=403, error_title="دسترسی مجاز نیست",
                 error_message="شما اجازه ارسال یا مشاهده پیامک را ندارید.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Server-rendered, not fetched by JS: whether the "send" button can
+        # possibly work is known before the page even loads, and a Sales
+        # Manager without sms-provider-settings access could never call that
+        # API to find out for themselves anyway.
+        config = sms.resolve_config()
+        context["sms_provider_configured"] = config is not None
+        context["sms_provider_label"] = config.label if config else ""
+        return context
+
+
+class DolphinSmsProviderSettingsView(ActiveCrmView):
+    """`/settings/sms-provider/` — this deployment's own outbound SMS gateway.
+
+    Same two-gate shape as `DolphinBrandingSettingsView` right above it:
+    feature-gated (`outbound_sms` — a gateway to configure is meaningless
+    without the module that would use it), and restricted to a Platform
+    Admin on top of that, since it holds real credentials.
+    """
+
+    required_feature = "outbound_sms"
+    template_name = "common/sms/provider_settings.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and request.user.role != User.Role.PLATFORM_ADMIN:
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="تنظیم سامانهٔ ارسال پیامک فقط برای مدیر پلتفرم مجاز است.",
             ), status=403)
         return super().dispatch(request, *args, **kwargs)
 

@@ -11,16 +11,17 @@ does not survive the placeholder substitution as valid JSON).
 
 import json
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from auditlog.models import ActivityLog
 from common.exceptions import BusinessPermissionDenied, BusinessRuleError
 from communications import sms
-from communications.models import OutboundSMS
+from communications.models import OutboundSMS, SmsProviderSettings
 from communications.services import send_outbound_sms
 from sales.services import create_customer_with_phone, create_lead
 
@@ -51,8 +52,16 @@ class _EchoHandler(BaseHTTPRequestHandler):
         pass
 
 
-class EchoServerCase(SimpleTestCase):
-    """Base class starting one real HTTP server per test class."""
+class EchoServerCase(TestCase):
+    """Base class starting one real HTTP server per test class.
+
+    `TestCase`, not `SimpleTestCase`: `communications.sms.resolve_config`
+    (added alongside `SmsProviderSettings`) checks the database singleton
+    row before falling back to these `override_settings`-supplied
+    environment values, so every test below that calls a `communications.sms`
+    function needs database access even though it never creates a row of
+    its own — the fallback path still has to *ask* first.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -75,7 +84,9 @@ class EchoServerCase(SimpleTestCase):
 BODY_TEMPLATE = json.dumps({"receptor": sms.TO_PLACEHOLDER, "message": sms.BODY_PLACEHOLDER, "sender": sms.SENDER_PLACEHOLDER})
 
 
-class ProviderConfigurationTests(SimpleTestCase):
+class ProviderConfigurationTests(TestCase):
+    """`TestCase`, not `SimpleTestCase` — see `EchoServerCase`'s own docstring."""
+
     def test_unconfigured_provider_is_unavailable(self):
         with override_settings(SMS_PROVIDER=""):
             self.assertFalse(sms.provider_is_available())
@@ -162,6 +173,142 @@ class HttpProviderRealRequestTests(EchoServerCase):
         ):
             result = sms.send_via_configured_provider(to="+989121110000", body="hi")
         self.assertNotIn("super-secret-token", result.status_detail)
+
+
+class _OAuthEchoHandler(BaseHTTPRequestHandler):
+    """Serves both a token endpoint (`/token`) and a send endpoint (`/send`)
+    on the same port — real enough to prove `communications.sms`'s
+    `oauth2_password` flow builds both requests correctly, the same
+    reasoning `_EchoHandler` above documents for the single-request case.
+    """
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        raw = self.rfile.read(length)
+        parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/token":
+            self.server.last_token_request = {
+                "query": dict(urllib.parse.parse_qsl(parsed.query)),
+                "headers": dict(self.headers.items()),
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"access_token": "fake-token-xyz"}).encode("utf-8"))
+            return
+        if parsed.path == "/send":
+            self.server.last_send_request = {
+                "headers": dict(self.headers.items()),
+                "body": json.loads(raw.decode("utf-8")) if raw else None,
+            }
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status": "ok"}')
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+#: TIARA's own `/panel/webservice/send` shape (docs/ops/TIARA_SMS_SETUP.md):
+#: an array root, and a required `customerId` per item — the reason
+#: `ID_PLACEHOLDER` exists at all.
+OAUTH_BODY_TEMPLATE = json.dumps([{
+    "sender": sms.SENDER_PLACEHOLDER,
+    "recipient": sms.TO_PLACEHOLDER,
+    "body": sms.BODY_PLACEHOLDER,
+    "customerId": sms.ID_PLACEHOLDER,
+}])
+
+
+class OAuth2ProviderRealRequestTests(TestCase):
+    """Every claim here is checked against what the real server actually
+    received — same discipline as `HttpProviderRealRequestTests` above.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.server = ThreadingHTTPServer(("127.0.0.1", 0), _OAuthEchoHandler)
+        cls.port = cls.server.server_address[1]
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join(timeout=5)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.server.last_token_request = None
+        self.server.last_send_request = None
+
+    def _row(self, **overrides):
+        defaults = dict(
+            is_enabled=True,
+            auth_mode=SmsProviderSettings.AuthMode.OAUTH2_PASSWORD,
+            send_url=f"http://127.0.0.1:{self.port}/send",
+            body_template=OAUTH_BODY_TEMPLATE,
+            token_url=f"http://127.0.0.1:{self.port}/token",
+            token_username="sysuser",
+            token_password="syspass",
+            token_extra_params=json.dumps({"scope": "webservice", "grant_type": "password"}),
+            sender_id="30001234",
+        )
+        defaults.update(overrides)
+        return SmsProviderSettings.objects.create(singleton=SmsProviderSettings.SINGLETON, **defaults)
+
+    def test_a_successful_send_acquires_a_token_then_sends_with_bearer(self):
+        self._row()
+        result = sms.send_via_configured_provider(to="+989121110000", body="سلام")
+        self.assertTrue(result.success)
+        self.assertEqual(result.provider_code, "oauth2")
+
+        token_request = self.server.last_token_request
+        self.assertEqual(token_request["query"]["username"], "sysuser")
+        self.assertEqual(token_request["query"]["password"], "syspass")
+        self.assertEqual(token_request["query"]["scope"], "webservice")
+        self.assertTrue(token_request["headers"]["Authorization"].startswith("Basic "))
+
+        send_request = self.server.last_send_request
+        self.assertEqual(send_request["headers"].get("Authorization"), "Bearer fake-token-xyz")
+        item = send_request["body"][0]
+        self.assertEqual(item["recipient"], "+989121110000")
+        self.assertEqual(item["sender"], "30001234")
+        self.assertTrue(item["customerId"])
+
+    def test_a_database_row_takes_precedence_over_the_environment(self):
+        self._row()
+        with override_settings(SMS_PROVIDER="http", SMS_API_URL="http://example.invalid/", SMS_API_BODY_TEMPLATE="{}"):
+            config = sms.resolve_config()
+        self.assertEqual(config.source, "database")
+
+    def test_a_disabled_row_falls_back_to_the_environment(self):
+        self._row(is_enabled=False)
+        with override_settings(SMS_PROVIDER="http", SMS_API_URL="http://example.invalid/", SMS_API_BODY_TEMPLATE="{}"):
+            config = sms.resolve_config()
+        self.assertEqual(config.source, "environment")
+
+    def test_a_failed_token_request_never_reaches_the_send_endpoint(self):
+        self._row(token_url="http://127.0.0.1:1/")
+        result = sms.send_via_configured_provider(to="+989121110000", body="hi")
+        self.assertFalse(result.success)
+        self.assertIsNone(self.server.last_send_request)
+
+    def test_recipient_number_style_digits_only_strips_the_leading_plus(self):
+        self._row(recipient_number_style=SmsProviderSettings.NumberStyle.DIGITS_ONLY)
+        sms.send_via_configured_provider(to="+989121110000", body="hi")
+        self.assertEqual(self.server.last_send_request["body"][0]["recipient"], "989121110000")
+
+    def test_recipient_number_style_local_zero_rewrites_the_country_code(self):
+        self._row(recipient_number_style=SmsProviderSettings.NumberStyle.LOCAL_ZERO)
+        sms.send_via_configured_provider(to="+989121110000", body="hi")
+        self.assertEqual(self.server.last_send_request["body"][0]["recipient"], "09121110000")
 
 
 @override_settings(SMS_PROVIDER="")

@@ -346,6 +346,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "billing_quotationitem": "SELECT, INSERT, DELETE",
             "communications_inboundsms": "SELECT, INSERT",
             "communications_outboundsms": "SELECT, INSERT",
+            "communications_smsprovidersettings": "SELECT, INSERT, UPDATE",
             # Unlike the append-only tables here, an attachment really can be
             # deleted (elevated roles only, enforced by the service layer —
             # attachments/services.py) — DELETE is real, not merely absent.

@@ -1,0 +1,141 @@
+{% extends "common/base.html" %}
+{% block title %}تنظیمات سامانهٔ پیامک{% endblock %}
+{% block page_id %}sms-provider-settings{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">تنظیمات استقرار</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-setting-2 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}تنظیمات سامانهٔ پیامک{% endblock %}
+{% block breadcrumb_current %}تنظیمات پیامک{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:outbound-sms' %}">صفحهٔ ارسال پیامک</a>{% endblock %}
+{% block content %}
+<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
+    <div class="d-flex flex-stack flex-grow-1">
+        <div class="fw-semibold">
+            <div class="fs-6 text-gray-700">
+                این صفحه فقط اتصال به سامانهٔ پیامکیِ همین استقرار را تنظیم می‌کند — هیچ سامانهٔ خاصی
+                از قبل انتخاب نشده؛ هر ارائه‌دهنده‌ای که یکی از دو روش زیر را پشتیبانی کند قابل‌اتصال است.
+                تا «فعال‌سازی» را نزنید و ذخیره نکنید، هیچ پیامکی از این مسیر ارسال نمی‌شود.
+            </div>
+        </div>
+    </div>
+</div>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title"><h2>اتصال سامانهٔ پیامک</h2></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="sms-provider-loading" class="text-center text-gray-700 py-10">در حال دریافت تنظیمات فعلی…</div>
+        <form id="sms-provider-form" class="d-none" novalidate>
+            {% csrf_token %}
+
+            <div class="form-check form-check-custom form-check-solid form-switch mb-6">
+                <input class="form-check-input" type="checkbox" id="sms-provider-enabled" name="is_enabled" role="switch">
+                <label class="form-check-label fw-semibold fs-5" for="sms-provider-enabled">سامانهٔ پیامک فعال باشد</label>
+            </div>
+
+            <div class="row g-5 mb-6">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="sms-provider-label">نام سامانه (اختیاری)</label>
+                    <input class="form-control form-control-solid" id="sms-provider-label" name="label" maxlength="120" placeholder="مثلاً: تیارا / پیام‌رسان مرکزی">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold" for="sms-provider-auth-mode">روش احراز هویت</label>
+                    <select class="form-select form-select-solid" id="sms-provider-auth-mode" name="auth_mode">
+                        <option value="api_key">کلید ثابت (هدر/بدنه)</option>
+                        <option value="oauth2_password">OAuth2 (نام‌کاربری و رمز عبور)</option>
+                    </select>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="auth_mode"></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold" for="sms-provider-number-style">قالب شمارهٔ گیرنده</label>
+                    <select class="form-select form-select-solid" id="sms-provider-number-style" name="recipient_number_style">
+                        <option value="e164">+۹۸۹۱۲xxxxxxx</option>
+                        <option value="digits_only">۹۸۹۱۲xxxxxxx</option>
+                        <option value="local_zero">۰۹۱۲xxxxxxx</option>
+                    </select>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="recipient_number_style"></p>
+                </div>
+            </div>
+
+            <div class="separator separator-dashed my-6"></div>
+            <h3 class="fs-5 fw-bold text-gray-900 mb-4">درخواست ارسال</h3>
+            <div class="row g-5 mb-6">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold" for="sms-provider-send-url">نشانی ارسال (Send URL)</label>
+                    <input class="form-control form-control-solid" id="sms-provider-send-url" name="send_url" dir="ltr" maxlength="500" placeholder="https://example.com/panel/webservice/send">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="send_url"></p>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" for="sms-provider-sender-id">شمارهٔ فرستنده</label>
+                    <input class="form-control form-control-solid" id="sms-provider-sender-id" name="sender_id" dir="ltr" maxlength="32">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="sender_id"></p>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold" for="sms-provider-timeout">زمان انتظار (ثانیه)</label>
+                    <input class="form-control form-control-solid" id="sms-provider-timeout" name="timeout_seconds" type="number" min="1" max="120" dir="ltr">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="timeout_seconds"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="sms-provider-body-template">قالب بدنهٔ درخواست (JSON)</label>
+                    <textarea class="form-control form-control-solid font-monospace fs-8" id="sms-provider-body-template" name="body_template" dir="ltr" rows="5" placeholder='[{"sender": "__SMS_SENDER__", "recipient": "__SMS_TO__", "body": "__SMS_BODY__", "customerId": "__SMS_ID__"}]'></textarea>
+                    <p class="text-muted fs-7 mt-1 mb-0">نشانه‌های قابل‌استفاده: <code dir="ltr">__SMS_TO__</code>، <code dir="ltr">__SMS_BODY__</code>، <code dir="ltr">__SMS_SENDER__</code>، <code dir="ltr">__SMS_ID__</code> (شناسهٔ یکتای تصادفی هر ارسال).</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="body_template"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="sms-provider-headers">هدرهای ثابت (JSON، اختیاری)</label>
+                    <textarea class="form-control form-control-solid font-monospace fs-8" id="sms-provider-headers" name="headers" dir="ltr" rows="5" placeholder='{"X-Api-Key": "..."}'></textarea>
+                    <p class="text-muted fs-7 mt-1 mb-0">در روش OAuth2 نیازی به کلید احراز هویت این‌جا نیست — به‌صورت خودکار <code dir="ltr">Authorization: Bearer</code> افزوده می‌شود.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="headers"></p>
+                </div>
+            </div>
+
+            <div class="separator separator-dashed my-6"></div>
+            <h3 class="fs-5 fw-bold text-gray-900 mb-4" id="sms-provider-oauth-heading">ورود OAuth2 (دریافت توکن)</h3>
+            <div class="row g-5 mb-6" id="sms-provider-oauth-section">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="sms-provider-token-url">نشانی دریافت توکن (Token URL)</label>
+                    <input class="form-control form-control-solid" id="sms-provider-token-url" name="token_url" dir="ltr" maxlength="500" placeholder="https://example.com/auth/oauth/token">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="token_url"></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold" for="sms-provider-token-username">نام کاربری</label>
+                    <input class="form-control form-control-solid" id="sms-provider-token-username" name="token_username" dir="ltr" maxlength="255">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="token_username"></p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold" for="sms-provider-token-password">رمز عبور</label>
+                    <input class="form-control form-control-solid" id="sms-provider-token-password" name="token_password" type="password" dir="ltr" maxlength="255" autocomplete="new-password">
+                    <p class="text-muted fs-7 mt-1 mb-0" id="sms-provider-token-password-note"></p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="token_password"></p>
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold" for="sms-provider-token-extra">پارامترهای اضافهٔ ورود (JSON، اختیاری)</label>
+                    <textarea class="form-control form-control-solid font-monospace fs-8" id="sms-provider-token-extra" name="token_extra_params" dir="ltr" rows="2" placeholder='{"systemName": "...", "scope": "webservice", "grant_type": "password"}'></textarea>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="token_extra_params"></p>
+                </div>
+            </div>
+
+            <div class="separator separator-dashed my-6"></div>
+            <h3 class="fs-5 fw-bold text-gray-900 mb-4">تست اتصال (اختیاری)</h3>
+            <div class="row g-5 align-items-end mb-2">
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold" for="sms-provider-test-url">نشانی آزمایشی (مثلاً موجودی حساب)</label>
+                    <input class="form-control form-control-solid" id="sms-provider-test-url" name="test_url" dir="ltr" maxlength="500" placeholder="https://example.com/accounting/webservice/balance">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="test_url"></p>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-light-primary w-100" type="button" id="sms-provider-test-button">تست اتصال</button>
+                </div>
+            </div>
+            <p class="text-muted fs-7 mb-0" id="sms-provider-test-hint">پیش از تست، تنظیمات را یک‌بار ذخیره کنید — دکمهٔ تست همیشه روی آخرین نسخهٔ ذخیره‌شده اجرا می‌شود.</p>
+            <div id="sms-provider-test-result" class="alert d-flex align-items-center p-4 mt-3" hidden></div>
+
+            <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mt-6 mb-6" role="alert" hidden></div>
+            <div class="d-flex justify-content-between align-items-center border-top border-gray-200 pt-6">
+                <p class="text-muted fs-8 mb-0" id="sms-provider-updated-note"></p>
+                <button class="btn btn-primary" type="submit">ذخیره</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

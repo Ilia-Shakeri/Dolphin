@@ -3,7 +3,7 @@ from datetime import timedelta
 from rest_framework import serializers
 
 from common.serializers import RejectServerFieldsMixin
-from communications.models import InboundSMS, OutboundSMS
+from communications.models import InboundSMS, OutboundSMS, SmsProviderSettings
 from reports.serializers import OffsetAwareDateTimeField
 from sales.models import Customer, Lead
 from sales.selectors import customers_for, leads_for
@@ -159,3 +159,59 @@ class OutboundSMSDetailSerializer(serializers.ModelSerializer):
         if not instance.sent_by:
             return ""
         return instance.sent_by.get_full_name() or instance.sent_by.username
+
+
+class SmsProviderSettingsSerializer(serializers.ModelSerializer):
+    """Read shape for the settings page — `has_token_password` instead of
+    `token_password` itself, same masking `BrandSettingsSerializer` already
+    uses for `has_logo` instead of the logo bytes.
+    """
+
+    has_token_password = serializers.SerializerMethodField()
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SmsProviderSettings
+        fields = (
+            "is_enabled", "label", "auth_mode", "recipient_number_style",
+            "send_url", "body_template", "headers", "sender_id", "timeout_seconds",
+            "token_url", "token_username", "has_token_password", "token_extra_params",
+            "test_url", "updated_by_name", "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_has_token_password(self, instance) -> bool:
+        return bool(instance.token_password)
+
+    def get_updated_by_name(self, instance) -> str:
+        if not instance.updated_by:
+            return ""
+        return instance.updated_by.get_full_name() or instance.updated_by.username
+
+
+class SmsProviderSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Every field independent and optional — see
+    `communications.sms_provider_settings.update_sms_provider_settings` for
+    what "independent" means. `token_password` is write-only by omission
+    from the read serializer above, not by any flag here: sending it here
+    always replaces the stored value; leaving it out always keeps whatever
+    is already stored, so clearing it requires sending an explicit empty
+    string.
+    """
+
+    is_enabled = serializers.BooleanField(required=False)
+    label = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    auth_mode = serializers.ChoiceField(choices=SmsProviderSettings.AuthMode.choices, required=False)
+    recipient_number_style = serializers.ChoiceField(
+        choices=SmsProviderSettings.NumberStyle.choices, required=False
+    )
+    send_url = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    body_template = serializers.CharField(required=False, allow_blank=True)
+    headers = serializers.CharField(required=False, allow_blank=True)
+    sender_id = serializers.CharField(required=False, allow_blank=True, max_length=32)
+    timeout_seconds = serializers.IntegerField(required=False)
+    token_url = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    token_username = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    token_password = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    token_extra_params = serializers.CharField(required=False, allow_blank=True)
+    test_url = serializers.CharField(required=False, allow_blank=True, max_length=500)
