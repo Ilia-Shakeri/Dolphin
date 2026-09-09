@@ -240,6 +240,48 @@
     }
 
     /**
+     * A list card's own "فیلتر" panel — same open/close shape as
+     * `setupUserMenu` right above (manual `[hidden]` toggle, close on an
+     * outside click or Escape, placement in CSS) for the same reason: no
+     * Popper in this build. `toggle` carries `aria-expanded`; `.list-filter-
+     * toggle[aria-expanded="true"]` in dolphin.css gives it the pressed look
+     * KTMenu's own `.show` would have.
+     *
+     * The panel's own form still submits normally (`setupPagedList`'s own
+     * `form.addEventListener("submit", ...)` above) — only the search box
+     * beside this button went live; everything in here stays an explicit
+     * "اعمال" the reader chooses, since these are heavier filters (a status,
+     * a date window) a reader is still composing keystroke by keystroke.
+     */
+    function setupListFilter(key) {
+        const toggle = document.getElementById(`${key}-filter-toggle`);
+        const panel = document.getElementById(`${key}-filter-panel`);
+        if (!toggle || !panel) return;
+
+        const setOpen = (open) => {
+            panel.hidden = !open;
+            toggle.setAttribute("aria-expanded", String(open));
+        };
+
+        toggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setOpen(panel.hidden);
+        });
+        document.addEventListener("click", (event) => {
+            if (!panel.hidden && !panel.contains(event.target) && event.target !== toggle) setOpen(false);
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && !panel.hidden) {
+                setOpen(false);
+                toggle.focus();
+            }
+        });
+        // Applying a filter closes the panel — the reader chose one, no
+        // reason to keep it open over the now-refreshed list.
+        panel.querySelector("form")?.addEventListener("submit", () => setOpen(false));
+    }
+
+    /**
      * The signed-in user's own sessions, opened from the header user menu.
      *
      * Every row is identified by the opaque reference the server sends; the
@@ -638,7 +680,7 @@
     }
 
     function setupUsers() {
-        const searchForm = document.getElementById("user-search-form");
+        const searchInput = document.getElementById("user-search");
         const tableWrap = document.getElementById("users-table-wrap");
         const tableBody = document.getElementById("users-table-body");
         const loading = document.getElementById("users-loading");
@@ -676,9 +718,8 @@
             }
         }
 
-        searchForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            search = document.getElementById("user-search").value.trim();
+        bindLiveSearch(searchInput, () => {
+            search = searchInput.value.trim();
             loadUsers(1);
         });
         prev.addEventListener("click", () => loadUsers(currentPage - 1));
@@ -1853,7 +1894,35 @@
         return {decorateRow, resetSelection};
     }
 
-    function setupPagedList({key, form, endpoint, renderRow}) {
+    /**
+     * Wires one search input to reload live, in place, as the reader types —
+     * product-owner decision 2026-09-09: every list search goes live, no
+     * "اعمال" button needed for the search term itself (the field's own
+     * `endpoint()` reads its `.value` fresh on every call, so nothing here
+     * needs to know what the field is *for*).
+     *
+     * Debounced (350ms) so a fast typist does not fire a request per
+     * keystroke; Enter bypasses the debounce and searches immediately, since
+     * a reader who pressed it is explicitly done typing. `input`, not
+     * `keyup`: also fires on paste and on the field's own native "×" clear
+     * button, neither of which is a keystroke.
+     */
+    function bindLiveSearch(input, onSearch) {
+        if (!input) return;
+        let timer;
+        input.addEventListener("input", () => {
+            clearTimeout(timer);
+            timer = setTimeout(onSearch, 350);
+        });
+        input.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            clearTimeout(timer);
+            onSearch();
+        });
+    }
+
+    function setupPagedList({key, form, search, endpoint, renderRow}) {
         const loading = document.getElementById(`${key}-loading`);
         if (!loading) return null;
         const empty = document.getElementById(`${key}-empty`);
@@ -1891,6 +1960,9 @@
         // A paged list embedded in a detail page (payment allocations, ledger
         // entries) has no filter form of its own; the caller passes null.
         form?.addEventListener("submit", (event) => { event.preventDefault(); load(1); });
+        // The search box lives outside `form` now (`card-title`, not the
+        // filter panel) and reloads live — see `bindLiveSearch`.
+        bindLiveSearch(search, () => load(1));
         previous.addEventListener("click", () => load(currentPage - 1));
         next.addEventListener("click", () => load(currentPage + 1));
         return {load};
@@ -1912,6 +1984,7 @@
 
     function setupCustomers() {
         const form = document.getElementById("customer-search-form");
+        setupListFilter("customer");
         // Which of the two books is on screen. A marketer never sees the
         // switch, and `customers_for` confines them to this book in the
         // database regardless of what the page asks for.
@@ -1919,6 +1992,7 @@
         const controller = setupPagedList({
             key: "customers",
             form,
+            search: document.getElementById("customer-search"),
             endpoint(page) {
                 const ordering = document.getElementById("customer-ordering").value;
                 // "registered" is a UI-only choice that means "sort by
@@ -2750,8 +2824,10 @@
 
     async function setupLeads() {
         const form = document.getElementById("lead-search-form");
+        setupListFilter("lead");
         const controller = setupPagedList({
             key: "leads", form,
+            search: document.getElementById("lead-search"),
             endpoint(page) {
                 const query = new URLSearchParams({page: String(page), ordering: document.getElementById("lead-ordering").value});
                 const search = document.getElementById("lead-search").value.trim();
@@ -4026,8 +4102,10 @@
 
     async function setupInteractions() {
         const form = document.getElementById("interaction-search-form");
+        setupListFilter("interaction");
         const controller = setupPagedList({
             key: "interactions", form,
+            search: document.getElementById("interaction-search"),
             endpoint(page) {
                 const query = new URLSearchParams({page: String(page), ordering: document.getElementById("interaction-ordering").value});
                 const search = document.getElementById("interaction-search").value.trim();
@@ -4138,9 +4216,11 @@
 
     function setupProductCategories() {
         const form = document.getElementById("product-category-search-form");
+        setupListFilter("product-category");
         const controller = setupPagedList({
             key: "product-categories",
             form,
+            search: document.getElementById("product-category-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("product-category-search").value.trim();
@@ -4263,6 +4343,7 @@
 
     async function setupProducts() {
         const form = document.getElementById("product-search-form");
+        setupListFilter("product");
         setupProductImport();
         // Wire the dialog before any awaited load: a click that lands while a
         // network load is still pending would otherwise be silently discarded,
@@ -4312,6 +4393,7 @@
         const controller = setupPagedList({
             key: "products",
             form,
+            search: document.getElementById("product-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("product-search").value.trim();
@@ -4478,9 +4560,11 @@
 
     async function setupSales() {
         const form = document.getElementById("sale-search-form");
+        setupListFilter("sale");
         const controller = setupPagedList({
             key: "sales",
             form,
+            search: document.getElementById("sale-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page), ordering: document.getElementById("sale-ordering").value});
                 const search = document.getElementById("sale-search").value.trim();
@@ -4595,9 +4679,11 @@
 
     async function setupSalesDocuments() {
         const form = document.getElementById("sales-document-search-form");
+        setupListFilter("sales-document");
         const controller = setupPagedList({
             key: "sales-documents",
             form,
+            search: document.getElementById("sales-document-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page), ordering: document.getElementById("sales-document-ordering").value});
                 const search = document.getElementById("sales-document-search").value.trim();
@@ -4987,7 +5073,8 @@
 
     async function setupAfterSales() {
         const form = document.getElementById("after-sales-search-form");
-        const controller = setupPagedList({key: "after-sales", form, endpoint: (page) => {
+        setupListFilter("after-sales");
+        const controller = setupPagedList({key: "after-sales", form, search: document.getElementById("after-sales-search"), endpoint: (page) => {
             const query = new URLSearchParams({page: String(page), ordering: document.getElementById("after-sales-ordering").value});
             const search = document.getElementById("after-sales-search").value.trim(); if (search) query.set("search", search);
             [["status", "after-sales-status"], ["assigned_to", "after-sales-assignee"], ["is_closed", "after-sales-closed"]].forEach(([name, id]) => { const node = document.getElementById(id); const value = node?.value.trim(); if (value) query.set(name, value); });
@@ -6006,9 +6093,11 @@
 
     function setupActivityLogs() {
         const form = document.getElementById("activity-log-search-form");
+        setupListFilter("activity-log");
         const controller = setupPagedList({
             key: "activity-logs",
             form,
+            search: document.getElementById("activity-log-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page), ordering: document.getElementById("activity-log-ordering").value});
                 const search = document.getElementById("activity-log-search").value.trim();
@@ -6539,6 +6628,7 @@
 
     function setupWarehouses() {
         const form = document.getElementById("warehouse-search-form");
+        setupListFilter("warehouse");
         const dialog = document.getElementById("create-warehouse-dialog");
         if (dialog) {
             const createForm = document.getElementById("create-warehouse-form");
@@ -6571,6 +6661,7 @@
         const controller = setupPagedList({
             key: "warehouses",
             form,
+            search: document.getElementById("warehouse-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("warehouse-search").value.trim();
@@ -6665,6 +6756,7 @@
 
     async function setupStockLevels() {
         const form = document.getElementById("stock-search-form");
+        setupListFilter("stock");
         const movementDialog = document.getElementById("create-movement-dialog");
         const transferDialog = document.getElementById("transfer-stock-dialog");
         let controller = null;
@@ -6769,6 +6861,7 @@
         controller = setupPagedList({
             key: "stock-items",
             form,
+            search: document.getElementById("stock-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("stock-search").value.trim();
@@ -6801,6 +6894,7 @@
 
     async function setupStockMovements() {
         const form = document.getElementById("stock-movement-search-form");
+        setupListFilter("stock-movement");
         try {
             await loadWarehouseOptions(document.getElementById("stock-movement-warehouse"), "همه انبارها");
         } catch (error) {
@@ -6809,6 +6903,7 @@
         const controller = setupPagedList({
             key: "stock-movements",
             form,
+            search: document.getElementById("stock-movement-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("stock-movement-search").value.trim();
@@ -6836,6 +6931,7 @@
 
     function setupDocumentList({key, prefix, endpoint, columns, detailPath, createFields, onOpen}) {
         const form = document.getElementById(`${prefix}-search-form`);
+        setupListFilter(prefix);
         const dialog = document.getElementById(`create-${prefix}-dialog`);
         let controller = null;
         if (dialog) {
@@ -6859,6 +6955,7 @@
         controller = setupPagedList({
             key,
             form,
+            search: document.getElementById(`${prefix}-search`),
             endpoint,
             renderRow: (row) => documentListRow(row, columns, (item) => `${detailPath}${item.id}/`),
         });
@@ -7783,6 +7880,7 @@
 
     async function setupPayments() {
         const form = document.getElementById("payment-search-form");
+        setupListFilter("payment");
         const dialog = document.getElementById("create-payment-dialog");
         let controller = null;
         if (dialog) {
@@ -8076,6 +8174,7 @@
         controller = setupPagedList({
             key: "payments",
             form,
+            search: document.getElementById("payment-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("payment-search").value.trim();
@@ -8441,6 +8540,7 @@
         let spendingCheque = null;
 
         const form = document.getElementById("cheque-search-form");
+        setupListFilter("cheque");
         const dialog = document.getElementById("cheque-transition-dialog");
         const transitionForm = document.getElementById("cheque-transition-form");
         const targetSelect = document.getElementById("cheque-transition-target");
@@ -8467,6 +8567,7 @@
         controller = setupPagedList({
             key: "cheques",
             form,
+            search: document.getElementById("cheque-search"),
             endpoint: (page) => {
                 const query = new URLSearchParams({page: String(page)});
                 const search = document.getElementById("cheque-search").value.trim();
@@ -8624,6 +8725,7 @@
 
     function setupInstallments() {
         const form = document.getElementById("installment-search-form");
+        setupListFilter("installment");
         const controller = setupPagedList({
             key: "installments",
             form,
@@ -9031,12 +9133,33 @@
         document.getElementById("print-document")?.addEventListener("click", () => window.print());
     }
 
+    /**
+     * Every `<dialog>` in the app (every "ثبت" wizard, every confirm/detail
+     * modal) closes when the reader clicks outside it — product-owner
+     * decision 2026-09-09. One listener for the whole app rather than one
+     * per dialog: a click that lands on the dialog element itself, rather
+     * than on anything inside it, is by construction a click on `::backdrop`
+     * — `<dialog>` has no visible box beyond its own content, so a listener
+     * on `document` whose `event.target` is exactly the open `<dialog>` (not
+     * a descendant) is a backdrop click and nothing else. `showModal()`'s
+     * own focus trap and Escape-to-close are untouched; this only adds the
+     * third way a modal is expected to close.
+     */
+    function setupDialogBackdropClose() {
+        document.addEventListener("click", (event) => {
+            if (event.target instanceof HTMLDialogElement && event.target.open) {
+                event.target.close();
+            }
+        });
+    }
+
     setupJalaliInputs();
     setupNav();
     setupNavActiveState();
     setupLogout();
     setupUserMenu();
     setupSessionsDialog();
+    setupDialogBackdropClose();
 
     // A denied page is served with the error card in place of its content, so
     // its module has no markup to bind to and every call it makes would be

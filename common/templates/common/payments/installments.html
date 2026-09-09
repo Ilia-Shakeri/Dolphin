@@ -7,12 +7,34 @@
 {% block breadcrumb_current %}اقساط{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:payments' %}">دریافت‌ها</a>{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="installment-search-form" action="{% url 'common_ui:installments' %}" method="get" class="list-filters">
-        <label class="sr-only" for="installment-status-filter">وضعیت</label><select class="form-select form-select-solid" id="installment-status-filter" name="status"><option value="">همه اقساط</option><option value="pending">پرداخت‌نشده</option><option value="partially_paid">پرداخت جزئی</option><option value="paid">پرداخت‌شده</option><option value="cancelled">لغوشده</option></select>
-        <label class="sr-only" for="installment-due-before">سررسید پیش از</label><input class="form-control form-control-solid" id="installment-due-before" name="due_before" type="text" data-jalali="date">
-        <label class="sr-only" for="installment-ordering">مرتب‌سازی</label><select class="form-select form-select-solid" id="installment-ordering" name="ordering"><option value="due_date">نزدیک‌ترین سررسید</option><option value="-due_date">دورترین سررسید</option><option value="-amount">بیشترین مبلغ</option></select>
-        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
-    </form></div></div><div class="card-body pt-2">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 justify-content-end">
+    <div class="card-toolbar">
+        <div class="list-filter">
+            <button id="installment-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+            </button>
+            <div id="installment-filter-panel" class="list-filter-panel" hidden>
+                <form id="installment-search-form" action="{% url 'common_ui:installments' %}" method="get">
+                    <div class="mb-4">
+                        <label class="form-label" for="installment-status-filter">وضعیت</label>
+                        <select class="form-select form-select-solid" id="installment-status-filter" name="status"><option value="">همه اقساط</option><option value="pending">پرداخت‌نشده</option><option value="partially_paid">پرداخت جزئی</option><option value="paid">پرداخت‌شده</option><option value="cancelled">لغوشده</option></select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="installment-due-before">سررسید پیش از</label>
+                        <input class="form-control form-control-solid" id="installment-due-before" name="due_before" type="text" data-jalali="date">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="installment-ordering">مرتب‌سازی</label>
+                        <select class="form-select form-select-solid" id="installment-ordering" name="ordering"><option value="due_date">نزدیک‌ترین سررسید</option><option value="-due_date">دورترین سررسید</option><option value="-amount">بیشترین مبلغ</option></select>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" type="submit">اعمال فیلتر</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div><div class="card-body pt-2">
     <div id="installments-loading" class="text-center text-gray-700 py-10">در حال دریافت اقساط…</div><div id="installments-empty" class="text-center text-gray-700 py-10" hidden>قسطی پیدا نشد.</div>
     <div id="installments-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>فاکتور</th><th>شماره قسط</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>مانده</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody id="installments-table-body"></tbody></table></div>
     <nav id="installments-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="installments-prev" class="btn btn-light" type="button">قبلی</button><span id="installments-page-label"></span><button id="installments-next" class="btn btn-light" type="button">بعدی</button></nav>

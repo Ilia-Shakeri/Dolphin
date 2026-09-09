@@ -1088,6 +1088,89 @@ dialog {
     border: 0;
 }
 
+/* Every list card's own search box, in `card-title` — the exact Metronic
+   reference pattern (`apps/customers/list.html` in the purchased template):
+   a magnifier icon absolute-positioned inside a solid input, not a separate
+   label/button. Lives live (see `bindLiveSearch` in dolphin-app.js) — no
+   submit button of its own, so nothing here is a `<form>`. */
+.list-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.list-search .list-search-icon {
+    position: absolute;
+    inset-inline-start: 1rem;
+    color: var(--bs-gray-500);
+    pointer-events: none;
+}
+
+.list-search input {
+    padding-inline-start: 2.75rem;
+    width: 100%;
+    min-width: 220px;
+}
+
+@media (max-width: 575.98px) {
+    .list-search input {
+        min-width: 0;
+    }
+}
+
+/* The list card's own "فیلتر" control, in `card-toolbar` — a small icon
+   button, not the old always-open row of selects, opening a panel anchored
+   under it. Positioned by hand rather than through KTMenu/Popper, the same
+   reason `#user-menu`/`#reminder-bell-menu` above are: Popper lives in the
+   plugins bundle this deployment does not load (see this file's own "2.
+   Brand" section for the fuller version of that reasoning). `setupListFilter`
+   in dolphin-app.js toggles `[hidden]` and closes on an outside click/Escape,
+   mirroring `setupUserMenu`'s own toggle exactly. */
+.list-filter {
+    position: relative;
+}
+
+.list-filter-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-start: 0;
+    z-index: 105;
+    width: 300px;
+    max-width: calc(100vw - 1.5rem);
+    background-color: var(--bs-body-bg);
+    border-radius: 0.75rem;
+    box-shadow: var(--bs-dropdown-box-shadow, 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15));
+    padding: 1.25rem;
+}
+
+/* A button that opens a panel needs to look pressed while it is open — the
+   theme's own `.active`/`.show` treatment for `.btn-light-primary`, applied
+   by hand since this toggle is not KTMenu's. */
+.list-filter-toggle[aria-expanded="true"] {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+
+/* A filter panel field takes the same solid control as everywhere else, one
+   per row rather than the cramped multi-column grid `.list-filters` used —
+   the panel is narrow by design, so its own fields stack. */
+.list-filter-panel .form-label {
+    font-size: 0.8rem;
+}
+
+/* The page's own top toolbar — its title, its own "ساخت" button on a detail
+   page, its export/report actions elsewhere — is larger and bolder than the
+   theme's own default, so it reads as the one heading on the screen rather
+   than blending into the card titles below it. Product-owner decision
+   2026-09-09: readable at a glance, not just present. */
+.page-heading {
+    font-size: 1.65rem !important;
+}
+
+.page-heading .page-heading-icon {
+    font-size: 1.5rem;
+}
+
 /* 6. Line chart ----------------------------------------------------------- */
 
 /* The SVG scales with its container rather than being measured at runtime, so

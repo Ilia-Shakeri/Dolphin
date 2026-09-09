@@ -19,22 +19,43 @@
 {% comment %} The cheque and instalment shortcuts are gone from here: they are
    their own entries in the sidebar, and a page that lists one kind of document
    should not be a launchpad for two others. {% endcomment %}
-{% block page_actions %}<button id="open-create-payment" class="btn btn-primary" type="button">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button>{% endblock %}
+{% block page_actions %}{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0">
-{% comment %} The filters run the full width of the card and sit against its
-   inner edges rather than bunching in the middle: `list-filters` gives every
-   control an equal share of one row and drops them to a column on a narrow
-   screen. {% endcomment %}
-    <form id="payment-search-form" action="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}" method="get" class="list-filters">
-        <label class="sr-only" for="payment-search">جستجو</label><input class="form-control form-control-solid" id="payment-search" name="search" type="search" placeholder="{% if payment_direction == 'disbursement' %}شماره، گیرنده یا شماره پیگیری{% else %}شماره، مشتری یا شماره پیگیری{% endif %}">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
+    <div class="card-title mb-0">
+        <div class="list-search">
+            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <label class="sr-only" for="payment-search">جستجو</label>
+            <input class="form-control form-control-solid" id="payment-search" type="search" placeholder="{% if payment_direction == 'disbursement' %}شماره، گیرنده یا شماره پیگیری{% else %}شماره، مشتری یا شماره پیگیری{% endif %}">
+        </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
+        <div class="list-filter">
+            <button id="payment-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+            </button>
+            <div id="payment-filter-panel" class="list-filter-panel" hidden>
+                <form id="payment-search-form" action="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}" method="get">
 {% comment %} The status filter is gone. Its three values described a lifecycle
    this desk no longer exposes — a document here is recorded, and cancelling it
    is an action on the document itself. {% endcomment %}
-        <label class="sr-only" for="payment-method-filter">روش</label><select class="form-select form-select-solid" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
-        <label class="sr-only" for="payment-ordering">مرتب‌سازی</label><select class="form-select form-select-solid" id="payment-ordering" name="ordering"><option value="-received_at">تازه‌ترین</option><option value="received_at">قدیمی‌ترین</option><option value="-amount">بیشترین مبلغ</option></select>
-        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
-    </form></div></div><div class="card-body pt-2">
+                    <div class="mb-4">
+                        <label class="form-label" for="payment-method-filter">روش</label>
+                        <select class="form-select form-select-solid" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="payment-ordering">مرتب‌سازی</label>
+                        <select class="form-select form-select-solid" id="payment-ordering" name="ordering"><option value="-received_at">تازه‌ترین</option><option value="received_at">قدیمی‌ترین</option><option value="-amount">بیشترین مبلغ</option></select>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" type="submit">اعمال فیلتر</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <button id="open-create-payment" class="btn btn-primary" type="button">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button>
+    </div>
+</div><div class="card-body pt-2">
     {% if can_hard_delete %}
     <div class="d-flex align-items-center gap-3 mb-4" data-payments-toolbar="selected" hidden>
         <span class="fw-bold text-gray-800"><span data-payments-select="selected_count">0</span> مورد انتخاب شد</span>

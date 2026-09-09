@@ -446,7 +446,22 @@
 
 {% comment %} A link needs both an enabling capability (role) and an enabled feature
    (deployment profile). The two are separate controls: the backend enforces
-   each independently, and this markup is display only. {% endcomment %}
+   each independently, and this markup is display only.
+
+   Section labels below (`.menu-content.text-uppercase`) are the theme's own
+   class combination — used in the purchased template's own quick-actions
+   menu (`apps/customers/list.html`) for exactly this: a plain, muted,
+   uppercase heading inside a non-interactive `menu-item`, not a new pattern
+   invented for this codebase. Product-owner decision 2026-09-09: group the
+   previously-flat list of top-level entries so related modules read as one
+   cluster, the same way the purchased template's own richer demo sidebars
+   do — nothing here changes which links exist or what gates them, only
+   where they sit and what introduces them. A group with every one of its
+   own links hidden (feature/role) renders no heading either, the same
+   "absent, not disabled" rule every link here already followed. {% endcomment %}
+                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities or "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
+                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">فروش و مشتریان</div></div>
+                                {% endif %}
                                 {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="call-center" data-nav-group="call-center" class="menu-item menu-accordion">
                                     <span class="menu-link">
@@ -481,6 +496,9 @@
                                 </div>
                                 {% endif %}
 
+                                {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities or "payments" in features and can_handle_payments or "sales_documents" in features and "sales_documents.scoped" in capabilities or "sales_documents" in features and "sales_documents.company" in capabilities %}
+                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">اسناد و مالی</div></div>
+                                {% endif %}
                                 {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="billing" data-nav-group="billing" class="menu-item menu-accordion">
                                     <span class="menu-link">
@@ -512,6 +530,18 @@
                                 </div>
                                 {% endif %}
 
+                                {% if "sales_documents" in features and "sales_documents.scoped" in capabilities or "sales_documents" in features and "sales_documents.company" in capabilities %}
+                                <div class="menu-item">
+                                    <a data-module="sales-documents" class="menu-link" href="{% url 'common_ui:sales-documents' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-delivery fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i></span>
+                                        <span class="menu-title">اسناد فروش داخلی</span>
+                                    </a>
+                                </div>
+                                {% endif %}
+
+                                {% if "inventory" in features and can_read_inventory or "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
+                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">انبار و کاتالوگ</div></div>
+                                {% endif %}
                                 {% if "inventory" in features and can_read_inventory %}
                                 <div data-kt-menu-trigger="click" data-module="inventory" data-nav-group="inventory" class="menu-item menu-accordion">
                                     <span class="menu-link">
@@ -526,45 +556,6 @@
                                     </div>
                                 </div>
                                 {% endif %}
-
-                                {% if "sales_documents" in features and "sales_documents.scoped" in capabilities or "sales_documents" in features and "sales_documents.company" in capabilities %}
-                                <div class="menu-item">
-                                    <a data-module="sales-documents" class="menu-link" href="{% url 'common_ui:sales-documents' %}">
-                                        <span class="menu-icon"><i class="ki-duotone ki-delivery fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i></span>
-                                        <span class="menu-title">اسناد فروش داخلی</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-                                {% if "after_sales" in features and "after_sales.assigned" in capabilities or "after_sales" in features and "after_sales.company" in capabilities %}
-                                <div class="menu-item">
-                                    <a data-module="after-sales" class="menu-link" href="{% url 'common_ui:after-sales' %}">
-                                        <span class="menu-icon"><i class="ki-duotone ki-shield-tick fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">{% if request.user.role == 'sales_agent' %}پرونده‌های خدمات من{% else %}خدمات پس از فروش{% endif %}</span>
-                                    </a>
-                                </div>
-                                <div class="menu-item">
-                                    <a data-module="after-sales-calendar" class="menu-link" href="{% url 'common_ui:after-sales-calendar' %}">
-                                        <span class="menu-icon"><i class="ki-duotone ki-calendar fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">تقویم خدمات پس از فروش</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-                                {% if can_send_sms and "outbound_sms" in features %}
-                                <div class="menu-item">
-                                    <a data-module="outbound-sms" class="menu-link" href="{% url 'common_ui:outbound-sms' %}">
-                                        <span class="menu-icon"><i class="ki-duotone ki-sms fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">ارسال پیامک</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-{% comment %} Internal chat moved off the sidebar in 1.9.0 and onto a header icon +
-   slide-in drawer, matching the purchased theme's own chat pattern
-   (`kt_drawer_chat` in its demo pages) — the theme itself never puts chat in
-   the sidebar either. The toggle button and the drawer markup are further
-   down this file, beside the reminder bell and search. {% endcomment %}
 
                                 {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
                                 <div data-kt-menu-trigger="click" data-module="catalog" data-nav-group="catalog" class="menu-item menu-accordion">
@@ -581,6 +572,42 @@
                                         <div class="menu-item"><a data-module="product-categories" class="menu-link" href="{% url 'common_ui:product-categories' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">دسته‌بندی‌ها{% if request.user.role == 'sales_agent' %} (فقط خواندنی){% endif %}</span></a></div>
                                         {% endif %}
                                     </div>
+                                </div>
+                                {% endif %}
+
+                                {% if "after_sales" in features and "after_sales.assigned" in capabilities or "after_sales" in features and "after_sales.company" in capabilities %}
+                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">خدمات پس از فروش</div></div>
+                                {% endif %}
+                                {% if "after_sales" in features and "after_sales.assigned" in capabilities or "after_sales" in features and "after_sales.company" in capabilities %}
+                                <div class="menu-item">
+                                    <a data-module="after-sales" class="menu-link" href="{% url 'common_ui:after-sales' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-shield-tick fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">{% if request.user.role == 'sales_agent' %}پرونده‌های خدمات من{% else %}خدمات پس از فروش{% endif %}</span>
+                                    </a>
+                                </div>
+                                <div class="menu-item">
+                                    <a data-module="after-sales-calendar" class="menu-link" href="{% url 'common_ui:after-sales-calendar' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-calendar fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">تقویم خدمات پس از فروش</span>
+                                    </a>
+                                </div>
+                                {% endif %}
+
+{% comment %} Internal chat moved off the sidebar in 1.9.0 and onto a header icon +
+   slide-in drawer, matching the purchased theme's own chat pattern
+   (`kt_drawer_chat` in its demo pages) — the theme itself never puts chat in
+   the sidebar either. The toggle button and the drawer markup are further
+   down this file, beside the reminder bell and search. {% endcomment %}
+
+                                {% if can_send_sms and "outbound_sms" in features or "reports" in features and "reports.own" in capabilities or "reports" in features and "reports.company" in capabilities %}
+                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">گزارش و ارتباطات</div></div>
+                                {% endif %}
+                                {% if can_send_sms and "outbound_sms" in features %}
+                                <div class="menu-item">
+                                    <a data-module="outbound-sms" class="menu-link" href="{% url 'common_ui:outbound-sms' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-sms fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">ارسال پیامک</span>
+                                    </a>
                                 </div>
                                 {% endif %}
 
@@ -603,6 +630,9 @@
                                 </div>
                                 {% endif %}
 
+                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_dashboard_layout %}
+                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">مدیریت</div></div>
+                                {% endif %}
                                 {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_dashboard_layout %}
                                 <div data-kt-menu-trigger="click" data-nav-group="administration"{% if is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
                                     <span class="menu-link">

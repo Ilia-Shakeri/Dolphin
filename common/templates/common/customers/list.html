@@ -5,55 +5,60 @@
 {% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}مشتریان{% endblock %}
 {% block breadcrumb_current %}مشتریان{% endblock %}
-{% block page_actions %}<div class="d-flex flex-column align-items-stretch align-items-md-end gap-3">
-    <div class="d-flex flex-wrap gap-2 gap-lg-3">
+{% block page_actions %}{% endblock %}
+{% block content %}
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
+    <div class="card-title mb-0">
+        <div class="list-search">
+            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <label class="sr-only" for="customer-search">جست‌وجوی مشتری</label>
+            <input class="form-control form-control-solid" id="customer-search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی، نشانی یا تاریخ">
+        </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
+        {% comment %} دو دفتر مشتری. بازاریاب اینجا را نمی‌بیند و فقط دفتر حقیقی را
+           دارد؛ این پنهان‌سازی مجوز نیست — `customers_for` دامنهٔ او را در سرور
+           به همان دفتر محدود می‌کند. {% endcomment %}
+        {% if can_manage_customer_kinds %}
+        <div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
+            <button id="customer-kind-individual" class="btn btn-sm btn-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
+            <button id="customer-kind-legal" class="btn btn-sm btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
+        </div>
+        {% endif %}
+        <div class="list-filter">
+            <button id="customer-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+            </button>
+            <div id="customer-filter-panel" class="list-filter-panel" hidden>
+                <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get">
+                    <div class="mb-4">
+                        <label class="form-label" for="customer-ordering">مرتب‌سازی</label>
+                        <select class="form-select form-select-solid" id="customer-ordering" name="ordering">
+                            <option value="-created_at">جدیدترین</option>
+                            <option value="created_at">قدیمی‌ترین</option>
+                            <option value="full_name">نام الفبایی</option>
+                            <option value="-updated_at">آخرین ویرایش</option>
+                            <option value="registered">تاریخ ثبت</option>
+                        </select>
+                    </div>
+                    {% comment %} The date window appears only when «تاریخ ثبت» is chosen. {% endcomment %}
+                    <div id="customer-date-range" class="mb-4" hidden>
+                        <label class="form-label" for="customer-created-from">از تاریخ</label>
+                        <input class="form-control form-control-solid mb-2" id="customer-created-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
+                        <label class="form-label" for="customer-created-to">تا تاریخ</label>
+                        <input class="form-control form-control-solid" id="customer-created-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" type="submit">اعمال فیلتر</button>
+                    </div>
+                </form>
+            </div>
+        </div>
         <button id="open-export-customers" class="btn btn-light" type="button">خروجی لیست</button>
         {% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button">ورودی لیست</button>{% endif %}
         <button id="open-create-customer" class="btn btn-primary" type="button">مشتری جدید</button>
     </div>
-    {% comment %} دو دفتر مشتری، زیر همان دکمه. بازاریاب اینجا را نمی‌بیند و
-       فقط دفتر حقیقی را دارد؛ این پنهان‌سازی مجوز نیست — `customers_for`
-       دامنهٔ او را در سرور به همان دفتر محدود می‌کند. {% endcomment %}
-    {% if can_manage_customer_kinds %}
-    <div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
-        <button id="customer-kind-individual" class="btn btn-sm btn-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
-        <button id="customer-kind-legal" class="btn btn-sm btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
-    </div>
-    {% endif %}
-</div>{% endblock %}
-{% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0">
-    {% comment %} هر کنترل یک سلول مستقل از `list-filters` است -- همان الگویی که
-       بقیه صفحه‌ها دارند -- تا همه هم‌عرض و افقی کنار هم بنشینند، نه در یک بستهٔ
-       flex که سهم شبکه را از سه کنترل به یکی کاهش می‌داد. {% endcomment %}
-    <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get" class="list-filters">
-        <div>
-            <label class="sr-only" for="customer-search">جست‌جوی مشتری</label>
-            <input class="form-control form-control-solid" id="customer-search" name="search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی، نشانی یا تاریخ">
-        </div>
-        <div>
-            <label class="sr-only" for="customer-ordering">مرتب‌سازی</label>
-            <select class="form-select form-select-solid" id="customer-ordering" name="ordering">
-                <option value="-created_at">جدیدترین</option>
-                <option value="created_at">قدیمی‌ترین</option>
-                <option value="full_name">نام الفبایی</option>
-                <option value="-updated_at">آخرین ویرایش</option>
-                <option value="registered">تاریخ ثبت</option>
-            </select>
-        </div>
-        {% comment %} The date window appears only when «تاریخ ثبت» is chosen: it is two
-           more controls that mean nothing under any other sort, so it starts hidden.
-           Its own grid cell now, same as every other filter -- when it hides, the
-           grid recomputes with one fewer column rather than leaving a gap. {% endcomment %}
-        <div id="customer-date-range" class="d-flex flex-wrap align-items-center gap-2 gap-lg-3" hidden>
-            <label class="sr-only" for="customer-created-from">از تاریخ</label>
-            <input class="form-control form-control-solid" id="customer-created-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
-            <label class="sr-only" for="customer-created-to">تا تاریخ</label>
-            <input class="form-control form-control-solid" id="customer-created-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
-        </div>
-        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
-    </form>
-</div></div><div class="card-body pt-2">
+</div><div class="card-body pt-2">
     {% if can_hard_delete %}
     <div class="d-flex align-items-center gap-3 mb-4" data-customers-toolbar="selected" hidden>
         <span class="fw-bold text-gray-800"><span data-customers-select="selected_count">0</span> مورد انتخاب شد</span>

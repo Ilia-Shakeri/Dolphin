@@ -5,14 +5,40 @@
 {% block page_icon %}<i class="ki-duotone ki-basket-ok page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}سفارش‌ها{% endblock %}
 {% block breadcrumb_current %}سفارش‌ها{% endblock %}
-{% block page_actions %}<button id="open-create-order" class="btn btn-primary" type="button">سفارش تازه</button>{% endblock %}
+{% block page_actions %}{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="order-search-form" action="{% url 'common_ui:orders' %}" method="get" class="list-filters">
-        <label class="sr-only" for="order-search">جستجوی سفارش</label><input class="form-control form-control-solid" id="order-search" name="search" type="search" placeholder="شماره، مشتری یا کالا">
-        <label class="sr-only" for="order-status-filter">وضعیت</label><select class="form-select form-select-solid" id="order-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="confirmed">تأییدشده</option><option value="fulfilled">تحویل‌شده</option><option value="cancelled">لغوشده</option></select>
-        <label class="sr-only" for="order-ordering">مرتب‌سازی</label><select class="form-select form-select-solid" id="order-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option><option value="-total_amount">بیشترین مبلغ</option></select>
-        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
-    </form></div></div><div class="card-body pt-2">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
+    <div class="card-title mb-0">
+        <div class="list-search">
+            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <label class="sr-only" for="order-search">جستجوی سفارش</label>
+            <input class="form-control form-control-solid" id="order-search" type="search" placeholder="شماره، مشتری یا کالا">
+        </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
+        <div class="list-filter">
+            <button id="order-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+            </button>
+            <div id="order-filter-panel" class="list-filter-panel" hidden>
+                <form id="order-search-form" action="{% url 'common_ui:orders' %}" method="get">
+                    <div class="mb-4">
+                        <label class="form-label" for="order-status-filter">وضعیت</label>
+                        <select class="form-select form-select-solid" id="order-status-filter" name="status"><option value="">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="confirmed">تأییدشده</option><option value="fulfilled">تحویل‌شده</option><option value="cancelled">لغوشده</option></select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="order-ordering">مرتب‌سازی</label>
+                        <select class="form-select form-select-solid" id="order-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option><option value="-total_amount">بیشترین مبلغ</option></select>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" type="submit">اعمال فیلتر</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <button id="open-create-order" class="btn btn-primary" type="button">سفارش تازه</button>
+    </div>
+</div><div class="card-body pt-2">
     {% if can_hard_delete %}
     <div class="d-flex align-items-center gap-3 mb-4" data-orders-toolbar="selected" hidden>
         <span class="fw-bold text-gray-800"><span data-orders-select="selected_count">0</span> مورد انتخاب شد</span>

@@ -5,17 +5,52 @@
 {% block page_icon %}<i class="ki-duotone ki-delivery page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}اسناد فروش داخلی{% endblock %}
 {% block breadcrumb_current %}اسناد فروش داخلی{% endblock %}
-{% block page_actions %}{% if can_manage_sales_documents %}<button id="open-create-sales-document" class="btn btn-primary" type="button">ثبت سند</button>{% endif %}{% endblock %}
+{% block page_actions %}{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="sales-document-search-form" action="{% url 'common_ui:sales-documents' %}" method="get" class="list-filters">
-        <label class="sr-only" for="sales-document-search">جستجو</label><input class="form-control form-control-solid" id="sales-document-search" name="search" type="search" placeholder="شماره سند، مشتری، نشانی یا وضعیت">
-        <label class="sr-only" for="sales-document-postal-status">وضعیت پستی</label><input class="form-control form-control-solid" id="sales-document-postal-status" name="postal_status" maxlength="80" placeholder="وضعیت پستی دقیق">
-        <label class="sr-only" for="sales-document-province">استان</label><input class="form-control form-control-solid" id="sales-document-province" name="province" maxlength="100" placeholder="استان دقیق">
-        <label class="sr-only" for="sales-document-city">شهر</label><input class="form-control form-control-solid" id="sales-document-city" name="city" maxlength="100" placeholder="شهر دقیق">
-        <label class="sr-only" for="sales-document-active">حالت</label><select class="form-select form-select-solid" id="sales-document-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select>
-        <label class="sr-only" for="sales-document-ordering">مرتب‌سازی</label><select class="form-select form-select-solid" id="sales-document-ordering" name="ordering"><option value="-registered_at">تازه‌ترین</option><option value="registered_at">قدیمی‌ترین</option><option value="document_number">شماره سند</option></select>
-        <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
-    </form></div></div><div class="card-body pt-2">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
+    <div class="card-title mb-0">
+        <div class="list-search">
+            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <label class="sr-only" for="sales-document-search">جستجو</label>
+            <input class="form-control form-control-solid" id="sales-document-search" type="search" placeholder="شماره سند، مشتری، نشانی یا وضعیت">
+        </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
+        <div class="list-filter">
+            <button id="sales-document-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+            </button>
+            <div id="sales-document-filter-panel" class="list-filter-panel" hidden>
+                <form id="sales-document-search-form" action="{% url 'common_ui:sales-documents' %}" method="get">
+                    <div class="mb-4">
+                        <label class="form-label" for="sales-document-postal-status">وضعیت پستی</label>
+                        <input class="form-control form-control-solid" id="sales-document-postal-status" name="postal_status" maxlength="80" placeholder="وضعیت پستی دقیق">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="sales-document-province">استان</label>
+                        <input class="form-control form-control-solid" id="sales-document-province" name="province" maxlength="100" placeholder="استان دقیق">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="sales-document-city">شهر</label>
+                        <input class="form-control form-control-solid" id="sales-document-city" name="city" maxlength="100" placeholder="شهر دقیق">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="sales-document-active">حالت</label>
+                        <select class="form-select form-select-solid" id="sales-document-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="sales-document-ordering">مرتب‌سازی</label>
+                        <select class="form-select form-select-solid" id="sales-document-ordering" name="ordering"><option value="-registered_at">تازه‌ترین</option><option value="registered_at">قدیمی‌ترین</option><option value="document_number">شماره سند</option></select>
+                    </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-sm btn-primary" type="submit">اعمال فیلتر</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% if can_manage_sales_documents %}<button id="open-create-sales-document" class="btn btn-primary" type="button">ثبت سند</button>{% endif %}
+    </div>
+</div><div class="card-body pt-2">
     {% if can_hard_delete %}
     <div class="d-flex align-items-center gap-3 mb-4" data-sales-documents-toolbar="selected" hidden>
         <span class="fw-bold text-gray-800"><span data-sales-documents-select="selected_count">0</span> مورد انتخاب شد</span>

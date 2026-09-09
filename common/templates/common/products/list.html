@@ -5,39 +5,47 @@
 {% block page_icon %}<i class="ki-duotone ki-basket page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}محصولات{% endblock %}
 {% block breadcrumb_current %}محصولات{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3">
-    <a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a>
-    {% comment %} خروجی همان ستون‌هایی را می‌دهد که ورودی می‌پذیرد، پس کاربر اول
-       خروجی می‌گیرد، رویش می‌نویسد، و همان فایل را برمی‌گرداند. {% endcomment %}
-    <a class="btn btn-light" href="/api/v1/exports/products.xlsx">خروجی اکسل</a>
-    {% if can_manage_products %}
-    <button id="open-import-products" class="btn btn-light" type="button">ورودی اکسل</button>
-    <input id="import-products-file" type="file" accept=".xlsx" hidden>
-    <button id="open-create-product" class="btn btn-primary" type="button">محصول تازه</button>
-    {% endif %}
-</div>{% endblock %}
+{% block page_actions %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8">
-    <div class="card-header border-0 pt-6">
-        {% comment %} `list-filters` است، مثل بقیهٔ صفحه‌ها -- پیش از این یک شبکهٔ
-           بوت‌استرپ جدا داشت (`row g-3`) که کنار فیلترهای هم‌شکل صفحه‌های دیگر
-           به چشم می‌آمد. مرتب‌سازی برداشته شد. {% endcomment %}
-        <div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0">
-            <form id="product-search-form" action="{% url 'common_ui:products' %}" method="get" class="list-filters">
-                <div>
-                    <label class="sr-only" for="product-search">جستجوی محصول</label>
-                    <input class="form-control form-control-solid" id="product-search" name="search" type="search" placeholder="نام، کد، برند یا شرح">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title mb-0">
+            <div class="list-search">
+                <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+                <label class="sr-only" for="product-search">جستجوی محصول</label>
+                <input class="form-control form-control-solid" id="product-search" type="search" placeholder="نام، کد، برند یا شرح">
+            </div>
+        </div>
+        <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
+            <div class="list-filter">
+                <button id="product-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+                    <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+                </button>
+                <div id="product-filter-panel" class="list-filter-panel" hidden>
+                    <form id="product-search-form" action="{% url 'common_ui:products' %}" method="get">
+                        <div class="mb-4">
+                            <label class="form-label" for="product-category-filter">دسته‌بندی</label>
+                            <select class="form-select form-select-solid" id="product-category-filter" name="category"><option value="">همه دسته‌بندی‌ها</option></select>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label" for="product-status-filter">وضعیت محصول</label>
+                            <select class="form-select form-select-solid" id="product-status-filter" name="is_active"><option value="">همه محصولات</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button class="btn btn-sm btn-primary" type="submit">اعمال فیلتر</button>
+                        </div>
+                    </form>
                 </div>
-                <div>
-                    <label class="sr-only" for="product-category-filter">دسته‌بندی</label>
-                    <select class="form-select form-select-solid" id="product-category-filter" name="category"><option value="">همه دسته‌بندی‌ها</option></select>
-                </div>
-                <div>
-                    <label class="sr-only" for="product-status-filter">وضعیت محصول</label>
-                    <select class="form-select form-select-solid" id="product-status-filter" name="is_active"><option value="">همه محصولات</option><option value="true">فعال</option>{% if can_manage_products %}<option value="false">غیرفعال</option>{% endif %}</select>
-                </div>
-                <button class="btn btn-light list-filters-submit" type="submit">اعمال</button>
-            </form>
+            </div>
+            <a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a>
+            {% comment %} خروجی همان ستون‌هایی را می‌دهد که ورودی می‌پذیرد، پس کاربر اول
+               خروجی می‌گیرد، رویش می‌نویسد، و همان فایل را برمی‌گرداند. {% endcomment %}
+            <a class="btn btn-light" href="/api/v1/exports/products.xlsx">خروجی اکسل</a>
+            {% if can_manage_products %}
+            <button id="open-import-products" class="btn btn-light" type="button">ورودی اکسل</button>
+            <input id="import-products-file" type="file" accept=".xlsx" hidden>
+            <button id="open-create-product" class="btn btn-primary" type="button">محصول تازه</button>
+            {% endif %}
         </div>
     </div>
     <div class="card-body pt-2">
