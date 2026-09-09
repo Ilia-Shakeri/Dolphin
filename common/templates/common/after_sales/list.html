@@ -26,7 +26,16 @@
     <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
     <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
 </div></section>
-<dialog id="create-after-sales-dialog" aria-labelledby="create-after-sales-title"><form id="create-after-sales-form" action="/api/v1/after-sales/" method="post" novalidate>{% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-after-sales-title">ثبت پرونده خدمات</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog>×</button></div><div class="row g-5">
+<dialog id="create-after-sales-dialog" aria-labelledby="create-after-sales-title">
+<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-after-sales-title">ثبت پرونده خدمات</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog>×</button></div>
+<div class="stepper stepper-links d-flex flex-column" id="create-after-sales-stepper">
+    <div class="stepper-nav py-5">
+        <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات پرونده</h3></div>
+        <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
+    </div>
+    <form id="create-after-sales-form" action="/api/v1/after-sales/" method="post" novalidate>
+    <div class="current" data-kt-stepper-element="content">
+    <div class="row g-5">
     <div class="col-md-6"><label class="form-label fw-semibold" for="create-after-sales-customer">مشتری</label><select class="form-select form-select-solid" id="create-after-sales-customer" name="customer" required></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
     <div class="col-md-6"><label class="form-label fw-semibold" for="create-after-sales-sale">فروش اختیاری</label><select class="form-select form-select-solid" id="create-after-sales-sale" name="sale"></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sale"></p></div>
     <div class="col-md-6"><label class="form-label fw-semibold" for="create-after-sales-document">سند عملیاتی اختیاری</label><select class="form-select form-select-solid" id="create-after-sales-document" name="document"></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="document"></p></div>
@@ -34,5 +43,23 @@
     <div class="col-md-6"><label class="form-label fw-semibold" for="create-after-sales-subject">موضوع</label><input class="form-control form-control-solid" id="create-after-sales-subject" name="subject" maxlength="200" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="subject"></p></div>
     <div class="col-md-6"><label class="form-label fw-semibold" for="create-after-sales-status">وضعیت آغازین</label><input class="form-control form-control-solid" id="create-after-sales-status" name="status" maxlength="80" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
     <div class="col-12"><label class="form-label fw-semibold" for="create-after-sales-description">شرح</label><textarea class="form-control form-control-solid" id="create-after-sales-description" name="description" maxlength="4000" required></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="description"></p></div>
-</div><p class="text-muted">واژگان وضعیت آزاد ولی محدود است؛ قانون SLA، بازپرداخت، مرجوعی یا اعلان خودکار ساخته نشده.</p><div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت پرونده</button></div></form></dialog>{% endif %}
+    </div>
+    </div>
+    <div data-kt-stepper-element="content">
+        <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی پرونده</h3>
+        <div class="row g-3 mb-4" id="create-after-sales-review"></div>
+        <p class="text-muted">واژگان وضعیت آزاد ولی محدود است؛ قانون SLA، بازپرداخت، مرجوعی یا اعلان خودکار ساخته نشده.</p>
+    </div>
+    {% csrf_token %}
+    <div class="d-flex flex-stack pt-5">
+        <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+        <div class="d-flex gap-3">
+            <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+            <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+            <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت پرونده</button>
+        </div>
+    </div>
+    </form>
+</div>
+</dialog>{% endif %}
 {% endblock %}

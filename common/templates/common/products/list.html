@@ -66,21 +66,41 @@
     <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
 </div></section>
 <dialog id="create-product-dialog" aria-labelledby="create-product-title">
-    <form id="create-product-form" action="/api/v1/products/" method="post" novalidate>
-        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-product-title">محصول تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-sku">کد محصول</label><input class="form-control form-control-solid" id="create-product-sku" name="sku" required maxlength="80"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sku"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-name">نام</label><input class="form-control form-control-solid" id="create-product-name" name="name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-category">دسته‌بندی</label><select class="form-select form-select-solid" id="create-product-category" name="category"><option value="">بدون دسته‌بندی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-brand">برند</label><input class="form-control form-control-solid" id="create-product-brand" name="brand" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="brand"></p></div>
-            {% comment %} واحد جای بارکد داخلی را گرفت. فهرست ثابت است تا دو املای
-               مختلف از یک واحد روی دو سند مختلف ننشیند. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-unit">واحد</label><select class="form-select form-select-solid" id="create-product-unit" name="unit"><option value="">انتخاب نشده</option><option value="box">جعبه</option><option value="piece">عدد</option><option value="carton">کارتن</option><option value="kilogram">کیلوگرم</option><option value="gram">گرم</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-price">قیمت جاری (ریال)</label><input class="form-control form-control-solid" id="create-product-price" name="current_price" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="current_price"></p></div>
-            <div class="col-12"><label class="form-label fw-semibold" for="create-product-description">شرح</label><textarea class="form-control form-control-solid" id="create-product-description" name="description" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="description"></p></div>
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-product-title">محصول تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="stepper stepper-links d-flex flex-column" id="create-product-stepper">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات محصول</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت محصول</button></div>
-    </form>
+        <form id="create-product-form" action="/api/v1/products/" method="post" novalidate>
+        <div class="current" data-kt-stepper-element="content">
+            <div class="row g-5">
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-sku">کد محصول</label><input class="form-control form-control-solid" id="create-product-sku" name="sku" required maxlength="80"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sku"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-name">نام</label><input class="form-control form-control-solid" id="create-product-name" name="name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-category">دسته‌بندی</label><select class="form-select form-select-solid" id="create-product-category" name="category"><option value="">بدون دسته‌بندی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-brand">برند</label><input class="form-control form-control-solid" id="create-product-brand" name="brand" maxlength="120"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="brand"></p></div>
+                {% comment %} واحد جای بارکد داخلی را گرفت. فهرست ثابت است تا دو املای
+                   مختلف از یک واحد روی دو سند مختلف ننشیند. {% endcomment %}
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-unit">واحد</label><select class="form-select form-select-solid" id="create-product-unit" name="unit"><option value="">انتخاب نشده</option><option value="box">جعبه</option><option value="piece">عدد</option><option value="carton">کارتن</option><option value="kilogram">کیلوگرم</option><option value="gram">گرم</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-price">قیمت جاری (ریال)</label><input class="form-control form-control-solid" id="create-product-price" name="current_price" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="current_price"></p></div>
+                <div class="col-12"><label class="form-label fw-semibold" for="create-product-description">شرح</label><textarea class="form-control form-control-solid" id="create-product-description" name="description" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="description"></p></div>
+            </div>
+        </div>
+        <div data-kt-stepper-element="content">
+            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی محصول</h3>
+            <div class="row g-3 mb-4" id="create-product-review"></div>
+        </div>
+        {% csrf_token %}
+        <div class="d-flex flex-stack pt-5">
+            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <div class="d-flex gap-3">
+                <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت محصول</button>
+            </div>
+        </div>
+        </form>
+    </div>
 </dialog>
 {% endif %}
 {% endblock %}

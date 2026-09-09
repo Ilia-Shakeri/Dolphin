@@ -686,7 +686,26 @@
 
         const dialog = document.getElementById("create-user-dialog");
         const createForm = document.getElementById("create-user-form");
-        document.getElementById("open-create-user").addEventListener("click", () => dialog.showModal());
+        function renderCreateUserReview() {
+            renderWizardReview(document.getElementById("create-user-review"), [
+                ["نام کاربری", document.getElementById("create-username").value],
+                ["گذرواژه", "•".repeat(Math.min(document.getElementById("create-password").value.length, 12)) || "—"],
+                ["نام", document.getElementById("create-first-name").value || "—"],
+                ["نام خانوادگی", document.getElementById("create-last-name").value || "—"],
+                ["ایمیل", document.getElementById("create-email").value || "—"],
+                ["تلفن", document.getElementById("create-phone").value || "—"],
+                ["نقش", selectedOptionText(document.getElementById("create-role"))],
+                ["حوزه کاری", selectedOptionText(document.getElementById("create-workstream"))],
+            ]);
+        }
+        const createUserWizard = setupWizard(dialog, {onReachLastStep: renderCreateUserReview});
+        document.getElementById("open-create-user").addEventListener("click", () => {
+            createForm.reset();
+            clearMessages(createForm);
+            syncCreateWorkstream();
+            createUserWizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
 
         // Only a Sales Agent may run the after-sales workstream — the same
@@ -1963,7 +1982,33 @@
         controller.load();
         const dialog = document.getElementById("create-customer-dialog");
         const createForm = document.getElementById("create-customer-form");
-        document.getElementById("open-create-customer").addEventListener("click", () => dialog.showModal());
+        function renderCustomerReview() {
+            const kindField = document.getElementById("create-customer-kind");
+            const phoneRaw = document.getElementById("create-customer-phone").value.trim();
+            renderWizardReview(document.getElementById("create-customer-review"), [
+                ["نام کامل", createForm.full_name.value || "—"],
+                ...(kindField ? [["نوع مشتری", selectedOptionText(kindField)]] : []),
+                ["کد ملی", createForm.national_id.value || "—"],
+                ["شماره اقتصادی", createForm.economic_code.value || "—"],
+                ["ایمیل", createForm.email.value || "—"],
+                ["دسته‌بندی", createForm.category.value || "—"],
+                ["استان", createForm.province.value || "—"],
+                ["شهر", createForm.city.value || "—"],
+                ["کد پستی", createForm.postal_code.value || "—"],
+                ["تلفن آغازین", phoneRaw || "—"],
+                ["برچسب تلفن", createForm.phone_label.value || "—"],
+                ["شماره اصلی", document.getElementById("create-customer-phone-primary").checked ? "بله" : "خیر"],
+                ["نشانی", createForm.address.value || "—"],
+                ["یادداشت", createForm.notes.value || "—"],
+            ]);
+        }
+        const wizard = setupWizard(dialog, {onReachLastStep: renderCustomerReview});
+        document.getElementById("open-create-customer").addEventListener("click", () => {
+            createForm.reset();
+            clearMessages(createForm);
+            wizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         createForm.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -2718,7 +2763,22 @@
         });
         const dialog = document.getElementById("create-lead-dialog");
         const createForm = document.getElementById("create-lead-form");
-        document.getElementById("open-create-lead").addEventListener("click", () => dialog.showModal());
+        function renderLeadReview() {
+            renderWizardReview(document.getElementById("create-lead-review"), [
+                ["منبع", document.getElementById("create-lead-source").value || "—"],
+                ["کمپین یا نوبت", document.getElementById("create-lead-campaign").value || "—"],
+                ["وضعیت", selectedOptionText(document.getElementById("create-lead-status"))],
+                ["پیگیری بعدی", document.getElementById("create-lead-follow-up").value || "—"],
+                ["یادداشت", document.getElementById("create-lead-notes").value || "—"],
+            ]);
+        }
+        const leadWizard = setupWizard(dialog, {onReachLastStep: renderLeadReview});
+        document.getElementById("open-create-lead").addEventListener("click", () => {
+            createForm.reset();
+            clearMessages(createForm);
+            leadWizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             await controller.load();
@@ -3258,6 +3318,14 @@
             });
 
             STATUSES.forEach((status) => {
+                // A fixed number of cards shows before a column scrolls
+                // internally instead of stretching the whole board — see the
+                // `.kanban-drag` max-height rule in dolphin.css. The class is
+                // the theme's own overlay scrollbar (vendor `_scroll.scss`),
+                // the same one the app sidebar itself scrolls with, not a
+                // hand-rolled one — it stays invisible until hovered, so a
+                // short column shows no scrollbar chrome at all.
+                boardElement(status)?.classList.add("hover-scroll-overlay-y");
                 renderLoadMore(status);
                 renderEmptyState(status);
             });
@@ -3452,8 +3520,26 @@
 
             kanban = new jKanban({
                 element: "#order-board",
-                gutter: "0.75rem",
-                widthBoard: "300px",
+                // Narrower than the lead board's own 300px: this board always
+                // carries four columns (the lead board carries three), and at
+                // 300px four of them plus three 0.75rem gutters (1236px) no
+                // longer sit comfortably side by side once the sidebar and
+                // this card's own padding are subtracted from a typical
+                // laptop viewport — the fourth column fell to the next line.
+                // Measured directly against this card's own available width
+                // at 1440px (≈1040px, the sidebar and card padding already
+                // taken out) and against jKanban's own rendered board width —
+                // its per-board margin from `gutter` is not the plain value
+                // passed in (`jkanban.bundle.js` splits it unevenly between
+                // a board's two inline sides rather than applying it once
+                // per gap), so the fit was checked against the real
+                // `getBoundingClientRect()` of a rendered board, not the
+                // arithmetic the option name suggests. 225px keeps four
+                // boards plus their real margins inside that width with room
+                // held in reserve, and an order card's own content (customer
+                // name, status badge, total) still reads on one line at it.
+                gutter: "0.5rem",
+                widthBoard: "225px",
                 dragBoards: false,
                 dragItems: canManage,
                 boards,
@@ -3497,6 +3583,9 @@
             });
 
             STATUSES.forEach((status) => {
+                // Same fixed-height, hover-revealed scrollbar as the lead
+                // board above — see that block's own comment.
+                boardElement(status)?.classList.add("hover-scroll-overlay-y");
                 renderLoadMore(status);
                 renderEmptyState(status);
             });
@@ -3949,8 +4038,25 @@
         const dialog = document.getElementById("create-interaction-dialog");
         const createForm = document.getElementById("create-interaction-form");
         let memberOptions = [];
-        document.getElementById("create-interaction-occurred").value = localDateTimeValue(new Date().toISOString());
-        document.getElementById("open-create-interaction").addEventListener("click", () => dialog.showModal());
+        function renderInteractionReview() {
+            renderWizardReview(document.getElementById("create-interaction-review"), [
+                ["مشتری", document.getElementById("create-interaction-member").value || "—"],
+                ["شماره تماس", document.getElementById("create-interaction-phone").value],
+                ["جهت", selectedOptionText(document.getElementById("create-interaction-direction"))],
+                ["نتیجه ثبت‌شده", document.getElementById("create-interaction-outcome").value],
+                ["زمان تماس", document.getElementById("create-interaction-occurred").value],
+                ["پیگیری بعدی", document.getElementById("create-interaction-follow-up").value || "—"],
+                ["یادداشت", document.getElementById("create-interaction-notes").value || "—"],
+            ]);
+        }
+        const interactionWizard = setupWizard(dialog, {onReachLastStep: renderInteractionReview});
+        document.getElementById("open-create-interaction").addEventListener("click", () => {
+            createForm.reset();
+            clearMessages(createForm);
+            document.getElementById("create-interaction-occurred").value = localDateTimeValue(new Date().toISOString());
+            interactionWizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             await controller.load();
@@ -4049,7 +4155,21 @@
         const dialog = document.getElementById("create-product-category-dialog");
         if (dialog) {
             const createForm = document.getElementById("create-product-category-form");
-            document.getElementById("open-create-product-category").addEventListener("click", () => dialog.showModal());
+            function renderReview() {
+                renderWizardReview(document.getElementById("create-product-category-review"), [
+                    ["کد پایدار", document.getElementById("create-product-category-code").value],
+                    ["نام", document.getElementById("create-product-category-name").value],
+                    ["ترتیب نمایش", toPersianDigits(document.getElementById("create-product-category-order").value)],
+                    ["شرح", document.getElementById("create-product-category-description").value || "—"],
+                ]);
+            }
+            const wizard = setupWizard(dialog, {onReachLastStep: renderReview});
+            document.getElementById("open-create-product-category").addEventListener("click", () => {
+                createForm.reset();
+                clearMessages(createForm);
+                wizard?.goFirst();
+                dialog.showModal();
+            });
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -4150,7 +4270,24 @@
         const dialog = document.getElementById("create-product-dialog");
         if (dialog) {
             const createForm = document.getElementById("create-product-form");
-            document.getElementById("open-create-product").addEventListener("click", () => dialog.showModal());
+            function renderProductReview() {
+                renderWizardReview(document.getElementById("create-product-review"), [
+                    ["کد محصول", document.getElementById("create-product-sku").value],
+                    ["نام", document.getElementById("create-product-name").value],
+                    ["دسته‌بندی", selectedOptionText(document.getElementById("create-product-category"))],
+                    ["برند", document.getElementById("create-product-brand").value || "—"],
+                    ["واحد", selectedOptionText(document.getElementById("create-product-unit"))],
+                    ["قیمت جاری (ریال)", document.getElementById("create-product-price").value || "—"],
+                    ["شرح", document.getElementById("create-product-description").value || "—"],
+                ]);
+            }
+            const productWizard = setupWizard(dialog, {onReachLastStep: renderProductReview});
+            document.getElementById("open-create-product").addEventListener("click", () => {
+                createForm.reset();
+                clearMessages(createForm);
+                productWizard?.goFirst();
+                dialog.showModal();
+            });
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -4357,7 +4494,21 @@
         controller.load();
         const dialog = document.getElementById("create-sale-dialog");
         const createForm = document.getElementById("create-sale-form");
-        document.getElementById("open-create-sale").addEventListener("click", () => dialog.showModal());
+        function renderSaleReview() {
+            renderWizardReview(document.getElementById("create-sale-review"), [
+                ["سرنخ مجاز", selectedOptionText(document.getElementById("create-sale-lead"))],
+                ["محصول فعال", selectedOptionText(document.getElementById("create-sale-product"))],
+                ["تعداد", toPersianDigits(document.getElementById("create-sale-quantity").value)],
+                ["یادداشت", document.getElementById("create-sale-notes").value || "—"],
+            ]);
+        }
+        const saleWizard = setupWizard(dialog, {onReachLastStep: renderSaleReview});
+        document.getElementById("open-create-sale").addEventListener("click", () => {
+            createForm.reset();
+            clearMessages(createForm);
+            saleWizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             const me = await apiRequest("/api/v1/auth/me/");
@@ -4370,6 +4521,7 @@
             const requestedLead = new URLSearchParams(window.location.search).get("lead");
             if (requestedLead && leads.some((lead) => String(lead.id) === requestedLead)) {
                 leadSelect.value = requestedLead;
+                saleWizard?.goFirst();
                 dialog.showModal();
             }
         } catch (error) {
@@ -4464,7 +4616,22 @@
         const createForm = document.getElementById("create-sales-document-form");
         const customerSelect = document.getElementById("create-sales-document-customer");
         const saleSelect = document.getElementById("create-sales-document-sale");
-        document.getElementById("open-create-sales-document").addEventListener("click", () => dialog.showModal());
+        function renderSalesDocumentReview() {
+            renderWizardReview(document.getElementById("create-sales-document-review"), [
+                ["مشتری", selectedOptionText(customerSelect)],
+                ["فروش مرتبط", selectedOptionText(saleSelect)],
+                ["شماره داخلی سند", document.getElementById("create-sales-document-number").value],
+                ["وضعیت پستی آغازین", document.getElementById("create-sales-document-status").value],
+                ["یادداشت", document.getElementById("create-sales-document-notes").value || "—"],
+            ]);
+        }
+        const salesDocumentWizard = setupWizard(dialog, {onReachLastStep: renderSalesDocumentReview});
+        document.getElementById("open-create-sales-document").addEventListener("click", () => {
+            createForm.reset();
+            clearMessages(createForm);
+            salesDocumentWizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         let sales = [];
         try {
@@ -4834,10 +5001,27 @@
         const documentSelect = document.getElementById("create-after-sales-document");
         const assigneeSelect = document.getElementById("create-after-sales-assigned");
         let sales = [], documents = [];
+        function renderAfterSalesReview() {
+            renderWizardReview(document.getElementById("create-after-sales-review"), [
+                ["مشتری", selectedOptionText(customerSelect)],
+                ["فروش اختیاری", selectedOptionText(saleSelect)],
+                ["سند عملیاتی اختیاری", selectedOptionText(documentSelect)],
+                ["مسئول اختیاری", selectedOptionText(assigneeSelect)],
+                ["موضوع", document.getElementById("create-after-sales-subject").value],
+                ["وضعیت آغازین", document.getElementById("create-after-sales-status").value],
+                ["شرح", document.getElementById("create-after-sales-description").value],
+            ]);
+        }
+        const afterSalesWizard = setupWizard(dialog, {onReachLastStep: renderAfterSalesReview});
         // Wire the dialog before the awaited loads below, so a click during
         // them opens the dialog instead of being silently discarded.
         customerSelect.addEventListener("change", refreshRelations);
-        document.getElementById("open-create-after-sales").addEventListener("click", () => dialog.showModal());
+        document.getElementById("open-create-after-sales").addEventListener("click", () => {
+            document.getElementById("create-after-sales-form").reset();
+            clearMessages(document.getElementById("create-after-sales-form"));
+            afterSalesWizard?.goFirst();
+            dialog.showModal();
+        });
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         try {
             const [customers, loadedSales, loadedDocuments, assignees] = await Promise.all([
@@ -6358,7 +6542,21 @@
         const dialog = document.getElementById("create-warehouse-dialog");
         if (dialog) {
             const createForm = document.getElementById("create-warehouse-form");
-            document.getElementById("open-create-warehouse").addEventListener("click", () => dialog.showModal());
+            function renderReview() {
+                renderWizardReview(document.getElementById("create-warehouse-review"), [
+                    ["کد انبار", document.getElementById("create-warehouse-code").value],
+                    ["نام", document.getElementById("create-warehouse-name").value],
+                    ["انبار پیش‌فرض", selectedOptionText(document.getElementById("create-warehouse-default"))],
+                    ["نشانی", document.getElementById("create-warehouse-address").value || "—"],
+                ]);
+            }
+            const wizard = setupWizard(dialog, {onReachLastStep: renderReview});
+            document.getElementById("open-create-warehouse").addEventListener("click", () => {
+                createForm.reset();
+                clearMessages(createForm);
+                wizard?.goFirst();
+                dialog.showModal();
+            });
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -6475,7 +6673,23 @@
         // the first moments of the page is not silently discarded.
         if (movementDialog) {
             const createForm = document.getElementById("create-movement-form");
-            document.getElementById("open-create-movement").addEventListener("click", () => movementDialog.showModal());
+            function renderMovementReview() {
+                renderWizardReview(document.getElementById("create-movement-review"), [
+                    ["انبار", selectedOptionText(document.getElementById("create-movement-warehouse"))],
+                    ["کالا", selectedOptionText(document.getElementById("create-movement-product"))],
+                    ["نوع حرکت", selectedOptionText(document.getElementById("create-movement-type"))],
+                    ["تعداد", createForm.quantity.value || "—"],
+                    ["بهای واحد", createForm.unit_cost.value || "—"],
+                    ["یادداشت", createForm.notes.value || "—"],
+                ]);
+            }
+            const movementWizard = setupWizard(movementDialog, {onReachLastStep: renderMovementReview});
+            document.getElementById("open-create-movement").addEventListener("click", () => {
+                createForm.reset();
+                clearMessages(createForm);
+                movementWizard?.goFirst();
+                movementDialog.showModal();
+            });
             movementDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => movementDialog.close()));
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -6499,7 +6713,22 @@
         }
         if (transferDialog) {
             const transferForm = document.getElementById("transfer-stock-form");
-            document.getElementById("open-transfer-stock").addEventListener("click", () => transferDialog.showModal());
+            function renderTransferReview() {
+                renderWizardReview(document.getElementById("transfer-stock-review"), [
+                    ["از انبار", selectedOptionText(document.getElementById("transfer-from-warehouse"))],
+                    ["به انبار", selectedOptionText(document.getElementById("transfer-to-warehouse"))],
+                    ["کالا", selectedOptionText(document.getElementById("transfer-product"))],
+                    ["تعداد", transferForm.quantity.value || "—"],
+                    ["یادداشت", transferForm.notes.value || "—"],
+                ]);
+            }
+            const transferWizard = setupWizard(transferDialog, {onReachLastStep: renderTransferReview});
+            document.getElementById("open-transfer-stock").addEventListener("click", () => {
+                transferForm.reset();
+                clearMessages(transferForm);
+                transferWizard?.goFirst();
+                transferDialog.showModal();
+            });
             transferDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => transferDialog.close()));
             transferForm.addEventListener("submit", (event) => {
                 event.preventDefault();
@@ -7670,7 +7899,49 @@
             selectMode("cash");
             setupSearchableSelects(createForm);
 
-            document.getElementById("open-create-payment").addEventListener("click", () => dialog.showModal());
+            function renderPaymentReview() {
+                const method = methodField.value;
+                const methodLabel = {cash: "نقدی", bank_transfer: "حواله بانکی", cheque: "چک"}[method] || method;
+                const spending =
+                    direction === "disbursement" &&
+                    method === "cheque" &&
+                    chequeSource &&
+                    chequeSource.value === "customer_endorsed";
+                const rows = [["روش", methodLabel]];
+                if (spending) {
+                    const chequeSelect = document.getElementById("create-cheque-existing-id");
+                    rows.push(["شماره چک", selectedOptionText(chequeSelect)]);
+                    rows.push(["گیرنده", document.getElementById("create-payment-customer-search").value || "—"]);
+                } else {
+                    rows.push([
+                        direction === "disbursement" ? "گیرنده" : "مشتری",
+                        document.getElementById("create-payment-customer-search").value ||
+                            selectedOptionText(document.getElementById("create-payment-customer")),
+                    ]);
+                    if (!amountField.hidden) rows.push(["مبلغ", createForm.amount.value || "—"]);
+                    if (!dateField.hidden) rows.push([direction === "disbursement" ? "تاریخ پرداخت" : "تاریخ دریافت", createForm.received_at.value || "امروز"]);
+                }
+                if (method === "bank_transfer") {
+                    rows.push(["شماره پیگیری", createForm.reference.value || "—"]);
+                    rows.push([direction === "disbursement" ? "بانک مبدأ" : "بانک مقصد", createForm.bank_name.value || "—"]);
+                }
+                if (method === "cheque" && !spending) {
+                    rows.push([direction === "disbursement" ? "بانک مقصد" : "بانک مبدأ", createForm.cheque_bank_name.value || "—"]);
+                    rows.push(["شماره چک", createForm.cheque_serial_number.value || "—"]);
+                    rows.push(["تاریخ سررسید چک", createForm.cheque_due_date.value || "—"]);
+                }
+                rows.push(["یادداشت", createForm.notes.value || "—"]);
+                renderWizardReview(document.getElementById("create-payment-review"), rows);
+            }
+            const paymentWizard = setupWizard(dialog, {onReachLastStep: renderPaymentReview});
+
+            document.getElementById("open-create-payment").addEventListener("click", () => {
+                createForm.reset();
+                clearMessages(createForm);
+                selectMode("cash");
+                paymentWizard?.goFirst();
+                dialog.showModal();
+            });
             dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
             createForm.addEventListener("submit", (event) => {
                 event.preventDefault();

@@ -1264,11 +1264,42 @@ dialog {
     color: var(--bs-gray-900);
     font-size: 1.05rem;
 }
+/* The count badge `boardTitle()` (dolphin-app.js) builds beside each column's
+   label. `gap-2` on that wrapper already keeps it off the text, but a plain
+   `badge-light-secondary` sits flush with its own digits at the theme's
+   default badge padding — read on screen as crowding the label rather than a
+   separate, countable figure. A little more distance from the label and a
+   little more room around the digits reads it as its own small box instead. */
+#lead-board .kanban-board header .kanban-title-board,
+#order-board .kanban-board header .kanban-title-board {
+    gap: 0.6rem;
+}
+#lead-board .kanban-board header .kanban-title-board .badge,
+#order-board .kanban-board header .kanban-title-board .badge {
+    min-width: 1.85rem;
+    padding: 0.45em 0.65em;
+    border-radius: 0.55rem;
+    font-weight: 600;
+}
 #lead-board .kanban-item,
 #order-board .kanban-item {
     background-color: var(--bs-body-bg);
     border-radius: 0.6rem;
     box-shadow: var(--bs-card-box-shadow, 0 0.1rem 0.5rem rgba(0, 0, 0, 0.05));
+}
+/* A column shows a fixed number of cards before it scrolls internally rather
+   than growing the whole board — `jKanban`'s own `.kanban-drag` is the
+   per-column card list `boardElement()` (dolphin-app.js) returns and adds
+   `.hover-scroll-overlay-y` to (Metronic's own overlay scrollbar, `dolphin.js`
+   loads it already — see that class's own rule in `assets/css/style.bundle.
+   css` for the transparent-until-hover thumb this reuses rather than a
+   hand-rolled one). The height below is roughly four cards' worth at this
+   board's card padding/line-height; a fifth card and beyond scroll into view
+   without the column — or the page around it — growing past that. */
+#lead-board .kanban-drag,
+#order-board .kanban-drag {
+    max-height: 30rem;
+    padding-inline-end: 0.35rem;
 }
 /* The one card-shaped exception: the "load more" control `setupLeadBoard()`/
    `setupOrderBoard()` append past jKanban's own item list is a real

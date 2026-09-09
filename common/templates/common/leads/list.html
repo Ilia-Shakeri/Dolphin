@@ -36,19 +36,39 @@
     <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
 </div></section>
 <dialog id="create-lead-dialog" aria-labelledby="create-lead-title">
-    <form id="create-lead-form" action="/api/v1/leads/" method="post" novalidate>
-        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-lead-title">ساخت سرنخ</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="row g-5">
-            {% comment %} مشتری و محصول مورد علاقه از این فرم برداشته شدند: کمپین از روی
-               جامعه هدف کار می‌شود، نه از روی یک مشتری واحد. {% endcomment %}
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-source">منبع</label><input class="form-control form-control-solid" id="create-lead-source" name="source" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="source"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-campaign">کمپین یا نوبت</label><input class="form-control form-control-solid" id="create-lead-campaign" name="campaign_or_batch" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="campaign_or_batch"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-status">وضعیت</label><select class="form-select form-select-solid" id="create-lead-status" name="status"><option value="pending">در انتظار تکمیل</option><option value="completed">تکمیل</option><option value="cancelled">کنسل شده</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-follow-up">پیگیری بعدی</label><input class="form-control form-control-solid" id="create-lead-follow-up" name="next_follow_up_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="next_follow_up_at"></p></div>
-            <div class="col-12"><label class="form-label fw-semibold" for="create-lead-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-lead-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-lead-title">ساخت سرنخ</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="stepper stepper-links d-flex flex-column" id="create-lead-stepper">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات سرنخ</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
-        <p class="text-muted">تخصیص خودکار انجام نمی‌شود. نقش مجاز پس از ساخت، مسئول را دستی تعیین می‌کند.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ساخت سرنخ</button></div>
-    </form>
+        <form id="create-lead-form" action="/api/v1/leads/" method="post" novalidate>
+        <div class="current" data-kt-stepper-element="content">
+            <div class="row g-5">
+                {% comment %} مشتری و محصول مورد علاقه از این فرم برداشته شدند: کمپین از روی
+                   جامعه هدف کار می‌شود، نه از روی یک مشتری واحد. {% endcomment %}
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-source">منبع</label><input class="form-control form-control-solid" id="create-lead-source" name="source" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="source"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-campaign">کمپین یا نوبت</label><input class="form-control form-control-solid" id="create-lead-campaign" name="campaign_or_batch" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="campaign_or_batch"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-status">وضعیت</label><select class="form-select form-select-solid" id="create-lead-status" name="status"><option value="pending">در انتظار تکمیل</option><option value="completed">تکمیل</option><option value="cancelled">کنسل شده</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="status"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-lead-follow-up">پیگیری بعدی</label><input class="form-control form-control-solid" id="create-lead-follow-up" name="next_follow_up_at" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="next_follow_up_at"></p></div>
+                <div class="col-12"><label class="form-label fw-semibold" for="create-lead-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-lead-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+            </div>
+        </div>
+        <div data-kt-stepper-element="content">
+            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سرنخ</h3>
+            <div class="row g-3 mb-4" id="create-lead-review"></div>
+            <p class="text-muted">تخصیص خودکار انجام نمی‌شود. نقش مجاز پس از ساخت، مسئول را دستی تعیین می‌کند.</p>
+        </div>
+        {% csrf_token %}
+        <div class="d-flex flex-stack pt-5">
+            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <div class="d-flex gap-3">
+                <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ساخت سرنخ</button>
+            </div>
+        </div>
+        </form>
+    </div>
 </dialog>
 {% endblock %}

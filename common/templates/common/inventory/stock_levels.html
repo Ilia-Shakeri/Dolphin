@@ -31,40 +31,80 @@
     <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
 </div></section>
 <dialog id="create-movement-dialog" aria-labelledby="create-movement-title">
-    <form id="create-movement-form" action="/api/v1/stock-movements/" method="post" novalidate>
-        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-movement-title">ثبت حرکت انبار</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-warehouse">انبار</label><select class="form-select form-select-solid" id="create-movement-warehouse" name="warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-product">کالا</label><select class="form-select form-select-solid" id="create-movement-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-type">نوع حرکت</label><select class="form-select form-select-solid" id="create-movement-type" name="movement_type" required>
-                {% comment %} سه حرکت دستی مجاز. بقیه انواع در مدل می‌مانند چون سامانه
-                   خودش آن‌ها را برای سفارش و فاکتور ثبت می‌کند، اما اپراتور فقط
-                   این سه را انتخاب می‌کند. {% endcomment %}
-                <option value="opening">موجودی اول دوره</option>
-                <option value="return_in">برگشت از مشتری</option>
-                <option value="sale">ارسال به مشتری</option>
-            </select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="movement_type"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>
-            <div class="col-12"><label class="form-label fw-semibold" for="create-movement-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-movement-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-movement-title">ثبت حرکت انبار</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="stepper stepper-links d-flex flex-column" id="create-movement-stepper">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات حرکت</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
-        <p class="text-muted">بهای واحد برای حرکت‌های ورودی لازم است و میانگین موزون را به‌روز می‌کند. حرکت خروجی بهای میانگین جاری را مصرف می‌کند و آن را تغییر نمی‌دهد. حرکت ثبت‌شده ویرایش یا حذف نمی‌شود؛ اصلاح با یک حرکت جبرانی انجام می‌گیرد.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت حرکت</button></div>
-    </form>
+        <form id="create-movement-form" action="/api/v1/stock-movements/" method="post" novalidate>
+        <div class="current" data-kt-stepper-element="content">
+            <div class="row g-5">
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-warehouse">انبار</label><select class="form-select form-select-solid" id="create-movement-warehouse" name="warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-product">کالا</label><select class="form-select form-select-solid" id="create-movement-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-type">نوع حرکت</label><select class="form-select form-select-solid" id="create-movement-type" name="movement_type" required>
+                    {% comment %} سه حرکت دستی مجاز. بقیه انواع در مدل می‌مانند چون سامانه
+                       خودش آن‌ها را برای سفارش و فاکتور ثبت می‌کند، اما اپراتور فقط
+                       این سه را انتخاب می‌کند. {% endcomment %}
+                    <option value="opening">موجودی اول دوره</option>
+                    <option value="return_in">برگشت از مشتری</option>
+                    <option value="sale">ارسال به مشتری</option>
+                </select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="movement_type"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>
+                <div class="col-12"><label class="form-label fw-semibold" for="create-movement-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-movement-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+            </div>
+        </div>
+        <div data-kt-stepper-element="content">
+            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی حرکت انبار</h3>
+            <div class="row g-3 mb-4" id="create-movement-review"></div>
+            <p class="text-muted">بهای واحد برای حرکت‌های ورودی لازم است و میانگین موزون را به‌روز می‌کند. حرکت خروجی بهای میانگین جاری را مصرف می‌کند و آن را تغییر نمی‌دهد. حرکت ثبت‌شده ویرایش یا حذف نمی‌شود؛ اصلاح با یک حرکت جبرانی انجام می‌گیرد.</p>
+        </div>
+        {% csrf_token %}
+        <div class="d-flex flex-stack pt-5">
+            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <div class="d-flex gap-3">
+                <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت حرکت</button>
+            </div>
+        </div>
+        </form>
+    </div>
 </dialog>
 <dialog id="transfer-stock-dialog" aria-labelledby="transfer-stock-title">
-    <form id="transfer-stock-form" action="/api/v1/stock-movements/transfer/" method="post" novalidate>
-        {% csrf_token %}<div class="d-flex flex-stack align-items-center mb-5"><h2 id="transfer-stock-title">انتقال بین انبار</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-        <div class="row g-5">
-            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-from-warehouse">از انبار</label><select class="form-select form-select-solid" id="transfer-from-warehouse" name="from_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="from_warehouse"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-to-warehouse">به انبار</label><select class="form-select form-select-solid" id="transfer-to-warehouse" name="to_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_warehouse"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-product">کالا</label><select class="form-select form-select-solid" id="transfer-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-quantity">تعداد</label><input class="form-control form-control-solid" id="transfer-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
-            <div class="col-12"><label class="form-label fw-semibold" for="transfer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="transfer-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="transfer-stock-title">انتقال بین انبار</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="stepper stepper-links d-flex flex-column" id="transfer-stock-stepper">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات انتقال</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
-        <p class="text-muted">انتقال دو حرکت هم‌زمان می‌سازد و بهای میانگین کالا را جابه‌جا می‌کند، پس ارزش کل موجودی تغییر نمی‌کند.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">انتقال</button></div>
-    </form>
+        <form id="transfer-stock-form" action="/api/v1/stock-movements/transfer/" method="post" novalidate>
+        <div class="current" data-kt-stepper-element="content">
+            <div class="row g-5">
+                <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-from-warehouse">از انبار</label><select class="form-select form-select-solid" id="transfer-from-warehouse" name="from_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="from_warehouse"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-to-warehouse">به انبار</label><select class="form-select form-select-solid" id="transfer-to-warehouse" name="to_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_warehouse"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-product">کالا</label><select class="form-select form-select-solid" id="transfer-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-quantity">تعداد</label><input class="form-control form-control-solid" id="transfer-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
+                <div class="col-12"><label class="form-label fw-semibold" for="transfer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="transfer-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+            </div>
+        </div>
+        <div data-kt-stepper-element="content">
+            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی انتقال</h3>
+            <div class="row g-3 mb-4" id="transfer-stock-review"></div>
+            <p class="text-muted">انتقال دو حرکت هم‌زمان می‌سازد و بهای میانگین کالا را جابه‌جا می‌کند، پس ارزش کل موجودی تغییر نمی‌کند.</p>
+        </div>
+        {% csrf_token %}
+        <div class="d-flex flex-stack pt-5">
+            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <div class="d-flex gap-3">
+                <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">انتقال</button>
+            </div>
+        </div>
+        </form>
+    </div>
 </dialog>
 {% endif %}
 {% endblock %}
