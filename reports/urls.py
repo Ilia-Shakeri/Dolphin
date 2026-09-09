@@ -2,6 +2,7 @@ from django.urls import path
 
 from reports.customer_views import (
     CustomerCityReportView,
+    CustomerProvinceReportView,
     CustomerGrowthReportView,
     ListChartView,
 )
@@ -27,6 +28,7 @@ from reports.profile_views import SalesGrowthReportView
 urlpatterns = [
     path("reports/list-chart/<slug:key>/", ListChartView.as_view(), name="list-chart"),
     path("reports/customer-cities/", CustomerCityReportView.as_view(), name="customer-city-report"),
+    path("reports/customer-provinces/", CustomerProvinceReportView.as_view(), name="customer-province-report"),
     path("reports/customer-growth/", CustomerGrowthReportView.as_view(), name="customer-growth-report"),
     path("reports/user-performance/", UserPerformanceReportView.as_view(), name="user-performance-report"),
     path("reports/user-performance/details/", UserPerformanceDetailView.as_view(), name="user-performance-detail"),

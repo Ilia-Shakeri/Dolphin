@@ -549,6 +549,18 @@ FROM (
         -- place by a Platform Admin, same convention as
         -- common_brandsettings below.
         ('communications_smsprovidersettings', 'SELECT, INSERT, UPDATE'),
+        -- Group and scheduled sends (product-owner request 2026-09-09). The
+        -- campaign row and each of its recipients are rewritten in place as
+        -- the dispatcher works through them (scheduled -> sending ->
+        -- completed, pending -> sent/failed), so both take UPDATE; neither is
+        -- ever deleted, and the messages themselves are still ordinary
+        -- append-only communications_outboundsms rows above.
+        ('communications_smscampaign', 'SELECT, INSERT, UPDATE'),
+        ('communications_smscampaignrecipient', 'SELECT, INSERT, UPDATE'),
+        -- Reusable message bodies. Unlike everything else here this really is
+        -- editable and deletable: a template is a convenience, not a record —
+        -- messages already sent from one keep their own copy of the text.
+        ('communications_smstemplate', 'SELECT, INSERT, UPDATE, DELETE'),
         ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
         -- One singleton row for the whole deployment (common.branding); a
         -- logo is cleared by writing NULL back into it, never by deleting

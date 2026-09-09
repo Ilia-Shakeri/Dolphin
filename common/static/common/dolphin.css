@@ -1317,6 +1317,13 @@ dialog {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
+    /* Centred rather than packed against the inline-start edge (product-owner
+       decision 2026-09-09). Three 300px columns leave real slack inside a wide
+       card, and pinning them to one side reads as a board that failed to fill
+       its container; centred, the same columns read as a deliberate layout.
+       `justify-content` only moves the free space, so nothing about the column
+       widths, the gutter, or the narrow-screen stacking rule below changes. */
+    justify-content: center;
 }
 #lead-board .kanban-board,
 #order-board .kanban-board {
@@ -1406,6 +1413,252 @@ dialog {
 #lead-board .lead-board-empty,
 #order-board .lead-board-empty {
     color: var(--bs-gray-600);
+}
+
+/* Each column's own search (product-owner decision 2026-09-09): a small icon
+   button in the column header that reveals one input, live-filtering that
+   column alone through the same `search=` the list page's own box already
+   uses. Collapsed by default so a board of three or four columns is not three
+   or four permanently-open search boxes — the header stays a label and a
+   count until someone actually wants to search. */
+/* jKanban writes the string `boardTitle()` returns straight into its own
+   `.kanban-title-board` div (`jkanban.bundle.js`), so the label, the count
+   badge and this button are that div's own children — there is no wrapper of
+   ours to lay them out. Declaring the row here is what makes both the
+   `gap` rule above and the button's `margin-inline-start: auto` below work. */
+#lead-board .kanban-title-board,
+#order-board .kanban-title-board {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+#lead-board .board-search-toggle,
+#order-board .board-search-toggle {
+    /* `margin-inline-start: auto` rather than a `flex-stack` wrapper: the
+       title element is jKanban's own, built from the HTML string
+       `boardTitle()` returns, so the button has to push itself to the far
+       edge from inside that flex row. */
+    margin-inline-start: auto;
+    width: 1.85rem;
+    height: 1.85rem;
+}
+#lead-board .board-search,
+#order-board .board-search {
+    padding: 0.5rem 0.75rem 0;
+}
+#lead-board .board-search input,
+#order-board .board-search input {
+    /* Smaller than a page-level search box on purpose — it filters one column,
+       not the screen, and it sits inside a 300px card. */
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+}
+
+/* 6b. Province map ----------------------------------------------------------
+   The customers page's own choropleth of Iran (product-owner request
+   2026-09-09). Everything here is layout and the five-step scale; the geometry
+   is inline SVG built by `renderProvinceMap` in dolphin-app.js from the
+   vendored `iran-provinces.json`.
+
+   The five steps are the theme's own primary colour at rising opacity rather
+   than five hand-picked colours, so the map re-tints itself for free when a
+   deployment sets its own accent (common.branding, 2.5.1) — and stays legible
+   on both grounds, because opacity composites over whatever is behind it. */
+.province-map {
+    position: relative;
+}
+
+.province-map-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.province-map-region {
+    stroke: var(--bs-body-bg);
+    stroke-width: 1.2;
+    /* Filled per step below. The transition is on `fill-opacity` only: a
+       transition on `fill` would animate through the theme's own colour
+       tokens on a theme switch. */
+    fill: var(--bs-primary);
+    transition: fill-opacity 0.15s ease, stroke 0.15s ease;
+    cursor: default;
+    outline: none;
+}
+
+.province-map-step-0 { fill: var(--bs-gray-200); fill-opacity: 1; }
+.province-map-step-1 { fill-opacity: 0.22; }
+.province-map-step-2 { fill-opacity: 0.4; }
+.province-map-step-3 { fill-opacity: 0.58; }
+.province-map-step-4 { fill-opacity: 0.78; }
+.province-map-step-5 { fill-opacity: 1; }
+
+.province-map-region:hover,
+.province-map-region:focus-visible {
+    stroke: var(--bs-gray-900);
+    stroke-width: 1.8;
+}
+
+/* Follows the pointer, so it is positioned from script; everything that does
+   not move is here. `pointer-events: none` matters — without it the tooltip
+   sits under the cursor and steals the `pointermove` that positions it, which
+   makes it flicker. */
+.province-map-tooltip {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 0.75rem));
+    pointer-events: none;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background-color: var(--bs-gray-900);
+    color: var(--bs-gray-100);
+    white-space: nowrap;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.25);
+}
+
+.province-map-tooltip-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.province-map-tooltip-value {
+    font-size: 0.78rem;
+    opacity: 0.85;
+}
+
+.province-map-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 0.75rem;
+}
+
+/* The legend keys are HTML, not SVG, so they cannot read the `fill-opacity`
+   the regions above are shaded with — `opacity` is the equivalent here, and
+   the two ladders are kept deliberately identical. */
+.province-map-swatch {
+    display: inline-block;
+    width: 1.75rem;
+    height: 0.6rem;
+    border-radius: 0.15rem;
+    background-color: var(--bs-primary);
+}
+
+.province-map-swatch.province-map-step-1 { opacity: 0.22; }
+.province-map-swatch.province-map-step-2 { opacity: 0.4; }
+.province-map-swatch.province-map-step-3 { opacity: 0.58; }
+.province-map-swatch.province-map-step-4 { opacity: 0.78; }
+.province-map-swatch.province-map-step-5 { opacity: 1; }
+
+/* 7a. Wizard line-items step ------------------------------------------------
+   The order and invoice wizards' second step (product-owner decision
+   2026-09-09: cleaner, more minimal, more air). The row layout itself is the
+   purchased theme's own repeater (`gap-5`, a narrow quantity column, an icon
+   delete button — see `createLineItemRows` in dolphin-app.js); what is here is
+   only the rhythm between rows, which the theme has no component for.
+
+   A hairline rule between rows rather than a card around each: a boxed row per
+   line reads as four heavy objects stacked, which is the opposite of what was
+   asked for. */
+.wizard-line-row {
+    padding-block: 0.9rem;
+    border-bottom: 1px dashed var(--bs-gray-300);
+}
+
+/* No trailing rule under the last row — it would read as a cut-off table. */
+.wizard-line-row:last-child {
+    border-bottom: 0;
+}
+
+.wizard-lines-step .wizard-lines-head {
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--bs-gray-300);
+    letter-spacing: 0.04em;
+}
+
+/* Reserves exactly the width the delete button occupies in each row below, so
+   the two visible labels sit over the columns they name instead of drifting
+   one control to the side. `btn-sm btn-icon` is 2.25rem in this theme. */
+.wizard-lines-step .wizard-lines-head-spacer {
+    width: 2.25rem;
+}
+
+/* The head labels only make sense while the row is still one line. Below the
+   theme's own `md` breakpoint the row wraps and every control goes full
+   width, so the labels would name the wrong things. */
+@media (max-width: 767.98px) {
+    .wizard-lines-step .wizard-lines-head {
+        display: none !important;
+    }
+}
+
+/* 7b. Data tables ----------------------------------------------------------
+   Product-owner decision 2026-09-09: the list tables should read as the
+   purchased theme's own tables do, where the header row carries its own light
+   ground instead of being distinguished by weight alone.
+
+   `bg-light` + `rounded-start`/`rounded-end` on the header row is exactly the
+   theme's own pattern for this (`widgets/tables.html` in the purchased source,
+   e.g. the "محصولات"/"نماینده" tables) — applied here in CSS rather than by
+   editing the class list of every one of the ~39 tables, and scoped to
+   `.table-row-dashed`, which every served list/detail table carries and the
+   printed invoice sheet deliberately does not. */
+/* The ground goes on the cells, not on the row. Bootstrap paints every cell's
+   own `--bs-table-bg` over whatever the `<tr>` carries, and a `<tr>`'s
+   background ignores any `border-radius` its cells declare — so a row-level
+   colour would render as a hard-cornered band no matter what the end cells
+   below say. On the cells, both the colour and the rounding are real. */
+.table-row-dashed > thead > tr > th {
+    background-color: var(--bs-gray-100);
+    /* The theme's own header cells are roomier than its body cells; `gy-*` on
+       the table only sets the body rhythm. */
+    padding-block: 0.85rem;
+    border-bottom: 0 !important;
+}
+
+/* Rounding the row itself does nothing — a `<tr>` paints no corners — so the
+   end cells carry it, the same way the theme's own markup does with
+   `rounded-start`/`rounded-end`. Logical properties, so RTL needs no second
+   rule. */
+.table-row-dashed > thead > tr > th:first-child {
+    border-start-start-radius: 0.625rem;
+    border-end-start-radius: 0.625rem;
+    padding-inline-start: 1rem;
+}
+
+.table-row-dashed > thead > tr > th:last-child {
+    border-start-end-radius: 0.625rem;
+    border-end-end-radius: 0.625rem;
+    padding-inline-end: 1rem;
+}
+
+/* A row under the pointer lifts slightly. The theme ships `.table-hover` for
+   this but none of these tables opt into it, and adding the class to ~39
+   tables to get one hover colour is the same edit-everything problem the
+   header rule above avoids. Kept very light: these rows are read, not
+   clicked-through, so the highlight is an orientation aid rather than an
+   affordance. */
+.table-row-dashed > tbody > tr {
+    transition: background-color 0.15s ease;
+}
+
+.table-row-dashed > tbody > tr:hover {
+    background-color: var(--bs-gray-100);
+}
+
+/* First/last body cells line up with the header's own inset above, so the
+   shaded header does not sit proud of the column it heads. */
+.table-row-dashed > tbody > tr > td:first-child {
+    padding-inline-start: 1rem;
+}
+
+.table-row-dashed > tbody > tr > td:last-child {
+    padding-inline-end: 1rem;
 }
 
 /* 8. Jalali date/time picker ------------------------------------------------ */

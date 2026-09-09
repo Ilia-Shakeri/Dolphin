@@ -8,16 +8,14 @@
 {% block page_actions %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
-    <div class="card-title mb-0">
+    <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
             <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="sale-search">جستجوی فروش</label>
             <input class="form-control form-control-solid" id="sale-search" type="search" placeholder="مشتری، محصول یا یادداشت">
         </div>
-    </div>
-    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <div class="list-filter">
-            <button id="sale-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+            <button id="sale-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
                 <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="sale-filter-panel" class="list-filter-panel" hidden>
@@ -36,6 +34,8 @@
                 </form>
             </div>
         </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <button id="open-create-sale" class="btn btn-primary" type="button">ثبت فروش</button>
     </div>
 </div><div class="card-body pt-2">

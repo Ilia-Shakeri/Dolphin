@@ -74,7 +74,12 @@
 {% comment %} Metronic's dark-sidebar layout is the one canonical shell for this product;
    no other demo variant is mixed in. `data-page` stays because it selects the
    single page handler in dolphin-app.js. {% endcomment %}
+{% comment %} The province map's own geometry file. Passed as a resolved
+   `{% static %}` URL rather than hard-coded in the script, because static files
+   are served from a hashed path in production and the script has no way to
+   build one. {% endcomment %}
 <body id="kt_app_body" class="app-default"
+      data-iran-map-url="{% static 'common/iran-provinces.json' %}"
       data-kt-app-layout="dark-sidebar"
       data-kt-app-header-fixed="true"
       data-kt-app-sidebar-enabled="true"

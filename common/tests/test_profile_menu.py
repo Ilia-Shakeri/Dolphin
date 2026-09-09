@@ -174,11 +174,30 @@ class PasswordChangeAbsentTests(TestCase):
         page = self.client.get("/users/").content.decode("utf-8")
         self.assertIn('id="create-password"', page)
 
+    #: Templates whose password field is not a *user account* password at all,
+    #: which is the only thing this guard is about.
+    #:
+    #: `sms/provider_settings.html` holds the credential this deployment uses to
+    #: authenticate against its own SMS gateway (`SmsProviderSettings.
+    #: token_password`, the `oauth2_password` auth mode added in 2.4.0). It is a
+    #: third-party API secret typed by a Platform Admin, not anyone's login —
+    #: nobody's account changes when it does, and `autocomplete="new-password"`
+    #: on it is exactly right, because it stops the browser offering the
+    #: operator's own saved credentials for a field that is not theirs.
+    #:
+    #: This was a false positive from the day that page shipped (2.4.0), found
+    #: on 2026-09-09 while releasing 2.5.3 and unrelated to that work. Narrowed
+    #: by name rather than by dropping the `new-password` marker, so the marker
+    #: still catches a real account-password field anywhere else.
+    TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL = frozenset({"provider_settings.html"})
+
     def test_no_served_template_offers_a_password_change(self):
         offenders = []
         for path in TEMPLATE_ROOT.rglob("*.html"):
             if path.name == "login.html":
                 continue  # Signing in is not changing a password.
+            if path.name in self.TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL:
+                continue
             text = path.read_text(encoding="utf-8")
             for marker in ("گذرواژه تازه", "تغییر گذرواژه", "تغییر رمز", "new-password"):
                 if marker in text and "create-password" not in text:

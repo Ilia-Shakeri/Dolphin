@@ -5,7 +5,7 @@
 {% block page_icon %}<i class="ki-duotone ki-user page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{{ user_admin_label }}{% endblock %}
 {% block breadcrumb_current %}{{ user_admin_label }}{% endblock %}
-{% block page_actions %}{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="/api/v1/exports/users.xlsx">دریافت XLSX</a>{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title mb-0">
@@ -16,7 +16,6 @@
         </div>
     </div>
     <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
-        <a class="btn btn-light" href="/api/v1/exports/users.xlsx">دریافت XLSX</a>
         <button id="open-create-user" class="btn btn-primary" type="button">کاربر جدید</button>
     </div>
 </div><div class="card-body pt-2">

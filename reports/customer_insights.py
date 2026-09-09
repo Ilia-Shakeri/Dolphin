@@ -56,6 +56,132 @@ def _city_label(customer):
     return ""
 
 
+#: The thirty-one provinces, and the spellings a person actually types. The
+#: `province` field is free text — nobody chose from a list — so "تهران",
+#: "استان تهران" and "Tehran" all have to land in the same bucket or the map
+#: shows three different places. Keys are normalised by `_normalise_province`
+#: below; the value is the canonical key the vendored map file uses
+#: (common/static/common/iran-provinces.json, built from Natural Earth).
+PROVINCE_ALIASES = {
+    "آذربایجان شرقی": "East Azarbaijan",
+    "اذربایجان شرقی": "East Azarbaijan",
+    "تبریز": "East Azarbaijan",
+    "آذربایجان غربی": "West Azarbaijan",
+    "اذربایجان غربی": "West Azarbaijan",
+    "ارومیه": "West Azarbaijan",
+    "اردبیل": "Ardebil",
+    "اصفهان": "Esfahan",
+    "ایلام": "Ilam",
+    "بوشهر": "Bushehr",
+    "تهران": "Tehran",
+    "چهارمحال و بختیاری": "Chaharmahal and Bakhtiari",
+    "چهارمحال وبختیاری": "Chaharmahal and Bakhtiari",
+    "شهرکرد": "Chaharmahal and Bakhtiari",
+    "خراسان رضوی": "Razavi Khorasan",
+    "مشهد": "Razavi Khorasan",
+    "خراسان جنوبی": "South Khorasan",
+    "بیرجند": "South Khorasan",
+    "خراسان شمالی": "North Khorasan",
+    "بجنورد": "North Khorasan",
+    "خوزستان": "Khuzestan",
+    "اهواز": "Khuzestan",
+    "زنجان": "Zanjan",
+    "سمنان": "Semnan",
+    "سیستان و بلوچستان": "Sistan and Baluchestan",
+    "سیستان وبلوچستان": "Sistan and Baluchestan",
+    "زاهدان": "Sistan and Baluchestan",
+    "فارس": "Fars",
+    "شیراز": "Fars",
+    "قزوین": "Qazvin",
+    "قم": "Qom",
+    "کردستان": "Kordestan",
+    "سنندج": "Kordestan",
+    "کرمان": "Kerman",
+    "کرمانشاه": "Kermanshah",
+    "کهگیلویه و بویراحمد": "Kohgiluyeh and Buyer Ahmad",
+    "کهگیلویه وبویراحمد": "Kohgiluyeh and Buyer Ahmad",
+    "یاسوج": "Kohgiluyeh and Buyer Ahmad",
+    "گلستان": "Golestan",
+    "گرگان": "Golestan",
+    "گیلان": "Gilan",
+    "رشت": "Gilan",
+    "لرستان": "Lorestan",
+    "خرم آباد": "Lorestan",
+    "مازندران": "Mazandaran",
+    "ساری": "Mazandaran",
+    "مرکزی": "Markazi",
+    "اراک": "Markazi",
+    "هرمزگان": "Hormozgan",
+    "بندرعباس": "Hormozgan",
+    "همدان": "Hamadan",
+    "یزد": "Yazd",
+    "البرز": "Alborz",
+    "کرج": "Alborz",
+}
+
+
+def _normalise_province(text):
+    """Fold the spellings of one province onto one key.
+
+    Arabic yeh/kaf are rewritten to their Persian forms (a keyboard difference,
+    not a different word), the honorific "استان" prefix is dropped, and the
+    zero-width non-joiner and repeated spaces are collapsed. Everything here is
+    orthography; nothing decides which province a place belongs to.
+    """
+    value = (text or "").strip()
+    if not value:
+        return ""
+    value = value.replace("ي", "ی").replace("ك", "ک").replace("‌", " ")
+    value = " ".join(value.split())
+    for prefix in ("استان ", "استانِ "):
+        if value.startswith(prefix):
+            value = value[len(prefix):].strip()
+    return value
+
+
+def build_customer_province_report(*, actor):
+    """Customers per province, for the map on the customers page.
+
+    Same scope rule and same "never drop a row" reasoning as the city report
+    below: a customer whose province is blank — or is written as something not
+    in `PROVINCE_ALIASES` — is counted in `unmatched` rather than discarded, so
+    the total on the map equals the total in the table above it. The map itself
+    can only colour the thirty-one it knows; saying how many it could not place
+    is the honest way to show that.
+    """
+    counts = {}
+    unmatched = 0
+    total = 0
+    for customer in customers_for(actor).only("city", "province"):
+        total += 1
+        # Province first here, unlike the city report: this is a province map,
+        # so a customer with only a city is placed by that city's province when
+        # the alias table knows it, and counted as unplaced when it does not.
+        key = PROVINCE_ALIASES.get(_normalise_province(customer.province))
+        if key is None:
+            key = PROVINCE_ALIASES.get(_normalise_province(customer.city))
+        if key is None:
+            unmatched += 1
+            continue
+        counts[key] = counts.get(key, 0) + 1
+
+    results = [
+        {
+            "key": key,
+            "count": count,
+            "percent": round((count / total) * 100, 1) if total else 0.0,
+        }
+        for key, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    ]
+    return {
+        "total": total,
+        "placed": total - unmatched,
+        "unmatched": unmatched,
+        "distinct_provinces": len(counts),
+        "results": results,
+    }
+
+
 def build_customer_city_report(*, actor):
     """Customers per city, largest first, with a tail and a percentage each.
 

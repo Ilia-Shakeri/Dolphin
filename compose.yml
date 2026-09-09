@@ -236,6 +236,46 @@ services:
     networks:
       - backend
 
+  # Group and scheduled SMS (product-owner request 2026-09-09). Same shape and
+  # same reasoning as `session-cleanup` above: behind the `maintenance` profile
+  # so it never starts with the stack, and run from cron — this deployment has
+  # no task queue, and a periodically-run management command is the pattern
+  # already established here rather than new infrastructure.
+  #
+  # Every five minutes is a sensible starting cadence; the SMS page itself also
+  # flushes a few due recipients when it is opened, so a deployment that has not
+  # wired this yet still sends. That flush only runs when somebody opens the
+  # page, though — a campaign scheduled for 03:00 waits for the first visitor
+  # unless this job exists. See docs/ops/TIARA_SMS_SETUP.md.
+  scheduled-sms:
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["maintenance"]
+    restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      DOLPHIN_DATABASE_ROLE: app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "manage.py", "send_scheduled_sms"]
+    volumes:
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+
   web:
     image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped

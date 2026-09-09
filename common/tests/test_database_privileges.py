@@ -83,8 +83,17 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
                 "db-finalize",
             },
             # `session-cleanup` runs `clearsessions` as the app role, which is
-            # the role holding DELETE on django_session.
-            "POSTGRES_APP_PASSWORD": {"db-bootstrap", "db-finalize", "web", "session-cleanup"},
+            # the role holding DELETE on django_session. `scheduled-sms`
+            # (2026-09-09) is the same shape: it sends the campaigns the app
+            # itself queued, writing the very same tables the app writes, so it
+            # runs as the app role and needs no wider grant than the panel has.
+            "POSTGRES_APP_PASSWORD": {
+                "db-bootstrap",
+                "db-finalize",
+                "web",
+                "session-cleanup",
+                "scheduled-sms",
+            },
             "POSTGRES_BACKUP_PASSWORD": {
                 "db-bootstrap",
                 "db-finalize",
@@ -347,6 +356,15 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "communications_inboundsms": "SELECT, INSERT",
             "communications_outboundsms": "SELECT, INSERT",
             "communications_smsprovidersettings": "SELECT, INSERT, UPDATE",
+            # Group and scheduled sends (2026-09-09). The campaign and each of
+            # its recipients move through their own states as the dispatcher
+            # works, so both take UPDATE; the messages sent stay append-only
+            # communications_outboundsms rows.
+            "communications_smscampaign": "SELECT, INSERT, UPDATE",
+            "communications_smscampaignrecipient": "SELECT, INSERT, UPDATE",
+            # A saved message body is a convenience, not a record — editable
+            # and deletable, unlike everything else in this map.
+            "communications_smstemplate": "SELECT, INSERT, UPDATE, DELETE",
             # Unlike the append-only tables here, an attachment really can be
             # deleted (elevated roles only, enforced by the service layer —
             # attachments/services.py) — DELETE is real, not merely absent.

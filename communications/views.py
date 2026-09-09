@@ -1,3 +1,4 @@
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -26,9 +27,14 @@ from communications.serializers import (
     InboundSMSReportSerializer,
     OutboundSMSDetailSerializer,
     OutboundSMSSendSerializer,
+    SmsCampaignCreateSerializer,
+    SmsCampaignSerializer,
     SmsProviderSettingsSerializer,
     SmsProviderSettingsUpdateSerializer,
+    SmsTemplateCreateSerializer,
+    SmsTemplateSerializer,
 )
+from communications.models import SmsCampaign, SmsTemplate
 
 
 class InboundSMSReportAccessMixin(FeatureGatedAPIMixin):
@@ -245,3 +251,160 @@ class TestSmsProviderConnectionView(SmsProviderSettingsAccessMixin, APIView):
         response["Cache-Control"] = "private, no-store"
         return response
 
+
+class SmsTemplateListCreateView(OutboundSMSAccessMixin, APIView):
+    @extend_schema(
+        responses={200: SmsTemplateSerializer(many=True), 403: ACCESS_DENIED_RESPONSE},
+        description="Reusable message bodies for this deployment, newest title order.",
+    )
+    def get(self, request):
+        templates = SmsTemplate.objects.all()
+        response = Response(SmsTemplateSerializer(templates, many=True).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @extend_schema(
+        request=SmsTemplateCreateSerializer,
+        responses={
+            201: SmsTemplateSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+        },
+        description="Save one reusable message body. Requires the sms.company capability.",
+    )
+    def post(self, request):
+        serializer = SmsTemplateCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        template = services.create_sms_template(actor=request.user, **serializer.validated_data)
+        response = Response(SmsTemplateSerializer(template).data, status=201)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class SmsTemplateDeleteView(OutboundSMSAccessMixin, APIView):
+    @extend_schema(
+        responses={204: None, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE},
+        description=(
+            "Deletes one saved message body. Messages already sent from it keep "
+            "their own copy of the text, so nothing already sent changes. POST "
+            "rather than DELETE, matching every other mutation in this codebase."
+        ),
+    )
+    def post(self, request, pk):
+        services.delete_sms_template(actor=request.user, template_id=pk)
+        response = Response(status=204)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class SmsCampaignListCreateView(OutboundSMSAccessMixin, APIView):
+    """Group and scheduled sends.
+
+    The listing also performs the small opportunistic flush described in
+    `communications/services.py` — a deployment whose operator has not wired
+    the `send_scheduled_sms` cron job yet still sends, because the page that
+    shows campaigns also nudges a few of them along. Bounded hard
+    (`SMS_CAMPAIGN_REQUEST_FLUSH_BATCH`) so opening this page can never turn
+    into an unbounded run of provider calls inside one request.
+    """
+
+    @extend_schema(
+        responses={200: SmsCampaignSerializer(many=True), 403: ACCESS_DENIED_RESPONSE},
+        description="Paginated list of group/scheduled sends, newest scheduled time first.",
+    )
+    def get(self, request):
+        services.dispatch_due_sms_campaigns(limit=services.SMS_CAMPAIGN_REQUEST_FLUSH_BATCH)
+        queryset = (
+            SmsCampaign.objects.all()
+            .annotate(
+                recipient_count=Count("recipients", distinct=True),
+                sent_count=Count(
+                    "recipients", filter=Q(recipients__state="sent"), distinct=True
+                ),
+                failed_count=Count(
+                    "recipients", filter=Q(recipients__state="failed"), distinct=True
+                ),
+                pending_count=Count(
+                    "recipients", filter=Q(recipients__state="pending"), distinct=True
+                ),
+            )
+            .select_related("created_by")
+        )
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request, view=self)
+        response = paginator.get_paginated_response(SmsCampaignSerializer(page, many=True).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @extend_schema(
+        request=SmsCampaignCreateSerializer,
+        responses={
+            201: SmsCampaignSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description=(
+            "Queues one group or scheduled send. Nothing is sent in this "
+            "request: recipients are dispatched by the send_scheduled_sms "
+            "management command (cron) and by a small flush when the SMS page "
+            "is opened. Object scope is enforced in the request serializer; "
+            "sending additionally requires the sms.company capability."
+        ),
+    )
+    def post(self, request):
+        serializer = SmsCampaignCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        campaign = services.create_sms_campaign(
+            actor=request.user,
+            body=data["body"],
+            scheduled_for=data.get("scheduled_for"),
+            customer_ids=[customer.pk for customer in data.get("customers", [])],
+            lead_ids=[lead.pk for lead in data.get("leads", [])],
+            phones=data.get("phones", []),
+        )
+        # Send immediately when the caller asked for "now", so a group send is
+        # not silently waiting on cron for its first message.
+        if data.get("scheduled_for") is None:
+            services.dispatch_due_sms_campaigns(limit=services.SMS_CAMPAIGN_REQUEST_FLUSH_BATCH)
+        fresh = (
+            SmsCampaign.objects.filter(pk=campaign.pk)
+            .annotate(
+                recipient_count=Count("recipients", distinct=True),
+                sent_count=Count("recipients", filter=Q(recipients__state="sent"), distinct=True),
+                failed_count=Count("recipients", filter=Q(recipients__state="failed"), distinct=True),
+                pending_count=Count("recipients", filter=Q(recipients__state="pending"), distinct=True),
+            )
+            .select_related("created_by")
+            .get()
+        )
+        response = Response(SmsCampaignSerializer(fresh).data, status=201)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class SmsCampaignCancelView(OutboundSMSAccessMixin, APIView):
+    @extend_schema(
+        responses={200: SmsCampaignSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE},
+        description=(
+            "Cancels the unsent remainder of a campaign. Anything already sent "
+            "stays sent — this stops the queue, it does not recall messages."
+        ),
+    )
+    def post(self, request, pk):
+        services.cancel_sms_campaign(actor=request.user, campaign_id=pk)
+        fresh = (
+            SmsCampaign.objects.filter(pk=pk)
+            .annotate(
+                recipient_count=Count("recipients", distinct=True),
+                sent_count=Count("recipients", filter=Q(recipients__state="sent"), distinct=True),
+                failed_count=Count("recipients", filter=Q(recipients__state="failed"), distinct=True),
+                pending_count=Count("recipients", filter=Q(recipients__state="pending"), distinct=True),
+            )
+            .select_related("created_by")
+            .get()
+        )
+        response = Response(SmsCampaignSerializer(fresh).data)
+        response["Cache-Control"] = "private, no-store"
+        return response

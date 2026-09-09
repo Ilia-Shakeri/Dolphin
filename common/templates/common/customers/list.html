@@ -5,28 +5,29 @@
 {% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}مشتریان{% endblock %}
 {% block breadcrumb_current %}مشتریان{% endblock %}
-{% block page_actions %}{% endblock %}
+{% comment %} دو دفتر مشتری. بازاریاب اینجا را نمی‌بیند و فقط دفتر حقیقی را
+   دارد؛ این پنهان‌سازی مجوز نیست — `customers_for` دامنهٔ او را در سرور
+   به همان دفتر محدود می‌کند. {% endcomment %}
+{% block page_actions %}
+{% if can_manage_customer_kinds %}
+<div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
+    <button id="customer-kind-individual" class="btn btn-sm btn-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
+    <button id="customer-kind-legal" class="btn btn-sm btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
+</div>
+{% endif %}
+<button id="open-export-customers" class="btn btn-light" type="button">خروجی لیست</button>
+{% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button">ورودی لیست</button>{% endif %}
+{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
-    <div class="card-title mb-0">
+    <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
             <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="customer-search">جست‌وجوی مشتری</label>
             <input class="form-control form-control-solid" id="customer-search" type="search" placeholder="نام، تلفن، کد پستی، دسته‌بندی، نشانی یا تاریخ">
         </div>
-    </div>
-    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
-        {% comment %} دو دفتر مشتری. بازاریاب اینجا را نمی‌بیند و فقط دفتر حقیقی را
-           دارد؛ این پنهان‌سازی مجوز نیست — `customers_for` دامنهٔ او را در سرور
-           به همان دفتر محدود می‌کند. {% endcomment %}
-        {% if can_manage_customer_kinds %}
-        <div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
-            <button id="customer-kind-individual" class="btn btn-sm btn-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
-            <button id="customer-kind-legal" class="btn btn-sm btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
-        </div>
-        {% endif %}
         <div class="list-filter">
-            <button id="customer-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+            <button id="customer-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
                 <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="customer-filter-panel" class="list-filter-panel" hidden>
@@ -54,8 +55,8 @@
                 </form>
             </div>
         </div>
-        <button id="open-export-customers" class="btn btn-light" type="button">خروجی لیست</button>
-        {% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button">ورودی لیست</button>{% endif %}
+    </div>
+    <div class="card-toolbar">
         <button id="open-create-customer" class="btn btn-primary" type="button">مشتری جدید</button>
     </div>
 </div><div class="card-body pt-2">
@@ -81,11 +82,16 @@
     <div class="col-xl-6">
         <section class="card h-100"><div class="card-body">
             <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
-                <h2 class="fs-3 fw-bold text-gray-900 mb-0">پراکندگی شهری مشتریان</h2>
+                <h2 class="fs-3 fw-bold text-gray-900 mb-0">پراکندگی استانی مشتریان</h2>
             </div>
-            <p class="text-muted fs-7 mb-5">درصدها نسبت به همان مشتریانی است که شما می‌بینید. مشتری بدون شهر با استان‌اش شمرده می‌شود و مشتری بدون هیچ‌کدام در ردیف «ثبت‌نشده» می‌آید، تا جمع درصدها درست بماند.</p>
-            <div id="customer-city-chart" class="performance-chart" role="img" aria-label="نمودار پراکندگی مشتریان به تفکیک شهر" hidden></div>
-            <p id="customer-city-chart-empty" class="text-center text-gray-700 py-10" hidden>هنوز شهری برای نمایش نیست.</p>
+            <p class="text-muted fs-7 mb-5">هر استان به اندازهٔ سهمش از مشتریان شما پررنگ‌تر است. نشانگر را روی هر استان ببرید تا نام و تعدادش را ببینید. درصدها نسبت به همان مشتریانی است که شما می‌بینید.</p>
+            {% comment %} نقشه از فایل مسیرهای وکتوریِ همین مخزن خوانده می‌شود
+               (`iran-provinces.json`، ساخته‌شده از دادهٔ مالکیت‌عمومیِ Natural
+               Earth) — هیچ CDN و هیچ کتابخانهٔ نقشه‌ای در کار نیست، چون این پنل
+               از هیچ مبدأ بیرونی چیزی نمی‌گیرد. {% endcomment %}
+            <div id="customer-city-chart" class="province-map" hidden></div>
+            <p id="customer-city-chart-note" class="text-muted fs-8 mt-3 mb-0" hidden></p>
+            <p id="customer-city-chart-empty" class="text-center text-gray-700 py-10" hidden>هنوز استانی برای نمایش نیست.</p>
         </div></section>
     </div>
     <div class="col-xl-6">

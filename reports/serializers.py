@@ -366,3 +366,24 @@ class ListChartSerializer(serializers.Serializer):
     #: middle; only the server knows whether the series is rial or a count.
     total_display = serializers.CharField(allow_blank=True)
     total_label = serializers.CharField(allow_blank=True)
+
+
+class CustomerProvinceRowSerializer(serializers.Serializer):
+    """One province's share of the customer book, for the map on /customers/.
+
+    `key` is the province key the vendored map file uses
+    (common/static/common/iran-provinces.json) — not a display name: the label
+    a reader sees comes from that same file, so the two can never drift apart.
+    """
+
+    key = serializers.CharField()
+    count = serializers.IntegerField()
+    percent = serializers.FloatField()
+
+
+class CustomerProvinceReportSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    placed = serializers.IntegerField()
+    unmatched = serializers.IntegerField()
+    distinct_provinces = serializers.IntegerField()
+    results = CustomerProvinceRowSerializer(many=True)

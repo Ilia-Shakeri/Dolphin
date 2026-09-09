@@ -8,16 +8,14 @@
 {% block page_actions %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
-    <div class="card-title mb-0">
+    <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
             <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="interaction-search">جستجوی تماس</label>
             <input class="form-control form-control-solid" id="interaction-search" type="search" placeholder="شماره، نتیجه، یادداشت یا نام مشتری">
         </div>
-    </div>
-    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <div class="list-filter">
-            <button id="interaction-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+            <button id="interaction-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
                 <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="interaction-filter-panel" class="list-filter-panel" hidden>
@@ -32,6 +30,8 @@
                 </form>
             </div>
         </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <button id="open-create-interaction" class="btn btn-primary" type="button">ثبت تماس</button>
     </div>
 </div><div class="card-body pt-2">

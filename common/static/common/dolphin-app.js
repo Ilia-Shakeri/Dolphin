@@ -2198,6 +2198,173 @@
     }
 
     /**
+     * The customer province map (product-owner request 2026-09-09): a
+     * choropleth of Iran's thirty-one provinces, each shaded by how many of
+     * this reader's customers sit in it, naming the province and its count on
+     * hover.
+     *
+     * Drawn as plain inline SVG from a vendored path file rather than with a
+     * mapping library. The purchased theme's own map widget
+     * (`src/js/widgets/maps/widget-1.js`) uses amCharts 5, which this
+     * deployment cannot have: amCharts and its geodata are served from the
+     * vendor's own content-delivery host, and nothing in this panel is
+     * fetched from an external origin — the base layout links none at all,
+     * and
+     * the runbook's offline install has no route to one. The geometry instead comes from Natural
+     * Earth's public-domain admin-1 layer, projected once at build time into
+     * `common/static/common/iran-provinces.json` (see the note in this
+     * release's CHANGELOG for how that file is regenerated).
+     *
+     * The scale is five steps of the theme's own primary colour rather than a
+     * continuous ramp: five bands are readable side by side and comparable
+     * against the legend, which a continuous ramp is not.
+     */
+    const IRAN_MAP_URL = document.body?.dataset.iranMapUrl || "";
+    let iranMapPromise = null;
+
+    function loadIranMap() {
+        if (!iranMapPromise) {
+            iranMapPromise = fetch(IRAN_MAP_URL, {credentials: "same-origin"}).then((response) => {
+                if (!response.ok) throw new Error("نقشه بارگذاری نشد.");
+                return response.json();
+            });
+        }
+        return iranMapPromise;
+    }
+
+    /** Which of the five bands a count falls in, 0 meaning "no customers". */
+    function choroplethStep(count, max) {
+        if (!count) return 0;
+        if (max <= 1) return 5;
+        // Ceil so any non-zero count lands in band 1 or above — a province
+        // with one customer must never be shaded as though it had none.
+        return Math.min(5, Math.max(1, Math.ceil((count / max) * 5)));
+    }
+
+    async function renderProvinceMap(host, empty, report) {
+        if (!host) return;
+        let map;
+        try {
+            map = await loadIranMap();
+        } catch (error) {
+            host.hidden = true;
+            if (empty) {
+                empty.textContent = "نقشهٔ استان‌ها بارگذاری نشد.";
+                empty.hidden = false;
+            }
+            return;
+        }
+
+        const counts = new Map(report.results.map((row) => [row.key, row]));
+        const max = report.results.reduce((top, row) => Math.max(top, row.count), 0);
+
+        const svgNS = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(svgNS, "svg");
+        svg.setAttribute("viewBox", map.viewBox);
+        svg.setAttribute("class", "province-map-canvas");
+        svg.setAttribute("role", "img");
+        svg.setAttribute(
+            "aria-label",
+            `نقشهٔ پراکندگی ${toPersianDigits(String(report.placed))} مشتری در ${toPersianDigits(String(report.distinct_provinces))} استان`,
+        );
+
+        Object.entries(map.provinces).forEach(([key, province]) => {
+            const row = counts.get(key);
+            const count = row ? row.count : 0;
+            const path = document.createElementNS(svgNS, "path");
+            path.setAttribute("d", province.path);
+            path.setAttribute("class", `province-map-region province-map-step-${choroplethStep(count, max)}`);
+            path.dataset.province = key;
+            path.dataset.count = String(count);
+            path.dataset.name = province.name;
+            path.setAttribute("tabindex", "0");
+            // The accessible name carries the same two facts the tooltip shows,
+            // so a keyboard or screen-reader user is not left with a shape.
+            const title = document.createElementNS(svgNS, "title");
+            title.textContent = `${province.name}: ${toPersianDigits(String(count))} مشتری`;
+            path.append(title);
+            svg.append(path);
+        });
+
+        const tooltip = document.createElement("div");
+        tooltip.className = "province-map-tooltip";
+        tooltip.hidden = true;
+
+        function showTooltip(region) {
+            const count = Number(region.dataset.count);
+            const share = report.placed ? Math.round((count / report.placed) * 1000) / 10 : 0;
+            tooltip.replaceChildren();
+            const name = document.createElement("span");
+            name.className = "province-map-tooltip-name";
+            name.textContent = region.dataset.name;
+            const value = document.createElement("span");
+            value.className = "province-map-tooltip-value";
+            value.textContent = count
+                ? `${toPersianDigits(String(count))} مشتری (${toPersianDigits(String(share))}٪)`
+                : "بدون مشتری";
+            tooltip.append(name, value);
+            tooltip.hidden = false;
+        }
+
+        function positionTooltip(event) {
+            const box = host.getBoundingClientRect();
+            // Clamped to the card so a province near the edge does not push the
+            // tooltip outside it and trigger a horizontal scrollbar.
+            const x = Math.min(Math.max(event.clientX - box.left, 8), box.width - 8);
+            const y = Math.min(Math.max(event.clientY - box.top, 8), box.height - 8);
+            tooltip.style.insetInlineStart = `${x}px`;
+            tooltip.style.top = `${y}px`;
+        }
+
+        svg.addEventListener("pointermove", (event) => {
+            const region = event.target.closest?.(".province-map-region");
+            if (!region) {
+                tooltip.hidden = true;
+                return;
+            }
+            showTooltip(region);
+            positionTooltip(event);
+        });
+        svg.addEventListener("pointerleave", () => {
+            tooltip.hidden = true;
+        });
+        // Focus, not just hover: the regions are tabbable above, so the same
+        // reading has to be available without a pointer.
+        svg.addEventListener("focusin", (event) => {
+            const region = event.target.closest?.(".province-map-region");
+            if (!region) return;
+            showTooltip(region);
+            const box = host.getBoundingClientRect();
+            const spot = region.getBoundingClientRect();
+            tooltip.style.insetInlineStart = `${spot.left + spot.width / 2 - box.left}px`;
+            tooltip.style.top = `${spot.top + spot.height / 2 - box.top}px`;
+        });
+        svg.addEventListener("focusout", () => {
+            tooltip.hidden = true;
+        });
+
+        const legend = document.createElement("div");
+        legend.className = "province-map-legend";
+        const legendLabel = document.createElement("span");
+        legendLabel.className = "fs-8 text-muted";
+        legendLabel.textContent = "کمتر";
+        legend.append(legendLabel);
+        [1, 2, 3, 4, 5].forEach((step) => {
+            const swatch = document.createElement("span");
+            swatch.className = `province-map-swatch province-map-step-${step}`;
+            legend.append(swatch);
+        });
+        const legendMax = document.createElement("span");
+        legendMax.className = "fs-8 text-muted";
+        legendMax.textContent = `بیشتر (${toPersianDigits(String(max))})`;
+        legend.append(legendMax);
+
+        host.replaceChildren(svg, tooltip, legend);
+        host.hidden = false;
+        if (empty) empty.hidden = true;
+    }
+
+    /**
      * The two charts under the customers table.
      *
      * Both read endpoints built on `customers_for`, so what they count is
@@ -2213,6 +2380,21 @@
         async function loadCities() {
             const empty = document.getElementById("customer-city-chart-empty");
             try {
+                // The map first — it is what this card is now — falling back to
+                // the old ranking only where the map cannot say anything,
+                // which is a book whose provinces were never filled in.
+                const provinces = await apiRequest("/api/v1/reports/customer-provinces/");
+                if (provinces.placed > 0) {
+                    await renderProvinceMap(cityChart, empty, provinces);
+                    const note = document.getElementById("customer-city-chart-note");
+                    if (note) {
+                        note.textContent = provinces.unmatched
+                            ? `${toPersianDigits(String(provinces.unmatched))} مشتری استان ثبت‌شده‌ای ندارند و روی نقشه نیامده‌اند.`
+                            : "";
+                        note.hidden = !provinces.unmatched;
+                    }
+                    return;
+                }
                 const report = await apiRequest("/api/v1/reports/customer-cities/");
                 const rows = report.results.map((row) => ({
                     label: row.label,
@@ -3150,6 +3332,74 @@
     }
 
     /**
+     * One board column's own search, collapsed behind a small icon button in
+     * that column's header (product-owner decision 2026-09-09).
+     *
+     * Shared by both boards below because the shape is identical: a toggle
+     * appended into jKanban's own `.kanban-title-board`, and one input
+     * revealed between that header and the column's card list. `onSearch`
+     * receives the trimmed term and refetches that column alone; the term
+     * goes to the same DRF `search=` the list page's own box already uses, so
+     * a column searches exactly the fields its list searches (leads:
+     * customer name, source, campaign, notes — orders: number, customer,
+     * notes, and each line's product name) with no new backend surface.
+     *
+     * Collapsed by default on purpose: four permanently-open search boxes
+     * across a four-column board would crowd out the cards they filter.
+     */
+    function setupBoardColumnSearch(container, status, onSearch) {
+        const board = container.querySelector(`.kanban-board[data-id="${status}"]`);
+        const title = board?.querySelector(".kanban-title-board");
+        const drag = board?.querySelector(".kanban-drag");
+        if (!board || !title || !drag) return;
+
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "btn btn-icon btn-sm btn-active-light-primary board-search-toggle";
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "جست‌وجو در این ستون");
+        const icon = document.createElement("i");
+        icon.className = "ki-duotone ki-magnifier fs-5";
+        ["path1", "path2"].forEach((name) => {
+            const path = document.createElement("span");
+            path.className = name;
+            icon.append(path);
+        });
+        toggle.append(icon);
+        title.append(toggle);
+
+        const wrap = document.createElement("div");
+        wrap.className = "board-search";
+        wrap.hidden = true;
+        const input = document.createElement("input");
+        input.type = "search";
+        input.className = "form-control form-control-solid";
+        input.placeholder = "جست‌وجو در این ستون…";
+        input.setAttribute("aria-label", "جست‌وجو در این ستون");
+        wrap.append(input);
+        board.insertBefore(wrap, drag);
+
+        toggle.addEventListener("click", () => {
+            const opening = wrap.hidden;
+            wrap.hidden = !opening;
+            toggle.setAttribute("aria-expanded", String(opening));
+            if (opening) {
+                input.focus();
+                return;
+            }
+            // Closing the box clears the filter: leaving a column silently
+            // filtered by a term nobody can see any more is the one way this
+            // control could lie about what the board contains.
+            if (input.value) {
+                input.value = "";
+                onSearch("");
+            }
+        });
+
+        bindLiveSearch(input, () => onSearch(input.value.trim()));
+    }
+
+    /**
      * The leads Kanban board — the same three real `Lead.status` values
      * (`LEAD_STATUS_LABELS` above, the ordinary list's own badge map) as
      * fixed columns, drawn with the theme's own `jkanban` bundle (dragula
@@ -3297,8 +3547,16 @@
             if (!drag || drag.querySelector(".kanban-item")) return;
             const empty = document.createElement("div");
             empty.className = "not-draggable lead-board-empty text-center fs-8 py-6";
-            empty.textContent = "سرنخی در این وضعیت نیست.";
+            empty.textContent = pageState[status]?.search
+                ? "سرنخی با این جست‌وجو در این ستون نیست."
+                : "سرنخی در این وضعیت نیست.";
             drag.append(empty);
+        }
+
+        function columnUrl(status, page) {
+            const term = pageState[status]?.search;
+            const search = term ? `&search=${encodeURIComponent(term)}` : "";
+            return `/api/v1/leads/?status=${status}&ordering=-created_at&page=${page}${search}`;
         }
 
         async function loadMore(status) {
@@ -3309,6 +3567,34 @@
                 data.results.forEach((lead) => kanban.addElement(status, toItem(lead)));
                 state.next = data.next;
                 renderLoadMore(status);
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        /**
+         * Refetch one column from page 1 under its own search term. The card
+         * list is emptied and rebuilt rather than filtered in place: the term
+         * is applied by the server across the whole column, not just the page
+         * already loaded, so hiding local cards would under-report every match
+         * past the first page.
+         */
+        async function reloadColumn(status, term) {
+            const drag = boardElement(status);
+            if (!drag) return;
+            pageState[status] = {...pageState[status], search: term};
+            try {
+                const data = await apiRequest(columnUrl(status, 1));
+                drag.innerHTML = "";
+                data.results.forEach((lead) => kanban.addElement(status, toItem(lead)));
+                pageState[status] = {next: data.next, search: term};
+                counts[status] = data.count;
+                const badge = container.querySelector(
+                    `.kanban-board[data-id="${status}"] .kanban-title-board .badge`,
+                );
+                if (badge) badge.textContent = toPersianDigits(String(data.count));
+                renderLoadMore(status);
+                renderEmptyState(status);
             } catch (error) {
                 showError(error);
             }
@@ -3404,6 +3690,7 @@
                 boardElement(status)?.classList.add("hover-scroll-overlay-y");
                 renderLoadMore(status);
                 renderEmptyState(status);
+                setupBoardColumnSearch(container, status, (term) => reloadColumn(status, term));
             });
         } catch (error) {
             loading.hidden = true;
@@ -3546,8 +3833,39 @@
             if (!drag || drag.querySelector(".kanban-item")) return;
             const empty = document.createElement("div");
             empty.className = "not-draggable lead-board-empty text-center fs-8 py-6";
-            empty.textContent = "سفارشی در این وضعیت نیست.";
+            empty.textContent = pageState[status]?.search
+                ? "سفارشی با این جست‌وجو در این ستون نیست."
+                : "سفارشی در این وضعیت نیست.";
             drag.append(empty);
+        }
+
+        function columnUrl(status, page) {
+            const term = pageState[status]?.search;
+            const search = term ? `&search=${encodeURIComponent(term)}` : "";
+            return `/api/v1/orders/?status=${status}&ordering=-created_at&page=${page}${search}`;
+        }
+
+        /** The order-side twin of `setupLeadBoard`'s own `reloadColumn` — see
+         *  that one for why the column is rebuilt rather than filtered. */
+        async function reloadColumn(status, term) {
+            const drag = boardElement(status);
+            if (!drag) return;
+            pageState[status] = {...pageState[status], search: term};
+            try {
+                const data = await apiRequest(columnUrl(status, 1));
+                drag.innerHTML = "";
+                data.results.forEach((order) => kanban.addElement(status, toItem(order)));
+                pageState[status] = {next: data.next, search: term};
+                counts[status] = data.count;
+                const badge = container.querySelector(
+                    `.kanban-board[data-id="${status}"] .kanban-title-board .badge`,
+                );
+                if (badge) badge.textContent = toPersianDigits(String(data.count));
+                renderLoadMore(status);
+                renderEmptyState(status);
+            } catch (error) {
+                showError(error);
+            }
         }
 
         async function loadMore(status) {
@@ -3664,6 +3982,7 @@
                 boardElement(status)?.classList.add("hover-scroll-overlay-y");
                 renderLoadMore(status);
                 renderEmptyState(status);
+                setupBoardColumnSearch(container, status, (term) => reloadColumn(status, term));
             });
         } catch (error) {
             loading.hidden = true;
@@ -5037,31 +5356,371 @@
         }
     }
 
+    /**
+     * How many SMS segments a body will actually cost.
+     *
+     * The GSM-7 alphabet carries 160 characters per segment (153 once a
+     * message is concatenated, because each part spends 7 characters on a
+     * user-data header); anything outside it — every Persian message — is
+     * encoded UCS-2 at 70 per segment, 67 concatenated. These are the GSM
+     * 03.38 / 23.038 numbers every Iranian SMS panel shows, not a guess: an
+     * operator who writes 80 Persian characters is billed for two messages
+     * and needs to see that before sending, not on the invoice.
+     */
+    const GSM7_ALPHABET = new Set(
+        "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?" +
+        "¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà" +
+        "^{}\\[~]|€",
+    );
+
+    function smsSegmentInfo(text) {
+        const body = String(text || "");
+        if (!body) return {characters: 0, segments: 0, encoding: "GSM-7", perSegment: 160};
+        const isGsm7 = [...body].every((character) => GSM7_ALPHABET.has(character));
+        const single = isGsm7 ? 160 : 70;
+        const concatenated = isGsm7 ? 153 : 67;
+        // `[...body]` rather than `.length`: an emoji is one character to a
+        // reader and two UTF-16 code units to `.length`, and the carrier
+        // counts code units — but the *limit* comparison people expect is on
+        // what they typed, so count code units explicitly and say so.
+        const units = body.split("").length;
+        const segments = units <= single ? 1 : Math.ceil(units / concatenated);
+        return {
+            characters: units,
+            segments,
+            encoding: isGsm7 ? "GSM-7" : "فارسی",
+            perSegment: segments <= 1 ? single : concatenated,
+        };
+    }
+
+    /**
+     * The SMS page: one composer that sends either to a single recipient or
+     * to a group (now or at a stated time), the saved-template picker, the
+     * campaign list, and the ordinary outbound log.
+     */
     async function setupOutboundSms() {
         const form = document.getElementById("outbound-sms-send-form");
-        await loadOutboundSmsLog("/api/v1/outbound-sms/");
+        if (!form) return;
+        const bodyInput = document.getElementById("outbound-sms-body");
+        const counter = document.getElementById("sms-body-counter");
+        const submitLabel = document.getElementById("sms-submit-label");
+        const chips = document.getElementById("sms-bulk-chips");
+        const chipsNote = document.getElementById("sms-bulk-count");
+        const phonesInput = document.getElementById("sms-bulk-phones");
+        const scheduleInput = document.getElementById("sms-schedule-at");
+        const templatePicker = document.getElementById("sms-template-picker");
+
+        // Chosen recipients for a group send, keyed so the same person cannot
+        // be added twice from the same picker. The service de-duplicates by
+        // normalised number as well — this is the visible half of that.
+        const chosen = {customers: new Map(), leads: new Map()};
+        let mode = "single";
+
+        function updateCounter() {
+            const info = smsSegmentInfo(bodyInput.value);
+            if (!info.characters) {
+                counter.textContent = "";
+                return;
+            }
+            counter.textContent =
+                `${toPersianDigits(String(info.characters))} نویسه — ` +
+                `${toPersianDigits(String(info.segments))} پیامک (${info.encoding}، ` +
+                `${toPersianDigits(String(info.perSegment))} نویسه در هر پیامک)`;
+        }
+
+        function renderChips() {
+            const nodes = [];
+            [["customers", "مشتری"], ["leads", "سرنخ"]].forEach(([kind, label]) => {
+                chosen[kind].forEach((name, id) => {
+                    const chip = document.createElement("span");
+                    chip.className = "badge badge-light-primary d-inline-flex align-items-center gap-2";
+                    const text = document.createElement("span");
+                    text.textContent = `${label}: ${name}`;
+                    const remove = document.createElement("button");
+                    remove.type = "button";
+                    remove.className = "btn btn-icon btn-active-light-danger btn-sm w-15px h-15px";
+                    remove.setAttribute("aria-label", `حذف ${name}`);
+                    remove.textContent = "×";
+                    remove.addEventListener("click", () => {
+                        chosen[kind].delete(id);
+                        renderChips();
+                    });
+                    chip.append(text, remove);
+                    nodes.push(chip);
+                });
+            });
+            chips.replaceChildren(...nodes);
+            const total = chosen.customers.size + chosen.leads.size;
+            chipsNote.textContent = total ? ` ${toPersianDigits(String(total))} گیرنده از فهرست انتخاب شده است.` : "";
+            chipsNote.previousSibling && (chipsNote.parentElement.firstChild.textContent =
+                total ? "" : "هیچ گیرنده‌ای انتخاب نشده است.");
+        }
+
+        function setMode(next) {
+            mode = next;
+            document.querySelectorAll("[data-sms-recipients]").forEach((node) => {
+                node.hidden = node.dataset.smsRecipients !== next;
+            });
+            document.querySelectorAll("[data-sms-mode]").forEach((button) => {
+                const active = button.dataset.smsMode === next;
+                button.classList.toggle("btn-primary", active);
+                button.classList.toggle("btn-light", !active);
+                button.setAttribute("aria-pressed", String(active));
+            });
+            // The single-send fields are `required`-free but still submitted;
+            // clearing them on switch stops a stale customer id riding along
+            // with a group send.
+            if (next === "bulk") {
+                ["outbound-sms-customer", "outbound-sms-lead", "outbound-sms-phone"].forEach((id) => {
+                    const node = document.getElementById(id);
+                    if (node) node.value = "";
+                });
+            }
+            submitLabel.textContent = next === "bulk" ? "ثبت ارسال گروهی" : "ارسال پیامک";
+        }
+
+        document.querySelectorAll("[data-sms-mode]").forEach((button) => {
+            button.addEventListener("click", () => setMode(button.dataset.smsMode));
+        });
+        bindLiveSearch(bodyInput, () => {});
+        bodyInput.addEventListener("input", updateCounter);
+        updateCounter();
+
+        // --- saved templates --------------------------------------------
+        async function loadTemplates() {
+            try {
+                const templates = await apiRequest("/api/v1/outbound-sms/templates/");
+                const options = [new Option("قالب آماده…", "")];
+                templates.forEach((template) => {
+                    const option = new Option(template.title, String(template.id));
+                    option.dataset.body = template.body_text;
+                    options.push(option);
+                });
+                templatePicker.replaceChildren(...options);
+            } catch (error) {
+                // A missing template list must not stop someone sending a
+                // message they already typed.
+                showError(error);
+            }
+        }
+
+        templatePicker?.addEventListener("change", () => {
+            const option = templatePicker.selectedOptions[0];
+            if (!option?.dataset.body) return;
+            bodyInput.value = option.dataset.body;
+            updateCounter();
+        });
+
+        const templateDialog = document.getElementById("sms-template-dialog");
+        document.getElementById("sms-template-save")?.addEventListener("click", () => {
+            if (!bodyInput.value.trim()) {
+                globalMessage("اول متن پیامک را بنویسید.");
+                return;
+            }
+            document.getElementById("sms-template-name").value = "";
+            templateDialog?.showModal();
+        });
+        document.getElementById("sms-template-confirm")?.addEventListener("click", async () => {
+            try {
+                await apiRequest("/api/v1/outbound-sms/templates/", {
+                    method: "POST",
+                    body: {
+                        title: document.getElementById("sms-template-name").value,
+                        body: bodyInput.value,
+                    },
+                });
+                templateDialog?.close();
+                globalMessage("قالب ذخیره شد.", true);
+                await loadTemplates();
+            } catch (error) {
+                showError(error);
+            }
+        });
+
+        // --- group recipient pickers -------------------------------------
+        const customerSelect = document.getElementById("sms-bulk-customer");
+        const leadSelect = document.getElementById("sms-bulk-lead");
+        if (customerSelect) {
+            try {
+                const customers = await apiRequest("/api/v1/customers/?page_size=200");
+                fillSelect(customerSelect, customers.results || customers, (item) => item.full_name, "افزودن مشتری…");
+                customerSelect.addEventListener("change", () => {
+                    const id = customerSelect.value;
+                    if (!id) return;
+                    chosen.customers.set(id, selectedOptionText(customerSelect));
+                    customerSelect.value = "";
+                    renderChips();
+                });
+            } catch (error) {
+                showError(error);
+            }
+        }
+        if (leadSelect) {
+            try {
+                const leads = await apiRequest("/api/v1/leads/?page_size=200");
+                fillSelect(
+                    leadSelect,
+                    leads.results || leads,
+                    (item) => item.customer_name || item.source || `سرنخ ${item.id}`,
+                    "افزودن سرنخ…",
+                );
+                leadSelect.addEventListener("change", () => {
+                    const id = leadSelect.value;
+                    if (!id) return;
+                    chosen.leads.set(id, selectedOptionText(leadSelect));
+                    leadSelect.value = "";
+                    renderChips();
+                });
+            } catch (error) {
+                showError(error);
+            }
+        }
+        setupSearchableSelects(form);
+        renderChips();
+
+        // --- campaigns ----------------------------------------------------
+        const CAMPAIGN_STATUS = {
+            scheduled: ["زمان‌بندی‌شده", "badge-light-info"],
+            sending: ["در حال ارسال", "badge-light-primary"],
+            completed: ["پایان‌یافته", "badge-light-success"],
+            cancelled: ["لغوشده", "badge-light-danger"],
+        };
+
+        function campaignRow(item) {
+            const row = document.createElement("tr");
+            appendCell(row, displayDate(item.scheduled_for));
+            const statusCell = document.createElement("td");
+            const [label, badgeClass] = CAMPAIGN_STATUS[item.status] || [item.status, "badge-light"];
+            const badge = document.createElement("span");
+            badge.className = `badge ${badgeClass}`;
+            badge.textContent = label;
+            statusCell.append(badge);
+            row.append(statusCell);
+            appendCell(
+                row,
+                `${toPersianDigits(String(item.sent_count))} ارسال‌شده / ` +
+                `${toPersianDigits(String(item.failed_count))} ناموفق / ` +
+                `${toPersianDigits(String(item.pending_count))} در صف`,
+            );
+            appendCell(row, item.created_by_name || "—");
+            appendCell(row, item.body_text.slice(0, 60));
+            const actions = document.createElement("td");
+            if (item.status === "scheduled" || item.status === "sending") {
+                const cancel = document.createElement("button");
+                cancel.type = "button";
+                cancel.className = "btn btn-sm btn-light-danger";
+                cancel.textContent = "لغو";
+                cancel.addEventListener("click", async () => {
+                    try {
+                        await apiRequest(`/api/v1/outbound-sms/campaigns/${item.id}/cancel/`, {method: "POST"});
+                        globalMessage("کارزار لغو شد.", true);
+                        await loadCampaigns("/api/v1/outbound-sms/campaigns/");
+                    } catch (error) {
+                        showError(error);
+                    }
+                });
+                actions.append(cancel);
+            } else {
+                actions.textContent = "—";
+            }
+            row.append(actions);
+            return row;
+        }
+
+        async function loadCampaigns(url) {
+            const empty = document.getElementById("sms-campaigns-empty");
+            const wrap = document.getElementById("sms-campaigns-table-wrap");
+            const pager = document.getElementById("sms-campaigns-pagination");
+            try {
+                const data = await apiRequest(url);
+                const rows = data.results.map(campaignRow);
+                document.getElementById("sms-campaigns-table-body").replaceChildren(...rows);
+                empty.hidden = Boolean(rows.length);
+                wrap.hidden = !rows.length;
+                pager.hidden = !data.previous && !data.next;
+                const previous = document.getElementById("sms-campaigns-prev");
+                const next = document.getElementById("sms-campaigns-next");
+                previous.disabled = !data.previous;
+                next.disabled = !data.next;
+                previous.onclick = () => data.previous && loadCampaigns(data.previous);
+                next.onclick = () => data.next && loadCampaigns(data.next);
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        // --- submit --------------------------------------------------------
         form.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(form, async () => {
-                const data = formPayload(form, ["customer", "lead", "phone", "body"]);
-                const payload = {body: data.body};
-                if (data.customer) payload.customer = data.customer;
-                if (data.lead) payload.lead = data.lead;
-                if (data.phone) payload.phone = data.phone;
-                const sent = await apiRequest("/api/v1/outbound-sms/send/", {method: "POST", body: payload});
-                form.reset();
-                // The request itself succeeded (HTTP 200) either way — the
-                // attempt was recorded — but the provider may still have
-                // refused the message, which is a distinct outcome the
-                // operator needs to see, not a silent "sent".
-                if (sent.status === "sent") {
-                    globalMessage("پیامک ارسال شد.", true);
-                } else {
-                    globalMessage(`ارسال ناموفق بود: ${sent.status_detail || "دلیل نامشخص"}`);
+                if (mode === "single") {
+                    const data = formPayload(form, ["customer", "lead", "phone", "body"]);
+                    const payload = {body: data.body};
+                    if (data.customer) payload.customer = data.customer;
+                    if (data.lead) payload.lead = data.lead;
+                    if (data.phone) payload.phone = data.phone;
+                    const sent = await apiRequest("/api/v1/outbound-sms/send/", {method: "POST", body: payload});
+                    form.reset();
+                    updateCounter();
+                    // The request itself succeeded (HTTP 200) either way — the
+                    // attempt was recorded — but the provider may still have
+                    // refused the message, which is a distinct outcome the
+                    // operator needs to see, not a silent "sent".
+                    if (sent.status === "sent") {
+                        globalMessage("پیامک ارسال شد.", true);
+                    } else {
+                        globalMessage(`ارسال ناموفق بود: ${sent.status_detail || "دلیل نامشخص"}`);
+                    }
+                    await loadOutboundSmsLog("/api/v1/outbound-sms/");
+                    return;
                 }
-                await loadOutboundSmsLog("/api/v1/outbound-sms/");
+
+                const phones = (phonesInput?.value || "")
+                    .split(/[\n،,;]+/)
+                    .map((value) => value.trim())
+                    .filter(Boolean);
+                const payload = {
+                    body: bodyInput.value,
+                    customers: [...chosen.customers.keys()].map(Number),
+                    leads: [...chosen.leads.keys()].map(Number),
+                    phones,
+                };
+                // The picker keeps Jalali text in `.value`; `apiDateTime`
+                // is the same converter every other scheduled field uses.
+                const typed = (scheduleInput?.value || "").trim();
+                const when = typed ? apiDateTime(typed) : "";
+                if (typed && !when) throw new Error("زمان ارسال خوانده نشد؛ قالب باید ۱۴۰۵/۰۵/۲۵ ۱۴:۳۰ باشد.");
+                if (when) payload.scheduled_for = when;
+                const campaign = await apiRequest("/api/v1/outbound-sms/campaigns/", {
+                    method: "POST",
+                    body: payload,
+                });
+                bodyInput.value = "";
+                if (phonesInput) phonesInput.value = "";
+                if (scheduleInput) scheduleInput.value = "";
+                chosen.customers.clear();
+                chosen.leads.clear();
+                renderChips();
+                updateCounter();
+                globalMessage(
+                    when
+                        ? `ارسال گروهی برای ${toPersianDigits(String(campaign.recipient_count))} گیرنده زمان‌بندی شد.`
+                        : `ارسال گروهی برای ${toPersianDigits(String(campaign.recipient_count))} گیرنده ثبت شد.`,
+                    true,
+                );
+                await Promise.all([
+                    loadCampaigns("/api/v1/outbound-sms/campaigns/"),
+                    loadOutboundSmsLog("/api/v1/outbound-sms/"),
+                ]);
             });
         });
+
+        setMode("single");
+        await Promise.all([
+            loadOutboundSmsLog("/api/v1/outbound-sms/"),
+            loadCampaigns("/api/v1/outbound-sms/campaigns/"),
+            loadTemplates(),
+        ]);
     }
 
     function afterSalesRow(item) {
@@ -5342,6 +6001,15 @@
                 borderColor: ink.grid,
                 strokeDashArray: 4,
                 padding: {top: 0, right: 8, bottom: 0, left: 8},
+                // Horizontal rules only. The purchased theme's charts read
+                // values off the y axis and use the x axis purely for
+                // sequence, so vertical rules add ink without adding a
+                // reading — the "graph paper" look that made these feel
+                // heavier than the theme's own (product-owner note
+                // 2026-09-09). Each chart that genuinely needs the vertical
+                // set turns it back on for itself.
+                xaxis: {lines: {show: false}},
+                yaxis: {lines: {show: true}},
             },
             tooltip: {
                 style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "13px"},
@@ -5435,7 +6103,20 @@
             labels: usable.map((item) => item.label),
             colors: usable.map((item, index) => item.color || palette[index % palette.length]),
             chart: {...apexBase(320).chart, type: "donut"},
+            // A ring of flat fills reads as a diagram; the theme's own pie and
+            // donut widgets shade each wedge slightly across its own arc, which
+            // is what gives them depth. `shade: "light"` keeps every wedge the
+            // colour it was assigned — the ramp only varies its own lightness,
+            // so two adjacent wedges never blend into one another.
+            fill: {
+                type: "gradient",
+                gradient: {shade: "light", shadeIntensity: 0.28, opacityFrom: 1, opacityTo: 0.92},
+            },
             stroke: {width: 2, colors: ["transparent"]},
+            states: {
+                hover: {filter: {type: "darken", value: 0.9}},
+                active: {filter: {type: "none"}},
+            },
             // No text drawn on the wedges themselves. A percentage printed on a
             // thin slice either overlaps its neighbour or gets clipped outside
             // the ring — the smaller the share, the less room its own label
@@ -5546,11 +6227,19 @@
             colors: [accent],
             dataLabels: {enabled: false},
             stroke: {curve: "smooth", width: 3},
+            // The purchased theme's own area widgets fade to nothing at the
+            // baseline (`opacityTo: 0`, stops 0/80/100 — src/js/widgets/charts/
+            // widget-11.js). Ours stopped at 0.05, which left a visible band
+            // sitting on the axis and made the fill read as a block rather
+            // than as a fade.
             fill: {
                 type: "gradient",
-                gradient: {shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100]},
+                gradient: {shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0, stops: [0, 80, 100]},
             },
-            markers: {size: 4, strokeWidth: 2, hover: {size: 6}},
+            // Markers only where the pointer is. A dot on every point turns a
+            // twelve-week line into a dotted rule; the line is the shape being
+            // read, and the point under the cursor is the one that matters.
+            markers: {size: 0, strokeWidth: 3, hover: {size: 7}},
             xaxis: {
                 categories: usable.map((point) => point.label),
                 // Apex would print every category and let them collide; this is
@@ -5672,10 +6361,24 @@
             // chosen to mean something. The severity ramp only reads if the
             // colours are the ones it names.
             fill: {opacity: 1},
+            // A bar lifts under the pointer rather than only its tooltip
+            // appearing — the theme's own charts do this, and on a ranking
+            // where the rows are read one after another it is what tells you
+            // which row the tooltip belongs to.
+            states: {
+                hover: {filter: {type: "darken", value: 0.88}},
+                active: {filter: {type: "none"}},
+            },
             plotOptions: {
                 bar: {
                     horizontal: true,
-                    borderRadius: 4,
+                    // Rounded at the tip only (product-owner request
+                    // 2026-09-09: closer to the purchased theme). The theme's
+                    // own bar widgets round 5–6px; rounding *both* ends of a
+                    // horizontal bar detaches it from its own axis, which is
+                    // why this names the end rather than raising the radius.
+                    borderRadius: 6,
+                    borderRadiusApplication: "end",
                     barHeight: "62%",
                     // Without this every bar takes the first colour, because a
                     // single series is one colour to Apex unless told otherwise.
@@ -7014,7 +7717,11 @@
         function addLine() {
             if (!host) return;
             const row = document.createElement("div");
-            row.className = "d-flex flex-wrap align-items-center gap-3";
+            // `gap-5` and the row's own separator are the purchased theme's own
+            // repeater spacing (its ecommerce catalog add-product page,
+            // `data-repeater-item`), not a number picked here — product-owner
+            // decision 2026-09-09 asked this step to breathe more.
+            row.className = "d-flex flex-wrap align-items-center gap-5 wizard-line-row";
             row.dataset.lineRow = "";
 
             const picker = document.createElement("div");
@@ -7042,7 +7749,10 @@
             picker.append(search, select, options);
 
             const quantity = document.createElement("input");
-            quantity.className = "form-control form-control-solid w-auto";
+            // A fixed narrow column rather than `w-auto`: every row's quantity
+            // then lines up under the next, which `w-auto` (sized to the
+            // number typed) never does.
+            quantity.className = "form-control form-control-solid w-100px";
             quantity.type = "number";
             quantity.min = "1";
             quantity.step = "1";
@@ -7051,9 +7761,19 @@
             quantity.setAttribute("aria-label", "تعداد");
 
             const remove = document.createElement("button");
-            remove.className = "btn btn-icon btn-light-danger";
+            // The theme's own repeater delete control, icon and all — a real
+            // `ki-cross` rather than a literal "×" character, which rendered
+            // at text weight beside two solid inputs.
+            remove.className = "btn btn-sm btn-icon btn-light-danger";
             remove.type = "button";
-            remove.textContent = "×";
+            const removeIcon = document.createElement("i");
+            removeIcon.className = "ki-duotone ki-cross fs-2";
+            ["path1", "path2"].forEach((name) => {
+                const path = document.createElement("span");
+                path.className = name;
+                removeIcon.append(path);
+            });
+            remove.append(removeIcon);
             remove.setAttribute("aria-label", "حذف ردیف");
             remove.addEventListener("click", () => {
                 row.remove();

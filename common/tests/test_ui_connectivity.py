@@ -187,24 +187,42 @@ class ScriptEndpointTests(SimpleTestCase):
         missing = sorted(page for page in page_ids if f'page === "{page}"' not in text)
         self.assertEqual(missing, [])
 
+    #: The one URL-shaped string this script may contain: the XML namespace
+    #: `document.createElementNS` requires to build an SVG element. It is an
+    #: identifier, not an address — nothing ever fetches it, and the DOM refuses
+    #: to make an SVG node without it.
+    #:
+    #: History, because this exemption has been removed once already: it existed
+    #: until 1.3.12, when the hand-drawn SVG charts were replaced by ApexCharts
+    #: and the last `createElementNS` went with them, and the test then said in
+    #: as many words that restoring it "needs a reason of its own". 2026-09-09 is
+    #: that reason — the customers page's province map is hand-drawn SVG again
+    #: (`renderProvinceMap` in dolphin-app.js), because the purchased theme's own
+    #: map widget is amCharts served from the vendor's own delivery host, and
+    #: this panel
+    #: fetches nothing from any external origin. The exemption is one exact
+    #: string, matched whole, not a prefix or a pattern.
+    SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+
     def test_the_script_carries_no_placeholder_or_third_party_reference(self):
         text = SCRIPT.read_text(encoding="utf-8")
+        # The SVG namespace is removed first so `http://` below still means
+        # "an actual address", which is the thing worth failing on.
+        text = text.replace(self.SVG_NAMESPACE, "")
         for pattern in ("TODO", "FIXME", "http://", "https://", "cdn.", "Metronic", "KTUtil"):
             self.assertNotIn(pattern, text, pattern)
 
     def test_the_script_carries_no_url_shaped_string_at_all(self):
-        """Not one exemption, not a doorway: none.
+        """One exemption, named exactly, and nothing else.
 
-        Until 1.3.12 this allowed exactly one string — the XML namespace
-        `createElementNS` needs to build an SVG node, which is an identifier
-        rather than an address. The charts were hand-drawn SVG then. They are
-        ApexCharts now, the drawing is the library's, and the last
-        `createElementNS` in this script went with it, so the exemption has
-        nothing left to cover. Restoring it needs a reason of its own.
+        See `SVG_NAMESPACE` above for why this one is here and why it was gone
+        between 1.3.12 and 2.5.3. Anything else URL-shaped in this file is a
+        third-party dependency or a leaked address, and neither belongs in a
+        panel that is meant to run air-gapped.
         """
         text = SCRIPT.read_text(encoding="utf-8")
         urls = set(re.findall(r"https?://[^\s\"'`)]+", text))
-        self.assertEqual(urls, set())
+        self.assertEqual(urls, {self.SVG_NAMESPACE})
 
 
 class ClientOneDayOneProfileTests(SimpleTestCase):

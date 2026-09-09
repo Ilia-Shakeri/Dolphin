@@ -314,3 +314,185 @@ class SmsProviderSettings(TimeStampedModel):
 
     def __str__(self):
         return self.label or self.get_auth_mode_display()
+
+
+class SmsTemplate(TimeStampedModel):
+    """A reusable message body, so a frequently-sent text is written once.
+
+    Product-owner request 2026-09-09. Deliberately plain: a title and a body,
+    with `{نام}` substituted at send time from the recipient's own record (see
+    `render_sms_template` in communications/services.py). No categories, no
+    per-role ownership, no versioning — none of that was asked for, and each
+    would be a real product decision rather than a formatting convenience.
+
+    Unlike `OutboundSMS`, this is not a log: a template is edited and deleted
+    in place, and the messages already sent from it keep their own copy of the
+    text in `OutboundSMS.body_text`, so editing one never rewrites history.
+    """
+
+    title = models.CharField(max_length=120)
+    body_text = models.TextField()
+    created_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+
+    class Meta:
+        ordering = ["title", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(title__regex=r"\S"),
+                name="sms_template_title_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(body_text__regex=r"\S"),
+                name="sms_template_body_nonblank",
+            ),
+            models.UniqueConstraint(fields=["title"], name="sms_template_title_unique"),
+        ]
+
+
+class SmsCampaign(TimeStampedModel):
+    """One body sent to many recipients, now or at a stated time.
+
+    Why this exists as a stored queue rather than a loop inside the request:
+    a group send is N provider HTTP calls, and N of them inside one web
+    request is a timeout waiting to happen — and a scheduled send has nowhere
+    to live at all without a row. `dispatch_due_sms_campaigns`
+    (communications/services.py) walks the due ones and sends each recipient
+    through the very same `send_outbound_sms` a single send uses, so a
+    campaign message is an ordinary `OutboundSMS` row with the ordinary
+    permissions, audit trail and log entry — this model adds scheduling and
+    grouping, not a second way to send.
+
+    Two things drive that dispatcher, deliberately (product-owner decision
+    2026-09-09): the `send_scheduled_sms` management command from cron — the
+    repository's established pattern for periodic work, the same one
+    `session-cleanup` and `dispatch_outbound_events` already use — and a
+    small bounded flush whenever someone opens the SMS page, so a deployment
+    whose operator has not wired cron yet still sends rather than silently
+    queueing forever.
+    """
+
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        SENDING = "sending", "Sending"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    body_text = models.TextField()
+    # Always set. An "ارسال گروهی همین حالا" is simply a campaign whose time is
+    # already past, which keeps one code path instead of a nullable special
+    # case that every reader then has to remember.
+    scheduled_for = models.DateTimeField(db_index=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.SCHEDULED,
+        db_index=True,
+    )
+    created_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-scheduled_for", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(body_text__regex=r"\S"),
+                name="sms_campaign_body_nonblank",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=["scheduled", "sending", "completed", "cancelled"]),
+                name="sms_campaign_status_valid",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["status", "scheduled_for"]),
+        ]
+
+
+class SmsCampaignRecipient(TimeStampedModel):
+    """One intended recipient of one campaign, and what became of it.
+
+    `message` points at the `OutboundSMS` row the send actually wrote, so the
+    campaign view and the ordinary outbound log never disagree about what was
+    sent — there is one record of the attempt, referenced here, not a second
+    copy kept in step by hand.
+    """
+
+    class State(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    campaign = models.ForeignKey(
+        SmsCampaign,
+        on_delete=models.CASCADE,
+        related_name="recipients",
+    )
+    customer = models.ForeignKey(
+        Customer,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="sms_campaign_recipients",
+    )
+    lead = models.ForeignKey(
+        Lead,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="sms_campaign_recipients",
+    )
+    recipient_normalized = models.CharField(max_length=20, db_index=True)
+    state = models.CharField(
+        max_length=20,
+        choices=State.choices,
+        default=State.PENDING,
+        db_index=True,
+    )
+    detail = models.CharField(max_length=255, blank=True)
+    message = models.ForeignKey(
+        OutboundSMS,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="campaign_recipients",
+    )
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(recipient_normalized__regex=r"\A\+[1-9][0-9]{7,14}\Z"),
+                name="sms_campaign_recipient_e164",
+            ),
+            models.CheckConstraint(
+                condition=Q(state__in=["pending", "sent", "failed"]),
+                name="sms_campaign_recipient_state_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(lead__isnull=True) | Q(customer__isnull=False),
+                name="sms_campaign_recipient_lead_requires_customer",
+            ),
+            # The same person twice in one campaign would send them the same
+            # text twice; the builder de-duplicates, and this makes that a
+            # property of the data rather than of the code that wrote it.
+            models.UniqueConstraint(
+                fields=["campaign", "recipient_normalized"],
+                name="sms_campaign_recipient_unique_per_campaign",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["campaign", "state"]),
+        ]

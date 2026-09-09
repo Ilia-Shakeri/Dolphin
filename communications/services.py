@@ -2,7 +2,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Mapping
 
 from django.core.exceptions import ValidationError
@@ -15,8 +15,14 @@ from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 from common.phones import normalize_customer_phone
 from communications import sms
-from communications.models import InboundSMS, OutboundSMS
-from sales.models import CustomerPhone
+from communications.models import (
+    InboundSMS,
+    OutboundSMS,
+    SmsCampaign,
+    SmsCampaignRecipient,
+    SmsTemplate,
+)
+from sales.models import Customer, CustomerPhone, Lead
 
 
 PROVIDER_CODE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,49}$", flags=re.ASCII)
@@ -274,3 +280,306 @@ def send_outbound_sms(*, actor, body, customer=None, lead=None, phone=""):
         else:
             log_activity(actor=locked_actor, operation="outbound_sms.failed", instance=message, changes=changes)
     return message
+
+
+# A group send is bounded so one mistaken selection cannot queue the entire
+# customer book. Not a carrier limit — a deliberate blast radius, the same
+# reasoning behind every other cap in this module.
+SMS_CAMPAIGN_MAX_RECIPIENTS = 500
+
+# How many recipients one dispatcher pass will actually send. Each is a
+# provider HTTP round trip, so this bounds both the cron run and — far more
+# importantly — the opportunistic flush that runs inside a page request.
+SMS_CAMPAIGN_DISPATCH_BATCH = 25
+SMS_CAMPAIGN_REQUEST_FLUSH_BATCH = 5
+
+#: The one substitution a template may make. Kept to a single, obvious token
+#: rather than a general expression language: anything richer is a product
+#: decision about what a template may read, not a formatting convenience.
+TEMPLATE_NAME_TOKEN = "{نام}"
+
+
+def render_sms_template(body, *, customer=None, lead=None):
+    """Substitute the recipient's own name into a template body.
+
+    Falls back to an empty string rather than leaving the token visible: a
+    message reading "سلام {نام}" delivered verbatim is worse than one reading
+    "سلام" — the reader sees a broken system either way, but only the first
+    tells them so in the message itself.
+    """
+    if TEMPLATE_NAME_TOKEN not in body:
+        return body
+    holder = customer or (lead.customer if lead is not None else None)
+    name = (getattr(holder, "full_name", "") or "").strip()
+    return body.replace(TEMPLATE_NAME_TOKEN, name).strip()
+
+
+def create_sms_template(*, actor, title, body):
+    """Templates are managed by the same capability that sends: a message body
+    saved for reuse is not a more privileged thing than a message."""
+    with transaction.atomic():
+        locked_actor = _lock_sms_sender(actor)
+        cleaned_title = unicodedata.normalize("NFKC", str(title or "")).strip()
+        if not cleaned_title:
+            raise BusinessRuleError({"title": "عنوان قالب الزامی است."})
+        if len(cleaned_title) > 120:
+            raise BusinessRuleError({"title": "عنوان قالب نباید بیش از ۱۲۰ نویسه باشد."})
+        cleaned_body = _clean_body(body)
+        if SmsTemplate.objects.filter(title=cleaned_title).exists():
+            raise BusinessRuleError({"title": "قالبی با همین عنوان از قبل هست."})
+        template = SmsTemplate.objects.create(
+            title=cleaned_title,
+            body_text=cleaned_body,
+            created_by=locked_actor,
+        )
+        log_activity(
+            actor=locked_actor,
+            operation="sms_template.created",
+            instance=template,
+            changes={"fields": ["title", "body_text"]},
+        )
+    return template
+
+
+def delete_sms_template(*, actor, template_id):
+    with transaction.atomic():
+        locked_actor = _lock_sms_sender(actor)
+        template = SmsTemplate.objects.select_for_update().filter(pk=template_id).first()
+        if template is None:
+            raise BusinessRuleError({"template": "قالب پیدا نشد."})
+        log_activity(
+            actor=locked_actor,
+            operation="sms_template.deleted",
+            instance=template,
+            changes={"fields": ["title"]},
+        )
+        template.delete()
+
+
+def _collect_campaign_recipients(*, customer_ids, lead_ids, phones):
+    """Turn the three ways of naming recipients into one de-duplicated list.
+
+    Order matters only for which record a number is attributed to: a number
+    reached first through a customer keeps that customer, so the campaign view
+    and the ordinary outbound log both show a person rather than a bare number.
+    """
+    collected = {}
+
+    for customer in Customer.objects.filter(pk__in=list(customer_ids)[:SMS_CAMPAIGN_MAX_RECIPIENTS]):
+        phone = customer.phones.filter(is_active=True).first()
+        if phone is None:
+            continue
+        collected.setdefault(phone.normalized_phone, {"customer": customer, "lead": None})
+
+    leads = Lead.objects.filter(
+        pk__in=list(lead_ids)[:SMS_CAMPAIGN_MAX_RECIPIENTS]
+    ).select_related("customer")
+    for lead in leads:
+        if lead.customer_id is None:
+            continue
+        phone = lead.customer.phones.filter(is_active=True).first()
+        if phone is None:
+            continue
+        existing = collected.get(phone.normalized_phone)
+        if existing is None:
+            collected[phone.normalized_phone] = {"customer": lead.customer, "lead": lead}
+        elif existing["lead"] is None and existing["customer"] is not None and existing["customer"].pk == lead.customer_id:
+            existing["lead"] = lead
+
+    for raw in list(phones)[:SMS_CAMPAIGN_MAX_RECIPIENTS]:
+        if not str(raw).strip():
+            continue
+        try:
+            normalized = normalize_customer_phone(raw)
+        except ValidationError as error:
+            raise BusinessRuleError({"phones": "؛ ".join(error.messages)}) from error
+        collected.setdefault(normalized, {"customer": None, "lead": None})
+
+    if not collected:
+        raise BusinessRuleError({"recipients": "دست‌کم یک گیرندهٔ معتبر لازم است."})
+    if len(collected) > SMS_CAMPAIGN_MAX_RECIPIENTS:
+        raise BusinessRuleError(
+            {"recipients": f"هر ارسال گروهی حداکثر {SMS_CAMPAIGN_MAX_RECIPIENTS} گیرنده می‌پذیرد."}
+        )
+    return collected
+
+
+def create_sms_campaign(*, actor, body, scheduled_for=None, customer_ids=(), lead_ids=(), phones=()):
+    """Queue one group or scheduled send. Nothing is sent here.
+
+    `scheduled_for` omitted means "as soon as the dispatcher next runs", which
+    for a deployment with either cron or ordinary page traffic is effectively
+    immediately. A time in the future is honoured.
+    """
+    cleaned_body = _clean_body(body)
+    now = timezone.now()
+    if scheduled_for is not None and scheduled_for < now - timedelta(minutes=5):
+        raise BusinessRuleError({"scheduled_for": "زمان ارسال نمی‌تواند در گذشته باشد."})
+    when = scheduled_for or now
+
+    with transaction.atomic():
+        locked_actor = _lock_sms_sender(actor)
+        collected = _collect_campaign_recipients(
+            customer_ids=customer_ids, lead_ids=lead_ids, phones=phones
+        )
+        campaign = SmsCampaign.objects.create(
+            body_text=cleaned_body,
+            scheduled_for=when,
+            status=SmsCampaign.Status.SCHEDULED,
+            created_by=locked_actor,
+        )
+        SmsCampaignRecipient.objects.bulk_create(
+            [
+                SmsCampaignRecipient(
+                    campaign=campaign,
+                    customer=entry["customer"],
+                    lead=entry["lead"],
+                    recipient_normalized=number,
+                )
+                for number, entry in collected.items()
+            ]
+        )
+        log_activity(
+            actor=locked_actor,
+            operation="sms_campaign.created",
+            instance=campaign,
+            changes={"fields": ["body_text", "scheduled_for"], "recipients": len(collected)},
+        )
+    return campaign
+
+
+def cancel_sms_campaign(*, actor, campaign_id):
+    """Stop a campaign that has not finished. Anything already sent stays
+    sent — this cancels the remainder, it does not recall messages."""
+    with transaction.atomic():
+        locked_actor = _lock_sms_sender(actor)
+        campaign = SmsCampaign.objects.select_for_update().filter(pk=campaign_id).first()
+        if campaign is None:
+            raise BusinessRuleError({"campaign": "کارزار پیدا نشد."})
+        if campaign.status in {SmsCampaign.Status.COMPLETED, SmsCampaign.Status.CANCELLED}:
+            raise BusinessRuleError({"campaign": "این کارزار از قبل پایان یافته است."})
+        campaign.status = SmsCampaign.Status.CANCELLED
+        campaign.finished_at = timezone.now()
+        campaign.save(update_fields=["status", "finished_at", "updated_at"])
+        log_activity(
+            actor=locked_actor,
+            operation="sms_campaign.cancelled",
+            instance=campaign,
+            changes={"fields": ["status"]},
+        )
+    return campaign
+
+
+def _send_one_campaign_recipient(campaign, claimed_id):
+    """One recipient's provider call and its two records: the ordinary
+    `OutboundSMS` row every send writes, and this recipient's own outcome.
+
+    Returns True when the provider accepted it. Never raises for a provider
+    failure — the same reasoning as `send_outbound_sms`: one unreachable
+    number must not abandon the rest of the batch.
+    """
+    recipient = SmsCampaignRecipient.objects.select_related("customer", "lead").get(pk=claimed_id)
+    body = render_sms_template(campaign.body_text, customer=recipient.customer, lead=recipient.lead)
+    try:
+        result = sms.send_via_configured_provider(to=recipient.recipient_normalized, body=body)
+    except Exception as error:  # noqa: BLE001 — recorded as a failure, not swallowed
+        SmsCampaignRecipient.objects.filter(pk=claimed_id).update(
+            state=SmsCampaignRecipient.State.FAILED, detail=str(error)[:255]
+        )
+        return False
+
+    with transaction.atomic():
+        message = OutboundSMS.objects.create(
+            provider_code=result.provider_code,
+            recipient_normalized=recipient.recipient_normalized,
+            body_text=body,
+            status=OutboundSMS.Status.SENT if result.success else OutboundSMS.Status.FAILED,
+            status_detail=result.status_detail[:255],
+            customer=recipient.customer,
+            lead=recipient.lead,
+            sent_by=campaign.created_by,
+        )
+        SmsCampaignRecipient.objects.filter(pk=claimed_id).update(
+            state=(
+                SmsCampaignRecipient.State.SENT
+                if result.success
+                else SmsCampaignRecipient.State.FAILED
+            ),
+            detail=result.status_detail[:255],
+            message=message,
+        )
+        log_activity(
+            actor=campaign.created_by,
+            operation="outbound_sms.sent" if result.success else "outbound_sms.failed",
+            instance=message,
+            changes={"fields": ["recipient_normalized", "status"], "campaign": campaign.pk},
+        )
+    return result.success
+
+
+def dispatch_due_sms_campaigns(*, limit=None):
+    """Send up to `limit` pending recipients across every campaign now due.
+
+    Returns `(sent, failed)`.
+
+    Called from exactly two places, both bounded: the `send_scheduled_sms`
+    management command (cron — the repository's established pattern for
+    periodic work, the same one `session-cleanup` and `dispatch_outbound_
+    events` already use) and a small flush when someone opens the SMS page, so
+    a deployment whose operator has not wired cron yet still sends rather than
+    queueing forever.
+
+    Each recipient is claimed under `select_for_update(skip_locked=True)`
+    before its provider call, so two dispatchers running at once — cron and a
+    page request, say — cannot both send the same message.
+    """
+    budget = SMS_CAMPAIGN_DISPATCH_BATCH if limit is None else limit
+    if budget <= 0 or not sms.provider_is_available():
+        return (0, 0)
+
+    sent = failed = 0
+    due = SmsCampaign.objects.filter(
+        status__in=[SmsCampaign.Status.SCHEDULED, SmsCampaign.Status.SENDING],
+        scheduled_for__lte=timezone.now(),
+    ).order_by("scheduled_for", "id")
+
+    for campaign in due:
+        while sent + failed < budget:
+            with transaction.atomic():
+                recipient = (
+                    SmsCampaignRecipient.objects.select_for_update(skip_locked=True)
+                    .filter(campaign=campaign, state=SmsCampaignRecipient.State.PENDING)
+                    .order_by("id")
+                    .first()
+                )
+                if recipient is None:
+                    break
+                # Marked inside the same transaction that found it, so a second
+                # dispatcher's `skip_locked` passes over it instead of sending
+                # the same message twice.
+                recipient.detail = "در حال ارسال"
+                recipient.save(update_fields=["detail", "updated_at"])
+                if campaign.status != SmsCampaign.Status.SENDING:
+                    campaign.status = SmsCampaign.Status.SENDING
+                    campaign.started_at = campaign.started_at or timezone.now()
+                    campaign.save(update_fields=["status", "started_at", "updated_at"])
+                claimed_id = recipient.pk
+
+            if _send_one_campaign_recipient(campaign, claimed_id):
+                sent += 1
+            else:
+                failed += 1
+
+        # Closed only once nothing pending is left, so a campaign larger than
+        # one batch stays `sending` across passes rather than finishing early.
+        still_pending = SmsCampaignRecipient.objects.filter(
+            campaign=campaign, state=SmsCampaignRecipient.State.PENDING
+        ).exists()
+        if not still_pending:
+            SmsCampaign.objects.filter(pk=campaign.pk).exclude(
+                status=SmsCampaign.Status.CANCELLED
+            ).update(status=SmsCampaign.Status.COMPLETED, finished_at=timezone.now())
+
+        if sent + failed >= budget:
+            break
+    return (sent, failed)

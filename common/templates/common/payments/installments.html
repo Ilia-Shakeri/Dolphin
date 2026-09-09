@@ -7,10 +7,12 @@
 {% block breadcrumb_current %}اقساط{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:payments' %}">دریافت‌ها</a>{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 justify-content-end">
-    <div class="card-toolbar">
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6">
+    {% comment %} No search box on this page — nothing here is free text — so the
+       filter sits alone where every other list's search+filter pair starts. {% endcomment %}
+    <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-filter">
-            <button id="installment-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+            <button id="installment-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
                 <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="installment-filter-panel" class="list-filter-panel" hidden>

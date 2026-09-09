@@ -23,27 +23,123 @@
     </div>
 </div>
 {% endif %}
+
+{% comment %} یک کارت نوشتن، با انتخابگر «تکی / گروهی» بالای آن — نه دو فرم جدا.
+   متن پیامک در هر دو حالت همان است؛ فقط گیرنده و زمان فرق می‌کند، پس تکرار
+   کل فرم فقط دو جای نگه‌داری برای یک چیز می‌ساخت. {% endcomment %}
 <section class="card mb-5 mb-xl-8">
-    <div class="card-header border-0 pt-6">
-        <div class="card-title"><h2>ارسال پیامک تازه</h2></div>
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title mb-0"><h2 class="fs-3 fw-bold text-gray-900 mb-0">نوشتن پیامک</h2></div>
+        <div class="card-toolbar">
+            <div class="btn-group" role="group" aria-label="حالت ارسال">
+                <button id="sms-mode-single" class="btn btn-sm btn-primary" type="button" data-sms-mode="single" aria-pressed="true">ارسال تکی</button>
+                <button id="sms-mode-bulk" class="btn btn-sm btn-light" type="button" data-sms-mode="bulk" aria-pressed="false">ارسال گروهی</button>
+            </div>
+        </div>
     </div>
     <div class="card-body pt-2">
-        <form id="outbound-sms-send-form" action="/api/v1/outbound-sms/send/" method="post" class="form-grid" novalidate>
-            <div><label class="form-label fw-semibold" for="outbound-sms-customer">شناسهٔ مشتری (اختیاری)</label><input class="form-control form-control-solid" id="outbound-sms-customer" name="customer" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۱۲"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
-            <div><label class="form-label fw-semibold" for="outbound-sms-lead">شناسهٔ سرنخ (اختیاری)</label><input class="form-control form-control-solid" id="outbound-sms-lead" name="lead" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۴۵"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lead"></p></div>
-            <div><label class="form-label fw-semibold" for="outbound-sms-phone">یا شمارهٔ گیرنده</label><input class="form-control form-control-solid" id="outbound-sms-phone" name="phone" type="text" dir="ltr" placeholder="۰۹xxxxxxxxx"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
-            <div class="w-100"><label class="form-label fw-semibold" for="outbound-sms-body">متن پیامک</label><textarea class="form-control form-control-solid" id="outbound-sms-body" name="body" rows="3" maxlength="2000" required></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="body"></p></div>
-            <p class="text-danger fs-8 mt-1 mb-0 w-100" data-error-for="provider"></p>
-            <button class="btn btn-primary" type="submit"{% if not sms_provider_configured %} disabled title="ابتدا سامانهٔ پیامک را تنظیم کنید"{% endif %}>
-                <i class="ki-duotone ki-send fs-3 me-1"><span class="path1"></span><span class="path2"></span></i>ارسال پیامک
-            </button>
-            <p class="text-muted fs-8 mt-2 mb-0 w-100">دقیقاً یکی از «مشتری»، «سرنخ» یا «شماره» را پر کنید — مشتری اولویت دارد و شمارهٔ تلفن فعالِ اصلی او مقصد ارسال است.</p>
+        <form id="outbound-sms-send-form" action="/api/v1/outbound-sms/send/" method="post" novalidate>
+            <div class="row g-5">
+                {% comment %} گیرندهٔ حالت تکی: دقیقاً یکی از این سه. {% endcomment %}
+                <div class="col-12" data-sms-recipients="single">
+                    <div class="row g-5">
+                        <div class="col-md-4"><label class="form-label fw-semibold" for="outbound-sms-customer">شناسهٔ مشتری</label><input class="form-control form-control-solid" id="outbound-sms-customer" name="customer" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۱۲"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
+                        <div class="col-md-4"><label class="form-label fw-semibold" for="outbound-sms-lead">شناسهٔ سرنخ</label><input class="form-control form-control-solid" id="outbound-sms-lead" name="lead" type="text" inputmode="numeric" dir="ltr" placeholder="مثلاً ۴۵"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lead"></p></div>
+                        <div class="col-md-4"><label class="form-label fw-semibold" for="outbound-sms-phone">یا شمارهٔ گیرنده</label><input class="form-control form-control-solid" id="outbound-sms-phone" name="phone" type="text" dir="ltr" placeholder="۰۹xxxxxxxxx"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
+                        <div class="col-12"><p class="text-muted fs-8 mb-0">دقیقاً یکی از این سه را پر کنید — مشتری اولویت دارد و شمارهٔ فعال اصلی او مقصد ارسال است.</p></div>
+                    </div>
+                </div>
+
+                {% comment %} گیرندهٔ حالت گروهی: انتخاب از دفتر مشتریان/سرنخ‌ها،
+                   به‌علاوهٔ شماره‌های دستی. سرویس بر اساس شمارهٔ نرمال‌شده
+                   تکراری‌ها را حذف می‌کند. {% endcomment %}
+                <div class="col-12" data-sms-recipients="bulk" hidden>
+                    <div class="row g-5">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="sms-bulk-customer-search">افزودن مشتری</label>
+                            <div class="searchable-select" data-searchable-select>
+                                <input class="form-control form-control-solid" id="sms-bulk-customer-search" type="search" autocomplete="off" placeholder="نام مشتری را بنویسید…" data-searchable-input hidden aria-controls="sms-bulk-customer-options" aria-expanded="false" role="combobox">
+                                <select class="form-select form-select-solid" id="sms-bulk-customer" data-searchable-source><option value="">در حال دریافت…</option></select>
+                                <ul class="searchable-select-options" id="sms-bulk-customer-options" role="listbox" hidden></ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold" for="sms-bulk-lead-search">افزودن سرنخ</label>
+                            <div class="searchable-select" data-searchable-select>
+                                <input class="form-control form-control-solid" id="sms-bulk-lead-search" type="search" autocomplete="off" placeholder="سرنخ را بنویسید…" data-searchable-input hidden aria-controls="sms-bulk-lead-options" aria-expanded="false" role="combobox">
+                                <select class="form-select form-select-solid" id="sms-bulk-lead" data-searchable-source><option value="">در حال دریافت…</option></select>
+                                <ul class="searchable-select-options" id="sms-bulk-lead-options" role="listbox" hidden></ul>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="sms-bulk-phones">شماره‌های دستی</label>
+                            <textarea class="form-control form-control-solid" id="sms-bulk-phones" rows="2" dir="ltr" placeholder="۰۹۱۲۱۲۳۴۵۶۷، ۰۹۳۵…  — با ویرگول یا خط تازه جدا کنید"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap align-items-center gap-2" id="sms-bulk-chips" aria-live="polite"></div>
+                            <p class="text-muted fs-8 mt-2 mb-0">هیچ گیرنده‌ای انتخاب نشده است.<span id="sms-bulk-count" class="fw-semibold text-gray-800"></span></p>
+                            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="recipients"></p>
+                        </div>
+                    </div>
+                </div>
+
+                {% comment %} متن پیام — بزرگ‌ترین عنصر صفحه، طبق درخواست مالک
+                   محصول (۲۰۲۶/۰۹/۰۹). {% endcomment %}
+                <div class="col-12">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                        <label class="form-label fw-semibold mb-0" for="outbound-sms-body">متن پیامک</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="sr-only" for="sms-template-picker">قالب آماده</label>
+                            <select class="form-select form-select-solid form-select-sm w-auto" id="sms-template-picker"><option value="">قالب آماده…</option></select>
+                            <button class="btn btn-sm btn-light" type="button" id="sms-template-save">ذخیرهٔ این متن</button>
+                        </div>
+                    </div>
+                    <textarea class="form-control form-control-solid sms-body-input" id="outbound-sms-body" name="body" rows="8" maxlength="2000" required placeholder="متن پیامک را اینجا بنویسید…"></textarea>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2">
+                        {% comment %} شمارندهٔ نویسه/بخش — استاندارد هر پنل پیامکی.
+                           محاسبه در `updateSmsCounter` (dolphin-app.js). {% endcomment %}
+                        <p class="text-muted fs-8 mb-0" id="sms-body-counter" aria-live="polite"></p>
+                        <p class="text-muted fs-8 mb-0">در قالب‌ها می‌توانید <code>{نام}</code> بنویسید تا نام گیرنده جای آن بنشیند.</p>
+                    </div>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="body"></p>
+                </div>
+
+                {% comment %} زمان‌بندی فقط برای حالت گروهی معنا دارد. {% endcomment %}
+                <div class="col-md-6" data-sms-recipients="bulk" hidden>
+                    <label class="form-label fw-semibold" for="sms-schedule-at">زمان ارسال (اختیاری)</label>
+                    <input class="form-control form-control-solid" id="sms-schedule-at" type="text" data-jalali="datetime" placeholder="خالی یعنی همین حالا">
+                    <p class="text-muted fs-8 mt-1 mb-0">خالی بگذارید تا بلافاصله ارسال شود.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="scheduled_for"></p>
+                </div>
+
+                <p class="text-danger fs-8 mb-0 col-12" data-error-for="provider"></p>
+
+                <div class="col-12 d-flex justify-content-end">
+                    {% comment %} دکمهٔ ارسال کوچک‌تر از ورودی متن، طبق درخواست. {% endcomment %}
+                    <button class="btn btn-sm btn-primary" type="submit"{% if not sms_provider_configured %} disabled title="ابتدا سامانهٔ پیامک را تنظیم کنید"{% endif %}>
+                        <i class="ki-duotone ki-send fs-4 me-1"><span class="path1"></span><span class="path2"></span></i><span id="sms-submit-label">ارسال پیامک</span>
+                    </button>
+                </div>
+            </div>
         </form>
     </div>
 </section>
+
+{% comment %} کارزارها: ارسال‌های گروهی/زمان‌بندی‌شده و پیشرفت هرکدام. {% endcomment %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
-        <div class="card-title"><h2>پیامک‌های اخیر</h2></div>
+        <div class="card-title mb-0"><h2 class="fs-3 fw-bold text-gray-900 mb-0">ارسال‌های گروهی و زمان‌بندی‌شده</h2></div>
+    </div>
+    <div class="card-body pt-2">
+        <p id="sms-campaigns-empty" class="text-center text-gray-700 py-10" hidden>هنوز ارسال گروهی ثبت نشده است.</p>
+        <div id="sms-campaigns-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>زمان ارسال</th><th>وضعیت</th><th>گیرندگان</th><th>ثبت‌کننده</th><th>متن</th><th>عملیات</th></tr></thead><tbody id="sms-campaigns-table-body"></tbody></table></div>
+        <div id="sms-campaigns-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" hidden><button id="sms-campaigns-prev" class="btn btn-light" type="button">قبل</button><span id="sms-campaigns-page"></span><button id="sms-campaigns-next" class="btn btn-light" type="button">بعد</button></div>
+    </div>
+</section>
+
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title mb-0"><h2 class="fs-3 fw-bold text-gray-900 mb-0">پیامک‌های اخیر</h2></div>
     </div>
     <div class="card-body pt-2">
         <p id="outbound-sms-empty" class="text-center text-gray-700 py-10" hidden>پیامکی ثبت نشده است.</p>
@@ -51,4 +147,13 @@
         <div id="outbound-sms-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" hidden><button id="outbound-sms-prev" class="btn btn-light" type="button">قبل</button><span id="outbound-sms-page"></span><button id="outbound-sms-next" class="btn btn-light" type="button">بعد</button></div>
     </div>
 </section>
+
+<dialog id="sms-template-dialog" aria-labelledby="sms-template-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="sms-template-title">ذخیرهٔ قالب</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="row g-5">
+        <div class="col-12"><label class="form-label fw-semibold" for="sms-template-name">عنوان قالب</label><input class="form-control form-control-solid" id="sms-template-name" maxlength="120" placeholder="مثلاً: پیگیری سفارش"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="title"></p></div>
+        <div class="col-12"><p class="text-muted fs-8 mb-0">متن فعلیِ کادر پیام ذخیره می‌شود.</p></div>
+    </div>
+    <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button id="sms-template-confirm" class="btn btn-primary" type="button">ذخیره</button></div>
+</dialog>
 {% endblock %}

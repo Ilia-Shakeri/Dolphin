@@ -31,12 +31,14 @@ from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
 from reports.list_charts import LIST_CHARTS, totals_for
 from reports.customer_insights import (
+    build_customer_province_report,
     InvalidReportPeriod,
     build_customer_city_report,
     build_customer_growth_report,
 )
 from reports.serializers import (
     CustomerCityReportSerializer,
+    CustomerProvinceReportSerializer,
     CustomerGrowthQuerySerializer,
     CustomerGrowthReportSerializer,
     ListChartSerializer,
@@ -154,5 +156,29 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
         results = builder(request.user)
         payload = {"key": key, "title": title, "results": results, **totals_for(results)}
         response = Response(ListChartSerializer(payload).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class CustomerProvinceReportView(CustomerInsightMixin, APIView):
+    @extend_schema(
+        responses={
+            200: CustomerProvinceReportSerializer,
+            403: ACCESS_DENIED_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description=(
+            "How the caller's customers are distributed across Iran's thirty-one "
+            "provinces, for the map on the customers page. `province` is free text, "
+            "so a spelling table folds the usual variants (and a few provincial "
+            "capitals) onto one key each; a customer whose province cannot be placed "
+            "is counted in `unmatched` rather than dropped, so `placed + unmatched` "
+            "always equals the same scoped total the table shows."
+        ),
+    )
+    def get(self, request):
+        self.require_customer_access(request)
+        report = build_customer_province_report(actor=request.user)
+        response = Response(CustomerProvinceReportSerializer(report).data)
         response["Cache-Control"] = "private, no-store"
         return response

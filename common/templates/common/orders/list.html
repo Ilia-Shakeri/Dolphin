@@ -8,16 +8,14 @@
 {% block page_actions %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
-    <div class="card-title mb-0">
+    <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
             <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="order-search">جستجوی سفارش</label>
             <input class="form-control form-control-solid" id="order-search" type="search" placeholder="شماره، مشتری یا کالا">
         </div>
-    </div>
-    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <div class="list-filter">
-            <button id="order-filter-toggle" class="btn btn-icon btn-light-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
+            <button id="order-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
                 <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="order-filter-panel" class="list-filter-panel" hidden>
@@ -36,6 +34,8 @@
                 </form>
             </div>
         </div>
+    </div>
+    <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <button id="open-create-order" class="btn btn-primary" type="button">سفارش تازه</button>
     </div>
 </div><div class="card-body pt-2">
@@ -103,10 +103,18 @@
                     <div class="col-12"><label class="form-label fw-semibold" for="create-order-notes">توضیحات</label><textarea class="form-control form-control-solid" id="create-order-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
                 </div>
             </div>
-            <div data-kt-stepper-element="content">
-                <h3 class="fs-5 fw-bold text-gray-900 mb-3">اقلام سفارش</h3>
-                <div id="create-order-lines" class="d-flex flex-column gap-3 mb-4"></div>
-                <button class="btn btn-light-primary" type="button" id="create-order-add-line">افزودن کالا</button>
+            <div data-kt-stepper-element="content" class="wizard-lines-step">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">اقلام سفارش</h3>
+                <p class="text-muted fs-7 mb-6">کالا را جست‌وجو کنید و تعدادش را بگذارید. هر سطر یک قلم است؛ سطرهای بیشتر را پس از ثبت هم می‌شود از صفحهٔ جزئیات اضافه کرد.</p>
+                {% comment %} سرستون یک‌بار بالای سطرها، نه تکرار برچسب روی تک‌تک
+                   ردیف‌ها — همان کاری که مرجع repeater خود مترونیک می‌کند. {% endcomment %}
+                <div class="wizard-lines-head d-flex flex-wrap gap-5 fs-8 fw-semibold text-muted text-uppercase mb-3">
+                    <span class="flex-grow-1">کالا</span>
+                    <span class="w-100px">تعداد</span>
+                    <span class="wizard-lines-head-spacer" aria-hidden="true"></span>
+                </div>
+                <div id="create-order-lines" class="d-flex flex-column mb-6"></div>
+                <button class="btn btn-light-primary" type="button" id="create-order-add-line"><i class="ki-duotone ki-plus fs-3 me-1"></i>افزودن کالا</button>
                 <p class="text-danger fs-8 mt-3 mb-0" data-error-for="items"></p>
             </div>
             <div data-kt-stepper-element="content">

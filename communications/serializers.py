@@ -3,7 +3,13 @@ from datetime import timedelta
 from rest_framework import serializers
 
 from common.serializers import RejectServerFieldsMixin
-from communications.models import InboundSMS, OutboundSMS, SmsProviderSettings
+from communications.models import (
+    InboundSMS,
+    OutboundSMS,
+    SmsCampaign,
+    SmsProviderSettings,
+    SmsTemplate,
+)
 from reports.serializers import OffsetAwareDateTimeField
 from sales.models import Customer, Lead
 from sales.selectors import customers_for, leads_for
@@ -215,3 +221,86 @@ class SmsProviderSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.S
     token_password = serializers.CharField(required=False, allow_blank=True, max_length=255)
     token_extra_params = serializers.CharField(required=False, allow_blank=True)
     test_url = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
+class SmsTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SmsTemplate
+        fields = ("id", "title", "body_text", "created_at")
+        read_only_fields = fields
+
+
+class SmsTemplateCreateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    title = serializers.CharField(max_length=120)
+    body = serializers.CharField(max_length=2000)
+
+
+class SmsCampaignCreateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """What a caller supplies to queue a group or scheduled send.
+
+    Recipients may be named three ways at once — chosen customers, chosen
+    leads, and typed numbers — because a real group send mixes them; the
+    service de-duplicates by normalized number. `customers`/`leads` are scoped
+    to what this caller may already see, the same `customers_for`/`leads_for`
+    selectors the single-send serializer above uses, so this cannot be used to
+    probe for rows outside that scope.
+
+    `scheduled_for` omitted means "as soon as the dispatcher next runs".
+    """
+
+    customers = serializers.PrimaryKeyRelatedField(
+        queryset=Customer.objects.none(), many=True, required=False
+    )
+    leads = serializers.PrimaryKeyRelatedField(
+        queryset=Lead.objects.none(), many=True, required=False
+    )
+    phones = serializers.ListField(
+        child=serializers.CharField(max_length=40), required=False, allow_empty=True
+    )
+    body = serializers.CharField(max_length=2000)
+    scheduled_for = serializers.DateTimeField(required=False, allow_null=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            _scope_relation(self.fields["customers"].child_relation, customers_for(request.user))
+            _scope_relation(self.fields["leads"].child_relation, leads_for(request.user))
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if not (attrs.get("customers") or attrs.get("leads") or [p for p in attrs.get("phones", []) if p.strip()]):
+            raise serializers.ValidationError(
+                {"recipients": "دست‌کم یک گیرنده لازم است: مشتری، سرنخ یا شماره."}
+            )
+        return attrs
+
+
+class SmsCampaignSerializer(serializers.ModelSerializer):
+    recipient_count = serializers.IntegerField(read_only=True)
+    sent_count = serializers.IntegerField(read_only=True)
+    failed_count = serializers.IntegerField(read_only=True)
+    pending_count = serializers.IntegerField(read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SmsCampaign
+        fields = (
+            "id",
+            "body_text",
+            "scheduled_for",
+            "status",
+            "started_at",
+            "finished_at",
+            "created_by_name",
+            "recipient_count",
+            "sent_count",
+            "failed_count",
+            "pending_count",
+        )
+        read_only_fields = fields
+
+    def get_created_by_name(self, instance) -> str:
+        if not instance.created_by:
+            return ""
+        return instance.created_by.get_full_name() or instance.created_by.username
