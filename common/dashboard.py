@@ -33,6 +33,7 @@ from accounts.models import User
 from aftersales.selectors import after_sales_requests_for
 from billing.selectors import invoices_for
 from common import formatting
+from common.dashboard_layout import apply_layout
 from common.deployment.profile import feature_enabled
 from sales.models import Lead, Sale
 from sales.selectors import interactions_for, leads_for, sales_for
@@ -285,4 +286,7 @@ def dashboard_for(user, *, now=None):
     elif feature_enabled("leads") and leads_for(user).exists():
         breakdown = _lead_breakdown(user)
 
-    return {"kpis": kpis, "trend": trend, "breakdown": breakdown}
+    # This deployment's own admin-chosen hidden/reordered widgets, applied
+    # last — after every KPI/trend/breakdown above has already been scoped
+    # to what this specific reader may see. See `common.dashboard_layout`.
+    return apply_layout({"kpis": kpis, "trend": trend, "breakdown": breakdown})

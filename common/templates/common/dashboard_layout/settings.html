@@ -1,0 +1,37 @@
+{% extends "common/base.html" %}
+{% block title %}چیدمان داشبورد{% endblock %}
+{% block page_id %}dashboard-layout-settings{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">تنظیمات استقرار</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-element-11 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}چیدمان داشبورد{% endblock %}
+{% block breadcrumb_current %}چیدمان داشبورد{% endblock %}
+{% block content %}
+<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
+    <div class="d-flex flex-stack flex-grow-1">
+        <div class="fw-semibold">
+            <div class="fs-6 text-gray-700">
+                این چیدمان برای همهٔ کاربران این استقرار یکسان است و بلافاصله روی صفحهٔ نخست همه اثر
+                می‌گذارد. پنهان‌کردن یک ویجت هیچ داده‌ای را پاک نمی‌کند — فقط از صفحهٔ نخست برداشته
+                می‌شود؛ در هر لحظه می‌توانید دوباره نمایانش کنید. ویجتی که ماژولش برای این استقرار
+                خاموش است، صرف‌نظر از این تنظیم، هرگز نمایش داده نمی‌شود.
+            </div>
+        </div>
+    </div>
+</div>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title"><h2>ویجت‌های صفحهٔ نخست</h2></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="dashboard-layout-loading" class="text-center text-gray-700 py-10">در حال دریافت تنظیمات فعلی…</div>
+        <form id="dashboard-layout-form" class="d-none" novalidate>
+            {% csrf_token %}
+            <ul class="list-group mb-6" id="dashboard-layout-list"></ul>
+            <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>
+            <div class="d-flex justify-content-end">
+                <button class="btn btn-primary" type="submit">ذخیره</button>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

@@ -11,8 +11,8 @@
         <div class="fw-semibold">
             <div class="fs-6 text-gray-700">
                 این تنظیم فقط برای همین استقرار است و بلافاصله روی همین پنل اثر می‌گذارد — نیازی به
-                ساخت دوبارهٔ manifest یا هماهنگی با کنسول نیست. نام و لوگو را خالی بگذارید تا پنل
-                همچنان با نام و لوگوی دلفین نمایش داده شود.
+                ساخت دوبارهٔ manifest یا هماهنگی با کنسول نیست. نام و لوگو را خالی بگذارید و رنگ را
+                روی «پیش‌فرض دلفین» نگه دارید تا پنل همچنان با ظاهر دلفین نمایش داده شود.
             </div>
         </div>
     </div>
@@ -48,6 +48,18 @@
                         <input class="form-check-input" type="checkbox" id="branding-remove-logo" name="remove_logo">
                         <label class="form-check-label" for="branding-remove-logo">حذف لوگوی فعلی و بازگشت به لوگوی دلفین</label>
                     </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="branding-accent-color">رنگ اصلی پنل</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <input class="form-control form-control-solid form-control-color" id="branding-accent-color"
+                               name="accent_color" type="color" value="#1b84ff" title="انتخاب رنگ">
+                        <input class="form-control form-control-solid" id="branding-accent-color-hex"
+                               type="text" dir="ltr" maxlength="7" placeholder="#1b84ff" style="max-width:9rem">
+                        <button class="btn btn-sm btn-light" type="button" id="branding-accent-color-reset">پیش‌فرض دلفین</button>
+                    </div>
+                    <p class="text-muted fs-7 mt-1 mb-0">روی دکمه‌ها، لینک‌ها و نشان‌های سراسر پنل اثر می‌گذارد.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="accent_color"></p>
                 </div>
             </div>
             <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>

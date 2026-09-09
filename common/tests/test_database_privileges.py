@@ -364,6 +364,10 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # (common.branding). A logo is cleared by writing NULL back into
             # this same row, never by deleting it — no DELETE.
             "common_brandsettings": "SELECT, INSERT, UPDATE",
+            # One singleton row for the whole deployment's dashboard widget
+            # layout (common.dashboard_layout) — same shape as
+            # common_brandsettings above, no DELETE.
+            "common_dashboardsettings": "SELECT, INSERT, UPDATE",
             # Internal chat (chat/). A thread's `last_message_at` and a
             # participant's own `last_read_at` are both rewritten in place by
             # the service layer; a message, once sent, is never edited or

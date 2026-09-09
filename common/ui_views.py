@@ -225,6 +225,11 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         context["can_manage_sms_provider"] = (
             feature_enabled("outbound_sms") and self.request.user.role == User.Role.PLATFORM_ADMIN
         )
+        # Mirrors DolphinDashboardLayoutSettingsView's own two gates exactly
+        # (feature, then role) — same reasoning as can_manage_branding above.
+        context["can_manage_dashboard_layout"] = (
+            feature_enabled("dashboard_insights") and self.request.user.role == User.Role.PLATFORM_ADMIN
+        )
         return context
 
 
@@ -1211,6 +1216,28 @@ class DolphinBrandingSettingsView(ActiveCrmView):
             return self.render_to_response(self.get_context_data(
                 error_status=403, error_title="دسترسی مجاز نیست",
                 error_message="تغییر نام و لوگوی پنل فقط برای مدیر پلتفرم مجاز است.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
+class DolphinDashboardLayoutSettingsView(ActiveCrmView):
+    """`/settings/dashboard/` — this deployment's own choice of which
+    dashboard widgets show, and in what order.
+
+    Same two-gate shape as `DolphinBrandingSettingsView` right above:
+    feature-gated (`dashboard_insights` — customising a panel with no
+    dashboard is meaningless) and, on top of that, restricted to a Platform
+    Admin, since the layout is shared by every user of this deployment.
+    """
+
+    required_feature = "dashboard_insights"
+    template_name = "common/dashboard_layout/settings.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and request.user.role != User.Role.PLATFORM_ADMIN:
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="تغییر چیدمان داشبورد فقط برای مدیر پلتفرم مجاز است.",
             ), status=403)
         return super().dispatch(request, *args, **kwargs)
 

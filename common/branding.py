@@ -23,6 +23,7 @@ from django.db import DatabaseError, transaction
 
 from accounts.models import User
 from auditlog.services import log_activity
+from common.color import is_valid_hex_color, normalize_hex_color
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessPermissionDenied, BusinessRuleError
 from common.models import ALLOWED_LOGO_CONTENT_TYPES, MAX_LOGO_BYTES, BrandSettings
@@ -56,6 +57,7 @@ def effective_brand():
         "subtitle": DEFAULT_BRAND_SUBTITLE,
         "is_custom": False,
         "logo_updated_at": None,
+        "accent_color": None,
     }
     if not feature_enabled("custom_branding"):
         return default_brand
@@ -69,15 +71,22 @@ def effective_brand():
         # the database briefly unreachable) falls back to the same default
         # every other reader gets when the feature is simply off.
         return default_brand
+    # The accent colour is independent of the name/logo: a deployment may
+    # want its own colour with the Dolphin name still showing, or vice versa
+    # — so this is read regardless of whether `display_name` below falls
+    # back to the default.
+    accent_color = settings_row.accent_color or None
     if not settings_row.display_name:
-        # Feature on, but this deployment's admin never set anything —
-        # still Dolphin, not a blank name.
-        return default_brand
+        # Feature on, but this deployment's admin never set a name/logo —
+        # still Dolphin for those, though a saved accent colour still applies
+        # (a colour is not a brand identity the way a name/logo is).
+        return {**default_brand, "accent_color": accent_color}
     return {
         "name": settings_row.display_name,
         "subtitle": "",
         "is_custom": True,
         "logo_updated_at": settings_row.updated_at if settings_row.has_logo else None,
+        "accent_color": accent_color,
     }
 
 
@@ -86,6 +95,19 @@ def _clean_display_name(value):
     if len(cleaned) > DISPLAY_NAME_MAX_LENGTH:
         raise BusinessRuleError({"display_name": f"نام نباید بیش از {DISPLAY_NAME_MAX_LENGTH} کاراکتر باشد."})
     return cleaned
+
+
+def _clean_accent_color(value):
+    """Blank clears it, back to the default Dolphin blue — same "empty means
+    unset" shape as `_clean_display_name`, not a separate remove flag; a
+    colour, unlike a logo, has no binary content to keep null-safe.
+    """
+    cleaned = str(value or "").strip()
+    if not cleaned:
+        return ""
+    if not is_valid_hex_color(cleaned):
+        raise BusinessRuleError({"accent_color": "رنگ باید به شکل #rrggbb باشد."})
+    return normalize_hex_color(cleaned)
 
 
 def _sniff_logo_content_type(content):
@@ -109,13 +131,15 @@ def _lock_platform_admin(actor):
 
 
 @transaction.atomic
-def update_brand_settings(*, actor, display_name=None, logo_bytes=None, logo_original_filename="", remove_logo=False):
-    """Update the name and/or logo. Any argument left `None`/`False` is
-    left untouched — a name-only edit does not require re-uploading the
-    logo, and vice versa. `remove_logo=True` clears the logo even if
-    `logo_bytes` is also given; a caller sending both is almost certainly a
-    bug, so `update_brand_settings` refuses that combination outright rather
-    than picking one silently.
+def update_brand_settings(
+    *, actor, display_name=None, accent_color=None, logo_bytes=None, logo_original_filename="", remove_logo=False,
+):
+    """Update the name, accent colour, and/or logo. Any argument left
+    `None`/`False` is left untouched — a name-only edit does not require
+    re-uploading the logo, and vice versa. `remove_logo=True` clears the
+    logo even if `logo_bytes` is also given; a caller sending both is almost
+    certainly a bug, so `update_brand_settings` refuses that combination
+    outright rather than picking one silently.
     """
     if remove_logo and logo_bytes:
         raise BusinessRuleError({"logo": "حذف و جایگزینی لوگو هم‌زمان ممکن نیست."})
@@ -127,6 +151,10 @@ def update_brand_settings(*, actor, display_name=None, logo_bytes=None, logo_ori
         if display_name is not None:
             row.display_name = _clean_display_name(display_name)
             changed_fields.append("display_name")
+
+        if accent_color is not None:
+            row.accent_color = _clean_accent_color(accent_color)
+            changed_fields.append("accent_color")
 
         if remove_logo:
             row.logo_content = None

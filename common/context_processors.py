@@ -42,6 +42,7 @@ def brand(request):
     place that decision could drift from the one in `common/branding.py`.
     """
     from common.branding import effective_brand
+    from common.color import accent_theme_css
 
     result = effective_brand()
     return {
@@ -49,4 +50,8 @@ def brand(request):
         "brand_subtitle": result["subtitle"],
         "brand_is_custom": result["is_custom"],
         "brand_logo_updated_at": result["logo_updated_at"],
+        # Pre-rendered CSS text, not just the raw colour — `base.html` only
+        # has to decide whether to emit a `<style>` tag, never how to build
+        # one; see `common.color.accent_theme_css` for the actual derivation.
+        "brand_accent_css": accent_theme_css(result["accent_color"]),
     }

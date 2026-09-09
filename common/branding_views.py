@@ -72,6 +72,7 @@ class BrandSettingsView(APIView):
         row = branding.update_brand_settings(
             actor=request.user,
             display_name=data.get("display_name"),
+            accent_color=data.get("accent_color"),
             logo_bytes=logo.read() if logo is not None else None,
             logo_original_filename=logo.name if logo is not None else "",
             remove_logo=data.get("remove_logo", False),

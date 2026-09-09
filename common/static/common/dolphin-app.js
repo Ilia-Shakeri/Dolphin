@@ -9248,6 +9248,26 @@
         const emptyNote = document.getElementById("branding-logo-empty");
         const removeRow = document.getElementById("branding-remove-logo-row");
         const removeBox = document.getElementById("branding-remove-logo");
+        const DEFAULT_ACCENT_COLOR = "#1b84ff";
+        const colorField = document.getElementById("branding-accent-color");
+        const colorHexField = document.getElementById("branding-accent-color-hex");
+        const colorResetButton = document.getElementById("branding-accent-color-reset");
+
+        // The two accent-colour inputs — a native colour picker (always a
+        // valid hex, no validation needed) and a plain text field for typing
+        // one directly — stay mirrors of each other; each edit updates the
+        // other rather than the two silently disagreeing about what will be
+        // submitted.
+        colorField.addEventListener("input", () => {
+            colorHexField.value = colorField.value;
+        });
+        colorHexField.addEventListener("input", () => {
+            if (/^#[0-9a-fA-F]{6}$/.test(colorHexField.value)) colorField.value = colorHexField.value;
+        });
+        colorResetButton.addEventListener("click", () => {
+            colorField.value = DEFAULT_ACCENT_COLOR;
+            colorHexField.value = "";
+        });
 
         function showLogo(hasLogo) {
             if (hasLogo) {
@@ -9267,6 +9287,8 @@
             try {
                 const data = await apiRequest("/api/v1/branding/");
                 nameField.value = data.display_name || "";
+                colorField.value = data.accent_color || DEFAULT_ACCENT_COLOR;
+                colorHexField.value = data.accent_color || "";
                 showLogo(Boolean(data.has_logo));
                 loading.classList.add("d-none");
                 form.classList.remove("d-none");
@@ -9281,13 +9303,114 @@
             withSubmit(form, async () => {
                 const payload = new FormData();
                 payload.set("display_name", nameField.value);
+                payload.set("accent_color", colorHexField.value.trim());
                 const file = document.getElementById("branding-logo-file").files[0];
                 if (file) payload.set("logo", file);
                 if (removeBox.checked) payload.set("remove_logo", "true");
                 const data = await apiRequest("/api/v1/branding/", {method: "POST", body: payload, raw: true});
                 document.getElementById("branding-logo-file").value = "";
+                colorField.value = data.accent_color || DEFAULT_ACCENT_COLOR;
+                colorHexField.value = data.accent_color || "";
                 showLogo(Boolean(data.has_logo));
-                globalMessage("تنظیمات برند ذخیره شد.", true);
+                globalMessage("تنظیمات برند ذخیره شد. برای دیدن رنگ تازه در همهٔ عناصر، صفحه را تازه کنید.", true);
+            });
+        });
+
+        load();
+    }
+
+    /**
+     * `/settings/dashboard/` — which home-page widgets show, and in what
+     * order (`common.dashboard_layout`). Rendered from the catalog the API
+     * itself returns rather than a second hardcoded list of widget
+     * labels, so a widget added or renamed on the Python side never needs a
+     * matching edit here.
+     *
+     * Reordering is two small buttons per row, not drag-and-drop: this
+     * settings page is opened rarely, by one role, and a working keyboard-
+     * reachable control beats a heavier library for a list of eight rows.
+     */
+    function setupDashboardLayoutSettings() {
+        const form = document.getElementById("dashboard-layout-form");
+        if (!form) return;
+        const loading = document.getElementById("dashboard-layout-loading");
+        const list = document.getElementById("dashboard-layout-list");
+        let rows = [];
+
+        function render() {
+            list.innerHTML = "";
+            rows.forEach((row, index) => {
+                const item = document.createElement("li");
+                item.className = "list-group-item d-flex align-items-center gap-3";
+                const checkWrap = document.createElement("div");
+                checkWrap.className = "form-check form-check-custom form-check-solid";
+                const check = document.createElement("input");
+                check.className = "form-check-input";
+                check.type = "checkbox";
+                check.id = `dashboard-layout-widget-${row.key}`;
+                check.checked = !row.hidden;
+                check.addEventListener("change", () => { row.hidden = !check.checked; });
+                const label = document.createElement("label");
+                label.className = "form-check-label";
+                label.setAttribute("for", check.id);
+                label.textContent = row.label;
+                checkWrap.append(check, label);
+                const featureNote = document.createElement("span");
+                featureNote.className = "text-muted fs-8 flex-grow-1";
+                featureNote.textContent = `ماژول: ${row.feature}`;
+                const upButton = document.createElement("button");
+                upButton.type = "button";
+                upButton.className = "btn btn-icon btn-sm btn-light";
+                upButton.setAttribute("aria-label", "بالاتر");
+                upButton.disabled = index === 0;
+                upButton.innerHTML = '<i class="ki-duotone ki-arrow-up fs-3"><span class="path1"></span><span class="path2"></span></i>';
+                upButton.addEventListener("click", () => {
+                    [rows[index - 1], rows[index]] = [rows[index], rows[index - 1]];
+                    render();
+                });
+                const downButton = document.createElement("button");
+                downButton.type = "button";
+                downButton.className = "btn btn-icon btn-sm btn-light";
+                downButton.setAttribute("aria-label", "پایین‌تر");
+                downButton.disabled = index === rows.length - 1;
+                downButton.innerHTML = '<i class="ki-duotone ki-arrow-down fs-3"><span class="path1"></span><span class="path2"></span></i>';
+                downButton.addEventListener("click", () => {
+                    [rows[index + 1], rows[index]] = [rows[index], rows[index + 1]];
+                    render();
+                });
+                item.append(checkWrap, featureNote, upButton, downButton);
+                list.append(item);
+            });
+        }
+
+        async function load() {
+            try {
+                const data = await apiRequest("/api/v1/dashboard-layout/");
+                const hidden = new Set(data.hidden_widgets || []);
+                const position = new Map((data.widget_order || []).map((key, index) => [key, index]));
+                rows = [...data.catalog].sort((a, b) => {
+                    const aPos = position.has(a.key) ? position.get(a.key) : Infinity;
+                    const bPos = position.has(b.key) ? position.get(b.key) : Infinity;
+                    return aPos - bPos;
+                }).map((widget) => ({...widget, hidden: hidden.has(widget.key)}));
+                render();
+                loading.classList.add("d-none");
+                form.classList.remove("d-none");
+            } catch (error) {
+                showError(error);
+                loading.classList.add("d-none");
+            }
+        }
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const payload = {
+                    hidden_widgets: rows.filter((row) => row.hidden).map((row) => row.key),
+                    widget_order: rows.map((row) => row.key),
+                };
+                await apiRequest("/api/v1/dashboard-layout/", {method: "POST", body: payload});
+                globalMessage("چیدمان داشبورد ذخیره شد.", true);
             });
         });
 
@@ -10273,6 +10396,7 @@
     if (page === "profit-report") setupProfitReport();
     if (page === "stock-valuation-report") setupStockValuationReport();
     if (page === "branding-settings") setupBrandingSettings();
+    if (page === "dashboard-layout-settings") setupDashboardLayoutSettings();
     if (page === "sms-provider-settings") setupSmsProviderSettings();
     // `document-print` is the print base's own id, used when a printable page
     // does not override it; every printable page needs the print button wired.

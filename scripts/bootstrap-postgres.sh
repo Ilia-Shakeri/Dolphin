@@ -554,6 +554,10 @@ FROM (
         -- logo is cleared by writing NULL back into it, never by deleting
         -- the row, so no DELETE.
         ('common_brandsettings', 'SELECT, INSERT, UPDATE'),
+        -- One singleton row for the whole deployment's dashboard widget
+        -- layout (common.dashboard_layout) — same shape as
+        -- common_brandsettings above, no DELETE.
+        ('common_dashboardsettings', 'SELECT, INSERT, UPDATE'),
         -- Internal chat (chat/). A thread's last_message_at and a
         -- participant's own last_read_at are rewritten in place; a message,
         -- once sent, is never edited or deleted.

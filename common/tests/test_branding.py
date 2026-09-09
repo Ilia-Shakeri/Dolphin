@@ -154,6 +154,42 @@ class ServiceTests(BrandingFixtures):
         with self.assertRaises(BusinessRuleError):
             branding.update_brand_settings(actor=self.admin, display_name="ا" * 81)
 
+    def test_effective_brand_has_no_accent_color_by_default(self):
+        self.assertIsNone(branding.effective_brand()["accent_color"])
+
+    def test_a_saved_accent_color_is_normalised_and_reflected(self):
+        branding.update_brand_settings(actor=self.admin, accent_color="#1B84FF")
+        row = branding.get_brand_settings()
+        self.assertEqual(row.accent_color, "#1b84ff")
+        self.assertEqual(branding.effective_brand()["accent_color"], "#1b84ff")
+
+    def test_an_accent_color_applies_even_when_no_name_or_logo_is_set(self):
+        """A colour is not a brand identity the way a name/logo is — it
+        should not require `display_name` to also be set."""
+        branding.update_brand_settings(actor=self.admin, accent_color="#ff0000")
+        result = branding.effective_brand()
+        self.assertFalse(result["is_custom"])
+        self.assertEqual(result["name"], branding.DEFAULT_BRAND_NAME)
+        self.assertEqual(result["accent_color"], "#ff0000")
+
+    def test_an_invalid_accent_color_is_refused(self):
+        with self.assertRaises(BusinessRuleError):
+            branding.update_brand_settings(actor=self.admin, accent_color="blue")
+        with self.assertRaises(BusinessRuleError):
+            branding.update_brand_settings(actor=self.admin, accent_color="#1b84f")
+        self.assertEqual(branding.get_brand_settings().accent_color, "")
+
+    def test_a_blank_accent_color_clears_a_previously_saved_one(self):
+        branding.update_brand_settings(actor=self.admin, accent_color="#1b84ff")
+        branding.update_brand_settings(actor=self.admin, accent_color="")
+        self.assertEqual(branding.get_brand_settings().accent_color, "")
+        self.assertIsNone(branding.effective_brand()["accent_color"])
+
+    def test_the_accent_color_is_dolphin_default_when_the_feature_is_off(self):
+        branding.update_brand_settings(actor=self.admin, accent_color="#ff0000")
+        with override_active_profile(without_custom_branding()):
+            self.assertIsNone(branding.effective_brand()["accent_color"])
+
 
 class BrandingAPITests(BrandingFixtures):
     def client_for(self, user):
@@ -224,6 +260,17 @@ class BrandingAPITests(BrandingFixtures):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(branding.get_brand_settings().has_logo)
 
+    def test_platform_admin_can_set_accent_color_through_the_api(self):
+        client = self.client_for(self.admin)
+        response = client.post("/api/v1/branding/", {"accent_color": "#1B84FF"}, format="multipart")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["accent_color"], "#1b84ff")
+
+    def test_an_invalid_accent_color_is_a_400_through_the_api(self):
+        client = self.client_for(self.admin)
+        response = client.post("/api/v1/branding/", {"accent_color": "not-a-color"}, format="multipart")
+        self.assertEqual(response.status_code, 400)
+
     def test_remove_logo_through_the_api(self):
         client = self.client_for(self.admin)
         client.post(
@@ -264,6 +311,23 @@ class TemplateRenderingTests(BrandingFixtures):
             page = self.client.get("/login/")
         self.assertNotContains(page, "تیارا", status_code=200)
         self.assertContains(page, "Dolphin")
+
+    def test_no_style_override_is_rendered_with_no_accent_color_set(self):
+        page = self.client.get("/login/")
+        self.assertNotContains(page, "--bs-primary:", status_code=200)
+
+    def test_a_saved_accent_color_reaches_the_pre_login_page_as_a_style_override(self):
+        branding.update_brand_settings(actor=self.admin, accent_color="#ff0000")
+        page = self.client.get("/login/")
+        self.assertContains(page, "[data-bs-theme=light]", status_code=200)
+        self.assertContains(page, "[data-bs-theme=dark]")
+        self.assertContains(page, "--bs-primary:#ff0000;")
+
+    def test_disabling_the_feature_removes_the_style_override_too(self):
+        branding.update_brand_settings(actor=self.admin, accent_color="#ff0000")
+        with override_active_profile(without_custom_branding()):
+            page = self.client.get("/login/")
+        self.assertNotContains(page, "--bs-primary:", status_code=200)
 
 
 class OtherSurfacesTests(BrandingFixtures):
@@ -314,6 +378,7 @@ class SettingsPageAccessTests(BrandingFixtures):
         response = self.client.get("/branding/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "branding-form")
+        self.assertContains(response, "branding-accent-color")
         self.assertTemplateUsed(response, "common/branding/settings.html")
 
     def test_a_sales_agent_gets_a_403_card_not_a_crash(self):

@@ -76,6 +76,11 @@ class BrandSettings(TimeStampedModel):
     #: is off. A customer who enables the feature but never visits the
     #: settings page keeps seeing the platform's own brand, not a blank one.
     display_name = models.CharField(max_length=80, blank=True)
+    #: Blank means "no custom accent chosen yet" — same fallback shape as
+    #: `display_name`. Stored as `#rrggbb`, lower-cased on the way in
+    #: (`common.color.normalize_hex_color`) so two admins typing the same
+    #: colour in different letter-casing never reads as a change.
+    accent_color = models.CharField(max_length=7, blank=True)
     logo_content = models.BinaryField(null=True, blank=True)
     logo_content_type = models.CharField(max_length=32, blank=True)
     logo_size_bytes = models.PositiveIntegerField(null=True, blank=True)
@@ -101,6 +106,10 @@ class BrandSettings(TimeStampedModel):
                 ),
                 name="common_brandsettings_logo_all_or_nothing",
             ),
+            models.CheckConstraint(
+                condition=models.Q(accent_color="") | models.Q(accent_color__regex=r"\A#[0-9a-f]{6}\Z"),
+                name="common_brandsettings_accent_color_shape",
+            ),
         ]
 
     @property
@@ -109,4 +118,55 @@ class BrandSettings(TimeStampedModel):
 
     def __str__(self):
         return self.display_name or "(پیش‌فرض دلفین)"
+
+
+class DashboardSettings(TimeStampedModel):
+    """One deployment's own choice of which home-page widgets show, and in
+    what order — gated by the same `dashboard_insights` feature that already
+    gates the dashboard itself (`common/deployment/registry.py`), read
+    through `common.dashboard_layout.apply_layout`, never directly.
+
+    Singleton, same pattern as `BrandSettings` above: one deployment, one
+    layout — every user of this deployment sees the same arrangement, the
+    same way every user already sees the same brand. A per-user layout is a
+    different, larger feature (its own table keyed by user, its own "reset
+    to the company default" question) that nobody has asked for; this is the
+    one an admin can actually reach from a single settings page today.
+
+    `hidden_widgets` and `widget_order` hold widget *keys* — the same `key`
+    each `_kpi(...)` call in `common/dashboard.py` already carries, plus the
+    two pseudo-keys `"trend"` and `"breakdown"` for those sections — never a
+    label, so a later Persian-wording change to a KPI never breaks a saved
+    layout. Both are validated against `common.dashboard_layout.WIDGET_KEYS`
+    before saving, never trusted as free-form.
+    """
+
+    SINGLETON = 1
+
+    singleton = models.PositiveSmallIntegerField(primary_key=True, default=SINGLETON)
+    #: Widget keys this deployment's admin turned off. A key that no longer
+    #: exists (a KPI removed in a later version) is silently ignored by
+    #: `apply_layout` rather than erroring — the same "disabling never
+    #: breaks the page" posture every feature flag in this codebase already
+    #: takes.
+    hidden_widgets = models.JSONField(default=list, blank=True)
+    #: The admin's preferred order, as a list of widget keys. A key present
+    #: on the dashboard but missing from this list keeps its original
+    #: position, appended after every explicitly ordered key — reordering
+    #: one widget never requires re-listing all of them.
+    widget_order = models.JSONField(default=list, blank=True)
+    updated_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(singleton=1),
+                name="common_dashboardsettings_is_singleton",
+            ),
+        ]
+
+    def __str__(self):
+        return f"چیدمان داشبورد ({len(self.hidden_widgets)} پنهان)"
 

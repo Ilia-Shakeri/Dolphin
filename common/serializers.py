@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from common.models import BrandSettings
+from common.models import BrandSettings, DashboardSettings
 
 
 class RejectServerFieldsMixin:
@@ -28,7 +28,7 @@ class BrandSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BrandSettings
-        fields = ("display_name", "has_logo", "logo_original_filename", "updated_at")
+        fields = ("display_name", "accent_color", "has_logo", "logo_original_filename", "updated_at")
         read_only_fields = fields
 
 
@@ -38,6 +38,10 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
     """
 
     display_name = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    # Shape checked again in `common.branding._clean_accent_color` — this is
+    # the same "wrong type/length rejected here, wrong shape rejected there"
+    # split every other field in this serializer already follows.
+    accent_color = serializers.CharField(required=False, allow_blank=True, max_length=7)
     # Plain FileField, not ImageField: DRF's ImageField needs Pillow to open
     # and validate the file, and this codebase has never depended on Pillow —
     # `attachments.services._sniff_content_type` reads the same four magic
@@ -51,3 +55,22 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
         if attrs.get("remove_logo") and attrs.get("logo") is not None:
             raise serializers.ValidationError({"logo": "حذف و جایگزینی لوگو هم‌زمان ممکن نیست."})
         return attrs
+
+
+class DashboardSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DashboardSettings
+        fields = ("hidden_widgets", "widget_order", "updated_at")
+        read_only_fields = fields
+
+
+class DashboardSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Both fields optional and independent — see
+    `common.dashboard_layout.update_dashboard_settings` for what
+    "independent" means. Shape/membership checked again in
+    `common.dashboard_layout._clean_keys`, the same two-layer split every
+    other update serializer in this module already follows.
+    """
+
+    hidden_widgets = serializers.ListField(child=serializers.CharField(), required=False)
+    widget_order = serializers.ListField(child=serializers.CharField(), required=False)
