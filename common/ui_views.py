@@ -71,8 +71,13 @@ WIDGET_STYLE = {
     "sales": {"icon": "ki-handcart", "accent": "success", "icon_paths": 1},
     "sales_documents": {"icon": "ki-delivery", "accent": "warning", "icon_paths": 5},
     "after_sales": {"icon": "ki-shield-tick", "accent": "warning", "icon_paths": 2},
-    "users": {"icon": "ki-people", "accent": "dark", "icon_paths": 5},
-    "audit": {"icon": "ki-shield-search", "accent": "dark", "icon_paths": 4},
+    # `dark` used to be the accent for both of these — on this panel's own
+    # dark theme, `--bs-dark` sits a few shades off the card background
+    # itself, so the icon badge read as barely-there against everything
+    # around it. Product-owner request 2026-09-11 ("رنگی و جذاب"): every
+    # tile earns a colour a reader can actually see.
+    "users": {"icon": "ki-people", "accent": "primary", "icon_paths": 5},
+    "audit": {"icon": "ki-shield-search", "accent": "danger", "icon_paths": 4},
 }
 
 ROLE_LABELS = {

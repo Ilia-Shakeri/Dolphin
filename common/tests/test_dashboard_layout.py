@@ -96,6 +96,7 @@ class ApplyLayoutTests(LayoutFixtures):
                 {"key": "lead_conversion_rate", "label": "d"},
                 {"key": "receivables_collection_rate", "label": "e"},
             ],
+            "agent_share": {"title": "f", "items": []},
         }
 
     def test_a_hidden_kpi_is_removed(self):
@@ -109,6 +110,11 @@ class ApplyLayoutTests(LayoutFixtures):
         result = dashboard_layout.apply_layout(self.base_payload())
         self.assertIsNone(result["trend"])
         self.assertIsNone(result["breakdown"])
+
+    def test_hiding_agent_share_sets_it_to_none(self):
+        dashboard_layout.update_dashboard_settings(actor=self.admin, hidden_widgets=["agent_share"])
+        result = dashboard_layout.apply_layout(self.base_payload())
+        self.assertIsNone(result["agent_share"])
 
     def test_a_hidden_gauge_is_removed(self):
         dashboard_layout.update_dashboard_settings(actor=self.admin, hidden_widgets=["lead_conversion_rate"])

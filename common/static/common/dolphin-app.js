@@ -546,7 +546,14 @@
         section.hidden = false;
 
         const strip = document.getElementById("dashboard-kpis");
-        data.kpis.forEach((kpi) => strip.appendChild(kpiCard(kpi)));
+        data.kpis.forEach((kpi) => {
+            const {column, spark} = kpiCard(kpi);
+            strip.appendChild(column);
+            // Mounted after the column is in the DOM, same rule as every
+            // other chart here — Apex measures a real element's width, and a
+            // freshly created node not yet attached has none.
+            if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent});
+        });
 
         const gaugeRow = document.getElementById("dashboard-gauges");
         (data.gauges || []).forEach((gauge) => {
@@ -564,11 +571,38 @@
             document.getElementById("dashboard-trend-title").textContent = data.trend.title;
             document.getElementById("dashboard-trend-summary").textContent = data.trend.summary;
             card.hidden = false;
-            renderAreaChart(
+            // Mixed rather than a bare area: `_sales_trend` (common/
+            // dashboard.py) now returns the same twelve weeks' order count
+            // alongside the amount, and a reader asking "how is sales doing"
+            // usually means both.
+            renderMixedChart(
                 document.getElementById("dashboard-trend-chart"),
                 document.getElementById("dashboard-trend-empty"),
                 data.trend.points,
-                {seriesName: "فروش", summary: data.trend.summary, ariaLabel: data.trend.title},
+                data.trend.counts,
+                {seriesNames: ["مبلغ فروش", "تعداد فروش"], summary: data.trend.summary, ariaLabel: data.trend.title},
+            );
+        }
+
+        if (data.agent_share) {
+            const card = document.getElementById("dashboard-agent-share-card");
+            document.getElementById("dashboard-agent-share-title").textContent = data.agent_share.title;
+            document.getElementById("dashboard-agent-share-summary").textContent =
+                `مجموع فروش این ماه: ${data.agent_share.total_display}`;
+            const slot = document.getElementById("dashboard-agent-share-link-slot");
+            slot.replaceChildren();
+            const link = document.createElement("a");
+            link.className = "text-primary fw-semibold fs-8 text-decoration-none";
+            link.id = "dashboard-agent-share-link";
+            link.href = data.agent_share.url;
+            link.textContent = "همه";
+            slot.appendChild(link);
+            card.hidden = false;
+            renderMultiGaugeChart(
+                document.getElementById("dashboard-agent-share-chart"),
+                document.getElementById("dashboard-agent-share-empty"),
+                data.agent_share.items,
+                {ariaLabel: data.agent_share.title},
             );
         }
 
@@ -595,7 +629,10 @@
         // Nothing to show after all: put it back, so a deployment with none
         // of the sources renders exactly the page it rendered before this
         // section existed.
-        if (!data.kpis.length && !data.trend && !data.breakdown && !(data.gauges || []).length) {
+        if (
+            !data.kpis.length && !data.trend && !data.breakdown
+            && !(data.gauges || []).length && !data.agent_share
+        ) {
             section.hidden = true;
         }
     }
@@ -622,11 +659,14 @@
         const top = document.createElement("div");
         top.className = "d-flex align-items-center justify-content-between mb-4";
         const symbol = document.createElement("span");
-        symbol.className = "symbol symbol-40px";
+        // Bigger and bolder than before (product-owner request 2026-09-11,
+        // "رنگی و جذاب" — colourful and eye-catching): 50px/fs-1 rather than
+        // 40px/fs-2, the theme's own next size step up, not an arbitrary one.
+        symbol.className = "symbol symbol-50px";
         const symbolLabel = document.createElement("span");
         symbolLabel.className = `symbol-label bg-light-${kpi.accent}`;
         const icon = document.createElement("i");
-        icon.className = `ki-duotone ${kpi.icon} fs-2 text-${kpi.accent}`;
+        icon.className = `ki-duotone ${kpi.icon} fs-1 text-${kpi.accent}`;
         // Per-glyph path count, sent by the server for the same reason the
         // reminder bell and the timeline take it from there.
         for (let index = 1; index <= (kpi.icon_paths || 2); index += 1) {
@@ -651,9 +691,21 @@
         hint.textContent = kpi.hint;
 
         body.append(top, value, label, hint);
+
+        // The spark slot only exists when there is something to put in it —
+        // an empty 36px strip under every tile, spark or not, would be a
+        // blank gap on the three-quarters of KPIs that have no cheap series
+        // to draw one from.
+        let spark = null;
+        if (kpi.spark) {
+            spark = document.createElement("div");
+            spark.className = "kpi-sparkline mt-3";
+            body.appendChild(spark);
+        }
+
         card.appendChild(body);
         column.appendChild(card);
-        return column;
+        return {column, spark};
     }
 
     /**
@@ -5985,7 +6037,14 @@
             read("--bs-info", "#7239EA"),
             read("--bs-warning", "#F6C000"),
             read("--bs-danger", "#F8285A"),
-            read("--bs-dark", "#1E2129"),
+            // `--bs-dark` used to close this out. On this panel's own dark
+            // theme that value sits only a few shades off the card
+            // background it draws on, so a chart's sixth series all but
+            // vanished — the same bug `WIDGET_STYLE`'s "dark" accents had
+            // (common/ui_views.py, 2026-09-11). Orange is the same fill
+            // `severityRamp` below already reaches for to widen this exact
+            // palette, for the same reason.
+            read("--bs-orange", "#fd7e14"),
         ];
     }
 
@@ -6331,6 +6390,104 @@
     }
 
     /**
+     * An amount as a smooth area with a count overlaid as bars — one series
+     * answering "how much", the other "how many", read together. Apex's own
+     * combo-chart mode (the purchased theme's own mixed-chart widgets page): two
+     * series, each naming its own `type`, sharing one x-axis.
+     *
+     * `points` carries the area series exactly as `renderAreaChart` reads it
+     * (`{label, value, display}`); `counts` is the bar series, one integer
+     * per point, same order — `_sales_trend` (common/dashboard.py) is the one
+     * caller today and already returns the two aligned.
+     */
+    function renderMixedChart(chart, empty, points, counts, options = {}) {
+        const {ariaLabel = null, summary = "", maxLabels = 8, seriesNames = ["مقدار", "تعداد"]} = options;
+        if (!chart || !empty) return;
+        chartRedraws.set(chart, () => renderMixedChart(chart, empty, points, counts, options));
+
+        const usable = points.filter((point) => Number.isFinite(point.value));
+        if (usable.length < 2) {
+            showEmptyChart(chart, empty);
+            return;
+        }
+
+        const palette = chartPalette();
+        const amountColor = options.amountColor || palette[0];
+        const countColor = options.countColor || palette[1];
+        const displays = usable.map((point) => point.display ?? String(point.value));
+        const base = apexBase(300);
+
+        mountApex(chart, empty, {
+            ...base,
+            chart: {...base.chart, type: "line"},
+            series: [
+                {name: seriesNames[0], type: "area", data: usable.map((point) => point.value)},
+                {name: seriesNames[1], type: "bar", data: counts},
+            ],
+            colors: [amountColor, countColor],
+            dataLabels: {enabled: false},
+            stroke: {curve: "smooth", width: [3, 0]},
+            fill: {
+                type: ["gradient", "solid"],
+                gradient: {shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0, stops: [0, 80, 100]},
+                opacity: [1, 0.85],
+            },
+            plotOptions: {
+                bar: {columnWidth: "35%", borderRadius: 4},
+            },
+            markers: {size: 0, strokeWidth: 3, hover: {size: 7}},
+            legend: {...base.legend, show: true, position: "top", horizontalAlign: "center"},
+            xaxis: {
+                categories: usable.map((point) => point.label),
+                tickAmount: Math.min(maxLabels, usable.length),
+                labels: {
+                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    hideOverlappingLabels: true,
+                    trim: true,
+                },
+                axisBorder: {show: false},
+                axisTicks: {show: false},
+            },
+            // Two y-axes, one per series: an amount in the millions and a
+            // count in the single digits would otherwise share one scale and
+            // flatten the bar series to an invisible sliver at the bottom.
+            yaxis: [
+                {
+                    seriesName: seriesNames[0],
+                    labels: {
+                        style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px", colors: amountColor},
+                        formatter: (value) => toPersianDigits(String(Math.round(value))),
+                    },
+                },
+                {
+                    seriesName: seriesNames[1],
+                    opposite: true,
+                    forceNiceScale: true,
+                    labels: {
+                        style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px", colors: countColor},
+                        formatter: (value) => toPersianDigits(String(Math.round(value))),
+                    },
+                },
+            ],
+            tooltip: {
+                ...base.tooltip,
+                shared: true,
+                y: {
+                    formatter: (value, {seriesIndex, dataPointIndex}) =>
+                        seriesIndex === 0 ? displays[dataPointIndex] : toPersianDigits(String(value)),
+                },
+            },
+        }, ariaLabel);
+
+        if (summary) {
+            const note = document.createElement("p");
+            note.className = "text-muted fs-7 mt-3 mb-0 text-center";
+            note.textContent = summary;
+            chart.append(note);
+        }
+    }
+
+    /**
      * A radial gauge — one 0–100 figure as a filled ring with the number in
      * its own hollow centre, ApexCharts' `radialBar` type. Product-owner
      * request 2026-09-11: the purchased theme uses this for exactly this
@@ -6394,6 +6551,112 @@
                 },
             },
             labels: [label],
+        }, ariaLabel);
+    }
+
+    /**
+     * A tiny trend line inside a KPI tile — no axis, no grid, no tooltip
+     * text beyond the raw values, exactly ApexCharts' own `sparkline` mode.
+     * Product-owner request 2026-09-11: the tile's own number and the
+     * one-line comparison next to it both say "more or less than before";
+     * this is the shape of that story, at a glance, before the reader has
+     * even read the comparison.
+     *
+     * Never shown empty: `kpiCard` only calls this when the KPI carried a
+     * `spark` array at all, so there is no empty-state to draw here — a
+     * missing series is a tile with no spark slot, not a slot with nothing
+     * in it.
+     */
+    function renderSparkline(el, values, options = {}) {
+        if (!el || !Array.isArray(values) || values.length < 2) return;
+        const {accent = "primary"} = options;
+        const color = getComputedStyle(document.documentElement).getPropertyValue(`--bs-${accent}`).trim()
+            || chartPalette()[0];
+        const existing = liveCharts.get(el);
+        if (existing) {
+            existing.destroy();
+            liveCharts.delete(el);
+        }
+        el.replaceChildren();
+        const instance = new ApexCharts(el, {
+            chart: {height: 36, type: "line", sparkline: {enabled: true}, animations: {enabled: false}},
+            series: [{data: values}],
+            colors: [color],
+            stroke: {curve: "smooth", width: 2},
+            tooltip: {enabled: false},
+        });
+        instance.render();
+        liveCharts.set(el, instance);
+    }
+
+    /**
+     * Several 0–100 figures as concentric rings in one drawing — ApexCharts'
+     * own multi-series `radialBar`, the theme's own pattern for "several
+     * shares that together read as one whole"
+     * (`src/js/widgets/charts/widget-30.js`). `renderGaugeChart` above draws
+     * one ratio; this is its many-ring sibling, for the one place on this
+     * panel several ratios are meant to be compared at once — each seller's
+     * share of the same month (product-owner request 2026-09-11).
+     *
+     * `items` is `[{label, value, amount_display}]`, values already 0–100 and
+     * already summing to (at most) 100 — this draws what it is given, it
+     * does not normalise or invent a remainder ring.
+     */
+    function renderMultiGaugeChart(chart, empty, items, options = {}) {
+        const {ariaLabel = null} = options;
+        if (!chart || !empty) return;
+        chartRedraws.set(chart, () => renderMultiGaugeChart(chart, empty, items, options));
+
+        const usable = items.filter((item) => Number.isFinite(item.value) && item.value > 0);
+        if (!usable.length) {
+            showEmptyChart(chart, empty);
+            return;
+        }
+
+        const palette = chartPalette();
+        const ink = chartInk();
+        const base340 = apexBase(340);
+
+        mountApex(chart, empty, {
+            ...base340,
+            chart: {...base340.chart, type: "radialBar"},
+            series: usable.map((item) => item.value),
+            labels: usable.map((item) => item.label),
+            colors: usable.map((item, index) => item.color || palette[index % palette.length]),
+            stroke: {lineCap: "round"},
+            plotOptions: {
+                radialBar: {
+                    hollow: {size: "18%"},
+                    track: {strokeWidth: "92%"},
+                    dataLabels: {
+                        name: {fontSize: "13px", fontFamily: "IRANSansWeb, Helvetica, sans-serif"},
+                        value: {
+                            fontSize: "16px",
+                            fontWeight: 700,
+                            color: ink.text,
+                            fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            formatter: (raw) => toPersianDigits(String(Math.round(raw))) + "٪",
+                        },
+                        total: {
+                            show: true,
+                            label: "مجموع",
+                            color: ink.muted,
+                            fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            formatter: () =>
+                                toPersianDigits(String(Math.round(usable.reduce((sum, item) => sum + item.value, 0)))) + "٪",
+                        },
+                    },
+                },
+            },
+            legend: {
+                ...base340.legend,
+                show: true,
+                position: "bottom",
+                formatter: (label, opts) => {
+                    const item = usable[opts.seriesIndex];
+                    return `${label} — ${item.amount_display ?? ""}`;
+                },
+            },
         }, ariaLabel);
     }
 

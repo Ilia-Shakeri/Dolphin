@@ -45,8 +45,20 @@ TREND_WEEKS = 12
 #: Slices before the breakdown stops being readable.
 BREAKDOWN_LIMIT = 6
 
+#: How many of the trend's own trailing points a KPI tile's sparkline shows.
+#: A sparkline reads as "the recent shape", not the full twelve-week story the
+#: chart below it already tells — six is enough to see a direction in a strip
+#: a few centimetres wide.
+SPARK_WEEKS = 6
 
-def _kpi(key, label, *, display, hint="", icon="ki-element-11", icon_paths=4, accent="primary", url=None):
+#: Sellers named on the "share of this month" gauge before the rest are
+#: folded into an "دیگران" ring — same reasoning as `TOP_CITIES` above: a
+#: ring per seller stops being readable past a handful, and a company with
+#: more than that still has one honest, whole answer to "who sold how much".
+TOP_SELLERS = 5
+
+
+def _kpi(key, label, *, display, hint="", icon="ki-element-11", icon_paths=4, accent="primary", url=None, spark=None):
     return {
         "key": key,
         "label": label,
@@ -56,6 +68,13 @@ def _kpi(key, label, *, display, hint="", icon="ki-element-11", icon_paths=4, ac
         "icon_paths": icon_paths,
         "accent": accent,
         "url": url,
+        # A short recent series (product-owner request 2026-09-11: the tile
+        # should carry its own shape, not just a number and a one-line
+        # comparison). `None` where drawing one would cost a query this KPI
+        # has no other reason to run — the tile simply shows no spark, the
+        # same "absent, not fabricated" rule every other optional part of
+        # this panel already follows.
+        "spark": spark,
     }
 
 
@@ -86,7 +105,7 @@ def _change_hint(current, previous, *, noun):
     return f"در این {noun} چیزی ثبت نشده"
 
 
-def _sales_kpis(user, *, now):
+def _sales_kpis(user, *, now, trend=None):
     scope = sales_for(user).exclude(status=Sale.Status.CANCELLED)
     start, previous_start, previous_end = _month_bounds(now)
     this_month = scope.filter(sold_at__gte=start)
@@ -94,18 +113,26 @@ def _sales_kpis(user, *, now):
     amount = this_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
     previous = last_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
     count = this_month.count()
+    # The tile's own spark rides on the trend this same call already computed
+    # (`dashboard_for` builds it first) rather than a second query — the last
+    # SPARK_WEEKS points of the same twelve-week series, oldest first, same
+    # as the trend chart itself reads.
+    amount_spark = [point["value"] for point in trend["points"][-SPARK_WEEKS:]] if trend else None
+    count_spark = list(trend["counts"][-SPARK_WEEKS:]) if trend else None
     return [
         _kpi(
             "sales_amount_this_month", "فروش این ماه",
             display=formatting.money(amount),
             hint=_change_hint(amount, previous, noun="ماه"),
             icon="ki-chart-line-up", icon_paths=2, accent="success", url="/sales/",
+            spark=amount_spark,
         ),
         _kpi(
             "sales_count_this_month", "تعداد فروش این ماه",
             display=formatting.persian_digits(count),
             hint=_change_hint(count, last_month.count(), noun="ماه"),
             icon="ki-basket", icon_paths=4, accent="primary", url="/sales/",
+            spark=count_spark,
         ),
     ]
 
@@ -137,12 +164,27 @@ def _call_kpi(user, *, now):
     scope = interactions_for(user)
     this_week = scope.filter(occurred_at__gte=week_start).count()
     last_week = scope.filter(occurred_at__gte=previous_start, occurred_at__lt=week_start).count()
+
+    # This tile's own spark: SPARK_WEEKS buckets ending today, bucketed in
+    # Python over one ordered query — the same reasoning `_sales_trend`
+    # documents (PostgreSQL/SQLite disagree on week-truncation functions, and
+    # a handful of buckets over one indexed range scan is not worth a
+    # dialect-specific query).
+    spark_start = week_start - timedelta(weeks=SPARK_WEEKS - 1)
+    rows = scope.filter(occurred_at__gte=spark_start).values_list("occurred_at", flat=True)
+    buckets = [0] * SPARK_WEEKS
+    for occurred_at in rows:
+        index = (timezone.localtime(occurred_at) - spark_start).days // 7
+        if 0 <= index < SPARK_WEEKS:
+            buckets[index] += 1
+
     return [
         _kpi(
             "calls_this_week", "تماس‌های هفت روز اخیر",
             display=formatting.persian_digits(this_week),
             hint=_change_hint(this_week, last_week, noun="هفته"),
             icon="ki-call", icon_paths=8, accent="info", url="/interactions/",
+            spark=buckets,
         )
     ]
 
@@ -248,7 +290,11 @@ def _gauges(user, *, now):
 
 
 def _sales_trend(user, *, now):
-    """Sales amount per week for the last twelve weeks, oldest first.
+    """Sales amount *and* count per week for the last twelve weeks, oldest
+    first — amount is what the chart draws as its area, count is what it
+    draws as the overlaid bar (product-owner request 2026-09-11: a mixed
+    chart reads how much *and* how many at once, which a bare amount line
+    never told the reader).
 
     Bucketed in Python over one ordered query rather than with a database
     date-truncation function: this codebase runs on PostgreSQL in production
@@ -265,23 +311,26 @@ def _sales_trend(user, *, now):
         .filter(sold_at__gte=first_bucket_start)
         .values_list("sold_at", "total_amount")
     )
-    buckets = [Decimal("0")] * TREND_WEEKS
+    amount_buckets = [Decimal("0")] * TREND_WEEKS
+    count_buckets = [0] * TREND_WEEKS
     for sold_at, amount in rows:
         index = (timezone.localtime(sold_at) - first_bucket_start).days // 7
         if 0 <= index < TREND_WEEKS:
-            buckets[index] += amount or Decimal("0")
+            amount_buckets[index] += amount or Decimal("0")
+            count_buckets[index] += 1
     points = []
-    for index, amount in enumerate(buckets):
+    for index, amount in enumerate(amount_buckets):
         week_start = first_bucket_start + timedelta(weeks=index)
         points.append({
             "label": _jalali_day(week_start),
             "value": float(amount),
             "display": formatting.money(amount),
         })
-    total = sum(buckets, Decimal("0"))
+    total = sum(amount_buckets, Decimal("0"))
     return {
         "title": "روند فروش دوازده هفتهٔ اخیر",
         "points": points,
+        "counts": count_buckets,
         "summary": f"مجموع این بازه: {formatting.money(total)}",
     }
 
@@ -329,6 +378,60 @@ def _after_sales_breakdown(user):
     return {"title": "پرونده‌ها به تفکیک وضعیت", "items": items, "url": "/after-sales/"}
 
 
+def _agent_share(user, *, now):
+    """Each seller's share of this month's confirmed sales amount, as a
+    multi-ring gauge (product-owner request 2026-09-11).
+
+    Built from `sales_for(user)`'s own scope — a lone sales agent's scope
+    is only their own sales, so this returns `None` for them rather than a
+    single 100% ring that names nothing a table couldn't say in one line;
+    the shape is only worth drawing once there are at least two sellers to
+    compare, which in practice means a manager, IT, or platform-admin view.
+    """
+    start, _previous_start, _previous_end = _month_bounds(now)
+    rows = list(
+        sales_for(user)
+        .exclude(status=Sale.Status.CANCELLED)
+        .filter(sold_at__gte=start)
+        .values("sold_by_id", "sold_by__username", "sold_by__first_name", "sold_by__last_name")
+        .annotate(total=Sum("total_amount"))
+        .order_by("-total")
+    )
+    if len(rows) < 2:
+        return None
+
+    total_amount = sum((row["total"] or Decimal("0")) for row in rows) or Decimal("1")
+    top = rows[:TOP_SELLERS]
+    rest = rows[TOP_SELLERS:]
+
+    def seller_name(row):
+        full = f"{row['sold_by__first_name']} {row['sold_by__last_name']}".strip()
+        return full or row["sold_by__username"]
+
+    items = [
+        {
+            "label": seller_name(row),
+            "value": round(float((row["total"] or Decimal("0")) / total_amount) * 100, 1),
+            "amount_display": formatting.money(row["total"] or Decimal("0")),
+        }
+        for row in top
+    ]
+    if rest:
+        rest_amount = sum((row["total"] or Decimal("0")) for row in rest)
+        items.append({
+            "label": f"{formatting.persian_digits(len(rest))} بازاریاب دیگر",
+            "value": round(float(rest_amount / total_amount) * 100, 1),
+            "amount_display": formatting.money(rest_amount),
+        })
+
+    return {
+        "title": "سهم هر بازاریاب از فروش این ماه",
+        "items": items,
+        "total_display": formatting.money(total_amount),
+        "url": "/reports/user-performance/",
+    }
+
+
 def dashboard_for(user, *, now=None):
     """The role's own panel: KPIs, a trend, and a breakdown.
 
@@ -342,19 +445,22 @@ def dashboard_for(user, *, now=None):
         user.role == User.Role.SALES_AGENT and user.workstream == User.Workstream.AFTER_SALES
     )
 
+    # Computed before the KPIs, not after: the sales KPIs' own sparklines
+    # (2026-09-11) ride on this same twelve-week query rather than running a
+    # second one for a six-point strip.
+    trend = None
+    if feature_enabled("sales") and sales_for(user).exists():
+        trend = _sales_trend(user, now=now)
+
     kpis = []
     if feature_enabled("sales") and sales_for(user).exists():
-        kpis.extend(_sales_kpis(user, now=now))
+        kpis.extend(_sales_kpis(user, now=now, trend=trend))
     if feature_enabled("invoices") and invoices_for(user).exists():
         kpis.extend(_receivables_kpi(user, now=now))
     if feature_enabled("leads") and interactions_for(user).exists():
         kpis.extend(_call_kpi(user, now=now))
     if feature_enabled("after_sales") and after_sales_requests_for(user).exists():
         kpis.extend(_after_sales_kpis(user, now=now))
-
-    trend = None
-    if feature_enabled("sales") and sales_for(user).exists():
-        trend = _sales_trend(user, now=now)
 
     breakdown = None
     if after_sales_side:
@@ -365,7 +471,14 @@ def dashboard_for(user, *, now=None):
 
     gauges = _gauges(user, now=now)
 
+    agent_share = None
+    if feature_enabled("sales") and sales_for(user).exists():
+        agent_share = _agent_share(user, now=now)
+
     # This deployment's own admin-chosen hidden/reordered widgets, applied
-    # last — after every KPI/trend/breakdown/gauge above has already been
-    # scoped to what this specific reader may see. See `common.dashboard_layout`.
-    return apply_layout({"kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges})
+    # last — after every KPI/trend/breakdown/gauge/share above has already
+    # been scoped to what this specific reader may see. See
+    # `common.dashboard_layout`.
+    return apply_layout({
+        "kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges, "agent_share": agent_share,
+    })

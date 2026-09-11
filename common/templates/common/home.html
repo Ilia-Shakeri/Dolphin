@@ -20,9 +20,12 @@
         <a class="card card-flush h-100 text-decoration-none border-hover-primary" data-capability="{{ widget.capability }}" href="{% url widget.url_name %}">
             <div class="card-body d-flex flex-column justify-content-between py-6">
                 <div class="d-flex align-items-center justify-content-between mb-4">
-                    <span class="symbol symbol-40px">
+                    {% comment %} 50px/fs-1 rather than 40px/fs-2 — the theme's
+                       own next size step up (product-owner request
+                       2026-09-11, "رنگی و جذاب"). {% endcomment %}
+                    <span class="symbol symbol-50px">
                         <span class="symbol-label bg-light-{{ widget.accent }}">
-                            <i class="ki-duotone {{ widget.icon }} fs-2 text-{{ widget.accent }}">{% for path in ""|ljust:widget.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
+                            <i class="ki-duotone {{ widget.icon }} fs-1 text-{{ widget.accent }}">{% for path in ""|ljust:widget.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
                         </span>
                     </span>
                     <i class="ki-duotone ki-arrow-left fs-4 text-gray-500"><span class="path1"></span><span class="path2"></span></i>
@@ -71,6 +74,23 @@
                 <div id="dashboard-breakdown-chart"></div>
                 <p id="dashboard-breakdown-empty" class="text-center text-gray-600 fs-7 py-10 mb-0" hidden>
                     موردی برای نمایش نیست.
+                </p>
+            </div></div>
+        </div>
+    </div>
+    {% comment %} فقط وقتی حداقل دو بازاریاب فروش این ماه ثبت کرده‌اند نشان
+       داده می‌شود — سهم یک‌نفره چیزی بیش از یک عدد صد در صد نیست. {% endcomment %}
+    <div class="row g-5 mb-6">
+        <div class="col-12" id="dashboard-agent-share-card" hidden>
+            <div class="card card-flush h-100"><div class="card-body">
+                <div class="d-flex flex-stack align-items-center mb-1">
+                    <h2 class="fs-4 fw-bold text-gray-900 mb-0" id="dashboard-agent-share-title"></h2>
+                    <span id="dashboard-agent-share-link-slot"></span>
+                </div>
+                <p class="text-muted fs-7 mb-4" id="dashboard-agent-share-summary"></p>
+                <div id="dashboard-agent-share-chart"></div>
+                <p id="dashboard-agent-share-empty" class="text-center text-gray-600 fs-7 py-10 mb-0" hidden>
+                    داده‌ای برای این ماه نیست.
                 </p>
             </div></div>
         </div>

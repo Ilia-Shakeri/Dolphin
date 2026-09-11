@@ -314,6 +314,80 @@ class GaugeTests(DashboardFixtures):
         )
 
 
+class SparkAndShareTests(DashboardFixtures):
+    """The mixed trend, the KPI sparklines that ride on it, and the
+    per-seller share gauge (2026-09-11) — the "colourful and eye-catching"
+    round."""
+
+    def test_the_trend_carries_a_count_bucket_alongside_every_amount_bucket(self):
+        self.a_sale(amount="3000000.00")
+        self.a_sale(amount="4000000.00")
+        trend = dashboard.dashboard_for(self.manager)["trend"]
+        self.assertEqual(len(trend["counts"]), len(trend["points"]))
+        self.assertEqual(sum(trend["counts"]), 2)
+
+    def test_the_sales_kpis_carry_a_spark_the_same_length_as_the_configured_window(self):
+        self.a_sale(amount="5000000.00")
+        data = dashboard.dashboard_for(self.manager)
+        amount_kpi = self.kpi(data, "sales_amount_this_month")
+        count_kpi = self.kpi(data, "sales_count_this_month")
+        self.assertEqual(len(amount_kpi["spark"]), dashboard.SPARK_WEEKS)
+        self.assertEqual(len(count_kpi["spark"]), dashboard.SPARK_WEEKS)
+        # This week's own bucket is the spark's last point — the same bucket
+        # the trend chart's own last point reads.
+        self.assertEqual(count_kpi["spark"][-1], 1)
+
+    def test_a_kpi_with_no_cheap_series_carries_no_spark(self):
+        self._an_issued_invoice()
+        data = dashboard.dashboard_for(self.manager)
+        self.assertIsNone(self.kpi(data, "outstanding")["spark"])
+
+    def test_a_lone_sellers_scope_gets_no_share_gauge(self):
+        """One seller's share of their own sales is always 100% — a fact a
+        gauge draws nothing useful about. `sales_for` scopes a plain agent to
+        only their own rows, so this is also the ordinary agent view."""
+        self.a_sale(amount="1000000.00", seller=self.agent)
+        data = dashboard.dashboard_for(self.agent)
+        self.assertIsNone(data["agent_share"])
+
+    def test_two_sellers_split_the_gauge_by_their_real_share(self):
+        self.a_sale(amount="3000000.00", seller=self.agent)
+        second = User.objects.create_user(
+            username="dash.agent2", password=PASSWORD, role=User.Role.SALES_AGENT
+        )
+        self.a_sale(amount="1000000.00", seller=second)
+        share = dashboard.dashboard_for(self.manager)["agent_share"]
+        by_share = {item["label"]: item["value"] for item in share["items"]}
+        self.assertEqual(sum(round(v) for v in by_share.values()), 100)
+        self.assertEqual(max(by_share.values()), 75.0)
+
+    def test_a_cancelled_sale_does_not_count_toward_anyones_share(self):
+        from sales.services import cancel_sale
+
+        sale = self.a_sale(amount="2000000.00", seller=self.agent)
+        second = User.objects.create_user(
+            username="dash.agent3", password=PASSWORD, role=User.Role.SALES_AGENT
+        )
+        self.a_sale(amount="2000000.00", seller=second)
+        cancel_sale(actor=self.manager, sale=sale, reason="اشتباه ثبت شد")
+        share = dashboard.dashboard_for(self.manager)["agent_share"]
+        # Only `second` has a real, un-cancelled sale left — back to a lone
+        # seller, so the gauge is withdrawn rather than shown with one ring.
+        self.assertIsNone(share)
+
+    def test_more_than_the_shown_limit_of_sellers_folds_into_one_remainder_ring(self):
+        sellers = [
+            User.objects.create_user(username=f"dash.bulk{i}", password=PASSWORD, role=User.Role.SALES_AGENT)
+            for i in range(dashboard.TOP_SELLERS + 2)
+        ]
+        for seller in sellers:
+            self.a_sale(amount="1000000.00", seller=seller)
+        share = dashboard.dashboard_for(self.manager)["agent_share"]
+        # TOP_SELLERS named individually, plus exactly one "N دیگر" ring.
+        self.assertEqual(len(share["items"]), dashboard.TOP_SELLERS + 1)
+        self.assertIn("۲ بازاریاب دیگر", share["items"][-1]["label"])
+
+
 class FeatureGateTests(DashboardFixtures):
     def test_the_api_is_404_when_the_feature_is_off(self):
         api = APIClient()
@@ -354,11 +428,11 @@ class ApiTests(DashboardFixtures):
         self.api = APIClient()
         self.api.force_authenticate(self.manager)
 
-    def test_the_endpoint_returns_the_four_parts(self):
+    def test_the_endpoint_returns_the_five_parts(self):
         self.a_sale(amount="2000000.00")
         response = self.api.get("/api/v1/dashboard/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(set(response.data), {"kpis", "trend", "breakdown", "gauges"})
+        self.assertEqual(set(response.data), {"kpis", "trend", "breakdown", "gauges", "agent_share"})
 
     def test_the_result_may_not_be_cached(self):
         self.assertEqual(self.api.get("/api/v1/dashboard/")["Cache-Control"], "private, no-store")
@@ -373,6 +447,32 @@ class ApiTests(DashboardFixtures):
         self.assertFalse(
             [t for t in DashboardView().get_throttles() if isinstance(t, SensitiveRateThrottle)]
         )
+
+
+class ColourfulPaletteTests(SimpleTestCase):
+    """`dark` used to be a real accent on the dashboard's capability tiles and
+    the last colour in every chart's palette. On this panel's own dark theme
+    `--bs-dark` sits only a few shades off the card background it draws on,
+    so both were effectively invisible — the concrete half of the
+    product-owner's "رنگی و جذاب" request (2026-09-11), not just the new
+    widgets."""
+
+    def test_no_capability_tile_accent_is_the_invisible_dark_one(self):
+        from common.ui_views import DEFAULT_WIDGET_STYLE, WIDGET_STYLE
+
+        for module, style in {**WIDGET_STYLE, "__default__": DEFAULT_WIDGET_STYLE}.items():
+            with self.subTest(module=module):
+                self.assertNotEqual(style["accent"], "dark")
+
+    def test_the_chart_palettes_own_last_colour_is_not_the_invisible_dark_one(self):
+        script = (
+            pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        ).read_text(encoding="utf-8")
+        start = script.index("function chartPalette()")
+        end = script.index("\n    }", start)
+        body = script[start:end]
+        self.assertNotIn('read("--bs-dark"', body)
+        self.assertIn('read("--bs-orange"', body)
 
 
 class SharedFormattingTests(SimpleTestCase):
@@ -496,7 +596,7 @@ class ChartMountOrderTests(SimpleTestCase):
     def test_the_section_is_revealed_before_either_chart_renders(self):
         body = self.body()
         reveal = body.index("section.hidden = false;")
-        for call in ("renderAreaChart(", "renderDonutChart(", "renderGaugeChart("):
+        for call in ("renderMixedChart(", "renderDonutChart(", "renderGaugeChart(", "renderMultiGaugeChart("):
             with self.subTest(call=call):
                 self.assertLess(reveal, body.index(call))
 

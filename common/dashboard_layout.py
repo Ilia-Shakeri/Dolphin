@@ -40,6 +40,7 @@ WIDGET_CATALOG = [
     ("lead_conversion_rate", "گیج نرخ تبدیل سرنخ", "سرنخ‌ها"),
     ("receivables_collection_rate", "گیج نرخ وصول مطالبات", "فاکتور"),
     ("after_sales_closure_rate", "گیج نرخ بسته‌شدن پرونده‌ها", "خدمات پس از فروش"),
+    ("agent_share", "سهم هر بازاریاب از فروش", "فروش"),
 ]
 
 WIDGET_KEYS = frozenset(key for key, _label, _feature in WIDGET_CATALOG)
@@ -160,4 +161,10 @@ def apply_layout(dashboard_payload):
     gauges = [gauge for gauge in dashboard_payload["gauges"] if gauge["key"] not in hidden]
     gauges = _ordered(gauges, key_of=lambda gauge: gauge["key"], order=order)
 
-    return {"kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges}
+    agent_share = dashboard_payload["agent_share"]
+    if "agent_share" in hidden:
+        agent_share = None
+
+    return {
+        "kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges, "agent_share": agent_share,
+    }

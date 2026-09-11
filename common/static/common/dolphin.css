@@ -1171,6 +1171,13 @@ dialog {
     font-size: 1.5rem;
 }
 
+/* A KPI tile's own trend strip (`renderSparkline`, dolphin-app.js,
+   2026-09-11) — fixed to the height the sparkline is drawn at so the tile
+   does not jump between "before the chart mounts" and "after". */
+.kpi-sparkline {
+    height: 36px;
+}
+
 /* 6. Line chart ----------------------------------------------------------- */
 
 /* The SVG scales with its container rather than being measured at runtime, so
