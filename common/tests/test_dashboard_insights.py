@@ -245,6 +245,75 @@ class ArithmeticTests(DashboardFixtures):
         self.assertEqual(sum(point["value"] for point in data["trend"]["points"]), 0)
 
 
+class GaugeTests(DashboardFixtures):
+    """The three radial-gauge figures (2026-09-11): each a real ratio over a
+    module's own scoped data, never a stored/invented target."""
+
+    def gauge(self, data, key):
+        return next((item for item in data["gauges"] if item["key"] == key), None)
+
+    def test_lead_conversion_counts_only_decided_leads(self):
+        from sales.models import Lead
+        from sales.services import update_lead
+
+        customer = self.a_customer()
+        completed = create_lead(actor=self.manager, customer=customer, source="کمپین گیج")
+        update_lead(actor=self.manager, lead=completed, status=Lead.Status.COMPLETED)
+        cancelled = create_lead(actor=self.manager, customer=customer, source="کمپین گیج")
+        update_lead(actor=self.manager, lead=cancelled, status=Lead.Status.CANCELLED)
+        # A pending lead has not been decided yet; it must not water down the
+        # rate as though it were a loss.
+        create_lead(actor=self.manager, customer=customer, source="کمپین گیج")
+
+        gauge = self.gauge(dashboard.dashboard_for(self.manager), "lead_conversion_rate")
+        self.assertEqual(gauge["value"], 50.0)
+        self.assertEqual(gauge["display"], "۵۰٪")
+
+    def test_no_decided_lead_means_no_gauge_rather_than_a_division_by_zero(self):
+        create_lead(actor=self.manager, customer=self.a_customer(), source="کمپین گیج")
+        gauge = self.gauge(dashboard.dashboard_for(self.manager), "lead_conversion_rate")
+        self.assertIsNone(gauge)
+
+    def test_receivables_collection_rate_reflects_what_is_actually_still_owed(self):
+        from billing.services import record_manual_paid_entry
+
+        invoice = self._an_issued_invoice()
+        before = self.gauge(dashboard.dashboard_for(self.manager), "receivables_collection_rate")
+        self.assertEqual(before["value"], 0.0)
+
+        record_manual_paid_entry(actor=self.manager, invoice=invoice, amount=invoice.canonical_balance_due)
+        after = self.gauge(dashboard.dashboard_for(self.manager), "receivables_collection_rate")
+        self.assertEqual(after["value"], 100.0)
+
+    def test_after_sales_closure_rate_counts_closed_over_all_cases(self):
+        from aftersales.services import close_after_sales_request
+
+        customer = self.a_customer()
+        open_case = create_after_sales_request(
+            actor=self.manager, customer=customer, subject="مورد باز", description="د", status="در بررسی",
+        )
+        closing = create_after_sales_request(
+            actor=self.manager, customer=customer, subject="مورد بسته", description="د", status="در بررسی",
+        )
+        close_after_sales_request(actor=self.manager, request=closing, reason="حل شد")
+
+        gauge = self.gauge(dashboard.dashboard_for(self.manager), "after_sales_closure_rate")
+        self.assertEqual(gauge["value"], 50.0)
+        del open_case  # kept only to make the fixture's shape explicit
+
+    def test_a_gauge_never_fabricates_a_stored_target(self):
+        """No sales-quota gauge exists, because no target is stored anywhere
+        in this codebase — see `_gauges`'s own docstring. This pins that
+        absence so a future change does not quietly invent one."""
+        self.a_sale(amount="1000000.00")
+        data = dashboard.dashboard_for(self.manager)
+        keys = {gauge["key"] for gauge in data["gauges"]}
+        self.assertEqual(
+            keys - {"lead_conversion_rate", "receivables_collection_rate", "after_sales_closure_rate"},
+            set(),
+        )
+
+
 class FeatureGateTests(DashboardFixtures):
     def test_the_api_is_404_when_the_feature_is_off(self):
         api = APIClient()
@@ -285,11 +354,11 @@ class ApiTests(DashboardFixtures):
         self.api = APIClient()
         self.api.force_authenticate(self.manager)
 
-    def test_the_endpoint_returns_the_three_parts(self):
+    def test_the_endpoint_returns_the_four_parts(self):
         self.a_sale(amount="2000000.00")
         response = self.api.get("/api/v1/dashboard/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(set(response.data), {"kpis", "trend", "breakdown"})
+        self.assertEqual(set(response.data), {"kpis", "trend", "breakdown", "gauges"})
 
     def test_the_result_may_not_be_cached(self):
         self.assertEqual(self.api.get("/api/v1/dashboard/")["Cache-Control"], "private, no-store")
@@ -427,12 +496,14 @@ class ChartMountOrderTests(SimpleTestCase):
     def test_the_section_is_revealed_before_either_chart_renders(self):
         body = self.body()
         reveal = body.index("section.hidden = false;")
-        for call in ("renderAreaChart(", "renderDonutChart("):
+        for call in ("renderAreaChart(", "renderDonutChart(", "renderGaugeChart("):
             with self.subTest(call=call):
                 self.assertLess(reveal, body.index(call))
 
     def test_an_empty_panel_hides_itself_again(self):
-        self.assertIn(
-            "if (!data.kpis.length && !data.trend && !data.breakdown) section.hidden = true;",
-            self.body(),
-        )
+        body = self.body()
+        self.assertIn("!data.kpis.length", body)
+        self.assertIn("!data.trend", body)
+        self.assertIn("!data.breakdown", body)
+        self.assertIn("!(data.gauges || []).length", body)
+        self.assertIn("section.hidden = true;", body)

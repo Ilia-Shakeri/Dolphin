@@ -92,6 +92,10 @@ class ApplyLayoutTests(LayoutFixtures):
             ],
             "trend": {"weeks": []},
             "breakdown": {"rows": []},
+            "gauges": [
+                {"key": "lead_conversion_rate", "label": "d"},
+                {"key": "receivables_collection_rate", "label": "e"},
+            ],
         }
 
     def test_a_hidden_kpi_is_removed(self):
@@ -105,6 +109,22 @@ class ApplyLayoutTests(LayoutFixtures):
         result = dashboard_layout.apply_layout(self.base_payload())
         self.assertIsNone(result["trend"])
         self.assertIsNone(result["breakdown"])
+
+    def test_a_hidden_gauge_is_removed(self):
+        dashboard_layout.update_dashboard_settings(actor=self.admin, hidden_widgets=["lead_conversion_rate"])
+        result = dashboard_layout.apply_layout(self.base_payload())
+        self.assertNotIn("lead_conversion_rate", [gauge["key"] for gauge in result["gauges"]])
+        self.assertEqual(len(result["gauges"]), 1)
+
+    def test_gauge_order_is_applied_the_same_way_as_kpi_order(self):
+        dashboard_layout.update_dashboard_settings(
+            actor=self.admin, widget_order=["receivables_collection_rate", "lead_conversion_rate"],
+        )
+        result = dashboard_layout.apply_layout(self.base_payload())
+        self.assertEqual(
+            [gauge["key"] for gauge in result["gauges"]],
+            ["receivables_collection_rate", "lead_conversion_rate"],
+        )
 
     def test_explicit_order_is_applied(self):
         dashboard_layout.update_dashboard_settings(

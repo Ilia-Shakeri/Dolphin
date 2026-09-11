@@ -170,6 +170,83 @@ def _after_sales_kpis(user, *, now):
     ]
 
 
+def _gauge(key, label, *, rate, hint, accent="primary", url=None):
+    """A 0–100 figure meant for the radial gauge, not a bare KPI tile.
+
+    `rate` is already a plain float in that range — every caller below
+    computes it from a real denominator it has just checked is non-zero, so
+    there is no NaN/None case to guard here.
+    """
+    return {
+        "key": key,
+        "label": label,
+        "value": round(rate, 1),
+        "display": f"{formatting.persian_digits(round(rate))}٪",
+        "hint": hint,
+        "accent": accent,
+        "url": url,
+    }
+
+
+def _gauges(user, *, now):
+    """Three real ratios, each already derivable from a module's own scoped
+    data — no stored target, no invented business rule. A sales quota or
+    per-agent target is a genuine product decision (who sets the number, per
+    agent or per team, renewed how often) that nothing in this codebase has
+    answered yet, so this deliberately does not fabricate one.
+    """
+    gauges = []
+
+    if feature_enabled("leads"):
+        leads = leads_for(user)
+        decided = leads.filter(status__in=[Lead.Status.COMPLETED, Lead.Status.CANCELLED]).count()
+        if decided:
+            completed = leads.filter(status=Lead.Status.COMPLETED).count()
+            rate = completed / decided * 100
+            gauges.append(
+                _gauge(
+                    "lead_conversion_rate", "نرخ تبدیل سرنخ",
+                    rate=rate,
+                    hint=f"{formatting.persian_digits(completed)} از {formatting.persian_digits(decided)} سرنخ تصمیم‌گیری‌شده",
+                    accent="success", url="/leads/",
+                )
+            )
+
+    if feature_enabled("invoices"):
+        invoices = list(invoices_for(user).filter(status="issued"))
+        if invoices:
+            total = sum((invoice.total_amount for invoice in invoices), Decimal("0"))
+            outstanding = sum((invoice.balance_due for invoice in invoices), Decimal("0"))
+            if total > 0:
+                collected = total - outstanding
+                rate = float(collected / total) * 100
+                gauges.append(
+                    _gauge(
+                        "receivables_collection_rate", "نرخ وصول مطالبات",
+                        rate=rate,
+                        hint=f"{formatting.money(collected)} از {formatting.money(total)} وصول شده",
+                        accent="info", url="/reports/receivables/",
+                    )
+                )
+
+    if feature_enabled("after_sales"):
+        cases = after_sales_requests_for(user)
+        total_cases = cases.count()
+        if total_cases:
+            closed = cases.filter(closed_at__isnull=False).count()
+            rate = closed / total_cases * 100
+            gauges.append(
+                _gauge(
+                    "after_sales_closure_rate", "نرخ بسته‌شدن پرونده‌ها",
+                    rate=rate,
+                    hint=f"{formatting.persian_digits(closed)} از {formatting.persian_digits(total_cases)} پرونده بسته‌شده",
+                    accent="warning", url="/after-sales/",
+                )
+            )
+
+    return gauges
+
+
 def _sales_trend(user, *, now):
     """Sales amount per week for the last twelve weeks, oldest first.
 
@@ -286,7 +363,9 @@ def dashboard_for(user, *, now=None):
     elif feature_enabled("leads") and leads_for(user).exists():
         breakdown = _lead_breakdown(user)
 
+    gauges = _gauges(user, now=now)
+
     # This deployment's own admin-chosen hidden/reordered widgets, applied
-    # last — after every KPI/trend/breakdown above has already been scoped
-    # to what this specific reader may see. See `common.dashboard_layout`.
-    return apply_layout({"kpis": kpis, "trend": trend, "breakdown": breakdown})
+    # last — after every KPI/trend/breakdown/gauge above has already been
+    # scoped to what this specific reader may see. See `common.dashboard_layout`.
+    return apply_layout({"kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges})

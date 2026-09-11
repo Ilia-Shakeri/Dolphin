@@ -548,6 +548,17 @@
         const strip = document.getElementById("dashboard-kpis");
         data.kpis.forEach((kpi) => strip.appendChild(kpiCard(kpi)));
 
+        const gaugeRow = document.getElementById("dashboard-gauges");
+        (data.gauges || []).forEach((gauge) => {
+            const {column, canvas, empty} = gaugeCard(gauge);
+            gaugeRow.appendChild(column);
+            renderGaugeChart(canvas, empty, gauge.value, {
+                ariaLabel: `${gauge.label}: ${gauge.display}`,
+                accent: gauge.accent,
+                label: gauge.label,
+            });
+        });
+
         if (data.trend) {
             const card = document.getElementById("dashboard-trend-card");
             document.getElementById("dashboard-trend-title").textContent = data.trend.title;
@@ -584,7 +595,9 @@
         // Nothing to show after all: put it back, so a deployment with none
         // of the sources renders exactly the page it rendered before this
         // section existed.
-        if (!data.kpis.length && !data.trend && !data.breakdown) section.hidden = true;
+        if (!data.kpis.length && !data.trend && !data.breakdown && !(data.gauges || []).length) {
+            section.hidden = true;
+        }
     }
 
     function kpiCard(kpi) {
@@ -641,6 +654,49 @@
         card.appendChild(body);
         column.appendChild(card);
         return column;
+    }
+
+    /**
+     * One radial-gauge card, the dashboard's own counterpart to `kpiCard`
+     * above — same card shell and column width, a ring instead of a bare
+     * figure. Returns the pieces `setupDashboardInsights` needs rather than
+     * rendering the chart itself, because `renderGaugeChart` has to run
+     * *after* the card is in the DOM (ApexCharts measures a real element).
+     */
+    function gaugeCard(gauge) {
+        const column = document.createElement("div");
+        column.className = "col-sm-6 col-xl-4";
+
+        const card = document.createElement(gauge.url ? "a" : "div");
+        card.className = "card card-flush h-100 text-decoration-none"
+            + (gauge.url ? " border-hover-primary" : "");
+        if (gauge.url) card.href = gauge.url;
+        card.dataset.dashboardGauge = gauge.key;
+
+        const body = document.createElement("div");
+        body.className = "card-body d-flex flex-column align-items-center text-center py-6";
+
+        const label = document.createElement("span");
+        label.className = "text-gray-700 fw-semibold fs-7 mb-2";
+        label.textContent = gauge.label;
+
+        const canvas = document.createElement("div");
+        canvas.className = "w-100";
+        canvas.setAttribute("role", "img");
+
+        const empty = document.createElement("p");
+        empty.className = "text-center text-gray-600 fs-8 py-6 mb-0";
+        empty.textContent = "داده‌ای برای این گیج نیست.";
+        empty.hidden = true;
+
+        const hint = document.createElement("span");
+        hint.className = "text-muted fs-8 mt-1";
+        hint.textContent = gauge.hint;
+
+        body.append(label, canvas, empty, hint);
+        card.appendChild(body);
+        column.appendChild(card);
+        return {column, canvas, empty};
     }
 
     function userRow(user) {
@@ -6272,6 +6328,73 @@
             note.textContent = summary;
             chart.append(note);
         }
+    }
+
+    /**
+     * A radial gauge — one 0–100 figure as a filled ring with the number in
+     * its own hollow centre, ApexCharts' `radialBar` type. Product-owner
+     * request 2026-09-11: the purchased theme uses this for exactly this
+     * shape of number (a rate, a quota, a completion percentage — see
+     * `custom/widgets.js`'s "mixed widget 5"/"mixed widget 11" and
+     * `widgets/sliders/widget-1.js`) and this panel had never actually drawn
+     * one, despite having several numbers of exactly that shape on the
+     * dashboard already.
+     *
+     * `value` is a plain 0–100 number, already computed by the caller from a
+     * real ratio — this function only draws it, it invents no rate of its
+     * own.
+     */
+    function renderGaugeChart(chart, empty, value, options = {}) {
+        const {ariaLabel = null, accent = "primary", label = ""} = options;
+        if (!chart || !empty) return;
+        chartRedraws.set(chart, () => renderGaugeChart(chart, empty, value, options));
+
+        if (!Number.isFinite(value)) {
+            showEmptyChart(chart, empty);
+            return;
+        }
+        const clamped = Math.max(0, Math.min(100, value));
+
+        const style = getComputedStyle(document.documentElement);
+        const base = style.getPropertyValue(`--bs-${accent}`).trim() || chartPalette()[0];
+        const track = style.getPropertyValue(`--bs-${accent}-light`).trim();
+        const ink = chartInk();
+        const base320 = apexBase(220);
+
+        mountApex(chart, empty, {
+            ...base320,
+            chart: {
+                ...base320.chart,
+                type: "radialBar",
+                // The theme's own gauges are sparklines — no axis, no grid,
+                // just the ring — and `apexBase`'s grid/tooltip settings mean
+                // nothing on a chart with one data point and no plot area.
+                sparkline: {enabled: true},
+            },
+            series: [Math.round(clamped * 10) / 10],
+            colors: [base],
+            stroke: {lineCap: "round"},
+            plotOptions: {
+                radialBar: {
+                    hollow: {margin: 0, size: "65%"},
+                    track: {background: track, strokeWidth: "100%"},
+                    dataLabels: {
+                        show: true,
+                        name: {show: false},
+                        value: {
+                            show: true,
+                            offsetY: 10,
+                            fontSize: "28px",
+                            fontWeight: 700,
+                            color: ink.text,
+                            fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            formatter: (raw) => toPersianDigits(String(Math.round(raw))) + "٪",
+                        },
+                    },
+                },
+            },
+            labels: [label],
+        }, ariaLabel);
     }
 
     /**

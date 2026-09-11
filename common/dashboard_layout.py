@@ -37,6 +37,9 @@ WIDGET_CATALOG = [
     ("after_sales_closed_this_month", "بسته‌شده در این ماه (پس از فروش)", "خدمات پس از فروش"),
     ("trend", "روند فروش ۱۲ هفته‌ای", "فروش"),
     ("breakdown", "نمودار تفکیک وضعیت", "سرنخ‌ها / پس از فروش"),
+    ("lead_conversion_rate", "گیج نرخ تبدیل سرنخ", "سرنخ‌ها"),
+    ("receivables_collection_rate", "گیج نرخ وصول مطالبات", "فاکتور"),
+    ("after_sales_closure_rate", "گیج نرخ بسته‌شدن پرونده‌ها", "خدمات پس از فروش"),
 ]
 
 WIDGET_KEYS = frozenset(key for key, _label, _feature in WIDGET_CATALOG)
@@ -154,4 +157,7 @@ def apply_layout(dashboard_payload):
     if "breakdown" in hidden:
         breakdown = None
 
-    return {"kpis": kpis, "trend": trend, "breakdown": breakdown}
+    gauges = [gauge for gauge in dashboard_payload["gauges"] if gauge["key"] not in hidden]
+    gauges = _ordered(gauges, key_of=lambda gauge: gauge["key"], order=order)
+
+    return {"kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges}
