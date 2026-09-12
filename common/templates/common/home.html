@@ -101,7 +101,7 @@
     {% include "common/includes/performance_panel.inc" with panel_prefix="dashboard" %}
 {% endif %}
 {% if request.user.role == "sales_agent" and request.user.workstream == "sales" %}
-<section class="card mb-5 mb-xl-8" id="agent-work-queue" aria-labelledby="agent-work-queue-title"><div class="card-body">
+<section class="card mb-6" id="agent-work-queue" aria-labelledby="agent-work-queue-title"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><div><h2 id="agent-work-queue-title">صف کار امروز</h2><p class="text-muted">سرنخ‌های تخصیص‌یافته؛ پیگیری زمان‌دار زودتر دیده می‌شود.</p></div><a class="btn btn-light" href="{% url 'common_ui:leads' %}">همه سرنخ‌های من</a></div>
     <div id="agent-work-queue-loading" class="text-center text-gray-700 py-10">در حال دریافت صف کار…</div>
     <div id="agent-work-queue-empty" class="text-center text-gray-700 py-10" hidden>سرنخ تخصیص‌یافته‌ای ندارید.</div>
