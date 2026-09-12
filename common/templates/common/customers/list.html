@@ -143,7 +143,14 @@
         </div>
         <div data-kt-stepper-element="content">
             <div class="row g-5">
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-province">استان</label><input class="form-control form-control-solid" id="create-customer-province" name="province" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="province"></p></div>
+                {% comment %} A fixed list rather than free text (product-owner
+                   request 2026-09-12): a typo or variant spelling here meant a
+                   customer's own province never matched a region on the map
+                   below, and nothing said why. Options are filled from the
+                   same `iran-provinces.json` the map itself reads
+                   (`fillProvinceSelect`, dolphin-app.js) — one source, not a
+                   second hand-typed list that could drift from it. {% endcomment %}
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-province">استان</label><select class="form-select form-select-solid" id="create-customer-province" name="province"><option value="">انتخاب استان</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="province"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-city">شهر</label><input class="form-control form-control-solid" id="create-customer-city" name="city" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="city"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-postal-code">کد پستی</label><input class="form-control form-control-solid" id="create-customer-postal-code" name="postal_code" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="postal_code"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-phone">تلفن آغازین</label><input class="form-control form-control-solid" id="create-customer-phone" name="phone_raw" type="tel" maxlength="40" placeholder="09121234567"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>

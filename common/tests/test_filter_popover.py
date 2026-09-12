@@ -25,10 +25,21 @@ frequently-used list (`customers`, `leads`, `orders`, …) were converted by
 hand instead, each to its own `card-title`/`card-toolbar` markup
 (`.list-search` + `.list-filter`/`.list-filter-panel`, wired per page by
 `setupListFilter(prefix)` — see that function and `bindLiveSearch` in
-`dolphin-app.js`). The six report-style pages left below never had a live
-search box to begin with (`reports/*.html` — a required date range submitted
-once, not a filterable list), so `setupListFilterPopovers()` still owns them
-unchanged, exactly as this file already tested.
+`dolphin-app.js`). The six report-style pages left below kept
+`setupListFilterPopovers()` unchanged for their own criteria form — a
+required date range submitted once, not something to live-filter — exactly
+as this file already tested.
+
+**Update, 2026-09-12 (product-owner request):** five of those six report
+pages (`customer_ledger.html` excluded — its «مشتری» select is a required
+first choice, not a secondary filter, so a search box beside it would search
+nothing yet) gained their own `.list-search` box beside the same generic
+popover, live-filtering the report's own already-rendered result table —
+`bindReportTableSearch` in `dolphin-app.js`, not `setupListFilter`, since
+there is no server round trip to make once the report is already on the
+page. The toggle itself also dropped its "فیلتر" text at the same time, so
+every filter button in the panel — the seventeen hand-built ones and these
+six generic ones alike — is the same icon-only shape.
 
 What is worth proving:
 
@@ -193,6 +204,61 @@ class LiveSearchReachTests(SimpleTestCase):
             with self.subTest(template=relative_path):
                 self.assertTrue(toggle_id.endswith("-filter-toggle"), toggle_id)
                 self.assertIn(expected_call, SCRIPT)
+
+
+#: The five report pages that gained a live search box in 2026-09-12 —
+#: `customer_ledger.html` deliberately excluded, see this module's own
+#: docstring update for that date.
+REPORT_TEMPLATES_WITH_LIVE_SEARCH = REPORT_FILTER_TEMPLATES - {"reports/customer_ledger.html"}
+
+
+class ReportSearchBoxTests(SimpleTestCase):
+    """The generic popover still owns these six forms untouched — this only
+    checks the search box built beside them, by hand, on each page."""
+
+    def test_five_of_the_six_report_pages_carry_a_live_search_box(self):
+        for relative_path in sorted(REPORT_TEMPLATES_WITH_LIVE_SEARCH):
+            content = (TEMPLATES / relative_path).read_text(encoding="utf-8")
+            with self.subTest(template=relative_path):
+                self.assertIn('class="list-search"', content)
+                # Still the generic popover underneath, not a converted
+                # `.list-filter` page — the two mechanisms are not meant to
+                # both appear on a page that only has one filter form.
+                self.assertIn('class="list-filters"', content)
+
+    def test_customer_ledger_was_deliberately_left_without_one(self):
+        content = (TEMPLATES / "reports/customer_ledger.html").read_text(encoding="utf-8")
+        self.assertNotIn('class="list-search"', content)
+
+    def test_dolphin_app_js_binds_a_live_search_for_each_of_the_five(self):
+        self.assertIn("function bindReportTableSearch(", SCRIPT)
+        # One call per report's own setup function — not a generic sweep like
+        # `setupListFilterPopovers()` above, since each report's own result
+        # table(s) have their own ids.
+        for name in (
+            "setupSalesDocumentReport", "setupInboundSMSReport",
+            "setupReceivablesReport", "setupProfitReport", "setupStockValuationReport",
+        ):
+            with self.subTest(function=name):
+                self.assertIn("bindReportTableSearch(", _function_body(name))
+
+
+class FilterToggleIsIconOnlyTests(SimpleTestCase):
+    """The generic popover's own toggle button used to carry the word
+    «فیلتر» beside its icon — measured against the seventeen hand-built
+    `.list-filter-toggle` buttons elsewhere in the panel, that made these six
+    pages the only ones with a labelled filter button (product-owner request
+    2026-09-12)."""
+
+    body = _function_body("setupListFilterPopovers")
+
+    def test_no_text_label_is_appended_to_the_toggle(self):
+        self.assertNotIn("createTextNode", self.body)
+        self.assertIn('toggle.append(icon)', self.body)
+
+    def test_the_icon_only_button_still_names_itself_for_accessibility(self):
+        self.assertIn('toggle.setAttribute("aria-label", "فیلتر")', self.body)
+        self.assertIn("btn-icon", self.body)
 
 
 class PreservationTests(SimpleTestCase):

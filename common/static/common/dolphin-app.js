@@ -2250,9 +2250,15 @@
             ]);
         }
         const wizard = setupWizard(dialog, {onReachLastStep: renderCustomerReview});
+        fillProvinceSelect(document.getElementById("create-customer-province"));
         document.getElementById("open-create-customer").addEventListener("click", () => {
             createForm.reset();
             clearMessages(createForm);
+            // `reset()` above put the select back to its first option — this
+            // form's own placeholder, since the dropdown carries no
+            // browser-remembered default the way a text field's own empty
+            // string already was.
+            document.getElementById("create-customer-province").value = "";
             wizard?.goFirst();
             dialog.showModal();
         });
@@ -2403,6 +2409,51 @@
             });
         }
         return iranMapPromise;
+    }
+
+    /**
+     * Fills a customer form's province `<select>` with the same 31 province
+     * names the choropleth map itself reads from `iran-provinces.json` — the
+     * one already-canonical list this codebase has, rather than a second,
+     * hand-typed one that could drift from it.
+     *
+     * A free-text «استان» used to mean a customer whose typed province did
+     * not exactly match a map region (a typo, an abbreviation, "تهرون")
+     * simply never appeared on the map at all — nothing on screen said why
+     * (product-owner request 2026-09-12). A fixed list of the map's own
+     * names makes every new customer matchable by construction.
+     *
+     * `selectedValue` may not be one of the 31 — an existing customer
+     * recorded before this dropdown existed. That value is kept as an extra
+     * option rather than silently dropped: opening the edit form must never
+     * rewrite a stored record just by loading it (`common/dashboard.py` and
+     * this file both follow that rule already for other fields).
+     */
+    async function fillProvinceSelect(select, selectedValue = "") {
+        if (!select) return;
+        let map;
+        try { map = await loadIranMap(); } catch { return; }
+        const names = Object.values(map.provinces)
+            .map((province) => province.name)
+            .sort((a, b) => a.localeCompare(b, "fa"));
+        select.replaceChildren();
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "انتخاب استان";
+        select.appendChild(placeholder);
+        names.forEach((name) => {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = name;
+            select.appendChild(option);
+        });
+        if (selectedValue && !names.includes(selectedValue)) {
+            const legacy = document.createElement("option");
+            legacy.value = selectedValue;
+            legacy.textContent = `${selectedValue} (مقدار قبلی)`;
+            select.appendChild(legacy);
+        }
+        select.value = selectedValue || "";
     }
 
     /** Which of the five bands a count falls in, 0 meaning "no customers". */
@@ -2853,9 +2904,10 @@
         let editingPhoneId = null;
 
         function fillCustomer(value) {
-            ["full_name", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
+            ["full_name", "national_id", "economic_code", "email", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
                 document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`).value = value[name] || "";
             });
+            fillProvinceSelect(document.getElementById("edit-customer-province"), value.province || "");
             document.getElementById("customer-created-by").value = value.created_by_display || value.created_by;
             // A Platform Admin gets a select; everyone else the read-only text.
             const activeSelect = document.getElementById("customer-active-select");
@@ -6463,7 +6515,14 @@
 
         mountApex(chart, empty, {
             ...base,
-            chart: {...base.chart, type: "area"},
+            // See `renderMixedChart`'s own copy of this override for why: an
+            // area series is drag-to-zoomable by default regardless of
+            // `apexBase`'s toolbar setting, and only the reset icon is
+            // enabled here — a way back, not a new toolbar of controls.
+            chart: {...base.chart, type: "area", toolbar: {show: true, tools: {
+                download: false, selection: false, zoom: true,
+                zoomin: false, zoomout: false, pan: false, reset: true,
+            }}},
             series: [{name: options.seriesName || "مقدار", data: usable.map((p) => p.value)}],
             colors: [accent],
             dataLabels: {enabled: false},
@@ -6570,6 +6629,18 @@
             chart: {
                 ...base.chart,
                 type: "line",
+                // `apexBase`'s own `toolbar: {show: false}` is right for the
+                // charts that have nothing to reset — a donut or a gauge is
+                // not draggable. This one is: Apex's own drag-to-zoom is on
+                // by default for a line/area series regardless of the
+                // toolbar, so a reader could already narrow the range with
+                // no way back to the full twelve weeks (design review,
+                // 2026-09-12). Only the reset icon is shown — download, pan
+                // and the zoom-in/out buttons add controls nobody asked for.
+                toolbar: {show: true, tools: {
+                    download: false, selection: false, zoom: true,
+                    zoomin: false, zoomout: false, pan: false, reset: true,
+                }},
                 events: {mounted: (ctx) => forceSolidBars(ctx), updated: (ctx) => forceSolidBars(ctx)},
             },
             series: [
@@ -11728,9 +11799,19 @@
 
             const toggle = document.createElement("button");
             toggle.type = "button";
-            toggle.className = "btn btn-light-primary";
+            // Icon-only — the same `.btn-icon.btn-light-primary` shape every
+            // other list page's own hand-built filter button already uses
+            // (`.list-filter-toggle`, e.g. `leads/list.html`). This one used
+            // to carry the word «فیلتر» beside the icon; measured against
+            // the rest of the panel, that made the twenty-five pages built
+            // through this generic popover read differently from every page
+            // with a hand-built filter button (product-owner request
+            // 2026-09-12). `aria-label` keeps the same word for anyone who
+            // cannot see the icon.
+            toggle.className = "btn btn-icon btn-light-primary";
             toggle.setAttribute("aria-haspopup", "true");
             toggle.setAttribute("aria-expanded", "false");
+            toggle.setAttribute("aria-label", "فیلتر");
             // Named after the form it opens, since the form's own id is the
             // one stable thing about it that already varies meaningfully
             // page to page — a test or a future script can find "the filter
@@ -11738,11 +11819,11 @@
             // second id for the same relationship.
             if (form.id) toggle.dataset.filterToggleFor = form.id;
             const icon = document.createElement("i");
-            icon.className = "ki-duotone ki-filter fs-2 me-1";
+            icon.className = "ki-duotone ki-filter fs-3";
             icon.append(document.createElement("span"), document.createElement("span"));
             icon.children[0].className = "path1";
             icon.children[1].className = "path2";
-            toggle.append(icon, document.createTextNode("فیلتر"));
+            toggle.append(icon);
 
             const panel = document.createElement("div");
             panel.className = "menu menu-sub menu-sub-dropdown menu-column w-300px w-md-350px list-filters-panel";

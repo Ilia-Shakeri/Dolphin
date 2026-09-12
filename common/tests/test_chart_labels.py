@@ -45,6 +45,27 @@ class DonutLabelTests(SimpleTestCase):
         self.assertIn("٪", self.body)
 
 
+class ZoomResetTests(SimpleTestCase):
+    """A line/area series is drag-to-zoomable in ApexCharts by default,
+    independent of `apexBase`'s own `toolbar: {show: false}` — so the twelve-
+    week sales trend and every plain area chart already let a reader narrow
+    the range with no way back to the full window (design review,
+    2026-09-12). Both are given their own toolbar override carrying only the
+    reset icon — not a full toolbar of download/pan/zoom-in/out controls
+    nobody asked for."""
+
+    def test_the_mixed_trend_chart_has_a_reset_only_toolbar(self):
+        body = _function_body("renderMixedChart")
+        self.assertIn("toolbar: {show: true, tools: {", body)
+        self.assertIn("reset: true,", body)
+        self.assertIn("zoomin: false, zoomout: false, pan: false,", body)
+
+    def test_the_plain_area_chart_has_a_reset_only_toolbar(self):
+        body = _function_body("renderAreaChart")
+        self.assertIn("toolbar: {show: true, tools: {", body)
+        self.assertIn("reset: true,", body)
+
+
 class BarLabelTests(SimpleTestCase):
     """Pinned against a live-measured fix, not the property names alone.
 

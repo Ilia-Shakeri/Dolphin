@@ -1423,12 +1423,13 @@ dialog {
    `.hover-scroll-overlay-y` to (Metronic's own overlay scrollbar, `dolphin.js`
    loads it already — see that class's own rule in `assets/css/style.bundle.
    css` for the transparent-until-hover thumb this reuses rather than a
-   hand-rolled one). The height below is roughly four cards' worth at this
-   board's card padding/line-height; a fifth card and beyond scroll into view
-   without the column — or the page around it — growing past that. */
+   hand-rolled one). The height below is roughly five cards' worth at this
+   board's card padding/line-height (raised from four, product-owner request
+   2026-09-12: "۴-۵ کارت"); a sixth card and beyond scroll into view without
+   the column — or the page around it — growing past that. */
 #lead-board .kanban-drag,
 #order-board .kanban-drag {
-    max-height: 30rem;
+    max-height: 37.5rem;
     padding-inline-end: 0.35rem;
 }
 /* The one card-shaped exception: the "load more" control `setupLeadBoard()`/
@@ -1469,6 +1470,19 @@ dialog {
     max-height: 30rem;
     overflow-y: auto;
     padding-inline-end: 0.35rem;
+}
+
+/* The performance panel's own "جزئیات همان محدوده مجاز" table
+   (`performance_panel.inc`, shared by the dashboard and the standalone
+   عملکرد report) — capped to roughly five rows and scrollable for the rest,
+   the same treatment already given the capability-tile grid above and the
+   kanban columns (product-owner request 2026-09-12): a company-wide scope
+   can list every user in the deployment, and the table used to push
+   everything below it — the rest of the dashboard, or the rest of the report
+   page — down by however many rows that scope happened to have. */
+.performance-scope-table-wrap {
+    max-height: 21rem;
+    overflow-y: auto;
 }
 
 /* Each column's own search (product-owner decision 2026-09-09): a small icon

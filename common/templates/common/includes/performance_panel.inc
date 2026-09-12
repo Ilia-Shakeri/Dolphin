@@ -42,7 +42,7 @@
             </section>
             <section class="col-lg-7" aria-labelledby="{{ panel_prefix }}-table-title">
                 <h3 id="{{ panel_prefix }}-table-title">جزئیات همان محدوده مجاز</h3>
-                <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>کاربر</th><th>مشتری ثبت‌شده</th><th>فروش تأییدشده</th><th>مبلغ فروش</th><th>میانگین مبلغ فروش</th><th>جزئیات</th></tr></thead><tbody id="{{ panel_prefix }}-performance-table-body"></tbody></table></div>
+                <div class="table-responsive performance-scope-table-wrap hover-scroll-overlay-y"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>کاربر</th><th>مشتری ثبت‌شده</th><th>فروش تأییدشده</th><th>مبلغ فروش</th><th>میانگین مبلغ فروش</th><th>جزئیات</th></tr></thead><tbody id="{{ panel_prefix }}-performance-table-body"></tbody></table></div>
             </section>
         </div>
         <section id="{{ panel_prefix }}-performance-details" class="mt-5 pt-5 border-top" aria-labelledby="{{ panel_prefix }}-details-title" hidden>
