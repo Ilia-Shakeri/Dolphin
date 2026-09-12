@@ -686,9 +686,29 @@
         label.className = "text-gray-700 fw-semibold fs-7 mt-2";
         label.textContent = kpi.label;
 
+        // A month/week-over-month change reads its direction from a sentence
+        // ("۱۲٪ کمتر از...") alone otherwise — the theme's own stat widgets
+        // (widgets/statistics.html) pair that sentence with an arrow colour
+        // so the direction reads before the words do. Only drawn when the
+        // backend actually computed one (`_change_direction`, common/
+        // dashboard.py) — a KPI with no month-over-month base (e.g. مطالبات
+        // باز) keeps its plain hint rather than a fabricated arrow.
         const hint = document.createElement("span");
-        hint.className = "text-muted fs-8 mt-1";
-        hint.textContent = kpi.hint;
+        hint.className = "d-flex align-items-center gap-1 fs-8 mt-1";
+        if (kpi.direction === "up" || kpi.direction === "down") {
+            const isUp = kpi.direction === "up";
+            const arrow = document.createElement("i");
+            arrow.className = `ki-duotone ki-arrow-${isUp ? "up" : "down"} fs-7 text-${isUp ? "success" : "danger"}`;
+            arrow.appendChild(document.createElement("span")).className = "path1";
+            arrow.appendChild(document.createElement("span")).className = "path2";
+            const text = document.createElement("span");
+            text.className = "text-muted";
+            text.textContent = kpi.hint;
+            hint.append(arrow, text);
+        } else {
+            hint.classList.add("text-muted");
+            hint.textContent = kpi.hint;
+        }
 
         body.append(top, value, label, hint);
 
@@ -6297,6 +6317,27 @@
     }
 
     /**
+     * A tick-label formatter that prints only every Nth category's own
+     * label, blank otherwise, so at most `maxLabels` of them ever reach the
+     * axis — the *category* array itself stays untouched, so the tooltip
+     * (which reads the same array for its own title) still names every
+     * point.
+     *
+     * Apex's own `tickAmount`/`hideOverlappingLabels` are built for
+     * horizontal label text; measured live on this panel's own rotated
+     * (-45°) date labels, neither actually thinned anything — every one of
+     * twelve category labels still rendered, each overlapping the label
+     * beside it (design review, 2026-09-12).
+     */
+    function thinningFormatter(labels, maxLabels) {
+        const step = Math.max(1, Math.ceil(labels.length / Math.max(1, maxLabels)));
+        return (value) => {
+            const index = labels.indexOf(value);
+            return index === -1 || index % step === 0 ? value : "";
+        };
+    }
+
+    /**
      * A filled area over a line, for a quantity moving through time.
      *
      * The fill is what separates this from a plain line: it gives the series a
@@ -6357,14 +6398,15 @@
             markers: {size: 0, strokeWidth: 3, hover: {size: 7}},
             xaxis: {
                 categories: usable.map((point) => point.label),
-                // Apex would print every category and let them collide; this is
-                // the same thinning the hand-drawn chart did, expressed as the
-                // most labels the axis may show.
                 tickAmount: Math.min(maxLabels, usable.length),
                 labels: {
                     style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
                     hideOverlappingLabels: true,
                     trim: true,
+                    // See `thinningFormatter`: `tickAmount`/`hideOverlappingLabels`
+                    // alone left every rotated label on screen, overlapping the
+                    // next one.
+                    formatter: thinningFormatter(usable.map((point) => point.label), maxLabels),
                 },
                 axisBorder: {show: false},
                 axisTicks: {show: false},
@@ -6417,9 +6459,34 @@
         const displays = usable.map((point) => point.display ?? String(point.value));
         const base = apexBase(300);
 
+        // Apex's own per-series `fill.type` array (`["gradient","solid"]`) is
+        // the documented way to gradient-shade one series and leave another
+        // solid — and does exactly that for a single area's own fill
+        // (`renderAreaChart`, same `gradient` object, above). Combined with a
+        // second `bar` series on the same chart it does not: measured live,
+        // the bar's own `<path fill>` still points at the area's
+        // black-to-transparent gradient def rather than a solid `countColor`,
+        // rendering "تعداد فروش" as a near-invisible smudge instead of a
+        // green bar (design review, 2026-09-12). Rather than chase which
+        // Apex internal combo triggers that, the bar's own fill is set
+        // directly once the chart (and every redraw/theme switch) has drawn
+        // it — the same "fix what the vendor library gets wrong at the
+        // point it's wrong" this codebase already does for FullCalendar and
+        // the theme's own broken box-shadow declarations.
+        const forceSolidBars = (chartCtx) => {
+            chartCtx.el.querySelectorAll(".apexcharts-bar-series path").forEach((bar) => {
+                bar.setAttribute("fill", countColor);
+                bar.setAttribute("fill-opacity", "1");
+            });
+        };
+
         mountApex(chart, empty, {
             ...base,
-            chart: {...base.chart, type: "line"},
+            chart: {
+                ...base.chart,
+                type: "line",
+                events: {mounted: (ctx) => forceSolidBars(ctx), updated: (ctx) => forceSolidBars(ctx)},
+            },
             series: [
                 {name: seriesNames[0], type: "area", data: usable.map((point) => point.value)},
                 {name: seriesNames[1], type: "bar", data: counts},
@@ -6430,7 +6497,7 @@
             fill: {
                 type: ["gradient", "solid"],
                 gradient: {shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0, stops: [0, 80, 100]},
-                opacity: [1, 0.85],
+                opacity: [1, 1],
             },
             plotOptions: {
                 bar: {columnWidth: "35%", borderRadius: 4},
@@ -6444,6 +6511,7 @@
                     style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
                     hideOverlappingLabels: true,
                     trim: true,
+                    formatter: thinningFormatter(usable.map((point) => point.label), maxLabels),
                 },
                 axisBorder: {show: false},
                 axisTicks: {show: false},
@@ -6626,8 +6694,16 @@
             stroke: {lineCap: "round"},
             plotOptions: {
                 radialBar: {
-                    hollow: {size: "18%"},
-                    track: {strokeWidth: "92%"},
+                    // Measured live at the old 18%: the innermost ring's own
+                    // radius came out to 19.5px, while the two-line total
+                    // label ("مجموع" + "۱۰۰٪") it sits inside is ~58px tall —
+                    // three times too small a hollow for what has to fit in
+                    // it, so the total overlapped the innermost ring's own
+                    // arc (design review, 2026-09-12). Widened, and the total
+                    // value's own font shrunk a step, so both lines clear the
+                    // ring at up to six sellers.
+                    hollow: {size: "34%"},
+                    track: {strokeWidth: "88%"},
                     dataLabels: {
                         name: {fontSize: "13px", fontFamily: "IRANSansWeb, Helvetica, sans-serif"},
                         value: {
@@ -6641,6 +6717,7 @@
                             show: true,
                             label: "مجموع",
                             color: ink.muted,
+                            fontSize: "13px",
                             fontFamily: "IRANSansWeb, Helvetica, sans-serif",
                             formatter: () =>
                                 toPersianDigits(String(Math.round(usable.reduce((sum, item) => sum + item.value, 0)))) + "٪",

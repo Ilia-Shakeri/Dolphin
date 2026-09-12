@@ -188,6 +188,18 @@ class ArithmeticTests(DashboardFixtures):
         self.assertIn("۷", kpi["display"])
         self.assertNotIn("۹۹", kpi["display"])
 
+    def test_a_sales_kpi_carries_the_direction_its_own_hint_names(self):
+        start, _previous_start, _previous_end = dashboard._month_bounds(self.now)
+        self.a_sale(amount="99000000.00", when=start - timedelta(days=1))
+        self.a_sale(amount="7000000.00")
+        kpi = self.kpi(dashboard.dashboard_for(self.manager), "sales_amount_this_month")
+        self.assertIn("کمتر", kpi["hint"])
+        self.assertEqual(kpi["direction"], "down")
+
+    def test_a_kpi_with_no_comparison_base_carries_no_direction(self):
+        kpi = self.kpi(dashboard.dashboard_for(self.manager), "outstanding")
+        self.assertIsNone(kpi["direction"])
+
     def test_a_cancelled_sale_is_not_counted(self):
         from sales.services import cancel_sale
 
@@ -231,6 +243,19 @@ class ArithmeticTests(DashboardFixtures):
         self.assertEqual(dashboard._change_hint(100, 100, noun="ماه"), "مثل ماه گذشته")
         self.assertEqual(dashboard._change_hint(5, 0, noun="هفته"), "در هفته گذشته چیزی ثبت نشده بود")
         self.assertEqual(dashboard._change_hint(0, 0, noun="هفته"), "در این هفته چیزی ثبت نشده")
+
+    def test_the_change_direction_matches_the_words_the_hint_uses(self):
+        """A KPI tile draws an up/down arrow from this — it must never
+        disagree with the sentence sitting right next to it (design review,
+        2026-09-12: a tile's own hint text was the only place direction
+        showed up at all, and reading a full Persian sentence to tell
+        "more" from "less" at a glance is exactly what the arrow is for).
+        """
+        self.assertEqual(dashboard._change_direction(110, 100), "up")
+        self.assertEqual(dashboard._change_direction(90, 100), "down")
+        self.assertIsNone(dashboard._change_direction(100, 100))
+        self.assertIsNone(dashboard._change_direction(5, 0))
+        self.assertIsNone(dashboard._change_direction(0, 0))
 
     def test_the_trend_is_twelve_weeks_ending_this_week(self):
         self.a_sale(amount="3000000.00")
@@ -473,6 +498,76 @@ class ColourfulPaletteTests(SimpleTestCase):
         body = script[start:end]
         self.assertNotIn('read("--bs-dark"', body)
         self.assertIn('read("--bs-orange"', body)
+
+
+class ChartOverlapFixTests(SimpleTestCase):
+    """Three chart-legibility bugs found in a design review of the live
+    panel (2026-09-12), each a value overlapping or vanishing into the
+    chart drawing it was supposed to sit on:
+
+    * the trend chart's own "تعداد فروش" bars rendered with the area
+      series' fade-to-transparent gradient instead of a solid fill —
+      measured live as a near-invisible smudge;
+    * that same chart's twelve rotated date labels all overlapped their
+      neighbour, because Apex's own tickAmount/hideOverlappingLabels do
+      not account for rotated text;
+    * the per-seller share gauge's centre "مجموع" total spilled outside
+      its own hollow and onto the innermost ring, measured live as a
+      19.5px-radius hollow holding a 58px-tall two-line label.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.script = (
+            pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        ).read_text(encoding="utf-8")
+
+    def _function_body(self, name):
+        start = self.script.index(f"function {name}(")
+        # Every function this test reads is closed by a `\n    }` at its own
+        # nesting depth, exactly like `ColourfulPaletteTests` above already
+        # relies on for `chartPalette`.
+        end = self.script.index("\n    }", start)
+        return self.script[start:end]
+
+    def test_the_mixed_charts_bar_series_is_forced_solid_after_every_render(self):
+        body = self._function_body("renderMixedChart")
+        self.assertIn("forceSolidBars", body)
+        self.assertIn(".apexcharts-bar-series path", body)
+        self.assertIn('setAttribute("fill", countColor)', body)
+        self.assertIn("mounted:", body)
+        self.assertIn("updated:", body)
+
+    def test_both_time_series_charts_thin_their_own_axis_labels(self):
+        for name in ("renderAreaChart", "renderMixedChart"):
+            with self.subTest(chart=name):
+                self.assertIn("thinningFormatter(", self._function_body(name))
+
+    def test_the_multi_gauges_hollow_is_wide_enough_for_its_own_total_label(self):
+        body = self._function_body("renderMultiGaugeChart")
+        self.assertNotIn('hollow: {size: "18%"}', body)
+        self.assertIn('hollow: {size: "34%"}', body)
+
+
+class KpiDirectionArrowTests(SimpleTestCase):
+    """A KPI tile's own hint used to be a plain sentence — "۱۰٪ کمتر از
+    ماه گذشته" — with no arrow or colour, so telling an increase from a
+    decrease meant reading the whole thing (design review, 2026-09-12).
+    `kpiCard` now draws a themed up/down arrow when the backend actually
+    computed a direction, and leaves the plain sentence alone otherwise."""
+
+    script = (
+        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    ).read_text(encoding="utf-8")
+
+    def test_the_kpi_card_draws_a_themed_arrow_for_a_real_direction(self):
+        start = self.script.index("function kpiCard(kpi)")
+        end = self.script.index("\n    function ", start + 1)
+        body = self.script[start:end]
+        self.assertIn('kpi.direction === "up"', body)
+        self.assertIn('ki-arrow-${isUp ? "up" : "down"}', body)
+        self.assertIn('text-${isUp ? "success" : "danger"}', body)
 
 
 class SharedFormattingTests(SimpleTestCase):

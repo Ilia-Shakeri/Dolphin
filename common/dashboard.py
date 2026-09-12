@@ -58,12 +58,21 @@ SPARK_WEEKS = 6
 TOP_SELLERS = 5
 
 
-def _kpi(key, label, *, display, hint="", icon="ki-element-11", icon_paths=4, accent="primary", url=None, spark=None):
+def _kpi(
+    key, label, *, display, hint="", icon="ki-element-11", icon_paths=4, accent="primary", url=None,
+    spark=None, direction=None,
+):
     return {
         "key": key,
         "label": label,
         "display": display,
         "hint": hint,
+        # "up"/"down" when `hint` states a month/week-over-month comparison,
+        # else None — lets the tile show a direction arrow instead of asking
+        # the reader to parse "بیشتر"/"کمتر" out of a sentence to tell
+        # whether a change was good or bad (product-owner design review,
+        # 2026-09-12).
+        "direction": direction,
         "icon": icon,
         "icon_paths": icon_paths,
         "accent": accent,
@@ -105,6 +114,15 @@ def _change_hint(current, previous, *, noun):
     return f"در این {noun} چیزی ثبت نشده"
 
 
+def _change_direction(current, previous):
+    """"up"/"down" for exactly the comparison `_change_hint` puts into words,
+    None when that hint has no base to compare against (or states no change).
+    """
+    if previous and previous > 0 and current != previous:
+        return "up" if current > previous else "down"
+    return None
+
+
 def _sales_kpis(user, *, now, trend=None):
     scope = sales_for(user).exclude(status=Sale.Status.CANCELLED)
     start, previous_start, previous_end = _month_bounds(now)
@@ -124,6 +142,7 @@ def _sales_kpis(user, *, now, trend=None):
             "sales_amount_this_month", "فروش این ماه",
             display=formatting.money(amount),
             hint=_change_hint(amount, previous, noun="ماه"),
+            direction=_change_direction(amount, previous),
             icon="ki-chart-line-up", icon_paths=2, accent="success", url="/sales/",
             spark=amount_spark,
         ),
@@ -131,6 +150,7 @@ def _sales_kpis(user, *, now, trend=None):
             "sales_count_this_month", "تعداد فروش این ماه",
             display=formatting.persian_digits(count),
             hint=_change_hint(count, last_month.count(), noun="ماه"),
+            direction=_change_direction(count, last_month.count()),
             icon="ki-basket", icon_paths=4, accent="primary", url="/sales/",
             spark=count_spark,
         ),
@@ -183,6 +203,7 @@ def _call_kpi(user, *, now):
             "calls_this_week", "تماس‌های هفت روز اخیر",
             display=formatting.persian_digits(this_week),
             hint=_change_hint(this_week, last_week, noun="هفته"),
+            direction=_change_direction(this_week, last_week),
             icon="ki-call", icon_paths=8, accent="info", url="/interactions/",
             spark=buckets,
         )
