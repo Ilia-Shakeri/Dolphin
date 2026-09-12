@@ -12,7 +12,7 @@
         <div class="list-search">
             <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="lead-search">جستجوی سرنخ</label>
-            <input class="form-control form-control-solid" id="lead-search" type="search" placeholder="نام مشتری، منبع، کمپین یا یادداشت">
+            <input class="form-control form-control-solid" id="lead-search" type="search" placeholder="نام مشتری یا منبع">
         </div>
         <div class="list-filter">
             <button id="lead-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
@@ -39,7 +39,6 @@
         <button id="open-create-lead" class="btn btn-primary" type="button">سرنخ جدید</button>
     </div>
 </div><div class="card-body pt-2">
-    <p class="text-muted">وضعیت‌ها در سرور نگهداری می‌شوند؛ این صفحه گذار تازه‌ای تعریف نمی‌کند.</p>
     {% if can_hard_delete %}
     <div class="d-flex align-items-center gap-3 mb-4" data-leads-toolbar="selected" hidden>
         <span class="fw-bold text-gray-800"><span data-leads-select="selected_count">0</span> مورد انتخاب شد</span>

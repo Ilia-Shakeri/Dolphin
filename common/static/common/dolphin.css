@@ -962,6 +962,27 @@ summary:focus-visible,
     margin-inline-start: 8px;
 }
 
+/* `.row-actions` cells that carry several buttons at once (the cheques
+   page's own four-button وضعیت column, and its two-button عملیات ثبت
+   toggle) wrapped edge-to-edge with no consistent gap on a narrow column,
+   and a disabled button sitting flush against an enabled one read as one
+   crowded block rather than a deliberate row of choices (product-owner
+   request 2026-09-12). `gap` replaces the single-file `margin-inline-start`
+   rule above for exactly these cells — real gaps between every button,
+   including the first, and a clean wrap to a second line rather than an
+   overflow when the column is narrower than four buttons need. */
+.row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.row-actions .btn {
+    margin-inline-start: 0;
+}
+
 /* The same 13px-root shortfall, closed at its actual source instead of one
    template at a time.
 
@@ -1110,6 +1131,18 @@ dialog {
     padding-inline-start: 2.75rem;
     width: 100%;
     min-width: 220px;
+    /* `type="search"` specifically — plain text inputs elsewhere in the panel
+       never needed this. WebKit/Blink give a search field its own native
+       `-webkit-appearance: searchfield` chrome, which keeps its placeholder
+       and typed text left-aligned regardless of the page's own `dir="rtl"`
+       until that native appearance is reset. Measured live: every other
+       `.form-control` on this panel sat right-aligned already; only these
+       ran left-aligned text out from behind the icon reserved on the right
+       (design review, 2026-09-12). */
+    appearance: none;
+    -webkit-appearance: none;
+    direction: rtl;
+    text-align: right;
 }
 
 @media (max-width: 575.98px) {
@@ -1420,6 +1453,22 @@ dialog {
 #lead-board .lead-board-empty,
 #order-board .lead-board-empty {
     color: var(--bs-gray-600);
+}
+
+/* The dashboard's own capability-tile grid (`home.html`) — capped to roughly
+   two rows so a platform admin's dozen-plus tiles do not push the rest of
+   the dashboard (insights, performance panel, work queue) far down the page
+   (product-owner request 2026-09-12). The rest scroll into view inside the
+   grid itself, the same "fixed count visible, the rest scrolls in place"
+   rule the kanban columns above already use — `hover-scroll-overlay-y` is
+   the same Metronic overlay-scrollbar class those columns carry. Height is
+   two tile rows (card content + row gap) at this breakpoint's own card
+   height, not a guess: a role with eight or fewer tiles never shows a
+   scrollbar at all, since the container is simply taller than its content. */
+.dashboard-capability-grid {
+    max-height: 30rem;
+    overflow-y: auto;
+    padding-inline-end: 0.35rem;
 }
 
 /* Each column's own search (product-owner decision 2026-09-09): a small icon

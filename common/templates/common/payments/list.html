@@ -26,7 +26,7 @@
         <div class="list-search">
             <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="payment-search">جستجو</label>
-            <input class="form-control form-control-solid" id="payment-search" type="search" placeholder="{% if payment_direction == 'disbursement' %}شماره، گیرنده یا شماره پیگیری{% else %}شماره، مشتری یا شماره پیگیری{% endif %}">
+            <input class="form-control form-control-solid" id="payment-search" type="search" placeholder="{% if payment_direction == 'disbursement' %}شماره یا گیرنده{% else %}شماره یا مشتری{% endif %}">
         </div>
         <div class="list-filter">
             <button id="payment-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
@@ -89,7 +89,8 @@
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-payment-title">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="stepper stepper-links d-flex flex-column" id="create-payment-stepper">
         <div class="stepper-nav py-5">
-            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات سند</h3></div>
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">روش پرداخت</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات سند</h3></div>
             <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
     <form id="create-payment-form" action="/api/v1/payments/" method="post" novalidate>
@@ -100,16 +101,23 @@
    in the wrong ledger from the wrong screen. {% endcomment %}
         <input type="hidden" id="create-payment-direction" name="direction" value="{{ payment_direction|default:'receipt' }}">
 
-{% comment %} The method is the shape of the form, not a dropdown: each one
-   brings its own fields and no irrelevant field is ever on screen. «کارت» is
-   gone from the choices — the model still accepts it and old rows keep it, so
-   nothing recorded is lost or reinterpreted; it simply cannot be chosen. {% endcomment %}
-        <div class="btn-group w-100 mb-6" role="group" aria-label="روش">
+{% comment %} The method's own step (product-owner request 2026-09-12: this
+   choice used to share a step with every other field, so it read as "one of
+   several things to fill in" rather than the first real decision, and the
+   next step's own fields shape themselves around whichever method is chosen
+   here). Picking one now advances the wizard by itself: there is nothing
+   else to answer on this step, so waiting for an explicit «بعدی» would only
+   be one more click. «کارت» is gone from the choices — the model still
+   accepts it and old rows keep it, so nothing recorded is lost or
+   reinterpreted; it simply cannot be chosen. {% endcomment %}
+        <div class="btn-group w-100" role="group" aria-label="روش">
             <button type="button" class="btn btn-primary" data-payment-mode="cash" aria-pressed="true">نقدی</button>
             <button type="button" class="btn btn-light" data-payment-mode="bank_transfer" aria-pressed="false">حواله بانکی</button>
             <button type="button" class="btn btn-light" data-payment-mode="cheque" aria-pressed="false">چک</button>
         </div>
         <input type="hidden" id="create-payment-method" name="method" value="cash">
+        </div>
+        <div data-kt-stepper-element="content">
 
         <div class="row g-5">
 {% comment %} A searchable party, because the customer book is expected to grow

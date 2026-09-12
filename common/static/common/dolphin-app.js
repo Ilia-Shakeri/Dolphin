@@ -204,6 +204,39 @@
     }
 
     /**
+     * Scroll a sidebar accordion group into view once it opens.
+     *
+     * `.menu-item.menu-accordion` groups (`base.html`) toggle open/closed
+     * through the theme's own KTMenu (`data-kt-menu-trigger="click"`), which
+     * animates `.show`/height but never scrolls the sidebar's own KTScroll
+     * viewport (`#kt_app_sidebar_menu_scroll`) to follow it — so a group near
+     * the bottom of a long menu (e.g. «مدیریت سامانه») opens its submenu
+     * mostly or entirely below the fold, and reaching it means scrolling by
+     * hand every time (product-owner request 2026-09-12).
+     *
+     * A fixed delay rather than a transitionend listener: KTMenu animates
+     * height via its own timing, not a CSS transition this code can attach
+     * to, and 300ms comfortably covers it without waiting on an event that
+     * never fires.
+     */
+    function setupSidebarAccordionScroll() {
+        const sidebar = document.getElementById("app-sidebar");
+        const scroller = document.getElementById("kt_app_sidebar_menu_scroll");
+        if (!sidebar || !scroller) return;
+
+        sidebar.addEventListener("click", (event) => {
+            const link = event.target.closest(".menu-item.menu-accordion > .menu-link");
+            if (!link || !scroller.contains(link)) return;
+            const group = link.closest(".menu-item.menu-accordion");
+            window.setTimeout(() => {
+                if (group.classList.contains("show")) {
+                    group.scrollIntoView({behavior: "smooth", block: "nearest"});
+                }
+            }, 300);
+        });
+    }
+
+    /**
      * Open and close the header user menu.
      *
      * The theme owns how the panel looks and its `.show` rule; KTMenu would
@@ -1614,16 +1647,28 @@
 
         const header = document.createElement("div");
         header.className = "jalali-picker-header";
-        const nextYearBtn = navButton("»", "سال بعد");
-        const nextMonthBtn = navButton("›", "ماه بعد");
+        // Each arrow points *outward*, towards its own edge of the row (the
+        // direction moving further prev/next actually travels once the row
+        // below is reordered to put prev on the right) — not towards the
+        // title, which is what the glyphs originally paired with the old,
+        // reversed order would now point.
+        const nextYearBtn = navButton("«", "سال بعد");
+        const nextMonthBtn = navButton("‹", "ماه بعد");
         const title = document.createElement("span");
         title.className = "jalali-picker-title";
-        const prevMonthBtn = navButton("‹", "ماه قبل");
-        const prevYearBtn = navButton("«", "سال قبل");
-        // DOM order is visual order in this `dir="rtl"` row: right to left,
-        // "far future ... title ... far past" — the same right-is-earlier
-        // spatial reading the lead/after-sales calendars already use.
-        header.append(nextYearBtn, nextMonthBtn, title, prevMonthBtn, prevYearBtn);
+        const prevMonthBtn = navButton("›", "ماه قبل");
+        const prevYearBtn = navButton("»", "سال قبل");
+        // DOM order is visual order in this `dir="rtl"` row: first child sits
+        // rightmost. Right holds "prev", left holds "next" — matching the
+        // lead/after-sales calendars' own toolbar (`prev,next` in
+        // `headerToolbar`, which renders prev rightmost the same way under
+        // `direction: "rtl"`) and every "قبلی"/"بعدی" pagination pair
+        // elsewhere in the app (e.g. `leads/list.html`). A previous version
+        // of this comment claimed the opposite order matched that same
+        // convention; it did not — measured live, this picker's own arrows
+        // sat backwards from every other prev/next control in the app
+        // (design review, 2026-09-12).
+        header.append(prevYearBtn, prevMonthBtn, title, nextMonthBtn, nextYearBtn);
 
         const weekdays = document.createElement("div");
         weekdays.className = "jalali-picker-weekdays";
@@ -3317,6 +3362,14 @@
             direction: "rtl",
             height: "auto",
             firstDay: 6, // Saturday — the Iranian week start.
+            // Otherwise the trailing/leading days of the *adjacent* Gregorian
+            // month fill out the grid's first/last week — and because every
+            // cell's own number is re-labelled in Jalali (`dayCellContent`
+            // below), those spillover cells show Jalali day numbers that
+            // belong to neither the month in the title nor a full week of
+            // their own, reading as numbers with no calendar around them
+            // (design review, 2026-09-12).
+            showNonCurrentDates: false,
             headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,timeGridWeek,timeGridDay"},
             buttonText: {today: "امروز", month: "ماه", week: "هفته", day: "روز"},
             dayHeaderContent: (arg) => {
@@ -4208,6 +4261,9 @@
             direction: "rtl",
             height: "auto",
             firstDay: 6,
+            // See the lead calendar's own copy of this option for the full
+            // reasoning — same fix, same symptom, same cause.
+            showNonCurrentDates: false,
             headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,timeGridWeek,timeGridDay"},
             buttonText: {today: "امروز", month: "ماه", week: "هفته", day: "روز"},
             dayHeaderContent: (arg) => {
@@ -5254,8 +5310,33 @@
         return query;
     }
 
+    /**
+     * A live, client-side text filter over a report's own already-rendered
+     * result table(s) — the search box every list page's own card-header
+     * carries, adapted for a report page: there is no server round trip to
+     * make, since the whole table is already on the page once the report is
+     * built. Hiding a row rather than removing it keeps `report.total`,
+     * column widths and re-search all correct without re-rendering.
+     */
+    function bindReportTableSearch(input, tbodies) {
+        if (!input) return;
+        input.addEventListener("input", () => {
+            const query = input.value.trim().toLowerCase();
+            tbodies.forEach((tbody) => {
+                if (!tbody) return;
+                Array.from(tbody.rows).forEach((row) => {
+                    row.hidden = query !== "" && !row.textContent.toLowerCase().includes(query);
+                });
+            });
+        });
+    }
+
     async function setupSalesDocumentReport() {
         const form = document.getElementById("sales-document-report-form");
+        bindReportTableSearch(document.getElementById("sales-document-report-search"), [
+            document.getElementById("sales-document-geography-body"),
+            document.getElementById("sales-document-status-body"),
+        ]);
         const now = new Date();
         document.getElementById("document-report-start").value = localDateTimeValue(new Date(now.getFullYear(), now.getMonth(), 1));
         document.getElementById("document-report-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
@@ -5393,6 +5474,10 @@
 
     async function setupInboundSMSReport() {
         const form = document.getElementById("inbound-sms-report-form");
+        bindReportTableSearch(
+            document.getElementById("inbound-sms-report-search"),
+            [document.getElementById("inbound-sms-table-body")],
+        );
         const now = new Date();
         document.getElementById("inbound-sms-start").value = localDateTimeValue(new Date(now.getFullYear(), now.getMonth(), 1));
         document.getElementById("inbound-sms-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
@@ -9174,7 +9259,18 @@
             if (chequeSource) chequeSource.addEventListener("change", applyChequeSource);
 
             modeButtons.forEach((button) => {
-                button.addEventListener("click", () => selectMode(button.dataset.paymentMode));
+                button.addEventListener("click", () => {
+                    selectMode(button.dataset.paymentMode);
+                    // The method is now its own first step with nothing else
+                    // to answer on it (product-owner request 2026-09-12), so
+                    // choosing one advances the wizard the same way clicking
+                    // «بعدی» would — a real click on that same button rather
+                    // than calling the stepper API directly, so the existing
+                    // validation/scroll-reset/`onReachLastStep` wiring
+                    // (`setupWizard` above) runs exactly as it does for an
+                    // explicit click.
+                    createForm.querySelector('[data-kt-stepper-action="next"]')?.click();
+                });
             });
 
             selectMode("cash");
@@ -9838,22 +9934,35 @@
                 });
                 row.appendChild(actions);
 
-                // --- حالت: registered, or not -------------------------------
+                // --- عملیات ثبت: registered, or not, as a two-way toggle ----
                 //
-                // Its own cell so the column widths stay put: the two buttons
-                // are always both present and always the same size, so a row
-                // does not resize as its state changes.
+                // Two icon buttons rather than two text buttons (product-
+                // owner request 2026-09-12: "ثبت شده"/"ثبت نشده" side by side
+                // read as two separate actions, not one on/off switch). A
+                // check and a cross are the whole vocabulary of this axis —
+                // the same reasoning the four وضعیت buttons above already
+                // follow — kept in their own cell so the column width stays
+                // put as state changes.
                 const registration = document.createElement("td");
                 registration.className = "row-actions";
                 [
-                    [true, "ثبت شده"],
-                    [false, "ثبت نشده"],
-                ].forEach(([target, label]) => {
+                    [true, "check", 1, "ثبت‌شده علامت بزن", "success"],
+                    [false, "cross", 2, "ثبت‌نشده علامت بزن", "danger"],
+                ].forEach(([target, icon, iconPaths, label, accent]) => {
                     const button = document.createElement("button");
                     button.type = "button";
                     const current = Boolean(cheque.is_registered) === target;
-                    button.className = `btn btn-sm ${current ? "btn-primary" : "btn-light"}`;
-                    button.textContent = label;
+                    button.className = `btn btn-icon btn-sm ${current ? `btn-${accent}` : "btn-light"}`;
+                    button.setAttribute("aria-label", label);
+                    button.title = label;
+                    const glyph = document.createElement("i");
+                    glyph.className = `ki-duotone ki-${icon} fs-3`;
+                    for (let index = 1; index <= iconPaths; index += 1) {
+                        const path = document.createElement("span");
+                        path.className = `path${index}`;
+                        glyph.appendChild(path);
+                    }
+                    button.appendChild(glyph);
                     // The state it already holds is shown as the pressed one
                     // rather than removed, so both remain readable as a pair.
                     button.disabled = current;
@@ -9865,7 +9974,7 @@
                                 method: "POST",
                                 body: {is_registered: target},
                             });
-                            globalMessage(`حالت چک به «${label}» تغییر کرد.`, true);
+                            globalMessage(`حالت چک به «${target ? "ثبت شده" : "ثبت نشده"}» تغییر کرد.`, true);
                             controller.load();
                         } catch (error) {
                             button.disabled = false;
@@ -10140,6 +10249,10 @@
     async function setupReceivablesReport() {
         const form = document.getElementById("receivables-filter-form");
         const exportLink = document.getElementById("receivables-export");
+        bindReportTableSearch(
+            document.getElementById("receivables-search"),
+            [document.getElementById("receivables-table-body")],
+        );
 
         function query() {
             const params = new URLSearchParams();
@@ -10199,6 +10312,10 @@
     async function setupProfitReport() {
         const form = document.getElementById("profit-filter-form");
         const exportLink = document.getElementById("profit-export");
+        bindReportTableSearch(
+            document.getElementById("profit-search"),
+            [document.getElementById("profit-table-body")],
+        );
         const startField = document.getElementById("profit-period-start");
         const endField = document.getElementById("profit-period-end");
 
@@ -10268,6 +10385,10 @@
     async function setupStockValuationReport() {
         const form = document.getElementById("valuation-filter-form");
         const exportLink = document.getElementById("valuation-export");
+        bindReportTableSearch(
+            document.getElementById("valuation-search"),
+            [document.getElementById("valuation-table-body")],
+        );
 
         async function load() {
             const nodes = reportSection("valuation");
@@ -10339,6 +10460,7 @@
     setupJalaliInputs();
     setupNav();
     setupNavActiveState();
+    setupSidebarAccordionScroll();
     setupLogout();
     setupUserMenu();
     setupSessionsDialog();
@@ -10641,13 +10763,35 @@
         if (!form) return;
         const loading = document.getElementById("dashboard-layout-loading");
         const list = document.getElementById("dashboard-layout-list");
+        const resetButton = document.getElementById("dashboard-layout-reset");
         let rows = [];
+        // The catalog's own order, nothing hidden — `/api/v1/dashboard-
+        // layout/`'s `catalog` array is already `WIDGET_CATALOG`'s order
+        // (`common/dashboard_layout.py`), so "بازگشت به پیش‌فرض" needs no
+        // second endpoint, only forgetting the reader's own saved order and
+        // hidden set. Captured once in `load()`, before either is applied.
+        let defaultRows = [];
 
         function render() {
             list.innerHTML = "";
             rows.forEach((row, index) => {
                 const item = document.createElement("li");
                 item.className = "list-group-item d-flex align-items-center gap-3";
+                item.draggable = true;
+                item.dataset.dashboardLayoutRow = row.key;
+                // A drag handle rather than the whole row: the checkbox and
+                // both buttons already have their own click behaviour, and a
+                // `draggable` ancestor intercepting `mousedown` on them would
+                // cost a native click, checkbox toggle, or button press to
+                // start a drag by accident (Apple HIG: `drag-threshold` and
+                // `gesture-alternative` — the up/down buttons below stay the
+                // full keyboard/no-drag path to the same reorder).
+                const handle = document.createElement("i");
+                handle.className = "ki-duotone ki-dots-vertical fs-3 text-gray-500 cursor-grab";
+                handle.setAttribute("aria-hidden", "true");
+                ["path1", "path2", "path3"].forEach((name) => {
+                    handle.appendChild(document.createElement("span")).className = name;
+                });
                 const checkWrap = document.createElement("div");
                 checkWrap.className = "form-check form-check-custom form-check-solid";
                 const check = document.createElement("input");
@@ -10684,7 +10828,32 @@
                     [rows[index + 1], rows[index]] = [rows[index], rows[index + 1]];
                     render();
                 });
-                item.append(checkWrap, featureNote, upButton, downButton);
+                item.append(handle, checkWrap, featureNote, upButton, downButton);
+
+                // Native HTML5 drag and drop — no library, the same choice
+                // this codebase already made for the lead/order kanban
+                // boards' own card drag (`jkanban`'s dragula, a purchased-
+                // theme dependency; a settings list of a dozen rows does not
+                // need a second one). `dragover`'s own default is to refuse
+                // a drop, so it is always prevented here.
+                item.addEventListener("dragstart", (event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", row.key);
+                    item.classList.add("opacity-50");
+                });
+                item.addEventListener("dragend", () => item.classList.remove("opacity-50"));
+                item.addEventListener("dragover", (event) => event.preventDefault());
+                item.addEventListener("drop", (event) => {
+                    event.preventDefault();
+                    const draggedKey = event.dataTransfer.getData("text/plain");
+                    const from = rows.findIndex((candidate) => candidate.key === draggedKey);
+                    const to = rows.findIndex((candidate) => candidate.key === row.key);
+                    if (from === -1 || to === -1 || from === to) return;
+                    const [moved] = rows.splice(from, 1);
+                    rows.splice(to, 0, moved);
+                    render();
+                });
+
                 list.append(item);
             });
         }
@@ -10699,6 +10868,7 @@
                     const bPos = position.has(b.key) ? position.get(b.key) : Infinity;
                     return aPos - bPos;
                 }).map((widget) => ({...widget, hidden: hidden.has(widget.key)}));
+                defaultRows = data.catalog.map((widget) => ({...widget, hidden: false}));
                 render();
                 loading.classList.add("d-none");
                 form.classList.remove("d-none");
@@ -10707,6 +10877,15 @@
                 loading.classList.add("d-none");
             }
         }
+
+        // Forgets the reader's own saved order/hidden set, back to the
+        // catalog's own order with everything shown — still only in memory
+        // until «ذخیره» is pressed, the same as every other change on this
+        // form (product-owner request 2026-09-12).
+        resetButton?.addEventListener("click", () => {
+            rows = defaultRows.map((widget) => ({...widget}));
+            render();
+        });
 
         form.addEventListener("submit", (event) => {
             event.preventDefault();

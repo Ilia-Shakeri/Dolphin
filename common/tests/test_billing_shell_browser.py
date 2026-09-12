@@ -372,11 +372,37 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         )
 
         # 6. Take a payment and allocate it to the invoice.
+        # The method became its own first step in 2026-09-12: picking one
+        # advances the wizard by itself (there is nothing else to answer on
+        # that step), so testing each mode's own fields means going back to
+        # the method step between them — `advance_wizard` waits for the
+        # click's own advance, and `[data-kt-stepper-action="previous"]`
+        # returns to it the same way a person would.
         self.browser.get(f"{self.live_server_url}/payments/")
         self.open_create_dialog("open-create-payment", "create-payment-dialog")
+
+        def choose_method(mode):
+            step = self.browser.find_element(
+                By.CSS_SELECTOR, "#create-payment-dialog [data-kt-stepper-element='content'].current"
+            )
+            self.browser.find_element(By.CSS_SELECTOR, f'[data-payment-mode="{mode}"]').click()
+            self.wait.until(lambda driver: "current" not in step.get_attribute("class").split())
+
+        def back_to_method_step():
+            self.browser.find_element(
+                By.CSS_SELECTOR, "#create-payment-dialog [data-kt-stepper-action='previous']"
+            ).click()
+            self.wait.until(
+                expected_conditions.visibility_of_element_located(
+                    (By.CSS_SELECTOR, '#create-payment-dialog [data-payment-mode="cash"]')
+                )
+            )
+
+        # Cash is selected by default; choosing it still advances to the
+        # document-fields step, where the customer and its mode-specific
+        # fields live.
+        choose_method("cash")
         self.choose_searchable("create-payment-customer", self.customer.pk)
-        # The method is a mode now, not a dropdown: each one shows only the
-        # fields it collects. Cash is selected by default.
         self.assertEqual(
             self.browser.find_element(By.ID, "create-payment-method").get_attribute("value"),
             "cash",
@@ -385,7 +411,8 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.assertFalse(self.browser.find_element(By.ID, "create-payment-cheque-fields").is_displayed())
 
         # Switching to the transfer mode reveals its fields and only its fields.
-        self.browser.find_element(By.CSS_SELECTOR, '[data-payment-mode="bank_transfer"]').click()
+        back_to_method_step()
+        choose_method("bank_transfer")
         self.assertEqual(
             self.browser.find_element(By.ID, "create-payment-method").get_attribute("value"),
             "bank_transfer",
@@ -394,14 +421,19 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.assertFalse(self.browser.find_element(By.ID, "create-payment-cheque-fields").is_displayed())
 
         # And the cheque mode swaps them over, and shows its own warning.
-        self.browser.find_element(By.CSS_SELECTOR, '[data-payment-mode="cheque"]').click()
+        back_to_method_step()
+        choose_method("cheque")
         self.assertTrue(self.browser.find_element(By.ID, "create-payment-cheque-fields").is_displayed())
         self.assertFalse(self.browser.find_element(By.ID, "create-payment-bank-fields").is_displayed())
         self.assertTrue(self.browser.find_element(By.ID, "create-payment-cheque-note").is_displayed())
 
-        # Back to cash to record the receipt this test is actually about.
-        self.browser.find_element(By.CSS_SELECTOR, '[data-payment-mode="cash"]').click()
+        # Back to cash to record the receipt this test is actually about. The
+        # customer chosen on the first visit to this step is still selected —
+        # switching methods only toggles which of this step's own fields show.
+        back_to_method_step()
+        choose_method("cash")
         self.browser.find_element(By.ID, "create-payment-amount").send_keys("250")
+        self.advance_wizard("create-payment-dialog")
         self.browser.find_element(By.CSS_SELECTOR, "#create-payment-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/payments/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "payment-detail-content")))

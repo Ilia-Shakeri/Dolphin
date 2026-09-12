@@ -7,11 +7,19 @@
 {% block page_title %}{{ dashboard_title }}{% endblock %}
 {% block breadcrumb_current %}{{ dashboard_title }}{% endblock %}
 {% block content %}
-{% comment %} The role's summary line and the capability hook the shell tests read.
-   Both used to live in the page's own heading block, which the shared toolbar
-   replaced. {% endcomment %}
-<p class="text-gray-700 fs-6 mb-6" data-dashboard-capability="{{ dashboard_capability }}">{{ dashboard_summary }}</p>
-<section class="row g-5 mb-6" aria-label="نمای کلی دسترسی مجاز">
+{% comment %} The capability hook the shell tests read. The role's summary
+   sentence used to sit here too (product-owner request 2026-09-12: the page
+   starts too far down, drop it and start the tiles higher) — the data
+   attribute is the only part any test/behaviour depends on, so it stays on
+   an otherwise-empty span rather than being deleted outright. {% endcomment %}
+<span class="d-none" data-dashboard-capability="{{ dashboard_capability }}"></span>
+{% comment %} Capped to two rows (product-owner request 2026-09-12: a
+   platform admin's dozen-plus tiles made the dashboard scroll for a long
+   time before reaching anything else) and scrollable for the rest, the same
+   "fixed number visible, the rest scrolls in place" treatment the lead/order
+   kanban columns already use (`.kanban-drag`, dolphin.css) rather than
+   growing the page underneath it. {% endcomment %}
+<section class="row g-5 mb-6 dashboard-capability-grid hover-scroll-overlay-y" aria-label="نمای کلی دسترسی مجاز">
     {% for widget in dashboard_widgets %}
     <div class="col-sm-6 col-xl-3">
         {% comment %} The theme's stat tile: a keenicon in an accented symbol, the figure,

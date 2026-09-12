@@ -6,7 +6,16 @@
 {% block page_title %}گزارش پیامک ورودی{% endblock %}
 {% block breadcrumb_current %}گزارش پیامک ورودی{% endblock %}
 {% block content %}
+{% comment %} A live search over the report's own hourly table, beside the
+   filter button `setupListFilterPopovers()` already builds around this
+   page's own `form.list-filters` (product-owner request 2026-09-12). {% endcomment %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
+<div class="d-flex flex-wrap align-items-center gap-3 mb-5">
+    <div class="list-search">
+        <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+        <label class="sr-only" for="inbound-sms-report-search">جست‌وجو در گزارش</label>
+        <input class="form-control form-control-solid" id="inbound-sms-report-search" type="search" placeholder="تاریخ یا ساعت">
+    </div>
     <form id="inbound-sms-report-form" action="/api/v1/reports/inbound-sms/" method="get" class="list-filters" novalidate>
         <div><label class="form-label fw-semibold" for="inbound-sms-start">شروع بازه</label><input class="form-control form-control-solid" id="inbound-sms-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
         <div><label class="form-label fw-semibold" for="inbound-sms-end">پایان بازه</label><input class="form-control form-control-solid" id="inbound-sms-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
@@ -15,6 +24,7 @@
         <div><label class="form-label fw-semibold" for="inbound-sms-state">وضعیت پردازش</label><select class="form-select form-select-solid" id="inbound-sms-state" name="processing_state"><option value="">همه</option><option value="linked">متصل به مشتری</option><option value="unmatched">بدون تطبیق قطعی</option></select></div>
         <button class="btn btn-primary" type="submit">ساخت گزارش</button>
     </form>
+</div>
 </div></section>
 <div id="inbound-sms-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10" hidden>در حال ساخت گزارش…</div></div>
 <div id="inbound-sms-error" class="card state state-error" role="alert" hidden></div>

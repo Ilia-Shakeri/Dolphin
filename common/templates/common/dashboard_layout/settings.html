@@ -26,9 +26,11 @@
         <div id="dashboard-layout-loading" class="text-center text-gray-700 py-10">در حال دریافت تنظیمات فعلی…</div>
         <form id="dashboard-layout-form" class="d-none" novalidate>
             {% csrf_token %}
+            <p class="text-muted fs-7 mb-4">هر ردیف را از دستهٔ کناری‌اش بگیرید و بکشید تا ترتیب عوض شود؛ دکمه‌های بالا/پایین همان کار را بدون کشیدن انجام می‌دهند.</p>
             <ul class="list-group mb-6" id="dashboard-layout-list"></ul>
             <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>
-            <div class="d-flex justify-content-end">
+            <div class="d-flex justify-content-end gap-3">
+                <button class="btn btn-light" type="button" id="dashboard-layout-reset">بازگشت به پیش‌فرض</button>
                 <button class="btn btn-primary" type="submit">ذخیره</button>
             </div>
         </form>

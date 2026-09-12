@@ -6,7 +6,16 @@
 {% block page_title %}ارزش موجودی انبار{% endblock %}
 {% block breadcrumb_current %}ارزش موجودی انبار{% endblock %}
 {% block content %}
-<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0"><form id="valuation-filter-form" action="{% url 'common_ui:stock-valuation-report' %}" method="get" class="list-filters">
+{% comment %} A live search over the report's own product rows, beside the
+   filter button `setupListFilterPopovers()` already builds around this
+   page's own `form.list-filters` (product-owner request 2026-09-12). {% endcomment %}
+<section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6"><div class="card-title flex-column flex-md-row align-items-stretch align-items-md-center gap-3 w-100 m-0">
+    <div class="list-search">
+        <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+        <label class="sr-only" for="valuation-search">جست‌وجوی کالا</label>
+        <input class="form-control form-control-solid" id="valuation-search" type="search" placeholder="نام یا کد کالا">
+    </div>
+    <form id="valuation-filter-form" action="{% url 'common_ui:stock-valuation-report' %}" method="get" class="list-filters">
         <label class="sr-only" for="valuation-warehouse">انبار</label><select class="form-select form-select-solid" id="valuation-warehouse" name="warehouse_id"><option value="">همه انبارها</option></select>
         <button class="btn btn-primary list-filters-submit" type="submit">اعمال</button>
         <a id="valuation-export" class="btn btn-light" href="/api/v1/exports/stock-valuation.xlsx">خروجی اکسل</a>
