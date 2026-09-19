@@ -290,9 +290,27 @@ class SystemApiTests(TestCase):
         self.assertEqual(detail_query.status_code, 400)
         self.assertIn("search", detail_query.data)
 
-        self.assertEqual(client.get("/api/v1/leads/?status=new").status_code, 200)
+        # A *declared* parameter is accepted — the point of these three, as
+        # against the undeclared `typo` above. The lead status used to be the
+        # invented string "new", which was fine while that parameter took any
+        # value; since 2026-09-19 it is validated against `Lead.Status`
+        # (product-owner request: a typo in the filter box used to answer an
+        # empty page that looked like a working filter), so it now names a real
+        # status. `sales` and `products` already named real values.
+        self.assertEqual(client.get("/api/v1/leads/?status=pending").status_code, 200)
         self.assertEqual(client.get("/api/v1/sales/?status=confirmed").status_code, 200)
         self.assertEqual(client.get("/api/v1/products/?is_active=true").status_code, 200)
+
+        # …and a declared parameter carrying a value the backend cannot honour
+        # is a request error, not an empty page. Three parameters, three
+        # viewsets, one rule.
+        for url in (
+            "/api/v1/leads/?status=not-a-status",
+            "/api/v1/customers/?kind=not-a-kind",
+            "/api/v1/customers/?is_active=maybe",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(client.get(url).status_code, 400)
 
     def test_api_errors_have_stable_code_and_matching_request_id(self):
         client = APIClient()
