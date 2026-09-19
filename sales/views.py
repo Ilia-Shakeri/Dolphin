@@ -1,8 +1,6 @@
-from datetime import datetime, time, timedelta
-
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.utils.dateparse import parse_date, parse_datetime
+from django.utils.dateparse import parse_datetime
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -20,7 +18,7 @@ from common.openapi import (
 )
 from common.throttles import SensitiveActionThrottleMixin
 from common.permissions import IsActiveAuthenticated
-from common.viewsets import AdminHardDeleteModelViewSet
+from common.viewsets import AdminHardDeleteModelViewSet, filter_by_date_window
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
@@ -32,16 +30,6 @@ from sales.services import cancel_or_correct_sale, deactivate_customer, set_cust
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
-
-
-def _start_of_day(day):
-    """Midnight on `day` in the deployment's timezone.
-
-    Built in local time on purpose: a person filtering "from 1405/05/01" means
-    the day as it is lived in Tehran, not a UTC boundary that would cut it three
-    and a half hours early.
-    """
-    return timezone.make_aware(datetime.combine(day, time.min))
 
 
 class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
@@ -132,35 +120,14 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
     def _filter_by_registration_date(self, queryset):
         """Narrow to a registration-date window given as two ISO dates.
 
-        The upper bound is exclusive of the next day rather than inclusive of a
-        timestamp, so a customer registered at 23:59 on the closing day is still
-        inside the window. A malformed date is a request error, not a silently
-        ignored parameter — quietly dropping it would show the wrong rows and
-        look like the filter worked.
+        The rule itself moved to `common.viewsets.filter_by_date_window` on
+        2026-09-20, when the system-events page was given the same control and
+        a second copy would have been the first chance for the two to disagree
+        about what "to this day" includes. Behaviour is unchanged; see that
+        function for why the upper bound is exclusive of the next day and why a
+        malformed date is an error rather than an ignored parameter.
         """
-        bounds = {
-            "created_from": self.request.query_params.get("created_from"),
-            "created_to": self.request.query_params.get("created_to"),
-        }
-        parsed = {}
-        errors = {}
-        for name, raw in bounds.items():
-            if not raw:
-                continue
-            value = parse_date(raw)
-            if value is None:
-                errors[name] = ["تاریخ را به قالب YYYY-MM-DD وارد کنید."]
-            else:
-                parsed[name] = value
-        if errors:
-            raise ValidationError(errors)
-        if "created_from" in parsed:
-            queryset = queryset.filter(created_at__gte=_start_of_day(parsed["created_from"]))
-        if "created_to" in parsed:
-            queryset = queryset.filter(
-                created_at__lt=_start_of_day(parsed["created_to"] + timedelta(days=1))
-            )
-        return queryset
+        return filter_by_date_window(queryset, self.request.query_params)
 
     @extend_schema(
         request={

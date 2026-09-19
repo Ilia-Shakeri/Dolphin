@@ -817,12 +817,13 @@
         const workstream = user.workstream === "after_sales" ? "خدمات پس از فروش" : "فروش و مرکز تماس";
         const cells = [user.username, displayName, `${ROLE_LABELS[user.role] || "—"} — ${workstream}`];
         cells.forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell); });
-        const statusCell = document.createElement("td");
-        const status = document.createElement("span");
-        status.className = `status${user.is_active ? " status-active" : ""}`;
-        status.textContent = user.is_active ? "فعال" : "غیرفعال";
-        statusCell.appendChild(status);
-        row.appendChild(statusCell);
+        // The theme's badge, like every other list's status column (product-
+        // owner request 2026-09-20). This page had kept a local `.status`
+        // class that painted nothing but bold text, so user administration was
+        // the one table where «غیرفعال» did not stand out from «فعال» at a
+        // glance. `appendStatusCell` is the shared helper the customers,
+        // products, categories, phones and warehouses tables already use.
+        appendStatusCell(row, user.is_active);
         const actionCell = document.createElement("td");
         actionCell.className = "row-actions";
         const profileLink = document.createElement("a");
@@ -3732,6 +3733,48 @@
      * mode — so the halo follows the theme rather than being a fixed colour
      * written into JavaScript.
      */
+    /**
+     * A board card's top line: its name, and the control that says the card
+     * opens something.
+     *
+     * The whole card has always been clickable (`jKanban`'s own `click`
+     * option navigates to the detail page), so the old «مشاهدهٔ جزئیات» link
+     * at the bottom was never the only way in — it was a text label repeating
+     * what the card already did, on every card, in a 300px column where
+     * vertical space is the scarce thing. Replaced by one quiet glyph in the
+     * corner that names itself on hover (product-owner request 2026-09-20).
+     *
+     * Still a real `<a href>`, not a decorative span: it keeps the card
+     * reachable by keyboard and openable in a new tab, neither of which the
+     * div-with-a-click-handler underneath it offers. `title` carries the
+     * hover text rather than a Bootstrap tooltip — jKanban writes these cards
+     * in as an HTML string, so anything needing per-element initialisation
+     * would have to be re-run on every render and after every drop.
+     */
+    function boardCardHeader(titleText, href) {
+        const head = document.createElement("div");
+        head.className = "kanban-card-head";
+
+        const title = document.createElement("div");
+        title.className = "kanban-card-title";
+        title.textContent = titleText;
+
+        const more = document.createElement("a");
+        more.className = "kanban-card-more";
+        more.href = href;
+        more.title = "مشاهدهٔ جزئیات";
+        more.setAttribute("aria-label", "مشاهدهٔ جزئیات");
+        const icon = document.createElement("i");
+        icon.className = "ki-duotone ki-dots-vertical fs-4";
+        ["path1", "path2", "path3"].forEach((name) => {
+            icon.appendChild(document.createElement("span")).className = name;
+        });
+        more.append(icon);
+
+        head.append(title, more);
+        return head;
+    }
+
     function paintBoardColumns(container, statuses) {
         statuses.forEach((status) => {
             const board = container.querySelector(`.kanban-board[data-id="${status}"]`);
@@ -3761,6 +3804,15 @@
         const drag = board?.querySelector(".kanban-drag");
         if (!board || !title || !drag) return;
 
+        // One element, not two: the magnifier and the field are the same box,
+        // which is what lets the icon *become* the field instead of a second
+        // row appearing under the header and pushing every card down
+        // (product-owner request 2026-09-20). Width is what animates — from a
+        // square the size of the icon to the width of the header — so the
+        // header's own height never changes and the cards never move.
+        const search = document.createElement("div");
+        search.className = "board-search";
+
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "btn btn-icon btn-sm btn-active-light-primary board-search-toggle";
@@ -3774,33 +3826,58 @@
             icon.append(path);
         });
         toggle.append(icon);
-        title.append(toggle);
 
-        const wrap = document.createElement("div");
-        wrap.className = "board-search";
-        wrap.hidden = true;
         const input = document.createElement("input");
         input.type = "search";
-        input.className = "form-control form-control-solid";
-        input.placeholder = "جست‌وجو در این ستون…";
+        input.className = "board-search-input";
+        input.placeholder = "جست‌وجو…";
         input.setAttribute("aria-label", "جست‌وجو در این ستون");
-        wrap.append(input);
-        board.insertBefore(wrap, drag);
+        // `tabindex="-1"` while closed so a keyboard reader tabbing along the
+        // header lands on the button, not on a field that is zero pixels wide.
+        input.tabIndex = -1;
 
-        toggle.addEventListener("click", () => {
-            const opening = wrap.hidden;
-            wrap.hidden = !opening;
-            toggle.setAttribute("aria-expanded", String(opening));
-            if (opening) {
-                input.focus();
-                return;
-            }
-            // Closing the box clears the filter: leaving a column silently
-            // filtered by a term nobody can see any more is the one way this
-            // control could lie about what the board contains.
-            if (input.value) {
+        search.append(toggle, input);
+        title.append(search);
+
+        function close({clear = true} = {}) {
+            if (!search.classList.contains("board-search-open")) return;
+            search.classList.remove("board-search-open");
+            toggle.setAttribute("aria-expanded", "false");
+            input.tabIndex = -1;
+            // Closing clears the filter: leaving a column silently filtered by
+            // a term nobody can see any more is the one way this control could
+            // lie about what the board contains.
+            if (clear && input.value) {
                 input.value = "";
                 onSearch("");
+            }
+        }
+
+        function open() {
+            search.classList.add("board-search-open");
+            toggle.setAttribute("aria-expanded", "true");
+            input.tabIndex = 0;
+            input.focus();
+        }
+
+        toggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            if (search.classList.contains("board-search-open")) close(); else open();
+        });
+
+        // Anywhere outside this one search closes it. Registered on the
+        // document rather than on the board, because "anywhere on the page"
+        // is what was asked for — and `search.contains` is what keeps a click
+        // on the field itself (or on its own clear button) from closing it.
+        document.addEventListener("click", (event) => {
+            if (!search.contains(event.target)) close();
+        });
+        // Escape closes it too, which is what a person who opened it by
+        // accident reaches for first.
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                close();
+                toggle.focus();
             }
         });
 
@@ -3861,10 +3938,10 @@
         function cardContent(lead) {
             const wrap = document.createElement("div");
 
-            const title = document.createElement("div");
-            title.className = "fw-bold fs-6 mb-2 text-gray-900";
-            title.textContent = lead.customer_name || lead.source || `سرنخ #${toPersianDigits(String(lead.id))}`;
-            wrap.append(title);
+            wrap.append(boardCardHeader(
+                lead.customer_name || lead.source || `سرنخ #${toPersianDigits(String(lead.id))}`,
+                `/leads/${lead.id}/`,
+            ));
 
             if (lead.assigned_to_display) {
                 const row = document.createElement("div");
@@ -3901,12 +3978,6 @@
                 row.textContent = `پیگیری بعدی: ${displayDay(lead.next_follow_up_at)}`;
                 wrap.append(row);
             }
-
-            const link = document.createElement("a");
-            link.className = "fs-8 fw-semibold mt-1 d-inline-block";
-            link.href = `/leads/${lead.id}/`;
-            link.textContent = "مشاهدهٔ جزئیات";
-            wrap.append(link);
 
             return wrap.innerHTML;
         }
@@ -4166,10 +4237,10 @@
         function cardContent(order) {
             const wrap = document.createElement("div");
 
-            const title = document.createElement("div");
-            title.className = "fw-bold fs-6 mb-2 text-gray-900";
-            title.textContent = order.customer_name || `سفارش ${order.number || ""}`.trim();
-            wrap.append(title);
+            wrap.append(boardCardHeader(
+                order.customer_name || `سفارش ${order.number || ""}`.trim(),
+                `/orders/${order.id}/`,
+            ));
 
             const number = document.createElement("div");
             number.className = "fs-8 text-gray-600 mb-1";
@@ -4196,12 +4267,6 @@
                 row.textContent = `ثبت‌شده توسط: ${creator}`;
                 wrap.append(row);
             }
-
-            const link = document.createElement("a");
-            link.className = "fs-8 fw-semibold mt-1 d-inline-block";
-            link.href = `/orders/${order.id}/`;
-            link.textContent = "مشاهدهٔ جزئیات";
-            wrap.append(link);
 
             return wrap.innerHTML;
         }
@@ -7620,6 +7685,14 @@
                 const query = new URLSearchParams({page: String(page), ordering: document.getElementById("activity-log-ordering").value});
                 const search = document.getElementById("activity-log-search").value.trim();
                 if (search) query.set("search", search);
+                // The recorded-at window (product-owner request 2026-09-20).
+                // `apiDate` turns what the Jalali picker wrote into the
+                // `YYYY-MM-DD` the API stores; an empty box sends nothing, so
+                // an untouched filter produces the URL it always produced.
+                const from = apiDate(document.getElementById("activity-log-from").value);
+                const to = apiDate(document.getElementById("activity-log-to").value);
+                if (from) query.set("created_from", from);
+                if (to) query.set("created_to", to);
                 return `/api/v1/activity-logs/?${query}`;
             },
             renderRow: activityLogRow,
@@ -10344,8 +10417,25 @@
                 // rows change state reads as a rendering fault, and the reader
                 // learns nothing about why it cannot be pressed. The server
                 // refuses the same jumps regardless — this only spares the trip.
+                //
+                // Laid out two-by-two rather than left to wrap (product-owner
+                // request 2026-09-20). `.row-actions` is `flex-wrap`, so where
+                // the four broke depended on how wide the column happened to
+                // be for that page of data — four across on one render, three
+                // and one on the next, and the «عملیات ثبت» column beside it
+                // shifting every time. A two-column grid is the same four
+                // buttons in the same order, in a cell whose width no longer
+                // depends on its content.
+                // The grid goes on a wrapper inside the cell, never on the
+                // cell: a `<td>` carrying a grid or flex display stops being a
+                // table cell and drops out of the table's column model, which
+                // is exactly what pulled «عملیات ثبت» out from under its own
+                // header (see `.row-actions` in dolphin.css).
                 const actions = document.createElement("td");
                 actions.className = "row-actions";
+                const actionGrid = document.createElement("div");
+                actionGrid.className = "row-actions-2x2";
+                actions.appendChild(actionGrid);
                 const allowed = CHEQUE_TRANSITIONS[cheque.status] || [];
 
                 [
@@ -10388,7 +10478,7 @@
                             showError(error);
                         }
                     });
-                    actions.appendChild(button);
+                    actionGrid.appendChild(button);
                 });
                 row.appendChild(actions);
 

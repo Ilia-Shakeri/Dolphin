@@ -191,7 +191,7 @@ class SalesDocumentReportTests(TestCase):
         own = self.client.get(f"/sales-documents/{self.document.pk}/")
         self.assertEqual(own.status_code, 200)
         self.assertNotContains(own, 'id="postal-transition-form"')
-        self.assertContains(own, "اسناد فروش داخلی")
+        self.assertContains(own, "رهگیری پستی")
         self.client.force_login(self.manager)
         manager = self.client.get(f"/sales-documents/{self.document.pk}/")
         self.assertContains(manager, 'id="postal-transition-form"')

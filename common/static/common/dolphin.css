@@ -971,15 +971,61 @@ summary:focus-visible,
    rule above for exactly these cells — real gaps between every button,
    including the first, and a clean wrap to a second line rather than an
    overflow when the column is narrower than four buttons need. */
+/* Action buttons inside a table cell.
+
+   This deliberately does **not** set `display` on the cell (product-owner
+   report 2026-09-20: «دکمه‌های عملیات ثبت باید در زیر ستون خودش باشد»).
+   It used to be `display: flex`, and a `<td>` with a flex or grid display is
+   no longer a table cell — it leaves the table's column model, so it stops
+   participating in column sizing. Measured on the cheques page: nine columns
+   matched their headers exactly while the last sat 79px off, and the row's
+   cells summed to 1251px against 1099px of headers. Every `.row-actions`
+   table in the panel had the same latent drift; it was only visible here
+   because this page has two action columns side by side.
+
+   Inline layout keeps the cell a cell. The buttons still sit in a centred
+   row with the same spacing, via margins rather than `gap`, and still wrap
+   when the column is narrow. */
 .row-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.row-actions > * {
+    vertical-align: middle;
+}
+
+.row-actions > * + * {
+    margin-inline-start: 0.5rem;
 }
 
 .row-actions .btn {
+    margin-inline-start: 0;
+}
+
+/* A fixed two-per-row action group (product-owner request 2026-09-20, for the
+   cheques page's four وضعیت buttons).
+
+   `.row-actions` above is `flex-wrap`, which is right for the one or two
+   buttons most rows carry but wrong for a fixed set of four: where they broke
+   depended on how wide that column happened to be for the current page of
+   data, so the same table wrapped four-across on one render and three-and-one
+   on the next — and the column beside it moved with it. A grid fixes the
+   shape: two columns, equal tracks, the buttons in their declared order.
+
+   Applied to a `<div>` *inside* the cell, never to the cell itself — see
+   `.row-actions` above for why a `<td>` must keep its table display. */
+.row-actions-2x2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    align-items: start;
+    justify-items: stretch;
+}
+
+/* The grid owns its own spacing, so the inline margin rule above must not
+   also apply to its children. */
+.row-actions-2x2 > * + * {
     margin-inline-start: 0;
 }
 
@@ -1559,12 +1605,25 @@ dialog {
        `justify-content` only moves the free space, so nothing about the column
        widths, the gutter, or the narrow-screen stacking rule below changes. */
     justify-content: center;
+    /* The gutter, owned here rather than by jKanban (product-owner request
+       2026-09-20: «فاصله بین ستون‌ها باید یکسان باشه»). `jkanban.bundle.js`
+       sets a per-board inline `margin-left`/`margin-right` at `init()` from
+       its own `gutter` option and splits it between the two sides, so the
+       space *between* two columns came out as the sum of two margins while
+       the space at each end of the row came out as one — three columns, four
+       different gaps. `gap` on the flex row is one value between every pair
+       and nothing at the ends; the inline margins are zeroed just below,
+       which needs `!important` because they are inline styles. */
+    gap: 1.25rem;
 }
 #lead-board .kanban-board,
 #order-board .kanban-board {
     float: none;
     background-color: var(--bs-gray-100);
     border-radius: 0.75rem;
+    /* See the `gap` above: jKanban's own inline margins, overridden so the
+       gutter has exactly one source. */
+    margin-inline: 0 !important;
 }
 
 /* Each column carries its own status colour (product-owner request
@@ -1712,13 +1771,27 @@ dialog {
    `.hover-scroll-overlay-y` to (Metronic's own overlay scrollbar, `dolphin.js`
    loads it already — see that class's own rule in `assets/css/style.bundle.
    css` for the transparent-until-hover thumb this reuses rather than a
-   hand-rolled one). The height below is roughly five cards' worth at this
-   board's card padding/line-height (raised from four, product-owner request
-   2026-09-12: "۴-۵ کارت"); a sixth card and beyond scroll into view without
-   the column — or the page around it — growing past that. */
+   hand-rolled one).
+
+   The height is four whole cards **plus a slice of the fifth** (product-owner
+   request 2026-09-20: «حداقل ۴ کارت و ذره‌ای از کارت بعدی»). The slice is the
+   point: a column cut cleanly after the fourth card looks like a column that
+   holds exactly four, and nobody scrolls a list that appears to have ended.
+   Half a card showing at the fold is the standard way a scrollable list says
+   "there is more" without a label or an arrow.
+
+   The number is measured, not guessed — see the comment on the custom
+   property below. */
 #lead-board .kanban-drag,
 #order-board .kanban-drag {
-    max-height: 37.5rem;
+    /* One lead/order card at this board's padding and line-height, measured in
+       a browser after the card lost its «مشاهدهٔ جزئیات» footer line
+       (2026-09-20): 8.6rem including the 0.75rem gap under it. Four of those
+       plus 55% of a fifth is what `max-height` below works out to. Declared as
+       a property so the intent survives: change the card and this one number
+       moves, not four hand-multiplied ones. */
+    --dolphin-board-card: 8.6rem;
+    max-height: calc(var(--dolphin-board-card) * 4.55);
     padding-inline-end: 0.35rem;
 }
 /* The one card-shaped exception: the "load more" control `setupLeadBoard()`/
@@ -1791,26 +1864,146 @@ dialog {
     align-items: center;
     width: 100%;
 }
-#lead-board .board-search-toggle,
-#order-board .board-search-toggle {
-    /* `margin-inline-start: auto` rather than a `flex-stack` wrapper: the
-       title element is jKanban's own, built from the HTML string
-       `boardTitle()` returns, so the button has to push itself to the far
-       edge from inside that flex row. */
-    margin-inline-start: auto;
-    width: 1.85rem;
-    height: 1.85rem;
-}
+/* The icon *becomes* the field (product-owner request 2026-09-20). It used to
+   open a second row under the header, which pushed every card in that column
+   down by the height of an input — on a board whose whole point is how many
+   cards you can see at once.
+
+   The animation is on `width` alone, from the square the button occupies to
+   the width of the header. Height never changes, so nothing below the header
+   moves at any point in the transition; and because the field is a sibling of
+   the button inside one `inline-flex` box, the button stays put while the
+   field grows out from under it.
+
+   `margin-inline-start: auto` rather than a wrapper: the title element is
+   jKanban's own, built from the HTML string `boardTitle()` returns, so this
+   has to push itself to the far edge from inside that flex row. */
 #lead-board .board-search,
 #order-board .board-search {
-    padding: 0.5rem 0.75rem 0;
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
+    border-radius: 2rem;
+    /* The *container* is what animates, and it carries an explicit width at
+       both ends.
+
+       Sizing the field itself was tried first and does not work here: the
+       field is a flex item, the container is sized by its contents, and the
+       container is itself a flex item of the column header — so the field's
+       size depended on a box whose size depended on the field. Measured, the
+       field laid out at 0px even with `width: 8.5rem !important` on it,
+       because the container never grew to offer the room. Two explicit widths
+       on the container break that circle, and `overflow: hidden` is what
+       hides the field while it is closed.
+
+       `min-width` alongside `width`: this is a flex item, so its used main
+       size comes from its flex basis and is then clamped by `min-width`.
+       Setting only `width` leaves the clamp behind at the closed size, which
+       is the one value guaranteed to win. Both are declared so the box is
+       correct in either role, and `min-width` is what the transition
+       interpolates. Verified by toggling the class with transitions
+       suppressed: 24px closed, 137px open, and back. */
+    min-width: 1.85rem;
+    width: 1.85rem;
+    flex: 0 0 auto;
+    overflow: hidden;
+    transition: min-width 0.22s ease, width 0.22s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
-#lead-board .board-search input,
-#order-board .board-search input {
-    /* Smaller than a page-level search box on purpose — it filters one column,
+#lead-board .board-search-open,
+#order-board .board-search-open {
+    min-width: 10.5rem;
+    width: 10.5rem;
+    background-color: var(--bs-gray-200);
+    box-shadow: inset 0 0 0 1px var(--bs-gray-300);
+}
+#lead-board .board-search-toggle,
+#order-board .board-search-toggle {
+    width: 1.85rem;
+    height: 1.85rem;
+    flex: 0 0 auto;
+}
+#lead-board .board-search-input,
+#order-board .board-search-input {
+    /* Fills whatever the container currently is, and shrinks to nothing while
+       it is closed — the container above owns the width and the animation. */
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 0.6rem;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--bs-gray-800);
+    /* Smaller than a page-level search box on purpose: it filters one column,
        not the screen, and it sits inside a 300px card. */
     font-size: 0.85rem;
-    padding: 0.5rem 0.75rem;
+    font-family: inherit;
+}
+/* The column label yields the space the open field needs rather than pushing
+   it out of the header. */
+#lead-board .kanban-title-board > span:first-child,
+#order-board .kanban-title-board > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#lead-board .board-search-input::placeholder,
+#order-board .board-search-input::placeholder {
+    color: var(--bs-gray-500);
+}
+/* Someone who asked not to be animated gets the same control, instantly. */
+@media (prefers-reduced-motion: reduce) {
+    #lead-board .board-search,
+    #order-board .board-search,
+    #lead-board .board-search-input,
+    #order-board .board-search-input {
+        transition: none;
+    }
+}
+
+/* A card's own top line: its name, and the one glyph that says the card opens
+   something. The dots sit on the inline-end edge — the *left* in this RTL
+   panel, which is the corner the request named — and stay quiet until the
+   pointer is on the card. */
+#lead-board .kanban-card-head,
+#order-board .kanban-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-block-end: 0.5rem;
+}
+#lead-board .kanban-card-title,
+#order-board .kanban-card-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--bs-gray-900);
+    overflow-wrap: anywhere;
+}
+#lead-board .kanban-card-more,
+#order-board .kanban-card-more {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-block-start: -0.15rem;
+    border-radius: 0.4rem;
+    color: var(--bs-gray-500);
+    /* Barely there until the card is hovered: on a column of five cards, five
+       full-strength glyphs read as five buttons demanding a decision. */
+    opacity: 0.55;
+    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+#lead-board .kanban-item:hover .kanban-card-more,
+#order-board .kanban-item:hover .kanban-card-more,
+#lead-board .kanban-card-more:focus-visible,
+#order-board .kanban-card-more:focus-visible {
+    opacity: 1;
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
 }
 
 /* 6b. Province map ----------------------------------------------------------
@@ -2040,23 +2233,62 @@ dialog {
     gap: 0.5rem;
 }
 
+/* The four nav arrows and the month title (product-owner report 2026-09-20:
+   «دکمه‌ها داخل تقویم باید جایشان درست شود»).
+
+   Measured before the fix: four arrows at the vendor's own 35px filled 140px
+   of a 208px row, leaving the title 68px — and «شهریور ۱۴۰۵» rendered at
+   exactly 69px. So the title was already one pixel over its space on a short
+   month name, and a long one («اردیبهشت») had nowhere to go but into the
+   arrows. Sizing the arrows to the day cells below them (2.1rem) gives the
+   title room it cannot run out of, and makes the header read as part of the
+   same grid rather than a toolbar bolted above it. */
 .jalali-picker-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.25rem;
+}
+
+/* Same specificity problem as the day cells: `.btn.btn-icon` is two classes
+   and would otherwise win. */
+.jalali-picker .jalali-picker-header .btn {
+    width: 2.1rem;
+    height: 2.1rem;
+    min-width: 0;
+    padding: 0;
+    flex: 0 0 auto;
 }
 
 .jalali-picker-title {
     flex: 1 1 auto;
+    /* `min-width: 0` lets the title shrink inside the flex row instead of
+       forcing the row wider than the panel; `nowrap` keeps a long month name
+       on one line, and the ellipsis is the honest failure mode if a future
+       locale somehow still overflows. */
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: center;
     font-weight: 600;
     color: var(--bs-gray-800);
 }
 
+/* `minmax(0, 1fr)`, not `1fr` (product-owner report 2026-09-20: «تعدادی از
+   روزها خارج از تقویم قرار می‌گیرند»).
+
+   A bare `1fr` track is `minmax(auto, 1fr)`, and that `auto` floor is the
+   cell's own min-content width — so a day cell wider than its share does not
+   shrink, it widens the track and pushes the row past the panel. Measured
+   before the fix: seven tracks of 37.98px inside a 208px grid, with eight of
+   the thirty-one cells rendering outside the panel entirely. The cell sizing
+   is corrected below as well, but this is the rule that makes the grid
+   incapable of overflowing whatever the cells later become. */
 .jalali-picker-weekdays,
 .jalali-picker-days {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     justify-items: center;
     row-gap: 0.15rem;
 }
@@ -2069,12 +2301,25 @@ dialog {
 
 /* `.btn.btn-icon` alone sizes to `calc(1.5em + 1.55rem + 2px)` — sized for a
    lone icon button, not a dense 7-column month grid, where seven of them
-   would overflow this panel's width. Kept for everything else the class
-   pair gives a day cell for free (centering, radius, hover/active
-   transitions, focus ring) and only the size is overridden here. */
-.jalali-picker-day {
+   overflow this panel's width. Kept for everything else the class pair gives
+   a day cell for free (centering, radius, hover/active transitions, focus
+   ring) and only the size is overridden here.
+
+   Selected through `.jalali-picker` so this actually wins. The single-class
+   `.jalali-picker-day` it used to be scored *below* the vendor's own
+   two-class `.btn.btn-icon`, so the override silently lost and every cell
+   kept the vendor width — which is what pushed eight of them out of the
+   panel (2026-09-20). The `font-size` in the same block did apply, which is
+   why the symptom looked like a layout quirk rather than a dead rule:
+   `1.5em` of the *smaller* font still came to 37.98px against the 2.1rem
+   (27.3px) intended here. */
+.jalali-picker .jalali-picker-day {
     height: 2.1rem;
     width: 2.1rem;
+    /* Beats `.btn`'s own `min-width` too, so the grid track above can always
+       shrink the cell rather than being widened by it. */
+    min-width: 0;
+    padding: 0;
     font-size: 0.8125rem;
 }
 
@@ -2089,9 +2334,14 @@ dialog {
     width: 5rem;
 }
 
+/* «امروز» and «پاک‌کردن» are peers — two shortcuts, neither destructive — so
+   they share the row evenly instead of being flung to opposite corners of a
+   228px panel with 148px of dead space between them, which is what
+   `space-between` was doing here (2026-09-20). Equal halves also stop the
+   pair from shifting as the two labels change width. */
 .jalali-picker-footer {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid var(--bs-border-color);

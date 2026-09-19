@@ -19,6 +19,19 @@
             </button>
             <div id="activity-log-filter-panel" class="list-filter-panel" hidden>
                 <form id="activity-log-search-form" action="{% url 'common_ui:activity-logs' %}" method="get">
+                    {% comment %} فیلتر زمانی (درخواست مالک محصول ۲۰۲۶/۰۹/۲۰).
+                       این صفحه معمولاً وقتی باز می‌شود که می‌دانیم چیزی در چه
+                       روزی رخ داده؛ پیش از این تنها راه رسیدن به آن روز،
+                       ورق‌زدن همهٔ رویدادهای پس از آن بود. هر دو کران اختیاری‌اند
+                       و روزی که نام می‌برند را کامل در بر می‌گیرند — همان قاعدهٔ
+                       فیلتر تاریخ ثبت مشتریان، که حالا هر دو از یک تابع مشترک
+                       (`common.viewsets.filter_by_date_window`) می‌آیند. {% endcomment %}
+                    <div class="mb-4">
+                        <label class="form-label" for="activity-log-from">از تاریخ</label>
+                        <input class="form-control form-control-solid mb-2" id="activity-log-from" name="created_from" type="text" data-jalali="date" placeholder="از تاریخ">
+                        <label class="form-label" for="activity-log-to">تا تاریخ</label>
+                        <input class="form-control form-control-solid" id="activity-log-to" name="created_to" type="text" data-jalali="date" placeholder="تا تاریخ">
+                    </div>
                     <div class="mb-4">
                         <label class="form-label" for="activity-log-ordering">مرتب‌سازی</label>
                         <select class="form-select form-select-solid" id="activity-log-ordering" name="ordering"><option value="-created_at">تازه‌ترین</option><option value="created_at">قدیمی‌ترین</option></select>

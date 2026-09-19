@@ -182,9 +182,16 @@ class ScriptTests(SimpleTestCase):
         `cardContent` uses: every value assigned through `textContent`,
         `innerHTML` read only once, at the end, to satisfy jKanban's own
         string-based item API."""
-        self.assertIn("title.textContent =", self.body)
         self.assertIn("return wrap.innerHTML;", self.body)
         self.assertNotIn("innerHTML = `", self.body)
+        # The card's own title moved into the shared `boardCardHeader` helper
+        # on 2026-09-20, when the «مشاهدهٔ جزئیات» footer link was replaced by
+        # a three-dot control in the corner. The rule this test exists for is
+        # unchanged and now has to hold there too — so it is checked where the
+        # code actually is rather than dropped.
+        header = _function_body("boardCardHeader", "function paintBoardColumns")
+        self.assertIn("title.textContent = titleText", header)
+        self.assertNotIn("innerHTML = `", header)
 
     def test_card_content_reuses_the_same_fields_the_orders_table_shows(self):
         """No parallel data shape — the same fields `setupOrders()`'s own

@@ -300,7 +300,7 @@ class DolphinHomeView(ActiveCrmView):
         add("sales.own", "فروش‌های من", sale_scope.count(), "common_ui:sales")
         add("sales.company", "فروش‌های شرکت", sale_scope.count(), "common_ui:sales")
         add("sales_documents.scoped", "اسناد فروش مجاز", document_scope.count(), "common_ui:sales-documents")
-        add("sales_documents.company", "اسناد فروش داخلی", document_scope.count(), "common_ui:sales-documents")
+        add("sales_documents.company", "رهگیری پستی", document_scope.count(), "common_ui:sales-documents")
         add("after_sales.assigned", "پرونده‌های خدمات من", after_sales_scope.count(), "common_ui:after-sales")
         add("after_sales.company", "پرونده‌های خدمات پس از فروش", after_sales_scope.count(), "common_ui:after-sales")
         if context["can_manage_users"]:

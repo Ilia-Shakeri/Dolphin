@@ -1,5 +1,9 @@
+from datetime import datetime, time, timedelta
+
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -11,6 +15,59 @@ from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied
 from common.permissions import FeatureGatedAPIMixin
 from common.throttles import SensitiveRateThrottle
+
+
+def start_of_day(day):
+    """Midnight on `day` in the deployment's timezone.
+
+    Built in local time on purpose: a person filtering "from 1405/05/01" means
+    the day as it is lived in Tehran, not a UTC boundary that would cut it
+    three and a half hours early.
+    """
+    return timezone.make_aware(datetime.combine(day, time.min))
+
+
+def filter_by_date_window(queryset, query_params, *, field="created_at",
+                          names=("created_from", "created_to")):
+    """Narrow `queryset` to a day window given as two ISO dates.
+
+    One implementation rather than one per viewset. The customers page has
+    filtered by registration date since 1.x, and the system-events page was
+    given the same control on 2026-09-20 («فیلتر زمانی باید وجود داشته
+    باشد») — two pages asking the same question of two different columns, so
+    the column is a parameter and the rule is not written twice.
+
+    Two decisions are carried here rather than left to each caller:
+
+    * the upper bound is exclusive of the *next* day rather than inclusive of
+      a timestamp, so a row recorded at 23:59 on the closing day is still
+      inside the window — which is what a person picking "to 1405/05/09"
+      means;
+    * a malformed date is a request error, not a silently ignored parameter.
+      Quietly dropping it would show the wrong rows while looking like the
+      filter worked.
+    """
+    from_name, to_name = names
+    bounds = {from_name: query_params.get(from_name), to_name: query_params.get(to_name)}
+    parsed = {}
+    errors = {}
+    for name, raw in bounds.items():
+        if not raw:
+            continue
+        value = parse_date(raw)
+        if value is None:
+            errors[name] = ["تاریخ را به قالب YYYY-MM-DD وارد کنید."]
+        else:
+            parsed[name] = value
+    if errors:
+        raise ValidationError(errors)
+    if from_name in parsed:
+        queryset = queryset.filter(**{f"{field}__gte": start_of_day(parsed[from_name])})
+    if to_name in parsed:
+        queryset = queryset.filter(
+            **{f"{field}__lt": start_of_day(parsed[to_name] + timedelta(days=1))}
+        )
+    return queryset
 
 
 class StrictQueryParametersMixin(FeatureGatedAPIMixin):

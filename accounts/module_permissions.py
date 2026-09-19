@@ -62,7 +62,7 @@ MODULES = (
     Module("payments", "دریافت‌ها، پرداخت‌ها، چک و اقساط", ("payments.company",), ("payments.manage",)),
     Module("ledger", "دفتر حساب مشتری", ("ledger.own", "ledger.company")),
     Module("inventory", "انبار و موجودی", ("inventory.read", "inventory.manage"), ("inventory.manage",)),
-    Module("sales_documents", "اسناد فروش داخلی (پستی)", ("sales_documents.scoped", "sales_documents.company"), ("sales_documents.manage",)),
+    Module("sales_documents", "رهگیری پستی", ("sales_documents.scoped", "sales_documents.company"), ("sales_documents.manage",)),
     Module("after_sales", "خدمات پس از فروش", ("after_sales.company", "after_sales.assigned"), ("after_sales.manage",)),
     Module("reports", "گزارش‌ها", ("reports.own", "reports.company")),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
