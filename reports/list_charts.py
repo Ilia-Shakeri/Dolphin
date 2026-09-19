@@ -24,15 +24,17 @@ forced by the data model rather than chosen:
 """
 
 from common import formatting
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Case, Count, DecimalField, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from aftersales.selectors import after_sales_requests_for
 from billing.models import Invoice, Payment
 from billing.selectors import invoices_for, orders_for, payments_for
-from inventory.selectors import stock_items_for
+from inventory.selectors import stock_items_for, stock_movements_for
 from sales.models import Interaction, Lead, Sale
 from sales.selectors import (
     interactions_for,
@@ -318,3 +320,107 @@ LIST_CHARTS = {
     "interactions": ("leads", ("interactions.scoped", "interactions.company"),
                      interactions_by_outcome, "تعداد تماس به تفکیک نتیجه"),
 }
+
+
+# --- the companion trend ----------------------------------------------------
+
+#: How many weekly buckets the trend beside each list chart covers. The same
+#: window the dashboard's own sales trend uses (`common/dashboard.py`,
+#: `TREND_WEEKS`) — one convention for "recent direction" across the product,
+#: not a second number invented here.
+TREND_WEEKS = 12
+
+#: key -> (selector, the dated column, title).
+#:
+#: Product-owner request 2026-09-19: every list page that draws a composition
+#: chart ("what is this total made of") should draw a direction chart beside
+#: it ("which way is it going"), because a ring alone never answers the second
+#: question. The pair is deliberate — one is a breakdown, the other is time.
+#:
+#: The column named for each key is that record's own real business date, not
+#: `created_at` reflexively: a payment is dated when it was received, a
+#: campaign result when it was sold, a parcel when it was registered, an
+#: interaction when it happened. Where a model genuinely has no business date
+#: of its own (orders, invoices, leads, products, categories, after-sales
+#: requests), `created_at` *is* the date it was entered and is named as such.
+#:
+#: Inventory is the one entry that does not share its chart's own selector:
+#: `stock_items_for` rows are per product-and-warehouse balances whose
+#: `created_at` says when a balance row first appeared, which is not a fact
+#: anybody wants plotted. The movements behind those balances are, so the
+#: trend reads `stock_movements_for` — still an inventory selector, still the
+#: same feature and capabilities gate, so it can never show more than the
+#: chart beside it.
+LIST_TRENDS = {
+    "invoices": (invoices_for, "created_at", "روند صدور فاکتور در دوازده هفتهٔ اخیر"),
+    "orders": (orders_for, "created_at", "روند ثبت سفارش در دوازده هفتهٔ اخیر"),
+    "payments": (payments_for, "received_at", "روند ثبت پرداخت در دوازده هفتهٔ اخیر"),
+    "payments-direction": (payments_for, "received_at", "روند ثبت پرداخت در دوازده هفتهٔ اخیر"),
+    "products": (products_for, "created_at", "روند افزودن محصول در دوازده هفتهٔ اخیر"),
+    "product-categories": (product_categories_for, "created_at",
+                           "روند افزودن دسته‌بندی در دوازده هفتهٔ اخیر"),
+    "leads": (leads_for, "created_at", "روند ثبت سرنخ در دوازده هفتهٔ اخیر"),
+    "after-sales": (after_sales_requests_for, "created_at",
+                    "روند ثبت درخواست در دوازده هفتهٔ اخیر"),
+    "sales-documents": (sales_documents_for, "registered_at",
+                        "روند ثبت مرسوله در دوازده هفتهٔ اخیر"),
+    "inventory": (stock_movements_for, "occurred_at", "روند گردش انبار در دوازده هفتهٔ اخیر"),
+    "sales": (sales_for, "sold_at", "روند ثبت نتیجهٔ کمپین در دوازده هفتهٔ اخیر"),
+    "interactions": (interactions_for, "occurred_at", "روند تماس‌ها در دوازده هفتهٔ اخیر"),
+}
+
+
+def _jalali_day(value):
+    from common.jalali import format_date
+
+    return format_date(value)
+
+
+def trend_for(key, actor, *, now=None):
+    """Weekly record counts for the last `TREND_WEEKS` weeks, oldest first.
+
+    Bucketed in Python over one ordered range scan rather than with a database
+    date-truncation function, for the reason `common/dashboard.py` already
+    records for its own trend: this codebase runs on PostgreSQL in production
+    and SQLite in development, and the two disagree about where a week starts.
+
+    Returns `None` for a key with no trend declared, so a chart that has one
+    and a chart that does not both render correctly rather than the caller
+    having to know which is which.
+    """
+    entry = LIST_TRENDS.get(key)
+    if entry is None:
+        return None
+    selector, field, title = entry
+
+    local_now = timezone.localtime(now or timezone.now())
+    start_of_today = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    first_bucket_start = start_of_today - timedelta(
+        weeks=TREND_WEEKS - 1, days=local_now.weekday()
+    )
+
+    buckets = [0] * TREND_WEEKS
+    values = selector(actor).filter(**{f"{field}__gte": first_bucket_start}).values_list(
+        field, flat=True
+    )
+    for moment in values:
+        if moment is None:
+            continue
+        index = (timezone.localtime(moment) - first_bucket_start).days // 7
+        if 0 <= index < TREND_WEEKS:
+            buckets[index] += 1
+
+    points = [
+        {
+            "label": _jalali_day(first_bucket_start + timedelta(weeks=index)),
+            "value": count,
+            "display": _persian_digits(count),
+        }
+        for index, count in enumerate(buckets)
+    ]
+    total = sum(buckets)
+    return {
+        "title": title,
+        "points": points,
+        "summary": f"مجموع این بازه: {_persian_digits(total)} مورد",
+    }

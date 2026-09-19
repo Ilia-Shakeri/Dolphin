@@ -61,13 +61,7 @@
    بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. اگر
    نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
    صفحه دست‌نخورده کار می‌کند. {% endcomment %}
-<section class="card mb-5 mb-xl-8" data-list-chart="invoices"><div class="card-body">
-    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
-        <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
-    </div>
-    <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
-    <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
-</div></section>
+{% include "common/includes/list_charts.inc" with chart_key="invoices" %}
 <dialog id="create-invoice-dialog" aria-labelledby="create-invoice-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-invoice-title">فاکتور تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
 {% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ مترونیک: همان مؤلفهٔ واقعی
@@ -137,9 +131,11 @@
                 <p class="text-danger fs-8 mt-3 mb-0" data-error-for="items"></p>
             </div>
             <div data-kt-stepper-element="content">
-                <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی فاکتور</h3>
-                <div class="row g-3 mb-4" id="create-invoice-review"></div>
-                <p class="text-muted">فاکتور پیش‌نویس ساخته می‌شود و هیچ اثری روی موجودی یا حساب مشتری ندارد. اثر مالی و انبار فقط هنگام «صدور فاکتور» ثبت می‌شود.</p>
+                <div class="w-100">
+                    <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی فاکتور</h3>
+                    <div class="wizard-review mb-4" id="create-invoice-review"></div>
+                    <p class="text-muted">فاکتور پیش‌نویس ساخته می‌شود و هیچ اثری روی موجودی یا حساب مشتری ندارد. اثر مالی و انبار فقط هنگام «صدور فاکتور» ثبت می‌شود.</p>
+                </div>
             </div>
             {% csrf_token %}
             <div class="d-flex flex-stack pt-5">

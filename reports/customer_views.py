@@ -29,7 +29,7 @@ from common.openapi import (
 )
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
-from reports.list_charts import LIST_CHARTS, totals_for
+from reports.list_charts import LIST_CHARTS, totals_for, trend_for
 from reports.customer_insights import (
     build_customer_province_report,
     InvalidReportPeriod,
@@ -143,10 +143,12 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
             429: THROTTLED_RESPONSE,
         },
         description=(
-            "The single chart shown beneath one list page. Each key carries its own "
-            "feature and capability requirements, and its rows are aggregated through "
-            "that module's selector, so a chart never counts a row its viewer could "
-            "not list."
+            "The charts shown beneath one list page: `results` is the composition "
+            "breakdown, and `trend` — when that key declares one — is the weekly "
+            "record count over the last twelve weeks drawn beside it. Each key carries "
+            "its own feature and capability requirements, and both series are "
+            "aggregated through that module's selector, so a chart never counts a row "
+            "its viewer could not list."
         ),
     )
     def get(self, request, key):
@@ -154,7 +156,16 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
         if not has_any_capability(request.user, *capabilities):
             raise PermissionDenied("دسترسی به این نمودار مجاز نیست.")
         results = builder(request.user)
-        payload = {"key": key, "title": title, "results": results, **totals_for(results)}
+        payload = {
+            "key": key,
+            "title": title,
+            "results": results,
+            **totals_for(results),
+            # Built from the same actor and from that module's own selector,
+            # so the direction chart beside the composition chart can never
+            # count a row the composition chart would not.
+            "trend": trend_for(key, request.user),
+        }
         response = Response(ListChartSerializer(payload).data)
         response["Cache-Control"] = "private, no-store"
         return response

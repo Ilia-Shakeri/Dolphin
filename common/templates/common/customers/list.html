@@ -32,6 +32,34 @@
             </button>
             <div id="customer-filter-panel" class="list-filter-panel" hidden>
                 <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get">
+                    {% comment %} فیلترهای بیشتر (درخواست مالک محصول ۲۰۲۶/۰۹/۱۹).
+                       هر چهارتا روی ستون واقعی مدل `sales.Customer` کار می‌کنند و
+                       در `CustomerViewSet._narrow` اعمال می‌شوند؛ هیچ‌کدام چیزی را
+                       گروه‌بندی نمی‌کنند که مدل ذخیره‌اش نکرده باشد. «استان» همان
+                       فهرست ثابتِ فرم ثبت مشتری است (`fillProvinceSelect`)، پس
+                       فیلتر و نقشه هرگز با هم اختلاف پیدا نمی‌کنند. {% endcomment %}
+                    <div class="mb-4">
+                        <label class="form-label" for="customer-province-filter">استان</label>
+                        <select class="form-select form-select-solid" id="customer-province-filter" name="province">
+                            <option value="">همهٔ استان‌ها</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="customer-city-filter">شهر</label>
+                        <input class="form-control form-control-solid" id="customer-city-filter" name="city" type="search" maxlength="100" placeholder="بخشی از نام شهر">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="customer-category-filter">دسته‌بندی</label>
+                        <input class="form-control form-control-solid" id="customer-category-filter" name="category" type="search" maxlength="100" placeholder="بخشی از نام دسته‌بندی">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" for="customer-active-filter">وضعیت</label>
+                        <select class="form-select form-select-solid" id="customer-active-filter" name="is_active">
+                            <option value="">همه</option>
+                            <option value="true">فعال</option>
+                            <option value="false">غیرفعال</option>
+                        </select>
+                    </div>
                     <div class="mb-4">
                         <label class="form-label" for="customer-ordering">مرتب‌سازی</label>
                         <select class="form-select form-select-solid" id="customer-ordering" name="ordering">
@@ -161,8 +189,10 @@
             </div>
         </div>
         <div data-kt-stepper-element="content">
-            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی مشتری</h3>
-            <div class="row g-3 mb-4" id="create-customer-review"></div>
+            <div class="w-100">
+                <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی مشتری</h3>
+                <div class="wizard-review mb-4" id="create-customer-review"></div>
+            </div>
         </div>
         {% csrf_token %}
         <div class="d-flex flex-stack pt-5">

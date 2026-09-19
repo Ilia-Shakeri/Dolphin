@@ -1211,6 +1211,121 @@ dialog {
     height: 36px;
 }
 
+/* 5b. Wizard review step ----------------------------------------------------
+   The last step of every create wizard ("بازبینی و ثبت"), filled by
+   `renderWizardReview()` in dolphin-app.js.
+
+   It used to be a two-column `row g-3` of `col-md-6` cells, each stacking its
+   own label above its own value. Reading six fields meant finding four
+   different left edges, and one long Persian value pushed its neighbour's
+   baseline out of line with it — "زشت و درهم" was the product owner's own
+   description, 2026-09-19. One field per line fixes both: every label shares
+   one edge, every value shares the other, and a hairline rule between them
+   lets the eye travel across without a box around anything.
+
+   This is the purchased theme's own summary shape (`d-flex flex-stack` over
+   `separator separator-dashed`, used by its invoice and checkout blocks), not
+   a layout invented here — expressed as one class because fifteen wizards
+   share it. */
+.wizard-review {
+    display: flex;
+    flex-direction: column;
+}
+
+.wizard-review-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-block: 0.7rem;
+    border-block-end: 1px dashed var(--bs-gray-300);
+}
+
+/* No rule under the last line: a separator's job is to divide two things, and
+   under the final row there is nothing to divide it from. */
+.wizard-review-row:last-child {
+    border-block-end: 0;
+}
+
+.wizard-review-label {
+    color: var(--bs-gray-600);
+    font-size: 0.9rem;
+    /* Never squeezed to nothing by a long value beside it, and never the
+       thing that wraps first — a label is two or three words and should read
+       as one line. */
+    flex: 0 0 auto;
+}
+
+.wizard-review-value {
+    color: var(--bs-gray-900);
+    font-weight: 600;
+    text-align: end;
+    /* A long address or note wraps inside its own half of the line instead of
+       widening the row and pushing the label off the card. `min-width: 0` is
+       what lets a flex item actually shrink below its content width. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The panel `createWizardErrorSummary()` prepends to that same last step.
+
+   Why it exists: submitting from the review step sends the whole form, and a
+   field the server rejects lives on step 1 or 2 — hidden behind the step the
+   reader is standing on. The reason was being written into a paragraph nobody
+   could see, and all that showed was the generic red banner (product-owner
+   request 2026-09-19: "باید توضیح بدهد کجایش مشکل دارد"). So the same
+   reasons are repeated here, each naming its field, and each offering the way
+   back to the step that field is on. */
+.wizard-review-errors {
+    margin-block-end: 1.25rem;
+    padding: 1rem 1.15rem;
+    border-radius: 0.65rem;
+    background-color: var(--bs-danger-light);
+    border-inline-start: 3px solid var(--bs-danger);
+}
+
+.wizard-review-errors-title {
+    margin-block-end: 0.65rem;
+    color: var(--bs-danger);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.wizard-review-errors-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.wizard-review-errors-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.wizard-review-errors-field {
+    color: var(--bs-gray-900);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.wizard-review-errors-reason {
+    color: var(--bs-gray-700);
+    font-size: 0.875rem;
+}
+
+/* Pushed to the far edge so every row's jump button lines up under the next,
+   however long the reason before it happens to be. */
+.wizard-review-errors-jump {
+    margin-inline-start: auto;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.8rem;
+}
+
 /* 6. Line chart ----------------------------------------------------------- */
 
 /* The SVG scales with its container rather than being measured at runtime, so
@@ -1331,6 +1446,86 @@ dialog {
     max-width: 20rem;
 }
 
+/* The week and day views (product-owner request 2026-09-19: the month grid
+   was fine, these two were not). `CALENDAR_TIME_GRID_OPTIONS` in
+   dolphin-app.js already settled the behaviour — whole-hour slots, a now
+   line, rows that fill the card; what is left is what the grid looks like,
+   and FullCalendar's raw defaults were not built against this theme.
+
+   The single biggest change is what is *not* here: with `slotDuration` at one
+   hour there is no `.fc-timegrid-slot-minor` at all, so the second, unlabelled
+   rule that used to run through every hour is gone rather than being hidden
+   with a rule of its own. The rest is spacing and weight: an hour needs room
+   to be clicked into, and an hour label should read as an axis, not as
+   content. */
+#lead-calendar .fc-timegrid-slot,
+#after-sales-calendar .fc-timegrid-slot {
+    height: 3rem;
+}
+#lead-calendar .fc-timegrid-slot-label,
+#after-sales-calendar .fc-timegrid-slot-label {
+    /* The axis, not a heading: lighter and smaller than the grid it labels,
+       and vertically centred against its own hour line rather than sitting on
+       top of it. */
+    color: var(--bs-gray-600);
+    font-size: 0.8rem;
+    vertical-align: middle;
+    border: 0;
+}
+/* Both calendars start the week on Saturday and show seven columns; a day
+   column's own header carries the weekday name over a large Jalali day number
+   (`dayHeaderContent`). Making it sticky means the date stays readable while
+   the hour grid under it is scrolled. */
+#lead-calendar .fc-timegrid .fc-col-header,
+#after-sales-calendar .fc-timegrid .fc-col-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: var(--bs-body-bg);
+}
+#lead-calendar .fc-timegrid-col-frame,
+#after-sales-calendar .fc-timegrid-col-frame {
+    /* A little breathing room on both inline edges so an event chip does not
+       sit flush against the hour line beside it. */
+    padding-inline: 2px;
+}
+#lead-calendar .fc-timegrid-event,
+#after-sales-calendar .fc-timegrid-event {
+    border-radius: 0.4rem;
+    padding: 0.15rem 0.35rem;
+    box-shadow: none;
+}
+/* The current-time line. FullCalendar draws its own arrow marker at the axis
+   end; both halves are repointed at the theme's danger token so the line
+   reads as "now" in either theme rather than as a fixed red from the bundle. */
+#lead-calendar .fc-timegrid-now-indicator-line,
+#after-sales-calendar .fc-timegrid-now-indicator-line {
+    border-color: var(--bs-danger);
+    border-block-start-width: 2px;
+}
+#lead-calendar .fc-timegrid-now-indicator-arrow,
+#after-sales-calendar .fc-timegrid-now-indicator-arrow {
+    border-color: var(--bs-danger);
+    color: var(--bs-danger);
+}
+/* Today's own column: the faintest possible wash, enough to find it in a week
+   of seven without turning it into a highlighted block. FullCalendar's own
+   default here is a hard-coded yellow that belongs to no theme. */
+#lead-calendar .fc-timegrid-col.fc-day-today,
+#lead-calendar .fc-daygrid-day.fc-day-today,
+#after-sales-calendar .fc-timegrid-col.fc-day-today,
+#after-sales-calendar .fc-daygrid-day.fc-day-today {
+    background-color: rgba(var(--bs-primary-rgb), 0.06);
+}
+/* The all-day strip above the hour grid — where a follow-up with no clock of
+   its own lands. Named and separated from the grid below it, rather than
+   reading as an eighth, unlabelled hour. */
+#lead-calendar .fc-timegrid-axis,
+#after-sales-calendar .fc-timegrid-axis {
+    color: var(--bs-gray-600);
+    font-size: 0.8rem;
+}
+
 /* 7. Kanban boards (lead + order) -------------------------------------------- */
 
 /* jKanban's own bundle ships flat hard-coded colours (`#e2e4e6`, `#fff`) and
@@ -1370,6 +1565,100 @@ dialog {
     float: none;
     background-color: var(--bs-gray-100);
     border-radius: 0.75rem;
+}
+
+/* Each column carries its own status colour (product-owner request
+   2026-09-19: «هاله رنگی شبیه به وضعیتش»). `paintBoardColumns()`
+   (dolphin-app.js) stamps `data-accent` from `STATUS_ACCENTS` — the same table
+   the badge in every document list reads — so the column a cancelled lead
+   sits in is the exact red its own row would be, and a status added to that
+   table needs nothing here.
+
+   Three tokens per accent rather than one colour: the solid line that names
+   the column, the tint behind its header, and the rgb triplet the two
+   translucent layers below mix from. All three are the theme's own
+   `--bs-<accent>*` variables, which are redefined for dark mode — so the
+   halo follows the theme instead of being a colour frozen into this file.
+
+   The halo itself is deliberately two shadows, not a border: a 1px inset-
+   looking ring at low alpha to draw the column's edge, and a soft, offset
+   glow beneath it. A border would have moved every column by a pixel and
+   fought the vendor's own box model; a shadow paints outside the box and
+   changes no geometry at all. */
+#lead-board .kanban-board[data-accent="primary"],
+#order-board .kanban-board[data-accent="primary"] {
+    --dolphin-board-accent: var(--bs-primary);
+    --dolphin-board-accent-soft: var(--bs-primary-light);
+    --dolphin-board-accent-rgb: var(--bs-primary-rgb);
+}
+#lead-board .kanban-board[data-accent="success"],
+#order-board .kanban-board[data-accent="success"] {
+    --dolphin-board-accent: var(--bs-success);
+    --dolphin-board-accent-soft: var(--bs-success-light);
+    --dolphin-board-accent-rgb: var(--bs-success-rgb);
+}
+#lead-board .kanban-board[data-accent="warning"],
+#order-board .kanban-board[data-accent="warning"] {
+    --dolphin-board-accent: var(--bs-warning);
+    --dolphin-board-accent-soft: var(--bs-warning-light);
+    --dolphin-board-accent-rgb: var(--bs-warning-rgb);
+}
+#lead-board .kanban-board[data-accent="danger"],
+#order-board .kanban-board[data-accent="danger"] {
+    --dolphin-board-accent: var(--bs-danger);
+    --dolphin-board-accent-soft: var(--bs-danger-light);
+    --dolphin-board-accent-rgb: var(--bs-danger-rgb);
+}
+#lead-board .kanban-board[data-accent="info"],
+#order-board .kanban-board[data-accent="info"] {
+    --dolphin-board-accent: var(--bs-info);
+    --dolphin-board-accent-soft: var(--bs-info-light);
+    --dolphin-board-accent-rgb: var(--bs-info-rgb);
+}
+#lead-board .kanban-board[data-accent="secondary"],
+#order-board .kanban-board[data-accent="secondary"] {
+    --dolphin-board-accent: var(--bs-gray-500);
+    --dolphin-board-accent-soft: var(--bs-secondary-light);
+    --dolphin-board-accent-rgb: var(--bs-gray-500-rgb);
+}
+#lead-board .kanban-board[data-accent],
+#order-board .kanban-board[data-accent] {
+    box-shadow:
+        0 0 0 1px rgba(var(--dolphin-board-accent-rgb), 0.22),
+        0 0.75rem 1.75rem -0.9rem rgba(var(--dolphin-board-accent-rgb), 0.45);
+}
+/* The tinted header rounds its own top corners to match the board's, rather
+   than the board clipping it with `overflow: hidden` — a clipping container
+   here would also have to be trusted not to cut a card mid-drag, and there is
+   no reason to take that on for two corners. */
+#lead-board .kanban-board[data-accent] header,
+#order-board .kanban-board[data-accent] header {
+    position: relative;
+    background-color: var(--dolphin-board-accent-soft);
+    border-bottom-color: rgba(var(--dolphin-board-accent-rgb), 0.28);
+    border-start-start-radius: 0.75rem;
+    border-start-end-radius: 0.75rem;
+}
+/* The line that names the column. A pseudo-element rather than a
+   `border-top`, for the same reason the halo is a shadow: it adds no height
+   and cannot shift the columns relative to one another. */
+#lead-board .kanban-board[data-accent] header::before,
+#order-board .kanban-board[data-accent] header::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    height: 3px;
+    background-color: var(--dolphin-board-accent);
+    border-start-start-radius: 0.75rem;
+    border-start-end-radius: 0.75rem;
+}
+/* The count badge picks the accent up too, so the header reads as one object
+   instead of a tinted strip with a grey chip sitting on it. */
+#lead-board .kanban-board[data-accent] header .kanban-title-board .badge,
+#order-board .kanban-board[data-accent] header .kanban-title-board .badge {
+    background-color: rgba(var(--dolphin-board-accent-rgb), 0.16);
+    color: var(--dolphin-board-accent);
 }
 /* jKanban's own inline `width`/`margin-left`/`margin-right` (set once, at
    `init()`, from `widthBoard`/`gutter` — see the comment beside `new

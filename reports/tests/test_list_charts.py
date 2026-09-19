@@ -18,7 +18,7 @@ from rest_framework.test import APIClient
 from accounts.access import ROLE_CAPABILITIES, has_any_capability
 from accounts.models import User
 from common.deployment.registry import FEATURES
-from reports.list_charts import LIST_CHARTS
+from reports.list_charts import LIST_CHARTS, LIST_TRENDS, TREND_WEEKS, trend_for
 
 
 PASSWORD = "Strong-pass-937!"
@@ -99,6 +99,101 @@ class ListChartBuilderTests(TestCase):
             for row in builder(self.manager):
                 with self.subTest(chart=key):
                     self.assertTrue(row["label"].strip())
+
+
+class ListChartTrendTests(TestCase):
+    """The direction chart drawn beside each composition chart (2026-09-19).
+
+    Same risk as the registry above and the same answer: twelve trends, each
+    starting from its own module's selector and reading its own dated column,
+    and a mistake in one of them is invisible until someone opens that one
+    page. So every one of them is run here, and none is named individually.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.manager = User.objects.create_user(
+            username="lct.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        self.agent = User.objects.create_user(
+            username="lct.agent", password=PASSWORD, role=User.Role.SALES_AGENT
+        )
+
+    def test_every_trend_runs_against_an_empty_database(self):
+        """A column name that does not exist raises here, not on the day a
+        deployment first opens that page."""
+        for key in LIST_TRENDS:
+            with self.subTest(trend=key):
+                trend = trend_for(key, self.manager)
+                self.assertEqual(set(trend), {"title", "points", "summary"})
+
+    def test_every_trend_runs_for_a_marketer_too(self):
+        for key in LIST_TRENDS:
+            with self.subTest(trend=key):
+                self.assertIsNotNone(trend_for(key, self.agent))
+
+    def test_every_trend_returns_one_point_per_week_in_the_shape_the_renderer_reads(self):
+        for key in LIST_TRENDS:
+            with self.subTest(trend=key):
+                points = trend_for(key, self.manager)["points"]
+                self.assertEqual(len(points), TREND_WEEKS)
+                for point in points:
+                    self.assertEqual(set(point), {"label", "value", "display"})
+                    self.assertTrue(point["label"].strip())
+                    self.assertIsInstance(point["value"], int)
+
+    def test_a_key_with_no_trend_declared_answers_none_rather_than_raising(self):
+        """So the panel can render one chart there and two elsewhere without
+        its own table of which is which."""
+        self.assertIsNone(trend_for("nonsense", self.manager))
+
+    def test_a_row_inside_the_window_lands_in_the_last_bucket(self):
+        from sales.models import Lead
+
+        Lead.objects.create(created_by=self.manager, source="trend-now")
+        trend = trend_for("leads", self.manager)
+        self.assertEqual(trend["points"][-1]["value"], 1)
+        self.assertEqual(sum(point["value"] for point in trend["points"]), 1)
+
+    def test_a_row_older_than_the_window_is_not_counted(self):
+        from datetime import timedelta
+
+        from sales.models import Lead
+
+        old = Lead.objects.create(created_by=self.manager, source="trend-old")
+        # `created_at` is auto_now_add, so it is moved afterwards by update().
+        Lead.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(weeks=TREND_WEEKS + 2)
+        )
+        trend = trend_for("leads", self.manager)
+        self.assertEqual(sum(point["value"] for point in trend["points"]), 0)
+
+    def test_a_trend_never_counts_a_row_its_own_chart_could_not_list(self):
+        """The scope guarantee, exercised rather than asserted from source: an
+        after-sales marketer reads no leads at all, so the leads trend beside
+        the leads chart must be empty for them."""
+        from sales.models import Lead
+
+        outsider = User.objects.create_user(
+            username="lct.after", password=PASSWORD, role=User.Role.SALES_AGENT,
+            workstream=User.Workstream.AFTER_SALES,
+        )
+        Lead.objects.create(created_by=self.manager, source="trend-scope")
+        trend = trend_for("leads", outsider)
+        self.assertEqual(sum(point["value"] for point in trend["points"]), 0)
+
+    def test_the_endpoint_sends_the_trend_alongside_the_chart(self):
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        for key, (_feature, capabilities, _builder, _title) in LIST_CHARTS.items():
+            if not has_any_capability(self.manager, *capabilities):
+                continue
+            with self.subTest(chart=key):
+                response = client.get(f"/api/v1/reports/list-chart/{key}/")
+                self.assertEqual(response.status_code, 200, response.data)
+                self.assertIn("trend", response.data)
+                self.assertEqual(len(response.data["trend"]["points"]), TREND_WEEKS)
 
 
 class ListChartWithDataTests(TestCase):

@@ -65,9 +65,16 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
     ]
     ordering_fields = ["full_name", "created_at", "updated_at"]
     #: A registration-date window (both bounds optional and inclusive of the
-    #: whole day they name, which is what a person means by "from x to y"), and
-    #: which customer book to read.
-    list_query_parameters = {"created_from", "created_to", "kind"}
+    #: whole day they name, which is what a person means by "from x to y"),
+    #: which customer book to read, and the four narrowing filters the
+    #: customers page offers beside them (product-owner request 2026-09-19:
+    #: "فیلترهای بیشتر"). Every one of them is a real column on
+    #: `sales.Customer` — nothing here groups by something the model does not
+    #: store.
+    list_query_parameters = {
+        "created_from", "created_to", "kind",
+        "province", "city", "category", "is_active",
+    }
     action_query_parameters = {
         "leads": {"page"},
         "interactions": {"page"},
@@ -86,7 +93,41 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
             if kind not in Customer.Kind.values:
                 raise ValidationError({"kind": "نوع مشتری را از فهرست انتخاب کنید."})
             queryset = queryset.filter(kind=kind)
-        return self._filter_by_registration_date(queryset)
+        return self._filter_by_registration_date(self._narrow(queryset))
+
+    def _narrow(self, queryset):
+        """The customers page's own four extra filters.
+
+        Narrowing only, exactly like `kind` above: `customers_for` has already
+        decided which book this caller may read, and none of these can widen
+        that. `province` is matched exactly because the form offers it as a
+        fixed list built from the same `iran-provinces.json` the map reads —
+        an exact match is what makes "filter by استان" agree with "the map
+        placed this customer in استان". `city` and `category` stay free text
+        on the model, so they match case-insensitively on a fragment, which is
+        what a person typing part of a name means.
+
+        An `is_active` value that is neither true nor false is a request
+        error rather than a silently ignored parameter — the same rule
+        `kind` and the date bounds already follow, for the same reason: a
+        dropped filter shows the wrong rows while looking like it worked.
+        """
+        params = self.request.query_params
+        province = (params.get("province") or "").strip()
+        if province:
+            queryset = queryset.filter(province=province)
+        city = (params.get("city") or "").strip()
+        if city:
+            queryset = queryset.filter(city__icontains=city)
+        category = (params.get("category") or "").strip()
+        if category:
+            queryset = queryset.filter(category__icontains=category)
+        is_active = params.get("is_active")
+        if is_active not in (None, ""):
+            if is_active not in ("true", "false"):
+                raise ValidationError({"is_active": "وضعیت را از فهرست انتخاب کنید."})
+            queryset = queryset.filter(is_active=(is_active == "true"))
+        return queryset
 
     def _filter_by_registration_date(self, queryset):
         """Narrow to a registration-date window given as two ISO dates.
@@ -311,7 +352,16 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     def get_queryset(self):
         queryset = leads_for(self.request.user).select_related("customer", "assigned_to", "assigned_by", "interested_product")
         status_value = self.request.query_params.get("status")
-        if status_value is not None:
+        # An empty value means "every status" — the filter form's own first
+        # option — and is not the same as an unknown one. A value outside
+        # `Lead.Status` is a request error rather than an empty page: the
+        # filter used to be a free-text box, so a typo ("pendign") answered
+        # zero leads and looked like a board with nothing on it. The form now
+        # offers the three real statuses as a `<select>`; this is the backend
+        # half of that same fix (product-owner request 2026-09-19).
+        if status_value:
+            if status_value not in Lead.Status.values:
+                raise ValidationError({"status": "وضعیت سرنخ را از فهرست انتخاب کنید."})
             queryset = queryset.filter(status=status_value)
         return self._filter_by_follow_up(queryset)
 

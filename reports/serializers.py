@@ -358,6 +358,18 @@ class ListChartRowSerializer(serializers.Serializer):
     display = serializers.CharField()
 
 
+class ListChartTrendSerializer(serializers.Serializer):
+    """The direction chart beside a list page's composition chart.
+
+    Same row shape as `results` above, so the panel draws it with the area
+    chart it already has rather than a second data contract.
+    """
+
+    title = serializers.CharField()
+    points = ListChartRowSerializer(many=True)
+    summary = serializers.CharField(allow_blank=True)
+
+
 class ListChartSerializer(serializers.Serializer):
     key = serializers.CharField()
     title = serializers.CharField()
@@ -366,6 +378,10 @@ class ListChartSerializer(serializers.Serializer):
     #: middle; only the server knows whether the series is rial or a count.
     total_display = serializers.CharField(allow_blank=True)
     total_label = serializers.CharField(allow_blank=True)
+    #: Absent for a key with no trend declared (`LIST_TRENDS`), so the panel
+    #: renders one chart there and two everywhere else without needing its own
+    #: table of which is which.
+    trend = ListChartTrendSerializer(required=False, allow_null=True)
 
 
 class CustomerProvinceRowSerializer(serializers.Serializer):

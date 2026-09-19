@@ -3,7 +3,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from sales.models import Interaction
+from sales.models import Interaction, Lead
 from sales.services import (
     assign_lead,
     create_customer_with_phone,
@@ -30,17 +30,26 @@ class SalesAgentCollectionScopeAttackTests(TestCase):
             password="Long-Safe-Pass-741!",
             role=User.Role.SALES_AGENT,
         )
+        # Two *real* `Lead.Status` values, one per agent. They used to be the
+        # invented strings "owned-status"/"hidden-status", written straight
+        # into the column with `update()`; the point was only that the two
+        # differ. Since 2026-09-19 the leads endpoint validates `status`
+        # against the vocabulary (product-owner request: a typo in the filter
+        # box used to answer an empty page that looked like a working filter),
+        # so an invented value is now refused before the queryset is built —
+        # see `test_an_unknown_status_never_reaches_the_queryset_at_all` below,
+        # which pins that stronger behaviour rather than losing it.
         self.own_customer, self.own_lead, self.own_interaction, self.own_sale = self._graph(
             actor=self.agent,
             name="Owned Visible",
             phone="09121111111",
-            status="owned-status",
+            status=Lead.Status.COMPLETED,
         )
         self.hidden_customer, self.hidden_lead, self.hidden_interaction, self.hidden_sale = self._graph(
             actor=self.other,
             name="PrivateLeakMarker",
             phone="09122222222",
-            status="hidden-status",
+            status=Lead.Status.CANCELLED,
         )
         self.client = APIClient()
         self.client.force_authenticate(self.agent)
@@ -91,12 +100,19 @@ class SalesAgentCollectionScopeAttackTests(TestCase):
                 self.assertNotIn(hidden_id, self._result_ids(url))
 
     def test_status_filters_run_after_lead_and_sale_scope(self):
+        """Asking for the status the *other* agent's lead carries answers
+        nothing — the filter narrows what scope already allowed, it does not
+        select from the whole table."""
         self.assertEqual(
-            self._result_ids("/api/v1/leads/?status=hidden-status&ordering=-created_at"),
+            self._result_ids(
+                f"/api/v1/leads/?status={Lead.Status.CANCELLED}&ordering=-created_at"
+            ),
             set(),
         )
         self.assertEqual(
-            self._result_ids("/api/v1/leads/?status=owned-status&ordering=-created_at"),
+            self._result_ids(
+                f"/api/v1/leads/?status={Lead.Status.COMPLETED}&ordering=-created_at"
+            ),
             {self.own_lead.pk},
         )
         confirmed_ids = self._result_ids(
@@ -104,3 +120,11 @@ class SalesAgentCollectionScopeAttackTests(TestCase):
         )
         self.assertEqual(confirmed_ids, {self.own_sale.pk})
         self.assertNotIn(self.hidden_sale.pk, confirmed_ids)
+
+    def test_an_unknown_status_never_reaches_the_queryset_at_all(self):
+        """Stronger than the empty page it used to answer: a value outside
+        `Lead.Status` is refused before any scope narrowing runs, so a probe
+        cannot even learn whether such a status exists."""
+        response = self.client.get("/api/v1/leads/?status=hidden-status")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("status", response.data)

@@ -74,6 +74,9 @@
     function clearMessages(form) {
         document.getElementById("global-message")?.setAttribute("hidden", "");
         form?.querySelectorAll("[data-error-for]").forEach((node) => { node.textContent = ""; });
+        // A wizard's review-step summary is built from those same slots, so it
+        // is stale the moment they are emptied (`reportWizardErrors` below).
+        if (form) wizardsByForm.get(form)?.summary.clear();
     }
 
     function errorText(error) {
@@ -119,6 +122,10 @@
                     hasFieldError = true;
                 }
             });
+            // Inside a wizard those slots are on steps the reader cannot see
+            // from the review step they just submitted from, so the same
+            // reasons are also summarised where they *are* standing.
+            if (hasFieldError) reportWizardErrors(form);
         }
         globalMessage(hasFieldError && error.status === 400 ? STATUS_MESSAGES[400] : errorText(error));
     }
@@ -2184,6 +2191,20 @@
                     if (to) query.set("created_to", to);
                 }
                 query.set("kind", kind);
+                // The four narrowing filters (product-owner request
+                // 2026-09-19). Each is sent only when it has a value, so an
+                // untouched filter panel produces exactly the URL it produced
+                // before — «همه» is the absence of the parameter, not a
+                // parameter meaning "everything".
+                [
+                    ["province", "customer-province-filter"],
+                    ["city", "customer-city-filter"],
+                    ["category", "customer-category-filter"],
+                    ["is_active", "customer-active-filter"],
+                ].forEach(([name, id]) => {
+                    const value = document.getElementById(id)?.value.trim();
+                    if (value) query.set(name, value);
+                });
                 return `/api/v1/customers/?${query}`;
             },
             renderRow: customerRow,
@@ -2251,6 +2272,13 @@
         }
         const wizard = setupWizard(dialog, {onReachLastStep: renderCustomerReview});
         fillProvinceSelect(document.getElementById("create-customer-province"));
+        // The filter's own province list comes from the same canonical file as
+        // the creation form's and as the map below the table, with «همهٔ
+        // استان‌ها» kept as its first option — so "filter by استان" can only
+        // ever name a province the map itself can place.
+        fillProvinceSelect(document.getElementById("customer-province-filter"), "", {
+            placeholder: "همهٔ استان‌ها",
+        });
         document.getElementById("open-create-customer").addEventListener("click", () => {
             createForm.reset();
             clearMessages(createForm);
@@ -2429,7 +2457,7 @@
      * rewrite a stored record just by loading it (`common/dashboard.py` and
      * this file both follow that rule already for other fields).
      */
-    async function fillProvinceSelect(select, selectedValue = "") {
+    async function fillProvinceSelect(select, selectedValue = "", {placeholder: placeholderText = "انتخاب استان"} = {}) {
         if (!select) return;
         let map;
         try { map = await loadIranMap(); } catch { return; }
@@ -2439,7 +2467,10 @@
         select.replaceChildren();
         const placeholder = document.createElement("option");
         placeholder.value = "";
-        placeholder.textContent = "انتخاب استان";
+        // A form asks a person to choose one; a filter asks which subset to
+        // show, and its empty option means "all of them". Same list, same
+        // source, different sentence for the same blank value.
+        placeholder.textContent = placeholderText;
         select.appendChild(placeholder);
         names.forEach((name) => {
             const option = document.createElement("option");
@@ -2805,6 +2836,38 @@
         }
     }
 
+    /**
+     * Refuse a file the server was always going to refuse, before sending it.
+     *
+     * Both limits are read off the panel's own data attributes, which
+     * `attachments_panel.inc` renders from `attachments/` itself
+     * (`common/templatetags/attachment_tags.py`) — never hard-coded here, so
+     * the sentence printed above the form, the check below, and the rule the
+     * server enforces are one value in three places rather than three values
+     * (product-owner request 2026-09-19).
+     *
+     * This is a courtesy, not a control: the server still sniffs the real
+     * bytes and still enforces the ceiling. Sending ten megabytes over a slow
+     * connection only to be told it was never allowed is what this saves.
+     * Returns a reason string, or an empty string when the file is fine.
+     */
+    function attachmentRejectionReason(panel, file) {
+        const maxBytes = Number(panel.dataset.attachmentsMaxBytes);
+        const accept = (panel.dataset.attachmentsAccept || "")
+            .split(",").map((one) => one.trim()).filter(Boolean);
+        // `file.type` is the browser's own guess and can be empty; an empty
+        // guess is passed through to the server, which decides from the bytes.
+        if (accept.length && file.type && !accept.includes(file.type)) {
+            return "قالب این فایل پذیرفته نمی‌شود. یکی از قالب‌های مجاز بالا را انتخاب کنید.";
+        }
+        if (Number.isFinite(maxBytes) && maxBytes > 0 && file.size > maxBytes) {
+            const limit = toPersianDigits(String(Math.round(maxBytes / (1024 * 1024))));
+            const actual = toPersianDigits((file.size / (1024 * 1024)).toFixed(1));
+            return `حجم این فایل ${actual} مگابایت است و از سقف ${limit} مگابایت بیشتر است.`;
+        }
+        return "";
+    }
+
     function setupAttachmentsPanel() {
         document.querySelectorAll("[data-attachments-panel]").forEach((panel) => {
             loadAttachments(panel);
@@ -2815,8 +2878,17 @@
                 withSubmit(form, async () => {
                     const field = panel.dataset.attachmentsField;
                     const parentId = document.body.dataset[ATTACHMENTS_PARENT_ID_KEY[field]];
-                    const file = form.querySelector("[data-attachments-file]").files[0];
+                    const input = form.querySelector("[data-attachments-file]");
+                    const file = input.files[0];
                     if (!file) return;
+                    const reason = attachmentRejectionReason(panel, file);
+                    if (reason) {
+                        const slot = form.querySelector('[data-error-for="file"]');
+                        if (slot) slot.textContent = reason;
+                        globalMessage(reason);
+                        input.focus();
+                        return;
+                    }
                     const payload = new FormData();
                     payload.set("file", file);
                     payload.set(field, parentId);
@@ -2825,6 +2897,40 @@
                     await loadAttachments(panel);
                 });
             });
+        });
+    }
+
+    /**
+     * The direction chart beside each list page's composition chart
+     * (product-owner request 2026-09-19: a ring says what a total is made of
+     * and never which way it is going, so the pages that draw one now draw
+     * both).
+     *
+     * Its column stays hidden until the server actually sends a `trend` for
+     * that key — `LIST_TRENDS` (reports/list_charts.py) declares which keys
+     * have one — so a page without a trend renders a single full-width chart
+     * rather than a half-width one beside an empty gap.
+     */
+    function renderListTrend(card, trend) {
+        const column = card.querySelector("[data-list-trend]");
+        const canvas = card.querySelector("[data-list-trend-canvas]");
+        const empty = card.querySelector("[data-list-trend-empty]");
+        if (!column || !canvas || !empty) return;
+        if (!trend || !trend.points?.length) {
+            column.hidden = true;
+            return;
+        }
+        column.hidden = false;
+        const heading = card.querySelector("[data-list-trend-title]");
+        if (heading && trend.title) heading.textContent = trend.title;
+        // The same smooth area the dashboard's own twelve-week trend uses —
+        // one "recent direction" shape across the product, and it already
+        // carries the reset control a zoomed chart needs.
+        renderAreaChart(canvas, empty, trend.points, {
+            ariaLabel: trend.title,
+            summary: trend.summary || "",
+            seriesName: "تعداد",
+            color: chartPalette()[2],
         });
     }
 
@@ -2839,6 +2945,7 @@
             try {
                 const report = await apiRequest(`/api/v1/reports/list-chart/${key}/`);
                 if (heading && report.title) heading.textContent = report.title;
+                renderListTrend(card, report.trend);
                 // Every one of these is a breakdown of a total, so the shape is
                 // chosen by how many parts there are rather than by which page
                 // it is. Up to six, a ring compares the parts and names the
@@ -2865,6 +2972,11 @@
                 canvas.hidden = true;
                 empty.textContent = "نمودار این فهرست در دسترس نیست.";
                 empty.hidden = false;
+                // One request feeds both charts, so a failure takes both: a
+                // trend column left open beside a "not available" message
+                // would read as a second chart that is merely still loading.
+                const trendColumn = card.querySelector("[data-list-trend]");
+                if (trendColumn) trendColumn.hidden = true;
             }
         }));
     }
@@ -3318,6 +3430,45 @@
         return toPersianDigits(arg.text);
     }
 
+    /**
+     * What the week and day views do that the month view does not.
+     *
+     * The month grid was already right; the two time-grid views were still on
+     * FullCalendar's raw defaults and read as a wall of rules (product-owner
+     * request 2026-09-19). Three decisions, in the order they matter:
+     *
+     * - **Whole hours only.** `slotDuration` defaults to thirty minutes, so
+     *   every hour carried a second, unlabelled line through it — twenty-four
+     *   extra rules down a week view for a product where nothing is ever
+     *   scheduled on a half hour: a follow-up is either a bare Jalali day (it
+     *   lands on Tehran midnight and is drawn all-day) or a time picked from
+     *   an interaction. One slot per hour, labelled once, is the ask.
+     * - **A now line.** The one thing a day view is opened for is "where are
+     *   we". `nowIndicator` is FullCalendar's own, not a hand-drawn rule.
+     * - **Events that do not overlap.** `slotEventOverlap: false` stops two
+     *   appointments in the same hour from being drawn one on top of the
+     *   other — side by side is how every calendar product draws them.
+     *
+     * All twenty-four hours stay on screen rather than the card being capped
+     * and scrolled to a working-hours window. Both alternatives were tried and
+     * rejected for concrete reasons, recorded here so neither is re-attempted:
+     * capping the height means setting FullCalendar 5's calendar-level
+     * `height` from `datesSet` (it is not a view-level option, so the `views`
+     * hash cannot carry it), and the re-render that triggers rebuilds the
+     * toolbar title *after* this file has already replaced it with its Jalali
+     * equivalent — measured, and it printed «شهریور ۱۴۰۵Sep 19 – 25, 2026».
+     * Narrowing to `slotMinTime`/`slotMaxTime` is worse: a follow-up carrying
+     * a clock time outside that window would simply not be drawn, and a
+     * calendar that silently omits an appointment is not a tidier calendar.
+     */
+    const CALENDAR_TIME_GRID_OPTIONS = {
+        slotDuration: "01:00:00",
+        slotLabelInterval: "01:00:00",
+        nowIndicator: true,
+        slotEventOverlap: false,
+        dayMaxEvents: true,
+    };
+
     async function setupLeadCalendar() {
         const container = document.getElementById("lead-calendar");
         if (!container || typeof FullCalendar === "undefined") return;
@@ -3461,7 +3612,7 @@
             editable: true,
             eventStartEditable: true,
             eventDurationEditable: false,
-            dayMaxEvents: true,
+            ...CALENDAR_TIME_GRID_OPTIONS,
             // Without this, a timed follow-up (most of them — only a
             // date-only one is all-day) renders in month view as FullCalendar's
             // default small dot + text, and the status colour all but
@@ -3562,6 +3713,30 @@
             },
         });
         calendar.render();
+    }
+
+    /**
+     * Tint each Kanban column with the accent its own status already wears
+     * everywhere else (product-owner request 2026-09-19: «هاله رنگی شبیه به
+     * وضعیتش»).
+     *
+     * `STATUS_ACCENTS` is the single table this product paints statuses from —
+     * the badges in every document list read it, and so does `statusBadge`.
+     * Reusing it here is what makes the board agree with the table: the
+     * column a cancelled lead sits in is the same red its row would be. No
+     * per-board colour list is declared, so a status added to that table is
+     * coloured on the boards too without touching this function.
+     *
+     * The attribute carries the accent *name*; `dolphin.css` §7 turns it into
+     * the theme's own `--bs-<accent>` tokens, which are redefined in dark
+     * mode — so the halo follows the theme rather than being a fixed colour
+     * written into JavaScript.
+     */
+    function paintBoardColumns(container, statuses) {
+        statuses.forEach((status) => {
+            const board = container.querySelector(`.kanban-board[data-id="${status}"]`);
+            if (board) board.dataset.accent = STATUS_ACCENTS[status] || "secondary";
+        });
     }
 
     /**
@@ -3912,6 +4087,8 @@
                 },
             });
 
+            paintBoardColumns(container, STATUSES);
+
             STATUSES.forEach((status) => {
                 // A fixed number of cards shows before a column scrolls
                 // internally instead of stretching the whole board — see the
@@ -4209,6 +4386,8 @@
                 },
             });
 
+            paintBoardColumns(container, STATUSES);
+
             STATUSES.forEach((status) => {
                 // Same fixed-height, hover-revealed scrollbar as the lead
                 // board above — see that block's own comment.
@@ -4344,7 +4523,7 @@
             editable: true,
             eventStartEditable: true,
             eventDurationEditable: false,
-            dayMaxEvents: true,
+            ...CALENDAR_TIME_GRID_OPTIONS,
             eventDisplay: "block",
             eventTimeFormat: CALENDAR_TIME_FORMAT,
             slotLabelFormat: CALENDAR_TIME_FORMAT,
@@ -5095,8 +5274,17 @@
         });
     }
 
+    //: The two real `sales.Sale.Status` values, as the map `statusBadge`
+    //: reads. Both keys are already in `STATUS_ACCENTS` (confirmed → success,
+    //: cancelled → danger), so the colour agrees with the same two words
+    //: everywhere else in the panel rather than being chosen again here.
+    const SALE_STATUS_TEXT = Object.freeze({
+        confirmed: "تأییدشده",
+        cancelled: "لغوشده",
+    });
+
     function saleStatusText(value) {
-        return value === "confirmed" ? "تأییدشده" : value === "cancelled" ? "لغوشده" : value;
+        return labelled(SALE_STATUS_TEXT, value);
     }
 
     function saleRow(sale) {
@@ -5107,7 +5295,12 @@
         appendCell(row, sale.product_name || sale.product);
         appendCell(row, sale.quantity);
         appendCell(row, sale.total_amount);
-        appendCell(row, saleStatusText(sale.status));
+        // A badge, not bare text (product-owner request 2026-09-19): this
+        // table is scanned for the one cancelled result among a page of
+        // confirmed ones, and every other document list in the panel already
+        // paints that column. `appendStatusBadgeCell` is that shared helper —
+        // nothing new was built for this page.
+        appendStatusBadgeCell(row, SALE_STATUS_TEXT, sale.status);
         appendCell(row, sale.sold_by_display || sale.sold_by);
         appendDetailLink(row, `/sales/${sale.id}/`);
         return row;
@@ -6018,9 +6211,12 @@
                 ["فروش اختیاری", selectedOptionText(saleSelect)],
                 ["سند عملیاتی اختیاری", selectedOptionText(documentSelect)],
                 ["مسئول اختیاری", selectedOptionText(assigneeSelect)],
-                ["موضوع", document.getElementById("create-after-sales-subject").value],
-                ["وضعیت آغازین", document.getElementById("create-after-sales-status").value],
-                ["شرح", document.getElementById("create-after-sales-description").value],
+                // `|| "—"` on all three, the convention every other review
+                // uses: an optional field left empty should read as an em dash
+                // rather than as a label with nothing beside it.
+                ["موضوع", document.getElementById("create-after-sales-subject").value || "—"],
+                ["وضعیت آغازین", document.getElementById("create-after-sales-status").value || "—"],
+                ["شرح", document.getElementById("create-after-sales-description").value || "—"],
             ]);
         }
         const afterSalesWizard = setupWizard(dialog, {onReachLastStep: renderAfterSalesReview});
@@ -8308,12 +8504,41 @@
         const root = dialog?.querySelector(".stepper");
         if (!root) return null;
         const stepper = new KTStepper(root);
-        const totalSteps = root.querySelectorAll('[data-kt-stepper-element="nav"]').length;
-        const contentOf = (index) => root.querySelectorAll('[data-kt-stepper-element="content"]')[index - 1];
+        const form = root.querySelector("form");
+        const navs = [...root.querySelectorAll('[data-kt-stepper-element="nav"]')];
+        const contents = [...root.querySelectorAll('[data-kt-stepper-element="content"]')];
+        const totalSteps = navs.length;
+        const contentOf = (index) => contents[index - 1];
+
+        /** The step a field lives on, 1-based; 0 if it is on none of them. */
+        function stepOf(node) {
+            const content = node?.closest('[data-kt-stepper-element="content"]');
+            return content ? contents.indexOf(content) + 1 : 0;
+        }
+
+        function stepTitle(index) {
+            return navs[index - 1]?.querySelector(".stepper-title")?.textContent?.trim() || "";
+        }
+
+        const summary = form ? createWizardErrorSummary(root, contents, stepTitle, (index) => {
+            stepper.goTo(index);
+            dialog.scrollTop = 0;
+        }) : null;
+        if (form && summary) wizardsByForm.set(form, {stepOf, stepTitle, summary});
+
         stepper.on("kt.stepper.next", () => {
             const invalid = contentOf(stepper.getCurrentStepIndex())?.querySelector(":invalid");
             if (invalid) {
+                // Both, not one: the browser's own bubble says what is wrong
+                // right where the cursor is about to land, and the sentence
+                // written into this field's own `[data-error-for]` slot stays
+                // on screen after the bubble fades — which is the half that
+                // used to be missing, so a person who looked away came back
+                // to a step that refused to advance and said nothing about
+                // why (product-owner request 2026-09-19).
+                writeNativeValidationMessage(invalid);
                 invalid.reportValidity();
+                invalid.focus?.();
                 return;
             }
             stepper.goNext();
@@ -8325,6 +8550,144 @@
             dialog.scrollTop = 0;
         });
         return stepper;
+    }
+
+    /**
+     * Put the browser's own validation sentence into the field's own error
+     * slot, so it survives the bubble.
+     *
+     * `validationMessage` is the browser's localised text, not one written
+     * here — which is the point: it already says *which* constraint failed
+     * ("لطفاً این فیلد را پر کنید", "مقدار باید بزرگ‌تر از ۰ باشد"), and
+     * re-wording it here would be a second, drifting copy of a rule the
+     * browser already enforces from the markup.
+     */
+    function writeNativeValidationMessage(field) {
+        const slot = field.form?.querySelector(`[data-error-for="${field.name}"]`);
+        if (slot && field.validationMessage) slot.textContent = field.validationMessage;
+    }
+
+    //: form -> the wizard wrapped around it, so `showError` can turn a server
+    //: rejection into a summary on the step the reader is actually looking at.
+    //: A WeakMap rather than a property on the element: nothing has to be
+    //: cleaned up when a dialog is discarded.
+    const wizardsByForm = new WeakMap();
+
+    /**
+     * The panel that explains a rejected submit *on the review step*.
+     *
+     * The defect this exists for: every wizard ends on "بازبینی و ثبت", and
+     * submitting from there sends the whole form. When the server rejects a
+     * field, `showError` writes the reason into that field's own
+     * `[data-error-for]` paragraph — which sits on step 1 or step 2, hidden
+     * behind the review step the reader is standing on. All they saw was the
+     * generic red banner, with no way to tell which field, or even which
+     * step, was the problem (product-owner request 2026-09-19).
+     *
+     * So this collects the same field errors, names each field by its own
+     * `<label>`, says which numbered step it is on, and offers a button that
+     * jumps straight there. Built in JavaScript rather than added to fifteen
+     * templates: the markup would be identical in every one of them, and a
+     * wizard added later would silently not have it.
+     */
+    function createWizardErrorSummary(root, contents, stepTitle, goToStep) {
+        const last = contents[contents.length - 1];
+        if (!last) return null;
+        const panel = document.createElement("div");
+        panel.className = "wizard-review-errors";
+        panel.setAttribute("role", "alert");
+        panel.hidden = true;
+        const heading = document.createElement("p");
+        heading.className = "wizard-review-errors-title";
+        heading.textContent = "این موارد باید اصلاح شوند:";
+        const list = document.createElement("ul");
+        list.className = "wizard-review-errors-list";
+        panel.append(heading, list);
+        // Under the step's own heading («بازبینی مشتری» and the rest), not
+        // above it: a heading names the screen, and an alert that jumped in
+        // front of it read as though something had gone wrong with the page
+        // rather than with the form on it. Every one of the fifteen wizards
+        // opens its review step with that `h3`; `prepend` is the fallback for
+        // one that some day does not.
+        const stepHeading = last.querySelector("h3");
+        if (stepHeading) stepHeading.after(panel); else last.prepend(panel);
+
+        return {
+            clear() {
+                list.replaceChildren();
+                panel.hidden = true;
+            },
+            /** `problems` is `[{label, message, step}]`, already resolved. */
+            show(problems) {
+                list.replaceChildren();
+                problems.forEach(({label, message, step}) => {
+                    const item = document.createElement("li");
+                    const name = document.createElement("span");
+                    name.className = "wizard-review-errors-field";
+                    name.textContent = label;
+                    const reason = document.createElement("span");
+                    reason.className = "wizard-review-errors-reason";
+                    reason.textContent = message;
+                    item.append(name, reason);
+                    if (step) {
+                        const jump = document.createElement("button");
+                        jump.type = "button";
+                        jump.className = "btn btn-sm btn-light-primary wizard-review-errors-jump";
+                        const title = stepTitle(step);
+                        jump.textContent = title
+                            ? `مرحلهٔ ${toPersianDigits(String(step))} — ${title}`
+                            : `مرحلهٔ ${toPersianDigits(String(step))}`;
+                        jump.addEventListener("click", () => goToStep(step));
+                        item.append(jump);
+                    }
+                    list.append(item);
+                });
+                panel.hidden = !problems.length;
+                if (problems.length) root.scrollIntoView({block: "nearest"});
+            },
+        };
+    }
+
+    /**
+     * A field's own human name, for the summary above.
+     *
+     * The `<label for>` a sighted reader is already using is the right name —
+     * not the API field key (`campaign_or_batch`), which is an internal
+     * identifier nobody on this side of the screen has ever seen. Falls back
+     * to the key only when a field genuinely has no label (a whole-form error
+     * such as `non_field_errors`, or a server key with no input of its own).
+     */
+    function fieldLabelFor(form, name) {
+        const field = form.querySelector(`[name="${CSS.escape(name)}"]`);
+        const byFor = field?.id ? form.querySelector(`label[for="${CSS.escape(field.id)}"]`) : null;
+        const label = byFor || field?.closest("label") || null;
+        const text = label?.textContent?.trim();
+        if (text) return text;
+        return name === "non_field_errors" ? "این فرم" : name;
+    }
+
+    /**
+     * Turn a rejected wizard submit into the summary described above.
+     *
+     * Reads the same `[data-error-for]` slots `showError` has just filled
+     * rather than the payload again, so the summary can never list a reason
+     * different from the one printed under the field itself.
+     */
+    function reportWizardErrors(form) {
+        const wizard = wizardsByForm.get(form);
+        if (!wizard) return;
+        const problems = [];
+        form.querySelectorAll("[data-error-for]").forEach((slot) => {
+            const message = slot.textContent.trim();
+            if (!message) return;
+            const name = slot.dataset.errorFor;
+            problems.push({
+                label: fieldLabelFor(form, name),
+                message,
+                step: wizard.stepOf(form.querySelector(`[name="${CSS.escape(name)}"]`) || slot),
+            });
+        });
+        wizard.summary.show(problems);
     }
 
     /**
@@ -8431,23 +8794,42 @@
         return select?.selectedOptions[0]?.textContent || "—";
     }
 
-    /** Fill a wizard's review step from `[label, value]` pairs. Read at the
+    /**
+     * Fill a wizard's review step from `[label, value]` pairs. Read at the
      * moment the step is shown, never kept live — the review step's only job
-     * is to reflect what is about to be sent, not to recompute it. */
+     * is to reflect what is about to be sent, not to recompute it.
+     *
+     * One field per line, label on the reading edge and value on the far one,
+     * separated by a hairline rule (product-owner request 2026-09-19: the
+     * step read as "زشت و درهم"). It used to be a two-column `row g-3` of
+     * `col-md-6` cells, each stacking its own label above its own value —
+     * which meant the eye had to find four different left edges to read six
+     * fields, and a long Persian value in one cell pushed its neighbour's
+     * baseline out of line with it. A single column has one edge for every
+     * label and one for every value, so the whole step is scanned in one
+     * pass; it is also the shape the purchased theme's own invoice/summary
+     * blocks use (`d-flex flex-stack` over `separator separator-dashed`),
+     * rather than a layout invented here.
+     */
     function renderWizardReview(container, rows) {
         if (!container) return;
-        container.innerHTML = "";
+        container.replaceChildren();
         rows.forEach(([label, value]) => {
-            const col = document.createElement("div");
-            col.className = "col-md-6";
+            const line = document.createElement("div");
+            line.className = "wizard-review-row";
             const labelEl = document.createElement("span");
-            labelEl.className = "text-muted d-block fs-7";
+            labelEl.className = "wizard-review-label";
             labelEl.textContent = label;
             const valueEl = document.createElement("span");
-            valueEl.className = "fw-bold fs-6";
-            valueEl.textContent = value;
-            col.append(labelEl, valueEl);
-            container.append(col);
+            valueEl.className = "wizard-review-value";
+            // An empty optional field reads as an em dash, never as a label
+            // with nothing beside it. Most callers already write `|| "—"` by
+            // hand; doing it here as well means the twelve that did not — an
+            // audit of every wizard found them, 2026-09-19 — are covered too,
+            // and a wizard written later cannot reintroduce the gap.
+            valueEl.textContent = String(value ?? "").trim() || "—";
+            line.append(labelEl, valueEl);
+            container.append(line);
         });
     }
 
@@ -8467,6 +8849,11 @@
                 ["روش ارسال", selectedOptionText(document.getElementById("create-order-shipping"))],
                 ["تاریخ ارسال", document.getElementById("create-order-delivery")?.value || "تعیین نشده"],
                 ["تعداد اقلام", toPersianDigits(String(lines.collect().length))],
+                // The form collects «توضیحات» and the review never showed it —
+                // found by auditing every wizard's review against its own form
+                // (2026-09-19). A review step whose job is to reflect what is
+                // about to be sent has to show all of it.
+                ["توضیحات", document.getElementById("create-order-notes")?.value || "—"],
             ]);
         }
 

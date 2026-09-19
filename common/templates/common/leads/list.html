@@ -20,9 +20,22 @@
             </button>
             <div id="lead-filter-panel" class="list-filter-panel" hidden>
                 <form id="lead-search-form" action="{% url 'common_ui:leads' %}" method="get">
+                    {% comment %} تا پیش از این یک جعبهٔ متن آزاد با راهنمای «کد
+                       دقیق وضعیت» بود: کاربر باید مقدار داخلی مدل را حدس می‌زد و
+                       یک اشتباه تایپی، فهرستی خالی برمی‌گرداند بی‌آنکه چیزی
+                       بگوید. حالا همان سه وضعیت واقعی `sales.Lead.Status` —
+                       همان‌هایی که ستون «وضعیت» جدول و ستون‌های تابلوی سرنخ‌ها
+                       نشان می‌دهند — به‌صورت فهرست انتخابی هستند، و سرور هم هر
+                       مقدار بیرون از این سه را خطای درخواست می‌داند نه صفحهٔ
+                       خالی (درخواست مالک محصول ۲۰۲۶/۰۹/۱۹). {% endcomment %}
                     <div class="mb-4">
-                        <label class="form-label" for="lead-status-filter">فیلتر وضعیت</label>
-                        <input class="form-control form-control-solid" id="lead-status-filter" name="status" type="text" maxlength="40" placeholder="کد دقیق وضعیت">
+                        <label class="form-label" for="lead-status-filter">وضعیت</label>
+                        <select class="form-select form-select-solid" id="lead-status-filter" name="status">
+                            <option value="">همهٔ وضعیت‌ها</option>
+                            <option value="pending">در انتظار تکمیل</option>
+                            <option value="completed">تکمیل</option>
+                            <option value="cancelled">کنسل شده</option>
+                        </select>
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="lead-ordering">مرتب‌سازی</label>
@@ -53,13 +66,7 @@
    بالا از آن می‌خواند، پس هرگز بیشتر از دامنهٔ دسترسی کاربر نشان نمی‌دهد. اگر
    نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
    صفحه دست‌نخورده کار می‌کند. {% endcomment %}
-<section class="card mb-5 mb-xl-8" data-list-chart="leads"><div class="card-body">
-    <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
-        <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
-    </div>
-    <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
-    <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
-</div></section>
+{% include "common/includes/list_charts.inc" with chart_key="leads" %}
 <dialog id="create-lead-dialog" aria-labelledby="create-lead-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-lead-title">ساخت سرنخ</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="stepper stepper-links d-flex flex-column" id="create-lead-stepper">
@@ -80,9 +87,11 @@
             </div>
         </div>
         <div data-kt-stepper-element="content">
-            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سرنخ</h3>
-            <div class="row g-3 mb-4" id="create-lead-review"></div>
-            <p class="text-muted">تخصیص خودکار انجام نمی‌شود. نقش مجاز پس از ساخت، مسئول را دستی تعیین می‌کند.</p>
+            <div class="w-100">
+                <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سرنخ</h3>
+                <div class="wizard-review mb-4" id="create-lead-review"></div>
+                <p class="text-muted">تخصیص خودکار انجام نمی‌شود. نقش مجاز پس از ساخت، مسئول را دستی تعیین می‌کند.</p>
+            </div>
         </div>
         {% csrf_token %}
         <div class="d-flex flex-stack pt-5">
