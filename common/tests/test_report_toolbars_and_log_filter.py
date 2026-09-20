@@ -41,7 +41,19 @@ def _read(path):
 
 class ReportToolbarTests(SimpleTestCase):
     def test_there_are_report_pages_to_check(self):
-        self.assertGreaterEqual(len(REPORT_PAGES), 5)
+        """Restated 2026-09-20: two of the six lost their filter form when
+        they were rebuilt as step-by-step wizards in 3.0.0 («فیلتر جدا
+        نداشته باشند»), so this set is four. It is still worth asserting a
+        floor — the tests below say nothing at all if the glob quietly
+        matches nothing."""
+        self.assertGreaterEqual(len(REPORT_PAGES), 4)
+
+    def test_the_two_rebuilt_reports_are_deliberately_outside_this_set(self):
+        """Their toolbar is the wizard's own result step, and the rules
+        below are about a filter popover they no longer have."""
+        names = {path.name for path in REPORT_PAGES}
+        self.assertNotIn("sales_documents.html", names)
+        self.assertNotIn("inbound_sms.html", names)
 
     def test_no_report_header_is_centred_any_more(self):
         """The class soup that carried the centring, gone from all four that

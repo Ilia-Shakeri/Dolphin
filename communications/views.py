@@ -1,6 +1,7 @@
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -18,6 +19,8 @@ from common.permissions import (
 from common.throttles import SensitiveRateThrottle
 from communications import services, sms
 from communications.reports import build_inbound_sms_report, inbound_sms_drilldown
+from reports.financial_views import FinancialExportMixin
+from reports.xlsx import XLSX_CONTENT_TYPE, build_inbound_sms_workbook
 from communications.selectors import inbound_sms_for, outbound_sms_for
 from communications.sms_provider_settings import get_sms_provider_settings, update_sms_provider_settings
 from communications.serializers import (
@@ -48,6 +51,19 @@ class InboundSMSReportAccessMixin(FeatureGatedAPIMixin):
 
 
 class InboundSMSReportView(InboundSMSReportAccessMixin, APIView):
+    def build(self, request):
+        """The scoped report, with every gate this view enforces.
+
+        Split out of `get` so the export below runs through the same access
+        check, the same serializer and the same builder — an export that
+        reached the data by another path is an export that can disagree with
+        the page it came from.
+        """
+        self.check_sms_access(request)
+        serializer = InboundSMSReportQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return build_inbound_sms_report(actor=request.user, **serializer.validated_data)
+
     @extend_schema(
         parameters=[InboundSMSReportQuerySerializer],
         responses={
@@ -62,13 +78,39 @@ class InboundSMSReportView(InboundSMSReportAccessMixin, APIView):
         ),
     )
     def get(self, request):
-        self.check_sms_access(request)
-        serializer = InboundSMSReportQuerySerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        report = build_inbound_sms_report(actor=request.user, **serializer.validated_data)
-        response = Response(InboundSMSReportSerializer(report).data)
+        response = Response(InboundSMSReportSerializer(self.build(request)).data)
         response["Cache-Control"] = "private, no-store"
         return response
+
+
+class InboundSMSReportExportView(FinancialExportMixin, InboundSMSReportView):
+    """The same scoped hourly counts, as a workbook.
+
+    Subclasses the report view rather than rebuilding the query: same
+    feature gate, same capability check, same builder. The stored message
+    body is not in the report and is therefore not in the workbook either —
+    this product does not retain it (`body_retention_policy`), and an export
+    is not a way around that.
+    """
+
+    workbook_builder = staticmethod(build_inbound_sms_workbook)
+    filename = "dolphin-inbound-sms.xlsx"
+
+    @extend_schema(
+        parameters=[InboundSMSReportQuerySerializer],
+        responses={
+            (200, XLSX_CONTENT_TYPE): OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="Inbound SMS counts per Tehran-local hour, as a workbook.",
+            ),
+            (400, "application/json"): VALIDATION_ERROR_RESPONSE,
+            (403, "application/json"): ACCESS_DENIED_RESPONSE,
+            (429, "application/json"): THROTTLED_RESPONSE,
+        },
+        description="Exports the same scoped rows and total as the JSON inbound-SMS report.",
+    )
+    def get(self, request):
+        return self.export(request)
 
 
 class InboundSMSDrilldownView(InboundSMSReportAccessMixin, APIView):

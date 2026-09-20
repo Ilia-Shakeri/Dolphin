@@ -20,6 +20,7 @@ from reports.financial_views import (
     ProfitReportView,
     ReceivablesExportView,
     ReceivablesReportView,
+    SalesDocumentReportExportView,
 )
 from reports.views import SalesDocumentReportView, UserPerformanceDetailView, UserPerformanceExportView, UserPerformanceReportView
 from reports.profile_views import SalesGrowthReportView
@@ -37,6 +38,7 @@ urlpatterns = [
     path("reports/receivables/", ReceivablesReportView.as_view(), name="receivables-report"),
     path("reports/profit/", ProfitReportView.as_view(), name="profit-report"),
     path("reports/stock-valuation/", InventoryValuationReportView.as_view(), name="stock-valuation-report"),
+    path("exports/sales-documents.xlsx", SalesDocumentReportExportView.as_view(), name="sales-document-report-export"),
     path("exports/user-performance.xlsx", UserPerformanceExportView.as_view(), name="user-performance-export"),
     path("exports/users.xlsx", UserDirectoryExportView.as_view(), name="user-directory-export"),
     path("exports/customers.xlsx", CustomerDirectoryExportView.as_view(), name="customer-directory-export"),

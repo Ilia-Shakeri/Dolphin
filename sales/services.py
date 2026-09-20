@@ -10,6 +10,7 @@ from accounts.models import User
 from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 from common.phones import normalize_customer_phone
+from sales import postal
 from sales.models import (
     CUSTOMER_ADDRESS_MAX_LENGTH,
     CUSTOMER_CATEGORY_MAX_LENGTH,
@@ -682,7 +683,7 @@ def _clean_required_text(value, *, field, limit):
 
 
 @transaction.atomic
-def register_sales_document(*, actor, customer, document_number, postal_status, sale=None, notes=""):
+def register_sales_document(*, actor, customer, document_number, postal_status=None, sale=None, notes=""):
     actor = _lock_active_actor(actor)
     if not has_any_capability(actor, "sales_documents.manage"):
         raise BusinessPermissionDenied("ثبت سند فروش مجاز نیست.")
@@ -697,6 +698,13 @@ def register_sales_document(*, actor, customer, document_number, postal_status, 
         if locked_sale.customer_id != locked_customer.pk:
             raise BusinessRuleError({"sale": "فروش باید متعلق به مشتری انتخاب‌شده باشد."})
     document_number = _clean_required_text(document_number, field="document_number", limit=64)
+    # A parcel that has just been registered is in the shop's own store, and
+    # that is the first stop in `sales.postal`. Defaulted rather than
+    # required so a caller that has nothing to say records the truth instead
+    # of a word someone had to invent; an explicit value still wins, and free
+    # text is still accepted because existing deployments hold it.
+    if postal_status is None or not str(postal_status).strip():
+        postal_status = postal.DEFAULT_POSTAL_STATE
     postal_status = _clean_required_text(postal_status, field="postal_status", limit=80)
     _validate_text_lengths({"notes": notes}, SALES_DOCUMENT_TEXT_LIMITS)
     try:

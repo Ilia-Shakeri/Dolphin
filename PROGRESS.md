@@ -66,12 +66,12 @@ usage limit can be resumed from here with no questions.
 - [x] 7. «برند و لوگو» → «شخصی‌سازی پنل» inside admin settings
 - [x] 8. One header popover open at a time; Esc and outside-click everywhere
 
-### Batch D — `3.0.0` — reports, postal, integrations
-- [ ] 9. «گزارش اسناد فروش و پست» rebuilt as a wizard
-- [ ] 9. «گزارش پیامک ورودی» rebuilt as a wizard
-- [ ] 10. Four postal states with icons, shown as a stepper
-- [ ] 10. Service layer ready for a future post-office API
-- [ ] 11. API integrations page
+### Batch D — `2.13.0` — reports, postal, integrations
+- [x] 9. «گزارش اسناد فروش و پست» rebuilt as a wizard
+- [x] 9. «گزارش پیامک ورودی» rebuilt as a wizard
+- [x] 10. Four postal states with icons, shown as a stepper
+- [x] 10. Service layer ready for a future post-office API
+- [x] 11. API integrations page
 
 ### Batch E — `3.1.0` — console, profiles
 - [ ] 12. Console lists every page/option from the real feature source
@@ -88,40 +88,53 @@ usage limit can be resumed from here with no questions.
 
 ## Status
 
-**Current batch:** D — not started. Batch C is released as `2.12.0`
+**Current batch:** E — not started. Batch D is released as `2.13.0`
 (committed, not yet deployed; the deploy is the single one at the end).
+Released as MINOR rather than the `3.0.0` first planned: nothing in it breaks
+a contract, and §23 says the number follows what changed.
 
-**Next step:** item 9 — the two report wizards. Read
-`common/templates/common/reports/` and the `setupSalesDocumentReport` /
-`setupInboundSMSReport` neighbourhood in `dolphin-app.js` first, and reuse
-`setupWizard` (which now takes `validateStep`) rather than writing a third
-stepper. Items 10 and 11 follow in the same batch.
+**Next step:** item 12 — the Python build console. Find the console's own
+source first (it is an operator tool, not part of the served panel) and the
+real feature source it must read from — `common/deployment/registry.py` and
+the manifest — rather than the hand-maintained list it has now. Item 13
+(marketer profile photos, Metronic cartoon avatars) follows.
 
-**Files changed in batch C:**
-- `common/static/common/dolphin-app.js` — `registerPopover` /
-  `closeOtherPopovers` / `setupPopoverDismissal`; all five panels rewired;
-  `createLineItemRows` rebuilt with price, line total and `onChange`;
-  `documentTotals` / `renderDocumentTotals` / `roundMoney` /
-  `validateLinesStep` / `EMPTY_LINE_ROWS`; `setupWizard` takes `validateStep`
-- `common/static/common/dolphin.css` — the lines step is a column, one shared
-  grid for the header and the rows, the money columns, the summary block, the
-  phone layout, a wider dialog for a wizard with a line step
-- `common/templates/common/invoices/list.html`, `orders/list.html` — the
-  rebuilt step; `base.html` — settings to the sidebar, branding out of it;
-  `settings/settings.html`, `branding/settings.html` — «شخصی‌سازی پنل»
-- `common/tests/test_ui_overhaul_invoice_settings_popovers.py` — new, 43 tests
-- `common/tests/test_filter_popover.py`, `test_branding.py`,
-  `test_user_preferences.py`, `test_invoice_order_wizard.py` — six tests
-  restated for what this batch deliberately changed
-- `VERSION` → `2.12.0`, `CHANGELOG.md`
+**Files changed in batch D:**
+- `sales/postal.py` — new; the four states and the carrier seam
+- `sales/serializers.py`, `sales/views.py`, `sales/services.py` — the
+  label/stepper fields, the `postal-states` endpoint, the default state
+- `reports/list_charts.py` — the status chart groups by label; a postal
+  filter
+- `reports/xlsx.py`, `reports/views.py`, `reports/financial_views.py`,
+  `reports/urls.py`, `communications/views.py`, `communications/urls.py` —
+  two workbook builders, two export views, `build` split out of `get`
+- `common/integrations.py` — new; the registry behind the new page
+- `common/ui_views.py`, `common/ui_urls.py` — `IntegrationsView`
+- `common/templates/common/settings/integrations.html` — new
+- `common/templates/common/reports/sales_documents.html`,
+  `reports/inbound_sms.html` — both rebuilt as wizards
+- `common/templates/common/sales_documents/detail.html`, `list.html`,
+  `settings/settings.html`
+- `common/static/common/dolphin-app.js` — `setupReportWizard`,
+  `renderPostalStepper`, `fillPostalStates`/`loadPostalStates`/
+  `postalStateLabel`, `setupIntegrations`; both report pages rewired
+- `common/static/common/dolphin.css` — new §13 postal stepper, §14
+  integrations, §15 report wizards
+- `common/tests/ui_overhaul_helpers.py` — new; one copy of the readers the
+  four overhaul modules had each been carrying
+- `common/tests/test_ui_overhaul_reports_postal_integrations.py` — new, 53
+  tests; the other three overhaul modules switched to the shared helper
+- seven existing tests restated, including one Selenium test that could not
+  be executed here
+- `VERSION` → `2.13.0`, `CHANGELOG.md`
 
-**Checks run:** full suite — 2412 tests, no failures, only the 7 pre-existing
-Selenium browser errors. Browser-measured on the live panel: wizard header and
-row cells right-edge-identical (1108/800/679/590/462) with identical resolved
-tracks; 3 × ۱۷٬۸۰۰٬۰۰۰ at 10% and 9% previewed ۵۲٬۳۸۵٬۴۰۰ ریال and the saved
-invoice held `total_amount` 52385400.00; the duplicate-product refusal blocked
-the step with its own sentence; at 375px every child of the step measured
-309px with no page or dialog scroll; the sidebar's last entry is «تنظیمات» and
-the user menu has none; bell → search → user menu left exactly one open each
-time; Escape closed and returned focus; a click on the icon inside the search
-button opened rather than closed it.
+**Checks run:** full suite — 2467 tests, no failures, only the 7 pre-existing
+Selenium browser errors (the 8th, the SMS shell, was restated for the wizard
+and is one of the seven suites that cannot run in this environment). OpenAPI
+schema generates with no errors and no warnings. Browser-measured: the
+parcels wizard stepping 1/1 → 4/4 with the report visible at the end, section
+toggles hiding panels in place, going back and changing the range rebuilding
+on the way forward, both exports returning real XLSX with the right headers,
+the postal stepper reading done/done/current/upcoming after a real transition
+with no horizontal overflow at 1536px or 375px, and the integrations page
+listing SMS (test printing the provider's own refusal), post and «به‌زودی».

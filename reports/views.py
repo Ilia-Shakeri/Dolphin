@@ -134,6 +134,25 @@ class SalesDocumentReportView(FeatureGatedAPIMixin, APIView):
     permission_classes = [IsActiveAuthenticated]
     throttle_classes = [SensitiveRateThrottle]
 
+    def build(self, request):
+        """The scoped report, with every gate this view enforces.
+
+        Split out of `get` so the export below runs through exactly the same
+        capability check, the same serializer and the same builder — an
+        export that reached the data by another path is an export that can
+        disagree with the page it came from.
+        """
+        if not has_any_capability(request.user, "reports.own", "reports.company"):
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.")
+        serializer = SalesDocumentReportQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        try:
+            return build_sales_document_report(actor=request.user, **serializer.validated_data)
+        except InvalidReportPeriod as exc:
+            raise ValidationError({"period_end": "بازه گزارش نامعتبر است."}) from exc
+        except ReportAccessDenied as exc:
+            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.") from exc
+
     @extend_schema(
         parameters=[SalesDocumentReportQuerySerializer],
         responses={
@@ -148,17 +167,7 @@ class SalesDocumentReportView(FeatureGatedAPIMixin, APIView):
         ),
     )
     def get(self, request):
-        if not has_any_capability(request.user, "reports.own", "reports.company"):
-            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.")
-        serializer = SalesDocumentReportQuerySerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        try:
-            report = build_sales_document_report(actor=request.user, **serializer.validated_data)
-        except InvalidReportPeriod as exc:
-            raise ValidationError({"period_end": "بازه گزارش نامعتبر است."}) from exc
-        except ReportAccessDenied as exc:
-            raise PermissionDenied("دسترسی به گزارش‌ها مجاز نیست.") from exc
-        response = Response(SalesDocumentReportSerializer(report).data)
+        response = Response(SalesDocumentReportSerializer(self.build(request)).data)
         response["Cache-Control"] = "private, no-store"
         return response
 

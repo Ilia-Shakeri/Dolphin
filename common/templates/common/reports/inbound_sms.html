@@ -6,42 +6,121 @@
 {% block page_title %}گزارش پیامک ورودی{% endblock %}
 {% block breadcrumb_current %}گزارش پیامک ورودی{% endblock %}
 {% block content %}
-{% comment %} A live search over the report's own hourly table, beside the
-   filter button `setupListFilterPopovers()` already builds around this
-   page's own `form.list-filters` (product-owner request 2026-09-12). {% endcomment %}
-<section class="card mb-5 mb-xl-8"><div class="card-body">
-<div class="d-flex flex-wrap align-items-center gap-3 mb-5">
-    <div class="list-search">
-        <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
-        <label class="sr-only" for="inbound-sms-report-search">جست‌وجو در گزارش</label>
-        <input class="form-control form-control-solid" id="inbound-sms-report-search" type="search" placeholder="تاریخ یا ساعت">
+{% comment %} ۳.۰.۰ — از نو ساخته شد، با همان درایور مشترکی که «گزارش اسناد
+   فروش و پست» هم استفاده می‌کند (`setupReportWizard`). دو گزارش هم‌شکل‌اند —
+   بازه، پالایش، انتخاب بخش‌ها، نتیجه — و دو پیاده‌سازی برایشان یعنی دو
+   ویزاردی که با هم فرق می‌کنند. {% endcomment %}
+<section class="card report-wizard-card"><div class="card-body">
+<div id="inbound-sms-report-wizard">
+    <div class="stepper stepper-links d-flex flex-column">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">بازهٔ زمانی</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">پالایش</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">چه چیزی را ببینیم</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">نتیجه</h3></div>
+        </div>
+
+        {% comment %} چهار مرحله داخل ظرف خودشان، نه مستقیم زیر `.stepper`.
+           KTStepper موقع علامت‌زدن مرحلهٔ جاری از `KTUtil.index(element)`
+           استفاده می‌کند — یعنی جایگاه المان میان فرزندان *والدش*، نه میان
+           المان‌های stepper. اگر محتواها کنار نوار ناوبری و ردیف دکمه‌ها
+           بنشینند، شمارهٔ هرکدام یکی جلوتر می‌افتد و صفحه مرحلهٔ قبلی را
+           نشان می‌دهد در حالی که ناوبری مرحلهٔ بعدی را برجسته کرده است —
+           اندازه‌گیری شد: ناوبری روی ۴، محتوای دیده‌شده ۳. ویزاردهای ساخت
+           سند همین ظرف را دارند (عنصر form خودشان) و به همین دلیل درست کار
+           می‌کنند. اینجا عمداً بدون علامت زاویه نوشته شده: بررسی توازن
+           تگ‌های قالب (`test_ui_connectivity`) متن کامنت را هم می‌شمارد.
+           {% endcomment %}
+        <div class="report-steps">
+            <div class="current report-step" data-kt-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">گزارش برای کدام بازه؟</h3>
+                <p class="text-muted fs-7 mb-5">بر پایهٔ زمانی که سرویس‌دهنده پیامک را دریافت کرده، به وقت ایران.</p>
+                <div id="inbound-sms-report-range"></div>
+            </div>
+
+            <div class="report-step" data-kt-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">محدودتر کنیم؟</h3>
+                <p class="text-muted fs-7 mb-5">هر کدام را خالی بگذارید، یعنی «همه».</p>
+                <div class="row g-5">
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="inbound-sms-provider">کد سرویس‌دهنده</label><input class="form-control form-control-solid" id="inbound-sms-provider" maxlength="50" dir="ltr" placeholder="provider_code"></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="inbound-sms-recipient">شمارهٔ گیرنده (E.164)</label><input class="form-control form-control-solid" id="inbound-sms-recipient" maxlength="20" dir="ltr" placeholder="+989xxxxxxxxx"></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="inbound-sms-state">وضعیت پردازش</label><select class="form-select form-select-solid" id="inbound-sms-state"><option value="">همه</option><option value="linked">متصل به مشتری</option><option value="unmatched">بدون تطبیق قطعی</option></select></div>
+                </div>
+            </div>
+
+            <div class="report-step" data-kt-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">کدام بخش‌ها را ببینید؟</h3>
+                <p class="text-muted fs-7 mb-5">هر بخشی که تیک بخورد در نتیجه می‌آید.</p>
+                <div class="report-sections">
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="summary" checked>
+                        <span><span class="report-section-title">شمارهٔ کل</span><span class="report-section-note">تعداد کل پیامک ورودی این بازه.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="chart" checked>
+                        <span><span class="report-section-title">نمودار</span><span class="report-section-note">شکل توزیع پیامک‌ها روی روز و ساعت.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="table" checked>
+                        <span><span class="report-section-title">جدول ساعتی</span><span class="report-section-note">شمارش هر ساعت، با امکان دیدن رکوردهای مجاز همان ساعت.</span></span>
+                    </label>
+                </div>
+                <p class="alert alert-danger fs-7 mt-5 mb-0" data-step-error role="alert" hidden></p>
+            </div>
+
+            <div class="report-step" data-kt-stepper-element="content">
+                <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-5">
+                    <h3 class="fs-4 fw-bold text-gray-900 mb-0">نتیجه</h3>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <div class="list-search">
+                            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+                            <label class="sr-only" for="inbound-sms-report-search">جست‌وجو در نتیجه</label>
+                            <input class="form-control form-control-solid" id="inbound-sms-report-search" type="search" placeholder="تاریخ یا ساعت">
+                        </div>
+                        <button class="btn btn-sm btn-light-primary" type="button" id="inbound-sms-report-export">
+                            <i class="ki-duotone ki-exit-down fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+                            خروجی اکسل
+                        </button>
+                    </div>
+                </div>
+
+                <div id="inbound-sms-report-loading" class="text-center text-gray-700 py-10" hidden>در حال ساخت گزارش…</div>
+                <div id="inbound-sms-report-empty" class="text-center text-gray-700 py-10" hidden>در این بازه و با این پالایش، پیامکی نیست.</div>
+                <div id="inbound-sms-report-error" class="state state-error" role="alert" hidden></div>
+
+                <div id="inbound-sms-report-content" hidden>
+                    <div class="row g-5 mb-6" data-report-panel="summary">
+                        <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5">
+                            <span class="text-muted fw-semibold fs-7 d-block">کل پیامک ورودی</span>
+                            <span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="inbound-sms-total">۰</span>
+                        </div></div></div>
+                    </div>
+                    <div class="mb-8" data-report-panel="chart">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">تعداد بر پایهٔ روز و ساعت</h4>
+                        <div id="inbound-sms-chart" class="performance-chart" role="img" aria-label="نمودار تعداد پیامک ورودی"></div>
+                        <p id="inbound-sms-chart-empty" class="text-center text-gray-700 py-10" hidden>داده‌ای برای نمودار نیست.</p>
+                    </div>
+                    <div data-report-panel="table">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">شمارش ساعتی</h4>
+                        <p id="inbound-sms-empty" class="text-center text-gray-700 py-10" hidden>داده‌ای در این بازه نیست.</p>
+                        <div id="inbound-sms-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>تاریخ ایران</th><th>ساعت</th><th>تعداد</th><th>جزئیات</th></tr></thead><tbody id="inbound-sms-table-body"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-stack pt-8">
+            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>مرحلهٔ قبل</button>
+            <button class="btn btn-primary" type="button" data-kt-stepper-action="next">مرحلهٔ بعد<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+        </div>
     </div>
-    <form id="inbound-sms-report-form" action="/api/v1/reports/inbound-sms/" method="get" class="list-filters" novalidate>
-        <div><label class="form-label fw-semibold" for="inbound-sms-start">شروع بازه</label><input class="form-control form-control-solid" id="inbound-sms-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-end">پایان بازه</label><input class="form-control form-control-solid" id="inbound-sms-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-provider">کد سرویس‌دهنده</label><input class="form-control form-control-solid" id="inbound-sms-provider" name="provider_code" maxlength="50" dir="ltr" placeholder="provider_code"></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-recipient">شماره گیرنده E.164</label><input class="form-control form-control-solid" id="inbound-sms-recipient" name="recipient_normalized" maxlength="20" dir="ltr" placeholder="+989xxxxxxxxx"></div>
-        <div><label class="form-label fw-semibold" for="inbound-sms-state">وضعیت پردازش</label><select class="form-select form-select-solid" id="inbound-sms-state" name="processing_state"><option value="">همه</option><option value="linked">متصل به مشتری</option><option value="unmatched">بدون تطبیق قطعی</option></select></div>
-        <button class="btn btn-primary" type="submit">ساخت گزارش</button>
-    </form>
 </div>
 </div></section>
-<div id="inbound-sms-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10" hidden>در حال ساخت گزارش…</div></div>
-<div id="inbound-sms-error" class="card state state-error" role="alert" hidden></div>
-<section id="inbound-sms-content" hidden>
-    <div class="row g-5 mb-6"><div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">کل پیامک ورودی</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="inbound-sms-total">۰</span></div></div></div></div>
-    <div class="card performance-chart-card"><div class="card-body">
-        <h2 class="fs-3 fw-bold text-gray-900 mb-5">نمودار تعداد بر پایه روز و ساعت</h2>
-        <div id="inbound-sms-chart" class="performance-chart" role="img" aria-label="نمودار تعداد پیامک ورودی"></div>
-        <p id="inbound-sms-chart-empty" class="text-center text-gray-700 py-10" hidden>داده‌ای برای نمودار نیست.</p>
-    </div></div>
-    <div class="card mb-5 mb-xl-8"><div class="card-body">
-        <h2 class="fs-3 fw-bold text-gray-900 mb-5">شمارش ساعتی</h2>
-        <p id="inbound-sms-empty" class="text-center text-gray-700 py-10" hidden>داده‌ای در این بازه نیست.</p>
-        <div id="inbound-sms-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>تاریخ ایران</th><th>ساعت</th><th>تعداد</th><th>جزئیات</th></tr></thead><tbody id="inbound-sms-table-body"></tbody></table></div>
-    </div></div>
-</section>
-<section id="inbound-sms-drilldown" class="card mb-5 mb-xl-8" hidden><div class="card-body">
+
+{% comment %} دو کارت زیر خارج از ویزاردند، چون پاسخِ یک کلیک روی جدول
+   ساعتی‌اند نه یکی از مراحل: با انتخاب یک ساعت باز می‌شوند و همان‌جا
+   می‌مانند تا ساعت دیگری انتخاب شود. {% endcomment %}
+<section id="inbound-sms-drilldown" class="card mb-5 mb-xl-8 mt-5" hidden><div class="card-body">
     <h2 id="inbound-sms-drilldown-title">جزئیات مجاز</h2>
     <div id="inbound-sms-drilldown-loading" class="text-center text-gray-700 py-10" hidden>در حال دریافت جزئیات…</div>
     <div id="inbound-sms-drilldown-error" class="state state-error" role="alert" hidden></div>

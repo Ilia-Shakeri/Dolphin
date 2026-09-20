@@ -36,14 +36,16 @@ from reports.serializers import (
     ProfitReportSerializer,
     ReceivablesQuerySerializer,
     ReceivablesReportSerializer,
+    SalesDocumentReportQuerySerializer,
 )
 from reports.services import ReportAccessDenied
-from reports.views import XLSXNegotiationRenderer
+from reports.views import SalesDocumentReportView, XLSXNegotiationRenderer
 from reports.xlsx import (
     XLSX_CONTENT_TYPE,
     build_inventory_valuation_workbook,
     build_profit_workbook,
     build_receivables_workbook,
+    build_sales_document_workbook,
 )
 
 
@@ -220,6 +222,35 @@ class InventoryValuationExportView(FinancialExportMixin, InventoryValuationRepor
             (429, "application/json"): THROTTLED_RESPONSE,
         },
         description="Exports the same scoped rows and totals as the JSON valuation report.",
+    )
+    def get(self, request):
+        return self.export(request)
+
+
+class SalesDocumentReportExportView(FinancialExportMixin, SalesDocumentReportView):
+    """The same scoped report as the JSON one, as a workbook.
+
+    Subclasses the report view rather than rebuilding the query, so the
+    feature gate, the capability check, the serializer and the builder are
+    literally the same code — an export that could disagree with the page it
+    was downloaded from is worse than no export.
+    """
+
+    workbook_builder = staticmethod(build_sales_document_workbook)
+    filename = "dolphin-sales-documents.xlsx"
+
+    @extend_schema(
+        parameters=[SalesDocumentReportQuerySerializer],
+        responses={
+            (200, XLSX_CONTENT_TYPE): OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="Parcels by geography and postal status, as a workbook.",
+            ),
+            (400, "application/json"): VALIDATION_ERROR_RESPONSE,
+            (403, "application/json"): ACCESS_DENIED_RESPONSE,
+            (429, "application/json"): THROTTLED_RESPONSE,
+        },
+        description="Exports the same scoped rows and totals as the JSON parcels report.",
     )
     def get(self, request):
         return self.export(request)

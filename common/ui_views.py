@@ -17,6 +17,7 @@ from accounts.access import (
 from accounts.models import User
 from common import labels
 from common.dashboard_layout import arrange_capability_tiles
+from common.integrations import visible_integrations
 from common.deployment.profile import active_profile, feature_enabled
 from common.pdf import (
     PdfRendererBusy,
@@ -744,6 +745,25 @@ class DolphinOutboundSMSView(ActiveCrmView):
         config = sms.resolve_config()
         context["sms_provider_configured"] = config is not None
         context["sms_provider_label"] = config.label if config else ""
+        return context
+
+
+class IntegrationsView(ActiveCrmView):
+    """`/settings/integrations/` — every outside service, in one list.
+
+    No feature or role gate of its own, deliberately. What a reader may see
+    here is decided row by row by `common.integrations.visible_integrations`,
+    against the same gate each service's own settings page enforces, and a
+    reader who may configure nothing gets an empty list rather than a 403 —
+    "there is nothing here for you" is the true answer, and a permission
+    error would suggest there is something being withheld.
+    """
+
+    template_name = "common/settings/integrations.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["integrations"] = visible_integrations(self.request.user)
         return context
 
 

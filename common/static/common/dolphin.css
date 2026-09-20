@@ -3037,3 +3037,314 @@ dialog:has(.wizard-lines-step) {
         max-inline-size: none;
     }
 }
+
+/* 13. The postal stepper ----------------------------------------------------
+
+   The four stops a parcel travels, side by side, with the current one lit —
+   product owner, 2026-09-20: «همهٔ حالت‌ها کنار هم به شکل stepper نمایش داده
+   شوند و حالت فعلی برجسته باشد». The states themselves, their order, their
+   icons and their labels all come from `sales/postal.py`; nothing here knows
+   how many there are or what they are called.
+
+   Built on the theme's own colour tokens rather than a palette invented
+   here: a completed stop is `--bs-success`, the current one `--bs-primary`,
+   and one still ahead is the same muted grey every "not yet" state in this
+   panel uses.
+
+   The rail between stops is two pseudo-elements per item rather than one
+   reaching into its neighbour. An item that drew the whole gap to the stop
+   before it would have to extend past its own edge, and the last one then
+   pushes the page sideways — measured, 55px of horizontal scroll. Instead
+   each stop draws its own half on each side and the halves meet exactly at
+   the boundary, so nothing ever leaves the grid:
+
+     `::before`  from this item's inline-end edge to its own mark   (the half
+                 shared with the previous stop)
+     `::after`   from this item's inline-start edge to its own mark (the half
+                 shared with the next stop)
+
+   Which half is filled follows from this stop alone, so no rule has to know
+   anything about a neighbour: the half towards the previous stop is filled
+   once the parcel has reached here (done *or* current), and the half towards
+   the next stop only once it has left (done). */
+
+.postal-stepper {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* No gap: the two halves of a rail have to meet, and a gap is a break in
+       the line. The breathing room is the items' own padding. */
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.postal-step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.25rem 0.5rem;
+    text-align: center;
+}
+
+.postal-step::before,
+.postal-step::after {
+    position: absolute;
+    inset-block-start: 1.85rem;
+    height: 2px;
+    background-color: var(--bs-gray-300);
+}
+
+/* Nothing to the right of the first stop, nothing to the left of the last. */
+.postal-step:not(:first-child)::before {
+    content: "";
+    inset-inline-end: 0;
+    /* Stops short of the mark by half its width plus a little air. */
+    inset-inline-start: calc(50% + 1.9rem);
+}
+
+.postal-step:not(:last-child)::after {
+    content: "";
+    inset-inline-start: 0;
+    inset-inline-end: calc(50% + 1.9rem);
+}
+
+/* The rail fills up behind the parcel as it moves. Both selectors carry the
+   `:not()` the grey ones do, so they match its specificity and win on order
+   — without it `.postal-step-done::after` is (0,1,1) against the grey rule's
+   (0,2,1) and the rail stays grey however far along the parcel is. */
+.postal-step-done:not(:first-child)::before,
+.postal-step-current:not(:first-child)::before,
+.postal-step-done:not(:last-child)::after {
+    background-color: var(--bs-success);
+}
+
+.postal-step-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 50%;
+    background-color: var(--bs-gray-200);
+    color: var(--bs-gray-600);
+    transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.postal-step-done .postal-step-mark {
+    background-color: var(--bs-success-light);
+    color: var(--bs-success);
+}
+
+/* The current stop is the one thing on this card a reader is looking for,
+   so it is the only one with a ring. */
+.postal-step-current .postal-step-mark {
+    background-color: var(--bs-primary);
+    color: var(--bs-light);
+    box-shadow: 0 0 0 0.35rem var(--bs-primary-clarity);
+}
+
+.postal-step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.postal-step-label {
+    font-weight: 600;
+    color: var(--bs-gray-700);
+    overflow-wrap: anywhere;
+}
+
+.postal-step-current .postal-step-label {
+    color: var(--bs-gray-900);
+}
+
+.postal-step-done .postal-step-label {
+    color: var(--bs-gray-800);
+}
+
+/* The one-line description is context, not the label — it stays quiet, and
+   on the stop nobody is at it stays quieter still. */
+.postal-step-note {
+    font-size: 0.85rem;
+    color: var(--bs-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.postal-step-upcoming .postal-step-note {
+    opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .postal-step-mark {
+        transition: none;
+    }
+}
+
+/* Four stops of Persian text do not fit across a phone. The stepper becomes
+   a vertical list with the rail running down the marks instead of across
+   them, which is the same information in the shape that fits. */
+@media (max-width: 767.98px) {
+    .postal-stepper {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .postal-step {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 1rem;
+        padding-block: 0.75rem;
+        text-align: start;
+    }
+
+    /* The rail turns vertical and runs down the centre of the marks. The
+       same two halves, now above and below each mark. */
+    .postal-step::before,
+    .postal-step::after {
+        inset-block-start: auto;
+        inset-inline-start: auto;
+        inset-inline-end: calc(1.6rem - 1px);
+        width: 2px;
+        height: auto;
+    }
+
+    .postal-step:not(:first-child)::before {
+        inset-block-start: 0;
+        inset-block-end: calc(100% - 1.6rem);
+    }
+
+    .postal-step:not(:last-child)::after {
+        inset-block-start: 1.6rem;
+        inset-block-end: 0;
+    }
+
+    .postal-step-body {
+        padding-block-start: 0.35rem;
+    }
+}
+
+/* 14. The integrations page -------------------------------------------------
+
+   One card per outside service (`common/integrations.py`). Almost all of it
+   is the theme's own card, symbol, badge and alert; what is here is the
+   definition list of facts under each one, which the theme has no component
+   for, and a monospace treatment for the masked key so its dots and digits
+   line up instead of drifting. */
+
+.integration-details {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.35rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.integration-details dt {
+    color: var(--bs-text-muted);
+    font-weight: 500;
+}
+
+.integration-details dd {
+    margin: 0;
+    color: var(--bs-gray-800);
+    overflow-wrap: anywhere;
+}
+
+/* A key hint is a string of identical dots and a few characters; a
+   proportional face makes the dots crowd and the digits sit unevenly. */
+.integration-secret {
+    font-family: var(--bs-font-monospace);
+    letter-spacing: 0.08em;
+}
+
+@media (max-width: 575.98px) {
+    /* At phone width the two columns leave nothing for the value, so each
+       fact becomes a label above its own line. */
+    .integration-details {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.1rem;
+    }
+
+    .integration-details dd:not(:last-child) {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* 15. The report wizards ----------------------------------------------------
+
+   Both rebuilt reports (3.0.0) are one card holding the theme's own
+   `stepper stepper-links`. Almost nothing is needed on top of that: the
+   steps are the theme's, the nav is the theme's, the tables are the panel's
+   own. What is here is the two things the theme has no component for — a
+   step that lays its children out down the page rather than across it, and
+   the "what do you want to see" checklist. */
+
+/* The same fix `.wizard-lines-step` needs, and for the same reason: the
+   theme makes a stepper's current content a flex *row*, which squeezes a
+   step made of a heading, a paragraph and a block of controls into three
+   narrow columns. */
+.report-step {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Room to breathe between the nav and the step, and between the step and
+   the buttons — a wizard whose four steps are each three lines tall reads
+   as a form that lost its layout. */
+.report-wizard-card .stepper-nav {
+    margin-bottom: 1rem;
+}
+
+.report-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+}
+
+/* A whole tickable card rather than a checkbox with a label beside it: the
+   target is the card, which is both easier to hit and what the choice
+   actually is. */
+.report-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid var(--bs-gray-300);
+    border-radius: 0.625rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.report-section:hover {
+    border-color: var(--bs-primary);
+}
+
+/* The ticked state is on the card, not only on the box inside it. */
+.report-section:has(input:checked) {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+
+.report-section:focus-within {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+.report-section-title {
+    display: block;
+    font-weight: 600;
+    color: var(--bs-gray-900);
+}
+
+.report-section-note {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.85rem;
+    color: var(--bs-text-muted);
+}

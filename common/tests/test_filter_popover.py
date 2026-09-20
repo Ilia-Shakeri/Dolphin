@@ -96,23 +96,37 @@ def _function_body(name):
 #: name, not just by a number moving.
 REPORT_FILTER_TEMPLATES = frozenset({
     "reports/customer_ledger.html",
-    "reports/inbound_sms.html",
     "reports/profit.html",
     "reports/receivables.html",
-    "reports/sales_documents.html",
     "reports/stock_valuation.html",
 })
 
 
 class ReachTests(SimpleTestCase):
     def test_the_known_set_of_templates_still_carries_the_shared_class(self):
-        """Guards the fixture above, not the feature: if one of the six
-        report pages stopped using `.list-filters`, the generic popover
-        would silently skip it and this would be the only thing to notice.
+        """Guards the fixture above, not the feature: if one of these report
+        pages stopped using `.list-filters`, the generic popover would
+        silently skip it and this would be the only thing to notice.
+
+        Restated 2026-09-20: «گزارش اسناد فروش و پست» and «گزارش پیامک
+        ورودی» were rebuilt as step-by-step wizards in 3.0.0 and have no
+        filter form at all any more — that was the item («فیلتر جدا نداشته
+        باشند»). Their absence is now the expected state and is asserted
+        below rather than being a gap in this set.
+
         The other seventeen list pages converted to their own explicit
         `.list-search`/`.list-filter` markup on purpose (2026-09-09) and are
         expected to be absent here — see this module's own docstring."""
         self.assertEqual(set(FILTER_TEMPLATES), REPORT_FILTER_TEMPLATES)
+
+    def test_the_two_rebuilt_reports_have_no_filter_form_to_own(self):
+        for name in ("reports/sales_documents.html", "reports/inbound_sms.html"):
+            with self.subTest(template=name):
+                content = (TEMPLATES / name).read_text(encoding="utf-8")
+                self.assertNotIn("list-filters", content)
+                # What replaced it: four steps and a way back.
+                self.assertIn('data-kt-stepper-element="nav"', content)
+                self.assertIn('data-kt-stepper-action="previous"', content)
 
     def test_the_transformation_is_generic_not_a_hand_picked_list(self):
         body = _function_body("setupListFilterPopovers")
@@ -216,11 +230,18 @@ class ReportSearchBoxTests(SimpleTestCase):
     """The generic popover still owns these six forms untouched — this only
     checks the search box built beside them, by hand, on each page."""
 
-    def test_five_of_the_six_report_pages_carry_a_live_search_box(self):
+    def test_every_report_page_that_should_have_one_carries_a_live_search_box(self):
+        """Restated 2026-09-20. Two of the six became wizards and their
+        search box moved onto the result step, where the table it searches
+        is — so it is still there, and what is no longer there is the
+        `.list-filters` form underneath it."""
+        wizards = {"reports/sales_documents.html", "reports/inbound_sms.html"}
         for relative_path in sorted(REPORT_TEMPLATES_WITH_LIVE_SEARCH):
             content = (TEMPLATES / relative_path).read_text(encoding="utf-8")
             with self.subTest(template=relative_path):
                 self.assertIn('class="list-search"', content)
+                if relative_path in wizards:
+                    continue
                 # Still the generic popover underneath, not a converted
                 # `.list-filter` page — the two mechanisms are not meant to
                 # both appear on a page that only has one filter form.

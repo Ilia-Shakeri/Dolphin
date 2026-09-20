@@ -106,7 +106,21 @@ class InboundSMSShellBrowserTests(StaticLiveServerTestCase):
             1,
         )
         self.browser.get(f"{self.live_server_url}/reports/inbound-sms/")
-        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "inbound-sms-total"), "1"))
+        # Restated 2026-09-20: the page is a four-step wizard since 3.0.0
+        # («فیلتر جدا نداشته باشند؛ مرحله‌به‌مرحله باشند»), so the report is
+        # built by walking to the last step rather than by submitting a
+        # filter form. Everything after this point — the chart, the hourly
+        # table, the drill-down and the stored-message card — is the same
+        # journey it always was.
+        next_button = self.wait.until(
+            expected_conditions.element_to_be_clickable(
+                (By.CSS_SELECTOR, '#inbound-sms-report-wizard [data-kt-stepper-action="next"]')
+            )
+        )
+        for _ in range(3):
+            self.browser.execute_script("arguments[0].scrollIntoView({block:'center'});", next_button)
+            next_button.click()
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "inbound-sms-total"), "۱"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "inbound-sms-chart")))
         aggregate_button = self.wait.until(
             expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "#inbound-sms-table-body button"))

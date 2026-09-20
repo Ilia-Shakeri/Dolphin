@@ -6478,7 +6478,7 @@
                 ["مشتری", selectedOptionText(customerSelect)],
                 ["فروش مرتبط", selectedOptionText(saleSelect)],
                 ["شماره داخلی سند", document.getElementById("create-sales-document-number").value],
-                ["وضعیت پستی آغازین", document.getElementById("create-sales-document-status").value],
+                ["وضعیت پستی آغازین", selectedOptionText(document.getElementById("create-sales-document-status"))],
                 ["یادداشت", document.getElementById("create-sales-document-notes").value || "—"],
             ]);
         }
@@ -6495,6 +6495,10 @@
             const [customers, loadedSales] = await Promise.all([
                 loadAllPages("/api/v1/customers/?ordering=full_name"),
                 loadAllPages("/api/v1/sales/?ordering=-sold_at"),
+                // No empty option: a parcel that has just been registered is
+                // in the shop's own store, which is the first state, so the
+                // default is a fact rather than a prompt.
+                fillPostalStates(document.getElementById("create-sales-document-status")),
             ]);
             sales = loadedSales;
             fillSelect(customerSelect, customers, (customer) => customer.full_name, "یک مشتری انتخاب کنید");
@@ -6515,6 +6519,120 @@
         });
     }
 
+    /**
+     * The four postal stops, drawn side by side with the current one lit.
+     *
+     * The stops come from the server (`postal_stepper`) rather than from a
+     * table here: `sales/postal.py` owns which states exist, what they are
+     * called, what icon each carries and what order they travel in, and a
+     * second copy of that in the panel is the copy that goes stale the day a
+     * state is added.
+     *
+     * A document whose status is free text — anything registered before the
+     * vocabulary existed — gets an empty list and this card stays hidden.
+     * Drawing four stops with none of them current would say something false
+     * about where the parcel is; the stored text is still shown in the
+     * «وضعیت پستی جاری» field above.
+     */
+    function renderPostalStepper(steps) {
+        const card = document.getElementById("postal-stepper-card");
+        const list = document.getElementById("postal-stepper");
+        if (!card || !list) return;
+        if (!steps || !steps.length) {
+            card.hidden = true;
+            list.replaceChildren();
+            return;
+        }
+        list.replaceChildren(...steps.map((step, index) => {
+            const item = document.createElement("li");
+            item.className = `postal-step postal-step-${step.stage}`;
+            item.dataset.postalStep = step.key;
+            // The stage is announced, not only coloured: «مرحلهٔ جاری» is
+            // the one thing a screen reader has to be told, since the ring
+            // and the accent say it to everybody else.
+            if (step.stage === "current") item.setAttribute("aria-current", "step");
+
+            const mark = document.createElement("span");
+            mark.className = "postal-step-mark";
+            const icon = document.createElement("i");
+            icon.className = `ki-duotone ${step.icon} fs-2`;
+            for (let path = 1; path <= (step.icon_paths || 2); path += 1) {
+                const span = document.createElement("span");
+                span.className = `path${path}`;
+                icon.append(span);
+            }
+            mark.append(icon);
+
+            const body = document.createElement("span");
+            body.className = "postal-step-body";
+            const label = document.createElement("span");
+            label.className = "postal-step-label";
+            label.textContent = `${toPersianDigits(String(index + 1))}. ${step.label}`;
+            const note = document.createElement("span");
+            note.className = "postal-step-note";
+            note.textContent = step.description;
+            body.append(label, note);
+
+            item.append(mark, body);
+            return item;
+        }));
+        card.hidden = false;
+    }
+
+    /**
+     * Fill a `<select>` with the postal vocabulary.
+     *
+     * Two forms offer it — registering a document and moving one along — and
+     * both read it from the server rather than from a list here, so
+     * `sales/postal.py` stays the one declaration. A failed fetch leaves the
+     * selector empty, which `required` then refuses to submit: better than
+     * sending a state nobody defined.
+     */
+    async function fillPostalStates(select, {emptyLabel = null} = {}) {
+        if (!select || select.tagName !== "SELECT") return;
+        const states = await loadPostalStates();
+        // `fillSelect` reads `row.id`; a state's identifier is its `key`.
+        fillSelect(
+            select,
+            states.map((state) => ({id: state.key, ...state})),
+            (state) => state.label,
+            emptyLabel,
+        );
+    }
+
+    //: The vocabulary, fetched at most once per page. Three surfaces want it
+    //: — two selectors and the parcels report's own status column — and
+    //: three requests for a four-row constant is three too many.
+    let postalStatesPromise = null;
+    const postalStateLabels = new Map();
+
+    function loadPostalStates() {
+        postalStatesPromise ??= apiRequest("/api/v1/sales-documents/postal-states/")
+            .then((data) => {
+                data.results.forEach((state) => postalStateLabels.set(state.key, state.label));
+                return data.results;
+            })
+            .catch((error) => {
+                // Not cached as a rejection: a failed fetch should not make
+                // every later caller on the page fail too.
+                postalStatesPromise = null;
+                throw error;
+            });
+        return postalStatesPromise;
+    }
+
+    /**
+     * A stored postal status as a reader should see it.
+     *
+     * The label when the vocabulary knows the value, and the stored text
+     * unchanged otherwise — which is the same rule `sales.postal.label_for`
+     * applies on the server, and the reason a row written before the
+     * vocabulary existed still reads as what the operator actually typed.
+     */
+    function postalStateLabel(value) {
+        return postalStateLabels.get(value) || value || "نامشخص";
+    }
+
     function fillSalesDocument(item) {
         document.getElementById("sales-document-number").value = item.document_number;
         document.getElementById("sales-document-customer").value = item.customer_name || item.customer;
@@ -6524,7 +6642,11 @@
         document.getElementById("sales-document-city").value = item.city_snapshot || "—";
         document.getElementById("sales-document-postal-code").value = item.postal_code_snapshot || "—";
         document.getElementById("sales-document-address").value = item.address_snapshot || "—";
-        document.getElementById("sales-document-status").value = item.postal_status;
+        // The state's own Persian label, not its stored key — and for a row
+        // written before the vocabulary, the text the operator typed.
+        document.getElementById("sales-document-status").value =
+            item.postal_status_display || item.postal_status;
+        renderPostalStepper(item.postal_stepper);
         document.getElementById("sales-document-notes").value = item.notes || "";
         document.getElementById("sales-document-active-state").textContent = item.is_active ? "سند فعال است." : "سند غیرفعال است؛ تاریخچه حفظ شده است.";
         const section = document.getElementById("postal-transition-section");
@@ -6538,7 +6660,13 @@
         const rows = await loadAllPages(`/api/v1/sales-documents/${id}/postal-history/`);
         const nodes = rows.map((item) => {
             const row = document.createElement("tr");
-            [item.from_status || "آغاز", item.to_status, item.changed_by_display || item.changed_by, item.reason || "—", displayDate(item.changed_at)].forEach((value) => appendCell(row, value));
+            [
+                item.from_status_display || item.from_status || "آغاز",
+                item.to_status_display || item.to_status,
+                item.changed_by_display || item.changed_by,
+                item.reason || "—",
+                displayDate(item.changed_at),
+            ].forEach((value) => appendCell(row, value));
             return row;
         });
         document.getElementById("postal-history-table-body").replaceChildren(...nodes);
@@ -6555,6 +6683,16 @@
             [item] = await Promise.all([apiRequest(endpoint), loadPostalHistory(id)]);
             fillSalesDocument(item); loading.hidden = true; content.hidden = false;
         } catch (error) { loading.hidden = true; document.getElementById("postal-history-loading").hidden = true; showError(error); return; }
+        // Filled from the same list the stepper is drawn from, so the form
+        // can never offer a state the stepper cannot show.
+        try {
+            await fillPostalStates(document.getElementById("postal-to-status"), {
+                emptyLabel: "یک وضعیت انتخاب کنید",
+            });
+        } catch (error) {
+            showError(error);
+        }
+
         const form = document.getElementById("postal-transition-form");
         form?.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -6569,13 +6707,143 @@
         });
     }
 
-    function salesDocumentReportQuery(form) {
-        const data = new FormData(form);
-        const query = new URLSearchParams();
-        query.set("period_start", apiDateTime(String(data.get("period_start") || "")) || "");
-        query.set("period_end", apiDateTime(String(data.get("period_end") || "")) || "");
-        ["province", "city", "postal_status", "is_active"].forEach((name) => { const value = String(data.get(name) || "").trim(); if (value) query.set(name, value); });
-        return query;
+    /* --- the shared report wizard -------------------------------------------
+
+       Both rebuilt reports — «گزارش اسناد فروش و پست» and «گزارش پیامک
+       ورودی» — are the same shape: pick a window, narrow it, choose what to
+       look at, read the answer. The product owner asked for both to become
+       step-by-step wizards with no separate filter panel, a way back, and an
+       export («فیلتر جدا نداشته باشند؛ به‌صورت مرحله‌به‌مرحله باشند که کاربر
+       انتخاب کند چه چیزی را ببیند و در آخر نتیجه نمایش داده شود … امکان
+       برگشت به مرحلهٔ قبل و خروجی گرفتن»).
+
+       One driver for both, so the two cannot drift into two different
+       wizards. What differs is declared by the caller: the endpoint, how to
+       turn the chosen sections into a query, and how to draw the result.
+
+       The stepping itself is `setupWizard` — the same component the four
+       creation wizards use, including the `validateStep` hook added in
+       2.12.0 — rather than a second stepper written for reports. */
+
+    /**
+     * @param prefix    the id prefix every element on the page shares
+     * @param endpoint  where the report is built
+     * @param exportUrl where the workbook comes from, or null for no export
+     * @param extraQuery  () -> object, this report's own filter fields
+     * @param render      (report) -> void, draws it
+     * @param isEmpty     (report) -> bool, "nothing to show"
+     */
+    function setupReportWizard({prefix, endpoint, exportUrl, extraQuery, render, isEmpty}) {
+        const root = document.getElementById(`${prefix}-wizard`);
+        if (!root) return null;
+
+        const loading = document.getElementById(`${prefix}-loading`);
+        const empty = document.getElementById(`${prefix}-empty`);
+        const errorNote = document.getElementById(`${prefix}-error`);
+        const content = document.getElementById(`${prefix}-content`);
+        const exportButton = document.getElementById(`${prefix}-export`);
+
+        // Step one is the shared range filter, not a pair of date boxes: a
+        // reader picking «۳۰ روز» is doing the same thing here as on every
+        // chart in the panel, and it should be the same control.
+        const range = setupChartRange(
+            document.getElementById(`${prefix}-range`),
+            () => {},
+            {initial: "30d", label: "بازهٔ زمانی گزارش"},
+        );
+
+        /** The sections this reader ticked on the "what to show" step. */
+        function chosenSections() {
+            return [...root.querySelectorAll("[data-report-section]")]
+                .filter((box) => box.checked)
+                .map((box) => box.dataset.reportSection);
+        }
+
+        function query() {
+            const params = new URLSearchParams(range ? range.window() : {});
+            Object.entries(extraQuery ? extraQuery() : {}).forEach(([name, value]) => {
+                const text = String(value ?? "").trim();
+                if (text) params.set(name, text);
+            });
+            return params;
+        }
+
+        function show(node) {
+            [loading, empty, errorNote, content].forEach((each) => {
+                if (each) each.hidden = each !== node;
+            });
+        }
+
+        /** Hide the result sections this reader did not ask for. */
+        function applySections() {
+            const chosen = new Set(chosenSections());
+            root.querySelectorAll("[data-report-panel]").forEach((panel) => {
+                panel.hidden = !chosen.has(panel.dataset.reportPanel);
+            });
+        }
+
+        async function build() {
+            show(loading);
+            try {
+                const report = await apiRequest(`${endpoint}?${query()}`);
+                if (isEmpty && isEmpty(report)) {
+                    show(empty);
+                    return;
+                }
+                render(report);
+                applySections();
+                show(content);
+            } catch (error) {
+                if (errorNote) {
+                    errorNote.textContent = errorText(error);
+                    show(errorNote);
+                } else {
+                    show(null);
+                }
+                showError(error);
+            }
+        }
+
+        // The window is required and the range control always has one, so
+        // the only step that can be incomplete is the one asking what to
+        // show — a report with no sections chosen is a blank page.
+        // `setupWizard` looks for a `.stepper` *inside* what it is given,
+        // so `#<prefix>-wizard` wraps the stepper rather than being it.
+        const wizard = setupWizard(root, {
+            onReachLastStep: () => build(),
+            validateStep: (_index, step) => {
+                if (!step || !step.querySelector("[data-report-section]")) return null;
+                return chosenSections().length
+                    ? null
+                    : "دست‌کم یک بخش را برای نمایش انتخاب کنید.";
+            },
+        });
+
+        // Re-ticking a section after the report is built re-hides or re-shows
+        // it in place rather than rebuilding: the data is the same data.
+        root.querySelectorAll("[data-report-section]").forEach((box) => {
+            box.addEventListener("change", () => {
+                if (content && !content.hidden) applySections();
+            });
+        });
+
+        // Back a step and forward again must not silently keep a stale
+        // answer on screen — `onReachLastStep` rebuilds every time the last
+        // step is reached, which is what makes "go back, change it, come
+        // forward" mean what it looks like.
+
+        if (exportButton && exportUrl) {
+            exportButton.addEventListener("click", () => {
+                // The same window and the same filters the report on screen
+                // was built from, so the workbook can never be a different
+                // report than the one that was read.
+                window.location.assign(`${exportUrl}?${query()}`);
+            });
+        } else if (exportButton) {
+            exportButton.hidden = true;
+        }
+
+        return {wizard, build, query};
     }
 
     /**
@@ -6600,41 +6868,63 @@
     }
 
     async function setupSalesDocumentReport() {
-        const form = document.getElementById("sales-document-report-form");
+        // Rebuilt as a wizard in 3.0.0 on the shared driver; what is left
+        // here is what only this report knows — its own two filter fields,
+        // how to draw its two tables, and when it has nothing to draw.
+        const statusFilter = document.getElementById("document-report-status");
+        try {
+            // The postal vocabulary, so a filter cannot be a typo. "همه" is
+            // the empty option: a report with no status filter is the
+            // default and the common case.
+            await fillPostalStates(statusFilter, {emptyLabel: "همهٔ وضعیت‌ها"});
+        } catch (error) {
+            showError(error);
+        }
+
         bindReportTableSearch(document.getElementById("sales-document-report-search"), [
             document.getElementById("sales-document-geography-body"),
             document.getElementById("sales-document-status-body"),
         ]);
-        const now = new Date();
-        document.getElementById("document-report-start").value = localDateTimeValue(new Date(now.getFullYear(), now.getMonth(), 1));
-        document.getElementById("document-report-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
-        form.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(form, async () => {
-                const loading = document.getElementById("sales-document-report-loading");
-                const empty = document.getElementById("sales-document-report-empty");
-                const content = document.getElementById("sales-document-report-content");
-                loading.hidden = false; empty.hidden = true; content.hidden = true;
-                let report;
-                try { report = await apiRequest(`/api/v1/reports/sales-documents/?${salesDocumentReportQuery(form)}`); } finally { loading.hidden = true; }
-                document.getElementById("sales-document-report-total").textContent = report.total;
-                document.getElementById("sales-document-geography-body").replaceChildren(...report.by_geography.map((item) => { const row = document.createElement("tr"); [item.province || "ثبت‌نشده", item.city || "ثبت‌نشده", item.count].forEach((value) => appendCell(row, value)); return row; }));
-                document.getElementById("sales-document-status-body").replaceChildren(...report.by_postal_status.map((item) => { const row = document.createElement("tr"); [item.postal_status, item.count].forEach((value) => appendCell(row, value)); return row; }));
-                if (report.total) content.hidden = false; else empty.hidden = false;
-            });
-        });
-    }
 
-    function inboundSMSReportQuery(form) {
-        const data = new FormData(form);
-        const query = new URLSearchParams();
-        query.set("period_start", apiDateTime(String(data.get("period_start") || "")) || "");
-        query.set("period_end", apiDateTime(String(data.get("period_end") || "")) || "");
-        ["provider_code", "recipient_normalized", "processing_state"].forEach((name) => {
-            const value = String(data.get(name) || "").trim();
-            if (value) query.set(name, value);
+        setupReportWizard({
+            prefix: "sales-document-report",
+            endpoint: "/api/v1/reports/sales-documents/",
+            exportUrl: "/api/v1/exports/sales-documents.xlsx",
+            extraQuery: () => ({
+                province: document.getElementById("document-report-province").value,
+                city: document.getElementById("document-report-city").value,
+                postal_status: statusFilter.value,
+                is_active: document.getElementById("document-report-active").value,
+            }),
+            isEmpty: (report) => !report.total,
+            render: (report) => {
+                document.getElementById("sales-document-report-total").textContent =
+                    toPersianDigits(String(report.total));
+                document.getElementById("sales-document-geography-body").replaceChildren(
+                    ...report.by_geography.map((item) => {
+                        const row = document.createElement("tr");
+                        [
+                            item.province || "ثبت‌نشده",
+                            item.city || "ثبت‌نشده",
+                            toPersianDigits(String(item.count)),
+                        ].forEach((value) => appendCell(row, value));
+                        return row;
+                    }),
+                );
+                document.getElementById("sales-document-status-body").replaceChildren(
+                    ...report.by_postal_status.map((item) => {
+                        const row = document.createElement("tr");
+                        // The state's own Persian label, the same one the
+                        // parcel's own page and its stepper use.
+                        [
+                            postalStateLabel(item.postal_status),
+                            toPersianDigits(String(item.count)),
+                        ].forEach((value) => appendCell(row, value));
+                        return row;
+                    }),
+                );
+            },
         });
-        return query;
     }
 
     function renderInboundSMSChart(rows) {
@@ -6685,7 +6975,12 @@
         const empty = document.getElementById("inbound-sms-drilldown-empty");
         const wrap = document.getElementById("inbound-sms-drilldown-wrap");
         const pager = document.getElementById("inbound-sms-drilldown-pagination");
-        const query = inboundSMSReportQuery(document.getElementById("inbound-sms-report-form"));
+        // The same window and filters the hourly table was built from: a
+        // drill-down into a different range than the row that was clicked
+        // would be a different question entirely.
+        const query = inboundSMSReportWizard
+            ? inboundSMSReportWizard.query()
+            : new URLSearchParams();
         query.set("local_date", localDate);
         query.set("local_hour", String(localHour));
         query.set("page", String(page));
@@ -6695,7 +6990,8 @@
         empty.hidden = true;
         wrap.hidden = true;
         pager.hidden = true;
-        document.getElementById("inbound-sms-drilldown-title").textContent = `جزئیات ${localDate} — ساعت ${String(localHour).padStart(2, "0")}`;
+        document.getElementById("inbound-sms-drilldown-title").textContent =
+            `جزئیات ${displayDay(localDate)} — ساعت ${toPersianDigits(String(localHour).padStart(2, "0"))}`;
         try {
             const data = await apiRequest(`/api/v1/reports/inbound-sms/drilldown/?${query}`);
             const rows = data.results.map((item) => {
@@ -6740,35 +7036,45 @@
         }
     }
 
+    //: The inbound report's own wizard, so its drill-down can ask for the
+    //: same window and filters the table above it was built from. Set when
+    //: the page is set up; `null` anywhere else.
+    let inboundSMSReportWizard = null;
+
     async function setupInboundSMSReport() {
-        const form = document.getElementById("inbound-sms-report-form");
+        // Rebuilt as a wizard in 3.0.0 on the same driver the parcels report
+        // uses. The drill-down below the wizard is untouched: it answers a
+        // click on an hour rather than being a step.
         bindReportTableSearch(
             document.getElementById("inbound-sms-report-search"),
             [document.getElementById("inbound-sms-table-body")],
         );
-        const now = new Date();
-        document.getElementById("inbound-sms-start").value = localDateTimeValue(new Date(now.getFullYear(), now.getMonth(), 1));
-        document.getElementById("inbound-sms-end").value = localDateTimeValue(new Date(now.getTime() + 60000));
-        const load = async () => {
-            clearMessages(form);
-            const loading = document.getElementById("inbound-sms-loading");
-            const errorNode = document.getElementById("inbound-sms-error");
-            const content = document.getElementById("inbound-sms-content");
-            const empty = document.getElementById("inbound-sms-empty");
-            const wrap = document.getElementById("inbound-sms-table-wrap");
-            const button = form.querySelector("button[type='submit']");
-            loading.hidden = false;
-            errorNode.hidden = true;
-            content.hidden = true;
-            document.getElementById("inbound-sms-drilldown").hidden = true;
-            document.getElementById("inbound-sms-message-detail").hidden = true;
-            button.disabled = true;
-            try {
-                const report = await apiRequest(`/api/v1/reports/inbound-sms/?${inboundSMSReportQuery(form)}`);
-                document.getElementById("inbound-sms-total").textContent = String(report.total);
+
+        inboundSMSReportWizard = setupReportWizard({
+            prefix: "inbound-sms-report",
+            endpoint: "/api/v1/reports/inbound-sms/",
+            exportUrl: "/api/v1/exports/inbound-sms.xlsx",
+            extraQuery: () => ({
+                provider_code: document.getElementById("inbound-sms-provider").value,
+                recipient_normalized: document.getElementById("inbound-sms-recipient").value,
+                processing_state: document.getElementById("inbound-sms-state").value,
+            }),
+            isEmpty: (report) => !report.total,
+            render: (report) => {
+                // A new report answers a different question than whatever
+                // hour was open under the old one.
+                document.getElementById("inbound-sms-drilldown").hidden = true;
+                document.getElementById("inbound-sms-message-detail").hidden = true;
+
+                document.getElementById("inbound-sms-total").textContent =
+                    toPersianDigits(String(report.total));
                 const rows = report.results.map((item) => {
                     const row = document.createElement("tr");
-                    [item.local_date, String(item.local_hour).padStart(2, "0"), item.inbound_sms_count].forEach((value) => appendCell(row, value));
+                    [
+                        displayDay(item.local_date),
+                        toPersianDigits(String(item.local_hour).padStart(2, "0")),
+                        toPersianDigits(String(item.inbound_sms_count)),
+                    ].forEach((value) => appendCell(row, value));
                     const actions = document.createElement("td");
                     const drill = document.createElement("button");
                     drill.type = "button";
@@ -6781,20 +7087,10 @@
                 });
                 document.getElementById("inbound-sms-table-body").replaceChildren(...rows);
                 renderInboundSMSChart(report.results);
-                empty.hidden = Boolean(rows.length);
-                wrap.hidden = !rows.length;
-                content.hidden = false;
-            } catch (error) {
-                errorNode.textContent = errorText(error);
-                errorNode.hidden = false;
-                showError(error, form);
-            } finally {
-                loading.hidden = true;
-                button.disabled = false;
-            }
-        };
-        form.addEventListener("submit", (event) => { event.preventDefault(); load(); });
-        await load();
+                document.getElementById("inbound-sms-empty").hidden = Boolean(rows.length);
+                document.getElementById("inbound-sms-table-wrap").hidden = !rows.length;
+            },
+        });
     }
 
     function outboundSmsRow(item) {
@@ -13223,6 +13519,51 @@
     }
 
     /**
+     * The «اتصال سرویس‌ها» page: one card per integration, each with a real
+     * test where a real test exists.
+     *
+     * Everything on that page is server-rendered from
+     * `common/integrations.py` — the list, the status badge, the masked key,
+     * the last error. The only thing that needs script is the test button,
+     * and it does no more than post to the URL that row declared and print
+     * what came back. A row with no `data-integration-test` has no button,
+     * because an integration this build cannot really test should not offer
+     * a control that pretends otherwise.
+     */
+    function setupIntegrations() {
+        document.querySelectorAll("[data-integration-test]").forEach((button) => {
+            const card = button.closest("[data-integration]");
+            const result = card?.querySelector("[data-integration-result]");
+            button.addEventListener("click", async () => {
+                button.disabled = true;
+                if (result) {
+                    result.hidden = false;
+                    result.className = "alert alert-light fs-8 mt-3 mb-0";
+                    result.textContent = "در حال آزمودن اتصال…";
+                }
+                try {
+                    const data = await apiRequest(button.dataset.integrationTest, {
+                        method: "POST",
+                        body: {},
+                    });
+                    if (result) {
+                        result.className = `alert fs-8 mt-3 mb-0 ${data.success ? "alert-success" : "alert-danger"}`;
+                        // The provider's own words, not a sentence written
+                        // here: an operator debugging a gateway needs what
+                        // the gateway actually said.
+                        result.textContent = data.status_detail || (data.success ? "اتصال برقرار است." : "اتصال برقرار نشد.");
+                    }
+                } catch (error) {
+                    if (result) result.hidden = true;
+                    showError(error);
+                } finally {
+                    button.disabled = false;
+                }
+            });
+        });
+    }
+
+    /**
      * The topbar search box, on every page.
      *
      * One request per settled keystroke, not per keystroke: a debounce
@@ -14024,6 +14365,7 @@
     if (page === "product-category-detail") setupProductCategoryDetail();
     if (page === "sales") setupSales();
     if (page === "sale-detail") setupSaleDetail();
+    if (page === "integrations") setupIntegrations();
     if (page === "sales-documents") setupSalesDocuments();
     if (page === "sales-document-detail") setupSalesDocumentDetail();
     if (page === "user-performance") setupUserPerformance();

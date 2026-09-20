@@ -288,7 +288,21 @@ def after_sales_by_status(actor, narrow=None):
 
 
 def documents_by_postal_status(actor, narrow=None):
-    return _counted(_grouped_count(_narrowed(sales_documents_for, actor, narrow), "postal_status"))
+    """Grouped by the state's own Persian label since 3.0.0.
+
+    `postal_status` holds a vocabulary key on a row written since then and
+    whatever an operator typed on an older one. Labelling through
+    `postal.label_for` folds «ارسال به پست» and `handed_to_post` into one
+    slice — they are the same state — while a genuinely free-text value
+    still appears under exactly the words that were recorded.
+    """
+    from sales import postal
+
+    rows = _grouped_count(_narrowed(sales_documents_for, actor, narrow), "postal_status")
+    folded = {}
+    for value, count in rows:
+        folded[postal.label_for(value)] = folded.get(postal.label_for(value), 0) + count
+    return _counted(folded.items())
 
 
 def stock_value_by_warehouse(actor, narrow=None):
@@ -470,6 +484,13 @@ CHART_FILTERS = {
                     _related_options("agent_id", "agent__username")),
         ChartFilter("outcome", "نتیجه", "همهٔ نتیجه‌ها", "outcome",
                     _text_options("outcome")),
+    ),
+    # Free text until 3.0.0, so the options are whatever this deployment's
+    # rows actually hold rather than the vocabulary — which keeps a filter
+    # honest on a database that predates it.
+    "sales-documents": (
+        ChartFilter("postal_status", "وضعیت پستی", "همهٔ وضعیت‌ها", "postal_status",
+                    _text_options("postal_status")),
     ),
 }
 

@@ -25,7 +25,8 @@ from sales.selectors import customers_for, interactions_for, target_audience_for
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales import postal
 from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -829,6 +830,24 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
         serializer.is_valid(raise_exception=True)
         document = transition_postal_status(actor=request.user, document=self.get_object(), **serializer.validated_data)
         return Response(self.get_serializer(document).data)
+
+    @extend_schema(
+        responses={200: PostalStateSerializer(many=True), 403: ACCESS_DENIED_RESPONSE},
+        description=(
+            "The postal states a parcel can be in, in the order it travels them, "
+            "with the label, icon and one-line description each carries. Declared "
+            "in `sales.postal` and sent from there so the panel keeps no second "
+            "copy of the vocabulary. Read-only and the same for every caller — "
+            "the list is a product fact, not a scoped one — but it still sits "
+            "behind this view\u2019s feature and capability gates, because a "
+            "deployment without the module has no parcels to describe."
+        ),
+    )
+    @action(detail=False, methods=["get"], url_path="postal-states")
+    def postal_states(self, request):
+        return Response({"results": PostalStateSerializer(
+            [vars(state) for state in postal.POSTAL_STATES], many=True
+        ).data})
 
     @extend_schema(responses={200: PostalStatusHistorySerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
     @action(detail=True, methods=["get"], url_path="postal-history")

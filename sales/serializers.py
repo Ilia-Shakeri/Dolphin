@@ -7,6 +7,7 @@ from accounts.access import crm_identities
 from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
+from sales import postal
 from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for, target_audience_for
 from sales.services import add_target_audience_member, update_target_audience_member, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
@@ -509,6 +510,23 @@ class CancelSaleSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
+class PostalStepSerializer(serializers.Serializer):
+    """One stop on a parcel's journey as the panel draws it.
+
+    The same five fields `PostalStateSerializer` carries plus `stage`, which
+    is this document's position relative to that stop — `done`, `current` or
+    `upcoming`. Declared rather than inferred so the schema says what the
+    field really holds instead of "string".
+    """
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    icon = serializers.CharField()
+    icon_paths = serializers.IntegerField()
+    description = serializers.CharField()
+    stage = serializers.ChoiceField(choices=["done", "current", "upcoming"])
+
+
 class SalesDocumentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     server_fields = {
         "customer_name", "province_snapshot", "city_snapshot", "postal_code_snapshot",
@@ -519,20 +537,37 @@ class SalesDocumentSerializer(RejectServerFieldsMixin, serializers.ModelSerializ
     document_number = serializers.CharField(max_length=64, validators=[])
     registered_by = serializers.PrimaryKeyRelatedField(read_only=True)
     registered_by_display = serializers.SerializerMethodField()
+    #: What to call the stored status on screen. A known state's own Persian
+    #: label; for a row written before the vocabulary existed (3.0.0), the
+    #: text the operator actually typed, unchanged.
+    postal_status_display = serializers.SerializerMethodField()
+    #: The four stops, each marked `done`/`current`/`upcoming` — empty for a
+    #: status outside the vocabulary, because a progress bar with nothing
+    #: current would say something false about where the parcel is.
+    postal_stepper = serializers.SerializerMethodField()
 
     class Meta:
         model = SalesDocument
         fields = [
             "id", "customer", "customer_name", "sale", "document_number",
             "province_snapshot", "city_snapshot", "postal_code_snapshot", "address_snapshot",
-            "postal_status", "registered_at", "registered_by", "registered_by_display",
+            "postal_status", "postal_status_display", "postal_stepper",
+            "registered_at", "registered_by", "registered_by_display",
             "is_active", "notes", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "customer_name", "province_snapshot", "city_snapshot", "postal_code_snapshot",
-            "address_snapshot", "registered_at", "registered_by", "registered_by_display",
+            "address_snapshot", "postal_status_display", "postal_stepper",
+            "registered_at", "registered_by", "registered_by_display",
             "is_active", "created_at", "updated_at",
         ]
+
+    def get_postal_status_display(self, instance) -> str:
+        return postal.label_for(instance.postal_status)
+
+    @extend_schema_field(PostalStepSerializer(many=True))
+    def get_postal_stepper(self, instance):
+        return postal.stepper_for(instance.postal_status)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -558,11 +593,41 @@ class PostalStatusTransitionSerializer(RejectServerFieldsMixin, serializers.Seri
 
 class PostalStatusHistorySerializer(serializers.ModelSerializer):
     changed_by_display = serializers.SerializerMethodField()
+    #: The same labelling every other surface uses, so one page cannot show
+    #: `handed_to_post` in its history table and «ارسال به پست» in the field
+    #: above it. A free-text row from before the vocabulary prints unchanged.
+    from_status_display = serializers.SerializerMethodField()
+    to_status_display = serializers.SerializerMethodField()
 
     class Meta:
         model = PostalStatusHistory
-        fields = ["id", "document", "from_status", "to_status", "changed_by", "changed_by_display", "reason", "changed_at"]
+        fields = [
+            "id", "document", "from_status", "from_status_display",
+            "to_status", "to_status_display",
+            "changed_by", "changed_by_display", "reason", "changed_at",
+        ]
         read_only_fields = fields
 
     def get_changed_by_display(self, instance) -> str:
         return instance.changed_by.get_full_name() or instance.changed_by.username
+
+    def get_from_status_display(self, instance) -> str:
+        return postal.label_for(instance.from_status) if instance.from_status else ""
+
+    def get_to_status_display(self, instance) -> str:
+        return postal.label_for(instance.to_status)
+
+
+class PostalStateSerializer(serializers.Serializer):
+    """One stop on a parcel's journey, for the form that offers them.
+
+    Sent rather than written into the panel so `sales/postal.py` stays the
+    one place the states are declared: a state added there appears in the
+    selector with no template or script change.
+    """
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    icon = serializers.CharField()
+    icon_paths = serializers.IntegerField()
+    description = serializers.CharField()

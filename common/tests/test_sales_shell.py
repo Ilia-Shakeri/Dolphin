@@ -498,12 +498,15 @@ class SalesDocumentFormMarkupTests(TestCase):
         self.assertEqual(set(reason) - {"class"}, {"id", "name", "maxlength"})
 
     def test_every_transition_form_field_has_its_own_error_target(self):
+        """Restated 2026-09-20: `to_status` became a `<select>` over the
+        postal vocabulary (`sales/postal.py`) rather than a free-text box,
+        so a typo can no longer produce a state nobody defined. The rule —
+        every field has exactly one control and exactly one error slot of
+        its own — is unchanged."""
         elements = self._parsed_page()
-        for field in ("to_status", "reason"):
+        for field, tag in (("to_status", "select"), ("reason", "input")):
             with self.subTest(field=field):
                 self.assertEqual(
                     len(self._element(elements, "p", **{"data-error-for": field})), 1
                 )
-                self.assertEqual(
-                    len(self._element(elements, "input", name=field)), 1
-                )
+                self.assertEqual(len(self._element(elements, tag, name=field)), 1)

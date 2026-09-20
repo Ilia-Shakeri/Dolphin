@@ -209,6 +209,14 @@
             سامانهٔ پیامک
         </a>
         {% endif %}
+        {% comment %} کارت به‌همان دو دروازهٔ قبلی گره خورده است؛ همین درست
+           است، چون خوانندهٔ عادی هیچ سرویسی را نمی‌تواند تنظیم کند و صفحهٔ
+           اتصال برایش خالی خواهد بود. خودِ صفحه هم سطربه‌سطر همان دروازه‌ها را
+           دوباره بررسی می‌کند. {% endcomment %}
+        <a class="btn btn-light-primary" id="open-integrations" href="{% url 'common_ui:integrations' %}">
+            <i class="ki-duotone ki-abstract-26 fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+            اتصال سرویس‌ها
+        </a>
     </div>
 </section>
 {% endif %}

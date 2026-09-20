@@ -12,11 +12,17 @@ from communications.views import (
     SmsTemplateDeleteView,
     SmsTemplateListCreateView,
     TestSmsProviderConnectionView,
+    InboundSMSReportExportView,
 )
 
 
 urlpatterns = [
     path("reports/inbound-sms/", InboundSMSReportView.as_view(), name="inbound-sms-report"),
+    path(
+        "exports/inbound-sms.xlsx",
+        InboundSMSReportExportView.as_view(),
+        name="inbound-sms-export",
+    ),
     path("reports/inbound-sms/drilldown/", InboundSMSDrilldownView.as_view(), name="inbound-sms-drilldown"),
     path(
         "reports/inbound-sms/messages/<int:message_id>/",

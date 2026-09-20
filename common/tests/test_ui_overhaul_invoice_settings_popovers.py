@@ -45,38 +45,23 @@ import re
 from django.test import SimpleTestCase
 
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
-TEMPLATES = ROOT / "common" / "templates" / "common"
+from common.tests.ui_overhaul_helpers import (  # noqa: E402
+    CODE,
+    CSS,
+    SCRIPT,
+    TEMPLATES,
+    function_body,
+    ROOT,
+    markup,
+    media_block,
+    rule,
+)
+
 BASE = (TEMPLATES / "base.html").read_text(encoding="utf-8")
 INVOICES = (TEMPLATES / "invoices" / "list.html").read_text(encoding="utf-8")
 ORDERS = (TEMPLATES / "orders" / "list.html").read_text(encoding="utf-8")
 SETTINGS = (TEMPLATES / "settings" / "settings.html").read_text(encoding="utf-8")
 BRANDING = (TEMPLATES / "branding" / "settings.html").read_text(encoding="utf-8")
-
-CODE = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
-#: Template markup with its `{% comment %}` prose removed, for the assertions
-#: that something is *absent*: these templates explain their removals in
-#: place, and the explanation names the thing that went.
-def markup(text):
-    return re.sub(r"\{% comment %\}.*?\{% endcomment %\}", "", text, flags=re.S)
-
-
-def function_body(name):
-    start = SCRIPT.index(f"function {name}(")
-    following = SCRIPT.find("\n    function ", start + 1)
-    return SCRIPT[start:following if following != -1 else len(SCRIPT)]
-
-
-def rule(selector, source=CODE):
-    for block in source.split("}"):
-        if "{" not in block:
-            continue
-        head, body = block.split("{", 1)
-        if selector in head:
-            return body
-    return ""
 
 
 # ===========================================================================
@@ -128,7 +113,7 @@ class LineStepLayoutTests(SimpleTestCase):
         self.assertIn("58rem", rule("dialog:has(.wizard-lines-step)"))
 
     def test_a_phone_gets_one_labelled_card_per_row(self):
-        phone = CODE.split("@media (max-width: 767.98px)")[-1]
+        phone = media_block("(max-width: 767.98px)", ".wizard-line-row")
         self.assertIn(".wizard-lines-head", phone)
         self.assertIn("display: none !important", phone)
         self.assertIn("grid-template-columns: minmax(0, 1fr)", phone)

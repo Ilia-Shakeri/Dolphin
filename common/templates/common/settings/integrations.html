@@ -1,0 +1,94 @@
+{% extends "common/base.html" %}
+{% load jalali_tags %}
+{% block title %}اتصال سرویس‌ها{% endblock %}
+{% block page_id %}integrations{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">تنظیمات</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-abstract-26 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}اتصال سرویس‌ها{% endblock %}
+{% block breadcrumb_current %}اتصال سرویس‌ها{% endblock %}
+{% block content %}
+{% comment %} هر ردیف از `common/integrations.py` می‌آید — کلید، نام، آیکون،
+   دروازهٔ دسترسی، صفحهٔ تنظیمات خودش و تابعی که وضعیتش را گزارش می‌کند. افزودن
+   یک سرویس تازه یعنی یک سطر در آن جدول؛ این قالب تغییر نمی‌کند.
+
+   سرویسی که این استقرار ماژولش را ندارد یا خواننده اجازهٔ تنظیمش را ندارد،
+   اصلاً در فهرست نمی‌آید — و همان دروازه‌ای که اینجا پنهانش می‌کند، در خودِ
+   صفحه و API هم دوباره بررسی می‌شود. {% endcomment %}
+<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-6">
+    <div class="fw-semibold fs-6 text-gray-700">
+        سرویس‌های بیرونی که این استقرار می‌تواند به آن‌ها وصل شود. کلیدها و توکن‌ها
+        در تنظیمات هر سرویس ذخیره می‌شوند و هرگز در این صفحه به‌صورت کامل نمایش
+        داده نمی‌شوند — فقط چند رقم آخرشان، برای اینکه بشود تشخیص داد کدام کلید
+        ذخیره شده است.
+    </div>
+</div>
+
+<div class="row g-5 g-xl-8">
+    {% for row in integrations %}
+    <div class="col-xl-6">
+        <section class="card h-100 integration-card" data-integration="{{ row.key }}">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex align-items-start gap-4 mb-4">
+                    <span class="symbol symbol-50px flex-shrink-0">
+                        <span class="symbol-label bg-light-{{ row.state_accent }}">
+                            <i class="ki-duotone {{ row.icon }} fs-1 text-{{ row.state_accent }}">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
+                        </span>
+                    </span>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <h2 class="fs-4 fw-bold text-gray-900 mb-0">{{ row.label }}</h2>
+                            <span class="badge badge-light-{{ row.state_accent }}" data-integration-state>{{ row.state_label }}</span>
+                        </div>
+                        <p class="text-muted fs-7 mb-0">{{ row.description }}</p>
+                    </div>
+                </div>
+
+                <p class="fs-7 text-gray-800 mb-4">{{ row.summary }}</p>
+
+                {% if row.details %}
+                <dl class="integration-details mb-4">
+                    {% for label, value in row.details %}
+                    <dt>{{ label }}</dt><dd dir="auto">{{ value }}</dd>
+                    {% endfor %}
+                    {% if row.secret_hint %}
+                    {% comment %} فقط چند رقم آخر. مقدار کامل هرگز از API خوانده
+                       نمی‌شود، نه اینکه اینجا پنهان شود. {% endcomment %}
+                    <dt>کلید ذخیره‌شده</dt><dd dir="ltr" class="integration-secret">{{ row.secret_hint }}</dd>
+                    {% endif %}
+                </dl>
+                {% endif %}
+
+                {% if row.last_error %}
+                <div class="alert alert-danger d-flex flex-column align-items-start p-4 mb-4">
+                    <span class="fw-semibold fs-8 mb-1">آخرین خطا{% if row.last_error_at %} — {{ row.last_error_at|jalali_datetime }}{% endif %}</span>
+                    <span class="fs-8" dir="auto">{{ row.last_error }}</span>
+                </div>
+                {% endif %}
+
+                <div class="d-flex flex-wrap gap-3 mt-auto pt-2">
+                    {% if row.settings_url_name %}
+                    <a class="btn btn-sm btn-light-primary" href="{% url row.settings_url_name %}">
+                        <i class="ki-duotone ki-setting-3 fs-4 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
+                        تنظیمات و کلید
+                    </a>
+                    {% endif %}
+                    {% if row.test_url %}
+                    {% comment %} فقط جایی که واقعاً تستی وجود دارد. دکمه‌ای که
+                       نمی‌تواند چیزی را تست کند، دکمه نیست. {% endcomment %}
+                    <button class="btn btn-sm btn-light" type="button"
+                            data-integration-test="{{ row.test_url }}">تست اتصال</button>
+                    {% endif %}
+                </div>
+                <p class="alert alert-light fs-8 mt-3 mb-0" data-integration-result role="status" hidden></p>
+            </div>
+        </section>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <section class="card"><div class="card-body text-center text-gray-700 py-10">
+            سرویسی برای اتصال در دسترس شما نیست.
+        </div></section>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

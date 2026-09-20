@@ -6,28 +6,123 @@
 {% block page_title %}گزارش اسناد فروش و پست{% endblock %}
 {% block breadcrumb_current %}گزارش اسناد فروش و پست{% endblock %}
 {% block content %}
-{% comment %} A live search over the already-built report tables, beside the
-   filter button `setupListFilterPopovers()` already builds around this
-   page's own `form.list-filters` (product-owner request 2026-09-12: the
-   filter existed, the search box next to it did not). {% endcomment %}
-<section class="card mb-5 mb-xl-8"><div class="card-body">
-<div class="d-flex flex-wrap align-items-center gap-3 mb-5">
-    <div class="list-search">
-        <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
-        <label class="sr-only" for="sales-document-report-search">جست‌وجو در گزارش</label>
-        <input class="form-control form-control-solid" id="sales-document-report-search" type="search" placeholder="استان، شهر یا وضعیت">
+{% comment %} ۳.۰.۰ — این صفحه از نو ساخته شد. پیش از این یک پنل فیلتر جدا
+   داشت که همه‌چیز را یک‌جا می‌پرسید و بعد هر چیزی که ساخته بود نشان می‌داد.
+   مالک محصول ۲۰۲۶/۰۹/۲۰ خواست: «فیلتر جدا نداشته باشند؛ مرحله‌به‌مرحله باشند
+   که کاربر انتخاب کند چه چیزی را ببیند و در آخر نتیجه نمایش داده شود …
+   امکان برگشت به مرحلهٔ قبل و خروجی گرفتن».
+
+   هر چهار مرحله و دکمه‌های قبلی/بعدی را `setupReportWizard` می‌گرداند — همان
+   درایوری که گزارش پیامک ورودی هم از آن استفاده می‌کند — و خودِ گام‌برداشتن
+   `setupWizard` است، همان کامپوننتی که ویزاردهای ساخت سند دارند. {% endcomment %}
+<section class="card report-wizard-card"><div class="card-body">
+<div id="sales-document-report-wizard">
+    <div class="stepper stepper-links d-flex flex-column">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">بازهٔ زمانی</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">پالایش</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">چه چیزی را ببینیم</h3></div>
+            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">نتیجه</h3></div>
+        </div>
+
+        {% comment %} چهار مرحله داخل ظرف خودشان، نه مستقیم زیر `.stepper`.
+           KTStepper موقع علامت‌زدن مرحلهٔ جاری از `KTUtil.index(element)`
+           استفاده می‌کند — یعنی جایگاه المان میان فرزندان *والدش*، نه میان
+           المان‌های stepper. اگر محتواها کنار نوار ناوبری و ردیف دکمه‌ها
+           بنشینند، شمارهٔ هرکدام یکی جلوتر می‌افتد و صفحه مرحلهٔ قبلی را
+           نشان می‌دهد در حالی که ناوبری مرحلهٔ بعدی را برجسته کرده است —
+           اندازه‌گیری شد: ناوبری روی ۴، محتوای دیده‌شده ۳. ویزاردهای ساخت
+           سند همین ظرف را دارند (عنصر form خودشان) و به همین دلیل درست کار
+           می‌کنند. اینجا عمداً بدون علامت زاویه نوشته شده: بررسی توازن
+           تگ‌های قالب (`test_ui_connectivity`) متن کامنت را هم می‌شمارد.
+           {% endcomment %}
+        <div class="report-steps">
+            <div class="current report-step" data-kt-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">گزارش برای کدام بازه؟</h3>
+                <p class="text-muted fs-7 mb-5">بر پایهٔ زمان ثبت سند. ابتدای بازه شامل و انتهای آن خارج از شمارش است.</p>
+                {% comment %} همان کنترل بازهٔ مشترک همهٔ نمودارهای پنل، نه یک جفت
+                   جعبهٔ تاریخ مخصوص این صفحه. {% endcomment %}
+                <div id="sales-document-report-range"></div>
+            </div>
+
+            <div class="report-step" data-kt-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">محدودتر کنیم؟</h3>
+                <p class="text-muted fs-7 mb-5">هر کدام را خالی بگذارید، یعنی «همه».</p>
+                <div class="row g-5">
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-province">استان</label><input class="form-control form-control-solid" id="document-report-province" maxlength="100" placeholder="همهٔ استان‌ها"></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-city">شهر</label><input class="form-control form-control-solid" id="document-report-city" maxlength="100" placeholder="همهٔ شهرها"></div>
+                    {% comment %} انتخابگر از واژگان `sales/postal.py`، که اسکریپت
+                       پرش می‌کند — نه جعبهٔ متن آزادی که تایپ اشتباه در آن یک
+                       گزارش خالی می‌سازد. {% endcomment %}
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-status">وضعیت پستی</label><select class="form-select form-select-solid" id="document-report-status"></select></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-active">حالت سند</label><select class="form-select form-select-solid" id="document-report-active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
+                </div>
+            </div>
+
+            <div class="report-step" data-kt-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">کدام بخش‌ها را ببینید؟</h3>
+                <p class="text-muted fs-7 mb-5">هر بخشی که تیک بخورد در نتیجه می‌آید. بعد از ساخت گزارش هم می‌توانید همین تیک‌ها را عوض کنید.</p>
+                <div class="report-sections">
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="summary" checked>
+                        <span><span class="report-section-title">شمارهٔ کل</span><span class="report-section-note">تعداد کل اسناد این بازه.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="geography" checked>
+                        <span><span class="report-section-title">استان و شهر</span><span class="report-section-note">تفکیک بر پایهٔ نشانی ثبت‌شدهٔ هر سند.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="status" checked>
+                        <span><span class="report-section-title">وضعیت پستی</span><span class="report-section-note">تفکیک بر پایهٔ وضعیت جاری هر مرسوله.</span></span>
+                    </label>
+                </div>
+                <p class="alert alert-danger fs-7 mt-5 mb-0" data-step-error role="alert" hidden></p>
+            </div>
+
+            <div class="report-step" data-kt-stepper-element="content">
+                <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-5">
+                    <h3 class="fs-4 fw-bold text-gray-900 mb-0">نتیجه</h3>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <div class="list-search">
+                            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+                            <label class="sr-only" for="sales-document-report-search">جست‌وجو در نتیجه</label>
+                            <input class="form-control form-control-solid" id="sales-document-report-search" type="search" placeholder="استان، شهر یا وضعیت">
+                        </div>
+                        <button class="btn btn-sm btn-light-primary" type="button" id="sales-document-report-export">
+                            <i class="ki-duotone ki-exit-down fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+                            خروجی اکسل
+                        </button>
+                    </div>
+                </div>
+
+                <div id="sales-document-report-loading" class="text-center text-gray-700 py-10" hidden>در حال ساخت گزارش…</div>
+                <div id="sales-document-report-empty" class="text-center text-gray-700 py-10" hidden>در این بازه و با این پالایش، سندی نیست.</div>
+                <div id="sales-document-report-error" class="state state-error" role="alert" hidden></div>
+
+                <div id="sales-document-report-content" hidden>
+                    <div class="row g-5 mb-6" data-report-panel="summary">
+                        <div class="col-sm-6 col-xl-4"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5">
+                            <span class="text-muted fw-semibold fs-7 d-block">کل اسناد</span>
+                            <span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="sales-document-report-total">۰</span>
+                        </div></div></div>
+                    </div>
+                    <div class="mb-8" data-report-panel="geography">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">بر پایهٔ استان و شهر ثبت‌شده</h4>
+                        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>استان</th><th>شهر</th><th>تعداد</th></tr></thead><tbody id="sales-document-geography-body"></tbody></table></div>
+                    </div>
+                    <div data-report-panel="status">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">بر پایهٔ وضعیت پستی جاری</h4>
+                        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>وضعیت</th><th>تعداد</th></tr></thead><tbody id="sales-document-status-body"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-stack pt-8">
+            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>مرحلهٔ قبل</button>
+            <button class="btn btn-primary" type="button" data-kt-stepper-action="next">مرحلهٔ بعد<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+        </div>
     </div>
-<form id="sales-document-report-form" action="/api/v1/reports/sales-documents/" method="get" class="list-filters" novalidate>
-    <div><label class="form-label fw-semibold" for="document-report-start">شروع بازه</label><input class="form-control form-control-solid" id="document-report-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
-    <div><label class="form-label fw-semibold" for="document-report-end">پایان بازه</label><input class="form-control form-control-solid" id="document-report-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
-    <div><label class="form-label fw-semibold" for="document-report-province">استان</label><input class="form-control form-control-solid" id="document-report-province" name="province" maxlength="100"></div><div><label class="form-label fw-semibold" for="document-report-city">شهر</label><input class="form-control form-control-solid" id="document-report-city" name="city" maxlength="100"></div>
-    <div><label class="form-label fw-semibold" for="document-report-status">وضعیت پستی</label><input class="form-control form-control-solid" id="document-report-status" name="postal_status" maxlength="80"></div><div><label class="form-label fw-semibold" for="document-report-active">حالت</label><select class="form-select form-select-solid" id="document-report-active" name="is_active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
-    <button class="btn btn-primary" type="submit">ساخت گزارش</button>
-</form>
 </div>
 </div></section>
-<div id="sales-document-report-loading" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10" hidden>در حال ساخت گزارش…</div></div><div id="sales-document-report-empty" class="card mb-5 mb-xl-8"><div class="card-body text-center text-gray-700 py-10" hidden>داده‌ای در این بازه نیست.</div></div>
-<section id="sales-document-report-content" hidden><div class="row g-5 mb-6"><div class="col-sm-6 col-xl-4"><div class="card card-flush h-100"><div class="card-body py-5"><span class="text-muted fw-semibold fs-7 d-block">کل اسناد</span><span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="sales-document-report-total">۰</span></div></div></div></div>
-<div class="card mb-5 mb-xl-8"><div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">بر پایه استان و شهر ثبت‌شده</h2><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>استان</th><th>شهر</th><th>تعداد</th></tr></thead><tbody id="sales-document-geography-body"></tbody></table></div></div></div>
-<div class="card mb-5 mb-xl-8"><div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">بر پایه وضعیت پستی جاری</h2><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>وضعیت</th><th>تعداد</th></tr></thead><tbody id="sales-document-status-body"></tbody></table></div></div></div></section>
 {% endblock %}

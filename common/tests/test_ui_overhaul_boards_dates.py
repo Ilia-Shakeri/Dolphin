@@ -24,32 +24,17 @@ import re
 
 from django.test import SimpleTestCase
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
-TEMPLATES = ROOT / "common" / "templates"
-
-
-#: The stylesheet with its comments removed.
-#:
-#: Every rule below asks what the CSS *does*, and the comments beside those
-#: rules explain at length why they do not do the thing being checked for —
-#: so a scan over the raw text matches the explanation and fails. This is
-#: the same reason `test_panel_backups.code_only` exists for the shell
-#: scripts.
-CODE = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
-
-
-def rule(selector, source=None):
-    """The declarations of the first rule whose selector list contains
-    `selector`, as one string. Comment-free unless asked otherwise."""
-    for block in (source or CODE).split("}"):
-        if "{" not in block:
-            continue
-        head, body = block.split("{", 1)
-        if selector in head:
-            return body
-    return ""
+from common.tests.ui_overhaul_helpers import (  # noqa: E402
+    CODE,
+    CSS,
+    SCRIPT,
+    TEMPLATES,
+    function_body,
+    ROOT,
+    markup,
+    media_block,
+    rule,
+)
 
 
 class KanbanCardTests(SimpleTestCase):
@@ -230,7 +215,7 @@ class SchedulingFieldsTests(SimpleTestCase):
 
     def test_they_ask_for_a_time(self):
         for page, field_id in self.SCHEDULING.items():
-            text = (TEMPLATES / "common" / page).read_text(encoding="utf-8")
+            text = (TEMPLATES / page).read_text(encoding="utf-8")
             fragment = text.split(f'id="{field_id}"', 1)[1].split(">", 1)[0]
             self.assertIn('data-jalali="datetime"', fragment, page)
 
@@ -251,7 +236,7 @@ class SchedulingFieldsTests(SimpleTestCase):
         """A cheque's due date and an invoice's document date are dates in
         law, not moments. Widening them would have been change for its own
         sake."""
-        payments = (TEMPLATES / "common" / "payments" / "list.html").read_text(encoding="utf-8")
+        payments = (TEMPLATES / "payments" / "list.html").read_text(encoding="utf-8")
         due = payments.split('id="create-cheque-due"', 1)[1].split(">", 1)[0]
         self.assertIn('data-jalali="date"', due)
 
@@ -316,5 +301,7 @@ class CalendarCellTests(SimpleTestCase):
 
     def test_reduced_motion_is_honoured(self):
         self.assertIn("prefers-reduced-motion", CSS)
-        reduced = CSS.rsplit("@media (prefers-reduced-motion: reduce)", 1)[1]
+        # The block that actually holds the calendar rule, not whichever
+        # one happens to be last — the sheet has several.
+        reduced = media_block("(prefers-reduced-motion: reduce)", "fc-daygrid-day-frame")
         self.assertIn("fc-daygrid-day-frame", reduced)

@@ -13,6 +13,11 @@ from common.ui_views import ROLE_LABELS
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def _is_theme_font_token(value):
+    """Whether a `font-family` value is nothing but a `--bs-*` custom property."""
+    return bool(re.fullmatch(r"var\(\s*--bs-[a-z0-9-]+\s*\)", value.strip()))
+
+
 class AuthShellUnitTests(SimpleTestCase):
     def test_role_labels_cover_exact_fixed_roles(self):
         self.assertEqual(set(ROLE_LABELS), {value for value, _ in User.Role.choices})
@@ -143,7 +148,15 @@ class AuthShellUnitTests(SimpleTestCase):
                 line.split("font-family:", 1)[1].strip().rstrip(";").strip()
                 for line in rule.splitlines() if "font-family:" in line
             ]
-            if declared and all(value == "inherit" for value in declared):
+            # `inherit` and a bare theme token are both exempt, and for the
+            # same reason: neither names a typeface. `inherit` hands the
+            # decision to the ancestor; `var(--bs-font-monospace)` hands it
+            # to the theme's own token, which is the thing this ban exists
+            # to keep in charge. Naming a family — «IRANSansWeb», «Inter» —
+            # is what is banned, and still is.
+            if declared and all(
+                value == "inherit" or _is_theme_font_token(value) for value in declared
+            ):
                 continue
             self.assertIn("apexcharts", selector, selector.strip())
         # It keeps exactly the three things it is for.

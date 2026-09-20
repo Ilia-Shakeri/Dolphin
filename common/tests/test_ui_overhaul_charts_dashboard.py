@@ -34,6 +34,7 @@ import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
@@ -49,36 +50,23 @@ from reports import ranges
 from reports.list_charts import CHART_FILTERS, LIST_CHARTS, filters_for, narrowing
 
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
-TEMPLATES = ROOT / "common" / "templates" / "common"
+from common.tests.ui_overhaul_helpers import (  # noqa: E402
+    CODE,
+    CSS,
+    SCRIPT,
+    TEMPLATES,
+    function_body,
+    ROOT,
+    markup,
+    media_block,
+    rule,
+)
+
 HOME = (TEMPLATES / "home.html").read_text(encoding="utf-8")
 LIST_CHART_INCLUDE = (TEMPLATES / "includes" / "list_charts.inc").read_text(encoding="utf-8")
 
-#: The stylesheet with its explanations removed, for the assertions that a
-#: property is *absent* — this sheet says why it dropped one in prose beside
-#: where it used to be.
-CODE = re.sub(r"/\*.*?\*/", "", CSS, flags=re.S)
-
 User = get_user_model()
 PASSWORD = "Aa!23456pass"
-
-
-def function_body(name):
-    start = SCRIPT.index(f"function {name}(")
-    following = SCRIPT.find("\n    function ", start + 1)
-    return SCRIPT[start:following if following != -1 else len(SCRIPT)]
-
-
-def rule(selector, source=CODE):
-    for block in source.split("}"):
-        if "{" not in block:
-            continue
-        head, body = block.split("{", 1)
-        if selector in head:
-            return body
-    return ""
 
 
 # ===========================================================================
@@ -265,7 +253,7 @@ class ChartControlStyleTests(SimpleTestCase):
         self.assertIn("flex-wrap: nowrap", rule(".dolphin-chart-range"))
 
     def test_the_group_becomes_the_whole_row_on_a_phone(self):
-        phone = CODE.split("@media (max-width: 575.98px)")[-1]
+        phone = media_block("(max-width: 575.98px)", ".dolphin-chart-range")
         self.assertIn(".dolphin-chart-range", phone)
         self.assertIn("flex: 1 1 100%", phone)
 
@@ -300,6 +288,8 @@ class ChartFilterRegistryTests(SimpleTestCase):
             "sales": ("sales", "Sale"),
             "orders": ("billing", "Order"),
             "interactions": ("sales", "Interaction"),
+            # Added in 3.0.0 with the postal vocabulary.
+            "sales-documents": ("sales", "SalesDocument"),
         }
         for key, entries in CHART_FILTERS.items():
             model = apps.get_model(*models[key])
@@ -318,6 +308,12 @@ class ChartFilterRegistryTests(SimpleTestCase):
 
 class ChartFilterBehaviourTests(TestCase):
     def setUp(self):
+        # `SensitiveRateThrottle` counts in the shared cache, which is not
+        # reset between tests — a class that spends the bucket leaves the
+        # next one to hit 429. Same `cache.clear()` the other API-touching
+        # suites in this project already do.
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.manager = User.objects.create_user(
             username="cf.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
         )

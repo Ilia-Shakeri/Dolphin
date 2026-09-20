@@ -79,7 +79,10 @@
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-customer">مشتری</label><select class="form-select form-select-solid" id="create-sales-document-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-sale">فروش مرتبط (اختیاری)</label><select class="form-select form-select-solid" id="create-sales-document-sale" name="sale"><option value="">بدون فروش مرتبط</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sale"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-number">شماره داخلی سند</label><input class="form-control form-control-solid" id="create-sales-document-number" name="document_number" maxlength="64" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="document_number"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-status">وضعیت پستی آغازین</label><input class="form-control form-control-solid" id="create-sales-document-status" name="postal_status" maxlength="80" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="postal_status"></p></div>
+{% comment %} انتخاب از واژگان `sales/postal.py` به‌جای جعبهٔ متن آزاد.
+                   پیش‌فرض «انبار فروشگاه» است، چون مرسوله‌ای که تازه ثبت شده
+                   واقعاً همان‌جاست. {% endcomment %}
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-status">وضعیت پستی آغازین</label><select class="form-select form-select-solid" id="create-sales-document-status" name="postal_status" required></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="postal_status"></p></div>
                 <div class="col-12"><label class="form-label fw-semibold" for="create-sales-document-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-sales-document-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
             </div>
         </div>

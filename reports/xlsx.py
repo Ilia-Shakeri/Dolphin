@@ -376,3 +376,81 @@ def build_target_audience_workbook(members):
             safe_spreadsheet_text(member.notes),
         ))
     return _finish(workbook, sheet)
+
+
+SALES_DOCUMENT_GEOGRAPHY_HEADERS = ("province", "city", "document_count")
+SALES_DOCUMENT_STATUS_HEADERS = ("postal_status", "postal_status_label", "document_count")
+
+
+def build_sales_document_workbook(report):
+    """The parcels report, one sheet per breakdown plus a summary.
+
+    Two sheets rather than one wide table, because the two breakdowns do not
+    share a row: a province/city pair and a postal status are different
+    groupings of the same documents, and interleaving them in one grid is how
+    a reader ends up adding the same parcel twice.
+
+    The status sheet carries both the stored value and its Persian label. The
+    stored value is what a filter or a script matches on; the label is what a
+    person reads — and on a deployment whose rows predate `sales.postal` the
+    two are the same string, which is itself worth being able to see.
+    """
+    from sales import postal
+
+    workbook, sheet = _new_workbook("geography")
+    sheet.append(SALES_DOCUMENT_GEOGRAPHY_HEADERS)
+    for row in report.by_geography:
+        sheet.append((
+            safe_spreadsheet_text(row["province"]),
+            safe_spreadsheet_text(row["city"]),
+            row["count"],
+        ))
+
+    statuses = workbook.create_sheet("postal_status")
+    statuses.append(SALES_DOCUMENT_STATUS_HEADERS)
+    for row in report.by_postal_status:
+        statuses.append((
+            safe_spreadsheet_text(row["postal_status"]),
+            safe_spreadsheet_text(postal.label_for(row["postal_status"])),
+            row["count"],
+        ))
+
+    summary = workbook.create_sheet("summary")
+    summary.append(("metric", "value"))
+    summary.append(("period_start", report.period_start))
+    summary.append(("period_end", report.period_end))
+    summary.append(("total_documents", report.total))
+    for name, value in (report.filters or {}).items():
+        summary.append((f"filter_{name}", safe_spreadsheet_text("" if value is None else str(value))))
+    return _finish(workbook, sheet)
+
+
+INBOUND_SMS_HEADERS = ("local_date", "local_hour", "inbound_sms_count")
+
+
+def build_inbound_sms_workbook(report):
+    """The inbound-SMS report: one row per Tehran-local hour, plus a summary.
+
+    `report` is the plain dict `communications.reports.build_inbound_sms_report`
+    returns, not a dataclass like the financial reports — so the keys are read
+    by name here rather than as attributes.
+    """
+    workbook, sheet = _new_workbook("hourly")
+    sheet.append(INBOUND_SMS_HEADERS)
+    for row in report["results"]:
+        sheet.append((
+            spreadsheet_date(row["local_date"]),
+            row["local_hour"],
+            row["inbound_sms_count"],
+        ))
+
+    summary = workbook.create_sheet("summary")
+    summary.append(("metric", "value"))
+    summary.append(("period_start", report["period_start"]))
+    summary.append(("period_end", report["period_end"]))
+    summary.append(("timezone", report["timezone"]))
+    summary.append(("total_messages", report["total"]))
+    for name, value in (report.get("filters") or {}).items():
+        summary.append((f"filter_{name}", safe_spreadsheet_text("" if value is None else str(value))))
+    return _finish(workbook, sheet)
+
