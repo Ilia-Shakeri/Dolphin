@@ -111,6 +111,82 @@
 </section>
 {% endif %}
 
+{% if can_manage_backups %}
+<section class="card mb-5 mb-xl-8" id="panel-backups">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>پشتیبان‌گیری و بازگردانی</h2>
+            <span class="text-muted fs-7 mt-1">نسخه‌های پشتیبان این استقرار، دانلود آن‌ها، و بازگردانی کامل پایگاه داده.</span>
+        </div>
+        <div class="card-toolbar">
+            <button type="button" class="btn btn-sm btn-light-primary" id="backup-create">
+                <i class="ki-duotone ki-plus fs-4 me-1"></i>پشتیبان تازه
+            </button>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="backup-loading" class="text-center text-gray-700 py-8">در حال دریافت فهرست پشتیبان‌ها…</div>
+        <div id="backup-unavailable" class="alert alert-warning d-flex align-items-center p-5 mb-0" role="alert" hidden></div>
+
+        <div id="backup-content" hidden>
+            <div class="table-responsive mb-8">
+                <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
+                    <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">
+                        <th>زمان</th><th>حجم</th><th>اثر انگشت</th><th>دانلود</th>
+                    </tr></thead>
+                    <tbody id="backup-rows"></tbody>
+                </table>
+            </div>
+            <div id="backup-empty" class="text-center text-gray-700 py-8" hidden>هنوز پشتیبانی ساخته نشده است.</div>
+
+            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازگردانی از فایل پشتیبان</h3>
+{% comment %} Said before the controls, not after, and not softened: this is
+   the one operation in the product that rewrites append-only history. The
+   runbook's own section 4.6 makes the same point in the same words; a page
+   that offers the button has to make it too. {% endcomment %}
+            <div class="notice d-flex bg-light-danger rounded border-danger border border-dashed p-6 mb-5">
+                <div class="fw-semibold fs-7 text-gray-800">
+                    بازگردانی، پایگاه داده را به لحظهٔ ساخته‌شدن همان پشتیبان برمی‌گرداند و
+                    <strong>هر ردیفی که از آن زمان ثبت شده — سفارش، فاکتور، دریافت، دفتر حساب — از بین می‌رود</strong>.
+                    پیش از شروع، یک پشتیبان ایمنی از وضعیت فعلی به‌صورت خودکار ساخته می‌شود،
+                    و در طول کار پنل برای همه از دسترس خارج می‌شود.
+                </div>
+            </div>
+            <form id="backup-restore-form" novalidate>
+                {% csrf_token %}
+                <div class="row g-5">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="backup-restore-file">فایل پشتیبان (‏.dump)</label>
+                        <input class="form-control form-control-solid" id="backup-restore-file" name="archive" type="file" accept=".dump">
+                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="archive"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="backup-restore-confirm">برای تأیید، عبارت «{{ restore_confirmation }}» را بنویسید</label>
+                        <input class="form-control form-control-solid" id="backup-restore-confirm" name="confirm"
+                               autocomplete="off" placeholder="{{ restore_confirmation }}">
+                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="confirm"></p>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-6">
+                    <button class="btn btn-danger" type="submit" id="backup-restore-submit">بازگردانی پایگاه داده</button>
+                </div>
+            </form>
+
+            <h3 class="fs-5 fw-bold text-gray-900 mt-8 mb-3">درخواست‌های اخیر</h3>
+            <div class="table-responsive">
+                <table class="table align-middle table-row-dashed fs-6 gy-3 mb-0">
+                    <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">
+                        <th>نوع</th><th>زمان</th><th>کاربر</th><th>وضعیت</th><th>توضیح</th>
+                    </tr></thead>
+                    <tbody id="backup-job-rows"></tbody>
+                </table>
+            </div>
+            <p id="backup-jobs-empty" class="text-center text-gray-700 py-6 mb-0" hidden>درخواستی ثبت نشده است.</p>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 {% if can_manage_branding or can_manage_sms_provider %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">

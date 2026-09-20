@@ -43,6 +43,15 @@ def _concrete(path):
     # like every other interpolation below, which would look for a route at
     # `/api/v1/1/bulk-delete/` that was never meant to exist.
     path = path.replace("${key}", "customers")
+    # `${archive.name}` is the second exception, and the second one that is
+    # not an id: a backup download ends in the archive's own filename
+    # (2026-09-20, `common/backups.py`) so the browser saves it under that
+    # name rather than under a numeric segment. Substituted with a real one,
+    # because the route matches the exact `dolphin-pg-...dump` shape and
+    # would rightly refuse anything else.
+    path = path.replace(
+        "${archive.name}", "dolphin-pg-20260920T101500Z-" + "0" * 32 + ".dump",
+    )
     # Any other interpolated segment is an id in practice; 1 resolves
     # wherever an id is expected and leaves a trailing slash intact.
     path = INTERPOLATION_RE.sub("1", path)
@@ -164,9 +173,10 @@ class ScriptEndpointTests(SimpleTestCase):
         unresolved = []
         for raw in sorted(set(SCRIPT_PATH_RE.findall(text))):
             path = _concrete(raw)
-            if not path.endswith("/") and not path.endswith(".xlsx"):
-                # Every first-party route ends in a slash or is a named export
-                # file; anything else is a typo rather than a route.
+            if not path.endswith(("/", ".xlsx", ".dump")):
+                # Every first-party route ends in a slash, is a named export
+                # file, or is a backup archive; anything else is a typo
+                # rather than a route.
                 unresolved.append(f"{raw} (unexpected shape)")
                 continue
             try:
@@ -284,12 +294,18 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # opt-in case, not a freeze artefact — see the reasoning beside it in
         # `common/deployment/registry.py`. `order_kanban` (2026-09-07) joins
         # for the identical reason, one module over from `lead_kanban`.
+        # `panel_backup` (2026-09-20) withholds for a reason stronger than
+        # any of the above: enabling it and starting its agent means one
+        # authenticated Platform Admin request can replace the whole
+        # database. Client-1 has not asked for that and must not acquire it
+        # by inheritance.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
+                "panel_backup",
             }),
         )
 
@@ -299,6 +315,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
+                "panel_backup",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

@@ -25,7 +25,7 @@ v2, PostgreSQL and nginx in containers, and a Django/Gunicorn application image
 | [1. First install on a fresh server](#1-first-install-on-a-fresh-server) | Once, on a clean machine |
 | [2. Start after a reboot](#2-start-after-a-reboot) | Every restart |
 | [3. Application update](#3-application-update) | What a release does, and the same steps by hand |
-| [4. Backup and restore](#4-backup-and-restore) | Routine and disaster |
+| [4. Backup and restore](#4-backup-and-restore) | Routine, disaster, and the opt-in panel feature (4.7) |
 | [5. Rollback](#5-rollback) | A release went wrong |
 | [6. Domain deployment](#6-domain-deployment) | Recommended production |
 | [6a. Internal hostname with a private CA](#6a-internal-only-hostname-with-a-private-ca) | Internal-only, real hostname, no public CA |
@@ -1136,6 +1136,149 @@ before restoring, then runs the schema verification in
 5. Bring the stack back up and run the [1.14](#114-verify-before-anyone-logs-in) checks.
 
 Steps 4 and 5 change live data. Do them with the customer's explicit go-ahead.
+
+### 4.7 Backup and restore from the panel (`panel_backup`)
+
+> **Read this whole section before enabling it.** A deployment that turns the
+> `panel_backup` feature on *and* starts the `backup-agent` container has
+> accepted that **one authenticated Platform Admin request can replace the
+> entire database**, from a web page, over the internet. That is the feature.
+> It is off by default and the agent is behind its own Compose profile
+> precisely so that nobody acquires it without deciding to.
+
+#### What it is, and what it deliberately is not
+
+The `web` container cannot back up or restore anything. It is read-only, it
+holds no PostgreSQL client tools, and it connects as `POSTGRES_APP_USER` —
+a `NOSUPERUSER` role with table-level grants and nothing more. None of that
+changes for this feature.
+
+Instead the panel **asks**. It writes a request file (and, for a restore, the
+uploaded dump) into a spool volume, and a separate container — `backup-agent`
+— performs the work with the credentials the web container must never hold.
+The only channel between them is a file on a shared volume: no socket, no
+port, no shell.
+
+So there are two independent switches, and both must be on:
+
+| Switch | Off means |
+|---|---|
+| the `panel_backup` feature in the signed manifest | the settings page shows no backup section and `/api/v1/backups/` is a 404 |
+| the `backup-agent` container | the panel still lists and downloads, but a backup or restore **request** sits as «در صف اجرا» and then expires with a message naming the agent |
+
+The second row is the important one: with the agent stopped, the panel never
+reports a restore that did not happen.
+
+#### What protects the database even with both switches on
+
+* Platform Admin only, enforced in the service layer and not just the view.
+* The admin must type the confirmation phrase «بازگردانی». It is not a
+  checkbox.
+* The agent **re-verifies the SHA-256 itself** — it does not trust the value
+  the web container wrote beside the file.
+* The agent refuses anything `pg_restore --list` cannot read.
+* **The agent always takes a fresh backup of the current database first.** A
+  restore is never one-way; the safety archive's name is shown on the job row
+  and written to the audit log.
+* A request expires after 30 minutes, so one left in the spool cannot be
+  executed later against a database that has moved on.
+* Writes are stopped for the duration by withdrawing the application's
+  `CONNECT` grant and dropping its backends — not by stopping a container,
+  because the agent has no Docker socket and must never have one. The grant
+  is restored on every exit path, including a failed restore.
+* `backup.create`, `backup.downloaded` and `backup.restore` are all in the
+  audit log. Downloading a backup takes the whole database off the server;
+  that is recorded too.
+
+#### Enabling it
+
+1. **Get the decision in writing.** The same standard [4.6](#46-disaster-restore)
+   already sets for a manual restore.
+
+2. Re-sign the manifest with the feature:
+
+   ```bash
+   python scripts/sign_deployment_manifest.py \
+     --private-key <key> --key-id <id> --profile-id <profile> \
+     --feature panel_backup \
+     ... every other feature this deployment already has ... \
+     --output <manifest.json>
+   ```
+
+3. Add to `secrets/.env`:
+
+   ```
+   DOLPHIN_BACKUP_ROOT=/backups
+   DOLPHIN_RESTORE_SPOOL=/spool
+   # The gid the application runs as. 10001 unless the image was rebuilt with
+   # a different one; it must match `useradd --uid` in the Dockerfile.
+   DOLPHIN_PANEL_GID=10001
+   # Largest dump the panel will accept for a restore. Size it from this
+   # deployment's own backups, with headroom; nginx must allow it too.
+   DOLPHIN_BACKUP_UPLOAD_MAX_BYTES=2147483648
+   ```
+
+4. Open the two volumes to the application's group. This is a one-time
+   permission change and it is why the step is opt-in: it makes the archives
+   readable by the network-facing container.
+
+   ```bash
+   ./scripts/prepare-backup-volume.sh --share-with-panel
+   ```
+
+   It is safe to run on an already-prepared volume — that is the normal case
+   here — and it reports how many existing archives it opened.
+
+5. Start the agent:
+
+   ```bash
+   docker compose --env-file secrets/.env --profile backup-agent up -d backup-agent
+   docker compose --env-file secrets/.env logs --tail 5 backup-agent
+   ```
+
+   The log should read `backup-agent: watching /spool every 5s`. Anything
+   else is a refusal and names its reason.
+
+6. Recreate `web` so it picks up the two new mounts:
+
+   ```bash
+   docker compose --env-file secrets/.env up -d web
+   ```
+
+7. Verify, in this order, from the panel's «تنظیمات» page as a Platform
+   Admin:
+   1. the backup list shows this deployment's existing archives;
+   2. «پشتیبان تازه» produces a job that reaches «انجام شد» within a minute;
+   3. downloading that archive gives a file whose SHA-256 matches the
+      `.sha256` sidecar on the volume;
+   4. **do not rehearse a restore against the live database.** Rehearse it
+      with [4.5](#45-verify-a-restore--into-a-disposable-database), which
+      restores into a throwaway database.
+
+#### Disabling it again
+
+Stop the agent. That alone removes the ability to restore from the panel:
+
+```bash
+docker compose --env-file secrets/.env --profile backup-agent stop backup-agent
+docker compose --env-file secrets/.env --profile backup-agent rm -f backup-agent
+```
+
+Re-signing the manifest without `panel_backup` removes the section and the
+endpoints as well. Neither step deletes a single archive.
+
+#### If a restore goes wrong
+
+The safety backup the agent took immediately before it started is on the
+backup volume, and its name is on the job row and in the audit log. Restore
+*that* — after rehearsing it with [4.5](#45-verify-a-restore--into-a-disposable-database)
+— to get back to where the deployment was before the mistake.
+
+After any successful restore, re-apply the database grants:
+
+```bash
+docker compose --env-file secrets/.env run --rm db-finalize
+```
 
 ---
 

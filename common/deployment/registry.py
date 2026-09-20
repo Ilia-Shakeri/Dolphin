@@ -82,6 +82,16 @@ FEATURE_DEPENDENCIES = {
     # customer's saved name/logo — it just stops being shown, exactly like any
     # other disabled feature; turning it back on shows the same row again.
     "custom_branding": frozenset(),
+    # common/backups.py — listing, downloading, requesting and restoring
+    # database backups from the settings page. Like `custom_branding` this
+    # gates a capability rather than a data model, so it depends on nothing:
+    # a deployment with no sales module still has a database worth backing
+    # up. It is the one feature in this registry whose *availability* is
+    # only half the story — the panel can ask for a restore, but only the
+    # separately-started `backup-agent` container can perform one, and a
+    # deployment that never starts it keeps exactly the posture it had
+    # before. See `common/backups.py` and the runbook.
+    "panel_backup": frozenset(),
     # chat.ChatThread / ChatParticipant / ChatMessage — internal coordination
     # chat between colleagues of the same deployment. No non-nullable FK into
     # any other module forces a dependency; the three models stand alone.
@@ -182,7 +192,17 @@ FEATURE_DEPENDENCIES = {
 #: `jkanban` dependency and the same drag-to-move interaction, just aimed at
 #: `orders` instead of `leads` — a deployment that wants a leads board does
 #: not thereby want an orders board dragged onto its sales floor too.
-DEFAULT_OFF_FEATURES = frozenset({"quotations", "custom_branding", "internal_chat", "lead_kanban", "order_kanban"})
+#:
+#: `panel_backup` (2026-09-20) joins the default-off side for a reason none
+#: of the others have: enabling it and starting its agent means one
+#: authenticated Platform Admin request can replace the whole database.
+#: That is a decision a customer makes deliberately, in writing, the way the
+#: runbook's own disaster-restore section already requires — never a
+#: default somebody discovers they had.
+DEFAULT_OFF_FEATURES = frozenset({
+    "quotations", "custom_branding", "internal_chat", "lead_kanban", "order_kanban",
+    "panel_backup",
+})
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
 

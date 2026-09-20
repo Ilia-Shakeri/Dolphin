@@ -292,3 +292,60 @@ class UserDashboardLayout(TimeStampedModel):
 
     def __str__(self):
         return f"چیدمان داشبورد {self.user_id}"
+
+
+class BackupJob(TimeStampedModel):
+    """One request the panel made of `backup-agent`, and what came back.
+
+    The spool files are the *channel* between the web container and the
+    agent; this table is the *record*. Keeping both is not duplication:
+    the spool is cleaned up, holds no history and cannot be queried, while
+    an operator asking "who restored the database, when, from which file"
+    is asking a question only a row can answer — and `auditlog.log_activity`
+    needs a real object to point at, which a file on a volume is not.
+
+    `status` is advanced by `common.backups.reconcile_jobs`, which reads the
+    result files the agent wrote. The agent never touches this table: it has
+    no Django, no application database credentials, and giving it either
+    would defeat the split that makes it safe to hold the privileged ones
+    (see `common/backups.py`).
+    """
+
+    class Kind(models.TextChoices):
+        BACKUP = "backup", "پشتیبان‌گیری"
+        RESTORE = "restore", "بازگردانی"
+
+    class Status(models.TextChoices):
+        WAITING = "waiting", "در صف اجرا"
+        DONE = "done", "انجام شد"
+        FAILED = "failed", "ناموفق"
+        EXPIRED = "expired", "منقضی شد"
+
+    #: The same 32 hex characters that name the request and result files on
+    #: the spool volume, which is how a row and its files find each other.
+    token = models.CharField(max_length=32, unique=True)
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.WAITING)
+    requested_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+    )
+    #: For a restore: what the operator called the file they uploaded, and
+    #: what it actually hashed to. Display and evidence only — nothing is
+    #: ever opened by this name (the stored file is named from the token).
+    original_filename = models.CharField(max_length=120, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True)
+    size_bytes = models.PositiveBigIntegerField(null=True, blank=True)
+    #: The archive the agent produced: the new backup for a backup job, and
+    #: for a restore the *safety* backup it took of the live database before
+    #: replacing it — which is the row an operator needs most if a restore
+    #: turns out to have been a mistake.
+    archive_name = models.CharField(max_length=128, blank=True)
+    message = models.TextField(blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["-created_at"], name="backupjob_created_idx")]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.get_status_display()}"

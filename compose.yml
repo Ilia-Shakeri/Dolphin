@@ -36,6 +36,13 @@ x-django-environment: &django-environment
   DOLPHIN_PDF_RENDERER: ${DOLPHIN_PDF_RENDERER:-}
   DOLPHIN_PDF_CHROMIUM_BINARY: ${DOLPHIN_PDF_CHROMIUM_BINARY:-}
   DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS: ${DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS:-20}
+  # Panel backup and restore (feature `panel_backup`, common/backups.py).
+  # Blank by default: a deployment that has not enabled the feature mounts
+  # neither volume, every read in that module then fails closed, and the
+  # settings page does not show the section at all.
+  DOLPHIN_BACKUP_ROOT: ${DOLPHIN_BACKUP_ROOT:-}
+  DOLPHIN_RESTORE_SPOOL: ${DOLPHIN_RESTORE_SPOOL:-}
+  DOLPHIN_BACKUP_UPLOAD_MAX_BYTES: ${DOLPHIN_BACKUP_UPLOAD_MAX_BYTES:-2147483648}
 
 services:
   db:
@@ -276,6 +283,70 @@ services:
     networks:
       - backend
 
+  # The privileged half of panel backup and restore (feature `panel_backup`).
+  #
+  # Behind its own profile, and that is the whole safety story rather than a
+  # convenience: a deployment that does not start this container cannot have
+  # its database replaced from a web page, no matter what the panel shows or
+  # who is signed in. Starting it is a deliberate, written decision the
+  # runbook spells out, the same way section 4.6 already requires one before
+  # a manual disaster restore.
+  #
+  # It holds the init credentials the `web` container must never hold, and
+  # its only input is a request file on the spool volume — no socket, no
+  # port, and the internal `backend` network only. See scripts/backup-agent.sh
+  # and common/backups.py.
+  backup-agent:
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["backup-agent"]
+    restart: unless-stopped
+    # `postgres`, but in the *application's* group. Both containers have to
+    # read what the other wrote — the panel lists and downloads archives the
+    # agent published, the agent reads the upload the panel spooled — and
+    # they run as different users (10001 here, 70 there). A shared group and
+    # `umask 027` in the agent is what makes that work without making a
+    # database dump world-readable. `scripts/prepare-backup-volume.sh
+    # --share-with-panel` sets the two directories up to match, once.
+    user: "postgres:${DOLPHIN_PANEL_GID:-10001}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      HOME: /tmp
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INIT_USER: ${POSTGRES_INIT_USER}
+      POSTGRES_INIT_PASSWORD: ${POSTGRES_INIT_PASSWORD}
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER}
+      BACKUP_ROOT: /backups
+      SPOOL_ROOT: /spool
+      BACKUP_AGENT_POLL_SECONDS: ${BACKUP_AGENT_POLL_SECONDS:-5}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "/ops/backup-agent.sh"]
+    volumes:
+      - ./scripts/backup-agent.sh:/ops/backup-agent.sh:ro
+      # Mounted but never run by the agent itself: it is the one-shot
+      # `prepare-backup-volume.sh --share-with-panel` runs here as root,
+      # because this is the only service that mounts both volumes.
+      - ./scripts/share-backup-volume.sh:/ops/share-backup-volume.sh:ro
+      - backup_data:/backups
+      - restore_spool:/spool
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+
   web:
     image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     restart: unless-stopped
@@ -304,6 +375,12 @@ services:
     volumes:
       - static_data:/app/staticfiles:ro
       - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+      # Backups, **read-only**, so the panel can list and download them and
+      # cannot forge an archive beside the genuine ones. The spool is the
+      # only writable path the application has, and the only thing it can
+      # put there is a request the agent then re-validates from scratch.
+      - backup_data:/backups:ro
+      - restore_spool:/spool
     tmpfs:
       - /tmp:size=64m,mode=1777
     networks:
@@ -368,6 +445,12 @@ volumes:
   backup_data:
     external: true
     name: ${POSTGRES_BACKUP_VOLUME:?POSTGRES_BACKUP_VOLUME must name the approved backup volume}
+  # Deliberately *not* external and deliberately not the backup volume: it
+  # holds only in-flight requests and the upload being restored, it is the
+  # one path the web container may write to, and keeping it separate is what
+  # stops a compromised panel from writing something that looks like a
+  # published backup.
+  restore_spool:
   static_data:
 
 networks:

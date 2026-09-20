@@ -11749,6 +11749,181 @@
     }
 
     /**
+     * The «پشتیبان‌گیری و بازگردانی» section of `/settings/`.
+     *
+     * Rendered only for a Platform Admin on a deployment whose
+     * `panel_backup` feature is on *and* whose backup volume is actually
+     * mounted, so this returns immediately everywhere else.
+     *
+     * Nothing here performs a backup or a restore; see `common/backups.py`
+     * for why the web container cannot. Every button asks, and the job list
+     * below shows what the agent did about it — including "waiting", which
+     * is what a deployment that has not started the agent will keep seeing,
+     * on purpose.
+     */
+    function setupBackupSection() {
+        const section = document.getElementById("panel-backups");
+        if (!section) return;
+        const loading = document.getElementById("backup-loading");
+        const unavailable = document.getElementById("backup-unavailable");
+        const content = document.getElementById("backup-content");
+        const rows = document.getElementById("backup-rows");
+        const empty = document.getElementById("backup-empty");
+        const jobRows = document.getElementById("backup-job-rows");
+        const jobsEmpty = document.getElementById("backup-jobs-empty");
+        const createButton = document.getElementById("backup-create");
+        const restoreForm = document.getElementById("backup-restore-form");
+
+        //: While a request is in flight the list is polled, and only then:
+        //: a settings page left open all afternoon should not keep asking a
+        //: question whose answer stopped changing.
+        const POLL_MS = 4000;
+        let pollTimer = null;
+
+        function fileSize(bytes) {
+            if (bytes === null || bytes === undefined) return "—";
+            const units = ["بایت", "کیلوبایت", "مگابایت", "گیگابایت"];
+            let value = Number(bytes);
+            let unit = 0;
+            while (value >= 1024 && unit < units.length - 1) {
+                value /= 1024;
+                unit += 1;
+            }
+            const shown = unit === 0 ? String(Math.round(value)) : value.toFixed(1);
+            return `${toPersianDigits(shown)} ${units[unit]}`;
+        }
+
+        function renderArchives(archives) {
+            rows.replaceChildren();
+            archives.forEach((archive) => {
+                const row = document.createElement("tr");
+                appendCell(row, archive.taken_at ? displayDate(archive.taken_at) : archive.name);
+                const size = appendCell(row, fileSize(archive.size_bytes));
+                size.dir = "ltr";
+                // An archive with no `.sha256` beside it was not published by
+                // a Dolphin backup job. It is still listed — hiding a file
+                // that is really there would be worse — but it is named for
+                // what it is rather than offered as if it were verified.
+                const checksum = document.createElement("td");
+                const badge = document.createElement("span");
+                badge.className = archive.has_checksum ? "badge badge-light-success" : "badge badge-light-warning";
+                badge.textContent = archive.has_checksum ? "دارد" : "ندارد";
+                checksum.appendChild(badge);
+                row.appendChild(checksum);
+
+                const actions = document.createElement("td");
+                actions.className = "row-actions";
+                const link = document.createElement("a");
+                link.className = "btn btn-sm btn-light";
+                link.href = `/api/v1/backups/download/${archive.name}`;
+                link.textContent = "دانلود";
+                // `download` rather than a new tab: the response already
+                // carries Content-Disposition, and a 400 MB octet-stream
+                // opened as a navigation is a blank tab on some browsers.
+                link.setAttribute("download", archive.name);
+                actions.appendChild(link);
+                row.appendChild(actions);
+                rows.appendChild(row);
+            });
+            empty.hidden = archives.length > 0;
+        }
+
+        const JOB_BADGE = {
+            waiting: "badge-light-primary",
+            done: "badge-light-success",
+            failed: "badge-light-danger",
+            expired: "badge-light-warning",
+        };
+
+        function renderJobs(jobs) {
+            jobRows.replaceChildren();
+            jobs.forEach((job) => {
+                const row = document.createElement("tr");
+                appendCell(row, job.kind_display || job.kind);
+                appendCell(row, job.requested_at ? displayDate(job.requested_at) : "—");
+                appendCell(row, job.requested_by || "—");
+                const status = document.createElement("td");
+                const badge = document.createElement("span");
+                badge.className = `badge ${JOB_BADGE[job.status] || "badge-light"}`;
+                badge.textContent = job.status_display || job.status;
+                status.appendChild(badge);
+                row.appendChild(status);
+                // The safety backup's own name is the single most useful
+                // thing on this row after a restore, so it is shown beside
+                // the message rather than left in the audit log.
+                const detail = [job.message, job.archive_name ? `پشتیبان: ${job.archive_name}` : ""]
+                    .filter(Boolean).join(" — ");
+                appendCell(row, detail || "—");
+                jobRows.appendChild(row);
+            });
+            jobsEmpty.hidden = jobs.length > 0;
+        }
+
+        async function refresh() {
+            let data;
+            try {
+                data = await apiRequest("/api/v1/backups/");
+            } catch (error) {
+                loading.hidden = true;
+                unavailable.hidden = false;
+                unavailable.textContent = errorText(error);
+                return;
+            }
+            loading.hidden = true;
+            if (!data.available) {
+                unavailable.hidden = false;
+                unavailable.textContent = data.detail || "حجم پشتیبان‌ها روی این استقرار در دسترس نیست.";
+                return;
+            }
+            unavailable.hidden = true;
+            content.hidden = false;
+            renderArchives(data.archives || []);
+            renderJobs(data.jobs || []);
+
+            const pending = (data.jobs || []).some((job) => job.status === "waiting");
+            window.clearTimeout(pollTimer);
+            if (pending) pollTimer = window.setTimeout(refresh, POLL_MS);
+        }
+
+        createButton?.addEventListener("click", async () => {
+            createButton.classList.add("disabled");
+            try {
+                await apiRequest("/api/v1/backups/", {method: "POST"});
+                globalMessage("درخواست پشتیبان‌گیری ثبت شد.", true);
+            } catch (error) {
+                showError(error);
+            } finally {
+                createButton.classList.remove("disabled");
+            }
+            refresh();
+        });
+
+        restoreForm?.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            clearMessages(restoreForm);
+            const submit = document.getElementById("backup-restore-submit");
+            const body = new FormData(restoreForm);
+            submit.classList.add("disabled");
+            try {
+                // `raw`, so the FormData keeps its own multipart boundary —
+                // a dump is far too large to serialise any other way, and
+                // apiRequest already knows not to set Content-Type for one.
+                await apiRequest("/api/v1/backups/restore/", {method: "POST", body, raw: true});
+            } catch (error) {
+                showError(error, restoreForm);
+                return;
+            } finally {
+                submit.classList.remove("disabled");
+            }
+            restoreForm.reset();
+            globalMessage("درخواست بازگردانی ثبت شد. وضعیت آن در جدول زیر دیده می‌شود.", true);
+            refresh();
+        });
+
+        refresh();
+    }
+
+    /**
      * `/settings/` — this reader's own panel preferences.
      *
      * Replaces `setupDashboardLayoutSettings`, retired in 2.8.0 along with
@@ -12850,7 +13025,14 @@
     if (page === "profit-report") setupProfitReport();
     if (page === "stock-valuation-report") setupStockValuationReport();
     if (page === "branding-settings") setupBrandingSettings();
-    if (page === "settings") setupSettingsPage();
+    if (page === "settings") {
+        setupSettingsPage();
+        // A separate module on the same page: the preferences form is every
+        // reader's, the backup section exists only for a Platform Admin on a
+        // deployment that mounted the volume, and neither should be able to
+        // break the other by failing to find its own markup.
+        setupBackupSection();
+    }
     if (page === "sms-provider-settings") setupSmsProviderSettings();
     // `document-print` is the print base's own id, used when a printable page
     // does not override it; every printable page needs the print button wired.

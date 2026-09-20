@@ -443,7 +443,8 @@ class SettingsPageTests(PreferenceFixtures):
         self.assertIn('href="/settings/"', page)
 
     def test_the_page_module_is_wired(self):
-        self.assertIn('if (page === "settings") setupSettingsPage();', SCRIPT)
+        self.assertIn('if (page === "settings") {', SCRIPT)
+        self.assertIn("setupSettingsPage();", SCRIPT)
 
 
 class DigitScriptTests(PreferenceFixtures):

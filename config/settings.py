@@ -217,6 +217,36 @@ FILE_UPLOAD_PATHS = (
 # spreadsheet routes specifically regardless of this being raised for attachments.
 FILE_UPLOAD_MAX_MEMORY_SIZE = max(5 * 1024 * 1024, ATTACHMENT_MAX_BYTES + 64 * 1024)
 
+# Panel backup and restore (`common/backups.py`, feature `panel_backup`).
+#
+# Both paths are container mounts, and both are blank by default: a
+# deployment that has not enabled the feature mounts neither, and every read
+# in `common/backups.py` then fails closed and the settings page simply does
+# not show the section.
+DOLPHIN_BACKUP_ROOT = os.environ.get("DOLPHIN_BACKUP_ROOT", "")
+DOLPHIN_RESTORE_SPOOL = os.environ.get("DOLPHIN_RESTORE_SPOOL", "")
+
+# A database dump is a different order of size from every other upload this
+# product takes — hundreds of megabytes against ten — so it gets its own
+# tier rather than raising the file-upload limit for attachments too. Two
+# limits became three for the same reason there were two:
+# `RequestBodyLimitMiddleware` sizes each route by what that route actually
+# carries, and one number for all of them would have to be the largest.
+BACKUP_UPLOAD_PATHS = ("/api/v1/backups/restore/",)
+BACKUP_UPLOAD_MAX_BYTES = int(
+    os.environ.get("DOLPHIN_BACKUP_UPLOAD_MAX_BYTES", str(2 * 1024 * 1024 * 1024))
+)
+
+# Where Django spills an upload too large to hold in memory.
+#
+# It matters here specifically: the `web` container's `/tmp` is a 64 MB
+# tmpfs (compose.yml), which is RAM, and a restore upload is far larger than
+# that. Pointed at the spool volume — real disk, sized by the operator, and
+# where the file is going anyway — but only when that volume is mounted, so
+# a deployment without the feature keeps Django's own default untouched.
+if DOLPHIN_RESTORE_SPOOL:
+    FILE_UPLOAD_TEMP_DIR = DOLPHIN_RESTORE_SPOOL
+
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG

@@ -76,7 +76,18 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         self.assertNotIn("env_file", self.services["backup"])
 
         password_scope = {
-            "POSTGRES_INIT_PASSWORD": {"db", "db-bootstrap", "db-finalize"},
+            # `backup-agent` (2026-09-20) is the fourth, and it is the one
+            # worth pausing over. It is the only *long-running* holder of the
+            # init password, and it holds it because restoring a database
+            # needs an owner-level role that `web` must never have. That is
+            # the trade the `panel_backup` feature makes, and it is confined
+            # the way the rest of this file confines things: the service is
+            # behind its own Compose profile so a deployment that has not
+            # opted in never starts it, it joins only the internal `backend`
+            # network, it is read-only with every capability dropped, and its
+            # sole input is a request file the `web` container writes and it
+            # re-validates from scratch. See common/backups.py.
+            "POSTGRES_INIT_PASSWORD": {"db", "db-bootstrap", "db-finalize", "backup-agent"},
             "POSTGRES_MIGRATION_PASSWORD": {
                 "db-bootstrap",
                 "migrate",
@@ -163,8 +174,22 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "${POSTGRES_BACKUP_VOLUME:?POSTGRES_BACKUP_VOLUME must name the approved backup volume}",
         )
         self.assertIn("backup_data:/backups", self.services["backup"]["volumes"])
+        # Three services may see the backup volume, and the difference
+        # between them is the point:
+        #
+        #   `backup`        writes it  (the scheduled job)
+        #   `backup-agent`  writes it  (the panel's privileged half, behind
+        #                               its own profile)
+        #   `web`           **reads** it, and only reads it — so a
+        #                   compromised panel cannot forge an archive beside
+        #                   the genuine ones.
+        #
+        # Anything else mounting it is a mistake.
+        self.assertIn("backup_data:/backups", self.services["backup-agent"]["volumes"])
+        self.assertIn("backup_data:/backups:ro", self.services["web"]["volumes"])
+        self.assertNotIn("backup_data:/backups", self.services["web"]["volumes"])
         for service_name, service in self.services.items():
-            if service_name == "backup":
+            if service_name in {"backup", "backup-agent", "web"}:
                 continue
             self.assertFalse(
                 any("backup_data" in str(volume) for volume in service.get("volumes", [])),
@@ -397,6 +422,11 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # not a saved empty one — see
             # common.dashboard_layout.get_user_layout.
             "common_userdashboardlayout": "SELECT, INSERT, UPDATE, DELETE",
+            # One row per backup/restore request made from the panel. Written
+            # once and rewritten once (when `reconcile_jobs` reads the
+            # agent's result), so UPDATE is real. No DELETE: this is the
+            # record of who asked for the database to be replaced.
+            "common_backupjob": "SELECT, INSERT, UPDATE",
             # Internal chat (chat/). A thread's `last_message_at` and a
             # participant's own `last_read_at` are both rewritten in place by
             # the service layer; a message, once sent, is never edited or

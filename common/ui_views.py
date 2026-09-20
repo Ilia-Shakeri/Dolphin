@@ -1251,6 +1251,9 @@ class DolphinBrandingSettingsView(ActiveCrmView):
 #: the editor saves through. The deployment row and its data are untouched.
 
 
+from common.backup_views import RESTORE_CONFIRMATION as BACKUP_RESTORE_CONFIRMATION
+
+
 class DolphinSettingsView(ActiveCrmView):
     """`/settings/` — one page for everything a person can change about
     how this panel behaves for them, plus the deployment-wide sections
@@ -1268,12 +1271,22 @@ class DolphinSettingsView(ActiveCrmView):
     template_name = "common/settings/settings.html"
 
     def get_context_data(self, **kwargs):
-        from common import preferences
+        from common import backups, preferences
 
         context = super().get_context_data(**kwargs)
         current = preferences.effective_preferences(self.request.user)
         context["preference_catalog"] = preferences.catalog()
         context["current_preferences"] = current
+        # Both gates, the same shape as `can_manage_branding`: the feature
+        # *and* the role, checked again by the endpoint regardless of what
+        # this rendered. `backups.available()` folds in a third question
+        # neither of those answers — whether the volume is actually
+        # mounted — because a section offering downloads from a directory
+        # that is not there would be a control that only looks real.
+        context["can_manage_backups"] = (
+            self.request.user.role == User.Role.PLATFORM_ADMIN and backups.available()
+        )
+        context["restore_confirmation"] = BACKUP_RESTORE_CONFIRMATION
         return context
 
 

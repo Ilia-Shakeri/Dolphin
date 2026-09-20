@@ -581,6 +581,14 @@ FROM (
         -- genuinely the absence of an overlay and not a saved empty one --
         -- see get_user_layout() for why those two are not the same fact.
         ('common_userdashboardlayout', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- One row per backup/restore request made from the panel
+        -- (common/backups.py). Written when the request is made and
+        -- rewritten once, when common.backups.reconcile_jobs reads what the
+        -- agent reported back -- so UPDATE is real. No DELETE: this is the
+        -- record of who asked for a database to be replaced, and that is
+        -- exactly the kind of row nobody should be able to remove from the
+        -- application.
+        ('common_backupjob', 'SELECT, INSERT, UPDATE'),
         -- Internal chat (chat/). A thread's last_message_at and a
         -- participant's own last_read_at are rewritten in place; a message,
         -- once sent, is never edited or deleted.

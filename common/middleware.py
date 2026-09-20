@@ -12,17 +12,26 @@ from common.request_logging import write_request_log
 class RequestBodyLimitMiddleware:
     """Refuse a request body larger than this deployment accepts.
 
-    Two limits, not one. The general limit is sized from the largest JSON
-    document the API advertises. A spreadsheet upload is a different shape of
-    request — a real file, not a document — so the few routes that take one get
-    their own, still bounded, allowance. Without the split the general limit
-    would have to be raised for every endpoint to let one endpoint take a file.
+    Three limits, not one, and each is sized by what its routes actually
+    carry. The general limit comes from the largest JSON document the API
+    advertises. A spreadsheet or an attachment is a different shape of
+    request — a real file, not a document — so the few routes that take one
+    get their own, still bounded, allowance. A database dump is a third
+    order of size again, hundreds of megabytes against ten, and it reaches
+    exactly one route (`common/backups.py`, 2.9.0).
+
+    Without the split, the general limit would have to be the largest of the
+    three for every endpoint — which is the opposite of what a body limit is
+    for.
     """
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def _limit_for(self, request):
+        backup_paths = getattr(settings, "BACKUP_UPLOAD_PATHS", ())
+        if any(request.path.startswith(path) for path in backup_paths):
+            return settings.BACKUP_UPLOAD_MAX_BYTES
         upload_paths = getattr(settings, "FILE_UPLOAD_PATHS", ())
         if any(request.path.startswith(path) for path in upload_paths):
             return settings.FILE_UPLOAD_MAX_MEMORY_SIZE

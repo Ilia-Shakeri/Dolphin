@@ -11,9 +11,23 @@
 #
 #   ./scripts/prepare-backup-volume.sh
 #   ./scripts/prepare-backup-volume.sh --env-file secrets/.env
+#
+# With --share-with-panel, it also opens the backup directory and the restore
+# spool to the application's group, which is what the `panel_backup` feature
+# needs and what nothing else does. Only run it when that feature is being
+# enabled for this deployment:
+#
+#   ./scripts/prepare-backup-volume.sh --share-with-panel
+#
+# Why it is a separate, opt-in step rather than the default: it makes the
+# archives on this volume readable by the `web` container. That container is
+# the one exposed to the network, and a database dump is the whole database.
+# A deployment that is not enabling panel backup gains nothing from that and
+# should not pay for it.
 set -eu
 
 ENV_FILE=""
+SHARE_WITH_PANEL=0
 take_next_as_env_file=0
 for arg in "$@"; do
     if [ "$take_next_as_env_file" -eq 1 ]; then
@@ -21,6 +35,8 @@ for arg in "$@"; do
         take_next_as_env_file=0
     elif [ "$arg" = "--env-file" ]; then
         take_next_as_env_file=1
+    elif [ "$arg" = "--share-with-panel" ]; then
+        SHARE_WITH_PANEL=1
     fi
 done
 
@@ -28,6 +44,24 @@ fail() {
     echo "error: $1" >&2
     exit 2
 }
+
+share_with_panel() {
+    [ "$SHARE_WITH_PANEL" -eq 1 ] || return 0
+    panel_gid="$(sed -n 's/^DOLPHIN_PANEL_GID=//p' "$ENV_FILE" | tail -n 1)"
+    [ -n "$panel_gid" ] || panel_gid=10001
+    case "$panel_gid" in
+        ''|*[!0-9]*) fail "DOLPHIN_PANEL_GID must be a whole number." ;;
+    esac
+    echo "==> opening the backup directory and the restore spool to group $panel_gid"
+    echo "    (this is what lets the panel list, download and spool -- see common/backups.py)"
+    # Run on the agent service, because it is the one service that mounts
+    # *both* volumes. Root and CHOWN for the duration of this one command
+    # only; the agent itself runs unprivileged, as postgres in this group.
+    DOLPHIN_PANEL_GID="$panel_gid" docker compose --env-file "$ENV_FILE"         --profile backup-agent run --rm --no-deps         --user root --cap-add CHOWN --cap-add FOWNER         --entrypoint sh backup-agent /ops/share-backup-volume.sh "$panel_gid"
+    echo "==> done. Start the agent with:"
+    echo "    docker compose --env-file $ENV_FILE --profile backup-agent up -d backup-agent"
+}
+
 
 [ -f compose.yml ] || fail "no compose.yml here. Run this from the deployment directory."
 if [ -z "$ENV_FILE" ]; then
@@ -55,7 +89,11 @@ if [ -n "$mountpoint" ] && [ -d "$mountpoint" ]; then
     # slower, but it always works.
     for sentinel in .dolphin-backup-root; do
         if [ -f "$mountpoint/$sentinel" ]; then
-            echo "==> already prepared ($sentinel found). Nothing to do."
+            echo "==> already prepared ($sentinel found)."
+            # Not "nothing to do": an existing deployment turning
+            # `panel_backup` on reaches exactly this branch, and the sharing
+            # step below is the only thing it needs.
+            share_with_panel
             exit 0
         fi
     done
@@ -85,3 +123,5 @@ chown postgres:postgres /backups
 echo "prepared."
 '
 echo "==> done. The backup profile and 'db-finalize' can both write here now."
+
+share_with_panel
