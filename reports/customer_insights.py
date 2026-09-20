@@ -14,21 +14,23 @@ from collections import OrderedDict
 from datetime import timedelta
 
 from django.db.models import Count
-from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
 
+from reports.ranges import (
+    GRANULARITIES,
+    MAX_BUCKETS,
+    bucket_key,
+    bucket_sequence,
+    granularity_for,
+    truncation_for,
+)
 from sales.selectors import customers_for
 
 
-#: How a growth series may be bucketed. Week and month are the two the panel
-#: offers; a custom range narrows the window but still buckets by one of these,
-#: because a bucket has to be a fixed width for the line between two points to
-#: mean anything.
-GRANULARITIES = ("week", "month")
-#: A bounded window. A growth chart is a picture, and a picture of six hundred
-#: weekly points is not one — the request is refused rather than rendered
-#: unreadable.
-MAX_BUCKETS = 120
+#: `GRANULARITIES`, `MAX_BUCKETS` and the bucket helpers moved to
+#: `reports/ranges.py` in 2.11.0, where `sales_insights` reads the same ones
+#: rather than keeping a second copy. They stay importable from here because
+#: that is the name `reports.customer_views` and the tests already use.
 #: Cities to name individually before the rest are grouped. A distribution with
 #: forty slices communicates nothing; the tail is real and is reported as one
 #: labelled row rather than dropped.
@@ -224,35 +226,7 @@ def build_customer_city_report(*, actor):
     }
 
 
-def _truncation(granularity):
-    return TruncWeek if granularity == "week" else TruncMonth
-
-
-def _next_bucket(granularity, bucket):
-    """The bucket immediately after this one."""
-    if granularity == "week":
-        return bucket + timedelta(days=7)
-    if bucket.month == 12:
-        return bucket.replace(year=bucket.year + 1, month=1, day=1)
-    return bucket.replace(month=bucket.month + 1, day=1)
-
-
-def _bucket_sequence(granularity, first, last):
-    """Every bucket from `first` to `last`, including the empty ones.
-
-    A series that skips its empty buckets draws a straight line across the gap,
-    which reads as steady growth over months where nothing happened. The zeros
-    are the honest picture.
-    """
-    buckets = []
-    cursor = first
-    while cursor <= last and len(buckets) <= MAX_BUCKETS:
-        buckets.append(cursor)
-        cursor = _next_bucket(granularity, cursor)
-    return buckets
-
-
-def build_customer_growth_report(*, actor, granularity="month", period_start=None, period_end=None):
+def build_customer_growth_report(*, actor, granularity=None, period_start=None, period_end=None):
     """How many customers were registered in each bucket, and the running total.
 
     Two series from one pass, because they answer different questions and a
@@ -265,7 +239,7 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
     line drawn between two points that are three months apart while every other
     gap is one month is a lie about the slope.
     """
-    if granularity not in GRANULARITIES:
+    if granularity is not None and granularity not in GRANULARITIES:
         raise InvalidReportPeriod("سطح تجمیع نامعتبر است.")
 
     now = timezone.now()
@@ -275,9 +249,14 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
         period_start = period_end - timedelta(days=365)
     if period_start >= period_end:
         raise InvalidReportPeriod("تاریخ شروع دوره باید قبل از تاریخ پایان آن باشد.")
+    # Derived from the window unless the caller insists. The panel's shared
+    # range filter never insists: a reader picks "the last thirty days", and
+    # how wide a bucket that deserves is `reports.ranges`' single answer.
+    if granularity is None:
+        granularity = granularity_for(period_start, period_end)
 
     scoped = customers_for(actor)
-    truncate = _truncation(granularity)
+    truncate = truncation_for(granularity)
     grouped = (
         scoped.filter(created_at__gte=period_start, created_at__lt=period_end)
         .annotate(bucket=truncate("created_at"))
@@ -288,7 +267,7 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
     per_bucket = OrderedDict()
     for row in grouped:
         if row["bucket"] is not None:
-            per_bucket[row["bucket"].date()] = row["count"]
+            per_bucket[bucket_key(granularity, row["bucket"])] = row["count"]
 
     # Everything registered before the window, so the cumulative line starts
     # where the book actually stood rather than at zero.
@@ -296,7 +275,7 @@ def build_customer_growth_report(*, actor, granularity="month", period_start=Non
 
     results = []
     if per_bucket:
-        sequence = _bucket_sequence(granularity, min(per_bucket), max(per_bucket))
+        sequence = bucket_sequence(granularity, min(per_bucket), max(per_bucket))
         if len(sequence) > MAX_BUCKETS:
             raise InvalidReportPeriod(
                 "این بازه برای رسم نمودار با این سطح تجمیع بیش از حد طولانی است."

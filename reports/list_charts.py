@@ -24,6 +24,7 @@ forced by the data model rather than chosen:
 """
 
 from common import formatting
+from collections import namedtuple
 from datetime import timedelta
 from decimal import Decimal
 
@@ -32,9 +33,15 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from aftersales.selectors import after_sales_requests_for
-from billing.models import Invoice, Payment
+from billing.models import Invoice, Order, Payment
 from billing.selectors import invoices_for, orders_for, payments_for
 from inventory.selectors import stock_items_for, stock_movements_for
+from reports.ranges import (
+    bucket_index,
+    bucket_label_value,
+    granularity_for,
+    local_bucket_starts,
+)
 from sales.models import Interaction, Lead, Sale
 from sales.selectors import (
     interactions_for,
@@ -166,10 +173,22 @@ def _grouped_sum(queryset, field, amount_field):
     ]
 
 
+def _narrowed(selector, actor, narrow):
+    """That module's scoped queryset, with the reader's own filters applied.
+
+    Every builder starts here rather than calling its selector directly, so a
+    filter can only ever make a chart show *less* — it is applied after the
+    scope, never instead of it, and a key with no declared filters passes
+    `None` and gets exactly the queryset it always had.
+    """
+    queryset = selector(actor)
+    return narrow(queryset) if narrow else queryset
+
+
 # --- builders ---------------------------------------------------------------
 
 
-def invoices_by_settlement(actor):
+def invoices_by_settlement(actor, narrow=None):
     """Counted by reading the property, not by rebuilding it in SQL.
 
     `Invoice.settlement_status` folds in the manual-settlement override, which
@@ -184,7 +203,7 @@ def invoices_by_settlement(actor):
         Invoice.SettlementStatus.PAID: "تسویه‌شده",
     }
     counts = {}
-    for invoice in invoices_for(actor).only(
+    for invoice in _narrowed(invoices_for, actor, narrow).only(
         "status", "paid_amount", "total_amount", "manual_settled_at"
     ):
         key = invoice.settlement_status
@@ -192,19 +211,17 @@ def invoices_by_settlement(actor):
     return _counted(counts.items(), {k: persian.get(k, labels.get(k)) for k in counts})
 
 
-def orders_by_status(actor):
-    from billing.models import Order
-
+def orders_by_status(actor, narrow=None):
     labels = {
         "draft": "پیش‌نویس",
         "confirmed": "تأییدشده",
         "fulfilled": "تحویل‌شده",
         "cancelled": "لغوشده",
     }
-    return _counted(_grouped_count(orders_for(actor), "status"), labels)
+    return _counted(_grouped_count(_narrowed(orders_for, actor, narrow), "status"), labels)
 
 
-def payments_by_method(actor):
+def payments_by_method(actor, narrow=None):
     labels = {
         Payment.Method.CASH: "نقدی",
         Payment.Method.BANK_TRANSFER: "حواله بانکی",
@@ -218,28 +235,28 @@ def payments_by_method(actor):
     # Cancelled receipts are excluded too: a chart of money received should not
     # count money that was given back.
     scoped = (
-        payments_for(actor)
+        _narrowed(payments_for, actor, narrow)
         .filter(direction=Payment.Direction.RECEIPT)
         .exclude(status=Payment.Status.CANCELLED)
     )
     return _amounts(_grouped_sum(scoped, "method", "amount"), labels, unit_for(actor))
 
 
-def payments_by_direction(actor):
+def payments_by_direction(actor, narrow=None):
     """Money in against money out, from the same table."""
     labels = {
         Payment.Direction.RECEIPT: "دریافتی",
         Payment.Direction.DISBURSEMENT: "پرداختی",
     }
-    scoped = payments_for(actor).exclude(status=Payment.Status.CANCELLED)
+    scoped = _narrowed(payments_for, actor, narrow).exclude(status=Payment.Status.CANCELLED)
     return _amounts(_grouped_sum(scoped, "direction", "amount"), labels, unit_for(actor))
 
 
-def products_by_category(actor):
-    return _counted(_grouped_count(products_for(actor), "category__name"))
+def products_by_category(actor, narrow=None):
+    return _counted(_grouped_count(_narrowed(products_for, actor, narrow), "category__name"))
 
 
-def categories_by_active_products(actor):
+def categories_by_active_products(actor, narrow=None):
     """Active products per category, counted through the product scope.
 
     `filter=` on the aggregate rather than on the queryset, so a category with
@@ -247,7 +264,7 @@ def categories_by_active_products(actor):
     own page.
     """
     rows = (
-        product_categories_for(actor)
+        _narrowed(product_categories_for, actor, narrow)
         .values("name")
         .annotate(total=Count("products", filter=Q(products__is_active=True)))
         .order_by()
@@ -255,29 +272,29 @@ def categories_by_active_products(actor):
     return _counted([(row["name"], row["total"]) for row in rows])
 
 
-def leads_by_status(actor):
+def leads_by_status(actor, narrow=None):
     labels = {
         Lead.Status.PENDING: "در انتظار",
         Lead.Status.COMPLETED: "تکمیل‌شده",
         Lead.Status.CANCELLED: "لغوشده",
     }
-    return _counted(_grouped_count(leads_for(actor), "status"), labels)
+    return _counted(_grouped_count(_narrowed(leads_for, actor, narrow), "status"), labels)
 
 
-def after_sales_by_status(actor):
+def after_sales_by_status(actor, narrow=None):
     # Free text rather than a fixed vocabulary, so whatever operators recorded
     # is what is charted.
-    return _counted(_grouped_count(after_sales_requests_for(actor), "status"))
+    return _counted(_grouped_count(_narrowed(after_sales_requests_for, actor, narrow), "status"))
 
 
-def documents_by_postal_status(actor):
-    return _counted(_grouped_count(sales_documents_for(actor), "postal_status"))
+def documents_by_postal_status(actor, narrow=None):
+    return _counted(_grouped_count(_narrowed(sales_documents_for, actor, narrow), "postal_status"))
 
 
-def stock_value_by_warehouse(actor):
+def stock_value_by_warehouse(actor, narrow=None):
     """Stock value is `quantity * average_cost`; there is no such column."""
     rows = (
-        stock_items_for(actor)
+        _narrowed(stock_items_for, actor, narrow)
         .values("warehouse__name")
         .annotate(
             total=Coalesce(
@@ -293,9 +310,9 @@ def stock_value_by_warehouse(actor):
     return _amounts([(row["warehouse__name"], row["total"]) for row in rows], unit=unit_for(actor))
 
 
-def sales_by_agent(actor):
+def sales_by_agent(actor, narrow=None):
     """Confirmed sales only — a cancelled sale is not an agent's result."""
-    scoped = sales_for(actor).filter(status=Sale.Status.CONFIRMED)
+    scoped = _narrowed(sales_for, actor, narrow).filter(status=Sale.Status.CONFIRMED)
     rows = (
         scoped.values("sold_by__username")
         .annotate(total=Coalesce(Sum("total_amount"), Decimal("0.00")))
@@ -304,8 +321,8 @@ def sales_by_agent(actor):
     return _amounts([(row["sold_by__username"], row["total"]) for row in rows], unit=unit_for(actor))
 
 
-def interactions_by_outcome(actor):
-    return _counted(_grouped_count(interactions_for(actor), "outcome"))
+def interactions_by_outcome(actor, narrow=None):
+    return _counted(_grouped_count(_narrowed(interactions_for, actor, narrow), "outcome"))
 
 
 # --- the registry -----------------------------------------------------------
@@ -342,6 +359,219 @@ LIST_CHARTS = {
 }
 
 
+# --- the optional filters ---------------------------------------------------
+
+#: One declared filter on one chart.
+#:
+#: `param`     the query-string name the panel sends;
+#: `label`     what the selector is called to a screen reader;
+#: `all_label` the "no narrowing" option's own text — written out rather than
+#:             composed, because «همهٔ» plus a singular noun is wrong Persian
+#:             for half of these and pluralising in code is guesswork;
+#: `lookup`    the ORM keyword it becomes, applied to the *already scoped*
+#:             queryset — so a filter can only ever narrow what a chart shows;
+#: `options`   a callable taking that scoped queryset and returning the values
+#:             the panel may offer, `[{"value", "label"}]`.
+ChartFilter = namedtuple("ChartFilter", "param label all_label lookup options")
+
+
+def _choice_options(choices, labels=None):
+    """A model's own `TextChoices`, in the order the model declares them."""
+
+    def build(_queryset):
+        return [
+            {"value": value, "label": (labels or {}).get(value) or str(label)}
+            for value, label in choices
+        ]
+
+    return build
+
+
+def _related_options(field, label_field):
+    """The distinct related rows that actually occur in this reader's scope.
+
+    Derived from the scoped queryset rather than from the related model's own
+    table, which is the whole reason this is safe without a second permission
+    rule: a marketer offered the list of marketers whose leads they can already
+    see is being offered nothing new.
+    """
+
+    def build(queryset):
+        rows = (
+            queryset.exclude(**{f"{field}__isnull": True})
+            .values(field, label_field)
+            .distinct()
+            .order_by(label_field)
+        )
+        return [
+            {"value": str(row[field]), "label": row[label_field] or UNLABELLED}
+            for row in rows
+        ]
+
+    return build
+
+
+def _text_options(field):
+    """The distinct non-empty free-text values occurring in this reader's scope."""
+
+    def build(queryset):
+        rows = (
+            queryset.exclude(**{field: ""})
+            .exclude(**{f"{field}__isnull": True})
+            .values_list(field, flat=True)
+            .distinct()
+            .order_by(field)
+        )
+        return [{"value": value, "label": value} for value in rows]
+
+    return build
+
+
+#: key -> the filters that key offers, in the order they are drawn.
+#:
+#: Product-owner request 2026-09-20: «فیلترهای معنادار اضافه شود (بر اساس
+#: بازاریاب، وضعیت، منبع سرنخ)». Declared rather than written per chart for the
+#: same reason `LIST_CHARTS` is: adding one to another key is a line in this
+#: table, and there is exactly one place to read to know what a chart can be
+#: narrowed by.
+#:
+#: Only columns a record really has appear here. A chart is not given a filter
+#: because the filter sounds useful — an order has no marketer of its own, and
+#: inventing one by joining through its lead would be a business rule this
+#: table has no authority to invent.
+CHART_FILTERS = {
+    "leads": (
+        ChartFilter("assigned_to", "بازاریاب", "همهٔ بازاریاب‌ها", "assigned_to_id",
+                    _related_options("assigned_to_id", "assigned_to__username")),
+        ChartFilter("status", "وضعیت", "همهٔ وضعیت‌ها", "status",
+                    _choice_options(Lead.Status.choices, {
+                        Lead.Status.PENDING: "در انتظار",
+                        Lead.Status.COMPLETED: "تکمیل‌شده",
+                        Lead.Status.CANCELLED: "لغوشده",
+                    })),
+        ChartFilter("source", "منبع سرنخ", "همهٔ منبع‌ها", "source",
+                    _text_options("source")),
+    ),
+    "sales": (
+        ChartFilter("sold_by", "بازاریاب", "همهٔ بازاریاب‌ها", "sold_by_id",
+                    _related_options("sold_by_id", "sold_by__username")),
+    ),
+    "orders": (
+        ChartFilter("status", "وضعیت", "همهٔ وضعیت‌ها", "status",
+                    _choice_options(Order.Status.choices, {
+                        "draft": "پیش‌نویس",
+                        "confirmed": "تأییدشده",
+                        "fulfilled": "تحویل‌شده",
+                        "cancelled": "لغوشده",
+                    })),
+    ),
+    "interactions": (
+        ChartFilter("agent", "بازاریاب", "همهٔ بازاریاب‌ها", "agent_id",
+                    _related_options("agent_id", "agent__username")),
+        ChartFilter("outcome", "نتیجه", "همهٔ نتیجه‌ها", "outcome",
+                    _text_options("outcome")),
+    ),
+}
+
+
+class UnknownChartFilter(ValueError):
+    """A filter value the chart never offered."""
+
+
+class InvalidChartPeriod(ValueError):
+    """The requested window cannot be charted."""
+
+
+def _filter_base(key, actor):
+    """The scoped queryset a key's filter options are read from.
+
+    Its *trend* selector, not its chart builder's: the two are the same for
+    every key that declares a filter, and the trend selector is the one that
+    is already a plain callable taking an actor.
+    """
+    entry = LIST_TRENDS.get(key)
+    return entry[0](actor) if entry else None
+
+
+def filters_for(key, actor):
+    """What the panel may offer above this chart, with each option's own label.
+
+    Empty for a key with nothing declared, and an individual filter with no
+    options — a deployment where no lead has a source yet — is dropped rather
+    than drawn as an empty selector.
+    """
+    declared = CHART_FILTERS.get(key)
+    if not declared:
+        return []
+    base = _filter_base(key, actor)
+    if base is None:
+        return []
+    offered = []
+    for entry in declared:
+        options = entry.options(base)
+        if options:
+            offered.append({
+                "param": entry.param,
+                "label": entry.label,
+                "all_label": entry.all_label,
+                "options": options,
+            })
+    return offered
+
+
+#: The query parameters that are not filters. Named here so `filter_params`
+#: has one place to subtract them from, rather than the view re-listing the
+#: window serializer's own field names.
+WINDOW_PARAMS = frozenset({"period_start", "period_end"})
+
+
+def filter_params(key, params):
+    """`params` split into this key's declared filters, or a refusal.
+
+    The window serializer refuses an unknown query parameter
+    (`RejectServerFieldsMixin`), which is right and is why the filters cannot
+    simply be passed to it: which ones exist depends on the key. This keeps
+    the same strictness for the other half — anything that is neither a
+    window bound nor a filter this chart declares is refused by name rather
+    than quietly dropped.
+    """
+    declared = {entry.param for entry in CHART_FILTERS.get(key, ())}
+    unknown = sorted(set(params) - WINDOW_PARAMS - declared)
+    if unknown:
+        raise UnknownChartFilter(unknown[0])
+    return {name: value for name, value in params.items() if name in declared}
+
+
+def narrowing(key, actor, params):
+    """A callable applying `params` to any queryset, or `None` for no filters.
+
+    Every value is checked against the options this reader was actually
+    offered. A value that was never offered is refused rather than ignored:
+    silently dropping it would answer a different question than the one the
+    URL asks, and silently accepting it would let the query string reach a
+    column the table above never declared.
+    """
+    declared = {entry.param: entry for entry in CHART_FILTERS.get(key, ())}
+    if not declared:
+        return None
+    wanted = {name: value for name, value in params.items() if name in declared and value}
+    if not wanted:
+        return None
+
+    offered = {entry["param"]: {option["value"] for option in entry["options"]}
+               for entry in filters_for(key, actor)}
+    lookups = {}
+    for name, value in wanted.items():
+        if value not in offered.get(name, ()):  # includes a param with no options at all
+            raise UnknownChartFilter(name)
+        lookups[declared[name].lookup] = value
+
+    def narrow(queryset):
+        return queryset.filter(**lookups)
+
+    return narrow
+
+
 # --- the companion trend ----------------------------------------------------
 
 #: How many weekly buckets the trend beside each list chart covers. The same
@@ -371,38 +601,71 @@ TREND_WEEKS = 12
 #: trend reads `stock_movements_for` — still an inventory selector, still the
 #: same feature and capabilities gate, so it can never show more than the
 #: chart beside it.
+#: The title is the *subject* only — «روند ثبت سرنخ» — and the window is
+#: appended by `_ranged_title` from the range actually drawn. They used to read
+#: «… در دوازده هفتهٔ اخیر» with the twelve weeks written into the string, which
+#: became a lie the moment 2.11.0 let a reader ask for thirty days (product
+#: owner, 2026-09-20: «عنوان/نام هر چارت با داده‌اش تطبیق داده شود»).
 LIST_TRENDS = {
-    "invoices": (invoices_for, "created_at", "روند صدور فاکتور در دوازده هفتهٔ اخیر"),
-    "orders": (orders_for, "created_at", "روند ثبت سفارش در دوازده هفتهٔ اخیر"),
-    "payments": (payments_for, "received_at", "روند ثبت پرداخت در دوازده هفتهٔ اخیر"),
-    "payments-direction": (payments_for, "received_at", "روند ثبت پرداخت در دوازده هفتهٔ اخیر"),
-    "products": (products_for, "created_at", "روند افزودن محصول در دوازده هفتهٔ اخیر"),
-    "product-categories": (product_categories_for, "created_at",
-                           "روند افزودن دسته‌بندی در دوازده هفتهٔ اخیر"),
-    "leads": (leads_for, "created_at", "روند ثبت سرنخ در دوازده هفتهٔ اخیر"),
-    "after-sales": (after_sales_requests_for, "created_at",
-                    "روند ثبت درخواست در دوازده هفتهٔ اخیر"),
-    "sales-documents": (sales_documents_for, "registered_at",
-                        "روند ثبت مرسوله در دوازده هفتهٔ اخیر"),
-    "inventory": (stock_movements_for, "occurred_at", "روند گردش انبار در دوازده هفتهٔ اخیر"),
-    "sales": (sales_for, "sold_at", "روند ثبت نتیجهٔ کمپین در دوازده هفتهٔ اخیر"),
-    "interactions": (interactions_for, "occurred_at", "روند تماس‌ها در دوازده هفتهٔ اخیر"),
+    "invoices": (invoices_for, "created_at", "روند صدور فاکتور"),
+    "orders": (orders_for, "created_at", "روند ثبت سفارش"),
+    "payments": (payments_for, "received_at", "روند ثبت پرداخت"),
+    "payments-direction": (payments_for, "received_at", "روند ثبت پرداخت"),
+    "products": (products_for, "created_at", "روند افزودن محصول"),
+    "product-categories": (product_categories_for, "created_at", "روند افزودن دسته‌بندی"),
+    "leads": (leads_for, "created_at", "روند ثبت سرنخ"),
+    "after-sales": (after_sales_requests_for, "created_at", "روند ثبت درخواست"),
+    "sales-documents": (sales_documents_for, "registered_at", "روند ثبت مرسوله"),
+    "inventory": (stock_movements_for, "occurred_at", "روند گردش انبار"),
+    "sales": (sales_for, "sold_at", "روند ثبت نتیجهٔ کمپین"),
+    "interactions": (interactions_for, "occurred_at", "روند تماس‌ها"),
 }
 
 
-def _jalali_day(value):
-    from common.jalali import format_date
+#: What each preset window is called in a chart title. The panel sends the
+#: window itself, not its name, so this is the one place the two are tied
+#: together — a title that said «۳۰ روز» for a window the reader had widened
+#: is precisely the mismatch 2.11.0 set out to fix.
+RANGE_TITLES = {
+    1: "در ۲۴ ساعت گذشته",
+    7: "در هفتهٔ گذشته",
+    30: "در ۳۰ روز گذشته",
+    90: "در سه ماه گذشته",
+    365: "در یک سال گذشته",
+}
 
-    return format_date(value)
+
+def _ranged_title(subject, period_start, period_end, *, now):
+    """`subject` plus the window it was actually drawn over.
+
+    A window that ends now and matches a preset is named — the reader picked
+    that name and should read it back. Anything else is spelled out as two
+    Jalali dates, which is the only honest description of a custom range.
+    """
+    days = round((period_end - period_start).total_seconds() / 86400)
+    recent = abs((now - period_end).total_seconds()) < 3600
+    if recent and days in RANGE_TITLES:
+        return f"{subject} {RANGE_TITLES[days]}"
+    return (
+        f"{subject} از {bucket_label_value(timezone.localdate(period_start))}"
+        f" تا {bucket_label_value(timezone.localdate(period_end))}"
+    )
 
 
-def trend_for(key, actor, *, now=None):
-    """Weekly record counts for the last `TREND_WEEKS` weeks, oldest first.
+def trend_for(key, actor, *, now=None, period_start=None, period_end=None, narrow=None):
+    """Record counts per bucket across the window, oldest first.
 
     Bucketed in Python over one ordered range scan rather than with a database
     date-truncation function, for the reason `common/dashboard.py` already
     records for its own trend: this codebase runs on PostgreSQL in production
     and SQLite in development, and the two disagree about where a week starts.
+    The arithmetic itself lives in `reports.ranges` so that this module and the
+    two growth reports bucket a window the same way.
+
+    The window defaults to the twelve weeks this chart has always shown, so a
+    caller that asks for nothing gets exactly what it used to get. How wide a
+    bucket is follows from the window rather than being chosen beside it, which
+    is why thirty days draws thirty points and a year draws twelve.
 
     Returns `None` for a key with no trend declared, so a chart that has one
     and a chart that does not both render correctly rather than the caller
@@ -411,36 +674,50 @@ def trend_for(key, actor, *, now=None):
     entry = LIST_TRENDS.get(key)
     if entry is None:
         return None
-    selector, field, title = entry
+    selector, field, subject = entry
 
     local_now = timezone.localtime(now or timezone.now())
-    start_of_today = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    first_bucket_start = start_of_today - timedelta(
-        weeks=TREND_WEEKS - 1, days=local_now.weekday()
-    )
+    if period_end is None:
+        period_end = local_now
+    if period_start is None:
+        start_of_today = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        period_start = start_of_today - timedelta(
+            weeks=TREND_WEEKS - 1, days=local_now.weekday()
+        )
+    if period_start >= period_end:
+        raise InvalidChartPeriod("تاریخ شروع بازه باید پیش از پایان آن باشد.")
 
-    buckets = [0] * TREND_WEEKS
-    values = selector(actor).filter(**{f"{field}__gte": first_bucket_start}).values_list(
-        field, flat=True
-    )
+    granularity = granularity_for(period_start, period_end)
+    starts = local_bucket_starts(granularity, period_start, period_end)
+    if not starts:
+        return None
+
+    counts = [0] * len(starts)
+    queryset = _narrowed(selector, actor, narrow)
+    values = queryset.filter(
+        **{f"{field}__gte": starts[0], f"{field}__lt": period_end}
+    ).values_list(field, flat=True)
     for moment in values:
         if moment is None:
             continue
-        index = (timezone.localtime(moment) - first_bucket_start).days // 7
-        if 0 <= index < TREND_WEEKS:
-            buckets[index] += 1
+        index = bucket_index(granularity, starts, moment)
+        if index is not None:
+            counts[index] += 1
 
     points = [
         {
-            "label": _jalali_day(first_bucket_start + timedelta(weeks=index)),
+            "label": bucket_label_value(
+                start if granularity == "hour" else start.date()
+            ),
             "value": count,
             "display": _persian_digits(count),
         }
-        for index, count in enumerate(buckets)
+        for start, count in zip(starts, counts)
     ]
-    total = sum(buckets)
+    total = sum(counts)
     return {
-        "title": title,
+        "title": _ranged_title(subject, period_start, period_end, now=local_now),
+        "granularity": granularity,
         "points": points,
         "summary": f"مجموع این بازه: {_persian_digits(total)} مورد",
     }

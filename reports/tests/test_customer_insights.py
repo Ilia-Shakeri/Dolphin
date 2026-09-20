@@ -147,8 +147,40 @@ class CustomerInsightTests(TestCase):
         self.assertEqual(report["closing_total"], 2)
 
     def test_an_unknown_granularity_is_refused(self):
+        """Restated 2026-09-20: `day` is a real granularity now.
+
+        `reports/ranges.py` added `hour` and `day` for the panel's shared
+        range filter — a thirty-day window bucketed by month is one point.
+        The rule this measures is unchanged, so it is measured with a word
+        that is still not a bucket width."""
         with self.assertRaises(InvalidReportPeriod):
-            build_customer_growth_report(actor=self.manager, granularity="day")
+            build_customer_growth_report(actor=self.manager, granularity="fortnight")
+
+    def test_the_narrow_granularities_the_range_filter_needs_are_accepted(self):
+        now = timezone.now()
+        for granularity in ("hour", "day"):
+            with self.subTest(granularity=granularity):
+                report = build_customer_growth_report(
+                    actor=self.manager,
+                    granularity=granularity,
+                    period_start=now - timedelta(days=1),
+                    period_end=now,
+                )
+                self.assertEqual(report["granularity"], granularity)
+
+    def test_the_bucket_width_is_derived_from_the_window_when_none_is_given(self):
+        """The panel sends a window and no granularity: a reader picks "the
+        last thirty days", not "by week". `reports.ranges.granularity_for` is
+        the single place that turns one into the other."""
+        now = timezone.now()
+        for days, expected in ((1, "hour"), (30, "day"), (120, "week"), (900, "month")):
+            with self.subTest(days=days):
+                report = build_customer_growth_report(
+                    actor=self.manager,
+                    period_start=now - timedelta(days=days),
+                    period_end=now,
+                )
+                self.assertEqual(report["granularity"], expected)
 
     def test_a_backwards_period_is_refused(self):
         now = timezone.now()

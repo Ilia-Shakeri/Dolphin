@@ -2492,8 +2492,8 @@ dialog {
    stays correct if a deployment ever renders LTR. */
 .dashboard-widget-controls {
     position: absolute;
-    top: 0.5rem;
-    inset-inline-end: 0.5rem;
+    top: 0.75rem;
+    inset-inline-end: 0.75rem;
     z-index: 3;
     display: flex;
     align-items: center;
@@ -2504,30 +2504,77 @@ dialog {
     box-shadow: var(--bs-box-shadow-sm);
 }
 
-.dashboard-widget-handle {
-    cursor: grab;
-    padding-inline: 0.25rem;
-    color: var(--bs-gray-600);
-    line-height: 1;
-}
-
-.dashboard-widget-size {
-    width: auto;
-    min-width: 6.5rem;
-    padding-block: 0.15rem;
-}
-
-/* The hide control is an icon button carrying a bare `×` rather than a
-   keenicon glyph: at this size the duotone paths render as a smudge, and a
-   multiplication sign is unambiguous in both scripts. The vendor's own
-   `.btn.btn-icon` sizing is two classes deep, so the width and height are
-   restated at the same specificity to beat it rather than with
-   `!important`. */
+/* The hide control. Solid danger rather than the light tint it used to
+   carry, an outline keenicon rather than a bare `×`, and — the part the
+   product owner actually asked for («دکمهٔ حذف فاصلهٔ بیشتری از لبه‌ها
+   داشته باشد و ظاهر بهتری بگیرد», 2026-09-20) — held well clear of the
+   corner by the `0.75rem` inset on `.dashboard-widget-controls` above plus
+   the card's own outline offset. The vendor's `.btn.btn-icon` sizing is two
+   classes deep, so the size is restated at the same specificity to beat it
+   rather than with `!important`. */
 .dashboard-widget .btn.dashboard-widget-hide {
-    width: 1.6rem;
-    height: 1.6rem;
-    font-size: 1rem;
+    width: 1.75rem;
+    height: 1.75rem;
     line-height: 1;
+    box-shadow: var(--bs-box-shadow-sm);
+}
+
+/* The resize grip sits on the box's *free* edge: a column in an RTL row is
+   anchored at the row's right and extends leftwards, so the edge that moves
+   when it widens is the physical left one. `inset-inline-end` is what names
+   that edge here — the same logical property the hide control above uses to
+   reach the top left — and the two therefore stack down the same side.
+
+   Descendant selector, not the bare class: Bootstrap's own reset carries
+   `button:not(:disabled) {cursor: pointer}`, which is (0,1,1) and beats a
+   lone class. Measured — the grip really did render with a pointer cursor
+   before this. */
+.dashboard-widget .dashboard-widget-resize {
+    position: absolute;
+    inset-block-end: 0.75rem;
+    inset-inline-end: 0.75rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0.475rem;
+    color: var(--bs-gray-700);
+    background: var(--bs-body-bg);
+    box-shadow: var(--bs-box-shadow-sm);
+    /* `nwse` and `nesw` are mirror images, and the one that points along the
+       direction this grip actually moves — down-left / up-right — is
+       `nesw`. */
+    cursor: nesw-resize;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.dashboard-widget .dashboard-widget-resize:hover,
+.dashboard-widget .dashboard-widget-resize:focus-visible {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+/* While a box is being resized its own outline becomes the feedback — the
+   grip is under the pointer and the card edge is what the reader is
+   watching. */
+.dashboard-widget.resizing > .card {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* The capability row is capped to two rows and scrolls (see home.html), which
+   is right for reading and wrong for arranging: a tile dragged towards a
+   position scrolled out of view cannot be dropped there. Editing lifts the
+   cap for as long as it lasts. */
+.dashboard-capability-grid.dashboard-widgets-editing {
+    max-height: none !important;
+    overflow: visible !important;
 }
 
 /* 10. The shared hover scrollbar -------------------------------------------
@@ -2712,5 +2759,80 @@ dialog {
     #lead-calendar .fc-daygrid-day-frame,
     #after-sales-calendar .fc-daygrid-day-frame {
         transition: none;
+    }
+}
+
+/* 12. The shared chart controls ---------------------------------------------
+
+   Product owner, 2026-09-20: «یک فیلتر زمانی جذاب و یکدست». One rule set for
+   the range buttons, the custom-range fields, the per-chart selectors and the
+   way back from a zoom, because `setupChartRange` builds all four and mounts
+   them in twelve places.
+
+   Almost everything here is layout. The buttons are the theme's own
+   `btn-group btn-sm`, the selectors its `form-select-sm form-select-solid`,
+   and the reset its `btn-icon btn-light` — this only arranges them and gives
+   the two things Metronic has no utility for: a row that wraps without
+   collapsing its gaps, and fields narrow enough that two dates and a button
+   still fit beside a heading. */
+
+.dolphin-chart-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* A wrapped `btn-group` loses its own joined corners, so the group is kept
+   unwrapped and the row above it wraps instead. Six short labels fit in
+   ~19rem, which is narrower than the narrowest card this sits in. */
+.dolphin-chart-range {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+}
+
+.dolphin-chart-range-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Wide enough for «۱۴۰۵/۰۵/۲۵» at this theme's 13px root and no wider — two
+   of these plus «اعمال» are what appears when «بازه دلخواه» is chosen, and a
+   default-width input would push the row onto its own line. */
+.dolphin-chart-range-custom input {
+    inline-size: 8.5rem;
+}
+
+/* The same for the per-chart selectors: long enough for a username or a
+   status word, short enough that three of them sit beside a heading. */
+.dolphin-chart-filter {
+    inline-size: auto;
+    min-inline-size: 9rem;
+    max-inline-size: 14rem;
+}
+
+/* Only visible once there is a zoom to undo — see `chartResetEvents`. It is
+   the theme's own icon button; what is set here is the gap that stops it
+   reading as the last item of the range group. */
+.dolphin-chart-reset {
+    flex: 0 0 auto;
+    margin-inline-start: 0.25rem;
+}
+
+@media (max-width: 575.98px) {
+    /* On a phone the group is the whole row and each button takes an equal
+       share of it, rather than six buttons squeezing to their text. */
+    .dolphin-chart-range {
+        flex: 1 1 100%;
+    }
+    .dolphin-chart-range .btn {
+        flex: 1 1 0;
+        padding-inline: 0.35rem;
+    }
+    .dolphin-chart-filter {
+        flex: 1 1 100%;
+        max-inline-size: none;
     }
 }

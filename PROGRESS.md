@@ -49,16 +49,16 @@ usage limit can be resumed from here with no questions.
 - [x] 3. Better cell separation; cells stretch with content, animated
 
 ### Batch B — `2.11.0` — charts, dashboard
-- [ ] 4. One shared time filter (today / 7d / 30d / 3m / year / custom)
-- [ ] 4. Titles corrected to match their data
-- [ ] 4. Extra meaningful filters where they exist
-- [ ] 4. Magnifier icon removed
-- [ ] 4. Home icon repositioned, tooltip «حالت پیش‌فرض»
-- [ ] 5. Edit button moved to the top of the page, covers every box
-- [ ] 5. Whole-widget drag, six-dot handle removed
-- [ ] 5. Corner resize with sensible min/max on a grid
-- [ ] 5. Delete button: more inset, better looking
-- [ ] 5. Per-user layout saved/restored; reset works
+- [x] 4. One shared time filter (today / 7d / 30d / 3m / year / custom)
+- [x] 4. Titles corrected to match their data
+- [x] 4. Extra meaningful filters where they exist
+- [x] 4. Magnifier icon removed
+- [x] 4. Home icon repositioned, tooltip «حالت پیش‌فرض»
+- [x] 5. Edit button moved to the top of the page, covers every box
+- [x] 5. Whole-widget drag, six-dot handle removed
+- [x] 5. Corner resize with sensible min/max on a grid
+- [x] 5. Delete button: more inset, better looking
+- [x] 5. Per-user layout saved/restored; reset works
 
 ### Batch C — `2.12.0` — invoice wizard, settings, popovers
 - [ ] 6. «اقلام و تخفیف» step redesigned
@@ -88,33 +88,46 @@ usage limit can be resumed from here with no questions.
 
 ## Status
 
-**Current batch:** B — not started. Batch A is released as `2.10.0`
+**Current batch:** C — not started. Batch B is released as `2.11.0`
 (committed, not yet deployed; the deploy is the single one at the end).
 
-**Next step:** item 4 — the line charts. Start by reading the existing
-`renderLineChart`/`setupChartRangeFilter` neighbourhood in
-`common/static/common/dolphin-app.js` and §6 of `dolphin.css`, and list every
-page that draws one before changing any of them; the shared time filter has to
-be one component, not one per page.
+**Next step:** item 6 — the «اقلام و تخفیف» step of the new-invoice wizard.
+Read `common/templates/common/invoices/list.html`'s create dialog and the
+`setupCreateInvoice`/line-item neighbourhood in `dolphin-app.js` before
+changing anything, and find the closest Metronic form/table reference for a
+line-item editor rather than inventing one.
 
-**Files changed in batch A:**
-- `common/static/common/dolphin.css` — §7 kanban card control and column
-  padding, §8 the rewritten picker's month/year/time CSS, new §10 the shared
-  hover scrollbar, new §11 calendar cells
-- `common/static/common/dolphin-app.js` — jKanban `click` removed on both
-  boards, `dolphin-hover-scroll` applied, `openJalaliPicker` rewritten,
-  `jalaliMonthRange`/`shiftJalaliMonth`/`JALALI_MONTH_VIEW`/
-  `jalaliCalendarButtons` added and used by both calendars
-- `common/templates/common/leads/list.html`, `leads/detail.html`,
-  `orders/list.html`, `orders/detail.html` — four scheduling fields moved to
-  `data-jalali="datetime"`
-- `common/tests/test_ui_overhaul_boards_dates.py` — new, 37 tests
-- `common/tests/test_board_cards_and_search.py`,
-  `test_bounded_lists_and_province_select.py`, `test_jalali_picker.py` — six
-  tests restated for the behaviour this batch deliberately changed
-- `VERSION` → `2.10.0`, `CHANGELOG.md`
+**Files changed in batch B:**
+- `reports/ranges.py` — new; the one place a window becomes buckets
+- `reports/customer_insights.py`, `reports/sales_insights.py` — both read it
+  instead of keeping a copy each; `granularity` is optional and derived
+- `reports/list_charts.py` — `CHART_FILTERS`/`filters_for`/`narrowing`/
+  `filter_params`, builders take `narrow=`, `trend_for` takes a window, the
+  registry titles lost their hardcoded «دوازده هفتهٔ اخیر»
+- `reports/serializers.py`, `reports/customer_views.py` — the window query
+  serializer, the filter payload, the two-part validation
+- `common/dashboard_layout.py` — capability tiles join the same overlay
+- `common/ui_views.py` — one call to `arrange_capability_tiles`
+- `common/static/common/dolphin-app.js` — `setupChartRange`,
+  `chartRangeWindow`, `chartResetButton`, `chartResetEvents`,
+  `renderChartFilters`, `bucketLabel`; both zoomable renderers; the
+  dashboard editor (two grids, corner grip, no handle)
+- `common/static/common/dolphin.css` — new §12 chart controls, §9 rewritten
+  for the grip and the inset hide button
+- `common/templates/common/home.html`, `includes/list_charts.inc`,
+  `customers/list.html`, `users/profile.html`
+- `common/tests/test_ui_overhaul_charts_dashboard.py` — new, 66 tests
+- `common/tests/test_chart_labels.py`, `test_list_trend_charts.py`,
+  `reports/tests/test_customer_insights.py` — restated for what changed
+- `VERSION` → `2.11.0`, `CHANGELOG.md`
 
-**Checks run:** 82 tests across the four affected modules — OK. Full suite
-before the restatements: 2293 tests, 6 failures (those six), 7 pre-existing
-Selenium errors. Browser-measured: 32.5×32.5 control, card body inert, dragula
-still bound, scrollbar on the right at 8px, a 31-day Mehr grid.
+**Checks run:** 151 tests across the new module and the whole `reports` app —
+OK. Browser-measured on the live panel: range group 360×35 in the card header
+and 279px at 375px wide with no page scroll; «۳۰ روز»→«۷ روز» took the trend
+from 31 x-axis labels to 8 and retitled it; «امروز» produced hourly labels;
+the marketer filter narrowed both charts and survived the redraw;
+`.apexcharts-toolbar` and `.apexcharts-zoom-icon` absent everywhere; 19
+boxes across two grids all draggable with 19 grips, 19 hide buttons, 0
+handles, 0 size selects; a 500px grip drag took a tile from `col-xl-3` to
+`col-xl-6` and it survived a reload; a drag swap survived a reload; reset
+put both order and width back and hid itself.

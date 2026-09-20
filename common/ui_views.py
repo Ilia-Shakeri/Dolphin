@@ -16,6 +16,7 @@ from accounts.access import (
 )
 from accounts.models import User
 from common import labels
+from common.dashboard_layout import arrange_capability_tiles
 from common.deployment.profile import active_profile, feature_enabled
 from common.pdf import (
     PdfRendererBusy,
@@ -329,7 +330,10 @@ class DolphinHomeView(ActiveCrmView):
             })
         context["dashboard_title"], context["dashboard_summary"] = dashboard
         context["dashboard_capability"] = next(item for item in capabilities if item.startswith("dashboard."))
-        context["dashboard_widgets"] = widgets
+        # Arranged through the same per-user overlay the insight grid below
+        # uses, so one editor covers every box on the page and one "back to
+        # the default" clears both rows.
+        context["dashboard_widgets"] = arrange_capability_tiles(widgets, self.request.user)
         return context
 
 

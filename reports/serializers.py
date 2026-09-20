@@ -275,7 +275,14 @@ class CustomerCityReportSerializer(serializers.Serializer):
 
 
 class CustomerGrowthQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
-    granularity = serializers.ChoiceField(choices=["week", "month"], required=False)
+    #: Optional since 2.11.0. Omitted, the bucket width is derived from the
+    #: window by `reports.ranges.granularity_for` — which is what the panel's
+    #: shared range filter does, because a reader picks a window and not a
+    #: bucket. `hour` and `day` joined the list at the same time; they are the
+    #: widths a one-day and a thirty-day window deserve.
+    granularity = serializers.ChoiceField(
+        choices=["hour", "day", "week", "month"], required=False
+    )
     period_start = OffsetAwareDateTimeField(required=False)
     period_end = OffsetAwareDateTimeField(required=False)
 
@@ -312,7 +319,11 @@ class SalesGrowthQuerySerializer(RejectServerFieldsMixin, serializers.Serializer
         required=False,
         help_text="Whose confirmed sales to trend. Defaults to the caller's own row.",
     )
-    granularity = serializers.ChoiceField(choices=["week", "month"], required=False)
+    #: Optional, and derived from the window when omitted — see
+    #: `CustomerGrowthQuerySerializer.granularity`, which this mirrors.
+    granularity = serializers.ChoiceField(
+        choices=["hour", "day", "week", "month"], required=False
+    )
     period_start = OffsetAwareDateTimeField(required=False)
     period_end = OffsetAwareDateTimeField(required=False)
 
@@ -365,15 +376,65 @@ class ListChartTrendSerializer(serializers.Serializer):
     chart it already has rather than a second data contract.
     """
 
+    #: Names the window it was actually drawn over — «روند ثبت سرنخ در ۳۰ روز
+    #: گذشته». Before 2.11.0 the window was written into the title and the
+    #: chart always covered twelve weeks; now the reader chooses, so the title
+    #: has to follow.
     title = serializers.CharField()
+    #: Which bucket width the window worked out to, so the panel can label an
+    #: hourly point with a time and a monthly one with a month.
+    granularity = serializers.CharField()
     points = ListChartRowSerializer(many=True)
     summary = serializers.CharField(allow_blank=True)
+
+
+class ListChartQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """The window one list chart's trend is drawn over.
+
+    No `granularity`: how wide a bucket should be follows from how long the
+    window is, and `reports.ranges.granularity_for` is the single place that
+    decides. Both ends are optional and default to the twelve weeks this chart
+    has always covered, so a caller that sends nothing gets what it used to.
+
+    The per-key filters are deliberately *not* declared here. Which ones exist
+    depends on the key, and which values are valid depends on the caller's own
+    scope — neither is a fact a fixed serializer can hold.
+    """
+
+    period_start = OffsetAwareDateTimeField(required=False)
+    period_end = OffsetAwareDateTimeField(required=False)
+
+
+class ListChartFilterOptionSerializer(serializers.Serializer):
+    value = serializers.CharField()
+    label = serializers.CharField()
+
+
+class ListChartFilterSerializer(serializers.Serializer):
+    """One selector the panel may draw above a chart.
+
+    The options are the ones occurring inside this reader's own scope, so the
+    list itself discloses nothing they could not already list.
+    """
+
+    param = serializers.CharField()
+    label = serializers.CharField()
+    #: The "no narrowing" option's own text. Written per filter rather than
+    #: composed in the panel: «همهٔ» plus a singular noun is wrong Persian for
+    #: half of them.
+    all_label = serializers.CharField()
+    options = ListChartFilterOptionSerializer(many=True)
 
 
 class ListChartSerializer(serializers.Serializer):
     key = serializers.CharField()
     title = serializers.CharField()
     results = ListChartRowSerializer(many=True)
+    #: What this chart may additionally be narrowed by — empty for most keys.
+    #: Sent with the data rather than built into the template so a filter added
+    #: to `reports.list_charts.CHART_FILTERS` appears in the panel with no
+    #: template change at all.
+    filters = ListChartFilterSerializer(many=True, required=False)
     #: What the slices add up to, already formatted. The donut prints it in its
     #: middle; only the server knows whether the series is rial or a count.
     total_display = serializers.CharField(allow_blank=True)

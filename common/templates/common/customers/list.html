@@ -126,19 +126,11 @@
         <section class="card h-100"><div class="card-body">
             <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-4">
                 <h2 class="fs-3 fw-bold text-gray-900 mb-0">روند رشد مشتریان</h2>
-                <div class="btn-group" role="group" aria-label="بازه زمانی نمودار رشد">
-                    <button type="button" class="btn btn-sm btn-light" data-growth-range="week" aria-pressed="false">هفتگی</button>
-                    <button type="button" class="btn btn-sm btn-primary" data-growth-range="month" aria-pressed="true">ماهانه</button>
-                    <button type="button" class="btn btn-sm btn-light" data-growth-range="custom" aria-pressed="false">بازه دلخواه</button>
-                </div>
+                {% comment %} همان کنترل مشترکی که هر نمودار زمانیِ پنل دارد
+                   (`setupChartRange`). تا ۲.۱۱.۰ این کارت دکمه‌های «هفتگی/
+                   ماهانه» خودش را داشت، که عرضِ سطل را می‌پرسید نه بازه را. {% endcomment %}
+                <div id="customer-growth-controls"></div>
             </div>
-            <form id="customer-growth-range" class="d-flex flex-wrap align-items-center gap-3 mb-5" hidden>
-                <label class="sr-only" for="customer-growth-from">از تاریخ</label>
-                <input class="form-control form-control-solid form-control-sm" id="customer-growth-from" type="text" data-jalali="date" placeholder="از تاریخ">
-                <label class="sr-only" for="customer-growth-to">تا تاریخ</label>
-                <input class="form-control form-control-solid form-control-sm" id="customer-growth-to" type="text" data-jalali="date" placeholder="تا تاریخ">
-                <button class="btn btn-sm btn-light" type="submit">اعمال</button>
-            </form>
             <div id="customer-growth-chart" role="img" aria-label="نمودار تعداد مشتریان ثبت‌شده در طول زمان" hidden></div>
             <p id="customer-growth-chart-empty" class="text-center text-gray-700 py-10" hidden>برای این بازه مشتری تازه‌ای ثبت نشده است.</p>
         </div></section>

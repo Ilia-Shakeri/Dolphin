@@ -126,7 +126,12 @@ class ListChartTrendTests(TestCase):
         for key in LIST_TRENDS:
             with self.subTest(trend=key):
                 trend = trend_for(key, self.manager)
-                self.assertEqual(set(trend), {"title", "points", "summary"})
+                # `granularity` joined the payload in 2.11.0: the window is
+                # the reader's now, so the panel has to be told what a point
+                # in it means before it can label one.
+                self.assertEqual(
+                    set(trend), {"title", "granularity", "points", "summary"}
+                )
 
     def test_every_trend_runs_for_a_marketer_too(self):
         for key in LIST_TRENDS:

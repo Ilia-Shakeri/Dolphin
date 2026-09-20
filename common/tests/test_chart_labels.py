@@ -50,20 +50,53 @@ class ZoomResetTests(SimpleTestCase):
     independent of `apexBase`'s own `toolbar: {show: false}` — so the twelve-
     week sales trend and every plain area chart already let a reader narrow
     the range with no way back to the full window (design review,
-    2026-09-12). Both are given their own toolbar override carrying only the
-    reset icon — not a full toolbar of download/pan/zoom-in/out controls
-    nobody asked for."""
+    2026-09-12). Both must keep the gesture *and* offer the way back.
 
-    def test_the_mixed_trend_chart_has_a_reset_only_toolbar(self):
+    Restated 2026-09-20. Until 2.11.0 the way back was Apex's own toolbar
+    shown with `reset: true` and everything else off — but Apex cannot draw
+    that reset icon without also drawing the magnifier beside it, a button
+    for a gesture the plot already had, floating over the top-right of the
+    drawing. The product owner asked for the magnifier to go and the house
+    icon to move somewhere better with a «حالت پیش‌فرض» tooltip, so the
+    toolbar is off entirely and the way back is a real button in the card
+    header (`chartResetButton`), shown only once there is a zoom to undo
+    (`chartResetEvents`). Same rule, measured on what now carries it."""
+
+    def test_the_mixed_trend_chart_keeps_the_gesture_and_offers_the_way_back(self):
         body = _function_body("renderMixedChart")
-        self.assertIn("toolbar: {show: true, tools: {", body)
-        self.assertIn("reset: true,", body)
-        self.assertIn("zoomin: false, zoomout: false, pan: false,", body)
+        self.assertIn("zoom: {enabled: true, type: \"x\"", body)
+        self.assertIn("chartResetEvents(options.resetButton, chart)", body)
+        self.assertNotIn("toolbar: {show: true", body)
 
-    def test_the_plain_area_chart_has_a_reset_only_toolbar(self):
+    def test_the_plain_area_chart_keeps_the_gesture_and_offers_the_way_back(self):
         body = _function_body("renderAreaChart")
-        self.assertIn("toolbar: {show: true, tools: {", body)
-        self.assertIn("reset: true,", body)
+        self.assertIn("zoom: {enabled: true, type: \"x\"", body)
+        self.assertIn("chartResetEvents(options.resetButton, chart)", body)
+        self.assertNotIn("toolbar: {show: true", body)
+
+    def test_no_chart_in_the_panel_asks_apex_for_a_magnifier(self):
+        """The one assertion that has to hold file-wide: `zoom: true` inside
+        an Apex `tools` block is the magnifier, and it is what the product
+        owner asked to be rid of."""
+        self.assertNotIn("zoom: true,", SCRIPT)
+        self.assertNotIn("apexcharts-zoom-icon", SCRIPT)
+
+    def test_the_way_back_names_itself_the_way_the_product_owner_asked(self):
+        body = _function_body("chartResetButton")
+        self.assertIn('reset.title = "حالت پیش‌فرض"', body)
+        self.assertIn('reset.setAttribute("aria-label", "حالت پیش‌فرض")', body)
+        # Hidden until a zoom exists, so it is not a control that does
+        # nothing for the whole time nobody has zoomed.
+        self.assertIn("reset.hidden = true;", body)
+
+    def test_the_way_back_actually_undoes_the_zoom(self):
+        """`resetSeries(shouldUpdateChart, shouldResetZoom)` — the second
+        argument is the one that matters, and passing only the first would
+        redraw the series while leaving the reader inside their zoom."""
+        body = _function_body("chartResetEvents")
+        self.assertIn("live.resetSeries(true, true)", body)
+        # One listener per button, however many times the chart is redrawn.
+        self.assertIn('button.dataset.chartResetBound !== "1"', body)
 
 
 class BarLabelTests(SimpleTestCase):

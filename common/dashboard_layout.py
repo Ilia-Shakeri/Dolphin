@@ -58,6 +58,49 @@ WIDGET_CATALOG = [
 
 WIDGET_KEYS = frozenset(key for key, _label, _feature in WIDGET_CATALOG)
 
+#: The prefix that marks the *other* kind of dashboard box.
+#:
+#: The row of capability tiles at the top of the page («مشتریان مجاز», «صف
+#: سرنخ من», …) is not in `WIDGET_CATALOG` and cannot be: which tiles exist
+#: depends on the reader's own capabilities and on which modules the
+#: deployment enables, so there is no static list of them to write down. They
+#: are still dashboard boxes, and the product owner asked for the editor to
+#: cover every box on the page («ویرایش شامل همهٔ باکس‌های داشبورد شود»,
+#: 2026-09-20) — so they get a key derived from the capability they show,
+#: and the same order/size/hidden overlay applies to them.
+#:
+#: Deriving rather than declaring is what makes this safe: a key only ever
+#: means "the tile for this capability", and a tile is only ever rendered for
+#: a capability the reader already holds. Saving `capability:anything.at.all`
+#: therefore arranges nothing, which is why the validation below checks the
+#: key's *shape* and not a list of names.
+CAPABILITY_WIDGET_PREFIX = "capability:"
+
+
+def capability_widget_key(capability):
+    """The layout key for the tile showing `capability`."""
+    return f"{CAPABILITY_WIDGET_PREFIX}{capability}"
+
+
+def _is_capability_key(key):
+    """Whether `key` is a well-formed capability-tile key.
+
+    `module.action`, the shape every capability in this product has
+    (`common.permissions`), so a stored key can never be mistaken for a
+    catalog key or for free text.
+    """
+    if not key.startswith(CAPABILITY_WIDGET_PREFIX):
+        return False
+    capability = key[len(CAPABILITY_WIDGET_PREFIX):]
+    parts = capability.split(".")
+    return len(parts) == 2 and all(
+        part and part.replace("_", "").isalnum() for part in parts
+    )
+
+
+def _is_known_key(key):
+    return key in WIDGET_KEYS or _is_capability_key(key)
+
 #: `size token -> (Persian label, Bootstrap column classes)`.
 #:
 #: Four steps of the theme's own twelve-column grid, not a free pixel width:
@@ -81,6 +124,40 @@ DEFAULT_WIDGET_SIZES = {
     "agent_share": "full",
 }
 FALLBACK_WIDGET_SIZE = "quarter"
+
+#: A capability tile is a figure and a label; a quarter is what it was
+#: designed at and what every one of them renders as until a reader says
+#: otherwise. Named rather than left to `FALLBACK_WIDGET_SIZE` so the two can
+#: diverge without either becoming a surprise.
+DEFAULT_CAPABILITY_SIZE = "quarter"
+
+
+def arrange_capability_tiles(widgets, user):
+    """The top row of the dashboard, arranged for this reader.
+
+    The companion to `apply_layout`, which does the same for the insight
+    grid. Two functions rather than one because the two rows are built in
+    different places and at different times — the tiles in
+    `common.ui_views`, from capabilities and counts, and the insights in
+    `common.dashboard` — and folding them together would mean assembling the
+    whole page in one of those two just to sort it.
+
+    They share the overlay itself, so a reader's hidden set and widths mean
+    the same thing on both rows and a single "back to the default" clears
+    both at once.
+    """
+    layout = effective_layout(user)
+    arranged = []
+    for widget in widgets:
+        key = capability_widget_key(widget["capability"])
+        if key in layout["hidden"]:
+            continue
+        arranged.append({
+            **widget,
+            "key": key,
+            "size": size_class_for(key, layout["sizes"], DEFAULT_CAPABILITY_SIZE),
+        })
+    return _ordered(arranged, key_of=lambda item: item["key"], order=layout["order"])
 
 
 def get_dashboard_settings():
@@ -108,7 +185,7 @@ def _clean_keys(value, *, field):
         return None
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise BusinessRuleError({field: "فهرست کلیدهای ویجت نامعتبر است."})
-    unknown = [key for key in value if key not in WIDGET_KEYS]
+    unknown = [key for key in value if not _is_known_key(key)]
     if unknown:
         raise BusinessRuleError({field: f"ویجت ناشناخته: {', '.join(unknown)}"})
     # De-duplicated, order preserved — a caller sending the same key twice
@@ -128,7 +205,7 @@ def _clean_sizes(value, *, field):
         return None
     if not isinstance(value, dict):
         raise BusinessRuleError({field: "اندازهٔ ویجت‌ها نامعتبر است."})
-    unknown_keys = [key for key in value if key not in WIDGET_KEYS]
+    unknown_keys = [key for key in value if not _is_known_key(key)]
     if unknown_keys:
         raise BusinessRuleError({field: f"ویجت ناشناخته: {', '.join(sorted(unknown_keys))}"})
     unknown_sizes = sorted({str(size) for size in value.values() if size not in WIDGET_SIZES})
@@ -200,8 +277,13 @@ def _ordered(items, key_of, order):
 
 
 def size_class(key, sizes):
-    """The Bootstrap column classes one widget should render at."""
-    token = sizes.get(key) or DEFAULT_WIDGET_SIZES.get(key, FALLBACK_WIDGET_SIZE)
+    """The Bootstrap column classes one insight widget should render at."""
+    return size_class_for(key, sizes, DEFAULT_WIDGET_SIZES.get(key, FALLBACK_WIDGET_SIZE))
+
+
+def size_class_for(key, sizes, default):
+    """The same, with the caller naming what "unset" means for its own row."""
+    token = sizes.get(key) or default
     return WIDGET_SIZES.get(token, WIDGET_SIZES[FALLBACK_WIDGET_SIZE])[1]
 
 

@@ -656,13 +656,29 @@
                 // dashboard.py) returns the same twelve weeks' order count
                 // alongside the amount, and a reader asking "how is sales
                 // doing" usually means both.
-                mount: () => renderMixedChart(
-                    document.getElementById("dashboard-trend-chart"),
-                    document.getElementById("dashboard-trend-empty"),
-                    data.trend.points,
-                    data.trend.counts,
-                    {seriesNames: ["مبلغ فروش", "تعداد فروش"], summary: data.trend.summary, ariaLabel: data.trend.title},
-                ),
+                mount: () => {
+                    // Zoomable, so it needs the way back — and it is the one
+                    // line chart in the panel with no range filter beside it
+                    // to carry one (see `chartResetButton`).
+                    const slot = document.getElementById("dashboard-trend-controls");
+                    let reset = slot && slot.querySelector(".dolphin-chart-reset");
+                    if (slot && !reset) {
+                        reset = chartResetButton();
+                        slot.append(reset);
+                    }
+                    renderMixedChart(
+                        document.getElementById("dashboard-trend-chart"),
+                        document.getElementById("dashboard-trend-empty"),
+                        data.trend.points,
+                        data.trend.counts,
+                        {
+                            seriesNames: ["مبلغ فروش", "تعداد فروش"],
+                            summary: data.trend.summary,
+                            ariaLabel: data.trend.title,
+                            resetButton: reset,
+                        },
+                    );
+                },
             });
         }
 
@@ -780,8 +796,8 @@
     ];
 
     /**
-     * In-place dashboard customisation: drag to reorder, a size menu and a
-     * hide control on each widget, and one "back to the default" button.
+     * In-place dashboard customisation: drag to reorder, resize from a
+     * corner, a hide control on each box, and one "back to the default".
      *
      * Replaces the deployment-wide settings page retired in 2.8.0 (product
      * owner: «صفحهٔ چیدمان داشبورد را حذف کن و خود داشبورد را قابل
@@ -793,6 +809,14 @@
      * dependency: jKanban, the one drag library this product already ships,
      * is a board of columns and lists, not a responsive grid, and adapting
      * it here would be more code than `dragstart`/`dragover`/`drop`.
+     *
+     * 2.11.0 widened it in three ways the product owner asked for on
+     * 2026-09-20. It now edits *every* grid on the page marked
+     * `[data-dashboard-grid]` — the capability tiles at the top as well as
+     * the insight widgets — rather than only the one it was handed. The
+     * six-dot handle is gone and a box is dragged from anywhere on itself.
+     * And the size `<select>` became a corner grip that is dragged, which
+     * is what "resize" means everywhere else on a screen.
      */
     function setupDashboardEditor({grid, widgets, layout}) {
         const bar = document.getElementById("dashboard-editor-bar");
@@ -804,6 +828,13 @@
         const hiddenList = document.getElementById("dashboard-hidden-list");
         if (!bar || !toggle || !grid) return;
 
+        // Every editable grid on the page, in document order. `grid` is the
+        // insight one and is always among them; the capability tiles declare
+        // themselves the same way, and a page that ever grows a third row
+        // needs one attribute rather than a change here.
+        const grids = Array.from(document.querySelectorAll("[data-dashboard-grid]"));
+        if (!grids.includes(grid)) grids.push(grid);
+
         bar.hidden = false;
         let editing = false;
         let sizes = {...(layout.sizes || {})};
@@ -814,8 +845,24 @@
         let hidden = (layout.hidden || []).filter((key) => !(layout.locked_hidden || []).includes(key));
         let dragged = null;
 
+        /** Every box on the page, both grids, in the order they are drawn. */
+        function allBoxes() {
+            return grids.flatMap((host) => Array.from(host.children));
+        }
+
+        /** What a box calls itself in the hidden bar. */
+        function boxLabel(key) {
+            const known = widgets.get(key);
+            if (known) return known.label;
+            const column = document.querySelector(`[data-widget-key="${key}"]`);
+            return (column && column.dataset.widgetLabel) || key;
+        }
+
         function currentOrder() {
-            return Array.from(grid.children)
+            // One list across both grids. The server orders each row against
+            // the same array and ignores the keys that are not in it
+            // (`_ordered`), so the two rows never need separate orders.
+            return allBoxes()
                 .map((column) => column.dataset.widgetKey)
                 .filter(Boolean);
         }
@@ -842,15 +889,14 @@
                 return;
             }
             hidden.forEach((key) => {
-                const widget = widgets.get(key);
                 const button = document.createElement("button");
                 button.type = "button";
                 button.className = "btn btn-sm btn-light-primary py-1 px-3 fs-8";
                 button.dataset.restoreWidget = key;
-                button.textContent = `+ ${widget ? widget.label : key}`;
+                button.textContent = `+ ${boxLabel(key)}`;
                 button.addEventListener("click", () => {
                     hidden = hidden.filter((item) => item !== key);
-                    const column = grid.querySelector(`[data-widget-key="${key}"]`);
+                    const column = document.querySelector(`[data-widget-key="${key}"]`);
                     if (column) column.hidden = false;
                     renderHiddenBar();
                     save({hidden_widgets: hidden});
@@ -860,42 +906,110 @@
             hiddenBar.hidden = false;
         }
 
+        /** Apply a size token to a box on screen and remember it. */
+        function applySize(column, key, token) {
+            if (sizes[key] === token) return false;
+            sizes = {...sizes, [key]: token};
+            const classes = (sizeChoices.find((choice) => choice.value === token) || {}).classes;
+            if (classes) column.className = `dashboard-widget editing ${classes}`;
+            return true;
+        }
+
+        /**
+         * The corner grip, dragged to resize.
+         *
+         * Free pixels are not on offer and should not be: a box has to keep
+         * lining up with every other card on the page and has to collapse to
+         * full width on a phone, which is what the theme's twelve-column grid
+         * already does. So the grip snaps across the four widths the server
+         * accepts (`WIDGET_SIZES`, common/dashboard_layout.py) — those are
+         * the min and max the product owner asked for, and they are declared
+         * in one place rather than as numbers here.
+         *
+         * Dragged in *visual* terms: this panel is RTL, a box grows towards
+         * the physical left, and the grip sits in the bottom-left corner. So
+         * the pointer moving left widens and moving right narrows, which is
+         * the opposite of the arithmetic an LTR page would use.
+         */
+        function resizeGrip(column, key) {
+            const grip = document.createElement("button");
+            grip.type = "button";
+            grip.className = "dashboard-widget-resize";
+            grip.dataset.widgetResize = key;
+            grip.title = "تغییر اندازه";
+            grip.setAttribute("aria-label", `تغییر اندازهٔ ${boxLabel(key)}`);
+            grip.innerHTML = '<i class="ki-outline ki-arrow-two-diagonals fs-6"></i>';
+
+            function tokenAt(width) {
+                // The grid is twelve columns wide; which step a dragged width
+                // lands on is the nearest of the four the server accepts.
+                const row = column.parentElement.getBoundingClientRect().width || 1;
+                const share = width / row;
+                const steps = sizeChoices.length ? sizeChoices : DASHBOARD_SIZE_FALLBACK;
+                const fractions = {quarter: 0.25, third: 1 / 3, half: 0.5, full: 1};
+                let best = steps[0].value;
+                let distance = Infinity;
+                steps.forEach((step) => {
+                    const gap = Math.abs((fractions[step.value] ?? 0.25) - share);
+                    if (gap < distance) { distance = gap; best = step.value; }
+                });
+                return best;
+            }
+
+            let startX = 0;
+            let startWidth = 0;
+            function onMove(event) {
+                // RTL: leftwards is wider.
+                const widened = startWidth + (startX - event.clientX);
+                const token = tokenAt(Math.max(80, widened));
+                if (applySize(column, key, token)) column.classList.add("resizing");
+            }
+            function onUp() {
+                document.removeEventListener("pointermove", onMove);
+                document.removeEventListener("pointerup", onUp);
+                column.classList.remove("resizing");
+                save({widget_sizes: sizes});
+            }
+            grip.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                startX = event.clientX;
+                startWidth = column.getBoundingClientRect().width;
+                document.addEventListener("pointermove", onMove);
+                document.addEventListener("pointerup", onUp);
+            });
+            // A grip nobody can reach with a keyboard is not a control. The
+            // arrow keys step through the same four widths the pointer snaps
+            // between, in the same visual direction.
+            grip.addEventListener("keydown", (event) => {
+                const steps = (sizeChoices.length ? sizeChoices : DASHBOARD_SIZE_FALLBACK)
+                    .map((choice) => choice.value);
+                const at = Math.max(0, steps.indexOf(sizes[key] || steps[0]));
+                let next = at;
+                if (event.key === "ArrowLeft") next = Math.min(steps.length - 1, at + 1);
+                else if (event.key === "ArrowRight") next = Math.max(0, at - 1);
+                else return;
+                event.preventDefault();
+                if (applySize(column, key, steps[next])) save({widget_sizes: sizes});
+            });
+            return grip;
+        }
+
         function widgetControls(column, key) {
             const controls = document.createElement("div");
             controls.className = "dashboard-widget-controls";
             controls.dataset.widgetControls = key;
 
-            const handle = document.createElement("span");
-            handle.className = "dashboard-widget-handle";
-            handle.title = "جابه‌جایی";
-            handle.setAttribute("aria-hidden", "true");
-            handle.textContent = "⠿";
-            controls.appendChild(handle);
-
-            const select = document.createElement("select");
-            select.className = "form-select form-select-sm dashboard-widget-size";
-            select.setAttribute("aria-label", "اندازهٔ ویجت");
-            sizeChoices.forEach((choice) => {
-                const option = document.createElement("option");
-                option.value = choice.value;
-                option.textContent = choice.label;
-                if (sizes[key] === choice.value) option.selected = true;
-                select.appendChild(option);
-            });
-            select.addEventListener("change", () => {
-                sizes = {...sizes, [key]: select.value};
-                const classes = (sizeChoices.find((choice) => choice.value === select.value) || {}).classes;
-                if (classes) column.className = `dashboard-widget editing ${classes}`;
-                save({widget_sizes: sizes});
-            });
-            controls.appendChild(select);
-
+            // No drag handle. The whole box is the handle now (product owner:
+            // «جابه‌جایی با کل ویجت انجام شود و دستگیرهٔ شش‌نقطه حذف شود») —
+            // `column.draggable` was already true, so the six dots were only
+            // ever a picture of a thing that was not needed.
             const hide = document.createElement("button");
             hide.type = "button";
-            hide.className = "btn btn-sm btn-icon btn-light-danger dashboard-widget-hide";
+            hide.className = "btn btn-icon btn-sm btn-danger dashboard-widget-hide";
             hide.title = "پنهان کردن";
-            hide.setAttribute("aria-label", "پنهان کردن این ویجت");
-            hide.textContent = "×";
+            hide.setAttribute("aria-label", `پنهان کردن ${boxLabel(key)}`);
+            hide.innerHTML = '<i class="ki-outline ki-cross fs-4"></i>';
             hide.addEventListener("click", () => {
                 if (!hidden.includes(key)) hidden = [...hidden, key];
                 column.hidden = true;
@@ -907,75 +1021,87 @@
         }
 
         function enterEditing() {
-            Array.from(grid.children).forEach((column) => {
+            allBoxes().forEach((column) => {
                 const key = column.dataset.widgetKey;
                 if (!key || column.querySelector("[data-widget-controls]")) return;
                 column.classList.add("editing");
                 column.draggable = true;
                 column.appendChild(widgetControls(column, key));
+                column.appendChild(resizeGrip(column, key));
             });
-            grid.classList.add("dashboard-widgets-editing");
+            grids.forEach((host) => host.classList.add("dashboard-widgets-editing"));
         }
 
         function leaveEditing() {
-            Array.from(grid.children).forEach((column) => {
-                column.classList.remove("editing", "drag-over");
+            allBoxes().forEach((column) => {
+                column.classList.remove("editing", "drag-over", "resizing");
                 column.draggable = false;
                 const controls = column.querySelector("[data-widget-controls]");
                 if (controls) controls.remove();
+                const grip = column.querySelector("[data-widget-resize]");
+                if (grip) grip.remove();
             });
-            grid.classList.remove("dashboard-widgets-editing");
+            grids.forEach((host) => host.classList.remove("dashboard-widgets-editing"));
         }
 
-        grid.addEventListener("dragstart", (event) => {
-            if (!editing) return;
-            const column = event.target.closest("[data-widget-key]");
-            if (!column) return;
-            dragged = column;
-            column.classList.add("dragging");
-            event.dataTransfer.effectAllowed = "move";
-            // Firefox refuses to start a drag without payload; the key is
-            // the smallest honest thing to put there.
-            event.dataTransfer.setData("text/plain", column.dataset.widgetKey || "");
-        });
+        grids.forEach((host) => bindGridDrag(host));
 
-        grid.addEventListener("dragover", (event) => {
-            if (!editing || !dragged) return;
-            const column = event.target.closest("[data-widget-key]");
-            if (!column || column === dragged) return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            column.classList.add("drag-over");
-        });
+        function bindGridDrag(host) {
+            host.addEventListener("dragstart", (event) => {
+                if (!editing) return;
+                const column = event.target.closest("[data-widget-key]");
+                if (!column) return;
+                dragged = column;
+                column.classList.add("dragging");
+                event.dataTransfer.effectAllowed = "move";
+                // Firefox refuses to start a drag without payload; the key is
+                // the smallest honest thing to put there.
+                event.dataTransfer.setData("text/plain", column.dataset.widgetKey || "");
+            });
 
-        grid.addEventListener("dragleave", (event) => {
-            const column = event.target.closest("[data-widget-key]");
-            if (column) column.classList.remove("drag-over");
-        });
+            host.addEventListener("dragover", (event) => {
+                if (!editing || !dragged) return;
+                const column = event.target.closest("[data-widget-key]");
+                if (!column || column === dragged) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                column.classList.add("drag-over");
+            });
 
-        grid.addEventListener("drop", (event) => {
-            if (!editing || !dragged) return;
-            const target = event.target.closest("[data-widget-key]");
-            if (!target || target === dragged) return;
-            event.preventDefault();
-            target.classList.remove("drag-over");
-            // A swap, not an insert — the product owner asked for «جابه‌جا
-            // کردن جای ویجت‌ها», and with widgets of four different widths a
-            // swap is also the only move whose result is predictable from
-            // where the card was dropped.
-            const anchor = document.createComment("");
-            grid.insertBefore(anchor, dragged);
-            grid.insertBefore(dragged, target);
-            grid.insertBefore(target, anchor);
-            anchor.remove();
-            save({widget_order: currentOrder()});
-        });
+            host.addEventListener("dragleave", (event) => {
+                const column = event.target.closest("[data-widget-key]");
+                if (column) column.classList.remove("drag-over");
+            });
 
-        grid.addEventListener("dragend", () => {
-            if (dragged) dragged.classList.remove("dragging");
-            Array.from(grid.children).forEach((column) => column.classList.remove("drag-over"));
-            dragged = null;
-        });
+            host.addEventListener("drop", (event) => {
+                if (!editing || !dragged) return;
+                const target = event.target.closest("[data-widget-key]");
+                if (!target || target === dragged) return;
+                // Only within one grid: the two rows are different shapes — one
+                // is a capped, scrolling strip of tiles and the other a free
+                // grid of cards — and a card dropped into the strip would be cut
+                // off by its own cap.
+                if (target.parentElement !== dragged.parentElement) return;
+                event.preventDefault();
+                target.classList.remove("drag-over");
+                // A swap, not an insert — the product owner asked for «جابه‌جا
+                // کردن جای ویجت‌ها», and with widgets of four different widths a
+                // swap is also the only move whose result is predictable from
+                // where the card was dropped.
+                const anchor = document.createComment("");
+                host.insertBefore(anchor, dragged);
+                host.insertBefore(dragged, target);
+                host.insertBefore(target, anchor);
+                anchor.remove();
+                save({widget_order: currentOrder()});
+            });
+
+            host.addEventListener("dragend", () => {
+                if (dragged) dragged.classList.remove("dragging");
+                allBoxes().forEach((column) => column.classList.remove("drag-over"));
+                dragged = null;
+            });
+        }
 
         function setEditing(next) {
             editing = next;
@@ -1845,6 +1971,23 @@
         return toPersianDigits(
             `${pad4(year)}/${pad2(month)}/${pad2(day)} ${pad2(parts.hour)}:${pad2(parts.minute)}`
         );
+    }
+
+    /**
+     * A chart bucket's own axis label, at the width the server bucketed it to.
+     *
+     * `displayDay` on an hourly bucket prints the same calendar day
+     * twenty-four times in a row, which reads as twenty-four identical
+     * points. The full «۱۴۰۵/۰۶/۲۸ ۱۹:۰۰» is the other extreme — measured
+     * on a live hourly chart, Apex trimmed it to «۱۴۰۵/۰۶/۲۸ ۱۹…» and the
+     * hour, the one part that differs between neighbours, was the part cut
+     * off. An hourly window is at most two days long and its title already
+     * names it, so the hour alone is what the axis carries.
+     */
+    function bucketLabel(bucket, granularity) {
+        if (granularity !== "hour") return displayDay(bucket);
+        const parts = tehranParts(bucket);
+        return parts ? toPersianDigits(`${pad2(parts.hour)}:00`) : displayDay(bucket);
     }
 
     function pad2(value) { return String(value).padStart(2, "0"); }
@@ -3253,26 +3396,23 @@
             }
         }
 
-        let granularity = "month";
-        const rangeForm = document.getElementById("customer-growth-range");
+        // One shared control, not this page's own pair of granularity
+        // buttons. It sends a window and no granularity at all: how wide a
+        // bucket should be is derived from the window by `reports/ranges.py`,
+        // which is the same answer every other chart in the panel gets.
+        const growthRange = setupChartRange(
+            document.getElementById("customer-growth-controls"),
+            () => loadGrowth(),
+            {initial: "1y", label: "بازهٔ زمانی نمودار رشد"},
+        );
 
         async function loadGrowth() {
             const empty = document.getElementById("customer-growth-chart-empty");
-            const query = new URLSearchParams();
-            // "custom" is a window, not a bucket width. A bucket has to be a
-            // fixed size for the slope between two points to mean anything, so
-            // a custom range is still bucketed monthly.
-            query.set("granularity", granularity === "custom" ? "month" : granularity);
-            if (granularity === "custom") {
-                const from = apiDateTime(textOrNull(document.getElementById("customer-growth-from").value));
-                const to = apiDateTime(textOrNull(document.getElementById("customer-growth-to").value));
-                if (from) query.set("period_start", from);
-                if (to) query.set("period_end", to);
-            }
+            const query = new URLSearchParams(growthRange ? growthRange.window() : {});
             try {
                 const report = await apiRequest(`/api/v1/reports/customer-growth/?${query}`);
                 const points = report.results.map((row) => ({
-                    label: displayDay(row.bucket),
+                    label: bucketLabel(row.bucket, report.granularity),
                     value: row.cumulative,
                     display: `${toPersianDigits(String(row.cumulative))} مشتری (${toPersianDigits(String(row.count))} تازه)`,
                 }));
@@ -3280,6 +3420,7 @@
                 renderAreaChart(growthChart, empty, points, {
                     ariaLabel: `نمودار رشد مشتریان از ${toPersianDigits(String(report.opening_total))} به ${toPersianDigits(String(report.closing_total))}`,
                     summary: `در این بازه ${toPersianDigits(String(added))} مشتری تازه ثبت شد؛ مجموع از ${toPersianDigits(String(report.opening_total))} به ${toPersianDigits(String(report.closing_total))} رسید.`,
+                    resetButton: growthRange && growthRange.resetHost,
                 });
             } catch (error) {
                 if (growthChart) growthChart.hidden = true;
@@ -3289,26 +3430,6 @@
                 }
             }
         }
-
-        document.querySelectorAll("[data-growth-range]").forEach((button) => {
-            button.addEventListener("click", () => {
-                granularity = button.dataset.growthRange;
-                document.querySelectorAll("[data-growth-range]").forEach((other) => {
-                    const active = other === button;
-                    other.classList.toggle("btn-primary", active);
-                    other.classList.toggle("btn-light", !active);
-                    other.setAttribute("aria-pressed", String(active));
-                });
-                if (rangeForm) rangeForm.hidden = granularity !== "custom";
-                // A custom range waits for the operator to name one; the two
-                // fixed granularities redraw immediately.
-                if (granularity !== "custom") loadGrowth();
-            });
-        });
-        rangeForm?.addEventListener("submit", (event) => {
-            event.preventDefault();
-            loadGrowth();
-        });
 
         loadCities();
         loadGrowth();
@@ -3475,7 +3596,7 @@
      * have one — so a page without a trend renders a single full-width chart
      * rather than a half-width one beside an empty gap.
      */
-    function renderListTrend(card, trend) {
+    function renderListTrend(card, trend, resetButton) {
         const column = card.querySelector("[data-list-trend]");
         const canvas = card.querySelector("[data-list-trend-canvas]");
         const empty = card.querySelector("[data-list-trend-empty]");
@@ -3486,15 +3607,18 @@
         }
         column.hidden = false;
         const heading = card.querySelector("[data-list-trend-title]");
+        // The server names the window it actually drew — «روند ثبت سرنخ در ۳۰
+        // روز گذشته» — so the heading follows the range filter rather than
+        // saying «دوازده هفتهٔ اخیر» over whatever the reader picked.
         if (heading && trend.title) heading.textContent = trend.title;
-        // The same smooth area the dashboard's own twelve-week trend uses —
-        // one "recent direction" shape across the product, and it already
-        // carries the reset control a zoomed chart needs.
+        // The same smooth area the dashboard's own trend uses — one "recent
+        // direction" shape across the product.
         renderAreaChart(canvas, empty, trend.points, {
             ariaLabel: trend.title,
             summary: trend.summary || "",
             seriesName: "تعداد",
             color: chartPalette()[2],
+            resetButton,
         });
     }
 
@@ -3505,43 +3629,68 @@
             const canvas = card.querySelector("[data-list-chart-canvas]");
             const empty = card.querySelector("[data-list-chart-empty]");
             const heading = card.querySelector("[data-list-chart-title]");
+            const filterHost = card.querySelector("[data-chart-filters]");
             if (!canvas || !empty) return;
-            try {
-                const report = await apiRequest(`/api/v1/reports/list-chart/${key}/`);
-                if (heading && report.title) heading.textContent = report.title;
-                renderListTrend(card, report.trend);
-                // Every one of these is a breakdown of a total, so the shape is
-                // chosen by how many parts there are rather than by which page
-                // it is. Up to six, a ring compares the parts and names the
-                // whole in its middle. Past that the arcs get too small to
-                // compare and bars read better — the server caps the list at
-                // twelve plus a grouped «سایر», so both cases really occur.
-                const slices = report.results.filter((row) => Number(row.value) > 0);
-                if (slices.length && slices.length <= 6) {
-                    renderDonutChart(canvas, empty, report.results, {
-                        ariaLabel: report.title,
-                        total: report.total_display || null,
-                        totalLabel: report.total_label || "",
+
+            // The reader's own narrowing, kept across a redraw: changing the
+            // window must not silently clear the marketer they picked.
+            const chosen = {};
+            const range = setupChartRange(
+                card.querySelector("[data-chart-range]"),
+                () => { load(); },
+                {label: "بازهٔ زمانی روند"},
+            );
+
+            async function load() {
+                const query = new URLSearchParams(range ? range.window() : {});
+                Object.entries(chosen).forEach(([name, value]) => {
+                    if (value) query.set(name, value);
+                });
+                try {
+                    const report = await apiRequest(
+                        `/api/v1/reports/list-chart/${key}/?${query}`
+                    );
+                    if (heading && report.title) heading.textContent = report.title;
+                    renderChartFilters(filterHost, report.filters, chosen, (name, value) => {
+                        chosen[name] = value;
+                        load();
                     });
-                } else {
-                    renderBarChart(canvas, empty, report.results, {
-                        // The builder already ordered them and put its grouped
-                        // tail last; re-sorting here would lift "سایر" into the
-                        // middle.
-                        sort: false,
-                        ariaLabel: report.title,
-                    });
+                    renderListTrend(card, report.trend, range && range.resetHost);
+                    // Every one of these is a breakdown of a total, so the shape is
+                    // chosen by how many parts there are rather than by which page
+                    // it is. Up to six, a ring compares the parts and names the
+                    // whole in its middle. Past that the arcs get too small to
+                    // compare and bars read better — the server caps the list at
+                    // twelve plus a grouped «سایر», so both cases really occur.
+                    const slices = report.results.filter((row) => Number(row.value) > 0);
+                    if (slices.length && slices.length <= 6) {
+                        renderDonutChart(canvas, empty, report.results, {
+                            ariaLabel: report.title,
+                            total: report.total_display || null,
+                            totalLabel: report.total_label || "",
+                        });
+                    } else {
+                        renderBarChart(canvas, empty, report.results, {
+                            // The builder already ordered them and put its grouped
+                            // tail last; re-sorting here would lift "سایر" into the
+                            // middle.
+                            sort: false,
+                            ariaLabel: report.title,
+                        });
+                    }
+                } catch (error) {
+                    canvas.hidden = true;
+                    empty.textContent = "نمودار این فهرست در دسترس نیست.";
+                    empty.hidden = false;
+                    // One request feeds both charts, so a failure takes both: a
+                    // trend column left open beside a "not available" message
+                    // would read as a second chart that is merely still loading.
+                    const trendColumn = card.querySelector("[data-list-trend]");
+                    if (trendColumn) trendColumn.hidden = true;
                 }
-            } catch (error) {
-                canvas.hidden = true;
-                empty.textContent = "نمودار این فهرست در دسترس نیست.";
-                empty.hidden = false;
-                // One request feeds both charts, so a failure takes both: a
-                // trend column left open beside a "not available" message
-                // would read as a second chart that is merely still loading.
-                const trendColumn = card.querySelector("[data-list-trend]");
-                if (trendColumn) trendColumn.hidden = true;
             }
+
+            await load();
         }));
     }
 
@@ -7320,6 +7469,244 @@
         return instance;
     }
 
+    /* --- the shared chart controls ------------------------------------------
+
+       One component, used by every chart in the panel that has a time axis.
+
+       Before 2.11.0 there were three: the customers page had «هفتگی /ماهانه/
+       بازه دلخواه», the seller profile had «هفتگی/ماهانه», and the eleven list
+       pages had nothing at all. They looked different, offered different
+       things, and two of them were asking the wrong question — «هفتگی یا
+       ماهانه» is a bucket width, and a reader picking a filter is choosing how
+       much time to look at, not how wide a bar is. The bucket width follows
+       from the window and is decided once, on the server
+       (`reports/ranges.py::granularity_for`).
+
+       Product owner, 2026-09-20: «یک فیلتر زمانی جذاب و یکدست (مثلاً امروز /
+       ۷ روز / ۳۰ روز / ۳ ماه / سال / بازه دلخواه)».
+    */
+
+    //: The presets, in the order they are drawn. `days` is the window's length;
+    //: `null` means the reader names both ends themselves.
+    const CHART_RANGES = Object.freeze([
+        {key: "today", label: "امروز", days: 1},
+        {key: "7d", label: "۷ روز", days: 7},
+        {key: "30d", label: "۳۰ روز", days: 30},
+        {key: "3m", label: "۳ ماه", days: 90},
+        {key: "1y", label: "یک سال", days: 365},
+        {key: "custom", label: "بازه دلخواه", days: null},
+    ]);
+
+    //: Thirty days is what a list page opens on: long enough to have a shape,
+    //: short enough that today is still visible in it. The two growth charts
+    //: open on a year, which is what they always covered — see `setupChartRange`'s
+    //: `initial` option.
+    const DEFAULT_CHART_RANGE = "30d";
+
+    /**
+     * A range selector and, beside it, the way back from a zoom.
+     *
+     * Builds its own markup rather than reading it out of a template: it is
+     * mounted in twelve places, and twelve copies of a button group is exactly
+     * the drift this replaces. A page opts in with one empty element.
+     *
+     * `onChange(window)` receives `{period_start, period_end}` as ISO strings,
+     * or `{}` for a custom range the reader has not finished naming yet — the
+     * caller sends those straight on as query parameters.
+     *
+     * Returns `{value, window, resetHost}`: the last two let a caller redraw
+     * with the current selection without re-reading the DOM.
+     */
+    function setupChartRange(host, onChange, options = {}) {
+        if (!host || host.dataset.chartRangeReady === "1") return null;
+        host.dataset.chartRangeReady = "1";
+        const initial = options.initial || DEFAULT_CHART_RANGE;
+        let active = initial;
+
+        host.classList.add("dolphin-chart-controls");
+        const group = document.createElement("div");
+        group.className = "btn-group btn-group-sm dolphin-chart-range";
+        group.setAttribute("role", "group");
+        group.setAttribute("aria-label", options.label || "بازهٔ زمانی نمودار");
+
+        const custom = document.createElement("div");
+        custom.className = "dolphin-chart-range-custom";
+        custom.hidden = true;
+        const from = document.createElement("input");
+        const to = document.createElement("input");
+        [from, to].forEach((field, index) => {
+            field.type = "text";
+            field.className = "form-control form-control-sm form-control-solid";
+            field.dataset.jalali = "date";
+            field.placeholder = index === 0 ? "از تاریخ" : "تا تاریخ";
+            field.setAttribute("aria-label", index === 0 ? "از تاریخ" : "تا تاریخ");
+        });
+        const apply = document.createElement("button");
+        apply.type = "button";
+        apply.className = "btn btn-sm btn-light";
+        apply.textContent = "اعمال";
+        custom.append(from, to, apply);
+
+        const reset = chartResetButton();
+
+        function emit() {
+            onChange(chartRangeWindow(active, from.value, to.value));
+        }
+
+        CHART_RANGES.forEach((range) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.chartPreset = range.key;
+            button.textContent = range.label;
+            const on = range.key === active;
+            button.className = `btn btn-sm ${on ? "btn-primary" : "btn-light"}`;
+            button.setAttribute("aria-pressed", String(on));
+            button.addEventListener("click", () => {
+                active = range.key;
+                group.querySelectorAll("[data-chart-preset]").forEach((other) => {
+                    const chosen = other === button;
+                    other.classList.toggle("btn-primary", chosen);
+                    other.classList.toggle("btn-light", !chosen);
+                    other.setAttribute("aria-pressed", String(chosen));
+                });
+                custom.hidden = range.days !== null;
+                // A preset redraws at once; a custom range waits for both
+                // ends, because half a window is not a window.
+                if (range.days !== null) emit();
+                else from.focus();
+            });
+            group.append(button);
+        });
+
+        apply.addEventListener("click", emit);
+        host.append(group, custom, reset);
+        setupJalaliInputs(host);
+        return {
+            value: () => active,
+            window: () => chartRangeWindow(active, from.value, to.value),
+            resetHost: reset,
+        };
+    }
+
+    /**
+     * The way back from a drag-zoom.
+     *
+     * Apex's own toolbar used to carry this as a house glyph floating over
+     * the top-right of the plot, and could not show it without also showing
+     * a magnifier for a gesture the plot already had (product owner:
+     * «آیکون ذره‌بین حذف شود؛ آیکون خانه جای بهتری برود با تولتیپ «حالت
+     * پیش‌فرض»»). It sits in the card header now and appears only once
+     * there is something to go back from — see `chartResetEvents`.
+     *
+     * Its own factory rather than part of `setupChartRange`, because the
+     * dashboard's trend widget is zoomable but has no range filter: that
+     * card is a summary of a fixed twelve weeks and re-running the whole
+     * dashboard payload per click is not what a summary is for. It still
+     * needs the way back.
+     */
+    function chartResetButton() {
+        const reset = document.createElement("button");
+        reset.type = "button";
+        reset.className = "btn btn-sm btn-light btn-icon dolphin-chart-reset";
+        reset.title = "حالت پیش‌فرض";
+        reset.setAttribute("aria-label", "حالت پیش‌فرض");
+        reset.innerHTML = '<i class="ki-outline ki-home-2 fs-4"></i>';
+        reset.hidden = true;
+        return reset;
+    }
+
+    /**
+     * A preset key (and, for a custom range, two typed dates) as a window.
+     *
+     * The end of every preset is now, not the end of today: a chart whose last
+     * bucket runs into the future draws a cliff down to zero on every page
+     * load after midnight.
+     */
+    function chartRangeWindow(key, fromText, toText) {
+        if (key === "custom") {
+            const start = apiDateTime(textOrNull(fromText));
+            const end = apiDateTime(textOrNull(toText));
+            return start && end ? {period_start: start, period_end: end} : {};
+        }
+        const preset = CHART_RANGES.find((range) => range.key === key);
+        if (!preset || preset.days === null) return {};
+        const end = new Date();
+        const start = new Date(end.getTime() - preset.days * 86400000);
+        return {period_start: start.toISOString(), period_end: end.toISOString()};
+    }
+
+    /**
+     * Wire a chart instance's zoom state to its reset button.
+     *
+     * Apex has no "is this zoomed" property, so the two events that change it
+     * are what drives the button: `zoomed` fires on a drag-select (and on the
+     * reset itself, with the full range, which is why the payload is read
+     * rather than assumed) and `beforeResetZoom` on the way back.
+     */
+    function chartResetEvents(button, chartEl) {
+        if (!button) return {};
+        // Bound once per button, not per redraw: a chart that is redrawn
+        // (a new range, a theme switch) hands the same button to a new Apex
+        // instance, and a second listener would reset twice.
+        if (button.dataset.chartResetBound !== "1") {
+            button.dataset.chartResetBound = "1";
+            button.addEventListener("click", () => {
+                const live = chartEl && liveCharts.get(chartEl);
+                // `resetSeries(shouldUpdateChart, shouldResetZoom)` — the
+                // second argument is the one that matters here.
+                if (live) live.resetSeries(true, true);
+                button.hidden = true;
+            });
+        }
+        return {
+            zoomed: (_context, {xaxis}) => {
+                button.hidden = !(xaxis && (xaxis.min !== undefined || xaxis.max !== undefined));
+            },
+            beforeResetZoom: () => { button.hidden = true; },
+        };
+    }
+
+    /**
+     * The selectors a chart declares for itself, drawn from its own payload.
+     *
+     * `filters` comes back with the data (`reports/list_charts.py::filters_for`)
+     * rather than being written into a template, so a filter added to that
+     * table appears here with no markup change — «فیلترهای معنادار اضافه شود
+     * (بر اساس بازاریاب، وضعیت، منبع سرنخ)», and the next one after those.
+     *
+     * Rebuilt on each load, but the reader's own choices are carried across:
+     * changing the window must not silently clear the marketer they picked.
+     */
+    function renderChartFilters(host, filters, chosen, onChange) {
+        if (!host) return;
+        host.replaceChildren();
+        host.hidden = !filters || !filters.length;
+        if (host.hidden) return;
+        filters.forEach((filter) => {
+            const field = document.createElement("select");
+            field.className = "form-select form-select-sm form-select-solid dolphin-chart-filter";
+            field.setAttribute("aria-label", filter.label);
+            const any = document.createElement("option");
+            any.value = "";
+            // Written per filter on the server rather than built here:
+            // «همهٔ» + a singular noun is wrong Persian for half of them, and
+            // pluralising in JavaScript is guesswork.
+            any.textContent = filter.all_label || `همهٔ ${filter.label}`;
+            field.append(any);
+            filter.options.forEach((option) => {
+                const item = document.createElement("option");
+                item.value = option.value;
+                item.textContent = option.label;
+                field.append(item);
+            });
+            field.value = chosen[filter.param] || "";
+            field.addEventListener("change", () => {
+                onChange(filter.param, field.value);
+            });
+            host.append(field);
+        });
+    }
+
     function showEmptyChart(chart, empty) {
         const existing = liveCharts.get(chart);
         if (existing) {
@@ -7501,14 +7888,22 @@
 
         mountApex(chart, empty, {
             ...base,
-            // See `renderMixedChart`'s own copy of this override for why: an
-            // area series is drag-to-zoomable by default regardless of
-            // `apexBase`'s toolbar setting, and only the reset icon is
-            // enabled here — a way back, not a new toolbar of controls.
-            chart: {...base.chart, type: "area", toolbar: {show: true, tools: {
-                download: false, selection: false, zoom: true,
-                zoomin: false, zoomout: false, pan: false, reset: true,
-            }}},
+            // Apex's own toolbar is off (it is off in `apexBase` too) and
+            // drag-to-zoom is on. Until 2.11.0 the toolbar was shown for the
+            // reset icon alone, which dragged a magnifier along with it: a
+            // button for a gesture the plot already had, floating over the
+            // top-right of the drawing. The gesture stays, the magnifier is
+            // gone, and the way back is the header's own `dolphin-chart-reset`
+            // — see `chartResetEvents`.
+            chart: {
+                ...base.chart,
+                type: "area",
+                zoom: {enabled: true, type: "x", autoScaleYaxis: true},
+                events: {
+                    ...(base.chart.events || {}),
+                    ...chartResetEvents(options.resetButton, chart),
+                },
+            },
             series: [{name: options.seriesName || "مقدار", data: usable.map((p) => p.value)}],
             colors: [accent],
             dataLabels: {enabled: false},
@@ -7615,19 +8010,20 @@
             chart: {
                 ...base.chart,
                 type: "line",
-                // `apexBase`'s own `toolbar: {show: false}` is right for the
-                // charts that have nothing to reset — a donut or a gauge is
-                // not draggable. This one is: Apex's own drag-to-zoom is on
-                // by default for a line/area series regardless of the
-                // toolbar, so a reader could already narrow the range with
-                // no way back to the full twelve weeks (design review,
-                // 2026-09-12). Only the reset icon is shown — download, pan
-                // and the zoom-in/out buttons add controls nobody asked for.
-                toolbar: {show: true, tools: {
-                    download: false, selection: false, zoom: true,
-                    zoomin: false, zoomout: false, pan: false, reset: true,
-                }},
-                events: {mounted: (ctx) => forceSolidBars(ctx), updated: (ctx) => forceSolidBars(ctx)},
+                // Apex's drag-to-zoom is on by default for a line/area
+                // series, so a reader can already narrow the range and needs
+                // a way back (design review, 2026-09-12). Until 2.11.0 that
+                // way back was Apex's own toolbar, which could not show the
+                // reset icon without also showing a magnifier for the gesture
+                // the plot already had. The toolbar is off now and the way
+                // back lives in the card header beside the range filter —
+                // see `chartResetEvents` and `renderAreaChart`'s copy of this.
+                zoom: {enabled: true, type: "x", autoScaleYaxis: true},
+                events: {
+                    mounted: (ctx) => forceSolidBars(ctx),
+                    updated: (ctx) => forceSolidBars(ctx),
+                    ...chartResetEvents(options.resetButton, chart),
+                },
             },
             series: [
                 {name: seriesNames[0], type: "area", data: usable.map((point) => point.value)},
@@ -8342,21 +8738,33 @@
         }
         form.addEventListener("submit", (event) => { event.preventDefault(); loadPerformance(); });
 
-        let granularity = "month";
+        // The same shared control the customers page and every list page
+        // use. It replaces this page's own «هفتگی/ماهانه» pair, which asked
+        // for a bucket width where the reader wanted a window.
+        const trendRange = setupChartRange(
+            document.getElementById("profile-trend-controls"),
+            () => loadTrend(),
+            {initial: "1y", label: "بازهٔ زمانی نمودار روند"},
+        );
+
         async function loadTrend() {
             const chart = document.getElementById("profile-trend-chart");
             const empty = document.getElementById("profile-trend-chart-empty");
             try {
-                const query = new URLSearchParams({user_id: targetUserId, granularity});
+                const query = new URLSearchParams({
+                    user_id: targetUserId,
+                    ...(trendRange ? trendRange.window() : {}),
+                });
                 const report = await apiRequest(`/api/v1/reports/user-performance/trend/?${query}`);
                 const points = report.results.map((row) => ({
-                    label: displayDay(row.bucket),
+                    label: bucketLabel(row.bucket, report.granularity),
                     value: Number(row.sales_amount),
                     display: money(row.sales_amount),
                 }));
                 renderAreaChart(chart, empty, points, {
                     ariaLabel: "نمودار روند فروش تأییدشده",
                     seriesName: "مبلغ فروش تأییدشده",
+                    resetButton: trendRange && trendRange.resetHost,
                 });
             } catch (error) {
                 if (chart) chart.hidden = true;
@@ -8366,18 +8774,6 @@
                 }
             }
         }
-        document.querySelectorAll("[data-trend-range]").forEach((button) => {
-            button.addEventListener("click", () => {
-                granularity = button.dataset.trendRange;
-                document.querySelectorAll("[data-trend-range]").forEach((other) => {
-                    const active = other === button;
-                    other.classList.toggle("btn-primary", active);
-                    other.classList.toggle("btn-light", !active);
-                    other.setAttribute("aria-pressed", String(active));
-                });
-                loadTrend();
-            });
-        });
 
         section.querySelectorAll("[data-performance-detail]").forEach((button) => {
             button.addEventListener("click", () => {

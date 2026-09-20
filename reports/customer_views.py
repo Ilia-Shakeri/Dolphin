@@ -29,7 +29,17 @@ from common.openapi import (
 )
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
-from reports.list_charts import LIST_CHARTS, totals_for, trend_for, unit_for
+from reports.list_charts import (
+    LIST_CHARTS,
+    InvalidChartPeriod,
+    UnknownChartFilter,
+    filter_params,
+    filters_for,
+    narrowing,
+    totals_for,
+    trend_for,
+    unit_for,
+)
 from reports.customer_insights import (
     build_customer_province_report,
     InvalidReportPeriod,
@@ -41,6 +51,7 @@ from reports.serializers import (
     CustomerProvinceReportSerializer,
     CustomerGrowthQuerySerializer,
     CustomerGrowthReportSerializer,
+    ListChartQuerySerializer,
     ListChartSerializer,
 )
 
@@ -142,29 +153,56 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
             404: NOT_FOUND_RESPONSE,
             429: THROTTLED_RESPONSE,
         },
+        parameters=[ListChartQuerySerializer],
         description=(
             "The charts shown beneath one list page: `results` is the composition "
-            "breakdown, and `trend` — when that key declares one — is the weekly "
-            "record count over the last twelve weeks drawn beside it. Each key carries "
-            "its own feature and capability requirements, and both series are "
-            "aggregated through that module's selector, so a chart never counts a row "
-            "its viewer could not list."
+            "breakdown, and `trend` — when that key declares one — is the record "
+            "count per bucket over the requested window drawn beside it. The window "
+            "defaults to the last twelve weeks and its bucket width is derived from "
+            "its length (`reports.ranges`). `filters` lists what this key may "
+            "additionally be narrowed by, with the options occurring inside the "
+            "caller's own scope. Each key carries its own feature and capability "
+            "requirements, and both series are aggregated through that module's "
+            "selector, so a chart never counts a row its viewer could not list."
         ),
     )
     def get(self, request, key):
         feature, capabilities, builder, title = LIST_CHARTS[key]
         if not has_any_capability(request.user, *capabilities):
             raise PermissionDenied("دسترسی به این نمودار مجاز نیست.")
-        results = builder(request.user)
+        # Two validations, because there are two kinds of parameter here and
+        # neither can check the other's. The window is a fixed pair of fields
+        # and the serializer refuses anything else in *its* half; the filters
+        # depend on the key and their valid values depend on the reader's own
+        # scope, so they are checked against what that reader was offered.
+        try:
+            chosen = filter_params(key, request.query_params)
+        except UnknownChartFilter as exc:
+            raise ValidationError({str(exc): "فیلد نامعتبر است."}) from exc
+        window = ListChartQuerySerializer(
+            data={name: value for name, value in request.query_params.items()
+                  if name not in chosen}
+        )
+        window.is_valid(raise_exception=True)
+        try:
+            narrow = narrowing(key, request.user, chosen)
+        except UnknownChartFilter as exc:
+            raise ValidationError({str(exc): "مقدار انتخاب‌شده در این نمودار موجود نیست."}) from exc
+        results = builder(request.user, narrow=narrow)
+        try:
+            trend = trend_for(key, request.user, narrow=narrow, **window.validated_data)
+        except InvalidChartPeriod as exc:
+            raise ValidationError({"period_end": str(exc)}) from exc
         payload = {
             "key": key,
             "title": title,
             "results": results,
+            "filters": filters_for(key, request.user),
             **totals_for(results, unit_for(request.user)),
-            # Built from the same actor and from that module's own selector,
-            # so the direction chart beside the composition chart can never
-            # count a row the composition chart would not.
-            "trend": trend_for(key, request.user),
+            # Built from the same actor, the same selector and the same
+            # narrowing, so the direction chart beside the composition chart
+            # can never count a row the composition chart would not.
+            "trend": trend,
         }
         response = Response(ListChartSerializer(payload).data)
         response["Cache-Control"] = "private, no-store"

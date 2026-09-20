@@ -24,7 +24,7 @@ import pathlib
 import re
 
 from django.apps import apps
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from reports.list_charts import LIST_CHARTS, LIST_TRENDS, TREND_WEEKS
 
@@ -77,12 +77,22 @@ class TrendRegistryTests(SimpleTestCase):
                 model._meta.get_field(field)
 
     def test_each_trend_names_the_window_it_actually_covers(self):
-        """Twelve weeks is in every title. A title that said one thing while
-        the query did another would be worse than no title."""
+        """A title that says one thing while the query does another is worse
+        than no title.
+
+        Restated 2026-09-20. The window used to be written into the title
+        («… در دوازده هفتهٔ اخیر») because it was always twelve weeks. It is
+        the reader's choice now, so a fixed string in the registry would be
+        exactly the lie this test exists to prevent: the registry holds the
+        *subject* and `trend_for` appends the window it actually drew. Both
+        halves are checked — no registry title may name a window, and a real
+        trend's title must name the one it covered."""
         self.assertEqual(TREND_WEEKS, 12)
         for key, (_selector, _field, title) in LIST_TRENDS.items():
             with self.subTest(trend=key):
-                self.assertIn("دوازده هفتهٔ اخیر", title)
+                self.assertTrue(title.startswith("روند"))
+                self.assertNotIn("اخیر", title)
+                self.assertNotIn("هفته", title)
 
     def test_every_chart_key_that_has_a_trend_is_a_real_chart_key(self):
         """A trend for a key no chart declares would never be requested."""
@@ -136,11 +146,70 @@ class ListChartMarkupTests(SimpleTestCase):
         self.assertRegex(INCLUDE, r'data-list-trend hidden')
 
 
+class TrendTitleTests(TestCase):
+    """The window a title names, measured on real output rather than on
+    the registry string — which no longer holds one."""
+
+    def test_a_drawn_trend_names_the_window_it_was_drawn_over(self):
+        from datetime import timedelta
+
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+
+        from reports.list_charts import trend_for
+
+        User = get_user_model()
+        actor = User.objects.create_user(
+            username="trend.title", password="Aa!23456pass", role=User.Role.SALES_MANAGER
+        )
+        now = timezone.now()
+        cases = (
+            (7, "در هفتهٔ گذشته"),
+            (30, "در ۳۰ روز گذشته"),
+            (365, "در یک سال گذشته"),
+        )
+        for days, expected in cases:
+            with self.subTest(days=days):
+                trend = trend_for(
+                    "leads", actor,
+                    now=now,
+                    period_start=now - timedelta(days=days),
+                    period_end=now,
+                )
+                self.assertEqual(trend["title"], f"روند ثبت سرنخ {expected}")
+
+    def test_a_custom_window_is_spelled_out_rather_than_named(self):
+        """No preset fits it, so the only honest title is the two dates."""
+        from datetime import timedelta
+
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+
+        from reports.list_charts import trend_for
+
+        User = get_user_model()
+        actor = User.objects.create_user(
+            username="trend.custom", password="Aa!23456pass", role=User.Role.SALES_MANAGER
+        )
+        now = timezone.now()
+        trend = trend_for(
+            "leads", actor,
+            now=now,
+            period_start=now - timedelta(days=200),
+            period_end=now - timedelta(days=40),
+        )
+        self.assertTrue(trend["title"].startswith("روند ثبت سرنخ از "))
+        self.assertIn(" تا ", trend["title"])
+
+
 class ListChartScriptTests(SimpleTestCase):
     def test_one_request_feeds_both_charts(self):
+        """Restated 2026-09-20 only for the extra argument: the trend now
+        also receives the shared range filter's reset button, so the card
+        header's «حالت پیش‌فرض» can undo a zoom on it. Still one request."""
         body = _function_body("setupListCharts")
         self.assertEqual(body.count("/api/v1/reports/list-chart/"), 1)
-        self.assertIn("renderListTrend(card, report.trend)", body)
+        self.assertIn("renderListTrend(card, report.trend, range && range.resetHost)", body)
 
     def test_a_failed_request_takes_the_trend_column_with_it(self):
         """Otherwise a trend column left open beside a «در دسترس نیست» message

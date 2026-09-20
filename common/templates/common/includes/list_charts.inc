@@ -10,15 +10,24 @@
 <section class="card mb-5 mb-xl-8" data-list-chart="{{ chart_key }}"><div class="card-body">
     <div class="row g-8">
         <div class="col-xl-6">
-            <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+            <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-4">
                 <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-chart-title>نمودار</h2>
+                {% comment %} فیلترهای این نمودار از خود پاسخ می‌آیند
+                   (`filters`)، پس افزودن یک فیلتر تازه در
+                   `reports/list_charts.py` هیچ تغییری در این قالب نمی‌خواهد. {% endcomment %}
+                <div class="dolphin-chart-controls" data-chart-filters hidden></div>
             </div>
             <div class="performance-chart" data-list-chart-canvas role="img" aria-label="نمودار این فهرست" hidden></div>
             <p class="text-center text-gray-700 py-10" data-list-chart-empty hidden>داده‌ای برای نمایش نیست.</p>
         </div>
         <div class="col-xl-6" data-list-trend hidden>
-            <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
+            <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-4">
                 <h2 class="fs-3 fw-bold text-gray-900 mb-0" data-list-trend-title>روند</h2>
+                {% comment %} خالی می‌ماند تا `setupChartRange` پرش کند: دکمه‌های
+                   بازه، دو فیلد بازهٔ دلخواه و دکمهٔ «حالت پیش‌فرض» همگی یک
+                   کامپوننت مشترک‌اند و در یازده صفحه یک نسخه دارند، نه یازده
+                   نسخهٔ کپی‌شده در قالب. {% endcomment %}
+                <div data-chart-range></div>
             </div>
             <div class="performance-chart" data-list-trend-canvas role="img" aria-label="روند این فهرست" hidden></div>
             <p class="text-center text-gray-700 py-10" data-list-trend-empty hidden>داده‌ای برای نمایش نیست.</p>
