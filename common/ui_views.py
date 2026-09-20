@@ -14,6 +14,7 @@ from accounts.access import (
     has_any_capability,
     is_crm_identity,
 )
+from accounts.avatars import default_avatar_url, has_avatar
 from accounts.models import User
 from common import labels
 from common.dashboard_layout import arrange_capability_tiles
@@ -119,6 +120,14 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # regardless of what the template rendered.
         context["features"] = active_profile().features
         context["capabilities"] = capabilities
+        # The face the shell shows: this reader's own upload, or the Metronic
+        # cartoon derived from their id. Resolved here rather than fetched by
+        # the panel so the header never flashes a placeholder first.
+        context["own_avatar_url"] = (
+            f"/api/v1/users/{self.request.user.pk}/avatar/image/"
+            if has_avatar(self.request.user)
+            else (default_avatar_url(self.request.user) or "")
+        )
         context["role_label"] = ROLE_LABELS[self.request.user.role]
         if self.request.user.role == User.Role.SALES_AGENT and self.request.user.workstream == User.Workstream.AFTER_SALES:
             context["role_label"] = f'{context["role_label"]} — خدمات پس از فروش'

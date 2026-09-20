@@ -264,14 +264,17 @@
                                     class="btn btn-flex align-items-center bg-hover-light-primary py-2 px-2 px-md-3"
                                     aria-haspopup="true" aria-expanded="false" aria-controls="user-menu"
                                     aria-label="منوی کاربر">
+{% comment %} The reader's own face since ۲.۱۴.۰ — their upload if they made
+   one, otherwise the Metronic cartoon derived from their id
+   (`accounts.avatars`). Rendered server-side rather than fetched, so the
+   header never flashes a placeholder first.
+
+   Until then this was a generic person glyph. 1.3.8 had put the theme's
+   sun/moon here, which made the account menu look like a theme switch — the
+   theme already reports itself on the «حالت» row inside the menu, which is
+   where a reader looks for it. {% endcomment %}
                                 <span class="symbol symbol-35px symbol-circle">
-                                    <span class="symbol-label bg-light-primary text-primary fw-bold">
-{% comment %} A person, because this is the user's own control. 1.3.8 put the
-   theme's sun/moon here instead, which made the account menu look like a theme
-   switch — the theme already reports itself on the «حالت» row inside the menu,
-   which is where a reader looks for it. {% endcomment %}
-                                        <i class="ki-duotone ki-user fs-2 text-primary"><span class="path1"></span><span class="path2"></span></i>
-                                    </span>
+                                    <img class="dolphin-avatar" src="{{ own_avatar_url }}" alt="">
                                 </span>
                                 <span class="d-none d-md-flex flex-column align-items-end ms-3">
                                     <span id="user-menu-username" class="text-gray-900 fw-bold fs-7">{{ request.user.get_full_name|default:request.user.username }}</span>
@@ -282,9 +285,7 @@
                                 <div class="menu-item px-3">
                                     <div class="menu-content d-flex align-items-center px-3">
                                         <div class="symbol symbol-50px symbol-circle me-5">
-                                            <span class="symbol-label bg-light-primary">
-                                                <i class="ki-duotone ki-profile-circle fs-2x text-primary"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                                            </span>
+                                            <img class="dolphin-avatar" src="{{ own_avatar_url }}" alt="">
                                         </div>
                                         <div class="d-flex flex-column">
                                             <span class="fw-bold d-flex align-items-center fs-6">{{ request.user.get_full_name|default:request.user.username }}</span>
@@ -807,6 +808,31 @@
         <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
     </div>
     <div id="profile-loading" class="text-center text-gray-700 py-10">در حال دریافت پروفایل…</div>
+{% comment %} عکس پروفایل — خواستهٔ مالک محصول ۲۰۲۶/۰۹/۲۰. الگو همان
+   «image-input» خود مترونیک است: دایرهٔ پیش‌نمایش با دکمهٔ مداد روی لبه و
+   دکمهٔ حذف کنارش. برش و تغییر اندازه پیش از ارسال در خود مرورگر انجام
+   می‌شود (`cropAvatarFile`)، پس چیزی که به سرور می‌رسد از قبل مربع و کوچک
+   است — و سرور باز هم حجم و نوع واقعی را خودش بررسی می‌کند.
+
+   بیرون از فرم پروفایل است چون فایل با درخواست خودش می‌رود، نه همراه ذخیرهٔ
+   پروفایل: یک عکس که فقط وقتی ذخیره شود که نام هم معتبر باشد، رفتار
+   گیج‌کننده‌ای است. {% endcomment %}
+    <div id="profile-avatar" class="avatar-input d-flex align-items-center gap-4 mb-6" hidden>
+        <div class="avatar-input-frame">
+            <img id="profile-avatar-image" class="avatar-input-image" src="" alt="تصویر پروفایل">
+            <label class="avatar-input-pick" for="profile-avatar-file" title="انتخاب تصویر">
+                <i class="ki-duotone ki-pencil fs-6"><span class="path1"></span><span class="path2"></span></i>
+                <span class="sr-only">انتخاب تصویر پروفایل</span>
+            </label>
+            <input class="sr-only" id="profile-avatar-file" type="file" accept="image/jpeg,image/png,image/webp">
+        </div>
+        <div class="min-w-0">
+            <p class="fw-semibold text-gray-900 mb-1">تصویر پروفایل</p>
+            <p class="text-muted fs-8 mb-2">jpeg، png یا webp — حداکثر ۲ مگابایت. تصویر پیش از ارسال به‌صورت مربع برش می‌خورد و به ۵۱۲ پیکسل کوچک می‌شود.</p>
+            <button class="btn btn-sm btn-light-danger" type="button" id="profile-avatar-clear" hidden>حذف تصویر</button>
+            <p class="text-danger fs-8 mt-2 mb-0" id="profile-avatar-error" hidden></p>
+        </div>
+    </div>
     <form id="profile-form" action="/api/v1/auth/me/" method="post" class="row g-5" hidden novalidate>
         {% csrf_token %}
         <div class="col-md-6"><label class="form-label fw-semibold" for="profile-username">نام کاربری</label><input class="form-control form-control-solid" id="profile-username" type="text" disabled></div>

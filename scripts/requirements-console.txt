@@ -11,3 +11,9 @@
 #     pip install -r scripts/requirements-console.txt
 #
 pywebview>=5,<6
+
+# Optional, operator-machine-only too: `scripts/build_console_exe.py` freezes
+# this console into a single `.exe` so the operator who signs manifests does
+# not need a Python checkout to run it. Never in `requirements.txt` and never
+# in a shipped image — `scripts/` is excluded from the build context outright.
+pyinstaller>=6,<7

@@ -515,6 +515,9 @@ FROM (
         -- (reset to role defaults) by the permissions screen, never merely
         -- appended.
         ('accounts_usercapabilityoverride', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- The row is replaced wholesale when someone uploads a new picture
+        -- (`update_or_create`) and removed when they clear it, so all four.
+        ('accounts_useravatar', 'SELECT, INSERT, UPDATE, DELETE'),
         ('aftersales_aftersaleshistory', 'SELECT, INSERT'),
         -- One row per uploaded file; deletion (elevated roles only, from the
         -- application) is a real DELETE, unlike the append-only tables above.

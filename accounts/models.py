@@ -67,3 +67,54 @@ class UserCapabilityOverride(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "capability"], name="accounts_capability_override_unique"),
         ]
+
+
+class UserAvatar(models.Model):
+    """One person's own profile picture.
+
+    A separate table rather than four columns on `User`, for one reason
+    worth the join: `User` is read on every authenticated request — the
+    session, the capability set, the sidebar — and a two-megabyte
+    `BinaryField` on it would be loaded and discarded thousands of times a
+    day. Here it is read only by the endpoint that serves the image.
+
+    Keyed by the user, so the relationship is one-to-one by construction and
+    "this person has a picture" is a row existing rather than a nullable
+    column being non-null. `CASCADE`: a picture of a deleted account is not
+    a record anybody needs kept, unlike the business rows that use `PROTECT`.
+
+    Stored in the row rather than on disk for the same reasons
+    `common.models.BrandSettings.logo_content` is — the container filesystem
+    is read-only, there is no `MEDIA_ROOT`, and this way the picture is in
+    the backup that `common/backups.py` already takes.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="avatar"
+    )
+    content = models.BinaryField()
+    content_type = models.CharField(max_length=32)
+    size_bytes = models.PositiveIntegerField()
+    original_filename = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "user avatar"
+        verbose_name_plural = "user avatars"
+        constraints = [
+            # The three facts about the stored bytes travel together or the
+            # row is meaningless — the same all-or-nothing shape
+            # `common_brandsettings_logo_all_or_nothing` already uses.
+            models.CheckConstraint(
+                condition=models.Q(size_bytes__gt=0),
+                name="accounts_user_avatar_has_content",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    content_type__in=("image/jpeg", "image/png", "image/webp")
+                ),
+                name="accounts_user_avatar_content_type_allowed",
+            ),
+        ]
+

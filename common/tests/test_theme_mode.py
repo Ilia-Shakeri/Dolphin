@@ -139,14 +139,19 @@ class AccountMenuTests(TestCase):
         self.client.force_login(self.user)
         self.markup = self.client.get("/customers/").content.decode("utf-8")
 
-    def test_the_button_wears_a_person(self):
-        """1.3.8 put the theme's sun/moon here, which made the account control
-        look like a theme switch. The theme reports itself on the «حالت» row
+    def test_the_button_wears_this_persons_own_face(self):
+        """Restated 2.14.0: it wore a generic person glyph and now wears the
+        reader's own picture — their upload if they made one, otherwise the
+        Metronic cartoon derived from their id (`accounts.avatars`).
+
+        The rule is the one it always was and the reason is unchanged: 1.3.8
+        put the theme's sun/moon here, which made the account control look
+        like a theme switch. The theme reports itself on the «حالت» row
         inside the menu, which is where a reader looks for it."""
         button = self.markup[
             self.markup.index('id="user-menu-toggle"') : self.markup.index('id="user-menu"')
         ]
-        self.assertIn("ki-user", button)
+        self.assertIn("dolphin-avatar", button)
         self.assertNotIn("theme-light-show", button)
 
     def test_the_profile_opens_a_dialog_rather_than_a_dashboard_anchor(self):

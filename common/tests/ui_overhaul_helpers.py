@@ -43,6 +43,19 @@ def function_body(name, source=SCRIPT):
     return source[start:following if following != -1 else len(source)]
 
 
+def python_function(name, source):
+    """One top-level Python function, as text.
+
+    `function_body` above finds JavaScript, where every function in the
+    panel script is indented one level inside an IIFE. A Python module's
+    functions start at column zero, so the end marker is different and a
+    single helper for both would only be a helper with a flag.
+    """
+    start = source.index(f"def {name}(")
+    following = source.find(chr(10) + "def ", start + 1)
+    return source[start:following if following != -1 else len(source)]
+
+
 def rule(selector, source=CODE):
     """The declarations of the first rule whose selector list contains `selector`."""
     for block in source.split("}"):

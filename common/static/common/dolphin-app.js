@@ -12857,6 +12857,152 @@
      * form most visits never touch. Loaded once and kept, because reopening it
      * to re-read what the reader just saved would be worse than stale.
      */
+    /* --- the profile picture ------------------------------------------------
+
+       Product owner, 2026-09-20: «آپلود عکس پروفایل برای بازاریاب‌ها مثل پنل
+       مترونیک، با برش/تغییر اندازه و محدودیت حجم و فرمت؛ به‌صورت پیش‌فرض از
+       آواتارهای کارتونی مترونیک استفاده شود».
+
+       The crop and the resize happen here, in a canvas, before anything is
+       sent: a photo straight off a phone is three or four megabytes and the
+       wrong shape, and uploading it to be rejected is a worse experience than
+       fixing it first. The server re-checks the size and sniffs the real type
+       regardless — a client is a convenience, never the boundary.
+    */
+
+    //: What a stored avatar is normalised to. Square, because every place it
+    //: is shown is a circle, and 512 because that is sharp on a retina screen
+    //: at the largest size the panel draws it (the profile dialog's 100px
+    //: frame) and still well under a hundred kilobytes as JPEG.
+    const AVATAR_EDGE = 512;
+    //: Quality chosen against the size ceiling rather than by eye: 0.85 keeps
+    //: a 512² photograph comfortably inside a few hundred kilobytes.
+    const AVATAR_QUALITY = 0.85;
+
+    /**
+     * A picked file as a square, downscaled JPEG blob.
+     *
+     * Centre-cropped to the shorter edge — the crop a round frame implies,
+     * and the one every avatar picker does without asking. A picture already
+     * square and already small still goes through this, because re-encoding
+     * once is cheaper than deciding whether it needs to.
+     */
+    async function cropAvatarFile(file) {
+        const source = await new Promise((resolve, reject) => {
+            const image = new Image();
+            const url = URL.createObjectURL(file);
+            image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+            image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode")); };
+            image.src = url;
+        });
+        const edge = Math.min(source.naturalWidth, source.naturalHeight);
+        if (!edge) throw new Error("empty");
+        const canvas = document.createElement("canvas");
+        canvas.width = AVATAR_EDGE;
+        canvas.height = AVATAR_EDGE;
+        const context = canvas.getContext("2d");
+        context.drawImage(
+            source,
+            (source.naturalWidth - edge) / 2,
+            (source.naturalHeight - edge) / 2,
+            edge,
+            edge,
+            0,
+            0,
+            AVATAR_EDGE,
+            AVATAR_EDGE,
+        );
+        return new Promise((resolve, reject) => {
+            canvas.toBlob(
+                (blob) => (blob ? resolve(blob) : reject(new Error("encode"))),
+                "image/jpeg",
+                AVATAR_QUALITY,
+            );
+        });
+    }
+
+    /**
+     * The picture control in the profile dialog.
+     *
+     * `endpoint` is the account owner's own by default; the user-admin page
+     * passes another person's. Which of those the reader may actually change
+     * is the server's decision (`accounts.avatars._require_may_edit`), not
+     * something hidden here.
+     */
+    function setupAvatarInput({root, endpoint}) {
+        if (!root) return null;
+        const image = root.querySelector(".avatar-input-image");
+        const picker = root.querySelector('input[type="file"]');
+        const clear = root.querySelector("[id$='-clear']");
+        const errorNote = root.querySelector("[id$='-error']");
+
+        function fail(message) {
+            if (!errorNote) return;
+            errorNote.textContent = message;
+            errorNote.hidden = false;
+        }
+
+        function show(state) {
+            // `?v=` because the URL does not change when the picture does —
+            // the same cache-bust the brand logo uses.
+            image.src = state.url ? `${state.url}?v=${Date.now()}` : "";
+            image.hidden = !state.url;
+            if (clear) clear.hidden = !state.has_avatar;
+            if (errorNote) errorNote.hidden = true;
+            root.hidden = false;
+        }
+
+        async function load() {
+            try {
+                show(await apiRequest(endpoint));
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        picker?.addEventListener("change", async () => {
+            const file = picker.files && picker.files[0];
+            if (!file) return;
+            if (errorNote) errorNote.hidden = true;
+            let blob;
+            try {
+                blob = await cropAvatarFile(file);
+            } catch (error) {
+                // A file the browser itself cannot decode is not worth
+                // sending: the server would only reject it, more slowly.
+                fail("این فایل یک تصویر خوانا نیست.");
+                picker.value = "";
+                return;
+            }
+            const body = new FormData();
+            body.append("avatar", blob, "avatar.jpg");
+            try {
+                // `raw` so `apiRequest` leaves the multipart boundary the
+                // FormData carries rather than stamping a JSON content type
+                // over it.
+                show(await apiRequest(endpoint, {method: "POST", body, raw: true}));
+                globalMessage("تصویر پروفایل ذخیره شد.", true);
+            } catch (error) {
+                showError(error);
+            } finally {
+                // So picking the same file twice in a row still fires.
+                picker.value = "";
+            }
+        });
+
+        clear?.addEventListener("click", async () => {
+            try {
+                show(await apiRequest(endpoint, {method: "DELETE"}));
+                globalMessage("تصویر پروفایل حذف شد؛ آواتار پیش‌فرض بازگشت.", true);
+            } catch (error) {
+                showError(error);
+            }
+        });
+
+        load();
+        return {load};
+    }
+
     function setupProfileDialog() {
         const dialog = document.getElementById("profile-dialog");
         const open = document.getElementById("open-profile");
@@ -12869,6 +13015,10 @@
             loaded = true;
             try {
                 await setupProfile();
+                setupAvatarInput({
+                    root: document.getElementById("profile-avatar"),
+                    endpoint: "/api/v1/profile/avatar/",
+                });
             } catch (error) {
                 // `setupProfile` reports its own failure into the dialog; this
                 // only stops one bad load from wedging the button shut.

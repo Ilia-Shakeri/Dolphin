@@ -85,10 +85,20 @@ def bucket_key(granularity, value):
     day's twenty-four buckets into one — while every wider bucket is a calendar
     date and is easier to compare, print and step as one. Which of the two a
     caller gets is decided here rather than at each of the three call sites.
+
+    Both branches localise first. `.date()` on an aware datetime reads the
+    day in *its own* offset, which is UTC for everything the ORM hands back
+    — so between local midnight and 03:30 Tehran every row landed in the
+    previous day's bucket. Caught by a test that happened to run after
+    midnight; it would otherwise have shown up as a chart whose first hours
+    of each day were missing.
     """
+    if not isinstance(value, datetime):
+        return value
+    local = timezone.localtime(value)
     if granularity == "hour":
-        return timezone.localtime(value).replace(minute=0, second=0, microsecond=0)
-    return value.date() if isinstance(value, datetime) else value
+        return local.replace(minute=0, second=0, microsecond=0)
+    return local.date()
 
 
 def next_bucket(granularity, bucket):

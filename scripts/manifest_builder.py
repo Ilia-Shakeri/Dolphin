@@ -81,6 +81,7 @@ import binascii
 import html
 import io
 import json
+import os
 import re
 import sys
 import threading
@@ -109,6 +110,13 @@ try:
 except OSError:
     _IRANSANS_WOFF2_BASE64 = ""
 
+from common.deployment.pages import feature_page_titles  # noqa: E402
+from scripts.console_strings import (  # noqa: E402
+    DEFAULT_LANGUAGE,
+    LANGUAGES,
+    T,
+    normalize_language,
+)
 from common.deployment.registry import FEATURE_DEPENDENCIES, PROFILES, valid_profile_id  # noqa: E402
 from scripts import deployment_records, preview_runner  # noqa: E402
 from scripts.new_deployment import (  # noqa: E402
@@ -159,7 +167,17 @@ _STYLE = f"""
   h2 {{ font-size: 1.15rem; margin: 0 0 .4rem; }}
   p {{ margin: .65rem 0; }}
   .subtitle {{ color: var(--text-muted); margin-top: 0; margin-bottom: 2rem; }}
-  .nav-bar {{ display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-bottom: 2rem; }}
+  .nav-bar {{ display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.5rem; margin-bottom: 2rem; }}
+  /* Pushed to the row's far end, so the language switch is in the same
+     corner on every page rather than wherever the nav links happen to end. */
+  .lang-bar {{ margin-inline-start: auto; display: flex; align-items: center; gap: .5rem; }}
+  .lang-label {{ color: var(--text-muted); font-size: .85rem; }}
+  a.lang, span.lang {{
+    font-size: .85rem; padding: .25rem .7rem; border-radius: .35rem;
+    border: 1px solid var(--border); text-decoration: none; color: #7db2ff;
+  }}
+  a.lang:hover {{ background: var(--surface-2); }}
+  span.lang.current {{ background: var(--primary); border-color: var(--primary); color: #fff; }}
   a.nav {{ color: #7db2ff; text-decoration: none; font-size: .95rem; }}
   a.nav:hover {{ text-decoration: underline; }}
   .warning, .notice, .preview-live, .result-ok, .result-error {{
@@ -185,9 +203,25 @@ _STYLE = f"""
   input[type=text]:focus, select:focus, textarea:focus {{
     outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(47,123,255,.25);
   }}
-  ul.feature-list {{ list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 2.5rem; }}
-  ul.feature-list li {{ margin-bottom: .7rem; break-inside: avoid; }}
-  ul.feature-list label {{ display: flex; align-items: baseline; gap: .55rem; margin: 0; }}
+  /* A grid, not CSS `columns`: each row is three lines tall now (the key,
+     what it needs, what it opens) and a column break inside one was landing
+     between a feature and its own page list. `auto-fill` also means the
+     checklist reflows to one column on a narrow window instead of squeezing
+     two. */
+  ul.feature-list {{
+    list-style: none; padding: 0; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+    gap: 1rem 2.5rem;
+  }}
+  ul.feature-list li {{ margin: 0; }}
+  ul.feature-list label {{ display: flex; align-items: flex-start; gap: .6rem; margin: 0; }}
+  ul.feature-list input {{ margin-top: .35rem; flex: 0 0 auto; }}
+  .feature-text {{ display: flex; flex-direction: column; gap: .1rem; min-width: 0; }}
+  .feature-name {{ font-weight: 600; }}
+  .feature-needs {{ color: var(--text-muted); }}
+  /* The page list is the long part; let it wrap rather than stretch the
+     column, and keep it quieter than the feature's own name. */
+  .feature-pages {{ color: var(--text-muted); line-height: 1.6; }}
   .field-actions {{ display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0 1.25rem; }}
   small {{ color: var(--text-muted); font-size: .85rem; }}
   button {{
@@ -249,17 +283,112 @@ def _profile_datalist_html():
     )
 
 
-def _feature_checkboxes_html(checked_features):
-    checked = set(checked_features)
-    return "\n".join(
-        f'<li><label>'
-        f'<input type="checkbox" name="feature" value="{html.escape(name)}"'
-        f'{" checked" if name in checked else ""} data-requires="{html.escape(",".join(sorted(requires)))}">'
-        f' {html.escape(name)}'
-        f'{f" <small>(نیازمند: {html.escape(", ".join(sorted(requires)))})</small>" if requires else ""}'
-        f'</label></li>'
-        for name, requires in sorted(FEATURE_DEPENDENCIES.items())
+#: Which panel pages each feature turns on, derived from the real route
+#: table (`common.deployment.pages`) rather than written down here. Resolved
+#: once per process: it walks the URL resolver, and the answer cannot change
+#: while the console is running.
+_FEATURE_PAGES = None
+
+
+def _feature_pages():
+    """`feature -> page titles`, reading the panel's own routes.
+
+    This console is a standalone script, so Django is not configured when it
+    starts — and the route table is a Django thing. `config.settings`
+    imports with no environment at all (every value it needs has a default),
+    so setting it up here costs nothing and needs no settings module of this
+    tool's own. Nothing is connected to: reading `urlpatterns` touches no
+    database.
+
+    A failure falls back to an empty mapping rather than taking the console
+    down with it. The checklist then shows what it always showed — the
+    feature keys and their dependencies — and loses only the page names,
+    which is a degraded console rather than no console.
+    """
+    global _FEATURE_PAGES
+    if _FEATURE_PAGES is None:
+        try:
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+            import django
+
+            django.setup()
+            _FEATURE_PAGES = feature_page_titles()
+        except (ImportError, RuntimeError) as error:
+            # A checkout whose Django is not installed or whose settings
+            # cannot be imported. Narrow on purpose: a bare `except
+            # Exception` here hid a NameError during development and the
+            # console silently showed every feature as opening no pages.
+            print(f"[console] page list unavailable: {error}", file=sys.stderr)
+            _FEATURE_PAGES = {}
+    return _FEATURE_PAGES
+
+
+def _document_attrs(lang):
+    """`lang`/`dir` for the page's own `<html>`.
+
+    English is left-to-right; the console's Persian is not. Both are set
+    from one place so a page cannot be labelled English and laid out RTL.
+    """
+    return 'lang="en" dir="ltr"' if lang == "en" else 'lang="fa" dir="rtl"'
+
+
+def _language_bar_html(lang, path):
+    """The two language links, pointing back at the page they are on.
+
+    Carried in the URL rather than a cookie or a session: this tool is a
+    handful of stateless GETs served to one operator on 127.0.0.1, and a
+    link that says which language it goes to is something they can bookmark
+    or send to a colleague.
+    """
+    links = []
+    for code, label in LANGUAGES:
+        if code == lang:
+            links.append(f'<span class="lang current">{html.escape(label)}</span>')
+        else:
+            links.append(
+                f'<a class="lang" href="{html.escape(path)}?lang={code}">{html.escape(label)}</a>'
+            )
+    return (
+        f'<div class="lang-bar"><span class="lang-label">{html.escape(T(lang, "language"))}:</span>'
+        + "".join(links)
+        + "</div>"
     )
+
+
+def _feature_checkboxes_html(checked_features, lang="fa"):
+    """One row per feature: its key, what it needs, and what it opens.
+
+    The third part is the product owner's request of 2026-09-20 — «همهٔ
+    صفحات و گزینه‌های پنل به‌صورت چک‌باکس در دسترس باشند و با منبع واقعی
+    فیچرها همگام باشند (نه یک لیست دستیِ قدیمی)». It is derived from the
+    routes and their views' own `required_feature`, so a page added to the
+    panel shows up here without anybody remembering to add it.
+    """
+    checked = set(checked_features)
+    pages = _feature_pages()
+    needs = T(lang, "requires")
+    opens = T(lang, "opens")
+    rows = []
+    for name, requires in sorted(FEATURE_DEPENDENCIES.items()):
+        titles = pages.get(name, [])
+        rows.append(
+            f'<li><label>'
+            f'<input type="checkbox" name="feature" value="{html.escape(name)}"'
+            f'{" checked" if name in checked else ""} data-requires="{html.escape(",".join(sorted(requires)))}">'
+            f'<span class="feature-text">'
+            f'<span class="feature-name">{html.escape(name)}</span>'
+            + (
+                f'<small class="feature-needs">{needs}: {html.escape(", ".join(sorted(requires)))}</small>'
+                if requires else ""
+            )
+            + (
+                f'<small class="feature-pages">{opens}: {html.escape("، ".join(titles))}</small>'
+                if titles
+                else f'<small class="feature-pages">{html.escape(T(lang, "no_pages"))}</small>'
+            )
+            + f'</span></label></li>'
+        )
+    return "\n".join(rows)
 
 
 #: The client-side dependency auto-check script, identical on every page
@@ -346,7 +475,7 @@ def _preview_status_html():
 </div>"""
 
 
-def _landing_page():
+def _landing_page(lang=DEFAULT_LANGUAGE):
     """`/start/` — what actually opens when the tool launches (`main()`
     points `webbrowser.open`/the desktop window here, not at `/`).
 
@@ -356,7 +485,7 @@ def _landing_page():
     front door in front of them rather than folding either into the other.
     """
     return f"""<!doctype html>
-<html lang="fa" dir="rtl">
+<html {_document_attrs(lang)}>
 <head>
 <meta charset="utf-8">
 <title>کنسول دلفین</title>
@@ -381,7 +510,7 @@ def _landing_page():
 </html>"""
 
 
-def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
+def _page(*, lang=DEFAULT_LANGUAGE, profile_id="", key_id="", private_key_path="", checked_features=(),
           deploy_slug="", deploy_host="", deploy_image="", deploy_manifest_path="/srv/dolphin/secrets/manifest.json",
           deploy_retention_days="0", preview_display_name="", result_html=""):
     """Render the whole page: warning banner, the form (repopulated with
@@ -390,9 +519,9 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
     submission, if any.
     """
     profile_datalist = _profile_datalist_html()
-    feature_rows = _feature_checkboxes_html(checked_features)
+    feature_rows = _feature_checkboxes_html(checked_features, lang)
     return f"""<!doctype html>
-<html lang="fa" dir="rtl">
+<html {_document_attrs(lang)}>
 <head>
 <meta charset="utf-8">
 <title>ابزار ساخت Manifest</title>
@@ -403,6 +532,7 @@ def _page(*, profile_id="", key_id="", private_key_path="", checked_features=(),
 <div class="nav-bar">
   <a class="nav" href="/start/">→ خانه</a>
   <a class="nav" href="/console/">→ کنسول مدیریت همهٔ استقرارها</a>
+  {_language_bar_html(lang, "/")}
 </div>
 <div class="warning">
   <strong>فقط برای مالک پلتفرم.</strong> این ابزار را فقط روی ماشینی اجرا کنید
@@ -977,7 +1107,7 @@ def _build_import_result_html(form):
 </div>"""
 
 
-def _console_list_page(records, *, message="", import_result_html="",
+def _console_list_page(records, *, lang=DEFAULT_LANGUAGE, message="", import_result_html="",
                         import_slug="", import_manifest_path="", import_display_name="", import_host=""):
     """`/console/` — every deployment recorded so far, newest signature
     first. This is purely a read of `deployment_records.load_all()`; nothing
@@ -1007,7 +1137,7 @@ def _console_list_page(records, *, message="", import_result_html="",
   <tbody>{rows}</tbody>
 </table>"""
     return f"""<!doctype html>
-<html lang="fa" dir="rtl">
+<html {_document_attrs(lang)}>
 <head>
 <meta charset="utf-8">
 <title>کنسول همهٔ استقرارها</title>
@@ -1018,6 +1148,7 @@ def _console_list_page(records, *, message="", import_result_html="",
 <div class="nav-bar">
   <a class="nav" href="/start/">→ خانه</a>
   <a class="nav" href="/">→ فرم ساخت manifest تکی</a>
+  {_language_bar_html(lang, "/console/")}
 </div>
 {message_html}
 <div class="warning">
@@ -1054,7 +1185,7 @@ def _console_list_page(records, *, message="", import_result_html="",
 </html>"""
 
 
-def _console_detail_page(record, *, result_html="", message="", key_id="", private_key_path="",
+def _console_detail_page(record, *, lang=DEFAULT_LANGUAGE, result_html="", message="", key_id="", private_key_path="",
                           profile_id=None, checked_features=None):
     """`/console/<slug>/` — one recorded deployment: a reissue form
     (pre-filled with its last known profile/features, empty key fields since
@@ -1068,11 +1199,11 @@ def _console_detail_page(record, *, result_html="", message="", key_id="", priva
     """
     profile_datalist = _profile_datalist_html()
     effective_profile_id = record.profile_id if profile_id is None else profile_id
-    feature_rows = _feature_checkboxes_html(record.features if checked_features is None else checked_features)
+    feature_rows = _feature_checkboxes_html(record.features if checked_features is None else checked_features, lang)
     message_html = f'<div class="notice">{html.escape(message)}</div>' if message else ""
     slug = html.escape(record.slug)
     return f"""<!doctype html>
-<html lang="fa" dir="rtl">
+<html {_document_attrs(lang)}>
 <head>
 <meta charset="utf-8">
 <title>{html.escape(record.display_name or record.slug)} — کنسول</title>
@@ -1144,9 +1275,9 @@ def _console_detail_page(record, *, result_html="", message="", key_id="", priva
 </html>"""
 
 
-def _not_found_console_page(slug):
+def _not_found_console_page(slug, lang=DEFAULT_LANGUAGE):
     return f"""<!doctype html>
-<html lang="fa" dir="rtl">
+<html {_document_attrs(lang)}>
 <head><meta charset="utf-8"><title>پیدا نشد</title><style>{_STYLE}</style></head>
 <body>
 <h1>استقراری با این شناسه پیدا نشد</h1>
@@ -1195,25 +1326,38 @@ class Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length)
         return parse_qs(raw.decode("utf-8"))
 
+    def _path_and_language(self):
+        """The path without its query, and the language the query asked for.
+
+        `?lang=` is the only query parameter any of these GETs takes, so the
+        split is done once here rather than in each branch — and an unknown
+        value falls back to Persian rather than rendering a page of missing
+        strings (`normalize_language`).
+        """
+        path, _, query = self.path.partition("?")
+        values = parse_qs(query).get("lang", [])
+        return path, normalize_language(values[0] if values else "")
+
     def do_GET(self):
         if not self._refuse_unless_local():
             return
-        if self.path == "/start/":
-            self._send_html(_landing_page())
+        path, lang = self._path_and_language()
+        if path == "/start/":
+            self._send_html(_landing_page(lang))
             return
-        if self.path == "/":
-            self._send_html(_page())
+        if path == "/":
+            self._send_html(_page(lang=lang))
             return
-        if self.path == "/console/":
-            self._send_html(_console_list_page(deployment_records.load_all()))
+        if path == "/console/":
+            self._send_html(_console_list_page(deployment_records.load_all(), lang=lang))
             return
-        detail_match = _CONSOLE_DETAIL_RE.match(self.path)
+        detail_match = _CONSOLE_DETAIL_RE.match(path)
         if detail_match:
             record = deployment_records.get(detail_match.group("slug"))
             if record is None:
-                self._send_html(_not_found_console_page(detail_match.group("slug")), status=404)
+                self._send_html(_not_found_console_page(detail_match.group("slug"), lang), status=404)
                 return
-            self._send_html(_console_detail_page(record))
+            self._send_html(_console_detail_page(record, lang=lang))
             return
         self.send_response(404)
         self.end_headers()
@@ -1360,6 +1504,34 @@ def _run_desktop_window(url):
     return 0
 
 
+def _self_check():
+    """Report what this build can actually see, and fail if it is nothing.
+
+    Written for the frozen `.exe`: a PyInstaller bundle missing one of the
+    project packages does not crash, it quietly loses the panel's route
+    table and shows every feature as opening no pages. This makes that
+    visible as a non-zero exit instead of as a wrong screen.
+    """
+    features = sorted(FEATURE_DEPENDENCIES)
+    pages = _feature_pages()
+    gated = sum(len(titles) for titles in pages.values())
+    sys.stdout.write(f"features: {len(features)}\n")
+    sys.stdout.write(f"features that open pages: {len(pages)}\n")
+    sys.stdout.write(f"panel pages behind a feature: {gated}\n")
+    if not features:
+        sys.stderr.write("no features — the deployment registry did not load.\n")
+        return 1
+    if not pages:
+        sys.stderr.write(
+            "no pages — `common.deployment.pages` could not read the panel's "
+            "routes. In a frozen build this means a project package was not "
+            "bundled; see scripts/build_console_exe.py's COLLECT list.\n"
+        )
+        return 1
+    sys.stdout.write("ok\n")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--port", type=int, default=8799)
@@ -1368,7 +1540,18 @@ def main(argv=None):
         "--desktop", action="store_true",
         help="open in a native desktop window instead of the default browser (needs `pip install pywebview`)",
     )
+    parser.add_argument(
+        "--self-check", action="store_true",
+        help=(
+            "print what this build can see (features, panel pages) and exit — "
+            "what `scripts/build_console_exe.py` runs against the frozen .exe "
+            "to prove the project packages really got bundled"
+        ),
+    )
     arguments = parser.parse_args(argv)
+
+    if arguments.self_check:
+        return _self_check()
 
     server = ThreadingHTTPServer(("127.0.0.1", arguments.port), Handler)
     url = f"http://127.0.0.1:{arguments.port}/"

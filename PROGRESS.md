@@ -73,68 +73,56 @@ usage limit can be resumed from here with no questions.
 - [x] 10. Service layer ready for a future post-office API
 - [x] 11. API integrations page
 
-### Batch E — `3.1.0` — console, profiles
-- [ ] 12. Console lists every page/option from the real feature source
-- [ ] 12. Persian/English tabs
-- [ ] 12. `.exe` build
-- [ ] 12. Typography and spacing
-- [ ] 13. Profile photo upload with crop/resize, size and format limits
-- [ ] 13. Metronic cartoon avatars as the default
+### Batch E — `2.14.0` — console, profiles
+- [x] 12. Console lists every page/option from the real feature source
+- [x] 12. Persian/English tabs
+- [x] 12. `.exe` build
+- [x] 12. Typography and spacing
+- [x] 13. Profile photo upload with crop/resize, size and format limits
+- [x] 13. Metronic cartoon avatars as the default
 
 ### Final
-- [ ] Full suite green (only the 7 known pre-existing Selenium errors)
-- [ ] CHANGELOG + VERSION
+- [x] Full suite green (only the 7 known pre-existing Selenium errors)
+- [x] CHANGELOG + VERSION
 - [ ] Main deploy to Nerkhbaan + health check
 
 ## Status
 
-**Current batch:** E — not started. Batch D is released as `2.13.0`
-(committed, not yet deployed; the deploy is the single one at the end).
-Released as MINOR rather than the `3.0.0` first planned: nothing in it breaks
-a contract, and §23 says the number follows what changed.
+**Current batch:** all five are implemented, tested and committed. Batch E is
+released as `2.14.0` — MINOR, like the rest: one new table nothing existing
+depends on, and everything else additive.
 
-**Next step:** item 12 — the Python build console. Find the console's own
-source first (it is an operator tool, not part of the served panel) and the
-real feature source it must read from — `common/deployment/registry.py` and
-the manifest — rather than the hand-maintained list it has now. Item 13
-(marketer profile photos, Metronic cartoon avatars) follows.
+**Next step:** the single deploy to Nerkhbaan, then the health check and the
+final report. Nothing else is outstanding.
 
-**Files changed in batch D:**
-- `sales/postal.py` — new; the four states and the carrier seam
-- `sales/serializers.py`, `sales/views.py`, `sales/services.py` — the
-  label/stepper fields, the `postal-states` endpoint, the default state
-- `reports/list_charts.py` — the status chart groups by label; a postal
-  filter
-- `reports/xlsx.py`, `reports/views.py`, `reports/financial_views.py`,
-  `reports/urls.py`, `communications/views.py`, `communications/urls.py` —
-  two workbook builders, two export views, `build` split out of `get`
-- `common/integrations.py` — new; the registry behind the new page
-- `common/ui_views.py`, `common/ui_urls.py` — `IntegrationsView`
-- `common/templates/common/settings/integrations.html` — new
-- `common/templates/common/reports/sales_documents.html`,
-  `reports/inbound_sms.html` — both rebuilt as wizards
-- `common/templates/common/sales_documents/detail.html`, `list.html`,
-  `settings/settings.html`
-- `common/static/common/dolphin-app.js` — `setupReportWizard`,
-  `renderPostalStepper`, `fillPostalStates`/`loadPostalStates`/
-  `postalStateLabel`, `setupIntegrations`; both report pages rewired
-- `common/static/common/dolphin.css` — new §13 postal stepper, §14
-  integrations, §15 report wizards
-- `common/tests/ui_overhaul_helpers.py` — new; one copy of the readers the
-  four overhaul modules had each been carrying
-- `common/tests/test_ui_overhaul_reports_postal_integrations.py` — new, 53
-  tests; the other three overhaul modules switched to the shared helper
-- seven existing tests restated, including one Selenium test that could not
-  be executed here
-- `VERSION` → `2.13.0`, `CHANGELOG.md`
+**Files changed in batch E:**
+- `common/deployment/pages.py` — new; the panel's page inventory, derived
+- `scripts/console_strings.py` — new; the console's fa/en strings
+- `scripts/build_console_exe.py` — new; the PyInstaller build and its verify
+- `scripts/manifest_builder.py` — the checklist names pages, the language
+  switch, `--self-check`, the grid
+- `scripts/requirements-console.txt` — PyInstaller, operator-only
+- `accounts/avatars.py`, `accounts/avatar_views.py`, `accounts/urls.py` —
+  new; the picture, its gate and its three endpoints
+- `accounts/models.py` + `accounts/migrations/0005_useravatar.py`
+- `common/static/common/avatars/` — the 52 Metronic cartoons (421 KB)
+- `common/static/common/dolphin-app.js` — `cropAvatarFile`,
+  `setupAvatarInput`; `common/static/common/dolphin.css` — new §16
+- `common/templates/common/base.html`, `common/ui_views.py` — the header face
+- `scripts/bootstrap-postgres.sh`, `common/tests/test_database_privileges.py`
+  — the new table's GRANT
+- `reports/ranges.py` — `bucket_key` localises before taking a date
+- `common/tests/test_ui_overhaul_console_avatars.py` — new, 55 tests;
+  `ui_overhaul_helpers.py` gained `python_function`
+- three existing tests restated
+- `VERSION` → `2.14.0`, `CHANGELOG.md`
 
-**Checks run:** full suite — 2467 tests, no failures, only the 7 pre-existing
-Selenium browser errors (the 8th, the SMS shell, was restated for the wizard
-and is one of the seven suites that cannot run in this environment). OpenAPI
-schema generates with no errors and no warnings. Browser-measured: the
-parcels wizard stepping 1/1 → 4/4 with the report visible at the end, section
-toggles hiding panels in place, going back and changing the range rebuilding
-on the way forward, both exports returning real XLSX with the right headers,
-the postal stepper reading done/done/current/upcoming after a real transition
-with no horizontal overflow at 1536px or 375px, and the integrations page
-listing SMS (test printing the provider's own refusal), post and «به‌زودی».
+**Checks run:** full suite — 2522 tests, no failures, only the 7 pre-existing
+Selenium browser errors. Browser-measured: a 1200×800 PNG of 25,444 bytes
+stored as a 512×512 JPEG of 4,149 bytes with `image/jpeg`, `private,
+max-age=300` and `nosniff`; the header face at 35×35 after a reload; a
+non-image refused in Persian and a 3 MiB body with 413; clearing restoring
+the cartoon and the image 404ing past the cache; the console showing 28
+feature rows each naming its pages, and `?lang=en` flipping the document to
+`lang="en" dir="ltr"`. `--self-check` run for real: 28 features, 18 opening
+pages, 49 pages behind a feature.

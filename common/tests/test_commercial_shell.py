@@ -39,14 +39,31 @@ def browser_delete_targets():
     script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
     targets = set()
     for fragment in script.split('method: "DELETE"')[:-1]:
-        call = fragment.rsplit("apiRequest(", 1)[-1]
-        targets.add(call.split('"')[1])
+        call = fragment.rsplit("apiRequest(", 1)[-1].strip()
+        if call.startswith('"') or call.startswith("`"):
+            # A literal URL: the target is the string itself.
+            targets.add(call.split(call[0])[1])
+        else:
+            # A variable, e.g. `apiRequest(endpoint, {method: "DELETE"})`.
+            # Recorded by the name it is called rather than skipped — the
+            # point of this list is that every browser-issued DELETE is
+            # accounted for, and one hidden behind a variable is the one
+            # most worth naming. Before 2.14.0 this raised IndexError and
+            # the test failed with a traceback instead of a verdict.
+            targets.add(call.split(",")[0].strip())
     return targets
 
 
 #: The complete set. A new entry here is a deliberate product decision about
 #: destroying data from the browser, and should not be added without one.
-ALLOWED_BROWSER_DELETE_TARGETS = {"/api/v1/dashboard-layout/"}
+#:
+#: `endpoint` is the profile picture (2.14.0, `setupAvatarInput`). Like the
+#: dashboard layout above it, and unlike every business record in this
+#: product, it is not history: clearing it removes one row of this person's
+#: own presentation and the Metronic cartoon comes back. The service refuses
+#: it for anybody who may not administer that user
+#: (`accounts.avatars._require_may_edit`).
+ALLOWED_BROWSER_DELETE_TARGETS = {"/api/v1/dashboard-layout/", "endpoint"}
 
 
 class CommercialShellContractTests(SimpleTestCase):
