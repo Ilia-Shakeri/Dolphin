@@ -319,9 +319,27 @@ class ChartLibraryTests(SimpleTestCase):
         at a time."""
         script = self.SCRIPT.read_text(encoding="utf-8")
         self.assertIn("new ApexCharts(", script)
-        # The hand-drawn era's tell. Nothing in this script should be building
-        # SVG nodes itself any more.
-        self.assertNotIn("createElementNS", script)
+        # The hand-drawn era's tell — but scoped to the chart renderers, not
+        # the whole file. `renderProvinceMap` (2026-09-09) draws the customers
+        # page's choropleth of Iran as inline SVG on purpose: its paths come
+        # from the vendored `iran-provinces.json` and it pulls in no CDN and no
+        # mapping library, which is a different decision from the charting one
+        # this test guards. A blanket ban caught it and turned this gate red
+        # for a deliberate choice, so the ban now applies where it means
+        # something: no `render*Chart` function may build SVG by hand.
+        chart_renderers = re.findall(
+            r"function (render\w*Chart)\(.*?(?=" + chr(10) + r"    (?:async )?function )",
+            script,
+            re.S,
+        )
+        self.assertGreaterEqual(len(chart_renderers), 3, "no chart renderers found to check")
+        for body in re.findall(
+            r"function render\w*Chart\(.*?(?=" + chr(10) + r"    (?:async )?function )",
+            script,
+            re.S,
+        ):
+            with self.subTest(renderer=body.split("(")[0]):
+                self.assertNotIn("createElementNS", body)
 
     def test_every_chart_is_destroyed_before_its_container_is_reused(self):
         """Apex keeps its own DOM and listeners outside the container's

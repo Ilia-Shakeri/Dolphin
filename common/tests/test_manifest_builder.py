@@ -847,24 +847,40 @@ class LiveServerTests(ConsoleStoreIsolationMixin, SimpleTestCase):
 class DesktopModeTests(SimpleTestCase):
     """`--desktop` (the desktop mini-app window, `_run_desktop_window`).
 
-    Neither test here actually opens a window: `pywebview` is genuinely not
-    installed in this environment (confirmed by `test_..._is_not_installed_
-    here`, which is itself part of the contract — this repository has no
-    dependency on it, see `scripts/requirements-console.txt`), so the two
-    behaviours worth proving are the missing-dependency message and, with a
-    fake `webview` module injected the same way a real install would provide
-    one, that the real function is actually called with the real URL.
+    Neither test here opens a window. Both halves of the behaviour are forced
+    explicitly — absence with `patch.dict(sys.modules, {"webview": None})`,
+    presence with a fake module injected the same way a real install would
+    provide one — so what these prove does not depend on what happens to be
+    installed in the machine running them.
+
+    That independence is the point. These used to read the ambient
+    environment and assert pywebview was absent; a stray global `pip install
+    pywebview`, nothing to do with this repository, turned two of them red
+    (2026-09-20). What the repository actually controls is whether pywebview
+    is a *declared dependency*, and that is what is asserted now.
     """
 
-    def test_pywebview_is_not_installed_in_this_environment(self):
-        """The premise every other test in this class depends on: if this
-        ever starts failing because pywebview became an actual project
-        dependency, the two tests below need to be revisited, not silently
-        left half-covering a package that is now always present.
+    def test_pywebview_is_not_a_project_dependency(self):
+        """The contract this repository can actually hold: pywebview never
+        enters the *shipped* dependency set. It is declared only in the
+        optional operator-console file, which no image build reads.
+
+        Deliberately not a check of `sys.modules`: whether the package happens
+        to be importable on some developer's machine is not something this
+        repository decides, and asserting on it made an unrelated global
+        install look like a project failure.
         """
-        self.assertNotIn("webview", sys.modules)
-        with self.assertRaises(ImportError):
-            __import__("webview")
+        root = Path(__file__).resolve().parents[2]
+        for name in ("requirements.txt", "requirements-direct.txt"):
+            with self.subTest(requirements=name):
+                self.assertNotIn("pywebview", (root / name).read_text(encoding="utf-8").lower())
+        # It *is* expected in the operator-console file, which is optional,
+        # is never read by anything that builds the shipped image, and tells
+        # the reader to install it only if they want the desktop window. An
+        # operator who followed those instructions is why the old ambient
+        # check went red.
+        console = root / "scripts" / "requirements-console.txt"
+        self.assertIn("pywebview", console.read_text(encoding="utf-8").lower())
 
     def test_without_pywebview_it_explains_itself_and_returns_a_failure_code(self):
         with patch.dict(sys.modules, {"webview": None}):
@@ -886,8 +902,12 @@ class DesktopModeTests(SimpleTestCase):
         that the server it started in the background is shut down again
         afterwards rather than left running on the port for the next test.
         """
-        exit_code = builder.main(["--desktop", "--port", "0"])
-        self.assertEqual(exit_code, 1)  # pywebview genuinely absent here
+        # Absence is forced rather than assumed, so this proves the wiring on
+        # any machine — including one that happens to have pywebview installed
+        # for unrelated reasons.
+        with patch.dict(sys.modules, {"webview": None}):
+            exit_code = builder.main(["--desktop", "--port", "0"])
+        self.assertEqual(exit_code, 1)
 
 
 class PreviewButtonTests(SimpleTestCase):

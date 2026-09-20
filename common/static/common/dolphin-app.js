@@ -2461,7 +2461,25 @@
     async function fillProvinceSelect(select, selectedValue = "", {placeholder: placeholderText = "انتخاب استان"} = {}) {
         if (!select) return;
         let map;
-        try { map = await loadIranMap(); } catch { return; }
+        try {
+            map = await loadIranMap();
+        } catch {
+            // The province list and the map on the customers page read the
+            // same vendored file, so if it cannot be fetched neither can be
+            // built. Returning silently left an empty dropdown that looked
+            // like a province list with no provinces in it — and on the
+            // creation form, a required-looking field nobody could fill. Say
+            // so instead, and leave the control disabled rather than
+            // pretending it is usable.
+            select.replaceChildren();
+            const failed = document.createElement("option");
+            failed.value = "";
+            failed.textContent = "فهرست استان‌ها در دسترس نیست";
+            select.appendChild(failed);
+            select.disabled = true;
+            return;
+        }
+        select.disabled = false;
         const names = Object.values(map.provinces)
             .map((province) => province.name)
             .sort((a, b) => a.localeCompare(b, "fa"));

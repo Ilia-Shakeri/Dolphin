@@ -283,6 +283,14 @@ class SmsTemplateListCreateView(OutboundSMSAccessMixin, APIView):
 
 class SmsTemplateDeleteView(OutboundSMSAccessMixin, APIView):
     @extend_schema(
+        # `request=None` because this POST carries no body — the template is
+        # named by the URL. Without it the generator tries to guess a request
+        # serializer for a plain `APIView`, finds none, and reports an error
+        # against this view; generation still finishes, so only
+        # `--fail-on-warn` (the documented release gate) ever surfaces it.
+        # Same fix `AttachmentDeleteView` and `ChatThreadReadView` already
+        # carry — see `common/tests/test_openapi_schema.py`.
+        request=None,
         responses={204: None, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE},
         description=(
             "Deletes one saved message body. Messages already sent from it keep "
@@ -386,6 +394,9 @@ class SmsCampaignListCreateView(OutboundSMSAccessMixin, APIView):
 
 class SmsCampaignCancelView(OutboundSMSAccessMixin, APIView):
     @extend_schema(
+        # No body: the campaign is named by the URL. See
+        # `SmsTemplateDeleteView` above for why this matters.
+        request=None,
         responses={200: SmsCampaignSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE},
         description=(
             "Cancels the unsent remainder of a campaign. Anything already sent "

@@ -189,15 +189,34 @@ class ArithmeticTests(DashboardFixtures):
         self.assertNotIn("۹۹", kpi["display"])
 
     def test_a_sales_kpi_carries_the_direction_its_own_hint_names(self):
-        start, _previous_start, _previous_end = dashboard._month_bounds(self.now)
-        self.a_sale(amount="99000000.00", when=start - timedelta(days=1))
+        # The baseline sale goes *inside* the comparison window, not merely
+        # into the previous month. `_month_bounds` compares the same elapsed
+        # span (last month's 1st to its Nth, where N is today), so
+        # `start - 1 day` — the last day of last month — is only inside that
+        # window when today happens to be near month end. This test passed in
+        # the last days of a month and failed for the rest of it; run on the
+        # 20th it read a baseline of zero and the hint said «در ماه گذشته
+        # چیزی ثبت نشده بود» rather than «کمتر».
+        start, previous_start, previous_end = dashboard._month_bounds(self.now)
+        self.assertLess(previous_start, previous_end, "empty comparison window")
+        self.a_sale(amount="99000000.00", when=previous_start + timedelta(hours=1))
         self.a_sale(amount="7000000.00")
         kpi = self.kpi(dashboard.dashboard_for(self.manager), "sales_amount_this_month")
         self.assertIn("کمتر", kpi["hint"])
         self.assertEqual(kpi["direction"], "down")
 
     def test_a_kpi_with_no_comparison_base_carries_no_direction(self):
+        """«مطالبات باز» is a standing total, not a month-over-month figure, so
+        it must not claim a direction.
+
+        The invoice is what makes the tile exist at all: `dashboard_for` only
+        emits this KPI when the reader has invoices, so without one the lookup
+        returned `None` and the assertion died on a `TypeError` instead of
+        testing anything.
+        """
+        self._an_issued_invoice()
         kpi = self.kpi(dashboard.dashboard_for(self.manager), "outstanding")
+        self.assertIsNotNone(kpi, "the receivables KPI is missing from the dashboard")
         self.assertIsNone(kpi["direction"])
 
     def test_a_cancelled_sale_is_not_counted(self):

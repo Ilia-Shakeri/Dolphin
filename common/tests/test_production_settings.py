@@ -2,6 +2,7 @@ import importlib
 import json
 import logging
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -597,9 +598,23 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertIn("'X-Forwarded-Proto': 'https'", compose)
         self.assertIn("location = /health/live/", (Path(__file__).resolve().parents[2] / "nginx" / "default.conf").read_text(encoding="utf-8"))
         self.assertIn("http://127.0.0.1/health/live/", compose)
-        self.assertEqual(compose.count("driver: json-file"), 8)
-        self.assertEqual(compose.count('max-size: "10m"'), 8)
-        self.assertEqual(compose.count('max-file: "5"'), 8)
+        # Counted against the services actually declared, not a number typed
+        # here. The literal `8` this used to assert went stale the moment a
+        # ninth service was added (`scheduled-sms`), turning a real gate red
+        # for a reason that had nothing to do with logging. What the test is
+        # for is "every service caps its logs", so that is what it asks.
+        service_count = len([
+            line for line in compose.split("services:", 1)[1]
+            .split(chr(10) + "volumes:", 1)[0].splitlines()
+            if re.fullmatch(r"  [a-z][a-z0-9-]*:", line)
+        ])
+        self.assertGreaterEqual(service_count, 8)
+        for option in ("driver: json-file", 'max-size: "10m"', 'max-file: "5"'):
+            with self.subTest(option=option):
+                self.assertEqual(
+                    compose.count(option), service_count,
+                    f"{compose.count(option)} of {service_count} services cap their logs",
+                )
 
     def test_docker_context_excludes_private_and_generated_data(self):
         dockerignore = (

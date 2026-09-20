@@ -88,6 +88,14 @@ external services required. For the isolated-PostgreSQL proof suite that
 exercises the real role/grant contract, see the "Isolated PostgreSQL
 testing" section of [`BACKEND_SPEC.md`](BACKEND_SPEC.md).
 
+> **Use `config.test_settings`, not `config.devcheck_settings`.** The latter
+> exists only to serve the panel in a browser for visual checks: it points at
+> a real on-disk SQLite file rather than the per-process temporary database
+> the suite expects. Several tests assert on the database identity on purpose
+> — the synthetic-UAT seed command refuses to run against anything that is not
+> a recognised isolated target — so running the suite under `devcheck_settings`
+> produces confusing failures that say nothing about the code.
+
 ## Documentation map
 
 | Document | What it's for |

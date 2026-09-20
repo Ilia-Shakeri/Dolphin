@@ -26,7 +26,15 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn('credentials: "same-origin"', script)
         self.assertIn('headers["X-CSRFToken"]', script)
         self.assertIn('class ApiError', script)
-        self.assertNotIn(".html", script)
+        # No static `.html` target in the *code*. Checked with comments
+        # stripped: the panel talks to `/api/` and navigates by route, and the
+        # blanket check this replaces also caught prose — three comments that
+        # merely cite `base.html`, `leads/list.html` and a Metronic demo page
+        # by name, which is exactly the kind of reference a comment should be
+        # free to make (2026-09-20).
+        code = re.sub(r"/\*.*?\*/", "", script, flags=re.S)
+        code = re.sub("//[^" + chr(10) + "]*", "", code)
+        self.assertNotIn(".html", code)
 
     def test_the_shell_comes_from_the_theme_not_from_a_second_design_system(self):
         """Layout is the purchased theme's job; the override sheet must not redo it.
@@ -87,11 +95,25 @@ class AuthShellUnitTests(SimpleTestCase):
         measures the project's growth rather than its discipline.
         """
         stylesheet = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
-        for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
-            self.assertNotIn(recreated, stylesheet, recreated)
-        # And it must not rebuild the theme's own components, at any size.
-        for recreated in ("grid-template-columns: 17rem", ".btn {", ".card {", ".table {"):
-            self.assertNotIn(recreated, stylesheet, recreated)
+        self.assertNotIn("grid-template-columns: 17rem", stylesheet)
+        # A *bare* component selector is what is forbidden — a rule that owns
+        # `.btn`, `.card` or `.table` outright. A descendant rule like
+        # `.row-actions .btn` or `.jalali-picker .jalali-picker-header .btn`
+        # is the opposite: it positions one detail inside one context, which
+        # the paragraph above explicitly allows ("may position a detail; may
+        # not own any of these").
+        #
+        # The substring check this replaces could not tell the two apart, so
+        # it read `.row-actions .btn {` as a redefinition of the theme's
+        # button and had been failing since before 2.7.0 for a rule nobody
+        # objected to. Anchored to the start of a line, which in this sheet is
+        # where a selector always begins.
+        for component in (".btn", ".card", ".table"):
+            with self.subTest(component=component):
+                self.assertIsNone(
+                    re.search(rf"^{re.escape(component)}\s*[,{{]", stylesheet, re.M),
+                    f"{component} is redefined outright; scope it to a context instead",
+                )
         # Layout and palette belong to the purchased bundle. The sheet may
         # position a detail; it may not own any of these.
         for owned_by_theme in ("--bs-primary:", "@font-face"):
@@ -106,10 +128,23 @@ class AuthShellUnitTests(SimpleTestCase):
         # The narrow form: any `font-family` here has to sit on the theme's own
         # `.apexcharts-*` text nodes. Anything else is the sheet owning the type
         # again, which is what the ban was for.
+        # `font-family: inherit` is exempt, and is the opposite of the thing
+        # banned: it names no typeface at all, it hands the decision back to
+        # whatever the theme already set on the ancestor. A bare `<input>`
+        # does not inherit type by default — browsers give form controls their
+        # own font — so undoing that is the only way a control the theme does
+        # not style can match the panel around it (the board column search,
+        # 2026-09-20).
         for rule in stylesheet.split("}"):
             if "font-family:" not in rule:
                 continue
             selector = rule.split("{")[0]
+            declared = [
+                line.split("font-family:", 1)[1].strip().rstrip(";").strip()
+                for line in rule.splitlines() if "font-family:" in line
+            ]
+            if declared and all(value == "inherit" for value in declared):
+                continue
             self.assertIn("apexcharts", selector, selector.strip())
         # It keeps exactly the three things it is for.
         self.assertIn("[hidden]", stylesheet)

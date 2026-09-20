@@ -68,7 +68,18 @@ class Customer(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at", "-id"]
-        indexes = [models.Index(fields=["created_by", "is_active", "-created_at"])]
+        indexes = [
+            models.Index(fields=["created_by", "is_active", "-created_at"]),
+            # The customers page filters by province since 2.6.0, and province
+            # is matched exactly (the form offers the thirty-one canonical
+            # names, so there is nothing to match loosely). An exact-match
+            # filter on an unindexed column is a sequential scan of the whole
+            # book on every page load once the book is large; one index makes
+            # it a lookup. `city` and `category` are deliberately left alone:
+            # both are matched with `icontains`, which a plain B-tree index
+            # cannot serve anyway.
+            models.Index(fields=["province"], name="customer_province_idx"),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=Q(kind__in=["individual", "legal"]),
