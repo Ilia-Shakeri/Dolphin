@@ -204,7 +204,17 @@ class ThemeBootstrapScriptTests(SimpleTestCase):
         self.assertIn("catch", self.head)
 
     def test_the_default_is_the_readers_own_system_setting(self):
-        self.assertIn('var defaultThemeMode = "system"', self.head)
+        """Still «system» for anyone who never chose — it is now rendered
+        from the saved preference (2.8.0, «تم روشن و تیره» on the
+        settings page) with «system» as the template default, so a reader
+        with no row gets exactly the literal this used to assert."""
+        self.assertIn("var defaultThemeMode = \"{{ panel_theme|default:'system' }}\";", self.head)
+
+    def test_a_saved_theme_beats_what_this_machine_last_stored(self):
+        """The preference is the one the reader set on purpose and the one
+        that has to follow them to another browser; `localStorage` is this
+        machine's pre-paint shortcut, not the authority."""
+        self.assertIn('defaultThemeMode !== "system"', self.head)
 
     def test_the_stored_keys_are_the_ones_the_themes_js_uses(self):
         """`KTThemeMode` reads `data-bs-theme-mode` for the choice and writes

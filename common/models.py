@@ -170,3 +170,125 @@ class DashboardSettings(TimeStampedModel):
     def __str__(self):
         return f"چیدمان داشبورد ({len(self.hidden_widgets)} پنهان)"
 
+
+
+#: Panel typefaces a user may choose between, as `(value, Persian label, CSS
+#: stack)`. Every stack ends in `IRANSansWeb` — the one Persian face this
+#: product actually ships (`assets/fonts/`) — so a reader who picks a family
+#: their machine does not have still gets Persian glyphs rather than an OS
+#: substitute chosen at random. No new font file is downloaded for this: the
+#: alternatives are the faces Iranian office machines already carry, which is
+#: exactly why they are the ones people ask for by name.
+PANEL_FONT_FAMILIES = (
+    ("iransans", "ایران‌سنس (پیش‌فرض)", 'IRANSansWeb, Helvetica, sans-serif'),
+    ("tahoma", "تاهوما", 'Tahoma, IRANSansWeb, Helvetica, sans-serif'),
+    ("nazanin", "بی‌نازنین", '"B Nazanin", "XB Zar", IRANSansWeb, serif'),
+    ("mitra", "بی‌میترا", '"B Mitra", "XB Zar", IRANSansWeb, serif'),
+    ("system", "قلم سیستم", 'system-ui, -apple-system, "Segoe UI", IRANSansWeb, sans-serif'),
+)
+PANEL_FONT_FAMILY_STACKS = {value: stack for value, _label, stack in PANEL_FONT_FAMILIES}
+DEFAULT_PANEL_FONT_FAMILY = PANEL_FONT_FAMILIES[0][0]
+
+#: Panel scale, as `(value, Persian label, root font-size)`. The theme's whole
+#: type ramp (`.fs-1` … `.fs-8`) and most of its spacing are `rem`, so moving
+#: the root size moves the panel proportionally rather than only its running
+#: text — which is what "اندازهٔ قلم کل پنل" actually asks for.
+#:
+#: Absolute pixels, stepped off the purchased theme's own base rather than
+#: percentages of the browser default. Measured in a real browser, not
+#: assumed: `style.bundle.rtl.css` ends with `html, body { font-size: 13px
+#: !important }`, so the root is 13px and not the 16px a percentage would be
+#: read against — `112.5%` came out as 18px, a 38% jump, where a step up was
+#: wanted. `13px` is that base exactly and emits no CSS at all.
+PANEL_FONT_SCALES = (
+    ("sm", "کوچک", "12px"),
+    ("md", "متوسط (پیش‌فرض)", "13px"),
+    ("lg", "بزرگ", "14.5px"),
+    ("xl", "خیلی بزرگ", "16px"),
+)
+PANEL_FONT_SCALE_SIZES = {value: size for value, _label, size in PANEL_FONT_SCALES}
+DEFAULT_PANEL_FONT_SCALE = "md"
+
+
+class UserPreference(TimeStampedModel):
+    """One user's own panel preferences — typeface, scale, currency unit and
+    colour theme.
+
+    Deliberately separate from `BrandSettings`/`DashboardSettings` above, and
+    from `accounts.User` itself, because it answers a third question. Those
+    two are *this deployment's* choices, set by an admin and seen by everyone;
+    `accounts.User` is who somebody is and what they may do. This is what one
+    reader wants their own screen to look like, and nothing here may ever
+    widen what that reader can see or do — a preference is presentation, never
+    permission (CLAUDE.md §5.1).
+
+    A row is created lazily on first write. A user who never opened the
+    settings page has no row and gets every default, so adding this table
+    changed nothing for anybody already using the product.
+    """
+
+    class CurrencyUnit(models.TextChoices):
+        RIAL = "rial", "ریال"
+        TOMAN = "toman", "تومان"
+
+    class Theme(models.TextChoices):
+        SYSTEM = "system", "هماهنگ با سیستم"
+        LIGHT = "light", "روشن"
+        DARK = "dark", "تیره"
+
+    user = models.OneToOneField(
+        "accounts.User", on_delete=models.CASCADE, related_name="panel_preference", primary_key=True,
+    )
+    font_family = models.CharField(
+        max_length=16,
+        choices=[(value, label) for value, label, _stack in PANEL_FONT_FAMILIES],
+        default=DEFAULT_PANEL_FONT_FAMILY,
+    )
+    font_scale = models.CharField(
+        max_length=2,
+        choices=[(value, label) for value, label, _size in PANEL_FONT_SCALES],
+        default=DEFAULT_PANEL_FONT_SCALE,
+    )
+    #: Display only. Every amount in this product is stored in rial and stays
+    #: stored in rial; choosing «تومان» divides by ten on the way to the screen
+    #: and multiplies by ten on the way back from a form, so the stored value a
+    #: rial reader and a toman reader are looking at is the same number.
+    currency_unit = models.CharField(
+        max_length=8, choices=CurrencyUnit.choices, default=CurrencyUnit.RIAL,
+    )
+    #: Mirrors what `KTThemeMode` already keeps in `localStorage` under
+    #: `data-bs-theme-mode`. Stored server-side as well so the choice follows
+    #: the person to another browser, and so the first painted frame is
+    #: already right — `base.html` stamps it before any stylesheet loads.
+    theme = models.CharField(max_length=8, choices=Theme.choices, default=Theme.SYSTEM)
+
+    def __str__(self):
+        return f"تنظیمات نمایش {self.user_id}"
+
+
+class UserDashboardLayout(TimeStampedModel):
+    """One user's own dashboard arrangement — which widgets they hid, the
+    order they put them in, and how wide each one is.
+
+    `DashboardSettings` above stays exactly what it was: this deployment's
+    default, applied to everyone. This table is an overlay on top of it, and
+    the overlay may only ever *narrow* what is shown — a widget the
+    deployment hid stays hidden no matter what a user saves here
+    (`common.dashboard_layout.apply_layout`). Same keys, validated against
+    the same `WIDGET_KEYS`, for the same reason: a Persian wording change to
+    a KPI must never invalidate a saved layout.
+    """
+
+    user = models.OneToOneField(
+        "accounts.User", on_delete=models.CASCADE, related_name="dashboard_layout", primary_key=True,
+    )
+    hidden_widgets = models.JSONField(default=list, blank=True)
+    widget_order = models.JSONField(default=list, blank=True)
+    #: `{widget key: size token}`, the tokens being the keys of
+    #: `common.dashboard_layout.WIDGET_SIZES`. A widget missing from this map
+    #: keeps the width its own card was designed at, so resizing one widget
+    #: never requires pinning the width of every other one.
+    widget_sizes = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"چیدمان داشبورد {self.user_id}"

@@ -24,14 +24,44 @@ register = template.Library()
 # printed document and the screen agree character for character.
 GROUP_SEPARATOR = "،"
 
-#: Every amount in the product is rial. Naming it beside the figure removes the
-#: only question a bare number leaves.
+#: Every amount in the product is *stored* in rial. Which of the two units it
+#: is *shown* in is the reader's own choice since 2.8.0
+#: (`common.preferences`), and naming whichever one it is beside the figure
+#: removes the only question a bare number leaves.
 CURRENCY_LABEL = "ریال"
+TOMAN_LABEL = "تومان"
+
+#: Ten. Spelled out here rather than inline for the same reason
+#: `common.preferences.RIALS_PER_TOMAN` is: a reader of either site can see
+#: at a glance which way the conversion goes.
+RIALS_PER_TOMAN = 10
+
+
+def _to_toman(whole, fraction):
+    """A rial digit string as a toman digit string, exactly — by moving the
+    decimal point one place, never by dividing.
+
+    `int()` on a rial total would be lossy above 2^53 in the JavaScript that
+    has to agree with this, and `Decimal` here would still need the same
+    string surgery to keep the fraction the caller typed. Moving the point
+    is the operation both sides can perform identically.
+    """
+    if len(whole) > 1:
+        moved_whole, moved_fraction = whole[:-1], whole[-1:]
+    else:
+        moved_whole, moved_fraction = "0", whole
+    return moved_whole, moved_fraction + fraction
 
 
 @register.filter(name="money")
-def money(value):
+def money(value, unit="rial"):
     """`12500000.00` -> `12،500،000 ریال`; a missing amount -> the em dash.
+
+    `unit` is the reader's own `panel_currency_unit` (see
+    `common.context_processors.panel_preferences`), passed explicitly by the
+    template because a filter cannot see the context. `rial` is the default
+    so a caller that has no reader — a management command, a test — keeps
+    the behaviour this filter had before the preference existed.
 
     Rial has no sub-unit in daily use, so the fraction is dropped rather than
     printed as a permanent `.00`. It is dropped by **rounding up** on the digit
@@ -58,6 +88,14 @@ def money(value):
     if not whole.isdigit():
         # Not a number we recognise; show it unchanged rather than mangling it.
         return str(value)
+    # The unit is applied before the ceiling below, not after: rounding a
+    # rial figure up and *then* dividing would report a tenth of a rial more
+    # than is owed, which is the direction the round-up rule exists to avoid
+    # on the other side.
+    label = CURRENCY_LABEL
+    if unit == "toman":
+        whole, fraction = _to_toman(whole, fraction)
+        label = TOMAN_LABEL
     # Ceiling, matching `money()` in dolphin-app.js: any fraction at all
     # rounds up. A printed document and the screen it was checked against must
     # agree to the rial, so both use the same rule and neither may drift.
@@ -76,4 +114,4 @@ def money(value):
     # was the one place on screen still reading in Latin numerals next to
     # Jalali dates and counts). Converted last, after grouping and the sign,
     # so the digit-walk above still reasons in plain Latin digits throughout.
-    return to_persian_digits(f"{body} {CURRENCY_LABEL}")
+    return to_persian_digits(f"{body} {label}")

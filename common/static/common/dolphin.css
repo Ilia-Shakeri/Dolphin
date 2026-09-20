@@ -2346,3 +2346,88 @@ dialog {
     padding-top: 0.5rem;
     border-top: 1px solid var(--bs-border-color);
 }
+
+/* 9. Dashboard widget grid and its in-place editor ---------------------------
+
+   The dashboard is one Bootstrap row whose children are ordinary grid
+   columns; the widths are the theme's own `col-*` classes, resolved on the
+   server from `WIDGET_SIZES` (common/dashboard_layout.py). Nothing here
+   redefines a card, a column or a button — the editor adds an overlay of
+   controls and two drag affordances on top of the grid the theme already
+   draws, and takes them away again the moment editing ends.
+
+   Everything below is scoped to `.dashboard-widget`, which only exists on
+   the dashboard, so no rule here can reach another page. */
+
+.dashboard-widget {
+    position: relative;
+}
+
+/* Only while editing. A reader who never presses the pencil gets exactly
+   the dashboard they had before this existed: no outline, no cursor change,
+   no reserved space. */
+.dashboard-widget.editing {
+    cursor: grab;
+}
+
+.dashboard-widget.editing > .card {
+    outline: 1px dashed var(--bs-border-color);
+    outline-offset: 2px;
+}
+
+.dashboard-widget.dragging {
+    opacity: 0.45;
+    cursor: grabbing;
+}
+
+/* The drop target, named by the same accent the rest of the panel uses for
+   "this is where it lands" rather than a colour invented here. */
+.dashboard-widget.drag-over > .card {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* The per-widget controls sit in the card's inline-*end* corner — which in
+   this RTL panel is its top left, the same corner the kanban cards already
+   put their own three-dot menu in (§7, `.kanban-card-more`) and the corner
+   the product owner asked for. Logical rather than `left`, so one rule
+   stays correct if a deployment ever renders LTR. */
+.dashboard-widget-controls {
+    position: absolute;
+    top: 0.5rem;
+    inset-inline-end: 0.5rem;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem;
+    border-radius: 0.475rem;
+    background: var(--bs-body-bg);
+    box-shadow: var(--bs-box-shadow-sm);
+}
+
+.dashboard-widget-handle {
+    cursor: grab;
+    padding-inline: 0.25rem;
+    color: var(--bs-gray-600);
+    line-height: 1;
+}
+
+.dashboard-widget-size {
+    width: auto;
+    min-width: 6.5rem;
+    padding-block: 0.15rem;
+}
+
+/* The hide control is an icon button carrying a bare `×` rather than a
+   keenicon glyph: at this size the duotone paths render as a smudge, and a
+   multiplication sign is unambiguous in both scripts. The vendor's own
+   `.btn.btn-icon` sizing is two classes deep, so the width and height are
+   restated at the same specificity to beat it rather than with
+   `!important`. */
+.dashboard-widget .btn.dashboard-widget-hide {
+    width: 1.6rem;
+    height: 1.6rem;
+    font-size: 1rem;
+    line-height: 1;
+}

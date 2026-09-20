@@ -1,0 +1,138 @@
+{% extends "common/base.html" %}
+{% block title %}تنظیمات{% endblock %}
+{% block page_id %}settings{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">حساب من</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-setting-2 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}تنظیمات{% endblock %}
+{% block breadcrumb_current %}تنظیمات{% endblock %}
+{% block content %}
+{% comment %} Two kinds of section on one page, and the difference is stated on
+   the page rather than only in the code: everything in «نمایش پنل» is this
+   reader's own and affects nobody else, everything under «تنظیمات استقرار»
+   is the whole deployment's and is only rendered for a role that may change
+   it. The gates are the same ones each of those settings already had on its
+   own page — `can_manage_branding` and friends, computed in
+   `ActiveCrmView.get_context_data` from the feature *and* the role, and
+   re-enforced by the endpoint regardless of what this rendered. {% endcomment %}
+<section class="card mb-5 mb-xl-8" id="panel-preferences">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>نمایش پنل</h2>
+            <span class="text-muted fs-7 mt-1">این تنظیم‌ها فقط برای حساب شماست و روی نمایش پنل برای دیگران اثری ندارد.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <form id="preferences-form" novalidate>
+            {% csrf_token %}
+            <div class="row g-6">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="preference-font-family">قلم پنل</label>
+                    <select class="form-select form-select-solid" id="preference-font-family" name="font_family">
+                        {% for option in preference_catalog.font_families %}
+                        <option value="{{ option.value }}"{% if option.value == current_preferences.font_family %} selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-muted fs-7 mt-1 mb-0">اگر قلم انتخابی روی دستگاه شما نصب نباشد، پنل به ایران‌سنس برمی‌گردد.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_family"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="preference-font-scale">اندازهٔ قلم</label>
+                    <select class="form-select form-select-solid" id="preference-font-scale" name="font_scale">
+                        {% for option in preference_catalog.font_scales %}
+                        <option value="{{ option.value }}"{% if option.value == current_preferences.font_scale %} selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-muted fs-7 mt-1 mb-0">اندازهٔ همهٔ متن‌ها و فاصله‌های پنل را با هم تغییر می‌دهد.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_scale"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold d-block">واحد پول</label>
+                    <div class="d-flex flex-wrap gap-6" role="radiogroup" aria-label="واحد پول">
+                        {% for option in preference_catalog.currency_units %}
+                        <div class="form-check form-check-custom form-check-solid">
+                            <input class="form-check-input" type="radio" name="currency_unit"
+                                   id="preference-currency-{{ option.value }}" value="{{ option.value }}"
+                                   {% if option.value == current_preferences.currency_unit %}checked{% endif %}>
+                            <label class="form-check-label" for="preference-currency-{{ option.value }}">{{ option.label }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+{% comment %} Said plainly, because it is the one preference on this page that
+   could otherwise be mistaken for changing data: it does not. Amounts are
+   stored in rial and stay stored in rial; this decides the unit they are
+   shown and typed in. See `common/preferences.py`. {% endcomment %}
+                    <p class="text-muted fs-7 mt-2 mb-0">همهٔ مبلغ‌ها در پایگاه داده به ریال ذخیره می‌شوند؛ این گزینه فقط واحد نمایش و ورود مبلغ را عوض می‌کند — شامل فاکتور و اسناد چاپی.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="currency_unit"></p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold d-block">حالت رنگی</label>
+                    <div class="d-flex flex-wrap gap-6" role="radiogroup" aria-label="حالت رنگی">
+                        {% for option in preference_catalog.themes %}
+                        <div class="form-check form-check-custom form-check-solid">
+                            <input class="form-check-input" type="radio" name="theme"
+                                   id="preference-theme-{{ option.value }}" value="{{ option.value }}"
+                                   {% if option.value == current_preferences.theme %}checked{% endif %}>
+                            <label class="form-check-label" for="preference-theme-{{ option.value }}">{{ option.label }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="text-muted fs-7 mt-2 mb-0">انتخاب شما روی هر مرورگری که با همین حساب وارد شوید اعمال می‌شود.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="theme"></p>
+                </div>
+            </div>
+            <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mt-6 mb-0" role="alert" hidden></div>
+            <div class="d-flex align-items-center justify-content-end gap-3 mt-6">
+                <span id="preferences-saved" class="text-success fw-semibold fs-7" hidden>ذخیره شد.</span>
+                <button class="btn btn-primary" type="submit">ذخیره</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+{% if can_arrange_dashboard %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>چیدمان داشبورد</h2>
+            <span class="text-muted fs-7 mt-1">ترتیب، اندازه و نمایش هر ویجت را روی خود داشبورد تنظیم کنید.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+{% comment %} No second editor here. The product owner's request was explicitly
+   that the arrangement move *onto* the dashboard («صفحهٔ چیدمان داشبورد را حذف
+   کن و خود داشبورد را قابل شخصی‌سازی کن»), so this card points at the control
+   rather than growing a duplicate of it that could drift. {% endcomment %}
+        <p class="text-gray-700 mb-4">
+            روی داشبورد، دکمهٔ <i class="ki-duotone ki-pencil fs-5 align-middle"><span class="path1"></span><span class="path2"></span></i>
+            «شخصی‌سازی» بالای صفحه را بزنید تا ویجت‌ها جابه‌جا، بزرگ و کوچک یا پنهان شوند.
+        </p>
+        <a class="btn btn-light" href="{% url 'common_ui:home' %}">رفتن به داشبورد</a>
+    </div>
+</section>
+{% endif %}
+
+{% if can_manage_branding or can_manage_sms_provider %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>تنظیمات استقرار</h2>
+            <span class="text-muted fs-7 mt-1">این تنظیم‌ها روی کل این استقرار و همهٔ کاربران آن اثر می‌گذارد.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2 d-flex flex-wrap gap-3">
+        {% if can_manage_branding %}
+        <a class="btn btn-light-primary" href="{% url 'common_ui:branding-settings' %}">
+            <i class="ki-duotone ki-picture fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+            برند، رنگ و لوگوی پنل
+        </a>
+        {% endif %}
+        {% if can_manage_sms_provider %}
+        <a class="btn btn-light-primary" href="{% url 'common_ui:sms-provider-settings' %}">
+            <i class="ki-duotone ki-sms fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+            سامانهٔ پیامک
+        </a>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

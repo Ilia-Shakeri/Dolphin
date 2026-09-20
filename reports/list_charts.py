@@ -60,8 +60,26 @@ UNLABELLED = "نامشخص"
 _persian_digits = formatting.persian_digits
 _money = formatting.money
 
+#: The two currency words a formatted amount can end in. `totals_for` reads
+#: the unit back off `display` rather than being told it, so it has to know
+#: both since 2.8.0 — a toman chart whose total fell through to the count
+#: branch would print a bare integer under grouped amounts.
+_CURRENCY_SUFFIXES = (formatting.CURRENCY_LABEL, formatting.TOMAN_LABEL)
 
-def totals_for(result):
+
+def unit_for(actor):
+    """This reader's own currency unit.
+
+    Resolved here rather than threaded through all twelve builders: the unit
+    is a property of the actor each builder already receives, and only the
+    four builders that sum money ever need it.
+    """
+    from common.preferences import effective_preferences
+
+    return effective_preferences(actor)["currency_unit"]
+
+
+def totals_for(result, unit="rial"):
     """The whole the slices add up to, formatted the way the slices are.
 
     The donut prints this in its middle, and only the server knows whether a
@@ -77,9 +95,11 @@ def totals_for(result):
     if not result:
         return {"total_display": "", "total_label": ""}
     total = sum(Decimal(str(row["value"])) for row in result)
-    money = any(str(row.get("display", "")).endswith("ریال") for row in result)
+    money = any(
+        str(row.get("display", "")).endswith(_CURRENCY_SUFFIXES) for row in result
+    )
     return {
-        "total_display": _money(total) if money else _persian_digits(int(total)),
+        "total_display": _money(total, unit) if money else _persian_digits(int(total)),
         "total_label": "مجموع" if money else "مجموع تعداد",
     }
 
@@ -107,7 +127,7 @@ def _counted(rows, labels=None):
     return result
 
 
-def _amounts(rows, labels=None):
+def _amounts(rows, labels=None, unit="rial"):
     """The same, for money rather than counts."""
     named = []
     for key, total in rows:
@@ -117,7 +137,7 @@ def _amounts(rows, labels=None):
 
     head, tail = named[:TOP_N], named[TOP_N:]
     result = [
-        {"label": label, "value": float(total), "display": _money(total)}
+        {"label": label, "value": float(total), "display": _money(total, unit)}
         for label, total in head
     ]
     if tail:
@@ -125,7 +145,7 @@ def _amounts(rows, labels=None):
         result.append({
             "label": "سایر",
             "value": float(remainder),
-            "display": _money(remainder),
+            "display": _money(remainder, unit),
         })
     return result
 
@@ -202,7 +222,7 @@ def payments_by_method(actor):
         .filter(direction=Payment.Direction.RECEIPT)
         .exclude(status=Payment.Status.CANCELLED)
     )
-    return _amounts(_grouped_sum(scoped, "method", "amount"), labels)
+    return _amounts(_grouped_sum(scoped, "method", "amount"), labels, unit_for(actor))
 
 
 def payments_by_direction(actor):
@@ -212,7 +232,7 @@ def payments_by_direction(actor):
         Payment.Direction.DISBURSEMENT: "پرداختی",
     }
     scoped = payments_for(actor).exclude(status=Payment.Status.CANCELLED)
-    return _amounts(_grouped_sum(scoped, "direction", "amount"), labels)
+    return _amounts(_grouped_sum(scoped, "direction", "amount"), labels, unit_for(actor))
 
 
 def products_by_category(actor):
@@ -270,7 +290,7 @@ def stock_value_by_warehouse(actor):
         )
         .order_by()
     )
-    return _amounts([(row["warehouse__name"], row["total"]) for row in rows])
+    return _amounts([(row["warehouse__name"], row["total"]) for row in rows], unit=unit_for(actor))
 
 
 def sales_by_agent(actor):
@@ -281,7 +301,7 @@ def sales_by_agent(actor):
         .annotate(total=Coalesce(Sum("total_amount"), Decimal("0.00")))
         .order_by()
     )
-    return _amounts([(row["sold_by__username"], row["total"]) for row in rows])
+    return _amounts([(row["sold_by__username"], row["total"]) for row in rows], unit=unit_for(actor))
 
 
 def interactions_by_outcome(actor):

@@ -74,6 +74,7 @@ TEMPLATES = [{
         "common.context_processors.product_version",
         "common.context_processors.sidebar_state",
         "common.context_processors.brand",
+        "common.context_processors.panel_preferences",
     ]},
 }]
 WSGI_APPLICATION = "config.wsgi.application"

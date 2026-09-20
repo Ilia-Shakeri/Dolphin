@@ -386,6 +386,17 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # layout (common.dashboard_layout) — same shape as
             # common_brandsettings above, no DELETE.
             "common_dashboardsettings": "SELECT, INSERT, UPDATE",
+            # One row per user for their own panel preferences
+            # (common.preferences). Created on first save and rewritten
+            # after that; going back to the defaults saves the default
+            # values rather than removing the row — no DELETE.
+            "common_userpreference": "SELECT, INSERT, UPDATE",
+            # One row per user for their own dashboard arrangement. DELETE,
+            # unlike every other settings table here, because "reset to this
+            # deployment's default" is genuinely the absence of an overlay,
+            # not a saved empty one — see
+            # common.dashboard_layout.get_user_layout.
+            "common_userdashboardlayout": "SELECT, INSERT, UPDATE, DELETE",
             # Internal chat (chat/). A thread's `last_message_at` and a
             # participant's own `last_read_at` are both rewritten in place by
             # the service layer; a message, once sent, is never edited or

@@ -1,4 +1,5 @@
 {% extends "common/base.html" %}
+{% load jalali_tags %}
 {% block title %}{{ dashboard_title }}{% endblock %}
 {% block page_id %}dashboard{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">{{ brand_name }}{% if brand_subtitle %} | {{ brand_subtitle }}{% endif %}</span>{% endblock %}
@@ -38,7 +39,7 @@
                     </span>
                     <i class="ki-duotone ki-arrow-left fs-4 text-gray-500"><span class="path1"></span><span class="path2"></span></i>
                 </div>
-                <span class="text-gray-900 fw-bolder fs-2hx lh-1">{{ widget.value }}</span>
+                <span class="text-gray-900 fw-bolder fs-2hx lh-1">{{ widget.value|persian_digits }}</span>
                 <span class="text-gray-700 fw-semibold fs-7 mt-2">{{ widget.label }}</span>
             </div>
         </a>
@@ -52,11 +53,56 @@
    نمی‌گیرد. نقطهٔ انتهایی مستقل از این نشانه‌گذاری هم فیچر و دامنه را
    بررسی می‌کند. {% endcomment %}
 {% if "dashboard_insights" in features %}
+{% comment %} یک شبکهٔ ویجتی، نه چند ردیف ثابت.
+
+   Until 2.8.0 this section was four hard-coded rows — KPIs, gauges,
+   trend+breakdown, agent share — and the order was whatever the markup
+   said. The product owner asked for the dashboard itself to be
+   customisable, so every part now lands in one grid as a sibling card
+   carrying its own `data-widget-key` and its own width, and
+   `setupDashboardInsights()` places them in the order the server returned
+   (`common.dashboard_layout.apply_layout`, which folds this deployment's
+   default and this reader's own overlay together).
+
+   The two chart cards keep their markup here rather than being built in
+   script: they carry real headings, links and empty-state copy that belong
+   in a template, and only their *position and width* are dynamic. The
+   script moves them into the grid and sets their column classes. {% endcomment %}
 <section id="dashboard-insights" aria-label="نمای عملکرد" hidden>
-    <div id="dashboard-kpis" class="row g-5 mb-6"></div>
-    <div id="dashboard-gauges" class="row g-5 mb-6"></div>
-    <div class="row g-5 mb-6">
-        <div class="col-12 col-xl-8" id="dashboard-trend-card" hidden>
+{% comment %} The editor's own bar. Rendered hidden and revealed by script only
+   once the payload has arrived — a pencil over an empty page would offer to
+   arrange nothing. Placed at the start of the section (which is the top-left
+   corner in RTL, as asked) rather than in the page toolbar, because what it
+   edits is this section and nothing else on the page. {% endcomment %}
+{% comment %} Read right to left, the spacer comes first, so every control in
+       this bar is pushed to the row's physical *left* — which is where the
+       product owner asked for the pencil («بالا سمت چپ»), and the same
+       corner the kanban cards' own three-dot control already uses. {% endcomment %}
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4" id="dashboard-editor-bar" hidden>
+        <span class="flex-grow-1"></span>
+        <span class="text-muted fs-8" id="dashboard-edit-hint" hidden>
+            ویجت‌ها را بکشید تا جابه‌جا شوند؛ اندازه و نمایش هر کدام را از کنترل‌های گوشهٔ آن تغییر دهید.
+        </span>
+        <button type="button" class="btn btn-sm btn-light-danger" id="dashboard-edit-reset" hidden>
+            بازگرداندن به پیش‌فرض
+        </button>
+        <button type="button" class="btn btn-sm btn-light" id="dashboard-edit-done" hidden>پایان ویرایش</button>
+        <button type="button" class="btn btn-sm btn-icon btn-light" id="dashboard-edit-toggle"
+                title="شخصی‌سازی داشبورد" aria-label="شخصی‌سازی داشبورد" aria-pressed="false">
+            <i class="ki-duotone ki-pencil fs-4"><span class="path1"></span><span class="path2"></span></i>
+        </button>
+    </div>
+    <div id="dashboard-hidden-bar" class="d-flex flex-wrap align-items-center gap-2 mb-4" hidden>
+        <span class="text-muted fs-8">پنهان‌شده:</span>
+        <span id="dashboard-hidden-list" class="d-flex flex-wrap gap-2"></span>
+    </div>
+    <div id="dashboard-widgets" class="row g-5 mb-6 dashboard-widgets"></div>
+
+{% comment %} The two chart cards and the agent-share card, parked here and
+   moved into the grid above by the script. `hidden` until then, so a reader
+   whose role gets no trend never sees an empty plot area. {% endcomment %}
+    <div id="dashboard-widget-store" hidden>
+        <div class="dashboard-widget" data-widget-key="trend" id="dashboard-trend-card" hidden>
             <div class="card card-flush h-100"><div class="card-body">
                 <h2 class="fs-4 fw-bold text-gray-900 mb-1" id="dashboard-trend-title"></h2>
                 <p class="text-muted fs-7 mb-4" id="dashboard-trend-summary"></p>
@@ -66,7 +112,7 @@
                 </p>
             </div></div>
         </div>
-        <div class="col-12 col-xl-4" id="dashboard-breakdown-card" hidden>
+        <div class="dashboard-widget" data-widget-key="breakdown" id="dashboard-breakdown-card" hidden>
             <div class="card card-flush h-100"><div class="card-body">
                 <div class="d-flex flex-stack align-items-center mb-4">
                     <h2 class="fs-4 fw-bold text-gray-900 mb-0" id="dashboard-breakdown-title"></h2>
@@ -85,11 +131,9 @@
                 </p>
             </div></div>
         </div>
-    </div>
-    {% comment %} فقط وقتی حداقل دو بازاریاب فروش این ماه ثبت کرده‌اند نشان
+{% comment %} فقط وقتی حداقل دو بازاریاب فروش این ماه ثبت کرده‌اند نشان
        داده می‌شود — سهم یک‌نفره چیزی بیش از یک عدد صد در صد نیست. {% endcomment %}
-    <div class="row g-5 mb-6">
-        <div class="col-12" id="dashboard-agent-share-card" hidden>
+        <div class="dashboard-widget" data-widget-key="agent_share" id="dashboard-agent-share-card" hidden>
             <div class="card card-flush h-100"><div class="card-body">
                 <div class="d-flex flex-stack align-items-center mb-1">
                     <h2 class="fs-4 fw-bold text-gray-900 mb-0" id="dashboard-agent-share-title"></h2>

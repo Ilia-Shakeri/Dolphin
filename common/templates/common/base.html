@@ -32,6 +32,18 @@
    markup on the page. Loaded last, after `dolphin.css`, so equal-specificity
    selectors win by source order with no `!important` needed. {% endcomment %}
     {% if brand_accent_css %}<style>{{ brand_accent_css|safe }}</style>{% endif %}
+{% comment %} This reader's own typeface and scale («تنظیمات», /settings/),
+   pre-rendered by `common.preferences.preference_css`. Absent (`None`) for
+   everyone who kept both defaults, which is most people, so the theme's own
+   type keeps winning with no extra markup on the page.
+
+   It is inline here rather than a rule in `dolphin.css` for the reason that
+   sheet's own guard test states: typography belongs to the purchased theme,
+   and the sheet may not choose a face for the panel. This does not take that
+   decision away from the theme — it carries one reader's override, per
+   request, exactly as `brand_accent_css` above carries one deployment's
+   colour. Loaded after it for the same source-order reason. {% endcomment %}
+    {% if panel_preference_css %}<style>{{ panel_preference_css|safe }}</style>{% endif %}
 {% comment %} Extension point for a page that needs one more vendor bundle the
    shell does not load for everyone — e.g. the lead follow-up calendar's
    FullCalendar stylesheet. Empty for every other page. {% endcomment %}
@@ -54,10 +66,28 @@
    resolved on each load, or a reader who chose it would keep yesterday's
    answer after changing their OS setting. {% endcomment %}
     <script>
-        var defaultThemeMode = "system";
+        var defaultThemeMode = "{{ panel_theme|default:'system' }}";
         (function () {
             try {
-                var chosen = localStorage.getItem("data-bs-theme-mode") || defaultThemeMode;
+                // The saved preference wins over `localStorage`, not the
+                // other way round: it is the one the reader set on purpose,
+                // on whichever machine, and it is the one that follows them
+                // to a new browser. `localStorage` is still written (by
+                // `KTThemeMode`, and by the settings page) so the vendor's
+                // own toggle keeps working and so the next first frame on
+                // this machine is right even before the server answers.
+                var chosen = defaultThemeMode !== "system"
+                    ? defaultThemeMode
+                    : (localStorage.getItem("data-bs-theme-mode") || "system");
+                // Written back, not only read. `KTThemeMode` runs on
+                // DOMContentLoaded, reads this key itself and re-stamps
+                // `data-bs-theme` from it — so a saved preference that only
+                // reached the attribute here was correct for one frame and
+                // then overwritten by a stale local value. Seen in a real
+                // browser: preference "light", localStorage "system",
+                // rendered dark. Keeping the key in step is also what makes
+                // the header's own theme row show the right mode.
+                localStorage.setItem("data-bs-theme-mode", chosen);
                 var resolved = chosen;
                 if (chosen === "system") {
                     resolved = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -104,6 +134,11 @@
          through a page's own `body_data` override. Blank for an anonymous
          visitor; the drawer that would read it is never rendered for one. {% endcomment %}
       data-chat-user-id="{{ request.user.pk|default_if_none:'' }}"
+      {% comment %} Rial or toman, this reader's own choice — read once by
+         `dolphin-app.js` (`CURRENCY_UNIT`) rather than fetched, because every
+         money cell in every table needs it and it cannot change without a
+         page load. {% endcomment %}
+      data-currency-unit="{{ panel_currency_unit|default:'rial' }}"
       data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
 {% if request.user.is_authenticated %}
 <div class="d-flex flex-column flex-root app-root" id="kt_app_root">
@@ -273,6 +308,14 @@
                                 </div>{% endif %}
                                 <div class="menu-item px-5">
                                     <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
+                                </div>
+{% comment %} «تنظیمات» belongs here, not in the sidebar's administration
+   accordion, for the same reason the profile and the active sessions do: it
+   is the account owner's own, every role has one, and the sidebar is for the
+   business modules. The deployment-wide sections *inside* that page keep
+   their own role gates. {% endcomment %}
+                                <div class="menu-item px-5">
+                                    <a id="open-settings" data-module="settings" class="menu-link px-5" href="{% url 'common_ui:settings' %}">تنظیمات</a>
                                 </div>
                                 <div class="separator my-2"></div>
 {% comment %} The three modes live inside the user menu rather than behind their own
@@ -635,10 +678,10 @@
                                 </div>
                                 {% endif %}
 
-                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_dashboard_layout %}
+                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_sms_provider %}
                                 <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">مدیریت</div></div>
                                 {% endif %}
-                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_dashboard_layout %}
+                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_sms_provider %}
                                 <div data-kt-menu-trigger="click" data-nav-group="administration"{% if is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-setting-2 fs-2"><span class="path1"></span><span class="path2"></span></i></span>
@@ -649,7 +692,6 @@
                                         {% if can_view_audit %}<div class="menu-item"><a data-module="audit" class="menu-link" href="{% url 'common_ui:activity-logs' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">رویدادهای سامانه</span></a></div>{% endif %}
                                         {% if can_manage_users %}<div class="menu-item"><a data-module="users" class="menu-link" href="{% url 'common_ui:users' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{{ user_admin_label }}</span></a></div>{% endif %}
                                         {% if can_manage_branding %}<div class="menu-item"><a data-module="branding-settings" class="menu-link" href="{% url 'common_ui:branding-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">برند و لوگوی پنل</span></a></div>{% endif %}
-                                        {% if can_manage_dashboard_layout %}<div class="menu-item"><a data-module="dashboard-layout-settings" class="menu-link" href="{% url 'common_ui:dashboard-layout-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">چیدمان داشبورد</span></a></div>{% endif %}
                                         {% if can_manage_sms_provider %}<div class="menu-item"><a data-module="sms-provider-settings" class="menu-link" href="{% url 'common_ui:sms-provider-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تنظیمات سامانهٔ پیامک</span></a></div>{% endif %}
                                     </div>
                                 </div>

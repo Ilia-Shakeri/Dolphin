@@ -1,29 +1,42 @@
-"""Which dashboard widgets show, and in what order — the admin-facing half
-of `common.dashboard`'s "what does this role's home page show" question.
+"""Which dashboard widgets show, in what order, and how wide.
 
-Kept as its own module rather than folded into `common.dashboard` for the
-same reason `common.branding` stays separate from what reads it: one module
-owns *whether an admin may reach this*, one owns *what every reader
-actually receives*. `common.dashboard.dashboard_for` calls `apply_layout`
-exactly once, at the end, after every KPI/trend/breakdown has already been
-assembled and scoped to that reader — this module never decides what a role
-may see, only what order it renders in and whether this deployment's admin
-turned it off for everyone.
+Two layers, and keeping them apart is the whole design:
 
-`WIDGET_CATALOG` is a static list, independent of `feature_enabled(...)` —
-the settings page always offers every widget that could ever exist on some
+* **the deployment default** (`common.models.DashboardSettings`, one row) —
+  what this customer's dashboard looks like for everybody who never changed
+  it, and, for a hidden widget, what nobody may put back;
+* **one reader's own arrangement** (`common.models.UserDashboardLayout`, one
+  row per user) — the order, the widths and the extra widgets *they* chose
+  to hide, edited in place on the dashboard itself.
+
+`common.dashboard.dashboard_for` calls `apply_layout` exactly once, at the
+end, after every KPI/trend/breakdown has already been assembled and scoped to
+that reader — this module never decides what a role *may* see, only what
+order it renders in and how wide it is. A user's overlay may therefore only
+ever narrow the result: a widget the deployment hid is not in the payload for
+`apply_layout` to restore, and a widget the reader's permissions withheld was
+never there to begin with.
+
+Until 2.8.0 the deployment default had its own settings page and the reader
+had nothing. The product owner asked for the reverse emphasis: the page is
+gone and every user arranges their own dashboard inline, from a pencil
+control on the dashboard itself. The deployment row is deliberately *kept*
+— disabling a feature must never delete data (CLAUDE.md §7), an existing
+customer's saved company layout is still the starting point everybody
+inherits, and `apply_layout` still enforces its hidden set as a floor.
+
+`WIDGET_CATALOG` is a static list, independent of `feature_enabled(...)`:
+the editor always knows every widget that could ever exist on some
 deployment's dashboard, with a plain-language note of which module gates it,
-rather than the list changing shape under an admin's feet as they toggle
-features elsewhere. A key with its feature off simply never appears on the
-actual dashboard regardless of this setting, the same as today.
+rather than the list changing shape underfoot as features are toggled
+elsewhere. A key whose feature is off simply never appears on the actual
+dashboard regardless of what is saved here.
 """
 
 from django.db import transaction
 
-from accounts.models import User
-from auditlog.services import log_activity
-from common.exceptions import BusinessPermissionDenied, BusinessRuleError
-from common.models import DashboardSettings
+from common.exceptions import BusinessRuleError
+from common.models import DashboardSettings, UserDashboardLayout
 
 #: `(key, label, gating feature label)` — the feature label is shown, not
 #: enforced here; `common.dashboard.dashboard_for` already enforces the real
@@ -45,21 +58,49 @@ WIDGET_CATALOG = [
 
 WIDGET_KEYS = frozenset(key for key, _label, _feature in WIDGET_CATALOG)
 
+#: `size token -> (Persian label, Bootstrap column classes)`.
+#:
+#: Four steps of the theme's own twelve-column grid, not a free pixel width:
+#: a resizable widget still has to line up with every other card on the page
+#: and still has to collapse to full width on a phone, which is exactly what
+#: the vendor's grid already does. The `col-12` on each is what does the
+#: collapsing; the `col-xl-*` is the chosen width once there is room for it.
+WIDGET_SIZES = {
+    "quarter": ("یک‌چهارم", "col-12 col-sm-6 col-xl-3"),
+    "third": ("یک‌سوم", "col-12 col-sm-6 col-xl-4"),
+    "half": ("نصف", "col-12 col-xl-6"),
+    "full": ("تمام‌عرض", "col-12"),
+}
+
+#: The width each widget is designed at, used when the reader has not chosen
+#: one. The two chart cards are wide because they carry a plot, not a figure;
+#: everything else is a tile.
+DEFAULT_WIDGET_SIZES = {
+    "trend": "half",
+    "breakdown": "third",
+    "agent_share": "full",
+}
+FALLBACK_WIDGET_SIZE = "quarter"
+
 
 def get_dashboard_settings():
-    """The singleton row, creating it (empty — nothing hidden, no order
-    override) on first read. Never raises, same reasoning as
+    """The deployment's singleton row, creating it (empty — nothing hidden,
+    no order override) on first read. Never raises, same reasoning as
     `common.branding.get_brand_settings`.
     """
     row, _ = DashboardSettings.objects.get_or_create(singleton=DashboardSettings.SINGLETON)
     return row
 
 
-def _lock_platform_admin(actor):
-    locked = User.objects.select_for_update().filter(pk=actor.pk, is_active=True).first()
-    if locked is None or locked.role != User.Role.PLATFORM_ADMIN:
-        raise BusinessPermissionDenied("تغییر چیدمان داشبورد فقط برای مدیر پلتفرم مجاز است.")
-    return locked
+def get_user_layout(user):
+    """This reader's own overlay, or `None` when they never saved one.
+
+    `None` rather than an empty row on purpose: "never customised" and
+    "customised back to the defaults" look the same on screen but are not
+    the same fact, and only the first should silently follow a later change
+    to the deployment default.
+    """
+    return UserDashboardLayout.objects.filter(pk=user.pk).first()
 
 
 def _clean_keys(value, *, field):
@@ -82,45 +123,72 @@ def _clean_keys(value, *, field):
     return cleaned
 
 
+def _clean_sizes(value, *, field):
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise BusinessRuleError({field: "اندازهٔ ویجت‌ها نامعتبر است."})
+    unknown_keys = [key for key in value if key not in WIDGET_KEYS]
+    if unknown_keys:
+        raise BusinessRuleError({field: f"ویجت ناشناخته: {', '.join(sorted(unknown_keys))}"})
+    unknown_sizes = sorted({str(size) for size in value.values() if size not in WIDGET_SIZES})
+    if unknown_sizes:
+        raise BusinessRuleError({field: f"اندازهٔ ناشناخته: {', '.join(unknown_sizes)}"})
+    return dict(value)
+
+
 @transaction.atomic
-def update_dashboard_settings(*, actor, hidden_widgets=None, widget_order=None):
-    """Update which widgets are hidden and/or their order. Either argument
-    left `None` is left untouched, same "independent, optional" shape as
-    `common.branding.update_brand_settings`.
+def update_user_dashboard_layout(*, actor, hidden_widgets=None, widget_order=None, widget_sizes=None):
+    """Save this actor's own dashboard arrangement.
+
+    No `user=` parameter, for the same reason `common.preferences.
+    update_preferences` has none: a layout belongs to the person looking at
+    it, and no role arranges somebody else's screen. Keeping that out of the
+    signature means no view can get it wrong by forwarding a parameter.
+
+    Not audit-logged: this is presentation, not a business event. The
+    deployment-wide row still carries `updated_by`, and the
+    `dashboard_settings.updated` label stays registered in
+    `auditlog/labels.py` so the entries an admin's earlier change already
+    wrote keep rendering in Persian.
     """
-    locked_actor = _lock_platform_admin(actor)
-    row = DashboardSettings.objects.select_for_update().get_or_create(singleton=DashboardSettings.SINGLETON)[0]
-    changed_fields = []
+    row, _ = UserDashboardLayout.objects.select_for_update().get_or_create(pk=actor.pk)
+    changed = []
 
     cleaned_hidden = _clean_keys(hidden_widgets, field="hidden_widgets")
     if cleaned_hidden is not None:
         row.hidden_widgets = cleaned_hidden
-        changed_fields.append("hidden_widgets")
+        changed.append("hidden_widgets")
 
     cleaned_order = _clean_keys(widget_order, field="widget_order")
     if cleaned_order is not None:
         row.widget_order = cleaned_order
-        changed_fields.append("widget_order")
+        changed.append("widget_order")
 
-    if not changed_fields:
-        return row
+    cleaned_sizes = _clean_sizes(widget_sizes, field="widget_sizes")
+    if cleaned_sizes is not None:
+        row.widget_sizes = cleaned_sizes
+        changed.append("widget_sizes")
 
-    row.updated_by = locked_actor
-    row.save(update_fields=[*changed_fields, "updated_by", "updated_at"])
-    log_activity(
-        actor=locked_actor,
-        operation="dashboard_settings.updated",
-        instance=row,
-        changes={"fields": changed_fields},
-    )
+    if changed:
+        row.save(update_fields=[*changed, "updated_at"])
     return row
+
+
+@transaction.atomic
+def reset_user_dashboard_layout(*, actor):
+    """Drop this actor's overlay entirely, so they follow the deployment
+    default again — which is not the same as saving an empty overlay; see
+    `get_user_layout`.
+    """
+    UserDashboardLayout.objects.filter(pk=actor.pk).delete()
 
 
 def _ordered(items, key_of, order):
     """`items` sorted by their position in `order`; an item whose key is
     absent from `order` keeps its original relative position, appended
-    after every explicitly ordered item — reordering one widget in the
-    settings page never requires re-listing every other one.
+    after every explicitly ordered item — moving one widget in the editor
+    never requires re-listing every other one.
     """
     if not order:
         return items
@@ -131,40 +199,103 @@ def _ordered(items, key_of, order):
     return explicit + implicit
 
 
-def apply_layout(dashboard_payload):
-    """`common.dashboard.dashboard_for`'s own return value, with this
-    deployment's hidden/reordered widgets applied — called once, after
-    every KPI has already been scoped to the reader, so a widget an admin
-    "hides" is genuinely hidden for everyone, and a widget nobody may see
-    for permission/data-scope reasons was never in the list to begin with.
+def size_class(key, sizes):
+    """The Bootstrap column classes one widget should render at."""
+    token = sizes.get(key) or DEFAULT_WIDGET_SIZES.get(key, FALLBACK_WIDGET_SIZE)
+    return WIDGET_SIZES.get(token, WIDGET_SIZES[FALLBACK_WIDGET_SIZE])[1]
+
+
+def effective_layout(user):
+    """The hidden set, order and sizes this reader's dashboard should use,
+    with the deployment default underneath and their own overlay on top.
+
+    `hidden` unions the two: the deployment's hidden widgets are a floor a
+    user cannot lift, their own are added to it. `order` and `sizes` are
+    replaced rather than merged — a reader who has arranged their dashboard
+    has said what they want it to look like, and half-inheriting somebody
+    else's ordering on top of that produces an arrangement neither of them
+    chose.
+    """
+    deployment = get_dashboard_settings()
+    layout = None if user is None else get_user_layout(user)
+    hidden = set(deployment.hidden_widgets)
+    order = list(deployment.widget_order)
+    sizes = {}
+    if layout is not None:
+        hidden |= set(layout.hidden_widgets)
+        if layout.widget_order:
+            order = list(layout.widget_order)
+        sizes = dict(layout.widget_sizes or {})
+    return {
+        "hidden": frozenset(hidden),
+        "order": order,
+        "sizes": sizes,
+        "deployment_hidden": frozenset(deployment.hidden_widgets),
+        "is_customised": layout is not None,
+    }
+
+
+def apply_layout(dashboard_payload, user=None):
+    """`common.dashboard.dashboard_for`'s own return value, arranged for
+    this reader — called once, after every KPI has already been scoped, so a
+    widget hidden here is genuinely hidden, and a widget nobody may see for
+    permission/data-scope reasons was never in the list to begin with.
 
     A key saved by a since-removed KPI (a widget dropped in a later version)
     is silently ignored, never an error — the same "disabling never breaks
     the page" posture `common.deployment.registry` already documents for
     features generally.
-    """
-    settings_row = get_dashboard_settings()
-    hidden = frozenset(settings_row.hidden_widgets)
-    order = settings_row.widget_order
 
-    kpis = [kpi for kpi in dashboard_payload["kpis"] if kpi["key"] not in hidden]
+    Each surviving part carries its own `size` (the Bootstrap column classes
+    it should render at), so the page never has to hold a second copy of
+    that mapping in JavaScript.
+    """
+    layout = effective_layout(user)
+    hidden = layout["hidden"]
+    order = layout["order"]
+    sizes = layout["sizes"]
+
+    def _sized(item):
+        return {**item, "size": size_class(item["key"], sizes)}
+
+    kpis = [_sized(kpi) for kpi in dashboard_payload["kpis"] if kpi["key"] not in hidden]
     kpis = _ordered(kpis, key_of=lambda kpi: kpi["key"], order=order)
 
     trend = dashboard_payload["trend"]
-    if "trend" in hidden:
+    if trend is not None and "trend" not in hidden:
+        trend = {**trend, "key": "trend", "size": size_class("trend", sizes)}
+    else:
         trend = None
 
     breakdown = dashboard_payload["breakdown"]
-    if "breakdown" in hidden:
+    if breakdown is not None and "breakdown" not in hidden:
+        breakdown = {**breakdown, "key": "breakdown", "size": size_class("breakdown", sizes)}
+    else:
         breakdown = None
 
-    gauges = [gauge for gauge in dashboard_payload["gauges"] if gauge["key"] not in hidden]
+    gauges = [_sized(gauge) for gauge in dashboard_payload["gauges"] if gauge["key"] not in hidden]
     gauges = _ordered(gauges, key_of=lambda gauge: gauge["key"], order=order)
 
     agent_share = dashboard_payload["agent_share"]
-    if "agent_share" in hidden:
+    if agent_share is not None and "agent_share" not in hidden:
+        agent_share = {**agent_share, "key": "agent_share", "size": size_class("agent_share", sizes)}
+    else:
         agent_share = None
 
     return {
-        "kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges, "agent_share": agent_share,
+        "kpis": kpis,
+        "trend": trend,
+        "breakdown": breakdown,
+        "gauges": gauges,
+        "agent_share": agent_share,
+        "layout": {
+            "order": order,
+            "hidden": sorted(hidden),
+            "sizes": sizes,
+            # What the editor may *not* offer to unhide. Sent so the page can
+            # leave those rows out of the widget list entirely rather than
+            # showing a switch that silently does nothing.
+            "locked_hidden": sorted(layout["deployment_hidden"]),
+            "is_customised": layout["is_customised"],
+        },
     }

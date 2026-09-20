@@ -58,12 +58,19 @@
             <th>مشخصات کالا یا خدمات</th>
             <th>مقدار/تعداد</th>
             <th>واحد اندازه‌گیری</th>
-            <th>مبلغ واحد به ریال</th>
-            <th>مبلغ کل به ریال</th>
+{% comment %} The unit named in each heading follows the reader's own choice
+               («panel_currency_label», common.preferences) rather than being
+               fixed at ریال, because the amounts underneath it do — a column
+               headed ریال over figures printed in تومان would be a
+               tenfold misstatement on a document a customer keeps. Product
+               owner, 2026-09-20: the choice applies «همه‌جا، شامل فاکتور
+               و اسناد چاپی». {% endcomment %}
+            <th>مبلغ واحد به {{ panel_currency_label }}</th>
+            <th>مبلغ کل به {{ panel_currency_label }}</th>
             <th>مبلغ تخفیف</th>
-            <th>مبلغ کل پس از تخفیف (ریال)</th>
-            <th>جمع مالیات و عوارض (ریال)</th>
-            <th>جمع مبلغ کل بعلاوه جمع مالیات و عوارض (ریال)</th>
+            <th>مبلغ کل پس از تخفیف ({{ panel_currency_label }})</th>
+            <th>جمع مالیات و عوارض ({{ panel_currency_label }})</th>
+            <th>جمع مبلغ کل بعلاوه جمع مالیات و عوارض ({{ panel_currency_label }})</th>
         </tr>
     </thead>
     <tbody>
@@ -74,23 +81,23 @@
             <td>{{ row.item.product_name_snapshot }}{% if row.item.description %} — {{ row.item.description }}{% endif %}</td>
             <td>{{ row.item.quantity }}</td>
             <td>{{ row.item.product.get_unit_display|default:"—" }}</td>
-            <td dir="ltr">{{ row.item.unit_price|money }}</td>
-            <td dir="ltr">{{ row.gross|money }}</td>
-            <td dir="ltr">{{ row.discount|money }}</td>
-            <td dir="ltr">{{ row.net|money }}</td>
-            <td dir="ltr">{{ row.tax|money }}</td>
-            <td dir="ltr">{{ row.total|money }}</td>
+            <td dir="ltr">{{ row.item.unit_price|money:panel_currency_unit }}</td>
+            <td dir="ltr">{{ row.gross|money:panel_currency_unit }}</td>
+            <td dir="ltr">{{ row.discount|money:panel_currency_unit }}</td>
+            <td dir="ltr">{{ row.net|money:panel_currency_unit }}</td>
+            <td dir="ltr">{{ row.tax|money:panel_currency_unit }}</td>
+            <td dir="ltr">{{ row.total|money:panel_currency_unit }}</td>
         </tr>
     {% endfor %}
     </tbody>
     <tfoot>
         <tr>
             <th colspan="6">جمع کل</th>
-            <th dir="ltr">{{ line_totals.gross|money }}</th>
-            <th dir="ltr">{{ line_totals.discount|money }}</th>
-            <th dir="ltr">{{ line_totals.net|money }}</th>
-            <th dir="ltr">{{ line_totals.tax|money }}</th>
-            <th dir="ltr">{{ line_totals.total|money }}</th>
+            <th dir="ltr">{{ line_totals.gross|money:panel_currency_unit }}</th>
+            <th dir="ltr">{{ line_totals.discount|money:panel_currency_unit }}</th>
+            <th dir="ltr">{{ line_totals.net|money:panel_currency_unit }}</th>
+            <th dir="ltr">{{ line_totals.tax|money:panel_currency_unit }}</th>
+            <th dir="ltr">{{ line_totals.total|money:panel_currency_unit }}</th>
         </tr>
     </tfoot>
 </table></div>
@@ -99,11 +106,11 @@
 <div class="print-in-words"><span>مبلغ به حروف:</span><strong>{{ total_in_words }}</strong></div>
 
 <div class="print-totals">
-    <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount|money }}</span></div>
-    <div><span>مالیات و عوارض ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money }}</span></div>
-    <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount|money }}</span></div>
-    <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount|money }}</span></div>
-    <div><span>مانده</span><span dir="ltr">{{ document.balance_due|money }}</span></div>
+    <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount|money:panel_currency_unit }}</span></div>
+    <div><span>مالیات و عوارض ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money:panel_currency_unit }}</span></div>
+    <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount|money:panel_currency_unit }}</span></div>
+    <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount|money:panel_currency_unit }}</span></div>
+    <div><span>مانده</span><span dir="ltr">{{ document.balance_due|money:panel_currency_unit }}</span></div>
 </div>
 
 {% if document.notes %}<div class="print-notes">{{ document.notes }}</div>{% endif %}

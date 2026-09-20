@@ -230,11 +230,14 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         context["can_manage_sms_provider"] = (
             feature_enabled("outbound_sms") and self.request.user.role == User.Role.PLATFORM_ADMIN
         )
-        # Mirrors DolphinDashboardLayoutSettingsView's own two gates exactly
-        # (feature, then role) — same reasoning as can_manage_branding above.
-        context["can_manage_dashboard_layout"] = (
-            feature_enabled("dashboard_insights") and self.request.user.role == User.Role.PLATFORM_ADMIN
-        )
+        # Whether this reader may arrange their *own* dashboard — the
+        # feature gate only, with no role test, because since 2.8.0 the
+        # arrangement is per-user and personal. The deployment-wide layout
+        # page an admin used to visit is gone; what replaced it is the
+        # pencil control on the dashboard itself, and there is no role for
+        # which "you may not choose the order of your own tiles" is a
+        # sensible sentence. `DashboardLayoutView` re-checks the feature.
+        context["can_arrange_dashboard"] = feature_enabled("dashboard_insights")
         return context
 
 
@@ -945,6 +948,19 @@ class PrintableDocumentView(ScopedDetailView):
                 context["settlement_label"] = SETTLEMENT_LABELS.get(settlement, settlement)
         # Offer the download only where the server can really produce one.
         context.setdefault("pdf_available", renderer_is_available())
+        # The reader's currency unit, restated on the context rather than
+        # left to `common.context_processors.panel_preferences` alone.
+        # `{{ amount|money:panel_currency_unit }}` is a *filter argument*,
+        # and Django raises rather than falling back when one of those does
+        # not resolve — so a printed invoice would be a hard error, not a
+        # figure in the wrong unit, anywhere this template is rendered
+        # outside the request/response cycle. It is a legal document; it
+        # does not get to depend on which renderer reached it.
+        from common.preferences import currency_label, effective_preferences
+
+        printing_for = effective_preferences(self.request.user)
+        context.setdefault("panel_currency_unit", printing_for["currency_unit"])
+        context.setdefault("panel_currency_label", currency_label(printing_for["currency_unit"]))
         return context
 
 
@@ -1225,26 +1241,40 @@ class DolphinBrandingSettingsView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
-class DolphinDashboardLayoutSettingsView(ActiveCrmView):
-    """`/settings/dashboard/` — this deployment's own choice of which
-    dashboard widgets show, and in what order.
+#: `DolphinDashboardLayoutSettingsView` (`/settings/dashboard/`) was retired
+#: in 2.8.0 at the product owner's request: "صفحهٔ چیدمان داشبورد را
+#: حذف کن و خود داشبورد را قابل شخصی‌سازی کن". A deployment-wide layout
+#: nobody could reach from the screen it described has been replaced by an
+#: in-place editor on the dashboard itself, per user — see
+#: `common/dashboard_layout.py` for how the deployment default and a
+#: reader's own overlay combine, and `DashboardLayoutView` for the endpoint
+#: the editor saves through. The deployment row and its data are untouched.
 
-    Same two-gate shape as `DolphinBrandingSettingsView` right above:
-    feature-gated (`dashboard_insights` — customising a panel with no
-    dashboard is meaningless) and, on top of that, restricted to a Platform
-    Admin, since the layout is shared by every user of this deployment.
+
+class DolphinSettingsView(ActiveCrmView):
+    """`/settings/` — one page for everything a person can change about
+    how this panel behaves for them, plus the deployment-wide sections
+    whoever is allowed to change those already had elsewhere.
+
+    Not feature-gated. Every user, on every deployment, has a typeface, a
+    scale, a currency unit and a colour theme; there is no deployment for
+    which "this customer did not license font size" is a sensible sentence.
+    The admin-only sections inside it carry their own gates, exactly the
+    ones their own pages carried, and each is rendered only when both that
+    feature and that role say yes — `can_manage_branding` and friends,
+    computed once in `ActiveCrmView.get_context_data`.
     """
 
-    required_feature = "dashboard_insights"
-    template_name = "common/dashboard_layout/settings.html"
+    template_name = "common/settings/settings.html"
 
-    def dispatch(self, request, *args, **kwargs):
-        if is_crm_identity(request.user) and request.user.role != User.Role.PLATFORM_ADMIN:
-            return self.render_to_response(self.get_context_data(
-                error_status=403, error_title="دسترسی مجاز نیست",
-                error_message="تغییر چیدمان داشبورد فقط برای مدیر پلتفرم مجاز است.",
-            ), status=403)
-        return super().dispatch(request, *args, **kwargs)
+    def get_context_data(self, **kwargs):
+        from common import preferences
+
+        context = super().get_context_data(**kwargs)
+        current = preferences.effective_preferences(self.request.user)
+        context["preference_catalog"] = preferences.catalog()
+        context["current_preferences"] = current
+        return context
 
 
 #: `DolphinChatView` (the standalone `/chat/` page) was retired in 1.9.0.

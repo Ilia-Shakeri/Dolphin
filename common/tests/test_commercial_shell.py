@@ -17,6 +17,38 @@ from sales.services import assign_lead, create_customer_with_phone, create_lead,
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def browser_delete_targets():
+    """Every URL the panel's own script sends a `DELETE` to.
+
+    Until 2.8.0 the rule below was spelled as a flat ban on the string
+    `method: "DELETE"` anywhere in `dolphin-app.js`, which worked only
+    because there were none. The rule it was protecting is narrower and
+    still holds exactly: **this product never hard-deletes a business
+    record from the browser** — a sale is corrected, a product is
+    deactivated, a category is toggled, and the history stays
+    (CLAUDE.md §7).
+
+    The dashboard's «بازگرداندن به پیش‌فرض» control is the first
+    legitimate `DELETE`: it drops the caller's own row of display
+    preferences, which is not a business record and whose absence is
+    precisely what "follow the deployment default" means (see
+    `common.dashboard_layout.get_user_layout`). Listing the targets rather
+    than banning the verb keeps the real rule enforceable as the panel
+    grows.
+    """
+    script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+    targets = set()
+    for fragment in script.split('method: "DELETE"')[:-1]:
+        call = fragment.rsplit("apiRequest(", 1)[-1]
+        targets.add(call.split('"')[1])
+    return targets
+
+
+#: The complete set. A new entry here is a deliberate product decision about
+#: destroying data from the browser, and should not be added without one.
+ALLOWED_BROWSER_DELETE_TARGETS = {"/api/v1/dashboard-layout/"}
+
+
 class CommercialShellContractTests(SimpleTestCase):
     def test_real_pages_states_and_identical_report_query_are_wired(self):
         script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
@@ -36,7 +68,9 @@ class CommercialShellContractTests(SimpleTestCase):
         script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
         self.assertIn('formPayload(createForm, ["lead", "product", "quantity", "notes"])', script)
         self.assertNotIn("correction", template.lower())
-        self.assertNotIn('method: "DELETE"', script)
+        # No hard delete of a sale from the browser — see
+        # `browser_delete_targets` for why this is a list and not a ban.
+        self.assertEqual(browser_delete_targets(), ALLOWED_BROWSER_DELETE_TARGETS)
 
     def test_product_agent_template_has_no_write_controls(self):
         list_template = (ROOT / "common" / "templates" / "common" / "products" / "list.html").read_text(encoding="utf-8")
@@ -67,7 +101,8 @@ class CommercialShellContractTests(SimpleTestCase):
         script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
         self.assertIn('query.set("is_active", isActive)', script)
         self.assertIn('query.set("category", category)', script)
-        self.assertNotIn('method: "DELETE"', script)
+        # A product is deactivated, never destroyed from the browser.
+        self.assertEqual(browser_delete_targets(), ALLOWED_BROWSER_DELETE_TARGETS)
 
     def test_category_templates_have_real_states_and_no_hard_delete(self):
         list_template = (ROOT / "common" / "templates" / "common" / "product_categories" / "list.html").read_text(encoding="utf-8")

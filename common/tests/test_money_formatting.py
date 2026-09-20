@@ -15,6 +15,7 @@ from django.template import Context, Template
 from django.test import SimpleTestCase
 
 from common.jalali import to_persian_digits
+from common.templatetags import money_tags
 from common.templatetags.money_tags import money
 
 
@@ -93,9 +94,23 @@ class MoneyFilterTests(SimpleTestCase):
         self.assertEqual(grouping.group(1), "،")
 
     def test_the_currency_word_matches_the_one_the_javascript_appends(self):
-        """The printed document and the screen must agree, word for word."""
+        """The printed document and the screen must agree, word for word.
+
+        Since 2.8.0 there are two words, not one: the reader chooses rial or
+        toman (`common/preferences.py`) and both surfaces have to name
+        whichever it is. The rule this test exists for is unchanged — it is
+        now checked against the constant the script appends and the two
+        labels that constant can hold, rather than against one hardcoded
+        word that could only ever have been right for one of them.
+        """
         source = APP_JS.read_text(encoding="utf-8")
-        self.assertIn('`${body} ریال`', source)
+        self.assertIn("`${body} ${CURRENCY_LABEL}`", source)
+        self.assertIn(
+            'const CURRENCY_LABEL = CURRENCY_UNIT === "toman" ? "تومان" : "ریال";',
+            source,
+        )
+        self.assertEqual(money_tags.CURRENCY_LABEL, "ریال")
+        self.assertEqual(money_tags.TOMAN_LABEL, "تومان")
 
     def test_the_digit_script_matches_the_one_the_javascript_produces(self):
         """Since 1.7.14: both money() implementations render Persian digits,

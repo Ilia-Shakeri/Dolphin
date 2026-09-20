@@ -472,11 +472,22 @@ class ApiTests(DashboardFixtures):
         self.api = APIClient()
         self.api.force_authenticate(self.manager)
 
-    def test_the_endpoint_returns_the_five_parts(self):
+    def test_the_endpoint_returns_the_five_parts_and_the_layout(self):
+        """`layout` joined the five in 2.8.0, when the dashboard became
+        arrangeable in place: the page needs the order, the hidden set and
+        the widths to draw the grid and the editor, and getting them in the
+        same response is what keeps the first paint correct rather than
+        re-shuffling after a second request lands."""
         self.a_sale(amount="2000000.00")
         response = self.api.get("/api/v1/dashboard/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(set(response.data), {"kpis", "trend", "breakdown", "gauges", "agent_share"})
+        self.assertEqual(
+            set(response.data), {"kpis", "trend", "breakdown", "gauges", "agent_share", "layout"},
+        )
+        self.assertEqual(
+            set(response.data["layout"]),
+            {"order", "hidden", "sizes", "locked_hidden", "is_customised"},
+        )
 
     def test_the_result_may_not_be_cached(self):
         self.assertEqual(self.api.get("/api/v1/dashboard/")["Cache-Control"], "private, no-store")
@@ -715,9 +726,11 @@ class ChartMountOrderTests(SimpleTestCase):
                 self.assertLess(reveal, body.index(call))
 
     def test_an_empty_panel_hides_itself_again(self):
+        """The rule is unchanged — a deployment with none of the sources
+        renders exactly the page it rendered before this section existed —
+        but 2.8.0 collects every part into one keyed `widgets` map before
+        placing any of them, so "nothing came back" is now one question
+        about that map rather than five about the payload."""
         body = self.body()
-        self.assertIn("!data.kpis.length", body)
-        self.assertIn("!data.trend", body)
-        self.assertIn("!data.breakdown", body)
-        self.assertIn("!(data.gauges || []).length", body)
+        self.assertIn("if (!widgets.size) {", body)
         self.assertIn("section.hidden = true;", body)

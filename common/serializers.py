@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from common.models import BrandSettings, DashboardSettings
+from common.models import (
+    PANEL_FONT_FAMILIES,
+    PANEL_FONT_SCALES,
+    BrandSettings,
+    UserDashboardLayout,
+    UserPreference,
+)
 
 
 class RejectServerFieldsMixin:
@@ -57,20 +63,53 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
         return attrs
 
 
-class DashboardSettingsSerializer(serializers.ModelSerializer):
+class UserDashboardLayoutSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DashboardSettings
-        fields = ("hidden_widgets", "widget_order", "updated_at")
+        model = UserDashboardLayout
+        fields = ("hidden_widgets", "widget_order", "widget_sizes", "updated_at")
         read_only_fields = fields
 
 
-class DashboardSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
-    """Both fields optional and independent — see
-    `common.dashboard_layout.update_dashboard_settings` for what
-    "independent" means. Shape/membership checked again in
-    `common.dashboard_layout._clean_keys`, the same two-layer split every
-    other update serializer in this module already follows.
+class UserDashboardLayoutUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """All three fields optional and independent — see
+    `common.dashboard_layout.update_user_dashboard_layout` for what
+    "independent" means. Membership of the widget and size vocabularies is
+    checked again in `common.dashboard_layout._clean_keys` and
+    `_clean_sizes`, the same two-layer split every other update serializer
+    in this module already follows.
     """
 
     hidden_widgets = serializers.ListField(child=serializers.CharField(), required=False)
     widget_order = serializers.ListField(child=serializers.CharField(), required=False)
+    widget_sizes = serializers.DictField(child=serializers.CharField(), required=False)
+
+
+class UserPreferenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserPreference
+        fields = ("font_family", "font_scale", "currency_unit", "theme", "updated_at")
+        read_only_fields = fields
+
+
+class UserPreferenceUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Every field optional and independent, so the settings page can save
+    one control at a time without re-sending the rest.
+
+    `ChoiceField` against the model's own tuples rather than a free string.
+    The chosen typeface ends up inside a `<style>` element on every page,
+    and a value that reached that element unchecked would be a
+    stylesheet-injection hole. Two guards stand between the request and the
+    markup and both matter: this one refuses any value that is not a known
+    token, and `common.preferences.preference_css` emits only the stack it
+    looked up from `PANEL_FONT_FAMILY_STACKS` — never anything the client
+    sent.
+    """
+
+    font_family = serializers.ChoiceField(
+        choices=[value for value, _label, _stack in PANEL_FONT_FAMILIES], required=False,
+    )
+    font_scale = serializers.ChoiceField(
+        choices=[value for value, _label, _size in PANEL_FONT_SCALES], required=False,
+    )
+    currency_unit = serializers.ChoiceField(choices=UserPreference.CurrencyUnit.values, required=False)
+    theme = serializers.ChoiceField(choices=UserPreference.Theme.values, required=False)

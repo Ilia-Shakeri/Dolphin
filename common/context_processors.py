@@ -55,3 +55,32 @@ def brand(request):
         # one; see `common.color.accent_theme_css` for the actual derivation.
         "brand_accent_css": accent_theme_css(result["accent_color"]),
     }
+
+
+def panel_preferences(request):
+    """One reader's own typeface, scale, currency unit and colour theme.
+
+    Same reasoning as `brand` above for why this is a context processor and
+    not a base-view mixin: the login page and the error pages need it too
+    (they render in the panel's shell and would otherwise jump to a
+    different typeface), and neither shares a base class with the rest of
+    the panel. `common.preferences.effective_preferences` already answers
+    "anonymous visitor" and "database briefly unreachable" with the
+    defaults, so this stays a thin pass-through.
+
+    `panel_currency_unit` is exported as well as pre-rendered CSS because
+    two other consumers need the raw value: `money_tags.money` in the
+    printed documents, and the `data-currency-unit` attribute `base.html`
+    puts on `<body>` for `dolphin-app.js` to read.
+    """
+    from common.preferences import currency_label, effective_preferences, preference_css
+
+    result = effective_preferences(getattr(request, "user", None))
+    return {
+        "panel_preference_css": preference_css(result),
+        "panel_font_family": result["font_family"],
+        "panel_font_scale": result["font_scale"],
+        "panel_currency_unit": result["currency_unit"],
+        "panel_currency_label": currency_label(result["currency_unit"]),
+        "panel_theme": result["theme"],
+    }

@@ -34,6 +34,7 @@ from aftersales.selectors import after_sales_requests_for
 from billing.selectors import invoices_for
 from common import formatting
 from common.dashboard_layout import apply_layout
+from common.preferences import effective_preferences
 from common.deployment.profile import feature_enabled
 from sales.models import Lead, Sale
 from sales.selectors import interactions_for, leads_for, sales_for
@@ -123,7 +124,7 @@ def _change_direction(current, previous):
     return None
 
 
-def _sales_kpis(user, *, now, trend=None):
+def _sales_kpis(user, *, now, unit, trend=None):
     scope = sales_for(user).exclude(status=Sale.Status.CANCELLED)
     start, previous_start, previous_end = _month_bounds(now)
     this_month = scope.filter(sold_at__gte=start)
@@ -140,7 +141,7 @@ def _sales_kpis(user, *, now, trend=None):
     return [
         _kpi(
             "sales_amount_this_month", "فروش این ماه",
-            display=formatting.money(amount),
+            display=formatting.money(amount, unit),
             hint=_change_hint(amount, previous, noun="ماه"),
             direction=_change_direction(amount, previous),
             icon="ki-chart-line-up", icon_paths=2, accent="success", url="/sales/",
@@ -157,7 +158,7 @@ def _sales_kpis(user, *, now, trend=None):
     ]
 
 
-def _receivables_kpi(user, *, now):
+def _receivables_kpi(user, *, now, unit):
     """What is still owed, across every issued invoice this reader may see.
 
     Summed in Python rather than in SQL because `balance_due` is a property
@@ -171,7 +172,7 @@ def _receivables_kpi(user, *, now):
     return [
         _kpi(
             "outstanding", "مطالبات باز",
-            display=formatting.money(outstanding),
+            display=formatting.money(outstanding, unit),
             hint=f"{formatting.persian_digits(unpaid)} فاکتور تسویه‌نشده",
             icon="ki-wallet", icon_paths=4, accent="warning", url="/reports/receivables/",
         )
@@ -251,7 +252,7 @@ def _gauge(key, label, *, rate, hint, accent="primary", url=None):
     }
 
 
-def _gauges(user, *, now):
+def _gauges(user, *, now, unit):
     """Three real ratios, each already derivable from a module's own scoped
     data — no stored target, no invented business rule. A sales quota or
     per-agent target is a genuine product decision (who sets the number, per
@@ -287,7 +288,7 @@ def _gauges(user, *, now):
                     _gauge(
                         "receivables_collection_rate", "نرخ وصول مطالبات",
                         rate=rate,
-                        hint=f"{formatting.money(collected)} از {formatting.money(total)} وصول شده",
+                        hint=f"{formatting.money(collected, unit)} از {formatting.money(total, unit)} وصول شده",
                         accent="info", url="/reports/receivables/",
                     )
                 )
@@ -310,7 +311,7 @@ def _gauges(user, *, now):
     return gauges
 
 
-def _sales_trend(user, *, now):
+def _sales_trend(user, *, now, unit):
     """Sales amount *and* count per week for the last twelve weeks, oldest
     first — amount is what the chart draws as its area, count is what it
     draws as the overlaid bar (product-owner request 2026-09-11: a mixed
@@ -345,14 +346,14 @@ def _sales_trend(user, *, now):
         points.append({
             "label": _jalali_day(week_start),
             "value": float(amount),
-            "display": formatting.money(amount),
+            "display": formatting.money(amount, unit),
         })
     total = sum(amount_buckets, Decimal("0"))
     return {
         "title": "روند فروش دوازده هفتهٔ اخیر",
         "points": points,
         "counts": count_buckets,
-        "summary": f"مجموع این بازه: {formatting.money(total)}",
+        "summary": f"مجموع این بازه: {formatting.money(total, unit)}",
     }
 
 
@@ -399,7 +400,7 @@ def _after_sales_breakdown(user):
     return {"title": "پرونده‌ها به تفکیک وضعیت", "items": items, "url": "/after-sales/"}
 
 
-def _agent_share(user, *, now):
+def _agent_share(user, *, now, unit):
     """Each seller's share of this month's confirmed sales amount, as a
     multi-ring gauge (product-owner request 2026-09-11).
 
@@ -433,7 +434,7 @@ def _agent_share(user, *, now):
         {
             "label": seller_name(row),
             "value": round(float((row["total"] or Decimal("0")) / total_amount) * 100, 1),
-            "amount_display": formatting.money(row["total"] or Decimal("0")),
+            "amount_display": formatting.money(row["total"] or Decimal("0"), unit),
         }
         for row in top
     ]
@@ -442,13 +443,13 @@ def _agent_share(user, *, now):
         items.append({
             "label": f"{formatting.persian_digits(len(rest))} بازاریاب دیگر",
             "value": round(float(rest_amount / total_amount) * 100, 1),
-            "amount_display": formatting.money(rest_amount),
+            "amount_display": formatting.money(rest_amount, unit),
         })
 
     return {
         "title": "سهم هر بازاریاب از فروش این ماه",
         "items": items,
-        "total_display": formatting.money(total_amount),
+        "total_display": formatting.money(total_amount, unit),
         "url": "/reports/user-performance/",
     }
 
@@ -462,6 +463,11 @@ def dashboard_for(user, *, now=None):
     trace anywhere else in the panel.
     """
     now = now or timezone.now()
+    # Rial or toman, this reader's own choice (`common.preferences`). Passed
+    # down rather than looked up inside each helper: every figure on one
+    # dashboard belongs to one reader, and one lookup per request beats one
+    # per KPI.
+    unit = effective_preferences(user)["currency_unit"]
     after_sales_side = (
         user.role == User.Role.SALES_AGENT and user.workstream == User.Workstream.AFTER_SALES
     )
@@ -471,13 +477,13 @@ def dashboard_for(user, *, now=None):
     # second one for a six-point strip.
     trend = None
     if feature_enabled("sales") and sales_for(user).exists():
-        trend = _sales_trend(user, now=now)
+        trend = _sales_trend(user, now=now, unit=unit)
 
     kpis = []
     if feature_enabled("sales") and sales_for(user).exists():
-        kpis.extend(_sales_kpis(user, now=now, trend=trend))
+        kpis.extend(_sales_kpis(user, now=now, unit=unit, trend=trend))
     if feature_enabled("invoices") and invoices_for(user).exists():
-        kpis.extend(_receivables_kpi(user, now=now))
+        kpis.extend(_receivables_kpi(user, now=now, unit=unit))
     if feature_enabled("leads") and interactions_for(user).exists():
         kpis.extend(_call_kpi(user, now=now))
     if feature_enabled("after_sales") and after_sales_requests_for(user).exists():
@@ -490,16 +496,16 @@ def dashboard_for(user, *, now=None):
     elif feature_enabled("leads") and leads_for(user).exists():
         breakdown = _lead_breakdown(user)
 
-    gauges = _gauges(user, now=now)
+    gauges = _gauges(user, now=now, unit=unit)
 
     agent_share = None
     if feature_enabled("sales") and sales_for(user).exists():
-        agent_share = _agent_share(user, now=now)
+        agent_share = _agent_share(user, now=now, unit=unit)
 
-    # This deployment's own admin-chosen hidden/reordered widgets, applied
-    # last — after every KPI/trend/breakdown/gauge/share above has already
-    # been scoped to what this specific reader may see. See
-    # `common.dashboard_layout`.
+    # This deployment's default arrangement with this reader's own overlay
+    # on top, applied last — after every KPI/trend/breakdown/gauge/share
+    # above has already been scoped to what this specific reader may see.
+    # See `common.dashboard_layout`.
     return apply_layout({
         "kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges, "agent_share": agent_share,
-    })
+    }, user)

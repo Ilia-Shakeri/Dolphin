@@ -29,7 +29,7 @@ from common.openapi import (
 )
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveRateThrottle
-from reports.list_charts import LIST_CHARTS, totals_for, trend_for
+from reports.list_charts import LIST_CHARTS, totals_for, trend_for, unit_for
 from reports.customer_insights import (
     build_customer_province_report,
     InvalidReportPeriod,
@@ -160,7 +160,7 @@ class ListChartView(FeatureGatedAPIMixin, APIView):
             "key": key,
             "title": title,
             "results": results,
-            **totals_for(results),
+            **totals_for(results, unit_for(request.user)),
             # Built from the same actor and from that module's own selector,
             # so the direction chart beside the composition chart can never
             # count a row the composition chart would not.

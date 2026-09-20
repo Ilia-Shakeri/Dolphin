@@ -7,6 +7,19 @@
         company_it: "مدیر فنی مشتری",
         platform_admin: "مدیر پلتفرم",
     });
+    /**
+     * Rial or toman — this reader's own choice, stamped on `<body>` by
+     * `base.html` from `common.preferences`.
+     *
+     * Read once, not per call: it cannot change without a page load, and a
+     * `dataset` lookup inside `money()` would run on every cell of every
+     * table. The fallback is `rial`, which is both the stored unit and what
+     * every page showed before the preference existed — so a page rendered
+     * by anything that does not set the attribute behaves exactly as it did.
+     */
+    const CURRENCY_UNIT = document.body?.dataset.currencyUnit === "toman" ? "toman" : "rial";
+    const CURRENCY_LABEL = CURRENCY_UNIT === "toman" ? "تومان" : "ریال";
+
     const STATUS_MESSAGES = Object.freeze({
         400: "داده‌های واردشده درست نیست. موارد مشخص‌شده را اصلاح کنید.",
         403: "اجازه انجام این کار را ندارید.",
@@ -551,7 +564,8 @@
     }
 
     /**
-     * The role's own KPI strip, sales trend and status breakdown.
+     * The role's own KPI strip, gauges, sales trend, status breakdown and
+     * agent share — as one arrangeable grid.
      *
      * Every part is optional and the server decides which parts exist: a
      * reader who may not see sales gets no trend, and this draws nothing
@@ -559,6 +573,13 @@
      * The whole section stays hidden until at least one part came back, so
      * a deployment with none of the sources looks exactly as it did before
      * this was added.
+     *
+     * Since 2.8.0 the order and the width of each part come from the server
+     * (`common.dashboard_layout.apply_layout` — this deployment's default
+     * with this reader's own overlay on top) rather than from the markup,
+     * and `setupDashboardEditor` below lets the reader change them in
+     * place. Nothing here decides *which* parts a reader may receive; that
+     * was already settled before the payload was built.
      *
      * Charts reuse the shared helpers, so they take their colours from the
      * theme's own CSS variables and redraw themselves on a light/dark
@@ -585,24 +606,39 @@
         // section is revealed first and the parts fill in behind it.
         section.hidden = false;
 
-        const strip = document.getElementById("dashboard-kpis");
+        const grid = document.getElementById("dashboard-widgets");
+        const layout = data.layout || {order: [], hidden: [], sizes: {}, locked_hidden: []};
+
+        // Every widget this reader actually received, keyed, each with the
+        // column element it will occupy and the chart work that has to run
+        // once that element is in the DOM. Collected first and placed
+        // second, because the server's order interleaves KPIs, gauges and
+        // charts and there is no single loop that produces them in it.
+        const widgets = new Map();
+
         data.kpis.forEach((kpi) => {
             const {column, spark} = kpiCard(kpi);
-            strip.appendChild(column);
-            // Mounted after the column is in the DOM, same rule as every
-            // other chart here — Apex measures a real element's width, and a
-            // freshly created node not yet attached has none.
-            if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent});
+            widgets.set(kpi.key, {
+                key: kpi.key,
+                label: kpi.label,
+                column,
+                size: kpi.size,
+                mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent}); },
+            });
         });
 
-        const gaugeRow = document.getElementById("dashboard-gauges");
         (data.gauges || []).forEach((gauge) => {
             const {column, canvas, empty} = gaugeCard(gauge);
-            gaugeRow.appendChild(column);
-            renderGaugeChart(canvas, empty, gauge.value, {
-                ariaLabel: `${gauge.label}: ${gauge.display}`,
-                accent: gauge.accent,
+            widgets.set(gauge.key, {
+                key: gauge.key,
                 label: gauge.label,
+                column,
+                size: gauge.size,
+                mount: () => renderGaugeChart(canvas, empty, gauge.value, {
+                    ariaLabel: `${gauge.label}: ${gauge.display}`,
+                    accent: gauge.accent,
+                    label: gauge.label,
+                }),
             });
         });
 
@@ -611,17 +647,23 @@
             document.getElementById("dashboard-trend-title").textContent = data.trend.title;
             document.getElementById("dashboard-trend-summary").textContent = data.trend.summary;
             card.hidden = false;
-            // Mixed rather than a bare area: `_sales_trend` (common/
-            // dashboard.py) now returns the same twelve weeks' order count
-            // alongside the amount, and a reader asking "how is sales doing"
-            // usually means both.
-            renderMixedChart(
-                document.getElementById("dashboard-trend-chart"),
-                document.getElementById("dashboard-trend-empty"),
-                data.trend.points,
-                data.trend.counts,
-                {seriesNames: ["مبلغ فروش", "تعداد فروش"], summary: data.trend.summary, ariaLabel: data.trend.title},
-            );
+            widgets.set("trend", {
+                key: "trend",
+                label: data.trend.title,
+                column: card,
+                size: data.trend.size,
+                // Mixed rather than a bare area: `_sales_trend` (common/
+                // dashboard.py) returns the same twelve weeks' order count
+                // alongside the amount, and a reader asking "how is sales
+                // doing" usually means both.
+                mount: () => renderMixedChart(
+                    document.getElementById("dashboard-trend-chart"),
+                    document.getElementById("dashboard-trend-empty"),
+                    data.trend.points,
+                    data.trend.counts,
+                    {seriesNames: ["مبلغ فروش", "تعداد فروش"], summary: data.trend.summary, ariaLabel: data.trend.title},
+                ),
+            });
         }
 
         if (data.agent_share) {
@@ -638,12 +680,18 @@
             link.textContent = "همه";
             slot.appendChild(link);
             card.hidden = false;
-            renderMultiGaugeChart(
-                document.getElementById("dashboard-agent-share-chart"),
-                document.getElementById("dashboard-agent-share-empty"),
-                data.agent_share.items,
-                {ariaLabel: data.agent_share.title},
-            );
+            widgets.set("agent_share", {
+                key: "agent_share",
+                label: data.agent_share.title,
+                column: card,
+                size: data.agent_share.size,
+                mount: () => renderMultiGaugeChart(
+                    document.getElementById("dashboard-agent-share-chart"),
+                    document.getElementById("dashboard-agent-share-empty"),
+                    data.agent_share.items,
+                    {ariaLabel: data.agent_share.title},
+                ),
+            });
         }
 
         if (data.breakdown) {
@@ -658,23 +706,321 @@
             link.textContent = "همه";
             slot.appendChild(link);
             card.hidden = false;
-            renderDonutChart(
-                document.getElementById("dashboard-breakdown-chart"),
-                document.getElementById("dashboard-breakdown-empty"),
-                data.breakdown.items,
-                {ariaLabel: data.breakdown.title},
-            );
+            widgets.set("breakdown", {
+                key: "breakdown",
+                label: data.breakdown.title,
+                column: card,
+                size: data.breakdown.size,
+                mount: () => renderDonutChart(
+                    document.getElementById("dashboard-breakdown-chart"),
+                    document.getElementById("dashboard-breakdown-empty"),
+                    data.breakdown.items,
+                    {ariaLabel: data.breakdown.title},
+                ),
+            });
         }
 
-        // Nothing to show after all: put it back, so a deployment with none
-        // of the sources renders exactly the page it rendered before this
-        // section existed.
-        if (
-            !data.kpis.length && !data.trend && !data.breakdown
-            && !(data.gauges || []).length && !data.agent_share
-        ) {
+        // Nothing to show after all: leave it hidden, so a deployment with
+        // none of the sources renders exactly the page it rendered before
+        // this section existed.
+        if (!widgets.size) {
             section.hidden = true;
+            return;
         }
+
+        // Placed in the server's order. `widgets` is a Map, so its own
+        // insertion order is the fallback for anything the saved order does
+        // not mention — the same "an unlisted widget keeps its position"
+        // rule `_ordered` applies on the Python side.
+        const placed = new Set();
+        (layout.order || []).forEach((key) => {
+            const widget = widgets.get(key);
+            if (!widget || placed.has(key)) return;
+            placed.add(key);
+            placeDashboardWidget(grid, widget);
+        });
+        widgets.forEach((widget, key) => {
+            if (placed.has(key)) return;
+            placed.add(key);
+            placeDashboardWidget(grid, widget);
+        });
+
+        // Mounted after every column is in the DOM, same rule as every other
+        // chart here — Apex measures a real element's width, and a freshly
+        // created node not yet attached has none.
+        widgets.forEach((widget) => widget.mount());
+
+        setupDashboardEditor({grid, widgets, layout});
+    }
+
+    /**
+     * Put one widget's column into the grid at its chosen width.
+     *
+     * The width is the Bootstrap column classes the server resolved from
+     * `WIDGET_SIZES` (common/dashboard_layout.py), so the browser never
+     * holds a second copy of that mapping — a size added on the Python side
+     * needs no change here.
+     */
+    function placeDashboardWidget(grid, widget) {
+        const column = widget.column;
+        column.className = `dashboard-widget ${widget.size || "col-12 col-sm-6 col-xl-3"}`;
+        column.dataset.widgetKey = widget.key;
+        grid.appendChild(column);
+    }
+
+    //: `size token -> Persian label`, for the editor's own size menu. The
+    //: server sends the same list in `/api/v1/dashboard-layout/`; this is
+    //: the fallback used before that request answers, so the first click on
+    //: the pencil is not a blank menu.
+    const DASHBOARD_SIZE_FALLBACK = [
+        {value: "quarter", label: "یک‌چهارم"},
+        {value: "third", label: "یک‌سوم"},
+        {value: "half", label: "نصف"},
+        {value: "full", label: "تمام‌عرض"},
+    ];
+
+    /**
+     * In-place dashboard customisation: drag to reorder, a size menu and a
+     * hide control on each widget, and one "back to the default" button.
+     *
+     * Replaces the deployment-wide settings page retired in 2.8.0 (product
+     * owner: «صفحهٔ چیدمان داشبورد را حذف کن و خود داشبورد را قابل
+     * شخصی‌سازی کن»). What it saves is this reader's own overlay, through
+     * `/api/v1/dashboard-layout/` — which takes no user parameter, so no
+     * amount of tampering here reaches anybody else's arrangement.
+     *
+     * Reordering uses the platform's own drag-and-drop rather than a new
+     * dependency: jKanban, the one drag library this product already ships,
+     * is a board of columns and lists, not a responsive grid, and adapting
+     * it here would be more code than `dragstart`/`dragover`/`drop`.
+     */
+    function setupDashboardEditor({grid, widgets, layout}) {
+        const bar = document.getElementById("dashboard-editor-bar");
+        const toggle = document.getElementById("dashboard-edit-toggle");
+        const done = document.getElementById("dashboard-edit-done");
+        const reset = document.getElementById("dashboard-edit-reset");
+        const hint = document.getElementById("dashboard-edit-hint");
+        const hiddenBar = document.getElementById("dashboard-hidden-bar");
+        const hiddenList = document.getElementById("dashboard-hidden-list");
+        if (!bar || !toggle || !grid) return;
+
+        bar.hidden = false;
+        let editing = false;
+        let sizes = {...(layout.sizes || {})};
+        let sizeChoices = DASHBOARD_SIZE_FALLBACK;
+        // Only what this reader hid themselves can be put back. A widget
+        // this deployment's default hides never reached the payload, so it
+        // is not in `widgets` and cannot be listed here either.
+        let hidden = (layout.hidden || []).filter((key) => !(layout.locked_hidden || []).includes(key));
+        let dragged = null;
+
+        function currentOrder() {
+            return Array.from(grid.children)
+                .map((column) => column.dataset.widgetKey)
+                .filter(Boolean);
+        }
+
+        async function save(body) {
+            try {
+                const saved = await apiRequest("/api/v1/dashboard-layout/", {method: "POST", body});
+                if (saved && saved.sizes) sizeChoices = saved.sizes;
+                if (reset) reset.hidden = !editing || !saved || !saved.is_customised;
+            } catch (error) {
+                // The arrangement is already applied on screen; saying so
+                // and leaving it is better than snapping every widget back
+                // while the reader is mid-edit. The next page load shows
+                // whatever the server actually holds.
+                showError(error);
+            }
+        }
+
+        function renderHiddenBar() {
+            if (!hiddenBar || !hiddenList) return;
+            hiddenList.replaceChildren();
+            if (!editing || !hidden.length) {
+                hiddenBar.hidden = true;
+                return;
+            }
+            hidden.forEach((key) => {
+                const widget = widgets.get(key);
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "btn btn-sm btn-light-primary py-1 px-3 fs-8";
+                button.dataset.restoreWidget = key;
+                button.textContent = `+ ${widget ? widget.label : key}`;
+                button.addEventListener("click", () => {
+                    hidden = hidden.filter((item) => item !== key);
+                    const column = grid.querySelector(`[data-widget-key="${key}"]`);
+                    if (column) column.hidden = false;
+                    renderHiddenBar();
+                    save({hidden_widgets: hidden});
+                });
+                hiddenList.appendChild(button);
+            });
+            hiddenBar.hidden = false;
+        }
+
+        function widgetControls(column, key) {
+            const controls = document.createElement("div");
+            controls.className = "dashboard-widget-controls";
+            controls.dataset.widgetControls = key;
+
+            const handle = document.createElement("span");
+            handle.className = "dashboard-widget-handle";
+            handle.title = "جابه‌جایی";
+            handle.setAttribute("aria-hidden", "true");
+            handle.textContent = "⠿";
+            controls.appendChild(handle);
+
+            const select = document.createElement("select");
+            select.className = "form-select form-select-sm dashboard-widget-size";
+            select.setAttribute("aria-label", "اندازهٔ ویجت");
+            sizeChoices.forEach((choice) => {
+                const option = document.createElement("option");
+                option.value = choice.value;
+                option.textContent = choice.label;
+                if (sizes[key] === choice.value) option.selected = true;
+                select.appendChild(option);
+            });
+            select.addEventListener("change", () => {
+                sizes = {...sizes, [key]: select.value};
+                const classes = (sizeChoices.find((choice) => choice.value === select.value) || {}).classes;
+                if (classes) column.className = `dashboard-widget editing ${classes}`;
+                save({widget_sizes: sizes});
+            });
+            controls.appendChild(select);
+
+            const hide = document.createElement("button");
+            hide.type = "button";
+            hide.className = "btn btn-sm btn-icon btn-light-danger dashboard-widget-hide";
+            hide.title = "پنهان کردن";
+            hide.setAttribute("aria-label", "پنهان کردن این ویجت");
+            hide.textContent = "×";
+            hide.addEventListener("click", () => {
+                if (!hidden.includes(key)) hidden = [...hidden, key];
+                column.hidden = true;
+                renderHiddenBar();
+                save({hidden_widgets: hidden});
+            });
+            controls.appendChild(hide);
+            return controls;
+        }
+
+        function enterEditing() {
+            Array.from(grid.children).forEach((column) => {
+                const key = column.dataset.widgetKey;
+                if (!key || column.querySelector("[data-widget-controls]")) return;
+                column.classList.add("editing");
+                column.draggable = true;
+                column.appendChild(widgetControls(column, key));
+            });
+            grid.classList.add("dashboard-widgets-editing");
+        }
+
+        function leaveEditing() {
+            Array.from(grid.children).forEach((column) => {
+                column.classList.remove("editing", "drag-over");
+                column.draggable = false;
+                const controls = column.querySelector("[data-widget-controls]");
+                if (controls) controls.remove();
+            });
+            grid.classList.remove("dashboard-widgets-editing");
+        }
+
+        grid.addEventListener("dragstart", (event) => {
+            if (!editing) return;
+            const column = event.target.closest("[data-widget-key]");
+            if (!column) return;
+            dragged = column;
+            column.classList.add("dragging");
+            event.dataTransfer.effectAllowed = "move";
+            // Firefox refuses to start a drag without payload; the key is
+            // the smallest honest thing to put there.
+            event.dataTransfer.setData("text/plain", column.dataset.widgetKey || "");
+        });
+
+        grid.addEventListener("dragover", (event) => {
+            if (!editing || !dragged) return;
+            const column = event.target.closest("[data-widget-key]");
+            if (!column || column === dragged) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            column.classList.add("drag-over");
+        });
+
+        grid.addEventListener("dragleave", (event) => {
+            const column = event.target.closest("[data-widget-key]");
+            if (column) column.classList.remove("drag-over");
+        });
+
+        grid.addEventListener("drop", (event) => {
+            if (!editing || !dragged) return;
+            const target = event.target.closest("[data-widget-key]");
+            if (!target || target === dragged) return;
+            event.preventDefault();
+            target.classList.remove("drag-over");
+            // A swap, not an insert — the product owner asked for «جابه‌جا
+            // کردن جای ویجت‌ها», and with widgets of four different widths a
+            // swap is also the only move whose result is predictable from
+            // where the card was dropped.
+            const anchor = document.createComment("");
+            grid.insertBefore(anchor, dragged);
+            grid.insertBefore(dragged, target);
+            grid.insertBefore(target, anchor);
+            anchor.remove();
+            save({widget_order: currentOrder()});
+        });
+
+        grid.addEventListener("dragend", () => {
+            if (dragged) dragged.classList.remove("dragging");
+            Array.from(grid.children).forEach((column) => column.classList.remove("drag-over"));
+            dragged = null;
+        });
+
+        function setEditing(next) {
+            editing = next;
+            toggle.setAttribute("aria-pressed", String(editing));
+            toggle.classList.toggle("btn-light-primary", editing);
+            toggle.classList.toggle("btn-light", !editing);
+            if (hint) hint.hidden = !editing;
+            if (done) done.hidden = !editing;
+            if (reset) reset.hidden = !editing || !layout.is_customised;
+            if (editing) enterEditing(); else leaveEditing();
+            renderHiddenBar();
+        }
+
+        toggle.addEventListener("click", () => setEditing(!editing));
+        if (done) done.addEventListener("click", () => setEditing(false));
+        if (reset) {
+            reset.addEventListener("click", async () => {
+                try {
+                    await apiRequest("/api/v1/dashboard-layout/", {method: "DELETE"});
+                } catch (error) {
+                    showError(error);
+                    return;
+                }
+                // Reload rather than un-apply in place: "back to the
+                // default" means the deployment's own order, widths and
+                // hidden set, and the page already knows how to render
+                // exactly that from a fresh payload.
+                window.location.reload();
+            });
+        }
+
+        // The catalog's size labels and classes, fetched once so the menu
+        // shows what the server actually accepts rather than this file's
+        // fallback copy of it. Deliberately not awaited: the editor is
+        // usable immediately and this only sharpens the menu.
+        apiRequest("/api/v1/dashboard-layout/").then((current) => {
+            if (current && Array.isArray(current.sizes) && current.sizes.length) {
+                sizeChoices = current.sizes;
+            }
+            if (current) layout.is_customised = current.is_customised;
+        }).catch(() => {
+            // A failed catalog fetch leaves the fallback labels in place,
+            // which are correct — they simply cannot learn about a size
+            // added on the server since this file was built.
+        });
     }
 
     function kpiCard(kpi) {
@@ -5175,7 +5521,7 @@
                     ["دسته‌بندی", selectedOptionText(document.getElementById("create-product-category"))],
                     ["برند", document.getElementById("create-product-brand").value || "—"],
                     ["واحد", selectedOptionText(document.getElementById("create-product-unit"))],
-                    ["قیمت جاری (ریال)", document.getElementById("create-product-price").value || "—"],
+                    [`قیمت جاری (${CURRENCY_LABEL})`, document.getElementById("create-product-price").value || "—"],
                     ["شرح", document.getElementById("create-product-description").value || "—"],
                 ]);
             }
@@ -5192,7 +5538,7 @@
                 withSubmit(createForm, async () => {
                     const payload = formPayload(createForm, ["sku", "name", "brand", "unit", "description"]);
                     // The field is grouped text for the operator; the API wants digits.
-                    payload.current_price = moneyValue(new FormData(createForm).get("current_price"));
+                    payload.current_price = moneyToStorage(new FormData(createForm).get("current_price"));
                     payload.category = new FormData(createForm).get("category") ? Number(new FormData(createForm).get("category")) : null;
                     const product = await apiRequest(createForm.action, {method: "POST", body: payload});
                     window.location.assign(`/products/${product.id}/`);
@@ -5321,7 +5667,7 @@
                 event.preventDefault();
                 withSubmit(form, async () => {
                     const payload = formPayload(form, ["sku", "name", "brand", "unit", "description"]);
-                    payload.current_price = moneyValue(new FormData(form).get("current_price"));
+                    payload.current_price = moneyToStorage(new FormData(form).get("current_price"));
                     payload.category = new FormData(form).get("category") ? Number(new FormData(form).get("category")) : null;
                     product = await apiRequest(endpoint, {method: "PATCH", body: payload});
                     fillProduct(product);
@@ -7947,12 +8293,36 @@
      *
      * The stored value keeps its two decimals — this is display only.
      */
-    function money(value, {withCurrency = true} = {}) {
+    function money(value, {withCurrency = true, exact = false} = {}) {
         if (value === null || value === undefined || value === "") return "—";
         const text = String(value).trim();
         const negative = text.startsWith("-");
-        const [rawWhole, fraction = ""] = (negative ? text.slice(1) : text).split(".");
+        let [rawWhole, fraction = ""] = (negative ? text.slice(1) : text).split(".");
         if (!/^\d+$/.test(rawWhole)) return String(value);
+
+        // The reader's own unit, applied before the ceiling below rather
+        // than after: rounding the rial up and *then* dividing would report
+        // a tenth of a rial more than is owed, the direction the round-up
+        // rule exists to avoid. Moving the decimal point one place, never
+        // dividing — a rial total can exceed what a double holds exactly,
+        // and `common/templatetags/money_tags.py` does the identical string
+        // surgery so the screen and the printed document agree digit for
+        // digit.
+        if (CURRENCY_UNIT === "toman") {
+            [rawWhole, fraction] = rawWhole.length > 1
+                ? [rawWhole.slice(0, -1), rawWhole.slice(-1) + fraction]
+                : ["0", rawWhole + fraction];
+        }
+
+        // `exact` is for a value on its way back into an editable field.
+        // Rounding there would move the stored amount on the next save, so
+        // the fraction the unit conversion produced is kept and printed.
+        if (exact) {
+            const groupedExact = rawWhole.replace(/\B(?=(\d{3})+(?!\d))/g, "،");
+            const trimmed = fraction.replace(/0+$/, "");
+            const shownExact = trimmed ? `${groupedExact}.${trimmed}` : groupedExact;
+            return toPersianDigits(negative && rawWhole !== "0" ? `‏-${shownExact}` : shownExact);
+        }
 
         // Ceiling, not half-up: any fraction at all rounds the whole number up.
         //
@@ -7979,20 +8349,67 @@
         // right regardless of script, so this is display-only: the grouping
         // and rounding above are untouched, and moneyValue() below still
         // reads Persian digits back into what the API expects.
-        const shown = withCurrency ? `${body} ریال` : body;
+        const shown = withCurrency ? `${body} ${CURRENCY_LABEL}` : body;
         return toPersianDigits(shown);
     }
 
-    /** The same grouping for a text input, without the currency word. */
+    /**
+     * The same grouping for a text input, without the currency word.
+     *
+     * Exact, not rounded, and that distinction is the whole reason the
+     * option exists: this fills a field the operator is about to save
+     * again. In toman a stored `12345` rial is `1234.5` toman, and printing
+     * it as `1235` would write `12350` back on the next save — a silent
+     * five-rial edit nobody asked for.
+     */
     function moneyDigits(value) {
-        const shown = money(value, {withCurrency: false});
+        const shown = money(value, {withCurrency: false, exact: true});
         return shown === "—" ? "" : shown;
     }
 
-    /** Strip grouping and Persian digits back to what the API expects. */
+    /**
+     * Group a plain digit string, without touching its unit.
+     *
+     * Separate from `moneyDigits` because the two are asked opposite
+     * questions. `moneyDigits` converts a *stored* rial amount into what the
+     * reader should see; this re-groups what the reader has already typed,
+     * which is in their unit already. Running the conversion on every
+     * keystroke would divide the field by ten per character.
+     */
+    function groupDigits(text) {
+        return toPersianDigits(String(text).replace(/\B(?=(\d{3})+(?!\d))/g, "،"));
+    }
+
+    /**
+     * Strip grouping and Persian digits back to a plain digit string.
+     *
+     * Still in whatever unit the field is displaying — `moneyToStorage`
+     * below is what converts. Kept separate because `setupMoneyInputs`
+     * re-groups the field as it is typed and must not scale it each time.
+     */
     function moneyValue(text) {
         const latin = toLatinDigits(String(text || ""));
         return latin.replace(/[،,\s]/g, "").trim();
+    }
+
+    /**
+     * A money field's text as the rial digit string the API stores.
+     *
+     * Every amount in this product is stored in rial; «تومان» is a display
+     * unit (see `common/preferences.py`). The multiplication moves the
+     * decimal point one place rather than going through `Number`, for the
+     * same reason `money()` above divides that way.
+     */
+    function moneyToStorage(text) {
+        const digits = moneyValue(text);
+        if (digits === "" || CURRENCY_UNIT !== "toman") return digits;
+        const negative = digits.startsWith("-");
+        const [whole, fraction = ""] = (negative ? digits.slice(1) : digits).split(".");
+        if (!/^\d*$/.test(whole) || !/^\d*$/.test(fraction)) return digits;
+        const shifted = `${whole}${fraction.slice(0, 1) || "0"}`.replace(/^0+(?=\d)/, "");
+        const rest = fraction.slice(1).replace(/0+$/, "");
+        const body = rest ? `${shifted}.${rest}` : shifted;
+        return negative ? `-${body}` : body;
     }
 
     /**
@@ -8011,7 +8428,7 @@
                 const raw = moneyValue(field.value);
                 const [whole, ...rest] = raw.split(".");
                 const digits = whole.replace(/\D/g, "");
-                const grouped = digits ? moneyDigits(digits) : "";
+                const grouped = digits ? groupDigits(digits) : "";
                 // A decimal point that has been typed is kept, and only the
                 // whole part is grouped. Dropping the point as it is typed
                 // would leave the digits behind it: `15.00` became `1500`,
@@ -8058,7 +8475,7 @@
      * large rial amounts.
      */
     function moneyOrNull(value) {
-        const digits = moneyValue(value);
+        const digits = moneyToStorage(value);
         return digits === "" ? null : digits;
     }
 
@@ -9916,7 +10333,7 @@
                     const payload = {
                         method,
                         direction,
-                        amount: moneyValue(data.get("amount")),
+                        amount: moneyToStorage(data.get("amount")),
                         notes: String(data.get("notes") || ""),
                     };
                     // A reference exists on a transfer and nowhere else, so it
@@ -10189,7 +10606,7 @@
             amount.type = "text";
             amount.inputMode = "numeric";
             amount.dir = "ltr";
-            amount.placeholder = "مبلغ به ریال (خالی = مانده فاکتور)";
+            amount.placeholder = `مبلغ به ${CURRENCY_LABEL} (خالی = مانده فاکتور)`;
             amount.setAttribute("data-money-input", "");
             amount.dataset.splitAmount = "";
             amount.setAttribute("aria-label", "مبلغ");
@@ -10266,7 +10683,7 @@
                 withSubmit(editForm, async () => {
                     const data = new FormData(editForm);
                     const body = {
-                        amount: moneyValue(data.get("amount")),
+                        amount: moneyToStorage(data.get("amount")),
                         notes: String(data.get("notes") || ""),
                         status: String(data.get("status") || payment.status),
                     };
@@ -10630,7 +11047,7 @@
                 const data = new FormData(openingForm);
                 await apiRequest(openingForm.action, {method: "POST", body: {
                     customer: Number(data.get("customer")),
-                    amount: moneyValue(data.get("amount")),
+                    amount: moneyToStorage(data.get("amount")),
                     notes: String(data.get("notes") || ""),
                 }});
                 globalMessage("مانده اول دوره ثبت شد.", true);
@@ -11203,12 +11620,30 @@
             else close();
         });
 
-        // Choosing a mode closes the popup and updates the row. The switching
-        // itself is KTThemeMode's; this only reacts to it.
+        // Choosing a mode closes the popup, updates the row, and saves the
+        // choice. The switching itself is KTThemeMode's; this only reacts to
+        // it.
         popup.querySelectorAll("[data-kt-element='mode']").forEach((button) => {
             // The row's own icon follows `data-bs-theme` through the theme's
             // CSS, so nothing here has to update it.
-            button.addEventListener("click", () => close(120));
+            button.addEventListener("click", () => {
+                close(120);
+                // Saved server-side as well as in `localStorage`, so this
+                // switcher and the settings page («حالت رنگی», 2.8.0)
+                // cannot disagree about what the reader chose — and so the
+                // choice follows them to another browser. Without this the
+                // settings page would silently win back on the next load,
+                // and a reader who used the header switcher would watch
+                // their theme revert.
+                const mode = button.dataset.ktValue;
+                if (!mode) return;
+                apiRequest("/api/v1/preferences/", {method: "POST", body: {theme: mode}}).catch(() => {
+                    // The theme has already changed on screen and in
+                    // `localStorage`; failing to persist it is worth no
+                    // interruption here, and the next visit to the settings
+                    // page shows what the server actually holds.
+                });
+            });
         });
 
         // A click anywhere else, and Escape, both dismiss it.
@@ -11314,158 +11749,116 @@
     }
 
     /**
-     * `/settings/dashboard/` — which home-page widgets show, and in what
-     * order (`common.dashboard_layout`). Rendered from the catalog the API
-     * itself returns rather than a second hardcoded list of widget
-     * labels, so a widget added or renamed on the Python side never needs a
-     * matching edit here.
+     * `/settings/` — this reader's own panel preferences.
      *
-     * Reordering is two small buttons per row, not drag-and-drop: this
-     * settings page is opened rarely, by one role, and a working keyboard-
-     * reachable control beats a heavier library for a list of eight rows.
+     * Replaces `setupDashboardLayoutSettings`, retired in 2.8.0 along with
+     * the deployment-wide `/settings/dashboard/` page it drove; the
+     * arrangement it used to edit is now edited on the dashboard itself
+     * (`setupDashboardEditor`).
+     *
+     * The form is rendered server-side with the saved values already
+     * selected, so there is no loading state and no first paint showing the
+     * defaults before the real choice arrives. What this adds on top is the
+     * save, and the two previews that have to happen without a reload:
+     * the colour theme (which `KTThemeMode` also keeps in `localStorage`)
+     * and the typeface/scale, so the reader can see the choice they are
+     * about to keep.
      */
-    function setupDashboardLayoutSettings() {
-        const form = document.getElementById("dashboard-layout-form");
+    function setupSettingsPage() {
+        const form = document.getElementById("preferences-form");
         if (!form) return;
-        const loading = document.getElementById("dashboard-layout-loading");
-        const list = document.getElementById("dashboard-layout-list");
-        const resetButton = document.getElementById("dashboard-layout-reset");
-        let rows = [];
-        // The catalog's own order, nothing hidden — `/api/v1/dashboard-
-        // layout/`'s `catalog` array is already `WIDGET_CATALOG`'s order
-        // (`common/dashboard_layout.py`), so "بازگشت به پیش‌فرض" needs no
-        // second endpoint, only forgetting the reader's own saved order and
-        // hidden set. Captured once in `load()`, before either is applied.
-        let defaultRows = [];
+        const saved = document.getElementById("preferences-saved");
 
-        function render() {
-            list.innerHTML = "";
-            rows.forEach((row, index) => {
-                const item = document.createElement("li");
-                item.className = "list-group-item d-flex align-items-center gap-3";
-                item.draggable = true;
-                item.dataset.dashboardLayoutRow = row.key;
-                // A drag handle rather than the whole row: the checkbox and
-                // both buttons already have their own click behaviour, and a
-                // `draggable` ancestor intercepting `mousedown` on them would
-                // cost a native click, checkbox toggle, or button press to
-                // start a drag by accident (Apple HIG: `drag-threshold` and
-                // `gesture-alternative` — the up/down buttons below stay the
-                // full keyboard/no-drag path to the same reorder).
-                const handle = document.createElement("i");
-                handle.className = "ki-duotone ki-dots-vertical fs-3 text-gray-500 cursor-grab";
-                handle.setAttribute("aria-hidden", "true");
-                ["path1", "path2", "path3"].forEach((name) => {
-                    handle.appendChild(document.createElement("span")).className = name;
-                });
-                const checkWrap = document.createElement("div");
-                checkWrap.className = "form-check form-check-custom form-check-solid";
-                const check = document.createElement("input");
-                check.className = "form-check-input";
-                check.type = "checkbox";
-                check.id = `dashboard-layout-widget-${row.key}`;
-                check.checked = !row.hidden;
-                check.addEventListener("change", () => { row.hidden = !check.checked; });
-                const label = document.createElement("label");
-                label.className = "form-check-label";
-                label.setAttribute("for", check.id);
-                label.textContent = row.label;
-                checkWrap.append(check, label);
-                const featureNote = document.createElement("span");
-                featureNote.className = "text-muted fs-8 flex-grow-1";
-                featureNote.textContent = `ماژول: ${row.feature}`;
-                const upButton = document.createElement("button");
-                upButton.type = "button";
-                upButton.className = "btn btn-icon btn-sm btn-light";
-                upButton.setAttribute("aria-label", "بالاتر");
-                upButton.disabled = index === 0;
-                upButton.innerHTML = '<i class="ki-duotone ki-arrow-up fs-3"><span class="path1"></span><span class="path2"></span></i>';
-                upButton.addEventListener("click", () => {
-                    [rows[index - 1], rows[index]] = [rows[index], rows[index - 1]];
-                    render();
-                });
-                const downButton = document.createElement("button");
-                downButton.type = "button";
-                downButton.className = "btn btn-icon btn-sm btn-light";
-                downButton.setAttribute("aria-label", "پایین‌تر");
-                downButton.disabled = index === rows.length - 1;
-                downButton.innerHTML = '<i class="ki-duotone ki-arrow-down fs-3"><span class="path1"></span><span class="path2"></span></i>';
-                downButton.addEventListener("click", () => {
-                    [rows[index + 1], rows[index]] = [rows[index], rows[index + 1]];
-                    render();
-                });
-                item.append(handle, checkWrap, featureNote, upButton, downButton);
+        //: Kept in step with `PANEL_FONT_FAMILIES` / `PANEL_FONT_SCALES` in
+        //: `common/models.py`. Duplicated here only for the live preview —
+        //: what is actually applied on every other page is the `<style>`
+        //: element the server renders from its own copy, so a drift here
+        //: can make this one page's preview wrong and can never change what
+        //: anybody is served.
+        const FONT_STACKS = {
+            iransans: "IRANSansWeb, Helvetica, sans-serif",
+            tahoma: "Tahoma, IRANSansWeb, Helvetica, sans-serif",
+            nazanin: '"B Nazanin", "XB Zar", IRANSansWeb, serif',
+            mitra: '"B Mitra", "XB Zar", IRANSansWeb, serif',
+            system: 'system-ui, -apple-system, "Segoe UI", IRANSansWeb, sans-serif',
+        };
+        //: Absolute pixels off the theme's own 13px base, not percentages
+        //: of the browser default — see `PANEL_FONT_SCALES` for why.
+        const FONT_SIZES = {sm: "12px", md: "13px", lg: "14.5px", xl: "16px"};
 
-                // Native HTML5 drag and drop — no library, the same choice
-                // this codebase already made for the lead/order kanban
-                // boards' own card drag (`jkanban`'s dragula, a purchased-
-                // theme dependency; a settings list of a dozen rows does not
-                // need a second one). `dragover`'s own default is to refuse
-                // a drop, so it is always prevented here.
-                item.addEventListener("dragstart", (event) => {
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", row.key);
-                    item.classList.add("opacity-50");
-                });
-                item.addEventListener("dragend", () => item.classList.remove("opacity-50"));
-                item.addEventListener("dragover", (event) => event.preventDefault());
-                item.addEventListener("drop", (event) => {
-                    event.preventDefault();
-                    const draggedKey = event.dataTransfer.getData("text/plain");
-                    const from = rows.findIndex((candidate) => candidate.key === draggedKey);
-                    const to = rows.findIndex((candidate) => candidate.key === row.key);
-                    if (from === -1 || to === -1 || from === to) return;
-                    const [moved] = rows.splice(from, 1);
-                    rows.splice(to, 0, moved);
-                    render();
-                });
-
-                list.append(item);
+        function preview() {
+            const family = form.elements.font_family?.value;
+            const scale = form.elements.font_scale?.value;
+            const stack = FONT_STACKS[family] || FONT_STACKS.iransans;
+            const size = FONT_SIZES[scale] || FONT_SIZES.md;
+            // `setProperty` with the priority argument, because the two
+            // declarations this has to beat are the theme's own
+            // `html, body { font-size: 13px !important }` and its literal
+            // `html, body { font-family: ... }` — an inline style without
+            // `important` loses to the first of those. Same rules the server
+            // emits in `common.preferences.preference_css`; this is only the
+            // live preview of them.
+            [document.documentElement, document.body].forEach((node) => {
+                node.style.setProperty("font-family", stack);
+                node.style.setProperty("font-size", size, "important");
             });
+            document.documentElement.style.setProperty("--bs-font-sans-serif", stack);
         }
 
-        async function load() {
+        function previewTheme(choice) {
+            const resolved = choice === "system"
+                ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+                : choice;
+            document.documentElement.setAttribute("data-bs-theme", resolved);
             try {
-                const data = await apiRequest("/api/v1/dashboard-layout/");
-                const hidden = new Set(data.hidden_widgets || []);
-                const position = new Map((data.widget_order || []).map((key, index) => [key, index]));
-                rows = [...data.catalog].sort((a, b) => {
-                    const aPos = position.has(a.key) ? position.get(a.key) : Infinity;
-                    const bPos = position.has(b.key) ? position.get(b.key) : Infinity;
-                    return aPos - bPos;
-                }).map((widget) => ({...widget, hidden: hidden.has(widget.key)}));
-                defaultRows = data.catalog.map((widget) => ({...widget, hidden: false}));
-                render();
-                loading.classList.add("d-none");
-                form.classList.remove("d-none");
+                // The same key `KTThemeMode` and the header's own theme
+                // switcher use, so the two never disagree about what this
+                // machine last showed. The server-side preference is still
+                // what decides on a *different* machine; see the head
+                // script in base.html for which of the two wins.
+                localStorage.setItem("data-bs-theme-mode", choice);
             } catch (error) {
-                showError(error);
-                loading.classList.add("d-none");
+                // Private mode can refuse localStorage. The preference is
+                // saved server-side regardless, which is the copy that
+                // matters; only this machine's pre-paint shortcut is lost.
             }
         }
 
-        // Forgets the reader's own saved order/hidden set, back to the
-        // catalog's own order with everything shown — still only in memory
-        // until «ذخیره» is pressed, the same as every other change on this
-        // form (product-owner request 2026-09-12).
-        resetButton?.addEventListener("click", () => {
-            rows = defaultRows.map((widget) => ({...widget}));
-            render();
+        form.addEventListener("change", (event) => {
+            if (saved) saved.hidden = true;
+            const name = event.target?.name;
+            if (name === "font_family" || name === "font_scale") preview();
+            if (name === "theme") previewTheme(event.target.value);
         });
 
-        form.addEventListener("submit", (event) => {
+        form.addEventListener("submit", async (event) => {
             event.preventDefault();
-            withSubmit(form, async () => {
-                const payload = {
-                    hidden_widgets: rows.filter((row) => row.hidden).map((row) => row.key),
-                    widget_order: rows.map((row) => row.key),
-                };
-                await apiRequest("/api/v1/dashboard-layout/", {method: "POST", body: payload});
-                globalMessage("چیدمان داشبورد ذخیره شد.", true);
-            });
+            clearMessages(form);
+            const data = new FormData(form);
+            try {
+                await apiRequest("/api/v1/preferences/", {
+                    method: "POST",
+                    body: {
+                        font_family: data.get("font_family"),
+                        font_scale: data.get("font_scale"),
+                        currency_unit: data.get("currency_unit"),
+                        theme: data.get("theme"),
+                    },
+                });
+            } catch (error) {
+                showError(error, form);
+                return;
+            }
+            if (saved) saved.hidden = false;
+            // Reloaded rather than only previewed: the currency unit reaches
+            // `dolphin-app.js` through a `<body>` attribute read once at
+            // load (`CURRENCY_UNIT`), and every amount already on screen
+            // elsewhere in the panel was formatted with the old one. A
+            // preference that visibly takes effect only after the next
+            // navigation is the kind of half-applied setting a reader
+            // reasonably reads as broken.
+            window.location.reload();
         });
-
-        load();
     }
 
     /**
@@ -12457,7 +12850,7 @@
     if (page === "profit-report") setupProfitReport();
     if (page === "stock-valuation-report") setupStockValuationReport();
     if (page === "branding-settings") setupBrandingSettings();
-    if (page === "dashboard-layout-settings") setupDashboardLayoutSettings();
+    if (page === "settings") setupSettingsPage();
     if (page === "sms-provider-settings") setupSmsProviderSettings();
     // `document-print` is the print base's own id, used when a printable page
     // does not override it; every printable page needs the print button wired.
