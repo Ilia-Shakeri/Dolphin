@@ -413,6 +413,46 @@ class NothingIsPerformedHereTests(BackupFixtures):
         self.assertNotEqual(backups.backup_root(), backups.spool_root())
 
 
+class ShareScriptContractTests(BackupFixtures):
+    """`scripts/prepare-backup-volume.sh --share-with-panel` and the helper
+    it runs, `scripts/share-backup-volume.sh` — read off their source for
+    the same reason `AgentContractTests` below reads the agent's: they need
+    a real Docker daemon and a real volume, so an operator drill is the only
+    thing that actually runs them.
+
+    Both regressions here were found by that drill, against Nerkhbaan, not
+    guessed: the backup directory the scheduled `backup` service already
+    prepared is `0700 postgres:postgres`, so once it exists the sharing step
+    is a non-owner touching a directory whose permission bits admit only its
+    owner — and `cap_drop: ALL` on this service removes the one capability
+    (`DAC_OVERRIDE`) that would let root override that. The runbook's own
+    §4.1 already documents the same fact about the *original* `backup`
+    service (search it for "DAC_OVERRIDE"); this is the same fact catching
+    up with this script.
+    """
+
+    PREPARE = (ROOT / "scripts" / "prepare-backup-volume.sh").read_text(encoding="utf-8")
+    SHARE = (ROOT / "scripts" / "share-backup-volume.sh").read_text(encoding="utf-8")
+
+    def test_the_share_step_requests_dac_override(self):
+        share_block = self.PREPARE.split("share_with_panel() {", 1)[1].split("\n}\n", 1)[0]
+        self.assertIn("--cap-add DAC_OVERRIDE", share_block)
+        # CHOWN and FOWNER alone are not enough — see the docstring above.
+        self.assertIn("--cap-add CHOWN", share_block)
+        self.assertIn("--cap-add FOWNER", share_block)
+
+    def test_the_sentinel_is_opened_to_the_group_not_only_the_archives(self):
+        """`common.backups._checked_root` reads the sentinel from the
+        panel's own uid on every single list/download — before it ever
+        looks at an archive. Opening the archives to the group and leaving
+        the sentinel at 0600 makes every one of those reads fail closed,
+        which reads as "the backup volume is not available" rather than as
+        the permissions bug it actually was.
+        """
+        self.assertIn('chgrp "$gid" "$sentinel"', self.SHARE)
+        self.assertIn('chmod g+r "$sentinel"', self.SHARE)
+
+
 class AgentContractTests(BackupFixtures):
     """What the agent does, read off its source. It cannot be executed in
     this suite — it needs a PostgreSQL server, `pg_restore` and a mounted
@@ -705,8 +745,31 @@ class UploadLimitTests(BackupFixtures):
         Read off the settings source rather than the running value: it is
         decided once, from the environment, at import time, which is
         exactly right in a container and is therefore not something
-        `override_settings` can exercise.
+        `override_settings` can exercise. Guarded by `os.path.isdir`, not
+        only "the env var is set" — found live on Nerkhbaan, 2026-09-20:
+        `migrate` inherited `DOLPHIN_RESTORE_SPOOL` through the shared
+        `x-django-environment` anchor in compose.yml without ever mounting
+        `/spool`, and Django's own startup check (files.E001) refused to
+        boot at all rather than merely misbehaving. The env var is now set
+        only on `web`, which does mount it; this check is what keeps a
+        future instance of the same mistake from taking a whole service
+        down again.
         """
         source = (ROOT / "config" / "settings.py").read_text(encoding="utf-8")
-        self.assertIn("if DOLPHIN_RESTORE_SPOOL:", source)
+        self.assertIn("if DOLPHIN_RESTORE_SPOOL and os.path.isdir(DOLPHIN_RESTORE_SPOOL):", source)
         self.assertIn("FILE_UPLOAD_TEMP_DIR = DOLPHIN_RESTORE_SPOOL", source)
+
+    def test_the_backup_env_vars_are_not_in_the_shared_django_anchor(self):
+        """`migrate`, `session-cleanup` and `scheduled-sms` all share
+        `x-django-environment`. None of them mount `/backups` or `/spool`,
+        so none of them may inherit these three keys — the exact bug found
+        live: `migrate` got `DOLPHIN_RESTORE_SPOOL` with no `/spool` mount
+        and Django's system check refused to start it, taking the whole
+        deploy chain (and, briefly, the running site) down with it.
+        """
+        anchor = COMPOSE.split("x-django-environment:", 1)[1].split("\nservices:", 1)[0]
+        for key in ("DOLPHIN_BACKUP_ROOT", "DOLPHIN_RESTORE_SPOOL", "DOLPHIN_BACKUP_UPLOAD_MAX_BYTES"):
+            self.assertNotIn(key, anchor, key)
+        web_block = COMPOSE.split("\n  web:", 1)[1].split("\n  nginx:", 1)[0]
+        for key in ("DOLPHIN_BACKUP_ROOT", "DOLPHIN_RESTORE_SPOOL", "DOLPHIN_BACKUP_UPLOAD_MAX_BYTES"):
+            self.assertIn(key, web_block, key)

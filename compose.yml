@@ -36,13 +36,6 @@ x-django-environment: &django-environment
   DOLPHIN_PDF_RENDERER: ${DOLPHIN_PDF_RENDERER:-}
   DOLPHIN_PDF_CHROMIUM_BINARY: ${DOLPHIN_PDF_CHROMIUM_BINARY:-}
   DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS: ${DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS:-20}
-  # Panel backup and restore (feature `panel_backup`, common/backups.py).
-  # Blank by default: a deployment that has not enabled the feature mounts
-  # neither volume, every read in that module then fails closed, and the
-  # settings page does not show the section at all.
-  DOLPHIN_BACKUP_ROOT: ${DOLPHIN_BACKUP_ROOT:-}
-  DOLPHIN_RESTORE_SPOOL: ${DOLPHIN_RESTORE_SPOOL:-}
-  DOLPHIN_BACKUP_UPLOAD_MAX_BYTES: ${DOLPHIN_BACKUP_UPLOAD_MAX_BYTES:-2147483648}
 
 services:
   db:
@@ -369,6 +362,19 @@ services:
       <<: *django-environment
       DOLPHIN_DATABASE_ROLE: app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      # Panel backup and restore (feature `panel_backup`, common/backups.py).
+      # Set only here, not in the shared `x-django-environment` anchor: this
+      # is the one service that mounts `/backups` and `/spool` below, and
+      # Django's own startup check refuses `FILE_UPLOAD_TEMP_DIR` pointing at
+      # a directory that does not exist in the container running it. `migrate`
+      # and the `maintenance`-profile jobs share that anchor and mount
+      # neither path, so they must never inherit these three. Blank by
+      # default: a deployment that has not enabled the feature sets neither,
+      # every read in `common/backups.py` then fails closed, and the
+      # settings page does not show the section at all.
+      DOLPHIN_BACKUP_ROOT: ${DOLPHIN_BACKUP_ROOT:-}
+      DOLPHIN_RESTORE_SPOOL: ${DOLPHIN_RESTORE_SPOOL:-}
+      DOLPHIN_BACKUP_UPLOAD_MAX_BYTES: ${DOLPHIN_BACKUP_UPLOAD_MAX_BYTES:-2147483648}
     depends_on:
       db-finalize:
         condition: service_completed_successfully

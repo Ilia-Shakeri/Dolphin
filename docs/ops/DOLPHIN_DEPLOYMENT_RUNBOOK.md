@@ -1227,7 +1227,12 @@ reports a restore that did not happen.
    ```
 
    It is safe to run on an already-prepared volume — that is the normal case
-   here — and it reports how many existing archives it opened.
+   here — and it reports how many existing archives it opened, including the
+   sentinel. It runs as root with `CHOWN`, `FOWNER` **and** `DAC_OVERRIDE`:
+   by the time this step runs, `/backups` already belongs to `postgres` at
+   mode `0700`, and `cap_drop: ALL` means a root without `DAC_OVERRIDE`
+   cannot read past that — the same fact [4.1](#41-prepare-the-backup-volume-once)
+   already records for the `backup` service itself.
 
 5. Start the agent:
 
@@ -1244,6 +1249,18 @@ reports a restore that did not happen.
    ```bash
    docker compose --env-file secrets/.env up -d web
    ```
+
+   > This restarts `migrate` and `db-finalize` first, because `web` depends
+   > on them — and `up -d` stops the running `web` before the new one
+   > starts. If anything in that chain fails, **the site is down until it is
+   > fixed**, not merely unchanged. Run it when you can watch it. The three
+   > `DOLPHIN_BACKUP_*` values are set on `web` alone and deliberately not
+   > in the shared `x-django-environment` anchor: `migrate` and the
+   > `maintenance` jobs read that anchor and mount neither volume, and
+   > Django's own startup check refuses to boot a container whose
+   > `FILE_UPLOAD_TEMP_DIR` points at a path it cannot see. That is exactly
+   > how this chain was broken once, on 2026-09-20 (`CHANGELOG.md`
+   > `[2.9.1]`).
 
 7. Verify, in this order, from the panel's «تنظیمات» page as a Platform
    Admin:

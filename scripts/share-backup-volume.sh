@@ -45,6 +45,16 @@ chmod 2750 /backups
 chown "postgres:$gid" /spool
 chmod 2770 /spool
 
+# The sentinel itself, not only the archives: `common.backups._checked_root`
+# reads it from the panel's own uid on every list/download, and it was
+# written 0600 by `prepare-backup-volume.sh` before this group existed. Found
+# by running this script against a live volume and then reading the sentinel
+# back as the panel's uid, which failed with Permission denied until this
+# line was added — the archives being group-readable was not enough on its
+# own, because the read that decides whether to show them at all comes first.
+chgrp "$gid" "$sentinel"
+chmod g+r "$sentinel"
+
 # Archives the scheduled `backup` service published before this group existed
 # are 0600 and otherwise invisible to the panel. Opened to the group so the
 # deployment's existing backups are offered too, not only the ones taken from

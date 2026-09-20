@@ -55,9 +55,18 @@ share_with_panel() {
     echo "==> opening the backup directory and the restore spool to group $panel_gid"
     echo "    (this is what lets the panel list, download and spool -- see common/backups.py)"
     # Run on the agent service, because it is the one service that mounts
-    # *both* volumes. Root and CHOWN for the duration of this one command
-    # only; the agent itself runs unprivileged, as postgres in this group.
-    DOLPHIN_PANEL_GID="$panel_gid" docker compose --env-file "$ENV_FILE"         --profile backup-agent run --rm --no-deps         --user root --cap-add CHOWN --cap-add FOWNER         --entrypoint sh backup-agent /ops/share-backup-volume.sh "$panel_gid"
+    # *both* volumes. Root, CHOWN and FOWNER for the duration of this one
+    # command only; the agent itself runs unprivileged, as postgres in this
+    # group. DAC_OVERRIDE is also required and is easy to miss: the backup
+    # directory is 0700 root:root (bootstrap-postgres.sh's own preparation),
+    # and `cap_drop: ALL` on this service (compose.yml) drops the capability
+    # that normally lets root read past a permission check it does not own --
+    # without it, "root" here still gets Permission denied on that directory,
+    # found by running this exact command against the live volume.
+    DOLPHIN_PANEL_GID="$panel_gid" docker compose --env-file "$ENV_FILE" \
+        --profile backup-agent run --rm --no-deps \
+        --user root --cap-add CHOWN --cap-add FOWNER --cap-add DAC_OVERRIDE \
+        --entrypoint sh backup-agent /ops/share-backup-volume.sh "$panel_gid"
     echo "==> done. Start the agent with:"
     echo "    docker compose --env-file $ENV_FILE --profile backup-agent up -d backup-agent"
 }

@@ -244,7 +244,16 @@ BACKUP_UPLOAD_MAX_BYTES = int(
 # that. Pointed at the spool volume — real disk, sized by the operator, and
 # where the file is going anyway — but only when that volume is mounted, so
 # a deployment without the feature keeps Django's own default untouched.
-if DOLPHIN_RESTORE_SPOOL:
+#
+# Checked with `os.path.isdir`, not just "the env var is set": Django's own
+# startup system check (files.E001) refuses to boot at all if this points at
+# a path that does not exist in *this* container — found the hard way when
+# the env var reached `migrate`, which shares `web`'s Django settings module
+# but never mounts `/spool` (compose.yml). That specific leak is fixed at the
+# source now, but a setting that can take a whole service down over one
+# missing mount is worth guarding here too, not only at the one call site
+# that happened to cause it this time.
+if DOLPHIN_RESTORE_SPOOL and os.path.isdir(DOLPHIN_RESTORE_SPOOL):
     FILE_UPLOAD_TEMP_DIR = DOLPHIN_RESTORE_SPOOL
 
 SESSION_COOKIE_HTTPONLY = True
