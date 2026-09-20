@@ -84,45 +84,52 @@ usage limit can be resumed from here with no questions.
 ### Final
 - [x] Full suite green (only the 7 known pre-existing Selenium errors)
 - [x] CHANGELOG + VERSION
-- [ ] Main deploy to Nerkhbaan + health check
+- [x] Main deploy to Nerkhbaan + health check
 
 ## Status
 
-**Current batch:** all five are implemented, tested and committed. Batch E is
-released as `2.14.0` — MINOR, like the rest: one new table nothing existing
-depends on, and everything else additive.
+**All thirteen items are done, released and deployed.** Nothing is
+outstanding.
 
-**Next step:** the single deploy to Nerkhbaan, then the health check and the
-final report. Nothing else is outstanding.
+**Deployed:** `2.14.0` to Nerkhbaan (`87.248.130.63`), 2026-09-21. The server
+was on `v2.9.1` before this — batches A–E were released and tested locally and
+went up as the one main deploy that was asked for, so `2.10.0`–`2.13.0` never
+ran on staging as separate deployments.
 
-**Files changed in batch E:**
-- `common/deployment/pages.py` — new; the panel's page inventory, derived
-- `scripts/console_strings.py` — new; the console's fa/en strings
-- `scripts/build_console_exe.py` — new; the PyInstaller build and its verify
-- `scripts/manifest_builder.py` — the checklist names pages, the language
-  switch, `--self-check`, the grid
-- `scripts/requirements-console.txt` — PyInstaller, operator-only
-- `accounts/avatars.py`, `accounts/avatar_views.py`, `accounts/urls.py` —
-  new; the picture, its gate and its three endpoints
-- `accounts/models.py` + `accounts/migrations/0005_useravatar.py`
-- `common/static/common/avatars/` — the 52 Metronic cartoons (421 KB)
-- `common/static/common/dolphin-app.js` — `cropAvatarFile`,
-  `setupAvatarInput`; `common/static/common/dolphin.css` — new §16
-- `common/templates/common/base.html`, `common/ui_views.py` — the header face
-- `scripts/bootstrap-postgres.sh`, `common/tests/test_database_privileges.py`
-  — the new table's GRANT
-- `reports/ranges.py` — `bucket_key` localises before taking a date
-- `common/tests/test_ui_overhaul_console_avatars.py` — new, 55 tests;
-  `ui_overhaul_helpers.py` gained `python_function`
-- three existing tests restated
-- `VERSION` → `2.14.0`, `CHANGELOG.md`
+**Deploy evidence, in order:**
+- `git push origin main` → `2ecf1b0..b17b0e0`, 6 commits, 129 files.
+- Built from the pushed source, not the working tree: `sh scripts/build-image.sh
+  v2.14.0` → `dolphin-app:v2.14.0`, image `ec6e38ea5d92`, which the script itself
+  confirmed carries `VERSION=2.14.0`.
+- Archive `dolphin-v2.14.0.tar.gz`, 66,707,211 bytes, SHA-256
+  `0131713f…41363d3` — computed on both machines and compared, equal. `docker
+  load` on the host produced image id `ec6e38ea5d92`, the same id.
+- `git pull --ff-only` then `./scripts/deploy.sh v2.14.0` in `/srv/Dolphin`:
+  migration `accounts.0005_useravatar` applied, 108 static files copied (the 52
+  avatars and the rebuilt bundles), grants re-locked, stack restarted,
+  `dolphin-web-1` healthy on `dolphin-app:v2.14.0`.
 
-**Checks run:** full suite — 2522 tests, no failures, only the 7 pre-existing
-Selenium browser errors. Browser-measured: a 1200×800 PNG of 25,444 bytes
-stored as a 512×512 JPEG of 4,149 bytes with `image/jpeg`, `private,
-max-age=300` and `nosniff`; the header face at 35×35 after a reload; a
-non-image refused in Persian and a 3 MiB body with 413; clearing restoring
-the cartoon and the image 404ing past the cache; the console showing 28
-feature rows each naming its pages, and `?lang=en` flipping the document to
-`lang="en" dir="ltr"`. `--self-check` run for real: 28 features, 18 opening
-pages, 49 pages behind a feature.
+**Health, measured after the deploy:**
+- `/api/v1/health/live/` → `200 {"status":"ok"}`;
+  `/api/v1/health/ready/` → `200 {"status":"ok","database":"up"}`.
+- `/login/` 200; `/`, `/orders/board/`, `/leads/board/`, `/invoices/`,
+  `/reports/sales-documents/`, `/reports/user-performance/`, `/settings/`,
+  `/settings/integrations/`, `/branding/`, `/profile/` all 302 to `/login/`,
+  which is the correct unauthenticated answer. No 5xx anywhere in the web log.
+- `2.14.0` in the login page footer and in `/app/VERSION` inside the container.
+- `/static/common/avatars/001-boy.svg` 200 `image/svg+xml` 4,265 B; all 52
+  avatars present in `staticfiles`; `dolphin-app.js` and `dolphin.css` 200.
+- `accounts_useravatar` grants read back from the live database:
+  `dolphin_app → DELETE, INSERT, SELECT, UPDATE`, `dolphin_backup → SELECT`.
+- The console's inventory computed inside the running image: 27 features, 18
+  opening pages, 49 pages behind a feature, 55 routed pages all titled, 6
+  ungated. Identical to the source console and to the frozen `.exe`; the local
+  count of 28 features is the one uncommitted feature in the working tree.
+
+**Left on the host deliberately:** nothing. The transferred archive and the
+sudo askpass helper were both removed.
+
+**Flagged, not acted on:** `/` on the server is 89% full (3.3 GB free) — 26
+`dolphin-app` tags, 12.83 GB of images and 4.84 GB of build cache. Pruning
+would touch the rollback path (`.deploy-previous-image` → `dolphin-app:v2.9.1`),
+so it is a decision for the product owner, not a cleanup to do unasked.
