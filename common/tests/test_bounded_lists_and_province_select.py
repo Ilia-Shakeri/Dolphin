@@ -36,10 +36,25 @@ def _css_rule(selector):
 
 
 class KanbanColumnHeightTests(SimpleTestCase):
-    def test_the_column_height_was_raised_from_four_cards_to_five(self):
+    def test_a_column_shows_four_whole_cards_and_part_of_the_next(self):
+        """Restated for 2.7.0, which replaced the flat `37.5rem` this used
+        to assert with a height derived from one measured card.
+
+        The rule the product owner asked for twice is the same both times —
+        a column must show several cards without the board growing — but the
+        2.7.0 ask added the part that matters: «حداقل ۴ کارت و ذره‌ای از
+        کارت بعدی». A column cut flush after the fourth reads as one that
+        holds exactly four, and nobody scrolls a list that appears to have
+        ended. So this asserts the shape of the rule rather than a literal;
+        `test_board_cards_and_search.ColumnHeightTests` pins the multiplier.
+        """
         rule = _css_rule("#lead-board .kanban-drag,\n#order-board .kanban-drag {")
-        self.assertIn("max-height: 37.5rem;", rule)
+        self.assertIn("--dolphin-board-card:", rule)
+        self.assertRegex(rule, r"max-height:\s*calc\(var\(--dolphin-board-card\) \* 4\.\d+\)")
+        # The two flat heights this rule carried before; neither may return
+        # without the reasoning above being revisited.
         self.assertNotIn("max-height: 30rem;", rule)
+        self.assertNotIn("max-height: 37.5rem;", rule)
 
     def test_the_column_still_scrolls_internally_rather_than_growing_the_page(self):
         rule = _css_rule("#lead-board .kanban-drag,\n#order-board .kanban-drag {")
