@@ -48,6 +48,15 @@ def _rule(selector):
     return CSS.split(selector)[1].split("}")[0]
 
 
+def _declarations(selector):
+    """`_rule`, with the explanatory comments taken out.
+
+    Needed wherever a test asserts that a property is *absent*: this sheet
+    explains its reversals where they happened, so the comment saying why
+    `opacity` is gone contains the word `opacity`."""
+    return re.sub(r"/\*.*?\*/", "", _rule(selector), flags=re.S)
+
+
 class CardDetailControlTests(SimpleTestCase):
     def test_no_card_carries_a_details_link_any_more(self):
         """The whole card has always been clickable — jKanban's own `click`
@@ -78,9 +87,20 @@ class CardDetailControlTests(SimpleTestCase):
         body = _function_body("boardCardHeader")
         self.assertIn("ki-dots-vertical", body)
 
-    def test_it_sits_in_the_corner_and_stays_quiet_until_the_card_is_hovered(self):
-        rule = _rule("#order-board .kanban-card-more {")
-        self.assertIn("opacity: 0.55", rule)
+    def test_it_sits_in_the_corner_and_is_drawn_rather_than_ghosted(self):
+        """Restated 2026-09-20. It used to be pinned at `opacity: 0.55`
+        until the card was hovered, which was right while jKanban's own
+        `click` option made the whole card navigate and this was a shortcut
+        to the same place. That handler is gone (product owner: «کلیک روی
+        بدنهٔ کارت نباید صفحهٔ جزئیات را باز کند»), so this control is now
+        the only door into the detail page — and a door drawn at half
+        strength does not read as one.
+
+        The rule is inverted, not dropped: quiet-until-hovered became
+        always-visible, and the hover and focus states it already had still
+        have to distinguish it, which is what the last two lines pin."""
+        rule = _declarations("#order-board .kanban-card-more {")
+        self.assertNotIn("opacity", rule)
         self.assertIn("#order-board .kanban-item:hover .kanban-card-more", CSS)
         # Reachable by keyboard, not only by pointer.
         self.assertIn("#order-board .kanban-card-more:focus-visible", CSS)
@@ -154,9 +174,19 @@ class ColumnHeightTests(SimpleTestCase):
         self.assertLess(multiplier, 5.0, "a whole fifth card is not a slice")
 
     def test_the_column_scrolls_rather_than_the_page(self):
+        """Restated 2026-09-20 for two changes that leave the rule itself
+        intact.
+
+        The class is now `dolphin-hover-scroll` rather than the theme's
+        `hover-scroll-overlay-y`: the product owner asked for the bar on the
+        *right* of an RTL column («اسکرول‌بار باید سمت راست باشد»), which no
+        CSS property can express — the container has to be flipped to
+        `direction: ltr` and its children flipped back. That flip is also
+        why the gap clearing the bar is a physical `padding-right` here;
+        `padding-inline-end` would follow the flip to the far side."""
         rule = _rule("#order-board .kanban-drag {")
-        self.assertIn("padding-inline-end", rule)
-        self.assertIn('boardElement(status)?.classList.add("hover-scroll-overlay-y")', SCRIPT)
+        self.assertIn("padding-right", rule)
+        self.assertIn('boardElement(status)?.classList.add("dolphin-hover-scroll")', SCRIPT)
 
 
 class ColumnGutterTests(SimpleTestCase):

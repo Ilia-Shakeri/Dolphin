@@ -1943,30 +1943,35 @@
     let openJalaliPickerField = null; // which field it belongs to
 
     /**
-     * A small popup calendar for a `data-jalali` field, opened on focus/click.
+     * The one date picker this product has.
      *
-     * Built in-house rather than adapted from a vendor picker: the theme
-     * bundles flatpickr (`assets/plugins/global/plugins.bundle.js`), but it
-     * draws its grid straight from JS `Date` with no hook for a different
-     * calendar system — there is no Jalali build of it in this bundle, and
-     * retrofitting one would mean fighting its internals rather than using
-     * them. This project already carries a complete, tested Jalali <->
-     * Gregorian conversion layer (`jalaliToGregorian`, `gregorianToJalali`,
+     * Every `input[data-jalali]` in the panel opens this and nothing else —
+     * filters, wizards, reminders, follow-ups, the report ranges. There is
+     * deliberately no second implementation anywhere: a picker is the kind
+     * of component that grows a variant per page if you let it, and then
+     * each variant gets its own RTL bug.
+     *
+     * Jalali is computed here rather than delegated: no dependency in this
+     * project speaks it (`gregorianToJalali`, `jalaliWeekday`,
      * `jalaliMonthLength` — the same functions every `apiDate`/`apiDateTime`
-     * call already runs through), so the grid is drawn from that instead.
+     * call already runs through), so the grid is drawn from those.
      *
-     * The popup's shell is still entirely the theme's own:
-     * `.menu.menu-sub.menu-sub-dropdown`, the exact classes `#user-menu` and
-     * `setupListFilterPopovers()`'s own panel already use, so it inherits the
-     * theme's light/dark background, box-shadow, border-radius and
-     * fade/move-in animation for free — no separate design system, and no
-     * dark-mode work of its own to get wrong. Only the day grid itself is
-     * custom CSS (`.jalali-picker-*` in dolphin.css), because the purchased
-     * theme has no component for a Jalali calendar to adapt.
+     * The popup's shell is the theme's own: `.menu.menu-sub
+     * .menu-sub-dropdown`, exactly what `#user-menu` and
+     * `setupListFilterPopovers()` use, so it inherits the light/dark
+     * background, shadow, radius and fade-in for free. Only the grids
+     * themselves are custom CSS (`.jalali-picker-*` in dolphin.css), because
+     * the purchased theme has no Jalali calendar to adapt.
+     *
+     * Three views, not one (product owner, 2026-09-20): days, then the
+     * twelve months of the year, then a decade of years. Each is reached by
+     * clicking the part of the title that names it, which is the same
+     * gesture every other calendar UI uses, and each returns to the one
+     * below it on selection.
      *
      * Typing the date directly keeps working exactly as it always did
-     * (`parseJalaliInput` on blur, below) — this only adds a second way to
-     * fill the same field, not a replacement for the first.
+     * (`parseJalaliInput` on blur) — this is a second way to fill the same
+     * field, never a replacement for the first.
      */
     function openJalaliPicker(field) {
         if (openJalaliPickerField === field) return;
@@ -1983,6 +1988,8 @@
         let selected = parsed ? {year: parsed.jalali[0], month: parsed.jalali[1], day: parsed.jalali[2]} : null;
         let hour = parsed ? parsed.hour : nowParts.hour;
         let minute = parsed ? parsed.minute : nowParts.minute;
+        //: "days" | "months" | "years"
+        let view = "days";
 
         const panel = document.createElement("div");
         panel.className = "menu menu-sub menu-sub-dropdown menu-column jalali-picker";
@@ -2001,28 +2008,44 @@
 
         const header = document.createElement("div");
         header.className = "jalali-picker-header";
-        // Each arrow points *outward*, towards its own edge of the row (the
-        // direction moving further prev/next actually travels once the row
-        // below is reordered to put prev on the right) — not towards the
-        // title, which is what the glyphs originally paired with the old,
-        // reversed order would now point.
-        const nextYearBtn = navButton("«", "سال بعد");
-        const nextMonthBtn = navButton("‹", "ماه بعد");
+        // Which side goes back, and which forward.
+        //
+        // Product owner, 2026-09-20: «جهت دکمه‌های `<` و `<<` با `>` و `>>`
+        // جابه‌جا شود ... حرکت بصری درست باشد، نه فقط آیکون». So the two
+        // functions swap sides: the **left** pair now goes back and the
+        // **right** pair goes forward, each arrow still pointing outward at
+        // its own edge. This is the arrangement of essentially every other
+        // calendar a Persian user also has open — Google Calendar, a phone's
+        // date picker — and the muscle memory that comes with it.
+        //
+        // It is deliberately *not* FullCalendar's RTL toolbar, which puts
+        // prev on the right; the two calendars in this app still use that,
+        // because it is the vendor's own and re-skinning it would be a
+        // bigger change than this instruction asked for. Noted here so the
+        // difference reads as a decision rather than as drift.
+        //
+        // DOM order is visual order in this `dir="rtl"` row: first child
+        // sits rightmost.
+        const nextYearBtn = navButton("»", "سال بعد");
+        const nextMonthBtn = navButton("›", "ماه بعد");
         const title = document.createElement("span");
         title.className = "jalali-picker-title";
-        const prevMonthBtn = navButton("›", "ماه قبل");
-        const prevYearBtn = navButton("»", "سال قبل");
-        // DOM order is visual order in this `dir="rtl"` row: first child sits
-        // rightmost. Right holds "prev", left holds "next" — matching the
-        // lead/after-sales calendars' own toolbar (`prev,next` in
-        // `headerToolbar`, which renders prev rightmost the same way under
-        // `direction: "rtl"`) and every "قبلی"/"بعدی" pagination pair
-        // elsewhere in the app (e.g. `leads/list.html`). A previous version
-        // of this comment claimed the opposite order matched that same
-        // convention; it did not — measured live, this picker's own arrows
-        // sat backwards from every other prev/next control in the app
-        // (design review, 2026-09-12).
-        header.append(prevYearBtn, prevMonthBtn, title, nextMonthBtn, nextYearBtn);
+        // The title is two buttons, not a label: the month name opens the
+        // month grid and the year opens the decade. A reader who wants
+        // «فروردین ۱۴۰۶» from «مهر ۱۴۰۵» should not have to press an arrow
+        // six times.
+        const monthBtn = document.createElement("button");
+        monthBtn.type = "button";
+        monthBtn.className = "btn btn-sm btn-light jalali-picker-scope";
+        monthBtn.setAttribute("aria-label", "انتخاب ماه");
+        const yearBtn = document.createElement("button");
+        yearBtn.type = "button";
+        yearBtn.className = "btn btn-sm btn-light jalali-picker-scope";
+        yearBtn.setAttribute("aria-label", "انتخاب سال");
+        title.append(monthBtn, yearBtn);
+        const prevMonthBtn = navButton("‹", "ماه قبل");
+        const prevYearBtn = navButton("«", "سال قبل");
+        header.append(nextYearBtn, nextMonthBtn, title, prevMonthBtn, prevYearBtn);
 
         const weekdays = document.createElement("div");
         weekdays.className = "jalali-picker-weekdays";
@@ -2034,41 +2057,104 @@
 
         const days = document.createElement("div");
         days.className = "jalali-picker-days";
+        const months = document.createElement("div");
+        months.className = "jalali-picker-months";
+        months.hidden = true;
+        const years = document.createElement("div");
+        years.className = "jalali-picker-years";
+        years.hidden = true;
 
         let timeRow = null;
-        let hourSelect = null;
-        let minuteSelect = null;
+        let hourField = null;
+        let minuteField = null;
         if (wantsTime) {
             timeRow = document.createElement("div");
             timeRow.className = "jalali-picker-time";
-            hourSelect = document.createElement("select");
-            hourSelect.className = "form-select form-select-solid form-select-sm";
-            hourSelect.setAttribute("aria-label", "ساعت");
-            for (let h = 0; h <= 23; h += 1) {
-                const option = document.createElement("option");
-                option.value = String(h);
-                option.textContent = toPersianDigits(pad2(h));
-                hourSelect.append(option);
+
+            /**
+             * One 24-hour time unit: a typable box with a step button above
+             * and below it.
+             *
+             * A `<select>` with 24 options was what this used to be, and it
+             * is the wrong control for a number with an order: picking 23:55
+             * meant scrolling a list nearly to its end, twice. A stepper
+             * reads as the number it is, takes ↑/↓ from the keyboard, wraps
+             * at its own boundary, and still lets the exact value be typed
+             * for the case the steps do not land on.
+             */
+            function timeUnit(label, max, step, initial, onChange) {
+                const unit = document.createElement("div");
+                unit.className = "jalali-picker-time-unit";
+
+                const up = document.createElement("button");
+                up.type = "button";
+                up.className = "btn btn-icon btn-sm btn-light jalali-picker-time-step";
+                up.textContent = "＋";
+                up.setAttribute("aria-label", `${label} بیشتر`);
+
+                const box = document.createElement("input");
+                box.type = "text";
+                box.inputMode = "numeric";
+                box.className = "form-control form-control-sm form-control-solid jalali-picker-time-box";
+                box.setAttribute("aria-label", label);
+                box.setAttribute("role", "spinbutton");
+                box.setAttribute("aria-valuemin", "0");
+                box.setAttribute("aria-valuemax", String(max));
+
+                const down = document.createElement("button");
+                down.type = "button";
+                down.className = "btn btn-icon btn-sm btn-light jalali-picker-time-step";
+                down.textContent = "−";
+                down.setAttribute("aria-label", `${label} کمتر`);
+
+                let value = initial;
+                function paint() {
+                    box.value = toPersianDigits(pad2(value));
+                    box.setAttribute("aria-valuenow", String(value));
+                    box.setAttribute("aria-valuetext", toPersianDigits(pad2(value)));
+                }
+                // Wrapping, not clamping: 23 + 1 is 00, which is what the
+                // next hour actually is, and stopping dead at the top of the
+                // range is the thing that makes a stepper tedious.
+                function shift(delta) {
+                    value = (value + delta + (max + 1)) % (max + 1);
+                    paint();
+                    onChange(value);
+                }
+                up.addEventListener("click", () => shift(step));
+                down.addEventListener("click", () => shift(-step));
+                box.addEventListener("keydown", (event) => {
+                    if (event.key === "ArrowUp") { event.preventDefault(); shift(step); }
+                    else if (event.key === "ArrowDown") { event.preventDefault(); shift(-step); }
+                });
+                // Typed input is read on the way out, in either digit script,
+                // and anything unusable falls back to what was showing rather
+                // than to zero.
+                box.addEventListener("change", () => {
+                    const typed = Number(toLatinDigits(box.value).replace(/\D/g, ""));
+                    if (Number.isFinite(typed) && typed >= 0 && typed <= max) value = typed;
+                    paint();
+                    onChange(value);
+                });
+                paint();
+                unit.append(up, box, down);
+                return unit;
             }
+
+            const hourUnit = timeUnit("ساعت", 23, 1, hour, (next) => { hour = next; if (selected) commit(); });
             const separator = document.createElement("span");
+            separator.className = "jalali-picker-time-separator";
             separator.textContent = ":";
-            minuteSelect = document.createElement("select");
-            minuteSelect.className = "form-select form-select-solid form-select-sm";
-            minuteSelect.setAttribute("aria-label", "دقیقه");
-            // Five-minute steps cover the ordinary case; the field's own
-            // exact minute (typed by hand, or already stored) is added too
-            // so opening the picker on an existing value never rounds it
-            // away silently.
-            const minuteOptions = new Set([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, minute]);
-            Array.from(minuteOptions).sort((a, b) => a - b).forEach((m) => {
-                const option = document.createElement("option");
-                option.value = String(m);
-                option.textContent = toPersianDigits(pad2(m));
-                minuteSelect.append(option);
-            });
-            hourSelect.value = String(hour);
-            minuteSelect.value = String(minute);
-            timeRow.append(hourSelect, separator, minuteSelect);
+            // Five minutes is the step people actually schedule on; the box
+            // still takes any minute that is typed into it.
+            const minuteUnit = timeUnit("دقیقه", 59, 5, minute, (next) => { minute = next; if (selected) commit(); });
+            hourField = hourUnit.querySelector("input");
+            minuteField = minuteUnit.querySelector("input");
+            // Hour on the right, minute on the left — `HH:MM` reads
+            // left-to-right even inside an RTL panel, the same way every
+            // clock and every `dir="ltr"` money cell in this app does.
+            timeRow.dir = "ltr";
+            timeRow.append(hourUnit, separator, minuteUnit);
         }
 
         const footer = document.createElement("div");
@@ -2091,10 +2177,38 @@
             footer.append(confirmBtn);
         }
 
-        panel.append(header, weekdays, days, ...(timeRow ? [timeRow] : []), footer);
+        panel.append(header, weekdays, days, months, years, ...(timeRow ? [timeRow] : []), footer);
+
+        //: The decade the year grid is showing, as its first year.
+        let decadeStart = Math.floor(viewYear / 10) * 10;
 
         function updateTitle() {
-            title.textContent = `${JALALI_MONTH_NAMES[viewMonth - 1]} ${toPersianDigits(String(viewYear))}`;
+            monthBtn.textContent = JALALI_MONTH_NAMES[viewMonth - 1];
+            yearBtn.textContent = toPersianDigits(String(viewYear));
+            monthBtn.setAttribute("aria-expanded", String(view === "months"));
+            yearBtn.setAttribute("aria-expanded", String(view === "years"));
+        }
+
+        /**
+         * Show one of the three grids.
+         *
+         * The weekday strip belongs to the day grid alone — left up in the
+         * month and year views it would label columns that are not days.
+         * The arrows keep working in every view and mean whatever the view
+         * is made of: a month in the day view, a year in the month view, a
+         * decade in the year view.
+         */
+        function setView(next) {
+            view = next;
+            weekdays.hidden = view !== "days";
+            days.hidden = view !== "days";
+            months.hidden = view !== "months";
+            years.hidden = view !== "years";
+            if (timeRow) timeRow.hidden = view !== "days";
+            updateTitle();
+            if (view === "days") renderDays();
+            else if (view === "months") renderMonths();
+            else renderYears();
         }
 
         function renderDays() {
@@ -2132,6 +2246,60 @@
             }
         }
 
+        function renderMonths() {
+            months.replaceChildren();
+            JALALI_MONTH_NAMES.forEach((name, index) => {
+                const monthNumber = index + 1;
+                const isCurrent = viewYear === todayYear && monthNumber === todayMonth;
+                const isSelected = !!selected && selected.year === viewYear && selected.month === monthNumber;
+                const cell = document.createElement("button");
+                cell.type = "button";
+                cell.textContent = name;
+                cell.className = "btn btn-sm jalali-picker-cell " + (
+                    isSelected ? "btn-primary"
+                    : isCurrent ? "btn-active-light-primary border border-primary text-primary"
+                    : "btn-color-gray-700 btn-active-light-primary"
+                );
+                cell.addEventListener("click", () => {
+                    viewMonth = monthNumber;
+                    // Back down to the days of the month just chosen, rather
+                    // than committing a date the reader has not picked a day
+                    // for yet.
+                    setView("days");
+                });
+                months.append(cell);
+            });
+        }
+
+        function renderYears() {
+            years.replaceChildren();
+            // Twelve cells: the ten years of the decade plus the last year of
+            // the one before and the first of the one after, so the grid is a
+            // full 3×4 and stepping between decades has an obvious handhold
+            // at each end.
+            for (let offset = -1; offset <= 10; offset += 1) {
+                const year = decadeStart + offset;
+                const outside = offset < 0 || offset > 9;
+                const isCurrent = year === todayYear;
+                const isSelected = !!selected && selected.year === year;
+                const cell = document.createElement("button");
+                cell.type = "button";
+                cell.textContent = toPersianDigits(String(year));
+                cell.className = "btn btn-sm jalali-picker-cell " + (
+                    isSelected ? "btn-primary"
+                    : isCurrent ? "btn-active-light-primary border border-primary text-primary"
+                    : outside ? "btn-color-gray-500 btn-active-light-primary"
+                    : "btn-color-gray-700 btn-active-light-primary"
+                );
+                cell.addEventListener("click", () => {
+                    viewYear = year;
+                    decadeStart = Math.floor(year / 10) * 10;
+                    setView("months");
+                });
+                years.append(cell);
+            }
+        }
+
         function commit() {
             if (!selected) return;
             const text = wantsTime
@@ -2150,19 +2318,41 @@
             while (month > 12) { month -= 12; year += 1; }
             viewYear = year;
             viewMonth = month;
+            decadeStart = Math.floor(viewYear / 10) * 10;
             updateTitle();
             renderDays();
         }
 
-        prevMonthBtn.addEventListener("click", () => shiftMonth(-1));
-        nextMonthBtn.addEventListener("click", () => shiftMonth(1));
-        prevYearBtn.addEventListener("click", () => { viewYear -= 1; updateTitle(); renderDays(); });
-        nextYearBtn.addEventListener("click", () => { viewYear += 1; updateTitle(); renderDays(); });
-
-        if (hourSelect) {
-            hourSelect.addEventListener("change", () => { hour = Number(hourSelect.value); if (selected) commit(); });
-            minuteSelect.addEventListener("change", () => { minute = Number(minuteSelect.value); if (selected) commit(); });
+        /** One step back or forward, in whatever unit the current view shows. */
+        function step(delta) {
+            if (view === "days") { shiftMonth(delta); return; }
+            if (view === "months") {
+                viewYear += delta;
+                decadeStart = Math.floor(viewYear / 10) * 10;
+                updateTitle();
+                renderMonths();
+                return;
+            }
+            decadeStart += delta * 10;
+            renderYears();
         }
+
+        /** A year at a time in the day and month views, a decade in the year view. */
+        function bigStep(delta) {
+            if (view === "years") { decadeStart += delta * 100; renderYears(); return; }
+            viewYear += delta;
+            decadeStart = Math.floor(viewYear / 10) * 10;
+            updateTitle();
+            if (view === "days") renderDays(); else renderMonths();
+        }
+
+        prevMonthBtn.addEventListener("click", () => step(-1));
+        nextMonthBtn.addEventListener("click", () => step(1));
+        prevYearBtn.addEventListener("click", () => bigStep(-1));
+        nextYearBtn.addEventListener("click", () => bigStep(1));
+        monthBtn.addEventListener("click", () => setView(view === "months" ? "days" : "months"));
+        yearBtn.addEventListener("click", () => setView(view === "years" ? "days" : "years"));
+
         clearBtn.addEventListener("click", () => {
             field.value = "";
             field.dispatchEvent(new Event("input", {bubbles: true}));
@@ -2173,15 +2363,21 @@
         todayBtn.addEventListener("click", () => {
             viewYear = todayYear;
             viewMonth = todayMonth;
+            decadeStart = Math.floor(todayYear / 10) * 10;
             selected = {year: todayYear, month: todayMonth, day: todayDay};
             if (wantsTime) {
                 hour = nowParts.hour;
                 minute = nowParts.minute;
-                hourSelect.value = String(hour);
-                minuteSelect.value = String(minute);
+                if (hourField) {
+                    hourField.value = toPersianDigits(pad2(hour));
+                    hourField.setAttribute("aria-valuenow", String(hour));
+                }
+                if (minuteField) {
+                    minuteField.value = toPersianDigits(pad2(minute));
+                    minuteField.setAttribute("aria-valuenow", String(minute));
+                }
             }
-            updateTitle();
-            renderDays();
+            setView("days");
             commit();
             if (!wantsTime) close();
         });
@@ -2208,6 +2404,10 @@
         function onKeyDown(event) {
             if (event.key === "Escape") {
                 event.stopPropagation();
+                // Escape steps back out of a drill-down before it closes the
+                // picker: a reader who opened the year grid by accident
+                // should get the days back, not lose the popup.
+                if (view !== "days") { setView("days"); return; }
                 close();
                 field.focus();
             }
@@ -2230,8 +2430,7 @@
         // `position: fixed` (dolphin.css) and positioned in viewport
         // coordinates below, not relative to its parent.
         (field.closest("dialog") || document.body).appendChild(panel);
-        updateTitle();
-        renderDays();
+        setView("days");
         // Measured before it is shown: `.jalali-picker` has no size of its
         // own to reason about until its content exists, and `position()`
         // needs that real size to decide whether it fits below the field.
@@ -3826,6 +4025,86 @@
      * a clock time outside that window would simply not be drawn, and a
      * calendar that silently omits an appointment is not a tidier calendar.
      */
+    /**
+     * The Gregorian span of the Jalali month a given date falls in.
+     *
+     * FullCalendar's own `dayGridMonth` is a *Gregorian* month, which is why
+     * the two calendars in this panel never showed a whole Persian one: a
+     * view titled «مهر» actually held the back half of شهریور and the front
+     * half of مهر, and the last few days of the month the title named were
+     * simply not on screen (product owner, 2026-09-20: «نمای ماهانه باید کل
+     * ماه را از ۱ تا ۳۰/۳۱ کامل نشان دهد»).
+     *
+     * So the range is computed here in Jalali and handed to FullCalendar as
+     * an explicit `visibleRange`. `end` is exclusive, the way every
+     * FullCalendar range is.
+     */
+    function jalaliMonthRange(date) {
+        const parts = tehranParts(date);
+        const [year, month] = gregorianToJalali(parts.year, parts.month, parts.day);
+        const [startY, startM, startD] = jalaliToGregorian(year, month, 1);
+        const length = jalaliMonthLength(year, month);
+        const [endY, endM, endD] = jalaliToGregorian(year, month, length);
+        return {
+            start: new Date(startY, startM - 1, startD),
+            // Exclusive: the day after the last one, so the last day is in.
+            end: new Date(endY, endM - 1, endD + 1),
+        };
+    }
+
+    /** The first day of the Jalali month `delta` months from `date`. */
+    function shiftJalaliMonth(date, delta) {
+        const parts = tehranParts(date);
+        const [year, month] = gregorianToJalali(parts.year, parts.month, parts.day);
+        let nextYear = year;
+        let nextMonth = month + delta;
+        while (nextMonth < 1) { nextMonth += 12; nextYear -= 1; }
+        while (nextMonth > 12) { nextMonth -= 12; nextYear += 1; }
+        const [gy, gm, gd] = jalaliToGregorian(nextYear, nextMonth, 1);
+        return new Date(gy, gm - 1, gd);
+    }
+
+    /**
+     * Everything both calendars share about showing a Jalali month.
+     *
+     * One object rather than two copies: the lead follow-up calendar and the
+     * after-sales calendar are the same view over different rows, and the
+     * month arithmetic above is exactly the kind of thing that drifts when
+     * it exists twice.
+     *
+     * `prev`/`next` are replaced by custom buttons because FullCalendar's own
+     * pair steps by its view's duration, and this view has no fixed duration
+     * — a Jalali month is 29, 30 or 31 days depending on which one and which
+     * year.
+     */
+    const JALALI_MONTH_VIEW = {
+        type: "dayGrid",
+        visibleRange: (current) => jalaliMonthRange(current),
+    };
+
+    /**
+     * Wire the two custom month buttons onto a calendar instance.
+     *
+     * Takes a getter, not the instance: these buttons are part of the config
+     * the instance is built from, so the instance does not exist yet when
+     * this runs. Only the month view uses them — in week and day view
+     * FullCalendar's own prev/next step by a fixed duration, which is
+     * correct there — so `datesSet` swaps the toolbar between the two sets.
+     */
+    function jalaliCalendarButtons(getCalendar) {
+        const step = (delta) => {
+            const calendar = getCalendar();
+            if (calendar) calendar.gotoDate(shiftJalaliMonth(calendar.getDate(), delta));
+        };
+        return {
+            // Left goes back and right goes forward, matching the date
+            // picker's own header (`openJalaliPicker`) so the two controls
+            // in this panel that step through months agree with each other.
+            jalaliPrev: {text: "‹", hint: "ماه قبل", click: () => step(-1)},
+            jalaliNext: {text: "›", hint: "ماه بعد", click: () => step(1)},
+        };
+    }
+
     const CALENDAR_TIME_GRID_OPTIONS = {
         slotDuration: "01:00:00",
         slotLabelInterval: "01:00:00",
@@ -3926,7 +4205,11 @@
             return wrap;
         }
 
-        const calendar = new FullCalendar.Calendar(container, {
+        // `let`, declared before the config that references it: the two
+        // custom month buttons below close over this and only ever run
+        // after the assignment has happened.
+        let calendar;
+        calendar = new FullCalendar.Calendar(container, {
             direction: "rtl",
             height: "auto",
             firstDay: 6, // Saturday — the Iranian week start.
@@ -3938,14 +4221,23 @@
             // their own, reading as numbers with no calendar around them
             // (design review, 2026-09-12).
             showNonCurrentDates: false,
-            headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,timeGridWeek,timeGridDay"},
-            buttonText: {today: "امروز", month: "ماه", week: "هفته", day: "روز"},
+            // `jalaliMonth`, not FullCalendar's own `dayGridMonth`: that one
+            // is a *Gregorian* month, so a grid titled «مهر» held half of
+            // شهریور and stopped before مهر ended. See `jalaliMonthRange`.
+            initialView: "jalaliMonth",
+            views: {jalaliMonth: {...JALALI_MONTH_VIEW, buttonText: "ماه"}},
+            customButtons: jalaliCalendarButtons(() => calendar),
+            // Two prev/next pairs, swapped by `datesSet` below: the custom
+            // one steps a whole Jalali month, FullCalendar's own steps the
+            // fixed week/day the other views are made of.
+            headerToolbar: {start: "jalaliPrev,jalaliNext,prev,next today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+            buttonText: {today: "امروز", week: "هفته", day: "روز"},
             dayHeaderContent: (arg) => {
                 const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];
                 // Month view names the column once, above every date in it —
                 // the date itself is each cell's own number (`dayCellContent`
                 // below), so the header needs only the name.
-                if (arg.view.type === "dayGridMonth") return weekday;
+                if (arg.view.type === "jalaliMonth") return weekday;
                 // Week/day views have one column per date, so the header is
                 // the only place that date appears — stacked on two lines,
                 // not one, so a wide name like "چهارشنبه" never has to shrink
@@ -3953,14 +4245,34 @@
                 const wrap = document.createElement("div");
                 const nameLine = document.createElement("div");
                 nameLine.textContent = weekday;
+                // Small and muted, not the big bold number it used to be.
+                // The instruction for these two views was «فقط ردیف نام
+                // روزها باقی بماند» — the row is the day *names*; the date
+                // stays because a week view with no dates at all cannot be
+                // read, but it stops competing with the name for the row.
                 const dayLine = document.createElement("div");
-                dayLine.className = "fs-4 fw-bold";
+                dayLine.className = "fs-8 fw-semibold text-muted";
                 dayLine.textContent = jalaliDayLabel(arg.date);
                 wrap.append(nameLine, dayLine);
                 return {domNodes: [wrap]};
             },
-            dayCellContent: (arg) => jalaliDayLabel(arg.date),
+            // Numbers in the cells belong to the month view alone. In week
+            // and day view each column already carries its own date in the
+            // header, so a number repeated inside every hour cell was the
+            // same date written eight more times (product owner,
+            // 2026-09-20: «اعداد داخل خانه‌ها حذف شوند»).
+            dayCellContent: (arg) => (
+                arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""
+            ),
             datesSet: (info) => {
+                // The custom month buttons are meaningless in week/day view
+                // and FullCalendar's own are wrong in the month view, so the
+                // toolbar shows whichever pair fits the view on screen.
+                const monthView = info.view.type === "jalaliMonth";
+                container.querySelectorAll(".fc-jalaliPrev-button, .fc-jalaliNext-button")
+                    .forEach((button) => { button.hidden = !monthView; });
+                container.querySelectorAll(".fc-prev-button, .fc-next-button")
+                    .forEach((button) => { button.hidden = monthView; });
                 if (info.view.type === "timeGridDay") {
                     const titleEl = container.querySelector(".fc-toolbar-title");
                     if (titleEl) titleEl.textContent = jalaliTitle(info.view.currentStart, true);
@@ -4339,7 +4651,7 @@
             if (lead.next_follow_up_at) {
                 const row = document.createElement("div");
                 row.className = "fs-8 text-gray-600 mb-1";
-                row.textContent = `پیگیری بعدی: ${displayDay(lead.next_follow_up_at)}`;
+                row.textContent = `پیگیری بعدی: ${displayDate(lead.next_follow_up_at)}`;
                 wrap.append(row);
             }
 
@@ -4473,6 +4785,7 @@
                 };
             });
 
+            container.dataset.canDrag = String(canManage);
             kanban = new jKanban({
                 element: "#lead-board",
                 gutter: "0.75rem",
@@ -4489,9 +4802,16 @@
                 dragBoards: false,
                 dragItems: canManage,
                 boards,
-                click: (el) => {
-                    window.location.href = `/leads/${el.dataset.eid}/`;
-                },
+                // No `click` handler, deliberately. The whole card used to
+                // navigate, which made every attempt to start a drag a
+                // coin-flip between moving the card and leaving the page —
+                // and on a touch screen there is no way to express "press
+                // but do not tap". The three-dot control in the corner is
+                // now the only way in (product owner, 2026-09-20: «کلیک روی
+                // بدنه کارت نباید جزئیات را باز کند»), and it is a real
+                // `<a href>`, so it works with the keyboard, with a middle
+                // click and with "open in new tab" — none of which the
+                // `window.location` this replaced ever did.
                 dropEl: async (el, target, source) => {
                     const leadId = el.dataset.eid;
                     const toStatus = target.parentNode.dataset.id;
@@ -4532,7 +4852,7 @@
                 // the same one the app sidebar itself scrolls with, not a
                 // hand-rolled one — it stays invisible until hovered, so a
                 // short column shows no scrollbar chrome at all.
-                boardElement(status)?.classList.add("hover-scroll-overlay-y");
+                boardElement(status)?.classList.add("dolphin-hover-scroll");
                 renderLoadMore(status);
                 renderEmptyState(status);
                 setupBoardColumnSearch(container, status, (term) => reloadColumn(status, term));
@@ -4620,7 +4940,7 @@
             if (order.expected_delivery_at) {
                 const row = document.createElement("div");
                 row.className = "fs-8 text-gray-600 mb-1";
-                row.textContent = `تحویل: ${displayDay(order.expected_delivery_at)}`;
+                row.textContent = `تحویل: ${displayDate(order.expected_delivery_at)}`;
                 wrap.append(row);
             }
 
@@ -4751,6 +5071,7 @@
                 };
             });
 
+            container.dataset.canDrag = String(canManage);
             kanban = new jKanban({
                 element: "#order-board",
                 // Narrower than the lead board's own 300px: this board always
@@ -4776,9 +5097,16 @@
                 dragBoards: false,
                 dragItems: canManage,
                 boards,
-                click: (el) => {
-                    window.location.href = `/orders/${el.dataset.eid}/`;
-                },
+                // No `click` handler, deliberately. The whole card used to
+                // navigate, which made every attempt to start a drag a
+                // coin-flip between moving the card and leaving the page —
+                // and on a touch screen there is no way to express "press
+                // but do not tap". The three-dot control in the corner is
+                // now the only way in (product owner, 2026-09-20: «کلیک روی
+                // بدنه کارت نباید جزئیات را باز کند»), and it is a real
+                // `<a href>`, so it works with the keyboard, with a middle
+                // click and with "open in new tab" — none of which the
+                // `window.location` this replaced ever did.
                 dropEl: async (el, target, source) => {
                     const orderId = el.dataset.eid;
                     const toStatus = target.parentNode.dataset.id;
@@ -4820,7 +5148,7 @@
             STATUSES.forEach((status) => {
                 // Same fixed-height, hover-revealed scrollbar as the lead
                 // board above — see that block's own comment.
-                boardElement(status)?.classList.add("hover-scroll-overlay-y");
+                boardElement(status)?.classList.add("dolphin-hover-scroll");
                 renderLoadMore(status);
                 renderEmptyState(status);
                 setupBoardColumnSearch(container, status, (term) => reloadColumn(status, term));
@@ -4917,29 +5245,62 @@
             return wrap;
         }
 
-        const calendar = new FullCalendar.Calendar(container, {
+        // `let`, declared before the config that references it: the two
+        // custom month buttons below close over this and only ever run
+        // after the assignment has happened.
+        let calendar;
+        calendar = new FullCalendar.Calendar(container, {
             direction: "rtl",
             height: "auto",
             firstDay: 6,
             // See the lead calendar's own copy of this option for the full
             // reasoning — same fix, same symptom, same cause.
             showNonCurrentDates: false,
-            headerToolbar: {start: "prev,next today", center: "title", end: "dayGridMonth,timeGridWeek,timeGridDay"},
-            buttonText: {today: "امروز", month: "ماه", week: "هفته", day: "روز"},
+            // `jalaliMonth`, not FullCalendar's own `dayGridMonth`: that one
+            // is a *Gregorian* month, so a grid titled «مهر» held half of
+            // شهریور and stopped before مهر ended. See `jalaliMonthRange`.
+            initialView: "jalaliMonth",
+            views: {jalaliMonth: {...JALALI_MONTH_VIEW, buttonText: "ماه"}},
+            customButtons: jalaliCalendarButtons(() => calendar),
+            // Two prev/next pairs, swapped by `datesSet` below: the custom
+            // one steps a whole Jalali month, FullCalendar's own steps the
+            // fixed week/day the other views are made of.
+            headerToolbar: {start: "jalaliPrev,jalaliNext,prev,next today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+            buttonText: {today: "امروز", week: "هفته", day: "روز"},
             dayHeaderContent: (arg) => {
                 const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];
-                if (arg.view.type === "dayGridMonth") return weekday;
+                if (arg.view.type === "jalaliMonth") return weekday;
                 const wrap = document.createElement("div");
                 const nameLine = document.createElement("div");
                 nameLine.textContent = weekday;
+                // Small and muted, not the big bold number it used to be.
+                // The instruction for these two views was «فقط ردیف نام
+                // روزها باقی بماند» — the row is the day *names*; the date
+                // stays because a week view with no dates at all cannot be
+                // read, but it stops competing with the name for the row.
                 const dayLine = document.createElement("div");
-                dayLine.className = "fs-4 fw-bold";
+                dayLine.className = "fs-8 fw-semibold text-muted";
                 dayLine.textContent = jalaliDayLabel(arg.date);
                 wrap.append(nameLine, dayLine);
                 return {domNodes: [wrap]};
             },
-            dayCellContent: (arg) => jalaliDayLabel(arg.date),
+            // Numbers in the cells belong to the month view alone. In week
+            // and day view each column already carries its own date in the
+            // header, so a number repeated inside every hour cell was the
+            // same date written eight more times (product owner,
+            // 2026-09-20: «اعداد داخل خانه‌ها حذف شوند»).
+            dayCellContent: (arg) => (
+                arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""
+            ),
             datesSet: (info) => {
+                // The custom month buttons are meaningless in week/day view
+                // and FullCalendar's own are wrong in the month view, so the
+                // toolbar shows whichever pair fits the view on screen.
+                const monthView = info.view.type === "jalaliMonth";
+                container.querySelectorAll(".fc-jalaliPrev-button, .fc-jalaliNext-button")
+                    .forEach((button) => { button.hidden = !monthView; });
+                container.querySelectorAll(".fc-prev-button, .fc-next-button")
+                    .forEach((button) => { button.hidden = monthView; });
                 if (info.view.type === "timeGridDay") {
                     const titleEl = container.querySelector(".fc-toolbar-title");
                     if (titleEl) titleEl.textContent = jalaliTitle(info.view.currentStart, true);
@@ -5057,7 +5418,7 @@
             document.getElementById("edit-lead-source").value = value.source || "";
             document.getElementById("edit-lead-campaign").value = value.campaign_or_batch || "";
             // Follow-up is a date; the time of day was never used for anything.
-            document.getElementById("edit-lead-follow-up").value = localDateValue(value.next_follow_up_at);
+            document.getElementById("edit-lead-follow-up").value = localDateTimeValue(value.next_follow_up_at);
             document.getElementById("edit-lead-notes").value = value.notes || "";
         }
 
@@ -9735,7 +10096,7 @@
             } else {
                 document.getElementById("order-status").value = labelled(DOCUMENT_STATUS_TEXT, order.status);
             }
-            document.getElementById("edit-order-delivery").value = localDateValue(order.expected_delivery_at);
+            document.getElementById("edit-order-delivery").value = localDateTimeValue(order.expected_delivery_at);
             document.getElementById("edit-order-notes").value = order.notes || "";
             // A draft and an approved order are both editable: the service moves
             // only the stock difference when an approved one changes.

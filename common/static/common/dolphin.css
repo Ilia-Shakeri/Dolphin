@@ -1792,7 +1792,13 @@ dialog {
        moves, not four hand-multiplied ones. */
     --dolphin-board-card: 8.6rem;
     max-height: calc(var(--dolphin-board-card) * 4.55);
-    padding-inline-end: 0.35rem;
+    /* A physical `right`, not `padding-inline-end`. `.dolphin-hover-scroll`
+       flips this element to `direction: ltr` to move the scrollbar to the
+       right (see §10), which flips what "inline-end" means — the logical
+       property would now put the gap on the *left*, away from the bar it is
+       there to clear. This is one of the few places in this sheet where the
+       physical property is the correct one. */
+    padding-right: 0.35rem;
 }
 /* The one card-shaped exception: the "load more" control `setupLeadBoard()`/
    `setupOrderBoard()` append past jKanban's own item list is a real
@@ -1987,23 +1993,53 @@ dialog {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-block-start: -0.15rem;
-    border-radius: 0.4rem;
-    color: var(--bs-gray-500);
-    /* Barely there until the card is hovered: on a column of five cards, five
-       full-strength glyphs read as five buttons demanding a decision. */
-    opacity: 0.55;
-    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+    /* 2.5rem is 32.5px at this theme's 13px root — the minimum comfortable
+       touch target, and the size the product owner asked for outright
+       («تارگت کلیک حداقل ۳۲×۳۲», 2026-09-20). It is also now the *only*
+       way into the card's detail page, which is the other half of why it
+       had to grow: a control nobody can hit is a page nobody can open. */
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-block-start: -0.35rem;
+    margin-inline-end: -0.35rem;
+    border-radius: 0.475rem;
+    color: var(--bs-gray-600);
+    /* Fully drawn, not ghosted. It used to sit at 0.55 opacity because the
+       whole card was clickable and this was a shortcut; now that the card
+       body does nothing, a faint glyph would be the only door to the detail
+       page and would not look like one. */
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 #lead-board .kanban-item:hover .kanban-card-more,
 #order-board .kanban-item:hover .kanban-card-more,
-#lead-board .kanban-card-more:focus-visible,
-#order-board .kanban-card-more:focus-visible {
-    opacity: 1;
+#lead-board .kanban-card-more:hover,
+#order-board .kanban-card-more:hover {
     color: var(--bs-primary);
     background-color: var(--bs-primary-light);
+}
+/* Keyboard focus gets a ring of its own rather than only the hover colour,
+   which a sighted keyboard user cannot distinguish from a hovered one. */
+#lead-board .kanban-card-more:focus-visible,
+#order-board .kanban-card-more:focus-visible {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+/* The card no longer reacts to a click, so it must stop advertising that it
+   does. `jKanban`'s own stylesheet sets `cursor: move` on every item; that
+   stays right while dragging is allowed and is wrong when it is not. */
+#lead-board .kanban-item,
+#order-board .kanban-item {
+    cursor: default;
+}
+#lead-board[data-can-drag="true"] .kanban-item,
+#order-board[data-can-drag="true"] .kanban-item {
+    cursor: grab;
+}
+#lead-board[data-can-drag="true"] .kanban-item:active,
+#order-board[data-can-drag="true"] .kanban-item:active {
+    cursor: grabbing;
 }
 
 /* 6b. Province map ----------------------------------------------------------
@@ -2323,15 +2359,77 @@ dialog {
     font-size: 0.8125rem;
 }
 
+/* The month and year grids behind the title's two buttons. Three columns
+   each: twelve months is 3×4, and the year view shows twelve cells for the
+   same reason — one grid shape for both, so the popup never changes width
+   or jumps in height as the reader drills in and back out. */
+.jalali-picker-months,
+.jalali-picker-years {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
+    padding-block: 0.35rem;
+}
+
+.jalali-picker .jalali-picker-cell {
+    width: 100%;
+    padding-inline: 0.25rem;
+    font-size: 0.95rem;
+    line-height: 2.2;
+}
+
+/* The title's two halves are buttons now (month, year), so they need to look
+   pressable without turning the header into a toolbar. */
+.jalali-picker .jalali-picker-scope {
+    padding: 0.15rem 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: 1.6;
+    background: transparent;
+}
+
+.jalali-picker .jalali-picker-scope:hover,
+.jalali-picker .jalali-picker-scope[aria-expanded="true"] {
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+}
+
 .jalali-picker-time {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    padding-block: 0.5rem;
 }
 
-.jalali-picker-time select {
-    width: 5rem;
+/* A stepper, not a dropdown: the + and − sit above and below the number
+   they change, which is the shape this control has everywhere else and the
+   one that reads as "a number you can nudge". */
+.jalali-picker-time-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.jalali-picker .jalali-picker-time-step {
+    width: 2.2rem;
+    height: 1.6rem;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.jalali-picker .jalali-picker-time-box {
+    width: 3.2rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    padding-inline: 0.25rem;
+}
+
+.jalali-picker-time-separator {
+    align-self: center;
+    font-weight: 700;
+    color: var(--bs-gray-600);
 }
 
 /* «امروز» and «پاک‌کردن» are peers — two shortcuts, neither destructive — so
@@ -2430,4 +2528,189 @@ dialog {
     height: 1.6rem;
     font-size: 1rem;
     line-height: 1;
+}
+
+/* 10. The shared hover scrollbar -------------------------------------------
+
+   One component, used by every panel that scrolls its own content inside a
+   card: the kanban columns and the dashboard's capability grid today, and
+   whatever comes next. Product-owner request 2026-09-20: «چون سایت راست‌چین
+   است باید سمت راست باشد، به‌صورت پیش‌فرض پنهان و با هاور روی ستون نمایش
+   داده شود».
+
+   Three things it has to get right, and each needs its own mechanism:
+
+   * **Side.** A `direction: rtl` element puts its scrollbar on the *left*,
+     which is where this panel's columns had it. The scroll container is
+     flipped to `ltr` to move the bar to the right and the direct children
+     are flipped back to `rtl`, so the text still reads correctly. This is
+     the only way to move a scrollbar: no property positions it directly.
+   * **Hidden until hover.** Firefox and WebKit have nothing in common here.
+     Firefox has `scrollbar-color`, which animates, so the thumb fades in.
+     WebKit has `::-webkit-scrollbar-thumb`, whose `background-color`
+     animates the same way. Both are declared; each browser ignores the
+     other's.
+   * **Touch.** A touch screen never hovers, so `@media (hover: none)` shows
+     the thumb permanently. Without that the bar would be permanently
+     invisible on a phone — worse than the default it replaced, not better.
+
+   `scrollbar-gutter: stable` keeps the track's width reserved whether the
+   thumb is showing or not, so content does not shift by the bar's width on
+   the first hover.
+
+   This replaces Metronic's own `hover-scroll-overlay-y` in these places.
+   That class is still fine where the vendor uses it; it simply puts the bar
+   on the wrong side for an RTL panel and has no touch fallback. */
+.dolphin-hover-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    direction: ltr;
+    scrollbar-gutter: stable;
+    /* Firefox. Both track and thumb transparent is "no visible scrollbar"
+       while the space stays reserved. */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s ease;
+}
+
+/* Only the direct children flip back: anything deeper inherits `rtl` from
+   them, and flipping every descendant would fight a nested `dir` attribute
+   that meant it. */
+.dolphin-hover-scroll > * {
+    direction: rtl;
+}
+
+.dolphin-hover-scroll:hover,
+.dolphin-hover-scroll:focus-within {
+    scrollbar-color: var(--bs-gray-400) transparent;
+}
+
+.dolphin-hover-scroll::-webkit-scrollbar {
+    width: 0.5rem;
+}
+
+.dolphin-hover-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.dolphin-hover-scroll::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+.dolphin-hover-scroll:hover::-webkit-scrollbar-thumb,
+.dolphin-hover-scroll:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--bs-gray-400);
+}
+
+.dolphin-hover-scroll:hover::-webkit-scrollbar-thumb:hover {
+    background-color: var(--bs-gray-500);
+}
+
+/* A touch screen has no hover to reveal it with. */
+@media (hover: none) {
+    .dolphin-hover-scroll {
+        scrollbar-color: var(--bs-gray-400) transparent;
+    }
+
+    .dolphin-hover-scroll::-webkit-scrollbar-thumb {
+        background-color: var(--bs-gray-400);
+    }
+}
+
+/* Somebody who has asked for less motion still gets the scrollbar; it just
+   appears rather than fading. */
+@media (prefers-reduced-motion: reduce) {
+    .dolphin-hover-scroll,
+    .dolphin-hover-scroll::-webkit-scrollbar-thumb {
+        transition: none;
+    }
+}
+
+/* 11. Calendar cells: separation, and room that grows with the events -------
+
+   Product owner, 2026-09-20: «جداسازی بصری خانه‌ها بهتر شود؛ خانه‌ها با پر
+   شدن از رویداد کشسان و منعطف باشند و ارتفاعشان با انیمیشن نرم تغییر کند».
+
+   FullCalendar's own grid draws a one-pixel line between cells and nothing
+   else, which at this theme's light grey is almost invisible — a month of
+   events reads as one field of colour rather than as thirty-one days. What
+   follows gives each day a surface of its own and lets that surface grow.
+
+   Height is deliberately *not* animated with a transition on `height`: the
+   grid's rows are laid out by FullCalendar in JavaScript and a transition
+   there fights it every time it recalculates. `min-height` is what changes
+   when a cell fills up, and that is what carries the easing — the cell
+   settles into its new size rather than snapping, and FullCalendar's own
+   measurement is untouched. */
+
+#lead-calendar .fc-daygrid-day-frame,
+#after-sales-calendar .fc-daygrid-day-frame {
+    /* Four whole-height event chips plus the day number, which is the point
+       at which a cell has enough in it to be worth growing for. */
+    min-height: 5.5rem;
+    padding: 0.25rem;
+    border-radius: 0.475rem;
+    background-color: var(--bs-body-bg);
+    transition: min-height 0.2s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* A cell with something in it sits slightly proud of the empty ones, so the
+   busy part of a month is visible before any of the text is read. */
+#lead-calendar .fc-daygrid-day-frame:has(.fc-daygrid-event),
+#after-sales-calendar .fc-daygrid-day-frame:has(.fc-daygrid-event) {
+    min-height: 7rem;
+    background-color: var(--bs-gray-100);
+    box-shadow: inset 0 0 0 1px var(--bs-gray-300);
+}
+
+#lead-calendar .fc-daygrid-day:hover .fc-daygrid-day-frame,
+#after-sales-calendar .fc-daygrid-day:hover .fc-daygrid-day-frame {
+    background-color: var(--bs-primary-light);
+}
+
+/* Today is the one cell that should be findable without reading. */
+#lead-calendar .fc-day-today .fc-daygrid-day-frame,
+#after-sales-calendar .fc-day-today .fc-daygrid-day-frame {
+    box-shadow: inset 0 0 0 2px var(--bs-primary);
+}
+
+/* FullCalendar paints `--fc-today-bg-color` across the whole cell, which
+   fights the surface above and, in dark mode, is a bright yellow wash. The
+   ring is the marker instead. */
+#lead-calendar .fc-day-today,
+#after-sales-calendar .fc-day-today {
+    background-color: transparent !important;
+}
+
+/* The gap between the day surfaces comes from the table cells, not from a
+   margin on the frames — a margin inside a table cell collapses oddly and
+   FullCalendar measures the cell, not the frame. */
+#lead-calendar .fc-daygrid-day,
+#after-sales-calendar .fc-daygrid-day {
+    padding: 2px;
+}
+
+#lead-calendar .fc-daygrid-day-number,
+#after-sales-calendar .fc-daygrid-day-number {
+    font-weight: 600;
+    padding: 0.1rem 0.3rem;
+}
+
+/* The weekday header row is the only label the week and day views now have
+   for their dates (the numbers inside the cells are gone), so it carries a
+   little more weight than FullCalendar gives it. */
+#lead-calendar .fc-col-header-cell,
+#after-sales-calendar .fc-col-header-cell {
+    background-color: var(--bs-gray-100);
+    border-radius: 0.475rem 0.475rem 0 0;
+    padding-block: 0.35rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #lead-calendar .fc-daygrid-day-frame,
+    #after-sales-calendar .fc-daygrid-day-frame {
+        transition: none;
+    }
 }

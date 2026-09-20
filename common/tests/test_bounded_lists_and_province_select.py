@@ -57,8 +57,13 @@ class KanbanColumnHeightTests(SimpleTestCase):
         self.assertNotIn("max-height: 37.5rem;", rule)
 
     def test_the_column_still_scrolls_internally_rather_than_growing_the_page(self):
+        """Restated 2026-09-20: the same 0.35rem gap, now expressed as a
+        physical `padding-right`. `.dolphin-hover-scroll` flips this element
+        to `direction: ltr` so the scrollbar sits on the right of an RTL
+        column, and the logical property would follow that flip and put the
+        gap on the left, away from the bar it exists to clear."""
         rule = _css_rule("#lead-board .kanban-drag,\n#order-board .kanban-drag {")
-        self.assertIn("padding-inline-end: 0.35rem;", rule)
+        self.assertIn("padding-right: 0.35rem;", rule)
 
 
 class PerformanceScopeTableTests(SimpleTestCase):

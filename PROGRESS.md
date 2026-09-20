@@ -36,17 +36,17 @@ usage limit can be resumed from here with no questions.
 ## Batches
 
 ### Batch A — `2.10.0` — boards, date picker, calendars
-- [ ] 1. Kanban: bigger three-dot (≥32×32, clear hover/focus), card body no
+- [x] 1. Kanban: bigger three-dot (≥32×32, clear hover/focus), card body no
       longer opens details, drag & drop still works
-- [ ] 1. Kanban: per-column scrollbar on the right, hidden until hover,
+- [x] 1. Kanban: per-column scrollbar on the right, hidden until hover,
       always usable on touch, WebKit + Firefox separately
-- [ ] 2. One shared date picker; time where it makes sense
-- [ ] 2. `<`/`<<` swapped with `>`/`>>` for RTL
-- [ ] 2. Month name → month grid; year → year grid + decade view
-- [ ] 2. Comfortable time selection, keyboard, 24h Persian
-- [ ] 3. Month view shows the whole Jalali month, 1 → 30/31
-- [ ] 3. Week/day: drop the numbers inside cells, keep the weekday row
-- [ ] 3. Better cell separation; cells stretch with content, animated
+- [x] 2. One shared date picker; time where it makes sense
+- [x] 2. `<`/`<<` swapped with `>`/`>>` for RTL
+- [x] 2. Month name → month grid; year → year grid + decade view
+- [x] 2. Comfortable time selection, keyboard, 24h Persian
+- [x] 3. Month view shows the whole Jalali month, 1 → 30/31
+- [x] 3. Week/day: drop the numbers inside cells, keep the weekday row
+- [x] 3. Better cell separation; cells stretch with content, animated
 
 ### Batch B — `2.11.0` — charts, dashboard
 - [ ] 4. One shared time filter (today / 7d / 30d / 3m / year / custom)
@@ -88,6 +88,33 @@ usage limit can be resumed from here with no questions.
 
 ## Status
 
-**Current batch:** A — not started
-**Next step:** item 1 (kanban card control and column scrollbar)
-**Files changed so far:** none
+**Current batch:** B — not started. Batch A is released as `2.10.0`
+(committed, not yet deployed; the deploy is the single one at the end).
+
+**Next step:** item 4 — the line charts. Start by reading the existing
+`renderLineChart`/`setupChartRangeFilter` neighbourhood in
+`common/static/common/dolphin-app.js` and §6 of `dolphin.css`, and list every
+page that draws one before changing any of them; the shared time filter has to
+be one component, not one per page.
+
+**Files changed in batch A:**
+- `common/static/common/dolphin.css` — §7 kanban card control and column
+  padding, §8 the rewritten picker's month/year/time CSS, new §10 the shared
+  hover scrollbar, new §11 calendar cells
+- `common/static/common/dolphin-app.js` — jKanban `click` removed on both
+  boards, `dolphin-hover-scroll` applied, `openJalaliPicker` rewritten,
+  `jalaliMonthRange`/`shiftJalaliMonth`/`JALALI_MONTH_VIEW`/
+  `jalaliCalendarButtons` added and used by both calendars
+- `common/templates/common/leads/list.html`, `leads/detail.html`,
+  `orders/list.html`, `orders/detail.html` — four scheduling fields moved to
+  `data-jalali="datetime"`
+- `common/tests/test_ui_overhaul_boards_dates.py` — new, 37 tests
+- `common/tests/test_board_cards_and_search.py`,
+  `test_bounded_lists_and_province_select.py`, `test_jalali_picker.py` — six
+  tests restated for the behaviour this batch deliberately changed
+- `VERSION` → `2.10.0`, `CHANGELOG.md`
+
+**Checks run:** 82 tests across the four affected modules — OK. Full suite
+before the restatements: 2293 tests, 6 failures (those six), 7 pre-existing
+Selenium errors. Browser-measured: 32.5×32.5 control, card body inert, dragula
+still bound, scrollbar on the right at 8px, a 31-day Mehr grid.

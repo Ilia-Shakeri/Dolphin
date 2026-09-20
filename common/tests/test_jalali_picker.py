@@ -141,14 +141,33 @@ class InteractionTests(SimpleTestCase):
         self.assertIn("renderDays();\n                    } else {\n                        close();", OPEN_PICKER_BODY)
 
     def test_a_datetime_field_offers_hour_and_minute_and_a_confirm_step(self):
-        self.assertIn('hourSelect.setAttribute("aria-label", "ساعت")', OPEN_PICKER_BODY)
-        self.assertIn('minuteSelect.setAttribute("aria-label", "دقیقه")', OPEN_PICKER_BODY)
+        """Restated 2026-09-20. The rule is word for word the one it always
+        was — an hour, a minute, each named for a screen reader, and an
+        explicit confirm — but the two `<select>`s that used to carry it are
+        now `timeUnit` steppers (product owner: «انتخاب ساعت روان و راحت
+        باشد»), so it is measured on the controls that carry it today."""
+        self.assertIn('timeUnit("ساعت", 23, 1, hour,', OPEN_PICKER_BODY)
+        self.assertIn('timeUnit("دقیقه", 59, 5, minute,', OPEN_PICKER_BODY)
+        self.assertIn('box.setAttribute("aria-label", label)', OPEN_PICKER_BODY)
         self.assertIn('confirmBtn.textContent = "تأیید"', OPEN_PICKER_BODY)
 
-    def test_the_exact_stored_minute_is_offered_even_off_the_five_minute_grid(self):
+    def test_the_exact_stored_minute_survives_the_five_minute_step(self):
         """Five-minute steps cover picking a new value; they must never
-        silently round away a minute the field already had."""
-        self.assertIn("new Set([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, minute])", OPEN_PICKER_BODY)
+        silently round away a minute the field already had.
+
+        Restated 2026-09-20: the option list that used to carry this
+        promise — a `Set` of the twelve five-minute marks *plus* whatever
+        the field held — went with the `<select>`. The stepper keeps it in
+        two places instead. It opens on `initial`, which is the stored
+        minute whatever it is, and a minute typed into the box is taken at
+        face value as long as it is in range; only the ＋/− buttons move in
+        fives."""
+        self.assertIn('timeUnit("دقیقه", 59, 5, minute,', OPEN_PICKER_BODY)
+        self.assertIn("let value = initial;", OPEN_PICKER_BODY)
+        self.assertIn(
+            "if (Number.isFinite(typed) && typed >= 0 && typed <= max) value = typed;",
+            OPEN_PICKER_BODY,
+        )
 
     def test_committing_dispatches_the_events_existing_listeners_expect(self):
         """`input`/`change` for anything already watching the field, `blur`
@@ -182,7 +201,12 @@ class StylingTests(SimpleTestCase):
         for day_class in ("btn-primary", "btn-active-light-primary", "btn-color-gray-700"):
             with self.subTest(day_class=day_class):
                 self.assertIn(day_class, OPEN_PICKER_BODY)
-        self.assertNotIn("#", CSS.split(".jalali-picker {")[1].split(".jalali-picker-time select {")[0])
+        # Scoped to §8 of the sheet rather than to a rule that happened to
+        # sit at its end: `.jalali-picker-time select` was the old time
+        # row's selector and went with the `<select>`s on 2026-09-20, after
+        # which this slice silently ran to the bottom of the file.
+        section = CSS.split("/* 8. Jalali")[1].split("/* 9. Dashboard")[0]
+        self.assertNotIn("#", section)
 
     def test_day_cells_override_only_size_keeping_the_themes_own_button_states(self):
         """`.btn.btn-icon` alone sizes to `calc(1.5em + 1.55rem + 2px)` —
