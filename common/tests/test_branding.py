@@ -392,14 +392,27 @@ class SettingsPageAccessTests(BrandingFixtures):
             response = self.client.get("/branding/")
         self.assertEqual(response.status_code, 404)
 
-    def test_the_nav_link_only_shows_for_a_platform_admin_with_the_feature_on(self):
+    def test_the_link_only_shows_for_a_platform_admin_with_the_feature_on(self):
+        """Restated 2026-09-20. The link left the sidebar for the settings
+        page and is called «شخصی‌سازی پنل» there (product owner: «برند و لوگو
+        پنل را از جای فعلی بردار و داخل تنظیمات ادمین با عنوان شخصی‌سازی پنل
+        بگذار»). The rule is unchanged and is the point of the test — who may
+        see it, and with which feature on — so it is measured where the link
+        now lives."""
         self.client.force_login(self.admin)
-        with_feature = self.client.get("/")
-        self.assertContains(with_feature, "برند و لوگوی پنل", status_code=200)
+        with_feature = self.client.get("/settings/")
+        self.assertContains(with_feature, "شخصی‌سازی پنل", status_code=200)
         with override_active_profile(without_custom_branding()):
-            without_feature = self.client.get("/")
-        self.assertNotContains(without_feature, "برند و لوگوی پنل", status_code=200)
+            without_feature = self.client.get("/settings/")
+        self.assertNotContains(without_feature, "شخصی‌سازی پنل", status_code=200)
 
         self.client.force_login(self.agent)
-        agent_view = self.client.get("/")
-        self.assertNotContains(agent_view, "برند و لوگوی پنل", status_code=200)
+        agent_view = self.client.get("/settings/")
+        self.assertNotContains(agent_view, "شخصی‌سازی پنل", status_code=200)
+
+    def test_the_sidebar_no_longer_carries_it(self):
+        """Where it used to be. A link in two places is a link that goes
+        stale in one of them."""
+        self.client.force_login(self.admin)
+        page = self.client.get("/").content.decode("utf-8")
+        self.assertNotIn("برند و لوگوی پنل", page)

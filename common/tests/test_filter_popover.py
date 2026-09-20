@@ -282,17 +282,33 @@ class InteractionTests(SimpleTestCase):
     body = _function_body("setupListFilterPopovers")
 
     def test_it_opens_and_closes_like_the_other_header_dropdowns(self):
-        """The same hand-rolled `.show` toggle as the bell/search/user menu —
-        not `data-kt-menu-trigger`, which needs Popper (not loaded here)."""
-        self.assertIn('panel.classList.toggle("show", open)', self.body)
+        """Restated 2026-09-20: it does not merely *resemble* them any more,
+        it is the same code. This panel and the bell, the search and the user
+        menu each carried their own copy of one open/close behaviour, and
+        none knew about the others — which is how the reminder panel stayed
+        open underneath the search panel (product owner: «منوی جدید نباید زیر
+        منوی قبلی باز شود»). All four go through `registerPopover` now, so
+        the rule this asserts is measured there and what is left here is that
+        this panel really does register.
+
+        Still not `data-kt-menu-trigger`: that needs Popper, which this build
+        does not load."""
+        self.assertIn("registerPopover({", self.body)
         self.assertNotIn("data-kt-menu-trigger", self.body)
 
     def test_escape_closes_it_and_returns_focus(self):
-        self.assertIn('event.key === "Escape"', self.body)
-        self.assertIn("toggle.focus();", self.body)
+        """Measured on the shared behaviour, which is the only copy of it."""
+        shared = _function_body("setupPopoverDismissal")
+        self.assertIn('event.key !== "Escape"', shared)
+        self.assertIn("entry.toggle.focus();", shared)
+
+    def test_opening_another_panel_closes_this_one(self):
+        """The rule that did not exist before there was a registry."""
+        shared = _function_body("registerPopover")
+        self.assertIn("if (open) closeOtherPopovers(entry);", shared)
 
     def test_a_successful_apply_closes_the_popover(self):
-        self.assertIn('form.addEventListener("submit", () => setOpen(false));', self.body)
+        self.assertIn('form.addEventListener("submit", () => popover.close());', self.body)
 
     def test_reset_reloads_the_list_after_the_browser_clears_the_fields(self):
         """Native `reset` only restores field values; nothing re-asks for the

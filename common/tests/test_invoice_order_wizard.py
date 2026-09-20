@@ -134,7 +134,9 @@ class ScriptBehaviourTests(SimpleTestCase):
         orders_body_start = SCRIPT.index("async function setupOrders()")
         orders_body = SCRIPT[orders_body_start:SCRIPT.index("async function setupInvoices()")]
         self.assertIn("items: lines.collect()", orders_body)
-        self.assertIn("createLineItemRows(lineHost, products)", orders_body)
+        # The builder now also takes an `onChange`, so the summary under the
+        # rows can be redrawn — 2026-09-20, item 6.
+        self.assertIn("createLineItemRows(lineHost, products, {onChange", orders_body)
 
     def test_reopening_a_wizard_resets_the_form_the_lines_and_the_step(self):
         for fn_name, end_marker in (

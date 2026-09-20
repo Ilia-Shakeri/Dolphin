@@ -100,16 +100,34 @@
             <div data-kt-stepper-element="content" class="wizard-lines-step">
                 <h3 class="fs-4 fw-bold text-gray-900 mb-2">اقلام سفارش</h3>
                 <p class="text-muted fs-7 mb-6">کالا را جست‌وجو کنید و تعدادش را بگذارید. هر سطر یک قلم است؛ سطرهای بیشتر را پس از ثبت هم می‌شود از صفحهٔ جزئیات اضافه کرد.</p>
-                {% comment %} سرستون یک‌بار بالای سطرها، نه تکرار برچسب روی تک‌تک
-                   ردیف‌ها — همان کاری که مرجع repeater خود مترونیک می‌کند. {% endcomment %}
-                <div class="wizard-lines-head d-flex flex-wrap gap-5 fs-8 fw-semibold text-muted text-uppercase mb-3">
-                    <span class="flex-grow-1">کالا</span>
-                    <span class="w-100px">تعداد</span>
+                {% comment %} یک سرستون بالای همهٔ ردیف‌ها، نه برچسب روی تک‌تکشان —
+                   همان کاری که مرجع repeater خود مترونیک می‌کند. ستون‌ها با
+                   `.wizard-line-row` یک شبکهٔ مشترک‌اند، پس سرستون و ردیف
+                   هرگز از هم جدا نمی‌افتند. در موبایل سرستون کنار می‌رود و هر
+                   سلول برچسب خودش را می‌گیرد. {% endcomment %}
+                <div class="wizard-lines-head">
+                    <span>کالا</span>
+                    <span class="text-end">قیمت واحد</span>
+                    <span class="text-center">تعداد</span>
+                    <span class="text-end">جمع ردیف</span>
                     <span class="wizard-lines-head-spacer" aria-hidden="true"></span>
                 </div>
-                <div id="create-order-lines" class="d-flex flex-column mb-6"></div>
+                <div id="create-order-lines" class="wizard-lines mb-6"></div>
                 <button class="btn btn-light-primary" type="button" id="create-order-add-line"><i class="ki-duotone ki-plus fs-3 me-1"></i>افزودن کالا</button>
                 <p class="text-danger fs-8 mt-3 mb-0" data-error-for="items"></p>
+                <p class="alert alert-danger fs-7 mt-4 mb-0" data-step-error role="alert" hidden></p>
+
+                {% comment %} فقط جمع اقلام، نه مالیات و تخفیف: این فرم عمداً نرخ
+                   مالیات نمی‌پرسد (کامنت مرحلهٔ اول) و `createFields` سفارش هم
+                   چیزی جز اقلام نمی‌فرستد. نمایش «مبلغ نهایی» اینجا یعنی ادعای
+                   عددی که این فرم تعیینش نمی‌کند. {% endcomment %}
+                <div class="wizard-totals" id="create-order-totals">
+                    <div class="wizard-totals-row wizard-totals-grand">
+                        <span class="wizard-totals-label">جمع اقلام <span class="text-muted fs-8">(<span data-total="count">۰</span> قلم)</span></span>
+                        <span class="wizard-totals-value" data-total="gross">—</span>
+                    </div>
+                    <p class="text-muted fs-8 mt-2 mb-0">مالیات و تخفیف سفارش پس از ثبت، هنگام صدور فاکتور تعیین می‌شود.</p>
+                </div>
             </div>
             <div data-kt-stepper-element="content">
                 <div class="w-100">

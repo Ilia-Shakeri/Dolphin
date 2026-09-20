@@ -309,14 +309,14 @@
                                 <div class="menu-item px-5">
                                     <button id="open-sessions" class="menu-link px-5 w-100 text-end border-0 bg-transparent" type="button">نشست‌های فعال</button>
                                 </div>
-{% comment %} «تنظیمات» belongs here, not in the sidebar's administration
-   accordion, for the same reason the profile and the active sessions do: it
-   is the account owner's own, every role has one, and the sidebar is for the
-   business modules. The deployment-wide sections *inside* that page keep
-   their own role gates. {% endcomment %}
-                                <div class="menu-item px-5">
-                                    <a id="open-settings" data-module="settings" class="menu-link px-5" href="{% url 'common_ui:settings' %}">تنظیمات</a>
-                                </div>
+{% comment %} «تنظیمات» used to sit here. The product owner moved it to the end
+   of the sidebar on 2026-09-20 («دکمهٔ تنظیمات را از مودال کاربر بیرون بیاور
+   و به انتهای منوی نوار کناری ببر»): it is a whole page with several sections
+   — display, dashboard layout, backups, deployment settings — and a page
+   belongs in the navigation, not in the account dropdown beside a sign-out
+   button. What stays here is what really is only the account owner's own and
+   opens in place: the profile dialog, their own performance, and their active
+   sessions. {% endcomment %}
                                 <div class="separator my-2"></div>
 {% comment %} The three modes live inside the user menu rather than behind their own
    navbar button. The theme puts them in a nested dropdown, which KTMenu
@@ -678,10 +678,14 @@
                                 </div>
                                 {% endif %}
 
-                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_sms_provider %}
+                                {% comment %} `can_manage_branding` left both gates on 2026-09-20: it no
+   longer opens anything in this accordion, so a reader who holds only that
+   capability would otherwise see an empty «مدیریت» heading over an
+   accordion with nothing in it. {% endcomment %}
+                                {% if can_view_audit or can_manage_users or can_manage_sms_provider %}
                                 <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">مدیریت</div></div>
                                 {% endif %}
-                                {% if can_view_audit or can_manage_users or can_manage_branding or can_manage_sms_provider %}
+                                {% if can_view_audit or can_manage_users or can_manage_sms_provider %}
                                 <div data-kt-menu-trigger="click" data-nav-group="administration"{% if is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-setting-2 fs-2"><span class="path1"></span><span class="path2"></span></i></span>
@@ -691,11 +695,27 @@
                                     <div class="menu-sub menu-sub-accordion">
                                         {% if can_view_audit %}<div class="menu-item"><a data-module="audit" class="menu-link" href="{% url 'common_ui:activity-logs' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">رویدادهای سامانه</span></a></div>{% endif %}
                                         {% if can_manage_users %}<div class="menu-item"><a data-module="users" class="menu-link" href="{% url 'common_ui:users' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{{ user_admin_label }}</span></a></div>{% endif %}
-                                        {% if can_manage_branding %}<div class="menu-item"><a data-module="branding-settings" class="menu-link" href="{% url 'common_ui:branding-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">برند و لوگوی پنل</span></a></div>{% endif %}
+{% comment %} «برند و لوگوی پنل» used to be a sidebar entry here. It is
+   reached from «تنظیمات» → «شخصی‌سازی پنل» since 2026-09-20 (product owner:
+   «برند و لوگو پنل را از جای فعلی بردار و داخل تنظیمات ادمین با عنوان
+   شخصی‌سازی پنل بگذار»). `can_manage_branding` still gates it in exactly the
+   same places: the card in the settings page, the view, and the API. {% endcomment %}
                                         {% if can_manage_sms_provider %}<div class="menu-item"><a data-module="sms-provider-settings" class="menu-link" href="{% url 'common_ui:sms-provider-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تنظیمات سامانهٔ پیامک</span></a></div>{% endif %}
                                     </div>
                                 </div>
                                 {% endif %}
+
+{% comment %} «تنظیمات» — last in the sidebar, below every business module,
+   where a settings entry sits in the purchased theme's own demos. No role
+   gate: every reader has display preferences of their own. The
+   deployment-wide sections *inside* that page keep their own gates, which is
+   what «شخصی‌سازی پنل» is now reached through. {% endcomment %}
+                                <div class="menu-item">
+                                    <a id="open-settings" data-module="settings" class="menu-link" href="{% url 'common_ui:settings' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-setting-3 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i></span>
+                                        <span class="menu-title">تنظیمات</span>
+                                    </a>
+                                </div>
 
                                 {% comment %} No profile entry here: the account owner's own controls —
                                    profile, active sessions, sign out — live in the header user

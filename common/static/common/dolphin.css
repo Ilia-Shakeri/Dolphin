@@ -2153,6 +2153,55 @@ dialog {
    A hairline rule between rows rather than a card around each: a boxed row per
    line reads as four heavy objects stacked, which is the opposite of what was
    asked for. */
+/* The step itself is a column.
+
+   The theme lays every `[data-kt-stepper-element="content"].current` out as
+   `display: flex` with the default `row` direction, which is right for the
+   steps that hold a single `.row` and wrong for this one: measured live at
+   375px, its heading came out 34px wide, its intro paragraph 45px and the
+   line container 23px, because all eight children were sharing one flex row.
+   It looked survivable on a wide screen only because the widest child still
+   had room. This is what «فاصله‌گذاری حرفه‌ای» was pointing at, and one
+   declaration is the whole fix.
+
+   Scoped to this class, which only the two wizards' line steps carry. */
+.wizard-lines-step {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* A line editor needs more room than a two-field form. The shared `dialog`
+   rule caps every dialog at 44rem, which left the five columns sharing 472px
+   at 1536px wide — they fit, but «قیمت واحد» and «جمع ردیف» each had barely
+   enough for one grouped rial figure. A wizard that carries a line step gets
+   58rem, still bounded and still `100% - 2rem` on anything narrower. */
+dialog:has(.wizard-lines-step) {
+    width: min(calc(100% - 2rem), 58rem);
+}
+
+/* One grid, declared once and used by both the header row and every line
+   under it, so a column and its label can never drift apart. The tracks are:
+   the product picker (everything left over), the unit price, the quantity
+   box, the line total, and the delete button.
+
+   Rewritten 2026-09-20 from a wrapping flex row. Flex wrapping decided for
+   itself which control went to a second line and at what width, so the one
+   header above the rows named columns that were no longer beneath it — which
+   is most of what «اندازهٔ مناسب فیلدها و ستون‌ها» and «ترازبندی اعداد» were
+   asking about. */
+.wizard-lines-step .wizard-lines-head,
+.wizard-line-row {
+    display: grid;
+    /* The last track is the delete button's own size, measured rather than
+       assumed: `btn-sm btn-icon` computes to 34.8px here, which is 2.675rem
+       at this theme's 13px root. At the 2.25rem it was first written as, the
+       button overflowed its track by five pixels and the header spacer above
+       it named a column narrower than the one below. */
+    grid-template-columns: minmax(0, 1fr) 8.5rem 6rem 9rem 2.675rem;
+    align-items: center;
+    gap: 0.75rem 1rem;
+}
+
 .wizard-line-row {
     padding-block: 0.9rem;
     border-bottom: 1px dashed var(--bs-gray-300);
@@ -2164,24 +2213,176 @@ dialog {
 }
 
 .wizard-lines-step .wizard-lines-head {
+    margin-bottom: 0.75rem;
     padding-bottom: 0.65rem;
     border-bottom: 1px solid var(--bs-gray-300);
     letter-spacing: 0.04em;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--bs-text-muted);
 }
 
-/* Reserves exactly the width the delete button occupies in each row below, so
-   the two visible labels sit over the columns they name instead of drifting
-   one control to the side. `btn-sm btn-icon` is 2.25rem in this theme. */
+/* The two money cells. Right-aligned and tabular so digits line up down the
+   column: a price of «۱٬۲۰۰٬۰۰۰ ریال» above one of «۹۵٬۰۰۰ ریال» is only
+   comparable at a glance when the last digits sit under each other, which
+   proportional figures never manage. */
+.wizard-line-price,
+.wizard-line-total {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.wizard-line-price {
+    color: var(--bs-gray-700);
+}
+
+.wizard-line-total {
+    font-weight: 600;
+    color: var(--bs-gray-900);
+}
+
+/* Centred in its own track rather than given a hard width: the track is the
+   width, and one number per row reads better centred under a centred label. */
+.wizard-line-quantity {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Fills the whole of the track the delete button sits in, so the header and
+   the rows resolve identical tracks rather than the header's last one
+   collapsing to an empty span's zero width. */
 .wizard-lines-step .wizard-lines-head-spacer {
-    width: 2.25rem;
+    width: 100%;
 }
 
-/* The head labels only make sense while the row is still one line. Below the
-   theme's own `md` breakpoint the row wraps and every control goes full
-   width, so the labels would name the wrong things. */
+/* --- the running summary ---------------------------------------------------
+
+   A label, optionally a percent box, and a figure — the shape of every
+   invoice summary in the purchased theme's own invoice pages. Right-aligned
+   as a block so it sits under the line totals it adds up, which is where a
+   reader's eye already is. */
+.wizard-totals {
+    margin-top: 1.5rem;
+    margin-inline-start: auto;
+    max-inline-size: 26rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 0.625rem;
+    background-color: var(--bs-gray-100);
+}
+
+.wizard-totals-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6.5rem 9rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding-block: 0.4rem;
+}
+
+.wizard-totals-label {
+    grid-column: 1;
+    margin-bottom: 0;
+    color: var(--bs-gray-700);
+    font-weight: 500;
+}
+
+.wizard-totals-input {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.wizard-totals-input input {
+    inline-size: 100%;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.wizard-totals-unit {
+    flex: 0 0 auto;
+    color: var(--bs-text-muted);
+}
+
+/* Always the third track, whether or not the row has a percent box, so every
+   figure in the summary lines up down one edge. */
+.wizard-totals-value {
+    grid-column: 3;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.wizard-totals-grand {
+    margin-top: 0.4rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--bs-gray-300);
+}
+
+.wizard-totals-grand .wizard-totals-label,
+.wizard-totals-grand .wizard-totals-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--bs-gray-900);
+}
+
+/* --- phones ----------------------------------------------------------------
+
+   Below the theme's own `md`, a five-track row does not fit and a header over
+   it names nothing. Each row becomes its own small card, every cell carries
+   the label the header used to give it, and the money cells stay right-
+   aligned against their own labels — which is what makes them still readable
+   as a column even when there is only one per screen. */
 @media (max-width: 767.98px) {
     .wizard-lines-step .wizard-lines-head {
         display: none !important;
+    }
+
+    .wizard-line-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.5rem;
+        padding: 0.9rem;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--bs-gray-300);
+        border-radius: 0.625rem;
+    }
+
+    .wizard-line-price,
+    .wizard-line-quantity,
+    .wizard-line-total {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .wizard-line-price::before,
+    .wizard-line-total::before {
+        content: attr(data-label);
+        color: var(--bs-text-muted);
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    /* An input cannot carry a `::before`, so its label is a sibling the row
+       builder does not have to create: the row itself draws it. */
+    .wizard-line-row .wizard-line-quantity {
+        text-align: center;
+    }
+
+    .wizard-line-remove {
+        justify-self: end;
+    }
+
+    .wizard-totals {
+        max-inline-size: none;
+        padding: 1rem;
+    }
+
+    .wizard-totals-row {
+        grid-template-columns: minmax(0, 1fr) 5rem 7.5rem;
+        gap: 0.5rem;
     }
 }
 

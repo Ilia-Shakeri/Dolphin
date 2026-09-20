@@ -429,17 +429,26 @@ class SettingsPageTests(PreferenceFixtures):
     def test_an_ordinary_user_is_not_offered_the_deployment_wide_sections(self):
         page = self.page(self.agent).content.decode("utf-8")
         self.assertNotIn("تنظیمات استقرار", page)
-        self.assertNotIn("برند، رنگ و لوگوی پنل", page)
+        self.assertNotIn("شخصی‌سازی پنل", page)
 
     def test_a_platform_admin_is(self):
+        """Restated 2026-09-20 for the name only: «برند، رنگ و لوگوی پنل»
+        became «شخصی‌سازی پنل» when the sidebar entry was folded into this
+        card. Same card, same gate, same link."""
         page = self.page(self.admin).content.decode("utf-8")
         self.assertIn("تنظیمات استقرار", page)
-        self.assertIn("برند، رنگ و لوگوی پنل", page)
+        self.assertIn("شخصی‌سازی پنل", page)
 
-    def test_it_is_reachable_from_the_account_menu_on_every_page(self):
+    def test_it_is_reachable_from_the_sidebar_on_every_page(self):
+        """Restated 2026-09-20: the entry moved out of the account dropdown
+        to the end of the sidebar («دکمهٔ تنظیمات را از مودال کاربر بیرون
+        بیاور و به انتهای منوی نوار کناری ببر»). The rule — reachable from
+        anywhere, by every role — is the same one."""
         self.client.force_login(self.agent)
         page = self.client.get("/").content.decode("utf-8")
         self.assertIn('id="open-settings"', page)
+        sidebar = page.split('id="app-sidebar"')[1]
+        self.assertIn('id="open-settings"', sidebar)
         self.assertIn('href="/settings/"', page)
 
     def test_the_page_module_is_wired(self):

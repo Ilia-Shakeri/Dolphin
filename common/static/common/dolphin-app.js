@@ -256,49 +256,148 @@
         });
     }
 
+    /* --- the shared popover -------------------------------------------------
+
+       One open/close behaviour for every panel in this shell that hangs off a
+       button: the header user menu, global search, the reminder bell and each
+       list card's own filter panel.
+
+       All four already behaved *almost* the same, because each was written by
+       copying the one before it — four `setOpen`s, four document-level click
+       listeners and four document-level keydown listeners, differing in small
+       ways nobody intended (search closed on `event.target !== toggle`, the
+       filter panel also checked `toggle.contains(event.target)`, so a click on
+       the icon *inside* the search button closed the menu it had just opened).
+
+       And none of them knew about the others. The product owner hit the
+       consequence directly: «وقتی منوی یادآورها باز است و روی جست‌وجو کلیک
+       می‌کنیم، منوی جدید نباید زیر منوی قبلی باز شود — قبلی باید بسته شود»
+       (2026-09-20). One registry fixes that by construction — opening any
+       popover closes whichever other one is open, because they all go through
+       here.
+
+       Two document listeners in total rather than two per popover, for the
+       same reason: the outside-click rule is one rule about the page, not a
+       rule each panel owns a copy of. */
+
+    //: Every registered popover, in registration order. Small and stable —
+    //: three from the shell plus one per list card — so a plain array is the
+    //: right shape and the iteration cost is nothing.
+    const openablePopovers = [];
+
+    /**
+     * Register one button/panel pair.
+     *
+     * A panel is shown by adding the theme's own `show` class, or — with
+     * `useHidden` — by clearing the `hidden` attribute. Two mechanisms
+     * because the shell genuinely has two: the three topbar menus are the
+     * theme's dropdowns and are styled off `.show`, while a list card's
+     * filter panel is ordinary markup that was never given a `.show` rule.
+     * Converting the second to the first is a visual change this item did
+     * not ask for, so the component knows about both rather than the page
+     * keeping its own copy of the behaviour.
+     *
+     * `onOpen`/`onClose` are optional — the search box focuses its input,
+     * the bell fetches its list.
+     *
+     * Returns `{open, close, flip, isOpen}` for the callers that close the
+     * panel themselves, such as a filter form on submit.
+     */
+    function registerPopover({toggle, panel, onOpen, onClose, useHidden = false}) {
+        if (!toggle || !panel) return null;
+
+        const isOpen = useHidden
+            ? () => !panel.hidden
+            : () => panel.classList.contains("show");
+
+        const entry = {
+            toggle,
+            panel,
+            isOpen,
+            open: () => setOpen(true),
+            close: () => setOpen(false),
+            flip: () => setOpen(!isOpen()),
+        };
+
+        function setOpen(open) {
+            if (open) closeOtherPopovers(entry);
+            if (useHidden) panel.hidden = !open;
+            else panel.classList.toggle("show", open);
+            toggle.setAttribute("aria-expanded", String(open));
+            if (open) { if (onOpen) onOpen(); }
+            else if (onClose) onClose();
+        }
+
+        toggle.addEventListener("click", (event) => {
+            event.stopPropagation();
+            entry.flip();
+        });
+        openablePopovers.push(entry);
+        return entry;
+    }
+
+    /** Close every open popover except `keep`. */
+    function closeOtherPopovers(keep) {
+        openablePopovers.forEach((entry) => {
+            if (entry !== keep && entry.isOpen()) entry.close();
+        });
+    }
+
+    /**
+     * The two page-level rules, bound once for all of them.
+     *
+     * A click counts as "inside" when it lands in the panel *or* anywhere in
+     * the button, icon and badge included — the bug the four copies disagreed
+     * about was exactly this: three of them compared `event.target !== toggle`,
+     * which is false for the `<i>` inside the toggle, so clicking the glyph
+     * rather than the button's padding closed the menu the same click was
+     * opening.
+     */
+    function setupPopoverDismissal() {
+        document.addEventListener("click", (event) => {
+            openablePopovers.forEach((entry) => {
+                if (!entry.isOpen()) return;
+                if (entry.panel.contains(event.target)) return;
+                if (entry.toggle.contains(event.target)) return;
+                entry.close();
+            });
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key !== "Escape") return;
+            const open = openablePopovers.filter((entry) => entry.isOpen());
+            if (!open.length) return;
+            // Focus goes back to the button that opened it, which is where a
+            // keyboard reader was before the panel took over.
+            open.forEach((entry) => { entry.close(); entry.toggle.focus(); });
+        });
+    }
+
     /**
      * Open and close the header user menu.
      *
      * The theme owns how the panel looks and its `.show` rule; KTMenu would
      * normally toggle that class and position the panel with Popper, which
      * lives in the plugins bundle this deployment does not load. Toggling the
-     * class here is the whole of what was missing — placement is two CSS lines
-     * in dolphin.css.
+     * class is the whole of what was missing — placement is two CSS lines in
+     * dolphin.css — and `registerPopover` above is what does it now, for this
+     * menu and for every other panel in the shell.
      */
     function setupUserMenu() {
-        const toggle = document.getElementById("user-menu-toggle");
-        const menu = document.getElementById("user-menu");
-        if (!toggle || !menu) return;
-
-        const setOpen = (open) => {
-            menu.classList.toggle("show", open);
-            toggle.setAttribute("aria-expanded", String(open));
-        };
-
-        toggle.addEventListener("click", (event) => {
-            event.stopPropagation();
-            setOpen(!menu.classList.contains("show"));
-        });
-        // A menu that stays open after the pointer moves on is a menu in the
-        // way, so anywhere outside it closes it, and Escape returns focus.
-        document.addEventListener("click", (event) => {
-            if (!menu.contains(event.target)) setOpen(false);
-        });
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && menu.classList.contains("show")) {
-                setOpen(false);
-                toggle.focus();
-            }
+        registerPopover({
+            toggle: document.getElementById("user-menu-toggle"),
+            panel: document.getElementById("user-menu"),
         });
     }
 
     /**
-     * A list card's own "فیلتر" panel — same open/close shape as
-     * `setupUserMenu` right above (manual `[hidden]` toggle, close on an
-     * outside click or Escape, placement in CSS) for the same reason: no
-     * Popper in this build. `toggle` carries `aria-expanded`; `.list-filter-
-     * toggle[aria-expanded="true"]` in dolphin.css gives it the pressed look
-     * KTMenu's own `.show` would have.
+     * A list card's own "فیلتر" panel.
+     *
+     * `registerPopover` like every other panel in the shell, in its
+     * `useHidden` mode: this one is plain markup toggled with the `hidden`
+     * attribute rather than one of the theme's `.show`-styled dropdowns.
+     * `toggle` carries `aria-expanded`, and
+     * `.list-filter-toggle[aria-expanded="true"]` in dolphin.css gives it the
+     * pressed look KTMenu's own `.show` would have.
      *
      * The panel's own form still submits normally (`setupPagedList`'s own
      * `form.addEventListener("submit", ...)` above) — only the search box
@@ -307,31 +406,16 @@
      * a date window) a reader is still composing keystroke by keystroke.
      */
     function setupListFilter(key) {
-        const toggle = document.getElementById(`${key}-filter-toggle`);
-        const panel = document.getElementById(`${key}-filter-panel`);
-        if (!toggle || !panel) return;
-
-        const setOpen = (open) => {
-            panel.hidden = !open;
-            toggle.setAttribute("aria-expanded", String(open));
-        };
-
-        toggle.addEventListener("click", (event) => {
-            event.stopPropagation();
-            setOpen(panel.hidden);
+        const popover = registerPopover({
+            toggle: document.getElementById(`${key}-filter-toggle`),
+            panel: document.getElementById(`${key}-filter-panel`),
+            useHidden: true,
         });
-        document.addEventListener("click", (event) => {
-            if (!panel.hidden && !panel.contains(event.target) && event.target !== toggle) setOpen(false);
-        });
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && !panel.hidden) {
-                setOpen(false);
-                toggle.focus();
-            }
-        });
+        if (!popover) return;
         // Applying a filter closes the panel — the reader chose one, no
         // reason to keep it open over the now-refreshed list.
-        panel.querySelector("form")?.addEventListener("submit", () => setOpen(false));
+        popover.panel.querySelector("form")
+            ?.addEventListener("submit", () => popover.close());
     }
 
     /**
@@ -9765,7 +9849,7 @@
      * the existing `setupDocumentList` submit handler needs no change at
      * all: the wizard only decides which step is visible.
      */
-    function setupWizard(dialog, {onReachLastStep} = {}) {
+    function setupWizard(dialog, {onReachLastStep, validateStep} = {}) {
         const root = dialog?.querySelector(".stepper");
         if (!root) return null;
         const stepper = new KTStepper(root);
@@ -9792,7 +9876,8 @@
         if (form && summary) wizardsByForm.set(form, {stepOf, stepTitle, summary});
 
         stepper.on("kt.stepper.next", () => {
-            const invalid = contentOf(stepper.getCurrentStepIndex())?.querySelector(":invalid");
+            const current = stepper.getCurrentStepIndex();
+            const invalid = contentOf(current)?.querySelector(":invalid");
             if (invalid) {
                 // Both, not one: the browser's own bubble says what is wrong
                 // right where the cursor is about to land, and the sentence
@@ -9806,6 +9891,23 @@
                 invalid.focus?.();
                 return;
             }
+            // Everything the markup itself cannot say: a product chosen on
+            // two rows, more rows than the server will accept. `validateStep`
+            // returns a sentence to refuse with, or nothing to allow.
+            const complaint = validateStep?.(current, contentOf(current));
+            if (complaint) {
+                const slot = contentOf(current)?.querySelector("[data-step-error]");
+                if (slot) {
+                    slot.textContent = complaint;
+                    slot.hidden = false;
+                    slot.scrollIntoView({block: "nearest"});
+                }
+                return;
+            }
+            contentOf(current)?.querySelectorAll("[data-step-error]").forEach((slot) => {
+                slot.textContent = "";
+                slot.hidden = true;
+            });
             stepper.goNext();
             dialog.scrollTop = 0;
             if (stepper.getCurrentStepIndex() === totalSteps) onReachLastStep?.();
@@ -9956,23 +10058,44 @@
     }
 
     /**
-     * One dynamic "product + quantity" row, shared by the invoice and order
-     * creation wizards. `host` is the container the rows live in; `products`
-     * is the shared catalogue list the caller has already fetched once.
+     * One dynamic line of a document, shared by the invoice and order
+     * creation wizards.
+     *
+     * Until 2.12.0 a line was a product picker, a quantity box and a delete
+     * button, and that was all a reader saw until the review step: no price,
+     * no line total, and no idea what the document would come to. The product
+     * owner asked for this step to be redone — «فاصله‌گذاری حرفه‌ای، اندازهٔ
+     * مناسب فیلدها و ستون‌ها، ترازبندی اعداد، رفتار درست در موبایل، اعتبارسنجی
+     * و پیام خطای واضح» (2026-09-20) — and the numbers to align are the ones
+     * that were missing.
+     *
+     * `host` is the container the rows live in; `products` is the shared
+     * catalogue the caller already fetched once, whose rows carry
+     * `current_price`. `onChange` fires whenever anything that affects a
+     * total changes, so the caller can redraw its summary.
+     *
+     * The price is shown, not edited. The API accepts a per-line
+     * `unit_price`, but the wizard has never sent one and the server uses the
+     * product's own current price — showing an editable box here would offer
+     * an override this form does not actually make.
      */
-    function createLineItemRows(host, products) {
+    function createLineItemRows(host, products, {onChange} = {}) {
+        const byId = new Map(products.map((item) => [Number(item.id), item]));
+        const notify = () => { if (onChange) onChange(); };
+
         function addLine() {
             if (!host) return;
             const row = document.createElement("div");
-            // `gap-5` and the row's own separator are the purchased theme's own
-            // repeater spacing (its ecommerce catalog add-product page,
-            // `data-repeater-item`), not a number picked here — product-owner
-            // decision 2026-09-09 asked this step to breathe more.
-            row.className = "d-flex flex-wrap align-items-center gap-5 wizard-line-row";
+            // A grid, not a wrapping flex row. Flex wrapping put each control
+            // on its own line at an unpredictable width, so the single header
+            // above the rows named columns that were no longer under it; the
+            // grid keeps the same five tracks on every row and collapses to
+            // one labelled column on a phone (see `.wizard-line-row` in §7a).
+            row.className = "wizard-line-row";
             row.dataset.lineRow = "";
 
             const picker = document.createElement("div");
-            picker.className = "searchable-select flex-grow-1";
+            picker.className = "searchable-select wizard-line-product";
             picker.setAttribute("data-searchable-select", "");
             const search = document.createElement("input");
             search.className = "form-control form-control-solid";
@@ -9988,6 +10111,10 @@
             select.dataset.lineProduct = "";
             select.setAttribute("data-searchable-source", "");
             select.setAttribute("aria-label", "کالا");
+            // Required, so the wizard's own `:invalid` gate refuses to leave
+            // this step with an empty row and the browser says why, in the
+            // reader's own language, without a second rule written here.
+            select.required = true;
             fillSelect(select, products, (item) => `${item.name} (${item.sku})`, "یک کالا انتخاب کنید");
             const options = document.createElement("ul");
             options.className = "searchable-select-options";
@@ -9995,23 +10122,36 @@
             options.hidden = true;
             picker.append(search, select, options);
 
+            const price = document.createElement("div");
+            price.className = "wizard-line-price";
+            price.dataset.linePrice = "";
+            // On a phone the header row is gone and each cell carries its own
+            // label through `::before` (see the `md` block in §7a).
+            price.dataset.label = "قیمت واحد";
+
             const quantity = document.createElement("input");
-            // A fixed narrow column rather than `w-auto`: every row's quantity
-            // then lines up under the next, which `w-auto` (sized to the
-            // number typed) never does.
-            quantity.className = "form-control form-control-solid w-100px";
+            quantity.className = "form-control form-control-solid wizard-line-quantity";
             quantity.type = "number";
             quantity.min = "1";
+            // `clean_quantity`'s own ceiling (billing/money.py). Stated here so
+            // the browser refuses it before the request rather than after.
+            quantity.max = "1000000";
             quantity.step = "1";
             quantity.value = "1";
+            quantity.required = true;
             quantity.dataset.lineQuantity = "";
             quantity.setAttribute("aria-label", "تعداد");
+
+            const total = document.createElement("div");
+            total.className = "wizard-line-total";
+            total.dataset.lineTotal = "";
+            total.dataset.label = "جمع ردیف";
 
             const remove = document.createElement("button");
             // The theme's own repeater delete control, icon and all — a real
             // `ki-cross` rather than a literal "×" character, which rendered
             // at text weight beside two solid inputs.
-            remove.className = "btn btn-sm btn-icon btn-light-danger";
+            remove.className = "btn btn-sm btn-icon btn-light-danger wizard-line-remove";
             remove.type = "button";
             const removeIcon = document.createElement("i");
             removeIcon.className = "ki-duotone ki-cross fs-2";
@@ -10027,11 +10167,26 @@
                 // Never none: a document without a line cannot be submitted,
                 // so the form always offers one to fill.
                 if (!host.children.length) addLine();
+                else notify();
             });
 
-            row.append(picker, quantity, remove);
+            function repaint() {
+                const product = byId.get(Number(select.value));
+                const unit = product ? Number(product.current_price) : null;
+                price.textContent = unit === null ? "—" : money(unit);
+                const count = Number(quantity.value);
+                total.textContent = unit === null || !(count > 0)
+                    ? "—"
+                    : money(unit * count);
+                notify();
+            }
+            select.addEventListener("change", repaint);
+            quantity.addEventListener("input", repaint);
+
+            row.append(picker, price, quantity, total, remove);
             host.append(row);
             setupSearchableSelects(row);
+            repaint();
         }
 
         function reset() {
@@ -10050,7 +10205,139 @@
                 .filter((line) => line.product && line.quantity > 0);
         }
 
-        return {addLine, reset, collect};
+        /**
+         * The gross amount of every usable line, for a running total.
+         *
+         * Money is rounded the way `billing/money.py` rounds it — half up, to
+         * two places — so the figure under the form is the figure the server
+         * will store rather than one that differs by a rial and makes the
+         * reader doubt both.
+         */
+        function grossTotals() {
+            return collect().map((line) => {
+                const product = byId.get(line.product);
+                const unit = product ? Number(product.current_price) : 0;
+                return roundMoney(unit * line.quantity);
+            });
+        }
+
+        /** The first product chosen twice, or `null`. */
+        function duplicateProduct() {
+            const seen = new Set();
+            for (const line of collect()) {
+                if (seen.has(line.product)) return byId.get(line.product) || null;
+                seen.add(line.product);
+            }
+            return null;
+        }
+
+        return {addLine, reset, collect, grossTotals, duplicateProduct, count: () => collect().length};
+    }
+
+    //: What a wizard holds before its catalogue has loaded. A real object
+    //: rather than a `null` check at each of the dozen call sites, and one
+    //: object rather than a fresh literal per wizard.
+    const EMPTY_LINE_ROWS = Object.freeze({
+        addLine() {},
+        reset() {},
+        collect: () => [],
+        grossTotals: () => [],
+        duplicateProduct: () => null,
+        count: () => 0,
+    });
+
+    //: The server's own ceiling on how many lines one document may carry
+    //: (`BILLING_MAX_DOCUMENT_ITEMS`, default 200). Stated so the wizard can
+    //: refuse before the request rather than after; the server still
+    //: enforces it, and a deployment that lowers the setting simply gets a
+    //: server-side refusal here instead of a local one.
+    const MAX_DOCUMENT_LINES = 200;
+
+    /**
+     * What the markup itself cannot say about a lines step.
+     *
+     * The wizard's own `:invalid` gate already covers "a row with no product
+     * chosen" and "a quantity below one" — both are `required` attributes on
+     * the controls, and the browser writes the sentence. Two rules are left
+     * that no attribute can express, and both are real: the same product on
+     * two rows becomes two line items for one thing, and a document past the
+     * server's line ceiling is refused after the reader has filled it in.
+     */
+    function validateLinesStep(content, lines) {
+        if (!content || !content.classList.contains("wizard-lines-step")) return null;
+        const duplicate = lines.duplicateProduct();
+        if (duplicate) {
+            return `«${duplicate.name}» در دو ردیف انتخاب شده است. تعداد را در یک ردیف جمع کنید یا ردیف تکراری را حذف کنید.`;
+        }
+        if (lines.count() > MAX_DOCUMENT_LINES) {
+            return `یک سند حداکثر ${toPersianDigits(String(MAX_DOCUMENT_LINES))} ردیف می‌تواند داشته باشد؛ اکنون ${toPersianDigits(String(lines.count()))} ردیف دارد.`;
+        }
+        return null;
+    }
+
+    /** Two decimal places, rounded half up — `billing.money.quantize_money`. */
+    function roundMoney(value) {
+        return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+    }
+
+    /**
+     * What a document will come to, computed the way the server computes it.
+     *
+     * The order matters and is the server's: the discount percentage rides on
+     * each *line* (`createFields` sends it as each item's `discount_percent`),
+     * so it is taken off each line before they are summed, and the tax is
+     * charged on what is left. Doing it in the other order — sum, then
+     * discount — gives a different number on any document whose lines round
+     * differently, and the reader would see one figure here and another on
+     * the saved invoice.
+     */
+    function documentTotals(grossLines, discountPercent, taxRate) {
+        const percent = Math.min(Math.max(Number(discountPercent) || 0, 0), 100);
+        const rate = Math.min(Math.max(Number(taxRate) || 0, 0), 100);
+        let gross = 0;
+        let subtotal = 0;
+        grossLines.forEach((line) => {
+            const discount = roundMoney((line * percent) / 100);
+            gross = roundMoney(gross + line);
+            subtotal = roundMoney(subtotal + roundMoney(line - discount));
+        });
+        const tax = roundMoney((subtotal * rate) / 100);
+        return {
+            gross,
+            discount: roundMoney(gross - subtotal),
+            subtotal,
+            tax,
+            total: roundMoney(subtotal + tax),
+        };
+    }
+
+    /**
+     * Draw a wizard's running totals into its own summary block.
+     *
+     * One function for both wizards: the invoice and the order steps are the
+     * same four figures over the same arithmetic, and two copies is how they
+     * would come to disagree.
+     */
+    function renderDocumentTotals(prefix, lines) {
+        const host = document.getElementById(`${prefix}-totals`);
+        if (!host) return;
+        const discountField = document.getElementById(`${prefix}-discount`);
+        const taxField = document.getElementById(`${prefix}-tax`);
+        const totals = documentTotals(
+            lines.grossTotals(),
+            discountField ? discountField.value : 0,
+            taxField ? taxField.value : 0,
+        );
+        const set = (name, value) => {
+            const cell = host.querySelector(`[data-total="${name}"]`);
+            if (cell) cell.textContent = money(value);
+        };
+        set("gross", totals.gross);
+        set("discount", totals.discount);
+        set("tax", totals.tax);
+        set("total", totals.total);
+        const count = host.querySelector("[data-total=\"count\"]");
+        if (count) count.textContent = toPersianDigits(String(lines.count()));
     }
 
     /** A field's chosen option text for a review step, or an em dash for one
@@ -10100,12 +10387,16 @@
 
     async function setupOrders() {
         const lineHost = document.getElementById("create-order-lines");
+        const redrawTotals = () => renderDocumentTotals("create-order", lines);
         // Replaced once the catalogue arrives below; a no-op stub means an
         // impatient click on "افزودن کالا" before then does nothing instead
         // of throwing.
-        let lines = {addLine() {}, reset() {}, collect: () => []};
+        let lines = EMPTY_LINE_ROWS;
         const dialog = document.getElementById("create-order-dialog");
-        const wizard = setupWizard(dialog, {onReachLastStep: () => renderReview()});
+        const wizard = setupWizard(dialog, {
+            onReachLastStep: () => renderReview(),
+            validateStep: (index, content) => validateLinesStep(content, lines),
+        });
 
         function renderReview() {
             renderWizardReview(document.getElementById("create-order-review"), [
@@ -10113,7 +10404,8 @@
                 ["انبار", selectedOptionText(document.getElementById("create-order-warehouse"))],
                 ["روش ارسال", selectedOptionText(document.getElementById("create-order-shipping"))],
                 ["تاریخ ارسال", document.getElementById("create-order-delivery")?.value || "تعیین نشده"],
-                ["تعداد اقلام", toPersianDigits(String(lines.collect().length))],
+                ["تعداد اقلام", toPersianDigits(String(lines.count()))],
+                ["جمع اقلام", money(lines.grossTotals().reduce((sum, line) => sum + line, 0))],
                 // The form collects «توضیحات» and the review never showed it —
                 // found by auditing every wizard's review against its own form
                 // (2026-09-19). A review step whose job is to reflect what is
@@ -10129,13 +10421,16 @@
                 loadWarehouseOptions(document.getElementById("create-order-warehouse"), "بدون اثر انبار"),
                 loadAllPages("/api/v1/products/?is_active=true&ordering=name"),
             ]);
-            lines = createLineItemRows(lineHost, products);
+            lines = createLineItemRows(lineHost, products, {onChange: redrawTotals});
             setupSearchableSelects(dialog);
             lines.addLine();
         } catch (error) {
             showError(error);
         }
-        document.getElementById("create-order-add-line")?.addEventListener("click", () => lines.addLine());
+        document.getElementById("create-order-add-line")?.addEventListener("click", () => {
+            lines.addLine();
+            redrawTotals();
+        });
         setupDocumentList({
             key: "orders",
             prefix: "order",
@@ -10143,6 +10438,7 @@
             onOpen: () => {
                 document.getElementById("create-order-form")?.reset();
                 lines.reset();
+                renderDocumentTotals("create-order", lines);
                 wizard?.goFirst();
             },
             endpoint: (page) => {
@@ -10187,35 +10483,53 @@
 
     async function setupInvoices() {
         const lineHost = document.getElementById("create-invoice-lines");
-        let lines = {addLine() {}, reset() {}, collect: () => []};
+        let lines = EMPTY_LINE_ROWS;
         const dialog = document.getElementById("create-invoice-dialog");
-        const wizard = setupWizard(dialog, {onReachLastStep: () => renderReview()});
+        const wizard = setupWizard(dialog, {
+            onReachLastStep: () => renderReview(),
+            validateStep: (index, content) => validateLinesStep(content, lines),
+        });
 
         function renderReview() {
-            const taxRate = document.getElementById("create-invoice-tax")?.value || "0";
-            const discount = document.getElementById("create-invoice-discount")?.value || "0";
+            const totals = documentTotals(
+                lines.grossTotals(),
+                document.getElementById("create-invoice-discount")?.value,
+                document.getElementById("create-invoice-tax")?.value,
+            );
             renderWizardReview(document.getElementById("create-invoice-review"), [
                 ["مشتری", selectedOptionText(document.getElementById("create-invoice-customer"))],
                 ["نوع فاکتور", selectedOptionText(document.getElementById("create-invoice-type"))],
                 ["تاریخ صدور", document.getElementById("create-invoice-document-date")?.value || "روز صدور"],
-                ["نرخ مالیات", `${toPersianDigits(taxRate)}٪`],
-                ["تخفیف", `${toPersianDigits(discount)}٪`],
-                ["تعداد اقلام", toPersianDigits(String(lines.collect().length))],
+                ["تعداد اقلام", toPersianDigits(String(lines.count()))],
+                ["جمع اقلام", money(totals.gross)],
+                ["تخفیف", money(totals.discount)],
+                ["مالیات", money(totals.tax)],
+                // The figure this wizard is actually about, last and by name.
+                ["مبلغ نهایی", money(totals.total)],
             ]);
         }
 
+        const redrawTotals = () => renderDocumentTotals("create-invoice", lines);
         try {
             const [, products] = await Promise.all([
                 loadCustomerOptions(document.getElementById("create-invoice-customer"), "یک مشتری انتخاب کنید"),
                 loadAllPages("/api/v1/products/?is_active=true&ordering=name"),
             ]);
-            lines = createLineItemRows(lineHost, products);
+            lines = createLineItemRows(lineHost, products, {onChange: redrawTotals});
             setupSearchableSelects(dialog);
             lines.addLine();
         } catch (error) {
             showError(error);
         }
-        document.getElementById("create-invoice-add-line")?.addEventListener("click", () => lines.addLine());
+        // The two percentages live in the summary now, beside the figures
+        // they change, so they redraw it themselves.
+        ["create-invoice-discount", "create-invoice-tax"].forEach((id) => {
+            document.getElementById(id)?.addEventListener("input", redrawTotals);
+        });
+        document.getElementById("create-invoice-add-line")?.addEventListener("click", () => {
+            lines.addLine();
+            redrawTotals();
+        });
         setupDocumentList({
             key: "invoices",
             prefix: "invoice",
@@ -10223,6 +10537,7 @@
             onOpen: () => {
                 document.getElementById("create-invoice-form")?.reset();
                 lines.reset();
+                renderDocumentTotals("create-invoice", lines);
                 wizard?.goFirst();
             },
             endpoint: (page) => {
@@ -12935,12 +13250,14 @@
         let timer = null;
         let sequence = 0;
 
-        const setOpen = (open) => {
-            menu.classList.toggle("show", open);
-            toggle.setAttribute("aria-expanded", String(open));
+        // Registered before anything else here uses `popover`, because the
+        // `Ctrl/⌘+K` handler below opens it.
+        const popover = registerPopover({
+            toggle,
+            panel: menu,
             // Opening a search box that is not focused is opening nothing.
-            if (open) input.focus();
-        };
+            onOpen: () => input.focus(),
+        });
 
         // `node` is `null` before typing starts — an empty box, not an
         // instructional message, product-owner decision 2026-09-08.
@@ -13045,25 +13362,14 @@
             }
         });
 
-        toggle.addEventListener("click", (event) => {
-            event.stopPropagation();
-            setOpen(!menu.classList.contains("show"));
-        });
-        document.addEventListener("click", (event) => {
-            if (!menu.contains(event.target) && event.target !== toggle) setOpen(false);
-        });
+        // Ctrl/⌘+K from anywhere, the shortcut a keyboard already expects
+        // for a search box. Escape and outside-click are `registerPopover`'s,
+        // shared with every other panel.
         document.addEventListener("keydown", (event) => {
-            // Ctrl/⌘+K from anywhere, the shortcut a keyboard already
-            // expects for a search box.
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
                 event.preventDefault();
-                setOpen(true);
+                popover.open();
                 input.select();
-                return;
-            }
-            if (event.key === "Escape" && menu.classList.contains("show")) {
-                setOpen(false);
-                toggle.focus();
             }
         });
     }
@@ -13096,11 +13402,7 @@
         const summary = document.querySelector("[data-reminder-summary]");
         let loading = false;
 
-        const setOpen = (open) => {
-            menu.classList.toggle("show", open);
-            toggle.setAttribute("aria-expanded", String(open));
-            if (open) load();
-        };
+        registerPopover({toggle, panel: menu, onOpen: () => load()});
 
         function setBadge(total) {
             if (!badge || !count) return;
@@ -13210,20 +13512,6 @@
                 // A missed poll tick is not worth bothering anyone about.
             }
         }
-
-        toggle.addEventListener("click", (event) => {
-            event.stopPropagation();
-            setOpen(!menu.classList.contains("show"));
-        });
-        document.addEventListener("click", (event) => {
-            if (!menu.contains(event.target) && event.target !== toggle) setOpen(false);
-        });
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape" && menu.classList.contains("show")) {
-                setOpen(false);
-                toggle.focus();
-            }
-        });
 
         pollCount();
         // Slower than chat's twenty seconds: a due date does not move while
@@ -13679,28 +13967,10 @@
                 actions.append(reset, submit);
             }
 
-            function setOpen(open) {
-                panel.classList.toggle("show", open);
-                toggle.setAttribute("aria-expanded", String(open));
-            }
-            toggle.addEventListener("click", (event) => {
-                event.stopPropagation();
-                setOpen(!panel.classList.contains("show"));
-            });
-            document.addEventListener("click", (event) => {
-                if (!panel.contains(event.target) && event.target !== toggle && !toggle.contains(event.target)) {
-                    setOpen(false);
-                }
-            });
-            document.addEventListener("keydown", (event) => {
-                if (event.key === "Escape" && panel.classList.contains("show")) {
-                    setOpen(false);
-                    toggle.focus();
-                }
-            });
+            const popover = registerPopover({toggle, panel});
             // Closes the popover on a successful apply, matching the theme's
             // own `data-kt-menu-dismiss` on its filter panel's submit button.
-            form.addEventListener("submit", () => setOpen(false));
+            form.addEventListener("submit", () => popover.close());
             // A native reset only restores the fields; nothing here re-asks
             // for the now-default list on its own. Resubmitting after the
             // browser's own reset has already run — not before it — is what
@@ -13728,6 +13998,7 @@
     // The chat drawer, the reminder bell and search all live in the header
     // shell, so every page that has one wires it up — same reasoning as the
     // two lines above, not only a page named after the feature.
+    setupPopoverDismissal();
     setupGlobalSearch();
     setupReminderBell();
     setupChatUnreadPoll();

@@ -61,10 +61,10 @@ usage limit can be resumed from here with no questions.
 - [x] 5. Per-user layout saved/restored; reset works
 
 ### Batch C — `2.12.0` — invoice wizard, settings, popovers
-- [ ] 6. «اقلام و تخفیف» step redesigned
-- [ ] 7. «تنظیمات» moved out of the user modal to the sidebar's end
-- [ ] 7. «برند و لوگو» → «شخصی‌سازی پنل» inside admin settings
-- [ ] 8. One header popover open at a time; Esc and outside-click everywhere
+- [x] 6. «اقلام و تخفیف» step redesigned
+- [x] 7. «تنظیمات» moved out of the user modal to the sidebar's end
+- [x] 7. «برند و لوگو» → «شخصی‌سازی پنل» inside admin settings
+- [x] 8. One header popover open at a time; Esc and outside-click everywhere
 
 ### Batch D — `3.0.0` — reports, postal, integrations
 - [ ] 9. «گزارش اسناد فروش و پست» rebuilt as a wizard
@@ -88,46 +88,40 @@ usage limit can be resumed from here with no questions.
 
 ## Status
 
-**Current batch:** C — not started. Batch B is released as `2.11.0`
+**Current batch:** D — not started. Batch C is released as `2.12.0`
 (committed, not yet deployed; the deploy is the single one at the end).
 
-**Next step:** item 6 — the «اقلام و تخفیف» step of the new-invoice wizard.
-Read `common/templates/common/invoices/list.html`'s create dialog and the
-`setupCreateInvoice`/line-item neighbourhood in `dolphin-app.js` before
-changing anything, and find the closest Metronic form/table reference for a
-line-item editor rather than inventing one.
+**Next step:** item 9 — the two report wizards. Read
+`common/templates/common/reports/` and the `setupSalesDocumentReport` /
+`setupInboundSMSReport` neighbourhood in `dolphin-app.js` first, and reuse
+`setupWizard` (which now takes `validateStep`) rather than writing a third
+stepper. Items 10 and 11 follow in the same batch.
 
-**Files changed in batch B:**
-- `reports/ranges.py` — new; the one place a window becomes buckets
-- `reports/customer_insights.py`, `reports/sales_insights.py` — both read it
-  instead of keeping a copy each; `granularity` is optional and derived
-- `reports/list_charts.py` — `CHART_FILTERS`/`filters_for`/`narrowing`/
-  `filter_params`, builders take `narrow=`, `trend_for` takes a window, the
-  registry titles lost their hardcoded «دوازده هفتهٔ اخیر»
-- `reports/serializers.py`, `reports/customer_views.py` — the window query
-  serializer, the filter payload, the two-part validation
-- `common/dashboard_layout.py` — capability tiles join the same overlay
-- `common/ui_views.py` — one call to `arrange_capability_tiles`
-- `common/static/common/dolphin-app.js` — `setupChartRange`,
-  `chartRangeWindow`, `chartResetButton`, `chartResetEvents`,
-  `renderChartFilters`, `bucketLabel`; both zoomable renderers; the
-  dashboard editor (two grids, corner grip, no handle)
-- `common/static/common/dolphin.css` — new §12 chart controls, §9 rewritten
-  for the grip and the inset hide button
-- `common/templates/common/home.html`, `includes/list_charts.inc`,
-  `customers/list.html`, `users/profile.html`
-- `common/tests/test_ui_overhaul_charts_dashboard.py` — new, 66 tests
-- `common/tests/test_chart_labels.py`, `test_list_trend_charts.py`,
-  `reports/tests/test_customer_insights.py` — restated for what changed
-- `VERSION` → `2.11.0`, `CHANGELOG.md`
+**Files changed in batch C:**
+- `common/static/common/dolphin-app.js` — `registerPopover` /
+  `closeOtherPopovers` / `setupPopoverDismissal`; all five panels rewired;
+  `createLineItemRows` rebuilt with price, line total and `onChange`;
+  `documentTotals` / `renderDocumentTotals` / `roundMoney` /
+  `validateLinesStep` / `EMPTY_LINE_ROWS`; `setupWizard` takes `validateStep`
+- `common/static/common/dolphin.css` — the lines step is a column, one shared
+  grid for the header and the rows, the money columns, the summary block, the
+  phone layout, a wider dialog for a wizard with a line step
+- `common/templates/common/invoices/list.html`, `orders/list.html` — the
+  rebuilt step; `base.html` — settings to the sidebar, branding out of it;
+  `settings/settings.html`, `branding/settings.html` — «شخصی‌سازی پنل»
+- `common/tests/test_ui_overhaul_invoice_settings_popovers.py` — new, 43 tests
+- `common/tests/test_filter_popover.py`, `test_branding.py`,
+  `test_user_preferences.py`, `test_invoice_order_wizard.py` — six tests
+  restated for what this batch deliberately changed
+- `VERSION` → `2.12.0`, `CHANGELOG.md`
 
-**Checks run:** 151 tests across the new module and the whole `reports` app —
-OK. Browser-measured on the live panel: range group 360×35 in the card header
-and 279px at 375px wide with no page scroll; «۳۰ روز»→«۷ روز» took the trend
-from 31 x-axis labels to 8 and retitled it; «امروز» produced hourly labels;
-the marketer filter narrowed both charts and survived the redraw;
-`.apexcharts-toolbar` and `.apexcharts-zoom-icon` absent everywhere; 19
-boxes across two grids all draggable with 19 grips, 19 hide buttons, 0
-handles, 0 size selects; a 500px grip drag took a tile from `col-xl-3` to
-`col-xl-6` and it survived a reload; a drag swap survived a reload; reset
-put both order and width back and hid itself.
+**Checks run:** full suite — 2412 tests, no failures, only the 7 pre-existing
+Selenium browser errors. Browser-measured on the live panel: wizard header and
+row cells right-edge-identical (1108/800/679/590/462) with identical resolved
+tracks; 3 × ۱۷٬۸۰۰٬۰۰۰ at 10% and 9% previewed ۵۲٬۳۸۵٬۴۰۰ ریال and the saved
+invoice held `total_amount` 52385400.00; the duplicate-product refusal blocked
+the step with its own sentence; at 375px every child of the step measured
+309px with no page or dialog scroll; the sidebar's last entry is «تنظیمات» and
+the user menu has none; bell → search → user menu left exactly one open each
+time; Escape closed and returned focus; a click on the icon inside the search
+button opened rather than closed it.

@@ -197,9 +197,10 @@
     </div>
     <div class="card-body pt-2 d-flex flex-wrap gap-3">
         {% if can_manage_branding %}
-        <a class="btn btn-light-primary" href="{% url 'common_ui:branding-settings' %}">
+        <a class="btn btn-light-primary" id="open-panel-appearance"
+           data-module="branding-settings" href="{% url 'common_ui:branding-settings' %}">
             <i class="ki-duotone ki-picture fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
-            برند، رنگ و لوگوی پنل
+            شخصی‌سازی پنل
         </a>
         {% endif %}
         {% if can_manage_sms_provider %}
