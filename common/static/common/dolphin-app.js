@@ -8207,6 +8207,25 @@
     }
 
     /**
+     * An axis-only shorthand for a `bucketLabel` — drops the year from a
+     * full `YYYY/MM/DD` so the day and month are what's left to read.
+     *
+     * Product owner, 2026-09-21: «نمودار های خطی، در پایینش اعداد روز ها رو
+     * درست نمایش نمیده». Measured live: `xaxis.labels.trim` was chopping
+     * every surviving tick down to «۱…» — Apex trims to a per-tick pixel
+     * budget too narrow for the full ten-character date, and the untruncated
+     * value survived only in the label's own `<title>` (a hover tooltip
+     * almost nobody finds). Category array and tooltip both keep the full
+     * date — this only shortens what actually draws on the axis, and only
+     * for the `YYYY/MM/DD` shape `displayDay` produces; an hourly bucket's
+     * `HH:۰۰` (`bucketLabel`) has no `/` and passes through unchanged.
+     */
+    function compactAxisLabel(label) {
+        const parts = String(label).split("/");
+        return parts.length === 3 ? parts.slice(1).join("/") : label;
+    }
+
+    /**
      * A tick-label formatter that prints only every Nth category's own
      * label, blank otherwise, so at most `maxLabels` of them ever reach the
      * axis — the *category* array itself stays untouched, so the tooltip
@@ -8223,7 +8242,7 @@
         const step = Math.max(1, Math.ceil(labels.length / Math.max(1, maxLabels)));
         return (value) => {
             const index = labels.indexOf(value);
-            return index === -1 || index % step === 0 ? value : "";
+            return index === -1 || index % step === 0 ? compactAxisLabel(value) : "";
         };
     }
 
@@ -8307,10 +8326,18 @@
                 labels: {
                     style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
                     hideOverlappingLabels: true,
-                    trim: true,
-                    // See `thinningFormatter`: `tickAmount`/`hideOverlappingLabels`
-                    // alone left every rotated label on screen, overlapping the
-                    // next one.
+                    // Deliberately no `trim` option here (product owner,
+                    // 2026-09-21: «اعداد روز ها رو درست نمایش نمیده»). Apex
+                    // sizes its own trim budget from the plot width divided
+                    // by the *category*
+                    // count, not the handful `thinningFormatter` actually
+                    // leaves visible — measured live on this exact chart,
+                    // a 5-character «۰۴/۱۵» (already shortened by
+                    // `compactAxisLabel`) still came out «۰۴…», 2 characters
+                    // kept. `thinningFormatter` already bounds what reaches
+                    // the axis to a short, complete string; `trim` only
+                    // chopped it again into something shorter and unreadable.
+                    // `hideOverlappingLabels` stays on as the real backstop.
                     formatter: thinningFormatter(usable.map((point) => point.label), maxLabels),
                 },
                 axisBorder: {show: false},
@@ -8428,7 +8455,9 @@
                 labels: {
                     style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
                     hideOverlappingLabels: true,
-                    trim: true,
+                    // Deliberately no `trim` option — see the identical
+                    // comment in `renderAreaChart`'s own copy of this block,
+                    // above.
                     formatter: thinningFormatter(usable.map((point) => point.label), maxLabels),
                 },
                 axisBorder: {show: false},

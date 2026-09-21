@@ -9,7 +9,7 @@ re-verified.
 
 from django.test import SimpleTestCase
 
-from common.tests.ui_overhaul_helpers import CODE, rule
+from common.tests.ui_overhaul_helpers import CODE, SCRIPT, function_body, rule
 
 
 class JalaliPickerTitleSpacingTests(SimpleTestCase):
@@ -48,3 +48,31 @@ class JalaliPickerTitleSpacingTests(SimpleTestCase):
         body = rule(".jalali-picker .jalali-picker-scope")
         self.assertIn("!important", body)
         self.assertIn("overflow: hidden", body)
+
+
+class LineChartAxisLabelTests(SimpleTestCase):
+    """Item 2 — the bottom axis of every line/mixed chart (`renderAreaChart`,
+    `renderMixedChart`) was truncating its own already-thinned date labels
+    to unreadable garbage: measured live on the dashboard trend widget, a
+    full `۱۴۰۵/۰۴/۱۵` came out `۱…`, and even the shortened `۰۴/۱۵` this fix
+    introduces still came out `۰۴…` before `trim` was removed. The
+    untruncated value only ever reached a hover `<title>` nobody finds.
+    """
+
+    def test_compact_axis_label_drops_the_year(self):
+        body = function_body("compactAxisLabel", SCRIPT)
+        self.assertIn('split("/")', body)
+        self.assertIn("parts.length === 3", body)
+
+    def test_thinning_formatter_shortens_surviving_labels(self):
+        body = function_body("thinningFormatter", SCRIPT)
+        self.assertIn("compactAxisLabel(value)", body)
+
+    def test_neither_line_chart_lets_apex_trim_the_axis_text(self):
+        # `trim: true` is what was chopping the already-short label down
+        # further — removed from both chart functions, `hideOverlappingLabels`
+        # stays as the real backstop against genuine overlap.
+        for fn in ("renderAreaChart", "renderMixedChart"):
+            body = function_body(fn, SCRIPT)
+            self.assertNotIn("trim: true", body, f"{fn} still lets Apex trim its axis text")
+            self.assertIn("hideOverlappingLabels: true", body)

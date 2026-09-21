@@ -147,7 +147,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 ## Checklist
 
 - [x] 1. Calendar month/year header — normal, even spacing → `2.14.1`
-- [ ] 2. Line chart bottom day-number labels wrong → `2.14.2`
+- [x] 2. Line chart bottom day-number labels wrong → `2.14.2`
 - [ ] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
 - [ ] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
 - [ ] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
@@ -166,7 +166,27 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** item 1 done (`2.14.1`), moving to item 2.
+**Current:** items 1–2 done (`2.14.1`, `2.14.2`), moving to item 3.
+
+**Item 2 — root cause and fix.** `renderAreaChart`/`renderMixedChart` share
+`thinningFormatter` to blank all but ~6–8 of a chart's category labels; the
+survivors were still full `YYYY/MM/DD` strings, and Apex's own `xaxis.labels
+.trim: true` chopped each of those down to a per-tick pixel budget computed
+from the *total* category count (12), not the handful actually shown — on
+the dashboard trend widget, «۱۴۰۵/۰۴/۱۵» rendered as «۱…», with the real
+value surviving only in a hover `<title>`. Fixed with two changes: a new
+`compactAxisLabel` drops the year from a `YYYY/MM/DD` label (a no-op on the
+hourly `HH:۰۰` shape, which has no `/`), applied inside `thinningFormatter`;
+and `trim` was removed from both chart functions' `xaxis.labels` entirely —
+even the shortened `۰۴/۱۵` still got chopped to `۰۴…` with `trim` left on.
+`hideOverlappingLabels` stays as the real overlap guard. Verified live via
+measured DOM rects on the dashboard trend chart (not screenshots — this
+session's Browser pane screenshot pipeline was unreliable): all six visible
+ticks render their full compact label (`۰۴/۱۵`, `۰۴/۲۹`, …), the `<title>`
+matches the visible text exactly (nothing hidden anymore), and no two labels'
+bounding boxes overlap. New tests:
+`test_ui_overhaul_round2.LineChartAxisLabelTests` (3). Full existing
+UI-overhaul suite re-run clean (261 tests total across both items).
 
 **Item 1 — root cause and fix.** The date picker's month/year title became
 two buttons on 2026-09-20 (batch A), and both carry the base `.btn` class
