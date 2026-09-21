@@ -4684,6 +4684,40 @@
         return head;
     }
 
+    /**
+     * Lets the three-dot "view details" link inside a board card actually
+     * navigate.
+     *
+     * jKanban's own vendor bundle attaches a click listener directly to
+     * every `.kanban-item` it builds (`function r(t,n)` in
+     * `jkanban.bundle.js`), and that listener calls the DOM event's
+     * `preventDefault()` unconditionally, before doing anything else — a
+     * card used to have nothing inside it a browser would navigate by
+     * default, so this was harmless. `boardCardHeader`'s anchor changed
+     * that: `preventDefault` on the click stops the anchor's own navigation
+     * too, since a link's default action resolves only after the event has
+     * finished propagating. Every card's three-dot control looked wired up
+     * — a real `<a href>`, reachable by keyboard — and silently did nothing
+     * when pressed (product owner, 2026-09-21: «سه نقطه مشاهده جزئیات در
+     * تابلوها و کارت‌ها کار نمیکند»).
+     *
+     * Not fixed inside `boardCardHeader` itself: a card is built as an HTML
+     * *string* (`cardContent`'s `wrap.innerHTML`), and jKanban re-parses
+     * that string into fresh nodes via its own `innerHTML =`, which drops
+     * any listener that was attached to the nodes which produced the
+     * string. A listener has to live on something that survives — the
+     * stable board container — and has to run in the *capture* phase, so it
+     * sees the click before it reaches jKanban's own bubble-phase listener
+     * down on `.kanban-item`. Stopping propagation there does not touch
+     * dragula's own drag detection, which listens for `mousedown`/
+     * `mousemove`, never `click`.
+     */
+    function letCardDetailsLinkThrough(container) {
+        container.addEventListener("click", (event) => {
+            if (event.target.closest(".kanban-card-more")) event.stopPropagation();
+        }, true);
+    }
+
     function paintBoardColumns(container, statuses) {
         statuses.forEach((status) => {
             const board = container.querySelector(`.kanban-board[data-id="${status}"]`);
@@ -4812,6 +4846,7 @@
     async function setupLeadBoard() {
         const container = document.getElementById("lead-board");
         if (!container || typeof jKanban === "undefined") return;
+        letCardDetailsLinkThrough(container);
         const loading = document.getElementById("lead-board-loading");
         const errorNode = document.getElementById("lead-board-error");
         const canManage = container.dataset.canManageLeads === "true";
@@ -5123,6 +5158,7 @@
     async function setupOrderBoard() {
         const container = document.getElementById("order-board");
         if (!container || typeof jKanban === "undefined") return;
+        letCardDetailsLinkThrough(container);
         const loading = document.getElementById("order-board-loading");
         const errorNode = document.getElementById("order-board-error");
         const canManage = container.dataset.canManageOrders === "true";

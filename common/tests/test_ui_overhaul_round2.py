@@ -76,3 +76,28 @@ class LineChartAxisLabelTests(SimpleTestCase):
             body = function_body(fn, SCRIPT)
             self.assertNotIn("trim: true", body, f"{fn} still lets Apex trim its axis text")
             self.assertIn("hideOverlappingLabels: true", body)
+
+
+class BoardCardDetailsLinkTests(SimpleTestCase):
+    """Item 4 — the three-dot "view details" link on a board card
+    (`boardCardHeader`) was a real `<a href>` that never navigated: jKanban's
+    own vendor bundle attaches a click listener straight to every
+    `.kanban-item` it builds and calls the event's `preventDefault()`
+    unconditionally, which also cancels the anchor's own default action
+    since a link's navigation resolves only after the click event finishes
+    propagating. Confirmed live: dispatching a click on the link navigated
+    to `/leads/<id>/` once the fix was in place.
+    """
+
+    def test_the_fix_runs_in_the_capture_phase(self):
+        # Has to see the click before jKanban's own bubble-phase listener on
+        # `.kanban-item` does, or the preventDefault already happened.
+        body = function_body("letCardDetailsLinkThrough", SCRIPT)
+        self.assertIn('.closest(".kanban-card-more")', body)
+        self.assertIn("event.stopPropagation()", body)
+        self.assertIn("}, true)", body)
+
+    def test_both_boards_install_it(self):
+        for fn in ("setupLeadBoard", "setupOrderBoard"):
+            body = function_body(fn, SCRIPT)
+            self.assertIn("letCardDetailsLinkThrough(container)", body, f"{fn} does not install the fix")

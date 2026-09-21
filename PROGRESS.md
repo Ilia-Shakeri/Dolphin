@@ -149,7 +149,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 1. Calendar month/year header — normal, even spacing → `2.14.1`
 - [x] 2. Line chart bottom day-number labels wrong → `2.14.2`
 - [x] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
-- [ ] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
+- [x] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
 - [ ] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
 - [ ] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
 - [ ] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
@@ -166,7 +166,30 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–3 done (`2.14.1`–`2.14.3`), moving to item 4.
+**Current:** items 1–4 done (`2.14.1`–`2.14.4`), moving to item 5.
+
+**Item 4 — root cause and fix.** The three-dot link was correctly built
+(`boardCardHeader`, a real `<a href>`), but jKanban's own vendor bundle
+(`assets/plugins/custom/jkanban/jkanban.bundle.js`) attaches a click
+listener directly to every `.kanban-item` on creation and calls
+`event.preventDefault()` unconditionally — which also cancels the nested
+anchor's own navigation, since that resolves only after the click event
+finishes propagating. A fix inside `boardCardHeader` itself cannot work: a
+card is built as an HTML string (`cardContent`'s `wrap.innerHTML`) and
+jKanban re-parses that string into fresh nodes, dropping any listener
+attached to the nodes that produced it. Fixed with a new
+`letCardDetailsLinkThrough(container)`, a capture-phase listener on the
+stable board container (installed once in `setupLeadBoard` and
+`setupOrderBoard`) that stops propagation for a click landing on
+`.kanban-card-more` before it ever reaches jKanban's own listener — dragula's
+drag detection is untouched, since it listens for `mousedown`/`mousemove`,
+never `click`. Verified live: dispatching a click on a lead card's
+three-dot actually navigated the tab to `/leads/24/` ("جزئیات سرنخ"). The
+orders board shares the identical code path but had no seeded orders to
+click through in the local demo data — not exercised end-to-end, though the
+same fix applies to it verbatim. New tests:
+`test_ui_overhaul_round2.BoardCardDetailsLinkTests` (2). Boards + round2
+suite (45 total) green.
 
 **Item 3 — what changed.** New `accounts.User.chosen_default_avatar` column
 (migration `0006`) — the previously hash-derived default never needed
