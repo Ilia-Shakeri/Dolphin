@@ -14,6 +14,18 @@ from common.tests.ui_overhaul_helpers import CODE, SCRIPT, TEMPLATES, function_b
 PAYMENTS_LIST = (TEMPLATES / "payments" / "list.html").read_text(encoding="utf-8")
 
 
+def exact_rule(selector, source=CODE):
+    """`rule()`'s declarations, but for the one block whose selector is
+    exactly this — not merely contains it as a substring. `rule("
+    .postal-mini-step")` also matches `.postal-mini-stepper` and
+    `.postal-mini-step-current`; this pins the block by its own opening
+    line (`<selector> {`, this file's one-selector-per-line convention)."""
+    marker = f"\n{selector} {{"
+    start = source.index(marker) + len(marker)
+    end = source.index("}", start)
+    return source[start:end]
+
+
 class JalaliPickerTitleSpacingTests(SimpleTestCase):
     """Item 1 — the month/year title in the date picker read as one jumbled
     word: 2026-09-20 split it into two buttons (`monthBtn`/`yearBtn` in
@@ -130,3 +142,58 @@ class PaymentWizardDocumentStepTests(SimpleTestCase):
         # same — a single, targeted override, not a chain.
         body = rule(".wizard-document-step > .mt-2")
         self.assertIn("!important", body)
+
+
+class PostalMiniStepperTests(SimpleTestCase):
+    """Item 6 — «رهگیری پستی» (sales_documents/list.html) showed each
+    document's postal status as plain text in a table cell; the full
+    four-stop stepper only ever existed on one document's own detail page.
+    Product owner, 2026-09-21: «وضعیت پستی باید ۴ تا ایکون پست سرهم به هم
+    متصل باشد و در هر مرحله‌ای است باید این ایکون روشن باشد. کلا ۴ حالت باید
+    وجود داشته باشد». The four states and their order were already decided
+    (2026-09-20, `sales/postal.py`) and are read from
+    `item.postal_stepper` — the exact field `SalesDocumentSerializer`
+    already computed for the detail page — not redeclared here.
+    """
+
+    def test_the_row_reads_the_servers_own_stepper_not_a_redeclared_one(self):
+        body = function_body("postalStatusCell", SCRIPT)
+        self.assertIn("item.postal_stepper", body)
+        self.assertIn("step.icon", body)
+        self.assertIn("step.stage", body)
+
+    def test_a_pre_vocabulary_free_text_status_falls_back_to_text(self):
+        """`stepper_for` (sales/postal.py) returns `[]` for a status outside
+        the four states, and four icons with none of them current would
+        claim to know where such a parcel is when nobody does."""
+        body = function_body("postalStatusCell", SCRIPT)
+        self.assertIn("if (!steps || !steps.length)", body)
+        self.assertIn("item.postal_status", body)
+
+    def test_the_current_stage_is_named_for_a_screen_reader(self):
+        body = function_body("postalStatusCell", SCRIPT)
+        self.assertIn('setAttribute("aria-label"', body)
+        self.assertIn("mark.title = step.label", body)
+
+    def test_the_list_row_calls_it_instead_of_printing_raw_text(self):
+        body = function_body("salesDocumentRow", SCRIPT)
+        self.assertIn("postalStatusCell(row, item)", body)
+        self.assertNotIn('appendCell(row, item.postal_status)', body)
+
+    def test_four_icons_sit_flush_against_each_other(self):
+        """"سرهم به هم متصل" — connected, not merely nearby: the rail is
+        one continuous line and the marks carry no gap of their own.
+
+        `rule()` matches by substring of the selector text, so a bare
+        `.postal-mini-step` query also matches `.postal-mini-stepper` and
+        `.postal-mini-step-current` — this pins the exact single-class rule
+        by its own opening line instead."""
+        self.assertIn("display: inline-flex", rule(".postal-mini-stepper"))
+        mark = exact_rule(".postal-mini-step")
+        self.assertNotIn("gap", mark)
+        self.assertNotIn("margin", mark)
+
+    def test_the_current_mark_is_visibly_lit(self):
+        body = exact_rule(".postal-mini-step-current")
+        self.assertIn("var(--bs-primary)", body)
+        self.assertIn("box-shadow", body)

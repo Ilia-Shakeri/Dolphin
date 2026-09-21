@@ -6472,13 +6472,62 @@
         });
     }
 
+    /**
+     * The four postal stops as small connected icons — the row version of
+     * `renderPostalStepper`'s own card.
+     *
+     * Product owner, 2026-09-21: «وضعیت پستی باید ۴ تا ایکون پست سرهم به هم
+     * متصل باشد و در هر مرحله‌ای است باید این ایکون روشن باشد». The list
+     * this belongs to is «رهگیری پستی» (`sales_documents/list.html`) — a
+     * table of documents, not one document's own page — so each row gets
+     * the compact form: icons only, no label or description text, the
+     * current stage's icon lit and named in a `title` for anyone who
+     * hovers or uses a screen reader. `item.postal_stepper` is the same
+     * four-entry list `SalesDocumentSerializer` already computes from
+     * `sales/postal.py` for the detail page; nothing about the states,
+     * their order or their icons is repeated here.
+     *
+     * A document whose stored status predates the vocabulary (free text)
+     * gets an empty `postal_stepper` from the server, and this falls back
+     * to that raw text — the same choice `renderPostalStepper` makes for
+     * the same reason: four icons with none of them current would claim to
+     * know where the parcel is when nobody does.
+     */
+    function postalStatusCell(row, item) {
+        const cell = document.createElement("td");
+        const steps = item.postal_stepper;
+        if (!steps || !steps.length) {
+            cell.textContent = item.postal_status || "—";
+            row.appendChild(cell);
+            return;
+        }
+        const list = document.createElement("ul");
+        list.className = "postal-mini-stepper";
+        const current = steps.find((step) => step.stage === "current");
+        list.setAttribute("aria-label", `وضعیت پستی: ${current ? current.label : item.postal_status_display || ""}`);
+        list.append(...steps.map((step) => {
+            const mark = document.createElement("li");
+            mark.className = `postal-mini-step postal-mini-step-${step.stage}`;
+            mark.title = step.label;
+            const icon = document.createElement("i");
+            icon.className = `ki-duotone ${step.icon} fs-6`;
+            for (let path = 1; path <= (step.icon_paths || 2); path += 1) {
+                icon.appendChild(document.createElement("span")).className = `path${path}`;
+            }
+            mark.append(icon);
+            return mark;
+        }));
+        cell.append(list);
+        row.appendChild(cell);
+    }
+
     function salesDocumentRow(item) {
         const row = document.createElement("tr");
         appendCell(row, item.document_number);
         appendCell(row, item.customer_name || item.customer);
         appendCell(row, item.sale || "—");
         appendCell(row, [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ") || "—");
-        appendCell(row, item.postal_status);
+        postalStatusCell(row, item);
         appendCell(row, item.is_active ? "فعال" : "غیرفعال");
         appendDetailLink(row, `/sales-documents/${item.id}/`);
         return row;

@@ -3281,6 +3281,75 @@ dialog:has(.wizard-lines-step) {
     }
 }
 
+/* 13b. The postal mini-stepper — «رهگیری پستی» (sales_documents/list.html)
+   -----------------------------------------------------------------------
+
+   The same four stops as `.postal-stepper` above, compact enough for a
+   table cell: icons only, no label or description, the current one's ring
+   the only thing marking it (product owner, 2026-09-21: «۴ تا ایکون پست
+   سرهم به هم متصل باشد و ... این ایکون روشن باشد»). Each icon's own
+   `title` and the list's `aria-label` carry the text a full-size stop would
+   have shown beside its mark.
+
+   The rail is one continuous line behind the icons rather than
+   `.postal-step`'s per-item half-rail: a table row has no risk of the last
+   stop pushing the page sideways the way a full-bleed card did, so the
+   simpler shared-line construction is enough here. */
+.postal-mini-stepper {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.postal-mini-step {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 50%;
+    background-color: var(--bs-gray-200);
+    color: var(--bs-gray-600);
+    flex: 0 0 auto;
+}
+
+/* The rail: one line behind every mark but the first, filled in success
+   green up to and including the current stop. `z-index` keeps it under the
+   round marks, which already have an opaque background to sit on it. */
+.postal-mini-step:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    inset-inline-end: 50%;
+    width: 1.6rem;
+    height: 2px;
+    background-color: var(--bs-gray-300);
+    z-index: 0;
+}
+
+.postal-mini-step-done:not(:first-child)::before,
+.postal-mini-step-current:not(:first-child)::before {
+    background-color: var(--bs-success);
+}
+
+.postal-mini-step i {
+    position: relative;
+    z-index: 1;
+}
+
+.postal-mini-step-done {
+    background-color: var(--bs-success-light);
+    color: var(--bs-success);
+}
+
+.postal-mini-step-current {
+    background-color: var(--bs-primary);
+    color: var(--bs-light);
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
 /* 14. The integrations page -------------------------------------------------
 
    One card per outside service (`common/integrations.py`). Almost all of it

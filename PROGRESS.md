@@ -151,7 +151,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
 - [x] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
 - [x] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
-- [ ] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
+- [x] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
 - [ ] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
 - [ ] 8. Excel import/export buttons get a small Excel icon → bundled into `2.14.7`
 - [ ] 9. Post integration settings page, like SMS → `2.14.7`
@@ -166,7 +166,29 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–5 done (`2.14.1`–`2.14.5`), moving to item 6.
+**Current:** items 1–6 done (`2.14.1`–`2.14.6`), moving to item 7.
+
+**Item 6 — what was actually missing.** "صفحهٔ رهگیری پستی" is the sales
+documents *list* (`common_ui:sales-documents`, titled «رهگیری پستی») — a
+different page from one document's own detail page, which already had the
+full four-stop `.postal-stepper` card from batch D (`2.13.0`). The list's
+own «وضعیت پستی» column printed `item.postal_status` as raw text, even
+though `SalesDocumentSerializer` already computed `postal_stepper` (the
+same four-entry, stage-marked list the detail page uses) for every row —
+the frontend simply never read it. New `postalStatusCell` builds a compact
+icon-only version, `.postal-mini-stepper`, reusing that same field: four
+22px marks flush against each other with a continuous rail, the current
+one lit with the primary ring, each icon's own `title` and the list's
+`aria-label` naming the stage for anyone hovering or using a screen reader.
+A document still carrying pre-vocabulary free text (`postal_stepper: []`)
+falls back to the raw text, matching `renderPostalStepper`'s own reasoning:
+four icons with none of them current would claim to know where a parcel is
+when nobody does. Verified live: a seeded document at "بستهٔ دست پست است"
+rendered done/done/current/upcoming in the right order, the icons
+(`ki-shop`, `ki-delivery-3`, `ki-parcel-tracking`, `ki-truck`) all present,
+and each mark's bounding rect touching the next with zero gap. New tests:
+`test_ui_overhaul_round2.PostalMiniStepperTests` (6). Postal/reports +
+round2 + sales app suites (230 total) green.
 
 **Item 5 — root cause and fix.** Exactly the bug `.wizard-lines-step` (batch
 C, `2.12.0`) was already written to fix, in a different wizard: the theme
