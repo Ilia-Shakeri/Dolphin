@@ -2850,6 +2850,66 @@ dialog:has(.wizard-lines-step) {
     overflow: visible !important;
 }
 
+/* "افزودن ویجت" — a gallery of the widgets this reader currently has
+   hidden, opened from the editor bar (dolphin-app.js, setupDashboardEditor).
+   The dialog itself only needs a width wide enough for the card grid below;
+   everything else (backdrop, open animation, safe-area padding) comes from
+   the app-wide `dialog` rules already in section 2. */
+#dashboard-add-widget-dialog {
+    width: min(calc(100% - 2rem), 56rem);
+}
+
+.dashboard-add-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: 1rem;
+}
+
+.dashboard-add-widget-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-body-bg);
+    text-align: start;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dashboard-add-widget-card:hover,
+.dashboard-add-widget-card:focus-visible {
+    border-color: var(--bs-primary);
+    box-shadow: var(--bs-box-shadow-sm);
+    outline: none;
+}
+
+/* One preview area, three shapes: a KPI card gets an icon + skeleton (no
+   figure to show honestly, see `renderAddWidgetPreview`), the gauge/donut/
+   trend families get a real small Apex instance sized to fit the card. */
+.dashboard-add-widget-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 6rem;
+}
+
+.dashboard-add-widget-skeleton {
+    flex: 1 1 auto;
+    height: 0.85rem;
+    border-radius: 0.475rem;
+    background: var(--bs-gray-200);
+}
+
+.dashboard-add-widget-chart {
+    width: 100%;
+}
+
+.dashboard-add-widget-card-add {
+    pointer-events: none; /* the whole card is the click target */
+}
+
 /* 10. The shared hover scrollbar -------------------------------------------
 
    One component, used by every panel that scrolls its own content inside a
@@ -3414,6 +3474,34 @@ dialog:has(.wizard-lines-step) {
     .integration-details dd:not(:last-child) {
         margin-bottom: 0.5rem;
     }
+}
+
+/* The "راهنمای اتصال" disclosure on the SMS/post provider settings pages —
+   a native `<details>`/`<summary>` (this app's own `<dialog>` philosophy:
+   reach for the platform element before a vendor JS component), styled to
+   read as one more card header rather than a bare browser triangle. */
+details > summary.card-header {
+    cursor: pointer;
+    list-style: none;
+}
+
+details > summary.card-header::-webkit-details-marker {
+    display: none;
+}
+
+details > summary.card-header::after {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    margin-inline-start: auto;
+    border-inline-end: 2px solid var(--bs-gray-500);
+    border-bottom: 2px solid var(--bs-gray-500);
+    transform: rotate(45deg);
+    transition: transform 0.15s ease;
+}
+
+details[open] > summary.card-header::after {
+    transform: rotate(225deg);
 }
 
 /* 15. The report wizards ----------------------------------------------------

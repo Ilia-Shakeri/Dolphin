@@ -265,8 +265,19 @@ class JalaliMonthViewTests(SimpleTestCase):
     def test_both_navigation_pairs_are_in_the_toolbar(self):
         """Only one pair is shown at a time, but both have to exist for
         `datesSet` to swap them — with the custom pair alone, week and day
-        view would have had no navigation at all."""
-        self.assertIn('start: "jalaliPrev,jalaliNext,prev,next today"', SCRIPT)
+        view would have had no navigation at all.
+
+        Restated 2026-09-21: `next` now comes before `prev` in both groups.
+        FullCalendar renders a `headerToolbar` group the same way the Jalali
+        picker's own header row does — first-authored sits rightmost under
+        `dir="rtl"` — so the original `"jalaliPrev,jalaliNext,prev,next"`
+        order put both `next` buttons on the left and both `prev` buttons on
+        the right, backwards from the picker header and from the Persian-
+        calendar convention it was meant to match (see the comment above
+        `openJalaliPicker`'s own header row). Confirmed in-browser: with
+        `next` authored first, next renders on the right in both month view
+        and week/day view, matching the picker header."""
+        self.assertIn('start: "jalaliNext,jalaliPrev,next,prev today"', SCRIPT)
         self.assertEqual(SCRIPT.count(".fc-jalaliPrev-button, .fc-jalaliNext-button"), 2)
 
     def test_cell_numbers_are_month_view_only(self):

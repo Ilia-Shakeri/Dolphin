@@ -30,6 +30,9 @@
         <span class="text-muted fs-8" id="dashboard-edit-hint" hidden>
             هر باکس را از هر جای خودش بکشید تا جابه‌جا شود؛ از گوشهٔ پایین‌چپ آن را بزرگ و کوچک کنید.
         </span>
+        <button type="button" class="btn btn-sm btn-light-primary" id="dashboard-add-widget-open" hidden>
+            <i class="ki-duotone ki-plus fs-4 me-1"></i>افزودن ویجت
+        </button>
         <button type="button" class="btn btn-sm btn-light-danger" id="dashboard-edit-reset" hidden>
             بازگرداندن به پیش‌فرض
         </button>
@@ -43,6 +46,26 @@
         <span class="text-muted fs-8">پنهان‌شده:</span>
         <span id="dashboard-hidden-list" class="d-flex flex-wrap gap-2"></span>
     </div>
+    {% comment %} «افزودن ویجت» — مودال گالریِ ویجت‌های پنهان، هرکدام با یک
+       پیش‌نمایش واقعی/نمونه، به‌جای فهرست تخت دکمه‌های بالا (که برای بازگرداندن
+       سریع یک ویجتِ خودِ کاربر پنهان کرده هنوز جای خودش را دارد). مالک محصول
+       ۲۰۲۶/۰۹/۲۱: «برای اضافه کردن ویجت‌های جدید یک مودال جدید باز بشه و توی
+       مودال پیش‌نمایش داشته باشه». شبکهٔ کارت‌ها فقط یک‌بار در طول عمر صفحه
+       ساخته می‌شود (`setupDashboardAddWidget`, dolphin-app.js) — هر نمودار
+       نمونه هم فقط یک‌بار mount می‌شود، نه هر بار که مودال باز می‌شود. {% endcomment %}
+    <dialog id="dashboard-add-widget-dialog" aria-labelledby="dashboard-add-widget-title">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <h2 class="fs-4 fw-bold mb-0" id="dashboard-add-widget-title">افزودن ویجت</h2>
+            <button type="button" class="btn btn-sm btn-icon btn-light" data-close-dialog aria-label="بستن">
+                <i class="ki-duotone ki-cross fs-2"><span class="path1"></span><span class="path2"></span></i>
+            </button>
+        </div>
+        <p class="text-muted fs-8 mb-4">روی هر ویجت بزنید تا همین حالا به داشبورد شما اضافه شود.</p>
+        <div id="dashboard-add-widget-grid" class="dashboard-add-widget-grid" role="list"></div>
+        <p class="text-muted fs-8 text-center py-8 d-none" id="dashboard-add-widget-empty">
+            همهٔ ویجت‌های موجود از قبل روی داشبورد شما هستند.
+        </p>
+    </dialog>
 {% comment %} Capped to two rows (product-owner request 2026-09-12: a
    platform admin's dozen-plus tiles made the dashboard scroll for a long
    time before reaching anything else) and scrollable for the rest, the same

@@ -18,6 +18,37 @@
         </div>
     </div>
 </div>
+{% comment %} راهنمای جامع — مالک محصول ۲۰۲۶/۰۹/۲۱: «باید یک راهنمای جامع
+   وجود داشته باشد تا بتوانند سرویس خودشان را وصل کنند». نسخهٔ کامل و
+   عمومی (برای هر ارائه‌دهنده، نه فقط TIARA) در
+   docs/ops/PROVIDER_CONNECTION_GUIDE.md؛ این‌جا همان راهنما به‌شکل
+   فشرده و درجا، کنار خودِ فیلدهاست — کسی که این صفحه را باز کرده لازم
+   نیست برای فهمیدن یک فیلد به فایلی روی سرور مراجعه کند. {% endcomment %}
+<details class="card mb-5 mb-xl-8">
+    <summary class="card-header cursor-pointer">
+        <div class="card-title"><h2>راهنمای اتصال — چطور سامانهٔ خودم را وصل کنم؟</h2></div>
+    </summary>
+    <div class="card-body pt-2 fs-7 text-gray-700">
+        <p class="mb-4">
+            پیش از پر کردن این فرم، از ارائه‌دهندهٔ پیامکی خودتان بگیرید: مستندات
+            رسمی API (Swagger/Postman یا حداقل یک نمونهٔ curl واقعی)، نشانی
+            ارسال، شیوهٔ احراز هویت واقعی، و یک نقطهٔ آزمایشیِ بی‌خطر (مثلاً
+            استعلام موجودی) برای دکمهٔ «تست اتصال».
+        </p>
+        <ul class="mb-4 ps-5">
+            <li class="mb-2"><strong>روش احراز هویت:</strong> اگر ارائه‌دهنده یک کلید ثابت در هدر/بدنه می‌خواهد → «کلید ثابت». اگر باید اول با نام‌کاربری/رمز توکن بگیرید → «OAuth2».</li>
+            <li class="mb-2"><strong>قالب بدنهٔ درخواست:</strong> دقیقاً همان شکل JSON که مستندات ارائه‌دهنده برای «ارسال» می‌خواهد؛ چهار نشانهٔ <code dir="ltr">__SMS_TO__</code>/<code dir="ltr">__SMS_BODY__</code>/<code dir="ltr">__SMS_SENDER__</code>/<code dir="ltr">__SMS_ID__</code> را جای مقدار واقعی بگذارید، بقیهٔ فیلدهای الزامیِ ارائه‌دهنده را با مقدار ثابتشان.</li>
+            <li class="mb-2"><strong>پارامترهای اضافهٔ ورود OAuth2:</strong> هر پارامتری غیر از نام‌کاربری/رمز که مستندات «ورود» ارائه‌دهنده می‌خواهد (مثلاً <code dir="ltr">systemName</code>، <code dir="ltr">scope</code>).</li>
+            <li>توالی پیشنهادی: پر کنید بدون فعال‌کردن → ذخیره → تست اتصال → اگر خطا داد پیام را بخوانید → فعال کنید → از «ارسال پیامک» یک پیامک آزمایشی واقعی بفرستید.</li>
+        </ul>
+        <p class="mb-0 text-muted fs-8">
+            نسخهٔ کامل‌تر، با جدول فیلد‌به‌فیلد و توضیح «آنچه این یکپارچگی هنوز
+            پوشش نمی‌دهد»: <code dir="ltr">docs/ops/PROVIDER_CONNECTION_GUIDE.md</code>.
+            اگر ارائه‌دهندهٔ واقعی‌تان TIARA/payamsms.com است، مقادیر آماده در
+            <code dir="ltr">docs/ops/TIARA_SMS_SETUP.md</code> هست.
+        </p>
+    </div>
+</details>
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
         <div class="card-title"><h2>اتصال سامانهٔ پیامک</h2></div>

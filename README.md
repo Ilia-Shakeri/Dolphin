@@ -73,9 +73,11 @@ By default this runs against SQLite with no extra setup. For a real
 PostgreSQL stack (the shape production actually runs), see
 [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md)
 — the canonical, no-assumptions guide for installing, updating, backing up,
-and recovering a real deployment, and now the *only* ops document: every
-other `docs/ops/*.md` file was merged into it 2026-09-01 (one doc, not
-fourteen), each former file preserved intact as its own section.
+and recovering a real deployment. Every pre-existing `docs/ops/*.md` file
+was merged into it 2026-09-01 (one doc, not fourteen), each former file
+preserved intact as its own section; two narrower, customer/provider-specific
+runbooks were added afterward and stay separate on purpose — see the
+documentation map below.
 
 ## Testing
 
@@ -106,7 +108,10 @@ testing" section of [`BACKEND_SPEC.md`](BACKEND_SPEC.md).
 | [`DOLPHIN_CLIENT1_CODEX_ROADMAP.md`](DOLPHIN_CLIENT1_CODEX_ROADMAP.md) | The phased delivery plan and forward roadmap |
 | [`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md`](DOLPHIN_FEATURE_MAP_AND_ROADMAP.md) | What exists today vs. what's next |
 | [`CHANGELOG.md`](CHANGELOG.md) | Every release, what changed and why |
-| [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md) | Deployment, backup/restore, rollback, security, incident response — the one ops document |
+| [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md) | Deployment, backup/restore, rollback, security, incident response — the primary ops document |
+| [`docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md`](docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md) | Turning on a new feature module for an existing customer, without repeating the runbook |
+| [`docs/ops/PROVIDER_CONNECTION_GUIDE.md`](docs/ops/PROVIDER_CONNECTION_GUIDE.md) | Connecting any real SMS/post provider to the generic settings pages — field by field, provider-agnostic |
+| [`docs/ops/TIARA_SMS_SETUP.md`](docs/ops/TIARA_SMS_SETUP.md) | TIARA-specific SMS provider field values — one deployment, one time, not a general guide |
 
 `docs/backend/` and `docs/frontend/` no longer exist: their thirteen and two
 files respectively were merged into `BACKEND_SPEC.md`'s Appendix the same day,

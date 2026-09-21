@@ -23,6 +23,34 @@
         </div>
     </div>
 </div>
+{% comment %} راهنمای جامع — همان درخواست مالک محصول که راهنمای سامانهٔ
+   پیامک را هم گرفت؛ نسخهٔ کامل در docs/ops/PROVIDER_CONNECTION_GUIDE.md.
+   {% endcomment %}
+<details class="card mb-5 mb-xl-8">
+    <summary class="card-header cursor-pointer">
+        <div class="card-title"><h2>راهنمای اتصال — چطور سرویس پست خودم را وصل کنم؟</h2></div>
+    </summary>
+    <div class="card-body pt-2 fs-7 text-gray-700">
+        <p class="mb-4">
+            پیش از پر کردن این فرم، از سرویس پستی خودتان بگیرید: نشانی پایهٔ
+            سرویس، نام دقیق هدری که برای کلید API می‌خواهد (هر ارائه‌دهنده نام
+            متفاوتی دارد — به همین دلیل «نام هدر کلید» زیر آزاد است، نه یک
+            گزینهٔ ثابت)، و یک نقطهٔ آزمایشیِ بی‌خطر (یک GET سبک) برای دکمهٔ
+            «تست اتصال».
+        </p>
+        <p class="mb-4">
+            عمداً ساده‌تر از سامانهٔ پیامک است — بدون قالب بدنه، بدون OAuth2 —
+            چون این صفحه فقط <strong>اتصال</strong> را آماده می‌کند. نگاشتِ
+            وضعیت‌های واقعیِ ارائه‌دهنده روی چهار حالت پستیِ این محصول یک قدم
+            جداست که با افزودن یک کلاس Python (<code dir="ltr">sales.postal.
+            PostalCarrier</code>) انجام می‌شود، نه با این فرم — چون واژگان هر
+            ارائه‌دهنده فرق دارد.
+        </p>
+        <p class="mb-0 text-muted fs-8">
+            نسخهٔ کامل‌تر: <code dir="ltr">docs/ops/PROVIDER_CONNECTION_GUIDE.md</code>.
+        </p>
+    </div>
+</details>
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
         <div class="card-title"><h2>اتصال سرویس پست</h2></div>

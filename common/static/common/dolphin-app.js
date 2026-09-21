@@ -878,6 +878,48 @@
         {value: "half", label: "نصف"},
         {value: "full", label: "تمام‌عرض"},
     ];
+    //: Per-catalog-key preview shape for the "افزودن ویجت" dialog
+    //: (`buildAddWidgetGrid` below). `icon`/`accent` copy the real icon and
+    //: colour `common/dashboard.py` gives each KPI/gauge, so a card in the
+    //: gallery looks like the widget it adds, not a generic placeholder.
+    //: `sample` is illustrative only — never a real figure from this
+    //: deployment's data — which is why every preview also carries the
+    //: "نمونه" badge `buildAddWidgetGrid` adds next to it.
+    const DASHBOARD_ADD_WIDGET_META = {
+        sales_amount_this_month: {family: "kpi", icon: "ki-chart-line-up", icon_paths: 2, accent: "success"},
+        sales_count_this_month: {family: "kpi", icon: "ki-basket", icon_paths: 4, accent: "primary"},
+        outstanding: {family: "kpi", icon: "ki-wallet", icon_paths: 4, accent: "warning"},
+        calls_this_week: {family: "kpi", icon: "ki-call", icon_paths: 8, accent: "info"},
+        after_sales_open: {family: "kpi", icon: "ki-wrench", icon_paths: 2, accent: "danger"},
+        after_sales_closed_this_month: {family: "kpi", icon: "ki-check-circle", icon_paths: 2, accent: "success"},
+        trend: {
+            family: "trend", icon: "ki-chart-line-up", icon_paths: 2, accent: "success",
+            points: ["هفتهٔ ۱", "هفتهٔ ۲", "هفتهٔ ۳", "هفتهٔ ۴", "هفتهٔ ۵", "هفتهٔ ۶"].map((label, index) => ({
+                label, value: [4, 6, 5, 8, 7, 10][index], display: String([4, 6, 5, 8, 7, 10][index]),
+            })),
+            counts: [2, 3, 3, 4, 3, 5],
+        },
+        breakdown: {
+            family: "donut", icon: "ki-chart-pie-3", icon_paths: 2, accent: "primary",
+            items: [
+                {label: "در انتظار", value: 4, display: "۴"},
+                {label: "تکمیل", value: 7, display: "۷"},
+                {label: "کنسل‌شده", value: 2, display: "۲"},
+            ],
+        },
+        lead_conversion_rate: {family: "gauge", icon: "ki-percentage", icon_paths: 2, accent: "success", value: 62},
+        receivables_collection_rate: {family: "gauge", icon: "ki-percentage", icon_paths: 2, accent: "info", value: 74},
+        after_sales_closure_rate: {family: "gauge", icon: "ki-percentage", icon_paths: 2, accent: "warning", value: 55},
+        agent_share: {
+            family: "donut", icon: "ki-profile-user", icon_paths: 2, accent: "primary",
+            items: [
+                {label: "نمایندهٔ ۱", value: 5, display: "۵"},
+                {label: "نمایندهٔ ۲", value: 3, display: "۳"},
+                {label: "نمایندهٔ ۳", value: 2, display: "۲"},
+            ],
+        },
+    };
+
 
     /**
      * In-place dashboard customisation: drag to reorder, resize from a
@@ -909,6 +951,10 @@
         const reset = document.getElementById("dashboard-edit-reset");
         const hint = document.getElementById("dashboard-edit-hint");
         const hiddenBar = document.getElementById("dashboard-hidden-bar");
+        const addWidgetOpen = document.getElementById("dashboard-add-widget-open");
+        const addWidgetDialog = document.getElementById("dashboard-add-widget-dialog");
+        const addWidgetGrid = document.getElementById("dashboard-add-widget-grid");
+        const addWidgetEmpty = document.getElementById("dashboard-add-widget-empty");
         const hiddenList = document.getElementById("dashboard-hidden-list");
         if (!bar || !toggle || !grid) return;
 
@@ -989,6 +1035,153 @@
             });
             hiddenBar.hidden = false;
         }
+        // "افزودن ویجت" — a richer alternative to the flat restore bar
+        // above, with a preview per widget. Built at most once per page
+        // load (`addWidgetBuilt`), the first time the reader opens it: a
+        // dashboard nobody customises should not pay for six mounted Apex
+        // instances it never shows. `addWidgetAdded` tracks whether the
+        // reader actually changed anything this time the dialog was open —
+        // only then is a reload (see the `close` handler below) worth it.
+        let addWidgetBuilt = false;
+        let addWidgetAdded = false;
+
+        /** One card's preview area, filled per its `DASHBOARD_ADD_WIDGET_META`
+         * family. `kpi` gets the real icon and a skeleton bar instead of a
+         * number — this dialog has no real figure to show for a widget that
+         * is not on the reader's dashboard yet, and a placeholder skeleton
+         * says that honestly where an invented figure would not. The chart
+         * families get a real small Apex instance over the sample series
+         * above, which is the closest thing this codebase has to previewing
+         * a chart without fabricating this deployment's own numbers.
+         */
+        function renderAddWidgetPreview(host, meta) {
+            if (meta.family === "kpi") {
+                const symbol = document.createElement("span");
+                symbol.className = "symbol symbol-40px";
+                const symbolLabel = document.createElement("span");
+                symbolLabel.className = `symbol-label bg-light-${meta.accent}`;
+                const icon = document.createElement("i");
+                icon.className = `ki-duotone ${meta.icon} fs-2 text-${meta.accent}`;
+                for (let index = 1; index <= (meta.icon_paths || 2); index += 1) {
+                    icon.appendChild(document.createElement("span")).className = `path${index}`;
+                }
+                symbolLabel.appendChild(icon);
+                symbol.appendChild(symbolLabel);
+                const skeleton = document.createElement("span");
+                skeleton.className = "dashboard-add-widget-skeleton";
+                host.append(symbol, skeleton);
+                return;
+            }
+            const chart = document.createElement("div");
+            chart.className = "dashboard-add-widget-chart";
+            const empty = document.createElement("div");
+            empty.className = "d-none";
+            host.append(chart, empty);
+            if (meta.family === "gauge") {
+                renderGaugeChart(chart, empty, meta.value, {accent: meta.accent});
+            } else if (meta.family === "donut") {
+                renderDonutChart(chart, empty, meta.items);
+            } else if (meta.family === "trend") {
+                renderMixedChart(chart, empty, meta.points, meta.counts, {seriesNames: ["مبلغ", "تعداد"]});
+            }
+        }
+
+        function addBackWidget(key) {
+            hidden = hidden.filter((item) => item !== key);
+            addWidgetAdded = true;
+            renderHiddenBar();
+            refreshAddWidgetGrid();
+            save({hidden_widgets: hidden});
+        }
+
+        function buildAddWidgetGrid(catalog) {
+            if (!addWidgetGrid || addWidgetBuilt) return;
+            addWidgetBuilt = true;
+            addWidgetGrid.replaceChildren();
+            catalog.forEach((entry) => {
+                const meta = DASHBOARD_ADD_WIDGET_META[entry.key];
+                if (!meta) return; // A catalog entry this file's copy of the table has not caught up with yet.
+                const card = document.createElement("button");
+                card.type = "button";
+                card.className = "dashboard-add-widget-card";
+                card.dataset.widgetKey = entry.key;
+                card.setAttribute("role", "listitem");
+
+                const head = document.createElement("span");
+                head.className = "d-flex align-items-center justify-content-between w-100";
+                const label = document.createElement("span");
+                label.className = "fw-semibold fs-7 text-gray-900";
+                label.textContent = entry.label;
+                const sample = document.createElement("span");
+                sample.className = "badge badge-light fs-9";
+                sample.textContent = "نمونه";
+                head.append(label, sample);
+
+                const preview = document.createElement("span");
+                preview.className = "dashboard-add-widget-preview";
+                renderAddWidgetPreview(preview, meta);
+
+                const feature = document.createElement("span");
+                feature.className = "text-muted fs-9";
+                feature.textContent = entry.feature;
+
+                const add = document.createElement("span");
+                add.className = "dashboard-add-widget-card-add btn btn-sm btn-light-primary w-100";
+                add.innerHTML = '<i class="ki-duotone ki-plus fs-4 me-1"></i>افزودن به داشبورد';
+
+                card.append(head, preview, feature, add);
+                card.addEventListener("click", () => addBackWidget(entry.key));
+                addWidgetGrid.appendChild(card);
+            });
+        }
+
+        function refreshAddWidgetGrid() {
+            if (!addWidgetGrid) return;
+            const cards = Array.from(addWidgetGrid.children);
+            let visible = 0;
+            cards.forEach((card) => {
+                const isHidden = hidden.includes(card.dataset.widgetKey);
+                card.hidden = !isHidden;
+                if (isHidden) visible += 1;
+            });
+            if (addWidgetEmpty) addWidgetEmpty.classList.toggle("d-none", visible > 0);
+        }
+
+        if (addWidgetOpen && addWidgetDialog) {
+            addWidgetDialog.querySelectorAll("[data-close-dialog]")
+                .forEach((button) => button.addEventListener("click", () => addWidgetDialog.close()));
+            addWidgetOpen.addEventListener("click", async () => {
+                // Open first, build after: a chart mounted into a closed
+                // `<dialog>` (`display: none`, so every descendant computes
+                // to zero width) is exactly the "Apex measures a real
+                // element's width" trap `placeDashboardWidget` already
+                // documents for the real grid — here it is the dialog
+                // itself that has to be open before `renderGaugeChart`/
+                // `renderDonutChart`/`renderMixedChart` ever run.
+                addWidgetAdded = false;
+                addWidgetDialog.showModal();
+                if (!addWidgetBuilt) {
+                    let catalog = [];
+                    try {
+                        const current = await apiRequest("/api/v1/dashboard-layout/");
+                        catalog = (current && current.catalog) || [];
+                    } catch (error) {
+                        showError(error);
+                        return;
+                    }
+                    buildAddWidgetGrid(catalog);
+                }
+                refreshAddWidgetGrid();
+            });
+            addWidgetDialog.addEventListener("close", () => {
+                // Added widgets carry real, per-reader data the page never
+                // fetched (only what `apply_layout` already decided to show
+                // is on screen) — a full reload is the same "ask the server
+                // again" the reset button already uses, not a special case.
+                if (addWidgetAdded) window.location.reload();
+            });
+        }
+
 
         /** Apply a size token to a box on screen and remember it. */
         function applySize(column, key, token) {
@@ -1304,6 +1497,7 @@
             toggle.classList.toggle("btn-light", !editing);
             if (hint) hint.hidden = !editing;
             if (done) done.hidden = !editing;
+            if (addWidgetOpen) addWidgetOpen.hidden = !editing;
             if (reset) reset.hidden = !editing || !layout.is_customised;
             if (editing) enterEditing(); else leaveEditing();
             renderHiddenBar();
@@ -2355,11 +2549,20 @@
         // calendar a Persian user also has open — Google Calendar, a phone's
         // date picker — and the muscle memory that comes with it.
         //
-        // It is deliberately *not* FullCalendar's RTL toolbar, which puts
-        // prev on the right; the two calendars in this app still use that,
-        // because it is the vendor's own and re-skinning it would be a
-        // bigger change than this instruction asked for. Noted here so the
-        // difference reads as a decision rather than as drift.
+        // Product owner, 2026-09-21: the two FullCalendar-based calendars
+        // (`/leads/calendar/`, `/after-sales/calendar/`) still had prev on
+        // the right in both their custom month-view buttons
+        // (`jalaliCalendarButtons` below) and the vendor's own week/day
+        // `prev`/`next` — the first because FullCalendar renders a
+        // `headerToolbar` group with the same "first-authored sits
+        // rightmost" rule as this row, and the button *names* were never
+        // reordered to account for it; the second because it was originally
+        // left as the vendor default. Both toolbar strings were reordered to
+        // match this header (`jalaliCalendarButtons`, and the two
+        // `headerToolbar.start` strings in `setupLeadCalendar`/
+        // `setupAfterSalesCalendar`) — a reorder, not a re-skin, so no icon
+        // or CSS override was needed there either. Verified in-browser: all
+        // three controls now agree, next always ends up on the right.
         //
         // DOM order is visual order in this `dir="rtl"` row: first child
         // sits rightmost.
@@ -4573,7 +4776,7 @@
             // Two prev/next pairs, swapped by `datesSet` below: the custom
             // one steps a whole Jalali month, FullCalendar's own steps the
             // fixed week/day the other views are made of.
-            headerToolbar: {start: "jalaliPrev,jalaliNext,prev,next today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+            headerToolbar: {start: "jalaliNext,jalaliPrev,next,prev today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
             buttonText: {today: "امروز", week: "هفته", day: "روز"},
             dayHeaderContent: (arg) => {
                 const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];
@@ -5644,7 +5847,7 @@
             // Two prev/next pairs, swapped by `datesSet` below: the custom
             // one steps a whole Jalali month, FullCalendar's own steps the
             // fixed week/day the other views are made of.
-            headerToolbar: {start: "jalaliPrev,jalaliNext,prev,next today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+            headerToolbar: {start: "jalaliNext,jalaliPrev,next,prev today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
             buttonText: {today: "امروز", week: "هفته", day: "روز"},
             dayHeaderContent: (arg) => {
                 const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];

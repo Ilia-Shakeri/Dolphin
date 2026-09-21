@@ -564,6 +564,84 @@ class DashboardHideButtonTests(SimpleTestCase):
         self.assertIn('`پنهان کردن ${boxLabel(key)}`', body)
 
 
+class DashboardAddWidgetTests(SimpleTestCase):
+    """2026-09-21: «برای اضافه کردن ویجت‌های جدید یک مودال جدید باز بشه و توی
+    مودال پیش‌نمایش داشته باشه». Until this the only way back for a widget
+    the reader hid themselves was a flat row of "+ label" text buttons, and
+    a widget the deployment's own default hides could never be told apart
+    from one — see `renderHiddenBar`'s own comment. This dialog is additive,
+    not a replacement: that row still does the one-click-restore job it
+    always did; this is the richer picker with a preview.
+    """
+
+    def test_the_trigger_button_exists_and_hides_with_the_editor_bar(self):
+        self.assertIn('id="dashboard-add-widget-open"', HOME)
+        body = function_body("setupDashboardEditor")
+        self.assertIn('addWidgetOpen.hidden = !editing', body)
+
+    def test_the_dialog_is_a_native_dialog_not_a_bootstrap_modal(self):
+        self.assertIn('<dialog id="dashboard-add-widget-dialog"', HOME)
+        self.assertNotIn('id="dashboard-add-widget-dialog" class="modal"', HOME)
+
+    def test_its_own_close_button_is_wired(self):
+        """A dialog's `[data-close-dialog]` button does nothing on its own —
+        every dialog in this app wires it in its own setup function (see the
+        ~20 other call sites), and this one was missed on the first pass:
+        clicking «×» did not close it until this test was written against
+        the fix, confirmed live in a browser."""
+        body = function_body("setupDashboardEditor")
+        self.assertIn(
+            'addWidgetDialog.querySelectorAll("[data-close-dialog]")', body,
+        )
+        self.assertIn("addWidgetDialog.close()", body)
+
+    def test_every_catalog_widget_has_a_preview_entry(self):
+        """The dialog silently drops any catalog key its own meta table does
+        not recognise (`if (!meta) return;` in `buildAddWidgetGrid`) rather
+        than crashing — but a widget nobody can ever add back defeats the
+        point, so the table has to be kept in step with the real catalog by
+        hand. This test is that step: it fails the moment a widget is added
+        to `WIDGET_CATALOG` without a matching entry here."""
+        from common.dashboard_layout import WIDGET_CATALOG
+
+        start = SCRIPT.index("const DASHBOARD_ADD_WIDGET_META = {")
+        end = SCRIPT.index("\n    };", start)
+        table = SCRIPT[start:end]
+        for key, _label, _feature in WIDGET_CATALOG:
+            self.assertIn(f"{key}: {{", table, f"no preview entry for {key!r}")
+
+    def test_the_chart_families_render_a_real_apex_instance_not_a_placeholder(self):
+        """The two honest options for a widget with no real data yet are a
+        skeleton (the KPI family) or a real chart over a clearly-fake sample
+        (everything else) — never a number dressed up to look real. See the
+        `sample`/`نمونه` badge every card carries."""
+        body = function_body("renderAddWidgetPreview")
+        self.assertIn("renderGaugeChart(chart, empty, meta.value", body)
+        self.assertIn("renderDonutChart(chart, empty, meta.items)", body)
+        self.assertIn("renderMixedChart(chart, empty, meta.points, meta.counts", body)
+
+    def test_adding_one_is_the_same_save_call_the_restore_bar_uses(self):
+        """No second write path: both the flat bar and this dialog end at
+        the same `save({hidden_widgets: hidden})`, so there is exactly one
+        place that decides what "hidden" means."""
+        body = function_body("addBackWidget")
+        self.assertIn("save({hidden_widgets: hidden})", body)
+
+    def test_closing_after_a_real_add_reloads_the_page(self):
+        """The grid only ever holds what `apply_layout` already decided to
+        render — an added widget's real data was never fetched, so there is
+        nothing to insert into the DOM in place. The reset button already
+        reloads for exactly this reason; this reuses that, not a new
+        mechanism."""
+        body = function_body("setupDashboardEditor")
+        self.assertIn('if (addWidgetAdded) window.location.reload();', body)
+
+    def test_the_grid_is_css_grid_not_a_flex_wrap_hack(self):
+        declarations = rule(".dashboard-add-widget-grid")
+        self.assertIn("display: grid", declarations)
+        self.assertIn("grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr))", declarations)
+
+
 class CapabilityTileLayoutTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

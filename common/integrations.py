@@ -11,12 +11,18 @@ callable that reports its state. Everything the page draws comes from
 that row, so adding a service is one entry plus its own status function —
 no template change, no new view, no second list to keep in step.
 
-**Three rows today, and the third is honest about being empty.** SMS is a
+**Four rows today, and the last two are honest about being empty.** SMS is a
 real, configurable, testable gateway. Post is the carrier seam from
 `sales.postal` — manual in this build, with the interface a provider will be
-implemented against. The third is a placeholder that says «به‌زودی» and
-offers no controls at all, because a switch that does nothing is worse than
-an empty space (CLAUDE.md §27).
+implemented against. VoIP/telephony (product-owner request 2026-09-21,
+alongside the same request that asked for every SMS/post "model" to be
+connectable — see `docs/ops/PROVIDER_CONNECTION_GUIDE.md`) has no code
+anywhere in this repository yet — no model, no settings page, no scope
+decision — so it is a named placeholder rather than a generic one, the same
+"honest about being empty" shape as the row after it. `coming_soon` stays
+the generic catch-all for whatever is not even named yet (a payment gateway,
+the tax-authority system). Neither offers a switch that does nothing, which
+is worse than an empty space (CLAUDE.md §27).
 
 **Nothing here is a permission.** `gate` is a callable that answers the
 same question that integration's own settings page and API already answer
@@ -268,6 +274,18 @@ INTEGRATIONS = (
         test_url="/api/v1/post-provider-settings/test/",
         status=_post_status,
         details=_post_details,
+    ),
+    Integration(
+        key="voip",
+        label="تلفنی / VoIP",
+        description=(
+            "ثبت خودکار تماس‌ها، اتصال به سامانهٔ تلفن گویا یا مرکز تماس. "
+            "دامنهٔ دقیق (فقط ثبت تماس، یا ضبط مکالمه، یا مرکز تماس کامل) و "
+            "ارائه‌دهندهٔ هدف هنوز تعیین نشده‌اند."
+        ),
+        icon="ki-phone",
+        icon_paths=2,
+        status=_unavailable_status,
     ),
     Integration(
         key="coming_soon",

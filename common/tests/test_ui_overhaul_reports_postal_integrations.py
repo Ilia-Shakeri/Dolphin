@@ -464,26 +464,37 @@ class PostalApiTests(TestCase):
 
 
 class IntegrationRegistryTests(SimpleTestCase):
-    def test_the_three_rows_the_product_owner_asked_for(self):
-        """«پیامک + پست + جای خالیِ صریحاً به‌زودی»."""
+    def test_the_four_rows_the_product_owner_asked_for(self):
+        """Restated 2026-09-21: «پیامک + پست + جای خالیِ صریحاً به‌زودی» plus
+        a fourth, `voip` — the product owner's own follow-up request that
+        every "connect systems" page also name VoIP/telephony, with no code
+        or scope behind it yet, so it gets the same honest-placeholder
+        treatment `coming_soon` already had rather than a fake settings
+        page (`CLAUDE.md` §27)."""
         self.assertEqual([row.key for row in integrations.INTEGRATIONS],
-                         ["sms", "post", "coming_soon"])
+                         ["sms", "post", "voip", "coming_soon"])
 
     def test_the_placeholder_offers_no_controls_at_all(self):
-        """A switch that does nothing is worse than an empty space."""
-        placeholder = integrations.INTEGRATIONS[-1]
-        self.assertIsNone(placeholder.settings_url_name)
-        self.assertIsNone(placeholder.test_url)
-        self.assertEqual(placeholder.status(None).state, "unavailable")
+        """A switch that does nothing is worse than an empty space. Both
+        placeholders (`voip`, `coming_soon`) share this, not just the last
+        one — checked by key, not by position, so this does not silently
+        stop meaning anything if a third placeholder is ever added."""
+        for key in ("voip", "coming_soon"):
+            placeholder = next(row for row in integrations.INTEGRATIONS if row.key == key)
+            self.assertIsNone(placeholder.settings_url_name)
+            self.assertIsNone(placeholder.test_url)
+            self.assertEqual(placeholder.status(None).state, "unavailable")
         self.assertEqual(integrations.STATE_LABELS["unavailable"][0], "به‌زودی")
 
     def test_a_test_button_exists_only_where_a_test_exists(self):
         """Restated 2026-09-21: `post` gained a real settings page and a
         real "تست اتصال" (`sales/postal_provider.py`) — it belongs beside
-        `sms` here now, not with `coming_soon`, which still offers neither."""
+        `sms` here now, not with the placeholders, which still offer
+        neither."""
         by_key = {row.key: row for row in integrations.INTEGRATIONS}
         self.assertTrue(by_key["sms"].test_url)
         self.assertTrue(by_key["post"].test_url)
+        self.assertIsNone(by_key["voip"].test_url)
         self.assertIsNone(by_key["coming_soon"].test_url)
 
     def test_a_secret_is_hinted_at_and_never_shown(self):
@@ -517,12 +528,14 @@ class IntegrationVisibilityTests(TestCase):
 
     def test_a_platform_admin_sees_every_row(self):
         keys = [row["key"] for row in integrations.visible_integrations(self.admin)]
-        self.assertEqual(keys, ["sms", "post", "coming_soon"])
+        self.assertEqual(keys, ["sms", "post", "voip", "coming_soon"])
 
     def test_a_marketer_sees_only_what_they_could_configure(self):
-        """Plus the placeholder, which is the point of it."""
+        """Plus both placeholders, which is the point of them — neither has
+        a gate, so nothing is there to exclude a role from."""
         keys = [row["key"] for row in integrations.visible_integrations(self.agent)]
         self.assertNotIn("sms", keys)
+        self.assertIn("voip", keys)
         self.assertIn("coming_soon", keys)
 
     def test_an_unconfigured_gateway_says_so_rather_than_claiming_a_connection(self):

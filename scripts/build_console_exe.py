@@ -61,6 +61,7 @@ NAME = "dolphin-console"
 COLLECT = (
     "django",
     "rest_framework",
+    "drf_spectacular",
     "config",
     "common",
     "accounts",
