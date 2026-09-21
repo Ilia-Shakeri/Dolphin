@@ -150,7 +150,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 2. Line chart bottom day-number labels wrong → `2.14.2`
 - [x] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
 - [x] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
-- [ ] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
+- [x] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
 - [ ] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
 - [ ] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
 - [ ] 8. Excel import/export buttons get a small Excel icon → bundled into `2.14.7`
@@ -166,7 +166,29 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–4 done (`2.14.1`–`2.14.4`), moving to item 5.
+**Current:** items 1–5 done (`2.14.1`–`2.14.5`), moving to item 6.
+
+**Item 5 — root cause and fix.** Exactly the bug `.wizard-lines-step` (batch
+C, `2.12.0`) was already written to fix, in a different wizard: the theme
+lays every `[data-kt-stepper-element="content"]` out as `display:flex;
+flex-direction:row` by default, correct for a step holding one `.row` and
+wrong for one with several top-level blocks. The payments wizard's
+«اطلاعات سند» step has up to five once the bank or cheque fieldset shows —
+the main fields row, one conditional fieldset, the notes row, the cheque
+note — all fighting for one shared horizontal row. Measured live with «چک»
+selected: fields row 128px, cheque fieldset 252px, notes row 64px. Fixed
+with the same pattern: a new `wizard-document-step` scoping class on the
+step's own div, `flex-direction: column`, and the between-section spacing
+raised from the theme's `mt-2` (0.5rem, sized for one row sharing a normal
+form, not a full-width section) via a targeted `!important` override — the
+theme's own `.mt-2` is itself `!important`, so nothing short of matching it
+wins. Verified live: `getComputedStyle` confirms `flex-direction: column`
+after the fix, and each visible child's bounding rect now has a strictly
+increasing `top` at a consistent `left` (true vertical stacking) rather than
+the pre-fix pattern of several children sharing one row's horizontal space.
+New tests: `test_ui_overhaul_round2.PaymentWizardDocumentStepTests` (3).
+Invoice-wizard suite (unaffected, same file) and round2 (54 total) both
+green.
 
 **Item 4 — root cause and fix.** The three-dot link was correctly built
 (`boardCardHeader`, a real `<a href>`), but jKanban's own vendor bundle

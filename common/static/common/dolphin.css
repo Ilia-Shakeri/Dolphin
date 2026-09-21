@@ -2170,6 +2170,32 @@ dialog {
     align-items: stretch;
 }
 
+/* The receipts/payments wizard's «اطلاعات سند» step (product owner,
+   2026-09-21: «فاصله‌های درست و زیبا»). Same theme default, same fix as
+   `.wizard-lines-step` above: this step has up to five top-level children
+   once the bank or cheque fieldset is shown (the main fields row, one of
+   two conditional fieldsets, the notes row, the cheque note), and the
+   theme's `display:flex; flex-direction:row` on every stepper content div
+   shared one horizontal row between all five instead of stacking them.
+   Measured live with «چک» selected before this fix: the fields row came out
+   128px wide, the cheque fieldset 252px, the notes row 64px. */
+.wizard-document-step {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* A little more air between the step's own sections than the theme's `mt-2`
+   utility gives a lone row inside a normal (non-stepper) form — each of
+   these is now a full-width block in its own right (the fields row, the
+   bank/cheque fieldset, the notes row), not one control among several
+   sharing a line, and reads as cramped at `mt-2`'s 0.5rem once stacked.
+   `!important` because the theme's own `.mt-2 { margin-top: 0.5rem
+   !important; }` (style.bundle.rtl.css) is already `!important` — nothing
+   short of matching it wins. */
+.wizard-document-step > .mt-2 {
+    margin-block-start: 1.75rem !important;
+}
+
 /* A line editor needs more room than a two-field form. The shared `dialog`
    rule caps every dialog at 44rem, which left the five columns sharing 472px
    at 1536px wide — they fit, but «قیمت واحد» and «جمع ردیف» each had barely

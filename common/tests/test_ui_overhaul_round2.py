@@ -9,7 +9,9 @@ re-verified.
 
 from django.test import SimpleTestCase
 
-from common.tests.ui_overhaul_helpers import CODE, SCRIPT, function_body, rule
+from common.tests.ui_overhaul_helpers import CODE, SCRIPT, TEMPLATES, function_body, markup, rule
+
+PAYMENTS_LIST = (TEMPLATES / "payments" / "list.html").read_text(encoding="utf-8")
 
 
 class JalaliPickerTitleSpacingTests(SimpleTestCase):
@@ -101,3 +103,30 @@ class BoardCardDetailsLinkTests(SimpleTestCase):
         for fn in ("setupLeadBoard", "setupOrderBoard"):
             body = function_body(fn, SCRIPT)
             self.assertIn("letCardDetailsLinkThrough(container)", body, f"{fn} does not install the fix")
+
+
+class PaymentWizardDocumentStepTests(SimpleTestCase):
+    """Item 5 — the receipts/payments wizard's «اطلاعات سند» step shared the
+    exact bug `.wizard-lines-step` was already written to fix: the theme
+    lays every `[data-kt-stepper-element="content"]` out as `display:flex;
+    flex-direction:row` by default, and this step has up to five top-level
+    children once a fieldset is shown, so they fought each other for one
+    shared row instead of stacking. Measured live with «چک» selected before
+    the fix: the fields row came out 128px wide, the cheque fieldset 252px,
+    the notes row 64px.
+    """
+
+    def test_the_step_carries_the_scoping_class(self):
+        self.assertIn('class="wizard-document-step" data-kt-stepper-element="content"', markup(PAYMENTS_LIST))
+
+    def test_the_step_is_a_column(self):
+        body = rule(".wizard-document-step")
+        self.assertIn("flex-direction: column", body)
+        self.assertIn("align-items: stretch", body)
+
+    def test_the_sections_get_more_air_than_a_lone_form_row_would(self):
+        # The theme's own `.mt-2` utility is itself `!important`
+        # (style.bundle.rtl.css), so beating it for just this step needs the
+        # same — a single, targeted override, not a chain.
+        body = rule(".wizard-document-step > .mt-2")
+        self.assertIn("!important", body)

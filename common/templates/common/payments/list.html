@@ -111,7 +111,17 @@
         </div>
         <input type="hidden" id="create-payment-method" name="method" value="cash">
         </div>
-        <div data-kt-stepper-element="content">
+{% comment %} This step has five top-level children (the main row, the bank
+   fieldset, the cheque fieldset, the notes row, the cheque note) once the
+   bank/cheque fields are shown — and the theme lays every stepper content
+   div out as `display:flex; flex-direction:row` by default, which shares
+   one horizontal row between all five instead of stacking them. Measured
+   live with «چک» selected: the fields row came out 128px wide, the cheque
+   fieldset 252px, the notes row 64px — five boxes fighting for one row
+   instead of five rows each at full width. `wizard-document-step` is the
+   same fix `wizard-lines-step` already uses for the identical theme
+   default (product owner, 2026-09-21: «فاصله‌های درست و زیبا»). {% endcomment %}
+        <div class="wizard-document-step" data-kt-stepper-element="content">
 
         <div class="row g-5">
 {% comment %} A searchable party, because the customer book is expected to grow
