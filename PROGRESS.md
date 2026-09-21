@@ -133,3 +133,37 @@ sudo askpass helper were both removed.
 `dolphin-app` tags, 12.83 GB of images and 4.84 GB of build cache. Pruning
 would touch the rollback path (`.deploy-previous-image` → `dolphin-app:v2.9.1`),
 so it is a decision for the product owner, not a cleanup to do unasked.
+
+────────
+
+# PROGRESS — Round 2 (12 fixes/additions, 2026-09-21)
+
+Product owner follow-up after 2.14.0 shipped. Versions are exactly as given
+by the product owner per item; items 7, 8 and 10 were not given their own
+version, so they are folded into the nearest following versioned release
+(7+8 into 2.14.7 with item 9; 10 into 2.14.8 with item 11) rather than
+bumping a version for every small edit (CLAUDE.md §23).
+
+## Checklist
+
+- [ ] 1. Calendar month/year header — normal, even spacing → `2.14.1`
+- [ ] 2. Line chart bottom day-number labels wrong → `2.14.2`
+- [ ] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
+- [ ] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
+- [ ] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
+- [ ] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
+- [ ] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
+- [ ] 8. Excel import/export buttons get a small Excel icon → bundled into `2.14.7`
+- [ ] 9. Post integration settings page, like SMS → `2.14.7`
+- [ ] 10. Dashboard widget editing — smoother, Apple/Android-widget-like → bundled into `2.14.8`
+- [ ] 11. Rename SMS settings entry to a general "اتصال سامانه‌ها" connections hub → `2.14.8`
+- [ ] 12. Locate/relocate the console `.exe` to the project root; report its name
+
+### Final
+- [ ] Full suite green
+- [ ] CHANGELOG + VERSION for each release above
+- [ ] Main deploy to Nerkhbaan + health check
+
+## Status
+
+**Current:** starting item 1.
