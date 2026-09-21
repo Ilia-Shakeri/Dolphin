@@ -152,9 +152,9 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
 - [x] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
 - [x] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
-- [ ] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
-- [ ] 8. Excel import/export buttons get a small Excel icon → bundled into `2.14.7`
-- [ ] 9. Post integration settings page, like SMS → `2.14.7`
+- [x] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
+- [x] 8. Excel import/export buttons get a small Excel icon → bundled into `2.14.7`
+- [x] 9. Post integration settings page, like SMS → `2.14.7`
 - [ ] 10. Dashboard widget editing — smoother, Apple/Android-widget-like → bundled into `2.14.8`
 - [ ] 11. Rename SMS settings entry to a general "اتصال سامانه‌ها" connections hub → `2.14.8`
 - [ ] 12. Locate/relocate the console `.exe` to the project root; report its name
@@ -166,7 +166,56 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–6 done (`2.14.1`–`2.14.6`), moving to item 7.
+**Current:** items 1–9 done (`2.14.1`–`2.14.7`), moving to item 10.
+
+**Items 7–9 — what changed.** Bundled into one release since 7 and 8 were
+never given their own version by the product owner.
+
+- **Item 7a (centering):** neither report wizard lives inside a `dialog`
+  (unlike the create-document wizards), so nothing capped their width —
+  `.report-wizard-card` now gets `max-width: 60rem; margin-inline: auto`.
+- **Item 7b (province dropdown):** the sales-documents-and-post report's
+  province filter was free text against an *exact*-match backend filter
+  (`reports/services.py`) — a typo already returned nothing. Now a
+  `<select>` filled by the existing `fillProvinceSelect` (the same 31-name
+  list from `iran-provinces.json` the customer map already uses) — no
+  second list written anywhere.
+- **Item 8 (Excel icons):** `ki-file-sheet` — a real icon confirmed present
+  in the actually-loaded `plugins.bundle.rtl.css` (576-icon set, not the
+  31-icon subset a naive grep found at first) — added to all 13
+  import/export buttons across 10 templates (leads, products, customers,
+  users, the performance panel, and 5 reports).
+- **Item 9 (post settings page):** new `/settings/post-provider/`, mirroring
+  `/settings/sms-provider/` but simplified to one auth shape (a static
+  header key) since no specific carrier is integrated — `sales/postal.py`'s
+  `ManualCarrier` stays the active carrier regardless; this only prepares
+  real, saved, testable connection settings a future `PostalCarrier`
+  subclass could use. New `common/http_probe.py` — extracted from
+  `communications/sms.py`'s own private `_execute`, now shared by both the
+  SMS and post "تست اتصال" buttons rather than a second private copy.
+  New: `sales/models.PostProviderSettings` (migration `0021`),
+  `sales/postal_provider.py` (get/update/test, mirroring
+  `communications/sms_provider_settings.py`), two API endpoints, the
+  settings page (view + template + JS), and the integrations row gained a
+  real settings link and test button.
+
+**Verified live:** province `<select>` has 32 options (31 + placeholder),
+alphabetically sorted, matching the map's own list; `.report-wizard-card`
+computed `max-width` went from `none` to a real value; the Excel icon
+renders with its 2 paths on spot-checked buttons (sales-documents report,
+customers list); the post settings form loads, saves (`has_api_key: true`,
+never the key itself), and its "تست اتصال" button made a **real** HTTP
+request — tested end to end against `https://example.com/ping`, which
+correctly came back `HTTP 404` with the real response body shown. The
+integrations page's post row now shows «پیکربندی‌شده» with the saved label
+in its summary. New tests: `test_ui_overhaul_round2.
+ReportWizardCenteringTests` (2), `ReportProvinceDropdownTests` (2),
+`ExcelButtonIconTests` (3); `sales/tests/test_post_provider_settings.py`
+(13, including a real HTTP round trip against a `HTTPServer` the test
+suite starts itself, not a mocked `urllib`); one restated integrations
+test. Full regression (sales, communications, round2, postal-integrations,
+database-privileges, ui-connectivity, console-avatars): 423 tests green.
+OpenAPI schema clean.
 
 **Item 6 — what was actually missing.** "صفحهٔ رهگیری پستی" is the sales
 documents *list* (`common_ui:sales-documents`, titled «رهگیری پستی») — a

@@ -69,6 +69,7 @@ PAGE_TITLES = {
     "common_ui:after-sales-calendar": "تقویم پس از فروش",
     "common_ui:outbound-sms": "پیامک خروجی",
     "common_ui:sms-provider-settings": "سامانهٔ پیامک",
+    "common_ui:post-provider-settings": "سامانهٔ پست",
     "common_ui:inbound-sms-report": "گزارش پیامک ورودی",
     "common_ui:sales-document-report": "گزارش اسناد فروش و پست",
     "common_ui:receivables-report": "گزارش مطالبات",

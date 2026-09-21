@@ -78,7 +78,10 @@
                             <input class="form-control form-control-solid" id="inbound-sms-report-search" type="search" placeholder="تاریخ یا ساعت">
                         </div>
                         <button class="btn btn-sm btn-light-primary" type="button" id="inbound-sms-report-export">
-                            <i class="ki-duotone ki-exit-down fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+                            {% comment %} `ki-file-sheet`، یک آیکون واقعیِ خود کیت آیکون خریداری‌شده — نه
+                               لوگوی سبزِ اکسل — برای این‌که «هماهنگ با تم اصلی» بماند
+                               (مالک محصول، ۲۰۲۶/۰۹/۲۱). {% endcomment %}
+                            <i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
                             خروجی اکسل
                         </button>
                     </div>

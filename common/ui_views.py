@@ -797,6 +797,31 @@ class DolphinSmsProviderSettingsView(ActiveCrmView):
         return super().dispatch(request, *args, **kwargs)
 
 
+class DolphinPostProviderSettingsView(ActiveCrmView):
+    """`/settings/post-provider/` — this deployment's own post-carrier API
+    connection (product owner, 2026-09-21: «تنظیمات سامانه پست هم مثل
+    پیامک باید صفحه برای تنظیم کردن api داشته باشه»).
+
+    Gated on `sales_documents.manage`, not Platform Admin only — unlike the
+    SMS gateway (a platform-wide credential), a post connection is a
+    sales-documents concern, the same capability `common/integrations.py`
+    already requires to open the post row on «اتصال سرویس‌ها» at all.
+    """
+
+    required_feature = "sales_documents"
+    template_name = "common/sales_documents/post_provider_settings.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        if is_crm_identity(request.user) and not has_any_capability(
+            request.user, "sales_documents.manage"
+        ):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="تنظیم سامانهٔ پست مجاز نیست.",
+            ), status=403)
+        return super().dispatch(request, *args, **kwargs)
+
+
 class AfterSalesAccessView(ActiveCrmView):
     def dispatch(self, request, *args, **kwargs):
         if is_crm_identity(request.user) and not has_any_capability(

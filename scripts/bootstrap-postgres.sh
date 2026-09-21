@@ -622,7 +622,10 @@ FROM (
         -- Campaign target audience. No DELETE: an identity that was worked is
         -- part of the campaign's history even after it stops being pursued.
         ('sales_targetaudiencemember', 'SELECT, INSERT, UPDATE'),
-        ('sales_postalstatushistory', 'SELECT, INSERT')
+        ('sales_postalstatushistory', 'SELECT, INSERT'),
+        -- Post-carrier API connection settings, singleton row — same grant
+        -- as its SMS counterpart just above.
+        ('sales_postprovidersettings', 'SELECT, INSERT, UPDATE')
 ) AS table_grant(table_name, privileges)
 WHERE to_regclass(format('%I.%I', 'public', table_grant.table_name)) IS NOT NULL
 ORDER BY table_grant.table_name

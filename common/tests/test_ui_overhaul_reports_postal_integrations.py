@@ -478,9 +478,13 @@ class IntegrationRegistryTests(SimpleTestCase):
         self.assertEqual(integrations.STATE_LABELS["unavailable"][0], "به‌زودی")
 
     def test_a_test_button_exists_only_where_a_test_exists(self):
+        """Restated 2026-09-21: `post` gained a real settings page and a
+        real "تست اتصال" (`sales/postal_provider.py`) — it belongs beside
+        `sms` here now, not with `coming_soon`, which still offers neither."""
         by_key = {row.key: row for row in integrations.INTEGRATIONS}
         self.assertTrue(by_key["sms"].test_url)
-        self.assertIsNone(by_key["post"].test_url)
+        self.assertTrue(by_key["post"].test_url)
+        self.assertIsNone(by_key["coming_soon"].test_url)
 
     def test_a_secret_is_hinted_at_and_never_shown(self):
         self.assertEqual(integrations.mask_secret("abcdefghijkl"), "••••••••ijkl")

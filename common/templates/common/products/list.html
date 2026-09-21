@@ -7,7 +7,7 @@
 {% block breadcrumb_current %}محصولات{% endblock %}
 {% comment %} خروجی همان ستون‌هایی را می‌دهد که ورودی می‌پذیرد، پس کاربر اول
    خروجی می‌گیرد، رویش می‌نویسد، و همان فایل را برمی‌گرداند. {% endcomment %}
-{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a><a class="btn btn-light" href="/api/v1/exports/products.xlsx">خروجی اکسل</a>{% if can_manage_products %}<button id="open-import-products" class="btn btn-light" type="button">ورودی اکسل</button><input id="import-products-file" type="file" accept=".xlsx" hidden>{% endif %}{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a><a class="btn btn-light" href="/api/v1/exports/products.xlsx"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>خروجی اکسل</a>{% if can_manage_products %}<button id="open-import-products" class="btn btn-light" type="button"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>ورودی اکسل</button><input id="import-products-file" type="file" accept=".xlsx" hidden>{% endif %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6 flex-wrap gap-3">

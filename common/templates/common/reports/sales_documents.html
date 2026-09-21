@@ -49,7 +49,14 @@
                 <h3 class="fs-4 fw-bold text-gray-900 mb-2">محدودتر کنیم؟</h3>
                 <p class="text-muted fs-7 mb-5">هر کدام را خالی بگذارید، یعنی «همه».</p>
                 <div class="row g-5">
-                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-province">استان</label><input class="form-control form-control-solid" id="document-report-province" maxlength="100" placeholder="همهٔ استان‌ها"></div>
+                    {% comment %} همان ۳۱ نام استانی که نقشهٔ مشتریان و فرم
+                       مشتری از `iran-provinces.json` می‌خوانند
+                       (`fillProvinceSelect`) — نه یک جعبهٔ متن آزاد که
+                       تایپ اشتباه در آن هیچ سندی را برنمی‌گرداند، چون
+                       پالایش این گزارش دقیقاً برابر می‌خواهد، نه شامل.
+                       (مالک محصول، ۲۰۲۶/۰۹/۲۱: «استان باید منو دراپ‌داون
+                       باشه»). {% endcomment %}
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-province">استان</label><select class="form-select form-select-solid" id="document-report-province"></select></div>
                     <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-city">شهر</label><input class="form-control form-control-solid" id="document-report-city" maxlength="100" placeholder="همهٔ شهرها"></div>
                     {% comment %} انتخابگر از واژگان `sales/postal.py`، که اسکریپت
                        پرش می‌کند — نه جعبهٔ متن آزادی که تایپ اشتباه در آن یک
@@ -89,7 +96,10 @@
                             <input class="form-control form-control-solid" id="sales-document-report-search" type="search" placeholder="استان، شهر یا وضعیت">
                         </div>
                         <button class="btn btn-sm btn-light-primary" type="button" id="sales-document-report-export">
-                            <i class="ki-duotone ki-exit-down fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+                            {% comment %} `ki-file-sheet` — همان آیکون هر دکمهٔ خروجی/ورودی اکسل دیگر
+                               در پنل (مالک محصول، ۲۰۲۶/۰۹/۲۱: «یه ایکون کوچولو اکسل ... هماهنگ با تم
+                               اصلی»). {% endcomment %}
+                            <i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
                             خروجی اکسل
                         </button>
                     </div>

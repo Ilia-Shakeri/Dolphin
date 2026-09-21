@@ -9,7 +9,7 @@ re-verified.
 
 from django.test import SimpleTestCase
 
-from common.tests.ui_overhaul_helpers import CODE, SCRIPT, TEMPLATES, function_body, markup, rule
+from common.tests.ui_overhaul_helpers import CODE, ROOT, SCRIPT, TEMPLATES, function_body, markup, rule
 
 PAYMENTS_LIST = (TEMPLATES / "payments" / "list.html").read_text(encoding="utf-8")
 
@@ -197,3 +197,97 @@ class PostalMiniStepperTests(SimpleTestCase):
         body = exact_rule(".postal-mini-step-current")
         self.assertIn("var(--bs-primary)", body)
         self.assertIn("box-shadow", body)
+
+
+INBOUND_SMS_REPORT = (TEMPLATES / "reports" / "inbound_sms.html").read_text(encoding="utf-8")
+
+
+class ReportWizardCenteringTests(SimpleTestCase):
+    """Item 7 — both report wizards (sales-documents-and-post, inbound-sms)
+    live directly in the page, not inside a `dialog` the way the
+    create-document wizards do, so nothing capped their width. On a wide
+    screen the stepper nav, a three-line step and a results table all
+    stretched edge to edge of the content area (product owner, 2026-09-21:
+    «ویزارد مرحله‌ای ... باید وسط‌چین باشد»)."""
+
+    def test_the_wizard_card_is_capped_and_centred(self):
+        body = exact_rule(".report-wizard-card")
+        self.assertIn("max-width", body)
+        self.assertIn("margin-inline: auto", body)
+
+    def test_both_report_pages_use_the_capped_class(self):
+        sales_documents_report = (TEMPLATES / "reports" / "sales_documents.html").read_text(encoding="utf-8")
+        self.assertIn('class="card report-wizard-card"', markup(sales_documents_report))
+        self.assertIn('class="card report-wizard-card"', markup(INBOUND_SMS_REPORT))
+
+
+class ReportProvinceDropdownTests(SimpleTestCase):
+    """Item 7's second half — the sales-documents-and-post report's province
+    filter was a free-text `<input>`, and the report's own filter is an
+    *exact* match (`reports/services.py`), so a typo already returned
+    nothing; the fix is a dropdown of the same 31 canonical names the
+    customer map and form already read from `iran-provinces.json`, not a
+    second hand-typed list (product owner, 2026-09-21: «استان باید منو
+    دراپ‌داون باشه»)."""
+
+    def setUp(self):
+        self.template = (TEMPLATES / "reports" / "sales_documents.html").read_text(encoding="utf-8")
+
+    def test_the_field_is_a_select_not_a_text_input(self):
+        markup_text = markup(self.template)
+        self.assertIn('<select class="form-select form-select-solid" id="document-report-province">', markup_text)
+        self.assertNotIn('id="document-report-province" maxlength', markup_text)
+
+    def test_it_is_filled_from_the_same_canonical_list_the_map_uses(self):
+        body = function_body("setupSalesDocumentReport", SCRIPT)
+        self.assertIn("fillProvinceSelect(", body)
+        self.assertIn('document-report-province', body)
+
+
+class ExcelButtonIconTests(SimpleTestCase):
+    """Item 8 — every Excel import/export button in the panel gets a small,
+    theme-consistent icon (product owner, 2026-09-21: «یه ایکون کوچولو
+    اکسل در دکمه باشه ... هماهنگ با تم اصلی»). `ki-file-sheet` — a real
+    icon in the purchased, actually-bundled keenicons set
+    (`plugins.bundle.rtl.css`), not an invented brand-coloured logo — so
+    "coordinated with the theme" means using its own icon system, the same
+    as every other icon in the panel."""
+
+    TEMPLATE_PATHS = (
+        "leads/detail.html",
+        "products/list.html",
+        "reports/inbound_sms.html",
+        "reports/sales_documents.html",
+        "reports/profit.html",
+        "reports/receivables.html",
+        "reports/stock_valuation.html",
+        "includes/performance_panel.inc",
+        "users/list.html",
+        "customers/list.html",
+    )
+
+    def test_the_icon_is_a_real_bundled_keenicon(self):
+        """`ki-file-sheet` must actually exist in the loaded icon font, not
+        merely look plausible — the same 31-icon-vs-576-icon mistake this
+        session already caught once for a different icon name."""
+        bundle = (ROOT / "assets" / "plugins" / "global" / "plugins.bundle.rtl.css").read_text(encoding="utf-8")
+        self.assertIn(".ki-file-sheet .path1", bundle)
+        self.assertIn(".ki-file-sheet .path2", bundle)
+
+    def test_every_excel_button_carries_it(self):
+        for relative in self.TEMPLATE_PATHS:
+            path = TEMPLATES / relative
+            text = markup(path.read_text(encoding="utf-8"))
+            self.assertIn(
+                "ki-file-sheet", text,
+                f"{relative} has an Excel import/export control with no icon",
+            )
+
+    def test_the_icon_has_its_two_paths(self):
+        for relative in self.TEMPLATE_PATHS:
+            path = TEMPLATES / relative
+            text = markup(path.read_text(encoding="utf-8"))
+            if "ki-file-sheet" not in text:
+                continue
+            self.assertIn('<span class="path1">', text)
+            self.assertIn('<span class="path2">', text)

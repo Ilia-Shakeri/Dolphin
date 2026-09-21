@@ -3,12 +3,14 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 
 from accounts.access import crm_identities, has_any_capability
 from accounts.models import User
+from common.deployment.profile import feature_enabled
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
     CONFLICT_RESPONSE,
@@ -16,7 +18,7 @@ from common.openapi import (
     THROTTLED_RESPONSE,
     VALIDATION_ERROR_RESPONSE,
 )
-from common.throttles import SensitiveActionThrottleMixin
+from common.throttles import SensitiveActionThrottleMixin, SensitiveRateThrottle
 from common.permissions import IsActiveAuthenticated
 from common.viewsets import AdminHardDeleteModelViewSet, filter_by_date_window
 from sales.permissions import HasSalesCapability
@@ -25,8 +27,8 @@ from sales.selectors import customers_for, interactions_for, target_audience_for
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
-from sales import postal
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales import postal, postal_provider
 from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -862,3 +864,82 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
     def deactivate(self, request, pk=None):
         document = deactivate_sales_document(actor=request.user, document=self.get_object())
         return Response(self.get_serializer(document).data)
+
+
+class PostProviderSettingsAccessMixin:
+    """Feature, then capability — the same two-gate shape `communications.
+    views.SmsProviderSettingsAccessMixin` uses, gated on the same capability
+    the «اتصال سرویس‌ها» page's own post row already requires
+    (`common/integrations.py`) rather than a Platform-Admin-only rule: a
+    post connection is a sales-documents concern, not a platform-wide one.
+    404 (not 403) when the deployment never turned `sales_documents` on at
+    all, so a deployment without the module sees no evidence the page
+    exists.
+    """
+
+    required_feature = "sales_documents"
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [SensitiveRateThrottle]
+
+    def initial(self, request, *args, **kwargs):
+        if not feature_enabled(self.required_feature):
+            raise NotFound()
+        if not has_any_capability(request.user, "sales_documents.manage"):
+            raise PermissionDenied("تنظیم سامانهٔ پست مجاز نیست.")
+        super().initial(request, *args, **kwargs)
+
+
+class PostProviderSettingsView(PostProviderSettingsAccessMixin, APIView):
+    """`/api/v1/post-provider-settings/` — the settings page itself."""
+
+    @extend_schema(
+        responses={200: PostProviderSettingsSerializer, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
+        description="This deployment's post-carrier API connection. api_key is never returned.",
+    )
+    def get(self, request):
+        response = Response(PostProviderSettingsSerializer(postal_provider.get_post_provider_settings()).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @extend_schema(
+        request=PostProviderSettingsUpdateSerializer,
+        responses={
+            200: PostProviderSettingsSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description="Updates any subset of the connection settings; every field is independent and optional.",
+    )
+    def post(self, request):
+        serializer = PostProviderSettingsUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        row = postal_provider.update_post_provider_settings(actor=request.user, **serializer.validated_data)
+        response = Response(PostProviderSettingsSerializer(row).data)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class TestPostProviderConnectionView(PostProviderSettingsAccessMixin, APIView):
+    """`/api/v1/post-provider-settings/test/` — the settings page's own
+    "تست اتصال" button. Tests the currently *saved* row, never the request
+    body, the same contract `communications.views.
+    TestSmsProviderConnectionView` documents in full.
+    """
+
+    @extend_schema(
+        request=None,
+        responses={200: dict, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
+        description=(
+            "Calls the saved test_url (a GET) with the configured header key. Takes no "
+            "request body — it tests the row already saved. Returns {success, status_detail} "
+            "— a failed test is a 200 with success: false, not an HTTP error, since the test "
+            "itself succeeded at running."
+        ),
+    )
+    def post(self, request):
+        row = postal_provider.get_post_provider_settings()
+        result = postal_provider.test_connectivity(row)
+        response = Response({"success": result.success, "status_detail": result.status_detail})
+        response["Cache-Control"] = "private, no-store"
+        return response

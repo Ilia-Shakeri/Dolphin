@@ -3406,6 +3406,23 @@ dialog:has(.wizard-lines-step) {
    step that lays its children out down the page rather than across it, and
    the "what do you want to see" checklist. */
 
+/* Centred and capped, not full-bleed (product owner, 2026-09-21: «ویزارد
+   مرحله‌ای ... باید وسط‌چین باشد»). Unlike the create-document wizards,
+   these two live directly in the page — no `dialog` already bounds their
+   width — so on a wide screen the stepper nav, a three-line step and a
+   two-column results table all stretched edge to edge of the content area.
+   60rem is generous enough for the results step's tables (three or fewer
+   columns each) while still reading as one centred column on the steps
+   that are just a heading, a line of text and a form row. Bootstrap's own
+   `col-xl-4` etc. inside the results step key off the *viewport*, not this
+   card's width, so capping it narrower does not change how those columns
+   respond — it only narrows them, which a two-or-three-column summary row
+   has room for. */
+.report-wizard-card {
+    max-width: 60rem;
+    margin-inline: auto;
+}
+
 /* The same fix `.wizard-lines-step` needs, and for the same reason: the
    theme makes a stepper's current content a flex *row*, which squeezes a
    step made of a heading, a paragraph and a block of controls into three

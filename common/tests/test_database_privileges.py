@@ -457,6 +457,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # is part of the campaign history even after it stops being pursued.
             "sales_targetaudiencemember": "SELECT, INSERT, UPDATE",
             "sales_postalstatushistory": "SELECT, INSERT",
+            "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
         }
         grant_block = re.search(
             r"FROM \(\s*VALUES(?P<rows>.*?)\) AS table_grant",

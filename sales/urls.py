@@ -1,6 +1,7 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from sales.views import CustomerPhoneViewSet, CustomerViewSet, InteractionViewSet, LeadViewSet, ProductCategoryViewSet, ProductViewSet, SaleViewSet, SalesDocumentViewSet, TargetAudienceMemberViewSet
+from sales.views import CustomerPhoneViewSet, CustomerViewSet, InteractionViewSet, LeadViewSet, PostProviderSettingsView, ProductCategoryViewSet, ProductViewSet, SaleViewSet, SalesDocumentViewSet, TargetAudienceMemberViewSet, TestPostProviderConnectionView
 
 
 router = DefaultRouter()
@@ -13,4 +14,12 @@ router.register("product-categories", ProductCategoryViewSet, basename="product-
 router.register("products", ProductViewSet, basename="product")
 router.register("sales", SaleViewSet, basename="sale")
 router.register("sales-documents", SalesDocumentViewSet, basename="sales-document")
-urlpatterns = router.urls
+urlpatterns = [
+    path("post-provider-settings/", PostProviderSettingsView.as_view(), name="post-provider-settings"),
+    path(
+        "post-provider-settings/test/",
+        TestPostProviderConnectionView.as_view(),
+        name="post-provider-settings-test",
+    ),
+    *router.urls,
+]

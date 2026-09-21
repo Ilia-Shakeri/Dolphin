@@ -631,3 +631,49 @@ class PostalStateSerializer(serializers.Serializer):
     icon = serializers.CharField()
     icon_paths = serializers.IntegerField()
     description = serializers.CharField()
+
+
+class PostProviderSettingsSerializer(serializers.ModelSerializer):
+    """Read shape for the settings page — `has_api_key` instead of
+    `api_key` itself, the same masking `SmsProviderSettingsSerializer`
+    already uses for `has_token_password`.
+    """
+
+    has_api_key = serializers.SerializerMethodField()
+    updated_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        from sales.models import PostProviderSettings
+
+        model = PostProviderSettings
+        fields = (
+            "is_enabled", "label", "base_url", "api_key_header", "has_api_key",
+            "sender_account_code", "timeout_seconds", "test_url",
+            "updated_by_name", "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_has_api_key(self, instance) -> bool:
+        return bool(instance.api_key)
+
+    def get_updated_by_name(self, instance) -> str:
+        if not instance.updated_by:
+            return ""
+        return instance.updated_by.get_full_name() or instance.updated_by.username
+
+
+class PostProviderSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Every field independent and optional — see `sales.postal_provider.
+    update_post_provider_settings`. `api_key` is write-only by omission from
+    the read serializer above: sending it here always replaces the stored
+    value; leaving it out keeps whatever is already stored.
+    """
+
+    is_enabled = serializers.BooleanField(required=False)
+    label = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    base_url = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    api_key_header = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    api_key = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    sender_account_code = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    timeout_seconds = serializers.IntegerField(required=False)
+    test_url = serializers.CharField(required=False, allow_blank=True, max_length=500)

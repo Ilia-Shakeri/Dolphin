@@ -51,13 +51,14 @@ of injection this order makes structurally impossible.
 
 import base64
 import json
-import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
 
 from django.conf import settings
+
+from common.http_probe import run_http_probe
 
 
 class SmsProviderUnavailable(RuntimeError):
@@ -307,29 +308,13 @@ def _build_send_request(config, *, to, body, sender, msg_id, extra_headers):
     return request, None
 
 
-def _execute(request, *, timeout):
-    """Runs one HTTP request and returns `(status, response_text, error_detail)`.
-
-    Exactly one of `(status, response_text)` and `error_detail` is
-    meaningful: a connection failure never raises past this point.
-    """
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return response.status, response.read(_MAX_RESPONSE_DETAIL).decode("utf-8", errors="replace"), None
-    except urllib.error.HTTPError as error:
-        text = error.read(_MAX_RESPONSE_DETAIL).decode("utf-8", errors="replace") if error.fp else ""
-        return error.code, text, None
-    except (urllib.error.URLError, OSError, ValueError) as error:
-        return None, "", f"connection error: {error.__class__.__name__}"
-
-
 def _send_via_http(config, *, to, body, msg_id, provider_code):
     sender = config.sender_id
     request, failure = _build_send_request(config, to=to, body=body, sender=sender, msg_id=msg_id, extra_headers={})
     if failure is not None:
         return SmsSendResult(provider_code=provider_code, success=failure.success, status_detail=failure.status_detail)
 
-    status, response_text, error_detail = _execute(request, timeout=config.timeout_seconds)
+    status, response_text, error_detail = run_http_probe(request, timeout=config.timeout_seconds)
     if error_detail is not None:
         return SmsSendResult(provider_code=provider_code, success=False, status_detail=error_detail)
 
@@ -376,7 +361,7 @@ def _acquire_oauth2_token(config):
         headers["Authorization"] = f"Basic {basic}"
 
     request = urllib.request.Request(url, headers=headers, method="POST")
-    status, response_text, error_detail = _execute(request, timeout=config.timeout_seconds)
+    status, response_text, error_detail = run_http_probe(request, timeout=config.timeout_seconds)
     if error_detail is not None:
         return None, error_detail
     if not (200 <= status <= 299):
@@ -417,7 +402,7 @@ def _send_via_http_with_bearer(config, *, to, body, msg_id, token):
     if failure is not None:
         return SmsSendResult(provider_code="oauth2", success=False, status_detail=failure.status_detail)
 
-    status, response_text, error_detail = _execute(request, timeout=config.timeout_seconds)
+    status, response_text, error_detail = run_http_probe(request, timeout=config.timeout_seconds)
     if error_detail is not None:
         return SmsSendResult(provider_code="oauth2", success=False, status_detail=error_detail)
 
@@ -452,7 +437,7 @@ def test_connectivity(config):
         headers.update(static_headers)
 
     request = urllib.request.Request(test_url, headers=headers, method="GET")
-    status, response_text, error_detail = _execute(request, timeout=config.timeout_seconds)
+    status, response_text, error_detail = run_http_probe(request, timeout=config.timeout_seconds)
     if error_detail is not None:
         return SmsSendResult(provider_code="test", success=False, status_detail=error_detail)
     success = 200 <= status <= 299

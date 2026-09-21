@@ -192,27 +192,44 @@ def _sms_details(_user):
 
 def _post_status(_user):
     from sales.postal import carrier_for
+    from sales.postal_provider import get_post_provider_settings
 
     carrier = carrier_for(None)
-    if not carrier.supports_tracking:
+    row = get_post_provider_settings()
+    manual_summary = (
+        "وضعیت مرسوله‌ها دستی ثبت می‌شود. رابط اتصال به سرویس پست آماده "
+        "است و با افزوده‌شدن یک ارائه‌دهنده، همین چهار حالت را پر می‌کند."
+    )
+    if carrier.supports_tracking:
+        return IntegrationStatus(state="configured", summary=carrier.label)
+    if row.is_enabled and row.base_url:
         return IntegrationStatus(
-            state="unconfigured",
-            summary=(
-                "وضعیت مرسوله‌ها دستی ثبت می‌شود. رابط اتصال به سرویس پست آماده "
-                "است و با افزوده‌شدن یک ارائه‌دهنده، همین چهار حالت را پر می‌کند."
-            ),
+            state="configured",
+            summary=f"اتصال «{row.label}» ذخیره شده و فعال است — {manual_summary}",
+            secret_hint=mask_secret(row.api_key),
         )
-    return IntegrationStatus(state="configured", summary=carrier.label)
+    if row.base_url or row.api_key:
+        return IntegrationStatus(
+            state="disabled",
+            summary=f"تنظیمات ذخیره شده ولی خاموش است. {manual_summary}",
+            secret_hint=mask_secret(row.api_key),
+        )
+    return IntegrationStatus(state="unconfigured", summary=manual_summary)
 
 
 def _post_details(_user):
     from sales.postal import POSTAL_STATES, carrier_for
+    from sales.postal_provider import get_post_provider_settings
 
-    return [
+    row = get_post_provider_settings()
+    details = [
         ("ارائه‌دهنده", carrier_for(None).label),
         ("رهگیری خودکار", "ندارد" if not carrier_for(None).supports_tracking else "دارد"),
         ("حالت‌های تعریف‌شده", "، ".join(state.label for state in POSTAL_STATES)),
     ]
+    if row.base_url:
+        details.append(("نشانی پایهٔ سرویس", row.base_url))
+    return details
 
 
 def _unavailable_status(_user):
@@ -247,6 +264,8 @@ INTEGRATIONS = (
         icon_paths=5,
         gate=lambda user: _has(user, "sales_documents.manage"),
         feature="sales_documents",
+        settings_url_name="common_ui:post-provider-settings",
+        test_url="/api/v1/post-provider-settings/test/",
         status=_post_status,
         details=_post_details,
     ),

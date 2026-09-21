@@ -432,6 +432,77 @@ class SalesDocument(TimeStampedModel):
         ]
 
 
+class PostProviderSettings(TimeStampedModel):
+    """One deployment's own post-carrier API connection — the settings a
+    real `PostalCarrier` (`sales/postal.py`) would need once one exists.
+
+    Same singleton shape as `communications.models.SmsProviderSettings`,
+    and for the same reason: `sales/postal.py`'s own docstring already says
+    "a future provider adds a subclass and a row in `CARRIERS`" — this is
+    that provider's *connection settings*, ready before its subclass is
+    written, not a business-logic change to how a parcel's status is set
+    today. `ManualCarrier` stays the active carrier regardless of whether
+    this row is filled in: nothing here maps a provider's own status
+    vocabulary onto `sales/postal.py`'s four states, because no specific
+    provider is integrated yet (CLAUDE.md §30 — "do not invent integration
+    semantics when provider/business requirements are unknown"). What this
+    row gives an operator today is a real, saved, testable connection an
+    integration can be wired to later with no settings-page change.
+
+    Deliberately simpler than `SmsProviderSettings`: one auth shape (a
+    static header value — the common case for a tracking/status API,
+    mirroring `SmsProviderSettings.AuthMode.API_KEY`) rather than two, and
+    no body-template substitution, since nothing here sends a templated
+    request yet — only the "تست اتصال" GET a real integration would also
+    use to check its own credentials.
+
+    `api_key` is stored as plain text, the same acknowledged gap
+    `SmsProviderSettings.token_password` documents in full — no field-level
+    encryption-at-rest mechanism exists anywhere in this codebase yet, and
+    this row is protected the same way that one already is: never returned
+    by the read API, never logged, and restricted at the database role
+    level (`scripts/bootstrap-postgres.sh`).
+    """
+
+    SINGLETON = 1
+
+    singleton = models.PositiveSmallIntegerField(primary_key=True, default=SINGLETON)
+    #: Off by default — the same reasoning `SmsProviderSettings.is_enabled`
+    #: documents: a control that cannot act must never be offered as if it
+    #: could, and filling in every other field is not the same as confirming
+    #: them.
+    is_enabled = models.BooleanField(default=False)
+    #: The admin's own label for whichever carrier this is — free text,
+    #: shown back to them on the settings page only. Never sent in any
+    #: request.
+    label = models.CharField(max_length=120, blank=True)
+    #: Where a real integration would reach this carrier's API — informational
+    #: today, read by nothing but this settings page, until a `PostalCarrier`
+    #: subclass exists to use it.
+    base_url = models.CharField(max_length=500, blank=True)
+    #: The header a static key is sent in — most tracking APIs use one of a
+    #: small handful of names; free text rather than a fixed choice, since
+    #: not knowing the eventual provider means not knowing which.
+    api_key_header = models.CharField(max_length=80, blank=True, default="X-API-Key")
+    api_key = models.CharField(max_length=255, blank=True)
+    #: A business/sender/account code some carriers require alongside a key —
+    #: never sent anywhere until a real integration exists to send it.
+    sender_account_code = models.CharField(max_length=120, blank=True)
+    timeout_seconds = models.PositiveSmallIntegerField(default=10)
+    #: A GET endpoint the settings page's own "تست اتصال" button calls with
+    #: the header above, so an operator can see a real response without
+    #: waiting for an integration to exist to prove the credentials work.
+    test_url = models.CharField(max_length=500, blank=True)
+
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "post provider settings"
+        verbose_name_plural = "post provider settings"
+
+
 class PostalStatusHistory(models.Model):
     document = models.ForeignKey(SalesDocument, on_delete=models.PROTECT, related_name="postal_history")
     from_status = models.CharField(max_length=POSTAL_STATUS_MAX_LENGTH, blank=True)
