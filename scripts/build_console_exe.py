@@ -17,9 +17,16 @@ silently pip-installs is a build tool that can change what it builds.
     pip install -r scripts/requirements-console.txt
     python scripts/build_console_exe.py
 
-The result is `dist/dolphin-console.exe`. It is **not** committed and not
-released: it is built on the operator's own machine, from the checkout they
-already trust, which is the whole point of a tool that holds a signing key.
+The result is `dolphin-console.exe`, in the project root (product owner,
+2026-09-21: «فایل .exe کنسول باید در روت پروژه باشد») — not the `dist/`
+subdirectory PyInstaller defaults to, which a person doing exactly one
+thing with this checkout — running this script — would have no reason to
+go looking in. It is **not** committed and not released: it is built on
+the operator's own machine, from the checkout they already trust, which
+is the whole point of a tool that holds a signing key. `.gitignore` excludes
+it by exact name at the root for that reason — `build/` (this build's own
+intermediates) was already excluded, and `dist/` stays excluded too, on
+the chance some other tool in this checkout still wants that name.
 
 **What has to be bundled.** The console imports `common.deployment.registry`
 for the feature list and `common.deployment.pages` for the panel's routes —
@@ -40,7 +47,12 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-DIST = REPOSITORY_ROOT / "dist"
+#: The project root itself, not PyInstaller's own `dist/` default — product
+#: owner, 2026-09-21: «فایل .exe کنسول باید در روت پروژه باشد». `--onefile`
+#: (below) means this directory receives exactly the one executable and
+#: nothing else, so pointing it at the root does not scatter build output
+#: through the checkout the way it would for PyInstaller's folder mode.
+DIST = REPOSITORY_ROOT
 NAME = "dolphin-console"
 
 #: Everything the console reaches at runtime that PyInstaller's import

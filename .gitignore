@@ -53,6 +53,10 @@ scripts/.dolphin-console/
 # excludes; this catches the same file signed at the repo root by habit
 # before being copied into place, which is not otherwise excluded.
 /manifest.json
+# scripts/build_console_exe.py, built to the project root rather than the
+# `dist/` folder below (product owner, 2026-09-21: «فایل .exe کنسول باید
+# در روت پروژه باشد») — an operator-only build artifact, never committed.
+/dolphin-console.exe
 dist/
 build/
 .cache/

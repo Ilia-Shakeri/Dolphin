@@ -225,6 +225,14 @@ class ConsoleExeTests(SimpleTestCase):
         self.assertNotIn("pip install --user", EXE_BUILDER)
         self.assertIn("raise SystemExit(2)", EXE_BUILDER)
 
+    def test_the_output_lands_in_the_project_root(self):
+        """Product owner, 2026-09-21: «فایل .exe کنسول باید در روت پروژه
+        باشد» — not PyInstaller's own `dist/` default."""
+        self.assertIn("DIST = REPOSITORY_ROOT\n", EXE_BUILDER)
+        self.assertNotIn('REPOSITORY_ROOT / "dist"', EXE_BUILDER)
+        gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn("/dolphin-console.exe", gitignore)
+
     def test_the_project_packages_are_bundled_explicitly(self):
         """Django finds its apps by name at startup, so PyInstaller's import
         analysis cannot see them."""

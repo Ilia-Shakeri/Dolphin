@@ -157,7 +157,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 9. Post integration settings page, like SMS → `2.14.7`
 - [x] 10. Dashboard widget editing — smoother, Apple/Android-widget-like → bundled into `2.14.8`
 - [x] 11. Rename SMS settings entry to a general "اتصال سامانه‌ها" connections hub → `2.14.8`
-- [ ] 12. Locate/relocate the console `.exe` to the project root; report its name
+- [x] 12. Locate/relocate the console `.exe` to the project root; report its name → `2.14.9`
 
 ### Final
 - [ ] Full suite green
@@ -166,7 +166,27 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–11 done (`2.14.1`–`2.14.8`), moving to item 12.
+**Current:** all 12 items done (`2.14.1`–`2.14.9`). Remaining: full-suite
+green (final checkpoint), the single deploy, and the final report.
+
+**Item 12 — what changed, and the answer to the question asked.** No exe
+existed anywhere in the checkout before this (`dist/` did not exist). The
+build script's own `DIST` moved from `REPOSITORY_ROOT / "dist"` to
+`REPOSITORY_ROOT` itself; since the build is `--onefile`, this directory
+receives exactly the one executable and nothing else, so pointing it at
+the root does not scatter build output through the checkout. **The file's
+name is `dolphin-console.exe`, built directly into the project root**
+(same folder as `manage.py`) the next time an operator runs `pip install
+-r scripts/requirements-console.txt` then `python scripts/
+build_console_exe.py` — not run this session: PyInstaller is a real,
+deliberate operator-only dependency this script refuses to install for
+itself, and installing it into the session's own Python environment to
+prove the build works was not asked for and was not done. Both
+`.gitignore` and `.dockerignore` gained an explicit `dolphin-console.exe`
+entry so it can never be committed or enter a shipped image, on top of the
+protections already in place (`scripts/` excluded from the Docker context
+entirely). New test:
+`test_ui_overhaul_console_avatars.ConsoleExeTests.test_the_output_lands_in_the_project_root`.
 
 **Item 10 — root cause and fix.** Widget reordering used HTML5
 drag-and-drop, which never fires on a touch screen at all
