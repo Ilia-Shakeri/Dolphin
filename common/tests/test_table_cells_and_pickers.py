@@ -88,15 +88,30 @@ class JalaliPickerGridTests(SimpleTestCase):
         self.assertIn("min-width: 0", rule)
 
     def test_the_nav_buttons_are_sized_to_the_grid_they_sit_above(self):
-        rule = _rule(".jalali-picker .jalali-picker-header .btn {")
+        """Restated 2026-09-21: the selector gained `:not(.jalali-picker-
+        scope)` when the month/year title became two buttons — both carry
+        the base `.btn` class this rule matches, and without the exclusion
+        it was also squeezing them to the same 27px square meant for these
+        four icon-only arrows (see JalaliPickerTitleSpacingTests,
+        test_ui_overhaul_round2.py, for the bug that caused)."""
+        rule = _rule(".jalali-picker .jalali-picker-header .btn:not(.jalali-picker-scope) {")
         self.assertIn("width: 2.1rem", rule)
         self.assertIn("flex: 0 0 auto", rule)
 
     def test_the_month_title_can_shrink_instead_of_pushing_the_arrows(self):
+        """Restated 2026-09-21: the title became a flex row of two buttons
+        (month, year) instead of one text run — `min-width: 0` still keeps
+        the title itself from pushing the arrows, but the overflow
+        handling that used to live here (`white-space: nowrap`,
+        `text-overflow: ellipsis`) moved to `.jalali-picker-scope`, since
+        each button now manages its own text rather than the title
+        managing one."""
         rule = _rule(".jalali-picker-title {")
         self.assertIn("min-width: 0", rule)
-        self.assertIn("white-space: nowrap", rule)
-        self.assertIn("text-overflow: ellipsis", rule)
+        self.assertIn("display: flex", rule)
+        scope_rule = _rule(".jalali-picker .jalali-picker-scope {")
+        self.assertIn("white-space: nowrap", scope_rule)
+        self.assertIn("text-overflow: ellipsis", scope_rule)
 
     def test_the_footer_shortcuts_share_the_row(self):
         """«امروز» and «پاک‌کردن» are peers, and `space-between` left 148px of

@@ -160,14 +160,43 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 12. Locate/relocate the console `.exe` to the project root; report its name → `2.14.9`
 
 ### Final
-- [ ] Full suite green
-- [ ] CHANGELOG + VERSION for each release above
+- [x] Full suite green (only the 7 known pre-existing Selenium errors)
+- [x] CHANGELOG + VERSION for each release above
 - [ ] Main deploy to Nerkhbaan + health check
 
 ## Status
 
-**Current:** all 12 items done (`2.14.1`–`2.14.9`). Remaining: full-suite
-green (final checkpoint), the single deploy, and the final report.
+**Current:** all 12 items done, full suite green (`2.14.1`–`2.14.10`).
+Remaining: the single deploy and the final report.
+
+**Release checkpoint (`2.14.10`) — the full suite, run for real, found
+four real regressions from this round's own work, none of them caught by
+the narrower per-item test runs because each lived in a *different*
+existing test module than the one each item's own new tests were added
+to:**
+- `auditlog.tests.test_operation_labels` — the new `post_provider_settings
+  .updated` audit operation (item 9) had no Persian label. Fixed in
+  `auditlog/labels.py`.
+- `common.tests.test_profile_menu.PasswordChangeAbsentTests` — the new
+  `post_provider_settings.html` (item 9) has an `autocomplete="new-
+  password"` field for the API key, same as the SMS settings page's own
+  equivalent field, which is already on this test's documented allowlist
+  for exactly this reason (a third-party credential, not an account
+  password). Added the new template's name to it.
+- `common.tests.test_table_cells_and_pickers.JalaliPickerGridTests` (two
+  tests) — pre-existing tests from before this round that pinned the
+  jalali date picker's *old* selector text and CSS properties, both
+  changed by item 1's fix. Restated to match the new `:not(.jalali-picker-
+  scope)` selector and the new flex-based title (the overflow handling
+  that used to live on the title itself moved to the two buttons inside
+  it).
+
+Full suite after these four fixes: **2589 tests, 0 failures, only the 7
+known pre-existing Selenium/ChromeDriver errors** (`element not
+interactable` — a real browser-automation environment issue on this
+machine, unrelated to any change here; confirmed by inspecting the actual
+traceback, not assumed from the count matching the prior baseline). 16
+skipped. OpenAPI schema clean throughout the round.
 
 **Item 12 — what changed, and the answer to the question asked.** No exe
 existed anywhere in the checkout before this (`dist/` did not exist). The

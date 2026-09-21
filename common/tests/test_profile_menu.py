@@ -189,7 +189,13 @@ class PasswordChangeAbsentTests(TestCase):
     #: on 2026-09-09 while releasing 2.5.3 and unrelated to that work. Narrowed
     #: by name rather than by dropping the `new-password` marker, so the marker
     #: still catches a real account-password field anywhere else.
-    TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL = frozenset({"provider_settings.html"})
+    #:
+    #: `sales_documents/post_provider_settings.html` (2.14.7) holds the same
+    #: kind of thing for the same reason: `PostProviderSettings.api_key` is a
+    #: post-carrier API credential a Platform Admin types, not anyone's login.
+    TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL = frozenset({
+        "provider_settings.html", "post_provider_settings.html",
+    })
 
     def test_no_served_template_offers_a_password_change(self):
         offenders = []

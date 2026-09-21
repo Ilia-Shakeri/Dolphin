@@ -97,6 +97,7 @@ OPERATION_LABELS = {
     "sms_campaign.created": "ساخت کمپین پیامکی",
     "sms_campaign.cancelled": "لغو کمپین پیامکی",
     "sms_provider_settings.updated": "تغییر تنظیمات سامانهٔ پیامک",
+    "post_provider_settings.updated": "تغییر تنظیمات سامانهٔ پست",
     "attachment.uploaded": "افزودن پیوست",
     "attachment.deleted": "حذف پیوست",
     "brand_settings.updated": "تغییر برند پنل",
