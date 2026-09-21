@@ -2488,8 +2488,16 @@ dialog:has(.wizard-lines-step) {
 }
 
 /* Same specificity problem as the day cells: `.btn.btn-icon` is two classes
-   and would otherwise win. */
-.jalali-picker .jalali-picker-header .btn {
+   and would otherwise win.
+   `:not(.jalali-picker-scope)` (2026-09-21): the month/year title became
+   two buttons on 2026-09-20 (`monthBtn`/`yearBtn` in `openJalaliPicker`),
+   and both carry the base `.btn` class this rule matches on — so it was
+   also squeezing *them* to the same 27px square meant for the four icon
+   arrows. With no width left for content after their own padding, the
+   month and year read as a jumbled sliver instead of text (product-owner
+   report 2026-09-21: «نوشته ی ماه و سال ... قاطی شده»). The two title
+   buttons get their own sizing below instead. */
+.jalali-picker .jalali-picker-header .btn:not(.jalali-picker-scope) {
     width: 2.1rem;
     height: 2.1rem;
     min-width: 0;
@@ -2500,15 +2508,18 @@ dialog:has(.wizard-lines-step) {
 .jalali-picker-title {
     flex: 1 1 auto;
     /* `min-width: 0` lets the title shrink inside the flex row instead of
-       forcing the row wider than the panel; `nowrap` keeps a long month name
-       on one line, and the ellipsis is the honest failure mode if a future
-       locale somehow still overflows. */
+       forcing the row wider than the panel. Flex, not the block+nowrap it
+       used to be: the title holds two independent buttons now, not one
+       text run, and without `display:flex` the two sat with no visual gap
+       at all between them — "مهر" against "۱۴۰۵" is the "قاطی شده"
+       (jumbled) look reported 2026-09-21. `gap` is the actual space
+       between them; each button below handles its own overflow. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
     min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     text-align: center;
-    font-weight: 600;
     color: var(--bs-gray-800);
 }
 
@@ -2580,12 +2591,28 @@ dialog:has(.wizard-lines-step) {
 }
 
 /* The title's two halves are buttons now (month, year), so they need to look
-   pressable without turning the header into a toolbar. */
+   pressable without turning the header into a toolbar.
+   `padding` is `!important` for the same reason the chart font-family and
+   the print `display:none` already are in this file: Metronic's own
+   `.btn:not(...).btn-sm` (eight `:not()` clauses — specificity (0,10,0))
+   outranks any selector built from this component's own classes, and kept
+   winning the padding even after the width fix above, leaving the buttons
+   at the vendor's roomy text-button padding (8/14px) — which is what had
+   pushed `اردیبهشت` out of the ~86px the title has next to the four nav
+   arrows in the first place. Sized against that budget, measured with
+   `canvas.measureText` at this font: the longest month name («اردیبهشت»,
+   52px) plus a four-digit year (25px) plus both buttons' padding and the
+   gap above come to ~82px — fits with room to spare. */
 .jalali-picker .jalali-picker-scope {
-    padding: 0.15rem 0.5rem;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.1rem 0.3rem !important;
     font-weight: 600;
-    font-size: 1rem;
-    line-height: 1.6;
+    font-size: 0.85rem;
+    line-height: 1.5;
     background: transparent;
 }
 

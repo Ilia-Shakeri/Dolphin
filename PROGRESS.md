@@ -146,7 +146,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Checklist
 
-- [ ] 1. Calendar month/year header — normal, even spacing → `2.14.1`
+- [x] 1. Calendar month/year header — normal, even spacing → `2.14.1`
 - [ ] 2. Line chart bottom day-number labels wrong → `2.14.2`
 - [ ] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
 - [ ] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
@@ -166,4 +166,21 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** starting item 1.
+**Current:** item 1 done (`2.14.1`), moving to item 2.
+
+**Item 1 — root cause and fix.** The date picker's month/year title became
+two buttons on 2026-09-20 (batch A), and both carry the base `.btn` class
+that `.jalali-picker-header .btn` also selects — a rule written only for the
+four icon nav arrows. It squeezed the title buttons to the same 27px square,
+leaving ~0 content width once padding was counted, clipped by the title's
+own `overflow:hidden`. Fixed: the nav-arrow rule now excludes
+`.jalali-picker-scope`; the title is a real flex row with a `gap`; the scope
+buttons' padding wins over Metronic's own high-specificity `.btn:not(...)
+.btn-sm` with a single targeted `!important` (same idiom already used in
+this file for the chart font-family and print `display:none`). Verified in
+the browser via measured DOM rects (not a screenshot — this pane's
+screenshot pipeline was flaky this session): the longest month name
+(اردیبهشت) plus a four-digit year render with a real 4px gap and zero
+clipping. New tests: `common/tests/test_ui_overhaul_round2.py`
+(`JalaliPickerTitleSpacingTests`, 3 tests). Full existing UI-overhaul suite
+re-run clean (258 tests).
