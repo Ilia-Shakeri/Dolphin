@@ -12951,19 +12951,34 @@
     }
 
     /**
-     * The picture control in the profile dialog.
+     * The picture control: a small preview outside a dialog, and the actual
+     * picking — a gallery of default cartoons plus the upload — inside it.
+     *
+     * Product owner, 2026-09-21: «کاربران باید بتوانند بین عکس‌های پیش‌فرض
+     * انتخاب کنند و اپشن آپلود شخصی هم در مودالی که تازه باز می‌شود باشد».
+     * Split across two containers rather than one `root` (the shape this had
+     * before the gallery existed) because the preview circle and the dialog
+     * that changes it are no longer the same box.
      *
      * `endpoint` is the account owner's own by default; the user-admin page
-     * passes another person's. Which of those the reader may actually change
-     * is the server's decision (`accounts.avatars._require_may_edit`), not
-     * something hidden here.
+     * would pass another person's. Which of those the reader may actually
+     * change is the server's decision (`accounts.avatars._require_may_edit`),
+     * not something hidden here. `endpoint` doubles as the base for the
+     * default-choice endpoint (`${endpoint}default/`) — both routes are
+     * registered in pairs for exactly this reason (`accounts/urls.py`).
      */
-    function setupAvatarInput({root, endpoint}) {
-        if (!root) return null;
-        const image = root.querySelector(".avatar-input-image");
-        const picker = root.querySelector('input[type="file"]');
-        const clear = root.querySelector("[id$='-clear']");
-        const errorNote = root.querySelector("[id$='-error']");
+    function setupAvatarInput({previewRoot, dialog, endpoint}) {
+        if (!previewRoot || !dialog) return null;
+        const image = previewRoot.querySelector(".avatar-input-image");
+        const picker = dialog.querySelector('input[type="file"]');
+        const clear = dialog.querySelector("[id$='-clear']");
+        const errorNote = dialog.querySelector("[id$='-error']");
+        const grid = dialog.querySelector(".avatar-picker-grid");
+        const gridLoading = dialog.querySelector("#avatar-picker-loading");
+        const chooseEndpoint = `${endpoint}default/`;
+
+        let current = null; // the last state the server reported
+        let tiles = null; // built once the gallery is first opened
 
         function fail(message) {
             if (!errorNote) return;
@@ -12971,19 +12986,76 @@
             errorNote.hidden = false;
         }
 
+        function paintSelection() {
+            if (!tiles) return;
+            const activeName = !current?.has_avatar ? current?.chosen_default_name : "";
+            tiles.forEach((tile) => {
+                const active = Boolean(activeName) && tile.dataset.name === activeName;
+                tile.classList.toggle("is-selected", active);
+                tile.setAttribute("aria-selected", active ? "true" : "false");
+            });
+        }
+
         function show(state) {
+            current = state;
             // `?v=` because the URL does not change when the picture does —
             // the same cache-bust the brand logo uses.
             image.src = state.url ? `${state.url}?v=${Date.now()}` : "";
             image.hidden = !state.url;
             if (clear) clear.hidden = !state.has_avatar;
             if (errorNote) errorNote.hidden = true;
-            root.hidden = false;
+            previewRoot.hidden = false;
+            paintSelection();
         }
 
         async function load() {
             try {
                 show(await apiRequest(endpoint));
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        async function chooseDefault(name, tile) {
+            if (tile.disabled) return;
+            tile.disabled = true;
+            try {
+                show(await apiRequest(chooseEndpoint, {method: "POST", body: {name}}));
+                globalMessage("تصویر پروفایل ذخیره شد.", true);
+            } catch (error) {
+                showError(error);
+            } finally {
+                tile.disabled = false;
+            }
+        }
+
+        // Fetched once and cached: the gallery is the same 52 cartoons for
+        // everyone and does not change while the dialog is open, so a second
+        // visit re-lists elements already in the DOM rather than re-fetching.
+        async function loadGrid() {
+            if (tiles || !grid) return;
+            try {
+                const defaults = await apiRequest("/api/v1/avatar-defaults/");
+                tiles = defaults.map((item) => {
+                    const tile = document.createElement("button");
+                    tile.type = "button";
+                    tile.className = "avatar-picker-tile";
+                    tile.dataset.name = item.name;
+                    tile.setAttribute("role", "option");
+                    tile.setAttribute("aria-selected", "false");
+                    tile.title = "انتخاب این آواتار";
+                    const img = document.createElement("img");
+                    img.src = item.url;
+                    img.alt = "";
+                    img.loading = "lazy";
+                    tile.append(img);
+                    tile.addEventListener("click", () => chooseDefault(item.name, tile));
+                    return tile;
+                });
+                grid.replaceChildren(...tiles);
+                if (gridLoading) gridLoading.hidden = true;
+                grid.hidden = false;
+                paintSelection();
             } catch (error) {
                 showError(error);
             }
@@ -13029,7 +13101,7 @@
         });
 
         load();
-        return {load};
+        return {load, loadGrid};
     }
 
     function setupProfileDialog() {
@@ -13037,6 +13109,18 @@
         const open = document.getElementById("open-profile");
         if (!dialog || !open) return;
         let loaded = false;
+        let avatarInput = null;
+
+        const avatarDialog = document.getElementById("avatar-picker-dialog");
+        const openAvatarPicker = document.getElementById("open-avatar-picker");
+        openAvatarPicker?.addEventListener("click", () => {
+            if (!avatarDialog) return;
+            avatarDialog.showModal();
+            avatarInput?.loadGrid();
+        });
+        avatarDialog?.querySelectorAll("[data-close-dialog]").forEach((button) =>
+            button.addEventListener("click", () => avatarDialog.close()),
+        );
 
         open.addEventListener("click", async () => {
             dialog.showModal();
@@ -13044,8 +13128,9 @@
             loaded = true;
             try {
                 await setupProfile();
-                setupAvatarInput({
-                    root: document.getElementById("profile-avatar"),
+                avatarInput = setupAvatarInput({
+                    previewRoot: document.getElementById("profile-avatar"),
+                    dialog: avatarDialog,
                     endpoint: "/api/v1/profile/avatar/",
                 });
             } catch (error) {

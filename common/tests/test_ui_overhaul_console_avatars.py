@@ -489,6 +489,187 @@ class AvatarUiTests(SimpleTestCase):
         self.assertNotIn("width:", rule(".dolphin-avatar"))
 
     def test_the_picker_is_reachable_by_keyboard(self):
-        """The file input is `.sr-only`, so the label is what focus lands
-        on and the focus ring has to be on the label."""
-        self.assertIn(".avatar-input-frame:focus-within .avatar-input-pick", CODE)
+        """Restated 2026-09-21: the pencil control became a real `<button>`
+        that opens the picker dialog (it used to be a `<label for>` a hidden
+        file input) — focus now lands on the button itself, so the ring is
+        `:focus-visible` on `.avatar-input-pick` directly rather than a
+        `:focus-within` on its wrapping frame."""
+        self.assertIn(".avatar-input-pick:focus-visible", CODE)
+        self.assertIn('<button type="button" class="avatar-input-pick" id="open-avatar-picker"', markup(BASE))
+
+
+class DefaultAvatarChoiceTests(TestCase):
+    """Item 3 of the 2026-09-21 follow-up: «کاربران باید بتوانند بین
+    عکس‌های پیش‌فرض انتخاب کنند و اپشن آپلود شخصی هم در مودالی که تازه باز
+    می‌شود باشد». `chosen_default_avatar` (accounts.User) is the one column
+    this needed — the hash-derived pick above never had to be stored, but a
+    person's own choice has to survive a reload, which "derive it again"
+    cannot do.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.agent = User.objects.create_user(
+            username="dac.agent", password=PASSWORD, role=User.Role.SALES_AGENT
+        )
+        self.other = User.objects.create_user(
+            username="dac.other", password=PASSWORD, role=User.Role.SALES_AGENT
+        )
+
+    def test_an_explicit_pick_wins_over_the_hash(self):
+        hash_derived = avatars.default_avatar_for(self.agent)
+        names = [n for n in avatars.default_avatar_names() if n != hash_derived]
+        chosen = names[0]
+        avatars.set_default_avatar_choice(actor=self.agent, target=self.agent, name=chosen)
+        self.agent.refresh_from_db()
+        self.assertEqual(avatars.default_avatar_for(self.agent), chosen)
+        self.assertEqual(avatars.chosen_default_avatar_for(self.agent), chosen)
+
+    def test_picking_a_default_drops_any_upload(self):
+        """An upload always wins over a default while both exist
+        (`_state`/`ui_views.profile_photo_url`), so a pick made on top of one
+        would otherwise have no visible effect — it has to actually replace
+        the upload, not just sit unused beside it."""
+        avatars.set_avatar(actor=self.agent, target=self.agent, content=ONE_PIXEL_PNG)
+        self.assertTrue(avatars.has_avatar(self.agent))
+        name = avatars.default_avatar_names()[0]
+        avatars.set_default_avatar_choice(actor=self.agent, target=self.agent, name=name)
+        self.assertFalse(avatars.has_avatar(self.agent))
+
+    def test_clearing_an_upload_falls_back_to_the_last_choice_not_a_random_one(self):
+        name = avatars.default_avatar_names()[3]
+        avatars.set_default_avatar_choice(actor=self.agent, target=self.agent, name=name)
+        avatars.set_avatar(actor=self.agent, target=self.agent, content=ONE_PIXEL_PNG)
+        avatars.clear_avatar(actor=self.agent, target=self.agent)
+        self.agent.refresh_from_db()
+        self.assertEqual(avatars.default_avatar_for(self.agent), name)
+
+    def test_an_unknown_name_is_refused(self):
+        from common.exceptions import BusinessRuleError
+
+        with self.assertRaises(BusinessRuleError):
+            avatars.set_default_avatar_choice(
+                actor=self.agent, target=self.agent, name="not-a-real-file.svg"
+            )
+        self.agent.refresh_from_db()
+        self.assertEqual(self.agent.chosen_default_avatar, "")
+
+    def test_a_stale_choice_from_a_smaller_build_falls_back_gracefully(self):
+        """A deployment that ships fewer cartoons than it used to must not
+        point a browser at a file that no longer exists."""
+        self.agent.chosen_default_avatar = "999-does-not-exist.svg"
+        self.agent.save(update_fields=["chosen_default_avatar"])
+        self.assertIsNone(avatars.chosen_default_avatar_for(self.agent))
+        self.assertIn(avatars.default_avatar_for(self.agent), avatars.default_avatar_names())
+
+    def test_a_marketer_may_not_choose_for_somebody_else(self):
+        from common.exceptions import BusinessPermissionDenied
+
+        name = avatars.default_avatar_names()[0]
+        with self.assertRaises(BusinessPermissionDenied):
+            avatars.set_default_avatar_choice(actor=self.agent, target=self.other, name=name)
+
+    def test_default_avatar_choices_names_every_shipped_cartoon(self):
+        choices = avatars.default_avatar_choices()
+        names = avatars.default_avatar_names()
+        self.assertEqual(len(choices), len(names))
+        self.assertEqual({c["name"] for c in choices}, set(names))
+        self.assertTrue(all(c["url"].endswith(c["name"]) for c in choices))
+
+
+class AvatarDefaultChoiceApiTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
+        self.agent = User.objects.create_user(
+            username="dacapi.agent", password=PASSWORD, role=User.Role.SALES_AGENT
+        )
+
+    def _client(self):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(self.agent)
+        return client
+
+    def test_the_gallery_endpoint_lists_every_cartoon(self):
+        response = self._client().get("/api/v1/avatar-defaults/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), len(avatars.default_avatar_names()))
+        self.assertIn("name", response.data[0])
+        self.assertIn("url", response.data[0])
+
+    def test_choosing_one_updates_the_state_endpoint(self):
+        name = avatars.default_avatar_names()[0]
+        response = self._client().post(
+            "/api/v1/profile/avatar/default/", {"name": name}, format="json"
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["chosen_default_name"], name)
+        self.assertFalse(response.data["has_avatar"])
+
+        state = self._client().get("/api/v1/profile/avatar/")
+        self.assertEqual(state.data["chosen_default_name"], name)
+
+    def test_an_unknown_name_is_a_400_not_a_500(self):
+        response = self._client().post(
+            "/api/v1/profile/avatar/default/", {"name": "../../etc/passwd"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_signed_out_cannot_pick_one(self):
+        from rest_framework.test import APIClient
+
+        name = avatars.default_avatar_names()[0]
+        response = APIClient().post(
+            "/api/v1/profile/avatar/default/", {"name": name}, format="json"
+        )
+        self.assertIn(response.status_code, {401, 403})
+
+
+class AvatarPickerUiTests(SimpleTestCase):
+    """The gallery dialog itself — source-scanned the same way the rest of
+    this file's UI assertions are; the interactive behaviour (click a tile,
+    see the preview change, reopen and see the pick survive) was checked
+    live in the browser and is recorded in PROGRESS.md."""
+
+    def test_the_dialog_exists_with_both_the_gallery_and_the_upload(self):
+        markup_text = markup(BASE)
+        self.assertIn('<dialog id="avatar-picker-dialog"', markup_text)
+        self.assertIn('id="avatar-picker-grid"', markup_text)
+        self.assertIn('for="profile-avatar-file"', markup_text)
+
+    def test_the_edit_button_opens_the_dialog_not_the_file_picker_directly(self):
+        """It used to be a `<label for="profile-avatar-file">`; picking a
+        default first meant it has to open a dialog instead."""
+        markup_text = markup(BASE)
+        self.assertNotIn('<label class="avatar-input-pick"', markup_text)
+        body = function_body("setupProfileDialog", SCRIPT)
+        self.assertIn('getElementById("open-avatar-picker")', body)
+        self.assertIn("avatarDialog.showModal()", body)
+
+    def test_the_grid_is_filled_from_the_real_deployed_set_not_hardcoded(self):
+        """`scripts/console_strings.py`'s reasoning applies here too: a
+        written-down list of 52 filenames is a list that falls behind the
+        moment the shipped set changes."""
+        body = function_body("setupAvatarInput", SCRIPT)
+        self.assertIn('apiRequest("/api/v1/avatar-defaults/")', body)
+        self.assertNotIn("001-boy.svg", SCRIPT)
+
+    def test_choosing_a_default_and_uploading_share_one_preview(self):
+        """Both actions call the same `show`, so the circle and the
+        selected-tile ring can never disagree about which picture is
+        active."""
+        body = function_body("setupAvatarInput", SCRIPT)
+        self.assertIn("show(await apiRequest(chooseEndpoint", body)
+        self.assertIn('show(await apiRequest(endpoint, {method: "POST", body, raw: true}))', body)
+
+    def test_the_selected_tile_is_visibly_marked(self):
+        self.assertIn(".avatar-picker-tile.is-selected", CODE)
+        body = function_body("setupAvatarInput", SCRIPT)
+        self.assertIn('classList.toggle("is-selected"', body)
+
+    def test_the_gallery_is_a_responsive_grid_not_a_fixed_column_count(self):
+        rule_body = rule(".avatar-picker-grid")
+        self.assertIn("auto-fill", rule_body)

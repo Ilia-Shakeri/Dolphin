@@ -148,7 +148,7 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 - [x] 1. Calendar month/year header — normal, even spacing → `2.14.1`
 - [x] 2. Line chart bottom day-number labels wrong → `2.14.2`
-- [ ] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
+- [x] 3. Profile picture: choose from defaults + upload in a new modal → `2.14.3`
 - [ ] 4. Three-dot "view details" on board/list cards must open the detail page → `2.14.4`
 - [ ] 5. Receipts wizard step 2 (document info) — spacing redesign → `2.14.5`
 - [ ] 6. Postal tracking — 4 connected icons in a row, current stage lit → `2.14.6`
@@ -166,7 +166,41 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–2 done (`2.14.1`, `2.14.2`), moving to item 3.
+**Current:** items 1–3 done (`2.14.1`–`2.14.3`), moving to item 4.
+
+**Item 3 — what changed.** New `accounts.User.chosen_default_avatar` column
+(migration `0006`) — the previously hash-derived default never needed
+storage, but an explicit pick does. `accounts/avatars.py` gained
+`chosen_default_avatar_for`, `default_avatar_choices` and
+`set_default_avatar_choice` (drops any upload — an upload always wins over a
+default while both exist, so a pick made on top of one needs to actually
+replace it to be visible); `default_avatar_for` now prefers a valid stored
+choice over the hash, and a choice naming a file this build no longer ships
+falls back gracefully rather than 404ing. Two new endpoints:
+`/api/v1/avatar-defaults/` (the gallery, read from the real shipped set —
+not a written-down list) and `/api/v1/{profile,users/<id>}/avatar/default/`
+(POST to pick one). The pencil button on the profile picture is now a real
+`<button>` (was a `<label for>` a hidden input) that opens a new
+`avatar-picker-dialog` holding both the 52-tile gallery and the existing
+upload control — `setupAvatarInput` was restructured to work across the two
+containers and share one `show()` between an upload and a default pick, so
+the preview and the selected-tile ring can never disagree.
+Verified live: opening the dialog renders all 52 tiles; clicking one selects
+it, updates the preview, and persists server-side (`chosen_default_name` in
+`/api/v1/profile/avatar/` survives a fresh fetch); uploading still works and
+does not disturb the stored choice; clearing an upload falls back to the
+last explicit choice rather than a fresh random cartoon; a path-traversal-
+shaped name is rejected with 400. OpenAPI schema regenerates with no
+errors/warnings. New/updated tests in
+`common/tests/test_ui_overhaul_console_avatars.py`:
+`DefaultAvatarChoiceTests` (7), `AvatarDefaultChoiceApiTests` (4),
+`AvatarPickerUiTests` (6), plus one restated keyboard-reachability test.
+`accounts` app suite (113) and the full UI-overhaul set (391 total) both
+green. Full-page visual/RTL screenshot verification was not possible this
+session — the Browser pane's screenshot pipeline returned 0×0 viewports and
+timeouts throughout (same limitation noted for items 1–2) — so this was
+verified through DOM state, computed styles and real network round-trips
+instead of a rendered screenshot.
 
 **Item 2 — root cause and fix.** `renderAreaChart`/`renderMixedChart` share
 `thinningFormatter` to blank all but ~6–8 of a chart's category labels; the

@@ -16,6 +16,16 @@ class User(AbstractUser):
     phone = models.CharField(max_length=32, blank=True)
     role = models.CharField(max_length=32, choices=Role.choices, default=Role.SALES_AGENT, db_index=True)
     workstream = models.CharField(max_length=32, choices=Workstream.choices, default=Workstream.SALES, db_index=True)
+    # An explicit pick from the Metronic cartoon set (`accounts.avatars`),
+    # e.g. `"023-woman.svg"`. Blank is the common case and means "no explicit
+    # choice" — `avatars.default_avatar_for` then falls back to the stable
+    # hash it always used. Product-owner request 2026-09-21: «کاربران باید
+    # بتوانند بین عکس‌های پیش‌فرض انتخاب کنند». A plain `CharField`, not a
+    # `CheckConstraint` against the allowed set: which files exist is a
+    # property of the deployed static build, not something the database
+    # schema can know — `accounts.avatars.set_default_avatar_choice` is the
+    # one place that validates a name before it is stored.
+    chosen_default_avatar = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

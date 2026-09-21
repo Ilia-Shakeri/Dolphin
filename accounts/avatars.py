@@ -81,18 +81,37 @@ def default_avatar_names():
     return _DEFAULT_AVATARS
 
 
+def chosen_default_avatar_for(user):
+    """The cartoon this person explicitly picked, or `None`.
+
+    Only a name still present in this build's own set counts — a deployment
+    that ships fewer cartoons than it used to must not point a browser at a
+    file that no longer exists, so a stale choice quietly falls back to the
+    hash-derived one below rather than 404ing someone's own picture.
+    """
+    name = getattr(user, "chosen_default_avatar", "") or ""
+    return name if name in default_avatar_names() else None
+
+
 def default_avatar_for(user):
     """The cartoon this person gets until they upload their own, or `None`.
 
-    Derived from the primary key by a stable hash rather than `pk % count`:
-    consecutive users would otherwise get consecutive files, and a team
-    created in one sitting would appear as a tidy run through the set
-    instead of looking assorted. Derived at all, rather than stored, so it
-    never changes under someone and costs no column.
+    An explicit pick (`chosen_default_avatar`) wins when there is one.
+    Otherwise derived from the primary key by a stable hash rather than
+    `pk % count`: consecutive users would otherwise get consecutive files,
+    and a team created in one sitting would appear as a tidy run through the
+    set instead of looking assorted. Derived, not stored, in the unpicked
+    case, so it never changes under someone and costs no column — the same
+    reasoning that makes an explicit pick a real column: once a person can
+    choose, the choice has to persist across sessions and devices, which
+    "derive it again" cannot do.
     """
     names = default_avatar_names()
     if not names or user is None or getattr(user, "pk", None) is None:
         return None
+    chosen = chosen_default_avatar_for(user)
+    if chosen:
+        return chosen
     digest = hashlib.sha256(str(user.pk).encode("ascii")).digest()
     return names[int.from_bytes(digest[:4], "big") % len(names)]
 
@@ -103,6 +122,21 @@ def default_avatar_url(user):
 
     name = default_avatar_for(user)
     return static(f"{AVATAR_DIRECTORY}/{name}") if name else None
+
+
+def default_avatar_choices():
+    """Every shipped cartoon as `{"name", "url"}`, for the picker gallery.
+
+    Static, not per-user: the gallery is the same for everyone, and which
+    one (if any) a given person has picked is a separate, cheap field the
+    view reads on its own.
+    """
+    from django.templatetags.static import static
+
+    return [
+        {"name": name, "url": static(f"{AVATAR_DIRECTORY}/{name}")}
+        for name in default_avatar_names()
+    ]
 
 
 def sniff_avatar_content_type(content):
@@ -173,6 +207,26 @@ def set_avatar(*, actor, target, content, original_filename=""):
         },
     )
     return row
+
+
+@transaction.atomic
+def set_default_avatar_choice(*, actor, target, name):
+    """Pick one of the shipped cartoons instead of the hash-derived one.
+
+    Also drops any uploaded picture: `default_avatar_for`/`avatar_for`
+    already prefer an upload over any default, so a pick made while one is
+    still stored would silently do nothing the reader could see — picking a
+    default is "use this cartoon" and has to actually take effect.
+    """
+    from accounts.models import UserAvatar
+
+    _require_may_edit(actor, target)
+    name = str(name or "").strip()
+    if name not in default_avatar_names():
+        raise BusinessRuleError({"name": "این آواتار در دسترس نیست."})
+    UserAvatar.objects.filter(pk=target.pk).delete()
+    target.chosen_default_avatar = name
+    target.save(update_fields=["chosen_default_avatar"])
 
 
 @transaction.atomic

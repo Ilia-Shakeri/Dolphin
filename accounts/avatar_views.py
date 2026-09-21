@@ -37,12 +37,47 @@ class AvatarUploadSerializer(serializers.Serializer):
     avatar = serializers.FileField()
 
 
+class AvatarDefaultChoiceSerializer(serializers.Serializer):
+    """Which shipped cartoon to use — a filename from `/avatar-defaults/`."""
+
+    name = serializers.CharField()
+
+
 class AvatarStateSerializer(serializers.Serializer):
     has_avatar = serializers.BooleanField()
     #: Where to fetch it. Always present — it is the cartoon's static URL
     #: when nothing has been uploaded — so the panel never has to decide
     #: which of two URLs to use.
     url = serializers.CharField()
+    #: The explicitly-picked cartoon's filename, or "" when this person has
+    #: never picked one (still on the hash-derived default, or has an
+    #: upload). The picker gallery uses this to highlight the active tile —
+    #: without it, reopening the dialog could not tell "the cartoon showing"
+    #: apart from "the cartoon that happens to render the same".
+    chosen_default_name = serializers.CharField()
+
+
+class AvatarDefaultsSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    url = serializers.CharField()
+
+
+def _state(target):
+    """The full picture state for `target`, used by every endpoint below that
+    changes or reports it — one place computing the three facts together so
+    they cannot drift out of sync with each other.
+    """
+    stored = avatars.has_avatar(target)
+    url = (
+        f"/api/v1/users/{target.pk}/avatar/image/"
+        if stored
+        else (avatars.default_avatar_url(target) or "")
+    )
+    return {
+        "has_avatar": stored,
+        "url": url,
+        "chosen_default_name": avatars.chosen_default_avatar_for(target) or "",
+    }
 
 
 def _target(request, user_id):
@@ -83,13 +118,7 @@ class UserAvatarView(APIView):
     )
     def get(self, request, user_id=None):
         target = _target(request, user_id)
-        stored = avatars.has_avatar(target)
-        url = (
-            f"/api/v1/users/{target.pk}/avatar/image/"
-            if stored
-            else (avatars.default_avatar_url(target) or "")
-        )
-        return Response(AvatarStateSerializer({"has_avatar": stored, "url": url}).data)
+        return Response(AvatarStateSerializer(_state(target)).data)
 
     @extend_schema(
         request=AvatarUploadSerializer,
@@ -117,10 +146,7 @@ class UserAvatarView(APIView):
             content=upload.read(),
             original_filename=getattr(upload, "name", ""),
         )
-        return Response(AvatarStateSerializer({
-            "has_avatar": True,
-            "url": f"/api/v1/users/{target.pk}/avatar/image/",
-        }).data)
+        return Response(AvatarStateSerializer(_state(target)).data)
 
     @extend_schema(
         responses={
@@ -134,10 +160,57 @@ class UserAvatarView(APIView):
     def delete(self, request, user_id=None):
         target = _target(request, user_id)
         avatars.clear_avatar(actor=request.user, target=target)
-        return Response(AvatarStateSerializer({
-            "has_avatar": False,
-            "url": avatars.default_avatar_url(target) or "",
-        }).data)
+        return Response(AvatarStateSerializer(_state(target)).data)
+
+
+class UserAvatarDefaultsView(APIView):
+    """`/api/v1/avatar-defaults/` — the gallery the picker modal fills itself
+    from, rather than the panel hardcoding a list of 52 filenames that would
+    fall behind the moment this build's own static set does.
+    """
+
+    permission_classes = [IsActiveAuthenticated]
+
+    @extend_schema(
+        responses={200: AvatarDefaultsSerializer(many=True)},
+        description="Every default cartoon this build ships, as {name, url}.",
+    )
+    def get(self, request):
+        return Response(AvatarDefaultsSerializer(avatars.default_avatar_choices(), many=True).data)
+
+
+class UserAvatarDefaultChoiceView(APIView):
+    """`/api/v1/users/<id>/avatar/default/` and `/api/v1/profile/avatar/default/`
+    — pick one of the shipped cartoons instead of the hash-derived one.
+    """
+
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [SensitiveRateThrottle]
+
+    @extend_schema(
+        request=AvatarDefaultChoiceSerializer,
+        responses={
+            200: AvatarStateSerializer,
+            400: VALIDATION_ERROR_RESPONSE,
+            403: ACCESS_DENIED_RESPONSE,
+            404: NOT_FOUND_RESPONSE,
+            429: THROTTLED_RESPONSE,
+        },
+        description=(
+            "Picks one of the shipped cartoons as this person's picture, "
+            "replacing any uploaded one — an upload always wins over a "
+            "default while both exist, so a pick made on top of an upload "
+            "would otherwise have no visible effect."
+        ),
+    )
+    def post(self, request, user_id=None):
+        target = _target(request, user_id)
+        form = AvatarDefaultChoiceSerializer(data=request.data)
+        form.is_valid(raise_exception=True)
+        avatars.set_default_avatar_choice(
+            actor=request.user, target=target, name=form.validated_data["name"]
+        )
+        return Response(AvatarStateSerializer(_state(target)).data)
 
 
 class UserAvatarImageView(APIView):

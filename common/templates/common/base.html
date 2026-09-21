@@ -679,7 +679,7 @@
                                 </div>
                                 {% endif %}
 
-                                {% comment %} `can_manage_branding` left both gates on 2026-09-20: it no
+                                                                {% comment %} `can_manage_branding` left both gates on 2026-09-20: it no
    longer opens anything in this accordion, so a reader who holds only that
    capability would otherwise see an empty «مدیریت» heading over an
    accordion with nothing in it. {% endcomment %}
@@ -808,29 +808,23 @@
         <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
     </div>
     <div id="profile-loading" class="text-center text-gray-700 py-10">در حال دریافت پروفایل…</div>
-{% comment %} عکس پروفایل — خواستهٔ مالک محصول ۲۰۲۶/۰۹/۲۰. الگو همان
-   «image-input» خود مترونیک است: دایرهٔ پیش‌نمایش با دکمهٔ مداد روی لبه و
-   دکمهٔ حذف کنارش. برش و تغییر اندازه پیش از ارسال در خود مرورگر انجام
-   می‌شود (`cropAvatarFile`)، پس چیزی که به سرور می‌رسد از قبل مربع و کوچک
-   است — و سرور باز هم حجم و نوع واقعی را خودش بررسی می‌کند.
-
-   بیرون از فرم پروفایل است چون فایل با درخواست خودش می‌رود، نه همراه ذخیرهٔ
-   پروفایل: یک عکس که فقط وقتی ذخیره شود که نام هم معتبر باشد، رفتار
-   گیج‌کننده‌ای است. {% endcomment %}
+{% comment %} عکس پروفایل — خواستهٔ مالک محصول ۲۰۲۶/۰۹/۲۰، و ۲۰۲۶/۰۹/۲۱: «بین
+   عکس‌های پیش‌فرض انتخاب کند و اپشن آپلود شخصی هم در مودالی که تازه باز
+   می‌شود باشد». دایرهٔ کوچک این‌جا فقط پیش‌نمایش است؛ زدن دکمهٔ مداد مودال
+   `avatar-picker-dialog` را باز می‌کند که هم گالری آواتارهای پیش‌فرض را دارد
+   هم آپلود شخصی را — همان مودالی که برش و تغییر اندازه پیش از ارسال در خود
+   مرورگر انجام می‌دهد (`cropAvatarFile`). {% endcomment %}
     <div id="profile-avatar" class="avatar-input d-flex align-items-center gap-4 mb-6" hidden>
         <div class="avatar-input-frame">
             <img id="profile-avatar-image" class="avatar-input-image" src="" alt="تصویر پروفایل">
-            <label class="avatar-input-pick" for="profile-avatar-file" title="انتخاب تصویر">
+            <button type="button" class="avatar-input-pick" id="open-avatar-picker" title="تغییر تصویر">
                 <i class="ki-duotone ki-pencil fs-6"><span class="path1"></span><span class="path2"></span></i>
-                <span class="sr-only">انتخاب تصویر پروفایل</span>
-            </label>
-            <input class="sr-only" id="profile-avatar-file" type="file" accept="image/jpeg,image/png,image/webp">
+                <span class="sr-only">تغییر تصویر پروفایل</span>
+            </button>
         </div>
         <div class="min-w-0">
             <p class="fw-semibold text-gray-900 mb-1">تصویر پروفایل</p>
-            <p class="text-muted fs-8 mb-2">jpeg، png یا webp — حداکثر ۲ مگابایت. تصویر پیش از ارسال به‌صورت مربع برش می‌خورد و به ۵۱۲ پیکسل کوچک می‌شود.</p>
-            <button class="btn btn-sm btn-light-danger" type="button" id="profile-avatar-clear" hidden>حذف تصویر</button>
-            <p class="text-danger fs-8 mt-2 mb-0" id="profile-avatar-error" hidden></p>
+            <p class="text-muted fs-8 mb-0">روی دکمهٔ مداد بزنید تا از آواتارهای پیش‌فرض انتخاب کنید یا تصویر خودتان را آپلود کنید.</p>
         </div>
     </div>
     <form id="profile-form" action="/api/v1/auth/me/" method="post" class="row g-5" hidden novalidate>
@@ -843,6 +837,32 @@
         <div class="col-md-6"><label class="form-label fw-semibold" for="profile-phone">تلفن</label><input class="form-control form-control-solid" id="profile-phone" name="phone" type="tel" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
         <div class="col-12 d-flex justify-content-end gap-3 mt-2"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره پروفایل</button></div>
     </form>
+</dialog>
+{% comment %} گالری آواتارهای پیش‌فرض + آپلود شخصی، هر دو در یک مودال —
+   خواستهٔ مالک محصول ۲۰۲۶/۰۹/۲۱. `avatar-picker-grid` را خودِ اسکریپت از
+   `/api/v1/avatar-defaults/` پر می‌کند (`setupAvatarPicker`)، نه این‌جا،
+   چون فهرست آواتارها همانی است که خودِ استقرار واقعاً منتشر کرده — نوشتنِ
+   ۵۲ نام در قالب همان خطری بود که کنسول ساخت هم برایش فهرست صفحه‌ها را
+   مشتق می‌کند نه می‌نویسد. {% endcomment %}
+<dialog id="avatar-picker-dialog" aria-labelledby="avatar-picker-title">
+    <div class="d-flex flex-stack align-items-center mb-5">
+        <h2 id="avatar-picker-title" class="fs-3 fw-bold text-gray-900 mb-0">تصویر پروفایل</h2>
+        <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+    <p class="text-muted fs-7 mb-4">یکی از آواتارهای پیش‌فرض را انتخاب کنید، یا تصویر خودتان را آپلود کنید.</p>
+    <div id="avatar-picker-loading" class="text-center text-gray-700 py-6">در حال دریافت آواتارها…</div>
+    <div id="avatar-picker-grid" class="avatar-picker-grid" role="listbox" aria-label="آواتارهای پیش‌فرض" hidden></div>
+    <div class="separator my-5"></div>
+    <div class="d-flex flex-wrap align-items-center gap-4">
+        <label class="btn btn-light-primary btn-sm" for="profile-avatar-file">
+            <i class="ki-duotone ki-file-up fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+            آپلود تصویر شخصی
+        </label>
+        <input class="sr-only" id="profile-avatar-file" type="file" accept="image/jpeg,image/png,image/webp">
+        <span class="text-muted fs-8">jpeg، png یا webp — حداکثر ۲ مگابایت، به‌صورت مربع برش و به ۵۱۲ پیکسل کوچک می‌شود.</span>
+        <button class="btn btn-sm btn-light-danger ms-auto" type="button" id="profile-avatar-clear" hidden>حذف تصویر</button>
+    </div>
+    <p class="text-danger fs-8 mt-3 mb-0" id="profile-avatar-error" hidden></p>
 </dialog>
 <dialog id="sessions-dialog" aria-labelledby="sessions-dialog-title">
     <div class="card">
