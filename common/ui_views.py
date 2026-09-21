@@ -18,7 +18,7 @@ from accounts.avatars import default_avatar_url, has_avatar
 from accounts.models import User
 from common import labels
 from common.dashboard_layout import arrange_capability_tiles
-from common.integrations import visible_integrations
+from common.integrations import any_integration_configurable, visible_integrations
 from common.deployment.profile import active_profile, feature_enabled
 from common.pdf import (
     PdfRendererBusy,
@@ -238,9 +238,22 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         )
         # Mirrors DolphinSmsProviderSettingsView's own two gates exactly
         # (feature, then role) — same reasoning as can_manage_branding above.
+        # Still used by the SMS-sending page's own contextual "تنظیم
+        # سامانه" shortcut (sms/outbound.html) — a reader already on that
+        # page wants SMS settings specifically, not the general hub below.
         context["can_manage_sms_provider"] = (
             feature_enabled("outbound_sms") and self.request.user.role == User.Role.PLATFORM_ADMIN
         )
+        # The sidebar's and the settings page's own entry into «اتصال
+        # سامانه‌ها» (product owner, 2026-09-21: «تنظیمات سامانهٔ پیامک
+        # باید به اتصال سامانه‌ها تغییر اسم یابد») — true when this reader
+        # may configure *any* registered integration, not only SMS, so a
+        # Sales Manager who may set up the post connection but not the SMS
+        # one still sees the entry. `any_integration_configurable` checks
+        # each row's own feature and gate without the per-row status query
+        # `visible_integrations` does, which this context builder — read on
+        # every page — cannot afford.
+        context["can_manage_integrations"] = any_integration_configurable(self.request.user)
         # Whether this reader may arrange their *own* dashboard — the
         # feature gate only, with no role test, because since 2.8.0 the
         # arrangement is per-user and personal. The deployment-wide layout

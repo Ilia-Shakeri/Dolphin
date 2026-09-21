@@ -9,9 +9,20 @@ re-verified.
 
 from django.test import SimpleTestCase
 
-from common.tests.ui_overhaul_helpers import CODE, ROOT, SCRIPT, TEMPLATES, function_body, markup, rule
+from common.tests.ui_overhaul_helpers import (
+    CODE,
+    ROOT,
+    SCRIPT,
+    TEMPLATES,
+    function_body,
+    markup,
+    python_function,
+    rule,
+)
 
 PAYMENTS_LIST = (TEMPLATES / "payments" / "list.html").read_text(encoding="utf-8")
+BASE = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+INTEGRATIONS_SOURCE = (ROOT / "common" / "integrations.py").read_text(encoding="utf-8")
 
 
 def exact_rule(selector, source=CODE):
@@ -291,3 +302,126 @@ class ExcelButtonIconTests(SimpleTestCase):
                 continue
             self.assertIn('<span class="path1">', text)
             self.assertIn('<span class="path2">', text)
+
+
+class DashboardWidgetDragTests(SimpleTestCase):
+    """Item 10 — dashboard widget reordering used HTML5 drag-and-drop, which
+    never fires on a touch screen at all and drew the drag with the
+    browser's own uncontrollable ghost image. Rewritten on Pointer Events,
+    which unify mouse/touch/pen, with the dragged widget positioned by a
+    real CSS transform this code owns and every other widget the drag
+    displaces animating (FLIP) from its old slot to its new one — product
+    owner, 2026-09-21: «کار با ویجت‌ها ... مثل ویجت‌های apple و اندروید
+    روان و پرکاربرد باشد».
+
+    A real bug surfaced and was fixed while building this: without
+    `lastSwapTarget`, every `pointermove` while the pointer sat anywhere
+    within the same target widget re-ran the swap — and a swap is its own
+    inverse, so hovering one widget for several consecutive move events (the
+    common case; a widget is ~235px wide) toggled it back and forth and
+    landed on either the original or swapped arrangement depending on
+    parity, which looked like dragging did nothing about half the time.
+    Verified live: dragging a widget across two others produced the correct
+    three-way shift (A landed where C was, B and C both slid over) and
+    persisted through a reload; before the fix, the same drag left the
+    order completely unchanged.
+    """
+
+    def test_no_html5_drag_and_drop_remains(self):
+        # Checked as the actual `addEventListener` calls, not the bare
+        # words — this docstring explains the HTML5-to-Pointer-Events
+        # switch by name, which a plain substring check would trip on.
+        body = function_body("setupDashboardEditor", SCRIPT)
+        for event_name in ("dragstart", "dragover", "drop", "dragend"):
+            self.assertNotIn(f'addEventListener("{event_name}"', body, event_name)
+        self.assertNotIn(".draggable = true", body)
+
+    def test_pointer_events_drive_the_drag(self):
+        body = function_body("setupDashboardEditor", SCRIPT)
+        self.assertIn('"pointerdown"', body)
+        self.assertIn('"pointermove"', body)
+        self.assertIn('"pointerup"', body)
+
+    def test_the_same_target_does_not_toggle_every_move_event(self):
+        body = function_body("setupDashboardEditor", SCRIPT)
+        self.assertIn("lastSwapTarget", body)
+        self.assertIn("target !== lastSwapTarget", body)
+
+    def test_displaced_widgets_animate_rather_than_snap(self):
+        body = function_body("setupDashboardEditor", SCRIPT)
+        self.assertIn("function swapWithAnimation", body)
+        self.assertIn('transition = "transform 0.2s ease"', body)
+
+    def test_touch_does_not_fight_the_page_for_a_scroll_gesture(self):
+        self.assertIn("touch-action: none", exact_rule(".dashboard-widget.editing"))
+        self.assertIn("touch-action: none", rule(".dashboard-widget-resize"))
+
+    def test_the_dragged_widget_is_lifted_not_dimmed(self):
+        """Restated 2026-09-21: `opacity: 0.45` read as "disabled", not
+        "picked up"."""
+        body = exact_rule(".dashboard-widget.dragging")
+        self.assertNotIn("opacity", body)
+        card_body = exact_rule(".dashboard-widget.dragging > .card")
+        self.assertIn("scale(1.03)", card_body)
+        self.assertIn("box-shadow", card_body)
+
+
+class IntegrationsNavRenameTests(SimpleTestCase):
+    """Item 11 — the sidebar's and the admin settings page's own entry into
+    the connections hub used to be a standalone «تنظیمات سامانهٔ پیامک»
+    link, pointing at the SMS settings page directly and gated on
+    `can_manage_sms_provider` alone — a Sales Manager who may configure the
+    post connection (item 9) but not SMS never saw *any* way into either.
+    Product owner, 2026-09-21: «تنظیمات سامانهٔ پیامک باید به اتصال سامانه
+    های تغییر اسم یابد و در ورودی سرویس های مختلف و فعال/غیرفعال بودن
+    انها رو نشان بده و با کلیک بر روی آن بتوان وارد تنظیماتش [شد]» — which
+    is exactly what the existing «اتصال سرویس‌ها» hub (`common/
+    integrations.py`, since batch D) already does; the fix is pointing the
+    two navigation entries at it instead of at SMS alone, and renaming it
+    to match the product owner's own wording.
+
+    The SMS-sending page's own contextual shortcut to SMS-specific settings
+    (`sms/outbound.html`) is deliberately untouched — a reader already
+    there wants SMS settings specifically, not the general hub.
+    """
+
+    def test_the_sidebar_no_longer_links_straight_to_sms_settings(self):
+        markup_text = markup(BASE)
+        self.assertNotIn('href="{% url \'common_ui:sms-provider-settings\' %}"', markup_text)
+        self.assertIn(
+            '<a data-module="integrations" class="menu-link" href="{% url \'common_ui:integrations\' %}">',
+            markup_text,
+        )
+        self.assertIn("اتصال سامانه‌ها", markup_text)
+
+    def test_the_sidebar_accordion_shows_for_anyone_who_can_configure_something(self):
+        markup_text = markup(BASE)
+        self.assertIn("can_manage_integrations", markup_text)
+        self.assertNotIn("can_manage_sms_provider", markup_text)
+
+    def test_the_sms_page_keeps_its_own_contextual_shortcut(self):
+        outbound = (TEMPLATES / "sms" / "outbound.html").read_text(encoding="utf-8")
+        self.assertIn("can_manage_sms_provider", outbound)
+        self.assertIn("sms-provider-settings", outbound)
+
+    def test_the_settings_page_dropped_the_redundant_sms_only_button(self):
+        settings_page = markup((TEMPLATES / "settings" / "settings.html").read_text(encoding="utf-8"))
+        self.assertNotIn("sms-provider-settings", settings_page)
+        self.assertIn("can_manage_integrations", settings_page)
+        self.assertIn("اتصال سامانه‌ها", settings_page)
+
+    def test_the_hub_gate_is_cheap_no_status_query_per_page_load(self):
+        """`can_manage_integrations` is computed on every page — it must not
+        call the per-row status functions `visible_integrations` does
+        (an OutboundSMS query, a PostProviderSettings read)."""
+        body = python_function("any_integration_configurable", INTEGRATIONS_SOURCE)
+        self.assertNotIn(".status(", body)
+        self.assertIn("integration.feature", body)
+        self.assertIn("integration.gate", body)
+
+    def test_the_placeholder_row_cannot_make_the_gate_true(self):
+        """`coming_soon` has neither a feature nor a gate and is always
+        "visible" — counting it would make `can_manage_integrations` true
+        for everyone, which defeats the whole point of the check."""
+        body = python_function("any_integration_configurable", INTEGRATIONS_SOURCE)
+        self.assertIn("integration.settings_url_name", body)

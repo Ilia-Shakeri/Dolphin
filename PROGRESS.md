@@ -155,8 +155,8 @@ bumping a version for every small edit (CLAUDE.md §23).
 - [x] 7. Report wizards (sales-docs, post, inbound-sms) centered; province as a dropdown → bundled into `2.14.7`
 - [x] 8. Excel import/export buttons get a small Excel icon → bundled into `2.14.7`
 - [x] 9. Post integration settings page, like SMS → `2.14.7`
-- [ ] 10. Dashboard widget editing — smoother, Apple/Android-widget-like → bundled into `2.14.8`
-- [ ] 11. Rename SMS settings entry to a general "اتصال سامانه‌ها" connections hub → `2.14.8`
+- [x] 10. Dashboard widget editing — smoother, Apple/Android-widget-like → bundled into `2.14.8`
+- [x] 11. Rename SMS settings entry to a general "اتصال سامانه‌ها" connections hub → `2.14.8`
 - [ ] 12. Locate/relocate the console `.exe` to the project root; report its name
 
 ### Final
@@ -166,7 +166,61 @@ bumping a version for every small edit (CLAUDE.md §23).
 
 ## Status
 
-**Current:** items 1–9 done (`2.14.1`–`2.14.7`), moving to item 10.
+**Current:** items 1–11 done (`2.14.1`–`2.14.8`), moving to item 12.
+
+**Item 10 — root cause and fix.** Widget reordering used HTML5
+drag-and-drop, which never fires on a touch screen at all
+(`dragstart`/`dragover` are a mouse-only contract in every mobile browser)
+and drew the drag with the browser's own uncontrollable ghost image.
+Rewritten on Pointer Events (unifies mouse/touch/pen): the dragged widget
+is positioned by a real CSS transform this code owns, and every widget the
+drag displaces animates (FLIP: read old rect, let the DOM swap land,
+invert-transform back, then transition to identity) from its old slot to
+its new one instead of snapping. **A real bug surfaced and was fixed while
+building this**: without tracking the last widget swapped with, every
+`pointermove` while the pointer sat anywhere within the same target
+widget re-ran the swap — and a swap is its own inverse, so several
+consecutive move events over one ~235px-wide widget toggled it back and
+forth, landing on either the original or swapped arrangement depending on
+parity. This is exactly why an early verification attempt showed "no
+effect from dragging" — traced down to a genuine double-execution testing
+artifact THEN a genuine code bug, both now fixed and both confirmed via a
+`document.elementFromPoint`-call log and a version bump that forced a true
+single fresh script load. The lift-while-dragging look changed too (a
+slight scale + shadow, replacing `opacity: 0.45`, which read as
+"disabled" not "picked up"), and `touch-action: none` was added to both
+the widget (while editing) and the resize grip, so a touch-drag does not
+race the browser's own scroll gesture. Verified live end to end: a
+three-widget drag produced the correct shift, persisted through a reload,
+and reverted to defaults on request. New tests:
+`test_ui_overhaul_round2.DashboardWidgetDragTests` (6); two existing
+`test_ui_overhaul_charts_dashboard.DashboardDragTests` tests restated for
+the mechanism change.
+
+**Item 11 — what changed.** The sidebar's and the admin settings page's
+own «تنظیمات سامانهٔ پیامک» entries pointed straight at SMS settings and
+were gated on `can_manage_sms_provider` alone — a Sales Manager who could
+configure the new post connection (item 9) but not SMS had no way into
+either. Both entries now point at the existing «اتصال سامانه‌ها» hub
+(renamed from «اتصال سرویس‌ها» to match the product owner's own wording,
+across the page's title/breadcrumb and `common/deployment/pages.py`) and
+are gated on a new `can_manage_integrations` — `common.integrations.
+any_integration_configurable(user)`, which checks each row's feature and
+gate *without* the per-row status query `visible_integrations` makes,
+since this flag is computed on every page load and cannot afford it. The
+redundant standalone SMS button on the settings page was removed outright
+(the hub already lists SMS as one of its rows). The SMS-sending page's own
+contextual shortcut to SMS-specific settings (`sms/outbound.html`) was
+deliberately left untouched. Verified live: no `sms-provider-settings`
+link remains in the sidebar or the settings page; the sidebar entry and
+the settings-page button both read «اتصال سامانه‌ها» and open the hub; the
+hub's own SMS row still links to `/settings/sms-provider/` correctly; the
+SMS-sending page's contextual link is unchanged. New tests:
+`test_ui_overhaul_round2.IntegrationsNavRenameTests` (6); one existing
+`test_ui_overhaul_invoice_settings_popovers` test restated for the gate
+rename. Full regression across boards/charts/invoice/postal-integrations/
+console-avatars/round2/ui-connectivity/database-privileges/sales/
+communications/accounts: 695 tests green. OpenAPI schema clean.
 
 **Items 7–9 — what changed.** Bundled into one release since 7 and 8 were
 never given their own version by the product owner.

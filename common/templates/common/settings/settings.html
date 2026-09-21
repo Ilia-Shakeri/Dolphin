@@ -187,7 +187,7 @@
 </section>
 {% endif %}
 
-{% if can_manage_branding or can_manage_sms_provider %}
+{% if can_manage_branding or can_manage_integrations %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
@@ -203,20 +203,20 @@
             شخصی‌سازی پنل
         </a>
         {% endif %}
-        {% if can_manage_sms_provider %}
-        <a class="btn btn-light-primary" href="{% url 'common_ui:sms-provider-settings' %}">
-            <i class="ki-duotone ki-sms fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
-            سامانهٔ پیامک
-        </a>
-        {% endif %}
-        {% comment %} کارت به‌همان دو دروازهٔ قبلی گره خورده است؛ همین درست
-           است، چون خوانندهٔ عادی هیچ سرویسی را نمی‌تواند تنظیم کند و صفحهٔ
-           اتصال برایش خالی خواهد بود. خودِ صفحه هم سطربه‌سطر همان دروازه‌ها را
+        {% comment %} تا این‌جا یک دکمهٔ جدا برای «سامانهٔ پیامک» هم بود، کنار
+           همین دکمه. مالک محصول ۲۰۲۶/۰۹/۲۱: «تنظیمات سامانهٔ پیامک باید به
+           اتصال سامانه‌ها تغییر اسم یابد» — یعنی همان دروازهٔ ورود، نه دو
+           دروازهٔ موازی به یک مقصد. کارت به همان دروازهٔ کلی‌ترِ
+           `can_manage_integrations` گره خورده — کسی که فقط سرویس پست را
+           می‌تواند تنظیم کند، نه پیامک را، دیگر این کارت را کلاً از دست
+           نمی‌دهد. خودِ صفحهٔ اتصال هم سطربه‌سطر دروازهٔ هر سرویس را
            دوباره بررسی می‌کند. {% endcomment %}
+        {% if can_manage_integrations %}
         <a class="btn btn-light-primary" id="open-integrations" href="{% url 'common_ui:integrations' %}">
             <i class="ki-duotone ki-abstract-26 fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
-            اتصال سرویس‌ها
+            اتصال سامانه‌ها
         </a>
+        {% endif %}
     </div>
 </section>
 {% endif %}

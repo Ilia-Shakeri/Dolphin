@@ -2717,9 +2717,17 @@ dialog:has(.wizard-lines-step) {
 
 /* Only while editing. A reader who never presses the pencil gets exactly
    the dashboard they had before this existed: no outline, no cursor change,
-   no reserved space. */
+   no reserved space.
+
+   `touch-action: none` (2026-09-21, with the move to Pointer Events below):
+   without it, the first few pixels of a touch-drag are ambiguous between
+   "rearranging a widget" and "scrolling the page", and the browser can
+   start its own scroll gesture before this code's own 4px threshold ever
+   decides which one it is. Telling the browser up front that this element
+   is not a scroll surface removes the race rather than trying to win it. */
 .dashboard-widget.editing {
     cursor: grab;
+    touch-action: none;
 }
 
 .dashboard-widget.editing > .card {
@@ -2727,16 +2735,22 @@ dialog:has(.wizard-lines-step) {
     outline-offset: 2px;
 }
 
+/* The lifted look while a widget is actively being dragged — replacing the
+   `opacity: 0.45` this used to be, which read as "disabled", not "picked
+   up". A real position transform on `.dashboard-widget` itself now tracks
+   the pointer (`bindGridDrag`, dolphin-app.js); the scale and shadow here
+   are purely the "this one is off the surface" cue, applied to the `.card`
+   one level in so the transform driving position and the transform giving
+   the lift never fight over the same property on the same element. */
 .dashboard-widget.dragging {
-    opacity: 0.45;
     cursor: grabbing;
+    z-index: 10;
 }
 
-/* The drop target, named by the same accent the rest of the panel uses for
-   "this is where it lands" rather than a colour invented here. */
-.dashboard-widget.drag-over > .card {
-    outline: 2px solid var(--bs-primary);
-    outline-offset: 2px;
+.dashboard-widget.dragging > .card {
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 25%);
+    transform: scale(1.03);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* The per-widget controls sit in the card's inline-*end* corner — which in
@@ -2804,6 +2818,11 @@ dialog:has(.wizard-lines-step) {
        `nesw`. */
     cursor: nesw-resize;
     transition: color 0.15s ease, background-color 0.15s ease;
+    /* Same reasoning as `.dashboard-widget.editing`'s own `touch-action:
+       none` above: this grip is dragged with pointer events on a phone too,
+       and without this the browser can start scrolling the page on the
+       first touch-move before the grip's own handler ever sees it. */
+    touch-action: none;
 }
 
 .dashboard-widget .dashboard-widget-resize:hover,

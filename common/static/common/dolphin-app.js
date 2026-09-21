@@ -1109,7 +1109,6 @@
                 const key = column.dataset.widgetKey;
                 if (!key || column.querySelector("[data-widget-controls]")) return;
                 column.classList.add("editing");
-                column.draggable = true;
                 column.appendChild(widgetControls(column, key));
                 column.appendChild(resizeGrip(column, key));
             });
@@ -1118,8 +1117,9 @@
 
         function leaveEditing() {
             allBoxes().forEach((column) => {
-                column.classList.remove("editing", "drag-over", "resizing");
-                column.draggable = false;
+                column.classList.remove("editing", "dragging", "resizing");
+                column.style.transform = "";
+                column.style.zIndex = "";
                 const controls = column.querySelector("[data-widget-controls]");
                 if (controls) controls.remove();
                 const grip = column.querySelector("[data-widget-resize]");
@@ -1130,60 +1130,170 @@
 
         grids.forEach((host) => bindGridDrag(host));
 
+        /**
+         * Dragging a widget, redone 2026-09-21 on Pointer Events instead of
+         * HTML5 drag-and-drop (product owner: «کار با ویجت‌ها ... مثل ویجت
+         * های apple و اندروید روان و پرکاربرد باشد»).
+         *
+         * Two real problems with the HTML5 version, not just a look: it
+         * never fires on a touch screen at all (`dragstart`/`dragover` are a
+         * desktop-mouse-only contract in every mobile browser this panel
+         * ships to), and its own drag image — a browser-drawn ghost that
+         * trails the pointer with no control over its look — is what made
+         * the old picture read as "opacity: 0.45 and hope", not a lifted
+         * card. Pointer Events unify mouse, touch and pen behind one API, so
+         * the same code now drags on a phone, and the element itself is
+         * moved with a CSS transform this code owns end to end.
+         *
+         * Reordering is *live*, the way a home-screen icon grid moves other
+         * icons out from under a finger before it lands: every time the
+         * dragged card crosses another one, they swap in the DOM
+         * immediately, and every card the swap displaced animates from
+         * where it used to be to where it now is (the FLIP technique —
+         * First: read the old rect; Last: let the DOM change land; Invert:
+         * transform back to where it was; Play: transition to identity).
+         * The dragged card itself is excluded from that animation — it is
+         * already being moved by the pointer, one frame at a time, and
+         * animating it too would fight that.
+         */
         function bindGridDrag(host) {
-            host.addEventListener("dragstart", (event) => {
-                if (!editing) return;
-                const column = event.target.closest("[data-widget-key]");
-                if (!column) return;
-                dragged = column;
-                column.classList.add("dragging");
-                event.dataTransfer.effectAllowed = "move";
-                // Firefox refuses to start a drag without payload; the key is
-                // the smallest honest thing to put there.
-                event.dataTransfer.setData("text/plain", column.dataset.widgetKey || "");
-            });
+            let grabOffsetX = 0;
+            let grabOffsetY = 0;
+            let startClientX = 0;
+            let startClientY = 0;
+            let moved = false;
+            // The widget last swapped with, this drag only — see the guard
+            // in `onPointerMove` for why it exists.
+            let lastSwapTarget = null;
 
-            host.addEventListener("dragover", (event) => {
-                if (!editing || !dragged) return;
-                const column = event.target.closest("[data-widget-key]");
-                if (!column || column === dragged) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                column.classList.add("drag-over");
-            });
+            /** Re-anchors the dragged card under the pointer at its current
+             * grab point, measured against wherever the card's own layout
+             * (untransformed) box is right now — which may have just moved,
+             * if a swap put it in a different slot. Self-correcting on every
+             * call, so it never needs to know how many swaps happened. */
+            function followPointer(clientX, clientY) {
+                dragged.style.transform = "";
+                const rect = dragged.getBoundingClientRect();
+                const dx = clientX - grabOffsetX - rect.left;
+                const dy = clientY - grabOffsetY - rect.top;
+                dragged.style.transform = `translate(${dx}px, ${dy}px)`;
+            }
 
-            host.addEventListener("dragleave", (event) => {
-                const column = event.target.closest("[data-widget-key]");
-                if (column) column.classList.remove("drag-over");
-            });
+            /** Moves `dragged` into `target`'s slot and slides every other
+             * card displaced by that move from its old position to its new
+             * one — nothing snaps. */
+            function swapWithAnimation(target) {
+                const others = Array.from(host.children).filter(
+                    (el) => el !== dragged && el.dataset && el.dataset.widgetKey,
+                );
+                const before = new Map(others.map((el) => [el, el.getBoundingClientRect()]));
 
-            host.addEventListener("drop", (event) => {
-                if (!editing || !dragged) return;
-                const target = event.target.closest("[data-widget-key]");
-                if (!target || target === dragged) return;
-                // Only within one grid: the two rows are different shapes — one
-                // is a capped, scrolling strip of tiles and the other a free
-                // grid of cards — and a card dropped into the strip would be cut
-                // off by its own cap.
-                if (target.parentElement !== dragged.parentElement) return;
-                event.preventDefault();
-                target.classList.remove("drag-over");
-                // A swap, not an insert — the product owner asked for «جابه‌جا
-                // کردن جای ویجت‌ها», and with widgets of four different widths a
-                // swap is also the only move whose result is predictable from
-                // where the card was dropped.
                 const anchor = document.createComment("");
                 host.insertBefore(anchor, dragged);
                 host.insertBefore(dragged, target);
                 host.insertBefore(target, anchor);
                 anchor.remove();
-                save({widget_order: currentOrder()});
-            });
 
-            host.addEventListener("dragend", () => {
-                if (dragged) dragged.classList.remove("dragging");
-                allBoxes().forEach((column) => column.classList.remove("drag-over"));
+                others.forEach((el) => {
+                    const from = before.get(el);
+                    const to = el.getBoundingClientRect();
+                    const dx = from.left - to.left;
+                    const dy = from.top - to.top;
+                    if (!dx && !dy) return;
+                    el.style.transition = "none";
+                    el.style.transform = `translate(${dx}px, ${dy}px)`;
+                    // Forces the browser to paint the inverted position
+                    // before the next line switches the transition back on
+                    // — without this the two style writes coalesce into one
+                    // frame and there is nothing to animate from.
+                    el.getBoundingClientRect();
+                    el.style.transition = "transform 0.2s ease";
+                    el.style.transform = "";
+                });
+            }
+
+            function onPointerMove(event) {
+                if (!dragged) return;
+                if (!moved) {
+                    // A few pixels of slack before a press counts as a drag,
+                    // so a plain click still reads as a click.
+                    if (Math.abs(event.clientX - startClientX) < 4 && Math.abs(event.clientY - startClientY) < 4) return;
+                    moved = true;
+                    dragged.classList.add("dragging");
+                }
+                event.preventDefault();
+                // Excluded from hit-testing for the one instant it takes to
+                // ask what is under the pointer, so the answer is never
+                // "the card being dragged" — the same reason `letCard
+                // DetailsLinkThrough` (kanban boards, above) has to reason
+                // about event targets rather than assuming one.
+                dragged.style.pointerEvents = "none";
+                const target = document.elementFromPoint(event.clientX, event.clientY)
+                    ?.closest("[data-widget-key]");
+                dragged.style.pointerEvents = "";
+                // Only within one grid: the two rows are different shapes —
+                // one is a capped, scrolling strip of tiles and the other a
+                // free grid of cards — and a card dropped into the strip
+                // would be cut off by its own cap.
+                if (target && target !== dragged && target.parentElement === host) {
+                    // Without `lastSwapTarget`, every single move event fired
+                    // while the pointer sits anywhere within the same target
+                    // widget re-ran the swap — and a swap is its own inverse,
+                    // so an even number of them (the common case: a widget is
+                    // ~235px wide and steps land inside it several times in a
+                    // row) landed back where it started, looking like
+                    // dragging did nothing. Swapping only on the move that
+                    // *changes* which widget is under the pointer is what
+                    // every other drag-to-reorder surface actually does.
+                    if (target !== lastSwapTarget) {
+                        swapWithAnimation(target);
+                        lastSwapTarget = target;
+                    }
+                } else {
+                    lastSwapTarget = null;
+                }
+                followPointer(event.clientX, event.clientY);
+            }
+
+            function onPointerUp() {
+                document.removeEventListener("pointermove", onPointerMove);
+                document.removeEventListener("pointerup", onPointerUp);
+                document.removeEventListener("pointercancel", onPointerUp);
+                if (dragged) {
+                    dragged.classList.remove("dragging");
+                    dragged.style.transform = "";
+                    dragged.style.zIndex = "";
+                    // A swap, not an insert — the product owner's original
+                    // request («جابه‌جا کردن جای ویجت‌ها»), and with widgets
+                    // of four different widths a swap is also the only move
+                    // whose result is predictable from where the card
+                    // landed. `moved` guards a plain click (opening the hide
+                    // button, say) from being recorded as a no-op reorder.
+                    if (moved) save({widget_order: currentOrder()});
+                }
                 dragged = null;
+                moved = false;
+            }
+
+            host.addEventListener("pointerdown", (event) => {
+                if (!editing || event.button !== 0) return;
+                // The hide button and the resize grip each own their own
+                // pointer handling and must not also start a card drag.
+                if (event.target.closest("[data-widget-controls], [data-widget-resize]")) return;
+                const column = event.target.closest("[data-widget-key]");
+                if (!column || column.parentElement !== host) return;
+                dragged = column;
+                moved = false;
+                lastSwapTarget = null;
+                startClientX = event.clientX;
+                startClientY = event.clientY;
+                const rect = column.getBoundingClientRect();
+                grabOffsetX = event.clientX - rect.left;
+                grabOffsetY = event.clientY - rect.top;
+                dragged.style.zIndex = "10";
+                document.addEventListener("pointermove", onPointerMove);
+                document.addEventListener("pointerup", onPointerUp);
+                document.addEventListener("pointercancel", onPointerUp);
             });
         }
 

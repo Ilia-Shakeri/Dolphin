@@ -683,10 +683,10 @@
    longer opens anything in this accordion, so a reader who holds only that
    capability would otherwise see an empty «مدیریت» heading over an
    accordion with nothing in it. {% endcomment %}
-                                {% if can_view_audit or can_manage_users or can_manage_sms_provider %}
+                                {% if can_view_audit or can_manage_users or can_manage_integrations %}
                                 <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">مدیریت</div></div>
                                 {% endif %}
-                                {% if can_view_audit or can_manage_users or can_manage_sms_provider %}
+                                {% if can_view_audit or can_manage_users or can_manage_integrations %}
                                 <div data-kt-menu-trigger="click" data-nav-group="administration"{% if is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="ki-duotone ki-setting-2 fs-2"><span class="path1"></span><span class="path2"></span></i></span>
@@ -701,7 +701,12 @@
    «برند و لوگو پنل را از جای فعلی بردار و داخل تنظیمات ادمین با عنوان
    شخصی‌سازی پنل بگذار»). `can_manage_branding` still gates it in exactly the
    same places: the card in the settings page, the view, and the API. {% endcomment %}
-                                        {% if can_manage_sms_provider %}<div class="menu-item"><a data-module="sms-provider-settings" class="menu-link" href="{% url 'common_ui:sms-provider-settings' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تنظیمات سامانهٔ پیامک</span></a></div>{% endif %}
+{% comment %} این‌جا تا ۲۰۲۶/۰۹/۲۱ لینک جداگانه‌ای به «تنظیمات سامانهٔ پیامک»
+   بود. مالک محصول: «تنظیمات سامانهٔ پیامک باید به اتصال سامانه‌ها تغییر اسم
+   یابد و ... با کلیک بر روی آن بتوان وارد تنظیماتش شد». حالا یک دروازهٔ ورود
+   به همان صفحهٔ اتصال (`common/integrations.py`) است که پیامک یکی از
+   ردیف‌های آن است، نه یک میان‌بر جدا به تنظیمات فقط‌پیامکی. {% endcomment %}
+                                        {% if can_manage_integrations %}<div class="menu-item"><a data-module="integrations" class="menu-link" href="{% url 'common_ui:integrations' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">اتصال سامانه‌ها</span></a></div>{% endif %}
                                     </div>
                                 </div>
                                 {% endif %}

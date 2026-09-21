@@ -283,6 +283,33 @@ INTEGRATIONS = (
 )
 
 
+def any_integration_configurable(user):
+    """Whether this reader may open *any* real integration's own settings —
+    for the sidebar link into this page (product owner, 2026-09-21:
+    «تنظیمات سامانهٔ پیامک باید به اتصال سامانه‌ها تغییر اسم یابد»), which
+    has to decide this on every page load and therefore cannot afford
+    `visible_integrations`'s own per-row status query (an outbound-SMS
+    lookup, a post-settings row read) just to answer a yes/no.
+
+    Feature and gate only, the same two checks `visible_integrations` makes
+    before it ever calls a row's `status`, and skipping the placeholder row
+    on purpose — it has neither a feature nor a gate and is always
+    "visible", so counting it would make this always true regardless of
+    what the reader can actually configure.
+    """
+    from common.deployment.profile import feature_enabled
+
+    for integration in INTEGRATIONS:
+        if not integration.settings_url_name:
+            continue
+        if integration.feature and not feature_enabled(integration.feature):
+            continue
+        if integration.gate and not integration.gate(user):
+            continue
+        return True
+    return False
+
+
 def visible_integrations(user):
     """The rows this reader may see, each with its status already resolved.
 

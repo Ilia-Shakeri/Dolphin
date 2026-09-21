@@ -82,7 +82,7 @@ PAGE_TITLES = {
     "common_ui:activity-logs": "رویدادهای سامانه",
     "common_ui:branding-settings": "شخصی‌سازی پنل",
     "common_ui:settings": "تنظیمات",
-    "common_ui:integrations": "اتصال سرویس‌ها",
+    "common_ui:integrations": "اتصال سامانه‌ها",
     "common_ui:login": "ورود",
 }
 

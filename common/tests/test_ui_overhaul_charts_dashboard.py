@@ -477,14 +477,25 @@ class DashboardDragTests(SimpleTestCase):
         self.assertNotIn("⠿", SCRIPT)
 
     def test_the_whole_box_is_still_what_starts_a_drag(self):
+        """Restated 2026-09-21: the drag itself moved from HTML5
+        drag-and-drop (`column.draggable = true`) to Pointer Events (it
+        never fired on a touch screen at all) — see `DashboardWidgetDragTests`
+        in test_ui_overhaul_round2.py for that rewrite. What has not changed
+        is that a `pointerdown` anywhere on the box starts a drag, not only
+        on a handle."""
         body = function_body("setupDashboardEditor")
-        self.assertIn("column.draggable = true;", body)
+        self.assertIn('host.addEventListener("pointerdown"', body)
+        self.assertNotIn("dashboard-widget-handle", body)
 
     def test_a_box_may_not_be_dropped_into_the_other_grid(self):
         """The two rows are different shapes; a card dropped into the capped
-        tile strip would be cut off by its own cap."""
+        tile strip would be cut off by its own cap. Restated 2026-09-21 for
+        the same Pointer Events rewrite — the guard now compares against
+        `host` (the grid the pointerdown started in) rather than
+        `dragged.parentElement`, because a live swap can move `dragged`
+        itself before this check ever runs."""
         body = function_body("setupDashboardEditor")
-        self.assertIn("if (target.parentElement !== dragged.parentElement) return;", body)
+        self.assertIn("target.parentElement === host", body)
 
     def test_the_saved_order_spans_both_rows(self):
         body = function_body("setupDashboardEditor")
