@@ -37,6 +37,30 @@ dialog::backdrop {
     background: rgb(15 31 46 / 55%);
 }
 
+/* The header is `position: fixed` with a transparent base background (the
+   theme's own `--bs-app-header-base-bg-color`), so scrolled content passes
+   directly underneath it with nothing to mark the boundary. A translucent
+   background plus a blur gives the header a visible presence without losing
+   the theme's own fixed-header layout, colors, or the sticky/minimize
+   variants it already supports. */
+[data-bs-theme=light] {
+    --bs-app-header-base-bg-color: rgb(252 252 252 / 78%);
+}
+[data-bs-theme=dark] {
+    --bs-app-header-base-bg-color: rgb(13 14 18 / 78%);
+}
+#kt_app_header.app-header {
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+
+/* The small spreadsheet icon on every Excel export/import button
+   (`common/includes/excel_icon.inc`) — an inline SVG, not a font ligature, so
+   it needs its own baseline nudge to sit where the font icon it replaced did. */
+.excel-icon {
+    vertical-align: -0.2rem;
+}
+
 /* Visually hidden label, used where the control's purpose is already obvious
    from its placeholder. The theme has no equivalent utility. */
 .sr-only {

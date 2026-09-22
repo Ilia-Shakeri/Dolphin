@@ -15,8 +15,8 @@
     <button id="customer-kind-legal" class="btn btn-sm btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
 </div>
 {% endif %}
-<button id="open-export-customers" class="btn btn-light" type="button"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>خروجی لیست</button>
-{% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>ورودی لیست</button>{% endif %}
+<button id="open-export-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}خروجی لیست</button>
+{% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی لیست</button>{% endif %}
 {% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">

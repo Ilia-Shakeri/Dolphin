@@ -682,6 +682,8 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
         model = InstallmentPlan
         fields = [
             "id", "invoice", "invoice_number", "customer", "customer_name", "total_amount",
+            "down_payment_percent", "down_payment_amount", "extra_discount_percent",
+            "annual_profit_rate", "principal_amount", "interest_amount",
             "installment_count", "interval_days", "start_date", "status", "notes",
             "created_by", "created_by_display", "installments", "created_at", "updated_at",
         ]
@@ -692,11 +694,28 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
 
 
 class CreateInstallmentPlanSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """A down payment is given either as a percentage or as an absolute
+    amount, never both — the service refuses the ambiguous pair, the same rule
+    as a document line's own discount."""
+
     invoice = serializers.PrimaryKeyRelatedField(queryset=Invoice.objects.none())
     installment_count = serializers.IntegerField(min_value=1, max_value=120)
     start_date = serializers.DateField()
     interval_days = serializers.IntegerField(
         min_value=1, max_value=365, required=False, allow_null=True
+    )
+    down_payment_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, allow_null=True,
+        min_value=0, max_value=Decimal("99.99"),
+    )
+    down_payment_amount = serializers.DecimalField(
+        max_digits=18, decimal_places=2, required=False, allow_null=True, min_value=0
+    )
+    extra_discount_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, allow_null=True, min_value=0, max_value=100
+    )
+    annual_profit_rate = serializers.DecimalField(
+        max_digits=6, decimal_places=2, required=False, allow_null=True, min_value=0, max_value=1000
     )
     notes = serializers.CharField(max_length=4000, required=False, allow_blank=True)
 

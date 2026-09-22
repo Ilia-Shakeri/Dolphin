@@ -28,7 +28,7 @@ from accounts.access import is_crm_identity
 from accounts.models import User
 from auditlog.services import log_activity
 from billing.ledger import append_ledger_entry
-from billing.money import clean_money, quantize_money
+from billing.money import clean_money, clean_percent, installment_plan_amounts, quantize_money
 from billing.models import (
     FREE_TEXT_MAX_LENGTH,
     IDEMPOTENCY_KEY_MAX_LENGTH,
@@ -941,13 +941,27 @@ def _apply_to_installments(*, invoice, amount):
 
 @transaction.atomic
 def create_installment_plan(
-    *, actor, invoice, installment_count, start_date, interval_days=None, notes=""
+    *,
+    actor,
+    invoice,
+    installment_count,
+    start_date,
+    interval_days=None,
+    notes="",
+    down_payment_percent=None,
+    down_payment_amount=None,
+    extra_discount_percent=None,
+    annual_profit_rate=None,
 ):
     """Split an issued invoice into equal installments.
 
-    Equal amounts, with the rounding remainder placed on the **first**
-    installment rather than the last, so the plan always sums to the invoice
-    total and the customer never meets a surprise at the end.
+    The financed amount — after an optional up-front down payment, an optional
+    extra discount, and optional interest at an annual rate — is what's actually
+    divided, in equal parts with the rounding remainder placed on the **first**
+    installment rather than the last, so the plan always sums to that financed
+    amount and the customer never meets a surprise at the end. See
+    `billing.money.installment_plan_amounts` for the down-payment/discount/
+    interest arithmetic itself.
     """
     actor = _lock_payment_manager(actor)
     locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
@@ -966,9 +980,20 @@ def create_installment_plan(
     if start_date is None:
         raise BusinessRuleError({"start_date": "برای طرح باید تاریخ سررسید نخست مشخص شود."})
 
-    total = locked_invoice.total_amount
-    if total <= 0:
+    invoice_total = locked_invoice.total_amount
+    if invoice_total <= 0:
         raise BusinessRuleError({"invoice": "فاکتور بدون مبلغ قابل تقسیط نیست."})
+
+    amounts_breakdown = installment_plan_amounts(
+        total_amount=invoice_total,
+        installment_count=installment_count,
+        interval_days=interval_days,
+        down_payment_percent=down_payment_percent,
+        down_payment_amount=down_payment_amount,
+        extra_discount_percent=extra_discount_percent,
+        annual_profit_rate=annual_profit_rate,
+    )
+    total = amounts_breakdown["financed_total"]
     base = quantize_money(total / installment_count)
     amounts = [base] * installment_count
     amounts[0] = quantize_money(total - base * (installment_count - 1))
@@ -980,6 +1005,16 @@ def create_installment_plan(
     plan = InstallmentPlan.objects.create(
         invoice=locked_invoice,
         total_amount=total,
+        principal_amount=amounts_breakdown["principal_amount"],
+        interest_amount=amounts_breakdown["interest_amount"],
+        down_payment_percent=Decimal(str(down_payment_percent)) if down_payment_percent is not None else None,
+        down_payment_amount=(
+            amounts_breakdown["down_payment_amount"] if down_payment_amount is not None else None
+        ),
+        extra_discount_percent=clean_percent(extra_discount_percent, field="extra_discount_percent"),
+        annual_profit_rate=clean_percent(
+            annual_profit_rate, field="annual_profit_rate", maximum=Decimal("1000.00")
+        ),
         installment_count=installment_count,
         interval_days=interval_days,
         start_date=start_date,

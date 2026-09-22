@@ -7,7 +7,7 @@
 {% block breadcrumb_current %}محصولات{% endblock %}
 {% comment %} خروجی همان ستون‌هایی را می‌دهد که ورودی می‌پذیرد، پس کاربر اول
    خروجی می‌گیرد، رویش می‌نویسد، و همان فایل را برمی‌گرداند. {% endcomment %}
-{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a><a class="btn btn-light" href="/api/v1/exports/products.xlsx"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>خروجی اکسل</a>{% if can_manage_products %}<button id="open-import-products" class="btn btn-light" type="button"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>ورودی اکسل</button><input id="import-products-file" type="file" accept=".xlsx" hidden>{% endif %}{% endblock %}
+{% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:product-categories' %}">دسته‌بندی‌ها</a><a class="btn btn-light" href="/api/v1/exports/products.xlsx">{% include "common/includes/excel_icon.inc" %}خروجی اکسل</a>{% if can_manage_products %}<button id="open-import-products" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی اکسل</button><input id="import-products-file" type="file" accept=".xlsx" hidden>{% endif %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6 flex-wrap gap-3">
@@ -78,7 +78,7 @@
                 {% comment %} واحد جای بارکد داخلی را گرفت. فهرست ثابت است تا دو املای
                    مختلف از یک واحد روی دو سند مختلف ننشیند. {% endcomment %}
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-unit">واحد</label><select class="form-select form-select-solid" id="create-product-unit" name="unit"><option value="">انتخاب نشده</option><option value="box">جعبه</option><option value="piece">عدد</option><option value="carton">کارتن</option><option value="kilogram">کیلوگرم</option><option value="gram">گرم</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-price">قیمت جاری (ریال)</label><input class="form-control form-control-solid" id="create-product-price" name="current_price" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="current_price"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-product-price">قیمت جاری ({{ panel_currency_label }})</label><input class="form-control form-control-solid" id="create-product-price" name="current_price" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="current_price"></p></div>
                 <div class="col-12"><label class="form-label fw-semibold" for="create-product-description">شرح</label><textarea class="form-control form-control-solid" id="create-product-description" name="description" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="description"></p></div>
             </div>
         </div>

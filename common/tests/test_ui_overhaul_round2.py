@@ -258,11 +258,13 @@ class ReportProvinceDropdownTests(SimpleTestCase):
 class ExcelButtonIconTests(SimpleTestCase):
     """Item 8 — every Excel import/export button in the panel gets a small,
     theme-consistent icon (product owner, 2026-09-21: «یه ایکون کوچولو
-    اکسل در دکمه باشه ... هماهنگ با تم اصلی»). `ki-file-sheet` — a real
-    icon in the purchased, actually-bundled keenicons set
-    (`plugins.bundle.rtl.css`), not an invented brand-coloured logo — so
-    "coordinated with the theme" means using its own icon system, the same
-    as every other icon in the panel."""
+    اکسل در دکمه باشه ... هماهنگ با تم اصلی»). Originally `ki-file-sheet`, a
+    real icon in the purchased, actually-bundled keenicons set — restated
+    2026-09-22 when the product owner asked for something more polished
+    while keeping the same "coordinated with the theme, not a borrowed brand
+    mark" direction: `common/includes/excel_icon.inc`, one shared first-party
+    SVG (a spreadsheet-styled document, not a copy of Microsoft's logo),
+    included from every button below instead of copied per page."""
 
     TEMPLATE_PATHS = (
         "leads/detail.html",
@@ -277,31 +279,35 @@ class ExcelButtonIconTests(SimpleTestCase):
         "customers/list.html",
     )
 
-    def test_the_icon_is_a_real_bundled_keenicon(self):
-        """`ki-file-sheet` must actually exist in the loaded icon font, not
-        merely look plausible — the same 31-icon-vs-576-icon mistake this
-        session already caught once for a different icon name."""
-        bundle = (ROOT / "assets" / "plugins" / "global" / "plugins.bundle.rtl.css").read_text(encoding="utf-8")
-        self.assertIn(".ki-file-sheet .path1", bundle)
-        self.assertIn(".ki-file-sheet .path2", bundle)
+    ICON_INCLUDE = 'include "common/includes/excel_icon.inc"'
+
+    def test_the_icon_include_is_a_well_formed_svg(self):
+        """The shared include itself must actually be one parseable `<svg>`
+        element with a real drawing in it, not merely present."""
+        text = (TEMPLATES / "includes" / "excel_icon.inc").read_text(encoding="utf-8")
+        self.assertIn("<svg", text)
+        self.assertIn("</svg>", text)
+        self.assertGreaterEqual(text.count("<path"), 3, "the document/fold/grid-line shapes must be present")
+        self.assertIn('viewBox="0 0 24 24"', text)
 
     def test_every_excel_button_carries_it(self):
         for relative in self.TEMPLATE_PATHS:
             path = TEMPLATES / relative
             text = markup(path.read_text(encoding="utf-8"))
             self.assertIn(
-                "ki-file-sheet", text,
+                self.ICON_INCLUDE, text,
                 f"{relative} has an Excel import/export control with no icon",
             )
 
-    def test_the_icon_has_its_two_paths(self):
+    def test_no_button_still_carries_the_old_generic_icon(self):
+        """`ki-file-sheet` was the shared theme icon every Excel button used
+        before this — restated, not merely deleted, so a future revert to it
+        (rather than to the new SVG) fails loudly here instead of silently
+        passing `test_every_excel_button_carries_it` for the wrong reason."""
         for relative in self.TEMPLATE_PATHS:
             path = TEMPLATES / relative
             text = markup(path.read_text(encoding="utf-8"))
-            if "ki-file-sheet" not in text:
-                continue
-            self.assertIn('<span class="path1">', text)
-            self.assertIn('<span class="path2">', text)
+            self.assertNotIn("ki-file-sheet", text, f"{relative} still uses the old generic Excel icon")
 
 
 class DashboardWidgetDragTests(SimpleTestCase):

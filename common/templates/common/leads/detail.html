@@ -33,15 +33,16 @@
         <div class="d-flex flex-wrap flex-stack align-items-center mb-5">
             <div><h2 class="fs-3 fw-bold text-gray-900 mb-1">جامعه هدف</h2><p class="text-gray-700 fs-7 mb-0">افرادی که این کمپین روی آن‌ها کار می‌شود.</p></div>
             <div class="d-flex flex-wrap gap-2 gap-lg-3">
-                {% comment %} `ki-file-sheet` روی هر دکمهٔ ورودی/خروجی اکسلِ پنل، نه فقط
+                {% comment %} `excel_icon.inc` روی هر دکمهٔ ورودی/خروجی اکسلِ پنل، نه فقط
                    این‌جا (مالک محصول، ۲۰۲۶/۰۹/۲۱: «یه ایکون کوچولو اکسل ... هماهنگ با تم
-                   اصلی»). {% endcomment %}
-                <a id="target-audience-export" class="btn btn-light" href="/api/v1/exports/target-audience.xlsx?lead={{ lead_id }}" download><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>خروجی اکسل</a>
+                   اصلی»؛ ۲۰۲۶/۰۹/۲۲: شکیل‌تر شود، هم‌چنان هماهنگ با تم، نه لوگوی واقعی
+                   اکسل). {% endcomment %}
+                <a id="target-audience-export" class="btn btn-light" href="/api/v1/exports/target-audience.xlsx?lead={{ lead_id }}" download>{% include "common/includes/excel_icon.inc" %}خروجی اکسل</a>
                 {% if can_edit_target_audience %}
                 {% comment %} همان الگوی ورودی محصولات: خروجی بگیر، روی همان فایل چند
                    ردیف بنویس، برگردان. ستون‌ها با نام تطبیق داده می‌شوند، نه با
                    موقعیت، و شماره تکراری در همین کمپین رد می‌شود، نه بازنویسی. {% endcomment %}
-                <button id="open-import-target-audience" class="btn btn-light" type="button"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>ورودی اکسل</button>
+                <button id="open-import-target-audience" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی اکسل</button>
                 <input id="import-target-audience-file" type="file" accept=".xlsx" hidden>
                 <button id="open-add-target-member" class="btn btn-primary" type="button">افزودن منبع جدید</button>
                 {% endif %}

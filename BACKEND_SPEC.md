@@ -1349,8 +1349,25 @@ customer never meets a surprise at the end. Bounded to 1–120 installments and
 An allocation fills installments from the earliest due date; releasing it unwinds
 in reverse, leaving the plan exactly as it was.
 
-**Not implemented:** interest, penalties, and late fees. All three are legal and
-commercial decisions.
+**Down payment, an extra discount, and interest — applied once, at plan
+creation (2026-09-22).** The invoice total may be reduced by an up-front down
+payment (a percent or a flat amount, never both — the same either/or rule as a
+line's own discount) and by an extra discount percent; interest is then added
+to what's left, at an annual rate the plan carries (`InstallmentPlan
+.annual_profit_rate`, zero by default — a zero rate reproduces the plain equal
+split this feature had before these fields existed). The formula is the flat
+rate Iranian retail and bank installment calculators publish for equal
+installments: `interest = principal × annual_rate% × (installment_count +
+interval_days/30) / 2400` — verified against a published example (1,000,000
+rial principal, 15% annual, 12 monthly installments ⇒ 81,250 rial interest).
+`principal_amount` and `interest_amount` are stored on the plan;
+`total_amount` is their sum and is what actually gets divided across
+installments. See `billing.money.installment_plan_amounts`.
+
+**Still not implemented:** a penalty or additional interest for a payment made
+*after* its installment's due date — the rate above applies once, at plan
+creation, regardless of how or when each installment is later paid. That
+remains a legal and commercial decision, same as before.
 
 ### The customer ledger
 

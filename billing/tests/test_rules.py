@@ -20,6 +20,7 @@ from billing.models import (
     Quotation,
 )
 from billing.numbering import next_document_number
+from billing.money import installment_plan_amounts
 from billing.payments import (
     allocate_payment,
     cancel_payment,
@@ -604,6 +605,121 @@ class InstallmentTests(BillingFixtureMixin, TestCase):
                 installment_count=2,
                 start_date=date(2026, 9, 1),
             )
+
+    def test_a_down_payment_percent_reduces_the_financed_amount(self):
+        # Invoice total is 300.00 (3 × 100.00); a 20% down payment leaves 240.00
+        # financed, with zero interest since no rate was given.
+        plan = create_installment_plan(
+            actor=self.manager,
+            invoice=self.invoice,
+            installment_count=3,
+            start_date=date(2026, 9, 1),
+            down_payment_percent=Decimal("20"),
+        )
+        self.assertEqual(plan.down_payment_percent, Decimal("20.00"))
+        self.assertIsNone(plan.down_payment_amount)
+        self.assertEqual(plan.principal_amount, Decimal("240.00"))
+        self.assertEqual(plan.interest_amount, Decimal("0.00"))
+        self.assertEqual(plan.total_amount, Decimal("240.00"))
+        amounts = list(plan.installments.order_by("sequence").values_list("amount", flat=True))
+        self.assertEqual(sum(amounts), Decimal("240.00"))
+
+    def test_a_down_payment_amount_reduces_the_financed_amount(self):
+        plan = create_installment_plan(
+            actor=self.manager,
+            invoice=self.invoice,
+            installment_count=2,
+            start_date=date(2026, 9, 1),
+            down_payment_amount=Decimal("100.00"),
+        )
+        self.assertEqual(plan.down_payment_amount, Decimal("100.00"))
+        self.assertIsNone(plan.down_payment_percent)
+        self.assertEqual(plan.principal_amount, Decimal("200.00"))
+        self.assertEqual(plan.total_amount, Decimal("200.00"))
+
+    def test_down_payment_percent_and_amount_cannot_be_given_together(self):
+        with self.assertRaises(BusinessRuleError):
+            create_installment_plan(
+                actor=self.manager,
+                invoice=self.invoice,
+                installment_count=2,
+                start_date=date(2026, 9, 1),
+                down_payment_percent=Decimal("10"),
+                down_payment_amount=Decimal("10.00"),
+            )
+
+    def test_a_down_payment_cannot_reach_the_invoice_total(self):
+        with self.assertRaises(BusinessRuleError):
+            create_installment_plan(
+                actor=self.manager,
+                invoice=self.invoice,
+                installment_count=2,
+                start_date=date(2026, 9, 1),
+                down_payment_amount=Decimal("300.00"),
+            )
+
+    def test_an_extra_discount_reduces_the_financed_amount(self):
+        plan = create_installment_plan(
+            actor=self.manager,
+            invoice=self.invoice,
+            installment_count=3,
+            start_date=date(2026, 9, 1),
+            extra_discount_percent=Decimal("10"),
+        )
+        self.assertEqual(plan.principal_amount, Decimal("270.00"))
+        self.assertEqual(plan.total_amount, Decimal("270.00"))
+
+    def test_an_annual_profit_rate_adds_interest_on_top_of_the_principal(self):
+        # A zero rate — the default — must reproduce the plain equal split this
+        # feature had before down payment/discount/interest existed.
+        plan = create_installment_plan(
+            actor=self.manager,
+            invoice=self.invoice,
+            installment_count=3,
+            start_date=date(2026, 9, 1),
+            annual_profit_rate=Decimal("0"),
+        )
+        self.assertEqual(plan.interest_amount, Decimal("0.00"))
+        self.assertEqual(plan.total_amount, self.invoice.total_amount)
+
+
+class InstallmentPlanAmountsTests(TestCase):
+    """`billing.money.installment_plan_amounts` in isolation, no invoice needed."""
+
+    def test_matches_a_published_bank_installment_example(self):
+        # 1,000,000 rial principal, 15% annual, 12 monthly installments should
+        # carry 81,250 rial interest under the flat-rate formula Iranian
+        # bank/retail installment calculators publish:
+        # interest = principal × rate% × (count + interval_months) / 2400.
+        result = installment_plan_amounts(
+            total_amount=Decimal("1000000.00"),
+            installment_count=12,
+            interval_days=30,
+            annual_profit_rate=Decimal("15"),
+        )
+        self.assertEqual(result["interest_amount"], Decimal("81250.00"))
+        self.assertEqual(result["principal_amount"], Decimal("1000000.00"))
+        self.assertEqual(result["financed_total"], Decimal("1081250.00"))
+
+    def test_a_zero_rate_adds_no_interest(self):
+        result = installment_plan_amounts(
+            total_amount=Decimal("500.00"), installment_count=5, interval_days=30,
+        )
+        self.assertEqual(result["interest_amount"], Decimal("0.00"))
+        self.assertEqual(result["financed_total"], Decimal("500.00"))
+
+    def test_down_payment_and_discount_compose_before_interest(self):
+        result = installment_plan_amounts(
+            total_amount=Decimal("1000.00"),
+            installment_count=4,
+            interval_days=30,
+            down_payment_percent=Decimal("10"),
+            extra_discount_percent=Decimal("10"),
+        )
+        # 1000 - 100 (10% down) = 900; 900 - 90 (10% discount) = 810 principal.
+        self.assertEqual(result["down_payment_amount"], Decimal("100.00"))
+        self.assertEqual(result["discount_amount"], Decimal("90.00"))
+        self.assertEqual(result["principal_amount"], Decimal("810.00"))
 
 
 class NumberingTests(BillingFixtureMixin, TestCase):

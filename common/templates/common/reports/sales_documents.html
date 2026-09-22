@@ -96,10 +96,10 @@
                             <input class="form-control form-control-solid" id="sales-document-report-search" type="search" placeholder="استان، شهر یا وضعیت">
                         </div>
                         <button class="btn btn-sm btn-light-primary" type="button" id="sales-document-report-export">
-                            {% comment %} `ki-file-sheet` — همان آیکون هر دکمهٔ خروجی/ورودی اکسل دیگر
-                               در پنل (مالک محصول، ۲۰۲۶/۰۹/۲۱: «یه ایکون کوچولو اکسل ... هماهنگ با تم
-                               اصلی»). {% endcomment %}
-                            <i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+                            {% comment %} `common/includes/excel_icon.inc` — همان آیکون هر دکمهٔ
+                               خروجی/ورودی اکسل دیگر در پنل (مالک محصول، ۲۰۲۶/۰۹/۲۱ و ۲۰۲۶/۰۹/۲۲).
+                               {% endcomment %}
+                            {% include "common/includes/excel_icon.inc" %}
                             خروجی اکسل
                         </button>
                     </div>

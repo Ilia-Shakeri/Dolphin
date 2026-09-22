@@ -134,6 +134,74 @@ def document_totals(*, line_totals, header_discount, tax_rate):
     return subtotal, discount, rate, tax, total
 
 
+def installment_plan_amounts(
+    *,
+    total_amount,
+    installment_count,
+    interval_days,
+    down_payment_percent=None,
+    down_payment_amount=None,
+    extra_discount_percent=None,
+    annual_profit_rate=None,
+):
+    """Split an issued invoice's total into a financed installment schedule.
+
+    The customer pays a down payment up front — a percent of the total or a
+    flat amount, never both, same rule as a line's own discount. An optional
+    extra discount then reduces what's left before interest is applied. Interest
+    uses the flat-rate formula Iranian retail and bank installment calculators
+    use for equal installments:
+    `interest = principal × annual_rate% × (installment_count + interval_months) / 2400`
+    (`interval_months = interval_days / 30`) — verified against a published
+    example: 1,000,000 rial principal, 15% annual, 12 monthly installments =>
+    81,250 rial interest. A rate of zero — the default — reproduces the plain
+    equal split this feature had before any of these inputs existed.
+    """
+    total = clean_money(total_amount, field="total_amount", allow_zero=False)
+    if down_payment_percent is not None and down_payment_amount is not None:
+        raise BusinessRuleError({
+            "down_payment_amount": "فقط یکی از درصد پیش‌پرداخت یا مبلغ پیش‌پرداخت را وارد کنید، نه هر دو را."
+        })
+    if down_payment_percent is not None:
+        percent = clean_percent(down_payment_percent, field="down_payment_percent", maximum=Decimal("99.99"))
+        down_payment = quantize_money(total * percent / HUNDRED)
+    elif down_payment_amount is not None:
+        down_payment = clean_money(down_payment_amount, field="down_payment_amount")
+    else:
+        down_payment = Decimal("0.00")
+    if down_payment >= total:
+        raise BusinessRuleError({
+            "down_payment_amount": "پیش‌پرداخت نمی‌تواند برابر یا بیشتر از مبلغ فاکتور باشد."
+        })
+
+    discount_percent = clean_percent(extra_discount_percent, field="extra_discount_percent")
+    remaining_after_down = quantize_money(total - down_payment)
+    discount_amount = quantize_money(remaining_after_down * discount_percent / HUNDRED)
+
+    principal = quantize_money(remaining_after_down - discount_amount)
+    if principal <= 0:
+        raise BusinessRuleError({
+            "extra_discount_percent": "مبلغ باقی‌مانده برای تقسیط باید بیشتر از صفر باشد."
+        })
+
+    rate = clean_percent(annual_profit_rate, field="annual_profit_rate", maximum=Decimal("1000.00"))
+    interval_months = Decimal(interval_days) / Decimal(30)
+    # `rate` is the plain percent number (15 for 15%), not a fraction — the
+    # /2400 already folds in the percent-to-fraction conversion together with
+    # the months-per-year term, which is why it is not also divided by 100.
+    interest_amount = quantize_money(
+        principal * rate * (Decimal(installment_count) + interval_months) / Decimal(2400)
+    )
+    financed_total = quantize_money(principal + interest_amount)
+    return {
+        "down_payment_amount": down_payment,
+        "discount_amount": discount_amount,
+        "principal_amount": principal,
+        "interest_amount": interest_amount,
+        "financed_total": financed_total,
+    }
+
+
 def display_rial(value):
     """The whole-rial figure the panel shows for an amount.
 

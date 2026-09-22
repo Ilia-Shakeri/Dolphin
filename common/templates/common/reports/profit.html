@@ -5,7 +5,7 @@
 {% block page_icon %}<i class="ki-duotone ki-chart-line-up page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}سود ناخالص فاکتورها{% endblock %}
 {% block breadcrumb_current %}سود ناخالص فاکتورها{% endblock %}
-{% block page_actions %}<a id="profit-export" class="btn btn-light" href="/api/v1/exports/profit.xlsx"><i class="ki-duotone ki-file-sheet fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>خروجی اکسل</a>{% endblock %}
+{% block page_actions %}<a id="profit-export" class="btn btn-light" href="/api/v1/exports/profit.xlsx">{% include "common/includes/excel_icon.inc" %}خروجی اکسل</a>{% endblock %}
 {% block content %}
 {% comment %} A live search over the report's own invoice rows, beside the
    filter button `setupListFilterPopovers()` already builds around this

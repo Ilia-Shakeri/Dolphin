@@ -27,7 +27,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
 
 from common.models import TimeStampedModel
 
@@ -897,7 +897,26 @@ class InstallmentPlan(TimeStampedModel):
         CANCELLED = "cancelled", "Cancelled"
 
     invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT, related_name="installment_plan")
+    # The amount actually divided across installments — `principal_amount +
+    # interest_amount`, not the invoice's own `total_amount`. Equal to the
+    # invoice total when a plan carries no down payment, discount, or profit
+    # rate, which is why every plan created before these fields existed reads
+    # unchanged.
     total_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    # Exactly one of the two down-payment fields may be set (or neither, for no
+    # down payment) — same percent-XOR-amount rule as a document line discount.
+    down_payment_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    down_payment_amount = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    extra_discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"))
+    # Annual rate; interest is computed once at plan creation with the flat-rate
+    # formula Iranian retail/bank installment calculators use for equal
+    # installments: principal × rate% × (installment_count + interval_months) /
+    # 2400, interval_months = interval_days / 30. Verified against a published
+    # example: 1,000,000 rial principal, 15% annual, 12 monthly installments =>
+    # 81,250 rial interest.
+    annual_profit_rate = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("0.00"))
+    principal_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    interest_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     installment_count = models.PositiveSmallIntegerField()
     interval_days = models.PositiveSmallIntegerField()
     start_date = models.DateField()
@@ -922,6 +941,36 @@ class InstallmentPlan(TimeStampedModel):
             models.CheckConstraint(
                 condition=Q(status__in=["active", "completed", "cancelled"]),
                 name="installment_plan_status_valid",
+            ),
+            models.CheckConstraint(condition=Q(principal_amount__gt=0), name="installment_plan_principal_positive"),
+            models.CheckConstraint(
+                condition=Q(interest_amount__gte=0), name="installment_plan_interest_non_negative"
+            ),
+            models.CheckConstraint(
+                condition=Q(total_amount=F("principal_amount") + F("interest_amount")),
+                name="installment_plan_total_equals_principal_plus_interest",
+            ),
+            models.CheckConstraint(
+                condition=Q(extra_discount_percent__gte=0) & Q(extra_discount_percent__lte=100),
+                name="installment_plan_discount_percent_bounded",
+            ),
+            models.CheckConstraint(
+                condition=Q(annual_profit_rate__gte=0), name="installment_plan_profit_rate_non_negative"
+            ),
+            models.CheckConstraint(
+                condition=Q(down_payment_percent__isnull=True) | Q(down_payment_amount__isnull=True),
+                name="installment_plan_down_payment_percent_xor_amount",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(down_payment_percent__isnull=True)
+                    | (Q(down_payment_percent__gte=0) & Q(down_payment_percent__lt=100))
+                ),
+                name="installment_plan_down_payment_percent_bounded",
+            ),
+            models.CheckConstraint(
+                condition=Q(down_payment_amount__isnull=True) | Q(down_payment_amount__gte=0),
+                name="installment_plan_down_payment_amount_non_negative",
             ),
         ]
 

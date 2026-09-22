@@ -142,7 +142,7 @@
    which of them appear depends on the کind of cheque: an endorsed one already
    carries its own amount, and a cheque we write has no payment date yet. The
    script moves and hides them rather than the markup duplicating them. {% endcomment %}
-            <div class="col-md-6" data-payment-field="amount"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ (ریال)</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
+            <div class="col-md-6" data-payment-field="amount"><label class="form-label fw-semibold" for="create-payment-amount">مبلغ ({{ panel_currency_label }})</label><input class="form-control form-control-solid" id="create-payment-amount" name="amount" type="text" inputmode="numeric" data-money-input required dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="amount"></p></div>
             <div class="col-md-6" data-payment-field="received-at"><label class="form-label fw-semibold" for="create-payment-received-at">{% if payment_direction == "disbursement" %}تاریخ پرداخت{% else %}تاریخ دریافت{% endif %}</label><input class="form-control form-control-solid" id="create-payment-received-at" name="received_at" type="text" data-jalali="date" placeholder="امروز"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="received_at"></p></div>
 {% comment %} «شماره رسید» is dropped from cash and cheque, where there is no
    reference to carry. It survives only on a transfer, which really does have

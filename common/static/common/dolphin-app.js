@@ -878,6 +878,7 @@
         {value: "half", label: "نصف"},
         {value: "full", label: "تمام‌عرض"},
     ];
+
     //: Per-catalog-key preview shape for the "افزودن ویجت" dialog
     //: (`buildAddWidgetGrid` below). `icon`/`accent` copy the real icon and
     //: colour `common/dashboard.py` gives each KPI/gauge, so a card in the
@@ -920,7 +921,6 @@
         },
     };
 
-
     /**
      * In-place dashboard customisation: drag to reorder, resize from a
      * corner, a hide control on each box, and one "back to the default".
@@ -951,11 +951,11 @@
         const reset = document.getElementById("dashboard-edit-reset");
         const hint = document.getElementById("dashboard-edit-hint");
         const hiddenBar = document.getElementById("dashboard-hidden-bar");
+        const hiddenList = document.getElementById("dashboard-hidden-list");
         const addWidgetOpen = document.getElementById("dashboard-add-widget-open");
         const addWidgetDialog = document.getElementById("dashboard-add-widget-dialog");
         const addWidgetGrid = document.getElementById("dashboard-add-widget-grid");
         const addWidgetEmpty = document.getElementById("dashboard-add-widget-empty");
-        const hiddenList = document.getElementById("dashboard-hidden-list");
         if (!bar || !toggle || !grid) return;
 
         // Every editable grid on the page, in document order. `grid` is the
@@ -1035,6 +1035,7 @@
             });
             hiddenBar.hidden = false;
         }
+
         // "افزودن ویجت" — a richer alternative to the flat restore bar
         // above, with a preview per widget. Built at most once per page
         // load (`addWidgetBuilt`), the first time the reader opens it: a
@@ -1181,7 +1182,6 @@
                 if (addWidgetAdded) window.location.reload();
             });
         }
-
 
         /** Apply a size token to a box on screen and remember it. */
         function applySize(column, key, token) {
@@ -1497,8 +1497,8 @@
             toggle.classList.toggle("btn-light", !editing);
             if (hint) hint.hidden = !editing;
             if (done) done.hidden = !editing;
-            if (addWidgetOpen) addWidgetOpen.hidden = !editing;
             if (reset) reset.hidden = !editing || !layout.is_customised;
+            if (addWidgetOpen) addWidgetOpen.hidden = !editing;
             if (editing) enterEditing(); else leaveEditing();
             renderHiddenBar();
         }
@@ -11739,17 +11739,43 @@
                 allocationsController?.load();
                 loadPlan();
             }
+            renderPlanPreview();
             lines.apply(invoice);
         }
 
         async function loadPlan() {
             const wrap = document.getElementById("invoice-plan-summary");
+            const created = document.getElementById("invoice-plan-created-summary");
             const body = document.getElementById("invoice-plan-body");
             if (!wrap) return;
             try {
                 const data = await apiRequest(`/api/v1/installment-plans/?invoice=${invoiceId}`);
                 const plan = data.results[0];
-                if (!plan) { wrap.hidden = true; return; }
+                if (!plan) { wrap.hidden = true; if (created) created.hidden = true; return; }
+                if (created) {
+                    const rows = [];
+                    const downPayment = plan.down_payment_percent
+                        ? `${toPersianDigits(plan.down_payment_percent)}٪`
+                        : plan.down_payment_amount ? money(plan.down_payment_amount) : null;
+                    if (downPayment) rows.push(["پیش‌پرداخت", downPayment]);
+                    if (Number(plan.extra_discount_percent) > 0) {
+                        rows.push(["تخفیف", `${toPersianDigits(plan.extra_discount_percent)}٪`]);
+                    }
+                    if (Number(plan.interest_amount) > 0) {
+                        rows.push(["سود اقساط", money(plan.interest_amount)]);
+                    }
+                    rows.push(["مبلغ نهایی اقساط", money(plan.total_amount)]);
+                    created.replaceChildren(...rows.map(([label, value]) => {
+                        const div = document.createElement("div");
+                        div.textContent = `${label}: `;
+                        const strong = document.createElement("span");
+                        strong.className = "fw-bold";
+                        strong.textContent = value;
+                        div.appendChild(strong);
+                        return div;
+                    }));
+                    created.hidden = false;
+                }
                 body.replaceChildren(...plan.installments.map((item) => {
                     const row = document.createElement("tr");
                     appendCell(row, item.sequence);
@@ -11837,6 +11863,73 @@
         // and the one with no trail behind it. It is now only ever the sum of
         // the allocations recorded on the receipts desk.
 
+        // Percent and amount are the same either/or rule as a document line's
+        // own discount: filling one clears and disables the other, so the
+        // ambiguous "both filled" pair the server refuses can never be built
+        // here in the first place.
+        const planDownPercentInput = document.getElementById("invoice-plan-down-percent");
+        const planDownAmountInput = document.getElementById("invoice-plan-down-amount");
+        [[planDownPercentInput, planDownAmountInput], [planDownAmountInput, planDownPercentInput]].forEach(
+            ([field, other]) => {
+                field?.addEventListener("input", () => {
+                    if (!other) return;
+                    other.disabled = field.value !== "";
+                    if (field.value !== "") other.value = "";
+                });
+            }
+        );
+
+        // Mirrors `billing.money.installment_plan_amounts` for an instant
+        // preview; the server recomputes and is the number that is actually
+        // charged. Returns `null` when there isn't enough to preview yet.
+        function computePlanPreview() {
+            const total = Number(current?.total_amount);
+            const count = Number(document.getElementById("invoice-plan-count")?.value);
+            if (!(total > 0) || !Number.isInteger(count) || count < 1) return null;
+            const intervalDays = Number(document.getElementById("invoice-plan-interval")?.value) || 30;
+            const downPercent = numberOrNull(planDownPercentInput?.value);
+            const downAmount = numberOrNull(planDownAmountInput?.value);
+            let downPayment = 0;
+            if (downPercent !== null) downPayment = (total * downPercent) / 100;
+            else if (downAmount !== null) downPayment = downAmount;
+            if (downPayment < 0 || downPayment >= total) return null;
+            const remainingAfterDown = total - downPayment;
+            const discountPercent = numberOrNull(document.getElementById("invoice-plan-discount")?.value) || 0;
+            const discount = (remainingAfterDown * discountPercent) / 100;
+            const principal = remainingAfterDown - discount;
+            if (principal <= 0) return null;
+            const rate = numberOrNull(document.getElementById("invoice-plan-rate")?.value) || 0;
+            const intervalMonths = intervalDays / 30;
+            const interest = (principal * rate * (count + intervalMonths)) / 2400;
+            const financedTotal = principal + interest;
+            return {
+                gross: total, downPayment, discount, principal, interest, financedTotal,
+                perInstallment: financedTotal / count,
+            };
+        }
+
+        function renderPlanPreview() {
+            const preview = document.getElementById("invoice-plan-preview");
+            if (!preview) return;
+            const amounts = computePlanPreview();
+            preview.hidden = !amounts;
+            if (!amounts) return;
+            const cells = {
+                gross: amounts.gross, down_payment: amounts.downPayment, discount: amounts.discount,
+                principal: amounts.principal, interest: amounts.interest,
+                financed_total: amounts.financedTotal, per_installment: amounts.perInstallment,
+            };
+            Object.entries(cells).forEach(([key, value]) => {
+                const cell = preview.querySelector(`[data-plan-preview="${key}"]`);
+                if (cell) cell.textContent = money(value.toFixed(2));
+            });
+        }
+
+        [
+            "invoice-plan-count", "invoice-plan-interval", "invoice-plan-down-percent",
+            "invoice-plan-down-amount", "invoice-plan-discount", "invoice-plan-rate",
+        ].forEach((id) => document.getElementById(id)?.addEventListener("input", renderPlanPreview));
+
         planForm?.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(planForm, async () => {
@@ -11848,8 +11941,20 @@
                 };
                 const interval = numberOrNull(data.get("interval_days"));
                 if (interval !== null) payload.interval_days = interval;
+                const downPercent = numberOrNull(data.get("down_payment_percent"));
+                const downAmount = numberOrNull(data.get("down_payment_amount"));
+                if (downPercent !== null) payload.down_payment_percent = downPercent;
+                else if (downAmount !== null) payload.down_payment_amount = downAmount;
+                const discountPercent = numberOrNull(data.get("extra_discount_percent"));
+                if (discountPercent !== null) payload.extra_discount_percent = discountPercent;
+                const rate = numberOrNull(data.get("annual_profit_rate"));
+                if (rate !== null) payload.annual_profit_rate = rate;
                 await apiRequest("/api/v1/installment-plans/", {method: "POST", body: payload});
                 globalMessage("قسط‌بندی ساخته شد.", true);
+                planForm.reset();
+                if (planDownAmountInput) planDownAmountInput.disabled = false;
+                if (planDownPercentInput) planDownPercentInput.disabled = false;
+                renderPlanPreview();
                 loadPlan();
             });
         });
