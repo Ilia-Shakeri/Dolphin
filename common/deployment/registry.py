@@ -146,6 +146,16 @@ FEATURE_DEPENDENCIES = {
     # there. `orders` is a real hard dependency for the same reason `leads`
     # is above: a board with nothing to group is not this feature.
     "order_kanban": frozenset({"orders"}),
+
+    # billing.Cheque / ChequeStatusHistory — Cheque.payment is NOT NULL, so a
+    # cheque cannot exist without a payment. Split out from `payments` itself
+    # (2026-09-22, product-owner decision for the TIARA manifest) because a
+    # deployment may want ordinary receipts/disbursements without accepting
+    # postdated cheques as a payment method at all: the method choice on the
+    # receipt form, the دریافت/پرداخت-desk cheque fields, the چک‌ها list page,
+    # and the cheque-due-date reminder source are all gated on this, separate
+    # from cash and bank transfer which stay under `payments` alone.
+    "cheques": frozenset({"payments"}),
 }
 
 #: Features this release ships but does not serve by default.

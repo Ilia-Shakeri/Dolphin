@@ -24,8 +24,10 @@ a stray click; a work queue cannot be. This is the same reading the agent
 dashboard's «صف کار امروز» already takes.
 
 **Each source keeps its own three controls.** Feature availability is
-checked here (a deployment without `payments` gets no cheque reminders),
-while role permission and object scope are *not* re-implemented: every query
+checked here (a deployment without `cheques` gets no cheque reminders, one
+without `payments` gets no instalment reminders either — `cheques` split out
+from `payments` on 2026-09-22), while role permission and object scope are
+*not* re-implemented: every query
 starts from the owning module's own selector (`leads_for`,
 `after_sales_requests_for`, `cheques_for`, `installments_for`), each of
 which already returns an empty queryset for a role that may not see those
@@ -184,7 +186,7 @@ def _instalment_reminders(user, *, now):
 SOURCES = (
     ("leads", _lead_reminders),
     ("after_sales", _appointment_reminders),
-    ("payments", _cheque_reminders),
+    ("cheques", _cheque_reminders),
     ("payments", _instalment_reminders),
 )
 

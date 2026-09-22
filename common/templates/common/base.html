@@ -573,7 +573,7 @@
                                     <div class="menu-sub menu-sub-accordion">
                                         <div class="menu-item"><a data-module="payments" class="menu-link" href="{% url 'common_ui:payments' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">دریافت‌ها</span></a></div>
                                         <div class="menu-item"><a data-module="disbursements" class="menu-link" href="{% url 'common_ui:disbursements' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">پرداخت‌ها</span></a></div>
-                                        <div class="menu-item"><a data-module="cheques" class="menu-link" href="{% url 'common_ui:cheques' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">چک‌ها</span></a></div>
+                                        {% if "cheques" in features %}<div class="menu-item"><a data-module="cheques" class="menu-link" href="{% url 'common_ui:cheques' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">چک‌ها</span></a></div>{% endif %}
                                         <div class="menu-item"><a data-module="installments" class="menu-link" href="{% url 'common_ui:installments' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">اقساط</span></a></div>
                                     </div>
                                 </div>

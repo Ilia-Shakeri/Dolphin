@@ -298,14 +298,18 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # any of the above: enabling it and starting its agent means one
         # authenticated Platform Admin request can replace the whole
         # database. Client-1 has not asked for that and must not acquire it
-        # by inheritance.
+        # by inheritance. `cheques` (2026-09-22) sits with `reminders`/
+        # `global_search`/`customer_timeline`/`dashboard_insights`: on by
+        # default for any new deployment once split out of `payments`
+        # (`DEFAULT_OFF_FEATURES` omits it), absent here only because
+        # Client-1's frozen day-one manifest predates the split.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "panel_backup",
+                "panel_backup", "cheques",
             }),
         )
 
@@ -315,7 +319,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "panel_backup",
+                "panel_backup", "cheques",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

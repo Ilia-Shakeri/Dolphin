@@ -1235,7 +1235,7 @@ class DolphinPaymentDetailView(PaymentDeskView, ScopedDetailView):
 
 
 class DolphinChequeListView(PaymentDeskView):
-    required_feature = "payments"
+    required_feature = "cheques"
     template_name = "common/payments/cheques.html"
 
 

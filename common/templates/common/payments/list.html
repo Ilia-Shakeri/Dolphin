@@ -39,7 +39,7 @@
    is an action on the document itself. {% endcomment %}
                     <div class="mb-4">
                         <label class="form-label" for="payment-method-filter">روش</label>
-                        <select class="form-select form-select-solid" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="bank_transfer">حواله بانکی</option><option value="cheque">چک</option></select>
+                        <select class="form-select form-select-solid" id="payment-method-filter" name="method"><option value="">همه روش‌ها</option><option value="cash">نقدی</option><option value="bank_transfer">حواله بانکی</option>{% if "cheques" in features %}<option value="cheque">چک</option>{% endif %}</select>
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="payment-ordering">مرتب‌سازی</label>
@@ -107,7 +107,7 @@
         <div class="btn-group w-100" role="group" aria-label="روش">
             <button type="button" class="btn btn-primary" data-payment-mode="cash" aria-pressed="true">نقدی</button>
             <button type="button" class="btn btn-light" data-payment-mode="bank_transfer" aria-pressed="false">حواله بانکی</button>
-            <button type="button" class="btn btn-light" data-payment-mode="cheque" aria-pressed="false">چک</button>
+            {% if "cheques" in features %}<button type="button" class="btn btn-light" data-payment-mode="cheque" aria-pressed="false">چک</button>{% endif %}
         </div>
         <input type="hidden" id="create-payment-method" name="method" value="cash">
         </div>

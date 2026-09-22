@@ -27,6 +27,7 @@ from billing.services import (
     update_order,
     update_quotation,
 )
+from common.deployment.profile import feature_enabled
 from common.serializers import RejectServerFieldsMixin
 from inventory.models import Warehouse
 from inventory.selectors import warehouses_for
@@ -506,6 +507,15 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
             customers_for(request.user) if request and request.user.is_authenticated
             else Customer.objects.none(),
         )
+
+    def validate_method(self, value):
+        # `payments` covers cash and bank transfer on its own; a cheque is the
+        # one payment method with its own feature (`cheques`), since a
+        # deployment may want ordinary receipts/disbursements without
+        # accepting postdated cheques at all.
+        if value == Payment.Method.CHEQUE and not feature_enabled("cheques"):
+            raise serializers.ValidationError("این استقرار پرداخت با چک را ندارد.")
+        return value
 
     def create(self, validated_data):
         from billing.payments import register_payment

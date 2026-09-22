@@ -627,7 +627,7 @@ class PaymentAllocationViewSet(SensitiveActionThrottleMixin, StrictQueryParamete
 
 
 class ChequeViewSet(SensitiveActionThrottleMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    required_feature = "payments"
+    required_feature = "cheques"
     required_capabilities = ("payments.company",)
     required_write_capabilities = ("payments.manage",)
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]
