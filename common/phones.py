@@ -22,3 +22,15 @@ def normalize_customer_phone(value: str) -> str:
     if len(digits) != 10 or digits.startswith("0"):
         raise ValidationError("شماره تلفن ایرانی معتبر وارد کنید.")
     return f"+98{digits}"
+
+
+def normalized_or_blank(value):
+    """`normalize_customer_phone`, or `""` for anything that is not an Iranian
+    number — a field that merely *may* hold one (a user's phone, a call log's
+    dialled digits) must not refuse to save over it."""
+    if not str(value or "").strip():
+        return ""
+    try:
+        return normalize_customer_phone(value)
+    except ValidationError:
+        return ""

@@ -2032,16 +2032,13 @@
         appendStatusCell(row, user.is_active);
         const actionCell = document.createElement("td");
         actionCell.className = "row-actions";
+        // One profile since 2.19.0: what «پروفایل» and «جزئیات» used to
+        // open separately are tabs of the same page now.
         const profileLink = document.createElement("a");
         profileLink.className = "btn btn-sm btn-light";
-        profileLink.href = `/users/${user.id}/profile/`;
+        profileLink.href = `/users/${user.id}/`;
         profileLink.textContent = "پروفایل";
         actionCell.appendChild(profileLink);
-        const link = document.createElement("a");
-        link.className = "btn btn-sm btn-light";
-        link.href = `/users/${user.id}/`;
-        link.textContent = "جزئیات";
-        actionCell.appendChild(link);
         const permissionsButton = document.createElement("button");
         permissionsButton.className = "btn btn-sm btn-light";
         permissionsButton.type = "button";
@@ -2125,7 +2122,7 @@
         dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
 
         // Only a Sales Agent may run the after-sales workstream — the same
-        // rule `fillUser` enforces on the edit form, applied here so picking
+        // rule `setupUserInfoTab` enforces on the profile form, applied here so picking
         // any other role locks the field back to the ordinary sales queue
         // instead of letting the create call fail on it.
         const createRole = document.getElementById("create-role");
@@ -2379,124 +2376,6 @@
 
     function openPermissionsDialog(id, name) {
         if (permissionsDialogOpener) permissionsDialogOpener(id, name);
-    }
-
-    function fillUser(user) {
-        ["username", "first_name", "last_name", "email", "phone"].forEach((name) => {
-            document.getElementById(`edit-${name.replaceAll("_", "-")}`).value = user[name] || "";
-        });
-        const role = document.getElementById("edit-role");
-        if (role) role.value = user.role;
-        const workstream = document.getElementById("edit-workstream");
-        const afterSalesOption = workstream.querySelector('option[value="after_sales"]');
-        afterSalesOption.disabled = user.role !== "sales_agent";
-        workstream.value = user.role === "sales_agent" ? (user.workstream || "sales") : "sales";
-        const toggle = document.getElementById("toggle-user-active");
-        toggle.disabled = false;
-        toggle.dataset.nextActive = String(!user.is_active);
-        toggle.classList.toggle("btn-danger", user.is_active);
-        toggle.textContent = user.is_active ? "غیرفعال کردن کاربر" : "فعال کردن دوباره کاربر";
-    }
-
-    async function setupUserDetail() {
-        const userId = document.body.dataset.userId;
-        const endpoint = `/api/v1/users/${userId}/`;
-        const content = document.getElementById("user-detail-content");
-        const loading = document.getElementById("user-detail-loading");
-        if (!loading || !content) return;
-        let user;
-        try {
-            user = await apiRequest(endpoint);
-            fillUser(user);
-            loading.hidden = true;
-            content.hidden = false;
-        } catch (error) {
-            loading.hidden = true;
-            showError(error);
-            return;
-        }
-
-        const editForm = document.getElementById("edit-user-form");
-        editForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(editForm, async () => {
-                // No password field: changing an existing account's password is
-                // not offered anywhere in this interface, and the API refuses it.
-                const payload = formPayload(editForm, ["username", "first_name", "last_name", "email", "phone", "workstream"]);
-                user = await apiRequest(endpoint, {method: "PATCH", body: payload});
-                fillUser(user);
-                globalMessage("مشخصات کاربر ذخیره شد.", true);
-            });
-        });
-
-        const roleForm = document.getElementById("change-role-form");
-        if (roleForm) {
-            const permissionsDialog = document.getElementById("role-change-access-dialog");
-            permissionsDialog.querySelectorAll("[data-close-dialog]").forEach((button) => {
-                button.addEventListener("click", () => permissionsDialog.close());
-            });
-
-            // Resolves to `true`/`false` for keep/reset once the admin picks
-            // one of the dialog's two decision buttons, or to `null` if they
-            // close it any other way — cancelling the role change entirely,
-            // never silently picking one of the two for them.
-            function askKeepCustomPermissions() {
-                return new Promise((resolve) => {
-                    let decided = false;
-                    const keepButton = document.getElementById("role-change-keep");
-                    const resetButton = document.getElementById("role-change-reset");
-                    const onKeep = () => { decided = true; permissionsDialog.close(); resolve(true); };
-                    const onReset = () => { decided = true; permissionsDialog.close(); resolve(false); };
-                    const onClose = () => {
-                        keepButton.removeEventListener("click", onKeep);
-                        resetButton.removeEventListener("click", onReset);
-                        permissionsDialog.removeEventListener("close", onClose);
-                        if (!decided) resolve(null);
-                    };
-                    keepButton.addEventListener("click", onKeep);
-                    resetButton.addEventListener("click", onReset);
-                    permissionsDialog.addEventListener("close", onClose);
-                    permissionsDialog.showModal();
-                });
-            }
-
-            roleForm.addEventListener("submit", (event) => {
-                event.preventDefault();
-                withSubmit(roleForm, async () => {
-                    const nextRole = new FormData(roleForm).get("role");
-                    let keepCustomPermissions = true;
-                    if (user.has_custom_permissions && nextRole !== user.role) {
-                        const choice = await askKeepCustomPermissions();
-                        if (choice === null) return; // admin backed out; role stays as it was
-                        keepCustomPermissions = choice;
-                    }
-                    user = await apiRequest(roleForm.action, {
-                        method: "POST",
-                        body: {...formPayload(roleForm, ["role"]), keep_custom_permissions: keepCustomPermissions},
-                    });
-                    fillUser(user);
-                    globalMessage("نقش کاربر تغییر کرد.", true);
-                });
-            });
-        }
-
-        const toggle = document.getElementById("toggle-user-active");
-        toggle.addEventListener("click", async () => {
-            const nextActive = toggle.dataset.nextActive === "true";
-            if (!window.confirm(nextActive ? "این کاربر دوباره فعال شود؟" : "این کاربر غیرفعال شود؟")) return;
-            clearMessages();
-            toggle.disabled = true;
-            try {
-                user = await apiRequest(endpoint, {method: "PATCH", body: {is_active: nextActive}});
-                fillUser(user);
-                globalMessage(nextActive ? "کاربر دوباره فعال شد." : "کاربر غیرفعال شد.", true);
-            } catch (error) {
-                toggle.disabled = false;
-                showError(error);
-            }
-        });
-
-        setupUserSessions(userId);
     }
 
     /**
@@ -4326,34 +4205,46 @@
         return "";
     }
 
+    /**
+     * Every attachments panel on the page — except one inside a profile tab,
+     * which its tab wires up the first time it opens (2.19.0), so a profile
+     * does not fetch its documents until someone looks at them.
+     */
     function setupAttachmentsPanel() {
         document.querySelectorAll("[data-attachments-panel]").forEach((panel) => {
-            loadAttachments(panel);
-            const form = panel.querySelector("[data-attachments-upload-form]");
-            if (!form) return;
-            form.addEventListener("submit", (event) => {
-                event.preventDefault();
-                withSubmit(form, async () => {
-                    const field = panel.dataset.attachmentsField;
-                    const parentId = document.body.dataset[ATTACHMENTS_PARENT_ID_KEY[field]];
-                    const input = form.querySelector("[data-attachments-file]");
-                    const file = input.files[0];
-                    if (!file) return;
-                    const reason = attachmentRejectionReason(panel, file);
-                    if (reason) {
-                        const slot = form.querySelector('[data-error-for="file"]');
-                        if (slot) slot.textContent = reason;
-                        globalMessage(reason);
-                        input.focus();
-                        return;
-                    }
-                    const payload = new FormData();
-                    payload.set("file", file);
-                    payload.set(field, parentId);
-                    await apiRequest("/api/v1/attachments/", {method: "POST", body: payload, raw: true});
-                    form.reset();
-                    await loadAttachments(panel);
-                });
+            if (panel.closest("[data-profile-pane]")) return;
+            setupAttachmentsPanelFor(panel);
+        });
+    }
+
+    function setupAttachmentsPanelFor(panel) {
+        if (panel.dataset.attachmentsReady) return;
+        panel.dataset.attachmentsReady = "true";
+        loadAttachments(panel);
+        const form = panel.querySelector("[data-attachments-upload-form]");
+        if (!form) return;
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const field = panel.dataset.attachmentsField;
+                const parentId = document.body.dataset[ATTACHMENTS_PARENT_ID_KEY[field]];
+                const input = form.querySelector("[data-attachments-file]");
+                const file = input.files[0];
+                if (!file) return;
+                const reason = attachmentRejectionReason(panel, file);
+                if (reason) {
+                    const slot = form.querySelector('[data-error-for="file"]');
+                    if (slot) slot.textContent = reason;
+                    globalMessage(reason);
+                    input.focus();
+                    return;
+                }
+                const payload = new FormData();
+                payload.set("file", file);
+                payload.set(field, parentId);
+                await apiRequest("/api/v1/attachments/", {method: "POST", body: payload, raw: true});
+                form.reset();
+                await loadAttachments(panel);
             });
         });
     }
@@ -4492,22 +4383,26 @@
         return row;
     }
 
-    async function setupCustomerDetail() {
-        const customerId = document.body.dataset.customerId;
+    /**
+     * The customer profile's tabs (2.19.0), each a loader the tab strip runs
+     * the first time its tab opens — see `setupPersonProfile`. Everything the
+     * old «جزئیات مشتری» page did is here, only no longer all at once: the
+     * edit form and phones under «اطلاعات», related leads, calls and invoices
+     * under their own tabs, the 360° history under «فعالیت‌ها» and the
+     * attachments under «اسناد».
+     */
+    function customerProfileLoaders(customerId) {
         const endpoint = `/api/v1/customers/${customerId}/`;
-        const loading = document.getElementById("customer-detail-loading");
-        const content = document.getElementById("customer-detail-content");
-        const editForm = document.getElementById("edit-customer-form");
-        let customer;
-        let editingPhoneId = null;
+        let customer = null;
 
         function fillCustomer(value) {
-            ["full_name", "national_id", "economic_code", "email", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
-                document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`).value = value[name] || "";
+            ["full_name", "job_title", "national_id", "economic_code", "email", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
+                const input = document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`);
+                if (input) input.value = value[name] || "";
             });
             fillProvinceSelect(document.getElementById("edit-customer-province"), value.province || "");
             document.getElementById("customer-created-by").value = value.created_by_display || value.created_by;
-            // A Platform Admin gets a select; everyone else the read-only text.
+            // A status administrator gets a select; everyone else the read-only text.
             const activeSelect = document.getElementById("customer-active-select");
             if (activeSelect) {
                 activeSelect.value = String(Boolean(value.is_active));
@@ -4516,59 +4411,151 @@
             }
         }
 
-        async function loadCustomer() {
+        /** Keep the header and the overview in step with a saved record. */
+        function reflectCustomer(value) {
+            setProfileHeaderText("name", value.full_name);
+            setProfileBreadcrumb(value.full_name);
+            setProfileHeaderField("job_title", value.job_title || `مشتری ${value.kind_display || ""}`.trim());
+            setProfileHeaderField("province", value.province, "استان این مشتری ثبت نشده است.");
+            setProfileBadge(value.is_active ? null : {label: "غیرفعال", accent: "danger"});
+            const facts = {
+                job_title: value.job_title,
+                national_id: toPersianDigits(value.national_id || ""),
+                economic_code: toPersianDigits(value.economic_code || ""),
+                email: value.email,
+                place: [value.province, value.city].filter(Boolean).join("، "),
+                postal_code: toPersianDigits(value.postal_code || ""),
+                category: value.category,
+                address: value.address,
+                notes: value.notes,
+            };
+            Object.entries(facts).forEach(([name, text]) => setOverviewFact(name, text));
+        }
+
+        async function setupInfo() {
+            const editForm = document.getElementById("edit-customer-form");
+            const loadingNode = editForm.querySelector("[data-info-loading]");
+            const fields = editForm.querySelector("[data-info-fields]");
             customer = await apiRequest(endpoint);
             fillCustomer(customer);
+            loadingNode.hidden = true;
+            fields.hidden = false;
+            editForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(editForm, async () => {
+                    customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"])});
+                    fillCustomer(customer);
+                    reflectCustomer(customer);
+                    globalMessage("مشخصات مشتری ذخیره شد.", true);
+                });
+            });
+            // Activation state. Reversible on purpose: it hides the customer
+            // from day-to-day work and removes nothing, so switching back
+            // restores them.
+            const activeSelect = document.getElementById("customer-active-select");
+            activeSelect?.addEventListener("change", async () => {
+                const nextActive = activeSelect.value === "true";
+                if (nextActive === Boolean(customer.is_active)) return;
+                const question = nextActive ? "این مشتری دوباره فعال شود؟" : "این مشتری غیرفعال شود؟";
+                if (!window.confirm(question)) {
+                    activeSelect.value = String(Boolean(customer.is_active));
+                    return;
+                }
+                activeSelect.disabled = true;
+                clearMessages();
+                try {
+                    customer = await apiRequest(`${endpoint}set-active/`, {
+                        method: "POST", body: {is_active: nextActive},
+                    });
+                    fillCustomer(customer);
+                    reflectCustomer(customer);
+                    globalMessage(
+                        nextActive ? "مشتری دوباره فعال شد." : "مشتری بدون حذف سابقه غیرفعال شد.",
+                        true,
+                    );
+                } catch (error) {
+                    activeSelect.value = String(Boolean(customer.is_active));
+                    showError(error);
+                } finally {
+                    activeSelect.disabled = false;
+                }
+            });
+            await setupPhones();
         }
 
-        const phoneLoading = document.getElementById("phones-loading");
-        const phoneEmpty = document.getElementById("phones-empty");
-        const phoneWrap = document.getElementById("phones-table-wrap");
-        const phoneBody = document.getElementById("phones-table-body");
-        const phoneDialog = document.getElementById("phone-dialog");
-        const phoneForm = document.getElementById("phone-form");
+        async function setupPhones() {
+            const phoneLoading = document.getElementById("phones-loading");
+            const phoneEmpty = document.getElementById("phones-empty");
+            const phoneWrap = document.getElementById("phones-table-wrap");
+            const phoneBody = document.getElementById("phones-table-body");
+            const phoneDialog = document.getElementById("phone-dialog");
+            const phoneForm = document.getElementById("phone-form");
+            let editingPhoneId = null;
 
-        function openPhone(phone = null) {
-            editingPhoneId = phone?.id || null;
-            document.getElementById("phone-dialog-title").textContent = phone ? "ویرایش تلفن" : "تلفن جدید";
-            document.getElementById("phone-raw").value = phone?.raw_phone || "";
-            document.getElementById("phone-label").value = phone?.label || "";
-            document.getElementById("phone-primary").checked = Boolean(phone?.is_primary);
-            clearMessages(phoneForm);
-            phoneDialog.showModal();
-        }
-
-        async function deactivatePhone(phone, button) {
-            if (!window.confirm("این تلفن غیرفعال شود؟")) return;
-            button.disabled = true;
-            clearMessages();
-            try {
-                await apiRequest(`/api/v1/customer-phones/${phone.id}/deactivate/`, {method: "POST"});
-                globalMessage("تلفن غیرفعال شد.", true);
-                await loadPhones();
-            } catch (error) {
-                button.disabled = false;
-                showError(error);
+            function openPhone(phone = null) {
+                editingPhoneId = phone?.id || null;
+                document.getElementById("phone-dialog-title").textContent = phone ? "ویرایش تلفن" : "تلفن جدید";
+                document.getElementById("phone-raw").value = phone?.raw_phone || "";
+                document.getElementById("phone-label").value = phone?.label || "";
+                document.getElementById("phone-primary").checked = Boolean(phone?.is_primary);
+                clearMessages(phoneForm);
+                phoneDialog.showModal();
             }
-        }
 
-        async function loadPhones() {
-            phoneLoading.hidden = false;
-            phoneEmpty.hidden = true;
-            phoneWrap.hidden = true;
-            try {
-                const phones = await loadAllPages(`/api/v1/customer-phones/?customer=${customerId}&ordering=-is_primary`);
-                phoneBody.replaceChildren(...phones.map((phone) => phoneRow(phone, openPhone, deactivatePhone)));
-                phoneLoading.hidden = true;
-                if (!phones.length) { phoneEmpty.hidden = false; return; }
-                phoneWrap.hidden = false;
-            } catch (error) {
-                phoneLoading.hidden = true;
-                showError(error);
+            async function deactivatePhone(phone, button) {
+                if (!window.confirm("این تلفن غیرفعال شود؟")) return;
+                button.disabled = true;
+                clearMessages();
+                try {
+                    await apiRequest(`/api/v1/customer-phones/${phone.id}/deactivate/`, {method: "POST"});
+                    globalMessage("تلفن غیرفعال شد.", true);
+                    await loadPhones();
+                } catch (error) {
+                    button.disabled = false;
+                    showError(error);
+                }
             }
+
+            async function loadPhones() {
+                phoneLoading.hidden = false;
+                phoneEmpty.hidden = true;
+                phoneWrap.hidden = true;
+                try {
+                    const phones = await loadAllPages(`/api/v1/customer-phones/?customer=${customerId}&ordering=-is_primary`);
+                    phoneBody.replaceChildren(...phones.map((phone) => phoneRow(phone, openPhone, deactivatePhone)));
+                    phoneLoading.hidden = true;
+                    // The header shows the primary active number; a change
+                    // here is reflected there without a reload.
+                    const active = phones.filter((phone) => phone.is_active);
+                    const primary = active.find((phone) => phone.is_primary) || active[0] || null;
+                    setProfileHeaderPhone(primary ? primary.normalized_phone || primary.raw_phone : "", "تلفن فعالی برای این مشتری ثبت نشده است.");
+                    if (!phones.length) { phoneEmpty.hidden = false; return; }
+                    phoneWrap.hidden = false;
+                } catch (error) {
+                    phoneLoading.hidden = true;
+                    showError(error);
+                }
+            }
+
+            document.getElementById("open-create-phone").addEventListener("click", () => openPhone());
+            phoneDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => phoneDialog.close()));
+            phoneForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(phoneForm, async () => {
+                    const payload = formPayload(phoneForm, ["raw_phone", "label"]);
+                    payload.is_primary = document.getElementById("phone-primary").checked;
+                    if (!editingPhoneId) payload.customer = Number(customerId);
+                    const url = editingPhoneId ? `/api/v1/customer-phones/${editingPhoneId}/` : phoneForm.action;
+                    await apiRequest(url, {method: editingPhoneId ? "PATCH" : "POST", body: payload});
+                    phoneDialog.close();
+                    globalMessage("تلفن ذخیره شد.", true);
+                    await loadPhones();
+                });
+            });
+            await loadPhones();
         }
 
-        function setupCustomerRelatedList(key, path, renderRow, {absolute = false} = {}) {
+        function relatedList(key, path, renderRow, {absolute = false} = {}) {
             const listLoading = document.getElementById(`customer-${key}-loading`);
             const listEmpty = document.getElementById(`customer-${key}-empty`);
             const listWrap = document.getElementById(`customer-${key}-table-wrap`);
@@ -4584,16 +4571,13 @@
                 listWrap.hidden = true;
                 listPagination.hidden = true;
                 try {
-                    // Most related lists are sub-resources of the customer; the
-                    // orders panel reads the orders endpoint filtered by this
-                    // customer, because that is where orders actually live.
+                    // Most related lists are sub-resources of the customer;
+                    // invoices read their own endpoint filtered by this
+                    // customer, because that is where invoices live.
                     const url = absolute
                         ? `${path}${path.includes("?") ? "&" : "?"}page=${page}`
                         : `${endpoint}${path}/?page=${page}`;
                     const data = await apiRequest(url);
-                    // A renderer may expand one record into several rows — the
-                    // orders panel lists a row per line — so results are
-                    // flattened rather than assumed one-to-one.
                     listBody.replaceChildren(...data.results.flatMap(renderRow));
                     listLoading.hidden = true;
                     if (!data.results.length) { listEmpty.hidden = false; return; }
@@ -4611,18 +4595,14 @@
 
             previous.addEventListener("click", () => load(currentPage - 1));
             next.addEventListener("click", () => load(currentPage + 1));
-            return {load};
+            return load();
         }
 
         /**
-         * One row per invoice this customer has.
-         *
-         * The panel answers "where does this customer's account stand", which
-         * is a question about documents rather than goods, so each row is one
-         * invoice: its number, where it is, what it came to and what is still
-         * owed. Both settlement columns are shown because they can disagree —
-         * a manually settled invoice reads as paid while its canonical balance
-         * is untouched, and hiding one of the two would make the page lie.
+         * One row per invoice this customer has. Both settlement columns are
+         * shown because they can disagree — a manually settled invoice reads
+         * as paid while its canonical balance is untouched, and hiding one of
+         * the two would make the page lie.
          */
         function customerInvoiceRow(invoice) {
             const row = document.createElement("tr");
@@ -4636,166 +4616,558 @@
             return row;
         }
 
-        const relatedLists = [
-            setupCustomerRelatedList("leads", "leads", leadRow),
-            setupCustomerRelatedList("interactions", "interactions", interactionRow),
-        ];
-        // Related orders became related invoices. The box is only rendered for
-        // a reader whose deployment has invoices at all, so its absence is not
-        // an error — the endpoint checks scope again regardless.
-        if (document.getElementById("customer-invoices-table-wrap")) {
-            relatedLists.push(setupCustomerRelatedList(
-                "invoices",
-                `/api/v1/invoices/?customer=${customerId}`,
-                customerInvoiceRow,
-                {absolute: true},
-            ));
+        return {
+            overview: () => loadRecentActivity("customer", customerId),
+            info: setupInfo,
+            leads: () => relatedList("leads", "leads", leadRow),
+            calls: () => relatedList("interactions", "interactions", interactionRow),
+            finance: () => relatedList("invoices", `/api/v1/invoices/?customer=${customerId}`, customerInvoiceRow, {absolute: true}),
+            activity: () => loadProfileTimeline("customer", customerId),
+            documents: () => {
+                document.querySelectorAll('[data-profile-pane="documents"] [data-attachments-panel]').forEach(setupAttachmentsPanelFor);
+            },
+        };
+    }
+
+    // --- Person profile (2.19.0) ------------------------------------------
+    //
+    // One page for customers and users (`profiles/templates/profiles/
+    // profile.html`). The server renders the header and every tab's empty
+    // shell — only the tabs this reader may see — and this script fills a
+    // tab's data the first time that tab opens, so a profile with eight tabs
+    // costs one round of requests, not eight.
+
+    /**
+     * The tab strip: WAI-ARIA tabs over the theme's `nav-line-tabs`, deep
+     * linked through `?tab=` so a copied link opens the same tab and Back
+     * returns to the previous one.
+     *
+     * `loaders[key]` runs once, the first time `key` opens; a failure is
+     * shown in the page's own message area and leaves the other tabs alone.
+     */
+    function setupProfileTabs(loaders) {
+        const tabs = Array.from(document.querySelectorAll("[data-profile-tab]"));
+        if (!tabs.length) return null;
+        const keys = tabs.map((tab) => tab.dataset.profileTab);
+        const panes = new Map(
+            Array.from(document.querySelectorAll("[data-profile-pane]")).map((pane) => [pane.dataset.profilePane, pane]),
+        );
+        const started = new Set();
+        let current = null;
+
+        function run(key) {
+            if (started.has(key)) return;
+            started.add(key);
+            const loader = loaders[key];
+            if (!loader) return;
+            Promise.resolve()
+                .then(loader)
+                .catch((error) => showError(error));
         }
 
-        /**
-         * The 360° history strip.
-         *
-         * Loaded after the page is already usable and outside the `try`
-         * that gates it, deliberately: the boxes above are what this page
-         * *is*, and a timeline that failed to load must not blank the
-         * customer's own record behind an error card. It reports its own
-         * failure in its own section and leaves everything else standing.
-         */
-        async function loadTimeline() {
-            const list = document.getElementById("customer-timeline-list");
-            if (!list) return;
-            const timelineLoading = document.getElementById("customer-timeline-loading");
-            const empty = document.getElementById("customer-timeline-empty");
-            const failed = document.getElementById("customer-timeline-error");
-            const more = document.getElementById("customer-timeline-more");
-            try {
-                const data = await apiRequest(`/api/v1/customers/${customerId}/timeline/`);
-                list.replaceChildren();
-                data.events.forEach((event) => list.appendChild(timelineEntry(event)));
-                timelineLoading.hidden = true;
-                list.hidden = data.events.length === 0;
-                empty.hidden = data.events.length > 0;
-                // `count` is everything found; `events` is the page shown.
-                if (data.count > data.events.length) {
-                    more.textContent = `${toPersianDigits(String(data.count - data.events.length))} رویداد قدیمی‌تر نشان داده نشده است.`;
-                    more.hidden = false;
-                }
-            } catch (error) {
-                timelineLoading.hidden = true;
-                failed.hidden = false;
+        function activate(key, {push = false, focus = false} = {}) {
+            if (!panes.has(key)) key = keys[0];
+            if (key === current) return;
+            current = key;
+            tabs.forEach((tab) => {
+                const on = tab.dataset.profileTab === key;
+                tab.classList.toggle("active", on);
+                tab.setAttribute("aria-selected", String(on));
+                tab.tabIndex = on ? 0 : -1;
+                if (on && focus) tab.focus();
+            });
+            panes.forEach((pane, paneKey) => { pane.hidden = paneKey !== key; });
+            if (push) {
+                const url = new URL(window.location.href);
+                url.searchParams.set("tab", key);
+                window.history.pushState({profileTab: key}, "", url);
+            }
+            run(key);
+        }
+
+        tabs.forEach((tab, index) => {
+            tab.addEventListener("click", (event) => {
+                event.preventDefault();
+                activate(tab.dataset.profileTab, {push: true});
+            });
+            // Arrow keys walk the strip. The page is RTL, so the next tab
+            // is to the left.
+            tab.addEventListener("keydown", (event) => {
+                const rtl = document.documentElement.dir !== "ltr";
+                const moves = {
+                    ArrowLeft: rtl ? 1 : -1,
+                    ArrowRight: rtl ? -1 : 1,
+                };
+                let target = null;
+                if (event.key in moves) target = (index + moves[event.key] + tabs.length) % tabs.length;
+                else if (event.key === "Home") target = 0;
+                else if (event.key === "End") target = tabs.length - 1;
+                if (target === null) return;
+                event.preventDefault();
+                activate(tabs[target].dataset.profileTab, {push: true, focus: true});
+            });
+        });
+
+        // Every other way into a tab on this page: a quick action, «ویرایش»
+        // on the overview, «همهٔ رویدادها», an entry under «بیشتر».
+        document.addEventListener("click", (event) => {
+            const link = event.target.closest("[data-profile-tab-link]");
+            if (!link) return;
+            event.preventDefault();
+            activate(link.dataset.profileTabLink, {push: true});
+            document.getElementById(`profile-tab-${link.dataset.profileTabLink}`)
+                ?.scrollIntoView({block: "nearest", behavior: "smooth"});
+        });
+
+        window.addEventListener("popstate", () => {
+            activate(new URLSearchParams(window.location.search).get("tab") || keys[0]);
+        });
+
+        activate(document.body.dataset.activeTab || keys[0]);
+        return {activate};
+    }
+
+    /** The header's #1–#3 line (`data-profile-field`), kept current after an edit. */
+    function setProfileHeaderField(name, value, missingTooltip = "") {
+        const node = document.querySelector(`[data-profile-field="${name}"]`);
+        if (!node) return;
+        const icon = node.querySelector("i");
+        const label = node.querySelector(".visually-hidden");
+        const labelText = label ? label.textContent : "";
+        node.replaceChildren();
+        if (icon) node.appendChild(icon);
+        if (labelText) {
+            const hidden = document.createElement("span");
+            hidden.className = "visually-hidden";
+            hidden.textContent = labelText;
+            node.appendChild(hidden);
+        }
+        if (value) {
+            node.append(value);
+            node.removeAttribute("title");
+        } else {
+            node.append("—");
+            if (missingTooltip) {
+                node.title = missingTooltip;
+                const reason = document.createElement("span");
+                reason.className = "visually-hidden";
+                reason.textContent = missingTooltip;
+                node.appendChild(reason);
             }
         }
+    }
 
-        function timelineEntry(event) {
-            const item = document.createElement("li");
-            item.className = "customer-timeline-entry";
-
-            const marker = document.createElement("span");
-            marker.className = `customer-timeline-marker bg-light-${event.accent}`;
-            const icon = document.createElement("i");
-            icon.className = `ki-duotone ${event.icon} fs-5 text-${event.accent}`;
-            for (let index = 1; index <= (event.icon_paths || 2); index += 1) {
-                icon.append(timelinePath(index));
-            }
-            marker.appendChild(icon);
-
-            const box = document.createElement("div");
-            box.className = "customer-timeline-body";
-
-            const head = document.createElement("div");
-            head.className = "d-flex flex-wrap align-items-center justify-content-between gap-2";
-            const kind = document.createElement("span");
-            kind.className = `badge badge-light-${event.accent} fs-8`;
-            kind.textContent = event.label;
-            const when = document.createElement("span");
-            when.className = "text-muted fs-8";
-            when.textContent = displayDate(event.at);
-            head.append(kind, when);
-
-            const title = document.createElement("a");
-            title.className = "d-block text-gray-900 fw-semibold fs-6 mt-1 text-decoration-none";
-            title.href = event.url;
-            title.textContent = event.title;
-
-            const subtitle = document.createElement("span");
-            subtitle.className = "d-block text-muted fs-7";
-            subtitle.textContent = event.subtitle;
-
-            box.append(head, title, subtitle);
-            item.append(marker, box);
-            return item;
+    /**
+     * The header's phone: a `tel:` link when there is a number, «—» with a
+     * reason when there is none. Numbers arrive normalised (`+98…`) and are
+     * shown the way people in Iran write them.
+     */
+    function setProfileHeaderPhone(number, missingTooltip) {
+        const node = document.querySelector('[data-profile-field="phone"]');
+        if (!node) return;
+        const value = String(number || "").trim();
+        const local = value.startsWith("+98") ? `0${value.slice(3)}` : value;
+        const replacement = document.createElement(value ? "a" : "span");
+        replacement.className = node.className.replace(" text-hover-primary", "") + (value ? " text-hover-primary" : "");
+        replacement.dataset.profileField = "phone";
+        const icon = node.querySelector("i");
+        if (icon) replacement.appendChild(icon);
+        const label = document.createElement("span");
+        label.className = "visually-hidden";
+        label.textContent = "تلفن: ";
+        replacement.appendChild(label);
+        if (value) {
+            replacement.href = `tel:${value.replace(/[^\d+]/g, "")}`;
+            replacement.dir = "ltr";
+            replacement.title = `تماس با ${toPersianDigits(local)}`;
+            replacement.append(toPersianDigits(local));
+        } else {
+            replacement.title = missingTooltip;
+            replacement.append("—");
         }
+        node.replaceWith(replacement);
+        const call = document.querySelector('[data-quick-action="call"]');
+        if (call && value) call.href = `tel:${value.replace(/[^\d+]/g, "")}`;
+    }
 
-        function timelinePath(index) {
-            const span = document.createElement("span");
-            span.className = `path${index}`;
-            return span;
+    function setProfileHeaderText(name, value) {
+        const node = document.querySelector(`[data-profile-${name}]`);
+        if (node && value) node.textContent = value;
+    }
+
+    function setProfileBreadcrumb(value) {
+        const node = document.querySelector(".breadcrumb > .breadcrumb-item:last-child");
+        if (node && value) node.textContent = value;
+        if (value) document.title = document.title.replace(/^[^|]*\|/, `${value} |`);
+    }
+
+    function setProfileBadge(badge) {
+        let node = document.querySelector("[data-profile-badge]");
+        if (!badge) { node?.remove(); return; }
+        if (!node) {
+            node = document.createElement("span");
+            node.dataset.profileBadge = "";
+            document.querySelector("[data-profile-name]")?.after(node);
         }
+        node.className = `badge badge-light-${badge.accent}`;
+        node.textContent = badge.label;
+    }
 
+    /** An overview fact (`data-overview-field`), «—» when empty. */
+    function setOverviewFact(name, value) {
+        document.querySelectorAll(`[data-overview-field="${name}"]`).forEach((node) => {
+            node.textContent = value ? String(value) : "—";
+        });
+    }
+
+    /** One timeline event, as the customer timeline has always drawn it. */
+    function timelineEntry(event) {
+        const item = document.createElement("li");
+        item.className = "customer-timeline-entry";
+
+        const marker = document.createElement("span");
+        marker.className = `customer-timeline-marker bg-light-${event.accent}`;
+        const icon = document.createElement("i");
+        icon.className = `ki-duotone ${event.icon} fs-5 text-${event.accent}`;
+        for (let index = 1; index <= (event.icon_paths || 2); index += 1) {
+            const path = document.createElement("span");
+            path.className = `path${index}`;
+            icon.append(path);
+        }
+        marker.appendChild(icon);
+
+        const box = document.createElement("div");
+        box.className = "customer-timeline-body";
+
+        const head = document.createElement("div");
+        head.className = "d-flex flex-wrap align-items-center justify-content-between gap-2";
+        const kind = document.createElement("span");
+        kind.className = `badge badge-light-${event.accent} fs-8`;
+        kind.textContent = event.label;
+        const when = document.createElement("span");
+        when.className = "text-muted fs-8";
+        when.textContent = displayDate(event.at);
+        head.append(kind, when);
+
+        const title = document.createElement("a");
+        title.className = "d-block text-gray-900 fw-semibold fs-6 mt-1 text-decoration-none";
+        title.href = event.url;
+        title.textContent = event.title;
+
+        const subtitle = document.createElement("span");
+        subtitle.className = "d-block text-muted fs-7";
+        subtitle.textContent = event.subtitle;
+
+        box.append(head, title, subtitle);
+        item.append(marker, box);
+        return item;
+    }
+
+    /**
+     * The «فعالیت‌ها» tab. It reports its own failure in its own card and
+     * leaves the rest of the profile standing.
+     */
+    async function loadProfileTimeline(personType, personId) {
+        const list = document.getElementById("profile-timeline-list");
+        if (!list) return;
+        const loadingNode = document.getElementById("profile-timeline-loading");
+        const empty = document.getElementById("profile-timeline-empty");
+        const failed = document.getElementById("profile-timeline-error");
+        const more = document.getElementById("profile-timeline-more");
         try {
-            await loadCustomer();
-            await loadPhones();
-            for (const list of relatedLists) await list.load();
-            loading.hidden = true;
-            content.hidden = false;
+            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/timeline/`);
+            list.replaceChildren(...data.events.map(timelineEntry));
+            loadingNode.hidden = true;
+            list.hidden = data.events.length === 0;
+            empty.hidden = data.events.length > 0;
+            // `count` is everything found; `events` is the page shown.
+            if (data.count > data.events.length) {
+                more.textContent = `${toPersianDigits(String(data.count - data.events.length))} رویداد قدیمی‌تر نشان داده نشده است.`;
+                more.hidden = false;
+            }
         } catch (error) {
-            loading.hidden = true;
-            showError(error);
-            return;
+            loadingNode.hidden = true;
+            failed.hidden = false;
         }
-        loadTimeline();
-        editForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(editForm, async () => {
-                customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"])});
-                fillCustomer(customer);
-                globalMessage("مشخصات مشتری ذخیره شد.", true);
-            });
-        });
-        document.getElementById("open-create-phone").addEventListener("click", () => openPhone());
-        phoneDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => phoneDialog.close()));
-        phoneForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(phoneForm, async () => {
-                const payload = formPayload(phoneForm, ["raw_phone", "label"]);
-                payload.is_primary = document.getElementById("phone-primary").checked;
-                if (!editingPhoneId) payload.customer = Number(customerId);
-                const url = editingPhoneId ? `/api/v1/customer-phones/${editingPhoneId}/` : phoneForm.action;
-                await apiRequest(url, {method: editingPhoneId ? "PATCH" : "POST", body: payload});
-                phoneDialog.close();
-                globalMessage("تلفن ذخیره شد.", true);
-                await loadPhones();
-            });
-        });
-        // Activation state. Reversible on purpose: it hides the customer from
-        // day-to-day work and removes nothing, so switching back restores them.
-        const activeSelect = document.getElementById("customer-active-select");
-        activeSelect?.addEventListener("change", async () => {
-            const nextActive = activeSelect.value === "true";
-            if (nextActive === Boolean(customer.is_active)) return;
-            const question = nextActive ? "این مشتری دوباره فعال شود؟" : "این مشتری غیرفعال شود؟";
-            if (!window.confirm(question)) {
-                activeSelect.value = String(Boolean(customer.is_active));
-                return;
-            }
-            activeSelect.disabled = true;
-            clearMessages();
+    }
+
+    /** The overview's «آخرین رویدادها»: the newest five of the same timeline. */
+    async function loadRecentActivity(personType, personId) {
+        const card = document.querySelector("[data-recent-activity]");
+        if (!card) return;
+        const list = card.querySelector("[data-recent-activity-list]");
+        const loadingNode = card.querySelector("[data-recent-activity-loading]");
+        const empty = card.querySelector("[data-recent-activity-empty]");
+        const failed = card.querySelector("[data-recent-activity-error]");
+        try {
+            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/timeline/?limit=5`);
+            list.replaceChildren(...data.events.map(timelineEntry));
+            loadingNode.hidden = true;
+            list.hidden = data.events.length === 0;
+            empty.hidden = data.events.length > 0;
+        } catch (error) {
+            loadingNode.hidden = true;
+            failed.hidden = false;
+        }
+    }
+
+    /** One lead assigned to a user, with the customer it is about. */
+    function userLeadRow(lead) {
+        const row = document.createElement("tr");
+        const customerCell = document.createElement("td");
+        if (lead.customer) {
+            const link = document.createElement("a");
+            link.className = "text-gray-900 text-hover-primary fw-semibold";
+            link.href = `/customers/${lead.customer}/`;
+            link.textContent = lead.customer_name || `مشتری ${toPersianDigits(String(lead.customer))}`;
+            customerCell.appendChild(link);
+        } else {
+            customerCell.textContent = "—";
+        }
+        row.appendChild(customerCell);
+        appendCell(row, lead.source);
+        appendCell(row, lead.campaign_or_batch);
+        const [label, badgeClass] = LEAD_STATUS_LABELS[lead.status] || [lead.status || "—", "badge-light"];
+        const statusCell = document.createElement("td");
+        const badge = document.createElement("span");
+        badge.className = `badge ${badgeClass}`;
+        badge.textContent = label;
+        statusCell.append(badge);
+        row.append(statusCell);
+        appendCell(row, displayDay(lead.next_follow_up_at));
+        appendCell(row, displayDay(lead.assigned_at));
+        appendDetailLink(row, `/leads/${lead.id}/`);
+        return row;
+    }
+
+    function setupUserLeadsTab(userId) {
+        const loadingNode = document.getElementById("user-leads-loading");
+        const empty = document.getElementById("user-leads-empty");
+        const wrap = document.getElementById("user-leads-table-wrap");
+        const body = document.getElementById("user-leads-table-body");
+        const pagination = document.getElementById("user-leads-pagination");
+        const previous = document.getElementById("user-leads-prev");
+        const next = document.getElementById("user-leads-next");
+        const status = document.getElementById("user-leads-status");
+        let currentPage = 1;
+
+        async function load(page = 1) {
+            loadingNode.hidden = false;
+            empty.hidden = true;
+            wrap.hidden = true;
+            pagination.hidden = true;
             try {
-                customer = await apiRequest(`${endpoint}set-active/`, {
-                    method: "POST", body: {is_active: nextActive},
-                });
-                fillCustomer(customer);
-                globalMessage(
-                    nextActive ? "مشتری دوباره فعال شد." : "مشتری بدون حذف سابقه غیرفعال شد.",
-                    true,
-                );
+                const query = new URLSearchParams({page: String(page), assigned_to: String(userId), ordering: "-assigned_at"});
+                if (status.value) query.set("status", status.value);
+                const data = await apiRequest(`/api/v1/leads/?${query}`);
+                body.replaceChildren(...data.results.map(userLeadRow));
+                loadingNode.hidden = true;
+                if (!data.results.length) { empty.hidden = false; return; }
+                wrap.hidden = false;
+                currentPage = page;
+                previous.disabled = !data.previous;
+                next.disabled = !data.next;
+                document.getElementById("user-leads-page-label").textContent = pageRangeLabel(data, page);
+                pagination.hidden = !data.previous && !data.next;
             } catch (error) {
-                activeSelect.value = String(Boolean(customer.is_active));
+                loadingNode.hidden = true;
                 showError(error);
-            } finally {
-                activeSelect.disabled = false;
+            }
+        }
+
+        previous.addEventListener("click", () => load(currentPage - 1));
+        next.addEventListener("click", () => load(currentPage + 1));
+        status.addEventListener("change", () => load(1));
+        return load();
+    }
+
+    /**
+     * «اطلاعات» on a user's profile. `data-edit-mode` says which door the
+     * form saves through: `admin` edits the account, `self` only the
+     * reader's own profile fields. Neither ever sends a role, an activation
+     * flag or a password.
+     */
+    async function setupUserInfoTab() {
+        const form = document.getElementById("edit-user-form");
+        if (!form) return;
+        const mode = form.dataset.editMode;
+        const endpoint = form.action;
+        const names = mode === "admin"
+            ? ["username", "first_name", "last_name", "email", "phone", "workstream", "job_title", "province"]
+            : ["first_name", "last_name", "email", "phone", "job_title", "province"];
+
+        function fill(user) {
+            names.forEach((name) => {
+                const input = form.elements.namedItem(name);
+                if (input) input.value = user[name] || "";
+            });
+            const workstream = form.elements.namedItem("workstream");
+            if (workstream) {
+                // Only a Sales Agent may run the after-sales workstream — the
+                // same rule the service enforces.
+                const afterSales = workstream.querySelector('option[value="after_sales"]');
+                afterSales.disabled = user.role !== "sales_agent";
+                workstream.value = user.role === "sales_agent" ? (user.workstream || "sales") : "sales";
+            }
+        }
+
+        function reflect(user) {
+            const name = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username;
+            setProfileHeaderText("name", name);
+            setProfileBreadcrumb(name);
+            if (user.job_title) setProfileHeaderField("job_title", user.job_title);
+            setProfileHeaderField("province", user.province, "استان این کاربر ثبت نشده است.");
+            setProfileHeaderPhone(user.normalized_phone || user.phone, "تلفنی برای این کاربر ثبت نشده است.");
+            ["job_title", "province", "email"].forEach((field) => setOverviewFact(field, user[field]));
+        }
+
+        const user = await apiRequest(endpoint);
+        fill(user);
+        form.querySelector("[data-info-loading]").hidden = true;
+        form.querySelector("[data-info-fields]").hidden = false;
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const saved = await apiRequest(endpoint, {method: "PATCH", body: formPayload(form, names)});
+                fill(saved);
+                reflect(saved);
+                globalMessage(mode === "admin" ? "مشخصات کاربر ذخیره شد." : "مشخصات شما ذخیره شد.", true);
+            });
+        });
+    }
+
+    /**
+     * «دسترسی‌ها» on a user's profile: the controlled role change, the
+     * active sessions and activation, as the old «جزئیات کاربر» page had
+     * them. The permission matrix opens the same dialog User Management uses
+     * (`setupPermissionsDialog`), wired once for the whole page.
+     */
+    async function setupUserAccessTab(userId) {
+        const endpoint = `/api/v1/users/${userId}/`;
+        let user = await apiRequest(endpoint);
+
+        function fillAccess(value) {
+            const role = document.getElementById("edit-role");
+            if (role) role.value = value.role;
+            const toggle = document.getElementById("toggle-user-active");
+            toggle.disabled = false;
+            toggle.dataset.nextActive = String(!value.is_active);
+            toggle.classList.toggle("btn-danger", value.is_active);
+            toggle.classList.toggle("btn-success", !value.is_active);
+            toggle.textContent = value.is_active ? "غیرفعال کردن کاربر" : "فعال کردن دوباره کاربر";
+            setProfileBadge(value.is_active ? {label: "فعال", accent: "success"} : {label: "غیرفعال", accent: "danger"});
+        }
+        fillAccess(user);
+
+        const roleForm = document.getElementById("change-role-form");
+        if (roleForm) {
+            const permissionsDialog = document.getElementById("role-change-access-dialog");
+            permissionsDialog.querySelectorAll("[data-close-dialog]").forEach((button) => {
+                button.addEventListener("click", () => permissionsDialog.close());
+            });
+
+            // Resolves to `true`/`false` for keep/reset once the admin picks
+            // one of the dialog's two decision buttons, or to `null` if they
+            // close it any other way — cancelling the role change entirely,
+            // never silently picking one of the two for them.
+            function askKeepCustomPermissions() {
+                return new Promise((resolve) => {
+                    let decided = false;
+                    const keepButton = document.getElementById("role-change-keep");
+                    const resetButton = document.getElementById("role-change-reset");
+                    const onKeep = () => { decided = true; permissionsDialog.close(); resolve(true); };
+                    const onReset = () => { decided = true; permissionsDialog.close(); resolve(false); };
+                    const onClose = () => {
+                        keepButton.removeEventListener("click", onKeep);
+                        resetButton.removeEventListener("click", onReset);
+                        permissionsDialog.removeEventListener("close", onClose);
+                        if (!decided) resolve(null);
+                    };
+                    keepButton.addEventListener("click", onKeep);
+                    resetButton.addEventListener("click", onReset);
+                    permissionsDialog.addEventListener("close", onClose);
+                    permissionsDialog.showModal();
+                });
+            }
+
+            roleForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(roleForm, async () => {
+                    const nextRole = new FormData(roleForm).get("role");
+                    let keepCustomPermissions = true;
+                    if (user.has_custom_permissions && nextRole !== user.role) {
+                        const choice = await askKeepCustomPermissions();
+                        if (choice === null) return; // admin backed out; role stays as it was
+                        keepCustomPermissions = choice;
+                    }
+                    user = await apiRequest(roleForm.action, {
+                        method: "POST",
+                        body: {...formPayload(roleForm, ["role"]), keep_custom_permissions: keepCustomPermissions},
+                    });
+                    fillAccess(user);
+                    globalMessage("نقش کاربر تغییر کرد.", true);
+                });
+            });
+        }
+
+        const toggle = document.getElementById("toggle-user-active");
+        toggle.addEventListener("click", async () => {
+            const nextActive = toggle.dataset.nextActive === "true";
+            if (!window.confirm(nextActive ? "این کاربر دوباره فعال شود؟" : "این کاربر غیرفعال شود؟")) return;
+            clearMessages();
+            toggle.disabled = true;
+            try {
+                user = await apiRequest(endpoint, {method: "PATCH", body: {is_active: nextActive}});
+                fillAccess(user);
+                globalMessage(nextActive ? "کاربر دوباره فعال شد." : "کاربر غیرفعال شد.", true);
+            } catch (error) {
+                toggle.disabled = false;
+                showError(error);
             }
         });
+
+        await setupUserSessions(userId);
+    }
+
+    function userProfileLoaders(userId) {
+        return {
+            overview: () => loadRecentActivity("user", userId),
+            info: setupUserInfoTab,
+            leads: () => setupUserLeadsTab(userId),
+            performance: setupSellerProfile,
+            activity: () => loadProfileTimeline("user", userId),
+            access: () => setupUserAccessTab(userId),
+        };
+    }
+
+    function setupPersonProfile() {
+        const personType = document.body.dataset.personType;
+        const personId = document.body.dataset.personId;
+        if (!personType || !personId) return;
+
+        // «بیشتر» — the theme's dropdown, opened the way every other panel
+        // in the shell is (`registerPopover`).
+        const more = registerPopover({
+            toggle: document.getElementById("profile-more-toggle"),
+            panel: document.getElementById("profile-more-menu"),
+        });
+        document.getElementById("profile-more-menu")?.addEventListener("click", (event) => {
+            if (event.target.closest("a, button")) more?.close();
+        });
+
+        // The permission matrix lives in a dialog shared with User
+        // Management; any `data-profile-action="permissions"` opens it.
+        if (document.getElementById("permissions-dialog")) setupPermissionsDialog();
+        document.addEventListener("click", (event) => {
+            const button = event.target.closest('[data-profile-action="permissions"]');
+            if (!button) return;
+            openPermissionsDialog(button.dataset.userId, button.dataset.userName);
+        });
+
+        const loaders = personType === "customer"
+            ? customerProfileLoaders(personId)
+            : userProfileLoaders(personId);
+        setupProfileTabs(loaders);
     }
 
     /** The three states a campaign is tracked in, as the theme's badges. */
@@ -8275,6 +8647,19 @@
         });
 
         setMode("single");
+        // A profile's «پیامک» quick action (2.19.0) opens this page with the
+        // recipient already chosen — `?customer=<id>` or `?phone=<number>`.
+        // Only the field is filled; nothing is sent until the reader writes
+        // the text and presses send.
+        const requested = new URLSearchParams(window.location.search);
+        const requestedCustomer = requested.get("customer");
+        const requestedPhone = requested.get("phone");
+        if (requestedCustomer && /^\d+$/.test(requestedCustomer)) {
+            document.getElementById("outbound-sms-customer").value = requestedCustomer;
+        } else if (requestedPhone) {
+            document.getElementById("outbound-sms-phone").value = requestedPhone;
+        }
+        if (requestedCustomer || requestedPhone) bodyInput.focus();
         await Promise.all([
             loadOutboundSmsLog("/api/v1/outbound-sms/"),
             loadCampaigns("/api/v1/outbound-sms/campaigns/"),
@@ -13401,6 +13786,15 @@
                 (row) => row.full_name,
                 "یک مشتری انتخاب کنید",
             );
+            // A customer profile links here with `?customer=<id>` (2.19.0);
+            // open straight onto that customer's ledger when it is one this
+            // reader may see — the balance endpoint re-checks regardless.
+            const requested = new URLSearchParams(window.location.search).get("customer");
+            if (requested && customers.some((row) => String(row.id) === requested)) {
+                customerSelect.value = requested;
+                customerSelect.dispatchEvent(new Event("change"));
+                await refresh();
+            }
         } catch (error) {
             showError(error);
         }
@@ -15809,9 +16203,8 @@
     if (page === "login") setupLogin();
     if (page === "dashboard") setupDashboard();
     if (page === "users") setupUsers();
-    if (page === "user-detail") setupUserDetail();
     if (page === "customers") setupCustomers();
-    if (page === "customer-detail") setupCustomerDetail();
+    if (page === "person-profile") setupPersonProfile();
     if (page === "leads") setupLeads();
     if (page === "lead-calendar") setupLeadCalendar();
     if (page === "lead-board") setupLeadBoard();
@@ -15829,7 +16222,6 @@
     if (page === "sales-documents") setupSalesDocuments();
     if (page === "sales-document-detail") setupSalesDocumentDetail();
     if (page === "user-performance") setupUserPerformance();
-    if (page === "user-profile") setupSellerProfile();
     if (page === "sales-document-report") setupSalesDocumentReport();
     if (page === "inbound-sms-report") setupInboundSMSReport();
     if (page === "outbound-sms") setupOutboundSms();

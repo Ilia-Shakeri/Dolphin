@@ -39,6 +39,7 @@ MAX_MONEY = Decimal("9999999999999999.99")
 CUSTOMER_MUTABLE_FIELDS = {
     "full_name",
     "kind",
+    "job_title",
     "economic_code",
     "national_id",
     "email",

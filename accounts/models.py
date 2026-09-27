@@ -14,6 +14,20 @@ class User(AbstractUser):
         AFTER_SALES = "after_sales", "After Sales"
 
     phone = models.CharField(max_length=32, blank=True)
+    #: `phone` in E.164 (`+98…`, `common.phones.normalize_customer_phone`), or
+    #: blank when `phone` is not a number that normalises — an internal
+    #: extension, say. Kept in step by `save()`; indexed because every
+    #: integration resolves a caller or a sender through it (2.19.0).
+    normalized_phone = models.CharField(max_length=20, blank=True, default="", db_index=True, editable=False)
+    #: The person profile's header (2.19.0): «سمت» falls back to the role
+    #: label when blank; «استان» is one of `common.provinces.province_names()`.
+    job_title = models.CharField(max_length=120, blank=True, default="")
+    province = models.CharField(max_length=100, blank=True, default="")
+    #: When this account last made a request, written at most once every two
+    #: minutes (`accounts.middleware.PresenceMiddleware`). Drives the profile's
+    #: online dot and «آخرین بازدید». Null until the account's first request
+    #: after 2.19.0.
+    last_seen_at = models.DateTimeField(null=True, blank=True)
     role = models.CharField(max_length=32, choices=Role.choices, default=Role.SALES_AGENT, db_index=True)
     workstream = models.CharField(max_length=32, choices=Workstream.choices, default=Workstream.SALES, db_index=True)
     # An explicit pick from the Metronic cartoon set (`accounts.avatars`),
@@ -46,6 +60,17 @@ class User(AbstractUser):
                 name="accounts_user_elevated_workstream_sales",
             ),
         ]
+
+    def save(self, *args, **kwargs):
+        # Normalised here rather than in each service, so no path that saves
+        # a phone can leave its matching key stale.
+        from common.phones import normalized_or_blank
+
+        self.normalized_phone = normalized_or_blank(self.phone)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "phone" in update_fields and "normalized_phone" not in update_fields:
+            kwargs["update_fields"] = [*update_fields, "normalized_phone"]
+        super().save(*args, **kwargs)
 
 
 class UserCapabilityOverride(models.Model):

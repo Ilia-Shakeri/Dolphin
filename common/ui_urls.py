@@ -8,7 +8,6 @@ from common.ui_views import (
     DolphinAfterSalesListView,
     DolphinBrandingSettingsView,
     DolphinChequeListView,
-    DolphinCustomerDetailView,
     DolphinCustomerLedgerView,
     DolphinCustomerListView,
     DolphinHomeView,
@@ -25,7 +24,6 @@ from common.ui_views import (
     DolphinLeadDetailView,
     DolphinLeadListView,
     DolphinLoginView,
-    DolphinMyProfileView,
     DolphinOrderBoardView,
     DolphinOrderDetailView,
     DolphinOrderListView,
@@ -39,7 +37,6 @@ from common.ui_views import (
     DolphinProductListView,
     DolphinProfitReportView,
     DolphinReceivablesReportView,
-    DolphinUserProfileView,
     DolphinSaleDetailView,
     DolphinSaleListView,
     DolphinSalesDocumentDetailView,
@@ -52,11 +49,16 @@ from common.ui_views import (
     DolphinStockLevelListView,
     DolphinStockMovementListView,
     DolphinStockValuationReportView,
-    DolphinUserDetailView,
     DolphinUserListView,
     DolphinUserPerformanceView,
     DolphinWarehouseDetailView,
     DolphinWarehouseListView,
+)
+from profiles.ui_views import (
+    CustomerProfileView,
+    LegacyUserProfileRedirectView,
+    MyProfileRedirectView,
+    UserProfileView,
 )
 
 
@@ -66,11 +68,14 @@ urlpatterns = [
     path("login/", DolphinLoginView.as_view(), name="login"),
     path("", DolphinHomeView.as_view(), name="home"),
     path("users/", DolphinUserListView.as_view(), name="users"),
-    path("users/<int:user_id>/", DolphinUserDetailView.as_view(), name="user-detail"),
-    path("users/<int:user_id>/profile/", DolphinUserProfileView.as_view(), name="user-profile"),
-    path("profile/", DolphinMyProfileView.as_view(), name="my-profile"),
+    # One person profile for users and customers (2.19.0,
+    # `profiles/ui_views.py`). The two older user-profile addresses redirect
+    # to it, on its «عملکرد» tab.
+    path("users/<int:user_id>/", UserProfileView.as_view(), name="user-detail"),
+    path("users/<int:user_id>/profile/", LegacyUserProfileRedirectView.as_view(), name="user-profile"),
+    path("profile/", MyProfileRedirectView.as_view(), name="my-profile"),
     path("customers/", DolphinCustomerListView.as_view(), name="customers"),
-    path("customers/<int:customer_id>/", DolphinCustomerDetailView.as_view(), name="customer-detail"),
+    path("customers/<int:customer_id>/", CustomerProfileView.as_view(), name="customer-detail"),
     path("leads/", DolphinLeadListView.as_view(), name="leads"),
     path("leads/calendar/", DolphinLeadCalendarView.as_view(), name="lead-calendar"),
     path("leads/board/", DolphinLeadBoardView.as_view(), name="lead-board"),

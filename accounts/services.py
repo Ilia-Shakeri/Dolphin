@@ -22,6 +22,7 @@ from accounts.platform_admin_guard import lock_platform_admin_guard
 from auditlog.services import log_activity
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
+from common.provinces import is_province
 from common.request_context import forget_request_memo
 
 
@@ -56,8 +57,8 @@ ROLE_RANK = {
 # class. The per-role target scoping further down stays in place so that a
 # future deployment-profile grant remains correctly bounded.
 USER_ADMINS = {User.Role.PLATFORM_ADMIN}
-USER_MUTABLE_FIELDS = {"username", "first_name", "last_name", "email", "phone", "workstream", "is_active"}
-PROFILE_MUTABLE_FIELDS = {"first_name", "last_name", "email", "phone"}
+USER_MUTABLE_FIELDS = {"username", "first_name", "last_name", "email", "phone", "workstream", "is_active", "job_title", "province"}
+PROFILE_MUTABLE_FIELDS = {"first_name", "last_name", "email", "phone", "job_title", "province"}
 
 
 def _protect_last_active_platform_admin(*, target, next_role=None, next_is_active=None):
@@ -101,6 +102,18 @@ def _locked_users(actor, target=None, *, for_update=True):
     return locked_actor, locked_target
 
 
+def _validate_person_fields(data):
+    """The profile header's two free fields (2.19.0). `province` must be one
+    of the thirty-one names the customer form and the map already use — a
+    typo would otherwise be a thirty-second province no report can place."""
+    province = data.get("province")
+    if province and not is_province(province):
+        raise BusinessRuleError({"province": "استان را از فهرست انتخاب کنید."})
+    job_title = data.get("job_title")
+    if job_title is not None:
+        data["job_title"] = str(job_title).strip()
+
+
 def _validate_creatable_role(actor, role):
     """Refuse a role the Create User form should never have offered `actor`.
 
@@ -123,6 +136,7 @@ def create_crm_user(*, actor, password, role, **data):
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     _validate_creatable_role(actor, role)
+    _validate_person_fields(data)
     workstream = data.get("workstream", User.Workstream.SALES)
     if workstream not in User.Workstream.values:
         raise BusinessRuleError({"workstream": "جریان کاری نامعتبر است."})
@@ -153,6 +167,7 @@ def update_crm_user(*, actor, target, **changes):
     unknown = set(changes) - USER_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
+    _validate_person_fields(changes)
     if "workstream" in changes:
         if changes["workstream"] not in User.Workstream.values:
             raise BusinessRuleError({"workstream": "جریان کاری نامعتبر است."})
@@ -196,6 +211,7 @@ def update_own_profile(*, actor, **changes):
     unknown = set(changes) - PROFILE_MUTABLE_FIELDS
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
+    _validate_person_fields(changes)
     changed_fields = []
     for field, value in changes.items():
         if getattr(actor, field) != value:

@@ -340,7 +340,10 @@ class AuthShellBrowserTests(TestCase):
             with self.subTest(role=user.role):
                 home = self.client.get("/")
                 denied_list = self.client.get("/users/")
-                denied_detail = self.client.get(f"/users/{self.agent.pk}/")
+                # `/users/<id>/` is the person profile since 2.19.0: it opens
+                # for the agent (their own) and the manager (the performance
+                # report's scope), but no account administration is on it.
+                profile = self.client.get(f"/users/{self.agent.pk}/")
 
                 self.assertEqual(home.status_code, 200)
                 self.assertNotContains(home, "مدیریت کاربران")
@@ -348,7 +351,9 @@ class AuthShellBrowserTests(TestCase):
                 self.assertNotContains(home, 'href="/users/"')
                 self.assertEqual(denied_list.status_code, 403)
                 self.assertContains(denied_list, "اجازه مدیریت کاربران را ندارید", status_code=403)
-                self.assertEqual(denied_detail.status_code, 403)
+                self.assertEqual(profile.status_code, 200)
+                for marker in ('id="edit-username"', 'id="change-role-form"', 'id="toggle-user-active"'):
+                    self.assertNotContains(profile, marker)
 
         self.client.force_login(self.platform)
         platform_list = self.client.get("/users/")
@@ -370,8 +375,13 @@ class AuthShellBrowserTests(TestCase):
         self.assertEqual(home.status_code, 200)
         self.assertNotContains(home, 'href="/users/"')
         self.assertEqual(self.client.get("/users/").status_code, 403)
-        self.assertEqual(platform_detail.status_code, 403)
-        self.assertEqual(agent_detail.status_code, 403)
+        # Company IT reads everyone's performance (`reports.company`), so both
+        # profiles open since 2.19.0 — and neither carries any account
+        # administration.
+        for detail in (platform_detail, agent_detail):
+            self.assertEqual(detail.status_code, 200)
+            for marker in ('id="edit-username"', 'id="change-role-form"', 'id="toggle-user-active"'):
+                self.assertNotContains(detail, marker)
 
     def test_platform_admin_sees_exact_controlled_role_options(self):
         self.client.force_login(self.platform)
@@ -384,7 +394,10 @@ class AuthShellBrowserTests(TestCase):
         # actor — exactly one Platform Admin exists at a time, provisioned
         # only by `bootstrap_platform_admin`.
         self.assertNotIn('<option value="platform_admin">', content)
-        self.assertNotIn("permission", content.lower())
+        # The per-user permission matrix is reachable from the profile's
+        # «دسترسی‌ها» tab since 2.19.0 — as the one dialog User Management
+        # also uses, never as a second copy.
+        self.assertEqual(content.count('id="permissions-dialog"'), 1)
 
     @override_settings(DEBUG=False)
     def test_unknown_route_has_safe_persian_404(self):

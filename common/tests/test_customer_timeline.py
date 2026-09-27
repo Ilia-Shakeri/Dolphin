@@ -255,12 +255,16 @@ class FeatureGateTests(TimelineFixtures):
         self.client.force_login(self.manager)
         with override_active_profile(profile_without("customer_timeline")):
             page = self.client.get(f"/customers/{self.customer.pk}/").content.decode("utf-8")
-        self.assertNotIn('id="customer-timeline"', page)
+        # The timeline is the customer profile's «فعالیت‌ها» tab since 2.19.0:
+        # without the feature, the tab is not rendered at all.
+        self.assertNotIn('id="profile-timeline"', page)
+        self.assertNotIn('data-profile-tab="activity"', page)
 
     def test_the_section_is_on_the_page_by_default(self):
         self.client.force_login(self.manager)
         page = self.client.get(f"/customers/{self.customer.pk}/").content.decode("utf-8")
-        self.assertIn('id="customer-timeline-list"', page)
+        self.assertIn('id="profile-timeline-list"', page)
+        self.assertIn('data-profile-tab="activity"', page)
         self.assertIn("تاریخچهٔ مشتری", page)
 
     def test_a_deployment_without_payments_keeps_the_rest_of_the_story(self):

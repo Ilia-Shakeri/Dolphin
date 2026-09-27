@@ -30,7 +30,13 @@ PANEL = (
     ROOT / "common" / "templates" / "common" / "includes" / "attachments_panel.inc"
 ).read_text(encoding="utf-8")
 DETAIL_PAGES = sorted(
-    path for path in (ROOT / "common" / "templates" / "common").rglob("*.html")
+    path
+    for path in [
+        *(ROOT / "common" / "templates" / "common").rglob("*.html"),
+        # The customer page is the person profile since 2.19.0; its panel
+        # lives in the profile's «اسناد» tab.
+        *(ROOT / "profiles" / "templates" / "profiles").rglob("*.inc"),
+    ]
     if "common/includes/attachments_panel.inc" in path.read_text(encoding="utf-8")
 )
 
@@ -135,11 +141,11 @@ class AttachmentPreflightTests(SimpleTestCase):
         self.assertIn("file.type &&", body)
 
     def test_the_reason_lands_in_the_panels_own_error_slot(self):
-        body = _function_body("setupAttachmentsPanel")
+        body = _function_body("setupAttachmentsPanelFor")
         self.assertIn('[data-error-for="file"]', body)
         self.assertIn("attachmentRejectionReason(panel, file)", body)
 
     def test_nothing_is_uploaded_when_the_check_refuses(self):
-        body = _function_body("setupAttachmentsPanel")
+        body = _function_body("setupAttachmentsPanelFor")
         refusal = body.split("if (reason) {")[1].split("}")[0]
         self.assertIn("return", refusal)

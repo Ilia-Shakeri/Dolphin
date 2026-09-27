@@ -29,13 +29,13 @@ class LoginSerializer(RejectServerFieldsMixin, serializers.Serializer):
 
 
 class MeSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"username", "role", "workstream", "capabilities", "is_active", "last_login", "created_at", "updated_at"}
+    server_fields = {"username", "normalized_phone", "role", "workstream", "capabilities", "is_active", "last_login", "last_seen_at", "created_at", "updated_at"}
     capabilities = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email", "phone", "role", "workstream", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
-        read_only_fields = ["id", "username", "role", "workstream", "capabilities", "is_active", "last_login", "created_at", "updated_at"]
+        fields = ["id", "username", "first_name", "last_name", "email", "phone", "normalized_phone", "job_title", "province", "role", "workstream", "capabilities", "is_active", "last_login", "last_seen_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "username", "normalized_phone", "role", "workstream", "capabilities", "is_active", "last_login", "last_seen_at", "created_at", "updated_at"]
 
     def get_capabilities(self, obj) -> list[str]:
         return sorted(capabilities_for(obj))
@@ -59,15 +59,15 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     #: input now — required on `POST`, refused again on update by
     #: `update_crm_user` itself (`role` is not in `USER_MUTABLE_FIELDS`), so a
     #: role change still only ever happens through `change-role`'s own rules.
-    server_fields = {"last_login", "created_at", "updated_at"}
+    server_fields = {"normalized_phone", "last_login", "last_seen_at", "created_at", "updated_at"}
     password = serializers.CharField(write_only=True, required=False, min_length=8)
     role = serializers.ChoiceField(choices=User.Role.choices)
     has_custom_permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "password", "first_name", "last_name", "email", "phone", "role", "workstream", "is_active", "has_custom_permissions", "last_login", "created_at", "updated_at"]
-        read_only_fields = ["id", "last_login", "created_at", "updated_at"]
+        fields = ["id", "username", "password", "first_name", "last_name", "email", "phone", "normalized_phone", "job_title", "province", "role", "workstream", "is_active", "has_custom_permissions", "last_login", "last_seen_at", "created_at", "updated_at"]
+        read_only_fields = ["id", "normalized_phone", "last_login", "last_seen_at", "created_at", "updated_at"]
 
     def get_has_custom_permissions(self, obj) -> bool:
         # `UserViewSet.get_queryset` annotates this for list/retrieve so a

@@ -318,7 +318,9 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     #: both bounds are exact ISO instants, because the calendar grid already
     #: knows precisely where each visible cell starts and ends, unlike a plain
     #: registration-date filter where a person types a bare day.
-    list_query_parameters = {"status", "follow_up_from", "follow_up_to"}
+    #: `assigned_to` is a user profile's «مشتریان و سرنخ‌ها» tab (2.19.0) —
+    #: a narrowing of the caller's own `leads_for` scope, never a widening.
+    list_query_parameters = {"status", "follow_up_from", "follow_up_to", "assigned_to"}
     action_query_parameters = {
         "assignees": {"page"},
         "assignment_history": {"page"},
@@ -339,6 +341,11 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
             if status_value not in Lead.Status.values:
                 raise ValidationError({"status": "وضعیت سرنخ را از فهرست انتخاب کنید."})
             queryset = queryset.filter(status=status_value)
+        assigned_to = self.request.query_params.get("assigned_to")
+        if assigned_to:
+            if not assigned_to.isdigit():
+                raise ValidationError({"assigned_to": "شناسهٔ کاربر معتبر نیست."})
+            queryset = queryset.filter(assigned_to_id=int(assigned_to))
         return self._filter_by_follow_up(queryset)
 
     def _filter_by_follow_up(self, queryset):
@@ -373,6 +380,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
         OpenApiParameter("status", str, description="Exact backend-owned lead status value."),
         OpenApiParameter("follow_up_from", str, description="Inclusive ISO 8601 instant; narrows to next_follow_up_at."),
         OpenApiParameter("follow_up_to", str, description="Exclusive ISO 8601 instant; narrows to next_follow_up_at."),
+        OpenApiParameter("assigned_to", int, description="A user id; narrows the caller's own lead scope to leads assigned to that user."),
     ])
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)

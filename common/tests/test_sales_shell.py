@@ -27,7 +27,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class SalesShellContractTests(SimpleTestCase):
     def test_client_covers_all_required_pages_and_states(self):
         script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
-        for page in ("customers", "customer-detail", "leads", "lead-detail", "interactions", "interaction-detail"):
+        # `customer-detail` became the shared `person-profile` page in 2.19.0.
+        for page in ("customers", "person-profile", "leads", "lead-detail", "interactions", "interaction-detail"):
             self.assertIn(f'page === "{page}"', script)
         for status in (403, 404, 409, 429):
             self.assertIn(f'{status}: "', script)
@@ -44,7 +45,7 @@ class SalesShellContractTests(SimpleTestCase):
         self.assertIn("/api/v1/reports/sales-documents/", script)
 
     def test_forms_do_not_offer_server_managed_fields(self):
-        customer_detail = (ROOT / "common" / "templates" / "common" / "customers" / "detail.html").read_text(encoding="utf-8")
+        customer_detail = (ROOT / "profiles" / "templates" / "profiles" / "tabs" / "customer_info.inc").read_text(encoding="utf-8")
         lead_detail = (ROOT / "common" / "templates" / "common" / "leads" / "detail.html").read_text(encoding="utf-8")
         interaction_list = (ROOT / "common" / "templates" / "common" / "interactions" / "list.html").read_text(encoding="utf-8")
 
@@ -64,7 +65,12 @@ class SalesShellContractTests(SimpleTestCase):
 
     def test_customer_profile_has_new_fields_relations_and_deactivate_only(self):
         customer_list = (ROOT / "common" / "templates" / "common" / "customers" / "list.html").read_text(encoding="utf-8")
-        customer_detail = (ROOT / "common" / "templates" / "common" / "customers" / "detail.html").read_text(encoding="utf-8")
+        # The customer page is the person profile since 2.19.0; what it had on
+        # one long page is now spread across the profile's tabs.
+        customer_detail = "".join(
+            path.read_text(encoding="utf-8")
+            for path in sorted((ROOT / "profiles" / "templates" / "profiles" / "tabs").glob("customer_*.inc"))
+        )
         script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
 
         for field in ("postal_code", "category"):
@@ -73,7 +79,7 @@ class SalesShellContractTests(SimpleTestCase):
             self.assertIn(f'"{field}"', script)
         for relation in ("leads", "interactions"):
             self.assertIn(f'id="customer-{relation}-table-body"', customer_detail)
-            self.assertIn(f'"{relation}", "{relation}"', script)
+            self.assertIn(f'relatedList("{relation}", "{relation}"', script)
         # Related orders became related invoices: what is asked of a customer's
         # account is their invoices, and neither of the earlier panels survives.
         self.assertIn('id="customer-invoices-table-body"', customer_detail)
@@ -105,7 +111,7 @@ class SalesShellContractTests(SimpleTestCase):
     def test_active_terminology_keeps_customers_and_user_roles_distinct(self):
         customer_paths = (
             ROOT / "common" / "templates" / "common" / "customers" / "list.html",
-            ROOT / "common" / "templates" / "common" / "customers" / "detail.html",
+            ROOT / "profiles" / "templates" / "profiles" / "tabs" / "customer_info.inc",
             ROOT / "common" / "templates" / "common" / "leads" / "list.html",
             ROOT / "common" / "templates" / "common" / "interactions" / "list.html",
             ROOT / "common" / "templates" / "common" / "interactions" / "detail.html",
@@ -141,7 +147,9 @@ class SalesShellContractTests(SimpleTestCase):
         }
         script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
         views = (ROOT / "common" / "ui_views.py").read_text(encoding="utf-8")
-        user_detail = (ROOT / "common" / "templates" / "common" / "users" / "detail.html").read_text(encoding="utf-8")
+        # The role selector lives on the user profile's «دسترسی‌ها» tab (2.19.0).
+        user_detail = (ROOT / "profiles" / "templates" / "profiles" / "tabs" / "user_access.inc").read_text(encoding="utf-8")
+        profile_views = (ROOT / "profiles" / "ui_views.py").read_text(encoding="utf-8")
         from accounts.access import ROLE_LABELS
 
         for role, label in role_labels.items():
@@ -157,7 +165,7 @@ class SalesShellContractTests(SimpleTestCase):
         for role in role_labels:
             self.assertNotIn(f'<option value="{role}"', user_detail)
         self.assertIn("{% for value, label in assignable_roles %}", user_detail)
-        self.assertIn('not_found_title = "مشتری پیدا نشد"', views)
+        self.assertIn('not_found_title = "مشتری پیدا نشد"', profile_views)
         self.assertNotIn("مشخصات بازاریاب (کال سنتر) ذخیره شد", script)
 
         base = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")

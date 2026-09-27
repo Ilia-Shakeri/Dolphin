@@ -296,6 +296,17 @@ class PlatformAdminRetainsFullAdministrationTests(ThrottleIsolatedTestCase):
         )
 
 
+
+#: What only an account administrator is shown on a user's profile (2.19.0):
+#: the account edit form's username field, the role change, the sessions and
+#: activation. Since `/users/<id>/` became the person profile it opens for
+#: more readers than User Management does — a manager reading a marketer's
+#: performance, anyone reading their own — so the policy is now "the page may
+#: open, the administration on it may not", and these markers are what that
+#: pins.
+ADMIN_ONLY_MARKERS = ('id="edit-username"', 'id="change-role-form"', 'id="revoke-user-sessions"', 'id="toggle-user-active"')
+
+
 class MaintainedUiRespectsPolicyTests(ThrottleIsolatedTestCase):
     """Navigation and pages follow the capability, with no separate role check."""
 
@@ -315,7 +326,17 @@ class MaintainedUiRespectsPolicyTests(ThrottleIsolatedTestCase):
             client = self._login(role)
             with self.subTest(role=role):
                 self.assertEqual(client.get("/users/").status_code, 403)
-                self.assertEqual(client.get(f"/users/{target.pk}/").status_code, 403)
+                profile = client.get(f"/users/{target.pk}/")
+                if role == User.Role.SALES_AGENT:
+                    # Another marketer is outside an agent's scope entirely.
+                    self.assertEqual(profile.status_code, 404)
+                    continue
+                # A manager may read the marketer's profile (the performance
+                # report's own scope) but administers nothing on it.
+                self.assertEqual(profile.status_code, 200)
+                content = profile.content.decode("utf-8")
+                for marker in ADMIN_ONLY_MARKERS:
+                    self.assertNotIn(marker, content)
 
     def test_non_admin_home_hides_user_administration(self):
         for role in NON_ADMIN_ROLES:

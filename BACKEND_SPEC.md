@@ -278,6 +278,7 @@ Fields:
 
 ```text
 full_name
+job_title nullable (2.19.0)
 national_id nullable
 email nullable
 province nullable
@@ -907,13 +908,14 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 - `POST auth/login/`: username and password; creates session. Inactive/invalid credentials and any server identity with staff/superuser/group/direct-permission state are rejected without exposing which identity rule failed. Application and Nginx rate limits protect repeated attempts.
 - `POST auth/logout/`: authenticated; clears session.
-- `GET/PATCH auth/me/`: current safe profile. Patch permits first name, last name, phone, and email only; it locks and safely audits changed field names.
+- `GET/PATCH auth/me/`: current safe profile. Patch permits first name, last name, phone, email, `job_title` and `province` only (the last two since 2.19.0; `province` must be one of the 31 names in `common/provinces.py` or blank); it locks and safely audits changed field names. The response also carries read-only `normalized_phone` and `last_seen_at`.
 - `GET auth/me/sessions/`: the caller's own active sessions. Each row carries an opaque `reference`, `expires_at`, `is_current`, and the device facts recorded at login (`user_agent`, `ip_address`, `started_at`). **A session key is never returned**: it is the bearer credential, and the reference is a keyed digest that cannot be reversed into one.
 - `POST auth/me/sessions/`: ends one of the caller's sessions when given its `reference`, or every other session when the body is empty. The caller's own session is always kept. An unknown reference returns HTTP 400.
 
 ### Users
 
 - `GET/POST users/`, `GET/PATCH users/{id}/`: Sales Manager lists and manages Sales Agent accounts only; Company IT manages clean non-platform accounts; Platform Admin manages every clean CRM identity. Inactive rows remain visible to their approved administrator for reactivation; staff/superuser/group/direct-permission identities remain hidden. A password is set once at creation and passes Django's validators; **it cannot be changed through this API** and no interface offers to, for any role — a forgotten password is recovered on the host with `manage.py changepassword`. Sending `password` to `PATCH users/{id}/` returns HTTP 400. `workstream` is exactly `sales` or `after_sales`, is allowed as `after_sales` only for Sales Agent, and resets to `sales` on promotion.
+- Since 2.19.0 `users/` rows also carry `job_title` and `province` (writable, same rules as `auth/me/`) and read-only `normalized_phone` (E.164 or blank) and `last_seen_at`.
 - `POST users/{id}/change-role/`: Company IT can grant through `company_it`; Platform Admin can grant any fixed CRM role. Staff/superuser/groups/permissions are never writable. Demoting the last active Platform Admin CRM identity returns HTTP 409 `conflict`.
 - `GET users/{id}/sessions/`, `POST users/{id}/revoke-sessions/`: Platform Admin only, same shape as the self-service endpoints above and with the same rule that no session key is ever returned. Revocation accepts an optional `reference` to end one session.
 - `PATCH users/{id}/` with `is_active=false`: deactivating the last active Platform Admin CRM identity returns HTTP 409 `conflict`. A second active Platform Admin counts only when it also passes the CRM-identity guard.
@@ -928,7 +930,7 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 ### Leads and assignment
 
-- `leads/`: scoped list/create/retrieve/update. Ownership/status fields are read-only. Notes permit at most 4,000 characters. No DELETE.
+- `leads/`: scoped list/create/retrieve/update. Ownership/status fields are read-only. Notes permit at most 4,000 characters. No DELETE. The list accepts `assigned_to=<user id>` (2.19.0), which narrows the caller's own lead scope and never widens it; a non-numeric value is HTTP 400.
 - `GET leads/assignees/`: Sales Manager, Company IT, or Platform Admin only. Returns paginated minimal identity fields for active clean Sales Agent CRM identities; it does not expose user-administration fields or invent Team boundaries.
 - `GET leads/work-queue/`: Sales Agent only. Returns only Leads currently assigned to the authenticated agent; dated follow-ups sort first by nearest `next_follow_up_at`, then assigned records without a date. Managers use the company Lead list, not this personal endpoint.
 - `GET leads/{id}/assignment-history/`: paginated append-oriented assignment history after the same role/object scope as Lead retrieve. Out-of-scope direct IDs return 404.
@@ -962,6 +964,14 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - `POST after-sales/{id}/transition-status/` is allowed to elevated roles and the currently assigned after-sales operator. It rejects closed/same/blank/multiline status and appends history/audit atomically. Exact status vocabulary and graph remain unresolved; no enum is claimed.
 - `POST after-sales/{id}/close/` is elevated-only and final because reopen semantics were not supplied. `GET after-sales/{id}/history/` reuses the case selector and is append-only.
 - After-sales operators get no Customer, Lead, Interaction, Product, Sale, sales-document, performance, or postal-report API scope. The case response embeds only the bounded relation labels needed by its panel.
+
+### Person profile (2.19.0)
+
+Full contract and the "add a person type" guide: `docs/backend/PERSON_PROFILES.md`.
+
+- Pages: `/customers/{id}/` (feature `customers`, scope `customers_for`) and `/users/{id}/` render one profile template. A user profile opens for the union of three scopes that each existed before it — the accounts the viewer administers (`users.manage_*`), the people whose performance they may read (`users_for_performance_report`, feature `reports`, `reports.own`/`reports.company`) and the viewer themselves; anything else is HTTP 404, never 403. Account administration on the page (account edit, role change, permission matrix, sessions, activation) is rendered only for an administrator of that account and is enforced by the existing endpoints. `/users/{id}/profile/` and `/profile/` redirect to `/users/{id}/?tab=performance`.
+- Tabs of a disabled feature or unpermitted data are not rendered. `?tab=` selects the first tab to open; an unknown or withheld value falls back to the overview.
+- `GET profiles/{person_type}/{person_id}/timeline/[?limit=n]`: `person_type` is `customer` or `user`. `{count, events}` in the customer-timeline shape, newest first. Customer: exactly `customers/{id}/timeline/` (feature `customer_timeline`). User: interactions they logged, leads assigned to them (by `assigned_at`), customers they created, sales they made and after-sales cases assigned to them — each source behind its own feature and read through the viewer's own selector. Unknown type, disabled feature or out-of-scope person is HTTP 404. `limit` trims `events` only; `count` stays the total found. Response is `Cache-Control: private, no-store`.
 
 ### User-performance report and XLSX
 
@@ -1869,9 +1879,11 @@ The user-performance JSON and XLSX outputs are read-only projections over User, 
 
 Authenticated CRM account. Extends Django's abstract user with nullable phone, fixed `role`, bounded fixed `workstream`, and timestamps. Role defaults to `sales_agent`; a database check permits only the four fixed role codes. Workstream is exactly `sales` or `after_sales`; elevated roles must remain in `sales`, while only a clean Sales Agent may use `after_sales`. This is not a fifth role or a dynamic permission builder. A login-capable CRM identity must be active, have one fixed CRM role, have both `is_staff` and `is_superuser` false, and have no Django group membership or direct permission. A row with any staff/superuser/group/direct-permission state is a server identity, not a CRM identity. Inactive actors fail every route and service gate but remain visible to approved account administrators for audited reactivation and historical links. Role is server-controlled; workstream is administrator-controlled within the role constraint. Ordinary deletion is not exposed. Creation, profile/account/workstream changes, and role changes are safely audited without password values. A password is set once at creation; changing one is not exposed by any interface or API route, and recovery is a host operation. Promotion to an elevated role resets workstream to `sales`. Locked services protect the last active Platform Admin.
 
+Since 2.19.0 a user also has an optional `job_title` (120 characters), an optional `province` (one of the 31 names in `common/provinces.py`, validated in the account services), a server-owned `normalized_phone` (E.164 `+98…` or blank, indexed; recomputed by `User.save()` from `phone`, blank when `phone` is not an Iranian number) and `last_seen_at` (written at most once every two minutes by `accounts.middleware.PresenceMiddleware` with a filtered `UPDATE` that does not touch `updated_at`; "online" means seen within five minutes). Data migration `accounts.0008` backfills `normalized_phone` idempotently.
+
 ### Customer
 
-Stable contact identity. Fields: full name, optional national ID/email/province/city/postal code/category/address, notes, creator, active flag, timestamps. Postal code is an opaque text value capped at 32 characters because no country-specific format is approved. Category is a plain text label capped at 100 characters because no category entity, hierarchy, fixed choices, or lifecycle is approved. Address is capped at 2,000 characters and notes at 4,000 in API validation, services, and the PostgreSQL column type. Creator is server-controlled and indexed. National ID is indexed but not unique because policy is absent. Normal flow deactivates. Customer deletion is not exposed. Deactivation is audited. The Customer API includes a read-only active primary-phone projection; related Lead, Interaction, and Sale reads reuse their existing actor scopes.
+Stable contact identity. Fields: full name, optional job title (2.19.0, capped at 120 characters)/national ID/email/province/city/postal code/category/address, notes, creator, active flag, timestamps. Postal code is an opaque text value capped at 32 characters because no country-specific format is approved. Category is a plain text label capped at 100 characters because no category entity, hierarchy, fixed choices, or lifecycle is approved. Address is capped at 2,000 characters and notes at 4,000 in API validation, services, and the PostgreSQL column type. Creator is server-controlled and indexed. National ID is indexed but not unique because policy is absent. Normal flow deactivates. Customer deletion is not exposed. Deactivation is audited. The Customer API includes a read-only active primary-phone projection; related Lead, Interaction, and Sale reads reuse their existing actor scopes.
 
 ### CustomerPhone
 

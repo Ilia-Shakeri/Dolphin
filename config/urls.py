@@ -16,6 +16,7 @@ def build_urlpatterns():
         path("api/v1/", include("aftersales.urls")),
         path("api/v1/", include("communications.urls")),
         path("api/v1/", include("inventory.urls")),
+        path("api/v1/", include("profiles.urls")),
         path("api/v1/", include("billing.urls")),
         path("api/v1/", include("attachments.urls")),
         path("api/v1/", include("chat.urls")),

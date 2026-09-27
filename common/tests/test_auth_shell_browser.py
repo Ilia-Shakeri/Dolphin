@@ -229,8 +229,10 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
                 # and common/tests/test_auth_shell.py). Requesting it here would
                 # log an expected 403 and defeat assert_browser_clean().
                 if user.role == User.Role.PLATFORM_ADMIN:
-                    self.browser.get(f"{self.live_server_url}/users/{self.agent.pk}/")
+                    # Activation lives on the profile's «دسترسی‌ها» tab (2.19.0).
+                    self.browser.get(f"{self.live_server_url}/users/{self.agent.pk}/?tab=access")
                     self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "user-detail-content")))
+                    self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "غیرفعال کردن کاربر"))
                     toggle = self.browser.find_element(By.ID, "toggle-user-active")
                     self.assertEqual(toggle.text, "غیرفعال کردن کاربر")
                     toggle.click()

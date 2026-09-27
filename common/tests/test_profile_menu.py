@@ -19,6 +19,8 @@ from accounts.sessions import session_reference
 PASSWORD = "Strong-pass-937!"
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 TEMPLATE_ROOT = REPOSITORY_ROOT / "common" / "templates" / "common"
+#: The person profile's own templates (2.19.0) are served pages too.
+PROFILE_TEMPLATE_ROOT = REPOSITORY_ROOT / "profiles" / "templates" / "profiles"
 APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
 
 
@@ -199,7 +201,7 @@ class PasswordChangeAbsentTests(TestCase):
 
     def test_no_served_template_offers_a_password_change(self):
         offenders = []
-        for path in TEMPLATE_ROOT.rglob("*.html"):
+        for path in [*TEMPLATE_ROOT.rglob("*.html"), *PROFILE_TEMPLATE_ROOT.rglob("*.html"), *PROFILE_TEMPLATE_ROOT.rglob("*.inc")]:
             if path.name == "login.html":
                 continue  # Signing in is not changing a password.
             if path.name in self.TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL:
@@ -212,7 +214,8 @@ class PasswordChangeAbsentTests(TestCase):
 
     def test_the_edit_request_sends_no_password(self):
         script = APP_JS.read_text(encoding="utf-8")
-        edit_block = script.split('const editForm = document.getElementById("edit-user-form");', 1)[1]
-        edit_block = edit_block.split("const roleForm", 1)[0]
+        # The user edit form is the profile's «اطلاعات» tab since 2.19.0.
+        edit_block = script.split("async function setupUserInfoTab() {", 1)[1]
+        edit_block = edit_block.split("async function setupUserAccessTab", 1)[0]
         self.assertNotIn('"password"', edit_block)
         self.assertNotIn("payload.password", edit_block)

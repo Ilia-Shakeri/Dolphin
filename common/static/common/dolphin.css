@@ -385,6 +385,17 @@ dialog::backdrop {
     flex: 1 1 auto;
 }
 
+/* A person profile's «بیشتر» menu (2.19.0) — the theme's dropdown from
+   pages/user-profile/overview.html, anchored under its button the same way
+   and for the same reason as `#user-menu` above. */
+#profile-more-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    z-index: 105;
+    max-width: calc(100vw - 1.5rem);
+}
+
 /* Global search, anchored and scroll-capped exactly like the bell above. */
 #global-search-menu {
     position: absolute;

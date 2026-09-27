@@ -56,6 +56,9 @@ class Customer(TimeStampedModel):
     #: official, and it is required there by the invoice, not by this model. A
     #: customer entered for day-to-day work is not obliged to carry one.
     economic_code = models.CharField(max_length=32, blank=True, db_index=True)
+    #: The person's position at their own company (2.19.0) — the customer
+    #: profile's «سمت». Optional; the profile falls back to the customer kind.
+    job_title = models.CharField(max_length=120, blank=True, default="")
     email = models.EmailField(blank=True)
     province = models.CharField(max_length=100, blank=True)
     city = models.CharField(max_length=100, blank=True)

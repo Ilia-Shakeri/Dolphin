@@ -1,46 +1,10 @@
-{% extends "common/base.html" %}
-{% block title %}پروفایل {{ target_display_name }}{% endblock %}
-{% block page_id %}user-profile{% endblock %}
-{% block body_data %} data-user-id="{{ target_user_id }}"{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">عملکرد فردی</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
-{% block page_title %}{% if is_own_profile %}پروفایل من{% else %}پروفایل {{ target_display_name }}{% endif %}{% endblock %}
-{% block breadcrumb_current %}{% if is_own_profile %}پروفایل من{% else %}پروفایل بازاریاب{% endif %}{% endblock %}
-{% block page_actions %}<div class="d-flex flex-wrap gap-2 gap-lg-3">
-    {% if not is_own_profile %}<a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست کاربران</a>{% endif %}
-    {% if can_manage_users and not is_own_profile %}<a class="btn btn-light" href="{% url 'common_ui:user-detail' target_user_id %}">ویرایش کاربر</a>{% endif %}
-</div>{% endblock %}
-{% block content %}
+{% comment %} The performance page this profile replaced (`/users/<id>/profile/`,
+   which now redirects here), moved into a tab unchanged: the same period
+   filter, the same four figures, the same trend and the same drill-down, all
+   read from the reports API with its own scope check on every request. {% endcomment %}
 <section id="user-profile-content" data-target-user-id="{{ target_user_id }}" data-target-username="{{ target_username }}">
-    {% comment %} The header: identity rendered straight from the server, since it
-       is already validated in scope by the view — no client round trip needed just
-       to show a name. Only the numbers below it are loaded, because they come from
-       the reports API and its own period filter. {% endcomment %}
-    <div class="card mb-5 mb-xl-8"><div class="card-body pt-9 pb-9">
-        <div class="d-flex flex-wrap flex-sm-nowrap">
-            <div class="me-7 mb-4">
-                <div class="symbol symbol-100px symbol-lg-160px symbol-fixed">
-                    <div class="symbol-label fs-1 fw-bold text-primary bg-light-primary">{{ target_initials }}</div>
-                </div>
-            </div>
-            <div class="flex-grow-1">
-                <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
-                    <div class="d-flex flex-column">
-                        <div class="d-flex align-items-center mb-2">
-                            <span class="text-gray-900 fs-2 fw-bold me-3">{{ target_display_name }}</span>
-                            <span class="badge {% if target_is_active %}badge-light-success{% else %}badge-light-danger{% endif %}">{% if target_is_active %}فعال{% else %}غیرفعال{% endif %}</span>
-                        </div>
-                        <div class="d-flex flex-wrap fw-semibold fs-6 mb-2 pe-2 text-gray-500">
-                            <span class="d-flex align-items-center me-5 mb-2"><i class="ki-duotone ki-profile-circle fs-4 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{{ target_role_label }}</span>
-                            <span class="d-flex align-items-center me-5 mb-2"><i class="ki-duotone ki-user-tick fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>{{ target_username }}</span>
-                            {% if target_phone %}<span class="d-flex align-items-center me-5 mb-2"><i class="ki-duotone ki-phone fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>{{ target_phone }}</span>{% endif %}
-                            {% if target_email %}<span class="d-flex align-items-center mb-2"><i class="ki-duotone ki-sms fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>{{ target_email }}</span>{% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <form id="profile-performance-filter-form" class="d-flex flex-wrap align-items-end gap-3 mt-4 pt-4 border-top border-gray-200" novalidate>
+    <div class="card mb-5 mb-xl-8"><div class="card-body">
+        <form id="profile-performance-filter-form" class="d-flex flex-wrap align-items-end gap-3" novalidate>
             <input type="hidden" id="profile-user-id" name="user_id" value="{{ target_user_id }}">
             <div><label class="form-label fw-semibold" for="profile-period-start">شروع بازه</label><input class="form-control form-control-solid form-control-sm" id="profile-period-start" name="period_start" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_start"></p></div>
             <div><label class="form-label fw-semibold" for="profile-period-end">پایان بازه</label><input class="form-control form-control-solid form-control-sm" id="profile-period-end" name="period_end" type="text" data-jalali="datetime" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="period_end"></p></div>
@@ -87,4 +51,3 @@
         </div>
     </div>
 </section>
-{% endblock %}

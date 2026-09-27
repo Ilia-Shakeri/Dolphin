@@ -69,6 +69,7 @@ Before non-trivial work, locate and inspect the relevant first-party implementat
 The maintained served Dolphin UI is:
 
 • common/templates/common/**
+• profiles/templates/profiles/** (the shared customer/user profile page)
 • common/static/common/dolphin-app.js
 • common/static/common/dolphin.css
 • common/ui_urls.py

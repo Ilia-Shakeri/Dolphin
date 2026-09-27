@@ -325,13 +325,13 @@ class PopoverRegistryTests(SimpleTestCase):
         self.assertEqual(SCRIPT.count("function registerPopover("), 1)
 
     def test_every_panel_in_the_shell_goes_through_it(self):
-        """Five: the user menu, global search, the reminder bell, and each
-        list card's filter panel — the fifth being the one that used the
-        `hidden` attribute rather than `.show`."""
+        """Six: the user menu, global search, the reminder bell, each list
+        card's filter panel — the one that used the `hidden` attribute rather
+        than `.show` — and, since 2.19.0, a person profile's «بیشتر» menu."""
         # Calls, not the definition: the function's own signature destructures
         # its argument and so matches the same text.
         calls = SCRIPT.count("registerPopover({") - SCRIPT.count("function registerPopover({")
-        self.assertEqual(calls, 5)
+        self.assertEqual(calls, 6)
 
     def test_opening_one_closes_the_others(self):
         """The product owner's own case: «وقتی منوی یادآورها باز است و روی

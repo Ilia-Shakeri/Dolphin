@@ -220,8 +220,12 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.CSS_SELECTOR, "#create-customer-form button[type='submit']").click()
         self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
-        self.assertEqual(self.browser.find_element(By.TAG_NAME, "h1").text, "جزئیات مشتری")
+        self.assertEqual(self.browser.find_element(By.TAG_NAME, "h1").text, "پروفایل مشتری")
         customer_url = self.browser.current_url
+        # The edit form and phones are the profile's «اطلاعات» tab (2.19.0).
+        self.browser.find_element(By.CSS_SELECTOR, '[data-profile-tab="info"]').click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "edit-customer-name")))
+        self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "edit-customer-name"), "مشتری مرورگر"))
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "مشتری مرورگر")
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-postal-code").get_attribute("value"), "کد ۱۲۳")
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-category").get_attribute("value"), "ویژه")
@@ -284,10 +288,13 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             sold_at=timezone.now(),
         )
 
-        self.browser.get(customer_url)
+        self.browser.get(f"{customer_url}?tab=leads")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-leads-table-body"), "ثبت دستی مرورگر"))
+        self.browser.find_element(By.CSS_SELECTOR, '[data-profile-tab="calls"]').click()
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "customer-interactions-table-body"), "پاسخ دستی"))
+        self.browser.find_element(By.CSS_SELECTOR, '[data-profile-tab="info"]').click()
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-active-select")))
         # The related panel lists orders now, not sales, so the sale above no
         # longer appears here — it is still visible in the campaign results.
         self.assertFalse(self.browser.find_elements(By.ID, "customer-sales-table-body"))

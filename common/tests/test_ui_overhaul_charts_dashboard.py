@@ -63,6 +63,7 @@ from common.tests.ui_overhaul_helpers import (  # noqa: E402
 )
 
 HOME = (TEMPLATES / "home.html").read_text(encoding="utf-8")
+PROFILE_TABS = ROOT / "profiles" / "templates" / "profiles" / "tabs"
 LIST_CHART_INCLUDE = (TEMPLATES / "includes" / "list_charts.inc").read_text(encoding="utf-8")
 
 User = get_user_model()
@@ -117,14 +118,15 @@ class SharedRangeFilterTests(SimpleTestCase):
         for gone in ("data-growth-range", "data-trend-range"):
             with self.subTest(attribute=gone):
                 self.assertNotIn(gone, SCRIPT)
-                for name in ("customers/list.html", "users/profile.html"):
-                    self.assertNotIn(gone, (TEMPLATES / name).read_text(encoding="utf-8"))
+                for path in (TEMPLATES / "customers/list.html", PROFILE_TABS / "user_performance.inc"):
+                    self.assertNotIn(gone, path.read_text(encoding="utf-8"))
 
     def test_each_of_those_pages_now_declares_the_shared_slot(self):
         self.assertIn('id="customer-growth-controls"',
                       (TEMPLATES / "customers" / "list.html").read_text(encoding="utf-8"))
+        # The performance page is the user profile's «عملکرد» tab since 2.19.0.
         self.assertIn('id="profile-trend-controls"',
-                      (TEMPLATES / "users" / "profile.html").read_text(encoding="utf-8"))
+                      (PROFILE_TABS / "user_performance.inc").read_text(encoding="utf-8"))
         # One slot in one include covers all eleven list pages.
         self.assertIn("data-chart-range", LIST_CHART_INCLUDE)
 

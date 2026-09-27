@@ -50,7 +50,7 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Customer
-        fields = ["id", "full_name", "kind", "kind_display", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
+        fields = ["id", "full_name", "kind", "kind_display", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
         read_only_fields = ["id", "created_by", "created_by_display", "is_active", "primary_phone", "kind_display", "created_at", "updated_at"]
 
     def get_created_by_display(self, instance) -> str:

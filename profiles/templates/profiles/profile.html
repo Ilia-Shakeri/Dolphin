@@ -1,0 +1,100 @@
+{% extends "common/base.html" %}
+{% load jalali_tags %}
+{% block title %}{% if person %}{{ person.name }}{% else %}پروفایل{% endif %}{% endblock %}
+{% block page_id %}person-profile{% endblock %}
+{% block body_data %}{% if person %} data-person-type="{{ person.type }}" data-person-id="{{ person.id }}"{% if person.type == "customer" %} data-customer-id="{{ person.id }}"{% else %} data-user-id="{{ person.id }}"{% endif %} data-active-tab="{{ active_tab }}"{% endif %}{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">{% if person.type == "customer" %}دفتر مشتریان{% elif is_own_profile %}حساب من{% else %}همکاران{% endif %}</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
+{% block page_title %}{% if person.type == "customer" %}پروفایل مشتری{% elif is_own_profile %}پروفایل من{% else %}پروفایل کاربر{% endif %}{% endblock %}
+{% block breadcrumb_current %}{% if person %}{{ person.name }}{% else %}پروفایل{% endif %}{% endblock %}
+{% block content %}
+{% comment %} یک پروفایل برای هر نوع شخص (۲.۱۹.۰). سربرگ همین‌جا از داده‌ای رندر
+   می‌شود که view پس از بررسی دامنه در اختیار دارد؛ دادهٔ هر زبانه فقط وقتی آن
+   زبانه برای اولین بار باز شود از API خودش خوانده می‌شود. زبانه‌ای که ویژگی یا
+   دسترسی‌اش نیست اصلاً رندر نمی‌شود — و API پشت هر زبانه دوباره بررسی می‌کند.
+   نشانه‌گذاری سربرگ از قالب Metronic است: pages/user-profile/overview.html. {% endcomment %}
+<div class="card mb-5 mb-xl-8" id="{{ person.type }}-detail-content">
+    <div class="card-body pt-9 pb-0">
+        <div class="d-flex flex-wrap flex-sm-nowrap">
+            <div class="me-7 mb-4">
+                <div class="symbol symbol-100px symbol-lg-160px symbol-fixed position-relative">
+                    {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="تصویر {{ person.name }}">{% else %}<div class="symbol-label fs-1 fw-bold text-primary bg-light-primary" aria-hidden="true">{{ person.initials }}</div>{% endif %}
+                    {% if person.presence %}<div class="position-absolute translate-middle bottom-0 start-100 mb-6 rounded-circle border border-4 border-body h-20px w-20px {% if person.presence.online %}bg-success{% else %}bg-gray-400{% endif %}" data-profile-presence-dot title="{% if person.presence.online %}آنلاین{% else %}آفلاین{% endif %}"></div>{% endif %}
+                </div>
+            </div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="d-flex justify-content-between align-items-start flex-wrap mb-2 gap-3">
+                    <div class="d-flex flex-column min-w-0">
+                        <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+                            <h2 class="text-gray-900 fs-2 fw-bold mb-0 text-break" data-profile-name>{{ person.name }}</h2>
+                            {% if person.badge %}<span class="badge badge-light-{{ person.badge.accent }}" data-profile-badge>{{ person.badge.label }}</span>{% endif %}
+                            {% if person.presence %}<span class="fs-7 {% if person.presence.online %}text-success{% else %}text-gray-500{% endif %}" data-profile-presence>{% if person.presence.online %}آنلاین{% elif person.presence.last_seen_at %}آخرین بازدید {{ person.presence.last_seen_at|jalali_datetime }}{% else %}هنوز بازدیدی ثبت نشده{% endif %}</span>{% endif %}
+                        </div>
+                        <div class="d-flex flex-wrap fw-semibold fs-6 mb-4 pe-2">
+                            <span class="d-flex align-items-center text-gray-500 me-5 mb-2" data-profile-field="job_title"{% if person.job_title.tooltip %} title="{{ person.job_title.tooltip }}"{% endif %}>
+                                <i class="ki-duotone ki-profile-circle fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                <span class="visually-hidden">سمت: </span>{{ person.job_title.value }}
+                            </span>
+                            <span class="d-flex align-items-center text-gray-500 me-5 mb-2" data-profile-field="province"{% if person.province.missing %} title="{{ person.province.tooltip }}"{% endif %}>
+                                <i class="ki-duotone ki-geolocation fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                                <span class="visually-hidden">استان: </span>{% if person.province.missing %}—<span class="visually-hidden">{{ person.province.tooltip }}</span>{% else %}{{ person.province.value }}{% endif %}
+                            </span>
+                            {% if person.phone %}
+                            <a class="d-flex align-items-center text-gray-500 text-hover-primary me-5 mb-2" data-profile-field="phone" href="{{ person.phone.tel }}" dir="ltr" title="تماس با {{ person.phone.display }}">
+                                <i class="ki-duotone ki-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                                <span class="visually-hidden">تلفن: </span>{{ person.phone.display }}
+                            </a>
+                            {% else %}
+                            <span class="d-flex align-items-center text-gray-500 me-5 mb-2" data-profile-field="phone" title="{{ person.phone_missing_tooltip }}">
+                                <i class="ki-duotone ki-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                                <span class="visually-hidden">تلفن: </span>—<span class="visually-hidden">{{ person.phone_missing_tooltip }}</span>
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2 my-2" data-profile-actions>
+                        {% for action in quick_actions %}
+                        {% if action.href %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="{{ action.href }}" data-quick-action="{{ action.key }}">
+                        {% elif action.tab %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="?tab={{ action.tab }}" data-profile-tab-link="{{ action.tab }}" data-quick-action="{{ action.key }}">
+                        {% else %}<button class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" type="button" data-profile-action="{{ action.action }}" data-quick-action="{{ action.key }}"{% for name, value in action.data.items %} data-{{ name }}="{{ value }}"{% endfor %}>{% endif %}
+                            <i class="ki-duotone {{ action.icon }} fs-4 me-1" aria-hidden="true">{% for n in action.paths %}<span class="path{{ n }}"></span>{% endfor %}</i>{{ action.label }}
+                        {% if action.href or action.tab %}</a>{% else %}</button>{% endif %}
+                        {% endfor %}
+                        {% if menu_actions %}
+                        <div class="position-relative">
+                            <button id="profile-more-toggle" class="btn btn-sm btn-icon btn-bg-light btn-active-color-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-more-menu" aria-label="عملیات بیشتر">
+                                <i class="ki-duotone ki-dots-horizontal fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                            </button>
+                            <div id="profile-more-menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-225px py-3">
+                                {% for action in menu_actions %}
+                                <div class="menu-item px-3">
+                                    {% if action.href %}<a class="menu-link px-3" href="{{ action.href }}" data-quick-action="{{ action.key }}">{{ action.label }}</a>
+                                    {% elif action.tab %}<a class="menu-link px-3" href="?tab={{ action.tab }}" data-profile-tab-link="{{ action.tab }}" data-quick-action="{{ action.key }}">{{ action.label }}</a>
+                                    {% else %}<button class="menu-link px-3 w-100 text-start border-0 bg-transparent" type="button" data-profile-action="{{ action.action }}" data-quick-action="{{ action.key }}"{% for name, value in action.data.items %} data-{{ name }}="{{ value }}"{% endfor %}>{{ action.label }}</button>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% block profile_header_extra %}{% endblock %}
+            </div>
+        </div>
+        <div class="d-flex overflow-auto h-55px">
+            <ul class="nav nav-stretch nav-line-tabs nav-line-tabs-2x border-transparent fs-5 fw-bold flex-nowrap" role="tablist" aria-label="بخش‌های پروفایل">
+                {% for tab in profile_tabs %}
+                <li class="nav-item mt-2" role="presentation">
+                    <a class="nav-link text-active-primary ms-0 me-10 py-5 text-nowrap{% if tab.key == active_tab %} active{% endif %}" id="profile-tab-{{ tab.key }}" href="?tab={{ tab.key }}" role="tab" aria-controls="profile-pane-{{ tab.key }}" aria-selected="{% if tab.key == active_tab %}true{% else %}false{% endif %}"{% if tab.key != active_tab %} tabindex="-1"{% endif %} data-profile-tab="{{ tab.key }}">{{ tab.label }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% for tab in profile_tabs %}
+<section id="profile-pane-{{ tab.key }}" role="tabpanel" aria-labelledby="profile-tab-{{ tab.key }}" data-profile-pane="{{ tab.key }}"{% if tab.key != active_tab %} hidden{% endif %}>
+    {% include tab.template %}
+</section>
+{% endfor %}
+{% endblock %}

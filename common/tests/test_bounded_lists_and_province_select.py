@@ -22,6 +22,7 @@ SCRIPT = (
     REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
 ).read_text(encoding="utf-8")
 TEMPLATES = REPOSITORY_ROOT / "common" / "templates" / "common"
+PROFILE_TABS = REPOSITORY_ROOT / "profiles" / "templates" / "profiles" / "tabs"
 
 
 def _function_body(name):
@@ -94,11 +95,13 @@ class ProvinceSelectTests(SimpleTestCase):
         self.assertIn("select.value = selectedValue", body)
 
     def test_both_customer_forms_use_a_select_not_free_text(self):
+        # The edit form moved into the customer profile's «اطلاعات» tab in
+        # 2.19.0 (`profiles/templates/profiles/tabs/customer_info.inc`).
         for relative_path, field_id in (
-            ("customers/list.html", "create-customer-province"),
-            ("customers/detail.html", "edit-customer-province"),
+            (TEMPLATES / "customers/list.html", "create-customer-province"),
+            (PROFILE_TABS / "customer_info.inc", "edit-customer-province"),
         ):
-            content = (TEMPLATES / relative_path).read_text(encoding="utf-8")
+            content = relative_path.read_text(encoding="utf-8")
             with self.subTest(template=relative_path):
                 self.assertIn(f'<select class="form-select form-select-solid" id="{field_id}"', content)
                 self.assertNotIn(f'<input class="form-control form-control-solid" id="{field_id}"', content)
