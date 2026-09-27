@@ -1,0 +1,134 @@
+/* The Persian typefaces a reader may choose for the panel (2.18.7).
+
+   Registration only — nothing in this sheet chooses a face for any element.
+   Which face the panel uses is still decided per reader by
+   `common.preferences.preference_css`; the theme's own IRANSans remains the
+   default. A browser downloads a file here only when a rendered element
+   actually uses its family, so registering all of them costs a reader who
+   never changes the typeface nothing but this small sheet.
+
+   Self-hosted, never from a font CDN: deployments run on internal networks
+   (and must keep working without the internet), and a typeface that only
+   exists on the machine that happens to have it installed was exactly why
+   the earlier choices (Tahoma, B Nazanin, B Mitra) often looked like no
+   change at all.
+
+   Every family here is under the SIL Open Font License 1.1; each folder
+   carries its own OFL.txt, as that license requires.
+
+     vazirmatn/  Vazirmatn 33.0.3 — Saber Rastikerdar     (variable, 100–900)
+     sahel/      Sahel 3.4.0      — Saber Rastikerdar
+     shabnam/    Shabnam 5.0.0    — Saber Rastikerdar
+     samim/      Samim 4.0.5      — Saber Rastikerdar
+     estedad/    Estedad 5.3.0    — Amin Abedi            (variable, 100–900)
+     parastoo/   Parastoo 2.0.1   — Saber Rastikerdar
+*/
+
+@font-face {
+    font-family: "Vazirmatn";
+    src: url("vazirmatn/Vazirmatn-wght.woff2") format("woff2-variations"),
+         url("vazirmatn/Vazirmatn-wght.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Sahel";
+    src: url("sahel/Sahel.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Sahel";
+    src: url("sahel/Sahel-SemiBold.woff2") format("woff2");
+    font-weight: 500 600;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Sahel";
+    src: url("sahel/Sahel-Bold.woff2") format("woff2");
+    font-weight: 700 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Shabnam";
+    src: url("shabnam/Shabnam.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Shabnam";
+    src: url("shabnam/Shabnam-Medium.woff2") format("woff2");
+    font-weight: 500 600;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Shabnam";
+    src: url("shabnam/Shabnam-Bold.woff2") format("woff2");
+    font-weight: 700 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Samim";
+    src: url("samim/Samim.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Samim";
+    src: url("samim/Samim-Medium.woff2") format("woff2");
+    font-weight: 500 600;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Samim";
+    src: url("samim/Samim-Bold.woff2") format("woff2");
+    font-weight: 700 900;
+    font-display: swap;
+}
+
+/* Estedad ships as two subsets split by script; `unicode-range` lets the
+   browser fetch only the one a page's text needs. */
+@font-face {
+    font-family: "Estedad";
+    src: url("estedad/Estedad-arabic-wght.woff2") format("woff2-variations"),
+         url("estedad/Estedad-arabic-wght.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+    unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF,
+        U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+@font-face {
+    font-family: "Estedad";
+    src: url("estedad/Estedad-latin-wght.woff2") format("woff2-variations"),
+         url("estedad/Estedad-latin-wght.woff2") format("woff2");
+    font-weight: 100 900;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: "Parastoo";
+    src: url("parastoo/Parastoo.woff2") format("woff2");
+    font-weight: 400 600;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Parastoo";
+    src: url("parastoo/Parastoo-Bold.woff2") format("woff2");
+    font-weight: 700 900;
+    font-display: swap;
+}

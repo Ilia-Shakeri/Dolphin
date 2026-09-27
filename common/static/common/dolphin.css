@@ -870,11 +870,15 @@ textarea:focus-visible,
    This is not a type scale: no size, weight or ramp is set here. It restores
    the one the theme already chose for this deployment, on the one family of
    nodes where the vendor hardcoded a Latin face. `!important` is required to
-   beat the vendor's own. */
+   beat the vendor's own.
+
+   Through the theme's own body-font token since 2.18.7, not a literal
+   IRANSans: a reader who picks another face (`common.preferences`) moves that
+   token, and the chart labels now move with the rest of the panel. */
 .apexcharts-text,
 .apexcharts-title-text,
 .apexcharts-legend-text {
-    font-family: IRANSansWeb, Helvetica, sans-serif !important;
+    font-family: var(--bs-body-font-family) !important;
 }
 
 /* Apex draws data labels with a shadow filter that is tuned for a dark plot
@@ -1862,6 +1866,14 @@ dialog {
     max-height: 30rem;
     overflow-y: auto;
     padding-inline-end: 0.35rem;
+}
+
+/* A reader who has made a tile taller (2.18.4, a box's own border) has sized
+   this row themselves; a fixed two-row cap would then cut their second row
+   in half behind a scroll. The cap stands for everyone else. */
+.dashboard-capability-grid:has(> .dashboard-widget[style*="--dashboard-min-height"]) {
+    max-height: none;
+    overflow-y: visible;
 }
 
 /* The performance panel's own "جزئیات همان محدوده مجاز" table
@@ -3950,5 +3962,37 @@ details[open] > summary.card-header::after {
 /* The radio inside is visually hidden by `.btn-check`, so its keyboard focus
    is shown on the card that stands for it. */
 .font-scale-option:has(.btn-check:focus-visible) {
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+/* «قلم پنل» — every choice drawn in its own face (2.18.7). The same theme
+   option card as the size glyphs above; a grid, because there are eleven. */
+.font-family-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    gap: 0.75rem;
+}
+
+.font-family-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    padding: 0.85rem 1rem;
+    text-align: start;
+}
+
+.font-family-sample {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.font-family-sample-line {
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.font-family-option:has(.btn-check:focus-visible) {
     box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
 }

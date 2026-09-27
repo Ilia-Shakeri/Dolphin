@@ -5,6 +5,7 @@
 {% block page_icon %}<i class="ki-duotone ki-setting-2 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}تنظیمات{% endblock %}
 {% block breadcrumb_current %}تنظیمات{% endblock %}
+{% block extra_head %}{% load static %}{% if not panel_font_sheet %}<link rel="stylesheet" href="{% static 'common/fonts/panel-fonts.css' %}?v={{ dolphin_version }}">{% endif %}{% endblock %}
 {% block content %}
 {% comment %} Two kinds of section on one page, and the difference is stated on
    the page rather than only in the code: everything in «نمایش پنل» is this
@@ -25,14 +26,29 @@
         <form id="preferences-form" novalidate>
             {% csrf_token %}
             <div class="row g-6">
-                <div class="col-md-6">
-                    <label class="form-label fw-semibold" for="preference-font-family">قلم پنل</label>
-                    <select class="form-select form-select-solid" id="preference-font-family" name="font_family">
+{% comment %} قلم پنل — هر گزینه با خودِ همان قلم نوشته شده، نه نامش در یک فهرست
+   کشویی. مالک محصول ۲۰۲۶/۰۹/۲۷: «کاربر باید بتواند قلم‌های بیشتری انتخاب کند
+   و تغییر قلم روی کل پنل اثر بگذارد». قلم‌هایی که با خود پنل می‌آیند
+   (`PANEL_FONT_FAMILIES_BUNDLED`) روی هر دستگاهی یکسان دیده می‌شوند؛ بقیه فقط
+   جایی که روی دستگاه نصب باشند — و همین را روی کارتشان می‌گوید. نمونهٔ هر کارت
+   `data-font-stack` خودش را دارد، پس پیش‌نمایش زندهٔ صفحه نسخهٔ دومی از این
+   نگاشت در اسکریپت ندارد. {% endcomment %}
+                <div class="col-12">
+                    <span class="form-label fw-semibold d-block" id="preference-font-family-label">قلم پنل</span>
+                    <div class="font-family-options" role="radiogroup" id="preference-font-family"
+                         aria-labelledby="preference-font-family-label">
                         {% for option in preference_catalog.font_families %}
-                        <option value="{{ option.value }}"{% if option.value == current_preferences.font_family %} selected{% endif %}>{{ option.label }}</option>
+                        <label class="btn btn-outline btn-outline-dashed btn-active-light-primary font-family-option{% if option.value == current_preferences.font_family %} active{% endif %}"
+                               for="preference-font-family-{{ option.value }}">
+                            <input class="btn-check" type="radio" name="font_family" id="preference-font-family-{{ option.value }}"
+                                   value="{{ option.value }}" data-font-stack="{{ option.stack }}"{% if option.value == current_preferences.font_family %} checked{% endif %}>
+                            <span class="font-family-sample" style="font-family: {{ option.stack }}">{{ option.label }}</span>
+                            <span class="font-family-sample-line text-gray-700" style="font-family: {{ option.stack }}" aria-hidden="true">دلفین، همراه فروش — ۱۴۰۵</span>
+                            {% if not option.bundled %}<span class="badge badge-light fs-9">اگر روی دستگاه نصب باشد</span>{% endif %}
+                        </label>
                         {% endfor %}
-                    </select>
-                    <p class="text-muted fs-7 mt-1 mb-0">اگر قلم انتخابی روی دستگاه شما نصب نباشد، پنل به ایران‌سنس برمی‌گردد.</p>
+                    </div>
+                    <p class="text-muted fs-7 mt-2 mb-0">قلم انتخابی روی همهٔ صفحه‌ها، جدول‌ها، فرم‌ها و نمودارهای پنل اعمال می‌شود. قلم‌های بدون برچسب همراه خود پنل‌اند و روی هر دستگاهی یکسان دیده می‌شوند.</p>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_family"></p>
                 </div>
 {% comment %} اندازهٔ قلم — سه آیکون حرف در سه اندازه، نه یک فهرست کشویی. مالک محصول

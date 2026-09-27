@@ -8515,7 +8515,7 @@
         return {
             chart: {
                 height,
-                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                fontFamily: chartFontFamily(),
                 // Apex flips its own axes and legend from this, so the whole
                 // chart reads right-to-left like the page around it.
                 defaultLocale: "en",
@@ -8551,10 +8551,10 @@
                 yaxis: {lines: {show: true}},
             },
             tooltip: {
-                style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "13px"},
+                style: {fontFamily: chartFontFamily(), fontSize: "13px"},
             },
             legend: {
-                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                fontFamily: chartFontFamily(),
                 labels: {colors: ink.muted},
                 markers: {radius: 3},
                 // Measured on a live legend: the marker's own edge landed
@@ -8567,7 +8567,7 @@
             },
             noData: {
                 text: "داده‌ای برای نمایش نیست.",
-                style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", color: ink.muted},
+                style: {fontFamily: chartFontFamily(), color: ink.muted},
             },
         };
     }
@@ -8584,6 +8584,18 @@
     //: after a switch to dark, where `--bs-gray-800` ink on a dark card is
     //: nearly invisible. Redrawing is the only way to re-read the palette.
     const chartRedraws = new Map();
+
+    /**
+     * The face Apex should draw its own text in: whatever the panel's body
+     * is set in right now — the reader's own choice when they made one
+     * (`common.preferences.preference_css`), the theme's IRANSans otherwise.
+     * Until 2.18.7 every chart named IRANSans literally, so a reader who
+     * chose another typeface still got IRANSans labels, tooltips and centre
+     * figures on every chart.
+     */
+    function chartFontFamily() {
+        return getComputedStyle(document.body).fontFamily || "IRANSansWeb, Helvetica, sans-serif";
+    }
 
     function mountApex(chart, empty, options, ariaLabel) {
         const existing = liveCharts.get(chart);
@@ -8932,7 +8944,7 @@
                                 showAlways: true,
                                 label: totalLabel || "مجموع",
                                 color: ink.muted,
-                                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                                fontFamily: chartFontFamily(),
                                 formatter: () =>
                                     total ||
                                     toPersianDigits(
@@ -8941,7 +8953,7 @@
                             },
                             value: {
                                 color: ink.text,
-                                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                                fontFamily: chartFontFamily(),
                                 fontSize: "20px",
                                 fontWeight: 700,
                                 formatter: (_value, opts) =>
@@ -8949,7 +8961,7 @@
                             },
                             name: {
                                 color: ink.muted,
-                                fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                                fontFamily: chartFontFamily(),
                             },
                         },
                     },
@@ -9076,7 +9088,7 @@
                 categories: usable.map((point) => point.label),
                 tickAmount: Math.min(maxLabels, usable.length),
                 labels: {
-                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    style: {fontFamily: chartFontFamily(), fontSize: "12px"},
                     hideOverlappingLabels: true,
                     // Deliberately no `trim` option here (product owner,
                     // 2026-09-21: «اعداد روز ها رو درست نمایش نمیده»). Apex
@@ -9097,7 +9109,7 @@
             },
             yaxis: {
                 labels: {
-                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    style: {fontFamily: chartFontFamily(), fontSize: "12px"},
                     formatter: (value) => toPersianDigits(String(Math.round(value))),
                 },
             },
@@ -9205,7 +9217,7 @@
                 categories: usable.map((point) => point.label),
                 tickAmount: Math.min(maxLabels, usable.length),
                 labels: {
-                    style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px"},
+                    style: {fontFamily: chartFontFamily(), fontSize: "12px"},
                     hideOverlappingLabels: true,
                     // Deliberately no `trim` option — see the identical
                     // comment in `renderAreaChart`'s own copy of this block,
@@ -9222,7 +9234,7 @@
                 {
                     seriesName: seriesNames[0],
                     labels: {
-                        style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px", colors: amountColor},
+                        style: {fontFamily: chartFontFamily(), fontSize: "12px", colors: amountColor},
                         formatter: (value) => toPersianDigits(String(Math.round(value))),
                     },
                 },
@@ -9231,7 +9243,7 @@
                     opposite: true,
                     forceNiceScale: true,
                     labels: {
-                        style: {fontFamily: "IRANSansWeb, Helvetica, sans-serif", fontSize: "12px", colors: countColor},
+                        style: {fontFamily: chartFontFamily(), fontSize: "12px", colors: countColor},
                         formatter: (value) => toPersianDigits(String(Math.round(value))),
                     },
                 },
@@ -9311,7 +9323,7 @@
                             fontSize: "28px",
                             fontWeight: 700,
                             color: ink.text,
-                            fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            fontFamily: chartFontFamily(),
                             formatter: (raw) => toPersianDigits(String(Math.round(raw))) + "٪",
                         },
                     },
@@ -9404,12 +9416,12 @@
                     hollow: {size: "34%"},
                     track: {strokeWidth: "88%"},
                     dataLabels: {
-                        name: {fontSize: "13px", fontFamily: "IRANSansWeb, Helvetica, sans-serif"},
+                        name: {fontSize: "13px", fontFamily: chartFontFamily()},
                         value: {
                             fontSize: "16px",
                             fontWeight: 700,
                             color: ink.text,
-                            fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            fontFamily: chartFontFamily(),
                             formatter: (raw) => toPersianDigits(String(Math.round(raw))) + "٪",
                         },
                         total: {
@@ -9417,7 +9429,7 @@
                             label: "مجموع",
                             color: ink.muted,
                             fontSize: "13px",
-                            fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                            fontFamily: chartFontFamily(),
                             formatter: () =>
                                 toPersianDigits(String(Math.round(usable.reduce((sum, item) => sum + item.value, 0)))) + "٪",
                         },
@@ -9582,7 +9594,7 @@
                 // it.
                 textAnchor: "end",
                 style: {
-                    fontFamily: "IRANSansWeb, Helvetica, sans-serif",
+                    fontFamily: chartFontFamily(),
                     fontSize: "12px",
                     fontWeight: 600,
                     // Drawn outside the bar now, against the card's own
@@ -14433,27 +14445,21 @@
         if (!form) return;
         const saved = document.getElementById("preferences-saved");
 
-        //: Kept in step with `PANEL_FONT_FAMILIES` / `PANEL_FONT_SCALES` in
-        //: `common/models.py`. Duplicated here only for the live preview —
-        //: what is actually applied on every other page is the `<style>`
-        //: element the server renders from its own copy, so a drift here
-        //: can make this one page's preview wrong and can never change what
-        //: anybody is served.
-        const FONT_STACKS = {
-            iransans: "IRANSansWeb, Helvetica, sans-serif",
-            tahoma: "Tahoma, IRANSansWeb, Helvetica, sans-serif",
-            nazanin: '"B Nazanin", "XB Zar", IRANSansWeb, serif',
-            mitra: '"B Mitra", "XB Zar", IRANSansWeb, serif',
-            system: 'system-ui, -apple-system, "Segoe UI", IRANSansWeb, sans-serif',
-        };
+        //: Each typeface choice carries its own CSS stack
+        //: (`data-font-stack`, rendered from `PANEL_FONT_FAMILIES`), so the
+        //: live preview reads the server's mapping rather than keeping a copy
+        //: of it here (until 2.18.7 it did, and the two could drift). What is
+        //: applied on every other page is still the `<style>` element the
+        //: server renders; this is only the preview of it.
         //: Absolute pixels off the theme's own 13px base, not percentages
         //: of the browser default — see `PANEL_FONT_SCALES` for why.
         const FONT_SIZES = {sm: "12px", md: "13px", lg: "15px"};
+        const DEFAULT_FONT_STACK = "IRANSansWeb, Helvetica, sans-serif";
 
         function preview() {
-            const family = form.elements.font_family?.value;
             const scale = form.elements.font_scale?.value;
-            const stack = FONT_STACKS[family] || FONT_STACKS.iransans;
+            const chosen = form.querySelector("input[name='font_family']:checked");
+            const stack = (chosen && chosen.dataset.fontStack) || DEFAULT_FONT_STACK;
             const size = FONT_SIZES[scale] || FONT_SIZES.md;
             // `setProperty` with the priority argument, because the two
             // declarations this has to beat are the theme's own
@@ -14494,8 +14500,9 @@
             // The three size glyphs are the theme's option cards; the card
             // around the checked radio carries `.active` (2.18.6), the same
             // class the server renders on the saved one.
-            if (name === "font_scale") {
-                form.querySelectorAll(".font-scale-option").forEach((card) => {
+            if (name === "font_scale" || name === "font_family") {
+                const cards = name === "font_scale" ? ".font-scale-option" : ".font-family-option";
+                form.querySelectorAll(cards).forEach((card) => {
                     card.classList.toggle("active", card.contains(event.target));
                 });
             }

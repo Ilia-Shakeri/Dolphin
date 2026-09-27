@@ -213,6 +213,12 @@ class BorderResizeTests(SimpleTestCase):
         self.assertLess(body.index("chart.element.style.height = `${chart.base}px`;"),
                         body.index("chart.target = chart.base + Math.max(0, Math.round(slackIn(chart.column)));"))
 
+    def test_a_taller_tile_lifts_the_rows_two_row_cap(self):
+        """The tile row is capped at 30rem and scrolls; a reader who made a
+        tile taller would otherwise get their second row cut in half."""
+        declarations = rule('.dashboard-capability-grid:has(> .dashboard-widget[style*="--dashboard-min-height"])')
+        self.assertIn("max-height: none", declarations)
+
     def test_side_handles_are_not_offered_where_widths_cannot_show(self):
         from common.tests.ui_overhaul_helpers import media_block
 

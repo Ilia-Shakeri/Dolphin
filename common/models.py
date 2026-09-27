@@ -173,19 +173,37 @@ class DashboardSettings(TimeStampedModel):
 
 
 #: Panel typefaces a user may choose between, as `(value, Persian label, CSS
-#: stack)`. Every stack ends in `IRANSansWeb` — the one Persian face this
-#: product actually ships (`assets/fonts/`) — so a reader who picks a family
-#: their machine does not have still gets Persian glyphs rather than an OS
-#: substitute chosen at random. No new font file is downloaded for this: the
-#: alternatives are the faces Iranian office machines already carry, which is
-#: exactly why they are the ones people ask for by name.
+#: stack)`. Every stack ends in `IRANSansWeb` — the theme's own Persian face
+#: (`assets/fonts/`) — so a family that fails to load still leaves Persian
+#: glyphs rather than an OS substitute chosen at random.
+#:
+#: Two kinds, and the settings page says which is which
+#: (`PANEL_FONT_FAMILIES_BUNDLED`). Until 2.18.7 every alternative was a face
+#: the reader's own machine had to have installed — Tahoma, B Nazanin, B Mitra
+#: — so on most machines choosing one changed nothing at all. The product
+#: owner asked for more faces, and for the choice to reach the whole panel
+#: («کاربر باید بتواند قلم‌های بیشتری انتخاب کند و تغییر قلم روی کل پنل اثر
+#: بگذارد»): six open-licensed (OFL) Persian faces now ship with the panel
+#: itself (`common/static/common/fonts/`), so they render the same on every
+#: machine, internet or not. The installed-only faces stay for the readers
+#: who already chose them.
 PANEL_FONT_FAMILIES = (
     ("iransans", "ایران‌سنس (پیش‌فرض)", 'IRANSansWeb, Helvetica, sans-serif'),
+    ("vazirmatn", "وزیرمتن", 'Vazirmatn, IRANSansWeb, Helvetica, sans-serif'),
+    ("estedad", "استعداد", 'Estedad, IRANSansWeb, Helvetica, sans-serif'),
+    ("sahel", "ساحل", 'Sahel, IRANSansWeb, Helvetica, sans-serif'),
+    ("shabnam", "شبنم", 'Shabnam, IRANSansWeb, Helvetica, sans-serif'),
+    ("samim", "صمیم", 'Samim, IRANSansWeb, Helvetica, sans-serif'),
+    ("parastoo", "پرستو", 'Parastoo, IRANSansWeb, serif'),
     ("tahoma", "تاهوما", 'Tahoma, IRANSansWeb, Helvetica, sans-serif'),
     ("nazanin", "بی‌نازنین", '"B Nazanin", "XB Zar", IRANSansWeb, serif'),
     ("mitra", "بی‌میترا", '"B Mitra", "XB Zar", IRANSansWeb, serif'),
     ("system", "قلم سیستم", 'system-ui, -apple-system, "Segoe UI", IRANSansWeb, sans-serif'),
 )
+#: The families that ship with the panel (the theme's own IRANSans, and the
+#: faces registered in `common/static/common/fonts/panel-fonts.css`) — the
+#: rest render only where the reader's machine has them installed.
+PANEL_FONT_FAMILIES_BUNDLED = frozenset({"iransans", "vazirmatn", "estedad", "sahel", "shabnam", "samim", "parastoo"})
 PANEL_FONT_FAMILY_STACKS = {value: stack for value, _label, stack in PANEL_FONT_FAMILIES}
 DEFAULT_PANEL_FONT_FAMILY = PANEL_FONT_FAMILIES[0][0]
 

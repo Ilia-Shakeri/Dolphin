@@ -73,12 +73,13 @@ def panel_preferences(request):
     printed documents, and the `data-currency-unit` attribute `base.html`
     puts on `<body>` for `dolphin-app.js` to read.
     """
-    from common.preferences import currency_label, effective_preferences, preference_css
+    from common.preferences import currency_label, effective_preferences, needs_font_sheet, preference_css
 
     result = effective_preferences(getattr(request, "user", None))
     return {
         "panel_preference_css": preference_css(result),
         "panel_font_family": result["font_family"],
+        "panel_font_sheet": needs_font_sheet(result),
         "panel_font_scale": result["font_scale"],
         "panel_currency_unit": result["currency_unit"],
         "panel_currency_label": currency_label(result["currency_unit"]),

@@ -144,6 +144,15 @@ EXPECT_PRESENT: list[str] = [
     "assets/plugins/global/fonts/keenicons/keenicons-duotone.woff",
     "assets/plugins/global/fonts/keenicons/keenicons-outline.woff",
     "assets/plugins/global/fonts/keenicons/keenicons-solid.woff",
+    # The typefaces a reader may choose (2.18.7) ship with the panel itself;
+    # a missing file is a choice that silently renders as IRANSans.
+    "common/static/common/fonts/panel-fonts.css",
+    "common/static/common/fonts/vazirmatn/Vazirmatn-wght.woff2",
+    "common/static/common/fonts/estedad/Estedad-arabic-wght.woff2",
+    "common/static/common/fonts/sahel/Sahel.woff2",
+    "common/static/common/fonts/shabnam/Shabnam.woff2",
+    "common/static/common/fonts/samim/Samim.woff2",
+    "common/static/common/fonts/parastoo/Parastoo.woff2",
 ]
 
 

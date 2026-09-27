@@ -44,6 +44,11 @@
    request, exactly as `brand_accent_css` above carries one deployment's
    colour. Loaded after it for the same source-order reason. {% endcomment %}
     {% if panel_preference_css %}<style>{{ panel_preference_css|safe }}</style>{% endif %}
+{% comment %} The bundled typefaces (2.18.7, `common/fonts/panel-fonts.css`) —
+   registered only for a reader whose chosen face is one of them, so nobody
+   who kept the theme's default pays for a stylesheet they never use. The
+   settings page loads it for everyone, to draw each choice in its own face. {% endcomment %}
+    {% if panel_font_sheet %}<link rel="stylesheet" href="{% static 'common/fonts/panel-fonts.css' %}?v={{ dolphin_version }}">{% endif %}
 {% comment %} Extension point for a page that needs one more vendor bundle the
    shell does not load for everyone — e.g. the lead follow-up calendar's
    FullCalendar stylesheet. Empty for every other page. {% endcomment %}

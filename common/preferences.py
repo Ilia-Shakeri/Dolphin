@@ -30,6 +30,7 @@ from common.models import (
     DEFAULT_PANEL_FONT_FAMILY,
     DEFAULT_PANEL_FONT_SCALE,
     PANEL_FONT_FAMILIES,
+    PANEL_FONT_FAMILIES_BUNDLED,
     PANEL_FONT_FAMILY_STACKS,
     PANEL_FONT_SCALE_SIZES,
     PANEL_FONT_SCALES,
@@ -58,7 +59,14 @@ def catalog():
     """The choices the settings page renders, built from the model's own
     tuples so the page can never offer a value the field would reject."""
     return {
-        "font_families": [{"value": value, "label": label} for value, label, _stack in PANEL_FONT_FAMILIES],
+        # The stack travels with each choice so the settings page can draw
+        # every option in its own face and preview it without a second copy
+        # of this mapping in the script; `bundled` says whether it renders
+        # everywhere or only where it is installed.
+        "font_families": [
+            {"value": value, "label": label, "stack": stack, "bundled": value in PANEL_FONT_FAMILIES_BUNDLED}
+            for value, label, stack in PANEL_FONT_FAMILIES
+        ],
         "font_scales": [{"value": value, "label": label} for value, label, _size in PANEL_FONT_SCALES],
         "currency_units": [
             {"value": value, "label": label} for value, label in UserPreference.CurrencyUnit.choices
@@ -173,6 +181,14 @@ def preference_css(preferences):
             # an `!important` author declaration.
             declarations.append("html,body{font-size:" + size + "!important;}")
     return "".join(declarations) or None
+
+
+def needs_font_sheet(preferences):
+    """Whether the page must load `common/fonts/panel-fonts.css` for this
+    reader — only when their face is one the panel ships beyond the theme's
+    own default. Everyone else is spared the extra stylesheet."""
+    family = preferences.get("font_family") or DEFAULT_PANEL_FONT_FAMILY
+    return family != DEFAULT_PANEL_FONT_FAMILY and family in PANEL_FONT_FAMILIES_BUNDLED
 
 
 def currency_label(unit):
