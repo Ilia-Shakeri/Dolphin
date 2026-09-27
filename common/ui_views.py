@@ -9,6 +9,7 @@ from django.views.generic import TemplateView
 
 from accounts.access import (
     assignable_roles,
+    can_delete,
     capabilities_for,
     crm_identities,
     has_any_capability,
@@ -16,6 +17,7 @@ from accounts.access import (
 )
 from accounts.avatars import default_avatar_url, has_avatar
 from accounts.models import User
+from attachments.selectors import PARENT_DELETE_CAPABILITY
 from common import labels
 from common.dashboard_layout import (
     arrange_capability_tiles,
@@ -213,12 +215,13 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             "sales_document": "sales_documents.manage" in capabilities,
             "after_sales_request": bool({"after_sales.manage", "after_sales.work"}.intersection(capabilities)),
         }
-        # Deletion is elevated-role-only regardless of parent type (product-
-        # owner decision, 2026-09-03) — attachments/services.py's
-        # ELEVATED_OPERATORS, checked here by role since it is not a
-        # capability of its own.
-        context["can_delete_attachments"] = is_crm_identity(self.request.user) and self.request.user.role in {
-            "sales_manager", "company_it", "platform_admin",
+        # Deletion follows the same rule as every other record since 2.18.8:
+        # the Platform Admin always, anyone else only with the parent
+        # module's own `<module>.delete` (`accounts.access.can_delete`,
+        # re-checked by `attachments.services.delete_attachment`).
+        context["can_delete_attachment"] = {
+            field: can_delete(self.request.user, capability)
+            for field, capability in PARENT_DELETE_CAPABILITY.items()
         }
         # The same pair `DolphinUserProfileView` and the user-performance report
         # itself require — an after-sales agent holds neither, so they get no
@@ -230,13 +233,14 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             {"audit.non_platform", "audit.all"}.intersection(capabilities)
         )
         context["is_platform_navigation"] = "dashboard.platform" in capabilities
-        # 2026-09-02: real, irreversible row deletion — single or bulk, on
-        # every list page — for a Platform Admin only, to correct a mistaken
-        # entry. Everyone else still deactivates, same as before. Set once
-        # here rather than per list view since every list page shares this
-        # one root; the backend gate in `common.viewsets.HardDeleteMixin` is
-        # what actually decides, regardless of what this hides or shows.
-        context["can_hard_delete"] = self.request.user.role == User.Role.PLATFORM_ADMIN
+        # Real, irreversible row deletion — single or bulk, on every list
+        # page. The Platform Admin always; since 2.18.8 anyone else too when
+        # granted this page's own `delete_capability` on their permission
+        # matrix (`accounts.access.can_delete`). A page that names none stays
+        # Platform-Admin-only. The backend gate in
+        # `common.viewsets.HardDeleteMixin` is what actually decides,
+        # regardless of what this hides or shows.
+        context["can_hard_delete"] = can_delete(self.request.user, getattr(self, "delete_capability", None))
         # Mirrors DolphinBrandingSettingsView's own two gates exactly (feature
         # then role) — this only decides whether the link is offered; the
         # view enforces both again regardless of what this hid or showed.
@@ -535,6 +539,8 @@ class DolphinMyProfileView(ActiveCrmView):
 
 
 class DolphinCustomerListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "customers.delete"
     required_feature = "customers"
     template_name = "common/customers/list.html"
 
@@ -580,6 +586,8 @@ class DolphinCustomerDetailView(ScopedDetailView):
 
 
 class DolphinLeadListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "leads.delete"
     required_feature = "leads"
     template_name = "common/leads/list.html"
 
@@ -648,6 +656,8 @@ class DolphinLeadDetailView(ScopedDetailView):
 
 
 class DolphinInteractionListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "interactions.delete"
     required_feature = "leads"
     template_name = "common/interactions/list.html"
 
@@ -665,11 +675,15 @@ class DolphinInteractionDetailView(ScopedDetailView):
 
 
 class DolphinProductListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "products.delete"
     required_feature = "products"
     template_name = "common/products/list.html"
 
 
 class DolphinProductCategoryListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "product_categories.delete"
     required_feature = "products"
     template_name = "common/product_categories/list.html"
 
@@ -697,6 +711,8 @@ class DolphinProductDetailView(ScopedDetailView):
 
 
 class DolphinSaleListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "sales.delete"
     required_feature = "sales"
     template_name = "common/sales/list.html"
 
@@ -712,6 +728,8 @@ class DolphinSaleDetailView(ScopedDetailView):
 
 
 class DolphinSalesDocumentListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "sales_documents.delete"
     required_feature = "sales_documents"
     template_name = "common/sales_documents/list.html"
 
@@ -878,6 +896,8 @@ class DolphinAfterSalesCalendarView(AfterSalesAccessView):
 
 
 class DolphinAfterSalesListView(AfterSalesAccessView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "after_sales.delete"
     required_feature = "after_sales"
     template_name = "common/after_sales/list.html"
 
@@ -928,6 +948,8 @@ class DolphinActivityLogDetailView(AuditReaderView, ScopedDetailView):
 # --- Inventory pages ---------------------------------------------------------
 
 class DolphinWarehouseListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "inventory.delete"
     required_feature = "inventory"
     template_name = "common/warehouses/list.html"
 
@@ -957,6 +979,8 @@ class DolphinStockMovementListView(ActiveCrmView):
 # --- Commercial document pages ----------------------------------------------
 
 class DolphinOrderListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "orders.delete"
     required_feature = "orders"
     template_name = "common/orders/list.html"
 
@@ -994,6 +1018,8 @@ class DolphinOrderBoardView(ActiveCrmView):
 
 
 class DolphinInvoiceListView(ActiveCrmView):
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "invoices.delete"
     required_feature = "invoices"
     template_name = "common/invoices/list.html"
 
@@ -1206,6 +1232,8 @@ class DolphinPaymentListView(PaymentDeskView):
     required_feature = "payments"
     template_name = "common/payments/list.html"
     direction = "receipt"
+    #: Who besides the Platform Admin may delete from this page (2.18.8).
+    delete_capability = "payments.delete"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

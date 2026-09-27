@@ -88,7 +88,7 @@
     </div></section>
     {% endif %}
     {% if "attachments" in features %}
-    {% include "common/includes/attachments_panel.inc" with attachments_field="customer" can_upload=can_upload_attachment.customer %}
+    {% include "common/includes/attachments_panel.inc" with attachments_field="customer" can_upload=can_upload_attachment.customer can_delete=can_delete_attachment.customer %}
     {% endif %}
     {% comment %} بلوک «غیرفعال‌سازی» برداشته شد. وضعیت فعال/غیرفعال حالا یک انتخابگر
        در بالای همین صفحه است و فقط مدیر پلتفرم آن را می‌بیند و تغییر می‌دهد. هیچ

@@ -32,6 +32,8 @@ from common.viewsets import AdminHardDeleteModelViewSet
 
 class AfterSalesRequestViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "after_sales"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "after_sales.delete"
     #: Elevated roles hold `after_sales.company`; the after-sales workstream
     #: agent instead holds `after_sales.assigned`/`.work` — a narrower,
     #: assignment-scoped pair that `after_sales_requests_for` already limits

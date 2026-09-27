@@ -29,6 +29,8 @@ from rest_framework import mixins, viewsets
 
 class WarehouseViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "inventory"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "inventory.delete"
     required_capabilities = ("inventory.read", "inventory.manage")
     required_write_capabilities = ("inventory.manage",)
     permission_classes = [IsActiveAuthenticated, HasInventoryCapability]

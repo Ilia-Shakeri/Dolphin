@@ -22,6 +22,15 @@ has, because those are policy decisions about a document's lifecycle, not
 data-entry rights). Modules with no write side at all — reports, ledger,
 inbound SMS — carry no edit capability and no `write` key.
 
+A third column, *delete* (2.18.8 — product owner: «مدیر اصلی پنل باید بتواند
+هر چیزی را که می‌خواهد حذف کند، ولی کاربران دیگر باید مجوز بگیرند»), grants
+permanent deletion of a module's records to one user: `<module>.delete`,
+which no role but Platform Admin holds by default. Delete implies edit and
+read — a person trusted to remove a record is trusted to correct it first —
+and the same `validate_matrix` normalisation applies it, so the UI and the
+API can never disagree. A Platform Admin's own delete column is not
+editable: `accounts.access.can_delete` honours that role regardless.
+
 Known asymmetry, honestly noted rather than hidden: REVOKING edit for
 `quotations`, `orders`, `invoices`, or `payments` fully blocks basic
 create/update through this screen — the view-permission gate enforces it
@@ -47,23 +56,26 @@ class Module:
     #: Capabilities where holding *any one* means "can also write to it".
     #: Empty for a module with no write side of its own.
     write: tuple = ()
+    #: The capability that lets someone permanently delete this module's
+    #: records (2.18.8). Empty for a module with nothing to delete.
+    delete: tuple = ()
 
 
 MODULES = (
-    Module("customers", "مشتریان", ("customers.scoped", "customers.company"), ("customers.manage",)),
-    Module("leads", "سرنخ‌ها", ("leads.scoped", "leads.company"), ("leads.manage",)),
-    Module("interactions", "تعامل‌های مرکز تماس", ("interactions.scoped", "interactions.company"), ("interactions.manage",)),
-    Module("sales", "نتایج کمپین فروش", ("sales.own", "sales.company"), ("sales.manage",)),
-    Module("product_categories", "دسته‌بندی کالا", ("product_categories.read", "product_categories.manage"), ("product_categories.manage",)),
-    Module("products", "کاتالوگ محصولات", ("products.read", "products.manage"), ("products.manage",)),
-    Module("quotations", "پیش‌فاکتورها", ("quotations.scoped", "quotations.company"), ("quotations.manage",)),
-    Module("orders", "سفارش‌ها", ("orders.scoped", "orders.company"), ("orders.manage",)),
-    Module("invoices", "فاکتورها (اسناد مالی)", ("invoices.scoped", "invoices.company"), ("invoices.manage",)),
-    Module("payments", "دریافت‌ها، پرداخت‌ها، چک و اقساط", ("payments.company",), ("payments.manage",)),
+    Module("customers", "مشتریان", ("customers.scoped", "customers.company"), ("customers.manage",), ("customers.delete",)),
+    Module("leads", "سرنخ‌ها", ("leads.scoped", "leads.company"), ("leads.manage",), ("leads.delete",)),
+    Module("interactions", "تعامل‌های مرکز تماس", ("interactions.scoped", "interactions.company"), ("interactions.manage",), ("interactions.delete",)),
+    Module("sales", "نتایج کمپین فروش", ("sales.own", "sales.company"), ("sales.manage",), ("sales.delete",)),
+    Module("product_categories", "دسته‌بندی کالا", ("product_categories.read", "product_categories.manage"), ("product_categories.manage",), ("product_categories.delete",)),
+    Module("products", "کاتالوگ محصولات", ("products.read", "products.manage"), ("products.manage",), ("products.delete",)),
+    Module("quotations", "پیش‌فاکتورها", ("quotations.scoped", "quotations.company"), ("quotations.manage",), ("quotations.delete",)),
+    Module("orders", "سفارش‌ها", ("orders.scoped", "orders.company"), ("orders.manage",), ("orders.delete",)),
+    Module("invoices", "فاکتورها (اسناد مالی)", ("invoices.scoped", "invoices.company"), ("invoices.manage",), ("invoices.delete",)),
+    Module("payments", "دریافت‌ها، پرداخت‌ها، چک و اقساط", ("payments.company",), ("payments.manage",), ("payments.delete",)),
     Module("ledger", "دفتر حساب مشتری", ("ledger.own", "ledger.company")),
-    Module("inventory", "انبار و موجودی", ("inventory.read", "inventory.manage"), ("inventory.manage",)),
-    Module("sales_documents", "رهگیری پستی", ("sales_documents.scoped", "sales_documents.company"), ("sales_documents.manage",)),
-    Module("after_sales", "خدمات پس از فروش", ("after_sales.company", "after_sales.assigned"), ("after_sales.manage",)),
+    Module("inventory", "انبار و موجودی", ("inventory.read", "inventory.manage"), ("inventory.manage",), ("inventory.delete",)),
+    Module("sales_documents", "رهگیری پستی", ("sales_documents.scoped", "sales_documents.company"), ("sales_documents.manage",), ("sales_documents.delete",)),
+    Module("after_sales", "خدمات پس از فروش", ("after_sales.company", "after_sales.assigned"), ("after_sales.manage",), ("after_sales.delete",)),
     Module("reports", "گزارش‌ها", ("reports.own", "reports.company")),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
 )
@@ -96,6 +108,7 @@ def default_matrix_for_role(role, workstream=None):
         module.key: {
             "read": any(capability in held for capability in module.read),
             "write": any(capability in held for capability in module.write) if module.write else False,
+            "delete": any(capability in held for capability in module.delete) if module.delete else False,
         }
         for module in MODULES
     }
@@ -109,20 +122,28 @@ def effective_matrix_for_user(user):
     a customised row without recomputing the diff itself.
     """
     from accounts.access import capabilities_for
+    from accounts.models import User
 
     held = capabilities_for(user)
     defaults = default_matrix_for_role(user.role, user.workstream)
+    # A Platform Admin deletes anything regardless (`can_delete`); their own
+    # delete column says so and is not offered for editing.
+    delete_locked = user.role == User.Role.PLATFORM_ADMIN
     matrix = {}
     for module in MODULES:
         read = any(capability in held for capability in module.read)
         write = any(capability in held for capability in module.write) if module.write else False
+        delete = bool(module.delete) and (delete_locked or any(capability in held for capability in module.delete))
         default = defaults[module.key]
         matrix[module.key] = {
             "label": module.label,
             "supports_write": bool(module.write),
+            "supports_delete": bool(module.delete),
+            "delete_locked": delete_locked and bool(module.delete),
             "read": read,
             "write": write,
-            "is_custom": read != default["read"] or write != default["write"],
+            "delete": delete,
+            "is_custom": read != default["read"] or write != default["write"] or delete != default["delete"],
         }
     return matrix
 
@@ -148,9 +169,15 @@ def validate_matrix(matrix):
             raise ValueError(f"Module '{key}' must be an object with read/write flags.")
         read = bool(entry.get("read", False))
         write = bool(entry.get("write", False)) if module.write else False
+        delete = bool(entry.get("delete", False)) if module.delete else False
+        # Delete implies edit implies read — promoted, not refused, for the
+        # same reason as the edit rule below it.
+        if delete:
+            write = bool(module.write) or write
+            read = True
         if write and not read:
             read = True
-        normalised[key] = {"read": read, "write": write}
+        normalised[key] = {"read": read, "write": write, "delete": delete}
     return normalised
 
 
@@ -200,7 +227,19 @@ def capabilities_for_matrix(matrix, *, role, workstream=None):
             for other in module.write:
                 if other != capability:
                     result.setdefault(other, other in role_held)
+        if module.delete:
+            # A role that deletes by definition (Platform Admin) keeps its
+            # default: its delete column is not the matrix's to change.
+            capability = module.delete[0]
+            locked = capability in role_held and _deletes_by_role(role)
+            result[capability] = True if locked else entry["delete"]
     return result
+
+
+def _deletes_by_role(role):
+    from accounts.models import User
+
+    return role == User.Role.PLATFORM_ADMIN
 
 
 def governed_capabilities():
@@ -214,6 +253,7 @@ def governed_capabilities():
     for module in MODULES:
         result.update(module.read)
         result.update(module.write)
+        result.update(module.delete)
     return result
 
 

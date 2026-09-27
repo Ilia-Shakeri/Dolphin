@@ -2163,10 +2163,15 @@
     /**
      * The "Permissions" modal: view mode first, an explicit "Edit
      * Permissions" step before anything becomes editable, and the
-     * edit-implies-read rule enforced live as the two checkboxes on a row
-     * are ticked — matching the server-side rule in
+     * delete-implies-edit-implies-read rule enforced live as the checkboxes
+     * on a row are ticked — matching the server-side rule in
      * `accounts.module_permissions.validate_matrix` so nothing the UI
      * allows can ever be rejected by the save call for that reason.
+     *
+     * The third column, «حذف», arrived in 2.18.8 (product owner: «مدیر اصلی
+     * پنل باید بتواند هر چیزی را که می‌خواهد حذف کند، ولی کاربران دیگر باید
+     * مجوز بگیرند»). A Platform Admin's own row shows it ticked and locked:
+     * that role deletes regardless (`accounts.access.can_delete`).
      */
     function setupPermissionsDialog() {
         const dialog = document.getElementById("permissions-dialog");
@@ -2233,6 +2238,24 @@
                     writeCell.textContent = "—";
                 }
                 row.appendChild(writeCell);
+
+                const deleteCell = document.createElement("td");
+                deleteCell.className = "text-center";
+                if (entry.supports_delete) {
+                    const deleteInput = document.createElement("input");
+                    deleteInput.type = "checkbox";
+                    deleteInput.className = "form-check-input";
+                    deleteInput.checked = entry.delete;
+                    deleteInput.disabled = !editing || entry.delete_locked;
+                    deleteInput.dataset.module = key;
+                    deleteInput.dataset.axis = "delete";
+                    deleteInput.setAttribute("aria-label", `حذف — ${entry.label}`);
+                    if (entry.delete_locked) deleteInput.title = "مدیر پلتفرم همیشه می‌تواند حذف کند.";
+                    deleteCell.appendChild(deleteInput);
+                } else {
+                    deleteCell.textContent = "—";
+                }
+                row.appendChild(deleteCell);
                 return row;
             });
             tableBody.replaceChildren(...rows);
@@ -2248,19 +2271,24 @@
             renderRows();
         }
 
-        // Edit always implies Read; unchecking Read while Edit is on turns
-        // Edit off too — the same rule the server enforces, applied live so
-        // the checkboxes never sit in a state the save call would reject.
+        // Delete implies Edit implies Read; unchecking a lower right turns
+        // the ones above it off too — the same rule the server enforces,
+        // applied live so the checkboxes never sit in a state the save call
+        // would reject.
         tableBody.addEventListener("change", (event) => {
             const input = event.target.closest('input[type="checkbox"]');
             if (!input) return;
             const moduleKey = input.dataset.module;
             const readInput = tableBody.querySelector(`input[data-module="${moduleKey}"][data-axis="read"]`);
             const writeInput = tableBody.querySelector(`input[data-module="${moduleKey}"][data-axis="write"]`);
-            if (input.dataset.axis === "write" && input.checked && readInput) {
-                readInput.checked = true;
-            } else if (input.dataset.axis === "read" && !input.checked && writeInput) {
-                writeInput.checked = false;
+            const deleteInput = tableBody.querySelector(`input[data-module="${moduleKey}"][data-axis="delete"]`);
+            const axis = input.dataset.axis;
+            if (input.checked) {
+                if (axis === "delete" && writeInput) writeInput.checked = true;
+                if ((axis === "delete" || axis === "write") && readInput) readInput.checked = true;
+            } else {
+                if (axis === "read" && writeInput) writeInput.checked = false;
+                if ((axis === "read" || axis === "write") && deleteInput && !deleteInput.disabled) deleteInput.checked = false;
             }
         });
 
@@ -2269,10 +2297,12 @@
             tableBody.querySelectorAll("tr").forEach((row) => {
                 const readInput = row.querySelector('input[data-axis="read"]');
                 const writeInput = row.querySelector('input[data-axis="write"]');
+                const deleteInput = row.querySelector('input[data-axis="delete"]');
                 if (!readInput) return;
                 matrix[readInput.dataset.module] = {
                     read: readInput.checked,
                     write: writeInput ? writeInput.checked : false,
+                    delete: deleteInput ? deleteInput.checked : false,
                 };
             });
             return matrix;

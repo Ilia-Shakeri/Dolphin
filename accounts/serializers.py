@@ -163,8 +163,13 @@ class RoleChangeSerializer(RejectServerFieldsMixin, serializers.Serializer):
 class PermissionMatrixEntrySerializer(serializers.Serializer):
     label = serializers.CharField(read_only=True, required=False)
     supports_write = serializers.BooleanField(read_only=True, required=False)
+    #: The «حذف» column (2.18.8): whether the module has records to delete,
+    #: and whether this row's delete is fixed on (a Platform Admin's own).
+    supports_delete = serializers.BooleanField(read_only=True, required=False)
+    delete_locked = serializers.BooleanField(read_only=True, required=False)
     read = serializers.BooleanField()
     write = serializers.BooleanField(required=False, default=False)
+    delete = serializers.BooleanField(required=False, default=False)
     is_custom = serializers.BooleanField(read_only=True, required=False)
 
 

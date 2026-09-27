@@ -16,6 +16,6 @@
 <form id="after-sales-appointment-form" action="/api/v1/after-sales/{{ after_sales_request_id }}/schedule-appointment/" method="post" class="mt-6 pt-6 border-top" novalidate>{% csrf_token %}<h3 class="fs-5 fw-bold text-gray-900 mb-4">زمان‌بندی قرار بعدی</h3><div class="row g-5"><div class="col-md-6"><label class="form-label fw-semibold" for="after-sales-appointment-at">زمان قرار (خالی = لغو قرار)</label><input class="form-control form-control-solid" id="after-sales-appointment-at" name="appointment_at" type="text" data-jalali="datetime"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="appointment_at"></p></div><div class="col-md-6"><label class="form-label fw-semibold" for="after-sales-appointment-reason">دلیل</label><input class="form-control form-control-solid" id="after-sales-appointment-reason" name="reason" maxlength="500"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div></div><div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت قرار</button></div></form>
 </div></section>
 {% if "attachments" in features %}
-{% include "common/includes/attachments_panel.inc" with attachments_field="after_sales_request" can_upload=can_upload_attachment.after_sales_request %}
+{% include "common/includes/attachments_panel.inc" with attachments_field="after_sales_request" can_upload=can_upload_attachment.after_sales_request can_delete=can_delete_attachment.after_sales_request %}
 {% endif %}
 {% endblock %}

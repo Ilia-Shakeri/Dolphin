@@ -191,10 +191,25 @@ class DeleteServiceTests(AttachmentFixtures):
             delete_attachment(actor=self.agent, attachment=self.attachment)
         self.assertTrue(Attachment.objects.filter(pk=self.attachment.pk).exists())
 
-    def test_a_manager_may_delete_and_it_is_logged(self):
+    def test_a_manager_needs_the_parents_delete_permission(self):
+        """Restated 2.18.8: deletion follows the one rule every record does —
+        the Platform Admin always, anyone else only with the parent module's
+        own `<module>.delete`. Until then a Sales Manager deleted by role."""
+        with self.assertRaises(BusinessPermissionDenied):
+            delete_attachment(actor=self.manager, attachment=self.attachment)
+        from accounts.models import UserCapabilityOverride
+
+        UserCapabilityOverride.objects.create(user=self.manager, capability="customers.delete", granted=True)
         delete_attachment(actor=self.manager, attachment=self.attachment)
         self.assertFalse(Attachment.objects.filter(pk=self.attachment.pk).exists())
         self.assertTrue(ActivityLog.objects.filter(operation="attachment.deleted").exists())
+
+    def test_a_grant_on_another_module_is_not_enough(self):
+        from accounts.models import UserCapabilityOverride
+
+        UserCapabilityOverride.objects.create(user=self.manager, capability="invoices.delete", granted=True)
+        with self.assertRaises(BusinessPermissionDenied):
+            delete_attachment(actor=self.manager, attachment=self.attachment)
 
 
 class ModelConstraintTests(AttachmentFixtures):
@@ -325,12 +340,17 @@ class AttachmentAPITests(AttachmentFixtures):
         response = client.post(f"/api/v1/attachments/{attachment.pk}/delete/")
         self.assertEqual(response.status_code, 403)
 
-    def test_a_manager_can_delete_over_http(self):
+    def test_a_granted_manager_can_delete_over_http(self):
+        """Restated 2.18.8 — see `test_a_manager_needs_the_parents_delete_permission`."""
+        from accounts.models import UserCapabilityOverride
+
         attachment = upload_attachment(
             actor=self.agent, field_name="customer", parent_id=self.customer.pk,
             original_filename="f.jpg", content=REAL_JPEG,
         )
         client = self.client_for(self.manager)
+        self.assertEqual(client.post(f"/api/v1/attachments/{attachment.pk}/delete/").status_code, 403)
+        UserCapabilityOverride.objects.create(user=self.manager, capability="customers.delete", granted=True)
         response = client.post(f"/api/v1/attachments/{attachment.pk}/delete/")
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Attachment.objects.filter(pk=attachment.pk).exists())

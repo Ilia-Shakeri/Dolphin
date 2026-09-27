@@ -14,17 +14,11 @@ from django.db import transaction
 from accounts.access import is_crm_identity
 from accounts.models import User
 from attachments.models import ALLOWED_CONTENT_TYPES, DEFAULT_MAX_ATTACHMENT_BYTES, Attachment
-from attachments.selectors import PARENT_FIELDS, can_write_parent, parent_is_visible
+from accounts.access import can_delete
+from attachments.selectors import PARENT_DELETE_CAPABILITY, PARENT_FIELDS, can_write_parent, parent_is_visible
 from auditlog.services import log_activity
 from common.exceptions import BusinessPermissionDenied, BusinessRuleError
 
-
-#: {sales_manager, company_it, platform_admin} — the exact "elevated
-#: operator" set repeated across sales/billing/inventory's own services.py.
-#: Product-owner decision 2026-09-03: deletion is theirs alone, regardless of
-#: which parent type the attachment is on, so a sales_agent who may upload a
-#: receipt to their own invoice still may not remove one after the fact.
-ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
 
 FILENAME_MAX_LENGTH = 255
 
@@ -130,8 +124,15 @@ def upload_attachment(*, actor, field_name, parent_id, original_filename, conten
 def delete_attachment(*, actor, attachment):
     with transaction.atomic():
         locked_actor = _lock_active_actor(actor)
-        if locked_actor.role not in ELEVATED_OPERATORS:
-            raise BusinessPermissionDenied("حذف پیوست فقط برای مدیر یا مدیر پلتفرم مجاز است.")
+        # Since 2.18.8 the rule every other deletion follows: the Platform
+        # Admin always, anyone else only with the parent module's own
+        # `<module>.delete` (`PARENT_DELETE_CAPABILITY`). Until then any
+        # Sales Manager or Company IT could delete any attachment by role.
+        parent_field = next((field for field in PARENT_FIELDS if getattr(attachment, f"{field}_id")), None)
+        if not can_delete(locked_actor, PARENT_DELETE_CAPABILITY.get(parent_field)):
+            raise BusinessPermissionDenied(
+                "حذف پیوست مجوز جداگانه می‌خواهد؛ مدیر پلتفرم می‌تواند آن را در مجوزهای شما فعال کند."
+            )
         log_activity(
             actor=locked_actor,
             operation="attachment.deleted",

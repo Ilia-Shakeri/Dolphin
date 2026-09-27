@@ -37,6 +37,8 @@ ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.P
 
 class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "customers"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "customers.delete"
     required_capabilities = ("customers.scoped", "customers.company")
     required_write_capabilities = ("customers.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -259,6 +261,8 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
 
 class CustomerPhoneViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "customers"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "customers.delete"
     required_capabilities = ("customers.scoped", "customers.company")
     required_write_capabilities = ("customers.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -300,6 +304,8 @@ class CustomerPhoneViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
 
 class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "leads"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "leads.delete"
     required_capabilities = ("leads.scoped", "leads.company")
     required_write_capabilities = ("leads.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -438,6 +444,8 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
 
 class InteractionViewSet(AdminHardDeleteModelViewSet):
     required_feature = "leads"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "interactions.delete"
     required_capabilities = ("interactions.scoped", "interactions.company")
     required_write_capabilities = ("interactions.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -461,6 +469,8 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteM
     """
 
     required_feature = "leads"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "leads.delete"
     required_capabilities = ("leads.scoped", "leads.company")
     required_write_capabilities = ("leads.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -529,6 +539,8 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteM
 
 class ProductCategoryViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "products"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "product_categories.delete"
     required_capabilities = ("product_categories.read", "product_categories.manage")
     required_write_capabilities = ("product_categories.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -585,6 +597,8 @@ class ProductCategoryViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelV
 
 class ProductViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "products"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "products.delete"
     required_capabilities = ("products.read", "products.manage")
     required_write_capabilities = ("products.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -729,6 +743,8 @@ class ProductViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
 
 class SaleViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "sales"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "sales.delete"
     required_capabilities = ("sales.own", "sales.company")
     required_write_capabilities = ("sales.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
@@ -774,6 +790,8 @@ class SaleViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
 
 class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "sales_documents"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "sales_documents.delete"
     required_capabilities = ("sales_documents.scoped", "sales_documents.company")
     required_write_capabilities = ("sales_documents.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]

@@ -30,6 +30,17 @@ PARENT_WRITE_CAPABILITY = {
     "after_sales_request": ("after_sales.manage", "after_sales.work"),
 }
 
+#: Who besides the Platform Admin may delete an attachment, by its parent's
+#: module (2.18.8) — the same `<module>.delete` that governs deleting the
+#: parent record itself (`accounts.access.can_delete`).
+PARENT_DELETE_CAPABILITY = {
+    "customer": "customers.delete",
+    "lead": "leads.delete",
+    "invoice": "invoices.delete",
+    "sales_document": "sales_documents.delete",
+    "after_sales_request": "after_sales.delete",
+}
+
 PARENT_SELECTORS = {
     "customer": customers_for,
     "lead": leads_for,

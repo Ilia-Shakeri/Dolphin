@@ -9,8 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from accounts.access import is_crm_identity
-from accounts.models import User
+from accounts.access import can_delete
 from auditlog.services import log_activity
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied
 from common.permissions import FeatureGatedAPIMixin
@@ -95,15 +94,20 @@ class StrictQueryParametersMixin(FeatureGatedAPIMixin):
 
 
 class HardDeleteMixin:
-    """Real, irreversible deletion of one row, or several — Platform Admin
-    only, for correcting a mistaken entry, never a bulk clean-up tool.
+    """Real, irreversible deletion of one row, or several — for correcting a
+    mistaken entry, never a bulk clean-up tool.
 
-    2026-09-02 product-owner decision: every list page gets a checkbox column
-    and a Delete action, but only a Platform Admin may ever use it — everyone
-    else must ask a Platform Admin, exactly as `accounts.services` already
-    requires for user administration. That is enforced here, at the object
-    boundary, regardless of what a viewset's own `permission_classes` would
-    otherwise allow through for the HTTP method.
+    Who may delete: the Platform Admin, always; anyone else only when granted
+    this viewset's `delete_capability` on their permission matrix
+    (`accounts.access.can_delete`). Until 2.18.8 it was the Platform Admin
+    alone, with no way to delegate (2026-09-02 decision); the product owner
+    then asked for exactly that delegation — «مدیر اصلی پنل باید بتواند هر
+    چیزی را که می‌خواهد حذف کند، ولی کاربران دیگر باید مجوز بگیرند». Enforced
+    here, at the object boundary, regardless of what a viewset's own
+    `permission_classes` would otherwise allow through for the HTTP method,
+    and on top of the viewset's own object scope: `destroy` goes through
+    `get_object` and `bulk_delete` through the list queryset, so a granted
+    user can delete only the rows they can already see.
 
     Deletion is safe to hand over at all only because of a pre-existing
     schema property, not new code written for this: every foreign key in this
@@ -134,6 +138,11 @@ class HardDeleteMixin:
             throttles.append(SensitiveRateThrottle())
         return throttles
 
+    #: The `<module>.delete` capability that lets someone other than the
+    #: Platform Admin delete through this viewset. `None` keeps it Platform-
+    #: Admin-only — user administration, which no permission matrix governs.
+    delete_capability = None
+
     def _extra_delete_guard(self, request, instance):
         """Hook for a subclass to refuse one specific row beyond the blanket
         Platform-Admin-only gate — e.g. `UserViewSet` refusing self-deletion
@@ -142,10 +151,13 @@ class HardDeleteMixin:
         """
         return
 
-    @staticmethod
-    def _require_platform_admin(request):
-        if not is_crm_identity(request.user) or request.user.role != User.Role.PLATFORM_ADMIN:
-            raise BusinessPermissionDenied("حذف رکورد فقط برای مدیر پلتفرم مجاز است.")
+    def _require_delete_permission(self, request):
+        if not can_delete(request.user, self.delete_capability):
+            if self.delete_capability is None:
+                raise BusinessPermissionDenied("حذف این رکورد فقط برای مدیر پلتفرم مجاز است.")
+            raise BusinessPermissionDenied(
+                "حذف این رکورد مجوز جداگانه می‌خواهد؛ مدیر پلتفرم می‌تواند آن را در مجوزهای شما فعال کند."
+            )
 
     def _delete_instance(self, request, instance):
         self._extra_delete_guard(request, instance)
@@ -157,7 +169,7 @@ class HardDeleteMixin:
             instance.delete()
 
     def destroy(self, request, *args, **kwargs):
-        self._require_platform_admin(request)
+        self._require_delete_permission(request)
         instance = self.get_object()
         try:
             self._delete_instance(request, instance)
@@ -173,7 +185,7 @@ class HardDeleteMixin:
 
     @action(detail=False, methods=["post"], url_path="bulk-delete")
     def bulk_delete(self, request):
-        self._require_platform_admin(request)
+        self._require_delete_permission(request)
         ids = request.data.get("ids")
         if (
             not isinstance(ids, list)
@@ -207,7 +219,8 @@ class HardDeleteMixin:
 class AdminHardDeleteModelViewSet(HardDeleteMixin, StrictQueryParametersMixin, viewsets.ModelViewSet):
     """The ordinary CRUD viewset for this project: list/retrieve/create/update
     for whoever a viewset's own permission classes allow, plus real DELETE —
-    single or bulk — for a Platform Admin only, per `HardDeleteMixin` above.
+    single or bulk — for the Platform Admin and whoever holds the viewset's
+    `delete_capability`, per `HardDeleteMixin` above.
 
     Formerly `NoDestroyModelViewSet`, when DELETE was refused to everyone;
     renamed with the 2026-09-02 change that gave Platform Admin real deletion,

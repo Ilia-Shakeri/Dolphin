@@ -146,6 +146,25 @@ ROLE_CAPABILITIES = {
         "sms.company",
         "users.manage_all",
         "audit.all",
+        # Deletion (2.18.8): the Platform Admin deletes anything — see
+        # `can_delete`, which honours this role regardless of what its
+        # capability set says. Listed here as well so the permission screen
+        # shows the truth for this role rather than a column of blanks.
+        *(
+            "customers.delete",
+            "leads.delete",
+            "interactions.delete",
+            "sales.delete",
+            "product_categories.delete",
+            "products.delete",
+            "quotations.delete",
+            "orders.delete",
+            "invoices.delete",
+            "payments.delete",
+            "inventory.delete",
+            "sales_documents.delete",
+            "after_sales.delete",
+        ),
     }),
 }
 
@@ -248,6 +267,33 @@ def capabilities_for(user):
 
 def has_any_capability(user, *capabilities):
     return bool(capabilities_for(user).intersection(capabilities))
+
+
+def can_delete(user, capability):
+    """Whether `user` may permanently delete a record `capability` governs.
+
+    Product owner, 2026-09-27: «مدیر اصلی پنل باید بتواند هر چیزی را که
+    می‌خواهد حذف کند، ولی کاربران دیگر باید مجوز بگیرند». So:
+
+    * the Platform Admin — always, whatever their capability set says; a
+      permission screen may not take deletion away from this role;
+    * anyone else — only when they hold `capability`, a `<module>.delete`
+      granted to them personally on the permission matrix
+      (`accounts.module_permissions`). No other role holds one by default.
+
+    `capability=None` names a surface that stays Platform-Admin-only: user
+    administration, which the matrix never governs
+    (`PROTECTED_CAPABILITY_PREFIXES`).
+
+    This is the permission half only. Object scope is still the caller's
+    queryset: a user granted `customers.delete` can delete only customers
+    they can see.
+    """
+    if not is_crm_identity(user):
+        return False
+    if user.role == User.Role.PLATFORM_ADMIN:
+        return True
+    return bool(capability) and has_any_capability(user, capability)
 
 
 #: Persian labels for the roles a user may be moved to. Kept beside the rule

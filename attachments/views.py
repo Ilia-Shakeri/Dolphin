@@ -124,7 +124,10 @@ class AttachmentDeleteView(AttachmentAccessMixin, APIView):
         # other bodyless POST in this codebase declares it.
         request=None,
         responses={204: None, 403: ACCESS_DENIED_RESPONSE, 404: None, 429: THROTTLED_RESPONSE},
-        description="Permanently deletes one attachment. Elevated roles only (sales_manager, company_it, platform_admin).",
+        description=(
+            "Permanently deletes one attachment. The Platform Admin always; anyone else only with the parent "
+            "module's own `<module>.delete` permission."
+        ),
     )
     def post(self, request, attachment_id):
         attachment = get_object_or_404(_visible_attachments(request.user), pk=attachment_id)

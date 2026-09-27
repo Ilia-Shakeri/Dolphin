@@ -143,6 +143,8 @@ class CommercialDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteMod
 
 class QuotationViewSet(CommercialDocumentViewSet):
     required_feature = "quotations"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "quotations.delete"
     required_capabilities = ("quotations.scoped", "quotations.company")
     queryset = Quotation.objects.none()
     serializer_class = QuotationSerializer
@@ -202,6 +204,8 @@ class QuotationViewSet(CommercialDocumentViewSet):
 
 class OrderViewSet(CommercialDocumentViewSet):
     required_feature = "orders"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "orders.delete"
     required_capabilities = ("orders.scoped", "orders.company")
     queryset = Order.objects.none()
     serializer_class = OrderSerializer
@@ -267,6 +271,8 @@ class OrderViewSet(CommercialDocumentViewSet):
 
 class InvoiceViewSet(CommercialDocumentViewSet):
     required_feature = "invoices"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "invoices.delete"
     required_capabilities = ("invoices.scoped", "invoices.company")
     queryset = Invoice.objects.none()
     serializer_class = InvoiceSerializer
@@ -432,6 +438,8 @@ class InvoiceViewSet(CommercialDocumentViewSet):
 
 class PaymentViewSet(SensitiveActionThrottleMixin, HardDeleteMixin, StrictQueryParametersMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     required_feature = "payments"
+    #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
+    delete_capability = "payments.delete"
     required_capabilities = ("payments.company",)
     required_write_capabilities = ("payments.manage",)
     permission_classes = [IsActiveAuthenticated, HasBillingCapability]

@@ -31,6 +31,6 @@
    چیزی که این فرم می‌فرستد همیشه یکی از چهار حالت است. {% endcomment %}
                     <div class="col-md-6"><label class="form-label fw-semibold" for="postal-to-status">وضعیت جدید</label><select class="form-select form-select-solid" id="postal-to-status" name="to_status" required><option value="">یک وضعیت انتخاب کنید</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_status"></p></div><div class="col-md-6"><label class="form-label fw-semibold" for="postal-reason">دلیل</label><input class="form-control form-control-solid" id="postal-reason" name="reason" maxlength="500"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div></div><div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت تغییر</button><button id="deactivate-sales-document" class="btn btn-danger" type="button">غیرفعال کردن سند</button></div></form></div></section>{% endif %}
 {% if "attachments" in features %}
-{% include "common/includes/attachments_panel.inc" with attachments_field="sales_document" can_upload=can_upload_attachment.sales_document %}
+{% include "common/includes/attachments_panel.inc" with attachments_field="sales_document" can_upload=can_upload_attachment.sales_document can_delete=can_delete_attachment.sales_document %}
 {% endif %}
 {% endblock %}
