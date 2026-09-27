@@ -347,7 +347,16 @@ class OriginateEndToEndTests(TransactionTestCase):
         cache.clear()
 
     def test_a_queued_call_is_sent_on_the_live_session(self):
+        from telephony.services import request_originate
         from telephony.worker import _close_connections, _listen
+
+        # Queued before the listener starts, as the web would: the test then
+        # only reads while the listener writes (SQLite, unlike PostgreSQL,
+        # refuses a second concurrent writer outright).
+        Integration.objects.filter(pk=self.pbx.pk).update(status=Integration.Status.OK)
+        request_id = request_originate(
+            actor=self.agent, number="09151234567", person_type="customer", person_id=self.customer.pk
+        ).pk
 
         async def scenario():
             stop = asyncio.Event()
@@ -355,16 +364,6 @@ class OriginateEndToEndTests(TransactionTestCase):
             loop = asyncio.get_running_loop()
             task = asyncio.create_task(_listen(self.pbx, stop))
             await loop.run_in_executor(None, self.server.logged_in.wait, 5)
-
-            def queue():
-                from telephony.services import request_originate
-
-                Integration.objects.filter(pk=self.pbx.pk).update(status=Integration.Status.OK)
-                return request_originate(
-                    actor=self.agent, number="09151234567", person_type="customer", person_id=self.customer.pk
-                ).pk
-
-            request_id = await loop.run_in_executor(probe, queue)
             for _ in range(60):
                 status = await loop.run_in_executor(
                     probe, lambda: OriginateRequest.objects.values_list("status", flat=True).get(pk=request_id)
@@ -376,9 +375,8 @@ class OriginateEndToEndTests(TransactionTestCase):
             await asyncio.wait_for(task, 10)
             await loop.run_in_executor(probe, _close_connections)
             probe.shutdown(wait=True)
-            return request_id
 
-        request_id = asyncio.run(scenario())
+        asyncio.run(scenario())
         request = OriginateRequest.objects.select_related("call").get(pk=request_id)
         self.assertEqual(request.status, "sent")
         sent = self.server.originates[0]
