@@ -2878,50 +2878,154 @@ body.dashboard-editing #agent-work-queue {
     box-shadow: var(--bs-box-shadow-sm);
 }
 
-/* The resize grip sits on the box's *free* edge: a column in an RTL row is
-   anchored at the row's right and extends leftwards, so the edge that moves
-   when it widens is the physical left one. `inset-inline-end` is what names
-   that edge here — the same logical property the hide control above uses to
-   reach the top left — and the two therefore stack down the same side.
+/* A box is resized by its own border (2.18.4 — product owner: «این دکمه حذف
+   شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد»; until then one corner
+   button did it, and only for width). Eight invisible strips along the card's
+   edges and corners (`resizeHandles`, dolphin-app.js), each showing a short
+   accent bar where the hand is.
 
-   Descendant selector, not the bare class: Bootstrap's own reset carries
-   `button:not(:disabled) {cursor: pointer}`, which is (0,1,1) and beats a
-   lone class. Measured — the grip really did render with a pointer cursor
-   before this. */
-.dashboard-widget .dashboard-widget-resize {
+   Laid over the *card's* edges, not the column's: a column is padded by half
+   the row's gutter on each inline side, so its own edge sits outside the card
+   the reader is looking at. Vertically the two coincide — the card is `h-100`
+   and a row's gutter is margin, not padding. Logical properties throughout,
+   so each strip lands on the right physical side in RTL and LTR alike.
+
+   `touch-action: none` for the same reason `.dashboard-widget.editing` has it:
+   the strips are dragged with pointer events on a phone too. */
+.dashboard-widget {
+    --dashboard-edge-inset: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+}
+
+.dashboard-widget > .card {
+    min-height: var(--dashboard-min-height, auto);
+}
+
+.dashboard-resize-handle {
     position: absolute;
-    inset-block-end: 0.75rem;
-    inset-inline-end: 0.75rem;
-    z-index: 3;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    padding: 0;
-    border: 0;
-    border-radius: 0.475rem;
-    color: var(--bs-gray-700);
-    background: var(--bs-body-bg);
-    box-shadow: var(--bs-box-shadow-sm);
-    /* `nwse` and `nesw` are mirror images, and the one that points along the
-       direction this grip actually moves — down-left / up-right — is
-       `nesw`. */
-    cursor: nesw-resize;
-    transition: color 0.15s ease, background-color 0.15s ease;
-    /* Same reasoning as `.dashboard-widget.editing`'s own `touch-action:
-       none` above: this grip is dragged with pointer events on a phone too,
-       and without this the browser can start scrolling the page on the
-       first touch-move before the grip's own handler ever sees it. */
+    z-index: 4;
     touch-action: none;
 }
 
-.dashboard-widget .dashboard-widget-resize:hover,
-.dashboard-widget .dashboard-widget-resize:focus-visible {
-    color: var(--bs-primary);
-    background-color: var(--bs-primary-light);
+.dashboard-resize-handle[data-edge="inline-start"],
+.dashboard-resize-handle[data-edge="inline-end"] {
+    inset-block: 1rem;
+    width: 12px;
+    cursor: ew-resize;
+}
+
+.dashboard-resize-handle[data-edge="inline-start"] {
+    inset-inline-start: calc(var(--dashboard-edge-inset) - 6px);
+}
+
+.dashboard-resize-handle[data-edge="inline-end"] {
+    inset-inline-end: calc(var(--dashboard-edge-inset) - 6px);
+}
+
+.dashboard-resize-handle[data-edge="block-start"],
+.dashboard-resize-handle[data-edge="block-end"] {
+    inset-inline: calc(var(--dashboard-edge-inset) + 1rem);
+    height: 12px;
+    cursor: ns-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start"] {
+    inset-block-start: -6px;
+}
+
+.dashboard-resize-handle[data-edge="block-end"] {
+    inset-block-end: -6px;
+}
+
+.dashboard-resize-handle[data-edge~="block-start"][data-edge~="inline-start"],
+.dashboard-resize-handle[data-edge~="block-start"][data-edge~="inline-end"],
+.dashboard-resize-handle[data-edge~="block-end"][data-edge~="inline-start"],
+.dashboard-resize-handle[data-edge~="block-end"][data-edge~="inline-end"] {
+    width: 18px;
+    height: 18px;
+}
+
+.dashboard-resize-handle[data-edge~="block-start"][data-edge*=" inline-"] { inset-block-start: -8px; }
+.dashboard-resize-handle[data-edge~="block-end"][data-edge*=" inline-"] { inset-block-end: -8px; }
+.dashboard-resize-handle[data-edge$=" inline-start"] { inset-inline-start: calc(var(--dashboard-edge-inset) - 8px); }
+.dashboard-resize-handle[data-edge$=" inline-end"] { inset-inline-end: calc(var(--dashboard-edge-inset) - 8px); }
+
+/* Corner cursors are the one place the physical direction has to be named:
+   in RTL the inline-start corner is on the right. `nwse` points top-left to
+   bottom-right, `nesw` the other diagonal. */
+.dashboard-resize-handle[data-edge="block-start inline-start"],
+.dashboard-resize-handle[data-edge="block-end inline-end"] {
+    cursor: nesw-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start inline-end"],
+.dashboard-resize-handle[data-edge="block-end inline-start"] {
+    cursor: nwse-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start inline-start"]:dir(ltr),
+.dashboard-resize-handle[data-edge="block-end inline-end"]:dir(ltr) {
+    cursor: nwse-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start inline-end"]:dir(ltr),
+.dashboard-resize-handle[data-edge="block-end inline-start"]:dir(ltr) {
+    cursor: nesw-resize;
+}
+
+/* The bar that shows where the hand is: along an edge, a short pill; at a
+   corner, a dot. Hidden until hovered or dragged. */
+.dashboard-resize-handle::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: var(--bs-primary);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.dashboard-resize-handle[data-edge="inline-start"]::after,
+.dashboard-resize-handle[data-edge="inline-end"]::after {
+    width: 4px;
+    height: min(2.5rem, 40%);
+}
+
+.dashboard-resize-handle[data-edge="block-start"]::after,
+.dashboard-resize-handle[data-edge="block-end"]::after {
+    width: min(2.5rem, 40%);
+    height: 4px;
+}
+
+.dashboard-resize-handle[data-edge*=" "]::after {
+    width: 10px;
+    height: 10px;
+}
+
+.dashboard-resize-handle:hover::after,
+.dashboard-resize-handle.active::after {
+    opacity: 1;
+}
+
+/* Widths only apply from the theme's `xl` breakpoint up (every box is full or
+   half width below it), so the side strips are not offered where dragging
+   them could not show anything. Heights work at every width. */
+@media (max-width: 1199.98px) {
+    .dashboard-resize-handle[data-edge="inline-start"],
+    .dashboard-resize-handle[data-edge="inline-end"] {
+        display: none;
+    }
+}
+
+/* The box itself takes focus while editing — the keyboard's way to the same
+   sizes (arrow keys, see `onBoxKeydown`). */
+.dashboard-widget.editing:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+.dashboard-widget.editing:focus-visible > .card {
+    outline: 2px solid var(--bs-primary);
+    animation: none;
 }
 
 /* While a box is being resized its own outline becomes the feedback — the

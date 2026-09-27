@@ -360,7 +360,8 @@ class DashboardWidgetDragTests(SimpleTestCase):
 
     def test_touch_does_not_fight_the_page_for_a_scroll_gesture(self):
         self.assertIn("touch-action: none", exact_rule(".dashboard-widget.editing"))
-        self.assertIn("touch-action: none", rule(".dashboard-widget-resize"))
+        # The corner grip became eight border handles in 2.18.4.
+        self.assertIn("touch-action: none", rule(".dashboard-resize-handle"))
 
     def test_the_dragged_widget_is_lifted_not_dimmed(self):
         """Restated 2026-09-21: `opacity: 0.45` read as "disabled", not

@@ -503,49 +503,59 @@ class DashboardDragTests(SimpleTestCase):
 
 
 class DashboardResizeTests(SimpleTestCase):
-    def test_the_size_select_became_a_corner_grip(self):
+    """Restated 2.18.4. The corner grip (a `ki-arrow-two-diagonals` button
+    that changed width only) became the box's own border, taken on any edge
+    or corner, horizontally and vertically — product owner, 2026-09-27: «این
+    دکمه حذف شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد». The tests
+    below hold the same promises the grip's did, against the handles."""
+
+    def test_the_grip_button_is_gone(self):
+        body = function_body("setupDashboardEditor")
+        self.assertNotIn("function resizeGrip(", SCRIPT)
+        self.assertNotIn("ki-arrow-two-diagonals fs-6", body)
+        self.assertNotIn("dashboard-widget-resize", CODE)
         self.assertNotIn("dashboard-widget-size", SCRIPT)
-        self.assertIn("function resizeGrip(", SCRIPT)
 
-    def test_the_grip_sits_on_the_edge_a_box_grows_towards(self):
-        """A column in an RTL row is anchored at the row's right and extends
-        leftwards, so the edge that moves when it widens is the physical
-        left one — `inset-inline-end` here, the same property the hide
-        control uses to reach the top left."""
-        declarations = rule(".dashboard-widget .dashboard-widget-resize")
-        self.assertIn("inset-block-end:", declarations)
-        self.assertIn("inset-inline-end:", declarations)
-        self.assertIn("cursor: nesw-resize", declarations)
-
-    def test_the_grip_rule_outranks_bootstraps_own_button_cursor(self):
-        """Measured: with a lone class the grip rendered `cursor: pointer`,
-        because Bootstrap's reset carries `button:not(:disabled)` at (0,1,1)
-        and a single class is (0,1,0)."""
-        self.assertIn(".dashboard-widget .dashboard-widget-resize {", CODE)
-        # The bare class, at the start of a line — the form that lost.
-        self.assertNotIn("\n.dashboard-widget-resize {", CODE)
-
-    def test_dragging_left_widens_because_the_panel_is_rtl(self):
+    def test_every_edge_and_corner_is_a_handle(self):
         body = function_body("setupDashboardEditor")
-        self.assertIn("const widened = startWidth + (startX - event.clientX);", body)
+        for edge in ("inline-start", "inline-end", "block-start", "block-end",
+                     "block-end inline-end", "block-start inline-start"):
+            with self.subTest(edge=edge):
+                self.assertIn(f'"{edge}"', body)
+        self.assertIn("column.append(...resizeHandles(column, key));", body)
 
-    def test_the_min_and_max_are_the_widths_the_server_accepts(self):
-        """Not free pixels: a box has to keep lining up with every other card
-        and has to collapse to full width on a phone, which is what the
-        theme's twelve-column grid already does."""
-        body = function_body("setupDashboardEditor")
-        self.assertIn("const steps = sizeChoices.length ? sizeChoices : DASHBOARD_SIZE_FALLBACK;", body)
-        self.assertEqual(set(WIDGET_SIZES), {"quarter", "third", "half", "full"})
+    def test_the_handles_sit_on_the_cards_edge_not_the_columns(self):
+        """A column is padded by half the row's gutter; its own edge is
+        outside the card the reader is looking at."""
+        self.assertIn("--dashboard-edge-inset: calc(var(--bs-gutter-x, 1.5rem) * 0.5);", CODE)
+        self.assertIn("cursor: ew-resize", rule('.dashboard-resize-handle[data-edge="inline-start"],'))
+        self.assertIn("cursor: ns-resize", rule('.dashboard-resize-handle[data-edge="block-start"],'))
 
-    def test_the_grip_is_reachable_by_keyboard(self):
+    def test_moving_an_edge_away_from_the_box_grows_it_in_either_direction(self):
+        """Visual terms: in RTL the inline-end edge is the physical left one,
+        so dragging it left widens; the inline-start edge is the right one."""
         body = function_body("setupDashboardEditor")
-        self.assertIn('grip.addEventListener("keydown"', body)
-        self.assertIn('event.key === "ArrowLeft"', body)
+        self.assertIn('const onLeft = edge.includes("inline-end") === rtl;', body)
+        self.assertIn("const dx = onLeft ? startX - moveEvent.clientX : moveEvent.clientX - startX;", body)
+        self.assertIn("const dy = fromTop ? startY - moveEvent.clientY : moveEvent.clientY - startY;", body)
 
-    def test_the_grip_is_a_button_with_an_accessible_name(self):
+    def test_widths_snap_to_what_the_server_accepts(self):
         body = function_body("setupDashboardEditor")
-        self.assertIn('grip.type = "button";', body)
-        self.assertIn('grip.setAttribute("aria-label", `تغییر اندازهٔ ${boxLabel(key)}`)', body)
+        self.assertIn("sizeChoices.forEach((choice) => {", body)
+        self.assertEqual(
+            set(WIDGET_SIZES), {"quarter", "third", "half", "two_thirds", "three_quarters", "full"},
+        )
+
+    def test_the_box_is_resizable_from_the_keyboard(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn('column.addEventListener("keydown", onBoxKeydown);', body)
+        self.assertIn('event.key === "ArrowLeft" || event.key === "ArrowRight"', body)
+        self.assertIn('event.key === "ArrowDown" || event.key === "ArrowUp"', body)
+
+    def test_the_focusable_box_has_an_accessible_name(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn("column.tabIndex = 0;", body)
+        self.assertIn('column.setAttribute("aria-label", `${boxLabel(key)} — کلیدهای جهت اندازه را تغییر می‌دهند`);', body)
 
 
 class DashboardHideButtonTests(SimpleTestCase):

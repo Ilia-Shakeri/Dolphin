@@ -103,16 +103,37 @@ def _is_known_key(key):
 
 #: `size token -> (Persian label, Bootstrap column classes)`.
 #:
-#: Four steps of the theme's own twelve-column grid, not a free pixel width:
-#: a resizable widget still has to line up with every other card on the page
+#: Steps of the theme's own twelve-column grid, not a free pixel width: a
+#: resizable widget still has to line up with every other card on the page
 #: and still has to collapse to full width on a phone, which is exactly what
 #: the vendor's grid already does. The `col-12` on each is what does the
 #: collapsing; the `col-xl-*` is the chosen width once there is room for it.
+#:
+#: Four steps until 2.18.4; two-thirds and three-quarters were added when
+#: resizing became a drag on the box's own border, where a jump straight
+#: from half to full width read as the border refusing to follow the hand.
 WIDGET_SIZES = {
     "quarter": ("یک‌چهارم", "col-12 col-sm-6 col-xl-3"),
     "third": ("یک‌سوم", "col-12 col-sm-6 col-xl-4"),
     "half": ("نصف", "col-12 col-xl-6"),
+    "two_thirds": ("دوسوم", "col-12 col-xl-8"),
+    "three_quarters": ("سه‌چهارم", "col-12 col-xl-9"),
     "full": ("تمام‌عرض", "col-12"),
+}
+
+#: `height token -> minimum card height`, for dragging a box's top or bottom
+#: border (2.18.4, product owner: «همهٔ باکس‌ها باید از لبه‌ها به‌صورت افقی و
+#: عمودی بزرگ و کوچک شوند»).
+#:
+#: A *minimum*, never a fixed height: a box can be made taller than its
+#: content, never shorter than it — clipping a figure or a legend to honour a
+#: drag is not a size anybody wants. `rem`, so a reader's own font scale
+#: (`common.preferences`) scales the box with the text inside it. A widget
+#: missing from a reader's map takes its content's own height, which is what
+#: every box did before this existed.
+WIDGET_HEIGHTS = {
+    token: f"{token[1:]}rem"
+    for token in ("h10", "h12", "h14", "h16", "h18", "h20", "h22", "h24", "h28", "h32", "h36", "h40")
 }
 
 #: The width each widget is designed at, used when the reader has not chosen
@@ -161,6 +182,7 @@ def arrange_capability_tiles(widgets, user, layout=None):
             **widget,
             "key": key,
             "size": size_class_for(key, layout["sizes"], DEFAULT_CAPABILITY_SIZE),
+            "height": height_for(key, layout["heights"]),
         })
     return _ordered(arranged, key_of=lambda item: item["key"], order=layout["order"])
 
@@ -232,6 +254,28 @@ def _clean_keys(value, *, field):
     return cleaned
 
 
+def _clean_heights(value, *, field):
+    """`{widget key: height token}`, the tokens being `WIDGET_HEIGHTS`'.
+
+    A key mapped to `None` is dropped rather than refused: that is how the
+    editor says "back to this box's own content height" without having to
+    re-send every other box's height.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise BusinessRuleError({field: "ارتفاع ویجت‌ها نامعتبر است."})
+    unknown_keys = [key for key in value if not _is_known_key(key)]
+    if unknown_keys:
+        raise BusinessRuleError({field: f"ویجت ناشناخته: {', '.join(sorted(unknown_keys))}"})
+    unknown_heights = sorted({
+        str(height) for height in value.values() if height is not None and height not in WIDGET_HEIGHTS
+    })
+    if unknown_heights:
+        raise BusinessRuleError({field: f"ارتفاع ناشناخته: {', '.join(unknown_heights)}"})
+    return {key: height for key, height in value.items() if height is not None}
+
+
 def _clean_sizes(value, *, field):
     if value is None:
         return None
@@ -247,7 +291,9 @@ def _clean_sizes(value, *, field):
 
 
 @transaction.atomic
-def update_user_dashboard_layout(*, actor, hidden_widgets=None, widget_order=None, widget_sizes=None):
+def update_user_dashboard_layout(
+    *, actor, hidden_widgets=None, widget_order=None, widget_sizes=None, widget_heights=None,
+):
     """Save this actor's own dashboard arrangement.
 
     No `user=` parameter, for the same reason `common.preferences.
@@ -278,6 +324,11 @@ def update_user_dashboard_layout(*, actor, hidden_widgets=None, widget_order=Non
     if cleaned_sizes is not None:
         row.widget_sizes = cleaned_sizes
         changed.append("widget_sizes")
+
+    cleaned_heights = _clean_heights(widget_heights, field="widget_heights")
+    if cleaned_heights is not None:
+        row.widget_heights = cleaned_heights
+        changed.append("widget_heights")
 
     if changed:
         row.save(update_fields=[*changed, "updated_at"])
@@ -319,6 +370,13 @@ def size_class_for(key, sizes, default):
     return WIDGET_SIZES.get(token, WIDGET_SIZES[FALLBACK_WIDGET_SIZE])[1]
 
 
+def height_for(key, heights):
+    """One box's chosen minimum height as a CSS length, or `None` for its
+    content's own height — the default, and what a token saved by a
+    since-removed step falls back to."""
+    return WIDGET_HEIGHTS.get(heights.get(key))
+
+
 def effective_layout(user):
     """The hidden set, order and sizes this reader's dashboard should use,
     with the deployment default underneath and their own overlay on top.
@@ -335,18 +393,34 @@ def effective_layout(user):
     hidden = set(deployment.hidden_widgets)
     order = list(deployment.widget_order)
     sizes = {}
+    heights = {}
     if layout is not None:
         hidden |= set(layout.hidden_widgets)
         if layout.widget_order:
             order = list(layout.widget_order)
         sizes = dict(layout.widget_sizes or {})
+        heights = dict(layout.widget_heights or {})
     return {
         "hidden": frozenset(hidden),
         "order": order,
         "sizes": sizes,
+        "heights": heights,
         "deployment_hidden": frozenset(deployment.hidden_widgets),
         "is_customised": layout is not None,
     }
+
+
+def size_choices():
+    """`WIDGET_SIZES` in the shape the editor snaps a width drag to."""
+    return [
+        {"value": token, "label": label, "classes": classes}
+        for token, (label, classes) in WIDGET_SIZES.items()
+    ]
+
+
+def height_choices():
+    """`WIDGET_HEIGHTS` in the shape the editor snaps a height drag to."""
+    return [{"value": token, "length": length} for token, length in WIDGET_HEIGHTS.items()]
 
 
 def layout_state(layout):
@@ -359,6 +433,7 @@ def layout_state(layout):
         "order": list(layout["order"]),
         "hidden": sorted(layout["hidden"]),
         "sizes": dict(layout["sizes"]),
+        "heights": dict(layout["heights"]),
         "locked_hidden": sorted(layout["deployment_hidden"]),
         "is_customised": layout["is_customised"],
     }
@@ -387,21 +462,23 @@ def apply_layout(dashboard_payload, user=None):
     order = layout["order"]
     sizes = layout["sizes"]
 
+    heights = layout["heights"]
+
     def _sized(item):
-        return {**item, "size": size_class(item["key"], sizes)}
+        return {**item, "size": size_class(item["key"], sizes), "height": height_for(item["key"], heights)}
 
     kpis = [_sized(kpi) for kpi in dashboard_payload["kpis"] if kpi["key"] not in hidden]
     kpis = _ordered(kpis, key_of=lambda kpi: kpi["key"], order=order)
 
     trend = dashboard_payload["trend"]
     if trend is not None and "trend" not in hidden:
-        trend = {**trend, "key": "trend", "size": size_class("trend", sizes)}
+        trend = _sized({**trend, "key": "trend"})
     else:
         trend = None
 
     breakdown = dashboard_payload["breakdown"]
     if breakdown is not None and "breakdown" not in hidden:
-        breakdown = {**breakdown, "key": "breakdown", "size": size_class("breakdown", sizes)}
+        breakdown = _sized({**breakdown, "key": "breakdown"})
     else:
         breakdown = None
 
@@ -410,7 +487,7 @@ def apply_layout(dashboard_payload, user=None):
 
     agent_share = dashboard_payload["agent_share"]
     if agent_share is not None and "agent_share" not in hidden:
-        agent_share = {**agent_share, "key": "agent_share", "size": size_class("agent_share", sizes)}
+        agent_share = _sized({**agent_share, "key": "agent_share"})
     else:
         agent_share = None
 

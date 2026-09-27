@@ -289,6 +289,12 @@ class UserDashboardLayout(TimeStampedModel):
     #: keeps the width its own card was designed at, so resizing one widget
     #: never requires pinning the width of every other one.
     widget_sizes = models.JSONField(default=dict, blank=True)
+    #: `{widget key: height token}`, the tokens being the keys of
+    #: `common.dashboard_layout.WIDGET_HEIGHTS` (2.18.4). A widget missing
+    #: from this map keeps its content's own height — which is every widget
+    #: of every layout saved before this field existed, so the default needs
+    #: no data migration.
+    widget_heights = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"چیدمان داشبورد {self.user_id}"

@@ -66,12 +66,12 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
 class UserDashboardLayoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserDashboardLayout
-        fields = ("hidden_widgets", "widget_order", "widget_sizes", "updated_at")
+        fields = ("hidden_widgets", "widget_order", "widget_sizes", "widget_heights", "updated_at")
         read_only_fields = fields
 
 
 class UserDashboardLayoutUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
-    """All three fields optional and independent — see
+    """Every field optional and independent — see
     `common.dashboard_layout.update_user_dashboard_layout` for what
     "independent" means. Membership of the widget and size vocabularies is
     checked again in `common.dashboard_layout._clean_keys` and
@@ -82,6 +82,8 @@ class UserDashboardLayoutUpdateSerializer(RejectServerFieldsMixin, serializers.S
     hidden_widgets = serializers.ListField(child=serializers.CharField(), required=False)
     widget_order = serializers.ListField(child=serializers.CharField(), required=False)
     widget_sizes = serializers.DictField(child=serializers.CharField(), required=False)
+    #: `None` for a key means "back to its content height" (2.18.4).
+    widget_heights = serializers.DictField(child=serializers.CharField(allow_null=True), required=False)
 
 
 class UserPreferenceSerializer(serializers.ModelSerializer):

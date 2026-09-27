@@ -53,16 +53,15 @@ class DashboardLayoutView(APIView):
             "hidden_widgets": sorted(effective["hidden"]),
             "widget_order": effective["order"],
             "widget_sizes": effective["sizes"],
+            "widget_heights": effective["heights"],
             "locked_hidden": sorted(effective["deployment_hidden"]),
             "is_customised": effective["is_customised"],
             "catalog": [
                 {"key": key, "label": label, "feature": feature}
                 for key, label, feature in dashboard_layout.WIDGET_CATALOG
             ],
-            "sizes": [
-                {"value": token, "label": label, "classes": classes}
-                for token, (label, classes) in dashboard_layout.WIDGET_SIZES.items()
-            ],
+            "sizes": dashboard_layout.size_choices(),
+            "heights": dashboard_layout.height_choices(),
         }
 
     def _respond(self, request):
@@ -89,7 +88,7 @@ class DashboardLayoutView(APIView):
             429: THROTTLED_RESPONSE,
         },
         description=(
-            "Saves the signed-in user's own arrangement. All three fields are independent and optional. "
+            "Saves the signed-in user's own arrangement. All four fields are independent and optional. "
             "A widget hidden by this deployment's default layout stays hidden regardless of what is sent."
         ),
     )
@@ -102,6 +101,7 @@ class DashboardLayoutView(APIView):
             hidden_widgets=data.get("hidden_widgets"),
             widget_order=data.get("widget_order"),
             widget_sizes=data.get("widget_sizes"),
+            widget_heights=data.get("widget_heights"),
         )
         return self._respond(request)
 

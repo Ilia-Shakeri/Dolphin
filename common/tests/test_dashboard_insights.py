@@ -490,7 +490,9 @@ class ApiTests(DashboardFixtures):
         )
         self.assertEqual(
             set(response.data["layout"]),
-            {"order", "hidden", "sizes", "locked_hidden", "is_customised"},
+            # `heights` joined in 2.18.4, when a box's border became
+            # draggable vertically as well as horizontally.
+            {"order", "hidden", "sizes", "heights", "locked_hidden", "is_customised"},
         )
 
     def test_the_result_may_not_be_cached(self):

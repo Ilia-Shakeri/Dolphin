@@ -749,6 +749,7 @@
                 data: kpi,
                 column,
                 size: kpi.size,
+                height: kpi.height,
                 mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent}); },
             });
         });
@@ -762,6 +763,7 @@
                 data: gauge,
                 column,
                 size: gauge.size,
+                height: gauge.height,
                 mount: () => renderGaugeChart(canvas, empty, gauge.value, {
                     ariaLabel: `${gauge.label}: ${gauge.display}`,
                     accent: gauge.accent,
@@ -782,6 +784,7 @@
                 data: data.trend,
                 column: card,
                 size: data.trend.size,
+                height: data.trend.height,
                 // Mixed rather than a bare area: `_sales_trend` (common/
                 // dashboard.py) returns the same twelve weeks' order count
                 // alongside the amount, and a reader asking "how is sales
@@ -833,6 +836,7 @@
                 data: data.agent_share,
                 column: card,
                 size: data.agent_share.size,
+                height: data.agent_share.height,
                 mount: () => renderMultiGaugeChart(
                     document.getElementById("dashboard-agent-share-chart"),
                     document.getElementById("dashboard-agent-share-empty"),
@@ -861,6 +865,7 @@
                 data: data.breakdown,
                 column: card,
                 size: data.breakdown.size,
+                height: data.breakdown.height,
                 mount: () => renderDonutChart(
                     document.getElementById("dashboard-breakdown-chart"),
                     document.getElementById("dashboard-breakdown-empty"),
@@ -915,19 +920,10 @@
         const column = widget.column;
         column.className = `dashboard-widget ${widget.size || "col-12 col-sm-6 col-xl-3"}`;
         column.dataset.widgetKey = widget.key;
+        // A reader-chosen minimum height (2.18.4, `WIDGET_HEIGHTS`), or none.
+        if (widget.height) column.style.setProperty("--dashboard-min-height", widget.height);
         grid.appendChild(column);
     }
-
-    //: `size token -> Persian label`, for the editor's own size menu. The
-    //: server sends the same list in `/api/v1/dashboard-layout/`; this is
-    //: the fallback used before that request answers, so the first click on
-    //: the pencil is not a blank menu.
-    const DASHBOARD_SIZE_FALLBACK = [
-        {value: "quarter", label: "یک‌چهارم"},
-        {value: "third", label: "یک‌سوم"},
-        {value: "half", label: "نصف"},
-        {value: "full", label: "تمام‌عرض"},
-    ];
 
     /**
      * One widget's preview for the "افزودن ویجت" dialog, drawn from its own
@@ -1033,7 +1029,12 @@
         bar.hidden = false;
         let editing = false;
         let sizes = {...(layout.sizes || {})};
-        let sizeChoices = DASHBOARD_SIZE_FALLBACK;
+        let heights = {...(layout.heights || {})};
+        // The steps a border drag snaps to, rendered into the page with the
+        // rest of the editor's state (`dashboard-layout-state`) since 2.18.4.
+        const pageState = dashboardLayoutState() || {};
+        let sizeChoices = pageState.size_choices || [];
+        const heightChoices = pageState.height_choices || [];
         // Only what this reader hid themselves can be put back. A widget
         // this deployment's default hides never reached the payload, so it
         // is not in `widgets` and cannot be listed here either.
@@ -1068,7 +1069,7 @@
         async function save(body) {
             try {
                 const saved = await apiRequest("/api/v1/dashboard-layout/", {method: "POST", body});
-                if (saved && saved.sizes) sizeChoices = saved.sizes;
+                if (saved && Array.isArray(saved.sizes) && saved.sizes.length) sizeChoices = saved.sizes;
                 if (reset) reset.hidden = !editing || !saved || !saved.is_customised;
             } catch (error) {
                 // The arrangement is already applied on screen; saying so
@@ -1275,93 +1276,300 @@
             });
         }
 
-        /** Apply a size token to a box on screen and remember it. */
+        /** Apply a width token to a box on screen and remember it. */
         function applySize(column, key, token) {
             if (sizes[key] === token) return false;
-            sizes = {...sizes, [key]: token};
             const classes = (sizeChoices.find((choice) => choice.value === token) || {}).classes;
-            if (classes) column.className = `dashboard-widget editing ${classes}`;
+            if (!classes) return false;
+            sizes = {...sizes, [key]: token};
+            const keep = ["editing", "resizing", "dragging"].filter((name) => column.classList.contains(name));
+            column.className = ["dashboard-widget", ...keep, classes].join(" ");
             return true;
         }
 
+        /** Apply a height token — or `null`, the box's own content height —
+         * to a box on screen and remember it. */
+        function applyHeight(column, key, token) {
+            if ((heights[key] || null) === token) return false;
+            const next = {...heights};
+            if (token) next[key] = token; else delete next[key];
+            heights = next;
+            const length = token ? (heightChoices.find((choice) => choice.value === token) || {}).length : null;
+            if (length) column.style.setProperty("--dashboard-min-height", length);
+            else column.style.removeProperty("--dashboard-min-height");
+            fitAllCharts();
+            return true;
+        }
+
+        //: How much of the row each width step takes, for snapping a dragged
+        //: width to the nearest one the server accepts.
+        const WIDTH_SHARES = {quarter: 1 / 4, third: 1 / 3, half: 1 / 2, two_thirds: 2 / 3, three_quarters: 3 / 4, full: 1};
+
+        function widthTokenAt(column, width) {
+            const row = column.parentElement.getBoundingClientRect().width || 1;
+            const share = width / row;
+            let best = sizeChoices[0] && sizeChoices[0].value;
+            let distance = Infinity;
+            sizeChoices.forEach((choice) => {
+                const gap = Math.abs((WIDTH_SHARES[choice.value] ?? 0.25) - share);
+                if (gap < distance) { distance = gap; best = choice.value; }
+            });
+            return best;
+        }
+
+        function remPixels() {
+            return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        }
+
+        /** The nearest height step to `px` — or `null` when that is not
+         * taller than the box's own content. A minimum height below what the
+         * box already holds would be a size in name only. */
+        function heightTokenAt(px, naturalPx) {
+            if (px <= naturalPx + 4) return null;
+            const rem = remPixels();
+            let best = null;
+            let distance = Infinity;
+            heightChoices.forEach((choice) => {
+                const candidate = parseFloat(choice.length) * rem;
+                if (candidate <= naturalPx) return;
+                const gap = Math.abs(candidate - px);
+                if (gap < distance) { distance = gap; best = choice.value; }
+            });
+            return best;
+        }
+
+        /** The charts drawn inside one box, as `[element, instance]` pairs.
+         * Found through the DOM — every Apex chart draws its own
+         * `.apexcharts-canvas` inside the element it was mounted on — because
+         * `liveCharts` is a WeakMap and cannot be walked. */
+        function chartsIn(column) {
+            const found = [];
+            column.querySelectorAll(".apexcharts-canvas").forEach((canvas) => {
+                const element = canvas.parentElement;
+                const instance = element && liveCharts.get(element);
+                if (instance && !element.hidden) found.push([element, instance]);
+            });
+            return found;
+        }
+
+        /** How tall a box would be at its content's own height — with its
+         * minimum lifted and any chart this editor stretched counted at its
+         * original height. */
+        function naturalHeight(column) {
+            const card = column.querySelector(":scope > .card") || column;
+            const saved = column.style.getPropertyValue("--dashboard-min-height");
+            column.style.removeProperty("--dashboard-min-height");
+            let height = card.getBoundingClientRect().height;
+            if (saved) column.style.setProperty("--dashboard-min-height", saved);
+            chartsIn(column).forEach(([element]) => {
+                const base = Number(element.dataset.dashboardBaseHeight || 0);
+                if (base) height -= Math.max(0, element.offsetHeight - base);
+            });
+            return height;
+        }
+
+        /** A box's main chart — its tallest — with the height it was first
+         * drawn at, remembered the first time this sees it. */
+        function mainChart(column) {
+            const charts = chartsIn(column);
+            if (!charts.length || !column.querySelector(":scope > .card")) return null;
+            const [element, instance] = charts.reduce((a, b) => (b[0].offsetHeight > a[0].offsetHeight ? b : a));
+            // Not drawn yet (Apex finishes a render a tick after it starts):
+            // there is no honest base height to remember, so leave it for
+            // the next pass rather than remembering zero.
+            if (!element.dataset.dashboardBaseHeight && !element.offsetHeight) return null;
+            if (!element.dataset.dashboardBaseHeight) {
+                element.dataset.dashboardBaseHeight = String(element.offsetHeight);
+                // What the container holds beyond the plot Apex was asked
+                // for (a legend row drawn outside the SVG), so a target
+                // height for the container converts to the one Apex takes.
+                const svg = element.querySelector("svg.apexcharts-svg");
+                const plot = svg ? svg.getBoundingClientRect().height : element.offsetHeight;
+                element.dataset.dashboardChrome = String(Math.max(0, Math.round(element.offsetHeight - plot)));
+            }
+            return {
+                column, element, instance,
+                base: Number(element.dataset.dashboardBaseHeight),
+                chrome: Number(element.dataset.dashboardChrome || 0),
+            };
+        }
+
+        /** How much taller a box's body is than what it holds. */
+        function slackIn(column) {
+            const card = column.querySelector(":scope > .card");
+            const body = card.querySelector(":scope > .card-body") || card;
+            const bodyStyle = getComputedStyle(body);
+            const inner = body.clientHeight - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom);
+            const used = Array.from(body.children).reduce((sum, child) => {
+                if (child.hidden) return sum;
+                const style = getComputedStyle(child);
+                return sum + child.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+            }, 0);
+            return inner - used;
+        }
+
         /**
-         * The corner grip, dragged to resize.
+         * A taller box gives its main chart the room, rather than leaving an
+         * empty band under a plot drawn at its old height — so dragging a
+         * chart box's bottom border makes the chart itself bigger, and
+         * dragging it back makes it smaller again. A chart never drops below
+         * the height it was first drawn at.
          *
-         * Free pixels are not on offer and should not be: a box has to keep
-         * lining up with every other card on the page and has to collapse to
-         * full width on a phone, which is what the theme's twelve-column grid
-         * already does. So the grip snaps across the four widths the server
-         * accepts (`WIDGET_SIZES`, common/dashboard_layout.py) — those are
-         * the min and max the product owner asked for, and they are declared
-         * in one place rather than as numbers here.
-         *
-         * Dragged in *visual* terms: this panel is RTL, a box grows towards
-         * the physical left, and the grip sits in the bottom-left corner. So
-         * the pointer moving left widens and moving right narrows, which is
-         * the opposite of the arithmetic an LTR page would use.
+         * Every box at once, in three passes, because a Bootstrap row
+         * stretches each box to the tallest in it: every chart is first held
+         * at its original height, *then* every box's spare room is measured
+         * (so no box measures against a neighbour's chart that is about to
+         * shrink), and only then is each chart redrawn at its new height.
          */
-        function resizeGrip(column, key) {
-            const grip = document.createElement("button");
-            grip.type = "button";
-            grip.className = "dashboard-widget-resize";
-            grip.dataset.widgetResize = key;
-            grip.title = "تغییر اندازه";
-            grip.setAttribute("aria-label", `تغییر اندازهٔ ${boxLabel(key)}`);
-            grip.innerHTML = '<i class="ki-outline ki-arrow-two-diagonals fs-6"></i>';
-
-            function tokenAt(width) {
-                // The grid is twelve columns wide; which step a dragged width
-                // lands on is the nearest of the four the server accepts.
-                const row = column.parentElement.getBoundingClientRect().width || 1;
-                const share = width / row;
-                const steps = sizeChoices.length ? sizeChoices : DASHBOARD_SIZE_FALLBACK;
-                const fractions = {quarter: 0.25, third: 1 / 3, half: 0.5, full: 1};
-                let best = steps[0].value;
-                let distance = Infinity;
-                steps.forEach((step) => {
-                    const gap = Math.abs((fractions[step.value] ?? 0.25) - share);
-                    if (gap < distance) { distance = gap; best = step.value; }
+        function fitAllCharts() {
+            const charts = allBoxes().filter((column) => !column.hidden).map(mainChart).filter(Boolean);
+            charts.forEach((chart) => {
+                // Apex pins its own container with an inline `min-height`
+                // at the height it last drew, so that has to be held too.
+                chart.minHeight = chart.element.style.minHeight;
+                chart.element.style.minHeight = `${chart.base}px`;
+                chart.element.style.height = `${chart.base}px`;
+                chart.element.style.overflow = "hidden";
+            });
+            charts.forEach((chart) => { chart.target = chart.base + Math.max(0, Math.round(slackIn(chart.column))); });
+            charts.forEach((chart) => {
+                chart.element.style.minHeight = chart.minHeight;
+                chart.element.style.height = "";
+                chart.element.style.overflow = "";
+                if (Math.abs(chart.target - chart.element.offsetHeight) < 3) return;
+                // Apex's container ends up a little taller than the plot it
+                // was asked for, and not by the same amount on a first
+                // render as on a redraw — so ask, measure, and correct once
+                // rather than predict.
+                const asked = chart.target - chart.chrome;
+                Promise.resolve(chart.instance.updateOptions({chart: {height: asked}}, false, false)).then(() => {
+                    const miss = chart.target - chart.element.offsetHeight;
+                    if (Math.abs(miss) >= 3) chart.instance.updateOptions({chart: {height: asked + miss}}, false, false);
                 });
-                return best;
-            }
+            });
+        }
 
-            let startX = 0;
-            let startWidth = 0;
-            function onMove(event) {
-                // RTL: leftwards is wider.
-                const widened = startWidth + (startX - event.clientX);
-                const token = tokenAt(Math.max(80, widened));
-                if (applySize(column, key, token)) column.classList.add("resizing");
-            }
-            function onUp() {
-                document.removeEventListener("pointermove", onMove);
-                document.removeEventListener("pointerup", onUp);
-                column.classList.remove("resizing");
-                save({widget_sizes: sizes});
-            }
-            grip.addEventListener("pointerdown", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                startX = event.clientX;
-                startWidth = column.getBoundingClientRect().width;
-                document.addEventListener("pointermove", onMove);
-                document.addEventListener("pointerup", onUp);
+        //: The eight places a box can be taken by its border: four edges and
+        //: four corners, named in logical terms so the one list is right on
+        //: an RTL and an LTR page alike (the cursors live in dolphin.css).
+        const RESIZE_EDGES = [
+            "inline-start", "inline-end", "block-start", "block-end",
+            "block-start inline-start", "block-start inline-end",
+            "block-end inline-start", "block-end inline-end",
+        ];
+
+        //: Widths only mean something where the grid has columns to give:
+        //: below the theme's `xl` breakpoint every box is already full width
+        //: (or half, on `sm`), so a horizontal drag there would save a width
+        //: nobody could see. Heights work at every size.
+        const wideLayout = window.matchMedia("(min-width: 1200px)");
+
+        /**
+         * Resizing by the box's own border — product owner, 2026-09-27:
+         * «این دکمه حذف شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد» and
+         * «همهٔ باکس‌ها باید از لبه‌ها به‌صورت افقی و عمودی بزرگ و کوچک شوند».
+         * Until 2.18.4 a box had one corner button (`ki-arrow-two-diagonals`)
+         * that changed only its width.
+         *
+         * Snapped, never free pixels: widths to the steps of the theme's
+         * twelve-column grid (`WIDGET_SIZES`), heights to `WIDGET_HEIGHTS` —
+         * a box keeps lining up with every other card and still collapses on
+         * a phone. Dragged in *visual* terms: whichever physical side the
+         * taken edge is on, moving it away from the box grows the box.
+         */
+        function resizeHandles(column, key) {
+            return RESIZE_EDGES.map((edge) => {
+                const handle = document.createElement("span");
+                handle.className = "dashboard-resize-handle";
+                handle.dataset.widgetResize = key;
+                handle.dataset.edge = edge;
+                handle.setAttribute("aria-hidden", "true");
+                handle.addEventListener("pointerdown", (event) => {
+                    if (event.button !== 0) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const rtl = getComputedStyle(column).direction === "rtl";
+                    const horizontal = edge.includes("inline-") && wideLayout.matches;
+                    const vertical = edge.includes("block-");
+                    // The taken edge is on the physical left when it is the
+                    // inline-end of an RTL box or the inline-start of an LTR one.
+                    const onLeft = edge.includes("inline-end") === rtl;
+                    const fromTop = edge.includes("block-start");
+                    const startX = event.clientX;
+                    const startY = event.clientY;
+                    const startWidth = column.getBoundingClientRect().width;
+                    const card = column.querySelector(":scope > .card") || column;
+                    const startHeight = card.getBoundingClientRect().height;
+                    const natural = vertical ? naturalHeight(column) : 0;
+                    let changed = false;
+                    column.classList.add("resizing");
+                    handle.classList.add("active");
+                    try { handle.setPointerCapture(event.pointerId); } catch (error) { /* capture is a nicety */ }
+
+                    function onMove(moveEvent) {
+                        if (horizontal) {
+                            const dx = onLeft ? startX - moveEvent.clientX : moveEvent.clientX - startX;
+                            const token = widthTokenAt(column, Math.max(60, startWidth + dx));
+                            if (token && applySize(column, key, token)) changed = true;
+                        }
+                        if (vertical) {
+                            const dy = fromTop ? startY - moveEvent.clientY : moveEvent.clientY - startY;
+                            if (applyHeight(column, key, heightTokenAt(startHeight + dy, natural))) changed = true;
+                        }
+                    }
+                    function onUp() {
+                        document.removeEventListener("pointermove", onMove);
+                        document.removeEventListener("pointerup", onUp);
+                        document.removeEventListener("pointercancel", onUp);
+                        column.classList.remove("resizing");
+                        handle.classList.remove("active");
+                        if (changed) {
+                            fitAllCharts();
+                            save({widget_sizes: sizes, widget_heights: heights});
+                        }
+                    }
+                    document.addEventListener("pointermove", onMove);
+                    document.addEventListener("pointerup", onUp);
+                    document.addEventListener("pointercancel", onUp);
+                });
+                return handle;
             });
-            // A grip nobody can reach with a keyboard is not a control. The
-            // arrow keys step through the same four widths the pointer snaps
-            // between, in the same visual direction.
-            grip.addEventListener("keydown", (event) => {
-                const steps = (sizeChoices.length ? sizeChoices : DASHBOARD_SIZE_FALLBACK)
-                    .map((choice) => choice.value);
-                const at = Math.max(0, steps.indexOf(sizes[key] || steps[0]));
-                let next = at;
-                if (event.key === "ArrowLeft") next = Math.min(steps.length - 1, at + 1);
-                else if (event.key === "ArrowRight") next = Math.max(0, at - 1);
-                else return;
-                event.preventDefault();
-                if (applySize(column, key, steps[next])) save({widget_sizes: sizes});
-            });
-            return grip;
+        }
+
+        /**
+         * The keyboard's way to the same sizes. The border handles are
+         * pointer-only affordances; while editing, the box itself takes focus
+         * and the arrow keys step through the same widths and heights the
+         * border snaps to — left/right in the visual direction of the page,
+         * down for taller.
+         */
+        function onBoxKeydown(event) {
+            const column = event.currentTarget;
+            if (event.target !== column) return;
+            const key = column.dataset.widgetKey;
+            const rtl = getComputedStyle(column).direction === "rtl";
+            let handled = false;
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                const steps = sizeChoices.map((choice) => choice.value);
+                const current = sizes[key] || widthTokenAt(column, column.getBoundingClientRect().width);
+                const at = Math.max(0, steps.indexOf(current));
+                const wider = (event.key === "ArrowLeft") === rtl;
+                const next = Math.min(steps.length - 1, Math.max(0, at + (wider ? 1 : -1)));
+                handled = applySize(column, key, steps[next]);
+            } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                const steps = [null, ...heightChoices.map((choice) => choice.value)];
+                const natural = naturalHeight(column);
+                const rem = remPixels();
+                const usable = steps.filter((step) => step === null
+                    || parseFloat((heightChoices.find((choice) => choice.value === step) || {}).length) * rem > natural);
+                const at = Math.max(0, usable.indexOf(heights[key] || null));
+                const next = Math.min(usable.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
+                handled = applyHeight(column, key, usable[next]);
+            } else {
+                return;
+            }
+            event.preventDefault();
+            if (handled) save({widget_sizes: sizes, widget_heights: heights});
         }
 
         function widgetControls(column, key) {
@@ -1416,7 +1624,11 @@
                 column.classList.add("editing");
                 suppressNativeDrag(column);
                 column.appendChild(widgetControls(column, key));
-                column.appendChild(resizeGrip(column, key));
+                column.append(...resizeHandles(column, key));
+                column.tabIndex = 0;
+                column.setAttribute("role", "group");
+                column.setAttribute("aria-label", `${boxLabel(key)} — کلیدهای جهت اندازه را تغییر می‌دهند`);
+                column.addEventListener("keydown", onBoxKeydown);
             });
             grids.forEach((host) => host.classList.add("dashboard-widgets-editing"));
         }
@@ -1429,8 +1641,11 @@
                 restoreNativeDrag(column);
                 const controls = column.querySelector("[data-widget-controls]");
                 if (controls) controls.remove();
-                const grip = column.querySelector("[data-widget-resize]");
-                if (grip) grip.remove();
+                column.querySelectorAll("[data-widget-resize]").forEach((handle) => handle.remove());
+                column.removeAttribute("tabindex");
+                column.removeAttribute("role");
+                column.removeAttribute("aria-label");
+                column.removeEventListener("keydown", onBoxKeydown);
             });
             grids.forEach((host) => host.classList.remove("dashboard-widgets-editing"));
         }
@@ -1654,19 +1869,14 @@
             });
         }
 
-        // The catalog's size labels and classes, fetched once so the menu
-        // shows what the server actually accepts rather than this file's
-        // fallback copy of it. Deliberately not awaited: the editor is
-        // usable immediately and this only sharpens the menu.
-        apiRequest("/api/v1/dashboard-layout/").then((current) => {
-            if (current && Array.isArray(current.sizes) && current.sizes.length) {
-                sizeChoices = current.sizes;
-            }
-            if (current) layout.is_customised = current.is_customised;
-        }).catch(() => {
-            // A failed catalog fetch leaves the fallback labels in place,
-            // which are correct — they simply cannot learn about a size
-            // added on the server since this file was built.
+        // Boxes restored at a saved height: their charts were drawn at their
+        // own height before the minimum applied, so give them the room now
+        // — and again whenever the window's width moves what a row holds.
+        setTimeout(fitAllCharts, 60);
+        let fitTimer = null;
+        window.addEventListener("resize", () => {
+            clearTimeout(fitTimer);
+            fitTimer = setTimeout(fitAllCharts, 150);
         });
     }
 

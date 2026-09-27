@@ -21,7 +21,9 @@ from common.dashboard_layout import (
     arrange_capability_tiles,
     capability_tile_catalog,
     effective_layout,
+    height_choices,
     layout_state,
+    size_choices,
 )
 from common.integrations import any_integration_configurable, visible_integrations
 from common.deployment.profile import active_profile, feature_enabled
@@ -364,8 +366,15 @@ class DolphinHomeView(ActiveCrmView):
         layout = effective_layout(self.request.user)
         context["dashboard_widgets"] = arrange_capability_tiles(widgets, self.request.user, layout=layout)
         # The editor's starting state, rendered into the page so it never
-        # depends on the insight request (see `dashboard-layout-state`).
-        context["dashboard_layout_state"] = layout_state(layout)
+        # depends on the insight request (see `dashboard-layout-state`) —
+        # and, since 2.18.4, the width and height steps a border drag snaps
+        # between, so the editor no longer asks `/api/v1/dashboard-layout/`
+        # for them on every dashboard load.
+        context["dashboard_layout_state"] = {
+            **layout_state(layout),
+            "size_choices": size_choices(),
+            "height_choices": height_choices(),
+        }
         # Every tile this reader could have, hidden ones included, for the
         # "افزودن ویجت" dialog's real-figure previews.
         context["dashboard_tile_catalog"] = capability_tile_catalog(widgets, layout)

@@ -97,7 +97,9 @@ class LayoutStateRenderTests(TestCase):
     def test_the_rendered_state_carries_what_the_editor_starts_from(self):
         state = self.state()
         self.assertEqual(
-            set(state), {"order", "hidden", "sizes", "locked_hidden", "is_customised"},
+            set(state),
+            {"order", "hidden", "sizes", "heights", "locked_hidden", "is_customised",
+             "size_choices", "height_choices"},
         )
         self.assertFalse(state["is_customised"])
 
@@ -189,6 +191,72 @@ class EditModeLookTests(SimpleTestCase):
     def test_escape_leaves_edit_mode(self):
         body = function_body("setupDashboardEditor")
         self.assertIn('event.key === "Escape"', body)
+
+
+class BorderResizeTests(SimpleTestCase):
+    """«همهٔ باکس‌ها باید از لبه‌ها به‌صورت افقی و عمودی بزرگ و کوچک شوند»."""
+
+    def test_a_box_carries_a_minimum_height_it_never_drops_below_its_content(self):
+        self.assertIn("min-height: var(--dashboard-min-height, auto)", rule(".dashboard-widget > .card"))
+        body = function_body("setupDashboardEditor")
+        self.assertIn("if (px <= naturalPx + 4) return null;", body)
+
+    def test_a_saved_height_is_drawn_on_first_paint(self):
+        self.assertIn('style="--dashboard-min-height: {{ widget.height }}"', HOME)
+        self.assertIn('column.style.setProperty("--dashboard-min-height", widget.height)', function_body("placeDashboardWidget"))
+
+    def test_a_taller_box_gives_its_chart_the_room(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn("function fitAllCharts()", body)
+        self.assertIn("chart.instance.updateOptions({chart: {height: asked}}, false, false)", body)
+        # Every chart held at its own height before any box is measured.
+        self.assertLess(body.index("chart.element.style.height = `${chart.base}px`;"),
+                        body.index("chart.target = chart.base + Math.max(0, Math.round(slackIn(chart.column)));"))
+
+    def test_side_handles_are_not_offered_where_widths_cannot_show(self):
+        from common.tests.ui_overhaul_helpers import media_block
+
+        block = media_block("(max-width: 1199.98px)", "dashboard-resize-handle")
+        self.assertIn('.dashboard-resize-handle[data-edge="inline-start"]', block)
+        self.assertIn("display: none", block)
+
+
+class HeightValidationTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username="round3.height", password=PASSWORD, role=User.Role.PLATFORM_ADMIN,
+        )
+
+    def test_a_height_is_saved_and_returned_as_a_css_length(self):
+        from common.dashboard_layout import apply_layout, effective_layout
+
+        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "h24"})
+        self.assertEqual(effective_layout(self.admin)["heights"], {"trend": "h24"})
+        payload = {"kpis": [], "trend": {"title": "t", "points": [], "counts": []}, "breakdown": None,
+                   "gauges": [], "agent_share": None}
+        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], "24rem")
+
+    def test_null_drops_a_height_and_unknown_tokens_are_refused(self):
+        from common.dashboard_layout import effective_layout
+        from common.exceptions import BusinessRuleError
+
+        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "h24", "breakdown": "h12"})
+        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": None, "breakdown": "h12"})
+        self.assertEqual(effective_layout(self.admin)["heights"], {"breakdown": "h12"})
+        with self.assertRaises(BusinessRuleError):
+            update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "900px"})
+        with self.assertRaises(BusinessRuleError):
+            update_user_dashboard_layout(actor=self.admin, widget_heights={"not_a_widget": "h12"})
+
+    def test_the_api_accepts_heights(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            "/api/v1/dashboard-layout/",
+            data={"widget_heights": {"capability:leads.company": "h20"}},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["widget_heights"], {"capability:leads.company": "h20"})
 
 
 class HiddenAvailableTests(TestCase):

@@ -63,7 +63,7 @@
         <div class="fw-semibold">
             <h3 class="fs-6 fw-bold text-gray-900 mb-1">حالت ویرایش داشبورد</h3>
             <div class="fs-7 text-gray-700">
-                هر باکس را از هر جای خودش بکشید تا جابه‌جا شود؛ از گوشهٔ پایین‌چپ آن را بزرگ و کوچک کنید؛ با × پنهانش کنید.
+                هر باکس را از هر جای خودش بکشید تا جابه‌جا شود؛ لبه‌های هر باکس را بگیرید و بکشید تا پهن‌تر، باریک‌تر، بلندتر یا کوتاه‌تر شود؛ با × پنهانش کنید.
                 تغییرها همان لحظه ذخیره می‌شوند.
             </div>
         </div>
@@ -121,7 +121,7 @@
          id="dashboard-capability-tiles" data-dashboard-grid
          aria-label="نمای کلی دسترسی مجاز">
     {% for widget in dashboard_widgets %}
-    <div class="dashboard-widget {{ widget.size }}" data-widget-key="{{ widget.key }}" data-widget-label="{{ widget.label }}">
+    <div class="dashboard-widget {{ widget.size }}" data-widget-key="{{ widget.key }}" data-widget-label="{{ widget.label }}"{% if widget.height %} style="--dashboard-min-height: {{ widget.height }}"{% endif %}>
         {% comment %} The theme's stat tile: a keenicon in an accented symbol, the figure,
            then the label. Icon and accent are presentation carried on the widget;
            the figure and its scope come from the capability check in the view. {% endcomment %}
