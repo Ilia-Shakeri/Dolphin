@@ -14448,7 +14448,7 @@
         };
         //: Absolute pixels off the theme's own 13px base, not percentages
         //: of the browser default — see `PANEL_FONT_SCALES` for why.
-        const FONT_SIZES = {sm: "12px", md: "13px", lg: "14.5px", xl: "16px"};
+        const FONT_SIZES = {sm: "12px", md: "13px", lg: "15px"};
 
         function preview() {
             const family = form.elements.font_family?.value;
@@ -14491,6 +14491,14 @@
         form.addEventListener("change", (event) => {
             if (saved) saved.hidden = true;
             const name = event.target?.name;
+            // The three size glyphs are the theme's option cards; the card
+            // around the checked radio carries `.active` (2.18.6), the same
+            // class the server renders on the saved one.
+            if (name === "font_scale") {
+                form.querySelectorAll(".font-scale-option").forEach((card) => {
+                    card.classList.toggle("active", card.contains(event.target));
+                });
+            }
             if (name === "font_family" || name === "font_scale") preview();
             if (name === "theme") previewTheme(event.target.value);
         });

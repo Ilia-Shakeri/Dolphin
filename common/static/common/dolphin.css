@@ -3916,3 +3916,39 @@ details[open] > summary.card-header::after {
     cursor: default;
     transform: none;
 }
+
+/* 18. The settings page's type controls -------------------------------------
+
+   «اندازهٔ قلم» as three glyphs of one letter at three sizes (2.18.6, product
+   owner: «یک آیکون کوچک، یک متوسط و یک بزرگ از یک قلم»). The card itself is
+   the theme's own dashed option (`btn-outline-dashed btn-active-light-primary`
+   around a `btn-check` radio); only the glyph is sized here. Pixels, not rem,
+   on purpose: the three icons stand for three sizes and must keep their
+   proportions while the page itself previews the one being chosen. */
+.font-scale-option {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 5.75rem;
+    padding: 0.85rem 1.25rem;
+}
+
+.font-scale-glyph {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: 36px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.font-scale-glyph[data-font-scale-glyph="sm"] { font-size: 16px; }
+.font-scale-glyph[data-font-scale-glyph="md"] { font-size: 24px; }
+.font-scale-glyph[data-font-scale-glyph="lg"] { font-size: 34px; }
+
+/* The radio inside is visually hidden by `.btn-check`, so its keyboard focus
+   is shown on the card that stands for it. */
+.font-scale-option:has(.btn-check:focus-visible) {
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}

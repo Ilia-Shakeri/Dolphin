@@ -179,7 +179,8 @@ class GeneratedCssTests(PreferenceFixtures):
         step up into a 38% jump.
         """
         css = preferences.preference_css({**preferences.DEFAULTS, "font_scale": "lg"})
-        self.assertIn("html,body{font-size:14.5px!important;}", css)
+        # 15px since 2.18.6, when «بزرگ» absorbed the retired 16px step.
+        self.assertIn("html,body{font-size:15px!important;}", css)
 
     def test_the_scale_steps_are_relative_to_the_themes_own_base(self):
         from common.models import PANEL_FONT_SCALE_SIZES
@@ -197,7 +198,7 @@ class GeneratedCssTests(PreferenceFixtures):
         before any save). It has to agree with the server's, or the choice a
         reader accepts is not the one they were shown."""
         self.assertIn(
-            'const FONT_SIZES = {sm: "12px", md: "13px", lg: "14.5px", xl: "16px"};', SCRIPT,
+            'const FONT_SIZES = {sm: "12px", md: "13px", lg: "15px"};', SCRIPT,
         )
 
     def test_an_unknown_family_emits_nothing_rather_than_echoing_it(self):
@@ -228,11 +229,11 @@ class ContextProcessorTests(PreferenceFixtures):
         return panel_preferences(request)
 
     def test_it_exports_the_css_and_the_raw_unit(self):
-        preferences.update_preferences(actor=self.agent, currency_unit="toman", font_scale="xl")
+        preferences.update_preferences(actor=self.agent, currency_unit="toman", font_scale="lg")
         context = self.context_for(self.agent)
         self.assertEqual(context["panel_currency_unit"], "toman")
         self.assertEqual(context["panel_currency_label"], "تومان")
-        self.assertIn("html,body{font-size:16px!important;}", context["panel_preference_css"])
+        self.assertIn("html,body{font-size:15px!important;}", context["panel_preference_css"])
 
     def test_the_shell_stamps_the_unit_where_the_script_reads_it(self):
         self.assertIn('data-currency-unit="{{ panel_currency_unit', BASE_TEMPLATE)
@@ -364,12 +365,12 @@ class APITests(PreferenceFixtures):
         self.assertEqual(row.theme, "dark")
 
     def test_saving_reaches_only_the_callers_own_row(self):
-        self.client_for(self.agent).post("/api/v1/preferences/", {"font_scale": "xl"}, format="json")
+        self.client_for(self.agent).post("/api/v1/preferences/", {"font_scale": "lg"}, format="json")
         self.assertFalse(UserPreference.objects.filter(pk=self.admin.pk).exists())
 
     def test_a_request_naming_another_user_is_refused_as_an_unknown_field(self):
         response = self.client_for(self.agent).post(
-            "/api/v1/preferences/", {"user": self.admin.pk, "font_scale": "xl"}, format="json",
+            "/api/v1/preferences/", {"user": self.admin.pk, "font_scale": "lg"}, format="json",
         )
         self.assertEqual(response.status_code, 400)
         self.assertFalse(UserPreference.objects.filter(pk=self.agent.pk).exists())
@@ -418,9 +419,12 @@ class SettingsPageTests(PreferenceFixtures):
     def test_the_saved_values_are_already_selected_server_side(self):
         """No loading state and no first paint showing the defaults before
         the real choice arrives."""
-        preferences.update_preferences(actor=self.agent, font_scale="xl")
+        preferences.update_preferences(actor=self.agent, font_scale="lg")
         page = self.page(self.agent).content.decode("utf-8")
-        self.assertIn('<option value="xl" selected>', page)
+        # Three glyph cards since 2.18.6: the saved one is checked, and its
+        # card already carries the theme's `.active`.
+        self.assertIn('value="lg" checked>', page)
+        self.assertRegex(page, r'font-scale-option active"\s+for="preference-font-scale-lg"')
 
     def test_it_says_plainly_that_the_unit_does_not_change_stored_data(self):
         page = self.page(self.agent).content.decode("utf-8")
@@ -477,3 +481,34 @@ class DigitScriptTests(PreferenceFixtures):
                 any(character.isdigit() and character.isascii() for character in figure),
                 figure,
             )
+
+
+class FontScaleThreeStepsTests(PreferenceFixtures):
+    page = SettingsPageTests.page
+    """«اندازهٔ قلم باید یک آیکون کوچک، یک متوسط و یک بزرگ از یک قلم باشد و
+    قابل انتخاب باشد» (2.18.6)."""
+
+    def test_there_are_exactly_three_steps(self):
+        from common.models import PANEL_FONT_SCALES
+
+        self.assertEqual([value for value, _label, _size in PANEL_FONT_SCALES], ["sm", "md", "lg"])
+
+    def test_the_retired_step_is_refused(self):
+        response = self.client_for(self.agent).post("/api/v1/preferences/", {"font_scale": "xl"}, format="json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_a_saved_extra_large_folds_into_large(self):
+        import importlib
+
+        from django.apps import apps as live_apps
+
+        migration = importlib.import_module("common.migrations.0007_panel_font_scale_three_steps")
+        UserPreference.objects.create(pk=self.agent.pk, font_scale="xl")
+        migration.fold_extra_large_into_large(live_apps, None)
+        self.assertEqual(UserPreference.objects.get(pk=self.agent.pk).font_scale, "lg")
+
+    def test_the_page_draws_three_glyph_cards_not_a_dropdown(self):
+        page = self.page(self.agent).content.decode("utf-8")
+        self.assertNotIn('<select class="form-select form-select-solid" id="preference-font-scale"', page)
+        self.assertEqual(page.count('data-font-scale-glyph="'), 3)
+        self.assertIn('role="radiogroup" id="preference-font-scale"', page)

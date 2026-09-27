@@ -200,11 +200,16 @@ DEFAULT_PANEL_FONT_FAMILY = PANEL_FONT_FAMILIES[0][0]
 #: !important }`, so the root is 13px and not the 16px a percentage would be
 #: read against — `112.5%` came out as 18px, a 38% jump, where a step up was
 #: wanted. `13px` is that base exactly and emits no CSS at all.
+#:
+#: Three steps since 2.18.6 (product owner: «اندازهٔ قلم باید یک آیکون کوچک،
+#: یک متوسط و یک بزرگ باشد و قابل انتخاب باشد»), drawn on the settings page as
+#: three glyphs rather than a dropdown. The fourth step, «خیلی بزرگ» (16px),
+#: folded into «بزرگ», which moved from 14.5px to 15px so the three read as
+#: three clearly different sizes; `common.0007` moved every saved `xl` to `lg`.
 PANEL_FONT_SCALES = (
     ("sm", "کوچک", "12px"),
-    ("md", "متوسط (پیش‌فرض)", "13px"),
-    ("lg", "بزرگ", "14.5px"),
-    ("xl", "خیلی بزرگ", "16px"),
+    ("md", "متوسط", "13px"),
+    ("lg", "بزرگ", "15px"),
 )
 PANEL_FONT_SCALE_SIZES = {value: size for value, _label, size in PANEL_FONT_SCALES}
 DEFAULT_PANEL_FONT_SCALE = "md"

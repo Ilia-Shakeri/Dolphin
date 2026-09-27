@@ -35,14 +35,27 @@
                     <p class="text-muted fs-7 mt-1 mb-0">اگر قلم انتخابی روی دستگاه شما نصب نباشد، پنل به ایران‌سنس برمی‌گردد.</p>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_family"></p>
                 </div>
+{% comment %} اندازهٔ قلم — سه آیکون حرف در سه اندازه، نه یک فهرست کشویی. مالک محصول
+   ۲۰۲۶/۰۹/۲۷: «اندازهٔ قلم باید یک آیکون کوچک، یک متوسط و یک بزرگ از یک قلم
+   باشد و قابل انتخاب باشد». الگوی گزینهٔ قالب همان کارت‌های خط‌چینِ
+   `btn-outline-dashed btn-active-light-primary` با `btn-check` است (صفحهٔ
+   صورت‌حساب حساب در قالب). خود ورودی‌ها رادیوی واقعی‌اند، پس صفحه‌کلید و
+   صفحه‌خوان همان رفتار یک گروه رادیویی را می‌گیرند. {% endcomment %}
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold" for="preference-font-scale">اندازهٔ قلم</label>
-                    <select class="form-select form-select-solid" id="preference-font-scale" name="font_scale">
+                    <span class="form-label fw-semibold d-block" id="preference-font-scale-label">اندازهٔ قلم</span>
+                    <div class="d-flex flex-wrap gap-3" role="radiogroup" id="preference-font-scale"
+                         aria-labelledby="preference-font-scale-label">
                         {% for option in preference_catalog.font_scales %}
-                        <option value="{{ option.value }}"{% if option.value == current_preferences.font_scale %} selected{% endif %}>{{ option.label }}</option>
+                        <label class="btn btn-outline btn-outline-dashed btn-active-light-primary font-scale-option{% if option.value == current_preferences.font_scale %} active{% endif %}"
+                               for="preference-font-scale-{{ option.value }}">
+                            <input class="btn-check" type="radio" name="font_scale" id="preference-font-scale-{{ option.value }}"
+                                   value="{{ option.value }}"{% if option.value == current_preferences.font_scale %} checked{% endif %}>
+                            <span class="font-scale-glyph" data-font-scale-glyph="{{ option.value }}" aria-hidden="true">آ</span>
+                            <span class="fs-7 fw-semibold">{{ option.label }}</span>
+                        </label>
                         {% endfor %}
-                    </select>
-                    <p class="text-muted fs-7 mt-1 mb-0">اندازهٔ همهٔ متن‌ها و فاصله‌های پنل را با هم تغییر می‌دهد.</p>
+                    </div>
+                    <p class="text-muted fs-7 mt-2 mb-0">اندازهٔ همهٔ متن‌ها و فاصله‌های پنل را با هم تغییر می‌دهد؛ «متوسط» اندازهٔ پیش‌فرض است.</p>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_scale"></p>
                 </div>
                 <div class="col-md-6">
