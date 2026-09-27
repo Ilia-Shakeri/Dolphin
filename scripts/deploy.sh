@@ -32,6 +32,10 @@ set -eu
 ENV_FILE=""
 SKIP_BACKUP=0
 STATE_FILE=".deploy-previous-image"
+# The nginx config this script last started nginx with — see
+# `apply_nginx_config` for why the container, not only the checkout, has to
+# move when it changes.
+NGINX_STATE_FILE=".deploy-nginx-config"
 
 fail() {
     echo "error: $1" >&2
@@ -154,6 +158,32 @@ check_nginx_config_is_current() {
            git fetch origin && git checkout origin/main -- nginx/
 
        then run this script again."
+    fi
+}
+
+nginx_config_fingerprint() {
+    cat nginx/*.conf | sha256sum | cut -d' ' -f1
+}
+
+# The nginx image renders `nginx/default.conf` (a template, for the public
+# host and HSTS values) once, when its container starts. A checkout that is up
+# to date is therefore not enough: until 2.18.9 a release that changed the
+# config left the running nginx on the old one, because `up -d` does not
+# recreate a container whose own definition did not change. Checked before
+# anything is switched, applied after.
+check_nginx_config_is_valid() {
+    note "validating the nginx config with this checkout"
+    $COMPOSE run --rm --no-deps -T nginx nginx -t >/dev/null 2>&1 \
+        || fail "nginx rejects nginx/default.conf from this checkout. See: $COMPOSE run --rm --no-deps nginx nginx -t"
+}
+
+apply_nginx_config() {
+    current="$(nginx_config_fingerprint)"
+    applied="$(cat "$NGINX_STATE_FILE" 2>/dev/null || true)"
+    if [ "$current" != "$applied" ]; then
+        note "nginx config changed since the last release; recreating nginx"
+        $COMPOSE up -d --no-deps --force-recreate nginx
+        printf '%s\n' "$current" > "$NGINX_STATE_FILE"
     fi
 }
 
@@ -323,6 +353,7 @@ deploy() {
     check_image_exists "$image"
     check_image_version_matches_tag "$image"
     check_nginx_config_is_current
+    check_nginx_config_is_valid
     check_manifest_and_tls_files_are_readable
     check_ports_are_free
     check_database_is_not_shared
@@ -379,6 +410,7 @@ deploy() {
 
     note "starting the stack"
     $COMPOSE up -d
+    apply_nginx_config
 
     note "running version, read from the container:"
     $COMPOSE exec -T web cat /app/VERSION 2>/dev/null \

@@ -19,4 +19,9 @@ RUN useradd --create-home --uid 10001 appuser \
     && chown appuser:appuser /app/staticfiles
 USER appuser
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+# Three processes of four threads each (2.18.9). With plain synchronous workers
+# one slow request — a PDF, a large report — held a third of the site, and the
+# panel's own polling (chat, badges) queued behind it. Twelve concurrent
+# requests keep twelve persistent database connections at most, far inside
+# PostgreSQL's own limit.
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--worker-class", "gthread", "--threads", "4"]

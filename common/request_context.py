@@ -44,3 +44,36 @@ def reset_request_context(token):
 
 def current_request_context():
     return _REQUEST_CONTEXT.get()
+
+
+#: Answers that cannot change inside one request but are asked for many times
+#: while producing it — who the signed-in user is and what they may do
+#: (`accounts.access.capabilities_for`, `is_crm_account`). Rendering one page
+#: used to ask each of them eight to eleven times, and each asking was a
+#: database query: about sixteen of a list page's twenty-four (2.18.9).
+#:
+#: `None` outside a request, so management commands, the shell and service
+#: calls in tests behave exactly as before — nothing is ever memoised there.
+#: A service that changes a user's role or permission overrides calls
+#: `forget_request_memo()`, so a later question in the same request sees the
+#: change.
+_REQUEST_MEMO = ContextVar("request_memo", default=None)
+
+
+def bind_request_memo():
+    return _REQUEST_MEMO.set({})
+
+
+def reset_request_memo(token):
+    _REQUEST_MEMO.reset(token)
+
+
+def request_memo():
+    """This request's memo, or `None` when there is no request."""
+    return _REQUEST_MEMO.get()
+
+
+def forget_request_memo():
+    memo = _REQUEST_MEMO.get()
+    if memo is not None:
+        memo.clear()

@@ -120,6 +120,15 @@ does nothing at all until the checkout is updated — nothing errors, the previo
 limits simply stay in force. The script refuses to run when the two have
 drifted, which is the only reason that failure is visible.
 
+An updated checkout is not the whole of it either: nginx renders that file into
+its running config once, when its container starts, and `up -d` does not
+recreate a container whose own definition did not change. Since 2.18.9 the
+script therefore also runs `nginx -t` against the checkout before switching
+anything (and refuses on a bad config), and after the switch recreates nginx
+whenever the config differs from the one it last applied — recorded in
+`.deploy-nginx-config` beside `.deploy-previous-image`. That recreation is a
+few seconds without HTTPS; it happens only on a release that changed nginx.
+
 ### 3. Confirm
 
 Log in and read the version in the panel footer. It must show the version just

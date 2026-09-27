@@ -5,7 +5,14 @@ from uuid import uuid4
 from django.conf import settings
 
 from common.error_views import payload_too_large
-from common.request_context import bind_request_context, clean_ip_address, clean_request_id, reset_request_context
+from common.request_context import (
+    bind_request_context,
+    bind_request_memo,
+    clean_ip_address,
+    clean_request_id,
+    reset_request_context,
+    reset_request_memo,
+)
 from common.request_logging import write_request_log
 
 
@@ -71,6 +78,7 @@ class RequestContextMiddleware:
         request_id = clean_request_id(request.headers.get(self.header_name)) or uuid4().hex
         request.request_id = request_id
         token = bind_request_context(request_id=request_id, ip_address=self.get_client_ip(request))
+        memo_token = bind_request_memo()
         try:
             response = self.get_response(request)
             response[self.header_name] = request_id
@@ -88,4 +96,5 @@ class RequestContextMiddleware:
                 pass
             return response
         finally:
+            reset_request_memo(memo_token)
             reset_request_context(token)

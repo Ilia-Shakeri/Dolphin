@@ -22,6 +22,7 @@ from accounts.platform_admin_guard import lock_platform_admin_guard
 from auditlog.services import log_activity
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
+from common.request_context import forget_request_memo
 
 
 #: Django's own `fa` translation catalog covers every stock password
@@ -249,6 +250,7 @@ def change_user_role(*, actor, target, role, keep_custom_permissions=True):
         target.workstream = User.Workstream.SALES
         update_fields.append("workstream")
     target.save(update_fields=update_fields)
+    forget_request_memo()
     # A role change never silently destroys a customised permission matrix.
     # `keep_custom_permissions` defaults to True — preserving is the choice
     # that cannot surprise anyone — and the caller only sends False after the
@@ -337,6 +339,9 @@ def set_user_permission_overrides(*, actor, target, matrix):
         UserCapabilityOverride.objects.bulk_update(to_update, ["granted", "updated_at"])
     if to_create:
         UserCapabilityOverride.objects.bulk_create(to_create)
+    # The answer below, and anything else later in this request, must see the
+    # overrides just written rather than this request's remembered ones.
+    forget_request_memo()
 
     if to_create or to_update or to_delete:
         log_activity(
@@ -361,6 +366,7 @@ def reset_user_permissions(*, actor, target):
     """
     actor, target = _locked_users(actor, target)
     removed, _ = UserCapabilityOverride.objects.filter(user=target).delete()
+    forget_request_memo()
     if removed:
         log_activity(
             actor=actor,

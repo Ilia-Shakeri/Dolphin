@@ -1,6 +1,7 @@
 from django.db.models import Exists, OuterRef
 
 from accounts.models import User
+from common.request_context import request_memo
 
 
 CRM_ROLES = {value for value, _ in User.Role.choices}
@@ -199,7 +200,18 @@ def crm_identities(queryset=None):
 def is_crm_account(user):
     if not user or user.role not in CRM_ROLES or user.is_staff or user.is_superuser or user.pk is None:
         return False
-    return not user.groups.exists() and not user.user_permissions.exists()
+    # Two queries per call, asked about the same signed-in user a dozen times
+    # while one page renders — answered once per request (2.18.9,
+    # `common.request_context.request_memo`). Keyed on everything this reads
+    # off the row, so a role change later in the same request is a new key.
+    memo = request_memo()
+    key = ("crm_account", user.pk, user.role, user.is_staff, user.is_superuser)
+    if memo is not None and key in memo:
+        return memo[key]
+    result = not user.groups.exists() and not user.user_permissions.exists()
+    if memo is not None:
+        memo[key] = result
+    return result
 
 
 def is_crm_identity(user):
@@ -242,6 +254,26 @@ def role_default_capabilities(user):
 
 
 def capabilities_for(user):
+    """What `user` may do: their role's capabilities with their personal
+    overrides applied. Answered once per request (2.18.9) — see
+    `is_crm_account` — and forgotten by every service that changes a role or
+    an override (`common.request_context.forget_request_memo`)."""
+    memo = request_memo()
+    key = None
+    if memo is not None and getattr(user, "pk", None) is not None:
+        key = (
+            "capabilities", user.pk, getattr(user, "role", None), getattr(user, "workstream", None),
+            getattr(user, "is_active", None), getattr(user, "is_staff", None), getattr(user, "is_superuser", None),
+        )
+        if key in memo:
+            return memo[key]
+    result = _capabilities_for(user)
+    if key is not None:
+        memo[key] = result
+    return result
+
+
+def _capabilities_for(user):
     base = role_default_capabilities(user)
     if not is_crm_identity(user):
         return base

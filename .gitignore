@@ -72,3 +72,8 @@ codex-plugin-cc-probe/
 # Which base-image digest has been reviewed is a property of the build machine
 # and the date, not of the source. scripts/build-image.sh reads it from here.
 .python-base-image
+
+# Deployment-host state written by scripts/deploy.sh (rollback target, the
+# nginx config last applied). Host-local; never part of a release.
+.deploy-previous-image
+.deploy-nginx-config

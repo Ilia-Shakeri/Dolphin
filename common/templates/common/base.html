@@ -16,13 +16,16 @@
    vendor's own: plugin styles, then the theme bundle, then only the
    Dolphin-specific overrides. `style.bundle.rtl.css` already resolves the
    Persian IRANSans face from `fonts/`. {% endcomment %}
-    <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}">
-    <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}">
+    <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}?v={{ dolphin_version }}">
+    <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}?v={{ dolphin_version }}">
 {% comment %} The version is appended so a release actually reaches a returning
    reader. These two files are the ones this project changes; without a query
    that moves, a browser holding yesterday's copy keeps using it after a deploy,
-   and the panel runs new markup against old CSS and old script. The vendor
-   bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
+   and the panel runs new markup against old CSS and old script. Since 2.18.9
+   the vendor bundles carry it too: nginx now lets the browser keep any URL
+   with a `?v=` for a year (nginx/default.conf), which is only safe when every
+   release changes the URL — so a release re-downloads them once, and every
+   page load after that asks for none of them. {% endcomment %}
     <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
 {% comment %} This deployment's own accent colour (`custom_branding`, `/branding/`),
    pre-rendered by `common.color.accent_theme_css` — see that function's own
@@ -997,8 +1000,8 @@
 
    Vendor load order — plugins before scripts — because `scripts.bundle.js`
    expects Popper and jQuery to already exist. {% endcomment %}
-<script src="{% static 'plugins/global/plugins.bundle.js' %}"></script>
-<script src="{% static 'js/scripts.bundle.js' %}"></script>
+<script src="{% static 'plugins/global/plugins.bundle.js' %}?v={{ dolphin_version }}"></script>
+<script src="{% static 'js/scripts.bundle.js' %}?v={{ dolphin_version }}"></script>
 <script src="{% static 'common/dolphin-app.js' %}?v={{ dolphin_version }}" defer></script>
 {% comment %} Paired with `extra_head` above — a page-specific vendor bundle,
    loaded after the shell's own scripts since the theme's plugin bundle (jQuery,

@@ -44,11 +44,13 @@ class PdfRendererBusy(PdfRendererUnavailable):
     """Every render slot is taken. A retry in a moment will succeed."""
 
 
-#: Concurrent renders allowed per container. Gunicorn runs synchronous workers,
-#: so a render occupies a whole worker for as long as the browser takes — up to
-#: PDF_RENDER_TIMEOUT_SECONDS. Left unbounded, three simultaneous downloads
-#: occupied all three workers and the application stopped answering anything at
-#: all. One slot leaves two workers free to keep serving the site.
+#: Concurrent renders allowed per container. A render occupies its request's
+#: worker thread — and a Chromium process — for as long as the browser takes,
+#: up to PDF_RENDER_TIMEOUT_SECONDS. Left unbounded, when Gunicorn still ran
+#: three synchronous workers, three simultaneous downloads occupied all three
+#: and the application stopped answering anything at all. Since 2.18.9 the
+#: workers are threaded (Dockerfile), so a render no longer holds a whole
+#: process, but one slot still bounds how many browsers run at once.
 PDF_RENDER_SLOTS = 1
 _SLOT_KEY = "pdf-render-slot-{index}"
 

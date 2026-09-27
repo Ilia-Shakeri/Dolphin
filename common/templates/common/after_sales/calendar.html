@@ -8,7 +8,7 @@
 {% block breadcrumb_current %}تقویم خدمات پس از فروش{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:after-sales' %}">فهرست پرونده‌ها</a>{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css' %}">
+<link rel="stylesheet" href="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css' %}?v={{ dolphin_version }}">
 {% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
@@ -29,5 +29,5 @@
 </div></section>
 {% endblock %}
 {% block extra_scripts %}
-<script src="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.js' %}"></script>
+<script src="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.js' %}?v={{ dolphin_version }}"></script>
 {% endblock %}

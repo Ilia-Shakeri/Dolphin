@@ -494,9 +494,15 @@ class ProductionSettingsTests(SimpleTestCase):
         ).read_text(encoding="utf-8")
         marker = "location /static/ {"
         block = config.split(marker, maxsplit=1)[1].split("\n    }", maxsplit=1)[0]
-        self.assertIn("expires -1;", block)
+        # Restated 2.18.9: the header is now chosen per URL rather than by a
+        # blanket `expires -1` — a release-stamped `?v=` URL may be kept for
+        # a year, and anything without one still revalidates on every use,
+        # which is the property this test exists for.
         self.assertNotIn("expires 7d;", block)
-        self.assertNotIn("add_header", block)
+        self.assertIn("add_header Cache-Control $dolphin_static_cache_control always;", block)
+        mapping = config.split("map $arg_v $dolphin_static_cache_control {", maxsplit=1)[1].split("}", maxsplit=1)[0]
+        self.assertIn('""      "no-cache";', mapping)
+        self.assertEqual(mapping.count("max-age="), 1)
 
     def test_compose_has_stable_identity_and_safe_postgres_logs(self):
         root = Path(__file__).resolve().parents[2]

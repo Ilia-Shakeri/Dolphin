@@ -307,14 +307,19 @@ class DolphinHomeView(ActiveCrmView):
             "after_sales": "after_sales",
         }
 
-        def add(capability, label, value, url_name):
+        # `count` is the scope's own `.count`, called only for a tile this
+        # reader actually gets (2.18.9). Until then every one of the twelve
+        # counts below ran on every dashboard load, whichever tiles the role
+        # held — the `.count()` was evaluated as an argument before `add`
+        # ever checked the capability.
+        def add(capability, label, count, url_name):
             feature = widget_features[capability.split(".", 1)[0]]
             if capability in capabilities and feature_enabled(feature):
                 module = capability.split(".", 1)[0]
                 widgets.append({
                     "capability": capability,
                     "label": label,
-                    "value": value,
+                    "value": count(),
                     "url_name": url_name,
                     # Presentation only. Keeping the icon and accent beside the
                     # figure means the card reads as a KPI rather than as a
@@ -329,18 +334,18 @@ class DolphinHomeView(ActiveCrmView):
         sale_scope = sales_for(self.request.user)
         document_scope = sales_documents_for(self.request.user)
         after_sales_scope = after_sales_requests_for(self.request.user)
-        add("customers.scoped", "مشتریان مجاز", customer_scope.count(), "common_ui:customers")
-        add("customers.company", "مشتریان شرکت", customer_scope.count(), "common_ui:customers")
-        add("leads.scoped", "صف سرنخ من", lead_scope.count(), "common_ui:leads")
-        add("leads.company", "سرنخ‌های شرکت", lead_scope.count(), "common_ui:leads")
-        add("interactions.scoped", "تماس‌های مجاز من", interaction_scope.count(), "common_ui:interactions")
-        add("interactions.company", "فعالیت مرکز تماس", interaction_scope.count(), "common_ui:interactions")
-        add("sales.own", "فروش‌های من", sale_scope.count(), "common_ui:sales")
-        add("sales.company", "فروش‌های شرکت", sale_scope.count(), "common_ui:sales")
-        add("sales_documents.scoped", "اسناد فروش مجاز", document_scope.count(), "common_ui:sales-documents")
-        add("sales_documents.company", "رهگیری پستی", document_scope.count(), "common_ui:sales-documents")
-        add("after_sales.assigned", "پرونده‌های خدمات من", after_sales_scope.count(), "common_ui:after-sales")
-        add("after_sales.company", "پرونده‌های خدمات پس از فروش", after_sales_scope.count(), "common_ui:after-sales")
+        add("customers.scoped", "مشتریان مجاز", customer_scope.count, "common_ui:customers")
+        add("customers.company", "مشتریان شرکت", customer_scope.count, "common_ui:customers")
+        add("leads.scoped", "صف سرنخ من", lead_scope.count, "common_ui:leads")
+        add("leads.company", "سرنخ‌های شرکت", lead_scope.count, "common_ui:leads")
+        add("interactions.scoped", "تماس‌های مجاز من", interaction_scope.count, "common_ui:interactions")
+        add("interactions.company", "فعالیت مرکز تماس", interaction_scope.count, "common_ui:interactions")
+        add("sales.own", "فروش‌های من", sale_scope.count, "common_ui:sales")
+        add("sales.company", "فروش‌های شرکت", sale_scope.count, "common_ui:sales")
+        add("sales_documents.scoped", "اسناد فروش مجاز", document_scope.count, "common_ui:sales-documents")
+        add("sales_documents.company", "رهگیری پستی", document_scope.count, "common_ui:sales-documents")
+        add("after_sales.assigned", "پرونده‌های خدمات من", after_sales_scope.count, "common_ui:after-sales")
+        add("after_sales.company", "پرونده‌های خدمات پس از فروش", after_sales_scope.count, "common_ui:after-sales")
         if context["can_manage_users"]:
             user_scope = crm_identities(User.objects.all())
             if role == User.Role.SALES_MANAGER:
