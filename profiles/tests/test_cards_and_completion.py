@@ -5,6 +5,7 @@ note tabs (2.20.0). A card a reader may not see must be absent from the page
 from datetime import timedelta
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -25,7 +26,15 @@ def without(*features):
 
 
 class Fixtures(TestCase):
+    # Throttle counters live in the cache and are keyed by user id, which
+    # test databases reuse; clearing keeps this module from being throttled
+    # by — or throttling — the rest of the suite.
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
+
     def setUp(self):
+        cache.clear()
         self.admin = User.objects.create_user(username="cc.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN)
         self.manager = User.objects.create_user(username="cc.manager", password=PASSWORD, role=User.Role.SALES_MANAGER)
         self.agent = User.objects.create_user(

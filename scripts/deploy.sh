@@ -411,6 +411,7 @@ deploy() {
     note "starting the stack"
     $COMPOSE up -d
     apply_nginx_config
+    recreate_integrations_worker
 
     note "running version, read from the container:"
     $COMPOSE exec -T web cat /app/VERSION 2>/dev/null \
@@ -420,6 +421,18 @@ deploy() {
     $COMPOSE ps
     echo
     note "done. Confirm the version in the panel footer before testing."
+}
+
+# The integrations worker (2.21.0) sits behind its own Compose profile, which
+# a plain `up -d` neither starts nor recreates — so without this a running
+# worker would keep executing the previous release's code against the new
+# schema. Recreated only if it is already running: a release never starts it
+# on a deployment that has not deliberately turned integrations on.
+recreate_integrations_worker() {
+    if $COMPOSE --profile integrations ps --services --status running 2>/dev/null | grep -qx integrations-worker; then
+        note "recreating integrations-worker on the new image"
+        $COMPOSE --profile integrations up -d --no-deps integrations-worker
+    fi
 }
 
 rollback() {

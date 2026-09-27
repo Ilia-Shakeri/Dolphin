@@ -132,6 +132,16 @@ OPERATION_LABELS = {
     "task.reopened": "بازکردن دوبارهٔ وظیفه",
     "task.deleted": "حذف وظیفه",
     "scoring.weights_updated": "تغییر وزن‌های امتیازدهی",
+    # --- یکپارچه‌سازی (۲.۲۱.۰) -----------------------------------------------
+    "integration.created": "افزودن اتصال یکپارچه‌سازی",
+    "integration.updated": "ویرایش اتصال یکپارچه‌سازی",
+    "integration.deleted": "حذف اتصال یکپارچه‌سازی",
+    "integration.tested": "آزمایش اتصال یکپارچه‌سازی",
+    "webhook_subscription.created": "افزودن وب‌هوک خروجی",
+    "webhook_subscription.updated": "ویرایش وب‌هوک خروجی",
+    "webhook_subscription.deleted": "حذف وب‌هوک خروجی",
+    "api_token.created": "ساخت توکن API",
+    "api_token.revoked": "باطل کردن توکن API",
     # --- عمومی --------------------------------------------------------------
     "cancel": "ابطال",
 }

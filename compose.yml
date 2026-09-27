@@ -310,6 +310,43 @@ services:
     networks:
       - backend
 
+  # The integrations worker (feature `integrations`, 2.21.0): the outbox,
+  # outbound webhook deliveries and, from 2.22.0, the PBX event listener and
+  # CDR sync. Long-running, so `restart: unless-stopped` like `web`; behind
+  # its own profile so a deployment without integrations never starts it.
+  # On `backend` for the database and on `egress` — the only network with a
+  # route out besides nginx's — to reach a PBX or a webhook subscriber.
+  integrations-worker:
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["integrations"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      DOLPHIN_DATABASE_ROLE: app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      DOLPHIN_SECRETS_KEY: ${DOLPHIN_SECRETS_KEY:-}
+    depends_on:
+      db-finalize:
+        condition: service_completed_successfully
+    command: ["python", "manage.py", "run_integrations_worker"]
+    volumes:
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+      - egress
+
   # The privileged half of panel backup and restore (feature `panel_backup`).
   #
   # Behind its own profile, and that is the whole safety story rather than a
@@ -409,6 +446,9 @@ services:
       DOLPHIN_BACKUP_ROOT: ${DOLPHIN_BACKUP_ROOT:-}
       DOLPHIN_RESTORE_SPOOL: ${DOLPHIN_RESTORE_SPOOL:-}
       DOLPHIN_BACKUP_UPLOAD_MAX_BYTES: ${DOLPHIN_BACKUP_UPLOAD_MAX_BYTES:-2147483648}
+      # Encrypts integration secrets (2.21.0). Only the two processes that
+      # read or write them hold it: this one and `integrations-worker`.
+      DOLPHIN_SECRETS_KEY: ${DOLPHIN_SECRETS_KEY:-}
     depends_on:
       db-finalize:
         condition: service_completed_successfully
@@ -497,3 +537,5 @@ networks:
   backend:
     internal: true
   frontend: {}
+  # Outbound only, for `integrations-worker` (2.21.0): nothing listens on it.
+  egress: {}

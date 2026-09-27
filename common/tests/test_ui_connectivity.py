@@ -257,7 +257,10 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     #: TIARA gets them only when its manifest is re-signed with them. Kept as
     #: their own set, checked on its own below, rather than folded into the
     #: long withheld list of the older test.
-    person_profile_features = frozenset({"person_scoring", "tasks", "person_notes"})
+    person_profile_features = frozenset({
+        "person_scoring", "tasks", "person_notes",
+        "integrations", "outbound_webhooks", "public_api",
+    })
 
     def test_the_person_profile_modules_are_withheld_and_default_off(self):
         from common.deployment.registry import DEFAULT_OFF_FEATURES

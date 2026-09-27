@@ -317,6 +317,11 @@ def any_integration_configurable(user):
     """
     from common.deployment.profile import feature_enabled
 
+    # The integrations framework (2.21.0) lives on the same page and is the
+    # Platform Admin's; a deployment running it offers the entry to them
+    # whether or not SMS or post are licensed.
+    if feature_enabled("integrations") and user.role == _platform_admin_role():
+        return True
     for integration in INTEGRATIONS:
         if not integration.settings_url_name:
             continue

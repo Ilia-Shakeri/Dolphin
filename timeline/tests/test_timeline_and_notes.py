@@ -7,6 +7,7 @@
   `notes.delete` — on a profile the actor can open, and never otherwise.
 """
 
+from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -28,7 +29,15 @@ def profile_without(*features):
 
 
 class Fixtures(TestCase):
+    # Throttle counters live in the cache and are keyed by user id, which
+    # test databases reuse; clearing keeps this module from being throttled
+    # by — or throttling — the rest of the suite.
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
+
     def setUp(self):
+        cache.clear()
         self.admin = User.objects.create_user(username="tn.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN)
         self.manager = User.objects.create_user(username="tn.manager", password=PASSWORD, role=User.Role.SALES_MANAGER)
         self.agent = User.objects.create_user(username="tn.agent", password=PASSWORD, role=User.Role.SALES_AGENT)

@@ -699,6 +699,34 @@ class IntegrationsView(ActiveCrmView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["integrations"] = visible_integrations(self.request.user)
+        # The integrations framework (2.21.0): connections, outbound webhooks,
+        # API tokens and their log — Platform Admin, feature `integrations`,
+        # both checked again by every endpoint behind it.
+        context["can_manage_framework"] = (
+            feature_enabled("integrations") and self.request.user.role == User.Role.PLATFORM_ADMIN
+        )
+        if context["can_manage_framework"]:
+            from integrations.crypto import secrets_available
+            from integrations.events import EVENT_TYPES
+            from integrations.providers import providers
+
+            context["integration_secrets_available"] = secrets_available()
+            context["integration_catalog"] = {
+                "providers": [
+                    provider.describe()
+                    for provider in providers()
+                    if not provider.required_feature or feature_enabled(provider.required_feature)
+                ],
+                "event_types": [{"key": key, "label": label} for key, label in EVENT_TYPES.items() if key != "webhook.ping"],
+            }
+            # Whom a token may be bound to: any active CRM account but the
+            # Platform Admin (`integrations.services.create_api_token`).
+            context["token_users"] = [
+                (person.pk, f"{person.get_full_name() or person.username} ({person.username})")
+                for person in crm_identities(User.objects.filter(is_active=True))
+                .exclude(role=User.Role.PLATFORM_ADMIN)
+                .order_by("username")
+            ]
         return context
 
 

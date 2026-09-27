@@ -399,7 +399,9 @@ class IntegrationsNavRenameTests(SimpleTestCase):
             '<a data-module="integrations" class="menu-link" href="{% url \'common_ui:integrations\' %}">',
             markup_text,
         )
-        self.assertIn("اتصال سامانه‌ها", markup_text)
+        # Renamed «یکپارچه‌سازی‌ها» in 2.21.0, when the page grew into the
+        # integrations framework (product-owner task, 2026-09-27).
+        self.assertIn("یکپارچه‌سازی‌ها", markup_text)
 
     def test_the_sidebar_accordion_shows_for_anyone_who_can_configure_something(self):
         markup_text = markup(BASE)
@@ -415,7 +417,7 @@ class IntegrationsNavRenameTests(SimpleTestCase):
         settings_page = markup((TEMPLATES / "settings" / "settings.html").read_text(encoding="utf-8"))
         self.assertNotIn("sms-provider-settings", settings_page)
         self.assertIn("can_manage_integrations", settings_page)
-        self.assertIn("اتصال سامانه‌ها", settings_page)
+        self.assertIn("یکپارچه‌سازی‌ها", settings_page)
 
     def test_the_hub_gate_is_cheap_no_status_query_per_page_load(self):
         """`can_manage_integrations` is computed on every page — it must not

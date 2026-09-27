@@ -19,6 +19,7 @@ from importlib import import_module
 
 from django.apps import apps as global_apps
 from django.db import connection
+from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -51,7 +52,12 @@ def profile_without(*features):
 class Fixtures(TestCase):
     counter = 0
 
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
+
     def setUp(self):
+        cache.clear()
         self.admin = User.objects.create_user(
             username="pp.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN
         )

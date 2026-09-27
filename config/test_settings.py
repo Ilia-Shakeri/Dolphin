@@ -22,3 +22,6 @@ LOGGING["loggers"]["dolphin.request"]["level"] = "WARNING"
 # not serve unless its manifest asks for them. Without this the tests would stop
 # exercising code that is still in the release and still reusable.
 DEPLOYMENT_PROFILE_ENABLES_ALL_FEATURES = True
+# A fixed, public key for tests only (2.21.0) — it protects nothing real.
+DOLPHIN_SECRETS_KEY = "drnHpBr77OUhoU2Lv9IM71TJHecZ8FCHnoWqCF7t-Qk="
+DOLPHIN_WEBHOOKS_ALLOW_PRIVATE_TARGETS = True

@@ -69,7 +69,19 @@ def browser_delete_targets():
 #: granted `notes.delete` on their permission matrix — and a note is a
 #: comment on a record, not the record: the customer, lead or sale it talks
 #: about is untouched.
-ALLOWED_BROWSER_DELETE_TARGETS = {"/api/v1/dashboard-layout/", "endpoint", "/api/v1/person-notes/${note.id}/"}
+#:
+#: `/api/v1/integrations/${integration.id}/` and
+#: `/api/v1/webhook-subscriptions/${subscription.id}/` (2.21.0) remove a
+#: connection's configuration and an outbound subscriber — settings, not
+#: records, and the Platform Admin's alone. A connection that calls or
+#: events still reference is refused with 409 rather than deleted.
+ALLOWED_BROWSER_DELETE_TARGETS = {
+    "/api/v1/dashboard-layout/",
+    "endpoint",
+    "/api/v1/person-notes/${note.id}/",
+    "/api/v1/integrations/${integration.id}/",
+    "/api/v1/webhook-subscriptions/${subscription.id}/",
+}
 
 
 class CommercialShellContractTests(SimpleTestCase):

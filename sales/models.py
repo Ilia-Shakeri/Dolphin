@@ -340,6 +340,10 @@ class Interaction(TimeStampedModel):
     )
     agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="interactions")
     phone = models.CharField(max_length=40)
+    #: `phone` in E.164, or blank when it is not an Iranian number (2.21.0).
+    #: Kept by `save()`; indexed because contact matching falls back to the
+    #: numbers people have already been called on.
+    normalized_phone = models.CharField(max_length=20, blank=True, default="", db_index=True, editable=False)
     direction = models.CharField(max_length=20, choices=Direction.choices)
     outcome = models.CharField(max_length=INTERACTION_OUTCOME_MAX_LENGTH, db_index=True)
     occurred_at = models.DateTimeField(db_index=True)
@@ -363,6 +367,15 @@ class Interaction(TimeStampedModel):
             ),
         ]
         indexes = [models.Index(fields=["agent", "-occurred_at"]), models.Index(fields=["lead", "-occurred_at"])]
+
+    def save(self, *args, **kwargs):
+        from common.phones import normalized_or_blank
+
+        self.normalized_phone = normalized_or_blank(self.phone)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "phone" in update_fields and "normalized_phone" not in update_fields:
+            kwargs["update_fields"] = [*update_fields, "normalized_phone"]
+        super().save(*args, **kwargs)
 
 
 class Sale(TimeStampedModel):

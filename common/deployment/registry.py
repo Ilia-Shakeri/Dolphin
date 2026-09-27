@@ -156,6 +156,14 @@ FEATURE_DEPENDENCIES = {
     "person_scoring": frozenset(),
     "tasks": frozenset(),
     "person_notes": frozenset(),
+    # The integrations framework (2.21.0, integrations/). `integrations` is
+    # the connections page, the outbox and inbound webhooks; the other two
+    # are separately licensable on top of it: `outbound_webhooks` pushes
+    # Dolphin's events to other systems, `public_api` lets them call
+    # Dolphin's API with a bearer token.
+    "integrations": frozenset(),
+    "outbound_webhooks": frozenset({"integrations"}),
+    "public_api": frozenset({"integrations"}),
 
     # billing.Cheque / ChequeStatusHistory — Cheque.payment is NOT NULL, so a
     # cheque cannot exist without a payment. Split out from `payments` itself
@@ -233,6 +241,7 @@ FEATURES = frozenset(FEATURE_DEPENDENCIES)
 #: as one line.
 DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "person_scoring", "tasks", "person_notes",
+    "integrations", "outbound_webhooks", "public_api",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

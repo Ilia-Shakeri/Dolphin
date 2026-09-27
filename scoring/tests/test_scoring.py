@@ -5,6 +5,7 @@ from decimal import Decimal
 from io import StringIO
 
 from django.core.management import call_command
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -29,7 +30,15 @@ PASSWORD = "Strong-pass-448!"
 
 
 class Fixtures(TestCase):
+    # Throttle counters live in the cache and are keyed by user id, which
+    # test databases reuse; clearing keeps this module from being throttled
+    # by — or throttling — the rest of the suite.
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
+
     def setUp(self):
+        cache.clear()
         self.admin = User.objects.create_user(username="sc.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN)
         self.manager = User.objects.create_user(username="sc.manager", password=PASSWORD, role=User.Role.SALES_MANAGER)
         self.agent = User.objects.create_user(username="sc.agent", password=PASSWORD, role=User.Role.SALES_AGENT)

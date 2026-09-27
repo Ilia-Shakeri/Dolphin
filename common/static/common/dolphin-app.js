@@ -15637,6 +15637,498 @@
      * because an integration this build cannot really test should not offer
      * a control that pretends otherwise.
      */
+    /**
+     * «یکپارچه‌سازی‌ها» — the framework half of the page (2.21.0). Rendered
+     * only for a Platform Admin where `integrations` runs; every endpoint
+     * checks both again. Connection forms are built from each provider's own
+     * field list (`#integration-catalog`); secrets are write-only — a blank
+     * secret field keeps what is stored, and nothing secret is ever read back.
+     */
+    function setupIntegrationFramework() {
+        const catalogNode = document.getElementById("integration-catalog");
+        if (!catalogNode) return;
+        const catalog = JSON.parse(catalogNode.textContent);
+        const providersByKey = Object.fromEntries(catalog.providers.map((provider) => [provider.key, provider]));
+        const STATUS_ACCENT = {ok: "success", error: "danger", disabled: "secondary", unconfigured: "warning"};
+        let integrations = [];
+
+        function wireDialog(dialog) {
+            dialog?.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        }
+        ["integration-dialog", "subscription-dialog", "token-dialog", "secret-once-dialog"].forEach((id) => wireDialog(document.getElementById(id)));
+
+        function showOnce(value, note) {
+            const dialog = document.getElementById("secret-once-dialog");
+            document.getElementById("secret-once-value").value = value;
+            document.getElementById("secret-once-note").textContent = note;
+            dialog.showModal();
+            document.getElementById("secret-once-value").select();
+        }
+        document.getElementById("secret-once-copy")?.addEventListener("click", async () => {
+            const field = document.getElementById("secret-once-value");
+            field.select();
+            try { await navigator.clipboard.writeText(field.value); globalMessage("رونوشت شد.", true); } catch { /* the value is selected; the reader copies it */ }
+        });
+
+        function toggle(checked, label, onChange) {
+            const wrap = document.createElement("div");
+            wrap.className = "form-check form-switch form-check-custom form-check-solid";
+            const input = document.createElement("input");
+            input.className = "form-check-input";
+            input.type = "checkbox";
+            input.checked = checked;
+            input.setAttribute("aria-label", label);
+            input.addEventListener("change", async () => {
+                input.disabled = true;
+                try { await onChange(input.checked); } catch (error) { input.checked = !input.checked; showError(error); } finally { input.disabled = false; }
+            });
+            wrap.appendChild(input);
+            return wrap;
+        }
+
+        function button(label, className, handler) {
+            const node = document.createElement("button");
+            node.type = "button";
+            node.className = `btn btn-sm ${className}`;
+            node.textContent = label;
+            node.addEventListener("click", () => handler(node));
+            return node;
+        }
+
+        function listCard(prefix) {
+            return {
+                loading: document.getElementById(`${prefix}-loading`),
+                empty: document.getElementById(`${prefix}-empty`),
+                wrap: document.getElementById(`${prefix}-table-wrap`),
+                body: document.getElementById(`${prefix}-table-body`),
+                fill(rows) {
+                    this.body.replaceChildren(...rows);
+                    this.loading.hidden = true;
+                    this.empty.hidden = rows.length > 0;
+                    this.wrap.hidden = rows.length === 0;
+                },
+            };
+        }
+
+        // --- connections -----------------------------------------------------
+        const connections = listCard("integrations");
+        const dialog = document.getElementById("integration-dialog");
+        const form = document.getElementById("integration-form");
+        const providerSelect = document.getElementById("integration-provider");
+        const fieldsHost = document.getElementById("integration-fields");
+        let editing = null;
+
+        catalog.providers.forEach((provider) => {
+            const option = document.createElement("option");
+            option.value = provider.key;
+            option.textContent = provider.name;
+            providerSelect.appendChild(option);
+        });
+
+        function renderFields(provider, integration) {
+            document.getElementById("integration-provider-description").textContent = provider ? provider.description : "";
+            fieldsHost.replaceChildren(...(provider ? provider.fields : []).map((field) => {
+                const column = document.createElement("div");
+                column.className = field.kind === "bool" ? "col-12 d-flex align-items-center gap-3" : "col-md-6";
+                const id = `integration-field-${field.key}`;
+                let input;
+                if (field.kind === "select") {
+                    input = document.createElement("select");
+                    input.className = "form-select form-select-solid";
+                    field.choices.forEach((choice) => {
+                        const option = document.createElement("option");
+                        option.value = choice.value;
+                        option.textContent = choice.label;
+                        input.appendChild(option);
+                    });
+                } else {
+                    input = document.createElement("input");
+                    input.className = field.kind === "bool" ? "form-check-input" : "form-control form-control-solid";
+                    input.type = {bool: "checkbox", int: "number", url: "url", password: "password"}[field.kind] || (field.secret ? "password" : "text");
+                    if (field.secret) input.autocomplete = "new-password";
+                    if (["url", "int", "password"].includes(field.kind) || field.secret) input.dir = "ltr";
+                }
+                input.id = id;
+                input.name = field.key;
+                input.dataset.secret = field.secret ? "true" : "";
+                input.dataset.kind = field.kind;
+                const stored = integration ? integration.config[field.key] : undefined;
+                const initial = stored !== undefined ? stored : field.default;
+                if (field.kind === "bool") input.checked = Boolean(initial);
+                else if (!field.secret && initial !== null && initial !== undefined) input.value = String(initial);
+                if (field.secret && integration && integration.secret_hints[field.key]) {
+                    input.placeholder = `${integration.secret_hints[field.key]} — خالی بماند یعنی تغییر نکند`;
+                } else if (field.placeholder) {
+                    input.placeholder = field.placeholder;
+                }
+                const label = document.createElement("label");
+                label.className = `form-label fw-semibold${field.kind === "bool" ? " mb-0" : ""}${field.required && !(field.secret && integration) ? " required" : ""}`;
+                label.setAttribute("for", id);
+                label.textContent = field.label;
+                const error = document.createElement("p");
+                error.className = "text-danger fs-8 mt-1 mb-0";
+                error.dataset.errorFor = field.key;
+                if (field.kind === "bool") {
+                    column.append(input, label, error);
+                } else {
+                    column.append(label, input);
+                    if (field.help) {
+                        const help = document.createElement("p");
+                        help.className = "text-muted fs-8 mt-1 mb-0";
+                        help.textContent = field.help;
+                        column.appendChild(help);
+                    }
+                    column.appendChild(error);
+                }
+                return column;
+            }));
+        }
+
+        function openConnection(integration = null) {
+            editing = integration;
+            form.reset();
+            clearMessages(form);
+            document.getElementById("integration-dialog-title").textContent = integration ? `ویرایش «${integration.name}»` : "افزودن اتصال";
+            providerSelect.disabled = Boolean(integration);
+            if (integration) providerSelect.value = integration.provider_key;
+            document.getElementById("integration-name").value = integration ? integration.name : "";
+            document.getElementById("integration-enabled").checked = integration ? integration.enabled : false;
+            renderFields(providersByKey[providerSelect.value], integration);
+            dialog.showModal();
+        }
+
+        providerSelect.addEventListener("change", () => renderFields(providersByKey[providerSelect.value], null));
+        document.getElementById("open-integration-dialog")?.addEventListener("click", () => openConnection());
+
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const config = {};
+                const secrets = {};
+                fieldsHost.querySelectorAll("[name]").forEach((input) => {
+                    if (input.dataset.secret) {
+                        if (input.value) secrets[input.name] = input.value;
+                    } else if (input.dataset.kind === "bool") {
+                        config[input.name] = input.checked;
+                    } else if (input.value !== "") {
+                        config[input.name] = input.dataset.kind === "int" ? Number(input.value) : input.value;
+                    }
+                });
+                const body = {
+                    name: document.getElementById("integration-name").value,
+                    enabled: document.getElementById("integration-enabled").checked,
+                    config,
+                    secrets,
+                };
+                if (editing) {
+                    await apiRequest(`/api/v1/integrations/${editing.id}/`, {method: "PATCH", body});
+                } else {
+                    await apiRequest("/api/v1/integrations/", {method: "POST", body: {...body, provider_key: providerSelect.value}});
+                }
+                dialog.close();
+                globalMessage("اتصال ذخیره شد.", true);
+                await loadConnections();
+            });
+        });
+
+        function connectionRow(integration) {
+            const row = document.createElement("tr");
+            const name = document.createElement("td");
+            const strong = document.createElement("span");
+            strong.className = "d-block fw-semibold text-gray-900";
+            strong.textContent = integration.name;
+            name.appendChild(strong);
+            if (integration.webhook_path) {
+                const path = document.createElement("code");
+                path.className = "d-block fs-8 text-muted text-break";
+                path.dir = "ltr";
+                path.textContent = `${window.location.origin}${integration.webhook_path}`;
+                path.title = "نشانی وب‌هوک ورودی این اتصال";
+                name.appendChild(path);
+            }
+            row.appendChild(name);
+            appendCell(row, integration.provider_name);
+            const status = document.createElement("td");
+            const badge = document.createElement("span");
+            badge.className = `badge badge-light-${STATUS_ACCENT[integration.status] || "secondary"}`;
+            badge.textContent = integration.status_label;
+            if (integration.last_error) badge.title = integration.last_error;
+            status.appendChild(badge);
+            if (integration.last_error) {
+                const error = document.createElement("span");
+                error.className = "d-block text-danger fs-8 mt-1 text-break";
+                error.textContent = integration.last_error;
+                status.appendChild(error);
+            }
+            row.appendChild(status);
+            appendCell(row, integration.last_health_at ? displayDate(integration.last_health_at) : "");
+            const enabled = document.createElement("td");
+            enabled.appendChild(toggle(integration.enabled, `روشن بودن ${integration.name}`, async (value) => {
+                await apiRequest(`/api/v1/integrations/${integration.id}/`, {method: "PATCH", body: {enabled: value}});
+                await loadConnections();
+            }));
+            row.appendChild(enabled);
+            const actions = document.createElement("td");
+            actions.className = "row-actions";
+            actions.append(
+                button("ویرایش", "btn-light", () => openConnection(integration)),
+                button("آزمایش اتصال", "btn-light-primary", async (node) => {
+                    node.disabled = true;
+                    clearMessages();
+                    try {
+                        const result = await apiRequest(`/api/v1/integrations/${integration.id}/test/`, {method: "POST", body: {}});
+                        globalMessage(result.message, result.ok);
+                        await loadConnections();
+                    } catch (error) {
+                        showError(error);
+                    } finally {
+                        node.disabled = false;
+                    }
+                }),
+                button("حذف", "btn-light-danger", async (node) => {
+                    if (!window.confirm(`اتصال «${integration.name}» حذف شود؟ رمزهای ذخیره‌شده‌اش هم پاک می‌شوند.`)) return;
+                    node.disabled = true;
+                    try {
+                        await apiRequest(`/api/v1/integrations/${integration.id}/`, {method: "DELETE"});
+                        globalMessage("اتصال حذف شد.", true);
+                        await loadConnections();
+                    } catch (error) {
+                        node.disabled = false;
+                        showError(error);
+                    }
+                }),
+            );
+            row.appendChild(actions);
+            return row;
+        }
+
+        const logFilter = document.getElementById("integration-logs-filter");
+
+        async function loadConnections() {
+            try {
+                integrations = await apiRequest("/api/v1/integrations/");
+                connections.fill(integrations.map(connectionRow));
+                const chosen = logFilter.value;
+                logFilter.replaceChildren(logFilter.options[0]);
+                integrations.forEach((integration) => {
+                    const option = document.createElement("option");
+                    option.value = String(integration.id);
+                    option.textContent = integration.name;
+                    logFilter.appendChild(option);
+                });
+                logFilter.value = chosen;
+            } catch (error) {
+                connections.loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        // --- log -------------------------------------------------------------
+        const logs = listCard("logs");
+        let logPage = 1;
+        async function loadLogs(page = 1) {
+            logs.loading.hidden = false;
+            try {
+                const query = new URLSearchParams({page: String(page)});
+                if (logFilter.value) query.set("integration", logFilter.value);
+                const data = await apiRequest(`/api/v1/integration-logs/?${query}`);
+                logs.fill(data.results.map((entry) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, displayDate(entry.created_at));
+                    appendCell(row, entry.direction_label);
+                    appendCell(row, entry.event_label);
+                    const result = document.createElement("td");
+                    const badge = document.createElement("span");
+                    badge.className = `badge badge-light-${entry.status === "ok" ? "success" : entry.status === "error" ? "danger" : "secondary"}`;
+                    badge.textContent = entry.status_label;
+                    result.appendChild(badge);
+                    row.appendChild(result);
+                    appendCell(row, entry.message).className = "text-break";
+                    return row;
+                }));
+                logPage = page;
+                document.getElementById("logs-prev").disabled = !data.previous;
+                document.getElementById("logs-next").disabled = !data.next;
+                document.getElementById("logs-page-label").textContent = pageRangeLabel(data, page);
+                document.getElementById("logs-pagination").hidden = !data.previous && !data.next;
+            } catch (error) {
+                logs.loading.hidden = true;
+                showError(error);
+            }
+        }
+        logFilter.addEventListener("change", () => loadLogs(1));
+        document.getElementById("logs-prev").addEventListener("click", () => loadLogs(logPage - 1));
+        document.getElementById("logs-next").addEventListener("click", () => loadLogs(logPage + 1));
+
+        // --- outbound webhooks -------------------------------------------------------
+        const subscriptionDialog = document.getElementById("subscription-dialog");
+        const subscriptions = subscriptionDialog ? listCard("subscriptions") : null;
+        const eventLabels = Object.fromEntries(catalog.event_types.map((item) => [item.key, item.label]));
+        if (subscriptionDialog) {
+            const events = document.getElementById("subscription-events");
+            catalog.event_types.forEach((item) => {
+                const label = document.createElement("label");
+                label.className = "d-flex align-items-center gap-2";
+                const box = document.createElement("input");
+                box.type = "checkbox";
+                box.className = "form-check-input";
+                box.name = "event_types";
+                box.value = item.key;
+                label.append(box, item.label);
+                events.appendChild(label);
+            });
+            const subscriptionForm = document.getElementById("subscription-form");
+            document.getElementById("open-subscription-dialog").addEventListener("click", () => {
+                subscriptionForm.reset();
+                clearMessages(subscriptionForm);
+                subscriptionDialog.showModal();
+            });
+            subscriptionForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(subscriptionForm, async () => {
+                    const data = new FormData(subscriptionForm);
+                    const created = await apiRequest("/api/v1/webhook-subscriptions/", {
+                        method: "POST",
+                        body: {name: data.get("name"), url: data.get("url"), event_types: data.getAll("event_types")},
+                    });
+                    subscriptionDialog.close();
+                    showOnce(created.secret, `کلید امضای وب‌هوک «${created.name}». گیرنده با آن سرآیند X-Dolphin-Signature را بررسی می‌کند.`);
+                    await loadSubscriptions();
+                });
+            });
+        }
+
+        async function loadSubscriptions() {
+            if (!subscriptions) return;
+            try {
+                const rows = await apiRequest("/api/v1/webhook-subscriptions/");
+                subscriptions.fill(rows.map((subscription) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, subscription.name).className = "fw-semibold";
+                    appendCell(row, subscription.url).dir = "ltr";
+                    appendCell(row, subscription.event_types.length ? subscription.event_types.map((key) => eventLabels[key] || key).join("، ") : "همهٔ رویدادها");
+                    appendCell(row, subscription.secret_hint).dir = "ltr";
+                    const active = document.createElement("td");
+                    active.appendChild(toggle(subscription.active, `روشن بودن ${subscription.name}`, async (value) => {
+                        await apiRequest(`/api/v1/webhook-subscriptions/${subscription.id}/`, {method: "PATCH", body: {active: value}});
+                    }));
+                    row.appendChild(active);
+                    const actions = document.createElement("td");
+                    actions.className = "row-actions";
+                    actions.append(
+                        button("ارسال آزمایشی", "btn-light-primary", async (node) => {
+                            node.disabled = true;
+                            clearMessages();
+                            try {
+                                const result = await apiRequest(`/api/v1/webhook-subscriptions/${subscription.id}/ping/`, {method: "POST", body: {}});
+                                globalMessage(
+                                    result.delivered
+                                        ? `تحویل شد (پاسخ ${toPersianDigits(String(result.response_status))}).`
+                                        : `تحویل نشد: ${result.error || "پاسخی نیامد"}`,
+                                    result.delivered,
+                                );
+                                await loadLogs(1);
+                            } catch (error) {
+                                showError(error);
+                            } finally {
+                                node.disabled = false;
+                            }
+                        }),
+                        button("حذف", "btn-light-danger", async (node) => {
+                            if (!window.confirm(`وب‌هوک «${subscription.name}» حذف شود؟`)) return;
+                            node.disabled = true;
+                            try {
+                                await apiRequest(`/api/v1/webhook-subscriptions/${subscription.id}/`, {method: "DELETE"});
+                                await loadSubscriptions();
+                            } catch (error) {
+                                node.disabled = false;
+                                showError(error);
+                            }
+                        }),
+                    );
+                    row.appendChild(actions);
+                    return row;
+                }));
+            } catch (error) {
+                subscriptions.loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        // --- API tokens -------------------------------------------------------------
+        const tokenDialog = document.getElementById("token-dialog");
+        const tokens = tokenDialog ? listCard("tokens") : null;
+        if (tokenDialog) {
+            const tokenForm = document.getElementById("token-form");
+            document.getElementById("open-token-dialog").addEventListener("click", () => {
+                tokenForm.reset();
+                clearMessages(tokenForm);
+                tokenDialog.showModal();
+            });
+            tokenForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(tokenForm, async () => {
+                    const data = new FormData(tokenForm);
+                    const typed = String(data.get("expires_at") || "").trim();
+                    const expires = typed ? apiDateTime(typed) : "";
+                    if (typed && !expires) throw new Error("تاریخ انقضا خوانده نشد؛ قالب باید ۱۴۰۵/۰۵/۲۵ ۱۴:۳۰ باشد.");
+                    const created = await apiRequest("/api/v1/api-tokens/", {
+                        method: "POST",
+                        body: {name: data.get("name"), user: Number(data.get("user")), scopes: data.getAll("scopes"), expires_at: expires},
+                    });
+                    tokenDialog.close();
+                    showOnce(created.token, `توکن «${created.name}». در سرآیند Authorization: Bearer بفرستید.`);
+                    await loadTokens();
+                });
+            });
+        }
+
+        async function loadTokens() {
+            if (!tokens) return;
+            try {
+                const rows = await apiRequest("/api/v1/api-tokens/");
+                tokens.fill(rows.map((token) => {
+                    const row = document.createElement("tr");
+                    appendCell(row, token.name).className = "fw-semibold";
+                    appendCell(row, token.user_display);
+                    appendCell(row, `${token.prefix}…`).dir = "ltr";
+                    appendCell(row, token.scopes.map((scope) => ({read: "خواندن", write: "نوشتن"}[scope] || scope)).join("، "));
+                    appendCell(row, token.last_used_at ? displayDate(token.last_used_at) : "");
+                    const state = document.createElement("td");
+                    const badge = document.createElement("span");
+                    const expired = token.expires_at && new Date(token.expires_at) <= new Date();
+                    badge.className = `badge ${token.revoked_at || expired ? "badge-light-danger" : "badge-light-success"}`;
+                    badge.textContent = token.revoked_at ? "باطل‌شده" : expired ? "منقضی" : "فعال";
+                    state.appendChild(badge);
+                    row.appendChild(state);
+                    const actions = document.createElement("td");
+                    if (!token.revoked_at) {
+                        actions.appendChild(button("باطل کردن", "btn-light-danger", async (node) => {
+                            if (!window.confirm(`توکن «${token.name}» باطل شود؟ هر سامانه‌ای که با آن کار می‌کند فوراً قطع می‌شود.`)) return;
+                            node.disabled = true;
+                            try {
+                                await apiRequest(`/api/v1/api-tokens/${token.id}/revoke/`, {method: "POST", body: {}});
+                                await loadTokens();
+                            } catch (error) {
+                                node.disabled = false;
+                                showError(error);
+                            }
+                        }));
+                    }
+                    row.appendChild(actions);
+                    return row;
+                }));
+            } catch (error) {
+                tokens.loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        loadConnections().then(() => loadLogs(1));
+        loadSubscriptions();
+        loadTokens();
+    }
+
     function setupIntegrations() {
         document.querySelectorAll("[data-integration-test]").forEach((button) => {
             const card = button.closest("[data-integration]");
@@ -15668,6 +16160,7 @@
                 }
             });
         });
+        setupIntegrationFramework();
     }
 
     /**

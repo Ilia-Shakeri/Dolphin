@@ -631,6 +631,18 @@ FROM (
         -- states and may be removed by whoever holds `tasks.delete`; a note is
         -- edited by its author and removed the same way, and its timeline
         -- entry follows it — so those three carry UPDATE and DELETE.
+        -- Integrations (2.21.0). Connections and subscribers are edited and
+        -- removed by the Platform Admin; tokens are revoked in place, never
+        -- deleted; log rows, processed events and settled deliveries are
+        -- pruned by `prune_integration_logs`, which runs as this role; the
+        -- outbox and deliveries are rewritten in place as they are retried.
+        ('integrations_apitoken', 'SELECT, INSERT, UPDATE'),
+        ('integrations_domainevent', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('integrations_inboundwebhookreceipt', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('integrations_integration', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('integrations_integrationlog', 'SELECT, INSERT, DELETE'),
+        ('integrations_webhookdelivery', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('integrations_webhooksubscription', 'SELECT, INSERT, UPDATE, DELETE'),
         ('scoring_personscore', 'SELECT, INSERT'),
         ('scoring_scoringsettings', 'SELECT, INSERT, UPDATE'),
         ('tasks_task', 'SELECT, INSERT, UPDATE, DELETE'),

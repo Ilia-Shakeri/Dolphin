@@ -1127,6 +1127,32 @@ missed night costs nothing but freshness:
 45 2 * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm score-recalculation >> /var/log/dolphin-score-recalculation.log 2>&1
 ```
 
+Where the manifest enables `integrations` (2.21.0), trim the integrations log
+once a week (rows, processed events and settled deliveries older than 90 days):
+
+```
+0 4 * * 0 cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile integrations run --rm --no-deps integrations-worker python manage.py prune_integration_logs --days 90 >> /var/log/dolphin-integrations-prune.log 2>&1
+```
+
+### 4.4.1 Integrations (2.21.0)
+
+1. **Secrets key.** `DOLPHIN_SECRETS_KEY` encrypts every integration secret in
+   the database. `scripts/new_deployment.py` writes one into a new deployment's
+   `secrets/.env`; for an existing deployment generate one with
+   `docker compose --env-file secrets/.env run --rm --no-deps web python manage.py generate_secrets_key`
+   and add it to `secrets/.env`. Back it up with that file: a restored
+   database without it cannot read its own integration secrets (the panel then
+   asks for them again). Rotation: `DOLPHIN_SECRETS_KEY=<new>,<old>`, re-save
+   each connection, then remove `<old>`.
+2. **Worker.** Once the signed manifest names `integrations`:
+   `docker compose --env-file secrets/.env --profile integrations up -d integrations-worker`.
+   It restarts with the stack (`restart: unless-stopped`); `scripts/deploy.sh`
+   recreates it with `web` on each release when it is running. It is on the
+   internal `backend` network and on `egress`, the only other network with a
+   route out, to reach a PBX or a webhook subscriber.
+3. **Inbound webhooks** reach `https://<host>/api/v1/integrations/<id>/webhook/`
+   through nginx like every other API path; no extra port is opened.
+
 ### 4.5 Verify a restore — into a disposable database
 
 This is the only supported restore rehearsal. It restores into a throwaway
@@ -2863,6 +2889,7 @@ Source tests prove the intended Compose secret scope, transaction boundary, tabl
 - `tzdata` is locked behind a Windows marker; the Linux container does not install it.
 - The lock contains reviewed CPython 3.13 Linux-amd64 hashes. The three platform wheels also contain Windows-amd64 hashes so the guarded local setup remains usable.
 - `pip download --require-hashes --only-binary=:all:` passed for both `manylinux_2_17_x86_64/cp313` and `win_amd64/cp313` on 2026-08-10. This proves lock resolution and hashes, not a container build.
+- 2026-09-27 (2.21.0): `cryptography==49.0.0` added as a direct package (integration secrets at rest), with `cffi==2.1.1` and `pycparser==3.0`, resolved in the reviewed `python@sha256:b6d2e2b3…` 3.13.15 image; `pip download --require-hashes --only-binary=:all:` passed for the full lock in that image (Linux) and for `win_amd64/cp313`.
 
 ### Safe update flow
 

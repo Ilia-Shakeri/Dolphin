@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "timeline",
     "tasks",
     "scoring",
+    "integrations",
     "billing",
     "reports",
     "attachments",
@@ -306,8 +307,22 @@ LOGGING = {
     },
 }
 
+#: Integrations (2.21.0). The key that encrypts every stored integration
+#: secret (`integrations.crypto`); comma-separated for rotation, first one
+#: encrypts. Empty: the panel runs but refuses to store a secret.
+DOLPHIN_SECRETS_KEY = os.environ.get("DOLPHIN_SECRETS_KEY", "")
+#: Outbound webhooks go to public `https://` addresses only. Development and
+#: tests may allow private ones; production never sets this.
+DOLPHIN_WEBHOOKS_ALLOW_PRIVATE_TARGETS = False
+
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    # Session first, so an unauthenticated request still answers 403 as the
+    # API contract says; a `Bearer dol_…` token (2.21.0, feature `public_api`)
+    # authenticates only when no session did.
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "integrations.authentication.ApiTokenAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["common.permissions.IsActiveAuthenticated"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
@@ -327,6 +342,8 @@ REST_FRAMEWORK = {
         # rate stays well inside the first; the second is a person typing.
         "chat": "600/min",
         "chat_send": "60/min",
+        # Inbound integration webhooks (2.21.0), per client address.
+        "integration_webhook": "600/min",
     },
 }
 

@@ -18,6 +18,8 @@ DIRECT_PRODUCTION_PACKAGES = {
     "gunicorn",
     "openpyxl",
     "psycopg",
+    # 2.21.0: encrypts integration secrets at rest (integrations/crypto.py).
+    "cryptography",
 }
 
 

@@ -20,6 +20,7 @@ def build_urlpatterns():
         path("api/v1/", include("timeline.urls")),
         path("api/v1/", include("tasks.urls")),
         path("api/v1/", include("scoring.urls")),
+        path("api/v1/", include("integrations.urls")),
         path("api/v1/", include("billing.urls")),
         path("api/v1/", include("attachments.urls")),
         path("api/v1/", include("chat.urls")),

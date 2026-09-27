@@ -107,6 +107,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
                 "session-cleanup",
                 "scheduled-sms",
                 "score-recalculation",
+                "integrations-worker",
             },
             "POSTGRES_BACKUP_PASSWORD": {
                 "db-bootstrap",
@@ -461,6 +462,15 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_targetaudiencemember": "SELECT, INSERT, UPDATE",
             "sales_postalstatushistory": "SELECT, INSERT",
             "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
+            # Integrations (2.21.0): tokens are revoked in place, never deleted;
+            # log rows are only ever added or pruned.
+            "integrations_apitoken": "SELECT, INSERT, UPDATE",
+            "integrations_domainevent": "SELECT, INSERT, UPDATE, DELETE",
+            "integrations_inboundwebhookreceipt": "SELECT, INSERT, UPDATE, DELETE",
+            "integrations_integration": "SELECT, INSERT, UPDATE, DELETE",
+            "integrations_integrationlog": "SELECT, INSERT, DELETE",
+            "integrations_webhookdelivery": "SELECT, INSERT, UPDATE, DELETE",
+            "integrations_webhooksubscription": "SELECT, INSERT, UPDATE, DELETE",
             # Person profile (2.20.0): score history is append-only.
             "scoring_personscore": "SELECT, INSERT",
             "scoring_scoringsettings": "SELECT, INSERT, UPDATE",

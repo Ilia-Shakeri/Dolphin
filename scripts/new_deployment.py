@@ -30,6 +30,7 @@ are never printed, never logged, and never passed on a command line.
 """
 
 import argparse
+import base64
 import os
 import re
 import secrets
@@ -209,7 +210,20 @@ def env_lines(*, slug, host, image, profile, manifest_path, manifest_keys, reten
         "POSTGRES_SSLMODE=",
         "POSTGRES_SSLROOTCERT=",
         "",
+        "# --- integrations (2.21.0) --------------------------------------------",
+        "# Encrypts every integration secret stored in the database. Generated",
+        "# here like the passwords above and, like them, exists nowhere else: a",
+        "# database restored without this value cannot read its own integration",
+        "# secrets. Rotation: new key first, old key after a comma.",
+        f"DOLPHIN_SECRETS_KEY={secrets_key()}",
+        "",
     ]
+
+
+def secrets_key():
+    """A Fernet key — 32 random bytes, URL-safe base64 — made with the
+    standard library, so provisioning needs no `cryptography` on this host."""
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
 
 
 def write_env(path, lines):

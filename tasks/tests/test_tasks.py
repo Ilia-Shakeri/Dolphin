@@ -4,6 +4,7 @@ the reminders bell and the person timeline."""
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
+from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -21,7 +22,15 @@ PASSWORD = "Strong-pass-448!"
 
 
 class Fixtures(TestCase):
+    # Throttle counters live in the cache and are keyed by user id, which
+    # test databases reuse; clearing keeps this module from being throttled
+    # by — or throttling — the rest of the suite.
+    def tearDown(self):
+        cache.clear()
+        super().tearDown()
+
     def setUp(self):
+        cache.clear()
         self.manager = User.objects.create_user(username="tk.manager", password=PASSWORD, role=User.Role.SALES_MANAGER)
         self.agent = User.objects.create_user(username="tk.agent", password=PASSWORD, role=User.Role.SALES_AGENT)
         self.other = User.objects.create_user(username="tk.other", password=PASSWORD, role=User.Role.SALES_AGENT)
