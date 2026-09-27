@@ -121,6 +121,17 @@ OPERATION_LABELS = {
     "user.sessions_revoked": "ابطال نشست‌های کاربر",
     "user.platform_admin_bootstrapped": "ایجاد مدیر پلتفرم",
     "user.uat_seeded": "ایجاد داده آزمایشی",
+    # --- پروفایل: یادداشت، وظیفه، امتیاز (۲.۲۰.۰) ------------------------------
+    "person_note.created": "ثبت یادداشت پروفایل",
+    "person_note.updated": "ویرایش یادداشت پروفایل",
+    "person_note.deleted": "حذف یادداشت پروفایل",
+    "task.created": "ثبت وظیفه",
+    "task.updated": "ویرایش وظیفه",
+    "task.completed": "انجام وظیفه",
+    "task.cancelled": "لغو وظیفه",
+    "task.reopened": "بازکردن دوبارهٔ وظیفه",
+    "task.deleted": "حذف وظیفه",
+    "scoring.weights_updated": "تغییر وزن‌های امتیازدهی",
     # --- عمومی --------------------------------------------------------------
     "cancel": "ابطال",
 }

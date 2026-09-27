@@ -276,6 +276,40 @@ services:
     networks:
       - backend
 
+  # Nightly person scores (feature `person_scoring`, 2.20.0). Same shape as
+  # `scheduled-sms`: a one-shot management command behind the `maintenance`
+  # profile, run from cron. Safe to run any number of times — a score that
+  # has not moved within a day stores nothing new — and a no-op on a
+  # deployment whose manifest does not enable scoring.
+  score-recalculation:
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["maintenance"]
+    restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      DOLPHIN_DATABASE_ROLE: app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "manage.py", "recalculate_person_scores"]
+    volumes:
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+
   # The privileged half of panel backup and restore (feature `panel_backup`).
   #
   # Behind its own profile, and that is the whole safety story rather than a

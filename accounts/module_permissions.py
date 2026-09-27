@@ -78,6 +78,11 @@ MODULES = (
     Module("after_sales", "خدمات پس از فروش", ("after_sales.company", "after_sales.assigned"), ("after_sales.manage",), ("after_sales.delete",)),
     Module("reports", "گزارش‌ها", ("reports.own", "reports.company")),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
+    # Person profile (2.20.0). Tasks: `tasks.own` is one's own list,
+    # `tasks.company` everyone's; notes are read and written on the profiles
+    # a person can already open.
+    Module("tasks", "وظیفه‌ها", ("tasks.own", "tasks.company"), ("tasks.manage",), ("tasks.delete",)),
+    Module("notes", "یادداشت‌های پروفایل", ("notes.read",), ("notes.write",), ("notes.delete",)),
 )
 
 MODULES_BY_KEY = {module.key: module for module in MODULES}

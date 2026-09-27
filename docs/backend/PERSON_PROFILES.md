@@ -84,6 +84,50 @@ scope.
 5. Tests: scope (404 outside it), a disabled feature removes its tabs, every
    quick action does something.
 
+## Stat cards (2.20.0)
+
+`profiles/cards.py` holds one `StatCard` per slot and person type — `key`,
+`label`, icon, the features it needs, `visible(viewer, person)` and
+`compute(viewer, person, period)`. The page renders a shell only for the cards
+`cards_for(viewer, …)` returns and the API computes only those, so a hidden
+card's value never leaves the server. A value that cannot be computed is
+`_missing(reason)`: «—» with the reason as its tooltip. Periods are Jalali
+(`period_for`), each with the equal window before it for the trend.
+
+To add a card: write `visible` and `compute`, add a `StatCard` to `CARDS`, and
+test both its value and that a reader without the right does not get it.
+
+## Completion bar
+
+`profiles/completion.py` lists, per person type, the fields that make a record
+useful and how much each counts (they sum to 100), with the «اطلاعات» input
+that fills each one. A reader who may edit gets links that open that tab and
+focus the input (`data-focus`).
+
+## Scores
+
+`scoring/strategies.py` has one strategy per person type. Each factor is
+measured as a ratio 0..1 with a Persian reason, or `None` when it cannot be
+measured for that person — then it is left out of the denominator. `prepare`
+reads a whole batch with grouped queries, so the nightly
+`recalculate_person_scores` is a handful of queries per two hundred people.
+Weights live in `scoring.ScoringSettings` (defaults in code); snapshots in
+`scoring.PersonScore`, stored only when the score or its breakdown changed or
+the last one is a day old. Scores read *every* row about a person — who may
+see one is decided by the score card's `visible`.
+
+To add a strategy (an AI model, say): subclass `ScoringStrategy`, give it the
+same `factors`/`prepare`/`evaluate` interface and register it in `STRATEGIES`.
+
+## Tasks and notes
+
+`tasks` and `timeline` are ordinary modules with their own features,
+capabilities and matrix rows; both refer to a person by `person_type` +
+`person_id` and resolve it through the viewer's scope. Anything that happens to
+a person and has no row of its own elsewhere is recorded with
+`timeline.services.record(...)` — pass a `source_ref` so a retry never
+duplicates it.
+
 ## Phones
 
 `common.phones.normalize_customer_phone` is the single normaliser (E.164

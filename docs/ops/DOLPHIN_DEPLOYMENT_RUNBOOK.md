@@ -1117,6 +1117,16 @@ but never deletes the rows, so `django_session` grows forever:
 30 3 * * 0 cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm session-cleanup >> /var/log/dolphin-session-cleanup.log 2>&1
 ```
 
+Where the manifest enables `person_scoring` (2.20.0), recompute every person's
+score once a night. The job is idempotent (a score that has not moved within a
+day stores nothing new) and does nothing on a deployment without the feature;
+profiles also refresh a score that is more than a day old when opened, so a
+missed night costs nothing but freshness:
+
+```
+45 2 * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm score-recalculation >> /var/log/dolphin-score-recalculation.log 2>&1
+```
+
 ### 4.5 Verify a restore — into a disposable database
 
 This is the only supported restore rehearsal. It restores into a throwaway

@@ -38,6 +38,11 @@ class CustomerTimelineView(FeatureGatedAPIMixin, APIView):
             # Not 403: a customer outside someone's own book must not be
             # confirmed to exist, the same as every other direct read here.
             raise Http404()
-        response = Response(customer_timeline.timeline_for(request.user, customer))
+        # Through the profile adapter since 2.20.0, so this endpoint and
+        # `/api/v1/profiles/customer/<id>/timeline/` never disagree — notes,
+        # tasks and later calls are merged in both.
+        from profiles.registry import adapter_for
+
+        response = Response(adapter_for("customer").timeline(request.user, customer))
         response["Cache-Control"] = "private, no-store"
         return response

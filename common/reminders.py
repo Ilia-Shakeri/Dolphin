@@ -125,6 +125,47 @@ def _appointment_reminders(user, *, now):
     return _group("after_sales_appointment", "قرار پس از فروش", "ki-calendar-tick", "info", total, items)
 
 
+def _task_reminders(user, *, now):
+    """The reader's own open tasks that are due — overdue, or falling today.
+
+    Only tasks *assigned to* the reader, even for someone who can see every
+    task (`tasks.company`): the bell is what this person has to do, and a
+    manager's list of everyone's tasks is the tasks tab, not a reminder.
+    """
+    from tasks.models import Task
+    from tasks.selectors import tasks_for
+
+    end_of_today = _end_of_today(now)
+    tasks = (
+        tasks_for(user)
+        .filter(assignee=user, status=Task.Status.OPEN, due_at__isnull=False, due_at__lte=end_of_today)
+        .order_by("due_at", "id")
+    )
+    total = tasks.count()
+    items = [
+        {
+            "id": task.pk,
+            "title": task.title,
+            "subtitle": task.notes[:80] if task.notes else "وظیفه",
+            "due_at": task.due_at.isoformat(),
+            "due_kind": "datetime",
+            "overdue": task.due_at < now,
+            "url": _task_url(task),
+        }
+        for task in tasks[:GROUP_ITEM_LIMIT]
+    ]
+    return _group("task_due", "وظیفه", "ki-check-circle", "success", total, items)
+
+
+def _task_url(task):
+    """The profile the task is about, on its «وظایف» tab; else the reader's own."""
+    if task.person_type == "customer" and task.person_id:
+        return f"/customers/{task.person_id}/?tab=tasks"
+    if task.person_type == "user" and task.person_id:
+        return f"/users/{task.person_id}/?tab=tasks"
+    return f"/users/{task.assignee_id}/?tab=tasks"
+
+
 def _cheque_reminders(user, *, now):
     """Cheques whose due date has passed or arrives within the lead time."""
     today = timezone.localdate(now)
@@ -185,6 +226,7 @@ def _instalment_reminders(user, *, now):
 #: that must be enabled with the function that reads it.
 SOURCES = (
     ("leads", _lead_reminders),
+    ("tasks", _task_reminders),
     ("after_sales", _appointment_reminders),
     ("cheques", _cheque_reminders),
     ("payments", _instalment_reminders),

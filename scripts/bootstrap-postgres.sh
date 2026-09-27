@@ -625,7 +625,17 @@ FROM (
         ('sales_postalstatushistory', 'SELECT, INSERT'),
         -- Post-carrier API connection settings, singleton row — same grant
         -- as its SMS counterpart just above.
-        ('sales_postprovidersettings', 'SELECT, INSERT, UPDATE')
+        ('sales_postprovidersettings', 'SELECT, INSERT, UPDATE'),
+        -- Person profile (2.20.0). A score snapshot is history (append-only);
+        -- the weights are one edited singleton row. A task moves between
+        -- states and may be removed by whoever holds `tasks.delete`; a note is
+        -- edited by its author and removed the same way, and its timeline
+        -- entry follows it — so those three carry UPDATE and DELETE.
+        ('scoring_personscore', 'SELECT, INSERT'),
+        ('scoring_scoringsettings', 'SELECT, INSERT, UPDATE'),
+        ('tasks_task', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('timeline_personnote', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('timeline_timelineentry', 'SELECT, INSERT, UPDATE, DELETE')
 ) AS table_grant(table_name, privileges)
 WHERE to_regclass(format('%I.%I', 'public', table_grant.table_name)) IS NOT NULL
 ORDER BY table_grant.table_name

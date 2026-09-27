@@ -55,7 +55,7 @@
                     <div class="d-flex flex-wrap align-items-center gap-2 my-2" data-profile-actions>
                         {% for action in quick_actions %}
                         {% if action.href %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="{{ action.href }}" data-quick-action="{{ action.key }}">
-                        {% elif action.tab %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="?tab={{ action.tab }}" data-profile-tab-link="{{ action.tab }}" data-quick-action="{{ action.key }}">
+                        {% elif action.tab %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="?tab={{ action.tab }}" data-profile-tab-link="{{ action.tab }}" data-quick-action="{{ action.key }}"{% for name, value in action.data.items %} data-{{ name }}="{{ value }}"{% endfor %}>
                         {% else %}<button class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" type="button" data-profile-action="{{ action.action }}" data-quick-action="{{ action.key }}"{% for name, value in action.data.items %} data-{{ name }}="{{ value }}"{% endfor %}>{% endif %}
                             <i class="ki-duotone {{ action.icon }} fs-4 me-1" aria-hidden="true">{% for n in action.paths %}<span class="path{{ n }}"></span>{% endfor %}</i>{{ action.label }}
                         {% if action.href or action.tab %}</a>{% else %}</button>{% endif %}
@@ -78,7 +78,7 @@
                         {% endif %}
                     </div>
                 </div>
-                {% block profile_header_extra %}{% endblock %}
+                {% include "profiles/header_stats.inc" %}
             </div>
         </div>
         <div class="d-flex overflow-auto h-55px">
@@ -97,4 +97,5 @@
     {% include tab.template %}
 </section>
 {% endfor %}
+{% include "profiles/dialogs.inc" %}
 {% endblock %}

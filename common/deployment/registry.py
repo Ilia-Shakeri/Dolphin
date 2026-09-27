@@ -147,6 +147,16 @@ FEATURE_DEPENDENCIES = {
     # is above: a board with nothing to group is not this feature.
     "order_kanban": frozenset({"orders"}),
 
+    # The person profile's own modules (2.20.0, docs/backend/PERSON_PROFILES.md).
+    # `scoring` — an explainable, rule-based score per customer and user,
+    # recomputed nightly (`recalculate_person_scores`); it reads other
+    # modules' rows but each factor checks their feature itself, so it needs
+    # none. `tasks` — a small to-do list, also a reminders source.
+    # `person_notes` — notes on a profile, also shown in its timeline.
+    "person_scoring": frozenset(),
+    "tasks": frozenset(),
+    "person_notes": frozenset(),
+
     # billing.Cheque / ChequeStatusHistory — Cheque.payment is NOT NULL, so a
     # cheque cannot exist without a payment. Split out from `payments` itself
     # (2026-09-22, product-owner decision for the TIARA manifest) because a
@@ -215,6 +225,15 @@ DEFAULT_OFF_FEATURES = frozenset({
 })
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)
+
+#: New modules default to off (decision D18 of
+#: docs/PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md): a deployment gets them when
+#: its signed manifest names them, the same way it gets chat. Kept as a union
+#: rather than folded into the literal above so each release's additions read
+#: as one line.
+DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
+    "person_scoring", "tasks", "person_notes",
+})
 
 # Every feature the current code actually ships. A deployment may enable a
 # subset; it may never enable something absent from this set.

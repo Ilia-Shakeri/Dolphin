@@ -1281,6 +1281,16 @@ class DolphinSettingsView(ActiveCrmView):
             self.request.user.role == User.Role.PLATFORM_ADMIN and backups.available()
         )
         context["restore_confirmation"] = BACKUP_RESTORE_CONFIRMATION
+        # How much each factor of the person score counts (2.20.0): Platform
+        # Admin, and only where scoring runs. `scoring-settings/` checks both
+        # again.
+        context["can_manage_scoring"] = (
+            feature_enabled("person_scoring") and self.request.user.role == User.Role.PLATFORM_ADMIN
+        )
+        if context["can_manage_scoring"]:
+            from scoring.views import catalog
+
+            context["scoring_catalog"] = catalog()
         return context
 
 

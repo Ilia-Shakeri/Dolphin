@@ -98,12 +98,15 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # (2026-09-09) is the same shape: it sends the campaigns the app
             # itself queued, writing the very same tables the app writes, so it
             # runs as the app role and needs no wider grant than the panel has.
+            # `score-recalculation` (2.20.0) likewise: it writes score
+            # snapshots the panel itself writes when a profile is opened.
             "POSTGRES_APP_PASSWORD": {
                 "db-bootstrap",
                 "db-finalize",
                 "web",
                 "session-cleanup",
                 "scheduled-sms",
+                "score-recalculation",
             },
             "POSTGRES_BACKUP_PASSWORD": {
                 "db-bootstrap",
@@ -458,6 +461,12 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "sales_targetaudiencemember": "SELECT, INSERT, UPDATE",
             "sales_postalstatushistory": "SELECT, INSERT",
             "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
+            # Person profile (2.20.0): score history is append-only.
+            "scoring_personscore": "SELECT, INSERT",
+            "scoring_scoringsettings": "SELECT, INSERT, UPDATE",
+            "tasks_task": "SELECT, INSERT, UPDATE, DELETE",
+            "timeline_personnote": "SELECT, INSERT, UPDATE, DELETE",
+            "timeline_timelineentry": "SELECT, INSERT, UPDATE, DELETE",
         }
         grant_block = re.search(
             r"FROM \(\s*VALUES(?P<rows>.*?)\) AS table_grant",

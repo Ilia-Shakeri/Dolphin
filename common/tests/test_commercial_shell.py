@@ -63,7 +63,13 @@ def browser_delete_targets():
 #: own presentation and the Metronic cartoon comes back. The service refuses
 #: it for anybody who may not administer that user
 #: (`accounts.avatars._require_may_edit`).
-ALLOWED_BROWSER_DELETE_TARGETS = {"/api/v1/dashboard-layout/", "endpoint"}
+#:
+#: `/api/v1/person-notes/${note.id}/` is a profile note (2.20.0). The 2.18.8
+#: rule decides it like every other deletion — the Platform Admin, or someone
+#: granted `notes.delete` on their permission matrix — and a note is a
+#: comment on a record, not the record: the customer, lead or sale it talks
+#: about is untouched.
+ALLOWED_BROWSER_DELETE_TARGETS = {"/api/v1/dashboard-layout/", "endpoint", "/api/v1/person-notes/${note.id}/"}
 
 
 class CommercialShellContractTests(SimpleTestCase):

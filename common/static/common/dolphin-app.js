@@ -4623,6 +4623,8 @@
             calls: () => relatedList("interactions", "interactions", interactionRow),
             finance: () => relatedList("invoices", `/api/v1/invoices/?customer=${customerId}`, customerInvoiceRow, {absolute: true}),
             activity: () => loadProfileTimeline("customer", customerId),
+            tasks: () => setupTasksTab("customer", customerId),
+            notes: () => setupNotesTab("customer", customerId),
             documents: () => {
                 document.querySelectorAll('[data-profile-pane="documents"] [data-attachments-panel]').forEach(setupAttachmentsPanelFor);
             },
@@ -4652,22 +4654,30 @@
         const panes = new Map(
             Array.from(document.querySelectorAll("[data-profile-pane]")).map((pane) => [pane.dataset.profilePane, pane]),
         );
-        const started = new Set();
+        const started = new Map();
         let current = null;
 
         function run(key) {
-            if (started.has(key)) return;
-            started.add(key);
-            const loader = loaders[key];
-            if (!loader) return;
-            Promise.resolve()
-                .then(loader)
-                .catch((error) => showError(error));
+            if (!started.has(key)) {
+                const loader = loaders[key];
+                started.set(key, loader
+                    ? Promise.resolve().then(loader).catch((error) => showError(error))
+                    : Promise.resolve());
+            }
+            return started.get(key);
+        }
+
+        /** A missing-field link of the completion bar lands on the input itself. */
+        function focusField(id) {
+            const field = id && document.getElementById(id);
+            if (!field) return;
+            field.scrollIntoView({block: "center", behavior: "smooth"});
+            field.focus({preventScroll: true});
         }
 
         function activate(key, {push = false, focus = false} = {}) {
             if (!panes.has(key)) key = keys[0];
-            if (key === current) return;
+            if (key === current) return run(key);
             current = key;
             tabs.forEach((tab) => {
                 const on = tab.dataset.profileTab === key;
@@ -4682,7 +4692,7 @@
                 url.searchParams.set("tab", key);
                 window.history.pushState({profileTab: key}, "", url);
             }
-            run(key);
+            return run(key);
         }
 
         tabs.forEach((tab, index) => {
@@ -4714,9 +4724,13 @@
             const link = event.target.closest("[data-profile-tab-link]");
             if (!link) return;
             event.preventDefault();
-            activate(link.dataset.profileTabLink, {push: true});
-            document.getElementById(`profile-tab-${link.dataset.profileTabLink}`)
-                ?.scrollIntoView({block: "nearest", behavior: "smooth"});
+            const ready = activate(link.dataset.profileTabLink, {push: true});
+            if (link.dataset.focus) {
+                Promise.resolve(ready).then(() => focusField(link.dataset.focus));
+            } else {
+                document.getElementById(`profile-tab-${link.dataset.profileTabLink}`)
+                    ?.scrollIntoView({block: "nearest", behavior: "smooth"});
+            }
         });
 
         window.addEventListener("popstate", () => {
@@ -4849,9 +4863,9 @@
         when.textContent = displayDate(event.at);
         head.append(kind, when);
 
-        const title = document.createElement("a");
-        title.className = "d-block text-gray-900 fw-semibold fs-6 mt-1 text-decoration-none";
-        title.href = event.url;
+        const title = document.createElement(event.url ? "a" : "span");
+        title.className = "d-block text-gray-900 fw-semibold fs-6 mt-1 text-decoration-none text-break";
+        if (event.url) title.href = event.url;
         title.textContent = event.title;
 
         const subtitle = document.createElement("span");
@@ -5129,6 +5143,442 @@
         await setupUserSessions(userId);
     }
 
+    /**
+     * The header's stat cards #4–#7 (2.20.0). The server rendered a shell
+     * only for the cards this reader may see; this fills their values for
+     * the chosen period and re-fills them when the period changes.
+     */
+    function setupProfileCards(personType, personId) {
+        const host = document.querySelector("[data-profile-cards]");
+        if (!host) return;
+        const select = document.getElementById("profile-card-period");
+
+        function paint(box, card) {
+            const value = box.querySelector("[data-card-value]");
+            value.textContent = card.value;
+            value.classList.toggle("text-danger", card.accent === "danger");
+            box.title = card.tooltip || "";
+            const icon = box.querySelector("[data-card-icon]");
+            icon.classList.remove("text-gray-500", "text-success", "text-primary", "text-warning", "text-danger");
+            icon.classList.add(card.accent ? `text-${card.accent}` : "text-gray-500");
+            const trend = box.querySelector("[data-card-trend]");
+            if (card.trend && card.trend.direction !== "flat") {
+                const up = card.trend.direction === "up";
+                trend.className = `badge fs-8 ms-2 ${up ? "badge-light-success" : "badge-light-danger"}`;
+                trend.textContent = `${up ? "↑" : "↓"} ${card.trend.display}`;
+                trend.title = card.trend.tooltip || "";
+                trend.hidden = false;
+            } else {
+                trend.hidden = true;
+            }
+        }
+
+        async function load() {
+            host.setAttribute("aria-busy", "true");
+            host.querySelectorAll("[data-card-value]").forEach((node) => { node.textContent = "…"; });
+            try {
+                const query = new URLSearchParams({period: select ? select.value : ""});
+                const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/cards/?${query}`);
+                data.cards.forEach((card) => {
+                    const box = host.querySelector(`[data-profile-card="${card.key}"]`);
+                    if (box) paint(box, card);
+                });
+            } catch (error) {
+                host.querySelectorAll("[data-profile-card]").forEach((box) => {
+                    box.querySelector("[data-card-value]").textContent = "—";
+                    box.title = "دریافت این رقم ممکن نشد.";
+                });
+            } finally {
+                host.removeAttribute("aria-busy");
+            }
+        }
+
+        select?.addEventListener("change", load);
+        const scoreCard = host.querySelector("[data-score-card]");
+        if (scoreCard) {
+            const open = () => openScoreDialog(personType, personId);
+            scoreCard.addEventListener("click", open);
+            scoreCard.addEventListener("keydown", (event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                open();
+            });
+        }
+        load();
+    }
+
+    /** Why the score is what it is: each factor, its points and its reason. */
+    async function openScoreDialog(personType, personId) {
+        const dialog = document.getElementById("profile-score-dialog");
+        if (!dialog) return;
+        const part = (name) => dialog.querySelector(`[data-score-${name}]`);
+        part("loading").hidden = false;
+        part("error").hidden = true;
+        part("empty").hidden = true;
+        part("body").hidden = true;
+        if (!dialog.open) dialog.showModal();
+        try {
+            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/score/`);
+            part("loading").hidden = true;
+            if (!data.current) { part("empty").hidden = false; return; }
+            part("value").textContent = toPersianDigits(String(data.current.score));
+            const level = part("level");
+            level.className = `badge fs-7 badge-light-${data.current.accent}`;
+            level.textContent = data.current.level_label;
+            part("when").textContent = `محاسبه‌شده ${displayDate(data.current.computed_at)}`;
+            part("breakdown").replaceChildren(...data.current.breakdown.map((factor) => {
+                const row = document.createElement("tr");
+                appendCell(row, factor.label).className = "fw-semibold";
+                appendCell(
+                    row,
+                    factor.applicable && factor.weight
+                        ? `${toPersianDigits(String(factor.points).replace(".", "٫"))} از ${toPersianDigits(String(factor.weight))}`
+                        : "قابل سنجش نیست",
+                ).classList.toggle("text-muted", !factor.applicable || !factor.weight);
+                appendCell(row, factor.reason).className = "text-gray-700";
+                return row;
+            }));
+            part("history").replaceChildren(...data.history.map((entry) => {
+                const item = document.createElement("li");
+                item.className = `badge badge-light-${entry.accent} fs-8`;
+                item.textContent = `${displayDay(entry.computed_at)} — ${toPersianDigits(String(entry.score))}`;
+                return item;
+            }));
+            part("body").hidden = false;
+        } catch (error) {
+            part("loading").hidden = true;
+            part("error").hidden = false;
+        }
+    }
+
+    const TASK_STATUS_BADGE = {open: "badge-light-primary", done: "badge-light-success", cancelled: "badge-light"};
+
+    /**
+     * «وظایف»: a customer's tasks are the ones about them, a colleague's the
+     * ones assigned to them — within the reader's own task scope.
+     */
+    function setupTasksTab(personType, personId) {
+        const loadingNode = document.getElementById("profile-tasks-loading");
+        const empty = document.getElementById("profile-tasks-empty");
+        const wrap = document.getElementById("profile-tasks-table-wrap");
+        const body = document.getElementById("profile-tasks-table-body");
+        const pagination = document.getElementById("profile-tasks-pagination");
+        const previous = document.getElementById("profile-tasks-prev");
+        const next = document.getElementById("profile-tasks-next");
+        const status = document.getElementById("profile-tasks-status");
+        let currentPage = 1;
+
+        async function act(task, verb, button) {
+            if (verb === "cancel" && !window.confirm("این وظیفه لغو شود؟")) return;
+            button.disabled = true;
+            clearMessages();
+            try {
+                const url = {
+                    complete: `/api/v1/tasks/${task.id}/complete/`,
+                    cancel: `/api/v1/tasks/${task.id}/cancel/`,
+                    reopen: `/api/v1/tasks/${task.id}/reopen/`,
+                }[verb];
+                await apiRequest(url, {method: "POST", body: {}});
+                globalMessage({complete: "وظیفه انجام‌شده ثبت شد.", cancel: "وظیفه لغو شد.", reopen: "وظیفه دوباره باز شد."}[verb], true);
+                await load(currentPage);
+            } catch (error) {
+                button.disabled = false;
+                showError(error);
+            }
+        }
+
+        function actionButton(label, className, handler) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = `btn btn-sm ${className}`;
+            button.textContent = label;
+            button.addEventListener("click", () => handler(button));
+            return button;
+        }
+
+        function taskRow(task) {
+            const row = document.createElement("tr");
+            const title = document.createElement("td");
+            const strong = document.createElement("span");
+            strong.className = "d-block fw-semibold text-gray-900";
+            strong.textContent = task.title;
+            title.appendChild(strong);
+            if (task.notes) {
+                const notes = document.createElement("span");
+                notes.className = "d-block text-muted fs-7 text-break";
+                notes.textContent = task.notes;
+                title.appendChild(notes);
+            }
+            row.appendChild(title);
+            appendCell(row, task.assignee_display);
+            const due = appendCell(row, task.due_at ? displayDate(task.due_at) : "");
+            if (task.overdue) {
+                const badge = document.createElement("span");
+                badge.className = "badge badge-light-danger fs-8 ms-2";
+                badge.textContent = "سررسید گذشته";
+                due.appendChild(badge);
+            }
+            const statusCell = document.createElement("td");
+            const badge = document.createElement("span");
+            badge.className = `badge ${TASK_STATUS_BADGE[task.status] || "badge-light"}`;
+            badge.textContent = task.status_display;
+            statusCell.appendChild(badge);
+            row.appendChild(statusCell);
+            const actions = document.createElement("td");
+            actions.className = "row-actions";
+            if (task.status === "open") {
+                actions.append(
+                    actionButton("انجام شد", "btn-light-success", (button) => act(task, "complete", button)),
+                    actionButton("لغو", "btn-light", (button) => act(task, "cancel", button)),
+                );
+            } else {
+                actions.append(actionButton("بازکردن دوباره", "btn-light", (button) => act(task, "reopen", button)));
+            }
+            row.appendChild(actions);
+            return row;
+        }
+
+        async function load(page = 1) {
+            loadingNode.hidden = false;
+            empty.hidden = true;
+            wrap.hidden = true;
+            pagination.hidden = true;
+            try {
+                const query = new URLSearchParams({page: String(page)});
+                if (status.value) query.set("status", status.value);
+                if (personType === "user") {
+                    query.set("assignee", String(personId));
+                } else {
+                    query.set("person_type", personType);
+                    query.set("person_id", String(personId));
+                }
+                const data = await apiRequest(`/api/v1/tasks/?${query}`);
+                body.replaceChildren(...data.results.map(taskRow));
+                loadingNode.hidden = true;
+                if (!data.results.length) { empty.hidden = false; return; }
+                wrap.hidden = false;
+                currentPage = page;
+                previous.disabled = !data.previous;
+                next.disabled = !data.next;
+                document.getElementById("profile-tasks-page-label").textContent = pageRangeLabel(data, page);
+                pagination.hidden = !data.previous && !data.next;
+            } catch (error) {
+                loadingNode.hidden = true;
+                showError(error);
+            }
+        }
+
+        previous.addEventListener("click", () => load(currentPage - 1));
+        next.addEventListener("click", () => load(currentPage + 1));
+        status.addEventListener("change", () => load(1));
+        document.addEventListener("profile:task-created", () => load(1));
+        return load();
+    }
+
+    /** «وظیفهٔ تازه» — from the header's quick action or the tasks tab. */
+    function setupTaskDialog(personType, personId) {
+        const dialog = document.getElementById("profile-task-dialog");
+        const form = document.getElementById("profile-task-form");
+        if (!dialog || !form) return;
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        document.addEventListener("click", (event) => {
+            if (!event.target.closest('[data-profile-action="add-task"]')) return;
+            form.reset();
+            clearMessages(form);
+            dialog.showModal();
+            document.getElementById("profile-task-title-input").focus();
+        });
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const data = new FormData(form);
+                const typed = String(data.get("due_at") || "").trim();
+                const due = typed ? apiDateTime(typed) : null;
+                if (typed && !due) throw new Error("سررسید خوانده نشد؛ قالب باید ۱۴۰۵/۰۵/۲۵ ۱۴:۳۰ باشد.");
+                await apiRequest(form.action, {
+                    method: "POST",
+                    body: {
+                        title: String(data.get("title") || ""),
+                        notes: String(data.get("notes") || ""),
+                        due_at: due,
+                        assignee: Number(data.get("assignee")),
+                        person_type: personType,
+                        person_id: Number(personId),
+                    },
+                });
+                dialog.close();
+                globalMessage("وظیفه ثبت شد.", true);
+                document.dispatchEvent(new CustomEvent("profile:task-created"));
+            });
+        });
+    }
+
+    /** «یادداشت‌ها» — newest first, written here, edited by their author. */
+    function setupNotesTab(personType, personId) {
+        const list = document.getElementById("profile-notes-list");
+        if (!list) return null;
+        const loadingNode = document.getElementById("profile-notes-loading");
+        const empty = document.getElementById("profile-notes-empty");
+        const failed = document.getElementById("profile-notes-error");
+        const more = document.getElementById("profile-notes-more");
+        const form = document.getElementById("profile-note-form");
+        let nextUrl = null;
+
+        function refreshEmpty() {
+            const any = list.children.length > 0;
+            list.hidden = !any;
+            empty.hidden = any;
+        }
+
+        function noteCard(note) {
+            const item = document.createElement("article");
+            item.className = "border border-gray-300 border-dashed rounded p-5";
+            const head = document.createElement("div");
+            head.className = "d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2";
+            const who = document.createElement("div");
+            const author = document.createElement("span");
+            author.className = "fw-bold text-gray-900 me-2";
+            author.textContent = note.author_display;
+            const when = document.createElement("span");
+            when.className = "text-muted fs-7";
+            // `created_at` and `updated_at` are stamped microseconds apart
+            // on creation; only a real later edit is worth saying so.
+            const edited = new Date(note.updated_at) - new Date(note.created_at) > 1000;
+            when.textContent = displayDate(note.created_at) + (edited ? " (ویرایش‌شده)" : "");
+            who.append(author, when);
+            const tools = document.createElement("div");
+            tools.className = "d-flex gap-2";
+            const text = document.createElement("p");
+            text.className = "text-gray-800 mb-0 text-break";
+            text.style.whiteSpace = "pre-line";
+            text.textContent = note.body;
+
+            if (note.can_edit) {
+                const edit = document.createElement("button");
+                edit.type = "button";
+                edit.className = "btn btn-sm btn-light";
+                edit.textContent = "ویرایش";
+                edit.addEventListener("click", () => {
+                    const editor = document.createElement("form");
+                    editor.noValidate = true;
+                    const area = document.createElement("textarea");
+                    area.className = "form-control form-control-solid";
+                    area.name = "body";
+                    area.rows = 3;
+                    area.maxLength = 4000;
+                    area.value = note.body;
+                    area.setAttribute("aria-label", "متن یادداشت");
+                    const error = document.createElement("p");
+                    error.className = "text-danger fs-8 mt-1 mb-0";
+                    error.dataset.errorFor = "body";
+                    const buttons = document.createElement("div");
+                    buttons.className = "d-flex justify-content-end gap-2 mt-3";
+                    const cancel = document.createElement("button");
+                    cancel.type = "button";
+                    cancel.className = "btn btn-sm btn-light";
+                    cancel.textContent = "انصراف";
+                    const save = document.createElement("button");
+                    save.type = "submit";
+                    save.className = "btn btn-sm btn-primary";
+                    save.textContent = "ذخیره";
+                    buttons.append(cancel, save);
+                    editor.append(area, error, buttons);
+                    text.replaceWith(editor);
+                    area.focus();
+                    cancel.addEventListener("click", () => editor.replaceWith(text));
+                    editor.addEventListener("submit", (event) => {
+                        event.preventDefault();
+                        withSubmit(editor, async () => {
+                            const saved = await apiRequest(`/api/v1/person-notes/${note.id}/`, {method: "PATCH", body: {body: area.value}});
+                            item.replaceWith(noteCard(saved));
+                            globalMessage("یادداشت ذخیره شد.", true);
+                        });
+                    });
+                });
+                tools.appendChild(edit);
+            }
+            if (note.can_delete) {
+                const remove = document.createElement("button");
+                remove.type = "button";
+                remove.className = "btn btn-sm btn-light-danger";
+                remove.textContent = "حذف";
+                remove.addEventListener("click", async () => {
+                    if (!window.confirm("این یادداشت برای همیشه حذف شود؟")) return;
+                    remove.disabled = true;
+                    clearMessages();
+                    try {
+                        await apiRequest(`/api/v1/person-notes/${note.id}/`, {method: "DELETE"});
+                        item.remove();
+                        refreshEmpty();
+                        globalMessage("یادداشت حذف شد.", true);
+                    } catch (error) {
+                        remove.disabled = false;
+                        showError(error);
+                    }
+                });
+                tools.appendChild(remove);
+            }
+            head.append(who, tools);
+            item.append(head, text);
+            return item;
+        }
+
+        async function load(url) {
+            try {
+                const data = await apiRequest(url);
+                list.append(...data.results.map(noteCard));
+                nextUrl = data.next;
+                more.hidden = !nextUrl;
+                loadingNode.hidden = true;
+                refreshEmpty();
+            } catch (error) {
+                loadingNode.hidden = true;
+                failed.hidden = false;
+            }
+        }
+
+        more.addEventListener("click", () => { if (nextUrl) load(nextUrl); });
+        form?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const note = await apiRequest(`/api/v1/profiles/${personType}/${personId}/notes/`, {
+                    method: "POST",
+                    body: {body: form.elements.namedItem("body").value},
+                });
+                list.prepend(noteCard(note));
+                form.reset();
+                refreshEmpty();
+                globalMessage("یادداشت ثبت شد.", true);
+            });
+        });
+        return load(`/api/v1/profiles/${personType}/${personId}/notes/`);
+    }
+
+    /**
+     * Settings → «امتیازدهی اشخاص» (2.20.0): one form per person type. Only
+     * rendered for a Platform Admin where scoring runs; the endpoint checks
+     * both again.
+     */
+    function setupScoringSection() {
+        document.querySelectorAll("[data-scoring-form]").forEach((form) => {
+            form.querySelector("[data-scoring-defaults]")?.addEventListener("click", () => {
+                form.querySelectorAll("input[data-default]").forEach((input) => { input.value = input.dataset.default; });
+            });
+            form.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(form, async () => {
+                    const weights = {};
+                    form.querySelectorAll("input[name]").forEach((input) => { weights[input.name] = Number(input.value); });
+                    await apiRequest("/api/v1/scoring-settings/", {
+                        method: "PUT",
+                        body: {person_type: form.dataset.scoringForm, weights},
+                    });
+                    globalMessage("وزن‌های امتیازدهی ذخیره شد. امتیازها در محاسبهٔ بعدی با وزن تازه حساب می‌شوند.", true);
+                });
+            });
+        });
+    }
+
     function userProfileLoaders(userId) {
         return {
             overview: () => loadRecentActivity("user", userId),
@@ -5136,6 +5586,8 @@
             leads: () => setupUserLeadsTab(userId),
             performance: setupSellerProfile,
             activity: () => loadProfileTimeline("user", userId),
+            tasks: () => setupTasksTab("user", userId),
+            notes: () => setupNotesTab("user", userId),
             access: () => setupUserAccessTab(userId),
         };
     }
@@ -5168,6 +5620,12 @@
             ? customerProfileLoaders(personId)
             : userProfileLoaders(personId);
         setupProfileTabs(loaders);
+        setupProfileCards(personType, personId);
+        setupTaskDialog(personType, personId);
+        const scoreDialog = document.getElementById("profile-score-dialog");
+        scoreDialog?.querySelectorAll("[data-close-dialog]").forEach((button) => {
+            button.addEventListener("click", () => scoreDialog.close());
+        });
     }
 
     /** The three states a campaign is tracked in, as the theme's badges. */
@@ -16254,6 +16712,7 @@
         // deployment that mounted the volume, and neither should be able to
         // break the other by failing to find its own markup.
         setupBackupSection();
+        setupScoringSection();
     }
     if (page === "sms-provider-settings") setupSmsProviderSettings();
     if (page === "post-provider-settings") setupPostProviderSettings();

@@ -251,6 +251,20 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         "reports", "audit_log",
     })
 
+    #: The person-profile plan's own modules (2.20.0 onwards,
+    #: docs/PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md). All default off
+    #: (decision D18) and all absent from Client-1's frozen day-one manifest;
+    #: TIARA gets them only when its manifest is re-signed with them. Kept as
+    #: their own set, checked on its own below, rather than folded into the
+    #: long withheld list of the older test.
+    person_profile_features = frozenset({"person_scoring", "tasks", "person_notes"})
+
+    def test_the_person_profile_modules_are_withheld_and_default_off(self):
+        from common.deployment.registry import DEFAULT_OFF_FEATURES
+
+        self.assertLessEqual(self.person_profile_features, frozenset(ALL_FEATURES) - self.day_one)
+        self.assertLessEqual(self.person_profile_features, DEFAULT_OFF_FEATURES)
+
     def test_the_day_one_set_names_only_registered_features(self):
         self.assertEqual(self.day_one - frozenset(ALL_FEATURES), frozenset())
 
@@ -258,7 +272,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
     def test_the_withheld_features_are_exactly_the_eleven_intended_ones(self):
-        withheld = frozenset(ALL_FEATURES) - self.day_one
+        withheld = frozenset(ALL_FEATURES) - self.day_one - self.person_profile_features
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
         # Client-1 yet; enabling either would show a report or a send button

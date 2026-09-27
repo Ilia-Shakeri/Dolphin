@@ -140,6 +140,40 @@
 </section>
 {% endif %}
 
+{% if can_manage_scoring %}
+{% comment %} وزن عامل‌های امتیاز اشخاص (۲.۲۰.۰). فقط «چقدر حساب شود» تنظیم‌شدنی است؛
+   اینکه هر عامل چگونه سنجیده می‌شود در کد (`scoring/strategies.py`) ثابت است. {% endcomment %}
+<section class="card mb-5 mb-xl-8" id="panel-scoring">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>امتیازدهی اشخاص</h2>
+            <span class="text-muted fs-7 mt-1">وزن هر عامل از ۰ تا ۱۰۰. امتیاز همیشه از ۱۰۰ است و عاملی که برای کسی قابل سنجش نیست کنار گذاشته می‌شود؛ وزن ۰ یعنی آن عامل حساب نشود.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div class="row g-8">
+            {% for person_type, factors in scoring_catalog.items %}
+            <form class="col-lg-6" data-scoring-form="{{ person_type }}" novalidate>
+                <h3 class="fs-5 fw-bold mb-4">{% if person_type == "customer" %}مشتریان{% else %}کاربران{% endif %}</h3>
+                {% for factor in factors %}
+                <div class="d-flex align-items-center justify-content-between gap-4 mb-3">
+                    <label class="form-label fw-semibold mb-0" for="scoring-{{ person_type }}-{{ factor.key }}">{{ factor.label }}</label>
+                    <input class="form-control form-control-solid form-control-sm w-100px" id="scoring-{{ person_type }}-{{ factor.key }}" name="{{ factor.key }}" type="number" min="0" max="100" step="1" required value="{{ factor.weight }}" data-default="{{ factor.default }}" dir="ltr">
+                </div>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="{{ factor.key }}"></p>
+                {% endfor %}
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="weights"></p>
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button class="btn btn-sm btn-light" type="button" data-scoring-defaults>بازگشت به پیش‌فرض</button>
+                    <button class="btn btn-sm btn-primary" type="submit">ذخیرهٔ وزن‌ها</button>
+                </div>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
 {% if can_manage_backups %}
 <section class="card mb-5 mb-xl-8" id="panel-backups">
     <div class="card-header border-0 pt-6">

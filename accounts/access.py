@@ -51,6 +51,12 @@ ROLE_CAPABILITIES = {
         # a queryset to take most of it back, which is the shape that turns one
         # missed filter into every customer's balance.
         "ledger.own",
+        # Person profile (2.20.0): their own to-do list, and notes on the
+        # people they can already open.
+        "tasks.own",
+        "tasks.manage",
+        "notes.read",
+        "notes.write",
     }),
     User.Role.SALES_MANAGER: frozenset({
         "dashboard.store",
@@ -82,6 +88,10 @@ ROLE_CAPABILITIES = {
         "ledger.company",
         "reports.company",
         "sms.company",
+        "tasks.company",
+        "tasks.manage",
+        "notes.read",
+        "notes.write",
     }),
     User.Role.COMPANY_IT: frozenset({
         "dashboard.technical",
@@ -114,6 +124,10 @@ ROLE_CAPABILITIES = {
         "reports.company",
         "sms.company",
         "audit.non_platform",
+        "tasks.company",
+        "tasks.manage",
+        "notes.read",
+        "notes.write",
     }),
     User.Role.PLATFORM_ADMIN: frozenset({
         "dashboard.platform",
@@ -147,6 +161,10 @@ ROLE_CAPABILITIES = {
         "sms.company",
         "users.manage_all",
         "audit.all",
+        "tasks.company",
+        "tasks.manage",
+        "notes.read",
+        "notes.write",
         # Deletion (2.18.8): the Platform Admin deletes anything — see
         # `can_delete`, which honours this role regardless of what its
         # capability set says. Listed here as well so the permission screen
@@ -165,6 +183,8 @@ ROLE_CAPABILITIES = {
             "inventory.delete",
             "sales_documents.delete",
             "after_sales.delete",
+            "tasks.delete",
+            "notes.delete",
         ),
     }),
 }
@@ -173,6 +193,10 @@ AFTER_SALES_AGENT_CAPABILITIES = frozenset({
     "dashboard.after_sales",
     "after_sales.assigned",
     "after_sales.work",
+    "tasks.own",
+    "tasks.manage",
+    "notes.read",
+    "notes.write",
 })
 
 

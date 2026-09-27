@@ -1,8 +1,8 @@
 # Person Profile, Integrations Framework and Asterisk Connector — Phase 0 plan
 
 Status: **approved 2026-09-27** — every recommendation (D1–D21) accepted as
-written. Implementation progress: Phase 1 in 2.19.0 (see `CHANGELOG.md`; the
-page contract is `docs/backend/PERSON_PROFILES.md`). Written 2026-09-27 against
+written. Implementation progress: Phase 1 in 2.19.0, Phase 2 in 2.20.0 (see
+`CHANGELOG.md`; the page contract is `docs/backend/PERSON_PROFILES.md`). Written 2026-09-27 against
 `main` at `0d0c878` (v2.18.9).
 Deployed: Nerkhbaan (staging) 2.18.9, TIARA (production) 2.18.0.
 

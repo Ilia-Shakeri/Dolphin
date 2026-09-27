@@ -48,3 +48,76 @@ class PersonTimelineView(APIView):
         response = Response(payload)
         response["Cache-Control"] = "private, no-store"
         return response
+
+
+def _visible_or_404(request, person_type, person_id):
+    adapter, person = resolve_person(request.user, person_type, person_id)
+    if adapter is None or person is None:
+        raise Http404()
+    if adapter.required_feature and not feature_enabled(adapter.required_feature):
+        raise Http404()
+    return adapter, person
+
+
+class PersonCardsView(APIView):
+    """`GET profiles/<type>/<id>/cards/?period=this_month` — the header's
+    stat cards #4–#7, only the ones this caller may see (2.20.0)."""
+
+    permission_classes = [IsActiveAuthenticated]
+
+    @extend_schema(
+        responses={200: {"type": "object"}, 403: ACCESS_DENIED_RESPONSE, 404: None},
+        description=(
+            "The stat cards visible to the caller on one person's profile, each `{key, label, slot, value, raw, "
+            "missing, tooltip, accent, trend}` for the chosen `period` (`this_month`, `last_month`, "
+            "`last_90_days`, `this_year`; Jalali months). A card the caller may not see is absent, not empty."
+        ),
+    )
+    def get(self, request, person_type, person_id):
+        from profiles.cards import PERIODS, card_values, period_for
+
+        _, person = _visible_or_404(request, person_type, person_id)
+        period = period_for(request.query_params.get("period", ""))
+        response = Response({
+            "period": {"key": period.key, "label": period.label, "start": period.start.isoformat(), "end": period.end.isoformat()},
+            "periods": [{"key": key, "label": label} for key, label in PERIODS],
+            "cards": card_values(request.user, person_type, person, period),
+        })
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class PersonScoreView(APIView):
+    """`GET profiles/<type>/<id>/score/` — the current score, why, and its history."""
+
+    permission_classes = [IsActiveAuthenticated]
+
+    @extend_schema(
+        responses={200: {"type": "object"}, 403: ACCESS_DENIED_RESPONSE, 404: None},
+        description=(
+            "The person's current score (recomputed first when a day old), its per-factor breakdown with the "
+            "reason for each, and up to thirty earlier snapshots. 404 when scoring is off, the person is outside "
+            "the caller's scope, or the caller may not see this person's score."
+        ),
+    )
+    def get(self, request, person_type, person_id):
+        from profiles.cards import cards_for
+        from scoring.services import LEVEL_LABELS, current_score, history
+
+        if not feature_enabled("person_scoring"):
+            raise Http404()
+        _, person = _visible_or_404(request, person_type, person_id)
+        if not any(card.key == "score" for card in cards_for(request.user, person_type, person)):
+            raise Http404()
+        snapshot = current_score(person_type, person)
+
+        def serialize(row):
+            label, accent = LEVEL_LABELS.get(row.level, ("", ""))
+            return {"score": row.score, "level": row.level, "level_label": label, "accent": accent, "computed_at": row.computed_at.isoformat()}
+
+        response = Response({
+            "current": {**serialize(snapshot), "breakdown": snapshot.breakdown} if snapshot else None,
+            "history": [serialize(row) for row in history(person_type, person.pk)],
+        })
+        response["Cache-Control"] = "private, no-store"
+        return response

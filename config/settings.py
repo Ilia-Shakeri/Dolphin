@@ -45,6 +45,9 @@ INSTALLED_APPS = [
     "communications",
     "inventory",
     "profiles",
+    "timeline",
+    "tasks",
+    "scoring",
     "billing",
     "reports",
     "attachments",
@@ -346,6 +349,12 @@ SPECTACULAR_SETTINGS = {
         "LedgerEntryTypeEnum": "billing.models.CustomerLedgerEntry.EntryType",
         "StockMovementTypeEnum": "inventory.models.StockMovement.MovementType",
         "SaleStatusEnum": "sales.models.Sale.Status",
+        "TaskStatusEnum": "tasks.models.Task.Status",
+        "TaskSourceEnum": "tasks.models.Task.Source",
+        # Before 2.20.0 the cheque's `source` was the only choice set of that
+        # name and was simply called `SourceEnum`; a second one (the task's)
+        # makes both need a name.
+        "ChequeSourceEnum": "billing.models.Cheque.Source",
     },
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",

@@ -97,6 +97,37 @@ def managed_users(viewer):
     return queryset
 
 
+def _shared_tabs(viewer, capabilities):
+    """Tabs every person type has, each behind its own feature and capability."""
+    tabs = []
+    if feature_enabled("tasks") and capabilities & {"tasks.own", "tasks.company"}:
+        tabs.append(ProfileTab("tasks", "وظایف", "ki-check-circle", "profiles/tabs/tasks.inc"))
+    if feature_enabled("person_notes") and "notes.read" in capabilities:
+        tabs.append(ProfileTab("notes", "یادداشت‌ها", "ki-notepad", "profiles/tabs/notes.inc", 5))
+    return tabs
+
+
+def _shared_actions(capabilities):
+    actions = []
+    if feature_enabled("person_notes") and "notes.write" in capabilities:
+        actions.append(QuickAction("note", "یادداشت", "ki-notepad", tab="notes", icon_paths=5, data={"focus": "profile-note-body"}))
+    if feature_enabled("tasks") and "tasks.manage" in capabilities:
+        actions.append(QuickAction("task", "وظیفه", "ki-add-notepad", action="add-task", icon_paths=4))
+    return actions
+
+
+def merged_timeline(viewer, person_type, person, pulled):
+    """The pull sources plus what was recorded here (`timeline.TimelineEntry`),
+    newest first, in one list."""
+    from common.customer_timeline import TIMELINE_LIMIT
+    from timeline.selectors import recorded_events_for
+
+    count, recorded = recorded_events_for(viewer, person_type, person.pk, limit=TIMELINE_LIMIT)
+    events = [*pulled["events"], *recorded]
+    events.sort(key=lambda event: (event["at"] is not None, event["at"] or ""), reverse=True)
+    return {"count": pulled["count"] + count, "events": events[:TIMELINE_LIMIT]}
+
+
 def performance_scope(viewer):
     """Whose performance `viewer` may read — `users_for_performance_report`,
     and only where this deployment runs reports and the viewer holds one of
@@ -174,6 +205,7 @@ class CustomerAdapter(PersonAdapter):
             tabs.append(ProfileTab("calls", "تماس‌ها", "ki-call", "profiles/tabs/customer_calls.inc", 8))
         if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
             tabs.append(ProfileTab("finance", "خریدها و مالی", "ki-dollar", "profiles/tabs/customer_finance.inc", 3))
+        tabs.extend(_shared_tabs(viewer, capabilities))
         if feature_enabled("attachments"):
             tabs.append(ProfileTab("documents", "اسناد", "ki-file", "profiles/tabs/documents.inc"))
         return tabs
@@ -190,6 +222,7 @@ class CustomerAdapter(PersonAdapter):
             actions.append(QuickAction("sms", "پیامک", "ki-sms", href=f"{reverse('common_ui:outbound-sms')}?customer={person.pk}"))
         if "customers.manage" in capabilities:
             actions.append(QuickAction("edit", "ویرایش", "ki-pencil", tab="info"))
+        actions.extend(_shared_actions(capabilities))
         if (
             feature_enabled("customer_ledger")
             and capabilities.intersection({"ledger.company", "ledger.own"})
@@ -209,7 +242,7 @@ class CustomerAdapter(PersonAdapter):
 
         if not feature_enabled("customer_timeline"):
             return {"count": 0, "events": []}
-        return customer_timeline.timeline_for(viewer, person)
+        return merged_timeline(viewer, self.key, person, customer_timeline.timeline_for(viewer, person))
 
 
 class UserAdapter(PersonAdapter):
@@ -300,6 +333,7 @@ class UserAdapter(PersonAdapter):
         if self.reads_performance(viewer, person):
             tabs.append(ProfileTab("performance", "عملکرد", "ki-chart-simple", "profiles/tabs/user_performance.inc", 4))
         tabs.append(ProfileTab("activity", "فعالیت‌ها", "ki-time", "profiles/tabs/activity.inc"))
+        tabs.extend(_shared_tabs(viewer, capabilities))
         if manages:
             tabs.append(ProfileTab("access", "دسترسی‌ها", "ki-shield-tick", "profiles/tabs/user_access.inc"))
         return tabs
@@ -318,6 +352,7 @@ class UserAdapter(PersonAdapter):
             ))
         if manages or person.pk == viewer.pk:
             actions.append(QuickAction("edit", "ویرایش", "ki-pencil", tab="info"))
+        actions.extend(_shared_actions(capabilities))
         if manages and has_any_capability(viewer, *ROLE_CHANGE_CAPABILITIES):
             actions.append(QuickAction(
                 "permissions", "مجوزها", "ki-key", action="permissions", in_menu=True,
@@ -334,4 +369,4 @@ class UserAdapter(PersonAdapter):
     def timeline(self, viewer, person):
         from profiles import user_timeline
 
-        return user_timeline.timeline_for(viewer, person)
+        return merged_timeline(viewer, self.key, person, user_timeline.timeline_for(viewer, person))

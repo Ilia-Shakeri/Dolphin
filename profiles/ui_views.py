@@ -14,11 +14,24 @@ every link already in the panel lands on the same page.
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from accounts.access import assignable_roles, has_any_capability
+from accounts.access import assignable_roles, capabilities_for, crm_identities, has_any_capability
+from accounts.models import User
+from common.deployment.profile import feature_enabled
 from common.provinces import province_names
 from common.ui_views import ActiveCrmView
 from profiles.adapters import ROLE_CHANGE_CAPABILITIES, WORKSTREAM_LABELS
+from profiles.cards import DEFAULT_PERIOD, PERIODS, cards_for
+from profiles.completion import completion_for
 from profiles.registry import adapter_for
+
+
+def task_assignees(viewer):
+    """Whom `viewer` may give a task: anyone active with `tasks.company`,
+    else only themselves (`tasks.services._check_assignee` decides again)."""
+    if "tasks.company" not in capabilities_for(viewer):
+        return [(viewer.pk, viewer.get_full_name() or viewer.username)]
+    people = crm_identities(User.objects.filter(is_active=True)).order_by("first_name", "last_name", "username")
+    return [(person.pk, person.get_full_name() or person.username) for person in people]
 
 
 class PersonProfileView(ActiveCrmView):
@@ -80,7 +93,23 @@ class PersonProfileView(ActiveCrmView):
             menu_actions=[action for action in actions if action.in_menu],
             profile_url=adapter.profile_url(person),
             province_names=province_names(),
+            # Only the cards this reader may see get a shell; their values
+            # arrive from `/api/v1/profiles/<type>/<id>/cards/` (2.20.0).
+            stat_cards=cards_for(viewer, adapter.key, person),
+            card_periods=PERIODS,
+            default_card_period=DEFAULT_PERIOD,
+            completion=completion_for(adapter.key, person, can_edit="info" in keys),
         )
+        capabilities = capabilities_for(viewer)
+        context["can_add_task"] = feature_enabled("tasks") and "tasks.manage" in capabilities
+        context["can_write_notes"] = feature_enabled("person_notes") and "notes.write" in capabilities
+        if context["can_add_task"]:
+            context["task_assignees"] = task_assignees(viewer)
+            # A task on a colleague's profile is theirs by default; on a
+            # customer's, the reader's own.
+            default = person.pk if adapter.key == "user" else viewer.pk
+            known = {pk for pk, _ in context["task_assignees"]}
+            context["default_task_assignee"] = default if default in known else viewer.pk
         return context
 
 
