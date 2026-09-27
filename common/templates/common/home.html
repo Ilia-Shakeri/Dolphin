@@ -7,6 +7,37 @@
 {% block page_icon %}<i class="ki-duotone ki-element-11 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{{ dashboard_title }}{% endblock %}
 {% block breadcrumb_current %}{{ dashboard_title }}{% endblock %}
+{% comment %} نوار ویرایش داشبورد — در نوار عنوان صفحه، هم‌ردیف خود عنوان.
+
+   تا ۲.۱۰.۰ این نوار داخل بخش «نمای عملکرد» و زیر کاشی‌ها بود؛ در ۲.۱۱.۰ به
+   بالای محتوا آمد، اما هنوز یک ردیف کامل زیر عنوان صفحه می‌گرفت. مالک محصول
+   ۲۰۲۶/۰۹/۲۷: «آیکون مداد ویرایش داشبورد باید بالاتر و نزدیک‌تر به بخش بالایی
+   باشد». جای «کارهای صفحه» در قالب (`page_actions`, base.html) دقیقاً همین
+   است: بالاترین نقطهٔ صفحه، در همان ردیف عنوان، و همان جایی که هر صفحهٔ
+   فهرستی دکمه‌های خودش را می‌گذارد — پس کاشی‌ها هم یک ردیف بالاتر شروع
+   می‌شوند.
+
+   فقط وقتی این استقرار چیدمان شخصی را پشتیبانی می‌کند
+   (`can_arrange_dashboard`، همان دروازهٔ `DashboardLayoutView`) — مدادی که
+   ذخیره‌اش ۴۰۴ می‌گیرد، کنترلی بدون رفتار واقعی است. راست‌به‌چپ خوانده
+   می‌شود، پس مداد آخر می‌آید تا در لبهٔ چپ فیزیکی بنشیند. {% endcomment %}
+{% block page_actions %}
+{% if can_arrange_dashboard %}
+    <div class="d-flex flex-wrap align-items-center justify-content-end gap-2" id="dashboard-editor-bar" hidden>
+        <button type="button" class="btn btn-sm btn-light-primary" id="dashboard-add-widget-open" hidden>
+            <i class="ki-duotone ki-plus fs-4 me-1"></i>افزودن ویجت
+        </button>
+        <button type="button" class="btn btn-sm btn-light-danger" id="dashboard-edit-reset" hidden>
+            بازگرداندن به پیش‌فرض
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" id="dashboard-edit-done" hidden>پایان ویرایش</button>
+        <button type="button" class="btn btn-sm btn-icon btn-light" id="dashboard-edit-toggle"
+                title="شخصی‌سازی داشبورد" aria-label="شخصی‌سازی داشبورد" aria-pressed="false">
+            <i class="ki-duotone ki-pencil fs-4"><span class="path1"></span><span class="path2"></span></i>
+        </button>
+    </div>
+{% endif %}
+{% endblock %}
 {% block content %}
 {% comment %} The capability hook the shell tests read. The role's summary
    sentence used to sit here too (product-owner request 2026-09-12: the page
@@ -14,34 +45,16 @@
    attribute is the only part any test/behaviour depends on, so it stays on
    an otherwise-empty span rather than being deleted outright. {% endcomment %}
 <span class="d-none" data-dashboard-capability="{{ dashboard_capability }}"></span>
-{% comment %} نوار ویرایش داشبورد.
-
-   تا ۲.۱۰.۰ این نوار داخل بخش «نمای عملکرد» و زیر کاشی‌های بالای صفحه بود،
-   پس هم پایین‌تر از چیزی بود که ویرایش می‌کرد و هم فقط نیمی از باکس‌های
-   داشبورد را می‌دید. مالک محصول ۲۰۲۶/۰۹/۲۰ خواست «دکمهٔ ویرایش به بالای صفحه
-   بیاید و ویرایش شامل همهٔ باکس‌های داشبورد شود»، پس نوار اینجاست — پیش از
-   هر باکسی — و هر دو شبکه (`[data-dashboard-grid]`) را ویرایش می‌کند.
-
-   راست‌به‌چپ خوانده می‌شود، پس فاصله‌گیر اول می‌آید و کنترل‌ها به لبهٔ چپ
-   فیزیکی می‌روند: همان گوشه‌ای که سه‌نقطهٔ کارت‌های کانبان هم از آن استفاده
-   می‌کند. {% endcomment %}
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-4" id="dashboard-editor-bar" hidden>
-        <span class="flex-grow-1"></span>
-        <span class="text-muted fs-8" id="dashboard-edit-hint" hidden>
-            هر باکس را از هر جای خودش بکشید تا جابه‌جا شود؛ از گوشهٔ پایین‌چپ آن را بزرگ و کوچک کنید.
-        </span>
-        <button type="button" class="btn btn-sm btn-light-primary" id="dashboard-add-widget-open" hidden>
-            <i class="ki-duotone ki-plus fs-4 me-1"></i>افزودن ویجت
-        </button>
-        <button type="button" class="btn btn-sm btn-light-danger" id="dashboard-edit-reset" hidden>
-            بازگرداندن به پیش‌فرض
-        </button>
-        <button type="button" class="btn btn-sm btn-light" id="dashboard-edit-done" hidden>پایان ویرایش</button>
-        <button type="button" class="btn btn-sm btn-icon btn-light" id="dashboard-edit-toggle"
-                title="شخصی‌سازی داشبورد" aria-label="شخصی‌سازی داشبورد" aria-pressed="false">
-            <i class="ki-duotone ki-pencil fs-4"><span class="path1"></span><span class="path2"></span></i>
-        </button>
-    </div>
+{% comment %} The editor's own state, for the editor to start from even when the
+   insight grid below has nothing to show (or its request failed): this
+   reader's hidden set, widths and whether they customised anything. Until
+   2.18.1 that state only ever arrived inside `/api/v1/dashboard/`, so a
+   reader with no insight widgets never got an editor at all and the tile row
+   above — the first row of the page — could not be arranged. {% endcomment %}
+{% if can_arrange_dashboard %}{{ dashboard_layout_state|json_script:"dashboard-layout-state" }}{% endif %}
+    <p class="text-muted fs-8 mb-4" id="dashboard-edit-hint" hidden>
+        هر باکس را از هر جای خودش بکشید تا جابه‌جا شود؛ از گوشهٔ پایین‌چپ آن را بزرگ و کوچک کنید.
+    </p>
     <div id="dashboard-hidden-bar" class="d-flex flex-wrap align-items-center gap-2 mb-4" hidden>
         <span class="text-muted fs-8">پنهان‌شده:</span>
         <span id="dashboard-hidden-list" class="d-flex flex-wrap gap-2"></span>

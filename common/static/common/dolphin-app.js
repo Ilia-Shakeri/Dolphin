@@ -644,7 +644,27 @@
     }
 
     async function setupDashboard() {
-        await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard"), setupDashboardInsights()]);
+        // The editor starts once the insight grid has been placed — it
+        // needs those boxes in the DOM to arrange them — but it no longer
+        // depends on that grid having anything in it (2.18.1, see
+        // `setupDashboardInsights`' return value).
+        const insights = setupDashboardInsights().then((grid) => {
+            if (grid) setupDashboardEditor(grid);
+        });
+        await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard"), insights]);
+    }
+
+    /** The editor's starting state rendered into the page itself
+     * (`dashboard-layout-state`, home.html), or `null` on a deployment that
+     * does not offer personal arrangement at all. */
+    function dashboardLayoutState() {
+        const node = document.getElementById("dashboard-layout-state");
+        if (!node) return null;
+        try {
+            return JSON.parse(node.textContent);
+        } catch (error) {
+            return null;
+        }
     }
 
     /**
@@ -668,18 +688,34 @@
      * Charts reuse the shared helpers, so they take their colours from the
      * theme's own CSS variables and redraw themselves on a light/dark
      * switch like every other chart in the panel.
+     *
+     * Resolves to what `setupDashboardEditor` needs — `{grid, widgets,
+     * layout}` — whenever this deployment offers personal arrangement at
+     * all, *including* when the insight grid ends up empty or its request
+     * failed. Until 2.18.1 both of those returned early before the editor
+     * was ever set up, so a reader with no insight widgets had no pencil
+     * and the capability tiles — the first row of the page — could not be
+     * moved (product owner, 2026-09-27: «ردیف اول داشبورد باید قابل
+     * ویرایش باشد و جایشان قابل تغییر باشد»). `null` only when there is
+     * genuinely nothing to arrange: the feature is off.
      */
     async function setupDashboardInsights() {
         const section = document.getElementById("dashboard-insights");
-        if (!section) return;
+        const pageState = dashboardLayoutState();
+        const emptyEditorState = () => (pageState ? {
+            grid: document.getElementById("dashboard-widgets") || document.getElementById("dashboard-capability-tiles"),
+            widgets: new Map(),
+            layout: pageState,
+        } : null);
+        if (!section) return emptyEditorState();
         let data;
         try {
             data = await apiRequest("/api/v1/dashboard/");
         } catch (error) {
             // The tiles, the work queue and the performance panel above are
             // what this page is; a failed side panel must not replace them
-            // with an error card.
-            return;
+            // with an error card. The tile row above is still arrangeable.
+            return emptyEditorState();
         }
 
         // Unhidden *before* any chart mounts, not after. ApexCharts measures
@@ -691,7 +727,7 @@
         section.hidden = false;
 
         const grid = document.getElementById("dashboard-widgets");
-        const layout = data.layout || {order: [], hidden: [], sizes: {}, locked_hidden: []};
+        const layout = data.layout || pageState || {order: [], hidden: [], sizes: {}, locked_hidden: []};
 
         // Every widget this reader actually received, keyed, each with the
         // column element it will occupy and the chart work that has to run
@@ -825,7 +861,7 @@
         // this section existed.
         if (!widgets.size) {
             section.hidden = true;
-            return;
+            return pageState ? {grid, widgets, layout} : null;
         }
 
         // Placed in the server's order. `widgets` is a Map, so its own
@@ -850,7 +886,7 @@
         // created node not yet attached has none.
         widgets.forEach((widget) => widget.mount());
 
-        setupDashboardEditor({grid, widgets, layout});
+        return pageState ? {grid, widgets, layout} : null;
     }
 
     /**
@@ -1297,11 +1333,37 @@
             return controls;
         }
 
+        /**
+         * Every box in the first row is a link (`<a class="card">`, one per
+         * capability), and so are the KPI cards below it. A browser starts
+         * its own native *link* drag the moment a pressed link moves a few
+         * pixels, and that native drag cancels the pointer stream this
+         * editor's own drag runs on (`pointercancel`) — which is why the
+         * first row could not be rearranged with a real mouse (product
+         * owner, 2026-09-27). While editing, every link and image inside a
+         * box is marked not-draggable, and restored exactly on the way out.
+         */
+        function suppressNativeDrag(column) {
+            column.querySelectorAll("a[href], img").forEach((node) => {
+                if (node.hasAttribute("draggable")) return;
+                node.setAttribute("draggable", "false");
+                node.dataset.dashboardDragSuppressed = "";
+            });
+        }
+
+        function restoreNativeDrag(column) {
+            column.querySelectorAll("[data-dashboard-drag-suppressed]").forEach((node) => {
+                node.removeAttribute("draggable");
+                delete node.dataset.dashboardDragSuppressed;
+            });
+        }
+
         function enterEditing() {
             allBoxes().forEach((column) => {
                 const key = column.dataset.widgetKey;
                 if (!key || column.querySelector("[data-widget-controls]")) return;
                 column.classList.add("editing");
+                suppressNativeDrag(column);
                 column.appendChild(widgetControls(column, key));
                 column.appendChild(resizeGrip(column, key));
             });
@@ -1313,6 +1375,7 @@
                 column.classList.remove("editing", "dragging", "resizing");
                 column.style.transform = "";
                 column.style.zIndex = "";
+                restoreNativeDrag(column);
                 const controls = column.querySelector("[data-widget-controls]");
                 if (controls) controls.remove();
                 const grip = column.querySelector("[data-widget-resize]");
@@ -1321,7 +1384,16 @@
             grids.forEach((host) => host.classList.remove("dashboard-widgets-editing"));
         }
 
-        grids.forEach((host) => bindGridDrag(host));
+        grids.forEach((host) => {
+            bindGridDrag(host);
+            // A box is something to arrange while editing, not somewhere to
+            // go: releasing a dragged tile over its own link would otherwise
+            // navigate away mid-edit. Capture phase, so it runs before any
+            // link's own handler.
+            host.addEventListener("click", (event) => {
+                if (editing && event.target.closest("a[href]")) event.preventDefault();
+            }, true);
+        });
 
         /**
          * Dragging a widget, redone 2026-09-21 on Pointer Events instead of

@@ -132,7 +132,7 @@ FALLBACK_WIDGET_SIZE = "quarter"
 DEFAULT_CAPABILITY_SIZE = "quarter"
 
 
-def arrange_capability_tiles(widgets, user):
+def arrange_capability_tiles(widgets, user, layout=None):
     """The top row of the dashboard, arranged for this reader.
 
     The companion to `apply_layout`, which does the same for the insight
@@ -145,8 +145,13 @@ def arrange_capability_tiles(widgets, user):
     They share the overlay itself, so a reader's hidden set and widths mean
     the same thing on both rows and a single "back to the default" clears
     both at once.
+
+    `layout` is `effective_layout(user)` when the caller already has it —
+    the dashboard view does, for `layout_state` — so one page render reads
+    the two layout rows once rather than twice.
     """
-    layout = effective_layout(user)
+    if layout is None:
+        layout = effective_layout(user)
     arranged = []
     for widget in widgets:
         key = capability_widget_key(widget["capability"])
@@ -317,6 +322,21 @@ def effective_layout(user):
     }
 
 
+def layout_state(layout):
+    """`effective_layout`'s result in the shape the page's editor reads —
+    the same keys `apply_layout` returns under `"layout"`, so the editor has
+    one shape to start from whether it arrived with the insight payload or
+    was rendered into the page itself (`home.html`, `dashboard-layout-state`).
+    """
+    return {
+        "order": list(layout["order"]),
+        "hidden": sorted(layout["hidden"]),
+        "sizes": dict(layout["sizes"]),
+        "locked_hidden": sorted(layout["deployment_hidden"]),
+        "is_customised": layout["is_customised"],
+    }
+
+
 def apply_layout(dashboard_payload, user=None):
     """`common.dashboard.dashboard_for`'s own return value, arranged for
     this reader — called once, after every KPI has already been scoped, so a
@@ -370,14 +390,8 @@ def apply_layout(dashboard_payload, user=None):
         "breakdown": breakdown,
         "gauges": gauges,
         "agent_share": agent_share,
-        "layout": {
-            "order": order,
-            "hidden": sorted(hidden),
-            "sizes": sizes,
-            # What the editor may *not* offer to unhide. Sent so the page can
-            # leave those rows out of the widget list entirely rather than
-            # showing a switch that silently does nothing.
-            "locked_hidden": sorted(layout["deployment_hidden"]),
-            "is_customised": layout["is_customised"],
-        },
+        # `locked_hidden` is what the editor may *not* offer to unhide — sent
+        # so the page can leave those rows out of the widget list entirely
+        # rather than showing a switch that silently does nothing.
+        "layout": layout_state(layout),
     }

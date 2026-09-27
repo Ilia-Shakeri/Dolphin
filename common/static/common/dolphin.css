@@ -2752,6 +2752,16 @@ dialog:has(.wizard-lines-step) {
 .dashboard-widget.editing {
     cursor: grab;
     touch-action: none;
+    /* A drag that starts over a label must move the box, not select the
+       label's text (2.18.1). `-webkit-user-drag` is the WebKit/Blink half of
+       the `draggable="false"` the editor puts on every link in a box — see
+       `suppressNativeDrag` in dolphin-app.js for why the tile row needs it. */
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.dashboard-widget.editing a {
+    -webkit-user-drag: none;
 }
 
 .dashboard-widget.editing > .card {
