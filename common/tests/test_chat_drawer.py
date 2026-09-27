@@ -125,17 +125,63 @@ class ScriptBehaviourTests(SimpleTestCase):
     def test_polling_is_gated_on_the_themes_own_open_state_class(self):
         self.assertIn('drawer.classList.contains("drawer-on")', SCRIPT)
 
-    def test_both_polls_check_the_open_state_before_doing_any_work(self):
+    def body(self):
         body_start = SCRIPT.index("function setupChat()")
-        body = SCRIPT[body_start:SCRIPT.index("\n    setupSearchableSelects();", body_start)]
-        self.assertIn("if (!activeThreadId || !isOpen()) return;", body)
-        self.assertIn("if (!isOpen()) return;", body)
+        return SCRIPT[body_start:SCRIPT.index("\n    setupSearchableSelects();", body_start)]
+
+    def test_both_polls_check_the_open_state_before_doing_any_work(self):
+        """Restated 2.18.5: and the tab's visibility too — a background tab
+        polls nothing."""
+        body = self.body()
+        self.assertIn("if (!activeThreadId || !isOpen() || document.hidden) return;", body)
+        self.assertIn("if (!isOpen() || document.hidden) return;", body)
 
     def test_opening_the_drawer_polls_immediately_rather_than_waiting(self):
-        body_start = SCRIPT.index("function setupChat()")
-        body = SCRIPT[body_start:SCRIPT.index("\n    setupSearchableSelects();", body_start)]
+        """Restated 2.18.5: opening draws what this tab already knows at once
+        and refreshes behind it, and warms the likeliest next threads."""
+        body = self.body()
         self.assertIn("toggle.addEventListener(\"click\"", body)
-        self.assertIn("if (isOpen()) loadThreads();", body)
+        self.assertIn("if (!activeThreadId) renderThreadList();", body)
+        self.assertIn("threads.slice(0, 3).forEach((thread) => peekThread(thread.id));", body)
+
+
+class LiveChatTests(SimpleTestCase):
+    """«وقتی چت باز می‌شود نمایش چت‌های قبلی خیلی طول می‌کشد؛ باید خیلی سریع
+    و زنده باشد» (2.18.5)."""
+
+    def body(self):
+        body_start = SCRIPT.index("function setupChat()")
+        return SCRIPT[body_start:SCRIPT.index("\n    setupSearchableSelects();", body_start)]
+
+    def test_polls_are_faster_than_before(self):
+        body = self.body()
+        self.assertIn("const ACTIVE_THREAD_POLL_MS = 2000;", body)
+        self.assertIn("const THREAD_LIST_POLL_MS = 5000;", body)
+
+    def test_a_reopened_thread_is_drawn_from_what_this_tab_already_has(self):
+        body = self.body()
+        self.assertIn("const cached = messageCache.get(threadId) || [];", body)
+        self.assertIn("drawMessages(cached);", body)
+        self.assertIn("/messages/?after_id=${lastMessageId}", body)
+
+    def test_hover_warms_a_thread_without_marking_it_read(self):
+        body = self.body()
+        self.assertIn('row.addEventListener("pointerenter", () => peekThread(thread.id));', body)
+        self.assertIn("/messages/?peek=1", body)
+
+    def test_the_tab_copy_is_per_account_and_dies_with_the_session(self):
+        self.assertIn('const CHAT_CACHE_PREFIX = "dolphin.chat.v1.";', SCRIPT)
+        self.assertIn("`${CHAT_CACHE_PREFIX}${document.body.dataset.chatUserId || \"\"}`", self.body())
+        logout = SCRIPT[SCRIPT.index("function setupLogout()"):SCRIPT.index("function setupLogin()")]
+        self.assertIn("clearChatCache();", logout)
+
+    def test_a_sent_message_appears_before_the_server_answers(self):
+        body = self.body()
+        self.assertIn("appendMessageBubble({id: null, mine: true, pending: true, body})", body)
+
+    def test_a_message_is_never_drawn_twice(self):
+        body = self.body()
+        self.assertIn("if (renderedIds.has(message.id)) return null;", body)
 
 
 class LayoutRegressionTests(SimpleTestCase):

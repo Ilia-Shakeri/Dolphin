@@ -226,3 +226,64 @@ class ChatAPITests(ChatFixtures):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["body"], "دوم")
         self.assertEqual(unread_count_for(self.manager, thread.pk), 2)
+
+    def test_peek_returns_the_newest_page_without_marking_read(self):
+        """2.18.5: hovering a thread row warms the drawer's cache; pointing
+        at a conversation is not reading it."""
+        thread = services.get_or_create_direct_thread(actor=self.agent, other_user_id=self.manager.pk)
+        services.send_message(actor=self.agent, thread_id=thread.pk, body="اول")
+        services.send_message(actor=self.agent, thread_id=thread.pk, body="دوم")
+        self.client.force_authenticate(self.manager)
+        response = self.client.get(f"/api/v1/chat/threads/{thread.pk}/messages/?peek=1")
+        self.assertEqual([row["body"] for row in response.data], ["اول", "دوم"])
+        self.assertEqual(unread_count_for(self.manager, thread.pk), 2)
+
+
+class ChatThrottleTests(ChatFixtures):
+    """2.18.5: chat polls on a budget of its own. Every chat endpoint used to
+    carry the shared `sensitive` throttle (30/min per user), which the
+    drawer's own polling used up within a minute — throttling chat, and every
+    other sensitive action of the same user with it."""
+
+    def test_chat_reads_do_not_use_the_shared_sensitive_budget(self):
+        from chat.views import ChatMessageListView, ChatThreadListView, ChatUnreadCountView
+        from common.throttles import ChatReadThrottle, SensitiveRateThrottle
+
+        for view in (ChatThreadListView, ChatMessageListView, ChatUnreadCountView):
+            with self.subTest(view=view.__name__):
+                self.assertEqual(view.throttle_classes, [ChatReadThrottle])
+                self.assertNotIn(SensitiveRateThrottle, view.throttle_classes)
+
+    def test_sending_counts_against_the_send_budget(self):
+        from rest_framework.test import APIRequestFactory
+
+        from chat.views import ChatMessageListView
+        from common.throttles import ChatReadThrottle, ChatSendThrottle
+
+        view = ChatMessageListView()
+        view.request = APIRequestFactory().post("/api/v1/chat/threads/1/messages/")
+        kinds = {type(throttle) for throttle in view.get_throttles()}
+        self.assertEqual(kinds, {ChatReadThrottle, ChatSendThrottle})
+        view.request = APIRequestFactory().get("/api/v1/chat/threads/1/messages/")
+        self.assertEqual({type(throttle) for throttle in view.get_throttles()}, {ChatReadThrottle})
+
+    def test_the_rates_exist_and_polling_fits(self):
+        from django.conf import settings
+
+        rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
+        self.assertEqual(rates["chat"], "600/min")
+        self.assertEqual(rates["chat_send"], "60/min")
+
+    def test_a_minute_of_open_drawer_polling_is_never_throttled(self):
+        """Two tabs' worth of the drawer's polling for one minute: messages
+        every 2s, threads every 5s, the badge every 20s — each tab."""
+        from django.core.cache import cache
+
+        cache.clear()
+        thread = services.get_or_create_direct_thread(actor=self.agent, other_user_id=self.manager.pk)
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        requests = (["/api/v1/chat/threads/%d/messages/?after_id=0" % thread.pk] * 30
+                    + ["/api/v1/chat/threads/"] * 12 + ["/api/v1/chat/unread-count/"] * 3) * 2
+        statuses = {client.get(path).status_code for path in requests}
+        self.assertEqual(statuses, {200})

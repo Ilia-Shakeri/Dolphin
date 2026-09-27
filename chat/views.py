@@ -16,7 +16,7 @@ from chat.serializers import (
 )
 from common.openapi import ACCESS_DENIED_RESPONSE, THROTTLED_RESPONSE, VALIDATION_ERROR_RESPONSE
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
-from common.throttles import SensitiveRateThrottle
+from common.throttles import ChatReadThrottle, ChatSendThrottle
 from common.ui_views import ROLE_LABELS
 
 #: A page of messages, oldest of the page first (so the client appends
@@ -34,11 +34,25 @@ COLLEAGUE_LIST_LIMIT = 200
 class ChatAccessMixin(FeatureGatedAPIMixin):
     required_feature = "internal_chat"
     permission_classes = [IsActiveAuthenticated]
-    throttle_classes = [SensitiveRateThrottle]
+    #: Reads and read-marks, on chat's own budget — see
+    #: `common.throttles.ChatReadThrottle` for why not `sensitive` (2.18.5).
+    throttle_classes = [ChatReadThrottle]
+    #: Whether this view's POST is something a person writes (a message, a
+    #: new thread) rather than a read-mark; those also count against
+    #: `ChatSendThrottle`.
+    send_on_post = False
+
+    def get_throttles(self):
+        throttles = super().get_throttles()
+        if self.send_on_post and self.request.method == "POST":
+            throttles.append(ChatSendThrottle())
+        return throttles
 
 
 class ChatThreadListView(ChatAccessMixin, APIView):
     """`/api/v1/chat/threads/` — my conversations; POST starts or reuses one."""
+
+    send_on_post = True
 
     @extend_schema(
         responses={200: ChatThreadSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
@@ -80,6 +94,8 @@ class ChatMessageListView(ChatAccessMixin, APIView):
     activity-log bell needs no separate "mark as read" click either.
     """
 
+    send_on_post = True
+
     @extend_schema(
         responses={
             200: ChatMessageSerializer(many=True),
@@ -89,8 +105,10 @@ class ChatMessageListView(ChatAccessMixin, APIView):
         },
         description=(
             "Up to the most recent 50 messages, oldest first. `?before_id=<id>` pages further back for the "
-            "same thread. `?after_id=<id>` returns only messages newer than that id, for polling — neither "
-            "marks the thread read, only a plain `GET` does."
+            "same thread. `?after_id=<id>` returns only messages newer than that id, for polling. `?peek=1` "
+            "returns the same newest page as a plain `GET` without marking anything read, for warming the "
+            "drawer's cache before the reader opens the thread. `?after_id` and `?peek=1` never mark the "
+            "thread read; a plain `GET` does."
         ),
     )
     def get(self, request, thread_id):
@@ -104,7 +122,9 @@ class ChatMessageListView(ChatAccessMixin, APIView):
         queryset = messages_for(request.user, thread_id)
         before_id = request.query_params.get("before_id")
         after_id = request.query_params.get("after_id")
-        polling = bool(after_id)
+        # A hover over a thread row fetches ahead (2.18.5); pointing at a
+        # conversation is not reading it, so it must not clear the badge.
+        polling = bool(after_id) or request.query_params.get("peek") == "1"
         if before_id:
             queryset = queryset.filter(pk__lt=before_id).order_by("-created_at", "-id")[:MESSAGE_PAGE_SIZE]
             messages = list(reversed(queryset))

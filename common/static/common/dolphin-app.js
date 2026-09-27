@@ -546,6 +546,9 @@
             event.preventDefault();
             withSubmit(form, async () => {
                 await apiRequest(form.action, {method: "POST"});
+                // The chat drawer's copy of this account's conversations
+                // must not outlive the session in this tab (2.18.5).
+                clearChatCache();
                 window.location.assign("/login/");
             });
         });
@@ -15083,6 +15086,23 @@
         count.textContent = toPersianDigits(String(totalUnread));
     }
 
+    //: Where the chat drawer keeps this tab's copy of the reader's threads
+    //: and recent messages between page loads (2.18.5). Keyed by the signed-in
+    //: user's id, so a different account in the same tab never reads it, and
+    //: cleared on logout (`clearChatCache`). `sessionStorage`, not `localStorage`:
+    //: it dies with the tab.
+    const CHAT_CACHE_PREFIX = "dolphin.chat.v1.";
+
+    function clearChatCache() {
+        try {
+            Object.keys(sessionStorage)
+                .filter((key) => key.startsWith(CHAT_CACHE_PREFIX))
+                .forEach((key) => sessionStorage.removeItem(key));
+        } catch (error) {
+            // Storage refused (private mode): there is nothing to clear.
+        }
+    }
+
     function setupChatUnreadPoll() {
         if (!document.querySelector("[data-chat-unread-badge]")) return;
         async function poll() {
@@ -15156,9 +15176,80 @@
             return symbol;
         }
 
+        // How fast "live" is. Product owner, 2026-09-27: «وقتی چت باز می‌شود
+        // نمایش چت‌های قبلی خیلی طول می‌کشد؛ باید خیلی سریع و زنده باشد».
+        // Two seconds for the open conversation, five for the thread list,
+        // both only while the drawer is open *and* the tab is visible — a
+        // tab in the background costs nothing, and coming back to it polls at
+        // once rather than waiting for the next tick.
+        const ACTIVE_THREAD_POLL_MS = 2000;
+        const THREAD_LIST_POLL_MS = 5000;
+        //: How much of each conversation this tab keeps between page loads.
+        const MESSAGE_CACHE_LIMIT = 40;
+        const THREAD_CACHE_LIMIT = 8;
+
+        const cacheKey = `${CHAT_CACHE_PREFIX}${document.body.dataset.chatUserId || ""}`;
         let activeThreadId = null;
         let lastMessageId = 0;
         let threads = [];
+        let threadsKnown = false;
+        let threadsInFlight = null;
+        // threadId -> the newest messages of that conversation this tab has
+        // seen, oldest first — what makes reopening a thread instant.
+        const messageCache = new Map();
+        const peeksInFlight = new Map();
+        // Ids already drawn in the open conversation: a poll that overlaps a
+        // send can return the same message the send already drew.
+        const renderedIds = new Set();
+
+        function readCache() {
+            try {
+                // Anything left by another account in this tab goes first.
+                Object.keys(sessionStorage)
+                    .filter((key) => key.startsWith(CHAT_CACHE_PREFIX) && key !== cacheKey)
+                    .forEach((key) => sessionStorage.removeItem(key));
+                const saved = JSON.parse(sessionStorage.getItem(cacheKey) || "null");
+                if (!saved) return;
+                if (Array.isArray(saved.threads)) {
+                    threads = saved.threads;
+                    threadsKnown = true;
+                }
+                Object.entries(saved.messages || {}).forEach(([threadId, messages]) => {
+                    if (Array.isArray(messages)) messageCache.set(Number(threadId), messages);
+                });
+            } catch (error) {
+                // Unreadable or refused storage: start cold, as before 2.18.5.
+            }
+        }
+
+        function writeCache() {
+            try {
+                const recent = Array.from(messageCache.entries()).slice(-THREAD_CACHE_LIMIT);
+                sessionStorage.setItem(cacheKey, JSON.stringify({
+                    threads,
+                    messages: Object.fromEntries(recent.map(([threadId, messages]) => [
+                        threadId, messages.slice(-MESSAGE_CACHE_LIMIT),
+                    ])),
+                }));
+            } catch (error) {
+                // Storage full or refused: the in-memory copy still serves
+                // this page; only the next page load starts cold.
+            }
+        }
+
+        /** Merge newly fetched messages into one thread's cached copy. */
+        function remember(threadId, messages, {replace = false} = {}) {
+            if (!messages.length && !replace) return;
+            const existing = replace ? [] : (messageCache.get(threadId) || []);
+            const seen = new Set(existing.map((message) => message.id));
+            const merged = existing.concat(messages.filter((message) => !seen.has(message.id)));
+            merged.sort((a, b) => a.id - b.id);
+            // Re-inserted so the Map's order is "most recently touched last",
+            // which is what `writeCache` keeps when it trims.
+            messageCache.delete(threadId);
+            messageCache.set(threadId, merged.slice(-MESSAGE_CACHE_LIMIT));
+            writeCache();
+        }
 
         function isOpen() {
             return drawer.classList.contains("drawer-on");
@@ -15184,9 +15275,13 @@
         }
 
         function renderThreadList() {
+            // A list this tab already knows is drawn at once — from the
+            // previous page load if need be — and refreshed behind it, rather
+            // than a "loading" line every time the drawer opens.
+            threadsLoading.hidden = threadsKnown;
             threadListEl.replaceChildren();
-            updateChatUnreadBadge(threads.reduce((sum, thread) => sum + thread.unread_count, 0));
-            threadsEmpty.hidden = threads.length > 0;
+            if (threadsKnown) updateChatUnreadBadge(threads.reduce((sum, thread) => sum + thread.unread_count, 0));
+            threadsEmpty.hidden = !threadsKnown || threads.length > 0;
             threadListEl.hidden = threads.length === 0;
             threads.forEach((thread) => {
                 const row = document.createElement("button");
@@ -15216,22 +15311,50 @@
                     row.appendChild(badge);
                 }
                 row.addEventListener("click", () => openThread(thread.id));
+                // Pointing at a conversation fetches it ahead, so the click
+                // lands on messages already in hand.
+                row.addEventListener("pointerenter", () => peekThread(thread.id));
+                row.addEventListener("focus", () => peekThread(thread.id));
                 threadListEl.appendChild(row);
             });
         }
 
-        async function loadThreads() {
-            try {
-                threads = await apiRequest("/api/v1/chat/threads/");
-                threadsLoading.hidden = true;
-                renderThreadList();
-            } catch (error) {
-                threadsLoading.hidden = true;
-                showError(error);
-            }
+        /** One fetch of the thread list at a time, shared by whoever asks. */
+        function loadThreads() {
+            if (threadsInFlight) return threadsInFlight;
+            threadsInFlight = apiRequest("/api/v1/chat/threads/")
+                .then((data) => {
+                    threads = data;
+                    threadsKnown = true;
+                    writeCache();
+                    if (!activeThreadId) renderThreadList();
+                    else updateChatUnreadBadge(threads.reduce((sum, thread) => sum + thread.unread_count, 0));
+                })
+                .catch((error) => {
+                    threadsLoading.hidden = true;
+                    if (!threadsKnown) showError(error);
+                })
+                .finally(() => { threadsInFlight = null; });
+            return threadsInFlight;
+        }
+
+        /** Warm one thread's cache without marking it read (`?peek=1`). */
+        function peekThread(threadId) {
+            if (messageCache.has(threadId) || peeksInFlight.has(threadId)) return;
+            const request = apiRequest(`/api/v1/chat/threads/${threadId}/messages/?peek=1`)
+                .then((messages) => remember(threadId, messages, {replace: true}))
+                .catch(() => {
+                    // A missed warm-up only means the click fetches instead.
+                })
+                .finally(() => peeksInFlight.delete(threadId));
+            peeksInFlight.set(threadId, request);
         }
 
         function appendMessageBubble(message) {
+            if (message.id != null) {
+                if (renderedIds.has(message.id)) return null;
+                renderedIds.add(message.id);
+            }
             const row = document.createElement("div");
             row.className = `d-flex mb-6 ${message.mine ? "justify-content-end" : "justify-content-start"}`;
             const wrap = document.createElement("div");
@@ -15246,7 +15369,7 @@
             if (message.mine) {
                 const metaTime = document.createElement("span");
                 metaTime.className = "fs-8 text-muted me-1";
-                metaTime.textContent = displayDate(message.created_at);
+                metaTime.textContent = message.pending ? "در حال ارسال…" : displayDate(message.created_at);
                 const metaName = document.createElement("span");
                 metaName.className = "fs-7 fw-bold text-gray-900 ms-1";
                 metaName.textContent = senderName;
@@ -15269,16 +15392,34 @@
 
             wrap.append(meta, bubble);
             row.appendChild(wrap);
+            if (message.pending) row.classList.add("opacity-50");
             messagesEl.appendChild(row);
+            return row;
         }
 
         function scrollMessagesToBottom() {
             messagesEl.scrollTop = messagesEl.scrollHeight;
         }
 
+        function drawMessages(messages) {
+            messages.forEach(appendMessageBubble);
+            if (messages.length) {
+                lastMessageId = Math.max(lastMessageId, messages[messages.length - 1].id);
+                messagesEmpty.hidden = true;
+            }
+        }
+
+        function markThreadReadLocally(threadId) {
+            const row = threads.find((item) => item.id === threadId);
+            if (row) row.unread_count = 0;
+            updateChatUnreadBadge(threads.reduce((sum, item) => sum + item.unread_count, 0));
+            writeCache();
+        }
+
         async function openThread(threadId) {
             activeThreadId = threadId;
             lastMessageId = 0;
+            renderedIds.clear();
             showConversation();
             const thread = threads.find((item) => item.id === threadId);
             if (thread) {
@@ -15287,62 +15428,106 @@
             }
             messagesEl.replaceChildren();
             messagesEmpty.hidden = true;
+            messageInput.focus();
+
+            // What this tab already has is drawn now; the network only ever
+            // adds what is newer than it.
+            const cached = messageCache.get(threadId) || [];
+            drawMessages(cached);
+            scrollMessagesToBottom();
+            const hadUnread = Boolean(thread && thread.unread_count > 0);
+
             try {
-                const messages = await apiRequest(`/api/v1/chat/threads/${threadId}/messages/`);
-                messagesEmpty.hidden = messages.length > 0;
-                messages.forEach(appendMessageBubble);
-                if (messages.length) lastMessageId = messages[messages.length - 1].id;
-                scrollMessagesToBottom();
-                // Opening it just marked it read server-side; reflect that locally
-                // without waiting for the next thread-list poll.
-                const row = threads.find((item) => item.id === threadId);
-                if (row) row.unread_count = 0;
-                updateChatUnreadBadge(threads.reduce((sum, item) => sum + item.unread_count, 0));
+                if (!cached.length) {
+                    // Cold: the newest page — and a plain GET marks it read.
+                    const pending = peeksInFlight.get(threadId);
+                    if (pending) await pending;
+                    const warmed = messageCache.get(threadId);
+                    if (warmed && warmed.length) {
+                        if (activeThreadId !== threadId) return;
+                        drawMessages(warmed);
+                        scrollMessagesToBottom();
+                        if (hadUnread) await apiRequest(`/api/v1/chat/threads/${threadId}/read/`, {method: "POST"});
+                    } else {
+                        const messages = await apiRequest(`/api/v1/chat/threads/${threadId}/messages/`);
+                        if (activeThreadId !== threadId) return;
+                        remember(threadId, messages, {replace: true});
+                        drawMessages(messages);
+                        messagesEmpty.hidden = messages.length > 0;
+                        scrollMessagesToBottom();
+                    }
+                } else {
+                    // Warm: only what arrived since, then the read mark.
+                    const newer = await apiRequest(`/api/v1/chat/threads/${threadId}/messages/?after_id=${lastMessageId}`);
+                    if (activeThreadId !== threadId) return;
+                    remember(threadId, newer);
+                    drawMessages(newer);
+                    if (newer.length) scrollMessagesToBottom();
+                    if (hadUnread || newer.length) await apiRequest(`/api/v1/chat/threads/${threadId}/read/`, {method: "POST"});
+                }
+                markThreadReadLocally(threadId);
             } catch (error) {
                 showError(error);
             }
-            messageInput.focus();
         }
 
         async function pollActiveThread() {
-            if (!activeThreadId || !isOpen()) return;
+            if (!activeThreadId || !isOpen() || document.hidden) return;
+            const threadId = activeThreadId;
             try {
                 const messages = await apiRequest(
-                    `/api/v1/chat/threads/${activeThreadId}/messages/?after_id=${lastMessageId}`,
+                    `/api/v1/chat/threads/${threadId}/messages/?after_id=${lastMessageId}`,
                 );
-                if (!messages.length) return;
-                messagesEmpty.hidden = true;
-                messages.forEach(appendMessageBubble);
-                lastMessageId = messages[messages.length - 1].id;
+                if (!messages.length || activeThreadId !== threadId) return;
+                remember(threadId, messages);
+                drawMessages(messages);
                 scrollMessagesToBottom();
                 // A message that arrived while the thread was open is read the
                 // moment it is drawn — mark it so the badge never lags what the
                 // reader can already see on screen.
-                await apiRequest(`/api/v1/chat/threads/${activeThreadId}/read/`, {method: "POST"});
+                await apiRequest(`/api/v1/chat/threads/${threadId}/read/`, {method: "POST"});
             } catch (error) {
                 // A transient poll failure is not worth interrupting anyone
                 // over; the next tick tries again.
             }
         }
 
-        async function pollThreads() {
-            if (!isOpen()) return;
-            await loadThreads();
+        function pollThreads() {
+            if (!isOpen() || document.hidden) return;
+            loadThreads();
         }
 
         sendForm.addEventListener("submit", (event) => {
             event.preventDefault();
             if (!activeThreadId) return;
+            const threadId = activeThreadId;
+            const body = messageInput.value;
+            if (!body.trim()) return;
             withSubmit(sendForm, async () => {
-                const body = messageInput.value;
-                const message = await apiRequest(`/api/v1/chat/threads/${activeThreadId}/messages/`, {
-                    method: "POST", body: {body},
-                });
+                // Drawn at once, dimmed, and replaced by the server's own
+                // copy when it answers — a sent message should not wait on a
+                // round trip to appear.
                 messageInput.value = "";
                 messagesEmpty.hidden = true;
-                appendMessageBubble(message);
-                lastMessageId = message.id;
+                const pendingRow = appendMessageBubble({id: null, mine: true, pending: true, body});
                 scrollMessagesToBottom();
+                let message;
+                try {
+                    message = await apiRequest(`/api/v1/chat/threads/${threadId}/messages/`, {
+                        method: "POST", body: {body},
+                    });
+                } catch (error) {
+                    if (pendingRow) pendingRow.remove();
+                    messageInput.value = body;
+                    throw error;
+                }
+                if (pendingRow) pendingRow.remove();
+                if (activeThreadId === threadId) {
+                    appendMessageBubble(message);
+                    lastMessageId = Math.max(lastMessageId, message.id);
+                    scrollMessagesToBottom();
+                }
+                remember(threadId, [message]);
                 loadThreads();
             });
         });
@@ -15389,6 +15574,7 @@
                             newDialog.close();
                             const exists = threads.some((item) => item.id === thread.id);
                             if (!exists) threads.unshift(thread);
+                            threadsKnown = true;
                             openThread(thread.id);
                         } catch (error) {
                             showError(error);
@@ -15409,6 +15595,13 @@
         newDialog.querySelectorAll("[data-close-dialog]").forEach((button) =>
             button.addEventListener("click", () => newDialog.close()));
 
+        // Intent before the click: a pointer over the chat icon, or keyboard
+        // focus on it, starts the thread-list request, so opening the drawer
+        // usually finds it already answered.
+        ["pointerenter", "focus", "touchstart"].forEach((name) => {
+            toggle.addEventListener(name, () => { if (!isOpen()) loadThreads(); }, {passive: true});
+        });
+
         // The theme's own KTDrawer binds its open/close click on this same
         // button; this listener runs alongside it, not instead of it, and
         // only reacts to the drawer actually being open — a click that
@@ -15418,12 +15611,27 @@
             // the same click handler, but listener order between it and this
             // one is not something to depend on — a microtask delay reads the
             // class after every same-tick handler has run either way.
-            Promise.resolve().then(() => { if (isOpen()) loadThreads(); });
+            Promise.resolve().then(() => {
+                if (!isOpen()) return;
+                if (!activeThreadId) renderThreadList();
+                loadThreads();
+                // The most recent conversations are the likeliest to be
+                // opened next; fetch them ahead as well.
+                threads.slice(0, 3).forEach((thread) => peekThread(thread.id));
+            });
         });
 
+        // Back to a visible tab with the drawer open: catch up at once.
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden || !isOpen()) return;
+            pollActiveThread();
+            loadThreads();
+        });
+
+        readCache();
         showList();
-        setInterval(pollThreads, 8000);
-        setInterval(pollActiveThread, 3000);
+        setInterval(pollThreads, THREAD_LIST_POLL_MS);
+        setInterval(pollActiveThread, ACTIVE_THREAD_POLL_MS);
     }
 
     /**
