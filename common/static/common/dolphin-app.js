@@ -1616,8 +1616,13 @@
         function setEditing(next) {
             editing = next;
             toggle.setAttribute("aria-pressed", String(editing));
-            toggle.classList.toggle("btn-light-primary", editing);
+            // Solid while editing, not the light tint it used to take — the
+            // pencil is the one control that says which mode the page is in.
+            toggle.classList.toggle("btn-primary", editing);
             toggle.classList.toggle("btn-light", !editing);
+            // The page-level half of the edit-mode look (dolphin.css §9):
+            // everything that is not being arranged steps back.
+            document.body.classList.toggle("dashboard-editing", editing);
             if (hint) hint.hidden = !editing;
             if (done) done.hidden = !editing;
             if (reset) reset.hidden = !editing || !layout.is_customised;
@@ -1628,6 +1633,11 @@
 
         toggle.addEventListener("click", () => setEditing(!editing));
         if (done) done.addEventListener("click", () => setEditing(false));
+        // Escape leaves edit mode, as it leaves every other mode in this
+        // panel — unless a dialog is open, which Escape closes first.
+        document.addEventListener("keydown", (event) => {
+            if (editing && event.key === "Escape" && !document.querySelector("dialog[open]")) setEditing(false);
+        });
         if (reset) {
             reset.addEventListener("click", async () => {
                 try {

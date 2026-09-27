@@ -150,6 +150,47 @@ class AddWidgetDialogTests(SimpleTestCase):
         self.assertIn("const listed = catalogLabel(key);", body)
 
 
+class EditModeLookTests(SimpleTestCase):
+    """«وقتی حالت ویرایش فعال است ویجت‌ها باید کادر نقطه‌چین داشته باشند و حس
+    و حال صفحه حالت ویرایش باشد»."""
+
+    def test_every_box_carries_a_dotted_outline_in_the_accent_colour(self):
+        from common.tests.ui_overhaul_helpers import CODE
+
+        marker = "\n.dashboard-widget.editing > .card {"
+        declarations = CODE[CODE.index(marker):CODE.index("}", CODE.index(marker))]
+        self.assertIn("outline: 2px dotted rgba(var(--bs-primary-rgb), 0.65)", declarations)
+        # `--bs-primary-rgb` is comma-separated ("27, 132, 255"); the
+        # space/slash form `rgb(var(--bs-primary-rgb) / 65%)` is invalid and
+        # silently drops the whole declaration — it did, on the first cut.
+        self.assertNotIn("rgb(var(--bs-primary-rgb) /", CODE)
+
+    def test_the_grid_becomes_a_dotted_canvas(self):
+        self.assertIn("radial-gradient", rule("[data-dashboard-grid].dashboard-widgets-editing"))
+
+    def test_boxes_sway_but_never_under_reduced_motion_or_mid_gesture(self):
+        from common.tests.ui_overhaul_helpers import CODE, media_block
+
+        self.assertIn("@keyframes dashboard-edit-sway", CODE)
+        self.assertIn("animation: none", rule(".dashboard-widget.dragging > .card,"))
+        self.assertIn(".dashboard-widget.editing > .card", media_block("(prefers-reduced-motion: reduce)", "dashboard-widget.editing"))
+
+    def test_edit_mode_announces_itself_with_the_themes_notice(self):
+        start = HOME.index('id="dashboard-edit-hint"')
+        opening = HOME[HOME.rindex("<div", 0, start):start]
+        self.assertIn("notice d-flex", opening)
+        self.assertIn("border-dashed", opening)
+
+    def test_the_rest_of_the_page_steps_back_while_editing(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn('document.body.classList.toggle("dashboard-editing", editing);', body)
+        self.assertIn("opacity", rule("body.dashboard-editing [data-performance-panel]"))
+
+    def test_escape_leaves_edit_mode(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn('event.key === "Escape"', body)
+
+
 class HiddenAvailableTests(TestCase):
     def setUp(self):
         from common.models import DashboardSettings

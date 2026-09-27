@@ -2764,9 +2764,66 @@ dialog:has(.wizard-lines-step) {
     -webkit-user-drag: none;
 }
 
+/* Edit mode has to *look* like edit mode (product owner, 2026-09-27: «وقتی
+   حالت ویرایش فعال است ویجت‌ها باید کادر نقطه‌چین داشته باشند و حس و حال
+   صفحه حالت ویرایش باشد»). Until 2.18.3 the only cue was a 1px outline in
+   the border colour — on a dark card, nearly invisible. Now, together:
+
+   * every box carries a dotted outline in the accent colour;
+   * the grid behind the boxes becomes a dotted canvas, the surface a box is
+     being arranged *on*;
+   * each box sways very slightly — the home-screen convention for "these
+     can be moved now" that the earlier drag rewrite already set out to
+     match («مثل ویجت‌های apple و اندروید») — stopping while a box is
+     hovered, dragged or resized, and never at all under reduced motion;
+   * the rest of the page (performance panel, work queue) steps back.
+
+   `--bs-primary-rgb` rather than a literal, so a deployment's own accent
+   (`common.color.accent_theme_css`, which sets both) recolours this too. */
 .dashboard-widget.editing > .card {
-    outline: 1px dashed var(--bs-border-color);
-    outline-offset: 2px;
+    outline: 2px dotted rgba(var(--bs-primary-rgb), 0.65);
+    outline-offset: 3px;
+    animation: dashboard-edit-sway 0.9s ease-in-out infinite alternate;
+    transform-origin: 50% 50%;
+}
+
+.dashboard-widget.editing:nth-child(2n) > .card {
+    animation-delay: -0.45s;
+    animation-direction: alternate-reverse;
+}
+
+.dashboard-widget.editing:hover > .card,
+.dashboard-widget.editing:focus-within > .card,
+.dashboard-widget.dragging > .card,
+.dashboard-widget.resizing > .card {
+    animation: none;
+}
+
+.dashboard-widget.editing:hover > .card {
+    outline-color: var(--bs-primary);
+}
+
+@keyframes dashboard-edit-sway {
+    from { transform: rotate(-0.3deg); }
+    to { transform: rotate(0.3deg); }
+}
+
+[data-dashboard-grid].dashboard-widgets-editing {
+    border-radius: 0.75rem;
+    background-image: radial-gradient(rgba(var(--bs-primary-rgb), 0.22) 1px, transparent 1.5px);
+    background-size: 18px 18px;
+}
+
+body.dashboard-editing [data-performance-panel],
+body.dashboard-editing #agent-work-queue {
+    opacity: 0.45;
+    transition: opacity 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-widget.editing > .card {
+        animation: none;
+    }
 }
 
 /* The lifted look while a widget is actively being dragged — replacing the
