@@ -20,6 +20,8 @@ DIRECT_PRODUCTION_PACKAGES = {
     "psycopg",
     # 2.21.0: encrypts integration secrets at rest (integrations/crypto.py).
     "cryptography",
+    # 2.22.0: reads the PBX's CDR table (telephony/cdr.py).
+    "pymysql",
 }
 
 

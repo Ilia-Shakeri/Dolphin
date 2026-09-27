@@ -1153,6 +1153,39 @@ once a week (rows, processed events and settled deliveries older than 90 days):
 3. **Inbound webhooks** reach `https://<host>/api/v1/integrations/<id>/webhook/`
    through nginx like every other API path; no extra port is opened.
 
+### 4.4.2 Telephony — Asterisk / FreePBX (2.22.0)
+
+What the PBX administrator must provide (AMI user, read-only CDR user,
+recordings export, extension list) and every connection field:
+`docs/backend/TELEPHONY.md`.
+
+1. **Manifest.** `telephony` needs `integrations` and `customers`; re-sign the
+   manifest with it, deploy, and make sure `integrations-worker` is running
+   (§4.4.1). The worker holds one AMI session per enabled Asterisk connection
+   and syncs CDR every 5 minutes; it reaches the PBX over the `egress` network.
+2. **Firewall.** From the Dolphin host only: PBX 5038/TCP (AMI) and, for CDR,
+   3306/TCP. Nothing is opened towards Dolphin.
+3. **Connection.** On «یکپارچه‌سازی‌ها» add «مرکز تلفن Asterisk / FreePBX»,
+   press «آزمایش اتصال», switch it on, then map extensions under «داخلی‌های
+   تلفن». Health shows on the same row.
+4. **Recordings, `mount` mode.** Mount the PBX's recordings export read-only on
+   the host (e.g. NFS at `/mnt/pbx-recordings`), then give the `web` container
+   the same read-only view with a `compose.override.yml` beside `compose.yml`
+   (`scripts/deploy.sh` runs plain `docker compose`, which merges it):
+
+   ```yaml
+   services:
+     web:
+       volumes:
+         - /mnt/pbx-recordings:/recordings:ro
+   ```
+
+   and set the connection's recordings path to `/recordings`. The directory is
+   never served by nginx; audio reaches a browser only through
+   `/api/v1/calls/<id>/recording/`. In `url` mode nothing is mounted.
+5. **Re-running CDR for a range** (after a long outage):
+   `docker compose --env-file secrets/.env --profile integrations run --rm --no-deps integrations-worker python manage.py sync_cdr --since 2026-09-01 --until 2026-09-05`.
+
 ### 4.5 Verify a restore — into a disposable database
 
 This is the only supported restore rehearsal. It restores into a throwaway
@@ -2890,6 +2923,7 @@ Source tests prove the intended Compose secret scope, transaction boundary, tabl
 - The lock contains reviewed CPython 3.13 Linux-amd64 hashes. The three platform wheels also contain Windows-amd64 hashes so the guarded local setup remains usable.
 - `pip download --require-hashes --only-binary=:all:` passed for both `manylinux_2_17_x86_64/cp313` and `win_amd64/cp313` on 2026-08-10. This proves lock resolution and hashes, not a container build.
 - 2026-09-27 (2.21.0): `cryptography==49.0.0` added as a direct package (integration secrets at rest), with `cffi==2.1.1` and `pycparser==3.0`, resolved in the reviewed `python@sha256:b6d2e2b3…` 3.13.15 image; `pip download --require-hashes --only-binary=:all:` passed for the full lock in that image (Linux) and for `win_amd64/cp313`.
+- 2026-09-28 (2.22.0): `PyMySQL==1.1.3` added as a direct package (reading the PBX's CDR table; pure Python, no dependencies); `pip download --require-hashes --only-binary=:all:` passed for the full lock inside the reviewed `python@sha256:b6d2e2b3…` image (23 wheels) and for `win_amd64/cp313` (24 wheels, `tzdata` included by its marker).
 
 ### Safe update flow
 

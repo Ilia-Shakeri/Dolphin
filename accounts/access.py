@@ -57,6 +57,11 @@ ROLE_CAPABILITIES = {
         "tasks.manage",
         "notes.read",
         "notes.write",
+        # Telephony (2.22.0, decision D20): the calls they handled, and
+        # placing a call from their own extension. Recordings are not an
+        # agent's by default.
+        "calls.own",
+        "calls.originate",
     }),
     User.Role.SALES_MANAGER: frozenset({
         "dashboard.store",
@@ -92,6 +97,9 @@ ROLE_CAPABILITIES = {
         "tasks.manage",
         "notes.read",
         "notes.write",
+        "calls.company",
+        "calls.originate",
+        "calls.recordings",
     }),
     User.Role.COMPANY_IT: frozenset({
         "dashboard.technical",
@@ -128,6 +136,9 @@ ROLE_CAPABILITIES = {
         "tasks.manage",
         "notes.read",
         "notes.write",
+        "calls.company",
+        "calls.originate",
+        "calls.recordings",
     }),
     User.Role.PLATFORM_ADMIN: frozenset({
         "dashboard.platform",
@@ -165,6 +176,9 @@ ROLE_CAPABILITIES = {
         "tasks.manage",
         "notes.read",
         "notes.write",
+        "calls.company",
+        "calls.originate",
+        "calls.recordings",
         # Deletion (2.18.8): the Platform Admin deletes anything — see
         # `can_delete`, which honours this role regardless of what its
         # capability set says. Listed here as well so the permission screen
@@ -197,6 +211,8 @@ AFTER_SALES_AGENT_CAPABILITIES = frozenset({
     "tasks.manage",
     "notes.read",
     "notes.write",
+    "calls.own",
+    "calls.originate",
 })
 
 

@@ -38,8 +38,10 @@ one after a comma, re-save each connection, then drop the old key.
    `description`, `capabilities` (`telephony`, `messaging`, `sms`, `email`,
    `payment`, `accounting`, `webhook`), `fields` (a tuple of `ConfigField` —
    the admin form is built from it; `secret=True` or `kind="password"` fields
-   are encrypted), and optionally `required_feature`, `singleton`,
-   `accepts_webhooks`.
+   are encrypted; `ltr=True` for a host, path or pattern typed left to right),
+   and optionally `required_feature`, `singleton`, `accepts_webhooks`. The
+   Asterisk provider (`telephony/provider.py`, [TELEPHONY.md](TELEPHONY.md))
+   is the fullest example: a listener service, a periodic job and a test.
 2. Implement what applies: `validate(config, secrets)` for cross-field rules,
    `test_connection(integration, config, secrets)` returning a
    `ConnectionResult`, `verify_inbound(...)` / `handle_inbound(...)` for

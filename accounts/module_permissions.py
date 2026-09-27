@@ -83,6 +83,11 @@ MODULES = (
     # a person can already open.
     Module("tasks", "وظیفه‌ها", ("tasks.own", "tasks.company"), ("tasks.manage",), ("tasks.delete",)),
     Module("notes", "یادداشت‌های پروفایل", ("notes.read",), ("notes.write",), ("notes.delete",)),
+    # Telephony (2.22.0). «ویرایش» here is placing a call (click-to-call);
+    # hearing recordings is a separate, read-only row because it is the one
+    # part of a call that is someone's voice.
+    Module("calls", "تماس‌های تلفنی", ("calls.own", "calls.company"), ("calls.originate",)),
+    Module("call_recordings", "ضبط مکالمه", ("calls.recordings",)),
 )
 
 MODULES_BY_KEY = {module.key: module for module in MODULES}

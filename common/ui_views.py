@@ -727,6 +727,13 @@ class IntegrationsView(ActiveCrmView):
                 .exclude(role=User.Role.PLATFORM_ADMIN)
                 .order_by("username")
             ]
+            # Whom an extension may be mapped to (2.22.0): any active CRM
+            # account (`telephony.services.save_extension`).
+            if feature_enabled("telephony"):
+                context["telephony_users"] = [
+                    (person.pk, f"{person.get_full_name() or person.username} ({person.username})")
+                    for person in crm_identities(User.objects.filter(is_active=True)).order_by("username")
+                ]
         return context
 
 

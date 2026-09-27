@@ -75,12 +75,18 @@ def browser_delete_targets():
 #: connection's configuration and an outbound subscriber — settings, not
 #: records, and the Platform Admin's alone. A connection that calls or
 #: events still reference is refused with 409 rather than deleted.
+#:
+#: `/api/v1/telephony/extensions/${extension.id}/` (2.22.0) removes one
+#: extension-to-user mapping — configuration, the Platform Admin's alone and
+#: audited. A call keeps its own extension number and user, so no call
+#: history changes.
 ALLOWED_BROWSER_DELETE_TARGETS = {
     "/api/v1/dashboard-layout/",
     "endpoint",
     "/api/v1/person-notes/${note.id}/",
     "/api/v1/integrations/${integration.id}/",
     "/api/v1/webhook-subscriptions/${subscription.id}/",
+    "/api/v1/telephony/extensions/${extension.id}/",
 }
 
 

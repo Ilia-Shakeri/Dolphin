@@ -164,6 +164,11 @@ FEATURE_DEPENDENCIES = {
     "integrations": frozenset(),
     "outbound_webhooks": frozenset({"integrations"}),
     "public_api": frozenset({"integrations"}),
+    # telephony/ (2.22.0): an Asterisk/FreePBX connection — live calls over
+    # AMI, CDR sync, recordings, the call popup and click-to-call. A call is
+    # matched to a customer and runs on an integrations connection, so both
+    # are real dependencies.
+    "telephony": frozenset({"integrations", "customers"}),
 
     # billing.Cheque / ChequeStatusHistory — Cheque.payment is NOT NULL, so a
     # cheque cannot exist without a payment. Split out from `payments` itself
@@ -241,7 +246,7 @@ FEATURES = frozenset(FEATURE_DEPENDENCIES)
 #: as one line.
 DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "person_scoring", "tasks", "person_notes",
-    "integrations", "outbound_webhooks", "public_api",
+    "integrations", "outbound_webhooks", "public_api", "telephony",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

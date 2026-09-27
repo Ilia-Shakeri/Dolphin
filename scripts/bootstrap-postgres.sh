@@ -646,6 +646,14 @@ FROM (
         ('scoring_personscore', 'SELECT, INSERT'),
         ('scoring_scoringsettings', 'SELECT, INSERT, UPDATE'),
         ('tasks_task', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Telephony (2.22.0). A call row is written by the listener and
+        -- corrected by the CDR sync, never deleted (a connection with calls
+        -- cannot be removed); extensions are remapped and removed by the
+        -- Platform Admin; a popup is dismissed in place.
+        ('telephony_call', 'SELECT, INSERT, UPDATE'),
+        ('telephony_callnotification', 'SELECT, INSERT, UPDATE'),
+        ('telephony_cdrsyncstate', 'SELECT, INSERT, UPDATE'),
+        ('telephony_extension', 'SELECT, INSERT, UPDATE, DELETE'),
         ('timeline_personnote', 'SELECT, INSERT, UPDATE, DELETE'),
         ('timeline_timelineentry', 'SELECT, INSERT, UPDATE, DELETE')
 ) AS table_grant(table_name, privileges)

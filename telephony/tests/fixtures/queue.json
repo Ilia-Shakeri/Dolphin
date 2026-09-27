@@ -1,0 +1,56 @@
+[
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "CallerIDNum": "09151234567",
+  "Exten": "600"
+ },
+ {
+  "Event": "AgentCalled",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "Interface": "PJSIP/203",
+  "DestChannel": "PJSIP/203-00000024",
+  "DestCallerIDNum": "203",
+  "Queue": "600"
+ },
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.2",
+  "Channel": "PJSIP/203-00000024",
+  "CallerIDNum": "203",
+  "Exten": "s"
+ },
+ {
+  "Event": "BridgeEnter",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "BridgeNumChannels": "1"
+ },
+ {
+  "Event": "BridgeEnter",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.2",
+  "Channel": "PJSIP/203-00000024",
+  "BridgeNumChannels": "2"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.2",
+  "Channel": "PJSIP/203-00000024",
+  "Cause-txt": "Normal Clearing"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800500.1",
+  "Uniqueid": "1695800500.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "Cause-txt": "Normal Clearing"
+ }
+]

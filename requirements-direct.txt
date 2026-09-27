@@ -10,3 +10,5 @@ openpyxl>=3.1,<3.2
 # Encrypts integration secrets at rest (2.21.0, decision D9 of
 # docs/PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md).
 cryptography>=49,<50
+# Reads the PBX's CDR table from MariaDB/MySQL (2.22.0, decision D11).
+PyMySQL>=1.1,<1.2

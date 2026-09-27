@@ -1,0 +1,95 @@
+[
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "CallerIDNum": "09151234567",
+  "Exten": "02155550000"
+ },
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.2",
+  "Channel": "PJSIP/201-00000022",
+  "CallerIDNum": "201",
+  "Exten": "s"
+ },
+ {
+  "Event": "DialBegin",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/201-00000022",
+  "DestCallerIDNum": "201"
+ },
+ {
+  "Event": "DialEnd",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/201-00000022",
+  "DestCallerIDNum": "201",
+  "DialStatus": "ANSWER"
+ },
+ {
+  "Event": "BridgeEnter",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.2",
+  "Channel": "PJSIP/201-00000022",
+  "BridgeNumChannels": "2"
+ },
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.3",
+  "Channel": "PJSIP/202-00000023",
+  "CallerIDNum": "202",
+  "Exten": "s"
+ },
+ {
+  "Event": "DialBegin",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/202-00000023",
+  "DestCallerIDNum": "202"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.2",
+  "Channel": "PJSIP/201-00000022",
+  "Cause-txt": "Normal Clearing"
+ },
+ {
+  "Event": "DialEnd",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/202-00000023",
+  "DestCallerIDNum": "202",
+  "DialStatus": "ANSWER"
+ },
+ {
+  "Event": "BridgeEnter",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.3",
+  "Channel": "PJSIP/202-00000023",
+  "BridgeNumChannels": "2"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.3",
+  "Channel": "PJSIP/202-00000023",
+  "Cause-txt": "Normal Clearing"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800400.1",
+  "Uniqueid": "1695800400.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "Cause-txt": "Normal Clearing"
+ }
+]

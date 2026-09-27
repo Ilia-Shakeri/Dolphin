@@ -259,7 +259,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     #: long withheld list of the older test.
     person_profile_features = frozenset({
         "person_scoring", "tasks", "person_notes",
-        "integrations", "outbound_webhooks", "public_api",
+        "integrations", "outbound_webhooks", "public_api", "telephony",
     })
 
     def test_the_person_profile_modules_are_withheld_and_default_off(self):

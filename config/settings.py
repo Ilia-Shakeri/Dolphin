@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "tasks",
     "scoring",
     "integrations",
+    "telephony",
     "billing",
     "reports",
     "attachments",

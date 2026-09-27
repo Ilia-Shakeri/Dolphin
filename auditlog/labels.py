@@ -142,6 +142,11 @@ OPERATION_LABELS = {
     "webhook_subscription.deleted": "حذف وب‌هوک خروجی",
     "api_token.created": "ساخت توکن API",
     "api_token.revoked": "باطل کردن توکن API",
+    # --- تلفن (۲.۲۲.۰) -----------------------------------------------------
+    "extension.saved": "ذخیرهٔ داخلی تلفن",
+    "extension.deleted": "حذف داخلی تلفن",
+    "call.recording_played": "پخش ضبط مکالمه",
+    "call.originate_requested": "درخواست برقراری تماس",
     # --- عمومی --------------------------------------------------------------
     "cancel": "ابطال",
 }

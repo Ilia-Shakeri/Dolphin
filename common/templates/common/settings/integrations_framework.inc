@@ -29,6 +29,40 @@
     </div>
 </section>
 
+{% if "telephony" in features %}
+<section class="card mt-8" id="integration-extensions">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>داخلی‌های تلفن</h2>
+            <span class="text-muted fs-7 mt-1">هر داخلی مرکز تلفن به یک کاربر دلفین نسبت داده می‌شود تا تماس‌هایش به نام او ثبت شود و پنجرهٔ تماس ورودی برایش باز شود. هر کاربر یک داخلی فعال دارد.</span>
+        </div>
+        <div class="card-toolbar"><button class="btn btn-sm btn-primary" type="button" id="open-extension-dialog">افزودن داخلی</button></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="extensions-loading" class="text-center text-gray-700 py-8">در حال دریافت…</div>
+        <div id="extensions-empty" class="text-center text-gray-700 py-8" hidden>داخلی‌ای تعریف نشده است. تا وقتی داخلی‌ها تعریف نشوند، تماس‌ها ثبت می‌شوند ولی به نام کسی نیستند.</div>
+        <div id="extensions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
+            <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>داخلی</th><th>مرکز تلفن</th><th>کاربر</th><th>برچسب</th><th>فعال</th><th>عملیات</th></tr></thead>
+            <tbody id="extensions-table-body"></tbody>
+        </table></div>
+    </div>
+</section>
+
+<dialog id="extension-dialog" aria-labelledby="extension-dialog-title">
+    <form id="extension-form" novalidate>
+        <div class="d-flex flex-stack align-items-center mb-5"><h2 id="extension-dialog-title" class="mb-0">افزودن داخلی</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold required" for="extension-integration">مرکز تلفن</label><select class="form-select form-select-solid" id="extension-integration" name="integration" required></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="integration"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold required" for="extension-number">شمارهٔ داخلی</label><input class="form-control form-control-solid" id="extension-number" name="number" required maxlength="20" inputmode="numeric" dir="ltr" placeholder="201"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="number"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="extension-user">کاربر</label><select class="form-select form-select-solid" id="extension-user" name="user"><option value="">— بدون کاربر —</option>{% for pk, name in telephony_users %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}</select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="user"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="extension-label">برچسب</label><input class="form-control form-control-solid" id="extension-label" name="label" maxlength="120" placeholder="مثلاً میز پذیرش"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div class="col-12 d-flex align-items-center gap-3"><input class="form-check-input" id="extension-active" name="active" type="checkbox" checked><label class="form-label fw-semibold mb-0" for="extension-active">فعال</label></div>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره</button></div>
+    </form>
+</dialog>
+{% endif %}
+
 {% if "outbound_webhooks" in features %}
 <section class="card mt-8" id="integration-webhooks">
     <div class="card-header border-0 pt-6">

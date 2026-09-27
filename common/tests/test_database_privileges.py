@@ -475,6 +475,11 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "scoring_personscore": "SELECT, INSERT",
             "scoring_scoringsettings": "SELECT, INSERT, UPDATE",
             "tasks_task": "SELECT, INSERT, UPDATE, DELETE",
+            # Telephony (2.22.0): calls are never deleted.
+            "telephony_call": "SELECT, INSERT, UPDATE",
+            "telephony_callnotification": "SELECT, INSERT, UPDATE",
+            "telephony_cdrsyncstate": "SELECT, INSERT, UPDATE",
+            "telephony_extension": "SELECT, INSERT, UPDATE, DELETE",
             "timeline_personnote": "SELECT, INSERT, UPDATE, DELETE",
             "timeline_timelineentry": "SELECT, INSERT, UPDATE, DELETE",
         }

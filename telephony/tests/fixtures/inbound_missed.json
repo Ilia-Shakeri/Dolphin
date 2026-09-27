@@ -1,0 +1,81 @@
+[
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "CallerIDNum": "+989151234567",
+  "Exten": "02155550000"
+ },
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.2",
+  "Channel": "PJSIP/201-0000001c",
+  "CallerIDNum": "201",
+  "Exten": "s"
+ },
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.3",
+  "Channel": "PJSIP/202-0000001d",
+  "CallerIDNum": "202",
+  "Exten": "s"
+ },
+ {
+  "Event": "DialBegin",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/201-0000001c",
+  "DestCallerIDNum": "201"
+ },
+ {
+  "Event": "DialBegin",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/202-0000001d",
+  "DestCallerIDNum": "202"
+ },
+ {
+  "Event": "DialEnd",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/201-0000001c",
+  "DestCallerIDNum": "201",
+  "DialStatus": "NOANSWER"
+ },
+ {
+  "Event": "DialEnd",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "DestChannel": "PJSIP/202-0000001d",
+  "DestCallerIDNum": "202",
+  "DialStatus": "NOANSWER"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.2",
+  "Channel": "PJSIP/201-0000001c",
+  "Cause-txt": "No answer"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.3",
+  "Channel": "PJSIP/202-0000001d",
+  "Cause-txt": "No answer"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800100.1",
+  "Uniqueid": "1695800100.1",
+  "Channel": "PJSIP/trunk-0000001a",
+  "Cause-txt": "Normal Clearing"
+ }
+]

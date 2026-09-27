@@ -1,0 +1,49 @@
+[
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800300.1",
+  "Uniqueid": "1695800300.1",
+  "Channel": "PJSIP/201-00000020",
+  "CallerIDNum": "201",
+  "Exten": "909121112233"
+ },
+ {
+  "Event": "Newchannel",
+  "Linkedid": "1695800300.1",
+  "Uniqueid": "1695800300.2",
+  "Channel": "PJSIP/trunk-00000021",
+  "CallerIDNum": "02155550000",
+  "Exten": "s"
+ },
+ {
+  "Event": "DialBegin",
+  "Linkedid": "1695800300.1",
+  "Uniqueid": "1695800300.1",
+  "Channel": "PJSIP/201-00000020",
+  "DestChannel": "PJSIP/trunk-00000021",
+  "DestCallerIDNum": "09121112233"
+ },
+ {
+  "Event": "DialEnd",
+  "Linkedid": "1695800300.1",
+  "Uniqueid": "1695800300.1",
+  "Channel": "PJSIP/201-00000020",
+  "DestChannel": "PJSIP/trunk-00000021",
+  "DestCallerIDNum": "09121112233",
+  "DialStatus": "BUSY"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800300.1",
+  "Uniqueid": "1695800300.2",
+  "Channel": "PJSIP/trunk-00000021",
+  "Cause-txt": "User busy"
+ },
+ {
+  "Event": "Hangup",
+  "Linkedid": "1695800300.1",
+  "Uniqueid": "1695800300.1",
+  "Channel": "PJSIP/201-00000020",
+  "Cause-txt": "User busy"
+ }
+]

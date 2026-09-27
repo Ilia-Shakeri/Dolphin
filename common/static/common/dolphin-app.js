@@ -15655,7 +15655,7 @@
         function wireDialog(dialog) {
             dialog?.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         }
-        ["integration-dialog", "subscription-dialog", "token-dialog", "secret-once-dialog"].forEach((id) => wireDialog(document.getElementById(id)));
+        ["integration-dialog", "subscription-dialog", "token-dialog", "secret-once-dialog", "extension-dialog"].forEach((id) => wireDialog(document.getElementById(id)));
 
         function showOnce(value, note) {
             const dialog = document.getElementById("secret-once-dialog");
@@ -15746,7 +15746,7 @@
                     input.className = field.kind === "bool" ? "form-check-input" : "form-control form-control-solid";
                     input.type = {bool: "checkbox", int: "number", url: "url", password: "password"}[field.kind] || (field.secret ? "password" : "text");
                     if (field.secret) input.autocomplete = "new-password";
-                    if (["url", "int", "password"].includes(field.kind) || field.secret) input.dir = "ltr";
+                    if (["url", "int", "password"].includes(field.kind) || field.secret || field.ltr) input.dir = "ltr";
                 }
                 input.id = id;
                 input.name = field.key;
@@ -16124,7 +16124,110 @@
             }
         }
 
-        loadConnections().then(() => loadLogs(1));
+        // --- telephony extensions (2.22.0) ------------------------------------------
+        const extensionDialog = document.getElementById("extension-dialog");
+        const extensions = extensionDialog ? listCard("extensions") : null;
+        let editingExtension = null;
+        function pbxConnections() {
+            return integrations.filter((integration) => integration.provider_key === "asterisk");
+        }
+        if (extensionDialog) {
+            const extensionForm = document.getElementById("extension-form");
+            const pbxSelect = document.getElementById("extension-integration");
+            function openExtension(extension = null) {
+                const pbx = pbxConnections();
+                if (!pbx.length) {
+                    globalMessage("اول یک اتصال «مرکز تلفن Asterisk / FreePBX» بسازید.", false);
+                    return;
+                }
+                editingExtension = extension;
+                extensionForm.reset();
+                clearMessages(extensionForm);
+                pbxSelect.replaceChildren(...pbx.map((integration) => {
+                    const option = document.createElement("option");
+                    option.value = String(integration.id);
+                    option.textContent = integration.name;
+                    return option;
+                }));
+                document.getElementById("extension-dialog-title").textContent = extension ? `ویرایش داخلی ${toPersianDigits(extension.number)}` : "افزودن داخلی";
+                if (extension) {
+                    pbxSelect.value = String(extension.integration);
+                    document.getElementById("extension-number").value = extension.number;
+                    document.getElementById("extension-user").value = extension.user ? String(extension.user) : "";
+                    document.getElementById("extension-label").value = extension.label;
+                    document.getElementById("extension-active").checked = extension.active;
+                }
+                extensionDialog.showModal();
+            }
+            document.getElementById("open-extension-dialog").addEventListener("click", () => openExtension());
+            extensionForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+                withSubmit(extensionForm, async () => {
+                    const data = new FormData(extensionForm);
+                    const body = {
+                        integration: Number(data.get("integration")),
+                        number: String(data.get("number") || "").trim(),
+                        user: data.get("user") ? Number(data.get("user")) : null,
+                        label: data.get("label"),
+                        active: document.getElementById("extension-active").checked,
+                    };
+                    if (editingExtension) {
+                        await apiRequest(`/api/v1/telephony/extensions/${editingExtension.id}/`, {method: "PATCH", body});
+                    } else {
+                        await apiRequest("/api/v1/telephony/extensions/", {method: "POST", body});
+                    }
+                    extensionDialog.close();
+                    globalMessage("داخلی ذخیره شد.", true);
+                    await loadExtensions();
+                });
+            });
+            extensions.open = openExtension;
+        }
+
+        async function loadExtensions() {
+            if (!extensions) return;
+            try {
+                const rows = await apiRequest("/api/v1/telephony/extensions/");
+                const names = Object.fromEntries(integrations.map((integration) => [integration.id, integration.name]));
+                extensions.fill(rows.map((extension) => {
+                    const row = document.createElement("tr");
+                    const number = appendCell(row, toPersianDigits(extension.number));
+                    number.className = "fw-semibold";
+                    appendCell(row, names[extension.integration] || "");
+                    appendCell(row, extension.user_display);
+                    appendCell(row, extension.label);
+                    const active = document.createElement("td");
+                    active.appendChild(toggle(extension.active, `فعال بودن داخلی ${extension.number}`, async (value) => {
+                        await apiRequest(`/api/v1/telephony/extensions/${extension.id}/`, {method: "PATCH", body: {active: value}});
+                        await loadExtensions();
+                    }));
+                    row.appendChild(active);
+                    const actions = document.createElement("td");
+                    actions.className = "row-actions";
+                    actions.append(
+                        button("ویرایش", "btn-light", () => extensions.open(extension)),
+                        button("حذف", "btn-light-danger", async (node) => {
+                            if (!window.confirm(`داخلی ${toPersianDigits(extension.number)} حذف شود؟ تماس‌های گذشته‌اش سر جایشان می‌مانند.`)) return;
+                            node.disabled = true;
+                            try {
+                                await apiRequest(`/api/v1/telephony/extensions/${extension.id}/`, {method: "DELETE"});
+                                await loadExtensions();
+                            } catch (error) {
+                                node.disabled = false;
+                                showError(error);
+                            }
+                        }),
+                    );
+                    row.appendChild(actions);
+                    return row;
+                }));
+            } catch (error) {
+                extensions.loading.hidden = true;
+                showError(error);
+            }
+        }
+
+        loadConnections().then(() => { loadLogs(1); loadExtensions(); });
         loadSubscriptions();
         loadTokens();
     }

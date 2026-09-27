@@ -10,7 +10,7 @@ A provider never stores anything itself: its settings live on an
 `Integration` row, its secrets encrypted there (`integrations.crypto`).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 CAPABILITY_LABELS = {
     "telephony": "تلفن",
@@ -35,6 +35,9 @@ class ConfigField:
     default: object = None
     choices: tuple = ()
     placeholder: str = ""
+    #: A technical value — a host, a path, a dial pattern — typed and read
+    #: left to right even on the Persian page.
+    ltr: bool = False
 
     @property
     def is_secret(self):
@@ -51,6 +54,7 @@ class ConfigField:
             "default": self.default,
             "choices": [{"value": value, "label": label} for value, label in self.choices],
             "placeholder": self.placeholder,
+            "ltr": self.ltr,
         }
 
 
