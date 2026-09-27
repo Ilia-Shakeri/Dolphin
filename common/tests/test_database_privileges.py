@@ -480,6 +480,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "telephony_callnotification": "SELECT, INSERT, UPDATE",
             "telephony_cdrsyncstate": "SELECT, INSERT, UPDATE",
             "telephony_extension": "SELECT, INSERT, UPDATE, DELETE",
+            "telephony_originaterequest": "SELECT, INSERT, UPDATE",
             "timeline_personnote": "SELECT, INSERT, UPDATE, DELETE",
             "timeline_timelineentry": "SELECT, INSERT, UPDATE, DELETE",
         }

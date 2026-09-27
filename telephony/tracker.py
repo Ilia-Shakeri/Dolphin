@@ -13,9 +13,12 @@ and writes the `Call` row as that changes:
 * `Hangup` of the last channel — the call ended; its final status follows
   from what happened (`completed`, `missed`, `no_answer`, `busy`, `failed`).
 
-A call placed from Dolphin (click-to-call) is created first, with the
-`ChannelId` Dolphin gives the originate action as its `Linkedid`, so every
-event of it lands on that row.
+A call placed from Dolphin (click-to-call, 2.23.0) is created first, with
+the `ChannelId` Dolphin gives the originate action as its `Linkedid`, so every
+event of it lands on that row. Its first legs connect the user's own phone,
+so for an outbound call only the *outside* party answering counts; an
+`OriginateResponse: Failure` (the user's phone never answered, was busy or
+unreachable) closes it.
 
 Unknown or malformed events are ignored; a restart loses only in-memory
 channel bookkeeping — the CDR sync corrects any call the listener could not
@@ -99,6 +102,7 @@ class CallTracker:
             "DialEnd": self._dial_end,
             "BridgeEnter": self._bridge_enter,
             "Hangup": self._hangup,
+            "OriginateResponse": self._originate_response,
         }.get(name)
         if handler is None:
             return None
@@ -230,7 +234,34 @@ class CallTracker:
             members = 0
         if members >= 2:
             peer = channel_peer(event.get("Channel") or "")
+            if call.direction == Call.Direction.OUTBOUND and self.is_internal(peer):
+                # The caller's own legs meeting (a click-to-call rings the
+                # user's phone first): nobody outside has answered yet.
+                return call
             self._answer(call, event, peer if self.is_internal(peer) else "")
+        return call
+
+    #: `OriginateResponse` `Reason` -> how a call that never got going ended.
+    ORIGINATE_REASONS = {"5": Call.Status.BUSY, "3": Call.Status.NO_ANSWER, "0": Call.Status.FAILED}
+
+    def _originate_response(self, linkedid, event):
+        if (event.get("Response") or "").lower() != "failure":
+            return None
+        call = self._call(linkedid)
+        if call is None or call.status not in Call.OPEN_STATUSES or call.answered_at:
+            return call
+        state = self.calls.get(linkedid)
+        if state and state["live"]:
+            return call  # its channels will report their own hangup
+        now = self.clock()
+        call.status = self.ORIGINATE_REASONS.get(str(event.get("Reason") or ""), Call.Status.FAILED)
+        call.ended_at = now
+        call.duration = max(0, int((now - call.started_at).total_seconds()))
+        call.hangup_cause = f"originate:{event.get('Reason') or ''}"[:80]
+        self._remember(call, event)
+        call.save()
+        self.calls.pop(linkedid, None)
+        emit("call.ended", self.payload(call), person_type=call.person_type, person_id=call.person_id, dedupe_key=f"call:{call.pk}:ended")
         return call
 
     def _hangup(self, linkedid, event):

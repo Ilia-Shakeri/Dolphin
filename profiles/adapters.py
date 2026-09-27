@@ -18,7 +18,6 @@ from common.deployment.profile import feature_enabled
 from common.jalali import to_persian_digits
 from profiles.registry import PersonAdapter, ProfileTab, QuickAction
 from reports.selectors import users_for_performance_report
-from sales.models import Customer
 from sales.selectors import customers_for
 
 #: `User.Role` in Persian, as the rest of the panel says it. Kept in step with
@@ -116,6 +115,33 @@ def _shared_actions(capabilities):
     return actions
 
 
+def call_action(viewer, person_type, person, payload):
+    """«تماس»: placed through the PBX from the viewer's own extension when
+    they can (telephony, 2.23.0), else the device's own dialler (`tel:`)."""
+    if not payload or not payload["tel"]:
+        return None
+    if feature_enabled("telephony"):
+        from telephony.services import can_originate
+
+        if can_originate(viewer):
+            return QuickAction(
+                "call", "تماس", "ki-call", action="originate", primary=True, icon_paths=8,
+                data={
+                    "number": payload["e164"] or payload["tel"].removeprefix("tel:"),
+                    "person-type": person_type,
+                    "person-id": str(person.pk),
+                },
+            )
+    return QuickAction("call", "تماس", "ki-call", href=payload["tel"], primary=True, icon_paths=8)
+
+
+def _with_calls(pulled, events):
+    """A pull timeline plus the PBX calls telephony found for it."""
+    if not events:
+        return pulled
+    return {"count": pulled["count"] + len(events), "events": [*pulled["events"], *events]}
+
+
 def merged_timeline(viewer, person_type, person, pulled):
     """The pull sources plus what was recorded here (`timeline.TimelineEntry`),
     newest first, in one list."""
@@ -201,7 +227,10 @@ class CustomerAdapter(PersonAdapter):
             tabs.append(ProfileTab("leads", "سرنخ‌ها", "ki-rocket", "profiles/tabs/customer_leads.inc"))
         if feature_enabled("customer_timeline"):
             tabs.append(ProfileTab("activity", "فعالیت‌ها", "ki-time", "profiles/tabs/activity.inc"))
-        if feature_enabled("leads") and capabilities.intersection({"interactions.scoped", "interactions.company"}):
+        sees_logged_calls = feature_enabled("leads") and capabilities.intersection({"interactions.scoped", "interactions.company"})
+        # PBX calls (telephony, 2.23.0) share the tab with the logged ones.
+        sees_pbx_calls = feature_enabled("telephony") and capabilities.intersection({"calls.own", "calls.company"})
+        if sees_logged_calls or sees_pbx_calls:
             tabs.append(ProfileTab("calls", "تماس‌ها", "ki-call", "profiles/tabs/customer_calls.inc", 8))
         if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
             tabs.append(ProfileTab("finance", "خریدها و مالی", "ki-dollar", "profiles/tabs/customer_finance.inc", 3))
@@ -215,9 +244,9 @@ class CustomerAdapter(PersonAdapter):
         actions = []
         phone = self.primary_phone(person)
         if phone:
-            payload = phone_payload(phone.raw_phone, phone.normalized_phone)
-            if payload["tel"]:
-                actions.append(QuickAction("call", "تماس", "ki-call", href=payload["tel"], primary=True, icon_paths=8))
+            action = call_action(viewer, self.key, person, phone_payload(phone.raw_phone, phone.normalized_phone))
+            if action:
+                actions.append(action)
         if feature_enabled("outbound_sms") and "sms.company" in capabilities and phone:
             actions.append(QuickAction("sms", "پیامک", "ki-sms", href=f"{reverse('common_ui:outbound-sms')}?customer={person.pk}"))
         if "customers.manage" in capabilities:
@@ -242,7 +271,12 @@ class CustomerAdapter(PersonAdapter):
 
         if not feature_enabled("customer_timeline"):
             return {"count": 0, "events": []}
-        return merged_timeline(viewer, self.key, person, customer_timeline.timeline_for(viewer, person))
+        pulled = customer_timeline.timeline_for(viewer, person)
+        if feature_enabled("telephony"):
+            from telephony.profile import customer_call_events
+
+            pulled = _with_calls(pulled, customer_call_events(viewer, person))
+        return merged_timeline(viewer, self.key, person, pulled)
 
 
 class UserAdapter(PersonAdapter):
@@ -332,6 +366,11 @@ class UserAdapter(PersonAdapter):
             tabs.append(ProfileTab("leads", "مشتریان و سرنخ‌ها", "ki-rocket", "profiles/tabs/user_leads.inc"))
         if self.reads_performance(viewer, person):
             tabs.append(ProfileTab("performance", "عملکرد", "ki-chart-simple", "profiles/tabs/user_performance.inc", 4))
+        if feature_enabled("telephony"):
+            from telephony.profile import sees_calls_of
+
+            if sees_calls_of(viewer, person):
+                tabs.append(ProfileTab("calls", "تماس‌ها", "ki-call", "profiles/tabs/user_calls.inc", 8))
         tabs.append(ProfileTab("activity", "فعالیت‌ها", "ki-time", "profiles/tabs/activity.inc"))
         tabs.extend(_shared_tabs(viewer, capabilities))
         if manages:
@@ -342,9 +381,9 @@ class UserAdapter(PersonAdapter):
         capabilities = capabilities_for(viewer)
         manages = self.manages(viewer, person)
         actions = []
-        phone = phone_payload(person.phone, person.normalized_phone)
-        if phone and phone["tel"]:
-            actions.append(QuickAction("call", "تماس", "ki-call", href=phone["tel"], primary=True, icon_paths=8))
+        action = call_action(viewer, self.key, person, phone_payload(person.phone, person.normalized_phone))
+        if action:
+            actions.append(action)
         if feature_enabled("outbound_sms") and "sms.company" in capabilities and person.normalized_phone:
             actions.append(QuickAction(
                 "sms", "پیامک", "ki-sms",
@@ -369,4 +408,9 @@ class UserAdapter(PersonAdapter):
     def timeline(self, viewer, person):
         from profiles import user_timeline
 
-        return merged_timeline(viewer, self.key, person, user_timeline.timeline_for(viewer, person))
+        pulled = user_timeline.timeline_for(viewer, person)
+        if feature_enabled("telephony"):
+            from telephony.profile import user_call_events
+
+            pulled = _with_calls(pulled, user_call_events(viewer, person))
+        return merged_timeline(viewer, self.key, person, pulled)

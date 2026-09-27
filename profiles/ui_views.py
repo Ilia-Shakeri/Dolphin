@@ -101,6 +101,25 @@ class PersonProfileView(ActiveCrmView):
             completion=completion_for(adapter.key, person, can_edit="info" in keys),
         )
         capabilities = capabilities_for(viewer)
+        # The calls tab's two halves (2.23.0): calls logged by hand, and the
+        # PBX's own record of calls (telephony).
+        context["sees_logged_calls"] = feature_enabled("leads") and bool(
+            capabilities & {"interactions.scoped", "interactions.company"}
+        )
+        context["sees_pbx_calls"] = feature_enabled("telephony") and bool(capabilities & {"calls.own", "calls.company"})
+        context["can_hear_recordings"] = feature_enabled("telephony") and "calls.recordings" in capabilities
+        if feature_enabled("telephony"):
+            from telephony.services import can_originate
+
+            context["can_originate"] = can_originate(viewer)
+        if adapter.key == "user" and feature_enabled("telephony"):
+            from telephony.models import Extension
+            from telephony.profile import sees_calls_of
+
+            context["sees_person_calls"] = sees_calls_of(viewer, person)
+            context["person_extensions"] = list(
+                Extension.objects.filter(user=person, active=True).select_related("integration").order_by("number")
+            )
         context["can_add_task"] = feature_enabled("tasks") and "tasks.manage" in capabilities
         context["can_write_notes"] = feature_enabled("person_notes") and "notes.write" in capabilities
         if context["can_add_task"]:

@@ -7,11 +7,14 @@
 - `CallNotification` is the per-user popup queue (a call ringing for you, one
   you missed).
 - `CdrSyncState` is where the CDR sync resumes.
+- `OriginateRequest` is a call someone asked Dolphin to place (2.23.0).
 
 Calls refer to the person on the other end by the `profiles` reference
 (decision D1), and to the connection with `PROTECT`: a connection that has
 calls cannot be deleted, only switched off.
 """
+
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
@@ -147,3 +150,58 @@ class CdrSyncState(models.Model):
     cursor = models.DateTimeField(null=True, blank=True)
     last_run_at = models.DateTimeField(null=True, blank=True)
     last_error = models.CharField(max_length=500, blank=True)
+
+
+class OriginateRequest(models.Model):
+    """A call someone asked Dolphin to place — click-to-call (2.23.0).
+
+    The web process writes it; the worker, which holds the live AMI session,
+    claims it within a second, creates the `Call` and sends `Originate` (the
+    user's own phone rings first, then the number is dialled). One nobody
+    claims within `TTL` is failed: the PBX was not reachable.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "در صف"
+        SENDING = "sending", "در حال ارسال"
+        SENT = "sent", "ارسال‌شده"
+        FAILED = "failed", "ناموفق"
+
+    TTL = timedelta(seconds=30)
+
+    integration = models.ForeignKey(
+        "integrations.Integration", on_delete=models.PROTECT, related_name="originate_requests"
+    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    extension = models.CharField(max_length=20)
+    #: Exactly what the PBX is asked to dial (outbound prefix included).
+    dial = models.CharField(max_length=32)
+    external_number = models.CharField(max_length=20, blank=True)
+    person_type = models.CharField(max_length=32, blank=True)
+    person_id = models.PositiveBigIntegerField(null=True, blank=True)
+    call = models.OneToOneField(
+        Call, null=True, blank=True, on_delete=models.SET_NULL, related_name="originate_request"
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    error = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["integration", "status", "created_at"], name="originate_queue"),
+            models.Index(fields=["user", "-created_at"], name="originate_by_user"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=["pending", "sending", "sent", "failed"]), name="originate_status_valid"
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(person_type="", person_id__isnull=True)
+                    | (~models.Q(person_type="") & models.Q(person_id__isnull=False))
+                ),
+                name="originate_person_reference_complete",
+            ),
+        ]

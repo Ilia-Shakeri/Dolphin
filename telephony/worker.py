@@ -8,6 +8,9 @@
   the ORM in a worker thread (the ORM is synchronous).
 * A **CDR sync job** every `CDR_EVERY` seconds per connection with CDR
   settings.
+* **Click-to-call** (2.23.0): while a session is up, it claims that
+  connection's queued `OriginateRequest`s every `ORIGINATE_POLL` seconds,
+  creates each `Call` and sends `Originate` on the same session.
 
 Health — connected, refused, unreachable — is written to the connection row,
 where the integrations page shows it.
@@ -15,10 +18,11 @@ where the integrations page shows it.
 
 import asyncio
 import logging
-import threading
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 
-from django.db import close_old_connections
+from django.db import close_old_connections, transaction
+from django.utils import timezone
 
 from common.deployment.profile import feature_enabled
 
@@ -26,10 +30,7 @@ logger = logging.getLogger("dolphin.telephony.worker")
 
 RESCAN = 30
 CDR_EVERY = 300
-
-#: integration id -> live AMI connection, for placing calls (2.23.0).
-LIVE_CONNECTIONS = {}
-_LIVE_LOCK = threading.Lock()
+ORIGINATE_POLL = 1.0
 
 
 def _enabled_integrations():
@@ -69,6 +70,110 @@ async def _listen(integration, stop):
         executor.shutdown(wait=True)
 
 
+def _claim_originates(integration_id):
+    """This connection's queued requests, each now `sending` and paired with
+    a new outbound `Call` whose `Linkedid` is the `ChannelId` it will be
+    given. Claimed one by one with a conditional update, so two workers
+    never send the same call."""
+    from telephony.models import Call, OriginateRequest
+    from telephony.services import expire_stale_originates
+
+    now = timezone.now()
+    expire_stale_originates(now=now)
+    claimed = []
+    for request in OriginateRequest.objects.filter(
+        integration_id=integration_id, status=OriginateRequest.Status.PENDING,
+        created_at__gte=now - OriginateRequest.TTL,
+    ).order_by("created_at")[:10]:
+        with transaction.atomic():
+            taken = OriginateRequest.objects.filter(pk=request.pk, status=OriginateRequest.Status.PENDING).update(
+                status=OriginateRequest.Status.SENDING
+            )
+            if not taken:
+                continue
+            call = Call.objects.create(
+                integration_id=integration_id,
+                linkedid=f"dolphin-{uuid.uuid4().hex}",
+                direction=Call.Direction.OUTBOUND,
+                caller_raw=request.extension,
+                callee_raw=request.dial,
+                external_number=request.external_number,
+                extension=request.extension,
+                user_id=request.user_id,
+                person_type=request.person_type,
+                person_id=request.person_id,
+                started_at=now,
+                raw={"events": [{"Event": "DolphinOriginate"}]},
+            )
+            OriginateRequest.objects.filter(pk=request.pk).update(call=call)
+            request.call = call
+        claimed.append(request)
+    return claimed
+
+
+def _settle_originate(request, ok, message):
+    from integrations.events import emit
+    from telephony.models import Call, OriginateRequest
+    from telephony.tracker import CallTracker
+
+    now = timezone.now()
+    if ok:
+        OriginateRequest.objects.filter(pk=request.pk).update(status=OriginateRequest.Status.SENT, sent_at=now)
+        return
+    OriginateRequest.objects.filter(pk=request.pk).update(status=OriginateRequest.Status.FAILED, error=message[:300])
+    call = Call.objects.filter(pk=request.call_id, status=Call.Status.RINGING).first()
+    if call is not None:
+        call.status, call.ended_at, call.hangup_cause = Call.Status.FAILED, now, "originate refused"
+        call.save(update_fields=["status", "ended_at", "hangup_cause", "updated_at"])
+        emit("call.ended", CallTracker.payload(call), person_type=call.person_type, person_id=call.person_id,
+             dedupe_key=f"call:{call.pk}:ended")
+
+
+def originate_fields(config, request):
+    """The `Originate` action for one request: ring the user's extension,
+    and when they pick up, dial the number in the originate context."""
+    timeout = int(config.get("originate_timeout") or 30)
+    caller_id = config.get("originate_caller_id") or f"{request.dial} <{request.dial}>"
+    return {
+        "Channel": (config.get("originate_channel") or "Local/{extension}@from-internal").replace(
+            "{extension}", request.extension
+        ),
+        "Context": config.get("originate_context") or "from-internal",
+        "Exten": request.dial,
+        "Priority": "1",
+        "CallerID": caller_id,
+        "Timeout": str(timeout * 1000),
+        "Async": "true",
+        "ChannelId": request.call.linkedid,
+        "OtherChannelId": f"{request.call.linkedid}-2",
+    }
+
+
+async def _originate_loop(integration, executor, live, stop):
+    loop = asyncio.get_running_loop()
+    config = integration.config or {}
+    while not stop.is_set():
+        connection = live.get("connection")
+        if connection is not None:
+            try:
+                requests = await loop.run_in_executor(executor, _fresh, _claim_originates, integration.pk)
+            except Exception:  # noqa: BLE001 — logged; the next tick tries again
+                logger.exception("claiming originate requests failed")
+                requests = []
+            for request in requests:
+                try:
+                    response = await connection.action("Originate", **originate_fields(config, request))
+                    ok = (response.get("Response") or "").lower() == "success"
+                    message = "" if ok else f"مرکز تلفن تماس را نپذیرفت: {response.get('Message') or ''}".strip()
+                except Exception as error:  # noqa: BLE001 — reported on the request
+                    ok, message = False, f"ارسال به مرکز تلفن ناموفق بود: {type(error).__name__}"
+                await loop.run_in_executor(executor, _fresh, _settle_originate, request, ok, message)
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=ORIGINATE_POLL)
+        except asyncio.TimeoutError:
+            pass
+
+
 async def _listen_on(integration, stop, executor):
     from integrations.services import record_health, secrets_of
     from telephony.ami import run_forever
@@ -76,6 +181,7 @@ async def _listen_on(integration, stop, executor):
 
     loop = asyncio.get_running_loop()
     tracker = await loop.run_in_executor(executor, _fresh, CallTracker, integration)
+    live = {}
 
     async def settings_loader():
         secret = await loop.run_in_executor(executor, _fresh, lambda: secrets_of(integration).get("ami_password", ""))
@@ -93,13 +199,17 @@ async def _listen_on(integration, stop, executor):
             await loop.run_in_executor(executor, tracker.refresh_extensions)
 
     async def on_connected(connection):
-        with _LIVE_LOCK:
-            if connection is None:
-                LIVE_CONNECTIONS.pop(integration.pk, None)
-            else:
-                LIVE_CONNECTIONS[integration.pk] = (loop, connection)
+        live["connection"] = connection
 
-    await run_forever(settings_loader, on_event, stop=stop, on_status=on_status, on_connected=on_connected)
+    originating = asyncio.create_task(_originate_loop(integration, executor, live, stop))
+    try:
+        await run_forever(settings_loader, on_event, stop=stop, on_status=on_status, on_connected=on_connected)
+    finally:
+        originating.cancel()
+        try:
+            await originating
+        except asyncio.CancelledError:
+            pass
 
 
 async def _supervise(thread_stop):

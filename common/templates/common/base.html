@@ -147,6 +147,9 @@
          money cell in every table needs it and it cannot change without a
          page load. {% endcomment %}
       data-currency-unit="{{ panel_currency_unit|default:'rial' }}"
+      {% comment %} Set only for someone whose calls ring an extension mapped to them
+         (telephony, 2.23.0): their pages poll for the incoming-call popup. {% endcomment %}
+      {% if call_popup %}data-call-popup="1"{% endif %}
       data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
 {% if request.user.is_authenticated %}
 <div class="d-flex flex-column flex-root app-root" id="kt_app_root">

@@ -126,6 +126,16 @@ class CustomerRuleStrategy(ScoringStrategy):
                 .values("lead__customer_id").annotate(latest=Max("occurred_at")),
                 "lead__customer_id",
             )
+        if feature_enabled("telephony"):
+            # A conversation the PBX recorded (2.23.0) is contact as much as
+            # one logged by hand.
+            from telephony.models import Call
+
+            note_latest(
+                Call.objects.filter(person_type="customer", person_id__in=ids, status=Call.Status.COMPLETED)
+                .values("person_id").annotate(latest=Max("started_at")),
+                "person_id",
+            )
         if feature_enabled("sales"):
             note_latest(
                 Sale.objects.filter(customer_id__in=ids, status=Sale.Status.CONFIRMED)
@@ -206,6 +216,17 @@ class CustomerRuleStrategy(ScoringStrategy):
                 .values("customer_id").annotate(n=Count("id"))
             ):
                 contacts[row["customer_id"]] += row["n"]
+        if feature_enabled("telephony"):
+            from telephony.models import Call
+
+            for row in (
+                Call.objects.filter(
+                    person_type="customer", person_id__in=ids, status=Call.Status.COMPLETED,
+                    started_at__gte=engagement_since,
+                )
+                .values("person_id").annotate(n=Count("id"))
+            ):
+                contacts[row["person_id"]] += row["n"]
 
         return {
             "last": {pk: max(values) if values else None for pk, values in last.items()},
@@ -296,7 +317,13 @@ class UserRuleStrategy(ScoringStrategy):
 
         ids = [person.pk for person in people]
         since = now - self.WINDOW
-        context = {"tasks": {}, "conversion": {}, "speed": {}, "activity": {}, "activity_population": []}
+        context = {
+            "tasks": {}, "conversion": {}, "speed": {}, "activity": {}, "activity_population": [], "missed": {},
+        }
+        if feature_enabled("telephony"):
+            from telephony.profile import missed_follow_up
+
+            context["missed"] = missed_follow_up(ids, since, now)
 
         if feature_enabled("tasks"):
             for row in (
@@ -398,9 +425,21 @@ class UserRuleStrategy(ScoringStrategy):
                 "activity", rank, f"{_n(mine)} تماس در ۳۰ روز گذشته — بیشتر از {_n(round(rank * 100))}٪ همکاران فعال."
             ))
 
-        results.append(FactorResult(
-            "missed_call_follow_up", None, "با اتصال سامانهٔ تلفنی (VoIP) سنجیده می‌شود."
-        ))
+        if not feature_enabled("telephony"):
+            results.append(FactorResult(
+                "missed_call_follow_up", None, "اتصال مرکز تلفن در این استقرار فعال نیست."
+            ))
+        else:
+            followed, decided = context["missed"].get(pk, (0, 0))
+            if not decided:
+                results.append(FactorResult(
+                    "missed_call_follow_up", None, "در ۹۰ روز گذشته تماس بی‌پاسخی به داخلی او نرسیده است."
+                ))
+            else:
+                results.append(FactorResult(
+                    "missed_call_follow_up", followed / decided,
+                    f"{_n(followed)} از {_n(decided)} تماس بی‌پاسخ ظرف ۲۴ ساعت پیگیری شده است.",
+                ))
         return results
 
 

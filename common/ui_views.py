@@ -153,6 +153,12 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         context["user_admin_label"] = (
             "مدیریت بازاریابان" if "users.manage_agents" in capabilities else "مدیریت کاربران"
         )
+        # The incoming-call popup (telephony, 2.23.0): only for a reader with
+        # an extension on a connection that shows popups.
+        if feature_enabled("telephony"):
+            from telephony.popup import popup_enabled
+
+            context["call_popup"] = popup_enabled(self.request.user)
         context["can_deactivate_customers"] = self.request.user.role in {
             User.Role.SALES_MANAGER,
             User.Role.COMPANY_IT,

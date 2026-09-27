@@ -654,6 +654,9 @@ FROM (
         ('telephony_callnotification', 'SELECT, INSERT, UPDATE'),
         ('telephony_cdrsyncstate', 'SELECT, INSERT, UPDATE'),
         ('telephony_extension', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Click-to-call (2.23.0): queued by the web, claimed and settled by
+        -- the worker; kept as the record of who asked for which call.
+        ('telephony_originaterequest', 'SELECT, INSERT, UPDATE'),
         ('timeline_personnote', 'SELECT, INSERT, UPDATE, DELETE'),
         ('timeline_timelineentry', 'SELECT, INSERT, UPDATE, DELETE')
 ) AS table_grant(table_name, privileges)

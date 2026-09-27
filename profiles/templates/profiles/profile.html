@@ -2,7 +2,7 @@
 {% load jalali_tags %}
 {% block title %}{% if person %}{{ person.name }}{% else %}پروفایل{% endif %}{% endblock %}
 {% block page_id %}person-profile{% endblock %}
-{% block body_data %}{% if person %} data-person-type="{{ person.type }}" data-person-id="{{ person.id }}"{% if person.type == "customer" %} data-customer-id="{{ person.id }}"{% else %} data-user-id="{{ person.id }}"{% endif %} data-active-tab="{{ active_tab }}"{% endif %}{% endblock %}
+{% block body_data %}{% if person %} data-person-type="{{ person.type }}" data-person-id="{{ person.id }}"{% if person.type == "customer" %} data-customer-id="{{ person.id }}"{% else %} data-user-id="{{ person.id }}"{% endif %} data-active-tab="{{ active_tab }}"{% if can_originate %} data-can-originate="1"{% endif %}{% endif %}{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">{% if person.type == "customer" %}دفتر مشتریان{% elif is_own_profile %}حساب من{% else %}همکاران{% endif %}</span>{% endblock %}
 {% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
 {% block page_title %}{% if person.type == "customer" %}پروفایل مشتری{% elif is_own_profile %}پروفایل من{% else %}پروفایل کاربر{% endif %}{% endblock %}
@@ -40,7 +40,7 @@
                                 <span class="visually-hidden">استان: </span>{% if person.province.missing %}—<span class="visually-hidden">{{ person.province.tooltip }}</span>{% else %}{{ person.province.value }}{% endif %}
                             </span>
                             {% if person.phone %}
-                            <a class="d-flex align-items-center text-gray-500 text-hover-primary me-5 mb-2" data-profile-field="phone" href="{{ person.phone.tel }}" dir="ltr" title="تماس با {{ person.phone.display }}">
+                            <a class="d-flex align-items-center text-gray-500 text-hover-primary me-5 mb-2" data-profile-field="phone" href="{{ person.phone.tel }}" dir="ltr" title="تماس با {{ person.phone.display }}"{% if can_originate %} data-originate-number="{% firstof person.phone.e164 person.phone.tel|cut:'tel:' %}" data-originate-person-type="{{ person.type }}" data-originate-person-id="{{ person.id }}"{% endif %}>
                                 <i class="ki-duotone ki-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
                                 <span class="visually-hidden">تلفن: </span>{{ person.phone.display }}
                             </a>

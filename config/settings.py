@@ -345,6 +345,11 @@ REST_FRAMEWORK = {
         "chat_send": "60/min",
         # Inbound integration webhooks (2.21.0), per client address.
         "integration_webhook": "600/min",
+        # Telephony (2.23.0): the popup inbox is polled every two seconds by a
+        # visible tab (several tabs stay well inside it); placing calls is a
+        # person dialling.
+        "telephony_poll": "240/min",
+        "telephony_originate": "12/min",
     },
 }
 

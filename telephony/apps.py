@@ -7,7 +7,8 @@ class TelephonyConfig(AppConfig):
 
     def ready(self):
         # The Asterisk provider registers itself on import; the listener and
-        # the CDR sync join the integrations worker.
-        from telephony import provider, worker  # noqa: F401
+        # the CDR sync join the integrations worker; the hooks (popup,
+        # missed-call task, score refresh) listen for call events (2.23.0).
+        from telephony import hooks, provider, worker  # noqa: F401
 
         worker.register()

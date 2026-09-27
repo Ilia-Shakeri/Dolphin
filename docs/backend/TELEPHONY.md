@@ -4,8 +4,12 @@ Since 2.22.0 Dolphin can connect to an Asterisk PBX (plain Asterisk or
 FreePBX) as a provider of the [integrations framework](INTEGRATIONS.md). Calls
 are read live over the Asterisk Manager Interface (AMI), matched to a customer
 or a colleague, stored as `telephony.Call` rows, corrected from the PBX's own
-call records (CDR), and their recordings are played through Dolphin. The
-product decisions behind it are D10–D14 and D20 in
+call records (CDR), and their recordings are played through Dolphin. Since
+2.23.0 a call also rings a popup, can be placed from Dolphin (click-to-call),
+and reaches the person's timeline, tasks, score and the user's performance
+figures. Going live on a customer's PBX, step by step, is
+[`docs/ops/ASTERISK_GO_LIVE.md`](../ops/ASTERISK_GO_LIVE.md). The product
+decisions behind it are D10–D14 and D20 in
 [`docs/PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md`](../PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md).
 
 ## Feature and permissions
@@ -39,8 +43,11 @@ The connection itself and the extension map are the Platform Admin's, on
   recording file name, which sources saw it (`seen_by_ami`, `seen_in_cdr`) and
   the last few raw events. A connection that has calls cannot be deleted
   (`PROTECT`); disable it instead. Calls are never deleted.
-- `CallNotification` — the per-user popup queue (used from 2.23.0).
+- `CallNotification` — the per-user popup queue.
 - `CdrSyncState` — the CDR cursor and last error per connection.
+- `OriginateRequest` (2.23.0) — a call someone asked Dolphin to place: who,
+  from which extension, what the PBX dials, the matched person, the `Call` it
+  became, and `pending` → `sending` → `sent` or `failed` with the reason.
 
 ## The live listener
 
@@ -106,14 +113,103 @@ connection:
   (`recordings_base_url`, optional basic auth); Dolphin fetches the file and
   passes it through. Only that host is ever contacted.
 
+## Click-to-call (2.23.0)
+
+`POST /api/v1/telephony/originate/ {number, person_type?, person_id?}` asks the
+PBX to ring the caller's own phone and, when they pick up, dial `number`:
+
+1. The web checks, in order, and refuses in Persian: `calls.originate`
+   (403); an active extension of the caller's own on an enabled Asterisk
+   connection (400); that connection's health is «متصل» (409); `number` is a
+   number (400); the person, if given, is in the caller's scope (400); no
+   earlier request of theirs is still being placed (409). It writes an
+   `OriginateRequest` and one audit row (`call.originate_requested`) and
+   answers 202 at once. Its own throttle: 12 a minute per user.
+2. The worker, which holds the live AMI session, claims the connection's
+   queued requests every second (a conditional update, so two workers never
+   send one call twice), creates the outbound `Call` with
+   `Linkedid = dolphin-<uuid>` and sends `Originate` with that id as
+   `ChannelId`, `Channel` from the pattern (`Local/{extension}@from-internal`),
+   `Context`, `Exten` = what to dial, `CallerID`, `Timeout` and `Async`.
+3. The PBX's events then land on that row like any other call. Only the
+   *outside* party answering answers it — the user's own phone picking up
+   first does not — and an `OriginateResponse: Failure` (their phone was
+   busy, did not answer, or is unreachable) closes it as `busy`, `no_answer`
+   or `failed`.
+4. A request nobody claimed within 30 seconds fails with «مرکز تلفن درخواست را
+   در زمان مقرر نپذیرفت». The page polls `GET telephony/originate/<id>/` once a
+   second and says what happened.
+
+What is dialled: an internal extension as typed; an Iranian number in any
+stored shape (`+98912…`, `0098…`, `912…`) the way a phone in Iran dials it
+(`0912…`); any other international number as `00…`; the connection's outbound
+prefix in front of every outside number.
+
+## The incoming-call popup (2.23.0)
+
+A `CallNotification` is written when a call rings a mapped extension
+(`ringing`) and, when an inbound call is missed, for every mapped extension
+that rang (`missed`) — only on a connection whose «پنجرهٔ تماس ورودی» is on.
+A page of someone with such an extension carries `data-call-popup="1"` and
+polls `GET telephony/notifications/` every two seconds while the tab is visible
+(never while hidden; a failing server is asked less and less often; its own
+throttle, 240 a minute). The inbox is one indexed query: undismissed rows of
+the last 12 hours, a ringing one only while its call is still open.
+
+Each new popup's details are fetched once, `GET telephony/notifications/<id>/`,
+for the reader: the matched person *within the reader's scope* — name, avatar,
+subtitle and the profile cards they may see (a customer's «بدهکاری», «مجموع
+خرید», «امتیاز»; a colleague's «امتیاز») — else «مخاطب ثبت‌شده، خارج از محدودهٔ
+شما» with the number only; «ثبت مشتری» (opens the new-customer form with the
+number filled in) for an unknown number when the reader holds
+`customers.manage`; «تماس دوباره» on a missed call for someone who can place
+calls. `POST telephony/notifications/<id>/dismiss/` closes one. The popup is the
+theme's toast, stacked under the header.
+
+## What a call does to the rest of Dolphin (2.23.0)
+
+`telephony/hooks.py`, registered as domain-event handlers and a signal
+receiver, so the listener never calls into another module directly:
+
+- **Missed call** (`call.missed`): the popups above, and — when the connection's
+  «ساخت وظیفه برای تماس بی‌پاسخ مشتری» is on and the caller is a known
+  customer — one follow-up task (`source = missed_call`, due in two hours),
+  for whoever holds that customer's newest open lead, else the marketer who
+  entered the customer, else the user whose extension rang. Idempotent per
+  call.
+- **Ended call** (`call.ended`): the customer's and the user's scores are
+  refreshed.
+- **Timelines**: calls are a *pull* source of both profile timelines, read
+  through the reader's own `calls_for` — a reader sees exactly the calls they
+  may see. «آخرین تعامل» follows from the timeline.
+- **Scores**: a completed PBX call counts toward a customer's recency and
+  engagement; the user factor «پیگیری تماس‌های بی‌پاسخ» (weight 10) is the share
+  of missed inbound calls that rang them which were followed up within 24
+  hours — they called the number back from the PBX, or the missed-call task
+  for it was completed. A missed call younger than 24 hours with no follow-up
+  yet has no verdict.
+- **Profiles**: the customer «تماس‌ها» tab shows the PBX's calls beside the
+  logged ones (each half behind its own permission); users get a «تماس‌ها» tab
+  (their own with `calls.own`, anyone's with `calls.company`) with their
+  extensions; «تماس» and the header phone place the call through the PBX for
+  someone who can, and stay a `tel:` link otherwise; «عملکرد» shows the
+  period's call figures (`GET telephony/stats/`). A contact is named in a call
+  list only when the reader may open that person.
+
 ## API
 
 | Method and path | Who | Notes |
 |---|---|---|
-| `GET calls/` | `calls.own` / `calls.company` | newest first, paginated; filters `person_type` + `person_id`, `user`, `status`, `direction`; `has_recording` is true only for a reader with `calls.recordings` |
+| `GET calls/` | `calls.own` / `calls.company` | newest first, paginated; filters `person_type` + `person_id`, `user`, `status`, `direction`; `has_recording` is true only for a reader with `calls.recordings`; `person_display`/`person_url` only for a person the reader may open |
 | `GET calls/{id}/recording/` | `calls.recordings`, call in scope | audio stream; 404 when the recording cannot be reached |
 | `GET/POST telephony/extensions/` | Platform Admin | map a number to a user; 409 on a duplicate number or a second active extension for the user |
 | `PATCH/DELETE telephony/extensions/{id}/` | Platform Admin | remapping and removal are audited; past calls keep their data |
+| `POST telephony/originate/` | `calls.originate` + own extension | 202 with the request; see «Click-to-call» |
+| `GET telephony/originate/{id}/` | the requester | `pending`, `sending`, `sent` or `failed` + `error` |
+| `GET telephony/notifications/` | anyone | the reader's own popups now: `[{id, kind, open, status}]` |
+| `GET telephony/notifications/{id}/` | its owner | what the popup shows, for the reader |
+| `POST telephony/notifications/{id}/dismiss/` | its owner | 204 |
+| `GET telephony/stats/?user=&period_start=&period_end=` | `calls.company`, or `calls.own` for oneself | inbound, answered, missed, outbound, talk time, average, missed followed up / decided |
 
 All behind feature `telephony`; the extension writes use the sensitive throttle.
 
@@ -126,11 +222,11 @@ On «یکپارچه‌سازی‌ها» → «افزودن اتصال» → «م
 | AMI host, port, username, password | the AMI user below; the password is encrypted (`DOLPHIN_SECRETS_KEY`) |
 | internal extension max length | a number this short, or a mapped extension, is internal (default 5) |
 | outbound prefix | a digit the PBX needs before an outside number, if any |
-| originate context, channel pattern, timeout, caller ID | how click-to-call rings the user's phone first (2.23.0); the pattern must contain `{extension}` |
+| originate context, channel pattern, timeout, caller ID | how click-to-call rings the user's phone first; the pattern must contain `{extension}`; with no caller ID the user's phone shows the number being called |
 | CDR host, port, database, table, username, password | the read-only CDR user below; leave the host empty to skip CDR sync |
 | recordings mode, path, base URL, username, password | `none`, `mount` or `url`, as above |
 | PBX time zone | for CDR `calldate` |
-| missed-call task, call popup | per-connection switches for the 2.23.0 hooks |
+| missed-call task, call popup | per-connection switches for the follow-up task and the popup |
 
 «آزمایش اتصال» logs in to AMI, pings, and — when CDR is configured — reads one
 CDR row, and reports which part failed. Then map extensions under «داخلی‌های

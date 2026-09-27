@@ -436,6 +436,13 @@ dialog::backdrop {
     }
 }
 
+/* The incoming-call popup (telephony, 2.23.0): the theme's own toast stack,
+   opened just under the header — from the same `--bs-app-header-height` as
+   the panels above — rather than over the header's bell and user menu. */
+#call-popups {
+    top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
+}
+
 .topbar-list-group + .topbar-list-group {
     margin-top: 0.75rem;
     padding-top: 0.75rem;

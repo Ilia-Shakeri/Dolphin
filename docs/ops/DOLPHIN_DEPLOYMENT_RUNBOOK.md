@@ -1157,7 +1157,10 @@ once a week (rows, processed events and settled deliveries older than 90 days):
 
 What the PBX administrator must provide (AMI user, read-only CDR user,
 recordings export, extension list) and every connection field:
-`docs/backend/TELEPHONY.md`.
+`docs/backend/TELEPHONY.md`. The go-live order, acceptance tests, troubleshooting
+and rollback, in Persian: `docs/ops/ASTERISK_GO_LIVE.md`. Click-to-call (2.23.0)
+needs `write = originate` on the AMI user; calls are sent on the worker's own
+AMI session, so the worker must be running for them.
 
 1. **Manifest.** `telephony` needs `integrations` and `customers`; re-sign the
    manifest with it, deploy, and make sure `integrations-worker` is running

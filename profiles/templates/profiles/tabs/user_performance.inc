@@ -20,6 +20,26 @@
         </div>
     </div></div>
 
+    {% if sees_person_calls %}
+    {% comment %} تماس‌های مرکز تلفن همین کاربر در همین بازه (۲.۲۳.۰)، از
+       `/api/v1/telephony/stats/`، که دسترسی را دوباره می‌سنجد. {% endcomment %}
+    <div class="card mb-5 mb-xl-8" data-call-stats><div class="card-body">
+        <h2 class="fs-3 fw-bold text-gray-900 mb-1">تماس‌های مرکز تلفن در همین بازه</h2>
+        <p class="text-muted fs-7 mb-5">تماس‌هایی که به داخلی این کاربر رسیده یا از آن گرفته شده؛ «پیگیری» یعنی تماس بی‌پاسخ ظرف ۲۴ ساعت با همان شماره دوباره گرفته شده یا وظیفهٔ پیگیری‌اش انجام شده است.</p>
+        <div id="profile-call-stats-loading" class="text-center text-gray-700 py-6" hidden>در حال دریافت تماس‌ها…</div>
+        <div id="profile-call-stats-error" class="text-center text-danger py-6" role="alert" hidden>آمار تماس دریافت نشد.</div>
+        <div class="d-flex flex-wrap">
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="inbound">—</div><div class="fw-semibold fs-6 text-gray-500">تماس ورودی</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="inbound_answered">—</div><div class="fw-semibold fs-6 text-gray-500">پاسخ‌داده</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="missed">—</div><div class="fw-semibold fs-6 text-gray-500">بی‌پاسخ</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="outbound">—</div><div class="fw-semibold fs-6 text-gray-500">تماس خروجی</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="talk_seconds">—</div><div class="fw-semibold fs-6 text-gray-500">زمان مکالمه</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="average_talk_seconds">—</div><div class="fw-semibold fs-6 text-gray-500">میانگین هر مکالمه</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-150px py-3 px-4 me-6 mb-3"><div class="fs-2 fw-bold" data-call-stat="follow_up">—</div><div class="fw-semibold fs-6 text-gray-500">بی‌پاسخ‌های پیگیری‌شده</div></div>
+        </div>
+    </div></div>
+    {% endif %}
+
     <div class="row g-5 g-xl-8">
         <div class="col-xl-7">
             <section class="card h-100"><div class="card-body">

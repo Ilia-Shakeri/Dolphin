@@ -1,11 +1,13 @@
-"""The telephony API (2.22.0): calls within the reader's scope, their
-recordings, and extension mapping (Platform Admin)."""
+"""The telephony API: calls within the reader's scope, their recordings,
+and extension mapping (Platform Admin) — 2.22.0; placing a call, the
+incoming-call popup and per-user call figures — 2.23.0."""
 
 from django.http import Http404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
 from accounts.access import capabilities_for
@@ -15,16 +17,37 @@ from common.openapi import ACCESS_DENIED_RESPONSE, CONFLICT_RESPONSE, THROTTLED_
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated, IsPlatformAdmin
 from common.throttles import SensitiveRateThrottle
 from integrations.crypto import SecretsUnavailable
-from telephony import services
-from telephony.models import Call, Extension
+from telephony import popup, services
+from telephony.models import Call, CallNotification, Extension, OriginateRequest
 from telephony.recordings import RecordingUnavailable, recording_response
 from telephony.selectors import calls_for
 
 PERSON_URLS = {"customer": "/customers/{}/", "user": "/users/{}/"}
 
 
-def serialize_call(call, *, may_hear):
-    pattern = PERSON_URLS.get(call.person_type)
+def visible_names(viewer, calls):
+    """`{(person_type, id): name}` for the people on these calls that
+    `viewer` may open — one query per person type, never a name from
+    outside the reader's own scope."""
+    from profiles.registry import adapter_for
+
+    wanted = {}
+    for call in calls:
+        if call.person_type and call.person_id:
+            wanted.setdefault(call.person_type, set()).add(call.person_id)
+    names = {}
+    for person_type, ids in wanted.items():
+        adapter = adapter_for(person_type)
+        if adapter is None:
+            continue
+        for person in adapter.scoped_queryset(viewer).filter(pk__in=ids):
+            names[(person_type, person.pk)] = adapter.display_name(person)
+    return names
+
+
+def serialize_call(call, *, may_hear, names=None):
+    name = (names or {}).get((call.person_type, call.person_id), "")
+    pattern = PERSON_URLS.get(call.person_type) if name else None
     return {
         "id": call.pk,
         "direction": call.direction,
@@ -40,6 +63,7 @@ def serialize_call(call, *, may_hear):
         "person_type": call.person_type,
         "person_id": call.person_id,
         "person_url": pattern.format(call.person_id) if pattern and call.person_id else "",
+        "person_display": name,
         "started_at": call.started_at.isoformat(),
         "answered_at": call.answered_at.isoformat() if call.answered_at else None,
         "ended_at": call.ended_at.isoformat() if call.ended_at else None,
@@ -86,7 +110,8 @@ class CallListView(FeatureGatedAPIMixin, APIView):
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(rows, request, view=self)
         may_hear = "calls.recordings" in capabilities
-        return paginator.get_paginated_response([serialize_call(call, may_hear=may_hear) for call in page])
+        names = visible_names(request.user, page)
+        return paginator.get_paginated_response([serialize_call(call, may_hear=may_hear, names=names) for call in page])
 
 
 class CallRecordingView(FeatureGatedAPIMixin, APIView):
@@ -198,3 +223,159 @@ class ExtensionDetailView(FeatureGatedAPIMixin, APIView):
     def delete(self, request, extension_id):
         services.delete_extension(actor=request.user, extension=self._get(extension_id))
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# --- placing a call (2.23.0) ------------------------------------------------------
+
+
+class OriginateThrottle(UserRateThrottle):
+    """Placing calls has a budget of its own: a person dialling, not a script."""
+
+    scope = "telephony_originate"
+
+
+class PopupPollThrottle(UserRateThrottle):
+    """The popup inbox is polled every two seconds by a visible tab."""
+
+    scope = "telephony_poll"
+
+
+class OriginateSerializer(serializers.Serializer):
+    number = serializers.CharField(max_length=40)
+    person_type = serializers.CharField(max_length=32, required=False, allow_blank=True)
+    person_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+
+
+def serialize_originate(row):
+    return {
+        "id": row.pk,
+        "status": row.status,
+        "status_label": row.get_status_display(),
+        "error": row.error,
+        "extension": row.extension,
+        "call": row.call_id,
+        "created_at": row.created_at.isoformat(),
+    }
+
+
+class OriginateView(FeatureGatedAPIMixin, APIView):
+    """`POST telephony/originate/` — ring the caller's own extension, then
+    dial `number`. Answers 202 at once; `GET telephony/originate/<id>/`
+    says whether the PBX took it."""
+
+    required_feature = "telephony"
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [OriginateThrottle]
+
+    @extend_schema(
+        request=OriginateSerializer,
+        responses={202: {"type": "object"}, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE},
+    )
+    def post(self, request):
+        data = OriginateSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        row = services.request_originate(
+            actor=request.user,
+            number=data.validated_data["number"],
+            person_type=data.validated_data.get("person_type") or "",
+            person_id=data.validated_data.get("person_id"),
+        )
+        return Response(serialize_originate(row), status=status.HTTP_202_ACCEPTED)
+
+
+class OriginateStatusView(FeatureGatedAPIMixin, APIView):
+    required_feature = "telephony"
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [PopupPollThrottle]
+
+    @extend_schema(responses={200: {"type": "object"}, 404: None}, operation_id="telephony_originate_status")
+    def get(self, request, request_id):
+        services.expire_stale_originates()
+        row = OriginateRequest.objects.filter(pk=request_id, user=request.user).first()
+        if row is None:
+            raise Http404()
+        return Response(serialize_originate(row))
+
+
+# --- the incoming-call popup (2.23.0) ----------------------------------------------
+
+
+class NotificationInboxView(FeatureGatedAPIMixin, APIView):
+    """`GET telephony/notifications/` — the popups this user should see now."""
+
+    required_feature = "telephony"
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [PopupPollThrottle]
+
+    @extend_schema(responses={200: {"type": "object"}}, operation_id="telephony_notifications_inbox")
+    def get(self, request):
+        return Response({"results": popup.inbox(request.user)})
+
+
+class NotificationDetailView(FeatureGatedAPIMixin, APIView):
+    required_feature = "telephony"
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [PopupPollThrottle]
+
+    @extend_schema(responses={200: {"type": "object"}, 404: None})
+    def get(self, request, notification_id):
+        row = CallNotification.objects.select_related("call").filter(pk=notification_id, user=request.user).first()
+        if row is None:
+            raise Http404()
+        return Response(popup.details(request.user, row))
+
+
+class NotificationDismissView(FeatureGatedAPIMixin, APIView):
+    required_feature = "telephony"
+    permission_classes = [IsActiveAuthenticated]
+    throttle_classes = [PopupPollThrottle]
+
+    @extend_schema(request=None, responses={204: None})
+    def post(self, request, notification_id):
+        popup.dismiss(request.user, notification_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# --- per-user call figures (2.23.0) ----------------------------------------------------
+
+
+class CallStatsQuerySerializer(serializers.Serializer):
+    user = serializers.IntegerField(min_value=1)
+    period_start = serializers.DateTimeField()
+    period_end = serializers.DateTimeField()
+
+    def validate(self, attrs):
+        if attrs["period_end"] <= attrs["period_start"]:
+            raise serializers.ValidationError({"period_end": "بازه نامعتبر است."})
+        return attrs
+
+
+class CallStatsView(FeatureGatedAPIMixin, APIView):
+    """`GET telephony/stats/?user=&period_start=&period_end=` — one user's
+    calls in a period: a `calls.company` holder for anyone, a `calls.own`
+    holder for themselves."""
+
+    required_feature = "telephony"
+    permission_classes = [IsActiveAuthenticated]
+
+    @extend_schema(
+        parameters=[CallStatsQuerySerializer],
+        responses={200: {"type": "object"}, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: None},
+    )
+    def get(self, request):
+        from django.utils import timezone
+
+        from accounts.access import crm_identities
+        from accounts.models import User
+        from telephony.profile import call_stats, sees_calls_of
+
+        query = CallStatsQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        person = crm_identities(User.objects.filter(pk=query.validated_data["user"])).first()
+        if person is None:
+            raise Http404()
+        if not sees_calls_of(request.user, person):
+            return Response({"detail": "دسترسی به تماس‌های این کاربر ندارید."}, status=status.HTTP_403_FORBIDDEN)
+        return Response(call_stats(
+            person, query.validated_data["period_start"], query.validated_data["period_end"], now=timezone.now(),
+        ))

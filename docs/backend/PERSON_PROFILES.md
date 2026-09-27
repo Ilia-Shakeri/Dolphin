@@ -49,6 +49,14 @@ what to render.
   template)`. The server renders every permitted tab's empty shell; the script
   fills a tab the first time it opens. `?tab=<key>` opens that tab first and
   `history.pushState` keeps Back working.
+- **Telephony** (2.23.0, only with the `telephony` feature — the adapters ask
+  `telephony.profile` and `telephony.services`, never the other way round): the
+  customer «تماس‌ها» tab gains a PBX-calls section beside the logged calls
+  (either half alone keeps the tab); users get a «تماس‌ها» tab for
+  `calls.company` or for themselves with `calls.own`; «تماس» and the header
+  phone become click-to-call (`data-originate-number`) for a viewer with an
+  extension; PBX calls join both timelines; «عملکرد» shows the period's call
+  figures. Contract: `docs/backend/TELEPHONY.md`.
 
 ## Referring to a person from another table
 
