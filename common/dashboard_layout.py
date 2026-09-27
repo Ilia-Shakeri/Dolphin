@@ -165,6 +165,33 @@ def arrange_capability_tiles(widgets, user, layout=None):
     return _ordered(arranged, key_of=lambda item: item["key"], order=layout["order"])
 
 
+def capability_tile_catalog(widgets, layout):
+    """Every capability tile this reader could have on their dashboard —
+    shown or hidden by them — for the "افزودن ویجت" dialog (2.18.2).
+
+    `widgets` is the view's own list, already filtered to the reader's
+    capabilities and this deployment's features, so this adds nothing a
+    reader may not see; it only stops dropping the tiles *they* hid, so the
+    dialog can offer them back with their real figure. A tile the
+    deployment hides stays out, like everywhere else.
+    """
+    catalog = []
+    for widget in widgets:
+        key = capability_widget_key(widget["capability"])
+        if key in layout["deployment_hidden"]:
+            continue
+        catalog.append({
+            "key": key,
+            "family": "tile",
+            "label": widget["label"],
+            "value": widget["value"],
+            "icon": widget.get("icon"),
+            "icon_paths": widget.get("icon_paths"),
+            "accent": widget.get("accent"),
+        })
+    return catalog
+
+
 def get_dashboard_settings():
     """The deployment's singleton row, creating it (empty — nothing hidden,
     no order override) on first read. Never raises, same reasoning as
@@ -340,8 +367,11 @@ def layout_state(layout):
 def apply_layout(dashboard_payload, user=None):
     """`common.dashboard.dashboard_for`'s own return value, arranged for
     this reader — called once, after every KPI has already been scoped, so a
-    widget hidden here is genuinely hidden, and a widget nobody may see for
-    permission/data-scope reasons was never in the list to begin with.
+    widget hidden here is genuinely off the dashboard, and a widget nobody
+    may see for permission/data-scope reasons was never in the list to begin
+    with. (Since 2.18.2 a widget the reader hid *themselves* still travels
+    under `hidden_available`, for the "افزودن ویجت" preview — see
+    `_hidden_available`; a deployment-hidden one never does.)
 
     A key saved by a since-removed KPI (a widget dropped in a later version)
     is silently ignored, never an error — the same "disabling never breaks
@@ -390,8 +420,44 @@ def apply_layout(dashboard_payload, user=None):
         "breakdown": breakdown,
         "gauges": gauges,
         "agent_share": agent_share,
+        "hidden_available": _hidden_available(dashboard_payload, layout),
         # `locked_hidden` is what the editor may *not* offer to unhide — sent
         # so the page can leave those rows out of the widget list entirely
         # rather than showing a switch that silently does nothing.
         "layout": layout_state(layout),
     }
+
+
+#: The families the "افزودن ویجت" dialog draws a preview for, per insight
+#: part — the same five shapes the dashboard itself renders.
+_SINGLE_PARTS = (("trend", "trend"), ("breakdown", "breakdown"), ("agent_share", "agent_share"))
+
+
+def _hidden_available(dashboard_payload, layout):
+    """The parts *this reader* hid themselves and could have back, with their
+    real figures — for the "افزودن ویجت" dialog's preview.
+
+    Only the reader's own hidden set, never the deployment's: a widget the
+    deployment hides is a floor nobody lifts, so offering it would be a
+    control that does nothing. And only parts that are in the payload at
+    all — which `dashboard_for` already scoped to this reader's features,
+    permissions and data — so nothing here widens what anybody may see: it is
+    the same figure the widget would show if they put it back.
+
+    Until 2.18.2 the dialog showed an invented sample per widget, because
+    the page never had the real one for a widget it did not render.
+    """
+    reader_hidden = layout["hidden"] - layout["deployment_hidden"]
+    sizes = layout["sizes"]
+    available = []
+    for kpi in dashboard_payload["kpis"]:
+        if kpi["key"] in reader_hidden:
+            available.append({"family": "kpi", **kpi, "size": size_class(kpi["key"], sizes)})
+    for gauge in dashboard_payload["gauges"]:
+        if gauge["key"] in reader_hidden:
+            available.append({"family": "gauge", **gauge, "size": size_class(gauge["key"], sizes)})
+    for key, family in _SINGLE_PARTS:
+        part = dashboard_payload[key]
+        if part is not None and key in reader_hidden:
+            available.append({"family": family, **part, "key": key, "size": size_class(key, sizes)})
+    return available

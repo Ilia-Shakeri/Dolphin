@@ -481,8 +481,12 @@ class ApiTests(DashboardFixtures):
         self.a_sale(amount="2000000.00")
         response = self.api.get("/api/v1/dashboard/")
         self.assertEqual(response.status_code, 200)
+        # `hidden_available` joined in 2.18.2: the parts this reader hid
+        # themselves, with their real figures, for the "افزودن ویجت"
+        # dialog's preview (`common.dashboard_layout._hidden_available`).
         self.assertEqual(
-            set(response.data), {"kpis", "trend", "breakdown", "gauges", "agent_share", "layout"},
+            set(response.data),
+            {"kpis", "trend", "breakdown", "gauges", "agent_share", "hidden_available", "layout"},
         )
         self.assertEqual(
             set(response.data["layout"]),

@@ -595,30 +595,24 @@ class DashboardAddWidgetTests(SimpleTestCase):
         )
         self.assertIn("addWidgetDialog.close()", body)
 
-    def test_every_catalog_widget_has_a_preview_entry(self):
-        """The dialog silently drops any catalog key its own meta table does
-        not recognise (`if (!meta) return;` in `buildAddWidgetGrid`) rather
-        than crashing — but a widget nobody can ever add back defeats the
-        point, so the table has to be kept in step with the real catalog by
-        hand. This test is that step: it fails the moment a widget is added
-        to `WIDGET_CATALOG` without a matching entry here."""
-        from common.dashboard_layout import WIDGET_CATALOG
+    def test_the_sample_table_is_gone(self):
+        """Restated 2.18.2. The dialog used to preview every widget over an
+        invented sample (`DASHBOARD_ADD_WIDGET_META`, badged «نمونه»), and
+        this test kept that table in step with `WIDGET_CATALOG`. The page now
+        has every widget's real figure (`hidden_available`,
+        `dashboard-tile-catalog`), so there is no table to keep in step and
+        no fabricated figure to label — see `test_dashboard_round3`."""
+        self.assertNotIn("const DASHBOARD_ADD_WIDGET_META", SCRIPT)
+        self.assertNotIn('"نمونه"', function_body("setupDashboardEditor"))
 
-        start = SCRIPT.index("const DASHBOARD_ADD_WIDGET_META = {")
-        end = SCRIPT.index("\n    };", start)
-        table = SCRIPT[start:end]
-        for key, _label, _feature in WIDGET_CATALOG:
-            self.assertIn(f"{key}: {{", table, f"no preview entry for {key!r}")
-
-    def test_the_chart_families_render_a_real_apex_instance_not_a_placeholder(self):
-        """The two honest options for a widget with no real data yet are a
-        skeleton (the KPI family) or a real chart over a clearly-fake sample
-        (everything else) — never a number dressed up to look real. See the
-        `sample`/`نمونه` badge every card carries."""
-        body = function_body("renderAddWidgetPreview")
-        self.assertIn("renderGaugeChart(chart, empty, meta.value", body)
-        self.assertIn("renderDonutChart(chart, empty, meta.items)", body)
-        self.assertIn("renderMixedChart(chart, empty, meta.points, meta.counts", body)
+    def test_the_chart_families_render_a_real_apex_instance_over_real_data(self):
+        """Restated 2.18.2: the same real small Apex instance per chart
+        family, drawn over the widget's own payload rather than a sample."""
+        body = function_body("renderWidgetPreview")
+        self.assertIn("renderGaugeChart(chart, empty, data.value", body)
+        self.assertIn("renderDonutChart(chart, empty, data.items || [])", body)
+        self.assertIn("renderMultiGaugeChart(chart, empty, data.items || [])", body)
+        self.assertIn("renderMixedChart(chart, empty, data.points || [], data.counts || []", body)
 
     def test_adding_one_is_the_same_save_call_the_restore_bar_uses(self):
         """No second write path: both the flat bar and this dialog end at

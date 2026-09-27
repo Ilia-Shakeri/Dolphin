@@ -57,7 +57,7 @@ class FirstRowEditableTests(SimpleTestCase):
         insight widgets never got one, and the tile row could not move."""
         insights = function_body("setupDashboardInsights")
         self.assertNotIn("setupDashboardEditor(", insights)
-        self.assertIn("return pageState ? {grid, widgets, layout} : null;", insights)
+        self.assertIn("return pageState ? {grid, widgets, layout, hiddenAvailable} : null;", insights)
         self.assertIn("return emptyEditorState();", insights)
         dashboard = function_body("setupDashboard")
         self.assertIn("setupDashboardEditor(grid)", dashboard)
@@ -111,3 +111,103 @@ class LayoutStateRenderTests(TestCase):
         self.assertTrue(state["is_customised"])
         self.assertEqual(state["order"][:2], ["capability:leads.company", "capability:customers.company"])
         self.assertEqual(state["sizes"], {"capability:leads.company": "half"})
+
+
+class AddWidgetDialogTests(SimpleTestCase):
+    """«در مودال افزودن ویجت باید همهٔ ویجت‌های موجود نمایش داده شود و
+    پیش‌نمایش داشته باشد»."""
+
+    def test_the_dialog_has_an_addable_group_and_an_on_the_dashboard_group(self):
+        self.assertIn('id="dashboard-add-widget-grid"', HOME)
+        self.assertIn('id="dashboard-add-widget-placed"', HOME)
+
+    def test_every_source_of_widgets_feeds_the_dialog(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn('document.getElementById("dashboard-tile-catalog")', body)
+        self.assertIn("widgets.forEach((widget) => {", body)
+        self.assertIn("(hiddenAvailable || []).forEach((part) => {", body)
+
+    def test_a_placed_widget_can_be_taken_off_from_the_dialog(self):
+        body = function_body("setupDashboardEditor")
+        self.assertIn("if (hidden.includes(entry.key)) addBackWidget(entry.key);", body)
+        self.assertIn("else hideWidget(entry.key);", body)
+
+    def test_dialog_cards_do_not_collide_with_dashboard_boxes(self):
+        """The dialog sits before both grids; a card carrying
+        `data-widget-key` would be what every box lookup found first."""
+        body = function_body("setupDashboardEditor")
+        self.assertIn("card.dataset.addWidgetKey = entry.key;", body)
+        self.assertNotIn("card.dataset.widgetKey", body)
+
+    def test_a_tile_preview_shows_its_real_figure(self):
+        body = function_body("renderWidgetPreview")
+        self.assertIn('entry.family === "tile"', body)
+        self.assertIn("toPersianDigits(String(data.value ?? 0))", body)
+
+    def test_the_hidden_bar_names_a_box_hidden_before_the_page_loaded(self):
+        """It used to fall back to the raw key, e.g. `capability:audit.all`."""
+        body = function_body("setupDashboardEditor")
+        self.assertIn("const listed = catalogLabel(key);", body)
+
+
+class HiddenAvailableTests(TestCase):
+    def setUp(self):
+        from common.models import DashboardSettings
+
+        self.admin = User.objects.create_user(
+            username="round3.dialog", password=PASSWORD, role=User.Role.PLATFORM_ADMIN,
+        )
+        self.settings_row = DashboardSettings.objects.get_or_create(singleton=DashboardSettings.SINGLETON)[0]
+
+    def payload(self):
+        return {
+            "kpis": [
+                {"key": "sales_count_this_month", "label": "a", "display": "۱"},
+                {"key": "outstanding", "label": "b", "display": "۲"},
+            ],
+            "trend": {"title": "روند", "points": [], "counts": []},
+            "breakdown": None,
+            "gauges": [{"key": "lead_conversion_rate", "label": "c", "value": 40}],
+            "agent_share": None,
+        }
+
+    def test_a_part_the_reader_hid_travels_with_its_real_figure(self):
+        from common.dashboard_layout import apply_layout
+
+        update_user_dashboard_layout(actor=self.admin, hidden_widgets=["sales_count_this_month", "trend"])
+        result = apply_layout(self.payload(), self.admin)
+        available = {item["key"]: item for item in result["hidden_available"]}
+        self.assertEqual(set(available), {"sales_count_this_month", "trend"})
+        self.assertEqual(available["sales_count_this_month"]["family"], "kpi")
+        self.assertEqual(available["sales_count_this_month"]["display"], "۱")
+        self.assertEqual(available["trend"]["family"], "trend")
+        self.assertNotIn("sales_count_this_month", [kpi["key"] for kpi in result["kpis"]])
+
+    def test_a_deployment_hidden_part_is_never_offered(self):
+        from common.dashboard_layout import apply_layout
+
+        self.settings_row.hidden_widgets = ["outstanding"]
+        self.settings_row.save()
+        update_user_dashboard_layout(actor=self.admin, hidden_widgets=["outstanding"])
+        result = apply_layout(self.payload(), self.admin)
+        self.assertEqual(result["hidden_available"], [])
+
+    def test_the_tile_catalog_keeps_reader_hidden_tiles_and_drops_deployment_hidden_ones(self):
+        from common.dashboard_layout import capability_tile_catalog, effective_layout
+
+        self.settings_row.hidden_widgets = ["capability:audit.all"]
+        self.settings_row.save()
+        update_user_dashboard_layout(actor=self.admin, hidden_widgets=["capability:leads.company"])
+        tiles = [
+            {"capability": "leads.company", "label": "سرنخ", "value": 3, "icon": "ki-x", "icon_paths": 2, "accent": "info"},
+            {"capability": "audit.all", "label": "رویداد", "value": 9, "icon": "ki-y", "icon_paths": 2, "accent": "dark"},
+        ]
+        catalog = capability_tile_catalog(tiles, effective_layout(self.admin))
+        self.assertEqual([entry["key"] for entry in catalog], ["capability:leads.company"])
+        self.assertEqual(catalog[0]["value"], 3)
+        self.assertEqual(catalog[0]["family"], "tile")
+
+    def test_the_page_renders_the_tile_catalog(self):
+        self.client.force_login(self.admin)
+        page = self.client.get("/").content.decode("utf-8")
+        self.assertIn('<script id="dashboard-tile-catalog" type="application/json">', page)

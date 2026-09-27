@@ -17,7 +17,12 @@ from accounts.access import (
 from accounts.avatars import default_avatar_url, has_avatar
 from accounts.models import User
 from common import labels
-from common.dashboard_layout import arrange_capability_tiles, effective_layout, layout_state
+from common.dashboard_layout import (
+    arrange_capability_tiles,
+    capability_tile_catalog,
+    effective_layout,
+    layout_state,
+)
 from common.integrations import any_integration_configurable, visible_integrations
 from common.deployment.profile import active_profile, feature_enabled
 from common.pdf import (
@@ -361,6 +366,9 @@ class DolphinHomeView(ActiveCrmView):
         # The editor's starting state, rendered into the page so it never
         # depends on the insight request (see `dashboard-layout-state`).
         context["dashboard_layout_state"] = layout_state(layout)
+        # Every tile this reader could have, hidden ones included, for the
+        # "افزودن ویجت" dialog's real-figure previews.
+        context["dashboard_tile_catalog"] = capability_tile_catalog(widgets, layout)
         return context
 
 

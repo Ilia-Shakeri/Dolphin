@@ -706,6 +706,7 @@
             grid: document.getElementById("dashboard-widgets") || document.getElementById("dashboard-capability-tiles"),
             widgets: new Map(),
             layout: pageState,
+            hiddenAvailable: [],
         } : null);
         if (!section) return emptyEditorState();
         let data;
@@ -728,6 +729,9 @@
 
         const grid = document.getElementById("dashboard-widgets");
         const layout = data.layout || pageState || {order: [], hidden: [], sizes: {}, locked_hidden: []};
+        // The parts this reader hid themselves, with their real figures, for
+        // the "افزودن ویجت" dialog (`_hidden_available`, dashboard_layout.py).
+        const hiddenAvailable = data.hidden_available || [];
 
         // Every widget this reader actually received, keyed, each with the
         // column element it will occupy and the chart work that has to run
@@ -741,6 +745,8 @@
             widgets.set(kpi.key, {
                 key: kpi.key,
                 label: kpi.label,
+                family: "kpi",
+                data: kpi,
                 column,
                 size: kpi.size,
                 mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent}); },
@@ -752,6 +758,8 @@
             widgets.set(gauge.key, {
                 key: gauge.key,
                 label: gauge.label,
+                family: "gauge",
+                data: gauge,
                 column,
                 size: gauge.size,
                 mount: () => renderGaugeChart(canvas, empty, gauge.value, {
@@ -770,6 +778,8 @@
             widgets.set("trend", {
                 key: "trend",
                 label: data.trend.title,
+                family: "trend",
+                data: data.trend,
                 column: card,
                 size: data.trend.size,
                 // Mixed rather than a bare area: `_sales_trend` (common/
@@ -819,6 +829,8 @@
             widgets.set("agent_share", {
                 key: "agent_share",
                 label: data.agent_share.title,
+                family: "agent_share",
+                data: data.agent_share,
                 column: card,
                 size: data.agent_share.size,
                 mount: () => renderMultiGaugeChart(
@@ -845,6 +857,8 @@
             widgets.set("breakdown", {
                 key: "breakdown",
                 label: data.breakdown.title,
+                family: "breakdown",
+                data: data.breakdown,
                 column: card,
                 size: data.breakdown.size,
                 mount: () => renderDonutChart(
@@ -861,7 +875,7 @@
         // this section existed.
         if (!widgets.size) {
             section.hidden = true;
-            return pageState ? {grid, widgets, layout} : null;
+            return pageState ? {grid, widgets, layout, hiddenAvailable} : null;
         }
 
         // Placed in the server's order. `widgets` is a Map, so its own
@@ -886,7 +900,7 @@
         // created node not yet attached has none.
         widgets.forEach((widget) => widget.mount());
 
-        return pageState ? {grid, widgets, layout} : null;
+        return pageState ? {grid, widgets, layout, hiddenAvailable} : null;
     }
 
     /**
@@ -915,47 +929,61 @@
         {value: "full", label: "تمام‌عرض"},
     ];
 
-    //: Per-catalog-key preview shape for the "افزودن ویجت" dialog
-    //: (`buildAddWidgetGrid` below). `icon`/`accent` copy the real icon and
-    //: colour `common/dashboard.py` gives each KPI/gauge, so a card in the
-    //: gallery looks like the widget it adds, not a generic placeholder.
-    //: `sample` is illustrative only — never a real figure from this
-    //: deployment's data — which is why every preview also carries the
-    //: "نمونه" badge `buildAddWidgetGrid` adds next to it.
-    const DASHBOARD_ADD_WIDGET_META = {
-        sales_amount_this_month: {family: "kpi", icon: "ki-chart-line-up", icon_paths: 2, accent: "success"},
-        sales_count_this_month: {family: "kpi", icon: "ki-basket", icon_paths: 4, accent: "primary"},
-        outstanding: {family: "kpi", icon: "ki-wallet", icon_paths: 4, accent: "warning"},
-        calls_this_week: {family: "kpi", icon: "ki-call", icon_paths: 8, accent: "info"},
-        after_sales_open: {family: "kpi", icon: "ki-wrench", icon_paths: 2, accent: "danger"},
-        after_sales_closed_this_month: {family: "kpi", icon: "ki-check-circle", icon_paths: 2, accent: "success"},
-        trend: {
-            family: "trend", icon: "ki-chart-line-up", icon_paths: 2, accent: "success",
-            points: ["هفتهٔ ۱", "هفتهٔ ۲", "هفتهٔ ۳", "هفتهٔ ۴", "هفتهٔ ۵", "هفتهٔ ۶"].map((label, index) => ({
-                label, value: [4, 6, 5, 8, 7, 10][index], display: String([4, 6, 5, 8, 7, 10][index]),
-            })),
-            counts: [2, 3, 3, 4, 3, 5],
-        },
-        breakdown: {
-            family: "donut", icon: "ki-chart-pie-3", icon_paths: 2, accent: "primary",
-            items: [
-                {label: "در انتظار", value: 4, display: "۴"},
-                {label: "تکمیل", value: 7, display: "۷"},
-                {label: "کنسل‌شده", value: 2, display: "۲"},
-            ],
-        },
-        lead_conversion_rate: {family: "gauge", icon: "ki-percentage", icon_paths: 2, accent: "success", value: 62},
-        receivables_collection_rate: {family: "gauge", icon: "ki-percentage", icon_paths: 2, accent: "info", value: 74},
-        after_sales_closure_rate: {family: "gauge", icon: "ki-percentage", icon_paths: 2, accent: "warning", value: 55},
-        agent_share: {
-            family: "donut", icon: "ki-profile-user", icon_paths: 2, accent: "primary",
-            items: [
-                {label: "نمایندهٔ ۱", value: 5, display: "۵"},
-                {label: "نمایندهٔ ۲", value: 3, display: "۳"},
-                {label: "نمایندهٔ ۳", value: 2, display: "۲"},
-            ],
-        },
-    };
+    /**
+     * One widget's preview for the "افزودن ویجت" dialog, drawn from its own
+     * real payload — the same figure the widget shows on the dashboard.
+     *
+     * Until 2.18.2 every preview here was an invented sample
+     * (`DASHBOARD_ADD_WIDGET_META`, with a «نمونه» badge), because the page
+     * had no real figure for a widget it had not rendered. The server now
+     * sends those (`hidden_available`, `dashboard-tile-catalog`), so a
+     * preview is simply the widget, small. `host` must already be in an open
+     * dialog: Apex measures a real element's width, and a closed `<dialog>`
+     * measures zero — the same rule `placeDashboardWidget` documents for the
+     * grid itself.
+     */
+    function renderWidgetPreview(host, entry) {
+        const data = entry.data || {};
+        if (entry.family === "kpi" || entry.family === "tile") {
+            const symbol = document.createElement("span");
+            symbol.className = "symbol symbol-40px flex-shrink-0";
+            const symbolLabel = document.createElement("span");
+            symbolLabel.className = `symbol-label bg-light-${data.accent || "primary"}`;
+            const icon = document.createElement("i");
+            icon.className = `ki-duotone ${data.icon || "ki-element-11"} fs-2 text-${data.accent || "primary"}`;
+            for (let index = 1; index <= (data.icon_paths || 2); index += 1) {
+                icon.appendChild(document.createElement("span")).className = `path${index}`;
+            }
+            symbolLabel.appendChild(icon);
+            symbol.appendChild(symbolLabel);
+            const figure = document.createElement("span");
+            // Wraps rather than truncates: a month's sales in toman is a
+            // long figure, and a preview that hides its own number is not
+            // a preview.
+            figure.className = "text-gray-900 fw-bolder fs-3 lh-sm text-break";
+            figure.textContent = entry.family === "tile"
+                ? toPersianDigits(String(data.value ?? 0))
+                : (data.display || "—");
+            host.append(symbol, figure);
+            return;
+        }
+        const chart = document.createElement("div");
+        chart.className = "dashboard-add-widget-chart";
+        const empty = document.createElement("p");
+        empty.className = "text-muted fs-8 mb-0";
+        empty.textContent = "هنوز داده‌ای برای این ویجت نیست.";
+        empty.hidden = true;
+        host.append(chart, empty);
+        if (entry.family === "gauge") {
+            renderGaugeChart(chart, empty, data.value, {accent: data.accent, label: data.label});
+        } else if (entry.family === "trend") {
+            renderMixedChart(chart, empty, data.points || [], data.counts || [], {seriesNames: ["مبلغ فروش", "تعداد فروش"]});
+        } else if (entry.family === "breakdown") {
+            renderDonutChart(chart, empty, data.items || []);
+        } else if (entry.family === "agent_share") {
+            renderMultiGaugeChart(chart, empty, data.items || []);
+        }
+    }
 
     /**
      * In-place dashboard customisation: drag to reorder, resize from a
@@ -980,7 +1008,7 @@
      * And the size `<select>` became a corner grip that is dragged, which
      * is what "resize" means everywhere else on a screen.
      */
-    function setupDashboardEditor({grid, widgets, layout}) {
+    function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         const bar = document.getElementById("dashboard-editor-bar");
         const toggle = document.getElementById("dashboard-edit-toggle");
         const done = document.getElementById("dashboard-edit-done");
@@ -992,6 +1020,7 @@
         const addWidgetDialog = document.getElementById("dashboard-add-widget-dialog");
         const addWidgetGrid = document.getElementById("dashboard-add-widget-grid");
         const addWidgetEmpty = document.getElementById("dashboard-add-widget-empty");
+        const addWidgetPlaced = document.getElementById("dashboard-add-widget-placed");
         if (!bar || !toggle || !grid) return;
 
         // Every editable grid on the page, in document order. `grid` is the
@@ -1016,11 +1045,14 @@
             return grids.flatMap((host) => Array.from(host.children));
         }
 
-        /** What a box calls itself in the hidden bar. */
+        /** What a box calls itself in the hidden bar and in its controls'
+         * accessible names. */
         function boxLabel(key) {
             const known = widgets.get(key);
             if (known) return known.label;
-            const column = document.querySelector(`[data-widget-key="${key}"]`);
+            const listed = catalogLabel(key);
+            if (listed) return listed;
+            const column = boxColumn(key);
             return (column && column.dataset.widgetLabel) || key;
         }
 
@@ -1060,161 +1092,185 @@
                 button.className = "btn btn-sm btn-light-primary py-1 px-3 fs-8";
                 button.dataset.restoreWidget = key;
                 button.textContent = `+ ${boxLabel(key)}`;
-                button.addEventListener("click", () => {
-                    hidden = hidden.filter((item) => item !== key);
-                    const column = document.querySelector(`[data-widget-key="${key}"]`);
-                    if (column) column.hidden = false;
-                    renderHiddenBar();
-                    save({hidden_widgets: hidden});
+                // The same path as the dialog's «افزودن». A box hidden
+                // before the page loaded is not in the DOM and only a reload
+                // draws it; this bar has no close event to hang that reload
+                // on, so it reloads once the save has landed.
+                button.addEventListener("click", async () => {
+                    const present = Boolean(boxColumn(key));
+                    await addBackWidget(key);
+                    if (!present) window.location.reload();
                 });
                 hiddenList.appendChild(button);
             });
             hiddenBar.hidden = false;
         }
 
-        // "افزودن ویجت" — a richer alternative to the flat restore bar
-        // above, with a preview per widget. Built at most once per page
-        // load (`addWidgetBuilt`), the first time the reader opens it: a
-        // dashboard nobody customises should not pay for six mounted Apex
-        // instances it never shows. `addWidgetAdded` tracks whether the
-        // reader actually changed anything this time the dialog was open —
-        // only then is a reload (see the `close` handler below) worth it.
+        // "افزودن ویجت" — every widget this reader can have, each with a
+        // preview of its own real figure, in two groups: the ones they hid
+        // (addable) and the ones already on the dashboard (removable).
+        // Product owner, 2026-09-27: «در مودال افزودن ویجت باید همهٔ
+        // ویجت‌های موجود نمایش داده شود و پیش‌نمایش داشته باشد». Until
+        // 2.18.2 it listed only hidden widgets, from the static catalog,
+        // over invented samples — including widgets this deployment or role
+        // would never render, which put back a box that then never appeared.
+        //
+        // Built at most once per page load (`addWidgetBuilt`), the first time
+        // the reader opens it, and after that each card only moves between
+        // the two groups — a chart is mounted once, never per open.
+        // `addWidgetAdded` records that a widget absent from the page came
+        // back, the one case a reload is needed for (see the `close` handler).
         let addWidgetBuilt = false;
         let addWidgetAdded = false;
+        const addWidgetCards = new Map();
 
-        /** One card's preview area, filled per its `DASHBOARD_ADD_WIDGET_META`
-         * family. `kpi` gets the real icon and a skeleton bar instead of a
-         * number — this dialog has no real figure to show for a widget that
-         * is not on the reader's dashboard yet, and a placeholder skeleton
-         * says that honestly where an invented figure would not. The chart
-         * families get a real small Apex instance over the sample series
-         * above, which is the closest thing this codebase has to previewing
-         * a chart without fabricating this deployment's own numbers.
-         */
-        function renderAddWidgetPreview(host, meta) {
-            if (meta.family === "kpi") {
-                const symbol = document.createElement("span");
-                symbol.className = "symbol symbol-40px";
-                const symbolLabel = document.createElement("span");
-                symbolLabel.className = `symbol-label bg-light-${meta.accent}`;
-                const icon = document.createElement("i");
-                icon.className = `ki-duotone ${meta.icon} fs-2 text-${meta.accent}`;
-                for (let index = 1; index <= (meta.icon_paths || 2); index += 1) {
-                    icon.appendChild(document.createElement("span")).className = `path${index}`;
-                }
-                symbolLabel.appendChild(icon);
-                symbol.appendChild(symbolLabel);
-                const skeleton = document.createElement("span");
-                skeleton.className = "dashboard-add-widget-skeleton";
-                host.append(symbol, skeleton);
-                return;
+        /** Every widget this reader may have, keyed: the tiles row (rendered
+         * into the page, hidden ones included), the insight parts on screen,
+         * and the insight parts they hid (`hidden_available`). Deployment-
+         * hidden widgets are in none of the three sources. */
+        function widgetCatalog() {
+            const entries = new Map();
+            let tiles = [];
+            try {
+                const node = document.getElementById("dashboard-tile-catalog");
+                tiles = node ? JSON.parse(node.textContent) : [];
+            } catch (error) {
+                tiles = [];
             }
-            const chart = document.createElement("div");
-            chart.className = "dashboard-add-widget-chart";
-            const empty = document.createElement("div");
-            empty.className = "d-none";
-            host.append(chart, empty);
-            if (meta.family === "gauge") {
-                renderGaugeChart(chart, empty, meta.value, {accent: meta.accent});
-            } else if (meta.family === "donut") {
-                renderDonutChart(chart, empty, meta.items);
-            } else if (meta.family === "trend") {
-                renderMixedChart(chart, empty, meta.points, meta.counts, {seriesNames: ["مبلغ", "تعداد"]});
-            }
+            tiles.forEach((tile) => entries.set(tile.key, {key: tile.key, family: "tile", label: tile.label, data: tile}));
+            widgets.forEach((widget) => {
+                if (widget.family) entries.set(widget.key, {key: widget.key, family: widget.family, label: widget.label, data: widget.data});
+            });
+            (hiddenAvailable || []).forEach((part) => {
+                entries.set(part.key, {key: part.key, family: part.family, label: part.label || part.title, data: part});
+            });
+            return entries;
+        }
+        const catalog = widgetCatalog();
+
+        /** A box's catalog label — the one source that also knows boxes
+         * hidden before the page loaded, which are not in the DOM to ask
+         * (until 2.18.2 those showed their raw key, e.g. `capability:audit.all`). */
+        function catalogLabel(key) {
+            const entry = catalog.get(key);
+            return entry ? entry.label : null;
+        }
+
+        function boxColumn(key) {
+            return grids.map((host) => host.querySelector(`:scope > [data-widget-key="${key}"]`)).find(Boolean) || null;
+        }
+
+        function hideWidget(key) {
+            if (!hidden.includes(key)) hidden = [...hidden, key];
+            const column = boxColumn(key);
+            if (column) column.hidden = true;
+            renderHiddenBar();
+            refreshAddWidgetGrid();
+            return save({hidden_widgets: hidden});
         }
 
         function addBackWidget(key) {
             hidden = hidden.filter((item) => item !== key);
-            addWidgetAdded = true;
+            const column = boxColumn(key);
+            // Hidden earlier on this same page: its column (and any chart in
+            // it) is still in the DOM, so it simply comes back. Hidden before
+            // the page loaded: the page never drew it, so the dialog's close
+            // handler reloads to let the server draw it in its saved place.
+            if (column) column.hidden = false;
+            else addWidgetAdded = true;
             renderHiddenBar();
             refreshAddWidgetGrid();
-            save({hidden_widgets: hidden});
+            return save({hidden_widgets: hidden});
         }
 
-        function buildAddWidgetGrid(catalog) {
+        function buildAddWidgetGrid() {
             if (!addWidgetGrid || addWidgetBuilt) return;
             addWidgetBuilt = true;
             addWidgetGrid.replaceChildren();
+            if (addWidgetPlaced) addWidgetPlaced.replaceChildren();
             catalog.forEach((entry) => {
-                const meta = DASHBOARD_ADD_WIDGET_META[entry.key];
-                if (!meta) return; // A catalog entry this file's copy of the table has not caught up with yet.
-                const card = document.createElement("button");
-                card.type = "button";
+                const card = document.createElement("div");
                 card.className = "dashboard-add-widget-card";
-                card.dataset.widgetKey = entry.key;
+                // Not `data-widget-key`: that attribute is how every lookup in
+                // this editor finds a box on the dashboard, and the dialog sits
+                // before both grids in the document.
+                card.dataset.addWidgetKey = entry.key;
+                card.dataset.addWidgetFamily = entry.family;
                 card.setAttribute("role", "listitem");
 
                 const head = document.createElement("span");
-                head.className = "d-flex align-items-center justify-content-between w-100";
+                head.className = "d-flex align-items-center justify-content-between gap-2 w-100";
                 const label = document.createElement("span");
                 label.className = "fw-semibold fs-7 text-gray-900";
                 label.textContent = entry.label;
-                const sample = document.createElement("span");
-                sample.className = "badge badge-light fs-9";
-                sample.textContent = "نمونه";
-                head.append(label, sample);
+                const badge = document.createElement("span");
+                badge.className = "badge badge-light-success fs-9 flex-shrink-0";
+                badge.textContent = "روی داشبورد";
+                badge.dataset.addWidgetPlacedBadge = "";
+                head.append(label, badge);
 
                 const preview = document.createElement("span");
                 preview.className = "dashboard-add-widget-preview";
-                renderAddWidgetPreview(preview, meta);
 
-                const feature = document.createElement("span");
-                feature.className = "text-muted fs-9";
-                feature.textContent = entry.feature;
+                const action = document.createElement("button");
+                action.type = "button";
+                action.className = "btn btn-sm w-100";
+                action.dataset.addWidgetAction = entry.key;
+                action.addEventListener("click", () => {
+                    if (hidden.includes(entry.key)) addBackWidget(entry.key);
+                    else hideWidget(entry.key);
+                });
 
-                const add = document.createElement("span");
-                add.className = "dashboard-add-widget-card-add btn btn-sm btn-light-primary w-100";
-                add.innerHTML = '<i class="ki-duotone ki-plus fs-4 me-1"></i>افزودن به داشبورد';
-
-                card.append(head, preview, feature, add);
-                card.addEventListener("click", () => addBackWidget(entry.key));
-                addWidgetGrid.appendChild(card);
+                card.append(head, preview, action);
+                addWidgetCards.set(entry.key, {card, label: entry.label});
+                refreshCard(entry.key);
+                // Mounted after the card is in the (open) dialog — see
+                // `renderWidgetPreview`.
+                renderWidgetPreview(preview, entry);
             });
         }
 
+        function refreshCard(key) {
+            const {card, label} = addWidgetCards.get(key);
+            const placed = !hidden.includes(key);
+            const target = placed ? addWidgetPlaced : addWidgetGrid;
+            if (target && card.parentElement !== target) target.appendChild(card);
+            const badge = card.querySelector("[data-add-widget-placed-badge]");
+            if (badge) badge.hidden = !placed;
+            const action = card.querySelector("[data-add-widget-action]");
+            action.classList.toggle("btn-light-primary", !placed);
+            action.classList.toggle("btn-light-danger", placed);
+            action.innerHTML = placed
+                ? '<i class="ki-outline ki-minus fs-4 me-1"></i>برداشتن از داشبورد'
+                : '<i class="ki-outline ki-plus fs-4 me-1"></i>افزودن به داشبورد';
+            action.setAttribute("aria-label", `${placed ? "برداشتن از داشبورد" : "افزودن به داشبورد"}: ${label}`);
+        }
+
         function refreshAddWidgetGrid() {
-            if (!addWidgetGrid) return;
-            const cards = Array.from(addWidgetGrid.children);
-            let visible = 0;
-            cards.forEach((card) => {
-                const isHidden = hidden.includes(card.dataset.widgetKey);
-                card.hidden = !isHidden;
-                if (isHidden) visible += 1;
-            });
-            if (addWidgetEmpty) addWidgetEmpty.classList.toggle("d-none", visible > 0);
+            if (!addWidgetGrid || !addWidgetBuilt) return;
+            addWidgetCards.forEach((_entry, key) => refreshCard(key));
+            if (addWidgetEmpty) addWidgetEmpty.classList.toggle("d-none", addWidgetGrid.children.length > 0);
         }
 
         if (addWidgetOpen && addWidgetDialog) {
             addWidgetDialog.querySelectorAll("[data-close-dialog]")
                 .forEach((button) => button.addEventListener("click", () => addWidgetDialog.close()));
-            addWidgetOpen.addEventListener("click", async () => {
+            addWidgetOpen.addEventListener("click", () => {
                 // Open first, build after: a chart mounted into a closed
                 // `<dialog>` (`display: none`, so every descendant computes
                 // to zero width) is exactly the "Apex measures a real
                 // element's width" trap `placeDashboardWidget` already
-                // documents for the real grid — here it is the dialog
-                // itself that has to be open before `renderGaugeChart`/
-                // `renderDonutChart`/`renderMixedChart` ever run.
+                // documents for the real grid.
                 addWidgetAdded = false;
                 addWidgetDialog.showModal();
-                if (!addWidgetBuilt) {
-                    let catalog = [];
-                    try {
-                        const current = await apiRequest("/api/v1/dashboard-layout/");
-                        catalog = (current && current.catalog) || [];
-                    } catch (error) {
-                        showError(error);
-                        return;
-                    }
-                    buildAddWidgetGrid(catalog);
-                }
+                buildAddWidgetGrid();
                 refreshAddWidgetGrid();
             });
             addWidgetDialog.addEventListener("close", () => {
-                // Added widgets carry real, per-reader data the page never
-                // fetched (only what `apply_layout` already decided to show
-                // is on screen) — a full reload is the same "ask the server
-                // again" the reset button already uses, not a special case.
+                // A widget that was not on the page when it loaded carries
+                // real, per-reader data the page never drew — a full reload
+                // is the same "ask the server again" the reset button
+                // already uses, not a special case.
                 if (addWidgetAdded) window.location.reload();
             });
         }
@@ -1323,12 +1379,7 @@
             hide.title = "پنهان کردن";
             hide.setAttribute("aria-label", `پنهان کردن ${boxLabel(key)}`);
             hide.innerHTML = '<i class="ki-outline ki-cross fs-4"></i>';
-            hide.addEventListener("click", () => {
-                if (!hidden.includes(key)) hidden = [...hidden, key];
-                column.hidden = true;
-                renderHiddenBar();
-                save({hidden_widgets: hidden});
-            });
+            hide.addEventListener("click", () => hideWidget(key));
             controls.appendChild(hide);
             return controls;
         }

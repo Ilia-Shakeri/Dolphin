@@ -2884,13 +2884,15 @@ dialog:has(.wizard-lines-step) {
     overflow: visible !important;
 }
 
-/* "افزودن ویجت" — a gallery of the widgets this reader currently has
-   hidden, opened from the editor bar (dolphin-app.js, setupDashboardEditor).
-   The dialog itself only needs a width wide enough for the card grid below;
-   everything else (backdrop, open animation, safe-area padding) comes from
-   the app-wide `dialog` rules already in section 2. */
+/* "افزودن ویجت" — every widget this reader can have, in two groups
+   (addable, and already on the dashboard), each with a preview of its own
+   real figure (dolphin-app.js, `renderWidgetPreview`). The dialog itself only
+   needs a width wide enough for the card grid below; everything else
+   (backdrop, open animation, safe-area padding) comes from the app-wide
+   `dialog` rules already in section 2. Wider since 2.18.2, when it began
+   listing every widget rather than only the hidden ones. */
 #dashboard-add-widget-dialog {
-    width: min(calc(100% - 2rem), 56rem);
+    width: min(calc(100% - 2rem), 64rem);
 }
 
 .dashboard-add-widget-grid {
@@ -2899,49 +2901,41 @@ dialog:has(.wizard-lines-step) {
     gap: 1rem;
 }
 
+/* A card is no longer itself the click target (it carries one explicit
+   add/remove button since 2.18.2), so it is a surface, not a control: no
+   pointer cursor, no hover lift. */
 .dashboard-add-widget-card {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.75rem;
     padding: 1rem;
     border: 1px solid var(--bs-border-color);
     border-radius: 0.75rem;
     background: var(--bs-body-bg);
     text-align: start;
-    cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.dashboard-add-widget-card:hover,
-.dashboard-add-widget-card:focus-visible {
-    border-color: var(--bs-primary);
-    box-shadow: var(--bs-box-shadow-sm);
-    outline: none;
-}
-
-/* One preview area, three shapes: a KPI card gets an icon + skeleton (no
-   figure to show honestly, see `renderAddWidgetPreview`), the gauge/donut/
-   trend families get a real small Apex instance sized to fit the card. */
+/* One preview area, two shapes: a figure (KPI or tile — its icon and its
+   real number) or a real small Apex instance sized to fit the card. */
 .dashboard-add-widget-preview {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     min-height: 6rem;
-}
-
-.dashboard-add-widget-skeleton {
-    flex: 1 1 auto;
-    height: 0.85rem;
-    border-radius: 0.475rem;
-    background: var(--bs-gray-200);
+    min-width: 0;
 }
 
 .dashboard-add-widget-chart {
     width: 100%;
 }
 
-.dashboard-add-widget-card-add {
-    pointer-events: none; /* the whole card is the click target */
+/* The twelve-week trend is the one preview that needs width to read at all —
+   an axis of amounts and a legend beside a 13rem plot left the line itself
+   a sliver. Two tracks wherever the dialog has two to give. */
+@media (min-width: 576px) {
+    .dashboard-add-widget-card[data-add-widget-family="trend"] {
+        grid-column: span 2;
+    }
 }
 
 /* 10. The shared hover scrollbar -------------------------------------------
