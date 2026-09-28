@@ -302,7 +302,7 @@ class InvoiceSerializer(CommercialDocumentSerializer):
             "id", "number", "customer", "customer_name", "order", "quotation", "sale",
             "warehouse", "status", "invoice_type", "invoice_type_display", "official_number",
             "customer_kind", "customer_national_id", "customer_economic_code",
-            "subtotal_amount", "discount_amount", "tax_rate", "tax_amount",
+            "subtotal_amount", "discount_percent", "discount_amount", "tax_rate", "tax_amount",
             "total_amount", "paid_amount", "balance_due", "canonical_balance_due",
             "settlement_status", "issued_at", "document_date", "due_at", "cancelled_at",
             "stock_applied",

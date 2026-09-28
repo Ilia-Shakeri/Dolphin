@@ -363,6 +363,15 @@ class Invoice(CommercialDocument):
         default=InvoiceType.UNOFFICIAL,
         db_index=True,
     )
+    #: The document-level discount as the operator gave it, a percentage of the
+    #: subtotal (2.26.0, product-owner decision: an invoice's discount is one
+    #: figure for the whole document, not one per line). When set,
+    #: `discount_amount` is derived from it every time the totals are
+    #: recomputed, so changing the lines of a draft keeps the same percentage.
+    #: Null means the discount was given as an amount — every invoice before
+    #: this field, and anything created through the API that way — which is
+    #: why this is nullable rather than zero: zero is a real percentage.
+    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     #: The number in the official series, taken at issue and never afterwards.
     #:
     #: Separate from `number`, which every document receives at creation. The
@@ -469,6 +478,11 @@ class Invoice(CommercialDocument):
         ordering = ["-created_at", "-id"]
         constraints = [
             *_document_constraints("invoice", ["draft", "issued", "cancelled"]),
+            models.CheckConstraint(
+                condition=Q(discount_percent__isnull=True)
+                | (Q(discount_percent__gte=0) & Q(discount_percent__lte=100)),
+                name="invoice_discount_percent_bounded",
+            ),
             models.CheckConstraint(condition=Q(paid_amount__gte=0), name="invoice_paid_non_negative"),
             # Unique among the invoices that carry one. A plain unique column
             # would collide on the first two blanks, and blank is the normal

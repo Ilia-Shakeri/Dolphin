@@ -119,9 +119,21 @@ def line_amounts(*, quantity, unit_price, discount_percent=None, discount_amount
     return percent, amount, quantize_money(gross - amount)
 
 
-def document_totals(*, line_totals, header_discount, tax_rate):
-    """Roll lines up into the four stored header amounts."""
+def document_totals(*, line_totals, header_discount, tax_rate, header_discount_percent=None):
+    """Roll lines up into the four stored header amounts.
+
+    The header discount is given either as an amount or, since 2.26.0, as a
+    percentage of the subtotal — never both, the same rule `line_amounts`
+    applies to one line: the percentage, when given, wins and the amount is
+    derived from it. Either way the tax is charged on what is left after it,
+    as it always has been.
+    """
     subtotal = quantize_money(sum(line_totals, Decimal("0.00")))
+    if header_discount_percent is not None:
+        percent = clean_percent(
+            header_discount_percent, field="discount_percent", maximum=max_discount_percent()
+        )
+        header_discount = quantize_money(subtotal * percent / HUNDRED)
     discount = clean_money(header_discount or 0, field="discount_amount")
     if discount > subtotal:
         raise BusinessRuleError({"discount_amount": "تخفیف نمی‌تواند از جمع جزء سند بیشتر باشد."})

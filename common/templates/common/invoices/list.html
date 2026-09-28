@@ -134,15 +134,15 @@
 
                 {% comment %} جمع‌بندی زنده. دو ورودی درصد اینجا نشسته‌اند، کنار
                    عددی که عوض می‌کنند — نه بالای صفحه و جدا از اثرشان. ترتیب
-                   محاسبه همان ترتیب سرور است: تخفیف روی هر ردیف می‌نشیند، بعد
-                   جمع می‌شود، و مالیات روی باقی‌مانده. {% endcomment %}
+                   محاسبه همان ترتیب سرور است (۲.۲۶.۰): ردیف‌ها جمع می‌شوند، تخفیفِ
+                   سند از جمع کم می‌شود، و مالیات روی باقی‌مانده. {% endcomment %}
                 <div class="wizard-totals" id="create-invoice-totals">
                     <div class="wizard-totals-row">
                         <span class="wizard-totals-label">جمع اقلام <span class="text-muted fs-8">(<span data-total="count">۰</span> قلم)</span></span>
                         <span class="wizard-totals-value" data-total="gross">—</span>
                     </div>
                     <div class="wizard-totals-row">
-                        <label class="wizard-totals-label" for="create-invoice-discount">تخفیف</label>
+                        <label class="wizard-totals-label" for="create-invoice-discount">تخفیف سند</label>
                         <span class="wizard-totals-input">
                             <input class="form-control form-control-solid form-control-sm" id="create-invoice-discount"
                                    name="discount_percent" type="number" min="0" max="100" step="0.01" value="0"
@@ -165,6 +165,7 @@
                         <span class="wizard-totals-label">مبلغ نهایی</span>
                         <span class="wizard-totals-value" data-total="total">—</span>
                     </div>
+                    <p class="text-danger fs-8 mt-2 mb-0" data-error-for="discount_percent"></p>
                     <p class="text-danger fs-8 mt-2 mb-0" data-error-for="tax_rate"></p>
                     <p class="text-muted fs-8 mt-2 mb-0">فاکتور پیش‌نویس ساخته می‌شود؛ این ارقام همان چیزی است که ذخیره خواهد شد.</p>
                 </div>

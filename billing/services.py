@@ -26,6 +26,7 @@ from auditlog.services import log_activity
 from billing.ledger import append_ledger_entry
 from billing.money import (
     clean_money,
+    clean_percent,
     clean_quantity,
     default_tax_rate,
     document_totals,
@@ -62,6 +63,9 @@ INVOICE_HEADER_FIELDS = {
     # The date the operator writes on the document. Not `issued_at`, which is
     # the system's record of issuing and which a draft may not have at all.
     "document_date",
+    # The document-level discount as a percentage of the subtotal (2.26.0).
+    # An alternative to `discount_amount`, never alongside it.
+    "discount_percent",
 }
 
 
@@ -177,12 +181,26 @@ def _build_lines(items):
     return prepared
 
 
-def _apply_totals(document, prepared_lines, *, header_discount, tax_rate):
+def _stored_discount_percent(document):
+    """The header percentage a document's discount is derived from, if any.
+
+    Only an invoice carries one (2.26.0); a quotation or an order keeps its
+    discount as an amount, exactly as before.
+    """
+    return getattr(document, "discount_percent", None)
+
+
+def _apply_totals(document, prepared_lines, *, header_discount, tax_rate, discount_percent=None):
     subtotal, discount, rate, tax, total = document_totals(
         line_totals=[line["line_total"] for line in prepared_lines],
-        header_discount=header_discount,
+        header_discount=None if discount_percent is not None else header_discount,
         tax_rate=tax_rate,
+        header_discount_percent=discount_percent,
     )
+    if hasattr(document, "discount_percent"):
+        document.discount_percent = (
+            clean_percent(discount_percent, field="discount_percent") if discount_percent is not None else None
+        )
     document.subtotal_amount = subtotal
     document.discount_amount = discount
     document.tax_rate = rate
@@ -209,6 +227,8 @@ def _check_transition(document, to_status):
 
 
 def _create_document(*, actor, model, item_model, customer, lead, items, header, extra_fields):
+    if header.get("discount_percent") is not None and header.get("discount_amount") is not None:
+        raise BusinessRuleError({"discount_amount": "فقط یکی از درصد تخفیف یا مبلغ تخفیف را وارد کنید، نه هر دو را."})
     prepared = _build_lines(items)
     document = model(
         number=next_document_number(model.NUMBER_KIND),
@@ -225,6 +245,7 @@ def _create_document(*, actor, model, item_model, customer, lead, items, header,
         prepared,
         header_discount=header.get("discount_amount"),
         tax_rate=header.get("tax_rate") if header.get("tax_rate") is not None else default_tax_rate(),
+        discount_percent=header.get("discount_percent"),
     )
     try:
         document.save()
@@ -246,11 +267,13 @@ def _replace_items(*, actor, document, item_model, items, relation):
     item_model.objects.bulk_create([
         item_model(**{relation: document}, **line) for line in prepared
     ])
+    # A percentage discount follows the new lines; an amount stays the amount.
     _apply_totals(
         document,
         prepared,
         header_discount=document.discount_amount,
         tax_rate=document.tax_rate,
+        discount_percent=_stored_discount_percent(document),
     )
     document.save(update_fields=[
         "subtotal_amount", "discount_amount", "tax_rate", "tax_amount", "total_amount", "updated_at",
@@ -258,7 +281,7 @@ def _replace_items(*, actor, document, item_model, items, relation):
     return document
 
 
-def _recompute_from_stored_lines(document, item_model, relation, *, header_discount, tax_rate):
+def _recompute_from_stored_lines(document, item_model, relation, *, header_discount, tax_rate, discount_percent=None):
     totals = list(
         item_model.objects.filter(**{relation: document}).values_list("line_total", flat=True)
     )
@@ -269,6 +292,7 @@ def _recompute_from_stored_lines(document, item_model, relation, *, header_disco
         [{"line_total": value} for value in totals],
         header_discount=header_discount,
         tax_rate=tax_rate,
+        discount_percent=discount_percent,
     )
 
 
@@ -901,10 +925,22 @@ def update_invoice(*, actor, invoice, **changes):
         # touch of frozen money fields for a change that is not about money.
         locked.save(update_fields=["notes", "updated_at"])
     else:
+        # One source for the discount (2.26.0): a new percentage replaces the
+        # amount, a new amount clears the percentage, and neither sent keeps
+        # whichever the draft already had.
+        if "discount_percent" in changes and "discount_amount" in changes:
+            raise BusinessRuleError({"discount_amount": "فقط یکی از درصد تخفیف یا مبلغ تخفیف را وارد کنید، نه هر دو را."})
+        if "discount_percent" in changes:
+            discount_percent = changes["discount_percent"]
+        elif "discount_amount" in changes:
+            discount_percent = None
+        else:
+            discount_percent = locked.discount_percent
         header_discount = changes.get("discount_amount", locked.discount_amount)
         tax_rate = changes.get("tax_rate", locked.tax_rate)
         _recompute_from_stored_lines(
-            locked, InvoiceItem, "invoice", header_discount=header_discount, tax_rate=tax_rate
+            locked, InvoiceItem, "invoice", header_discount=header_discount, tax_rate=tax_rate,
+            discount_percent=discount_percent,
         )
         locked.save()
     log_activity(
@@ -1084,7 +1120,13 @@ def reissue_invoice(*, actor, invoice, reason=""):
         customer=locked.customer,
         warehouse=locked.warehouse,
         items=replacement_items,
-        discount_amount=locked.discount_amount,
+        # The discount travels in the form it was given (2.26.0): a
+        # percentage stays a percentage, an amount stays an amount.
+        **(
+            {"discount_percent": locked.discount_percent}
+            if locked.discount_percent is not None
+            else {"discount_amount": locked.discount_amount}
+        ),
         tax_rate=locked.tax_rate,
         due_at=locked.due_at,
         invoice_type=locked.invoice_type,

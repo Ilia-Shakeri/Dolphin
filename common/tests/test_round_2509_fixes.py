@@ -97,3 +97,59 @@ class RenderedPageTests(TestCase):
         select = page[page.index('id="profile-tasks-status"'):]
         select = select[:select.index("</select>")]
         self.assertIn('<option value="" selected>همه</option>', select)
+
+
+class InvoiceDocumentDiscountUiTests(TestCase):
+    """2.26.0: an invoice's discount is one figure for the whole document."""
+
+    def setUp(self):
+        from decimal import Decimal
+
+        from billing.services import create_invoice
+        from sales.services import create_customer_with_phone, create_product
+
+        self.user = User.objects.create_user(
+            username="round2509.billing", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        customer = create_customer_with_phone(
+            actor=self.user, full_name="مشتری سند", phone={"raw_phone": "09121112244", "is_primary": True}
+        )
+        product = create_product(actor=self.user, sku="RD-1", name="کالا", current_price=Decimal("1000.00"))
+        self.invoice = create_invoice(
+            actor=self.user, customer=customer, items=[{"product": product, "quantity": 2}],
+            discount_percent=Decimal("10"),
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_the_wizard_sends_the_documents_discount_not_each_lines(self):
+        body = SCRIPT[SCRIPT.index("async function setupInvoices()"):]
+        body = body[:body.index("createFields: (data) => {") + 1400]
+        self.assertIn("discount_percent: discountPercent,", body)
+        self.assertIn("items: lines.collect(),", body)
+        self.assertNotIn("discount_percent: discountPercent})", body)
+
+    def test_the_preview_takes_the_discount_off_the_sum(self):
+        body = function_body("documentTotals")
+        self.assertIn("const discount = roundMoney((gross * percent) / 100);", body)
+
+    def test_invoice_lines_carry_no_discount_column(self):
+        page = self.client.get(f"/invoices/{self.invoice.pk}/").content.decode("utf-8")
+        table = page[page.index('data-line-discounts="false"'):]
+        self.assertNotIn("<th>تخفیف</th>", table[:table.index("</thead>")])
+        self.assertNotIn('id="invoice-line-discount"', page)
+
+    def test_the_totals_box_holds_editable_rates_and_a_save(self):
+        page = self.client.get(f"/invoices/{self.invoice.pk}/").content.decode("utf-8")
+        for marker in ('id="invoice-totals-form"', 'id="invoice-discount-rate"', 'name="discount_percent"',
+                       'id="invoice-tax-rate-view"', 'name="tax_rate"', "ذخیره تغییرات", "نرخ تخفیف سند (٪)"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, page)
+        # «مبلغ نهایی» drawn heavier than the parts it is made of.
+        total = page[page.index('id="invoice-total"') - 200:page.index('id="invoice-total"')]
+        self.assertIn("bg-light-primary", total)
+
+    def test_quotations_and_orders_keep_their_line_discounts(self):
+        include = (ROOT / "common" / "templates" / "common" / "includes" / "document_lines.inc").read_text(encoding="utf-8")
+        self.assertIn('{% if doc != "invoice" %}<th>تخفیف</th>{% endif %}', include)
+        self.assertIn('const lineDiscounts = body?.closest("table")?.dataset.lineDiscounts !== "false";', SCRIPT)

@@ -1234,6 +1234,18 @@ total        = taxable_base + tax
 * A line discount may not exceed its line; a header discount may not exceed the
   subtotal. Both are check constraints as well as service validation.
 * `BILLING_MAX_DISCOUNT_PERCENT` (default `100.00`) bounds a line percentage.
+* **An invoice's discount is the document's (2.26.0, product-owner decision).**
+  The panel's «فاکتور تازه» sends one `discount_percent` for the whole invoice,
+  not one per line. `Invoice.discount_percent` (nullable, 0–100, check
+  constraint `invoice_discount_percent_bounded`) stores it, and
+  `header_discount = round(subtotal × discount_percent ÷ 100)` is re-derived on
+  every recompute, so changing a draft's lines keeps the same percentage. The
+  header discount is still given **either** as `discount_percent` **or** as
+  `discount_amount`, never both; setting an amount clears the percentage. Null
+  means "given as an amount" — every invoice before 2.26.0, and a quotation or
+  order, which have no such field. A reissue carries whichever form the original
+  had. `discount_percent` and `tax_rate` are editable only while the invoice is
+  a draft (`INVOICE_ISSUED_EDITABLE_FIELDS` is unchanged: issued = notes only).
 
 ### Tax is off by default
 

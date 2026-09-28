@@ -12775,32 +12775,20 @@
     /**
      * What a document will come to, computed the way the server computes it.
      *
-     * The order matters and is the server's: the discount percentage rides on
-     * each *line* (`createFields` sends it as each item's `discount_percent`),
-     * so it is taken off each line before they are summed, and the tax is
-     * charged on what is left. Doing it in the other order — sum, then
-     * discount — gives a different number on any document whose lines round
-     * differently, and the reader would see one figure here and another on
-     * the saved invoice.
+     * Since 2.26.0 the discount is the document's, one percentage of the
+     * summed lines (`Invoice.discount_percent`, `billing.money.document_totals`),
+     * not one per line: sum the lines, take the discount off the sum, and
+     * charge the tax on what is left. Same order, same rounding at each step
+     * as the server, so the figure here is the figure that is saved.
      */
     function documentTotals(grossLines, discountPercent, taxRate) {
         const percent = Math.min(Math.max(Number(discountPercent) || 0, 0), 100);
         const rate = Math.min(Math.max(Number(taxRate) || 0, 0), 100);
-        let gross = 0;
-        let subtotal = 0;
-        grossLines.forEach((line) => {
-            const discount = roundMoney((line * percent) / 100);
-            gross = roundMoney(gross + line);
-            subtotal = roundMoney(subtotal + roundMoney(line - discount));
-        });
+        const gross = grossLines.reduce((sum, line) => roundMoney(sum + line), 0);
+        const discount = roundMoney((gross * percent) / 100);
+        const subtotal = roundMoney(gross - discount);
         const tax = roundMoney((subtotal * rate) / 100);
-        return {
-            gross,
-            discount: roundMoney(gross - subtotal),
-            subtotal,
-            tax,
-            total: roundMoney(subtotal + tax),
-        };
+        return {gross, discount, subtotal, tax, total: roundMoney(subtotal + tax)};
     }
 
     /**
@@ -13085,11 +13073,12 @@
                     customer: Number(data.get("customer")),
                     invoice_type: String(data.get("invoice_type") || "unofficial"),
                     tax_rate: Number(data.get("tax_rate")) || 0,
-                    // The discount is a percentage and rides on each line, which
-                    // already has `discount_percent`. Nothing new is invented
-                    // server-side and the order of calculation is the one the
-                    // line rules are already tested against.
-                    items: lines.collect().map((line) => ({...line, discount_percent: discountPercent})),
+                    // The document's own discount (2.26.0, product owner): one
+                    // percentage of the whole invoice, stored on it and shown
+                    // in «جمع سند» — not copied onto every line, which is what
+                    // made each row of «اقلام سند» carry its own discount.
+                    discount_percent: discountPercent,
+                    items: lines.collect(),
                 };
                 // The date on the document, if the operator wrote one. Left out
                 // rather than sent empty when they did not, because issuing
@@ -13117,6 +13106,12 @@
         const saveButton = document.getElementById(`${doc}-save-lines`);
         const resetButton = document.getElementById(`${doc}-reset-lines`);
         const productSelect = document.getElementById(`${doc}-line-product`);
+        // Whether this document's lines carry their own discount. An
+        // invoice's does not (2.26.0): its discount is the document's, in
+        // «جمع سند»; the template says which by `data-line-discounts`.
+        const lineDiscounts = body?.closest("table")?.dataset.lineDiscounts !== "false";
+        // The invoice's editable rates, when the template drew them.
+        const totalsForm = document.getElementById(`${doc}-totals-form`);
         let stored = [];
         let draft = [];
         let editable = false;
@@ -13135,7 +13130,7 @@
                 appendCell(row, line.product_name_snapshot || productLabel(line.product));
                 appendCell(row, line.quantity);
                 appendMoneyCell(row, line.unit_price);
-                appendMoneyCell(row, line.discount_amount);
+                if (lineDiscounts) appendMoneyCell(row, line.discount_amount);
                 appendMoneyCell(row, line.line_total);
                 const actions = document.createElement("td");
                 actions.className = "row-actions";
@@ -13222,6 +13217,58 @@
             }
         });
 
+        // «ذخیره تغییرات» under «جمع سند»: the document's discount rate and
+        // tax rate, sent together. The service recomputes every amount from
+        // the stored lines and refuses anything but a draft.
+        totalsForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(totalsForm, async () => {
+                const rate = (id) => {
+                    const raw = String(document.getElementById(id).value || "").trim();
+                    return raw === "" ? "0" : raw;
+                };
+                const updated = await apiRequest(endpoint, {
+                    method: "PATCH",
+                    body: {
+                        discount_percent: rate(`${doc}-discount-rate`),
+                        tax_rate: rate(`${doc}-tax-rate-view`),
+                    },
+                });
+                globalMessage("نرخ‌های سند ذخیره شد.", true);
+                onSaved(updated);
+            });
+        });
+
+        function applyTotalsForm(document_) {
+            const discountRate = document.getElementById(`${doc}-discount-rate`);
+            const taxRate = document.getElementById(`${doc}-tax-rate-view`);
+            // The rate the operator gave at creation. An invoice from before
+            // 2.26.0 carries its discount as an amount only; its rate is shown
+            // as that amount's share of the subtotal, and saving turns it into
+            // a percentage.
+            let percent = document_.discount_percent;
+            if (percent === null || percent === undefined) {
+                const subtotal = Number(document_.subtotal_amount) || 0;
+                const discount = Number(document_.discount_amount) || 0;
+                percent = subtotal > 0 ? roundMoney((discount * 100) / subtotal) : 0;
+            }
+            discountRate.value = String(Number(percent));
+            taxRate.value = String(Number(document_.tax_rate));
+            discountRate.disabled = !editable;
+            taxRate.disabled = !editable;
+            document.getElementById(`${doc}-totals-actions`).hidden = !editable;
+            document.getElementById(`${doc}-totals-locked-note`).hidden = editable;
+            // Discounts that older invoices put on each line are part of their
+            // line totals already; with the column gone, say so once here.
+            const legacy = (document_.line_items || [])
+                .reduce((sum, line) => sum + (Number(line.discount_amount) || 0), 0);
+            const legacyNote = document.getElementById(`${doc}-legacy-line-discount`);
+            legacyNote.hidden = legacy <= 0;
+            legacyNote.textContent = legacy > 0
+                ? `این فاکتور پیش از تخفیفِ سندی ثبت شده و ${money(legacy)} تخفیف ردیفی در مبلغ سطرهایش لحاظ شده است.`
+                : "";
+        }
+
         return {
             async loadProducts() {
                 products = await loadAllPages("/api/v1/products/?is_active=true&ordering=name");
@@ -13249,6 +13296,7 @@
                 document.getElementById(`${doc}-tax-rate-view`).value = document_.tax_rate;
                 document.getElementById(`${doc}-tax-amount`).value = money(document_.tax_amount);
                 document.getElementById(`${doc}-total`).value = money(document_.total_amount);
+                if (totalsForm) applyTotalsForm(document_);
             },
         };
     }
