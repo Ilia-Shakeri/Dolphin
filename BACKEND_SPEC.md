@@ -1395,6 +1395,13 @@ is refused: releasing an allocation is a separate, explicit decision.
   as a credit rather than inflating a settled document.
 * **Nothing is deleted.** Releasing an allocation flags it reversed; cancelling
   a payment releases its allocations and appends the compensating ledger debit.
+* **Allocating at registration (2.28.0).** `POST payments/` accepts optional
+  `allocations` — the rows `allocate-across/` takes (`invoice`, optional
+  `amount`) — and records the payment and its allocations in one transaction
+  through `allocate_payment_across`, so every rule above applies unchanged. An
+  allocation the rules refuse leaves no payment behind; its error is reported
+  under `allocations`, never under the payment's own `amount`. A cheque receipt
+  is still `pending` at registration and so cannot be allocated this way.
 
 **Not implemented:** payment gateways, bank reconciliation, and automatic
 matching. Each needs a provider contract that has not arrived.

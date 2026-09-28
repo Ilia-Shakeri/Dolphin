@@ -1,5 +1,8 @@
+from django.db import transaction
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+
+from common.exceptions import BusinessRuleError
 
 from decimal import Decimal
 
@@ -507,6 +510,22 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
             customers_for(request.user) if request and request.user.is_authenticated
             else Customer.objects.none(),
         )
+        # «تخصیص به فاکتور» from the «ثبت دریافت» wizard itself (2.28.0):
+        # the same rows `allocate-across/` takes, each scoped to the caller's
+        # own issued invoices by `AllocatePaymentSerializer`. Added here rather
+        # than as a class attribute only because that serializer is defined
+        # further down this module.
+        self.fields["allocations"] = AllocatePaymentSerializer(many=True, required=False, write_only=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        allocations = attrs.get("allocations") or []
+        seen = set()
+        for row in allocations:
+            if row["invoice"].pk in seen:
+                raise serializers.ValidationError({"allocations": "هر فاکتور فقط می‌تواند یک‌بار در تخصیص ظاهر شود."})
+            seen.add(row["invoice"].pk)
+        return attrs
 
     def validate_method(self, value):
         # `payments` covers cash and bank transfer on its own; a cheque is the
@@ -518,11 +537,33 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        from billing.payments import register_payment
+        from billing.payments import allocate_payment_across, register_payment
 
         if validated_data.get("received_at") is None:
             validated_data.pop("received_at", None)
-        return register_payment(actor=self.context["request"].user, **validated_data)
+        allocations = validated_data.pop("allocations", None) or []
+        actor = self.context["request"].user
+        # One transaction: a receipt recorded with an allocation that the rules
+        # refuse is not recorded at all, so the operator never finds a payment
+        # they meant to settle an invoice with sitting unallocated. Every rule
+        # of `allocate_payment` applies unchanged — confirmed receipt, same
+        # customer, issued invoice, never more than either balance.
+        with transaction.atomic():
+            payment = register_payment(actor=actor, **validated_data)
+            if allocations:
+                try:
+                    allocate_payment_across(actor=actor, payment=payment, splits=allocations)
+                except BusinessRuleError as exc:
+                    # Reported against the allocation rows, not the payment's
+                    # own fields: an «amount» error here is the allocation's,
+                    # not the receipt's.
+                    messages = []
+                    detail = exc.detail if isinstance(exc.detail, dict) else {"allocations": exc.detail}
+                    for value in detail.values():
+                        messages.extend(value if isinstance(value, list) else [value])
+                    raise type(exc)({"allocations": [str(message) for message in messages]}) from exc
+            payment.refresh_from_db()
+        return payment
 
 
 class PaymentAllocationSerializer(serializers.ModelSerializer):

@@ -216,3 +216,31 @@ class CustomerRelatedRecordsTests(TestCase):
         self.assertNotIn("همهٔ رویدادها", box)
         self.assertIn("scroll-y mh-500px", box)
         self.assertNotIn('data-profile-tab="activity"', page)
+
+
+class PaymentWizardAllocationUiTests(TestCase):
+    """2.28.0: «تخصیص به فاکتور» inside the «ثبت دریافت» wizard."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="round2509.payments", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_the_receipt_desk_offers_allocation_in_the_document_step(self):
+        page = self.client.get("/payments/").content.decode("utf-8")
+        step = page[page.index("create-payment-form"):]
+        step = step[:step.index('id="create-payment-review"')]
+        self.assertIn('id="create-payment-allocations"', step)
+        self.assertIn('data-error-for="allocations"', step)
+
+    def test_the_paying_desk_does_not(self):
+        page = self.client.get("/disbursements/").content.decode("utf-8")
+        self.assertNotIn('id="create-payment-allocations"', page)
+
+    def test_the_wizard_sends_allocations_only_for_a_confirmed_kind_of_receipt(self):
+        self.assertIn('if (direction === "receipt" && method !== "cheque") {', SCRIPT)
+        self.assertIn("if (allocations.length) payload.allocations = allocations;", SCRIPT)
+        # The rows follow the chosen customer, like the server's own rule.
+        self.assertIn("/api/v1/invoices/?status=issued&customer=${customer}&ordering=due_at", function_body("setupPayments"))

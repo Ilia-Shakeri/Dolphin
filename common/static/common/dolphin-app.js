@@ -13966,6 +13966,118 @@
             selectMode("cash");
             setupSearchableSelects(createForm);
 
+            // --- «تخصیص به فاکتور» inside the wizard (2.28.0) --------------------
+            //
+            // The rows the payment page's own section takes, sent with the receipt
+            // as `allocations` and recorded in the same transaction. They follow
+            // the chosen customer — the server only ever allocates to that
+            // customer's own issued invoices — and a cheque gets none, since it
+            // stays pending until it clears.
+            const allocationBlock = document.getElementById("create-payment-allocations");
+            const allocationChequeNote = document.getElementById("create-payment-allocations-cheque");
+            const wizardSplitRows = document.getElementById("create-payment-split-rows");
+            const paymentCustomer = document.getElementById("create-payment-customer");
+            let wizardInvoices = [];
+            let wizardInvoicesFor = null;
+
+            function addWizardSplitRow() {
+                if (!wizardSplitRows) return;
+                const row = document.createElement("div");
+                row.className = "d-flex flex-wrap align-items-center gap-3";
+                row.dataset.wizardSplitRow = "";
+                const picker = document.createElement("div");
+                picker.className = "searchable-select w-auto flex-grow-1";
+                picker.setAttribute("data-searchable-select", "");
+                const search = document.createElement("input");
+                search.className = "form-control form-control-solid";
+                search.type = "search";
+                search.autocomplete = "off";
+                search.placeholder = "شماره یا مبلغ فاکتور را بنویسید…";
+                search.setAttribute("data-searchable-input", "");
+                search.setAttribute("role", "combobox");
+                search.setAttribute("aria-label", "جستجوی فاکتور");
+                search.hidden = true;
+                const select = document.createElement("select");
+                select.className = "form-select form-select-solid";
+                select.dataset.wizardSplitInvoice = "";
+                select.setAttribute("data-searchable-source", "");
+                select.setAttribute("aria-label", "فاکتور");
+                select.dataset.searchableLimit = "0";
+                select.dataset.searchableEmpty = "این مشتری فاکتور صادرشدهٔ تسویه‌نشده‌ای ندارد.";
+                fillSelect(
+                    select,
+                    wizardInvoices,
+                    (invoice) => `${invoice.number} — مانده ${money(invoice.balance_due)}`,
+                    "یک فاکتور انتخاب کنید",
+                );
+                const options = document.createElement("ul");
+                options.className = "searchable-select-options";
+                options.setAttribute("role", "listbox");
+                options.hidden = true;
+                picker.append(search, select, options);
+                const amount = document.createElement("input");
+                amount.className = "form-control form-control-solid w-auto flex-grow-1";
+                amount.type = "text";
+                amount.inputMode = "numeric";
+                amount.dir = "ltr";
+                amount.placeholder = `مبلغ به ${CURRENCY_LABEL} (خالی = مانده فاکتور)`;
+                amount.setAttribute("data-money-input", "");
+                amount.dataset.wizardSplitAmount = "";
+                amount.setAttribute("aria-label", "مبلغ تخصیص");
+                const remove = document.createElement("button");
+                remove.className = "btn btn-icon btn-light-danger";
+                remove.type = "button";
+                remove.textContent = "×";
+                remove.setAttribute("aria-label", "حذف سطر");
+                remove.addEventListener("click", () => row.remove());
+                row.append(picker, amount, remove);
+                wizardSplitRows.append(row);
+                setupMoneyInputs(row);
+                setupSearchableSelects(row);
+            }
+
+            async function refreshWizardAllocations() {
+                if (!allocationBlock) return;
+                const onCheque = methodField.value === "cheque";
+                const customer = paymentCustomer?.value || "";
+                if (allocationChequeNote) allocationChequeNote.hidden = !onCheque;
+                allocationBlock.hidden = onCheque || !customer;
+                if (onCheque || !customer || wizardInvoicesFor === customer) return;
+                wizardInvoicesFor = customer;
+                wizardSplitRows.replaceChildren();
+                try {
+                    const rows = await loadAllPages(
+                        `/api/v1/invoices/?status=issued&customer=${customer}&ordering=due_at`,
+                    );
+                    // The customer changed while this was on its way: its rows
+                    // belong to nobody on screen any more.
+                    if (wizardInvoicesFor !== customer) return;
+                    wizardInvoices = rows.filter((invoice) => Number(invoice.balance_due) > 0);
+                    addWizardSplitRow();
+                } catch (error) {
+                    wizardInvoicesFor = null;
+                    showError(error);
+                }
+            }
+
+            function collectWizardAllocations() {
+                if (!wizardSplitRows || allocationBlock?.hidden) return [];
+                const rows = [];
+                wizardSplitRows.querySelectorAll("[data-wizard-split-row]").forEach((row) => {
+                    const invoice = Number(row.querySelector("[data-wizard-split-invoice]").value);
+                    if (!invoice) return;
+                    const entry = {invoice};
+                    const amount = moneyOrNull(row.querySelector("[data-wizard-split-amount]").value);
+                    if (amount !== null) entry.amount = amount;
+                    rows.push(entry);
+                });
+                return rows;
+            }
+
+            document.getElementById("create-payment-split-add")?.addEventListener("click", addWizardSplitRow);
+            paymentCustomer?.addEventListener("change", refreshWizardAllocations);
+            modeButtons.forEach((button) => button.addEventListener("click", refreshWizardAllocations));
+
             function renderPaymentReview() {
                 const method = methodField.value;
                 const methodLabel = {cash: "نقدی", bank_transfer: "حواله بانکی", cheque: "چک"}[method] || method;
@@ -13997,6 +14109,17 @@
                     rows.push(["شماره چک", createForm.cheque_serial_number.value || "—"]);
                     rows.push(["تاریخ سررسید چک", createForm.cheque_due_date.value || "—"]);
                 }
+                const allocated = collectWizardAllocations();
+                if (allocated.length) {
+                    rows.push([
+                        "تخصیص به فاکتور",
+                        allocated.map((entry) => {
+                            const invoice = wizardInvoices.find((item) => item.id === entry.invoice);
+                            const number = invoice ? invoice.number : String(entry.invoice);
+                            return `${number}: ${entry.amount !== undefined ? money(entry.amount) : "تا سقف مانده"}`;
+                        }).join("، "),
+                    ]);
+                }
                 rows.push(["یادداشت", createForm.notes.value || "—"]);
                 renderWizardReview(document.getElementById("create-payment-review"), rows);
             }
@@ -14006,6 +14129,11 @@
                 createForm.reset();
                 clearMessages(createForm);
                 selectMode("cash");
+                // A fresh form starts with no customer, so no invoice rows.
+                wizardInvoicesFor = null;
+                wizardInvoices = [];
+                wizardSplitRows?.replaceChildren();
+                refreshWizardAllocations();
                 paymentWizard?.goFirst();
                 dialog.showModal();
             });
@@ -14105,6 +14233,10 @@
                         if (direction === "disbursement") {
                             payload.cheque.source = "own";
                         }
+                    }
+                    if (direction === "receipt" && method !== "cheque") {
+                        const allocations = collectWizardAllocations();
+                        if (allocations.length) payload.allocations = allocations;
                     }
                     const payment = await apiRequest(createForm.action, {method: "POST", body: payload});
                     window.location.assign(`/payments/${payment.id}/`);

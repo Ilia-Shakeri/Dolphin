@@ -201,6 +201,23 @@
             </div>
         </fieldset>
 
+        {% comment %} «تخصیص به فاکتور» inside the wizard (2.28.0): the same rows the
+           payment page's own section takes, sent with the receipt and recorded in
+           one transaction with it (`PaymentSerializer.create`). Receipt desk only
+           — a disbursement settles no customer invoice — and not for a cheque,
+           which stays pending until it clears and only confirmed money may be
+           allocated; that one is allocated from its own page afterwards. {% endcomment %}
+        {% if payment_direction != "disbursement" %}
+        <fieldset id="create-payment-allocations" class="mt-4" hidden>
+            <legend class="fs-6 fw-bold text-gray-900 mb-1">تخصیص به فاکتور <span class="text-muted fs-8 fw-normal">(اختیاری)</span></legend>
+            <p class="text-muted fs-8 mb-3">فاکتورهای صادرشدهٔ تسویه‌نشدهٔ همین مشتری. مبلغ خالی یعنی تا سقف ماندهٔ فاکتور. اگر تخصیصی پذیرفته نشود، دریافت هم ثبت نمی‌شود.</p>
+            <div id="create-payment-split-rows" class="d-flex flex-column gap-3 mb-3"></div>
+            <button id="create-payment-split-add" class="btn btn-sm btn-light-primary" type="button">افزودن فاکتور</button>
+            <p class="text-danger fs-8 mt-2 mb-0" data-error-for="allocations"></p>
+        </fieldset>
+        <p id="create-payment-allocations-cheque" class="text-muted fs-8 mt-4 mb-0" hidden>دریافت با چک پس از وصول به فاکتور تخصیص می‌یابد، از صفحهٔ همان دریافت.</p>
+        {% endif %}
+
         <div class="row g-5 mt-2">
             <div class="col-12"><label class="form-label fw-semibold" for="create-payment-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-payment-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
         </div>
