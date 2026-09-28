@@ -294,7 +294,9 @@ class ProfileTests(Fixtures):
         self.assertIn('data-profile-action="originate"', page)
         self.assertIn('data-originate-number="+989151234567"', page)
         self.assertIn('data-call-popup="1"', page)
-        self.assertIn('data-pbx-calls="customer"', page)
+        # 2.27.0 (product owner): the customer profile's calls tab lists the
+        # call-centre records only; the PBX box left it. Click-to-call stays.
+        self.assertNotIn('data-pbx-calls="customer"', page)
 
     def test_a_call_names_its_contact_only_inside_the_readers_scope(self):
         self.play("inbound_answered")

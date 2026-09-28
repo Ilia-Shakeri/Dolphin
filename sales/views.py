@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -33,6 +34,16 @@ from sales.services import cancel_or_correct_sale, deactivate_customer, set_cust
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
+
+
+def _active_phones(customer):
+    """A customer's own active numbers, normalised — how a campaign entry or a
+    logged call made before they were a customer is matched to them."""
+    return list(
+        CustomerPhone.objects.filter(customer=customer, is_active=True)
+        .exclude(normalized_phone="")
+        .values_list("normalized_phone", flat=True)
+    )
 
 
 class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
@@ -222,9 +233,23 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
     )
     @action(detail=True, methods=["get"])
     def leads(self, request, pk=None):
+        """Leads this customer is part of (2.27.0): the ones about them, and
+        the campaigns whose target audience («جامعه هدف») holds them — by the
+        match `refresh_target_member_status` records, or by one of their own
+        active numbers. Adding an existing customer to a campaign's audience
+        used to leave that campaign invisible on their profile."""
         customer = self.get_object()
-        queryset = leads_for(request.user).filter(customer=customer).select_related(
-            "customer", "assigned_to", "assigned_by", "interested_product"
+        phones = _active_phones(customer)
+        queryset = (
+            leads_for(request.user)
+            .filter(
+                Q(customer=customer)
+                | Q(target_audience__customer=customer)
+                | Q(target_audience__normalized_phone__in=phones)
+            )
+            .distinct()
+            .select_related("customer", "assigned_to", "assigned_by", "interested_product")
+            .order_by("-created_at", "-id")
         )
         page = self.paginate_queryset(queryset)
         serializer = LeadSerializer(page, many=True, context=self.get_serializer_context())
@@ -236,9 +261,22 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
     )
     @action(detail=True, methods=["get"])
     def interactions(self, request, pk=None):
+        """Every call-centre record with this customer (2.27.0): logged
+        against them, against their target-audience entry in some campaign,
+        or with one of their own active numbers — the same rows «فعالیت
+        مرکز تماس» lists, filtered to this person."""
         customer = self.get_object()
-        queryset = interactions_for(request.user).filter(customer=customer).select_related(
-            "lead", "customer", "agent"
+        phones = _active_phones(customer)
+        queryset = (
+            interactions_for(request.user)
+            .filter(
+                Q(customer=customer)
+                | Q(target_member__customer=customer)
+                | Q(normalized_phone__in=phones)
+            )
+            .distinct()
+            .select_related("lead", "customer", "agent")
+            .order_by("-occurred_at", "-id")
         )
         page = self.paginate_queryset(queryset)
         serializer = InteractionSerializer(page, many=True, context=self.get_serializer_context())

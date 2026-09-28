@@ -225,12 +225,13 @@ class CustomerAdapter(PersonAdapter):
         ]
         if feature_enabled("leads") and capabilities.intersection({"leads.scoped", "leads.company"}):
             tabs.append(ProfileTab("leads", "سرنخ‌ها", "ki-rocket", "profiles/tabs/customer_leads.inc"))
-        if feature_enabled("customer_timeline"):
-            tabs.append(ProfileTab("activity", "فعالیت‌ها", "ki-time", "profiles/tabs/activity.inc"))
+        # No «فعالیت‌ها» tab for a customer (2.27.0, product owner): the
+        # overview's «آخرین رویدادها» box now holds the whole timeline,
+        # scrollable, so a second tab repeating it only split one list in two.
         sees_logged_calls = feature_enabled("leads") and capabilities.intersection({"interactions.scoped", "interactions.company"})
-        # PBX calls (telephony, 2.23.0) share the tab with the logged ones.
-        sees_pbx_calls = feature_enabled("telephony") and capabilities.intersection({"calls.own", "calls.company"})
-        if sees_logged_calls or sees_pbx_calls:
+        # Since 2.27.0 a customer's calls tab is the call-centre records only
+        # (the PBX box left it), so it exists exactly when those can be read.
+        if sees_logged_calls:
             tabs.append(ProfileTab("calls", "تماس‌ها", "ki-call", "profiles/tabs/customer_calls.inc", 8))
         if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
             tabs.append(ProfileTab("finance", "خریدها و مالی", "ki-dollar", "profiles/tabs/customer_finance.inc", 3))

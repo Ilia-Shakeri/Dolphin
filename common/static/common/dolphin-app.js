@@ -4629,16 +4629,10 @@
             overview: () => loadRecentActivity("customer", customerId),
             info: setupInfo,
             leads: () => relatedList("leads", "leads", leadRow),
-            // Two halves, each only when its own section was rendered: the
-            // PBX's calls (telephony) and the calls logged by hand.
-            calls: () => Promise.all([
-                loadPbxCalls("customer-pbx-calls", `/api/v1/calls/?person_type=customer&person_id=${customerId}`),
-                document.getElementById("customer-interactions-loading")
-                    ? relatedList("interactions", "interactions", interactionRow)
-                    : null,
-            ]),
+            // The call-centre records with this customer (2.27.0) — the PBX
+            // box left this tab.
+            calls: () => relatedList("interactions", "interactions", interactionRow),
             finance: () => relatedList("invoices", `/api/v1/invoices/?customer=${customerId}`, customerInvoiceRow, {absolute: true}),
-            activity: () => loadProfileTimeline("customer", customerId),
             tasks: () => setupTasksTab("customer", customerId),
             notes: () => setupNotesTab("customer", customerId),
             documents: () => {
@@ -4929,12 +4923,23 @@
         const loadingNode = card.querySelector("[data-recent-activity-loading]");
         const empty = card.querySelector("[data-recent-activity-empty]");
         const failed = card.querySelector("[data-recent-activity-error]");
+        const more = card.querySelector("[data-recent-activity-more]");
+        // A customer's box holds the whole timeline and scrolls (2.27.0);
+        // a user's still shows the newest few beside «همهٔ رویدادها».
+        const all = card.hasAttribute("data-recent-activity-all");
         try {
-            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/timeline/?limit=5`);
+            const query = all ? "" : "?limit=5";
+            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/timeline/${query}`);
             list.replaceChildren(...data.events.map(timelineEntry));
             loadingNode.hidden = true;
             list.hidden = data.events.length === 0;
             empty.hidden = data.events.length > 0;
+            // The server shows at most so many events; say when there are more
+            // rather than letting the list look complete.
+            if (all && more && Number(data.count) > data.events.length) {
+                more.hidden = false;
+                more.textContent = `${toPersianDigits(String(data.events.length))} رویداد تازه‌تر از ${toPersianDigits(String(data.count))} رویداد نمایش داده شده است.`;
+            }
         } catch (error) {
             loadingNode.hidden = true;
             failed.hidden = false;

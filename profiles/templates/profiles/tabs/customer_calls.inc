@@ -1,11 +1,8 @@
-{% comment %} دو نیمهٔ زبانهٔ تماس‌ها، هر کدام با اختیار خودش: تماس‌هایی که مرکز تلفن ثبت
-   کرده (telephony، ۲.۲۳.۰) و تماس‌هایی که دستی ثبت شده‌اند (Interaction). {% endcomment %}
-{% if sees_pbx_calls %}
-<section class="card mb-5 mb-xl-8" data-pbx-calls="customer"><div class="card-body">
-    <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تماس‌های مرکز تلفن</h2></div>
-    {% include "profiles/tabs/pbx_calls_table.inc" with prefix="customer-pbx-calls" empty_text="تماسی از مرکز تلفن با این مشتری در محدودهٔ دسترسی شما نیست." show_person=False %}
-</div></section>
-{% endif %}
+{% comment %} زبانهٔ تماس‌های مشتری (۲.۲۷.۰، تصمیم مالک محصول): فقط «تماس‌های ثبت‌شده»،
+   یعنی همان ردیف‌های «فعالیت مرکز تماس» که با این مشتری بوده‌اند — ثبت‌شده به نام او،
+   به نام ورودی جامعهٔ هدفِ او در یک کمپین، یا با یکی از شماره‌های فعال خودش
+   (`CustomerViewSet.interactions`). باکس «تماس‌های مرکز تلفن» برداشته شد؛ تماس‌های
+   مرکز تلفن همچنان در صفحه‌های مرکز تلفن هستند. {% endcomment %}
 {% if sees_logged_calls %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تماس‌های ثبت‌شده</h2></div>

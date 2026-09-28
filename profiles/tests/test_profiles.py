@@ -217,8 +217,12 @@ class CustomerProfilePageTests(Fixtures):
     def test_every_tab_is_rendered_for_a_manager(self):
         customer = self.a_customer()
         page = self.page(self.manager, f"/customers/{customer.pk}/").content.decode("utf-8")
-        for key in ("overview", "info", "leads", "activity", "calls", "finance", "documents"):
+        for key in ("overview", "info", "leads", "calls", "finance", "documents"):
             self.assertIn(f'data-profile-tab="{key}"', page)
+        # 2.27.0 (product owner): no «فعالیت‌ها» tab for a customer — the
+        # overview's «آخرین رویدادها» holds the whole timeline, scrollable.
+        self.assertNotIn('data-profile-tab="activity"', page)
+        self.assertIn("data-recent-activity-all", page)
 
     def test_a_tab_of_a_disabled_feature_is_not_rendered(self):
         customer = self.a_customer()

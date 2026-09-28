@@ -153,3 +153,66 @@ class InvoiceDocumentDiscountUiTests(TestCase):
         include = (ROOT / "common" / "templates" / "common" / "includes" / "document_lines.inc").read_text(encoding="utf-8")
         self.assertIn('{% if doc != "invoice" %}<th>تخفیف</th>{% endif %}', include)
         self.assertIn('const lineDiscounts = body?.closest("table")?.dataset.lineDiscounts !== "false";', SCRIPT)
+
+
+class CustomerRelatedRecordsTests(TestCase):
+    """2.27.0: a customer's leads and calls tabs find the campaigns and calls
+    that reached them through a target audience, not only the rows that name
+    them directly."""
+
+    def setUp(self):
+        from django.utils import timezone
+
+        from sales.services import (
+            add_target_audience_member,
+            create_customer_with_phone,
+            create_lead,
+            record_interaction,
+        )
+
+        self.manager = User.objects.create_user(
+            username="round2509.leads", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        # A campaign with nobody's customer record on it, and an audience entry
+        # that is called before its owner becomes a customer.
+        self.campaign = create_lead(actor=self.manager, source="کمپین پاییز", campaign_or_batch="C-1")
+        member = add_target_audience_member(
+            actor=self.manager, lead=self.campaign, full_name="مخاطب", raw_phone="09125556677"
+        )
+        self.call = record_interaction(
+            actor=self.manager, lead=self.campaign, target_member=member, phone="09125556677",
+            direction="outbound", outcome="پاسخ داد", occurred_at=timezone.now(),
+        )
+        self.customer = create_customer_with_phone(
+            actor=self.manager, full_name="مخاطب", phone={"raw_phone": "09125556677", "is_primary": True}
+        )
+        # Someone else entirely, to prove nothing unrelated is swept in.
+        self.other = create_customer_with_phone(
+            actor=self.manager, full_name="دیگری", phone={"raw_phone": "09129998877", "is_primary": True}
+        )
+        self.client = Client()
+        self.client.force_login(self.manager)
+
+    def ids(self, url):
+        return [row["id"] for row in self.client.get(url).json()["results"]]
+
+    def test_the_leads_tab_lists_the_campaign_whose_audience_holds_them(self):
+        self.assertEqual(self.ids(f"/api/v1/customers/{self.customer.pk}/leads/"), [self.campaign.pk])
+        self.assertEqual(self.ids(f"/api/v1/customers/{self.other.pk}/leads/"), [])
+
+    def test_the_calls_tab_lists_calls_made_before_they_were_a_customer(self):
+        self.assertEqual(self.ids(f"/api/v1/customers/{self.customer.pk}/interactions/"), [self.call.pk])
+        self.assertEqual(self.ids(f"/api/v1/customers/{self.other.pk}/interactions/"), [])
+
+    def test_the_calls_tab_holds_only_the_call_centre_list(self):
+        page = self.client.get(f"/customers/{self.customer.pk}/?tab=calls").content.decode("utf-8")
+        self.assertIn('id="customer-interactions-table-body"', page)
+        self.assertNotIn('data-pbx-calls="customer"', page)
+
+    def test_the_overview_holds_the_whole_timeline_and_no_all_events_button(self):
+        page = self.client.get(f"/customers/{self.customer.pk}/").content.decode("utf-8")
+        box = page[page.index("data-recent-activity data-recent-activity-all"):]
+        box = box[:box.index("</section>")]
+        self.assertNotIn("همهٔ رویدادها", box)
+        self.assertIn("scroll-y mh-500px", box)
+        self.assertNotIn('data-profile-tab="activity"', page)
