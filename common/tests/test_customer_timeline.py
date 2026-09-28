@@ -261,11 +261,14 @@ class FeatureGateTests(TimelineFixtures):
         self.assertNotIn('data-profile-tab="activity"', page)
 
     def test_the_section_is_on_the_page_by_default(self):
+        """Since 2.27.0 (product owner) the whole timeline sits in the
+        overview's «آخرین رویدادها», scrollable; the customer has no separate
+        «فعالیت‌ها» tab any more."""
         self.client.force_login(self.manager)
         page = self.client.get(f"/customers/{self.customer.pk}/").content.decode("utf-8")
-        self.assertIn('id="profile-timeline-list"', page)
-        self.assertIn('data-profile-tab="activity"', page)
-        self.assertIn("تاریخچهٔ مشتری", page)
+        self.assertIn("data-recent-activity data-recent-activity-all", page)
+        self.assertIn("آخرین رویدادها", page)
+        self.assertNotIn('data-profile-tab="activity"', page)
 
     def test_a_deployment_without_payments_keeps_the_rest_of_the_story(self):
         self.a_lead_with_call()

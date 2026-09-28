@@ -156,15 +156,15 @@ class LineRowTests(SimpleTestCase):
 
 class DocumentTotalsTests(SimpleTestCase):
     def test_the_order_of_operations_is_the_servers(self):
-        """The discount rides on each *line* (`createFields` sends it as each
-        item's `discount_percent`), so it comes off each line before they are
-        summed and the tax is charged on what is left. Summing first and
-        discounting after gives a different number on any document whose
-        lines round differently — and the reader would see one figure in the
-        form and another on the saved invoice."""
+        """Restated 2.26.0: the discount is the document's
+        (`Invoice.discount_percent`, product owner), so the preview does what
+        `billing.money.document_totals` does — sum the lines, take the
+        discount off the sum, charge the tax on what is left. The same order
+        on both sides is what keeps the figure in the form the figure saved."""
         body = function_body("documentTotals")
-        self.assertIn("const discount = roundMoney((line * percent) / 100);", body)
-        self.assertIn("subtotal = roundMoney(subtotal + roundMoney(line - discount));", body)
+        self.assertIn("const gross = grossLines.reduce((sum, line) => roundMoney(sum + line), 0);", body)
+        self.assertIn("const discount = roundMoney((gross * percent) / 100);", body)
+        self.assertIn("const subtotal = roundMoney(gross - discount);", body)
         self.assertIn("const tax = roundMoney((subtotal * rate) / 100);", body)
 
     def test_money_is_rounded_the_way_the_server_rounds_it(self):

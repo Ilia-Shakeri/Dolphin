@@ -4928,8 +4928,11 @@
         // a user's still shows the newest few beside «همهٔ رویدادها».
         const all = card.hasAttribute("data-recent-activity-all");
         try {
-            const query = all ? "" : "?limit=5";
-            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/timeline/${query}`);
+            // Both addresses written out whole, so each one is a path the
+            // route check (`test_ui_connectivity`) can resolve.
+            const data = await apiRequest(all
+                ? `/api/v1/profiles/${personType}/${personId}/timeline/`
+                : `/api/v1/profiles/${personType}/${personId}/timeline/?limit=5`);
             list.replaceChildren(...data.events.map(timelineEntry));
             loadingNode.hidden = true;
             list.hidden = data.events.length === 0;
