@@ -1,0 +1,99 @@
+"""The 2026-09-28 round of product-owner fixes (2.25.1 onward).
+
+Script behaviour no Django test can execute is pinned by source pattern, the
+same style `test_chat_drawer.py` and `test_reminders.py` already use; markup
+is checked on the rendered page.
+"""
+
+from pathlib import Path
+
+from django.test import Client, SimpleTestCase, TestCase
+
+from accounts.models import User
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+PASSWORD = "Strong-pass-274!"
+
+
+def function_body(name):
+    start = SCRIPT.index(f"function {name}(")
+    return SCRIPT[start:SCRIPT.index("\n    }\n", start)]
+
+
+class PersianDigitInputTests(SimpleTestCase):
+    """A `type="number"` field refuses «۱۲۳» outright, so the digit is
+    translated before the browser sees it."""
+
+    def test_every_numeric_field_kind_is_covered(self):
+        for selector in ('input[type="number"]', 'input[type="tel"]', 'input[inputmode="numeric"]',
+                         'input[inputmode="decimal"]'):
+            with self.subTest(selector=selector):
+                self.assertIn(selector, SCRIPT)
+
+    def test_typing_and_pasting_are_both_translated(self):
+        body = function_body("setupLatinDigitInputs")
+        self.assertIn('"beforeinput"', body)
+        self.assertIn('"paste"', body)
+        self.assertIn("event.preventDefault();", body)
+        self.assertIn("latinNumberText(", body)
+
+    def test_the_persian_decimal_separator_becomes_a_point(self):
+        self.assertIn('replace(/٫/g, ".")', function_body("latinNumberText"))
+
+    def test_it_runs_on_every_page(self):
+        self.assertIn("    setupLatinDigitInputs();\n", SCRIPT)
+
+
+class SearchableSelectTests(SimpleTestCase):
+    """The invoice picker under «تخصیص به فاکتور»."""
+
+    def test_matching_ignores_digit_script_and_grouping(self):
+        body = function_body("setupSearchableSelect")
+        self.assertIn("toLatinDigits(String(text)).toLowerCase().replace(/[،,٬\\s]/g, \"\")", body)
+        # Enter picks from the same matching rule the list was drawn with.
+        self.assertIn("const matches = matching(input.value);", body)
+
+    def test_a_list_that_loaded_empty_does_not_claim_to_be_loading(self):
+        body = function_body("setupSearchableSelect")
+        self.assertIn("select.dataset.searchableEmpty", body)
+        self.assertIn("options().length", body)
+
+    def test_the_allocation_picker_lists_every_open_invoice(self):
+        self.assertIn('select.dataset.searchableLimit = "0";', SCRIPT)
+        self.assertIn("select.dataset.searchableEmpty = allocatableEmptyText;", SCRIPT)
+
+
+class InvoiceWizardReviewTests(SimpleTestCase):
+    def test_the_row_count_is_named_product_variety(self):
+        body = SCRIPT[SCRIPT.index("async function setupInvoices()"):]
+        body = body[:body.index("function renderReview()") + 1500]
+        self.assertIn('["تنوع محصول", toPersianDigits(String(lines.count()))]', body)
+        self.assertNotIn('["تعداد اقلام"', body)
+
+
+class RenderedPageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="round2509.manager", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        self.client = Client()
+        self.client.force_login(self.user)
+
+    def test_the_customer_books_sit_beside_new_customer(self):
+        page = self.client.get("/customers/").content.decode("utf-8")
+        toolbar = page[page.index('<div class="card-toolbar gap-3">'):]
+        toolbar = toolbar[:toolbar.index('id="open-create-customer"')]
+        self.assertIn('data-customer-kind="individual"', toolbar)
+        self.assertIn('data-customer-kind="legal"', toolbar)
+
+    def test_the_tasks_tab_opens_on_every_status(self):
+        from sales.services import create_customer_with_phone
+
+        customer = create_customer_with_phone(
+            actor=self.user, full_name="مشتری وظایف", phone={"raw_phone": "09121112233", "is_primary": True}
+        )
+        page = self.client.get(f"/customers/{customer.pk}/?tab=tasks").content.decode("utf-8")
+        select = page[page.index('id="profile-tasks-status"'):]
+        select = select[:select.index("</select>")]
+        self.assertIn('<option value="" selected>همه</option>', select)

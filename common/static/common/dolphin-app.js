@@ -3577,7 +3577,9 @@
                 kind = chosen;
                 kindButtons.forEach((other) => {
                     const active = other === button;
-                    other.classList.toggle("btn-primary", active);
+                    // Light-primary, not solid: the solid button beside these
+                    // is «مشتری جدید», and two of them would compete.
+                    other.classList.toggle("btn-light-primary", active);
                     other.classList.toggle("btn-light", !active);
                     other.setAttribute("aria-pressed", String(active));
                 });
@@ -11667,6 +11669,69 @@
      * `type="number"`, because a number input refuses a grouped value outright.
      * `moneyValue` turns it back into digits on submit.
      */
+    /**
+     * Persian and Arabic digits in any numeric field (2.25.1).
+     *
+     * A `type="number"` input refuses «۱۲۳» outright — the browser drops the
+     * keystroke before any script sees a value — so an operator on a Persian
+     * keyboard could not type a quantity or a percentage at all. The digit is
+     * translated on its way in instead: `beforeinput` still carries the
+     * character, and is cancellable for ordinary typing and pasting, so the
+     * Latin digit is inserted in its place. `insertText` keeps the field's
+     * own undo history and fires the usual `input` event, so nothing that
+     * listens to the field has to know this happened.
+     *
+     * Text fields that take digits (phone, national id, money) accept Persian
+     * digits already and are converted on submit; they are covered too, so a
+     * number reads the same way everywhere it is typed. The `input` fallback
+     * catches what an on-screen keyboard's composition sends uncancellably.
+     */
+    const NUMERIC_FIELD = [
+        'input[type="number"]', 'input[type="tel"]',
+        'input[inputmode="numeric"]', 'input[inputmode="decimal"]', 'input[inputmode="tel"]',
+    ].join(", ");
+    const FOREIGN_DIGIT = /[۰-۹٠-٩٫]/;
+
+    function latinNumberText(text) {
+        // «٫» is the Persian decimal separator.
+        return toLatinDigits(text).replace(/٫/g, ".");
+    }
+
+    function insertLatin(field, text) {
+        field.focus();
+        // `execCommand` is the only way to insert into a number input: it has
+        // no selection API, so `setRangeText` throws there.
+        if (document.execCommand && document.execCommand("insertText", false, text)) return;
+        field.value += text;
+        field.dispatchEvent(new Event("input", {bubbles: true}));
+    }
+
+    function setupLatinDigitInputs() {
+        document.addEventListener("beforeinput", (event) => {
+            const field = event.target;
+            if (!(field instanceof HTMLInputElement) || !field.matches(NUMERIC_FIELD)) return;
+            if (typeof event.data !== "string" || !FOREIGN_DIGIT.test(event.data) || !event.cancelable) return;
+            event.preventDefault();
+            insertLatin(field, latinNumberText(event.data));
+        }, true);
+        document.addEventListener("paste", (event) => {
+            const field = event.target;
+            if (!(field instanceof HTMLInputElement) || !field.matches(NUMERIC_FIELD)) return;
+            const text = event.clipboardData?.getData("text") || "";
+            if (!FOREIGN_DIGIT.test(text)) return;
+            event.preventDefault();
+            insertLatin(field, latinNumberText(text));
+        }, true);
+        document.addEventListener("input", (event) => {
+            const field = event.target;
+            if (!(field instanceof HTMLInputElement) || !field.matches(NUMERIC_FIELD)) return;
+            if (field.type === "number" || !FOREIGN_DIGIT.test(field.value)) return;
+            const caret = field.selectionStart;
+            field.value = latinNumberText(field.value);
+            if (caret !== null) field.setSelectionRange(caret, caret);
+        }, true);
+    }
+
     function setupMoneyInputs(root = document) {
         root.querySelectorAll("[data-money-input]").forEach((field) => {
             if (field.dataset.moneyBound === "1") return;
@@ -11788,19 +11853,41 @@
             close();
         }
 
+        // What is compared, on both sides (2.25.1): Latin digits, no case, no
+        // grouping or spaces. An option reads «INV-000042 — مانده ۷۳۰،۲۲۴،۰۰۰»
+        // — Latin in the number, Persian and grouped in the amount — so a
+        // raw substring match found neither «۴۲» nor «730224000».
+        const searchKey = (text) => toLatinDigits(String(text)).toLowerCase().replace(/[،,٬\s]/g, "");
+        const matching = (term) => {
+            const needle = searchKey(term);
+            return options().filter((option) => searchKey(option.textContent).includes(needle));
+        };
+        // `data-searchable-limit="0"` lists every match; the default keeps a
+        // long customer book from drawing thousands of rows on focus.
+        const limit = Number(select.dataset.searchableLimit ?? 50) || Infinity;
+
         function render(term) {
-            const needle = term.trim().toLowerCase();
-            const matches = options().filter((option) =>
-                option.textContent.toLowerCase().includes(needle),
-            );
+            const matches = matching(term);
             list.replaceChildren();
             if (!matches.length) {
                 const empty = document.createElement("li");
                 empty.className = "searchable-select-empty";
-                empty.textContent = select.options.length > 1 ? "چیزی پیدا نشد." : "در حال دریافت…";
+                // «در حال دریافت…» only while nothing has arrived yet. A list
+                // that loaded empty says so — in its own words when the page
+                // gave it some (`data-searchable-empty`) — instead of looking
+                // as if it were still loading forever.
+                empty.textContent = options().length
+                    ? "چیزی پیدا نشد."
+                    : (select.dataset.searchableEmpty || "در حال دریافت…");
                 list.append(empty);
             } else {
-                matches.slice(0, 50).forEach((option, index) => {
+                if (matches.length > limit) {
+                    const more = document.createElement("li");
+                    more.className = "searchable-select-empty";
+                    more.textContent = `${toPersianDigits(String(matches.length - limit))} مورد دیگر؛ برای یافتن، بنویسید.`;
+                    list.append(more);
+                }
+                matches.slice(0, limit).forEach((option, index) => {
                     const row = document.createElement("li");
                     row.textContent = option.textContent;
                     row.setAttribute("role", "option");
@@ -11843,9 +11930,7 @@
             } else if (event.key === "Enter") {
                 if (!list.hidden && rows[active]) {
                     event.preventDefault();
-                    const matches = options().filter((option) =>
-                        option.textContent.toLowerCase().includes(input.value.trim().toLowerCase()),
-                    );
+                    const matches = matching(input.value);
                     if (matches[active]) choose(matches[active]);
                 }
             } else if (event.key === "Escape") {
@@ -12907,7 +12992,9 @@
                 ["مشتری", selectedOptionText(document.getElementById("create-invoice-customer"))],
                 ["نوع فاکتور", selectedOptionText(document.getElementById("create-invoice-type"))],
                 ["تاریخ صدور", document.getElementById("create-invoice-document-date")?.value || "روز صدور"],
-                ["تعداد اقلام", toPersianDigits(String(lines.count()))],
+                // How many different products, not how many units — the
+                // count is of rows (2.25.1, product owner's wording).
+                ["تنوع محصول", toPersianDigits(String(lines.count()))],
                 ["جمع اقلام", money(totals.gross)],
                 ["تخفیف", money(totals.discount)],
                 ["مالیات", money(totals.tax)],
@@ -14042,6 +14129,8 @@
         //: out of a select on the page. Every allocation row is built from this
         //: one list, so no two rows can offer different invoices.
         let allocatableInvoices = [];
+        // What the invoice picker says when there is nothing to pick (2.25.1).
+        let allocatableEmptyText = "";
 
         function apply(value) {
             payment = value;
@@ -14174,6 +14263,10 @@
             select.dataset.splitInvoice = "";
             select.setAttribute("data-searchable-source", "");
             select.setAttribute("aria-label", "فاکتور");
+            // Every open invoice of this customer, not the first fifty — the
+            // one you are looking for is the one that would be cut.
+            select.dataset.searchableLimit = "0";
+            select.dataset.searchableEmpty = allocatableEmptyText;
             fillSelect(
                 select,
                 allocatableInvoices,
@@ -14346,6 +14439,12 @@
                 allocatableInvoices = invoices.filter(
                     (invoice) => Number(invoice.balance_due) > 0,
                 );
+                // Same rule the server applies (`allocate_payment`): only an
+                // issued invoice of this payment's own customer, with
+                // something still owed.
+                allocatableEmptyText = "این مشتری فاکتور صادرشدهٔ تسویه‌نشده‌ای ندارد.";
+            } else {
+                allocatableEmptyText = "این دریافت طرف حساب ندارد؛ تخصیص فقط به فاکتور همان مشتری ممکن است.";
             }
             apply(value);
             // One row to start with, so the common case — settle this against
@@ -15053,6 +15152,8 @@
     // here rather than per module, because a price is a price on whichever
     // screen it appears; dialogs are in the DOM at load, so they are covered.
     setupMoneyInputs();
+    // Persian digits in every numeric field, including ones built later.
+    setupLatinDigitInputs();
     // Any searchable select present in the served markup. A page that fills its
     // options later calls this again for its own block; binding twice is a
     // no-op, so neither has to know about the other.

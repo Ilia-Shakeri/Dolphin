@@ -6,10 +6,12 @@
         <h2 class="fs-3 fw-bold text-gray-900 mb-0">{% if person.type == "customer" %}وظایفِ مربوط به این مشتری{% else %}وظایفِ واگذارشده به {{ person.name }}{% endif %}</h2>
         <div class="d-flex flex-wrap align-items-center gap-2">
             <select id="profile-tasks-status" class="form-select form-select-sm form-select-solid w-auto" aria-label="وضعیت وظیفه">
+                {% comment %} «همه» first and chosen (2.25.1): opening the tab shows
+                   every task, not only the open ones. {% endcomment %}
+                <option value="" selected>همه</option>
                 <option value="open">باز</option>
                 <option value="done">انجام‌شده</option>
                 <option value="cancelled">لغوشده</option>
-                <option value="">همه</option>
             </select>
             {% if can_add_task %}<button class="btn btn-sm btn-primary" type="button" data-profile-action="add-task">وظیفهٔ تازه</button>{% endif %}
         </div>

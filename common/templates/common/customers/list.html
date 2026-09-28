@@ -9,12 +9,6 @@
    دارد؛ این پنهان‌سازی مجوز نیست — `customers_for` دامنهٔ او را در سرور
    به همان دفتر محدود می‌کند. {% endcomment %}
 {% block page_actions %}
-{% if can_manage_customer_kinds %}
-<div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
-    <button id="customer-kind-individual" class="btn btn-sm btn-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
-    <button id="customer-kind-legal" class="btn btn-sm btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
-</div>
-{% endif %}
 <button id="open-export-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}خروجی لیست</button>
 {% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی لیست</button>{% endif %}
 {% endblock %}
@@ -84,7 +78,16 @@
             </div>
         </div>
     </div>
-    <div class="card-toolbar">
+    {% comment %} The two books sit with the list they switch (2.25.1), beside
+       «مشتری جدید», rather than up in the page header, away from the rows
+       they change. {% endcomment %}
+    <div class="card-toolbar gap-3">
+        {% if can_manage_customer_kinds %}
+        <div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
+            <button id="customer-kind-individual" class="btn btn-light-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
+            <button id="customer-kind-legal" class="btn btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
+        </div>
+        {% endif %}
         <button id="open-create-customer" class="btn btn-primary" type="button">مشتری جدید</button>
     </div>
 </div><div class="card-body pt-2">

@@ -717,3 +717,11 @@ class WsgiUrlconfWarmupTests(SimpleTestCase):
         import config.wsgi  # noqa: F401 — the import itself is the warmup
 
         self.assertTrue(get_resolver().url_patterns)
+
+    def test_the_warmup_is_in_the_wsgi_module_itself(self):
+        """The assertion above passes whether or not `config/wsgi.py` warms
+        anything — any earlier test has already built the resolver in this
+        process. What actually matters is that the line exists where gunicorn
+        imports it (2.25.1: it was missing from the 2.25.0 commit)."""
+        source = (Path(__file__).resolve().parents[2] / "config" / "wsgi.py").read_text(encoding="utf-8")
+        self.assertIn("get_resolver().url_patterns", source)
