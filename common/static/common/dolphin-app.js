@@ -16248,11 +16248,14 @@
         const providersByKey = Object.fromEntries(catalog.providers.map((provider) => [provider.key, provider]));
         const STATUS_ACCENT = {ok: "success", error: "danger", disabled: "secondary", unconfigured: "warning"};
         let integrations = [];
+        // One tab per part of the framework (2.24.0); every list still loads
+        // up front — they are small, and a row's «گزارش» jumps across tabs.
+        const tabs = setupProfileTabs({});
 
         function wireDialog(dialog) {
             dialog?.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
         }
-        ["integration-dialog", "subscription-dialog", "token-dialog", "secret-once-dialog", "extension-dialog"].forEach((id) => wireDialog(document.getElementById(id)));
+        ["integration-catalog-dialog", "integration-dialog", "subscription-dialog", "token-dialog", "secret-once-dialog", "extension-dialog"].forEach((id) => wireDialog(document.getElementById(id)));
 
         function showOnce(value, note) {
             const dialog = document.getElementById("secret-once-dialog");
@@ -16302,7 +16305,9 @@
                     this.body.replaceChildren(...rows);
                     this.loading.hidden = true;
                     this.empty.hidden = rows.length > 0;
-                    this.wrap.hidden = rows.length === 0;
+                    // The connections list shares its table with the
+                    // built-in services, so it has no wrapper to hide.
+                    if (this.wrap) this.wrap.hidden = rows.length === 0;
                 },
             };
         }
@@ -16381,13 +16386,16 @@
             }));
         }
 
-        function openConnection(integration = null) {
+        function openConnection(integration = null, providerKey = "") {
             editing = integration;
             form.reset();
             clearMessages(form);
-            document.getElementById("integration-dialog-title").textContent = integration ? `ویرایش «${integration.name}»` : "افزودن اتصال";
+            const provider = providersByKey[integration ? integration.provider_key : providerKey];
+            document.getElementById("integration-dialog-title").textContent = integration
+                ? `ویرایش «${integration.name}»`
+                : `افزودن اتصال${provider ? ` — ${provider.name}` : ""}`;
             providerSelect.disabled = Boolean(integration);
-            if (integration) providerSelect.value = integration.provider_key;
+            if (provider) providerSelect.value = provider.key;
             document.getElementById("integration-name").value = integration ? integration.name : "";
             document.getElementById("integration-enabled").checked = integration ? integration.enabled : false;
             renderFields(providersByKey[providerSelect.value], integration);
@@ -16395,7 +16403,51 @@
         }
 
         providerSelect.addEventListener("change", () => renderFields(providersByKey[providerSelect.value], null));
-        document.getElementById("open-integration-dialog")?.addEventListener("click", () => openConnection());
+
+        // «افزودن اتصال» opens the catalog first: what can be connected now
+        // (the providers), the panel's own services (each on its own
+        // settings page), and what is only planned — named, never pressable.
+        const catalogDialog = document.getElementById("integration-catalog-dialog");
+        const catalogHost = document.getElementById("integration-catalog-providers");
+        catalog.providers.forEach((provider) => {
+            const column = document.createElement("div");
+            column.className = "col-md-6";
+            const card = document.createElement("button");
+            card.type = "button";
+            card.className = "btn btn-outline btn-outline-dashed btn-active-light-primary d-flex align-items-start text-start gap-4 p-5 w-100 h-100";
+            card.dataset.provider = provider.key;
+            const symbol = document.createElement("span");
+            symbol.className = "symbol symbol-40px flex-shrink-0";
+            symbol.innerHTML = '<span class="symbol-label bg-light-primary"><i class="ki-duotone ki-abstract-26 fs-2 text-primary" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span>';
+            const text = document.createElement("span");
+            text.className = "min-w-0";
+            const title = document.createElement("span");
+            title.className = "d-block fw-bold text-gray-900";
+            title.textContent = provider.name;
+            const description = document.createElement("span");
+            description.className = "d-block text-muted fs-8";
+            description.textContent = provider.description;
+            text.append(title, description);
+            if (provider.capabilities.length) {
+                const chips = document.createElement("span");
+                chips.className = "d-flex flex-wrap gap-1 mt-2";
+                provider.capabilities.forEach((capability) => {
+                    const chip = document.createElement("span");
+                    chip.className = "badge badge-light-primary fs-9";
+                    chip.textContent = capability.label;
+                    chips.appendChild(chip);
+                });
+                text.appendChild(chips);
+            }
+            card.append(symbol, text);
+            card.addEventListener("click", () => {
+                catalogDialog.close();
+                openConnection(null, provider.key);
+            });
+            column.appendChild(card);
+            catalogHost.appendChild(column);
+        });
+        document.getElementById("open-integration-catalog")?.addEventListener("click", () => catalogDialog.showModal());
 
         form.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -16431,17 +16483,27 @@
         function connectionRow(integration) {
             const row = document.createElement("tr");
             const name = document.createElement("td");
+            // Same symbol-and-text cell as the built-in rows above it.
+            const cell = document.createElement("div");
+            cell.className = "d-flex align-items-start gap-3";
+            const symbol = document.createElement("span");
+            symbol.className = "symbol symbol-40px flex-shrink-0";
+            symbol.innerHTML = `<span class="symbol-label bg-light-${STATUS_ACCENT[integration.status] || "secondary"}"><i class="ki-duotone ki-abstract-26 fs-2 text-${STATUS_ACCENT[integration.status] || "secondary"}" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span>`;
+            const text = document.createElement("div");
+            text.className = "min-w-0";
+            cell.append(symbol, text);
+            name.appendChild(cell);
             const strong = document.createElement("span");
             strong.className = "d-block fw-semibold text-gray-900";
             strong.textContent = integration.name;
-            name.appendChild(strong);
+            text.appendChild(strong);
             if (integration.webhook_path) {
                 const path = document.createElement("code");
-                path.className = "d-block fs-8 text-muted text-break";
+                path.className = "d-block fs-8 text-muted integration-webhook-path";
                 path.dir = "ltr";
                 path.textContent = `${window.location.origin}${integration.webhook_path}`;
                 path.title = "نشانی وب‌هوک ورودی این اتصال";
-                name.appendChild(path);
+                text.appendChild(path);
             }
             row.appendChild(name);
             appendCell(row, integration.provider_name);
@@ -16469,6 +16531,11 @@
             actions.className = "row-actions";
             actions.append(
                 button("ویرایش", "btn-light", () => openConnection(integration)),
+                button("گزارش", "btn-light", () => {
+                    logFilter.value = String(integration.id);
+                    tabs?.activate("logs", {push: true});
+                    loadLogs(1);
+                }),
                 button("آزمایش اتصال", "btn-light-primary", async (node) => {
                     node.disabled = true;
                     clearMessages();
@@ -16540,7 +16607,18 @@
                     badge.textContent = entry.status_label;
                     result.appendChild(badge);
                     row.appendChild(result);
-                    appendCell(row, entry.message).className = "text-break";
+                    const message = appendCell(row, entry.message);
+                    message.className = "text-break";
+                    // A message from a number no customer has (2.24.0): the
+                    // server offers the create page, prefilled, only to a
+                    // reader who may create customers.
+                    if (entry.create_customer_url) {
+                        const link = document.createElement("a");
+                        link.className = "btn btn-sm btn-light-primary d-inline-block ms-2 mt-1";
+                        link.href = entry.create_customer_url;
+                        link.textContent = "ثبت مشتری";
+                        message.appendChild(link);
+                    }
                     return row;
                 }));
                 logPage = page;

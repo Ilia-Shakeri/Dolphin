@@ -4,6 +4,7 @@ signature instead of a session."""
 
 import hashlib
 import json
+from urllib.parse import urlencode
 
 from django.db import IntegrityError, transaction
 from django.http import Http404
@@ -16,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from accounts.access import capabilities_for
 from accounts.models import User
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessRuleError
@@ -67,7 +69,22 @@ LOG_EVENT_LABELS = {
 }
 
 
-def serialize_log(row):
+def _create_customer_url(row):
+    """For an inbound message from a number no customer has (2.24.0): the
+    customer create page, prefilled with that number — the same offer the
+    call popup makes (`telephony.popup`). Matched live, not from what the
+    row recorded, so a customer created since is no longer offered twice."""
+    from integrations.matching import best_match, normalize_caller
+
+    if row.direction != IntegrationLog.Direction.INBOUND or row.event_type != "message.received":
+        return ""
+    phone = normalize_caller((row.payload or {}).get("from"))
+    if not phone or best_match(phone) is not None:
+        return ""
+    return f"/customers/?{urlencode({'new_phone': phone})}"
+
+
+def serialize_log(row, *, may_create_customers=False):
     return {
         "id": row.pk,
         "integration": row.integration_id,
@@ -79,6 +96,7 @@ def serialize_log(row):
         "status_label": row.get_status_display(),
         "message": row.message,
         "created_at": row.created_at.isoformat(),
+        "create_customer_url": _create_customer_url(row) if may_create_customers else "",
     }
 
 
@@ -198,7 +216,9 @@ class IntegrationLogView(AdminAPIView):
             rows = rows.filter(integration_id=int(integration))
         paginator = PageNumberPagination()
         page = paginator.paginate_queryset(rows, request, view=self)
-        return paginator.get_paginated_response([serialize_log(row) for row in page])
+        # Decided once for the page; a row only adds its own number check.
+        may_create = feature_enabled("customers") and "customers.manage" in capabilities_for(request.user)
+        return paginator.get_paginated_response([serialize_log(row, may_create_customers=may_create) for row in page])
 
 
 class InboundWebhookView(APIView):

@@ -11,12 +11,16 @@ callable that reports its state. Everything the page draws comes from
 that row, so adding a service is one entry plus its own status function —
 no template change, no new view, no second list to keep in step.
 
-**Three rows today, and the last is honest about being empty.** SMS is a
-real, configurable, testable gateway. Post is the carrier seam from
-`sales.postal` — manual in this build, with the interface a provider will be
-implemented against. `coming_soon` is the catch-all for whatever is not even
-named yet (a payment gateway, the tax-authority system); it offers no switch
-that does nothing, which is worse than an empty space (CLAUDE.md §27).
+**Two built-in rows.** SMS is a real, configurable, testable gateway. Post
+is the carrier seam from `sales.postal` — manual in this build, with the
+interface a provider will be implemented against. Since 2.24.0 both sit in
+the same «اتصال‌ها» list as the integrations framework's connections
+(decision D15), each opening its own settings page.
+
+What is not built yet is not a row any more: the «سرویس‌های دیگر — به‌زودی»
+placeholder (2.16.0–2.23.2) became `UPCOMING_SERVICES`, named cards in the
+«افزودن اتصال» catalog, each marked «به‌زودی» and offering nothing to press
+(CLAUDE.md §27).
 
 VoIP/telephony had a named «به‌زودی» row here from 2.16.0 until 2.22.0, when
 it became a real connection: an Asterisk/FreePBX *provider* of the
@@ -238,13 +242,6 @@ def _post_details(_user):
     return details
 
 
-def _unavailable_status(_user):
-    return IntegrationStatus(
-        state="unavailable",
-        summary="در نسخه‌های بعدی افزوده می‌شود. هیچ تنظیمی برای آن وجود ندارد.",
-    )
-
-
 #: The table. One entry per service; adding one needs nothing else.
 INTEGRATIONS = (
     Integration(
@@ -275,17 +272,29 @@ INTEGRATIONS = (
         status=_post_status,
         details=_post_details,
     ),
-    Integration(
-        key="coming_soon",
-        label="سرویس‌های دیگر",
-        description=(
-            "درگاه پرداخت، سامانهٔ مؤدیان و سرویس‌های دیگری که بعداً اضافه "
-            "می‌شوند، همین‌جا فهرست خواهند شد."
-        ),
-        icon="ki-abstract-26",
-        icon_paths=2,
-        status=_unavailable_status,
-    ),
+)
+
+
+
+@dataclass(frozen=True)
+class UpcomingService:
+    """A kind of connection this build cannot make yet — shown in the
+    «افزودن اتصال» catalog as «به‌زودی», never as a control. Each needs a
+    real provider and its official documentation first
+    (`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §8)."""
+
+    key: str
+    label: str
+    description: str
+    icon: str
+    icon_paths: int = 2
+
+
+UPCOMING_SERVICES = (
+    UpcomingService("payment_gateway", "درگاه پرداخت", "دریافت آنلاین مبلغ فاکتور و ثبت خودکار دریافت.", "ki-credit-cart", 2),
+    UpcomingService("tax_system", "سامانهٔ مؤدیان", "ارسال فاکتور رسمی به سامانهٔ مالیاتی.", "ki-bank", 2),
+    UpcomingService("email", "ایمیل", "ارسال فاکتور و اعلان‌ها با ایمیل.", "ki-sms", 2),
+    UpcomingService("messengers", "پیام‌رسان‌ها", "ربات بله، تلگرام و واتس‌اپ با ارائه‌دهندهٔ اختصاصی (امروز: وب‌هوک ورودی عمومی).", "ki-message-text-2", 3),
 )
 
 
@@ -298,10 +307,8 @@ def any_integration_configurable(user):
     lookup, a post-settings row read) just to answer a yes/no.
 
     Feature and gate only, the same two checks `visible_integrations` makes
-    before it ever calls a row's `status`, and skipping the placeholder row
-    on purpose — it has neither a feature nor a gate and is always
-    "visible", so counting it would make this always true regardless of
-    what the reader can actually configure.
+    before it ever calls a row's `status`, and only rows with a settings
+    page of their own — a row nobody can open must not make this true.
     """
     from common.deployment.profile import feature_enabled
 
@@ -326,9 +333,7 @@ def visible_integrations(user):
 
     A row is left out when its module is not licensed or the reader cannot
     configure it — a page listing services somebody can neither open nor
-    change is a page that only raises questions. The placeholder has neither
-    a feature nor a capability and is therefore always shown, which is the
-    point of it.
+    change is a page that only raises questions.
     """
     from common.deployment.profile import feature_enabled
 

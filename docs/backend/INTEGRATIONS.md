@@ -20,6 +20,20 @@ holds credentials that act for the whole deployment. SMS and post keep their
 own settings pages and appear on this page as built-in rows
 (`common/integrations.py`).
 
+### The page (2.24.0)
+
+One tab per part the deployment runs, deep-linked with `?tab=`: «اتصال‌ها»
+(always), «داخلی‌های تلفن» (`telephony`), «وب‌هوک‌های خروجی»
+(`outbound_webhooks`), «توکن‌های API» (`public_api`), «گزارش رویدادها»
+(always). «اتصال‌ها» is one table: the built-in SMS/post rows, then the
+framework's connections, each with «گزارش» (the log tab, filtered to it).
+«افزودن اتصال» opens a catalog first: the providers that can be connected,
+the built-in services (links to their settings pages), and
+`common.integrations.UPCOMING_SERVICES` — payment gateway, tax system, email,
+messengers — marked «به‌زودی» with nothing to press. A reader who is not the
+Platform Admin, or a deployment without `integrations`, sees only the built-in
+rows that reader may configure.
+
 ## Secrets
 
 `integrations/crypto.py` stores an integration's secret fields as one Fernet
@@ -84,6 +98,12 @@ signing secret and a body such as:
 A request is idempotent on `Idempotency-Key`, else `id`, else the body hash;
 a repeat answers 200 and does nothing. A disabled or unknown connection is a
 404; a bad signature is a 403 and a log row.
+
+In `GET integration-logs/`, an inbound `message.received` row whose sender
+matches no one carries `create_customer_url` (`/customers/?new_phone=…`, the
+call popup's offer) — matched when the log is read, not when it was written, so
+a customer created since stops being offered; empty unless the reader has
+`customers.manage` and `customers` is on.
 
 ## Outbound webhooks
 

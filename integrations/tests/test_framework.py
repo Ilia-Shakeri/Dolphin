@@ -47,7 +47,7 @@ from integrations.models import (
     WebhookSubscription,
 )
 from integrations.services import create_integration, create_subscription
-from sales.models import Interaction
+from sales.models import CustomerPhone, Interaction
 from sales.services import create_customer_with_phone, create_lead, record_interaction
 from timeline.models import TimelineEntry
 
@@ -160,11 +160,17 @@ class IntegrationApiTests(Fixtures):
         self.assertIsNotNone(integration.last_health_at)
 
     def test_the_page_shows_the_framework_to_the_platform_admin_only(self):
+        # The connections card itself is shared with the built-in services
+        # (2.24.0); the framework's rows, tabs and catalog are not.
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get("/settings/integrations/"), 'id="integration-connections"')
-        self.assertContains(self.client.get("/settings/integrations/"), "یکپارچه‌سازی‌ها")
+        response = self.client.get("/settings/integrations/")
+        for marker in ('id="integrations-table-body"', 'data-profile-tab="logs"', 'id="integration-catalog-dialog"'):
+            self.assertContains(response, marker)
+        self.assertContains(response, "یکپارچه‌سازی‌ها")
         self.client.force_login(self.manager)
-        self.assertNotContains(self.client.get("/settings/integrations/"), 'id="integration-connections"')
+        response = self.client.get("/settings/integrations/")
+        for marker in ('id="integrations-table-body"', 'data-profile-tab="logs"', 'id="integration-catalog-dialog"'):
+            self.assertNotContains(response, marker)
 
 
 class InboundWebhookTests(Fixtures):
@@ -179,6 +185,21 @@ class InboundWebhookTests(Fixtures):
         self.assertEqual(self.post_webhook(integration, payload).status_code, 200)
         self.assertEqual(InboundWebhookReceipt.objects.count(), 1)
         self.assertEqual(DomainEvent.objects.filter(event_type="message.received").count(), 1)
+
+    def test_the_log_offers_to_create_a_customer_for_an_unknown_sender(self):
+        """Only for a number no one has, and only while that stays true."""
+        integration = self.generic()
+        self.post_webhook(integration, {"id": "m-1", "type": "message.received", "from": "09350001122", "text": "سلام"})
+        self.post_webhook(integration, {"id": "m-2", "type": "message.received", "from": "+989151234567", "text": "سلام"})
+        rows = self.api(self.admin).get("/api/v1/integration-logs/").data["results"]
+        by_id = {row["message"]: row["create_customer_url"] for row in rows}
+        unknown = next(url for message, url in by_id.items() if "بدون تطبیق" in message)
+        self.assertEqual(unknown, "/customers/?new_phone=%2B989350001122")
+        known = next(url for message, url in by_id.items() if "تطبیق با" in message)
+        self.assertEqual(known, "")
+        CustomerPhone.objects.create(customer=self.customer, raw_phone="09350001122", normalized_phone="+989350001122")
+        rows = self.api(self.admin).get("/api/v1/integration-logs/").data["results"]
+        self.assertTrue(all(row["create_customer_url"] == "" for row in rows))
 
     def test_a_bad_signature_is_refused_and_logged(self):
         integration = self.generic()

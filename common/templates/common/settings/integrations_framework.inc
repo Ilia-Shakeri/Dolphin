@@ -1,36 +1,12 @@
-{% comment %} چارچوب یکپارچه‌سازی (۲.۲۱.۰): اتصال‌های پیکربندی‌شده، وب‌هوک‌های خروجی،
-   توکن‌های API و گزارش رویدادها. فقط برای مدیر پلتفرم و فقط وقتی ویژگی‌اش روشن
+{% comment %} چارچوب یکپارچه‌سازی (۲.۲۱.۰؛ زبانه‌ها از ۲.۲۴.۰): داخلی‌های تلفن،
+   وب‌هوک‌های خروجی، توکن‌های API و گزارش رویدادها، هرکدام یک زبانه؛ فهرست اتصال‌ها
+   در خود `integrations.html` است. فقط برای مدیر پلتفرم و فقط وقتی ویژگی‌اش روشن
    است؛ هر API پشت این بخش‌ها همین دو را دوباره بررسی می‌کند. فرم هر نوع اتصال از
    فهرست فیلدهای خود ارائه‌دهنده ساخته می‌شود (`integrations/providers`). رمزها فقط
    نوشتنی‌اند: هرگز از سرور خوانده نمی‌شوند، فقط چند نویسهٔ آخرشان دیده می‌شود. {% endcomment %}
-{{ integration_catalog|json_script:"integration-catalog" }}
-{% if not integration_secrets_available %}
-<div class="alert alert-warning d-flex flex-column p-5 mt-8 mb-0" role="alert">
-    <span class="fw-bold mb-1">کلید رمزنگاری تنظیم نشده است</span>
-    <span class="fs-7">تا وقتی <code dir="ltr">DOLPHIN_SECRETS_KEY</code> روی این استقرار تنظیم نشده، هیچ رمز یا کلیدی برای اتصال‌ها ذخیره نمی‌شود. راهنما: بخش «یکپارچه‌سازی‌ها» در راهنمای استقرار.</span>
-</div>
-{% endif %}
-
-<section class="card mt-8" id="integration-connections">
-    <div class="card-header border-0 pt-6">
-        <div class="card-title flex-column">
-            <h2>اتصال‌ها</h2>
-            <span class="text-muted fs-7 mt-1">سامانه‌های بیرونی که به این استقرار وصل شده‌اند — هر کدام با وضعیت، آخرین بررسی و آخرین خطا.</span>
-        </div>
-        <div class="card-toolbar"><button class="btn btn-sm btn-primary" type="button" id="open-integration-dialog">افزودن اتصال</button></div>
-    </div>
-    <div class="card-body pt-2">
-        <div id="integrations-loading" class="text-center text-gray-700 py-8">در حال دریافت اتصال‌ها…</div>
-        <div id="integrations-empty" class="text-center text-gray-700 py-8" hidden>هنوز اتصالی ساخته نشده است.</div>
-        <div id="integrations-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
-            <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>نام</th><th>نوع</th><th>وضعیت</th><th>آخرین بررسی</th><th>روشن</th><th>عملیات</th></tr></thead>
-            <tbody id="integrations-table-body"></tbody>
-        </table></div>
-    </div>
-</section>
-
 {% if "telephony" in features %}
-<section class="card mt-8" id="integration-extensions">
+<section id="profile-pane-extensions" role="tabpanel" aria-labelledby="profile-tab-extensions" data-profile-pane="extensions"{% if active_tab != "extensions" %} hidden{% endif %}>
+<section class="card" id="integration-extensions">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
             <h2>داخلی‌های تلفن</h2>
@@ -46,6 +22,7 @@
             <tbody id="extensions-table-body"></tbody>
         </table></div>
     </div>
+</section>
 </section>
 
 <dialog id="extension-dialog" aria-labelledby="extension-dialog-title">
@@ -64,7 +41,8 @@
 {% endif %}
 
 {% if "outbound_webhooks" in features %}
-<section class="card mt-8" id="integration-webhooks">
+<section id="profile-pane-webhooks" role="tabpanel" aria-labelledby="profile-tab-webhooks" data-profile-pane="webhooks"{% if active_tab != "webhooks" %} hidden{% endif %}>
+<section class="card" id="integration-webhooks">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
             <h2>وب‌هوک‌های خروجی</h2>
@@ -81,10 +59,12 @@
         </table></div>
     </div>
 </section>
+</section>
 {% endif %}
 
 {% if "public_api" in features %}
-<section class="card mt-8" id="integration-tokens">
+<section id="profile-pane-tokens" role="tabpanel" aria-labelledby="profile-tab-tokens" data-profile-pane="tokens"{% if active_tab != "tokens" %} hidden{% endif %}>
+<section class="card" id="integration-tokens">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
             <h2>توکن‌های API</h2>
@@ -101,9 +81,11 @@
         </table></div>
     </div>
 </section>
+</section>
 {% endif %}
 
-<section class="card mt-8" id="integration-logs">
+<section id="profile-pane-logs" role="tabpanel" aria-labelledby="profile-tab-logs" data-profile-pane="logs"{% if active_tab != "logs" %} hidden{% endif %}>
+<section class="card" id="integration-logs">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
             <h2>گزارش رویدادها</h2>
@@ -121,6 +103,35 @@
         <nav id="logs-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی گزارش" hidden><button id="logs-prev" class="btn btn-light" type="button">قبلی</button><span id="logs-page-label"></span><button id="logs-next" class="btn btn-light" type="button">بعدی</button></nav>
     </div>
 </section>
+</section>
+
+<dialog id="integration-catalog-dialog" aria-labelledby="integration-catalog-title">
+    <div class="d-flex flex-stack align-items-center mb-2"><h2 id="integration-catalog-title" class="mb-0">افزودن اتصال</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <p class="text-muted fs-7 mb-6">به چه سامانه‌ای می‌خواهید وصل شوید؟</p>
+    <div class="row g-4" id="integration-catalog-providers" aria-label="اتصال‌های قابل ساخت"></div>
+    {% if integrations %}
+    <h3 class="fs-6 fw-bold text-gray-800 mt-8 mb-4">سرویس‌های داخلی پنل</h3>
+    <div class="row g-4">
+        {% for row in integrations %}
+        <div class="col-md-6"><a class="btn btn-outline btn-outline-dashed btn-active-light-primary d-flex align-items-start text-start gap-4 p-5 w-100 h-100" href="{% url row.settings_url_name %}">
+            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light-primary"><i class="ki-duotone {{ row.icon }} fs-2 text-primary" aria-hidden="true">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
+            <span class="min-w-0"><span class="d-block fw-bold text-gray-900">{{ row.label }}</span><span class="d-block text-muted fs-8">{{ row.description }}</span></span>
+        </a></div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if upcoming_services %}
+    <h3 class="fs-6 fw-bold text-gray-800 mt-8 mb-4">به‌زودی</h3>
+    <ul class="row g-4 list-unstyled mb-0" data-upcoming-services>
+        {% for service in upcoming_services %}
+        <li class="col-md-6"><div class="d-flex align-items-start gap-4 p-5 h-100 rounded border border-dashed border-gray-300" data-upcoming="{{ service.key }}">
+            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light"><i class="ki-duotone {{ service.icon }} fs-2 text-gray-500" aria-hidden="true">{% for path in ""|ljust:service.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
+            <span class="min-w-0 flex-grow-1"><span class="d-flex align-items-center gap-2 fw-bold text-gray-700">{{ service.label }} <span class="badge badge-light fs-9">به‌زودی</span></span><span class="d-block text-muted fs-8">{{ service.description }}</span></span>
+        </div></li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</dialog>
 
 <dialog id="integration-dialog" aria-labelledby="integration-dialog-title">
     <form id="integration-form" novalidate>

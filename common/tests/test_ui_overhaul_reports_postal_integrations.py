@@ -43,6 +43,7 @@ and the «به‌زودی» placeholder.
 import pathlib
 import re
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -464,25 +465,31 @@ class PostalApiTests(TestCase):
 
 
 class IntegrationRegistryTests(SimpleTestCase):
-    def test_the_rows_the_product_owner_asked_for(self):
-        """Restated 2026-09-21: «پیامک + پست + جای خالیِ صریحاً به‌زودی».
-        The `voip` placeholder that stood beside them from 2.16.0 left in
-        2.22.0, when telephony became a real Asterisk connection of the
-        integrations framework on this same page — a «به‌زودی» row for
-        something that is configurable two sections down would be false."""
-        self.assertEqual([row.key for row in integrations.INTEGRATIONS],
-                         ["sms", "post", "coming_soon"])
+    def test_the_rows_are_the_built_in_services(self):
+        """Since 2.24.0 the «به‌زودی» placeholder row is gone: what is not
+        built yet is named in the «افزودن اتصال» catalog instead
+        (`UPCOMING_SERVICES`), and the connections list holds only things
+        that can actually be connected."""
+        self.assertEqual([row.key for row in integrations.INTEGRATIONS], ["sms", "post"])
 
-    def test_the_placeholder_offers_no_controls_at_all(self):
-        """A switch that does nothing is worse than an empty space. Checked
-        by key, not by position, so this does not silently stop meaning
-        anything if another placeholder is ever added."""
-        for key in ("coming_soon",):
-            placeholder = next(row for row in integrations.INTEGRATIONS if row.key == key)
-            self.assertIsNone(placeholder.settings_url_name)
-            self.assertIsNone(placeholder.test_url)
-            self.assertEqual(placeholder.status(None).state, "unavailable")
-        self.assertEqual(integrations.STATE_LABELS["unavailable"][0], "به‌زودی")
+    def test_upcoming_services_are_named_and_offer_nothing_to_press(self):
+        """A switch that does nothing is worse than an empty space: an
+        upcoming service is a label, a description and an icon — no URL,
+        no gate, no status."""
+        keys = [service.key for service in integrations.UPCOMING_SERVICES]
+        self.assertEqual(keys, ["payment_gateway", "tax_system", "email", "messengers"])
+        for service in integrations.UPCOMING_SERVICES:
+            with self.subTest(service=service.key):
+                self.assertTrue(service.label and service.description and service.icon)
+                self.assertFalse(hasattr(service, "settings_url_name"))
+                self.assertFalse(hasattr(service, "test_url"))
+        catalog = markup((TEMPLATES / "settings" / "integrations_framework.inc").read_text(encoding="utf-8"))
+        self.assertIn("{% for service in upcoming_services %}", catalog)
+        self.assertIn("به‌زودی", catalog)
+        upcoming = catalog[catalog.index("{% for service in upcoming_services %}"):]
+        upcoming = upcoming[:upcoming.index("{% endfor %}")]
+        self.assertNotIn("<button", upcoming)
+        self.assertNotIn("<a ", upcoming)
 
     def test_a_test_button_exists_only_where_a_test_exists(self):
         """Restated 2026-09-21: `post` gained a real settings page and a
@@ -492,7 +499,6 @@ class IntegrationRegistryTests(SimpleTestCase):
         by_key = {row.key: row for row in integrations.INTEGRATIONS}
         self.assertTrue(by_key["sms"].test_url)
         self.assertTrue(by_key["post"].test_url)
-        self.assertIsNone(by_key["coming_soon"].test_url)
 
     def test_a_secret_is_hinted_at_and_never_shown(self):
         self.assertEqual(integrations.mask_secret("abcdefghijkl"), "••••••••ijkl")
@@ -525,14 +531,11 @@ class IntegrationVisibilityTests(TestCase):
 
     def test_a_platform_admin_sees_every_row(self):
         keys = [row["key"] for row in integrations.visible_integrations(self.admin)]
-        self.assertEqual(keys, ["sms", "post", "coming_soon"])
+        self.assertEqual(keys, ["sms", "post"])
 
     def test_a_marketer_sees_only_what_they_could_configure(self):
-        """Plus the placeholder, which is the point of it — it has no gate,
-        so nothing is there to exclude a role from."""
         keys = [row["key"] for row in integrations.visible_integrations(self.agent)]
         self.assertNotIn("sms", keys)
-        self.assertIn("coming_soon", keys)
 
     def test_an_unconfigured_gateway_says_so_rather_than_claiming_a_connection(self):
         row = next(r for r in integrations.visible_integrations(self.admin) if r["key"] == "sms")
@@ -546,15 +549,32 @@ class IntegrationVisibilityTests(TestCase):
         response = self.client.get("/settings/integrations/")
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "سامانهٔ پیامک")
-        self.assertContains(response, "به‌زودی")
+        self.assertContains(response, "سرویسی برای اتصال در دسترس شما نیست.")
+        # Nor the framework's tabs or catalog, which are the Platform Admin's.
+        self.assertNotContains(response, "data-profile-tab=")
+        self.assertNotContains(response, "integration-catalog-dialog")
 
     def test_the_page_renders_for_an_admin(self):
         self.client.force_login(self.admin)
         response = self.client.get("/settings/integrations/")
         self.assertEqual(response.status_code, 200)
-        for label in ("سامانهٔ پیامک", "سرویس پست", "به‌زودی"):
+        for label in ("سامانهٔ پیامک", "سرویس پست", "به‌زودی", "درگاه پرداخت"):
             with self.subTest(label=label):
                 self.assertContains(response, label)
+
+    def test_tabs_follow_the_features_and_the_query_string(self):
+        """One tab per part of the framework the deployment runs; `?tab=`
+        opens one directly and anything else falls back to «اتصال‌ها»."""
+        self.client.force_login(self.admin)
+        with patch("common.ui_views.feature_enabled", side_effect=lambda key: key != "public_api"):
+            response = self.client.get("/settings/integrations/?tab=logs")
+        keys = [key for key, _ in response.context["integration_tabs"]]
+        self.assertEqual(keys[0], "connections")
+        self.assertEqual(keys[-1], "logs")
+        self.assertNotIn("tokens", keys)
+        self.assertEqual(response.context["active_tab"], "logs")
+        response = self.client.get("/settings/integrations/?tab=nonsense")
+        self.assertEqual(response.context["active_tab"], "connections")
 
     def test_it_is_reachable_from_the_settings_page(self):
         self.client.force_login(self.admin)

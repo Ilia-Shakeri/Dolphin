@@ -3678,6 +3678,13 @@ body.dashboard-editing #agent-work-queue {
     overflow-wrap: anywhere;
 }
 
+/* A connection's inbound webhook URL has no spaces; `text-break` still
+   counts its full length as the column's minimum width, so the connections
+   table would scroll sideways for one long URL. `anywhere` lets it wrap. */
+.integration-webhook-path {
+    overflow-wrap: anywhere;
+}
+
 /* A key hint is a string of identical dots and a few characters; a
    proportional face makes the dots crowd and the digits sit unevenly. */
 .integration-secret {

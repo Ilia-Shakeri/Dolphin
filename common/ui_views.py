@@ -743,6 +743,23 @@ class IntegrationsView(ActiveCrmView):
                     (person.pk, f"{person.get_full_name() or person.username} ({person.username})")
                     for person in crm_identities(User.objects.filter(is_active=True)).order_by("username")
                 ]
+            # One tab per part of the framework this deployment runs (2.24.0),
+            # `?tab=` opening one directly; the catalog behind «افزودن اتصال»
+            # lists what cannot be connected yet beside what can.
+            from common.integrations import UPCOMING_SERVICES
+
+            tabs = [("connections", "اتصال‌ها")]
+            if feature_enabled("telephony"):
+                tabs.append(("extensions", "داخلی‌های تلفن"))
+            if feature_enabled("outbound_webhooks"):
+                tabs.append(("webhooks", "وب‌هوک‌های خروجی"))
+            if feature_enabled("public_api"):
+                tabs.append(("tokens", "توکن‌های API"))
+            tabs.append(("logs", "گزارش رویدادها"))
+            context["integration_tabs"] = tabs
+            requested = self.request.GET.get("tab", "")
+            context["active_tab"] = requested if requested in {key for key, _ in tabs} else "connections"
+            context["upcoming_services"] = UPCOMING_SERVICES
         return context
 
 

@@ -429,8 +429,9 @@ class IntegrationsNavRenameTests(SimpleTestCase):
         self.assertIn("integration.gate", body)
 
     def test_the_placeholder_row_cannot_make_the_gate_true(self):
-        """`coming_soon` has neither a feature nor a gate and is always
-        "visible" — counting it would make `can_manage_integrations` true
-        for everyone, which defeats the whole point of the check."""
+        """A row with neither a feature nor a gate (as the `coming_soon`
+        placeholder was, until 2.24.0) is always "visible" — counting it
+        would make `can_manage_integrations` true for everyone, which
+        defeats the whole point of the check."""
         body = python_function("any_integration_configurable", INTEGRATIONS_SOURCE)
         self.assertIn("integration.settings_url_name", body)

@@ -2,95 +2,114 @@
 {% load jalali_tags %}
 {% block title %}یکپارچه‌سازی‌ها{% endblock %}
 {% block page_id %}integrations{% endblock %}
+{% block body_data %}{% if can_manage_framework %} data-active-tab="{{ active_tab }}"{% endif %}{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">تنظیمات</span>{% endblock %}
 {% block page_icon %}<i class="ki-duotone ki-abstract-26 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}یکپارچه‌سازی‌ها{% endblock %}
 {% block breadcrumb_current %}یکپارچه‌سازی‌ها{% endblock %}
 {% block content %}
-{% comment %} هر ردیف از `common/integrations.py` می‌آید — کلید، نام، آیکون،
-   دروازهٔ دسترسی، صفحهٔ تنظیمات خودش و تابعی که وضعیتش را گزارش می‌کند. افزودن
-   یک سرویس تازه یعنی یک سطر در آن جدول؛ این قالب تغییر نمی‌کند.
+{% comment %} یک صفحه برای همهٔ اتصال‌ها (۲.۲۴.۰). سرویس‌های داخلی پنل — سامانهٔ پیامک و
+   سرویس پست — ردیف‌های `common/integrations.py`اند و هرکدام صفحهٔ تنظیمات خودش را
+   دارد؛ اتصال‌های چارچوب یکپارچه‌سازی (وب‌هوک ورودی، مرکز تلفن، …) از API خود
+   آن ساخته می‌شوند. هر دو در یک فهرست «اتصال‌ها» (تصمیم D15). بقیهٔ چارچوب —
+   داخلی‌های تلفن، وب‌هوک‌های خروجی، توکن‌ها، گزارش — هرکدام یک زبانه، فقط برای
+   مدیر پلتفرم و فقط وقتی فیچرشان روشن است.
 
-   سرویسی که این استقرار ماژولش را ندارد یا خواننده اجازهٔ تنظیمش را ندارد،
-   اصلاً در فهرست نمی‌آید — و همان دروازه‌ای که اینجا پنهانش می‌کند، در خودِ
-   صفحه و API هم دوباره بررسی می‌شود. {% endcomment %}
-<div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-6">
-    <div class="fw-semibold fs-6 text-gray-700">
-        سرویس‌های بیرونی که این استقرار می‌تواند به آن‌ها وصل شود. کلیدها و توکن‌ها
-        در تنظیمات هر سرویس ذخیره می‌شوند و هرگز در این صفحه به‌صورت کامل نمایش
-        داده نمی‌شوند — فقط چند رقم آخرشان، برای اینکه بشود تشخیص داد کدام کلید
-        ذخیره شده است. برای وصل‌کردن سرویس خودتان، صفحهٔ تنظیمات هر سامانه
-        (دکمهٔ «تنظیمات و کلید» زیر) یک راهنمای درجا دارد.
-    </div>
+   سرویسی که این استقرار ماژولش را ندارد یا خواننده اجازهٔ تنظیمش را ندارد، اصلاً
+   در فهرست نمی‌آید — و همان دروازه در صفحه و API خودِ آن سرویس هم دوباره بررسی
+   می‌شود. {% endcomment %}
+{% if can_manage_framework %}
+{{ integration_catalog|json_script:"integration-catalog" }}
+{% if not integration_secrets_available %}
+<div class="alert alert-warning d-flex flex-column p-5 mb-6" role="alert">
+    <span class="fw-bold mb-1">کلید رمزنگاری تنظیم نشده است</span>
+    <span class="fs-7">تا وقتی <code dir="ltr">DOLPHIN_SECRETS_KEY</code> روی این استقرار تنظیم نشده، هیچ رمز یا کلیدی برای اتصال‌ها ذخیره نمی‌شود. راهنما: بخش «یکپارچه‌سازی‌ها» در راهنمای استقرار.</span>
 </div>
+{% endif %}
+<div class="card mb-6">
+    <div class="card-body pt-0 pb-0"><div class="d-flex overflow-auto h-55px">
+        <ul class="nav nav-stretch nav-line-tabs nav-line-tabs-2x border-transparent fs-5 fw-bold flex-nowrap" role="tablist" aria-label="بخش‌های یکپارچه‌سازی">
+            {% for key, label in integration_tabs %}
+            <li class="nav-item mt-2" role="presentation">
+                <a class="nav-link text-active-primary ms-0 me-10 py-5 text-nowrap{% if key == active_tab %} active{% endif %}" id="profile-tab-{{ key }}" href="?tab={{ key }}" role="tab" aria-controls="profile-pane-{{ key }}" aria-selected="{% if key == active_tab %}true{% else %}false{% endif %}"{% if key != active_tab %} tabindex="-1"{% endif %} data-profile-tab="{{ key }}">{{ label }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div></div>
+</div>
+{% endif %}
 
-<div class="row g-5 g-xl-8">
-    {% for row in integrations %}
-    <div class="col-xl-6">
-        <section class="card h-100 integration-card" data-integration="{{ row.key }}">
-            <div class="card-body d-flex flex-column">
-                <div class="d-flex align-items-start gap-4 mb-4">
-                    <span class="symbol symbol-50px flex-shrink-0">
-                        <span class="symbol-label bg-light-{{ row.state_accent }}">
-                            <i class="ki-duotone {{ row.icon }} fs-1 text-{{ row.state_accent }}">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
-                        </span>
-                    </span>
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-                            <h2 class="fs-4 fw-bold text-gray-900 mb-0">{{ row.label }}</h2>
-                            <span class="badge badge-light-{{ row.state_accent }}" data-integration-state>{{ row.state_label }}</span>
-                        </div>
-                        <p class="text-muted fs-7 mb-0">{{ row.description }}</p>
-                    </div>
-                </div>
-
-                <p class="fs-7 text-gray-800 mb-4">{{ row.summary }}</p>
-
-                {% if row.details %}
-                <dl class="integration-details mb-4">
-                    {% for label, value in row.details %}
-                    <dt>{{ label }}</dt><dd dir="auto">{{ value }}</dd>
-                    {% endfor %}
-                    {% if row.secret_hint %}
-                    {% comment %} فقط چند رقم آخر. مقدار کامل هرگز از API خوانده
-                       نمی‌شود، نه اینکه اینجا پنهان شود. {% endcomment %}
-                    <dt>کلید ذخیره‌شده</dt><dd dir="ltr" class="integration-secret">{{ row.secret_hint }}</dd>
-                    {% endif %}
-                </dl>
-                {% endif %}
-
-                {% if row.last_error %}
-                <div class="alert alert-danger d-flex flex-column align-items-start p-4 mb-4">
-                    <span class="fw-semibold fs-8 mb-1">آخرین خطا{% if row.last_error_at %} — {{ row.last_error_at|jalali_datetime }}{% endif %}</span>
-                    <span class="fs-8" dir="auto">{{ row.last_error }}</span>
-                </div>
-                {% endif %}
-
-                <div class="d-flex flex-wrap gap-3 mt-auto pt-2">
-                    {% if row.settings_url_name %}
-                    <a class="btn btn-sm btn-light-primary" href="{% url row.settings_url_name %}">
-                        <i class="ki-duotone ki-setting-3 fs-4 me-1"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
-                        تنظیمات و کلید
-                    </a>
-                    {% endif %}
-                    {% if row.test_url %}
-                    {% comment %} فقط جایی که واقعاً تستی وجود دارد. دکمه‌ای که
-                       نمی‌تواند چیزی را تست کند، دکمه نیست. {% endcomment %}
-                    <button class="btn btn-sm btn-light" type="button"
-                            data-integration-test="{{ row.test_url }}">تست اتصال</button>
-                    {% endif %}
-                </div>
-                <p class="alert alert-light fs-8 mt-3 mb-0" data-integration-result role="status" hidden></p>
+<section id="profile-pane-connections" role="tabpanel" aria-labelledby="profile-tab-connections" data-profile-pane="connections"{% if can_manage_framework and active_tab != "connections" %} hidden{% endif %}>
+    <section class="card" id="integration-connections">
+        <div class="card-header border-0 pt-6">
+            <div class="card-title flex-column">
+                <h2>اتصال‌ها</h2>
+                <span class="text-muted fs-7 mt-1">سامانه‌های بیرونی این استقرار — هر کدام با وضعیت، آخرین بررسی و آخرین خطا. کلیدها و رمزها هرگز کامل نمایش داده نمی‌شوند، فقط چند نویسهٔ آخرشان.</span>
             </div>
-        </section>
-    </div>
-    {% empty %}
-    <div class="col-12">
-        <section class="card"><div class="card-body text-center text-gray-700 py-10">
-            سرویسی برای اتصال در دسترس شما نیست.
-        </div></section>
-    </div>
-    {% endfor %}
-</div>
+            {% if can_manage_framework %}
+            <div class="card-toolbar"><button class="btn btn-sm btn-primary" type="button" id="open-integration-catalog" aria-haspopup="dialog" aria-controls="integration-catalog-dialog">افزودن اتصال</button></div>
+            {% endif %}
+        </div>
+        <div class="card-body pt-2">
+            <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
+                <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th class="min-w-200px">نام</th><th>نوع</th><th class="min-w-175px">وضعیت</th><th>آخرین بررسی</th><th>روشن</th><th>عملیات</th></tr></thead>
+                <tbody data-builtin-integrations>
+                {% for row in integrations %}
+                <tr class="integration-card" data-integration="{{ row.key }}">
+                    <td>
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light-{{ row.state_accent }}">
+                                <i class="ki-duotone {{ row.icon }} fs-2 text-{{ row.state_accent }}" aria-hidden="true">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
+                            </span></span>
+                            <div class="min-w-0">
+                                <span class="d-block fw-semibold text-gray-900">{{ row.label }}</span>
+                                <span class="d-block text-muted fs-8">{{ row.description }}</span>
+                                {% if row.details or row.secret_hint %}
+                                <details class="fs-8 mt-1">
+                                    <summary class="text-primary">جزئیات</summary>
+                                    <dl class="integration-details mt-2 mb-0">
+                                        {% for label, value in row.details %}<dt>{{ label }}</dt><dd dir="auto">{{ value }}</dd>{% endfor %}
+                                        {% if row.secret_hint %}
+                                        {% comment %} فقط چند رقم آخر؛ مقدار کامل هرگز از API خوانده نمی‌شود. {% endcomment %}
+                                        <dt>کلید ذخیره‌شده</dt><dd dir="ltr" class="integration-secret">{{ row.secret_hint }}</dd>
+                                        {% endif %}
+                                    </dl>
+                                </details>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td>سرویس داخلی پنل</td>
+                    <td>
+                        <span class="badge badge-light-{{ row.state_accent }}" data-integration-state>{{ row.state_label }}</span>
+                        <span class="d-block text-gray-700 fs-8 mt-1">{{ row.summary }}</span>
+                        {% if row.last_error %}<span class="d-block text-danger fs-8 mt-1 text-break" dir="auto">{{ row.last_error }}</span>{% endif %}
+                    </td>
+                    <td>{% if row.last_error_at %}{{ row.last_error_at|jalali_datetime }}{% else %}<span title="وضعیت را «آزمایش اتصال» می‌سنجد.">—</span>{% endif %}</td>
+                    <td><span class="text-muted fs-8 text-nowrap">در تنظیمات خودش</span></td>
+                    <td class="row-actions">
+                        {% if row.settings_url_name %}<a class="btn btn-sm btn-light" href="{% url row.settings_url_name %}">تنظیمات و کلید</a>{% endif %}
+                        {% if row.test_url %}
+                        {% comment %} فقط جایی که واقعاً تستی وجود دارد. {% endcomment %}
+                        <button class="btn btn-sm btn-light-primary" type="button" data-integration-test="{{ row.test_url }}">آزمایش اتصال</button>
+                        {% endif %}
+                        <p class="alert alert-light fs-8 mt-3 mb-0" data-integration-result role="status" hidden></p>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+                {% if can_manage_framework %}
+                <tbody id="integrations-table-body"></tbody>
+                {% endif %}
+            </table></div>
+            {% if can_manage_framework %}
+            <div id="integrations-loading" class="text-center text-gray-700 py-6">در حال دریافت اتصال‌ها…</div>
+            <div id="integrations-empty" class="text-center text-gray-700 py-6" hidden>هنوز اتصالی ساخته نشده است؛ از «افزودن اتصال» شروع کنید.</div>
+            {% elif not integrations %}
+            <p class="text-center text-gray-700 py-10 mb-0">سرویسی برای اتصال در دسترس شما نیست.</p>
+            {% endif %}
+        </div>
+    </section>
+</section>
 {% if can_manage_framework %}{% include "common/settings/integrations_framework.inc" %}{% endif %}
 {% endblock %}
