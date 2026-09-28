@@ -2057,11 +2057,14 @@ dialog {
     margin-block-start: -0.35rem;
     margin-inline-end: -0.35rem;
     border-radius: 0.475rem;
-    color: var(--bs-gray-600);
     /* Fully drawn, not ghosted. It used to sit at 0.55 opacity because the
        whole card was clickable and this was a shortcut; now that the card
        body does nothing, a faint glyph would be the only door to the detail
-       page and would not look like one. */
+       page and would not look like one. It also rests on the theme's light
+       button fill, so it reads as a button before anyone hovers it
+       (product owner, 2026-09-28: «بولد و واضح‌تر»). */
+    color: var(--bs-gray-800);
+    background-color: var(--bs-gray-200);
     transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 #lead-board .kanban-item:hover .kanban-card-more,

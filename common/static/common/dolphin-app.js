@@ -6635,11 +6635,12 @@
         more.href = href;
         more.title = "مشاهدهٔ جزئیات";
         more.setAttribute("aria-label", "مشاهدهٔ جزئیات");
+        // The theme's *solid* glyph, not the duotone one: duotone draws two
+        // of the three dots at 30% opacity, which read as one faint dot
+        // (product owner, 2026-09-28: «باید بولد و واضح‌تر باشد»).
         const icon = document.createElement("i");
-        icon.className = "ki-duotone ki-dots-vertical fs-4";
-        ["path1", "path2", "path3"].forEach((name) => {
-            icon.appendChild(document.createElement("span")).className = name;
-        });
+        icon.className = "ki-solid ki-dots-vertical fs-2";
+        icon.setAttribute("aria-hidden", "true");
         more.append(icon);
 
         head.append(title, more);
