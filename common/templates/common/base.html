@@ -656,11 +656,22 @@
 {% comment %} Internal chat moved off the sidebar in 1.9.0 and onto a header icon +
    slide-in drawer, matching the purchased theme's own chat pattern
    (`kt_drawer_chat` in its demo pages) — the theme itself never puts chat in
-   the sidebar either. The toggle button and the drawer markup are further
-   down this file, beside the reminder bell and search. {% endcomment %}
+   the sidebar either. 2.25.0 put a link back (product-owner decision): the
+   drawer is still there for a quick reply from anywhere, this entry opens
+   the fuller page (`DolphinChatView`) that shares its engine. The toggle
+   button and the drawer markup are further down this file, beside the
+   reminder bell and search. {% endcomment %}
 
-                                {% if can_send_sms and "outbound_sms" in features or "reports" in features and "reports.own" in capabilities or "reports" in features and "reports.company" in capabilities %}
+                                {% if can_send_sms and "outbound_sms" in features or "internal_chat" in features or "reports" in features and "reports.own" in capabilities or "reports" in features and "reports.company" in capabilities %}
                                 <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">گزارش و ارتباطات</div></div>
+                                {% endif %}
+                                {% if "internal_chat" in features %}
+                                <div class="menu-item">
+                                    <a data-module="chat" class="menu-link" href="{% url 'common_ui:chat' %}">
+                                        <span class="menu-icon"><i class="ki-duotone ki-message-text-2 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
+                                        <span class="menu-title">گفت‌وگو</span>
+                                    </a>
+                                </div>
                                 {% endif %}
                                 {% if can_send_sms and "outbound_sms" in features %}
                                 <div class="menu-item">

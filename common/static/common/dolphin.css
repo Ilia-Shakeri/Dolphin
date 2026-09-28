@@ -339,6 +339,28 @@ dialog::backdrop {
     min-height: 0;
 }
 
+/* The `/chat/` page (2.25.0) — the same engine as the drawer above, laid
+   out as Metronic's own two-pane `apps/chat/private.html` instead of one
+   narrow card. Below `lg` it behaves exactly like the drawer: one pane at a
+   time, `setupChat`'s own `showList`/`showConversation` toggling `.d-none`.
+   At `lg` and up there is room for both — the contacts list should stay on
+   screen once a conversation opens instead of vanishing with it, which is
+   the one thing `showConversation()` does that only makes sense for a
+   single-pane surface. This is the one line that says so; everything else
+   about which pane shows what is still the shared script's decision. */
+@media (min-width: 992px) {
+    /* Bootstrap's `.d-none` itself carries `!important`; overriding it
+       needs the same weight, not a specificity trick. */
+    #chat-page-list-panel.d-none {
+        display: block !important;
+    }
+}
+
+#chat-page-messenger .card-body,
+#chat-page-conversation-panel {
+    min-height: 0;
+}
+
 /* The customer page's 360° history strip.
 
    The theme has no timeline component (`widgets/feeds.html` is a feed of

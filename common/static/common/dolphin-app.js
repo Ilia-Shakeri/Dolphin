@@ -17303,30 +17303,46 @@
      * next tick. A closed drawer costs nothing; an open one updates every
      * few seconds without anyone touching it.
      */
-    function setupChat() {
-        const drawer = document.getElementById("kt_drawer_chat");
-        const toggle = document.getElementById("kt_drawer_chat_toggle");
-        const threadListEl = document.getElementById("chat-drawer-thread-list");
-        if (!drawer || !toggle || !threadListEl) return;
+    function setupChat(prefix = "chat-drawer", options = {}) {
+        // `prefix` picks which markup this instance drives: the header
+        // drawer (`chat-drawer-*`, the default — every id below is
+        // unchanged from before this was parametrised) or the full page
+        // (`chat-page-*`, see `DolphinChatView`). Same engine either way —
+        // same API calls, same cache key, same read/unread rules — only the
+        // ids and, through `options`, whether there is a `data-kt-drawer`
+        // container/toggle to coordinate with.
+        const id = (name) => `${prefix}-${name}`;
+        const drawer = options.container ? document.getElementById(options.container) : null;
+        const toggle = options.toggle ? document.getElementById(options.toggle) : null;
+        const threadListEl = document.getElementById(id("thread-list"));
+        if (!threadListEl) return;
+        // A page (no drawer to toggle) is "open" for as long as it exists in
+        // the DOM; a drawer instance is open exactly when the theme's own
+        // `drawer-on` class says so. Either way, both polls below still
+        // check `document.hidden` — a backgrounded tab costs nothing.
+        const isOpen = options.isOpen || (() => Boolean(drawer && drawer.classList.contains("drawer-on")));
 
-        const threadsLoading = document.getElementById("chat-drawer-threads-loading");
-        const threadsEmpty = document.getElementById("chat-drawer-threads-empty");
-        const listTitle = document.getElementById("chat-drawer-list-title");
-        const peerTitle = document.getElementById("chat-drawer-peer-title");
-        const listPanel = document.getElementById("chat-drawer-list-panel");
-        const conversationPanel = document.getElementById("chat-drawer-conversation-panel");
-        const footer = document.getElementById("chat-drawer-footer");
-        const messagesEl = document.getElementById("chat-drawer-messages");
-        const messagesEmpty = document.getElementById("chat-drawer-messages-empty");
-        const peerNameEl = document.getElementById("chat-drawer-peer-name");
-        const peerRoleEl = document.getElementById("chat-drawer-peer-role");
-        const backButton = document.getElementById("chat-drawer-back");
-        const sendForm = document.getElementById("chat-drawer-send-form");
-        const messageInput = document.getElementById("chat-drawer-message-input");
-        const newDialog = document.getElementById("chat-drawer-new-dialog");
-        const colleaguesLoading = document.getElementById("chat-drawer-colleagues-loading");
-        const colleaguesEmpty = document.getElementById("chat-drawer-colleagues-empty");
-        const colleaguesList = document.getElementById("chat-drawer-colleagues-list");
+        const threadsLoading = document.getElementById(id("threads-loading"));
+        const threadsEmpty = document.getElementById(id("threads-empty"));
+        const listTitle = document.getElementById(id("list-title"));
+        const peerTitle = document.getElementById(id("peer-title"));
+        const listPanel = document.getElementById(id("list-panel"));
+        const conversationPanel = document.getElementById(id("conversation-panel"));
+        const footer = document.getElementById(id("footer"));
+        const messagesEl = document.getElementById(id("messages"));
+        const messagesEmpty = document.getElementById(id("messages-empty"));
+        const peerNameEl = document.getElementById(id("peer-name"));
+        const peerRoleEl = document.getElementById(id("peer-role"));
+        const backButton = document.getElementById(id("back"));
+        const sendForm = document.getElementById(id("send-form"));
+        const messageInput = document.getElementById(id("message-input"));
+        const newDialog = document.getElementById(id("new-dialog"));
+        const colleaguesLoading = document.getElementById(id("colleagues-loading"));
+        const colleaguesEmpty = document.getElementById(id("colleagues-empty"));
+        const colleaguesList = document.getElementById(id("colleagues-list"));
+        // Only the page has room to show "nothing is open yet" beside the
+        // list rather than in place of it; the drawer has no such element.
+        const emptyState = document.getElementById(id("empty-state"));
 
         const AVATAR_COLORS = ["primary", "success", "info", "warning", "danger"];
         function avatarColor(userId) {
@@ -17419,10 +17435,6 @@
             writeCache();
         }
 
-        function isOpen() {
-            return drawer.classList.contains("drawer-on");
-        }
-
         function showList() {
             activeThreadId = null;
             listTitle.classList.remove("d-none");
@@ -17431,6 +17443,7 @@
             listPanel.hidden = false;
             conversationPanel.classList.add("d-none");
             footer.classList.add("d-none");
+            if (emptyState) emptyState.classList.remove("d-none");
             renderThreadList();
         }
 
@@ -17440,6 +17453,7 @@
             listPanel.classList.add("d-none");
             conversationPanel.classList.remove("d-none");
             footer.classList.remove("d-none");
+            if (emptyState) emptyState.classList.add("d-none");
         }
 
         function renderThreadList() {
@@ -17756,38 +17770,41 @@
             }
         }
 
-        document.getElementById("chat-drawer-open-new").addEventListener("click", () => {
+        document.getElementById(id("open-new")).addEventListener("click", () => {
             newDialog.showModal();
             loadColleagues();
         });
         newDialog.querySelectorAll("[data-close-dialog]").forEach((button) =>
             button.addEventListener("click", () => newDialog.close()));
 
-        // Intent before the click: a pointer over the chat icon, or keyboard
-        // focus on it, starts the thread-list request, so opening the drawer
-        // usually finds it already answered.
-        ["pointerenter", "focus", "touchstart"].forEach((name) => {
-            toggle.addEventListener(name, () => { if (!isOpen()) loadThreads(); }, {passive: true});
-        });
-
-        // The theme's own KTDrawer binds its open/close click on this same
-        // button; this listener runs alongside it, not instead of it, and
-        // only reacts to the drawer actually being open — a click that
-        // closes it triggers no wasted request.
-        toggle.addEventListener("click", () => {
-            // KTDrawer flips its own `drawer-on` class synchronously inside
-            // the same click handler, but listener order between it and this
-            // one is not something to depend on — a microtask delay reads the
-            // class after every same-tick handler has run either way.
-            Promise.resolve().then(() => {
-                if (!isOpen()) return;
-                if (!activeThreadId) renderThreadList();
-                loadThreads();
-                // The most recent conversations are the likeliest to be
-                // opened next; fetch them ahead as well.
-                threads.slice(0, 3).forEach((thread) => peekThread(thread.id));
+        if (toggle) {
+            // Intent before the click: a pointer over the chat icon, or
+            // keyboard focus on it, starts the thread-list request, so
+            // opening the drawer usually finds it already answered.
+            ["pointerenter", "focus", "touchstart"].forEach((name) => {
+                toggle.addEventListener(name, () => { if (!isOpen()) loadThreads(); }, {passive: true});
             });
-        });
+
+            // The theme's own KTDrawer binds its open/close click on this
+            // same button; this listener runs alongside it, not instead of
+            // it, and only reacts to the drawer actually being open — a
+            // click that closes it triggers no wasted request.
+            toggle.addEventListener("click", () => {
+                // KTDrawer flips its own `drawer-on` class synchronously
+                // inside the same click handler, but listener order between
+                // it and this one is not something to depend on — a
+                // microtask delay reads the class after every same-tick
+                // handler has run either way.
+                Promise.resolve().then(() => {
+                    if (!isOpen()) return;
+                    if (!activeThreadId) renderThreadList();
+                    loadThreads();
+                    // The most recent conversations are the likeliest to be
+                    // opened next; fetch them ahead as well.
+                    threads.slice(0, 3).forEach((thread) => peekThread(thread.id));
+                });
+            });
+        }
 
         // Back to a visible tab with the drawer open: catch up at once.
         document.addEventListener("visibilitychange", () => {
@@ -17930,7 +17947,11 @@
     setupCallPopup();
     setupReminderBell();
     setupChatUnreadPoll();
-    setupChat();
+    // The header drawer, on every page (2018.5's original instance,
+    // unchanged); the full page, only where `/chat/`'s own markup exists —
+    // `setupChat` no-ops when `chat-page-thread-list` is not on the page.
+    setupChat("chat-drawer", {container: "kt_drawer_chat", toggle: "kt_drawer_chat_toggle"});
+    setupChat("chat-page", {isOpen: () => true});
 
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();

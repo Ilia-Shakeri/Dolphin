@@ -1355,11 +1355,28 @@ class DolphinSettingsView(ActiveCrmView):
         return context
 
 
-#: `DolphinChatView` (the standalone `/chat/` page) was retired in 1.9.0.
-#: Internal chat is now a header-icon-triggered drawer rendered on every
-#: authenticated page by `common/templates/common/base.html` itself, matching
-#: the purchased theme's own `kt_drawer_chat` pattern — a full page next to
-#: that drawer would be a second, divergent chat UI, not a fallback for it.
-#: Feature availability and role permission are unchanged: still gated on
-#: `internal_chat` and open to every ordinary role, just no longer through a
-#: dedicated URL. `chat/urls.py`'s API is untouched.
+class DolphinChatView(ActiveCrmView):
+    """`/chat/` — internal chat as a full page (product-owner decision,
+    2026-09-28, reversing 1.9.0's removal below).
+
+    `DolphinChatView` was retired in 1.9.0 in favour of a header-icon-
+    triggered drawer, on the reasoning that a full page beside the drawer
+    would be "a second, divergent chat UI, not a fallback for it". That risk
+    is real but not inherent to having a page — it is what happens if the
+    page runs its own copy of the engine. This page does not: its script
+    (`setupChatPage`, `common/static/common/dolphin-app.js`) is the drawer's
+    own `setupChat` given a different set of element ids and left open
+    permanently instead of toggled by `data-kt-drawer`, so both read and
+    write through the exact same `chat/` API, the same `sessionStorage`
+    cache key and the same unread/read semantics — one engine, two
+    presentations, not two chat UIs. The drawer stays for a quick reply from
+    anywhere; this page is the fuller workspace the sidebar links to when
+    someone means to sit and read a conversation.
+
+    Feature availability and role permission are unchanged from the drawer:
+    gated on `internal_chat`, open to every ordinary role, no further
+    capability check — the same as the header icon that opens the drawer.
+    """
+
+    required_feature = "internal_chat"
+    template_name = "common/chat.html"

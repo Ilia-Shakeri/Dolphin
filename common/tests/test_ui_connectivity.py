@@ -194,6 +194,14 @@ class ScriptEndpointTests(SimpleTestCase):
                 page_ids.add(match.group(1))
         # `shell` is the base default for a page that needs no handler at all.
         page_ids.discard("shell")
+        # `chat` (2.25.0) is wired a different way: `setupChat("chat-page", …)`
+        # runs unconditionally on every page load, the same as the header
+        # drawer's own `setupChat("chat-drawer", …)` beside it, and no-ops
+        # wherever `chat-page-thread-list` is not on the page — so it is
+        # never gated behind `page === "chat"` the way every other handler
+        # here is. `common.tests.test_chat_drawer.ScriptBehaviourTests`
+        # already pins that this call exists.
+        page_ids.discard("chat")
         missing = sorted(page for page in page_ids if f'page === "{page}"' not in text)
         self.assertEqual(missing, [])
 

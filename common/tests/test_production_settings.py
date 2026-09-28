@@ -694,3 +694,26 @@ class DatabaseTransportSecurityTests(SimpleTestCase):
             self.build(POSTGRES_SSLMODE="verify_full")
         with self.assertRaises(ImproperlyConfigured):
             self.build(POSTGRES_SSLMODE="on")
+
+
+class WsgiUrlconfWarmupTests(SimpleTestCase):
+    """`config/wsgi.py` resolves the urlconf at import time (2.25.0).
+
+    Measured: building it the normal, lazy way — on whichever request
+    happens to be first in a freshly started worker — costs several hundred
+    ms, almost all of it `drf_spectacular` import machinery pulled in by a
+    view carrying `@extend_schema` (every API view does). Left lazy, that
+    cost lands on whichever session's first click is first on a fresh
+    worker — commonly the topbar reminder bell, since it is the first thing
+    a session touches — and reads as "reminders is slow". Importing
+    `config.wsgi` here forces the same warmup gunicorn triggers at worker
+    boot; this only asserts it actually resolves the urlconf, not the
+    timing itself, which is not something a unit test should assert.
+    """
+
+    def test_importing_wsgi_resolves_the_urlconf(self):
+        from django.urls import get_resolver
+
+        import config.wsgi  # noqa: F401 — the import itself is the warmup
+
+        self.assertTrue(get_resolver().url_patterns)

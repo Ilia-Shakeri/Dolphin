@@ -1,0 +1,94 @@
+{% extends "common/base.html" %}
+{% block title %}گفت‌وگو{% endblock %}
+{% block page_id %}chat{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">ارتباطات</span>{% endblock %}
+{% block page_icon %}<i class="ki-duotone ki-message-text-2 page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
+{% block page_title %}گفت‌وگو{% endblock %}
+{% block breadcrumb_current %}گفت‌وگو{% endblock %}
+{% block content %}
+{% comment %} The fuller chat workspace (2.25.0), beside the header drawer, not
+   instead of it — both are the theme's own `kt_drawer_chat` pattern
+   (`apps/chat/private.html`'s two-pane layout for this page; the drawer's
+   own single-pane-at-a-time card for the header icon). Same engine, same
+   ids-by-suffix contract as the drawer: `setupChat("chat-page", …)` in
+   `dolphin-app.js` drives this markup exactly the way `setupChat("chat-drawer", …)`
+   drives `#kt_drawer_chat`'s — same API calls, same `sessionStorage` cache,
+   same read/unread rules. Nothing here re-implements chat; it only lays the
+   same parts out wider. See `DolphinChatView` for why the page came back. {% endcomment %}
+<div class="d-flex flex-column flex-lg-row">
+    <div class="flex-column flex-lg-row-auto w-100 w-lg-300px w-xl-350px mb-6 mb-lg-0 me-lg-7 me-xl-10">
+        <section class="card card-flush" id="chat-page-contacts">
+            <div class="card-header align-items-center">
+                <div class="card-title mb-0">
+                    <h2 class="mb-0">گفت‌وگوها</h2>
+                </div>
+                <div class="card-toolbar">
+                    <button type="button" class="btn btn-sm btn-icon btn-active-color-primary" id="chat-page-open-new" aria-label="گفت‌وگوی تازه">
+                        <i class="ki-duotone ki-plus fs-2"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body pt-5" id="chat-page-list-panel">
+                <div id="chat-page-threads-loading" class="text-center text-gray-700 py-10">در حال دریافت گفت‌وگوها…</div>
+                <div id="chat-page-threads-empty" class="text-center text-gray-700 py-10" hidden>
+                    هنوز گفت‌وگویی ندارید — با دکمهٔ «+» گفت‌وگوی تازه بسازید.
+                </div>
+                <div id="chat-page-thread-list" class="scroll-y me-n5 pe-5 h-400px h-lg-auto d-flex flex-column gap-1" data-kt-scroll="true" data-kt-scroll-activate="{default: false, lg: true}" data-kt-scroll-max-height="auto" data-kt-scroll-dependencies="#kt_header, #kt_app_header, #kt_toolbar, #kt_app_toolbar" data-kt-scroll-wrappers="#kt_content, #kt_app_content" data-kt-scroll-offset="5px" hidden></div>
+            </div>
+        </section>
+    </div>
+    <div class="flex-lg-row-fluid">
+        <section class="card" id="chat-page-messenger">
+            {% comment %} `list-title`/`peer-title` are the same pair of ids the drawer
+               swaps inside its one card-header — here they belong to the messenger
+               card, not the contacts card beside it, since on this page the
+               contacts list stays on screen either way (CSS below) and only the
+               messenger side has anything to say about which conversation is open. {% endcomment %}
+            <div class="card-header align-items-center">
+                <div class="card-title mb-0" id="chat-page-list-title">
+                    <h2 class="mb-0 text-gray-600 fs-5">گفت‌وگویی را از فهرست کنار انتخاب کنید</h2>
+                </div>
+                <div class="card-title align-items-center mb-0 d-none" id="chat-page-peer-title">
+                    <button type="button" class="btn btn-sm btn-icon btn-active-color-primary me-2 d-lg-none" id="chat-page-back" aria-label="بازگشت به فهرست گفت‌وگوها">
+                        <i class="ki-duotone ki-arrow-left fs-2"><span class="path1"></span><span class="path2"></span></i>
+                    </button>
+                    <div class="d-flex flex-column">
+                        <span id="chat-page-peer-name" class="fs-5 fw-bold text-gray-900 lh-1"></span>
+                        <span id="chat-page-peer-role" class="fs-8 text-muted"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body pt-5 flex-grow-1 d-flex flex-column overflow-hidden">
+                <div id="chat-page-conversation-panel" class="d-none flex-grow-1 d-flex flex-column overflow-hidden">
+                    <div id="chat-page-messages" class="scroll-y me-n5 pe-5 flex-grow-1" data-kt-scroll="true" data-kt-scroll-activate="{default: false, lg: true}" data-kt-scroll-max-height="auto" data-kt-scroll-dependencies="#kt_header, #kt_app_header, #kt_toolbar, #kt_app_toolbar, #chat-page-footer" data-kt-scroll-wrappers="#kt_content, #kt_app_content, #chat-page-messages" data-kt-scroll-offset="5px" data-chat-messages></div>
+                    <p id="chat-page-messages-empty" class="text-center text-gray-700 py-10" hidden>هنوز پیامی در این گفت‌وگو نیست.</p>
+                </div>
+                <div class="flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center text-gray-600" id="chat-page-empty-state">
+                    <i class="ki-duotone ki-message-text-2 fs-3x text-gray-400 mb-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                    <p class="fs-6 mb-0">پیام‌های همین گفت‌وگو اینجا نمایش داده می‌شود.</p>
+                </div>
+            </div>
+            <div class="card-footer pt-4 d-none" id="chat-page-footer">
+                <form id="chat-page-send-form" novalidate>
+                    <textarea id="chat-page-message-input" class="form-control form-control-flush mb-3" rows="1" maxlength="4000"
+                              placeholder="نوشتن پیام… (Enter برای ارسال، Shift+Enter برای خط تازه)"></textarea>
+                    <p class="text-danger fs-8 mb-3" data-error-for="body"></p>
+                    <div class="d-flex flex-stack">
+                        <span class="text-muted fs-7">Enter برای ارسال</span>
+                        <button class="btn btn-primary" type="submit">ارسال</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+<dialog id="chat-page-new-dialog" aria-labelledby="chat-page-new-title">
+    <div class="d-flex flex-stack align-items-center mb-5">
+        <h2 id="chat-page-new-title">گفت‌وگوی تازه</h2>
+        <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+    <div id="chat-page-colleagues-loading" class="text-center text-gray-700 py-10">در حال دریافت فهرست همکاران…</div>
+    <div id="chat-page-colleagues-empty" class="text-center text-gray-700 py-10" hidden>همکار دیگری در این استقرار نیست.</div>
+    <div id="chat-page-colleagues-list" class="d-flex flex-column gap-1" hidden></div>
+</dialog>
+{% endblock %}

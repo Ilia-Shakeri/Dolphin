@@ -1,19 +1,24 @@
-"""Internal chat's header icon + slide-in drawer, replacing the `/chat/` page.
+"""Internal chat's header icon + slide-in drawer, and the `/chat/` page beside it.
 
 `chat/tests/test_chat.py` already holds every rule about the data itself —
 scope, unread counts, the API contract. What is worth proving here is the
-1.9.0 move from a standalone page to a header-icon-triggered drawer that
-matches the purchased theme's own `kt_drawer_chat` pattern:
+1.9.0 move from a standalone page to a header-icon-triggered drawer, and
+2.25.0's return of the page alongside it (`PageReturnedTests` — the
+product owner asked for both back: "a chat page in the sidebar menu plus
+the icon in the header"):
 
 * the icon and the drawer render on every authenticated page, gated by the
   same `internal_chat` feature the API already gates, not only on a
   dedicated page;
-* the old page is genuinely gone — no route, no sidebar entry — rather than
-  left as a second, divergent chat UI beside the new one;
+* the page is the same engine as the drawer, not a second one — `setupChat`
+  parametrised by which markup it drives, so both read and write through the
+  identical API calls, cache key and read/unread rules (`ScriptBehaviourTests`
+  below, `PageReturnedTests`);
 * the drawer is the theme's own real `data-kt-drawer` component (open/close,
   overlay, responsive width all come from it), not a re-implementation;
-* the polling that makes it feel live only runs while the drawer is open,
-  checked against the theme's own `drawer-on` class.
+* the polling that makes it feel live only runs while the drawer is open
+  (checked against the theme's own `drawer-on` class) or, for the page,
+  while it exists in the DOM at all.
 """
 
 import pathlib
@@ -88,27 +93,49 @@ class DrawerRenderingTests(TestCase):
         self.assertNotIn("kt_drawer_chat", page)
 
 
-class OldPageRemovedTests(TestCase):
+class PageReturnedTests(TestCase):
+    """`/chat/` came back (product-owner decision, 2026-09-28), reversing the
+    1.9.0 removal `OldPageRemovedTests` used to pin here. The 1.9.0 worry —
+    "a second, divergent chat UI" — is answered by *how* the page comes
+    back, not by keeping it gone: `DolphinChatView` renders the same
+    `setupChat` engine the drawer runs, only given `chat-page-*` ids and
+    `isOpen: () => true` instead of `data-kt-drawer`'s own state (see
+    `DolphinChatView`'s docstring and `ScriptBehaviourTests` below). One
+    engine, two presentations — the drawer for a quick reply from anywhere,
+    this page for the fuller workspace the sidebar now links to."""
+
     def setUp(self):
         self.user = User.objects.create_user(
-            username="chatdrawer.old", password=PASSWORD, role=User.Role.SALES_MANAGER
+            username="chatdrawer.page", password=PASSWORD, role=User.Role.SALES_MANAGER
         )
         self.client = Client()
         self.client.force_login(self.user)
 
-    def test_the_standalone_chat_page_route_is_gone(self):
-        """A second, divergent chat UI is exactly what this move avoids."""
-        self.assertEqual(self.client.get("/chat/").status_code, 404)
+    def test_the_page_renders_for_an_ordinary_role(self):
+        response = self.client.get("/chat/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="chat-page-thread-list"')
+        self.assertContains(response, 'id="chat-page-messenger"')
 
-    def test_the_url_name_no_longer_resolves(self):
-        from django.urls import NoReverseMatch, reverse
+    def test_the_url_name_resolves(self):
+        from django.urls import reverse
 
-        with self.assertRaises(NoReverseMatch):
-            reverse("common_ui:chat")
+        self.assertEqual(reverse("common_ui:chat"), "/chat/")
 
-    def test_the_sidebar_no_longer_carries_a_chat_entry(self):
+    def test_the_page_is_gone_when_the_feature_is_off(self):
+        with override_active_profile(profile_without("internal_chat")):
+            self.assertEqual(self.client.get("/chat/").status_code, 404)
+
+    def test_the_sidebar_carries_a_chat_entry_gated_on_the_same_feature(self):
         page = self.client.get("/").content.decode("utf-8")
+        self.assertIn('data-module="chat"', page)
+        with override_active_profile(profile_without("internal_chat")):
+            page = self.client.get("/").content.decode("utf-8")
         self.assertNotIn('data-module="chat"', page)
+
+    def test_a_signed_out_visitor_is_redirected_not_shown_the_page(self):
+        response = Client().get("/chat/")
+        self.assertEqual(response.status_code, 302)
 
 
 class ScriptBehaviourTests(SimpleTestCase):
@@ -118,15 +145,19 @@ class ScriptBehaviourTests(SimpleTestCase):
     behaviour no Django test can execute."""
 
     def test_setup_chat_runs_on_every_page_not_only_a_named_one(self):
-        self.assertIn("setupChat();", SCRIPT)
-        # The old page-specific gate must not have survived alongside it.
+        """Restated 2.25.0: `setupChat` now runs twice, once per markup it
+        can drive (the header drawer, the full page from `DolphinChatView`)
+        — unconditionally, not gated on which page this is; the function
+        itself is what no-ops where its markup is absent."""
+        self.assertIn('setupChat("chat-drawer", {container: "kt_drawer_chat", toggle: "kt_drawer_chat_toggle"});', SCRIPT)
+        self.assertIn('setupChat("chat-page", {isOpen: () => true});', SCRIPT)
         self.assertNotIn('if (page === "chat") setupChat();', SCRIPT)
 
     def test_polling_is_gated_on_the_themes_own_open_state_class(self):
         self.assertIn('drawer.classList.contains("drawer-on")', SCRIPT)
 
     def body(self):
-        body_start = SCRIPT.index("function setupChat()")
+        body_start = SCRIPT.index("function setupChat(prefix")
         return SCRIPT[body_start:SCRIPT.index("\n    setupSearchableSelects();", body_start)]
 
     def test_both_polls_check_the_open_state_before_doing_any_work(self):
@@ -150,7 +181,7 @@ class LiveChatTests(SimpleTestCase):
     و زنده باشد» (2.18.5)."""
 
     def body(self):
-        body_start = SCRIPT.index("function setupChat()")
+        body_start = SCRIPT.index("function setupChat(prefix")
         return SCRIPT[body_start:SCRIPT.index("\n    setupSearchableSelects();", body_start)]
 
     def test_polls_are_faster_than_before(self):
