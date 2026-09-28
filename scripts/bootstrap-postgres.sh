@@ -508,7 +508,16 @@ SELECT format(
 )
 FROM (
     VALUES
-        ('accounts_user', 'SELECT, INSERT, UPDATE'),
+        -- DELETE on the non-financial records a Platform Admin (or a user
+        -- granted that module's `.delete`) may remove from the panel — the
+        -- 2.18.8 decision, reconciled with this role in 2.23.2 — and on the
+        -- rows those deletions cascade to (a user's preferences, API tokens,
+        -- call popups, admin-site log). The application gates every one of
+        -- them (`common.viewsets.HardDeleteMixin`); every FK to them is
+        -- PROTECT, so a record still referenced is refused, never orphaned.
+        -- Invoices, payments, orders, quotations, sales and every ledger and
+        -- history stay without DELETE: money is corrected by reversal.
+        ('accounts_user', 'SELECT, INSERT, UPDATE, DELETE'),
         ('accounts_user_groups', 'SELECT, INSERT, DELETE'),
         ('accounts_user_user_permissions', 'SELECT, INSERT, DELETE'),
         -- A user's personal capability overrides: set, changed, and cleared
@@ -522,7 +531,7 @@ FROM (
         -- One row per uploaded file; deletion (elevated roles only, from the
         -- application) is a real DELETE, unlike the append-only tables above.
         ('attachments_attachment', 'SELECT, INSERT, DELETE'),
-        ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE'),
+        ('aftersales_aftersalesrequest', 'SELECT, INSERT, UPDATE, DELETE'),
         ('auditlog_activitylog', 'SELECT, INSERT'),
         -- Billing. A commercial document header is updated (status, totals);
         -- its line table also carries DELETE because removing a line from a
@@ -577,7 +586,7 @@ FROM (
         -- (common.preferences). Created on first save and rewritten after
         -- that; a user going back to the defaults saves the default values,
         -- it does not remove the row -- so no DELETE.
-        ('common_userpreference', 'SELECT, INSERT, UPDATE'),
+        ('common_userpreference', 'SELECT, INSERT, UPDATE, DELETE'),
         -- One row per user for their own dashboard arrangement
         -- (common.dashboard_layout). DELETE, unlike every other settings
         -- table here, because "reset to this deployment's default" is
@@ -602,26 +611,26 @@ FROM (
         -- is rewritten under a row lock by the movement service.
         ('inventory_stockitem', 'SELECT, INSERT, UPDATE'),
         ('inventory_stockmovement', 'SELECT, INSERT'),
-        ('inventory_warehouse', 'SELECT, INSERT, UPDATE'),
+        ('inventory_warehouse', 'SELECT, INSERT, UPDATE, DELETE'),
         ('auth_group', 'SELECT, INSERT, UPDATE, DELETE'),
         ('auth_group_permissions', 'SELECT, INSERT, DELETE'),
         ('auth_permission', 'SELECT'),
-        ('django_admin_log', 'SELECT, INSERT'),
+        ('django_admin_log', 'SELECT, INSERT, DELETE'),
         ('django_content_type', 'SELECT'),
         ('django_migrations', 'SELECT'),
         ('django_session', 'SELECT, INSERT, UPDATE, DELETE'),
-        ('sales_customer', 'SELECT, INSERT, UPDATE'),
-        ('sales_customerphone', 'SELECT, INSERT, UPDATE'),
-        ('sales_interaction', 'SELECT, INSERT'),
-        ('sales_lead', 'SELECT, INSERT, UPDATE'),
+        ('sales_customer', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('sales_customerphone', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('sales_interaction', 'SELECT, INSERT, DELETE'),
+        ('sales_lead', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_leadassignmenthistory', 'SELECT, INSERT'),
-        ('sales_product', 'SELECT, INSERT, UPDATE'),
-        ('sales_productcategory', 'SELECT, INSERT, UPDATE'),
+        ('sales_product', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('sales_productcategory', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_sale', 'SELECT, INSERT, UPDATE'),
-        ('sales_salesdocument', 'SELECT, INSERT, UPDATE'),
+        ('sales_salesdocument', 'SELECT, INSERT, UPDATE, DELETE'),
         -- Campaign target audience. No DELETE: an identity that was worked is
         -- part of the campaign's history even after it stops being pursued.
-        ('sales_targetaudiencemember', 'SELECT, INSERT, UPDATE'),
+        ('sales_targetaudiencemember', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_postalstatushistory', 'SELECT, INSERT'),
         -- Post-carrier API connection settings, singleton row — same grant
         -- as its SMS counterpart just above.
@@ -636,7 +645,7 @@ FROM (
         -- deleted; log rows, processed events and settled deliveries are
         -- pruned by `prune_integration_logs`, which runs as this role; the
         -- outbox and deliveries are rewritten in place as they are retried.
-        ('integrations_apitoken', 'SELECT, INSERT, UPDATE'),
+        ('integrations_apitoken', 'SELECT, INSERT, UPDATE, DELETE'),
         ('integrations_domainevent', 'SELECT, INSERT, UPDATE, DELETE'),
         ('integrations_inboundwebhookreceipt', 'SELECT, INSERT, UPDATE, DELETE'),
         ('integrations_integration', 'SELECT, INSERT, UPDATE, DELETE'),
@@ -651,7 +660,7 @@ FROM (
         -- cannot be removed); extensions are remapped and removed by the
         -- Platform Admin; a popup is dismissed in place.
         ('telephony_call', 'SELECT, INSERT, UPDATE'),
-        ('telephony_callnotification', 'SELECT, INSERT, UPDATE'),
+        ('telephony_callnotification', 'SELECT, INSERT, UPDATE, DELETE'),
         ('telephony_cdrsyncstate', 'SELECT, INSERT, UPDATE'),
         ('telephony_extension', 'SELECT, INSERT, UPDATE, DELETE'),
         -- Click-to-call (2.23.0): queued by the web, claimed and settled by

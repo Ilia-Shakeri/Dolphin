@@ -143,6 +143,14 @@ class HardDeleteMixin:
     #: Admin-only — user administration, which no permission matrix governs.
     delete_capability = None
 
+    #: `False` for financial documents (quotations, orders, invoices,
+    #: payments, sales): nobody deletes them, the Platform Admin included —
+    #: a wrong one is cancelled or reversed, which keeps the money trail
+    #: (product owner, 2026-09-28). The database role has no DELETE on
+    #: their tables either (`scripts/bootstrap-postgres.sh`).
+    records_deletable = True
+    NOT_DELETABLE_MESSAGE = "اسناد مالی حذف نمی‌شوند؛ برای اصلاح، سند را ابطال کنید یا سند برگشتی ثبت کنید."
+
     def _extra_delete_guard(self, request, instance):
         """Hook for a subclass to refuse one specific row beyond the blanket
         Platform-Admin-only gate — e.g. `UserViewSet` refusing self-deletion
@@ -152,6 +160,8 @@ class HardDeleteMixin:
         return
 
     def _require_delete_permission(self, request):
+        if not self.records_deletable:
+            raise BusinessPermissionDenied(self.NOT_DELETABLE_MESSAGE)
         if not can_delete(request.user, self.delete_capability):
             if self.delete_capability is None:
                 raise BusinessPermissionDenied("حذف این رکورد فقط برای مدیر پلتفرم مجاز است.")

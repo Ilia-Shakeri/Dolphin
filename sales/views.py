@@ -752,7 +752,7 @@ class ProductViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
 class SaleViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     required_feature = "sales"
     #: Who else may delete here: see `common.viewsets.HardDeleteMixin`.
-    delete_capability = "sales.delete"
+    records_deletable = False
     required_capabilities = ("sales.own", "sales.company")
     required_write_capabilities = ("sales.manage",)
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]

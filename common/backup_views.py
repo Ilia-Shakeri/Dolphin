@@ -62,6 +62,7 @@ def _job_row(job):
         "archive_name": job.archive_name,
         "message": job.message,
         "finished_at": job.finished_at,
+        "note": job.note,
     }
 
 
@@ -96,7 +97,7 @@ class BackupListView(BackupFeatureMixin, APIView):
         return response
 
     @extend_schema(
-        request=None,
+        request={"application/json": {"type": "object", "properties": {"note": {"type": "string", "maxLength": 160}}}},
         responses={
             202: {"type": "object"},
             400: VALIDATION_ERROR_RESPONSE,
@@ -109,7 +110,7 @@ class BackupListView(BackupFeatureMixin, APIView):
         ),
     )
     def post(self, request):
-        job = backups.request_backup(actor=request.user)
+        job = backups.request_backup(actor=request.user, note=request.data.get("note", "") if hasattr(request.data, "get") else "")
         response = Response(_job_row(job), status=202)
         response["Cache-Control"] = "private, no-store"
         return response
@@ -160,6 +161,7 @@ class BackupRestoreView(BackupFeatureMixin, APIView):
     @extend_schema(
         request={"multipart/form-data": {"type": "object", "properties": {
             "archive": {"type": "string", "format": "binary"},
+            "archive_name": {"type": "string", "description": "Restore this archive from the backup volume instead of an upload."},
             "confirm": {"type": "string"},
         }}},
         responses={
@@ -177,15 +179,19 @@ class BackupRestoreView(BackupFeatureMixin, APIView):
     )
     def post(self, request):
         upload = request.FILES.get("archive")
-        if upload is None:
-            raise BusinessRuleError({"archive": "فایل پشتیبان را انتخاب کنید."})
+        archive_name = str(request.data.get("archive_name", "") or "").strip()
+        if upload is None and not archive_name:
+            raise BusinessRuleError({"archive": "فایل پشتیبان را انتخاب کنید یا یکی از پشتیبان‌های روی سرور را برگزینید."})
         if str(request.data.get("confirm", "")).strip() != RESTORE_CONFIRMATION:
             raise BusinessRuleError({
                 "confirm": f"برای تأیید، عبارت «{RESTORE_CONFIRMATION}» را دقیقاً وارد کنید.",
             })
-        job = backups.request_restore(
-            actor=request.user, upload=upload, original_filename=getattr(upload, "name", ""),
-        )
+        if upload is not None:
+            job = backups.request_restore(
+                actor=request.user, upload=upload, original_filename=getattr(upload, "name", ""),
+            )
+        else:
+            job = backups.request_restore_from_archive(actor=request.user, name=archive_name)
         response = Response(_job_row(job), status=202)
         response["Cache-Control"] = "private, no-store"
         return response

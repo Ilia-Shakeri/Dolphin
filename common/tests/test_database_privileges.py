@@ -358,7 +358,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
 
     def test_runtime_table_grants_are_exact_and_history_is_append_only(self):
         expected_grants = {
-            "accounts_user": "SELECT, INSERT, UPDATE",
+            "accounts_user": "SELECT, INSERT, UPDATE, DELETE",
             "accounts_user_groups": "SELECT, INSERT, DELETE",
             "accounts_user_user_permissions": "SELECT, INSERT, DELETE",
             "accounts_usercapabilityoverride": "SELECT, INSERT, UPDATE, DELETE",
@@ -366,7 +366,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # (`update_or_create`) and removed when the picture is cleared.
             "accounts_useravatar": "SELECT, INSERT, UPDATE, DELETE",
             "aftersales_aftersaleshistory": "SELECT, INSERT",
-            "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE",
+            "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE, DELETE",
             "auditlog_activitylog": "SELECT, INSERT",
             # Billing. Line tables carry DELETE because a draft document may
             # have a line removed; the service refuses that past draft, and the
@@ -405,7 +405,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # row is rewritten by the movement service under a row lock.
             "inventory_stockitem": "SELECT, INSERT, UPDATE",
             "inventory_stockmovement": "SELECT, INSERT",
-            "inventory_warehouse": "SELECT, INSERT, UPDATE",
+            "inventory_warehouse": "SELECT, INSERT, UPDATE, DELETE",
             # Derived cache of the signed deployment manifest. The runtime
             # rewrites it, which is safe precisely because it never authorises
             # anything; the manifest alone does.
@@ -422,7 +422,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # (common.preferences). Created on first save and rewritten
             # after that; going back to the defaults saves the default
             # values rather than removing the row — no DELETE.
-            "common_userpreference": "SELECT, INSERT, UPDATE",
+            "common_userpreference": "SELECT, INSERT, UPDATE, DELETE",
             # One row per user for their own dashboard arrangement. DELETE,
             # unlike every other settings table here, because "reset to this
             # deployment's default" is genuinely the absence of an overlay,
@@ -444,27 +444,27 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "auth_group": "SELECT, INSERT, UPDATE, DELETE",
             "auth_group_permissions": "SELECT, INSERT, DELETE",
             "auth_permission": "SELECT",
-            "django_admin_log": "SELECT, INSERT",
+            "django_admin_log": "SELECT, INSERT, DELETE",
             "django_content_type": "SELECT",
             "django_migrations": "SELECT",
             "django_session": "SELECT, INSERT, UPDATE, DELETE",
-            "sales_customer": "SELECT, INSERT, UPDATE",
-            "sales_customerphone": "SELECT, INSERT, UPDATE",
-            "sales_interaction": "SELECT, INSERT",
-            "sales_lead": "SELECT, INSERT, UPDATE",
+            "sales_customer": "SELECT, INSERT, UPDATE, DELETE",
+            "sales_customerphone": "SELECT, INSERT, UPDATE, DELETE",
+            "sales_interaction": "SELECT, INSERT, DELETE",
+            "sales_lead": "SELECT, INSERT, UPDATE, DELETE",
             "sales_leadassignmenthistory": "SELECT, INSERT",
-            "sales_product": "SELECT, INSERT, UPDATE",
-            "sales_productcategory": "SELECT, INSERT, UPDATE",
+            "sales_product": "SELECT, INSERT, UPDATE, DELETE",
+            "sales_productcategory": "SELECT, INSERT, UPDATE, DELETE",
             "sales_sale": "SELECT, INSERT, UPDATE",
-            "sales_salesdocument": "SELECT, INSERT, UPDATE",
+            "sales_salesdocument": "SELECT, INSERT, UPDATE, DELETE",
             # Campaign target audience. No DELETE: an identity that was worked
             # is part of the campaign history even after it stops being pursued.
-            "sales_targetaudiencemember": "SELECT, INSERT, UPDATE",
+            "sales_targetaudiencemember": "SELECT, INSERT, UPDATE, DELETE",
             "sales_postalstatushistory": "SELECT, INSERT",
             "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
             # Integrations (2.21.0): tokens are revoked in place, never deleted;
             # log rows are only ever added or pruned.
-            "integrations_apitoken": "SELECT, INSERT, UPDATE",
+            "integrations_apitoken": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_domainevent": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_inboundwebhookreceipt": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_integration": "SELECT, INSERT, UPDATE, DELETE",
@@ -477,7 +477,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "tasks_task": "SELECT, INSERT, UPDATE, DELETE",
             # Telephony (2.22.0): calls are never deleted.
             "telephony_call": "SELECT, INSERT, UPDATE",
-            "telephony_callnotification": "SELECT, INSERT, UPDATE",
+            # A user's call popups go with the user (2.23.2).
+            "telephony_callnotification": "SELECT, INSERT, UPDATE, DELETE",
             "telephony_cdrsyncstate": "SELECT, INSERT, UPDATE",
             "telephony_extension": "SELECT, INSERT, UPDATE, DELETE",
             "telephony_originaterequest": "SELECT, INSERT, UPDATE",
@@ -510,10 +511,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "communications_inboundsms",
             "communications_outboundsms",
             "sales_leadassignmenthistory",
-            "sales_interaction",
             "sales_postalstatushistory",
             "aftersales_aftersaleshistory",
-            "django_admin_log",
             # The money and stock ledgers. A reversal is another row, so the
             # runtime role must not be able to rewrite or remove history even
             # if application code were to try.

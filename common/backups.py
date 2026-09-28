@@ -222,6 +222,14 @@ def list_backups(*, actor):
             "has_checksum": recorded is not None,
         })
     rows.sort(key=lambda row: row["name"], reverse=True)
+    # The note the operator wrote when asking for a backup (2.23.2), found by
+    # the archive the agent reported it produced. One query for the page.
+    notes = dict(
+        BackupJob.objects.filter(kind=BackupJob.Kind.BACKUP, archive_name__in=[row["name"] for row in rows])
+        .exclude(note="").values_list("archive_name", "note")
+    )
+    for row in rows:
+        row["note"] = notes.get(row["name"], "")
     return rows
 
 
@@ -295,8 +303,21 @@ def _write_request(root, token, payload):
     return final
 
 
+NOTE_MAX_LENGTH = 160
+
+
+def clean_note(value):
+    """A backup note, trimmed and on one line; `BusinessRuleError` if too long."""
+    text = " ".join(
+        "".join(ch for ch in str(value or "") if unicodedata.category(ch)[0] != "C" or ch in " \t\n").split()
+    )
+    if len(text) > NOTE_MAX_LENGTH:
+        raise BusinessRuleError({"note": f"یادداشت حداکثر {NOTE_MAX_LENGTH} نویسه است."})
+    return text
+
+
 @transaction.atomic
-def request_backup(*, actor):
+def request_backup(*, actor, note=""):
     """Ask the agent to take a backup now.
 
     The row is written before the request file, not after: a row with no
@@ -306,10 +327,11 @@ def request_backup(*, actor):
     """
     _require_feature()
     _require_platform_admin(actor)
+    note = clean_note(note)
     root = _checked_root(spool_root(), sentinel=False)
 
     token = _new_token()
-    job = BackupJob.objects.create(token=token, kind=BackupJob.Kind.BACKUP, requested_by=actor)
+    job = BackupJob.objects.create(token=token, kind=BackupJob.Kind.BACKUP, requested_by=actor, note=note)
     requested_at = timezone.now()
     _write_request(root, token, {
         "kind": "backup",
@@ -337,6 +359,47 @@ def request_restore(*, actor, upload, original_filename):
     """
     _require_feature()
     _require_platform_admin(actor)
+    return _queue_restore(actor, upload.chunks(), _safe_label(original_filename))
+
+
+def request_restore_from_archive(*, actor, name):
+    """Restore one of the archives already on the backup volume (2.23.2).
+
+    Copied into the spool exactly as an upload would be — hashed while it is
+    copied, and the hash compared with the archive's `.sha256` sidecar
+    before any request exists — so the agent sees one kind of restore
+    request, and still re-verifies it before replacing anything. An archive
+    with no sidecar is refused: it was not published by a Dolphin backup.
+    """
+    _require_feature()
+    _require_platform_admin(actor)
+    root = _checked_root(backup_root(), sentinel=True)
+    path = _archive_path(root, name)
+    if path.is_symlink() or not path.is_file():
+        raise BusinessRuleError({"archive_name": "این فایل پشتیبان پیدا نشد."})
+    sidecar = root / f"{name}.sha256"
+    recorded = ""
+    if sidecar.is_file() and not sidecar.is_symlink():
+        text = sidecar.read_text().strip()
+        if text.endswith(f"  {name}"):
+            recorded = text.split(" ", 1)[0]
+    if not re.fullmatch(r"[0-9a-f]{64}", recorded):
+        raise BusinessRuleError({"archive_name": "این پشتیبان اثر انگشت ثبت‌شده ندارد و برای بازگردانی پذیرفته نمی‌شود."})
+
+    def chunks():
+        with path.open("rb") as handle:
+            while True:
+                block = handle.read(1024 * 1024)
+                if not block:
+                    return
+                yield block
+
+    return _queue_restore(actor, chunks(), name, expected_sha256=recorded, source_archive=name)
+
+
+def _queue_restore(actor, chunks, label, *, expected_sha256=None, source_archive=""):
+    """Write `chunks` into the spool, hashing as it goes, and ask the agent
+    to restore it. Shared by an upload and by an archive on the server."""
     root = _checked_root(spool_root(), sentinel=False)
 
     token = _new_token()
@@ -347,7 +410,7 @@ def request_restore(*, actor, upload, original_filename):
     first_block = b""
     try:
         with temporary.open("wb") as handle:
-            for chunk in upload.chunks():
+            for chunk in chunks:
                 if not first_block:
                     first_block = bytes(chunk[: len(CUSTOM_FORMAT_MAGIC)])
                 size += len(chunk)
@@ -370,7 +433,9 @@ def request_restore(*, actor, upload, original_filename):
         raise BackupsUnavailable("فایل پشتیبان ذخیره نشد.") from error
 
     checksum = digest.hexdigest()
-    label = _safe_label(original_filename)
+    if expected_sha256 and checksum != expected_sha256:
+        temporary.unlink(missing_ok=True)
+        raise BusinessRuleError({"archive_name": "محتوای این پشتیبان با اثر انگشت ثبت‌شده‌اش نمی‌خواند؛ بازگردانی انجام نشد."})
     with transaction.atomic():
         job = BackupJob.objects.create(
             token=token,
@@ -400,7 +465,10 @@ def request_restore(*, actor, upload, original_filename):
             # backend-generated values, and a name somebody typed is not
             # one. It is on the `BackupJob` row, which is where an
             # investigator looking for it will be.
-            changes={"token": token, "sha256": checksum, "size_bytes": size},
+            changes={
+                "token": token, "sha256": checksum, "size_bytes": size,
+                **({"source_archive": source_archive} if source_archive else {}),
+            },
         )
     return job
 

@@ -3986,34 +3986,52 @@ details[open] > summary.card-header::after {
     box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
 }
 
-/* «قلم پنل» — every choice drawn in its own face (2.18.7). The same theme
-   option card as the size glyphs above; a grid, because there are eleven. */
-.font-family-options {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
-    gap: 0.75rem;
+/* «قلم پنل» — a compact dropdown since 2.23.2 (it was a grid of eleven
+   cards). The toggle is the theme's own `.form-select`; the list is the
+   theme's `.menu-sub-dropdown`, opened by `registerPopover` and anchored
+   under the toggle at its width, each choice still drawn in its own face. */
+.font-family-toggle {
+    min-height: 2.75rem;
+}
+
+.font-family-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    inset-inline-start: 0;
+    z-index: 105;
+    width: 100%;
+    max-height: 20rem;
+    overflow-y: auto;
 }
 
 .font-family-option {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
-    padding: 0.85rem 1rem;
-    text-align: start;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.font-family-option.active {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
 }
 
 .font-family-sample {
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.1rem;
+    font-weight: 600;
     line-height: 1.4;
 }
 
-.font-family-sample-line {
-    font-size: 0.95rem;
-    line-height: 1.5;
+.font-family-option:has(.btn-check:focus-visible) {
+    box-shadow: inset 0 0 0 0.15rem var(--bs-primary-clarity);
 }
 
-.font-family-option:has(.btn-check:focus-visible) {
-    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+/* «پشتیبان‌گیری و بازگردانی» (2.23.2): one dialog, three sections — wider
+   than the default dialog because the history is a five-column table. */
+.backup-dialog {
+    width: min(calc(100% - 2rem), 60rem);
+}
+
+.backup-tile {
+    white-space: normal;
 }

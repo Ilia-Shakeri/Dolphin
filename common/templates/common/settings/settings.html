@@ -26,29 +26,32 @@
         <form id="preferences-form" novalidate>
             {% csrf_token %}
             <div class="row g-6">
-{% comment %} قلم پنل — هر گزینه با خودِ همان قلم نوشته شده، نه نامش در یک فهرست
-   کشویی. مالک محصول ۲۰۲۶/۰۹/۲۷: «کاربر باید بتواند قلم‌های بیشتری انتخاب کند
-   و تغییر قلم روی کل پنل اثر بگذارد». قلم‌هایی که با خود پنل می‌آیند
-   (`PANEL_FONT_FAMILIES_BUNDLED`) روی هر دستگاهی یکسان دیده می‌شوند؛ بقیه فقط
-   جایی که روی دستگاه نصب باشند — و همین را روی کارتشان می‌گوید. نمونهٔ هر کارت
-   `data-font-stack` خودش را دارد، پس پیش‌نمایش زندهٔ صفحه نسخهٔ دومی از این
-   نگاشت در اسکریپت ندارد. {% endcomment %}
-                <div class="col-12">
-                    <span class="form-label fw-semibold d-block" id="preference-font-family-label">قلم پنل</span>
-                    <div class="font-family-options" role="radiogroup" id="preference-font-family"
-                         aria-labelledby="preference-font-family-label">
-                        {% for option in preference_catalog.font_families %}
-                        <label class="btn btn-outline btn-outline-dashed btn-active-light-primary font-family-option{% if option.value == current_preferences.font_family %} active{% endif %}"
-                               for="preference-font-family-{{ option.value }}">
-                            <input class="btn-check" type="radio" name="font_family" id="preference-font-family-{{ option.value }}"
-                                   value="{{ option.value }}" data-font-stack="{{ option.stack }}"{% if option.value == current_preferences.font_family %} checked{% endif %}>
-                            <span class="font-family-sample" style="font-family: {{ option.stack }}">{{ option.label }}</span>
-                            <span class="font-family-sample-line text-gray-700" style="font-family: {{ option.stack }}" aria-hidden="true">دلفین، همراه فروش — ۱۴۰۵</span>
-                            {% if not option.bundled %}<span class="badge badge-light fs-9">اگر روی دستگاه نصب باشد</span>{% endif %}
-                        </label>
-                        {% endfor %}
+{% comment %} قلم پنل — یک فهرست کشویی فشرده (مالک محصول ۲۰۲۶/۰۹/۲۸: «قلم پنل باید
+   دراپ‌داون و بهتر باشد و جای کمتری بگیرد»). دکمه قلم فعلی را با خودِ همان قلم نشان
+   می‌دهد و منوی قالب (`menu-sub-dropdown`) هر گزینه را با قلم خودش؛ درون منو همان
+   رادیوهای واقعی‌اند، پس صفحه‌کلید، ذخیره و پیش‌نمایش زنده مثل قبل کار می‌کنند.
+   قلم‌هایی که با پنل نمی‌آیند برچسب «اگر روی دستگاه نصب باشد» دارند. {% endcomment %}
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold d-block" id="preference-font-family-label" for="preference-font-family-toggle">قلم پنل</label>
+                    <div class="position-relative">
+                        <button type="button" class="form-select form-select-solid text-start font-family-toggle" id="preference-font-family-toggle"
+                                aria-haspopup="true" aria-expanded="false" aria-controls="preference-font-family">
+                            {% for option in preference_catalog.font_families %}{% if option.value == current_preferences.font_family %}<span data-font-family-current style="font-family: {{ option.stack }}">{{ option.label }}</span>{% endif %}{% endfor %}
+                        </button>
+                        <div class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 fw-semibold py-2 font-family-menu"
+                             role="radiogroup" id="preference-font-family" aria-labelledby="preference-font-family-label">
+                            {% for option in preference_catalog.font_families %}
+                            <label class="menu-link px-4 py-2 font-family-option{% if option.value == current_preferences.font_family %} active{% endif %}"
+                                   for="preference-font-family-{{ option.value }}">
+                                <input class="btn-check" type="radio" name="font_family" id="preference-font-family-{{ option.value }}"
+                                       value="{{ option.value }}" data-font-stack="{{ option.stack }}" data-font-label="{{ option.label }}"{% if option.value == current_preferences.font_family %} checked{% endif %}>
+                                <span class="font-family-sample" style="font-family: {{ option.stack }}">{{ option.label }}</span>
+                                {% if not option.bundled %}<span class="badge badge-light fs-9 ms-auto">اگر روی دستگاه نصب باشد</span>{% endif %}
+                            </label>
+                            {% endfor %}
+                        </div>
                     </div>
-                    <p class="text-muted fs-7 mt-2 mb-0">قلم انتخابی روی همهٔ صفحه‌ها، جدول‌ها، فرم‌ها و نمودارهای پنل اعمال می‌شود. قلم‌های بدون برچسب همراه خود پنل‌اند و روی هر دستگاهی یکسان دیده می‌شوند.</p>
+                    <p class="text-muted fs-8 mt-2 mb-0">روی همهٔ صفحه‌ها، جدول‌ها و نمودارهای پنل اعمال می‌شود.</p>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_family"></p>
                 </div>
 {% comment %} اندازهٔ قلم — سه آیکون حرف در سه اندازه، نه یک فهرست کشویی. مالک محصول
@@ -175,79 +178,150 @@
 {% endif %}
 
 {% if can_manage_backups %}
+{% comment %} پشتیبان‌گیری و بازگردانی (۲.۲۳.۲): روی صفحه فقط یک کارت خلاصه؛ همه‌چیز در
+   یک پنجره با سه بخش — تاریخچه و دانلود، پشتیبان تازه، بازگردانی — هر کدام در
+   همان پنجره باز می‌شود و «بازگشت» به فهرست بخش‌ها برمی‌گرداند (مالک محصول
+   ۲۰۲۶/۰۹/۲۸). هیچ کدام کاری انجام نمی‌دهد جز درخواست از عامل پشتیبان
+   (`common/backups.py`). {% endcomment %}
 <section class="card mb-5 mb-xl-8" id="panel-backups">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
             <h2>پشتیبان‌گیری و بازگردانی</h2>
-            <span class="text-muted fs-7 mt-1">نسخه‌های پشتیبان این استقرار، دانلود آن‌ها، و بازگردانی کامل پایگاه داده.</span>
+            <span class="text-muted fs-7 mt-1">نسخه‌های پشتیبان این استقرار، دانلود، پشتیبان تازه و بازگردانی کامل پایگاه داده.</span>
         </div>
         <div class="card-toolbar">
-            <button type="button" class="btn btn-sm btn-light-primary" id="backup-create">
-                <i class="ki-duotone ki-plus fs-4 me-1"></i>پشتیبان تازه
+            <button type="button" class="btn btn-sm btn-primary" id="backup-open" aria-haspopup="dialog" aria-controls="backup-dialog">
+                <i class="ki-duotone ki-shield-tick fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>مدیریت پشتیبان‌ها
             </button>
         </div>
     </div>
     <div class="card-body pt-2">
-        <div id="backup-loading" class="text-center text-gray-700 py-8">در حال دریافت فهرست پشتیبان‌ها…</div>
+        <div id="backup-loading" class="text-gray-700 fs-7">در حال دریافت وضعیت پشتیبان‌ها…</div>
         <div id="backup-unavailable" class="alert alert-warning d-flex align-items-center p-5 mb-0" role="alert" hidden></div>
-
-        <div id="backup-content" hidden>
-            <div class="table-responsive mb-8">
-                <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0">
-                    <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">
-                        <th>زمان</th><th>حجم</th><th>اثر انگشت</th><th>دانلود</th>
-                    </tr></thead>
-                    <tbody id="backup-rows"></tbody>
-                </table>
-            </div>
-            <div id="backup-empty" class="text-center text-gray-700 py-8" hidden>هنوز پشتیبانی ساخته نشده است.</div>
-
-            <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازگردانی از فایل پشتیبان</h3>
-{% comment %} Said before the controls, not after, and not softened: this is
-   the one operation in the product that rewrites append-only history. The
-   runbook's own section 4.6 makes the same point in the same words; a page
-   that offers the button has to make it too. {% endcomment %}
-            <div class="notice d-flex bg-light-danger rounded border-danger border border-dashed p-6 mb-5">
-                <div class="fw-semibold fs-7 text-gray-800">
-                    بازگردانی، پایگاه داده را به لحظهٔ ساخته‌شدن همان پشتیبان برمی‌گرداند و
-                    <strong>هر ردیفی که از آن زمان ثبت شده — سفارش، فاکتور، دریافت، دفتر حساب — از بین می‌رود</strong>.
-                    پیش از شروع، یک پشتیبان ایمنی از وضعیت فعلی به‌صورت خودکار ساخته می‌شود،
-                    و در طول کار پنل برای همه از دسترس خارج می‌شود.
-                </div>
-            </div>
-            <form id="backup-restore-form" novalidate>
-                {% csrf_token %}
-                <div class="row g-5">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" for="backup-restore-file">فایل پشتیبان (‏.dump)</label>
-                        <input class="form-control form-control-solid" id="backup-restore-file" name="archive" type="file" accept=".dump">
-                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="archive"></p>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold" for="backup-restore-confirm">برای تأیید، عبارت «{{ restore_confirmation }}» را بنویسید</label>
-                        <input class="form-control form-control-solid" id="backup-restore-confirm" name="confirm"
-                               autocomplete="off" placeholder="{{ restore_confirmation }}">
-                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="confirm"></p>
-                    </div>
-                </div>
-                <div class="d-flex justify-content-end mt-6">
-                    <button class="btn btn-danger" type="submit" id="backup-restore-submit">بازگردانی پایگاه داده</button>
-                </div>
-            </form>
-
-            <h3 class="fs-5 fw-bold text-gray-900 mt-8 mb-3">درخواست‌های اخیر</h3>
-            <div class="table-responsive">
-                <table class="table align-middle table-row-dashed fs-6 gy-3 mb-0">
-                    <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">
-                        <th>نوع</th><th>زمان</th><th>کاربر</th><th>وضعیت</th><th>توضیح</th>
-                    </tr></thead>
-                    <tbody id="backup-job-rows"></tbody>
-                </table>
-            </div>
-            <p id="backup-jobs-empty" class="text-center text-gray-700 py-6 mb-0" hidden>درخواستی ثبت نشده است.</p>
+        <div id="backup-summary" class="d-flex flex-wrap gap-4" hidden>
+            <div class="border border-gray-300 border-dashed rounded min-w-150px py-3 px-4"><div class="fs-5 fw-bold text-gray-900" data-backup-summary="latest">—</div><div class="fw-semibold fs-7 text-gray-500">آخرین پشتیبان</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-100px py-3 px-4"><div class="fs-5 fw-bold text-gray-900" data-backup-summary="count">—</div><div class="fw-semibold fs-7 text-gray-500">تعداد پشتیبان‌ها</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-100px py-3 px-4"><div class="fs-5 fw-bold text-gray-900" data-backup-summary="size">—</div><div class="fw-semibold fs-7 text-gray-500">حجم کل</div></div>
+            <div class="border border-gray-300 border-dashed rounded min-w-100px py-3 px-4"><div class="fs-5 fw-bold text-gray-900" data-backup-summary="waiting">—</div><div class="fw-semibold fs-7 text-gray-500">درخواست در صف</div></div>
         </div>
     </div>
 </section>
+
+<dialog id="backup-dialog" class="backup-dialog" aria-labelledby="backup-dialog-title">
+    <div class="d-flex align-items-center gap-3 mb-6">
+        <button class="btn btn-icon btn-sm btn-light" type="button" data-backup-back aria-label="بازگشت به بخش‌ها" hidden>
+            <i class="ki-duotone ki-arrow-right fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+        </button>
+        <h2 id="backup-dialog-title" class="mb-0 flex-grow-1">پشتیبان‌گیری و بازگردانی</h2>
+        <button class="btn btn-icon btn-sm btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+
+    <div data-backup-view="home">
+        <div class="row g-5">
+            <div class="col-md-4"><button type="button" class="btn btn-outline btn-outline-dashed btn-active-light-primary w-100 h-100 text-start p-6 backup-tile" data-backup-open="history">
+                <i class="ki-duotone ki-time fs-2x text-primary mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                <span class="d-block fs-5 fw-bold text-gray-900 mb-1">تاریخچه و دانلود</span>
+                <span class="d-block fs-7 text-gray-600">همهٔ پشتیبان‌های روی سرور با یادداشتشان، دانلود هر کدام، و درخواست‌های اخیر.</span>
+            </button></div>
+            <div class="col-md-4"><button type="button" class="btn btn-outline btn-outline-dashed btn-active-light-primary w-100 h-100 text-start p-6 backup-tile" data-backup-open="create">
+                <i class="ki-duotone ki-plus-square fs-2x text-success mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                <span class="d-block fs-5 fw-bold text-gray-900 mb-1">پشتیبان‌گیری تازه</span>
+                <span class="d-block fs-7 text-gray-600">یک نسخهٔ کامل از پایگاه داده همین حالا، با یادداشت و دانلود خودکار.</span>
+            </button></div>
+            <div class="col-md-4"><button type="button" class="btn btn-outline btn-outline-dashed btn-active-light-danger w-100 h-100 text-start p-6 backup-tile" data-backup-open="restore">
+                <i class="ki-duotone ki-arrows-circle fs-2x text-danger mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                <span class="d-block fs-5 fw-bold text-gray-900 mb-1">بازگردانی</span>
+                <span class="d-block fs-7 text-gray-600">برگرداندن کل پایگاه داده به یک پشتیبان روی سرور یا فایلی که بارگذاری می‌کنید.</span>
+            </button></div>
+        </div>
+    </div>
+
+    <div data-backup-view="history" hidden>
+        <h3 class="fs-5 fw-bold text-gray-900 mb-3">پشتیبان‌های روی سرور</h3>
+        <div class="table-responsive mb-8">
+            <table class="table align-middle table-row-dashed fs-6 gy-3 mb-0">
+                <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">
+                    <th>زمان</th><th>یادداشت</th><th>حجم</th><th>اثر انگشت</th><th>عملیات</th>
+                </tr></thead>
+                <tbody id="backup-rows"></tbody>
+            </table>
+        </div>
+        <div id="backup-empty" class="text-center text-gray-700 py-6" hidden>هنوز پشتیبانی ساخته نشده است.</div>
+        <h3 class="fs-5 fw-bold text-gray-900 mb-3">درخواست‌های اخیر</h3>
+        <div class="table-responsive">
+            <table class="table align-middle table-row-dashed fs-6 gy-3 mb-0">
+                <thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">
+                    <th>نوع</th><th>زمان</th><th>کاربر</th><th>وضعیت</th><th>توضیح</th>
+                </tr></thead>
+                <tbody id="backup-job-rows"></tbody>
+            </table>
+        </div>
+        <p id="backup-jobs-empty" class="text-center text-gray-700 py-6 mb-0" hidden>درخواستی ثبت نشده است.</p>
+    </div>
+
+    <div data-backup-view="create" hidden>
+        <form id="backup-create-form" novalidate>
+            <p class="text-gray-700 fs-7">یک نسخهٔ کامل (همهٔ جدول‌ها و داده‌ها) با قالب custom پستگرس ساخته می‌شود، اثر انگشت SHA-256 کنارش ثبت می‌شود و پیش از انتشار با <code dir="ltr">pg_restore --list</code> خوانده و سنجیده می‌شود. ساخت را عامل پشتیبان انجام می‌دهد؛ معمولاً کمتر از یک دقیقه.</p>
+            <div class="mb-5">
+                <label class="form-label fw-semibold" for="backup-note">یادداشت (اختیاری)</label>
+                <input class="form-control form-control-solid" id="backup-note" name="note" maxlength="160" placeholder="مثلاً: پیش از ورود مشتریان جدید">
+                <p class="text-muted fs-8 mt-1 mb-0">در تاریخچه کنار همین پشتیبان دیده می‌شود.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="note"></p>
+            </div>
+            <label class="form-check form-check-custom form-check-solid mb-6">
+                <input class="form-check-input" type="checkbox" id="backup-download-when-ready" checked>
+                <span class="form-check-label fw-semibold text-gray-800">وقتی آماده شد، دانلود شود</span>
+            </label>
+            <div id="backup-create-status" class="alert alert-light-primary p-4 fs-7 mb-5" role="status" hidden></div>
+            <div class="d-flex justify-content-end"><button class="btn btn-primary" type="submit" id="backup-create-submit">ساخت پشتیبان</button></div>
+        </form>
+    </div>
+
+    <div data-backup-view="restore" hidden>
+{% comment %} Said before the controls, not after, and not softened: this is
+   the one operation in the product that rewrites append-only history. {% endcomment %}
+        <div class="notice d-flex bg-light-danger rounded border-danger border border-dashed p-5 mb-6">
+            <div class="fw-semibold fs-7 text-gray-800">
+                بازگردانی، پایگاه داده را به لحظهٔ ساخته‌شدن همان پشتیبان برمی‌گرداند و
+                <strong>هر ردیفی که از آن زمان ثبت شده — سفارش، فاکتور، دریافت، دفتر حساب — از بین می‌رود</strong>.
+                پیش از شروع، یک پشتیبان ایمنی از وضعیت فعلی به‌صورت خودکار ساخته می‌شود،
+                و در طول کار پنل برای همه از دسترس خارج می‌شود.
+            </div>
+        </div>
+        <form id="backup-restore-form" novalidate>
+            {% csrf_token %}
+            <fieldset class="mb-5">
+                <legend class="form-label fw-semibold fs-6">از کجا بازگردانده شود؟</legend>
+                <div class="d-flex flex-wrap gap-6">
+                    <label class="form-check form-check-custom form-check-solid"><input class="form-check-input" type="radio" name="source" value="server" checked><span class="form-check-label fw-semibold">یکی از پشتیبان‌های روی سرور</span></label>
+                    <label class="form-check form-check-custom form-check-solid"><input class="form-check-input" type="radio" name="source" value="upload"><span class="form-check-label fw-semibold">بارگذاری فایل پشتیبان</span></label>
+                </div>
+            </fieldset>
+            <div class="row g-5">
+                <div class="col-12" data-restore-source="server">
+                    <label class="form-label fw-semibold" for="backup-restore-archive">پشتیبان</label>
+                    <select class="form-select form-select-solid" id="backup-restore-archive" name="archive_name"></select>
+                    <p class="text-muted fs-8 mt-1 mb-0">فقط پشتیبان‌هایی که اثر انگشت ثبت‌شده دارند؛ اثر انگشت پیش از بازگردانی دوباره سنجیده می‌شود.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="archive_name"></p>
+                </div>
+                <div class="col-12" data-restore-source="upload" hidden>
+                    <label class="form-label fw-semibold" for="backup-restore-file">فایل پشتیبان (‏.dump)</label>
+                    <input class="form-control form-control-solid" id="backup-restore-file" name="archive" type="file" accept=".dump">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="archive"></p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold" for="backup-restore-confirm">برای تأیید، عبارت «{{ restore_confirmation }}» را بنویسید</label>
+                    <input class="form-control form-control-solid" id="backup-restore-confirm" name="confirm"
+                           autocomplete="off" placeholder="{{ restore_confirmation }}">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="confirm"></p>
+                </div>
+            </div>
+            <div class="d-flex justify-content-end mt-6">
+                <button class="btn btn-danger" type="submit" id="backup-restore-submit">بازگردانی پایگاه داده</button>
+            </div>
+        </form>
+    </div>
+</dialog>
 {% endif %}
 
 {% if can_manage_branding or can_manage_integrations %}

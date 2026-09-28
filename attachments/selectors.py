@@ -36,7 +36,9 @@ PARENT_WRITE_CAPABILITY = {
 PARENT_DELETE_CAPABILITY = {
     "customer": "customers.delete",
     "lead": "leads.delete",
-    "invoice": "invoices.delete",
+    # Invoices have no `.delete` (2.23.2: financial documents are never
+    # deleted), so a file on one is removed by the Platform Admin only.
+    "invoice": None,
     "sales_document": "sales_documents.delete",
     "after_sales_request": "after_sales.delete",
 }

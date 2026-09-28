@@ -207,7 +207,7 @@ class DeleteServiceTests(AttachmentFixtures):
     def test_a_grant_on_another_module_is_not_enough(self):
         from accounts.models import UserCapabilityOverride
 
-        UserCapabilityOverride.objects.create(user=self.manager, capability="invoices.delete", granted=True)
+        UserCapabilityOverride.objects.create(user=self.manager, capability="leads.delete", granted=True)
         with self.assertRaises(BusinessPermissionDenied):
             delete_attachment(actor=self.manager, attachment=self.attachment)
 

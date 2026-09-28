@@ -96,6 +96,14 @@ def without_feature():
 
 class BackupFixtures(TestCase):
     def setUp(self):
+        # `SensitiveRateThrottle` counts in the shared cache, which is not
+        # reset between tests; the backup endpoints spend that budget, so a
+        # later suite would otherwise meet 429 (the same `cache.clear()` the
+        # other API-touching suites do).
+        from django.core.cache import cache
+
+        cache.clear()
+        self.addCleanup(cache.clear)
         self.admin = User.objects.create_user(
             username="backup.admin", password=PASSWORD, role=User.Role.PLATFORM_ADMIN,
         )
@@ -668,6 +676,57 @@ class APITests(BackupFixtures):
         self.assertEqual(response.data["status"], "waiting")
         self.assertEqual(len(list(self.spool_dir.glob("*.request.json"))), 1)
 
+    def test_a_backup_carries_its_note_into_the_history(self):
+        response = self.client_for(self.admin).post(
+            "/api/v1/backups/", {"note": "  پیش از   ورود مشتریان\u200b "}, format="json",
+        )
+        self.assertEqual(response.status_code, 202)
+        job = BackupJob.objects.get()
+        self.assertEqual(job.note, "پیش از ورود مشتریان")
+        self.assertEqual(response.data["note"], "پیش از ورود مشتریان")
+        # Once the agent reports the archive it made, the listing names it.
+        self.write_archive()
+        BackupJob.objects.filter(pk=job.pk).update(archive_name=VALID_NAME, status=BackupJob.Status.DONE)
+        listing = self.client_for(self.admin).get("/api/v1/backups/").data
+        self.assertEqual(listing["archives"][0]["note"], "پیش از ورود مشتریان")
+
+    def test_a_note_too_long_is_refused(self):
+        response = self.client_for(self.admin).post("/api/v1/backups/", {"note": "ی" * 161}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(BackupJob.objects.exists())
+
+    def test_an_archive_on_the_server_can_be_restored_without_uploading_it(self):
+        from common.backup_views import RESTORE_CONFIRMATION
+
+        body = b"PGDMP" + bytes([1]) * 4096
+        self.write_archive(body=body)
+        response = self.client_for(self.admin).post(
+            "/api/v1/backups/restore/",
+            {"archive_name": VALID_NAME, "confirm": RESTORE_CONFIRMATION},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 202, response.data)
+        job = BackupJob.objects.get()
+        self.assertEqual((job.kind, job.original_filename), (BackupJob.Kind.RESTORE, VALID_NAME))
+        import hashlib
+
+        self.assertEqual(job.sha256, hashlib.sha256(body).hexdigest())
+        # The same request an upload makes: one spooled copy, one request.
+        self.assertEqual(len(list(self.spool_dir.glob("*.upload.dump"))), 1)
+        self.assertEqual(len(list(self.spool_dir.glob("*.request.json"))), 1)
+
+    def test_an_archive_without_a_fingerprint_or_with_a_wrong_one_is_refused(self):
+        from common.backup_views import RESTORE_CONFIRMATION
+
+        self.write_archive(checksum=False)
+        client = self.client_for(self.admin)
+        request = {"archive_name": VALID_NAME, "confirm": RESTORE_CONFIRMATION}
+        self.assertEqual(client.post("/api/v1/backups/restore/", request, format="multipart").status_code, 400)
+        (self.backup_dir / f"{VALID_NAME}.sha256").write_text("0" * 64 + "  " + VALID_NAME + chr(10))
+        self.assertEqual(client.post("/api/v1/backups/restore/", request, format="multipart").status_code, 400)
+        self.assertFalse(BackupJob.objects.exists())
+        self.assertEqual(list(self.spool_dir.glob("*")), [])
+
     def test_a_lower_role_cannot_restore_even_with_a_perfect_request(self):
         from common.backup_views import RESTORE_CONFIRMATION
 
@@ -703,7 +762,9 @@ class SettingsPageTests(BackupFixtures):
 
     def test_the_page_says_what_a_restore_destroys_before_offering_it(self):
         page = self.page(self.admin)
-        warning = page.split("بازگردانی از فایل پشتیبان", 1)[1].split("backup-restore-form", 1)[0]
+        # The restore section of the backup dialog (2.23.2): the warning sits
+        # between the section's opening and its form.
+        warning = page.split('data-backup-view="restore"', 1)[1].split("backup-restore-form", 1)[0]
         self.assertIn("از بین می‌رود", warning)
         self.assertIn("پشتیبان ایمنی", warning)
 

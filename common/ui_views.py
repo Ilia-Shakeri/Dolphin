@@ -245,7 +245,10 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # Platform-Admin-only. The backend gate in
         # `common.viewsets.HardDeleteMixin` is what actually decides,
         # regardless of what this hides or shows.
-        context["can_hard_delete"] = can_delete(self.request.user, getattr(self, "delete_capability", None))
+        # Financial pages set `records_deletable = False` and never offer it.
+        context["can_hard_delete"] = getattr(self, "records_deletable", True) and can_delete(
+            self.request.user, getattr(self, "delete_capability", None)
+        )
         # Mirrors DolphinBrandingSettingsView's own two gates exactly (feature
         # then role) — this only decides whether the link is offered; the
         # view enforces both again regardless of what this hid or showed.
@@ -592,7 +595,7 @@ class DolphinProductDetailView(ScopedDetailView):
 
 class DolphinSaleListView(ActiveCrmView):
     #: Who besides the Platform Admin may delete from this page (2.18.8).
-    delete_capability = "sales.delete"
+    records_deletable = False
     required_feature = "sales"
     template_name = "common/sales/list.html"
 
@@ -895,7 +898,7 @@ class DolphinStockMovementListView(ActiveCrmView):
 
 class DolphinOrderListView(ActiveCrmView):
     #: Who besides the Platform Admin may delete from this page (2.18.8).
-    delete_capability = "orders.delete"
+    records_deletable = False
     required_feature = "orders"
     template_name = "common/orders/list.html"
 
@@ -934,7 +937,7 @@ class DolphinOrderBoardView(ActiveCrmView):
 
 class DolphinInvoiceListView(ActiveCrmView):
     #: Who besides the Platform Admin may delete from this page (2.18.8).
-    delete_capability = "invoices.delete"
+    records_deletable = False
     required_feature = "invoices"
     template_name = "common/invoices/list.html"
 
@@ -1148,7 +1151,7 @@ class DolphinPaymentListView(PaymentDeskView):
     template_name = "common/payments/list.html"
     direction = "receipt"
     #: Who besides the Platform Admin may delete from this page (2.18.8).
-    delete_capability = "payments.delete"
+    records_deletable = False
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -53,7 +53,7 @@ class CanDeleteRuleTests(Fixtures):
     def test_a_granted_capability_is_exactly_what_it_says(self):
         self.grant(self.manager, "customers.delete")
         self.assertTrue(can_delete(self.manager, "customers.delete"))
-        self.assertFalse(can_delete(self.manager, "invoices.delete"))
+        self.assertFalse(can_delete(self.manager, "leads.delete"))
         self.assertFalse(can_delete(self.manager, None))
 
 
@@ -164,8 +164,27 @@ class PageTests(Fixtures):
         self.grant(self.manager, "customers.delete")
         self.assertTrue(self.page(self.manager).context["can_hard_delete"])
         # …and only on the module granted.
-        self.assertFalse(self.page(self.manager, "/invoices/").context["can_hard_delete"])
-        self.assertTrue(self.page(self.admin, "/invoices/").context["can_hard_delete"])
+        self.assertFalse(self.page(self.manager, "/leads/").context["can_hard_delete"])
+        self.assertTrue(self.page(self.admin, "/leads/").context["can_hard_delete"])
+
+    def test_financial_documents_are_never_offered_for_deletion(self):
+        """Product owner, 2026-09-28: non-financial records are deletable,
+        money documents are not — the Platform Admin included. A wrong
+        invoice or payment is cancelled or reversed instead."""
+        for path in ("/invoices/", "/orders/", "/payments/", "/sales/"):
+            with self.subTest(path=path):
+                self.assertFalse(self.page(self.admin, path).context["can_hard_delete"])
+
+    def test_financial_documents_refuse_deletion_through_the_api(self):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        for endpoint in ("invoices", "orders", "quotations", "payments", "sales"):
+            with self.subTest(endpoint=endpoint):
+                response = client.post(f"/api/v1/{endpoint}/bulk-delete/", {"ids": [1]}, format="json")
+                self.assertEqual(response.status_code, 403)
+                self.assertIn("اسناد مالی حذف نمی‌شوند", str(response.data["detail"]))
 
     def test_the_permission_dialog_has_a_delete_column(self):
         page = self.page(self.admin, "/users/").content.decode("utf-8")

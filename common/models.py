@@ -371,6 +371,10 @@ class BackupJob(TimeStampedModel):
     archive_name = models.CharField(max_length=128, blank=True)
     message = models.TextField(blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
+    #: What the operator wrote about a backup when asking for it (2.23.2) —
+    #: «پیش از ورود اطلاعات مشتری جدید», say. Shown in the history beside the
+    #: archive it produced; never sent to the agent.
+    note = models.CharField(max_length=160, blank=True)
 
     class Meta:
         ordering = ("-created_at",)
