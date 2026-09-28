@@ -6,7 +6,7 @@ written. Implementation progress: Phase 1 in 2.19.0, Phase 2 in 2.20.0, Phase 3 
 (`docs/backend/TELEPHONY.md`), Phase 5 in 2.23.0 (`docs/ops/ASTERISK_GO_LIVE.md`) (see
 `CHANGELOG.md`; the page contract is `docs/backend/PERSON_PROFILES.md`). Written 2026-09-27 against
 `main` at `0d0c878` (v2.18.9).
-Deployed: Nerkhbaan (staging) 2.18.9, TIARA (production) 2.18.0.
+Deployed: Nerkhbaan (staging) 2.23.0 (2026-09-28, new features not yet in its manifest), TIARA (production) 2.18.0.
 
 Sections: 1 findings · 2 inventory of today's detail pages · 3 data sources ·
 4 infrastructure · 5 existing integration code · 6 proposed design ·
