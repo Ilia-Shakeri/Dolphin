@@ -35,10 +35,14 @@ role-based defaults.
 | Billing | `billing` | Quotations, orders, invoices, payments, cheques, installments, customer ledger |
 | Inventory | `inventory` | Warehouses, stock levels, stock movements |
 | After-sales | `aftersales` | Service requests, assignment, status history |
-| Communications | `communications` | Inbound SMS |
+| Communications | `communications` | Outbound SMS (single, bulk, scheduled) through a configurable gateway; inbound SMS |
+| Profiles | `profiles`, `timeline`, `tasks`, `scoring` | One profile page for customers and colleagues: stat cards, explainable scores, timeline, tasks, notes |
+| Integrations | `integrations` | Connections with encrypted secrets, signed inbound/outbound webhooks, API tokens, event outbox |
+| Telephony | `telephony` | Asterisk/FreePBX: live call capture, CDR sync, recordings, call popup, click-to-call |
+| Collaboration | `chat`, `attachments` | Internal chat, file attachments |
 | Reports | `reports` | Company and user performance |
 | Audit | `auditlog` | Append-only activity log, Persian-labeled |
-| Shell | `common` | The served UI, permissions plumbing, static assets |
+| Shell | `common` | The served UI, permissions plumbing, deployment profile, panel backups, static assets |
 
 The panel itself lives in `common/templates/common/**` +
 `common/static/common/dolphin.css` + `dolphin-app.js`, routed through
@@ -105,17 +109,18 @@ testing" section of [`BACKEND_SPEC.md`](BACKEND_SPEC.md).
 | [`CLAUDE.md`](CLAUDE.md) | Repository rules: authority order, architecture, branding, working style |
 | [`BACKEND_SPEC.md`](BACKEND_SPEC.md) | The normative business/backend contract, plus the merged entity/relationship/API/semantics reference (see its Appendix) |
 | [`DOLPHIN_PROJECT_HANDOFF.md`](DOLPHIN_PROJECT_HANDOFF.md) | The live status and evidence register |
-| [`DOLPHIN_CLIENT1_CODEX_ROADMAP.md`](DOLPHIN_CLIENT1_CODEX_ROADMAP.md) | The phased delivery plan and forward roadmap |
-| [`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md`](DOLPHIN_FEATURE_MAP_AND_ROADMAP.md) | What exists today vs. what's next |
+| [`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md`](DOLPHIN_FEATURE_MAP_AND_ROADMAP.md) | What exists today, what shipped, and the one list of remaining work |
 | [`CHANGELOG.md`](CHANGELOG.md) | Every release, what changed and why |
 | [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md) | Deployment, backup/restore, rollback, security, incident response — the primary ops document |
+| [`docs/backend/PERSON_PROFILES.md`](docs/backend/PERSON_PROFILES.md), [`INTEGRATIONS.md`](docs/backend/INTEGRATIONS.md), [`TELEPHONY.md`](docs/backend/TELEPHONY.md) | Contracts of the profile, integrations and telephony modules |
+| [`docs/ops/ASTERISK_GO_LIVE.md`](docs/ops/ASTERISK_GO_LIVE.md) | Connecting a customer's Asterisk/FreePBX, step by step |
 | [`docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md`](docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md) | Turning on a new feature module for an existing customer, without repeating the runbook |
 | [`docs/ops/PROVIDER_CONNECTION_GUIDE.md`](docs/ops/PROVIDER_CONNECTION_GUIDE.md) | Connecting any real SMS/post provider to the generic settings pages — field by field, provider-agnostic |
 | [`docs/ops/TIARA_SMS_SETUP.md`](docs/ops/TIARA_SMS_SETUP.md) | TIARA-specific SMS provider field values — one deployment, one time, not a general guide |
 
-`docs/backend/` and `docs/frontend/` no longer exist: their thirteen and two
-files respectively were merged into `BACKEND_SPEC.md`'s Appendix the same day,
-for the same reason.
+The older `docs/backend/` and `docs/frontend/` notes were merged into
+`BACKEND_SPEC.md`'s Appendix; since 2.19 `docs/backend/` holds only the three
+module contracts above.
 
 ## Versioning
 

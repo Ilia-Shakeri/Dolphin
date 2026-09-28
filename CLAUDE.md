@@ -41,7 +41,7 @@ When sources disagree, use this order:
 2. Actual current code and executed repository/runtime evidence.
 3. BACKEND_SPEC.md as the normative backend/business contract.
 4. DOLPHIN_PROJECT_HANDOFF.md as the live status/evidence register.
-5. DOLPHIN_CLIENT1_CODEX_ROADMAP.md as the phased delivery plan.
+5. DOLPHIN_FEATURE_MAP_AND_ROADMAP.md as the product map and the one list of remaining work.
 6. docs/backend/*.md for backend/entity/API contracts.
 7. docs/ops/*.md for operational/runbook contracts.
 8. Current maintained tests where they accurately represent intended behavior.
@@ -949,7 +949,7 @@ Record facts that will help the next engineering session understand:
 
 25.2 Roadmap
 
-Update DOLPHIN_CLIENT1_CODEX_ROADMAP.md only when roadmap/phase status genuinely changes.
+Update DOLPHIN_FEATURE_MAP_AND_ROADMAP.md only when roadmap status or the remaining-work list genuinely changes.
 
 Do not rewrite the roadmap after every implementation detail.
 

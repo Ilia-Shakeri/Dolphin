@@ -193,6 +193,18 @@ docker compose --env-file secrets/.env up -d --force-recreate web
   فهرست کامل و لینک rollback واقعی:
   [«Rollback triggers»](DOLPHIN_DEPLOYMENT_RUNBOOK.md#rollback-triggers).
 
+### فیچرهایی که جز امضای منیفست یک گام دیگر هم می‌خواهند
+
+| فیچر | پیش از روشن‌کردن یا بلافاصله بعد |
+|---|---|
+| `integrations`، `outbound_webhooks`، `public_api` | `DOLPHIN_SECRETS_KEY` در `secrets/.env` (کنار همان فایل پشتیبان شود)، و بالا آوردن `integrations-worker` — runbook §۴.۴.۱ |
+| `telephony` | همهٔ بالا، به‌علاوهٔ دسترسی‌های مرکز تلفن و ساخت اتصال — `ASTERISK_GO_LIVE.md` |
+| `panel_backup` | حجم پشتیبان و `backup-agent` — runbook بخش پشتیبان‌گیری از پنل |
+| `person_scoring` | خط cron بازمحاسبهٔ شبانهٔ امتیاز — runbook §۴.۴ |
+| `outbound_sms` | تنظیم درگاه پیامک از پنل — `PROVIDER_CONNECTION_GUIDE.md` |
+
+فیچرهای دیگر فقط با امضای دوبارهٔ منیفست روشن می‌شوند.
+
 ## ۷. مشتری واقعاً تازه — profile شناسهٔ تازه، بدون کد یا ریلیز
 
 **به‌روزرسانی ۲۰۲۶/۰۹/۰۵ — محدودیت زیر برطرف شد.** تا این تاریخ،
