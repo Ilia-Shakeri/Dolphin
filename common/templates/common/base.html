@@ -16,6 +16,14 @@
    vendor's own: plugin styles, then the theme bundle, then only the
    Dolphin-specific overrides. `style.bundle.rtl.css` already resolves the
    Persian IRANSans face from `fonts/`. {% endcomment %}
+{% comment %} The theme's default face is fetched now, in parallel with the
+   stylesheets, instead of after the theme sheet has been parsed and the first
+   paint needs it — the difference between the real face on the first frame and
+   a flash of the fallback. `crossorigin` is required for a font preload even
+   from the same origin, and the URL is the exact one `style.bundle.rtl.css`
+   resolves, or the browser fetches it twice. A reader who picked another
+   bundled face does not get it. {% endcomment %}
+    {% if not panel_font_sheet %}<link rel="preload" href="{% static 'fonts/IRANSansWeb.woff' %}" as="font" type="font/woff" crossorigin>{% endif %}
     <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}?v={{ dolphin_version }}">
     <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}?v={{ dolphin_version }}">
 {% comment %} The version is appended so a release actually reaches a returning

@@ -500,9 +500,12 @@ class ProductionSettingsTests(SimpleTestCase):
         # which is the property this test exists for.
         self.assertNotIn("expires 7d;", block)
         self.assertIn("add_header Cache-Control $dolphin_static_cache_control always;", block)
-        mapping = config.split("map $arg_v $dolphin_static_cache_control {", maxsplit=1)[1].split("}", maxsplit=1)[0]
-        self.assertIn('""      "no-cache";', mapping)
-        self.assertEqual(mapping.count("max-age="), 1)
+        mapping = config.split('map "$arg_v:$uri" $dolphin_static_cache_control {', maxsplit=1)[1].split("}", maxsplit=1)[0]
+        self.assertIn('default                            "no-cache";', mapping)
+        # 2.33.2: a versioned URL (a year, immutable) and a font file (30 days)
+        # are the only two things kept; everything else still revalidates.
+        self.assertEqual(mapping.count("max-age="), 2)
+        self.assertIn("woff2?|ttf|otf|eot", mapping)
 
     def test_compose_has_stable_identity_and_safe_postgres_logs(self):
         root = Path(__file__).resolve().parents[2]

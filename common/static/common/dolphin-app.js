@@ -1244,8 +1244,6 @@
         const done = document.getElementById("dashboard-edit-done");
         const reset = document.getElementById("dashboard-edit-reset");
         const hint = document.getElementById("dashboard-edit-hint");
-        const hiddenBar = document.getElementById("dashboard-hidden-bar");
-        const hiddenList = document.getElementById("dashboard-hidden-list");
         const addWidgetOpen = document.getElementById("dashboard-add-widget-open");
         const addWidgetDialog = document.getElementById("dashboard-add-widget-dialog");
         const addWidgetGrid = document.getElementById("dashboard-add-widget-grid");
@@ -1314,33 +1312,6 @@
             }
         }
 
-        function renderHiddenBar() {
-            if (!hiddenBar || !hiddenList) return;
-            hiddenList.replaceChildren();
-            if (!editing || !hidden.length) {
-                hiddenBar.hidden = true;
-                return;
-            }
-            hidden.forEach((key) => {
-                const button = document.createElement("button");
-                button.type = "button";
-                button.className = "btn btn-sm btn-light-primary py-1 px-3 fs-8";
-                button.dataset.restoreWidget = key;
-                button.textContent = `+ ${boxLabel(key)}`;
-                // The same path as the dialog's «افزودن». A box hidden
-                // before the page loaded is not in the DOM and only a reload
-                // draws it; this bar has no close event to hang that reload
-                // on, so it reloads once the save has landed.
-                button.addEventListener("click", async () => {
-                    const present = Boolean(boxColumn(key));
-                    await addBackWidget(key);
-                    if (!present) window.location.reload();
-                });
-                hiddenList.appendChild(button);
-            });
-            hiddenBar.hidden = false;
-        }
-
         // "افزودن ویجت" — every widget this reader can have, each with a
         // preview of its own real figure, in two groups: the ones they hid
         // (addable) and the ones already on the dashboard (removable).
@@ -1399,7 +1370,6 @@
             if (!hidden.includes(key)) hidden = [...hidden, key];
             const column = boxColumn(key);
             if (column) column.hidden = true;
-            renderHiddenBar();
             refreshAddWidgetGrid();
             return save({hidden_widgets: hidden});
         }
@@ -1413,7 +1383,6 @@
             // handler reloads to let the server draw it in its saved place.
             if (column) column.hidden = false;
             else addWidgetAdded = true;
-            renderHiddenBar();
             refreshAddWidgetGrid();
             return save({hidden_widgets: hidden});
         }
@@ -2077,7 +2046,6 @@
             if (reset) reset.hidden = !editing || !layout.is_customised;
             if (addWidgetOpen) addWidgetOpen.hidden = !editing;
             if (editing) enterEditing(); else leaveEditing();
-            renderHiddenBar();
         }
 
         toggle.addEventListener("click", () => setEditing(!editing));
