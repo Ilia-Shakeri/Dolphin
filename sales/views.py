@@ -28,8 +28,8 @@ from sales.selectors import customers_for, interactions_for, target_audience_for
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
-from sales import postal, postal_provider
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales import ebazar, postal, postal_provider, shipping
 from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
@@ -843,12 +843,12 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = SalesDocument.objects.none()
     serializer_class = SalesDocumentSerializer
-    sensitive_actions = frozenset({"create", "transition_postal_status", "deactivate"})
+    sensitive_actions = frozenset({"create", "transition_postal_status", "deactivate", "shipment_create", "shipment_change"})
     http_method_names = ["get", "post", "head", "options"]
     search_fields = ["document_number", "customer__full_name", "province_snapshot", "city_snapshot", "postal_code_snapshot", "address_snapshot", "postal_status"]
     ordering_fields = ["registered_at", "document_number", "province_snapshot", "city_snapshot", "postal_status"]
     list_query_parameters = {"postal_status", "province", "city", "is_active"}
-    action_query_parameters = {"postal_history": {"page"}}
+    action_query_parameters = {"postal_history": {"page"}, "shipping_places": {"province"}}
 
     def get_queryset(self):
         queryset = sales_documents_for(self.request.user).select_related("customer", "sale", "registered_by")
@@ -922,6 +922,61 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
         queryset = document.postal_history.select_related("changed_by").all()
         page = self.paginate_queryset(queryset)
         return self.get_paginated_response(PostalStatusHistorySerializer(page, many=True).data)
+
+    @extend_schema(responses={200: PostalShipmentSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
+    @action(detail=True, methods=["get"], url_path="shipments")
+    def shipments(self, request, pk=None):
+        document = self.get_object()
+        return Response({
+            "connected": shipping.is_connected(),
+            "service_types": [{"value": k, "label": v} for k, v in ebazar.SERVICE_TYPES.items()],
+            "pay_types": [{"value": k, "label": v} for k, v in ebazar.PAY_TYPES.items()],
+            "results": PostalShipmentSerializer(document.shipments.all(), many=True).data,
+        })
+
+    @extend_schema(request=ShipmentTermsSerializer, responses={200: dict, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
+    @action(detail=True, methods=["post"], url_path="shipment-quote")
+    def shipment_quote(self, request, pk=None):
+        serializer = ShipmentTermsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(shipping.quote(actor=request.user, document=self.get_object(), **serializer.validated_data))
+
+    @extend_schema(request=ShipmentCreateSerializer, responses={201: PostalShipmentSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE})
+    @action(detail=True, methods=["post"], url_path="shipment-create")
+    def shipment_create(self, request, pk=None):
+        serializer = ShipmentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        shipment = shipping.create_shipment(actor=request.user, document=self.get_object(), **serializer.validated_data)
+        return Response(PostalShipmentSerializer(shipment).data, status=201)
+
+    @extend_schema(request=None, responses={200: PostalShipmentSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
+    @action(detail=True, methods=["post"], url_path="shipment-refresh")
+    def shipment_refresh(self, request, pk=None):
+        shipment = shipping.active_shipment(self.get_object())
+        if shipment is None:
+            raise NotFound("برای این سند مرسولهٔ فعالی نیست.")
+        return Response(PostalShipmentSerializer(shipping.refresh_shipment(shipment, actor=request.user)).data)
+
+    @extend_schema(request=ShipmentChangeSerializer, responses={200: PostalShipmentSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 429: THROTTLED_RESPONSE})
+    @action(detail=True, methods=["post"], url_path="shipment-change")
+    def shipment_change(self, request, pk=None):
+        serializer = ShipmentChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        shipment = shipping.active_shipment(self.get_object())
+        if shipment is None:
+            raise NotFound("برای این سند مرسولهٔ فعالی نیست.")
+        changed = shipping.change_shipment(actor=request.user, shipment=shipment, action=serializer.validated_data["action"])
+        return Response(PostalShipmentSerializer(changed).data)
+
+    @extend_schema(responses={200: dict, 403: ACCESS_DENIED_RESPONSE})
+    @action(detail=False, methods=["get"], url_path="shipping-places")
+    def shipping_places(self, request):
+        province = request.query_params.get("province")
+        if province is not None:
+            if not province.isdigit():
+                raise ValidationError({"province": "کد استان باید عدد باشد."})
+            return Response({"results": shipping.cities(int(province))})
+        return Response({"results": shipping.provinces()})
 
     @extend_schema(request=None, responses={200: SalesDocumentSerializer, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE})
     @action(detail=True, methods=["post"])

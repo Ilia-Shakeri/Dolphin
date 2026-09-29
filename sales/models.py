@@ -533,3 +533,49 @@ class PostalStatusHistory(models.Model):
             models.CheckConstraint(condition=Q(to_status__regex=r"\S"), name="postal_history_to_status_nonblank"),
         ]
         indexes = [models.Index(fields=["document", "-changed_at"])]
+
+
+class EbazarProductLink(TimeStampedModel):
+    """A product's id at Iran Post's Ebazar service.
+
+    Ebazar's `AddParcel` names its goods by the `EbazaarProductID` the service
+    itself returned from `Product/Add`, so a product is registered there once,
+    on its first shipment, and the id is kept here. Nothing about the product
+    is copied back: Dolphin's own record stays the truth.
+    """
+
+    product = models.OneToOneField(Product, on_delete=models.PROTECT, related_name="ebazar_link")
+    ebazar_product_id = models.CharField(max_length=40)
+    unit_weight_grams = models.PositiveIntegerField()
+
+
+class PostalShipment(TimeStampedModel):
+    """One parcel registered with a carrier for a sales document.
+
+    Carries only what the carrier issued or reported — the barcode, the cost,
+    its own status words. The row's own `id` is the `ClientOrderId` the carrier
+    knows it by. Where the parcel is, in Dolphin's four states, is
+    still `SalesDocument.postal_status`, moved only through
+    `sales.services.transition_postal_status`.
+    """
+
+    document = models.ForeignKey(SalesDocument, on_delete=models.PROTECT, related_name="shipments")
+    carrier = models.CharField(max_length=30, default="ebazar")
+    parcel_code = models.CharField(max_length=40, blank=True, db_index=True)
+    shenase = models.CharField(max_length=40, blank=True)
+    service_type = models.PositiveSmallIntegerField()
+    pay_type = models.PositiveSmallIntegerField()
+    city_id = models.PositiveIntegerField()
+    weight_grams = models.PositiveIntegerField()
+    goods_price_rial = models.BigIntegerField()
+    shipping_cost_rial = models.BigIntegerField(null=True, blank=True)
+    shipping_tax_rial = models.BigIntegerField(null=True, blank=True)
+    carrier_status_code = models.SmallIntegerField(null=True, blank=True)
+    carrier_status_text = models.CharField(max_length=200, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    is_cancelled = models.BooleanField(default=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="postal_shipments")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["document", "-created_at"])]

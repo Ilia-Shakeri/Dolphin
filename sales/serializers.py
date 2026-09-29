@@ -8,7 +8,7 @@ from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
 from sales import postal
-from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
+from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalShipment, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
 from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for, target_audience_for
 from sales.services import add_target_audience_member, update_target_audience_member, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
 
@@ -677,3 +677,51 @@ class PostProviderSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.
     sender_account_code = serializers.CharField(required=False, allow_blank=True, max_length=120)
     timeout_seconds = serializers.IntegerField(required=False)
     test_url = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
+
+class PostalShipmentSerializer(serializers.ModelSerializer):
+    service_type_display = serializers.SerializerMethodField()
+    pay_type_display = serializers.SerializerMethodField()
+    status_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostalShipment
+        fields = [
+            "id", "document", "carrier", "parcel_code", "shenase", "service_type", "service_type_display",
+            "pay_type", "pay_type_display", "city_id", "weight_grams", "goods_price_rial",
+            "shipping_cost_rial", "shipping_tax_rial", "carrier_status_code", "carrier_status_text",
+            "status_display", "last_synced_at", "is_cancelled", "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_service_type_display(self, obj) -> str:
+        from sales import ebazar
+        return ebazar.SERVICE_TYPES.get(obj.service_type, "")
+
+    def get_pay_type_display(self, obj) -> str:
+        from sales import ebazar
+        return ebazar.PAY_TYPES.get(obj.pay_type, "")
+
+    def get_status_display(self, obj) -> str:
+        return obj.carrier_status_text or ("ثبت‌شده در پست" if obj.parcel_code else "در انتظار ثبت")
+
+
+class ShipmentTermsSerializer(serializers.Serializer):
+    weight_grams = serializers.IntegerField(min_value=1, max_value=30000)
+    service_type = serializers.IntegerField()
+    pay_type = serializers.IntegerField()
+    city_id = serializers.IntegerField(required=False, allow_null=True)
+    sms_service = serializers.BooleanField(required=False, allow_null=True, default=None)
+    pod = serializers.BooleanField(required=False, allow_null=True, default=None)
+    box_size_id = serializers.IntegerField(required=False, allow_null=True)
+    kiosk_id = serializers.IntegerField(required=False, allow_null=True)
+    pudo_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class ShipmentCreateSerializer(ShipmentTermsSerializer):
+    recipient_email = serializers.EmailField(required=False, allow_blank=True, default="")
+
+
+class ShipmentChangeSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["hold", "cancel", "ready"])

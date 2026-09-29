@@ -204,8 +204,15 @@ def _post_status(_user):
     from sales.postal import carrier_for
     from sales.postal_provider import get_post_provider_settings
 
+    from sales import shipping
+
     carrier = carrier_for(None)
     row = get_post_provider_settings()
+    if shipping.is_connected():
+        return IntegrationStatus(
+            state="configured",
+            summary="اتصال «پست ایران — بازار الکترونیک» فعال است؛ مرسوله از صفحهٔ سند فروش ثبت می‌شود و وضعیت آن خودکار به‌روز می‌شود.",
+        )
     manual_summary = (
         "وضعیت مرسوله‌ها دستی ثبت می‌شود. رابط اتصال به سرویس پست آماده "
         "است و با افزوده‌شدن یک ارائه‌دهنده، همین چهار حالت را پر می‌کند."
@@ -231,10 +238,13 @@ def _post_details(_user):
     from sales.postal import POSTAL_STATES, carrier_for
     from sales.postal_provider import get_post_provider_settings
 
+    from sales import shipping
+
     row = get_post_provider_settings()
+    connected = shipping.is_connected()
     details = [
-        ("ارائه‌دهنده", carrier_for(None).label),
-        ("رهگیری خودکار", "ندارد" if not carrier_for(None).supports_tracking else "دارد"),
+        ("ارائه‌دهنده", "پست ایران (بازار الکترونیک)" if connected else carrier_for(None).label),
+        ("رهگیری خودکار", "دارد" if connected or carrier_for(None).supports_tracking else "ندارد"),
         ("حالت‌های تعریف‌شده", "، ".join(state.label for state in POSTAL_STATES)),
     ]
     if row.base_url:

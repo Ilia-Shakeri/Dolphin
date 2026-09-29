@@ -1,4 +1,5 @@
 {% extends "common/base.html" %}
+{% load static %}
 {% block title %}جزئیات سند فروش{% endblock %}
 {% block page_id %}sales-document-detail{% endblock %}
 {% block body_data %} data-sales-document-id="{{ document_id }}"{% endblock %}
@@ -30,6 +31,63 @@
    سرویس هنوز متن آزاد را می‌پذیرد (دادهٔ موجود باید بخواند و بنویسد)، ولی
    چیزی که این فرم می‌فرستد همیشه یکی از چهار حالت است. {% endcomment %}
                     <div class="col-md-6"><label class="form-label fw-semibold" for="postal-to-status">وضعیت جدید</label><select class="form-select form-select-solid" id="postal-to-status" name="to_status" required><option value="">یک وضعیت انتخاب کنید</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_status"></p></div><div class="col-md-6"><label class="form-label fw-semibold" for="postal-reason">دلیل</label><input class="form-control form-control-solid" id="postal-reason" name="reason" maxlength="500"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div></div><div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت تغییر</button><button id="deactivate-sales-document" class="btn btn-danger" type="button">غیرفعال کردن سند</button></div></form></div></section>{% endif %}
+{% if can_manage_sales_documents %}
+{% comment %} کارت «ارسال با پست ایران»: ثبت مرسوله در سامانهٔ بازار الکترونیک، بارکد، هزینه و وضعیت پست.
+   همهٔ قواعد در `sales/shipping.py` است؛ این کارت فقط نشان می‌دهد و می‌فرستد (`postal-shipment.js`).
+   نام کاربری و گذرواژهٔ پست را مدیر پلتفرم در «اتصال سرویس‌ها» می‌گذارد، نه اینجا. {% endcomment %}
+<section class="card mb-5 mb-xl-8" id="postal-shipment-card" data-document-id="{{ document_id }}">
+    <div class="card-header"><h2 class="card-title fs-3 fw-bold text-gray-900">ارسال با پست ایران (بازار الکترونیک)</h2></div>
+    <div class="card-body">
+        <div id="shipment-message" class="alert alert-danger py-3 mb-5" role="alert" hidden></div>
+        <div id="shipment-loading" class="text-center text-gray-700 py-8">در حال دریافت وضعیت مرسوله…</div>
+        <div id="shipment-not-connected" class="notice d-flex bg-light-warning rounded border-warning border border-dashed p-5" hidden>
+            <i class="ki-duotone ki-information-5 fs-2tx text-warning ms-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+            <div class="fs-6 text-gray-800">اتصال پست هنوز راه‌اندازی نشده است. مدیر پلتفرم باید در
+                <a href="{% url 'common_ui:integrations' %}">اتصال سرویس‌ها</a> اتصال «پست ایران» را با نام کاربری و گذرواژهٔ بازار الکترونیک اضافه کند؛
+                راهنمای کامل در <a href="{% url 'common_ui:post-provider-settings' %}">تنظیمات پست</a> است.</div>
+        </div>
+        <div id="shipment-active" hidden>
+            <div class="row g-8">
+                <div class="col-lg-7"><div id="shipment-facts"></div></div>
+                <div class="col-lg-5">
+                    <div class="bg-light rounded p-5">
+                        <div class="text-gray-600 fs-7 mb-1">وضعیت در پست</div>
+                        <div class="fs-3 fw-bold text-gray-900 mb-3" id="shipment-status">—</div>
+                        <div class="text-gray-600 fs-8">آخرین پرسش از پست: <span id="shipment-synced">—</span></div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-3 mt-5">
+                        <button type="button" class="btn btn-light-primary btn-sm" id="shipment-refresh">به‌روزرسانی وضعیت</button>
+                        <button type="button" class="btn btn-light-success btn-sm" id="shipment-ready">آمادهٔ ارسال</button>
+                        <button type="button" class="btn btn-light-danger btn-sm" id="shipment-cancel">لغو مرسوله</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form id="shipment-form" novalidate hidden>
+            <div class="row g-5">
+                <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-weight">وزن کل مرسوله (گرم)</label><input class="form-control form-control-solid" id="shipment-weight" type="number" min="1" max="30000" inputmode="numeric" value="1000" dir="ltr" required><div class="form-text">حداکثر ۳۰٬۰۰۰ گرم؛ بیش از ۵۰۰۰ گرم فقط «پیشتاز».</div></div>
+                <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-service">نوع سرویس</label><select class="form-select form-select-solid" id="shipment-service"></select></div>
+                <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-pay">نوع پرداخت</label><select class="form-select form-select-solid" id="shipment-pay"></select></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="shipment-email">ایمیل گیرنده <span class="text-gray-600 fw-normal">(اگر در پروندهٔ مشتری نیست)</span></label><input class="form-control form-control-solid" id="shipment-email" type="email" dir="ltr" autocomplete="off"></div>
+                <div class="col-md-6 d-flex align-items-end"><button type="button" class="btn btn-light btn-sm" id="shipment-pick-city">انتخاب دستی شهر پست</button></div>
+                <div class="col-12" id="shipment-city-picker" hidden>
+                    <div class="row g-5">
+                        <div class="col-md-6"><label class="form-label fw-semibold" for="shipment-province">استان</label><select class="form-select form-select-solid" id="shipment-province"><option value="">یک استان انتخاب کنید</option></select></div>
+                        <div class="col-md-6"><label class="form-label fw-semibold" for="shipment-city">شهر</label><select class="form-select form-select-solid" id="shipment-city"><option value="">خودکار از نشانی سند</option></select></div>
+                    </div>
+                </div>
+            </div>
+            <p id="shipment-quote-result" class="fw-semibold text-gray-800 mt-5 mb-0" hidden></p>
+            <div class="d-flex flex-wrap justify-content-end gap-3 mt-6">
+                <button type="button" class="btn btn-light-primary" id="shipment-quote">برآورد هزینهٔ پست</button>
+                <button type="submit" class="btn btn-primary" id="shipment-submit">ثبت مرسوله در پست</button>
+            </div>
+        </form>
+        <p id="shipment-cancelled-note" class="text-gray-600 fs-7 mt-5 mb-0" hidden></p>
+    </div>
+</section>
+<script src="{% static 'common/postal-shipment.js' %}?v={{ dolphin_version }}" defer></script>
+{% endif %}
 {% if "attachments" in features %}
 {% include "common/includes/attachments_panel.inc" with attachments_field="sales_document" can_upload=can_upload_attachment.sales_document can_delete=can_delete_attachment.sales_document %}
 {% endif %}

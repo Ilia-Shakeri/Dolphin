@@ -1,0 +1,50 @@
+# ارسال با پست ایران (بازار الکترونیک) — قرارداد فنی
+
+مرجع بیرونی: سند وب‌سرویس بازار الکترونیک، نسخهٔ ۱٫۰٫۰٫۱۰. کد: `sales/ebazar.py` (کلاینت
+و جدول‌های واژگان)، `sales/shipping.py` (قواعد و خدمات)، `integrations/providers/ebazar.py`
+(اتصال)، `sales/postal.py` (`EbazarCarrier`). راهنمای کاربر: `/settings/post-provider/`.
+
+## سه کنترل جدا
+
+| کنترل | چه چیزی |
+|---|---|
+| قابلیت | `sales_documents` برای ارسال؛ `integrations` برای ساخت اتصال |
+| مجوز | `sales_documents.manage` برای ثبت، لغو و به‌روزرسانی؛ ساخت و تست اتصال فقط مدیر پلتفرم |
+| دامنهٔ داده | همان دامنهٔ سند فروش (`SalesDocumentViewSet.get_object`) |
+
+## اتصال
+
+`Integration.provider_key = "ebazar_post"` (تک‌نمونه). `username` و `password` رمزنگاری‌شده
+و فقط‌نوشتنی‌اند و هرگز لاگ نمی‌شوند. توکن از `{base}/token` (فرم‌کدشده) گرفته، در حافظه
+نگه داشته می‌شود و با 401 یک‌بار تازه می‌شود. پاسخ‌ها `{ResCode, ResMsg, Data}`؛ اقلام دسته‌ای
+`Errors[]` دارند. `wallet_credit` برای «تست اتصال».
+
+## جریان ثبت مرسوله (`shipping.create_shipment`)
+
+1. ساخت ردیف `PostalShipment` در حالت انتظار (شناسهٔ آن `ClientOrderId` است).
+2. `Order/Inquiry`: اگر پست همین سفارش را دارد، همان پذیرفته می‌شود (ضد تکرار).
+3. `Product/Add` یک‌بار برای هر کالا (`EbazarProductLink`).
+4. `Order/AddParcel` ← بارکد و شناسه ذخیره، حسابرسی `postal_shipment.created`.
+
+هر سند حداکثر یک مرسولهٔ لغونشده دارد. ایمیل گیرنده از مشتری یا اپراتور می‌آید و هرگز ساخته
+نمی‌شود. شهر با `normalize_name` از استان/شهر ثبت‌شدهٔ سند پیدا می‌شود؛ اگر یکتا نبود اپراتور
+انتخاب می‌کند.
+
+## محدودیت‌ها (پیش از تماس با پست)
+
+وزن ۱ تا ۳۰٬۰۰۰ گرم؛ ارزش کالا ۵۰٬۰۰۰ تا ۱٬۰۰۰٬۰۰۰٬۰۰۰ ریال؛ بالای ۵۰۰۰ گرم فقط پیشتاز؛
+کیوسک و پستی‌گاه هم‌زمان ممنوع.
+
+## وضعیت‌ها
+
+کدهای وضعیت پست در `ebazar.PARCEL_STATUSES` است. فقط ۰، ۲، ۵، ۷ روی چهار مرحلهٔ
+`sales/postal.py` نگاشت می‌شوند و مرحله فقط از راه `transition_postal_status` و فقط رو به جلو
+عوض می‌شود. کد ۱ (لغو) مرسوله را لغوشده می‌کند. بقیه (برگشت و…) فقط متن پست را ذخیره
+می‌کنند. کارِ دوره‌ای `sales.postal_sync` هر ۹۰۰ ثانیه مرسوله‌های باز (بدون کدهای
+`FINAL_STATUS_CODES`) را تا ۲۰۰ مورد در هر دور می‌پرسد.
+
+## API
+
+روی `/api/v1/sales-documents/`: `GET <id>/shipments/`، `POST <id>/shipment-quote/`،
+`POST <id>/shipment-create/`، `POST <id>/shipment-refresh/`، `POST <id>/shipment-change/`
+(`action`: `hold` | `cancel` | `ready`) و `GET shipping-places/[?province=N]`.

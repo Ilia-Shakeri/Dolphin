@@ -12,45 +12,172 @@
    دستی ثبت می‌شود (`sales/postal.py`، `ManualCarrier`) — این صفحه فقط اتصالِ
    یک سرویس واقعی را آماده می‌کند تا وقتی رابط آن نوشته شد، چیزی این‌جا عوض
    نشود. {% endcomment %}
+{% comment %} راهنمای کامل اتصال پست ایران (بازار الکترونیک) — درخواست مالک محصول ۲۰۲۶/۰۹/۲۹:
+   «توی پنل برای اتصال پست یه راهنما داشته باشیم تا یوزرها گیج نشن». مرجع: سند وب‌سرویس
+   بازار الکترونیک (نسخهٔ ۱٫۰٫۰٫۱۰) و پیاده‌سازی در `sales/ebazar.py` و `sales/shipping.py`.
+   اگر واژگان پست یا قواعد آن در آن فایل‌ها عوض شد، این راهنما هم باید عوض شود. {% endcomment %}
 <div class="notice d-flex bg-light-primary rounded border-primary border border-dashed p-6 mb-5">
-    <div class="d-flex flex-stack flex-grow-1">
-        <div class="fw-semibold">
-            <div class="fs-6 text-gray-700">
-                این صفحه فقط اتصال به سرویس پستِ همین استقرار را تنظیم می‌کند. تا وقتی رابط اتصال
-                واقعی برای یک ارائه‌دهنده نوشته نشده، ثبت وضعیت مرسوله‌ها همچنان دستی است — این
-                تنظیمات همان چیزی را آماده می‌کنند که آن رابط لازم خواهد داشت.
-            </div>
-        </div>
+    <i class="ki-duotone ki-information-5 fs-2tx text-primary ms-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+    <div class="fw-semibold fs-6 text-gray-700">
+        <div class="fs-5 fw-bold text-gray-900 mb-2">اتصال پست ایران در یک نگاه</div>
+        اتصال «پست ایران — بازار الکترونیک» را <strong>مدیر پلتفرم</strong> یک‌بار در
+        <a href="{% url 'common_ui:integrations' %}">اتصال سرویس‌ها</a> می‌سازد (نام کاربری و گذرواژهٔ وب‌سرویس رمزنگاری‌شده ذخیره می‌شوند و دیگر نمایش داده نمی‌شوند).
+        بعد از آن هر کاربری که اجازهٔ «مدیریت اسناد فروش» دارد، از صفحهٔ <strong>جزئیات سند فروش</strong> مرسوله را در پست ثبت می‌کند،
+        بارکد رهگیری می‌گیرد و وضعیت را همان‌جا می‌بیند. وضعیت مرسوله‌ها هر ۱۵ دقیقه خودکار از پست به‌روز می‌شود.
+        <div class="mt-3 text-gray-600 fs-7">فرم «اتصال سرویس پست» پایین همین صفحه برای سرویس‌های پستیِ عمومی است و به اتصال بازار الکترونیک ربطی ندارد.</div>
     </div>
 </div>
-{% comment %} راهنمای جامع — همان درخواست مالک محصول که راهنمای سامانهٔ
-   پیامک را هم گرفت؛ نسخهٔ کامل در docs/ops/PROVIDER_CONNECTION_GUIDE.md.
-   {% endcomment %}
-<details class="card mb-5 mb-xl-8">
-    <summary class="card-header cursor-pointer">
-        <div class="card-title"><h2>راهنمای اتصال — چطور سرویس پست خودم را وصل کنم؟</h2></div>
-    </summary>
-    <div class="card-body pt-2 fs-7 text-gray-700">
-        <p class="mb-4">
-            پیش از پر کردن این فرم، از سرویس پستی خودتان بگیرید: نشانی پایهٔ
-            سرویس، نام دقیق هدری که برای کلید API می‌خواهد (هر ارائه‌دهنده نام
-            متفاوتی دارد — به همین دلیل «نام هدر کلید» زیر آزاد است، نه یک
-            گزینهٔ ثابت)، و یک نقطهٔ آزمایشیِ بی‌خطر (یک GET سبک) برای دکمهٔ
-            «تست اتصال».
-        </p>
-        <p class="mb-4">
-            عمداً ساده‌تر از سامانهٔ پیامک است — بدون قالب بدنه، بدون OAuth2 —
-            چون این صفحه فقط <strong>اتصال</strong> را آماده می‌کند. نگاشتِ
-            وضعیت‌های واقعیِ ارائه‌دهنده روی چهار حالت پستیِ این محصول یک قدم
-            جداست که با افزودن یک کلاس Python (<code dir="ltr">sales.postal.
-            PostalCarrier</code>) انجام می‌شود، نه با این فرم — چون واژگان هر
-            ارائه‌دهنده فرق دارد.
-        </p>
-        <p class="mb-0 text-muted fs-8">
-            نسخهٔ کامل‌تر: <code dir="ltr">docs/ops/PROVIDER_CONNECTION_GUIDE.md</code>.
-        </p>
+<section class="card mb-5 mb-xl-8" id="post-guide">
+    <div class="card-header"><h2 class="card-title fs-3 fw-bold text-gray-900">راهنمای کامل پست ایران (بازار الکترونیک)</h2></div>
+    <div class="card-body pt-2">
+        <div class="accordion" id="post-guide-accordion">
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h1"><button class="accordion-button fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c1" aria-expanded="true" aria-controls="pg-c1">۱. پیش از شروع: چه چیزهایی لازم است؟</button></h3>
+                <div id="pg-c1" class="accordion-collapse collapse show" aria-labelledby="pg-h1" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <ul class="mb-4">
+                        <li>یک <strong>فروشگاه ثبت‌شده در بازار الکترونیک پست</strong> با قرارداد فعال.</li>
+                        <li><strong>نام کاربری و گذرواژهٔ وب‌سرویس</strong> که پست برای فروشگاه شما صادر می‌کند. این‌ها با نام کاربری و رمز ورود به پنل تحت‌وب بازار الکترونیک <em>فرق دارند</em>؛ اگر ندارید از پشتیبانی پست بخواهید «دسترسی وب‌سرویس» را برای فروشگاه شما فعال کند.</li>
+                        <li><strong>اعتبار کیف پول پست</strong> برای پرداخت هزینهٔ ارسال (بسته به نوع پرداخت، بخش ۴).</li>
+                        <li>در پروندهٔ مشتری: نام و نام خانوادگی، موبایل، استان، شهر، کدپستی و نشانی. ایمیل برای پست الزامی است (بخش ۵).</li>
+                    </ul>
+                    <div class="text-gray-600 fs-7">پست این سرویس را فقط با شناسهٔ فروشگاه شما می‌شناسد؛ هر مشتریِ این نرم‌افزار اطلاعات وب‌سرویس خودش را وارد می‌کند و هیچ اطلاعاتی بین مشتریان مشترک نیست.</div>
+                </div></div>
+            </div>
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h2"><button class="accordion-button collapsed fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c2" aria-expanded="false" aria-controls="pg-c2">۲. راه‌اندازی اتصال (مدیر پلتفرم، یک‌بار)</button></h3>
+                <div id="pg-c2" class="accordion-collapse collapse" aria-labelledby="pg-h2" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <ol class="mb-4">
+                        <li>به <a href="{% url 'common_ui:integrations' %}">اتصال سرویس‌ها</a> بروید و «افزودن اتصال» را بزنید؛ «پست ایران — بازار الکترونیک» را انتخاب کنید.</li>
+                        <li><strong>نشانی سرویس</strong> را همان مقدار پیش‌فرض بگذارید، مگر پست نشانی دیگری داده باشد.</li>
+                        <li><strong>نام کاربری</strong> و <strong>گذرواژهٔ وب‌سرویس</strong> را وارد کنید.</li>
+                        <li>در صورت نیاز نوع سرویس و نوع پرداخت پیش‌فرض، پیامک اطلاع‌رسانی تحویل و اثبات تحویل (POD) را تنظیم کنید. این‌ها فقط پیش‌فرض‌اند و برای هر مرسوله قابل تغییرند.</li>
+                        <li>ذخیره کنید و «تست اتصال» را بزنید. اگر همه‌چیز درست باشد پیام سبز و <strong>اعتبار کیف پول پست</strong> را می‌بینید.</li>
+                    </ol>
+                    <div class="text-gray-600 fs-7">گذرواژه فقط نوشتنی است: بعد از ذخیره هیچ‌جا نمایش داده نمی‌شود و در گزارش‌ها هم نمی‌آید. برای تغییر، مقدار جدید را وارد کنید. نشانهٔ ورود (Token) پست خودکار گرفته و تازه می‌شود و لازم نیست کاری بکنید.</div>
+                </div></div>
+            </div>
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h3"><button class="accordion-button collapsed fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c3" aria-expanded="false" aria-controls="pg-c3">۳. ثبت مرسوله برای یک سند فروش (کاربر عادی)</button></h3>
+                <div id="pg-c3" class="accordion-collapse collapse" aria-labelledby="pg-h3" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <ol class="mb-4">
+                        <li>از «اسناد فروش» سند را باز کنید و به کارت <strong>«ارسال با پست ایران»</strong> بروید.</li>
+                        <li><strong>وزن کل</strong> بسته را به گرم بنویسید (بین ۱ تا ۳۰٬۰۰۰).</li>
+                        <li><strong>نوع سرویس</strong> و <strong>نوع پرداخت</strong> را انتخاب کنید (بخش ۴).</li>
+                        <li>«برآورد هزینهٔ پست» هزینه، مالیات و هزینهٔ مرجوعی را بدون ثبت نشان می‌دهد.</li>
+                        <li>«ثبت مرسوله در پست» را بزنید. پس از موفقیت، <strong>بارکد رهگیری</strong> و شناسهٔ مرسوله نمایش داده می‌شود.</li>
+                    </ol>
+                    <div class="bg-light rounded p-4 fs-7">
+                        <strong>چند نکتهٔ مهم:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>شهر پست به‌صورت خودکار از روی استان و شهر ثبت‌شده در سند پیدا می‌شود. اگر نام دقیقاً یکی نبود، با «انتخاب دستی شهر پست» خودتان انتخاب کنید.</li>
+                            <li>ثبت دوباره <strong>مرسولهٔ تکراری نمی‌سازد</strong>: اگر اتصال وسط کار قطع شود و دوباره بزنید، ابتدا از پست پرسیده می‌شود که این سفارش ثبت شده یا نه.</li>
+                            <li>هر سند یک مرسولهٔ فعال دارد؛ برای ثبت دوباره باید اول مرسولهٔ قبلی را لغو کنید.</li>
+                            <li>کالاهای سند به‌عنوان «کالای پست» یک‌بار در پست معرفی می‌شوند و بعداً دوباره استفاده می‌شوند.</li>
+                        </ul>
+                    </div>
+                </div></div>
+            </div>
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h4"><button class="accordion-button collapsed fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c4" aria-expanded="false" aria-controls="pg-c4">۴. نوع سرویس، نوع پرداخت، محدودیت‌ها</button></h3>
+                <div id="pg-c4" class="accordion-collapse collapse" aria-labelledby="pg-h4" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <div class="table-responsive mb-5">
+                        <table class="table table-row-dashed align-middle gs-0 gy-3 mb-0">
+                            <thead><tr class="fw-bold text-gray-600 fs-7"><th>نوع سرویس</th><th>توضیح</th></tr></thead>
+                            <tbody class="fs-7">
+                                <tr><td class="fw-semibold">سفارشی</td><td>ارسال معمولی و ارزان‌تر؛ تا ۵۰۰۰ گرم.</td></tr>
+                                <tr><td class="fw-semibold">پیشتاز</td><td>ارسال سریع‌تر؛ تنها گزینهٔ مجاز برای مرسولهٔ بیش از ۵۰۰۰ گرم.</td></tr>
+                                <tr><td class="fw-semibold">مطبوعات</td><td>فقط فروشگاه‌هایی که با پست قرارداد مطبوعات دارند. در غیر این‌صورت پست خطا می‌دهد.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-responsive mb-5">
+                        <table class="table table-row-dashed align-middle gs-0 gy-3 mb-0">
+                            <thead><tr class="fw-bold text-gray-600 fs-7"><th>نوع پرداخت</th><th>یعنی چه؟</th></tr></thead>
+                            <tbody class="fs-7">
+                                <tr><td class="fw-semibold">پرداخت در محل (COD)</td><td>گیرنده هنگام تحویل ارزش کالا را به پست می‌دهد و پست به شما تسویه می‌کند.</td></tr>
+                                <tr><td class="fw-semibold">پرداخت آنلاین یا کارت‌به‌کارت</td><td>مشتری قبلاً کالا را به خود شما پرداخته؛ پست فقط حمل می‌کند. رایج‌ترین حالت.</td></tr>
+                                <tr><td class="fw-semibold">ارسال رایگان با پرداخت در محل</td><td>هزینهٔ پست با شماست و ارزش کالا در محل دریافت می‌شود.</td></tr>
+                                <tr><td class="fw-semibold">هزینهٔ پست در مقصد</td><td>گیرنده هزینهٔ حمل را هنگام تحویل می‌پردازد.</td></tr>
+                                <tr><td class="fw-semibold">اعتبار کیف پول پست</td><td>هزینهٔ حمل از کیف پول شما در پست کسر می‌شود (با پرداخت در محل یا آنلاین برای کالا).</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="bg-light rounded p-4 fs-7">
+                        <strong>محدودیت‌هایی که پیش از ارسال به پست بررسی می‌شوند:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>وزن هر مرسوله از ۱ تا ۳۰٬۰۰۰ گرم.</li>
+                            <li>ارزش کالا حداقل ۵۰٬۰۰۰ ریال و حداکثر ۱٬۰۰۰٬۰۰۰٬۰۰۰ ریال.</li>
+                            <li>بیش از ۵۰۰۰ گرم فقط «پیشتاز».</li>
+                            <li>کیوسک و پستی‌گاه هم‌زمان قابل انتخاب نیستند و باید با شهر مقصد بخوانند.</li>
+                        </ul>
+                    </div>
+                </div></div>
+            </div>
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h5"><button class="accordion-button collapsed fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c5" aria-expanded="false" aria-controls="pg-c5">۵. اطلاعات گیرنده: از کجا می‌آید؟</button></h3>
+                <div id="pg-c5" class="accordion-collapse collapse" aria-labelledby="pg-h5" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <ul class="mb-4">
+                        <li><strong>نام، نشانی، کدپستی:</strong> از نسخهٔ ثبت‌شدهٔ همان سند (همان چیزی که هنگام فروش ثبت شده، نه پروندهٔ فعلی مشتری).</li>
+                        <li><strong>موبایل:</strong> شمارهٔ مشتری؛ قالب بین‌المللی (<span dir="ltr">+98…</span>) خودکار به <span dir="ltr">09…</span> تبدیل می‌شود.</li>
+                        <li><strong>ایمیل:</strong> پست آن را الزامی می‌داند. اگر مشتری ایمیل ندارد، در فرم بنویسید؛ سامانه هرگز ایمیلی از خودش نمی‌سازد.</li>
+                        <li><strong>نشانی IP:</strong> پست آن را برای ثبت می‌خواهد و سامانه آن را از درخواست خودتان برمی‌دارد.</li>
+                    </ul>
+                </div></div>
+            </div>
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h6"><button class="accordion-button collapsed fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c6" aria-expanded="false" aria-controls="pg-c6">۶. وضعیت‌ها: پست چه می‌گوید و پنل چه نشان می‌دهد؟</button></h3>
+                <div id="pg-c6" class="accordion-collapse collapse" aria-labelledby="pg-h6" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <p>پنل چهار مرحلهٔ ثابت دارد و پست وضعیت‌های بیشتری. فقط چهار وضعیت پست روی مراحل پنل می‌نشینند و <strong>مرحله فقط رو به جلو می‌رود</strong>؛ بقیه به‌همان زبان پست در کارت مرسوله نمایش داده می‌شوند.</p>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-row-dashed align-middle gs-0 gy-3 mb-0">
+                            <thead><tr class="fw-bold text-gray-600 fs-7"><th>وضعیت در پست</th><th>مرحلهٔ پنل</th></tr></thead>
+                            <tbody class="fs-7">
+                                <tr><td>نگه‌داشته‌شده در فروشگاه</td><td>در فروشگاه</td></tr>
+                                <tr><td>آمادهٔ ارسال</td><td>تحویل به پست</td></tr>
+                                <tr><td>ارسال شده</td><td>نزد پست</td></tr>
+                                <tr><td>توزیع و تحویل شد</td><td>در حال توزیع / تحویل</td></tr>
+                                <tr><td>لغو شده</td><td>مرسوله لغو می‌شود و سند آزاد است؛ مرحله عقب نمی‌رود</td></tr>
+                                <tr><td>برگشت خورد، در آستانهٔ برگشت، معطله، توزیع نشد، پذیرفته نشد، غیبت مسئول، پیدا نشد، تأیید مالی، تسویه شد</td><td>مرحله عوض نمی‌شود؛ متن وضعیت پست در کارت می‌ماند تا تصمیم بگیرید</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mb-2"><strong>به‌روزرسانی:</strong> هر ۱۵ دقیقه، مرسوله‌های باز خودکار از پست پرسیده می‌شوند (مرسوله‌های تمام‌شده دیگر پرسیده نمی‌شوند). برای دیدن فوری، «به‌روزرسانی وضعیت» را بزنید.</p>
+                    <p class="mb-0"><strong>دکمه‌ها:</strong> «آمادهٔ ارسال» یعنی بسته آماده است و پست می‌تواند بیاید؛ «لغو مرسوله» مرسوله را در پست لغو می‌کند (فقط تا وقتی پست آن را تحویل نگرفته).</p>
+                </div></div>
+            </div>
+
+            <div class="accordion-item">
+                <h3 class="accordion-header" id="pg-h7"><button class="accordion-button collapsed fs-5 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#pg-c7" aria-expanded="false" aria-controls="pg-c7">۷. عیب‌یابی: پیام‌های رایج و راه‌حل</button></h3>
+                <div id="pg-c7" class="accordion-collapse collapse" aria-labelledby="pg-h7" data-bs-parent="#post-guide-accordion"><div class="accordion-body fs-6 text-gray-700">
+                    <div class="table-responsive">
+                        <table class="table table-row-dashed align-middle gs-0 gy-3 mb-0">
+                            <thead><tr class="fw-bold text-gray-600 fs-7"><th>پیام یا نشانه</th><th>علت و کار لازم</th></tr></thead>
+                            <tbody class="fs-7">
+                                <tr><td>نام کاربری یا گذرواژه نامعتبر</td><td>اطلاعات وب‌سرویس را دوباره از پست بگیرید و در اتصال سرویس‌ها بروزرسانی کنید (این‌ها غیر از ورود به پنل بازار الکترونیک است).</td></tr>
+                                <tr><td>تعداد فراخوانی از حد مجاز گذشته</td><td>چند دقیقه صبر کنید و دوباره تلاش کنید.</td></tr>
+                                <tr><td>استان/شهر نامعتبر یا شهر پیدا نشد</td><td>نام شهر سند با فهرست پست نمی‌خواند؛ «انتخاب دستی شهر پست» را بزنید.</td></tr>
+                                <tr><td>مرسولهٔ بیش از ۵۰۰۰ گرم باید پیشتاز باشد</td><td>نوع سرویس را «پیشتاز» کنید یا بسته را جدا کنید.</td></tr>
+                                <tr><td>قیمت باید بین ۵۰٬۰۰۰ تا ۱٬۰۰۰٬۰۰۰٬۰۰۰ ریال باشد</td><td>ارزش سند خارج از بازهٔ پست است؛ ارسال با این سرویس ممکن نیست.</td></tr>
+                                <tr><td>ایمیل گیرنده الزامی است</td><td>ایمیل را در فرم بنویسید.</td></tr>
+                                <tr><td>شناسهٔ سفارش تکراری</td><td>این سفارش قبلاً در پست ثبت شده؛ صفحه را تازه کنید و «به‌روزرسانی وضعیت» بزنید.</td></tr>
+                                <tr><td>وضعیت مرسوله در این مرحله قابل تغییر نیست</td><td>پست دیگر اجازهٔ لغو یا تغییر نمی‌دهد؛ با پشتیبانی پست تماس بگیرید.</td></tr>
+                                <tr><td>پست پاسخ نمی‌دهد / مهلت تمام شد</td><td>سرویس پست گاهی کند است. دوباره تلاش کنید؛ ثبت مجدد مرسولهٔ تکراری نمی‌سازد.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-gray-600 fs-7 mt-4">سلامت اتصال (آخرین موفقیت و آخرین خطا) در صفحهٔ «اتصال سرویس‌ها» دیده می‌شود. اگر با این جدول حل نشد، متن دقیق خطا و زمان آن را برای پشتیبانی بفرستید؛ گذرواژه هرگز در پیام‌ها و گزارش‌ها نمی‌آید.</div>
+                </div></div>
+            </div>
+
+        </div>
     </div>
-</details>
+</section>
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
         <div class="card-title"><h2>اتصال سرویس پست</h2></div>

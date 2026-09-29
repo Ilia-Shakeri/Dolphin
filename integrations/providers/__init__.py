@@ -20,6 +20,7 @@ CAPABILITY_LABELS = {
     "payment": "پرداخت",
     "accounting": "حسابداری",
     "webhook": "وب‌هوک",
+    "shipping": "ارسال پستی",
 }
 
 

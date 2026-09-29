@@ -234,9 +234,33 @@ class ManualCarrier(PostalCarrier):
         return None
 
 
-#: code -> carrier. One entry today. A provider is added here and becomes
+class EbazarCarrier(PostalCarrier):
+    """Iran Post through the «بازار الکترونیک» web service (`sales/ebazar.py`).
+
+    Its vocabulary is the carrier's numeric status code; only the codes that
+    mean the same thing as one of this product's states are mapped, and every
+    other code (return, cancelled, not found) is left unmapped on purpose.
+    """
+
+    code = "ebazar"
+    label = "پست ایران (بازار الکترونیک)"
+    supports_tracking = True
+
+    @property
+    def STATUS_MAP(self):
+        from sales import ebazar
+
+        return {str(code): state for code, (_, state) in ebazar.PARCEL_STATUSES.items() if state}
+
+    def track(self, tracking_number):
+        from sales import shipping
+
+        return shipping.track(tracking_number)
+
+
+#: code -> carrier. A provider is added here and becomes
 #: selectable; nothing else in the product has to learn its name.
-CARRIERS = {ManualCarrier.code: ManualCarrier()}
+CARRIERS = {ManualCarrier.code: ManualCarrier(), EbazarCarrier.code: EbazarCarrier()}
 
 
 def carrier_for(code):

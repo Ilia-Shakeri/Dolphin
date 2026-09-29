@@ -643,6 +643,8 @@ FROM (
         -- Integrations (2.21.0). Connections and subscribers are edited and
         -- removed by the Platform Admin; tokens are revoked in place, never
         -- deleted; log rows, processed events and settled deliveries are
+        ('sales_postalshipment', 'SELECT, INSERT, UPDATE'),
+        ('sales_ebazarproductlink', 'SELECT, INSERT, UPDATE'),
         -- pruned by `prune_integration_logs`, which runs as this role; the
         -- outbox and deliveries are rewritten in place as they are retried.
         ('integrations_apitoken', 'SELECT, INSERT, UPDATE, DELETE'),

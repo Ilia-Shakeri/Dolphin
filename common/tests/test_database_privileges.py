@@ -468,6 +468,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "integrations_domainevent": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_inboundwebhookreceipt": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_integration": "SELECT, INSERT, UPDATE, DELETE",
+            # Ebazar shipments (2.29.0): status/cost updated in place, never deleted.
+            "sales_postalshipment": "SELECT, INSERT, UPDATE",
+            "sales_ebazarproductlink": "SELECT, INSERT, UPDATE",
             "integrations_integrationlog": "SELECT, INSERT, DELETE",
             "integrations_webhookdelivery": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_webhooksubscription": "SELECT, INSERT, UPDATE, DELETE",
