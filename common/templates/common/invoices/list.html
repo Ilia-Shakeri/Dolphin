@@ -81,6 +81,7 @@
             <div class="stepper-nav py-5">
                 <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">مشتری و نوع فاکتور</h3></div>
                 <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">اقلام و تخفیف</h3></div>
+                <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">نوع پرداخت</h3></div>
                 <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
             </div>
             <form id="create-invoice-form" action="/api/v1/invoices/" method="post" novalidate>
@@ -168,6 +169,18 @@
                     <p class="text-danger fs-8 mt-2 mb-0" data-error-for="discount_percent"></p>
                     <p class="text-danger fs-8 mt-2 mb-0" data-error-for="tax_rate"></p>
                     <p class="text-muted fs-8 mt-2 mb-0">فاکتور پیش‌نویس ساخته می‌شود؛ این ارقام همان چیزی است که ذخیره خواهد شد.</p>
+                </div>
+            </div>
+            <div data-kt-stepper-element="content">
+                <div class="row g-5">
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-payment-type">نوع پرداخت</label><select class="form-select form-select-solid" id="create-invoice-payment-type" name="payment_type"><option value="cash">نقدی</option><option value="installment">اقساط</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="payment_type"></p></div>
+                </div>
+                <div class="row g-5 mt-0" id="create-invoice-installment-fields" hidden>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-down-payment">پیش‌پرداخت ({{ panel_currency_label }})</label><input class="form-control form-control-solid" id="create-invoice-down-payment" name="installment_down_payment" type="text" inputmode="numeric" data-money-input dir="ltr" placeholder="۰"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_down_payment"></p></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-installment-count">تعداد اقساط</label><input class="form-control form-control-solid" id="create-invoice-installment-count" name="installment_count" type="number" min="1" max="120" step="1" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_count"></p></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-first-due">تاریخ شروع اولین قسط</label><input class="form-control form-control-solid" id="create-invoice-first-due" name="installment_first_due" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_first_due"></p></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-interval-days">فاصله بین هر قسط (روز)</label><input class="form-control form-control-solid" id="create-invoice-interval-days" name="installment_interval_days" type="number" min="1" max="365" step="1" dir="ltr" value="30"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_interval_days"></p></div>
+                    <div class="col-12"><p class="text-muted fs-8 mb-0">پیش‌پرداخت از مبلغ نهایی کم می‌شود و باقی‌مانده به‌طور مساوی بین اقساط تقسیم می‌شود.</p></div>
                 </div>
             </div>
             <div data-kt-stepper-element="content">

@@ -1,5 +1,6 @@
 from django.db.models import F, Q
 from django.utils.dateparse import parse_date
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
@@ -8,6 +9,8 @@ from rest_framework.response import Response
 
 from accounts.access import has_any_capability
 from accounts.models import User
+from billing.installments import DISPLAY_LABELS, display_status_q, set_invoice_installments
+from billing.installments import invoice_summary as invoice_installment_summary
 from billing.ledger import current_balance
 from billing.models import (
     Cheque,
@@ -45,6 +48,7 @@ from billing.selectors import (
     quotations_for,
 )
 from billing.serializers import (
+    InvoiceInstallmentsEditSerializer,
     InvoiceOrderLinkSerializer,
     ManualPaidEntrySerializer,
     AllocatePaymentAcrossSerializer,
@@ -279,7 +283,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     status_enum = Invoice.Status
     sensitive_actions = frozenset({
         "create", "update", "partial_update", "items", "issue", "cancel",
-        "reissue", "manual_paid", "link_order",
+        "reissue", "manual_paid", "link_order", "set_installments",
     })
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "issued_at", "due_at", "total_amount", "number"]
@@ -424,6 +428,27 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             actor=request.user, invoice=self.get_object(), **serializer.validated_data
         )
         return Response(self.get_serializer(replacement).data, status=201)
+
+    @extend_schema(responses={200: OpenApiTypes.OBJECT, 404: NOT_FOUND_RESPONSE})
+    @action(detail=True, methods=["get"], url_path="installments")
+    def installments(self, request, pk=None):
+        return Response(invoice_installment_summary(self.get_object()))
+
+    @extend_schema(
+        request=InvoiceInstallmentsEditSerializer,
+        responses={200: OpenApiTypes.OBJECT, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
+    )
+    @action(detail=True, methods=["post"], url_path="set-installments")
+    def set_installments(self, request, pk=None):
+        invoice = self.get_object()
+        serializer = InvoiceInstallmentsEditSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        set_invoice_installments(
+            actor=request.user, invoice=invoice,
+            installment_count=serializer.validated_data.get("installment_count"),
+            down_payment=serializer.validated_data.get("down_payment"),
+        )
+        return Response(invoice_installment_summary(Invoice.objects.get(pk=invoice.pk)))
 
     @extend_schema(responses={200: PaymentAllocationSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
     @action(detail=True, methods=["get"])
@@ -808,7 +833,7 @@ class InstallmentViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixi
     list_query_parameters = {"plan", "status", "due_before"}
 
     def get_queryset(self):
-        queryset = installments_for(self.request.user).select_related("plan", "plan__invoice")
+        queryset = installments_for(self.request.user).select_related("plan__invoice__customer")
         plan = self.request.query_params.get("plan")
         if plan is not None:
             if not plan.isdecimal() or int(plan) < 1:
@@ -816,9 +841,13 @@ class InstallmentViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixi
             queryset = queryset.filter(plan_id=int(plan))
         status_value = self.request.query_params.get("status")
         if status_value is not None:
-            if status_value not in Installment.Status.values:
+            # The list speaks the display statuses («سررسید امروز» ...); they
+            # take precedence over the stored ones, whose `pending` would
+            # otherwise also swallow rows that are due today or overdue.
+            if status_value in DISPLAY_LABELS:
+                queryset = queryset.filter(display_status_q(status_value))
+            else:
                 raise ValidationError({"status": "وضعیت نامعتبر است."})
-            queryset = queryset.filter(status=status_value)
         due_before = self.request.query_params.get("due_before")
         if due_before is not None:
             queryset = queryset.filter(due_date__lt=_parse_date(due_before, "due_before"))

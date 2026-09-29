@@ -11666,6 +11666,15 @@
         fulfilled: [],
         cancelled: [],
     });
+    const INSTALLMENT_DISPLAY_ACCENT = Object.freeze({
+        paid: "success",
+        cancelled: "danger",
+        partially_paid: "warning",
+        near_due: "info",
+        due_today: "warning",
+        overdue: "danger",
+        pending: "secondary",
+    });
     const INSTALLMENT_STATUS_TEXT = Object.freeze({
         pending: "پرداخت‌نشده",
         partially_paid: "پرداخت جزئی",
@@ -13208,6 +13217,17 @@
             onReachLastStep: () => renderReview(),
             validateStep: (index, content) => validateLinesStep(content, lines),
         });
+        const paymentTypeSelect = document.getElementById("create-invoice-payment-type");
+        const installmentFields = document.getElementById("create-invoice-installment-fields");
+        const syncPaymentType = () => {
+            const installment = paymentTypeSelect?.value === "installment";
+            if (installmentFields) installmentFields.hidden = !installment;
+            ["down-payment", "installment-count", "first-due", "interval-days"].forEach((name) => {
+                const field = document.getElementById(`create-invoice-${name}`);
+                if (field) field.required = installment && name !== "down-payment";
+            });
+        };
+        paymentTypeSelect?.addEventListener("change", syncPaymentType);
 
         function renderReview() {
             const totals = documentTotals(
@@ -13215,6 +13235,9 @@
                 document.getElementById("create-invoice-discount")?.value,
                 document.getElementById("create-invoice-tax")?.value,
             );
+            const installment = paymentTypeSelect?.value === "installment";
+            const down = Number(moneyToStorage(document.getElementById("create-invoice-down-payment")?.value)) || 0;
+            const count = Number(document.getElementById("create-invoice-installment-count")?.value) || 0;
             renderWizardReview(document.getElementById("create-invoice-review"), [
                 ["مشتری", selectedOptionText(document.getElementById("create-invoice-customer"))],
                 ["نوع فاکتور", selectedOptionText(document.getElementById("create-invoice-type"))],
@@ -13225,6 +13248,16 @@
                 ["جمع اقلام", money(totals.gross)],
                 ["تخفیف", money(totals.discount)],
                 ["مالیات", money(totals.tax)],
+                ["نوع پرداخت", selectedOptionText(paymentTypeSelect)],
+                ...(installment
+                    ? [
+                        ["پیش‌پرداخت", money(down)],
+                        ["تعداد اقساط", toPersianDigits(String(count))],
+                        ["مبلغ هر قسط", count ? money((totals.total - down) / count) : "—"],
+                        ["تاریخ اولین قسط", document.getElementById("create-invoice-first-due")?.value || "—"],
+                        ["فاصله اقساط", `${toPersianDigits(document.getElementById("create-invoice-interval-days")?.value || "")} روز`],
+                    ]
+                    : []),
                 // The figure this wizard is actually about, last and by name.
                 ["مبلغ نهایی", money(totals.total)],
             ]);
@@ -13257,6 +13290,7 @@
             detailPath: "/invoices/",
             onOpen: () => {
                 document.getElementById("create-invoice-form")?.reset();
+                syncPaymentType();
                 lines.reset();
                 renderDocumentTotals("create-invoice", lines);
                 wizard?.goFirst();
@@ -13324,6 +13358,13 @@
                 // fills it from the day it was issued.
                 const documentDate = apiDate(data.get("document_date"));
                 if (documentDate) body.document_date = documentDate;
+                if (data.get("payment_type") === "installment") {
+                    body.payment_type = "installment";
+                    body.installment_down_payment = moneyToStorage(data.get("installment_down_payment")) || "0";
+                    body.installment_count = Number(data.get("installment_count"));
+                    body.installment_first_due = apiDate(data.get("installment_first_due"));
+                    body.installment_interval_days = Number(data.get("installment_interval_days"));
+                }
                 return body;
             },
         });
@@ -13739,13 +13780,12 @@
         const editActions = document.getElementById("invoice-edit-actions");
         const lockedNote = document.getElementById("invoice-locked-note");
         const issuedNote = document.getElementById("invoice-issued-note");
-        const planForm = document.getElementById("invoice-plan-form");
         const lines = documentLineEditor({doc: "invoice", endpoint, onSaved: (updated) => apply(updated)});
         let allocationsController = null;
 
         let current = null;
 
-        function apply(invoice) {
+        function apply(invoice, installments = null) {
             current = invoice;
             document.getElementById("invoice-number").value = invoice.number;
             document.getElementById("invoice-customer").value = invoice.customer_name;
@@ -13785,61 +13825,116 @@
                 field.disabled = noteOnly ? field.name !== "notes" : !editable;
             });
             if (allocationsSection) allocationsSection.hidden = invoice.status !== "issued";
-            if (invoice.status === "issued") {
-                allocationsController?.load();
-                loadPlan();
-            }
-            renderPlanPreview();
+            if (invoice.status === "issued") allocationsController?.load();
+            if (installments) renderInstallments(installments);
+            else loadInstallments();
             lines.apply(invoice);
         }
 
-        async function loadPlan() {
-            const wrap = document.getElementById("invoice-plan-summary");
-            const created = document.getElementById("invoice-plan-created-summary");
-            const body = document.getElementById("invoice-plan-body");
-            if (!wrap) return;
-            try {
-                const data = await apiRequest(`/api/v1/installment-plans/?invoice=${invoiceId}`);
-                const plan = data.results[0];
-                if (!plan) { wrap.hidden = true; if (created) created.hidden = true; return; }
-                if (created) {
-                    const rows = [];
-                    const downPayment = plan.down_payment_percent
-                        ? `${toPersianDigits(plan.down_payment_percent)}٪`
-                        : plan.down_payment_amount ? money(plan.down_payment_amount) : null;
-                    if (downPayment) rows.push(["پیش‌پرداخت", downPayment]);
-                    if (Number(plan.extra_discount_percent) > 0) {
-                        rows.push(["تخفیف", `${toPersianDigits(plan.extra_discount_percent)}٪`]);
-                    }
-                    if (Number(plan.interest_amount) > 0) {
-                        rows.push(["سود اقساط", money(plan.interest_amount)]);
-                    }
-                    rows.push(["مبلغ نهایی اقساط", money(plan.total_amount)]);
-                    created.replaceChildren(...rows.map(([label, value]) => {
-                        const div = document.createElement("div");
-                        div.textContent = `${label}: `;
-                        const strong = document.createElement("span");
-                        strong.className = "fw-bold";
-                        strong.textContent = value;
-                        div.appendChild(strong);
-                        return div;
-                    }));
-                    created.hidden = false;
+        const installmentsSection = document.getElementById("invoice-installments");
+        const installmentsBody = document.getElementById("invoice-installments-body");
+        const installmentsDown = document.getElementById("invoice-installments-down");
+        const installmentsCount = document.getElementById("invoice-installments-count");
+        const canEditIssuedInstallments = installmentsSection?.dataset.canPayments === "1";
+        let installmentsSummary = null;
+
+        // A draft has no rows yet: they are worked out here from the same rule
+        // the server applies at issue (down payment first, the remainder in
+        // equal parts, the rounding remainder on the first one) so the box
+        // reads the same before and after issuing.
+        function draftInstallmentRows(summary) {
+            const total = Number(current?.total_amount);
+            const count = Number(summary.installment_count);
+            if (!(total > 0) || !(count >= 1)) return [];
+            const down = Number(summary.down_payment) || 0;
+            const remainder = Math.round((total - down) * 100);
+            const base = Math.round(remainder / count);
+            const first = remainder - base * (count - 1);
+            const rows = [];
+            if (down > 0) {
+                rows.push({is_down_payment: true, sequence: 0, due_date: null, amount: down.toFixed(2), paid_amount: "0.00", balance_due: down.toFixed(2), status: "pending", status_display: "در انتظار پرداخت"});
+            }
+            for (let index = 0; index < count; index += 1) {
+                const cents = index === 0 ? first : base;
+                let due = null;
+                if (summary.first_due) {
+                    const day = new Date(`${summary.first_due}T00:00:00Z`);
+                    day.setUTCDate(day.getUTCDate() + Number(summary.interval_days || 0) * index);
+                    due = day.toISOString().slice(0, 10);
                 }
-                body.replaceChildren(...plan.installments.map((item) => {
-                    const row = document.createElement("tr");
-                    appendCell(row, item.sequence);
-                    appendCell(row, displayDay(item.due_date));
-                    appendMoneyCell(row, item.amount);
-                    appendMoneyCell(row, item.paid_amount);
-                    appendStatusBadgeCell(row, INSTALLMENT_STATUS_TEXT, item.status);
-                    return row;
-                }));
-                wrap.hidden = false;
+                rows.push({is_down_payment: false, sequence: index + 1, due_date: due, amount: (cents / 100).toFixed(2), paid_amount: "0.00", balance_due: (cents / 100).toFixed(2), status: "pending", status_display: "در انتظار پرداخت"});
+            }
+            return rows;
+        }
+
+        function renderInstallments(summary) {
+            installmentsSummary = summary;
+            if (!installmentsSection) return;
+            installmentsSection.hidden = !summary || summary.payment_type !== "installment";
+            if (installmentsSection.hidden) return;
+            const canEdit = summary.editable && (current?.status === "draft" || canEditIssuedInstallments);
+            if (installmentsDown) {
+                installmentsDown.value = money(summary.down_payment, {withCurrency: false});
+                installmentsDown.disabled = !canEdit;
+            }
+            if (installmentsCount) {
+                installmentsCount.value = summary.installment_count ?? "";
+                installmentsCount.disabled = !canEdit;
+            }
+            const rows = summary.rows.length ? summary.rows : draftInstallmentRows(summary);
+            installmentsBody.replaceChildren(...rows.map((item) => {
+                const row = document.createElement("tr");
+                appendCell(row, item.is_down_payment ? "پیش‌پرداخت" : `قسط ${toPersianDigits(item.sequence)}`);
+                appendCell(row, item.due_date ? displayDay(item.due_date) : "—");
+                appendMoneyCell(row, item.amount);
+                appendMoneyCell(row, item.paid_amount);
+                appendMoneyCell(row, item.balance_due);
+                const cell = document.createElement("td");
+                const badge = document.createElement("span");
+                badge.className = `badge badge-light-${INSTALLMENT_DISPLAY_ACCENT[item.status] || "secondary"}`;
+                badge.textContent = item.status_display;
+                cell.append(badge);
+                row.append(cell);
+                return row;
+            }));
+        }
+
+        async function loadInstallments() {
+            if (!installmentsSection) return;
+            if (current?.payment_type !== "installment") {
+                installmentsSection.hidden = true;
+                return;
+            }
+            try {
+                renderInstallments(await apiRequest(`${endpoint}installments/`));
             } catch (error) {
                 showError(error);
             }
         }
+
+        async function saveInstallmentTerms() {
+            if (!installmentsSummary?.editable) return;
+            const count = Number(installmentsCount.value);
+            const down = moneyToStorage(installmentsDown.value) || "0";
+            if (!Number.isInteger(count) || count < 1) return;
+            withSubmit(document.getElementById("invoice-installments-form"), async () => {
+                const updated = await apiRequest(`${endpoint}set-installments/`, {
+                    method: "POST", body: {installment_count: count, down_payment: down},
+                });
+                globalMessage("اقساط دوباره محاسبه شد.", true);
+                current = await apiRequest(endpoint);
+                apply(current, updated);
+            });
+        }
+
+        const installmentsForm = document.getElementById("invoice-installments-form");
+        installmentsForm?.addEventListener("submit", (event) => {
+            event.preventDefault();
+            saveInstallmentTerms();
+        });
+        [installmentsDown, installmentsCount].forEach((field) =>
+            field?.addEventListener("change", () => installmentsForm.requestSubmit())
+        );
 
         form.addEventListener("submit", (event) => {
             event.preventDefault();
@@ -13912,102 +14007,6 @@
         // a ledger entry — a second source of truth for how much had been paid,
         // and the one with no trail behind it. It is now only ever the sum of
         // the allocations recorded on the receipts desk.
-
-        // Percent and amount are the same either/or rule as a document line's
-        // own discount: filling one clears and disables the other, so the
-        // ambiguous "both filled" pair the server refuses can never be built
-        // here in the first place.
-        const planDownPercentInput = document.getElementById("invoice-plan-down-percent");
-        const planDownAmountInput = document.getElementById("invoice-plan-down-amount");
-        [[planDownPercentInput, planDownAmountInput], [planDownAmountInput, planDownPercentInput]].forEach(
-            ([field, other]) => {
-                field?.addEventListener("input", () => {
-                    if (!other) return;
-                    other.disabled = field.value !== "";
-                    if (field.value !== "") other.value = "";
-                });
-            }
-        );
-
-        // Mirrors `billing.money.installment_plan_amounts` for an instant
-        // preview; the server recomputes and is the number that is actually
-        // charged. Returns `null` when there isn't enough to preview yet.
-        function computePlanPreview() {
-            const total = Number(current?.total_amount);
-            const count = Number(document.getElementById("invoice-plan-count")?.value);
-            if (!(total > 0) || !Number.isInteger(count) || count < 1) return null;
-            const intervalDays = Number(document.getElementById("invoice-plan-interval")?.value) || 30;
-            const downPercent = numberOrNull(planDownPercentInput?.value);
-            const downAmount = numberOrNull(planDownAmountInput?.value);
-            let downPayment = 0;
-            if (downPercent !== null) downPayment = (total * downPercent) / 100;
-            else if (downAmount !== null) downPayment = downAmount;
-            if (downPayment < 0 || downPayment >= total) return null;
-            const remainingAfterDown = total - downPayment;
-            const discountPercent = numberOrNull(document.getElementById("invoice-plan-discount")?.value) || 0;
-            const discount = (remainingAfterDown * discountPercent) / 100;
-            const principal = remainingAfterDown - discount;
-            if (principal <= 0) return null;
-            const rate = numberOrNull(document.getElementById("invoice-plan-rate")?.value) || 0;
-            const intervalMonths = intervalDays / 30;
-            const interest = (principal * rate * (count + intervalMonths)) / 2400;
-            const financedTotal = principal + interest;
-            return {
-                gross: total, downPayment, discount, principal, interest, financedTotal,
-                perInstallment: financedTotal / count,
-            };
-        }
-
-        function renderPlanPreview() {
-            const preview = document.getElementById("invoice-plan-preview");
-            if (!preview) return;
-            const amounts = computePlanPreview();
-            preview.hidden = !amounts;
-            if (!amounts) return;
-            const cells = {
-                gross: amounts.gross, down_payment: amounts.downPayment, discount: amounts.discount,
-                principal: amounts.principal, interest: amounts.interest,
-                financed_total: amounts.financedTotal, per_installment: amounts.perInstallment,
-            };
-            Object.entries(cells).forEach(([key, value]) => {
-                const cell = preview.querySelector(`[data-plan-preview="${key}"]`);
-                if (cell) cell.textContent = money(value.toFixed(2));
-            });
-        }
-
-        [
-            "invoice-plan-count", "invoice-plan-interval", "invoice-plan-down-percent",
-            "invoice-plan-down-amount", "invoice-plan-discount", "invoice-plan-rate",
-        ].forEach((id) => document.getElementById(id)?.addEventListener("input", renderPlanPreview));
-
-        planForm?.addEventListener("submit", (event) => {
-            event.preventDefault();
-            withSubmit(planForm, async () => {
-                const data = new FormData(planForm);
-                const payload = {
-                    invoice: Number(invoiceId),
-                    installment_count: Number(data.get("installment_count")),
-                    start_date: apiDate(data.get("start_date")),
-                };
-                const interval = numberOrNull(data.get("interval_days"));
-                if (interval !== null) payload.interval_days = interval;
-                const downPercent = numberOrNull(data.get("down_payment_percent"));
-                const downAmount = numberOrNull(data.get("down_payment_amount"));
-                if (downPercent !== null) payload.down_payment_percent = downPercent;
-                else if (downAmount !== null) payload.down_payment_amount = downAmount;
-                const discountPercent = numberOrNull(data.get("extra_discount_percent"));
-                if (discountPercent !== null) payload.extra_discount_percent = discountPercent;
-                const rate = numberOrNull(data.get("annual_profit_rate"));
-                if (rate !== null) payload.annual_profit_rate = rate;
-                await apiRequest("/api/v1/installment-plans/", {method: "POST", body: payload});
-                globalMessage("قسط‌بندی ساخته شد.", true);
-                planForm.reset();
-                if (planDownAmountInput) planDownAmountInput.disabled = false;
-                if (planDownPercentInput) planDownPercentInput.disabled = false;
-                renderPlanPreview();
-                loadPlan();
-            });
-        });
 
         if (allocationsSection) {
             allocationsController = setupPagedList({
@@ -15117,14 +15116,25 @@
             },
             renderRow: (installment) => {
                 const row = document.createElement("tr");
-                appendCell(row, installment.plan);
-                appendCell(row, installment.sequence);
-                appendCell(row, displayDay(installment.due_date));
+                appendCell(row, installment.is_down_payment ? "پیش‌پرداخت" : toPersianDigits(installment.sequence));
+                appendCell(row, installment.customer_name);
+                const invoiceCell = document.createElement("td");
+                row.append(invoiceCell);
+                const link = document.createElement("a");
+                link.href = `/invoices/${installment.invoice}/`;
+                link.textContent = installment.invoice_number;
+                link.dir = "ltr";
+                invoiceCell.append(link);
                 appendMoneyCell(row, installment.amount);
+                appendCell(row, displayDay(installment.due_date));
                 appendMoneyCell(row, installment.paid_amount);
                 appendMoneyCell(row, installment.balance_due);
-                appendStatusBadgeCell(row, INSTALLMENT_STATUS_TEXT, installment.status);
-                appendActionLinks(row, []);
+                const statusCell = document.createElement("td");
+                const badge = document.createElement("span");
+                badge.className = `badge badge-light-${INSTALLMENT_DISPLAY_ACCENT[installment.display_status] || "secondary"}`;
+                badge.textContent = installment.display_status_label;
+                statusCell.append(badge);
+                row.append(statusCell);
                 return row;
             },
         });

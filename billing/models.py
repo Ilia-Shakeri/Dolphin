@@ -372,6 +372,21 @@ class Invoice(CommercialDocument):
     #: this field, and anything created through the API that way — which is
     #: why this is nullable rather than zero: zero is a real percentage.
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    #: «نوع پرداخت» (2.32.0). Cash is every invoice before this field. An
+    #: installment invoice carries its terms here while it is a draft, because
+    #: an `InstallmentPlan` can only exist for an issued invoice and the total
+    #: may still change until then; `issue_invoice` builds the plan from them.
+    class PaymentType(models.TextChoices):
+        CASH = "cash", "نقدی"
+        INSTALLMENT = "installment", "اقساط"
+
+    payment_type = models.CharField(
+        max_length=12, choices=PaymentType.choices, default=PaymentType.CASH, db_index=True
+    )
+    installment_down_payment = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    installment_count = models.PositiveSmallIntegerField(null=True, blank=True)
+    installment_first_due = models.DateField(null=True, blank=True)
+    installment_interval_days = models.PositiveSmallIntegerField(null=True, blank=True)
     #: The number in the official series, taken at issue and never afterwards.
     #:
     #: Separate from `number`, which every document receives at creation. The
@@ -484,6 +499,17 @@ class Invoice(CommercialDocument):
                 name="invoice_discount_percent_bounded",
             ),
             models.CheckConstraint(condition=Q(paid_amount__gte=0), name="invoice_paid_non_negative"),
+            models.CheckConstraint(
+                condition=Q(payment_type="cash")
+                | (
+                    Q(payment_type="installment")
+                    & Q(installment_count__gte=1) & Q(installment_count__lte=120)
+                    & Q(installment_first_due__isnull=False)
+                    & Q(installment_interval_days__gte=1) & Q(installment_interval_days__lte=365)
+                    & Q(installment_down_payment__gte=0)
+                ),
+                name="invoice_installment_terms_valid",
+            ),
             # Unique among the invoices that carry one. A plain unique column
             # would collide on the first two blanks, and blank is the normal
             # state for every unofficial invoice and every unissued draft.

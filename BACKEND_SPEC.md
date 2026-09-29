@@ -1431,6 +1431,27 @@ rial principal, 15% annual, 12 monthly installments ⇒ 81,250 rial interest).
 `total_amount` is their sum and is what actually gets divided across
 installments. See `billing.money.installment_plan_amounts`.
 
+**Payment type on the invoice (2.32.0, product-owner decision 2026-09-29).**
+An invoice is *cash* or *instalments* (`Invoice.payment_type`). An instalment
+invoice carries its terms while it is a draft (`installment_down_payment`,
+`installment_count`, `installment_first_due`, `installment_interval_days`);
+issuing it builds the plan with no interest and no extra discount. Row 0 is
+the down payment (omitted when zero, due on the issue day) and rows 1..count
+split the remainder equally, the rounding remainder on the first, spaced
+`interval_days` from the first due date, so the rows always sum to the invoice
+total. Because the waterfall above fills rows in ascending sequence, a receipt
+pays the down payment first, then each instalment, overflowing to the next;
+an amount smaller than a row reduces only that row. The count and the down
+payment are changed with `POST /api/v1/invoices/{id}/set-installments/` (a
+sensitive action; a draft or an issued invoice), which recomputes every row and
+re-applies what was already paid; `GET /api/v1/invoices/{id}/installments/`
+returns the terms and rows. Plans built the older way (interest, extra
+discount) are not editable through it. Cancelling an invoice cancels the plan
+and every row. The Instalments list (`GET /api/v1/installments/`) is read-only
+and shows a *display status* worked out from the row: `cancelled`, `paid`,
+`partially_paid`, `overdue` (past due, unpaid), `due_today`, `near_due` (1–2
+days left, unpaid), else `pending`; `?status=` accepts these keys.
+
 **Still not implemented:** a penalty or additional interest for a payment made
 *after* its installment's due date — the rate above applies once, at plan
 creation, regardless of how or when each installment is later paid. That

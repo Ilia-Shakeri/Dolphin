@@ -9,7 +9,7 @@
 
 ## ۱. وضعیت فعلی
 
-- **نسخه:** `2.29.0` — فایل `VERSION`؛ `main` روی GitHub (`Ilia-Shakeri/Dolphin`).
+- **نسخه:** `2.32.0` — فایل `VERSION`؛ `main` روی GitHub (`Ilia-Shakeri/Dolphin`).
 - **شاخه و روش کار:** کامیت مستقیم روی `main`، یک کامیت برای هر نسخه، پوش فقط
   پس از بررسی کامل. تصویر برنامه همیشه از `git archive` همان کامیت پوش‌شده ساخته
   می‌شود، نه از working tree.
@@ -119,6 +119,21 @@
 - `.dockerignore` سخت شده و گیت رگرسیون دارد (`common/tests/test_image_content.py`،
   `scripts/validate_image_content.py`)؛ Compose هیچ `build:` ندارد و فقط تصویر با
   digest می‌کشد؛ پایگاه داده و پورت برنامه منتشر نمی‌شوند.
+- **دور ۲۰۲۶/۰۹/۲۹ (`2.32.0`، نوع پرداخت و اقساط):** `Invoice.payment_type` و شرایط
+  اقساط (مهاجرت `billing/0016`)، `billing/installments.py` (ساخت برنامه هنگام صدور،
+  ویرایش تعداد/پیش‌پرداخت، وضعیت نمایشی)، اکشن‌های `installments` و
+  `set-installments`، ویزارد و باکس «اقساط» در UI. تأییدشده: ۱۴ تست
+  `billing/tests/test_installment_invoices.py`، مجموعهٔ billing و اجرای دستی مرورگر
+  روی سرور توسعه (ساخت فاکتور اقساطی، پیش‌نمایش پیش‌نویس، تغییر تعداد، فهرست اقساط).
+
+- **دور ۲۰۲۶/۰۹/۲۹ (`2.29.0`، آمادهٔ کامیت):** اتصال «پست ایران — بازار الکترونیک»
+  (`sales/ebazar.py` کلاینت HTTP، `sales/shipping.py` قواعد و خدمات،
+  `integrations/providers/ebazar.py`، مهاجرت `sales/0025`)، کارت «ارسال با پست ایران»
+  در جزئیات سند (`postal-shipment.js`) و راهنمای کامل در `/settings/post-provider/`.
+  تأییدشده: ۳۹ تست `sales/tests/test_ebazar_shipping.py` با سرور ساختگی، و اجرای
+  دستی کارت روی سرور توسعه. **تأییدنشده:** هیچ تماسی با سرور واقعی پست (حساب
+  وب‌سرویس در دسترس نیست).
+
 - **دور ۲۰۲۶/۰۹/۲۹ (`2.29.0`، آمادهٔ کامیت):** اتصال «پست ایران — بازار الکترونیک»
   (`sales/ebazar.py` کلاینت HTTP، `sales/shipping.py` قواعد و خدمات،
   `integrations/providers/ebazar.py`، مهاجرت `sales/0025`)، کارت «ارسال با پست ایران»

@@ -298,6 +298,18 @@ class InvoiceSerializer(CommercialDocumentSerializer):
     customer_kind = serializers.CharField(source="customer.kind", read_only=True)
     customer_national_id = serializers.CharField(source="customer.national_id", read_only=True)
     customer_economic_code = serializers.CharField(source="customer.economic_code", read_only=True)
+    #: نوع پرداخت — set when the invoice is created. Afterwards the count and
+    #: the down payment change only through `set-installments`, which also
+    #: reschedules an issued invoice's rows.
+    payment_type = serializers.ChoiceField(choices=Invoice.PaymentType.choices, required=False)
+    installment_down_payment = serializers.DecimalField(
+        max_digits=18, decimal_places=2, required=False, allow_null=True, min_value=0
+    )
+    installment_count = serializers.IntegerField(required=False, allow_null=True, min_value=1, max_value=120)
+    installment_first_due = serializers.DateField(required=False, allow_null=True)
+    installment_interval_days = serializers.IntegerField(
+        required=False, allow_null=True, min_value=1, max_value=365
+    )
 
     class Meta:
         model = Invoice
@@ -309,6 +321,8 @@ class InvoiceSerializer(CommercialDocumentSerializer):
             "total_amount", "paid_amount", "balance_due", "canonical_balance_due",
             "settlement_status", "issued_at", "document_date", "due_at", "cancelled_at",
             "stock_applied",
+            "payment_type", "installment_down_payment", "installment_count",
+            "installment_first_due", "installment_interval_days",
             "manual_paid_entry", "manual_settled_at", "is_manually_settled",
             "notes", "created_by", "created_by_display",
             "items", "line_items", "created_at", "updated_at",
@@ -351,6 +365,12 @@ class InvoiceSerializer(CommercialDocumentSerializer):
     def update(self, instance, validated_data):
         for field in ("items", "customer", "order", "quotation", "sale"):
             validated_data.pop(field, None)
+        for field in (
+            "payment_type", "installment_down_payment", "installment_count",
+            "installment_first_due", "installment_interval_days",
+        ):
+            if field in validated_data and validated_data.pop(field) != getattr(instance, field):
+                raise BusinessRuleError({field: "شرایط پرداخت پس از ثبت فاکتور فقط از بخش اقساط تغییر می‌کند."})
         return update_invoice(actor=self.context["request"].user, invoice=instance, **validated_data)
 
 
@@ -712,14 +732,43 @@ class ChequeRegistrationSerializer(RejectServerFieldsMixin, serializers.Serializ
 
 class InstallmentSerializer(serializers.ModelSerializer):
     balance_due = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
+    invoice = serializers.IntegerField(source="plan.invoice_id", read_only=True)
+    invoice_number = serializers.CharField(source="plan.invoice.number", read_only=True)
+    customer = serializers.IntegerField(source="plan.invoice.customer_id", read_only=True)
+    customer_name = serializers.CharField(source="plan.invoice.customer.full_name", read_only=True)
+    is_down_payment = serializers.SerializerMethodField()
+    display_status = serializers.SerializerMethodField()
+    display_status_label = serializers.SerializerMethodField()
 
     class Meta:
         model = Installment
         fields = [
-            "id", "plan", "sequence", "due_date", "amount", "paid_amount", "balance_due",
-            "status", "created_at", "updated_at",
+            "id", "plan", "invoice", "invoice_number", "customer", "customer_name",
+            "sequence", "is_down_payment", "due_date", "amount", "paid_amount", "balance_due",
+            "status", "display_status", "display_status_label", "created_at", "updated_at",
         ]
         read_only_fields = fields
+
+    def get_is_down_payment(self, instance) -> bool:
+        return instance.sequence == 0
+
+    def get_display_status(self, instance) -> str:
+        from billing.installments import display_status
+
+        return display_status(
+            invoice_status=instance.plan.invoice.status, status=instance.status,
+            due_date=instance.due_date, paid_amount=instance.paid_amount,
+        )
+
+    def get_display_status_label(self, instance) -> str:
+        from billing.installments import DISPLAY_LABELS
+
+        return DISPLAY_LABELS[self.get_display_status(instance)]
+
+
+class InvoiceInstallmentsEditSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    installment_count = serializers.IntegerField(min_value=1, max_value=120, required=False)
+    down_payment = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False)
 
 
 class InstallmentPlanSerializer(serializers.ModelSerializer):

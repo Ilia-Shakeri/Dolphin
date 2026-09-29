@@ -808,7 +808,11 @@ def _resolve_warehouse(warehouse):
 
 
 @transaction.atomic
-def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=None, **header):
+def create_invoice(
+    *, actor, customer, items, order=None, quotation=None, sale=None,
+    payment_type=None, installment_down_payment=None, installment_count=None,
+    installment_first_due=None, installment_interval_days=None, **header
+):
     actor = _lock_document_writer(actor)
     unknown = set(header) - INVOICE_HEADER_FIELDS
     if unknown:
@@ -833,6 +837,18 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
         # boundary a script or a management command also comes through, and the
         # database constraint would report this as something else entirely.
         raise BusinessRuleError({"invoice_type": "نوع فاکتور را از فهرست انتخاب کنید."})
+
+    payment_type = payment_type or Invoice.PaymentType.CASH
+    if payment_type not in Invoice.PaymentType.values:
+        raise BusinessRuleError({"payment_type": "نوع پرداخت را از فهرست انتخاب کنید."})
+    installment_terms = {
+        "installment_down_payment": installment_down_payment,
+        "installment_count": installment_count,
+        "installment_first_due": installment_first_due,
+        "installment_interval_days": installment_interval_days,
+    }
+    if payment_type == Invoice.PaymentType.CASH and any(value is not None for value in installment_terms.values()):
+        raise BusinessRuleError({"payment_type": "شرایط اقساط فقط برای فاکتور اقساطی ثبت می‌شود."})
 
     due_at = header.get("due_at")
     if due_at is None:
@@ -862,8 +878,28 @@ def create_invoice(*, actor, customer, items, order=None, quotation=None, sale=N
             # the fields named here, so accepting the value and then not storing
             # it would be worse than refusing it.
             "document_date": header.get("document_date"),
+            "payment_type": payment_type,
+            **(
+                {
+                    "installment_down_payment": installment_down_payment or Decimal("0.00"),
+                    "installment_count": installment_count,
+                    "installment_first_due": installment_first_due,
+                    "installment_interval_days": installment_interval_days,
+                }
+                if payment_type == Invoice.PaymentType.INSTALLMENT else {}
+            ),
         },
     )
+    if payment_type == Invoice.PaymentType.INSTALLMENT:
+        # The total is only known once the document exists; a refusal here
+        # rolls the whole creation back with it.
+        from billing.installments import clean_terms
+
+        clean_terms(
+            total_amount=invoice.total_amount, down_payment=installment_down_payment,
+            installment_count=installment_count, first_due=installment_first_due,
+            interval_days=installment_interval_days,
+        )
     log_activity(
         actor=actor,
         operation="invoice.created",
@@ -1228,6 +1264,9 @@ def issue_invoice(*, actor, invoice):
         *PARTY_SNAPSHOT_FIELDS,
     ])
 
+    from billing.installments import build_plan_at_issue
+
+    build_plan_at_issue(actor=actor, invoice=locked, issued_on=timezone.localdate(issued_at))
     append_ledger_entry(
         actor=actor,
         customer=locked.customer,
@@ -1318,6 +1357,9 @@ def cancel_invoice(*, actor, invoice, reason=""):
     log_activity(
         actor=actor,
         operation="invoice.cancelled",
+    from billing.installments import cancel_plan_with_invoice
+
+    cancel_plan_with_invoice(locked)
         instance=locked,
         changes={
             "number": locked.number,

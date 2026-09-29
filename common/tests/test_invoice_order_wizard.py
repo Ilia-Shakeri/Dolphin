@@ -55,8 +55,8 @@ class WizardRenderingTests(TestCase):
         page = self.client.get("/invoices/").content.decode("utf-8")
         self.assertIn('id="create-invoice-stepper"', page)
         self.assertIn('class="stepper stepper-links d-flex flex-column"', page)
-        self.assertEqual(page.count('data-kt-stepper-element="nav"'), 3)
-        self.assertEqual(page.count('data-kt-stepper-element="content"'), 3)
+        self.assertEqual(page.count('data-kt-stepper-element="nav"'), 4)
+        self.assertEqual(page.count('data-kt-stepper-element="content"'), 4)
 
     def test_the_order_dialog_carries_a_real_stepper_too(self):
         page = self.client.get("/orders/").content.decode("utf-8")
