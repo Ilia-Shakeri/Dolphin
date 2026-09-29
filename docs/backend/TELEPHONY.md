@@ -1,4 +1,4 @@
-# Telephony — the Asterisk / FreePBX connector
+# Telephony — the Asterisk / FreePBX connector and webhook PBXs
 
 Since 2.22.0 Dolphin can connect to an Asterisk PBX (plain Asterisk or
 FreePBX) as a provider of the [integrations framework](INTEGRATIONS.md). Calls
@@ -212,6 +212,40 @@ receiver, so the listener never calls into another module directly:
 | `GET telephony/stats/?user=&period_start=&period_end=` | `calls.company`, or `calls.own` for oneself | inbound, answered, missed, outbound, talk time, average, missed followed up / decided |
 
 All behind feature `telephony`; the extension writes use the sensitive throttle.
+
+## Webhook PBXs (2.30.0)
+
+A second connection kind, `pbx_webhook` (`telephony/pbx_webhook.py`), for a PBX
+that *pushes* call events instead of exposing AMI. Per-brand set-up is in
+`docs/ops/PBX_CONNECTION_GUIDES.md`.
+
+- **Inbound.** `POST /api/v1/integrations/<id>/webhook/`, authenticated only by
+  `verify_inbound`: `X-Signature` (base64 HMAC-SHA256 of the raw body),
+  `X-Dolphin-Signature: sha256=<hex>`, or the shared key as `X-Dolphin-Token` /
+  `?token=`. `telephony/vendors.py` turns the body into `CallEvent`s
+  (`generic`, `yeastar`, `grandstream`, `freeswitch`); `telephony/ingest.py`
+  applies them to `Call` with the same rules as the AMI tracker (create or update
+  under `select_for_update`, never reopen a finished call, `call.started` /
+  `.answered` / `.ended` / `.missed` events, popup, missed-call task, recording).
+  Extension and outside-number classification reuses `CallTracker`. A body the
+  chosen vendor cannot parse is a 400 (the receipt rolls back so a corrected
+  retry is accepted). The generic format's id key is `call_id`, never `id`
+  (the view uses `id` as the idempotency key).
+- **Outbound (click-to-call).** `dial_mode` `yeastar` (OpenAPI `get_token` +
+  `call/dial`) or `http` (URL and JSON template with `{extension}`/`{number}`).
+  `request_originate` queues an `OriginateRequest` as for Asterisk; for
+  `pbx_webhook` it then calls `dial_over_http` after commit, which claims
+  PENDING→SENDING once, calls `telephony/dialer.place_call` (8 s timeout, no secret
+  in any message) and marks SENT or FAILED. A returned PBX call id creates the
+  outbound `Call` so later events land on it. A `pbx_webhook` connection with
+  `dial_mode` `none` does not count as an originating extension, so the button
+  does not appear for it.
+- **Presets.** `Provider.presets` (also in `describe()`) carries ready values
+  for the Asterisk family (FreePBX, Issabel/Elastix, VitalPBX, plain Asterisk);
+  the connection form fills only non-secret fields from them.
+- **Honesty.** Vendor payloads come from public documentation, not a real
+  system; `vendors.VERIFIED` is empty and «آزمایش اتصال» says so.
+- **Tests.** `telephony/tests/test_pbx_webhook.py`.
 
 ## Configuring a connection
 

@@ -465,3 +465,12 @@ class UiTests(ShippingBase):
         page = self.client.get("/settings/post-provider/")
         self.assertContains(page, 'id="post-guide"')
         self.assertContains(page, "بازار الکترونیک")
+
+    def test_guide_lists_every_post_status(self):
+        self.client.force_login(self.admin)
+        html = self.client.get("/settings/post-provider/").content.decode()
+        labels = [label for label, _ in ebazar.PARCEL_STATUSES.values() if label != "پیدا نشد"]
+        labels += list(ebazar.UNCODED_STATUSES)
+        self.assertEqual(len(set(labels)), 24)
+        for label in labels:
+            self.assertIn(label, html)

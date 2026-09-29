@@ -118,29 +118,44 @@ ERROR_CODES = {
 #: provider's own words on screen and move nothing (see `sales.postal`).
 PARCEL_STATUSES = {
     -1: ("پیدا نشد", None),
-    0: ("نگه‌داشته‌شده در فروشگاه", "in_store"),
-    1: ("لغو شده", None),
-    2: ("آمادهٔ ارسال", "handed_to_post"),
-    3: ("خطا در آمادهٔ ارسال", None),
-    4: ("غیبت مسئول", None),
+    0: ("تحت بررسی", "in_store"),
+    1: ("انصرافی", None),
+    2: ("آماده ارسال", "handed_to_post"),
+    3: ("اشتباه در آماده به ارسال", None),
+    4: ("عدم حضور مدیر", None),
     5: ("ارسال شده", "with_post"),
-    6: ("پذیرفته نشد", None),
-    7: ("توزیع و تحویل شد", "out_for_delivery"),
-    8: ("معطله", None),
-    9: ("توزیع نشد", None),
-    10: ("در آستانهٔ برگشت", None),
-    11: ("برگشت خورد", None),
-    70: ("تأیید مالی", None),
-    71: ("تسویه شد", None),
-    255: ("برگشت تأیید شد", None),
+    6: ("عدم قبول", None),
+    7: ("توزیع شده", "out_for_delivery"),
+    8: ("باجه معطله", None),
+    9: ("توقیفی", None),
+    10: ("پیش برگشتی", None),
+    11: ("برگشتی نهایی", None),
+    70: ("تایید شده مالی", None),
+    71: ("وصول شده", None),
+    255: ("تایید برگشتی", None),
 }
+#: Statuses Iran Post shows on its tracking page that the web-service document
+#: (v1.0.0.10) gives no numeric code for. They are kept so the guide lists the
+#: complete set and so a status text from the carrier is recognised; no code is
+#: guessed for them.
+UNCODED_STATUSES = (
+    "خسارتی",
+    "وارده به استان توزیع",
+    "تحویل به نامه رسان",
+    "مراجعه اول",
+    "مراجعه دوم",
+    "توزیع درصندوق پستی",
+    "بی ترتیبی(کسری مرسوله)",
+    "توزیع درصندوق هوشمند (لاکرز)",
+    "منقضی شده",
+)
 #: Statuses after which polling the parcel again tells nothing new.
 FINAL_STATUS_CODES = frozenset({1, 7, 11, 71, 255})
 
 
 def status_label(code):
     entry = PARCEL_STATUSES.get(code)
-    return entry[0] if entry else "وضعیت ناشناخته"
+    return entry[0] if entry else f"وضعیت ناشناختهٔ پست (کد {code})"
 
 
 def dolphin_state_for(code):

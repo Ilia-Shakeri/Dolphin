@@ -77,6 +77,8 @@ class Provider:
     accepts_webhooks = False
     #: At most one integration of this kind per deployment.
     singleton = False
+    #: Ready-made field values for known systems: dicts of key, label, note, values.
+    presets = ()
 
     def describe(self):
         return {
@@ -90,6 +92,7 @@ class Provider:
             "fields": [item.describe() for item in self.fields],
             "accepts_webhooks": self.accepts_webhooks,
             "singleton": self.singleton,
+            "presets": [dict(preset) for preset in self.presets],
         }
 
     def validate(self, config, secrets):

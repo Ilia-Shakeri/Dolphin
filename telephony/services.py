@@ -11,6 +11,7 @@ from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 from integrations.models import Integration
 from telephony.models import Extension
+from telephony.provider import PBX_KEYS
 
 
 def _require_admin(actor):
@@ -21,7 +22,7 @@ def _require_admin(actor):
 
 
 def _clean(integration_id, number, user_id):
-    integration = Integration.objects.filter(pk=integration_id, provider_key="asterisk").first()
+    integration = Integration.objects.filter(pk=integration_id, provider_key__in=PBX_KEYS).first()
     if integration is None:
         raise BusinessRuleError({"integration": "مرکز تلفن را انتخاب کنید."})
     number = str(number or "").strip()
@@ -80,13 +81,17 @@ def originating_extension(user):
     key = ("telephony.originating_extension", user.pk)
     if memo is not None and key in memo:
         return memo[key]
-    extension = (
-        Extension.objects.filter(
-            user=user, active=True, integration__enabled=True, integration__provider_key="asterisk"
-        )
-        .select_related("integration")
-        .order_by("integration_id")
-        .first()
+    extension = next(
+        (
+            row
+            for row in Extension.objects.filter(
+                user=user, active=True, integration__enabled=True, integration__provider_key__in=PBX_KEYS
+            )
+            .select_related("integration")
+            .order_by("integration_id")
+            if row.integration.provider_key == "asterisk" or (row.integration.config or {}).get("dial_mode", "none") != "none"
+        ),
+        None,
     )
     if memo is not None:
         memo[key] = extension
@@ -181,7 +186,48 @@ def request_originate(*, actor, number, person_type="", person_id=None):
         actor=actor, operation="call.originate_requested", instance=request,
         changes={"extension": extension.number, "person_type": person_type, "person_id": person_id},
     )
+    if integration.provider_key == "pbx_webhook":
+        transaction.on_commit(lambda: dial_over_http(request.pk))
     return request
+
+
+def dial_over_http(request_id):
+    """Send a queued call to a webhook PBX's HTTP API (the Asterisk path is
+    the worker's). Claims the request first so it is sent once."""
+    from integrations import services as integration_services
+    from telephony.dialer import DialError, place_call
+    from telephony.models import Call, OriginateRequest
+
+    claimed = OriginateRequest.objects.filter(pk=request_id, status=OriginateRequest.Status.PENDING).update(
+        status=OriginateRequest.Status.SENDING
+    )
+    if not claimed:
+        return
+    request = OriginateRequest.objects.select_related("integration").get(pk=request_id)
+    try:
+        call_id = place_call(
+            request.integration, integration_services.secrets_of(request.integration), request.extension, request.dial
+        )
+    except Exception as error:  # noqa: BLE001 - the reason goes to the requester, never the secrets
+        message = str(error) if isinstance(error, DialError) else "برقراری تماس ناموفق بود."
+        OriginateRequest.objects.filter(pk=request_id).update(status=OriginateRequest.Status.FAILED, error=message[:300])
+        return
+    request.status, request.sent_at = OriginateRequest.Status.SENT, timezone.now()
+    if call_id:
+        call = Call.objects.filter(integration=request.integration, linkedid=call_id[:64]).first()
+        if call is None:
+            try:
+                with transaction.atomic():
+                    call = Call.objects.create(
+                        integration=request.integration, linkedid=call_id[:64], direction=Call.Direction.OUTBOUND,
+                        caller_raw=request.extension, callee_raw=request.dial[:64],
+                        external_number=request.external_number, extension=request.extension, user=request.user,
+                        person_type=request.person_type, person_id=request.person_id, started_at=timezone.now(),
+                    )
+            except IntegrityError:
+                call = Call.objects.filter(integration=request.integration, linkedid=call_id[:64]).first()
+        request.call = call
+    request.save(update_fields=["status", "sent_at", "call"])
 
 
 def expire_stale_originates(*, now=None):

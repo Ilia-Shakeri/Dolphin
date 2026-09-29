@@ -16618,7 +16618,60 @@
 
         function renderFields(provider, integration) {
             document.getElementById("integration-provider-description").textContent = provider ? provider.description : "";
-            fieldsHost.replaceChildren(...(provider ? provider.fields : []).map((field) => {
+            const extras = [];
+            const presetNote = "قالب فقط مقدارهای غیرمحرمانه را پر می‌کند؛ گذرواژه‌ها را خودتان وارد کنید.";
+            if (provider && provider.presets && provider.presets.length) {
+                const column = document.createElement("div");
+                column.className = "col-12";
+                const label = document.createElement("label");
+                label.className = "form-label fw-semibold";
+                label.setAttribute("for", "integration-preset");
+                label.textContent = "قالب آمادهٔ سامانه";
+                const select = document.createElement("select");
+                select.id = "integration-preset";
+                select.className = "form-select form-select-solid";
+                const none = document.createElement("option");
+                none.value = "";
+                none.textContent = "بدون قالب — خودم پر می‌کنم";
+                select.appendChild(none);
+                provider.presets.forEach((preset) => {
+                    const option = document.createElement("option");
+                    option.value = preset.key;
+                    option.textContent = preset.label;
+                    select.appendChild(option);
+                });
+                const note = document.createElement("p");
+                note.className = "text-muted fs-8 mt-1 mb-0";
+                note.textContent = presetNote;
+                select.addEventListener("change", () => {
+                    const preset = provider.presets.find((row) => row.key === select.value);
+                    note.textContent = preset ? preset.note : presetNote;
+                    if (!preset) return;
+                    Object.entries(preset.values).forEach(([key, value]) => {
+                        const input = fieldsHost.querySelector(`[name="${key}"]`);
+                        if (!input || input.dataset.secret) return;
+                        if (input.type === "checkbox") input.checked = Boolean(value);
+                        else input.value = String(value);
+                    });
+                });
+                column.append(label, select, note);
+                extras.push(column);
+            }
+            if (integration && integration.webhook_path) {
+                const column = document.createElement("div");
+                column.className = "col-12";
+                const label = document.createElement("label");
+                label.className = "form-label fw-semibold";
+                label.textContent = "نشانی وب‌هوک (در مرکز تلفن بگذارید)";
+                const input = document.createElement("input");
+                input.className = "form-control form-control-solid";
+                input.dir = "ltr";
+                input.readOnly = true;
+                input.value = `${window.location.origin}${integration.webhook_path}`;
+                column.append(label, input);
+                extras.push(column);
+            }
+            fieldsHost.replaceChildren(...extras, ...(provider ? provider.fields : []).map((field) => {
                 const column = document.createElement("div");
                 column.className = field.kind === "bool" ? "col-12 d-flex align-items-center gap-3" : "col-md-6";
                 const id = `integration-field-${field.key}`;
@@ -17093,7 +17146,7 @@
         const extensions = extensionDialog ? listCard("extensions") : null;
         let editingExtension = null;
         function pbxConnections() {
-            return integrations.filter((integration) => integration.provider_key === "asterisk");
+            return integrations.filter((integration) => ["asterisk", "pbx_webhook"].includes(integration.provider_key));
         }
         if (extensionDialog) {
             const extensionForm = document.getElementById("extension-form");

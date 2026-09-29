@@ -10,6 +10,9 @@ import asyncio
 
 from integrations.providers import ConfigField, ConnectionResult, Provider, register
 
+#: Connection kinds that carry calls.
+PBX_KEYS = ("asterisk", "pbx_webhook")
+
 
 class AsteriskProvider(Provider):
     key = "asterisk"
@@ -21,6 +24,20 @@ class AsteriskProvider(Provider):
     )
     capabilities = ("telephony",)
     required_feature = "telephony"
+    presets = (
+        {"key": "freepbx", "label": "FreePBX", "note": "نسخه‌های ۱۵ به بعد؛ CDR در asteriskcdrdb.cdr و ضبط‌ها در /var/spool/asterisk/monitor.",
+         "values": {"originate_context": "from-internal", "originate_channel": "Local/{extension}@from-internal",
+                    "cdr_database": "asteriskcdrdb", "cdr_table": "cdr", "internal_extension_max_length": 5}},
+        {"key": "issabel", "label": "Issabel / Elastix", "note": "همان ساختار FreePBX؛ کاربر AMI را در manager_custom.conf بسازید.",
+         "values": {"originate_context": "from-internal", "originate_channel": "Local/{extension}@from-internal",
+                    "cdr_database": "asteriskcdrdb", "cdr_table": "cdr", "internal_extension_max_length": 5}},
+        {"key": "vitalpbx", "label": "VitalPBX", "note": "نام context برقراری تماس در نصب شما را از مستند VitalPBX بررسی کنید؛ مقدار پیشنهادی تأییدنشده است.",
+         "values": {"originate_context": "cos-all", "originate_channel": "Local/{extension}@cos-all",
+                    "cdr_database": "asteriskcdrdb", "cdr_table": "cdr", "internal_extension_max_length": 5}},
+        {"key": "asterisk", "label": "Asterisk ساده", "note": "context و پایگاه CDR را مطابق extensions.conf و cdr_adaptive_odbc خودتان بگذارید.",
+         "values": {"originate_context": "default", "originate_channel": "Local/{extension}@default",
+                    "cdr_table": "cdr", "internal_extension_max_length": 4}},
+    )
     fields = (
         ConfigField("ami_host", "نشانی AMI", required=True, placeholder="10.0.0.5", help="میزبان مرکز تلفن؛ درگاه AMI فقط برای نشانی دلفین باز باشد.", ltr=True),
         ConfigField("ami_port", "درگاه AMI", kind="int", default=5038),
