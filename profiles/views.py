@@ -121,3 +121,29 @@ class PersonScoreView(APIView):
         })
         response["Cache-Control"] = "private, no-store"
         return response
+
+
+class PersonAnalysisView(APIView):
+    """`GET profiles/customer/<id>/analysis/` — the customer «آنالیز» tab (2.33.0)."""
+
+    permission_classes = [IsActiveAuthenticated]
+
+    @extend_schema(
+        responses={200: {"type": "object"}, 403: ACCESS_DENIED_RESPONSE, 404: None},
+        description=(
+            "Five figures (`total_purchase`, `total_received`, `debt_balance`, `open_installments`, `next_due`) "
+            "and, for each that has one, a monthly `series` of `{label, value, display}` points. A figure the "
+            "caller may not read is `missing` with the reason, never zero. Customers only; 404 for a customer "
+            "outside the caller's scope or when the deployment has no invoices."
+        ),
+    )
+    def get(self, request, person_type, person_id):
+        from profiles.analysis import customer_analysis
+
+        if person_type != "customer" or not feature_enabled("invoices"):
+            raise Http404()
+        _, person = _visible_or_404(request, person_type, person_id)
+        payload = customer_analysis(request.user, person)
+        response = Response(payload)
+        response["Cache-Control"] = "private, no-store"
+        return response

@@ -142,6 +142,13 @@ class CustomerProfileView(PersonProfileView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["customer_id"] = self.kwargs[self.person_id_kwarg]
+        context["analysis_kpis"] = (
+            ("total_purchase", "مجموع خرید"),
+            ("total_received", "مجموع دریافت‌شده"),
+            ("debt_balance", "مانده بدهی"),
+            ("open_installments", "اقساط باز"),
+            ("next_due", "سررسید بعدی"),
+        )
         return context
 
 

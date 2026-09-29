@@ -238,6 +238,8 @@ class CustomerAdapter(PersonAdapter):
         tabs.extend(_shared_tabs(viewer, capabilities))
         if feature_enabled("attachments"):
             tabs.append(ProfileTab("documents", "اسناد", "ki-file", "profiles/tabs/documents.inc"))
+        if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
+            tabs.append(ProfileTab("analysis", "آنالیز", "ki-chart-simple", "profiles/tabs/customer_analysis.inc", 4))
         return tabs
 
     def quick_actions(self, viewer, person):

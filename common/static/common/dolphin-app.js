@@ -4869,7 +4869,59 @@
             documents: () => {
                 document.querySelectorAll('[data-profile-pane="documents"] [data-attachments-panel]').forEach(setupAttachmentsPanelFor);
             },
+            analysis: () => setupCustomerAnalysis(customerId),
         };
+    }
+
+    // The customer «آنالیز» tab (2.33.0): one request fills five figures; the
+    // box the reader picks decides which monthly series the smooth line draws.
+    async function setupCustomerAnalysis(customerId) {
+        const root = document.getElementById("customer-analysis");
+        if (!root) return;
+        const chart = document.getElementById("customer-analysis-chart");
+        const empty = document.getElementById("customer-analysis-chart-empty");
+        const title = document.getElementById("customer-analysis-chart-title");
+        const note = document.getElementById("customer-analysis-chart-note");
+        const boxes = Array.from(root.querySelectorAll("[data-analysis-kpi]"));
+        let data;
+        try {
+            data = await apiRequest(`/api/v1/profiles/customer/${customerId}/analysis/`);
+        } catch (error) {
+            document.getElementById("customer-analysis-error").hidden = false;
+            throw error;
+        }
+        boxes.forEach((box) => {
+            const kpi = data.kpis[box.dataset.analysisKpi];
+            const value = box.querySelector("[data-analysis-value]");
+            value.textContent = kpi?.display ?? "—";
+            if (kpi?.tooltip) box.title = kpi.tooltip;
+            if (kpi?.overdue) value.classList.add("text-danger");
+        });
+
+        function choose(key) {
+            boxes.forEach((box) => {
+                const on = box.dataset.analysisKpi === key;
+                box.setAttribute("aria-pressed", String(on));
+                box.classList.toggle("border-primary", on);
+            });
+            const box = boxes.find((item) => item.dataset.analysisKpi === key);
+            const series = data.series[key];
+            title.textContent = box.querySelector("[data-analysis-title]").textContent;
+            if (!series) {
+                note.textContent = data.kpis[key]?.tooltip || "";
+                showEmptyChart(chart, empty);
+                return;
+            }
+            note.textContent = series.label;
+            renderAreaChart(chart, empty, series.points, {
+                ariaLabel: `نمودار ${series.label}`,
+                seriesName: series.label,
+                maxLabels: 6,
+            });
+        }
+
+        boxes.forEach((box) => box.addEventListener("click", () => choose(box.dataset.analysisKpi)));
+        choose(data.series.total_purchase ? "total_purchase" : (Object.keys(data.series)[0] || boxes[0].dataset.analysisKpi));
     }
 
     // --- Person profile (2.19.0) ------------------------------------------
