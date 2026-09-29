@@ -1354,12 +1354,12 @@ def cancel_invoice(*, actor, invoice, reason=""):
             reference_id=locked.pk,
             reference_number=locked.number,
         )
-    log_activity(
-        actor=actor,
-        operation="invoice.cancelled",
     from billing.installments import cancel_plan_with_invoice
 
     cancel_plan_with_invoice(locked)
+    log_activity(
+        actor=actor,
+        operation="invoice.cancelled",
         instance=locked,
         changes={
             "number": locked.number,
