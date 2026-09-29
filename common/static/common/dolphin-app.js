@@ -775,6 +775,19 @@
             });
         });
 
+        (data.panels || []).forEach((panel) => {
+            widgets.set(panel.key, {
+                key: panel.key,
+                label: panel.title,
+                family: "panel",
+                data: panel,
+                column: panelCard(panel),
+                size: panel.size,
+                height: panel.height,
+                mount: () => {},
+            });
+        });
+
         if (data.trend) {
             const card = document.getElementById("dashboard-trend-card");
             document.getElementById("dashboard-trend-title").textContent = data.trend.title;
@@ -907,8 +920,219 @@
         // chart here — Apex measures a real element's width, and a freshly
         // created node not yet attached has none.
         widgets.forEach((widget) => widget.mount());
+        widgets.forEach((widget) => fitWidgetChart(widget.column));
 
         return pageState ? {grid, widgets, layout, hiddenAvailable} : null;
+    }
+
+    /**
+     * Make a widget's chart use the room its box has been given.
+     *
+     * A chart is drawn at one fixed height, so a box dragged taller (or
+     * shorter) left the plot the same size with empty card around it (product
+     * owner, 2026-09-29: «وقتی سایزشون عوض میشه اطلاعات توشون هم همراه باهاش
+     * تغییر سایز بدن»). Width already followed: Apex redraws on its parent's
+     * width. Height is worked out here from the box's own minimum height minus
+     * everything in the card that is *not* the chart, so the card stays
+     * exactly as tall as the reader made it and nothing is pushed out.
+     * Observed rather than triggered by the editor, so it also holds after a
+     * reload, a theme switch and a phone rotation.
+     */
+    function fitWidgetChart(column) {
+        const card = column.querySelector(":scope > .card");
+        const host = card && card.querySelector("[id$='-chart'], .dashboard-gauge-canvas");
+        if (!host || column.dataset.chartFit) return;
+        column.dataset.chartFit = "1";
+        let base = null;
+        let frame = 0;
+        const usedAround = () => {
+            let used = 0;
+            let node = host;
+            while (node && node !== card.parentElement) {
+                const parent = node.parentElement;
+                if (!parent) break;
+                for (const sibling of parent.children) {
+                    if (sibling === node) continue;
+                    const style = getComputedStyle(sibling);
+                    if (style.display === "none" || style.position === "absolute") continue;
+                    used += sibling.offsetHeight + parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+                }
+                const box = getComputedStyle(parent);
+                used += parseFloat(box.paddingTop) + parseFloat(box.paddingBottom)
+                    + parseFloat(box.borderTopWidth) + parseFloat(box.borderBottomWidth);
+                if (parent === card) break;
+                node = parent;
+            }
+            const hostStyle = getComputedStyle(host);
+            return used + parseFloat(hostStyle.marginTop) + parseFloat(hostStyle.marginBottom);
+        };
+        const apply = () => {
+            frame = 0;
+            const instance = liveCharts.get(host);
+            if (!instance) return;
+            if (base === null) base = Number(instance.w.config.chart.height) || host.offsetHeight;
+            const minimum = parseFloat(getComputedStyle(card).minHeight) || 0;
+            const target = Math.max(base, Math.floor(minimum - usedAround()));
+            if (Math.abs(target - Number(instance.w.config.chart.height)) < 4) return;
+            instance.updateOptions({chart: {height: target}}, false, false);
+        };
+        const schedule = () => {
+            if (!frame) frame = requestAnimationFrame(apply);
+        };
+        if (typeof ResizeObserver === "function") new ResizeObserver(schedule).observe(card);
+        new MutationObserver(schedule).observe(column, {attributes: true, attributeFilter: ["style"]});
+        schedule();
+    }
+
+    /**
+     * One list or calendar widget (`common.dashboard_panels`): a card with a
+     * header, and either a short list of real rows, a Jalali day, or a month
+     * grid. Same card shell as `kpiCard`, so it sizes, moves and hides with
+     * the rest; the row count it shows follows the box's height through
+     * `--dashboard-min-height`, and the text scales with its width through
+     * the container query in dolphin.css.
+     */
+    function panelCard(panel) {
+        const column = document.createElement("div");
+        column.className = "col-12 col-sm-6 col-xl-4";
+        const card = document.createElement("div");
+        card.className = "card card-flush h-100 dashboard-panel";
+        card.dataset.dashboardPanel = panel.key;
+        const body = document.createElement("div");
+        body.className = "card-body d-flex flex-column py-6";
+
+        const head = document.createElement("div");
+        head.className = "d-flex align-items-center justify-content-between gap-3 mb-4";
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "d-flex align-items-center gap-3 min-w-0";
+        const symbol = document.createElement("span");
+        symbol.className = "symbol symbol-40px flex-shrink-0";
+        const symbolLabel = document.createElement("span");
+        symbolLabel.className = `symbol-label bg-light-${panel.accent}`;
+        const icon = document.createElement("i");
+        icon.className = `ki-duotone ${panel.icon} fs-2 text-${panel.accent}`;
+        for (let index = 1; index <= (panel.icon_paths || 2); index += 1) {
+            icon.appendChild(document.createElement("span")).className = `path${index}`;
+        }
+        symbolLabel.appendChild(icon);
+        symbol.appendChild(symbolLabel);
+        const title = document.createElement("h2");
+        title.className = "dashboard-panel-title fw-bold text-gray-900 mb-0 text-truncate";
+        title.textContent = panel.title;
+        titleWrap.append(symbol, title);
+        head.appendChild(titleWrap);
+        if (panel.kind !== "calendar" && panel.count) {
+            const badge = document.createElement("span");
+            badge.className = `badge badge-light-${panel.accent} flex-shrink-0`;
+            badge.textContent = `${toPersianDigits(String(panel.count))} ${panel.count_label}`;
+            head.appendChild(badge);
+        } else if (panel.kind === "calendar") {
+            const month = document.createElement("span");
+            month.className = "text-muted fw-semibold fs-7 flex-shrink-0";
+            month.textContent = `${panel.month_name} ${panel.year}`;
+            head.appendChild(month);
+        }
+        body.appendChild(head);
+
+        if (panel.kind === "calendar") {
+            body.appendChild(calendarGrid(panel));
+        } else {
+            if (panel.kind === "agenda") {
+                const today = document.createElement("div");
+                today.className = "dashboard-agenda-date d-flex align-items-baseline gap-2 mb-3";
+                const day = document.createElement("span");
+                day.className = "dashboard-agenda-day fw-bolder text-gray-900 lh-1";
+                day.textContent = panel.day;
+                const rest = document.createElement("span");
+                rest.className = "text-gray-700 fw-semibold";
+                rest.textContent = `${panel.weekday}، ${panel.month_name} ${panel.year}`;
+                today.append(day, rest);
+                body.appendChild(today);
+            }
+            body.appendChild(panelList(panel));
+        }
+        if (panel.url && panel.kind !== "calendar") {
+            const more = document.createElement("a");
+            more.className = "text-primary fw-semibold fs-8 text-decoration-none mt-auto pt-3";
+            more.href = panel.url;
+            more.textContent = "همه";
+            body.appendChild(more);
+        }
+        card.appendChild(body);
+        column.appendChild(card);
+        return column;
+    }
+
+    function panelList(panel) {
+        if (!panel.items.length) {
+            const empty = document.createElement("p");
+            empty.className = "text-center text-gray-600 fs-7 py-8 mb-0";
+            empty.textContent = panel.empty;
+            return empty;
+        }
+        const list = document.createElement("ul");
+        list.className = "dashboard-panel-list list-unstyled mb-0";
+        panel.items.forEach((item) => {
+            const row = document.createElement("li");
+            row.className = "dashboard-panel-row d-flex align-items-center justify-content-between gap-3";
+            const text = document.createElement(item.url ? "a" : "div");
+            text.className = "min-w-0 flex-grow-1 text-decoration-none";
+            if (item.url) text.href = item.url;
+            if (item.time) {
+                const time = document.createElement("span");
+                time.className = "text-muted fs-8 d-block";
+                time.textContent = item.time;
+                text.appendChild(time);
+            }
+            const name = document.createElement("span");
+            name.className = `fw-semibold text-gray-900 d-block text-truncate${item.url ? " text-hover-primary" : ""}`;
+            name.textContent = item.title;
+            const meta = document.createElement("span");
+            meta.className = "text-muted fs-8 d-block text-truncate";
+            meta.textContent = item.meta || "";
+            text.append(name, meta);
+            row.appendChild(text);
+            if (item.badge) {
+                const badge = document.createElement("span");
+                badge.className = `badge badge-light-${item.tone || "primary"} flex-shrink-0`;
+                badge.textContent = item.badge;
+                row.appendChild(badge);
+            }
+            list.appendChild(row);
+        });
+        return list;
+    }
+
+    function calendarGrid(panel) {
+        const grid = document.createElement("div");
+        grid.className = "dashboard-calendar";
+        grid.setAttribute("role", "grid");
+        grid.setAttribute("aria-label", `${panel.month_name} ${panel.year}`);
+        panel.weekdays.forEach((name) => {
+            const cell = document.createElement("span");
+            cell.className = "dashboard-calendar-weekday text-muted fw-semibold";
+            cell.textContent = name;
+            grid.appendChild(cell);
+        });
+        for (let blank = 0; blank < panel.offset; blank += 1) {
+            grid.appendChild(document.createElement("span"));
+        }
+        const marked = new Set(panel.marked);
+        for (let day = 1; day <= panel.days_in_month; day += 1) {
+            const cell = document.createElement("span");
+            cell.className = "dashboard-calendar-day";
+            cell.textContent = toPersianDigits(String(day));
+            if (marked.has(day)) {
+                cell.classList.add("has-task");
+                cell.title = "وظیفهٔ باز دارد";
+            }
+            if (day === panel.today) {
+                cell.classList.add("is-today");
+                cell.setAttribute("aria-current", "date");
+            }
+            grid.appendChild(cell);
+        }
+        return grid;
     }
 
     /**
@@ -964,6 +1188,13 @@
                 ? toPersianDigits(String(data.value ?? 0))
                 : (data.display || "—");
             host.append(symbol, figure);
+            return;
+        }
+        if (entry.family === "panel") {
+            const wrap = document.createElement("div");
+            wrap.className = "w-100";
+            wrap.appendChild(panelCard({...data, url: null}).querySelector(".card-body"));
+            host.appendChild(wrap);
             return;
         }
         const chart = document.createElement("div");
@@ -1925,11 +2156,11 @@
         top.appendChild(symbol);
 
         const value = document.createElement("span");
-        value.className = "text-gray-900 fw-bolder fs-2hx lh-1";
+        value.className = "dashboard-kpi-value text-gray-900 fw-bolder lh-1";
         value.textContent = kpi.display;
 
         const label = document.createElement("span");
-        label.className = "text-gray-700 fw-semibold fs-7 mt-2";
+        label.className = "dashboard-kpi-label text-gray-700 fw-semibold mt-2";
         label.textContent = kpi.label;
 
         // A month/week-over-month change reads its direction from a sentence
@@ -1999,7 +2230,7 @@
         label.textContent = gauge.label;
 
         const canvas = document.createElement("div");
-        canvas.className = "w-100";
+        canvas.className = "w-100 dashboard-gauge-canvas";
         canvas.setAttribute("role", "img");
 
         const empty = document.createElement("p");

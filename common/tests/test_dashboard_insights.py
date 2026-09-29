@@ -486,7 +486,7 @@ class ApiTests(DashboardFixtures):
         # dialog's preview (`common.dashboard_layout._hidden_available`).
         self.assertEqual(
             set(response.data),
-            {"kpis", "trend", "breakdown", "gauges", "agent_share", "hidden_available", "layout"},
+            {"kpis", "panels", "trend", "breakdown", "gauges", "agent_share", "hidden_available", "layout"},
         )
         self.assertEqual(
             set(response.data["layout"]),

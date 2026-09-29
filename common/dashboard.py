@@ -34,6 +34,7 @@ from aftersales.selectors import after_sales_requests_for
 from billing.selectors import invoices_for
 from common import formatting
 from common.dashboard_layout import apply_layout
+from common.dashboard_panels import panels_for
 from common.preferences import effective_preferences
 from common.deployment.profile import feature_enabled
 from sales.models import Lead, Sale
@@ -508,4 +509,5 @@ def dashboard_for(user, *, now=None):
     # See `common.dashboard_layout`.
     return apply_layout({
         "kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges, "agent_share": agent_share,
+        "panels": panels_for(user, now=now),
     }, user)

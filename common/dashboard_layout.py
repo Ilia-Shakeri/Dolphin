@@ -54,6 +54,11 @@ WIDGET_CATALOG = [
     ("receivables_collection_rate", "گیج نرخ وصول مطالبات", "فاکتور"),
     ("after_sales_closure_rate", "گیج نرخ بسته‌شدن پرونده‌ها", "خدمات پس از فروش"),
     ("agent_share", "سهم هر بازاریاب از فروش", "فروش"),
+    ("panel_tasks", "وظایف من", "وظایف"),
+    ("panel_chat", "گفتگوهای اخیر", "گفتگوی داخلی"),
+    ("panel_agenda", "برنامهٔ امروز", "یادآورها"),
+    ("panel_calendar", "تقویم ماه", "وظایف"),
+    ("panel_calls", "تماس‌های اخیر", "تلفن"),
 ]
 
 WIDGET_KEYS = frozenset(key for key, _label, _feature in WIDGET_CATALOG)
@@ -143,6 +148,11 @@ DEFAULT_WIDGET_SIZES = {
     "trend": "half",
     "breakdown": "third",
     "agent_share": "full",
+    "panel_tasks": "third",
+    "panel_chat": "third",
+    "panel_agenda": "third",
+    "panel_calendar": "third",
+    "panel_calls": "third",
 }
 FALLBACK_WIDGET_SIZE = "quarter"
 
@@ -491,8 +501,12 @@ def apply_layout(dashboard_payload, user=None):
     else:
         agent_share = None
 
+    panels = [_sized(panel) for panel in dashboard_payload.get("panels", []) if panel["key"] not in hidden]
+    panels = _ordered(panels, key_of=lambda panel: panel["key"], order=order)
+
     return {
         "kpis": kpis,
+        "panels": panels,
         "trend": trend,
         "breakdown": breakdown,
         "gauges": gauges,
@@ -533,6 +547,9 @@ def _hidden_available(dashboard_payload, layout):
     for gauge in dashboard_payload["gauges"]:
         if gauge["key"] in reader_hidden:
             available.append({"family": "gauge", **gauge, "size": size_class(gauge["key"], sizes)})
+    for panel in dashboard_payload.get("panels", []):
+        if panel["key"] in reader_hidden:
+            available.append({**panel, "size": size_class(panel["key"], sizes)})
     for key, family in _SINGLE_PARTS:
         part = dashboard_payload[key]
         if part is not None and key in reader_hidden:
