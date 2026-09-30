@@ -1,8 +1,8 @@
 """A person's own picture, and the cartoon one they get until they upload it.
 
 Product-owner request 2026-09-20: «برای بازاریاب‌ها آپلود عکس پروفایل مثل
-پنل مترونیک، با برش/تغییر اندازه و محدودیت حجم و فرمت؛ به‌صورت پیش‌فرض از
-آواتارهای کارتونی مترونیک استفاده شود».
+پنل قالب مرجع، با برش/تغییر اندازه و محدودیت حجم و فرمت؛ به‌صورت پیش‌فرض از
+آواتارهای کارتونی پیش‌فرض استفاده شود».
 
 **Stored in the row, not on disk.** `UserAvatar.content` is a `BinaryField`,
 exactly as `common.models.BrandSettings.logo_content` already is, and for the

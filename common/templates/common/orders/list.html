@@ -56,7 +56,7 @@
 {% include "common/includes/list_charts.inc" with chart_key="orders" %}
 <dialog id="create-order-dialog" aria-labelledby="create-order-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">سفارش تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-{% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ مترونیک (همان `DolphinStepper` واقعی
+{% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ کیت (همان `DolphinStepper` واقعی
    که فاکتور تازه هم از آن استفاده می‌کند). کالا دیگر یک ردیف ثابت نیست: همان
    افزودن‌ردیفِ فاکتور اینجا هم هست، پس چند کالا از همین‌جا قابل ثبت است و
    سطرهای بعدی همچنان از صفحهٔ جزئیات هم قابل افزودن‌اند.
@@ -101,7 +101,7 @@
                 <h3 class="fs-4 fw-bold text-gray-900 mb-2">اقلام سفارش</h3>
                 <p class="text-muted fs-7 mb-6">کالا را جست‌وجو کنید و تعدادش را بگذارید. هر سطر یک قلم است؛ سطرهای بیشتر را پس از ثبت هم می‌شود از صفحهٔ جزئیات اضافه کرد.</p>
                 {% comment %} یک سرستون بالای همهٔ ردیف‌ها، نه برچسب روی تک‌تکشان —
-                   همان کاری که مرجع repeater خود مترونیک می‌کند. ستون‌ها با
+                   همان کاری که مرجع repeater خودِ کیت می‌کند. ستون‌ها با
                    `.wizard-line-row` یک شبکهٔ مشترک‌اند، پس سرستون و ردیف
                    هرگز از هم جدا نمی‌افتند. در موبایل سرستون کنار می‌رود و هر
                    سلول برچسب خودش را می‌گیرد. {% endcomment %}

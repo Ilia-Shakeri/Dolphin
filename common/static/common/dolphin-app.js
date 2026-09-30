@@ -15753,8 +15753,8 @@
     /* --- the profile picture ------------------------------------------------
 
        Product owner, 2026-09-20: «آپلود عکس پروفایل برای بازاریاب‌ها مثل پنل
-       مترونیک، با برش/تغییر اندازه و محدودیت حجم و فرمت؛ به‌صورت پیش‌فرض از
-       آواتارهای کارتونی مترونیک استفاده شود».
+       قالب مرجع، با برش/تغییر اندازه و محدودیت حجم و فرمت؛ به‌صورت پیش‌فرض از
+       آواتارهای کارتونی پیش‌فرض استفاده شود».
 
        The crop and the resize happen here, in a canvas, before anything is
        sent: a photo straight off a phone is three or four megabytes and the

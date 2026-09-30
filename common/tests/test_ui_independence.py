@@ -23,7 +23,7 @@ TEMPLATES = ROOT / "common" / "templates" / "common"
 
 # Built from pieces so this file does not itself carry the names it forbids.
 REFERENCE_FOLDER = "metro" + "nic"
-VENDOR_NAMES = (REFERENCE_FOLDER, "keen" + "themes", "keen" + "icons")
+VENDOR_NAMES = (REFERENCE_FOLDER, "keen" + "themes", "keen" + "icons", "متر" + "ونیک")
 VENDOR_TOKENS = re.compile(r"data-" r"kt-|(?<![A-Za-z0-9_])KT[A-Z][a-z]|(?<![A-Za-z0-9_])kt_[a-z]")
 
 SKIPPED_DIRECTORIES = {
