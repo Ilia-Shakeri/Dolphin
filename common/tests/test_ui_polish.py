@@ -17,3 +17,12 @@ class UiPolishTests(SimpleTestCase):
         self.assertIn('.btn[aria-busy="true"]', css)
         self.assertIn("function setupBusyButtons(", APP_JS.read_text(encoding="utf-8"))
 
+
+    def test_motion_tokens_and_reduced_motion(self):
+        css = APP_CSS.read_text(encoding="utf-8")
+        for token in ("--dolphin-dur-fast:", "--dolphin-dur:", "--dolphin-ease:"):
+            self.assertIn(token, css)
+        source = APP_JS.read_text(encoding="utf-8")
+        self.assertNotIn("behavior: \"smooth\"", source)
+        self.assertIn("function motionBehavior(", source)
+

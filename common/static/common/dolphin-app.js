@@ -67,6 +67,12 @@
         return payload;
     }
 
+    // Scrolling that glides for most people and jumps for anyone who asked
+    // their system for reduced motion.
+    function motionBehavior() {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    }
+
     function globalMessage(message, success = false) {
         const node = document.getElementById("global-message");
         if (!node) return;
@@ -319,7 +325,7 @@
             const group = link.closest(".menu-item.menu-accordion");
             window.setTimeout(() => {
                 if (group.classList.contains("show")) {
-                    group.scrollIntoView({behavior: "smooth", block: "nearest"});
+                    group.scrollIntoView({behavior: motionBehavior(), block: "nearest"});
                 }
             }, 300);
         });
@@ -5001,7 +5007,7 @@
         function focusField(id) {
             const field = id && document.getElementById(id);
             if (!field) return;
-            field.scrollIntoView({block: "center", behavior: "smooth"});
+            field.scrollIntoView({block: "center", behavior: motionBehavior()});
             field.focus({preventScroll: true});
         }
 
@@ -5059,7 +5065,7 @@
                 Promise.resolve(ready).then(() => focusField(link.dataset.focus));
             } else {
                 document.getElementById(`profile-tab-${link.dataset.profileTabLink}`)
-                    ?.scrollIntoView({block: "nearest", behavior: "smooth"});
+                    ?.scrollIntoView({block: "nearest", behavior: motionBehavior()});
             }
         });
 
@@ -9348,7 +9354,7 @@
             document.getElementById("inbound-sms-detail-metadata").textContent = JSON.stringify(item.metadata, null, 2);
             const detail = document.getElementById("inbound-sms-message-detail");
             detail.hidden = false;
-            detail.scrollIntoView({behavior: "smooth", block: "start"});
+            detail.scrollIntoView({behavior: motionBehavior(), block: "start"});
         } catch (error) {
             showError(error);
         }
