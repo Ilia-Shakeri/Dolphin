@@ -119,6 +119,25 @@ require_deployment_directory() {
     resolve_env_file
     note "env file: $ENV_FILE"
     COMPOSE="docker compose --env-file $ENV_FILE"
+    if [ -n "${DOLPHIN_COMPOSE_OVERLAY_FILES:-}" ]; then
+        COMPOSE="$COMPOSE -f compose.yml"
+        for file in $DOLPHIN_COMPOSE_OVERLAY_FILES; do
+            [ -f "$file" ] || fail "DOLPHIN_COMPOSE_OVERLAY_FILES names $file, which does not exist here."
+            COMPOSE="$COMPOSE -f $file"
+        done
+    fi
+}
+
+# A deployment can sit behind a reverse proxy that is not part of this stack —
+# one shared edge nginx serving several sites on the same host. Set
+# DOLPHIN_EXTERNAL_EDGE=1 (and DOLPHIN_COMPOSE_OVERLAY_FILES="compose.edge.yml" for
+# the overlay that wires the shared proxy) and this script leaves nginx and the
+# TLS files alone: it does not validate or recreate the stack's own nginx, does
+# not insist that port 80 be free, and never starts the stack's nginx service.
+# The shared proxy resolves `web` when it starts, so reload it after a release
+# (the last line of the release says so).
+external_edge() {
+    [ "${DOLPHIN_EXTERNAL_EDGE:-0}" = "1" ]
 }
 
 show_status() {
@@ -178,6 +197,7 @@ check_nginx_config_is_valid() {
 }
 
 apply_nginx_config() {
+    external_edge && return 0
     current="$(nginx_config_fingerprint)"
     applied="$(cat "$NGINX_STATE_FILE" 2>/dev/null || true)"
     if [ "$current" != "$applied" ]; then
@@ -330,6 +350,7 @@ check_manifest_and_tls_files_are_readable() {
         esac
     fi
     for variable in DOLPHIN_TLS_CERT_PATH DOLPHIN_TLS_KEY_PATH; do
+        external_edge && break
         path="$(env_value "$variable")"
         [ -n "$path" ] || continue
         [ -f "$path" ] || fail "$variable ($path) does not exist."
@@ -352,10 +373,16 @@ deploy() {
 
     check_image_exists "$image"
     check_image_version_matches_tag "$image"
-    check_nginx_config_is_current
-    check_nginx_config_is_valid
+    if external_edge; then
+        note "external edge mode: leaving nginx, port 80 and the TLS files to the shared proxy"
+    else
+        check_nginx_config_is_current
+        check_nginx_config_is_valid
+    fi
     check_manifest_and_tls_files_are_readable
-    check_ports_are_free
+    if ! external_edge; then
+        check_ports_are_free
+    fi
     check_database_is_not_shared
     if [ "$SKIP_BACKUP" -eq 0 ]; then
         check_backup_volume_is_prepared
@@ -409,7 +436,11 @@ deploy() {
     $COMPOSE run --rm -T db-finalize
 
     note "starting the stack"
-    $COMPOSE up -d
+    if external_edge; then
+        $COMPOSE up -d --scale nginx=0
+    else
+        $COMPOSE up -d
+    fi
     apply_nginx_config
     reload_nginx_upstream
     recreate_integrations_worker
@@ -430,6 +461,10 @@ deploy() {
 # answers 503 "Service unavailable" while the application is healthy. A reload
 # is cheap, drops no connection, and makes nginx resolve the name again.
 reload_nginx_upstream() {
+    if external_edge; then
+        note "the shared proxy resolves the web container when it starts: run  docker exec edge-nginx-1 nginx -s reload  (or your edge's own reload) now."
+        return 0
+    fi
     note "reloading nginx so it resolves the new web container"
     $COMPOSE exec -T nginx nginx -s reload >/dev/null 2>&1 \
         || fail "nginx did not reload. The application may be healthy but unreachable: $COMPOSE restart nginx"

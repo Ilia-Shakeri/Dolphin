@@ -126,3 +126,20 @@ class PrepareBackupVolumeScriptTests(SimpleTestCase):
     def test_the_script_is_syntactically_valid_posix_sh(self):
         result = subprocess.run(["sh", "-n", str(self.SCRIPT)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+class ExternalEdgeModeTests(SimpleTestCase):
+    """A deployment behind a shared reverse proxy must not touch nginx or port 80."""
+
+    def test_external_edge_skips_the_stacks_own_nginx_and_never_starts_it(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("external_edge() {", text)
+        self.assertIn("DOLPHIN_EXTERNAL_EDGE:-0", text)
+        self.assertIn("$COMPOSE up -d --scale nginx=0", text)
+        self.assertIn("external_edge && return 0", text)
+        self.assertIn("if ! external_edge; then", text)
+
+    def test_overlay_files_are_added_after_the_base_compose_file(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('COMPOSE="$COMPOSE -f compose.yml"', text)
+        self.assertIn("DOLPHIN_COMPOSE_OVERLAY_FILES", text)
