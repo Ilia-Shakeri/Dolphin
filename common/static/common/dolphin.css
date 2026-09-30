@@ -4261,9 +4261,37 @@ dialog.dolphin-confirm {
 /* A new page's content eases in instead of appearing whole. Opacity plus a few
    pixels of rise, 180ms, run once at load; `backwards` fill means no transform
    is left behind afterwards (a lingering one would trap fixed descendants). */
-@media (prefers-reduced-motion: no-preference) {
+@supports not (view-transition-name: none) {
+  @media (prefers-reduced-motion: no-preference) {
     #kt_app_content_container {
         animation: dolphin-page-in 180ms var(--dolphin-ease) backwards;
+    }
+  }
+}
+
+/* Where the browser supports cross-document view transitions (Chromium,
+   Safari 18.2+) a link click keeps the old page on screen until the new one is
+   ready to paint and then cross-fades — no white flash, no half-loaded frame —
+   while the sidebar and header, which are the same on every page, stay put
+   instead of fading with the content. Other browsers ignore all of this and
+   use the entry animation above. */
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+        navigation: auto;
+    }
+
+    #app-sidebar {
+        view-transition-name: dolphin-sidebar;
+    }
+
+    #kt_app_header {
+        view-transition-name: dolphin-header;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation-duration: var(--dolphin-dur);
+        animation-timing-function: var(--dolphin-ease);
     }
 
     @keyframes dolphin-page-in {

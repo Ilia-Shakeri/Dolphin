@@ -30,6 +30,6 @@ class UiPolishTests(SimpleTestCase):
     def test_header_badges_use_the_shared_visible_only_poll(self):
         source = APP_JS.read_text(encoding="utf-8")
         self.assertIn("function keepBadgeFresh(", source)
-        self.assertEqual(source.count("keepBadgeFresh({"), 2)
+        self.assertEqual(source.count("keepBadgeFresh({url:"), 2)
         self.assertNotIn("setInterval(pollCount", source)
 
