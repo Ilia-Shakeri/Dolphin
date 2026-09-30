@@ -156,6 +156,54 @@
     }
 
     /**
+     * The one confirmation dialog. It replaces the browser's own `confirm()`,
+     * which is grey, blocks the page, ignores the app's font and direction and
+     * cannot mark a destructive choice. Resolves true only on the confirm
+     * button; Escape, the backdrop and «انصراف» all resolve false.
+     */
+    const DESTRUCTIVE_WORDS = /حذف|باطل|ابطال|لغو|غیرفعال|پایان|آزاد|بسته/;
+    let confirmDialogNode = null;
+    function confirmDialog(message) {
+        if (!confirmDialogNode) {
+            const dialog = document.createElement("dialog");
+            dialog.id = "dolphin-confirm-dialog";
+            dialog.className = "dolphin-confirm";
+            dialog.setAttribute("aria-labelledby", "dolphin-confirm-title");
+            dialog.innerHTML = '<h2 id="dolphin-confirm-title" class="fs-4 fw-bold mb-3">تأیید</h2>'
+                + '<p class="dolphin-confirm-text text-gray-700 mb-0"></p>'
+                + '<div class="d-flex justify-content-end gap-3 mt-6">'
+                + '<button class="btn btn-light" type="button" data-confirm-cancel>انصراف</button>'
+                + '<button class="btn btn-primary" type="button" data-confirm-ok>تأیید</button></div>';
+            document.body.appendChild(dialog);
+            confirmDialogNode = dialog;
+        }
+        const dialog = confirmDialogNode;
+        const text = String(message);
+        dialog.querySelector(".dolphin-confirm-text").textContent = text;
+        const ok = dialog.querySelector("[data-confirm-ok]");
+        const danger = DESTRUCTIVE_WORDS.test(text);
+        ok.className = "btn " + (danger ? "btn-danger" : "btn-primary");
+        return new Promise((resolve) => {
+            let answer = false;
+            const cleanup = () => {
+                dialog.removeEventListener("close", onClose);
+                dialog.removeEventListener("click", onClick);
+                resolve(answer);
+            };
+            const onClose = () => cleanup();
+            const onClick = (event) => {
+                if (event.target === dialog) { dialog.close(); return; }
+                if (event.target.closest("[data-confirm-ok]")) { answer = true; dialog.close(); }
+                else if (event.target.closest("[data-confirm-cancel]")) dialog.close();
+            };
+            dialog.addEventListener("close", onClose);
+            dialog.addEventListener("click", onClick);
+            dialog.showModal();
+            (danger ? dialog.querySelector("[data-confirm-cancel]") : ok).focus();
+        });
+    }
+
+    /**
      * Keep `aria-expanded` truthful on the sidebar toggle.
      *
      * Opening and closing the sidebar itself is the theme's drawer
@@ -492,7 +540,7 @@
         }
 
         revokeOthers.addEventListener("click", async () => {
-            if (!window.confirm("همه نشست‌های دیگر شما پایان یابد؟")) return;
+            if (!await confirmDialog("همه نشست‌های دیگر شما پایان یابد؟")) return;
             revokeOthers.disabled = true;
             clearMessages();
             try {
@@ -2549,7 +2597,7 @@
         });
 
         resetButton.addEventListener("click", async () => {
-            if (!window.confirm("مجوزهای اختصاصی این کاربر حذف و به پیش‌فرض نقشش بازگردانده شود؟")) return;
+            if (!await confirmDialog("مجوزهای اختصاصی این کاربر حذف و به پیش‌فرض نقشش بازگردانده شود؟")) return;
             resetButton.disabled = true;
             try {
                 current = await apiRequest(`/api/v1/users/${userId}/permissions/reset/`, {method: "POST", body: {}});
@@ -2617,7 +2665,7 @@
         }
 
         revoke.addEventListener("click", async () => {
-            if (!window.confirm("همه نشست‌های فعال این کاربر پایان یابد؟")) return;
+            if (!await confirmDialog("همه نشست‌های فعال این کاربر پایان یابد؟")) return;
             revoke.disabled = true;
             clearMessages();
             try {
@@ -3573,7 +3621,7 @@
             // for by name (nothing here should surprise the admin clicking
             // it), so the warning names the alternative right where the
             // decision is made rather than only in documentation.
-            if (!window.confirm(
+            if (!await confirmDialog(
                 `${count} مورد برای همیشه حذف شود؟ این کار قابل بازگشت نیست. رکوردی که سابقهٔ دیگری به آن وابسته است حذف نخواهد شد. اگر مطمئن نیستید، به‌جای حذف، از غیرفعال‌سازی در همان صفحهٔ رکورد استفاده کنید.`
             )) return;
             try {
@@ -4350,7 +4398,7 @@
             button.className = "btn btn-sm btn-light-danger";
             button.textContent = "حذف";
             button.addEventListener("click", async () => {
-                if (!window.confirm("این پیوست برای همیشه حذف شود؟")) return;
+                if (!await confirmDialog("این پیوست برای همیشه حذف شود؟")) return;
                 try {
                     await apiRequest(`/api/v1/attachments/${item.id}/delete/`, {method: "POST"});
                     await loadAttachments(panel);
@@ -4665,7 +4713,7 @@
                 const nextActive = activeSelect.value === "true";
                 if (nextActive === Boolean(customer.is_active)) return;
                 const question = nextActive ? "این مشتری دوباره فعال شود؟" : "این مشتری غیرفعال شود؟";
-                if (!window.confirm(question)) {
+                if (!await confirmDialog(question)) {
                     activeSelect.value = String(Boolean(customer.is_active));
                     return;
                 }
@@ -4711,7 +4759,7 @@
             }
 
             async function deactivatePhone(phone, button) {
-                if (!window.confirm("این تلفن غیرفعال شود؟")) return;
+                if (!await confirmDialog("این تلفن غیرفعال شود؟")) return;
                 button.disabled = true;
                 clearMessages();
                 try {
@@ -5402,7 +5450,7 @@
         const toggle = document.getElementById("toggle-user-active");
         toggle.addEventListener("click", async () => {
             const nextActive = toggle.dataset.nextActive === "true";
-            if (!window.confirm(nextActive ? "این کاربر دوباره فعال شود؟" : "این کاربر غیرفعال شود؟")) return;
+            if (!await confirmDialog(nextActive ? "این کاربر دوباره فعال شود؟" : "این کاربر غیرفعال شود؟")) return;
             clearMessages();
             toggle.disabled = true;
             try {
@@ -5544,7 +5592,7 @@
         let currentPage = 1;
 
         async function act(task, verb, button) {
-            if (verb === "cancel" && !window.confirm("این وظیفه لغو شود؟")) return;
+            if (verb === "cancel" && !await confirmDialog("این وظیفه لغو شود؟")) return;
             button.disabled = true;
             clearMessages();
             try {
@@ -5778,7 +5826,7 @@
                 remove.className = "btn btn-sm btn-light-danger";
                 remove.textContent = "حذف";
                 remove.addEventListener("click", async () => {
-                    if (!window.confirm("این یادداشت برای همیشه حذف شود؟")) return;
+                    if (!await confirmDialog("این یادداشت برای همیشه حذف شود؟")) return;
                     remove.disabled = true;
                     clearMessages();
                     try {
@@ -8329,7 +8377,7 @@
         toggle?.addEventListener("click", async () => {
             const action = category.is_active ? "deactivate" : "reactivate";
             const prompt = category.is_active ? "این دسته‌بندی غیرفعال شود؟" : "این دسته‌بندی دوباره فعال شود؟";
-            if (!window.confirm(prompt)) return;
+            if (!await confirmDialog(prompt)) return;
             toggle.disabled = true;
             try {
                 category = await apiRequest(`${endpoint}${action}/`, {method: "POST"});
@@ -8536,7 +8584,7 @@
             const nextActive = activeSelect.value === "true";
             if (nextActive === Boolean(product.is_active)) return;
             const question = nextActive ? "این محصول دوباره فعال شود؟" : "این محصول غیرفعال شود؟";
-            if (!window.confirm(question)) {
+            if (!await confirmDialog(question)) {
                 activeSelect.value = String(Boolean(product.is_active));
                 return;
             }
@@ -9011,7 +9059,7 @@
             });
         });
         document.getElementById("deactivate-sales-document")?.addEventListener("click", async () => {
-            if (!window.confirm("این سند غیرفعال شود؟ تاریخچه پاک نمی‌شود.")) return;
+            if (!await confirmDialog("این سند غیرفعال شود؟ تاریخچه پاک نمی‌شود.")) return;
             try { item = await apiRequest(`${endpoint}deactivate/`, {method: "POST"}); fillSalesDocument(item); globalMessage("سند غیرفعال شد.", true); } catch (error) { showError(error); }
         });
     }
@@ -9957,7 +10005,7 @@
         if (assignForm) {
             try { fillSelect(document.getElementById("after-sales-to-user"), await loadAllPages("/api/v1/after-sales/assignees/"), (user) => user.display, "مسئول را انتخاب کنید"); } catch (error) { showError(error); }
             assignForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(assignForm, async () => { item = await apiRequest(assignForm.action, {method: "POST", body: formPayload(assignForm, ["to_user", "reason"])}); fillAfterSales(item); assignForm.reset(); await loadAfterSalesHistory(id); globalMessage("پرونده تخصیص یافت.", true); }); });
-            document.getElementById("close-after-sales").addEventListener("click", async () => { if (!window.confirm("پرونده بسته شود؟ بازگشایی هنوز تصویب نشده.")) return; try { item = await apiRequest(`${endpoint}close/`, {method: "POST", body: {}}); fillAfterSales(item); await loadAfterSalesHistory(id); globalMessage("پرونده بسته شد.", true); } catch (error) { showError(error); } });
+            document.getElementById("close-after-sales").addEventListener("click", async () => { if (!await confirmDialog("پرونده بسته شود؟ بازگشایی هنوز تصویب نشده.")) return; try { item = await apiRequest(`${endpoint}close/`, {method: "POST", body: {}}); fillAfterSales(item); await loadAfterSalesHistory(id); globalMessage("پرونده بسته شد.", true); } catch (error) { showError(error); } });
         }
     }
 
@@ -12353,7 +12401,7 @@
         toggle?.addEventListener("click", async () => {
             const action = warehouse.is_active ? "deactivate" : "reactivate";
             const prompt = warehouse.is_active ? "این انبار غیرفعال شود؟" : "این انبار دوباره فعال شود؟";
-            if (!window.confirm(prompt)) return;
+            if (!await confirmDialog(prompt)) return;
             toggle.disabled = true;
             try {
                 warehouse = await apiRequest(`${endpoint}${action}/`, {method: "POST"});
@@ -13605,7 +13653,7 @@
         document.querySelectorAll(`[data-${attribute}-transition]`).forEach((button) => {
             button.addEventListener("click", async () => {
                 const target = button.dataset[`${attribute}Transition`];
-                if (!window.confirm(`وضعیت سند به «${labelled(DOCUMENT_STATUS_TEXT, target)}» تغییر کند؟`)) return;
+                if (!await confirmDialog(`وضعیت سند به «${labelled(DOCUMENT_STATUS_TEXT, target)}» تغییر کند؟`)) return;
                 button.disabled = true;
                 clearMessages();
                 try {
@@ -13716,7 +13764,7 @@
             const next = statusSelect.value;
             if (!current || next === current.status) return;
             const label = labelled(DOCUMENT_STATUS_TEXT, next);
-            if (!window.confirm(`وضعیت سفارش به «${label}» تغییر کند؟`)) {
+            if (!await confirmDialog(`وضعیت سفارش به «${label}» تغییر کند؟`)) {
                 statusSelect.value = current.status;
                 return;
             }
@@ -13991,7 +14039,7 @@
                 issued: "فاکتور صادر شود؟ پس از صدور، اقلام و مبالغ تغییرناپذیر می‌شوند و بدهکاری مشتری ثبت می‌شود.",
                 cancelled: "فاکتور ابطال شود؟ اثر دفتر حساب برگردانده می‌شود.",
             };
-            if (!window.confirm(questions[next] || "وضعیت فاکتور تغییر کند؟")) {
+            if (!await confirmDialog(questions[next] || "وضعیت فاکتور تغییر کند؟")) {
                 statusSelect.value = current.status;
                 return;
             }
@@ -14850,7 +14898,7 @@
                     release.className = "btn btn-sm btn-light";
                     release.textContent = "آزادکردن";
                     release.addEventListener("click", async () => {
-                        if (!window.confirm("این تخصیص آزاد شود؟")) return;
+                        if (!await confirmDialog("این تخصیص آزاد شود؟")) return;
                         release.disabled = true;
                         try {
                             await apiRequest(`/api/v1/payment-allocations/${allocation.id}/release/`, {method: "POST"});
@@ -17153,7 +17201,7 @@
                     }
                 }),
                 button("حذف", "btn-light-danger", async (node) => {
-                    if (!window.confirm(`اتصال «${integration.name}» حذف شود؟ رمزهای ذخیره‌شده‌اش هم پاک می‌شوند.`)) return;
+                    if (!await confirmDialog(`اتصال «${integration.name}» حذف شود؟ رمزهای ذخیره‌شده‌اش هم پاک می‌شوند.`)) return;
                     node.disabled = true;
                     try {
                         await apiRequest(`/api/v1/integrations/${integration.id}/`, {method: "DELETE"});
@@ -17313,7 +17361,7 @@
                             }
                         }),
                         button("حذف", "btn-light-danger", async (node) => {
-                            if (!window.confirm(`وب‌هوک «${subscription.name}» حذف شود؟`)) return;
+                            if (!await confirmDialog(`وب‌هوک «${subscription.name}» حذف شود؟`)) return;
                             node.disabled = true;
                             try {
                                 await apiRequest(`/api/v1/webhook-subscriptions/${subscription.id}/`, {method: "DELETE"});
@@ -17382,7 +17430,7 @@
                     const actions = document.createElement("td");
                     if (!token.revoked_at) {
                         actions.appendChild(button("باطل کردن", "btn-light-danger", async (node) => {
-                            if (!window.confirm(`توکن «${token.name}» باطل شود؟ هر سامانه‌ای که با آن کار می‌کند فوراً قطع می‌شود.`)) return;
+                            if (!await confirmDialog(`توکن «${token.name}» باطل شود؟ هر سامانه‌ای که با آن کار می‌کند فوراً قطع می‌شود.`)) return;
                             node.disabled = true;
                             try {
                                 await apiRequest(`/api/v1/api-tokens/${token.id}/revoke/`, {method: "POST", body: {}});
@@ -17485,7 +17533,7 @@
                     actions.append(
                         button("ویرایش", "btn-light", () => extensions.open(extension)),
                         button("حذف", "btn-light-danger", async (node) => {
-                            if (!window.confirm(`داخلی ${toPersianDigits(extension.number)} حذف شود؟ تماس‌های گذشته‌اش سر جایشان می‌مانند.`)) return;
+                            if (!await confirmDialog(`داخلی ${toPersianDigits(extension.number)} حذف شود؟ تماس‌های گذشته‌اش سر جایشان می‌مانند.`)) return;
                             node.disabled = true;
                             try {
                                 await apiRequest(`/api/v1/telephony/extensions/${extension.id}/`, {method: "DELETE"});

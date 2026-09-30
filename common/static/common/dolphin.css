@@ -4152,3 +4152,9 @@ details[open] > summary.card-header::after {
     color: var(--bs-white);
     font-weight: 700;
 }
+
+/* The shared confirmation dialog (`confirmDialog` in dolphin-app.js): narrower
+   than a form dialog, since it holds one sentence and two buttons. */
+dialog.dolphin-confirm {
+    width: min(calc(100% - 2rem), 26rem);
+}
