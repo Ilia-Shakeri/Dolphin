@@ -44,8 +44,8 @@ class StaticDeliveryTests(SimpleTestCase):
         self.assertIn("text/css", block)
 
     def test_a_versioned_url_is_cached_for_a_year_and_nothing_else_is(self):
-        self.assertIn('default "public, max-age=31536000, immutable";', NGINX)
-        self.assertIn('""      "no-cache";', NGINX)
+        self.assertIn('~^.+:                              "public, max-age=31536000, immutable";', NGINX)
+        self.assertIn('default                            "no-cache";', NGINX)
         self.assertNotIn("expires -1;", static_location())
 
     def test_the_static_block_keeps_the_servers_security_headers(self):

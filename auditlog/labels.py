@@ -69,6 +69,8 @@ OPERATION_LABELS = {
     "invoice.reissued": "ابطال و صدور مجدد فاکتور",
     "invoice.order_linked": "پیوند فاکتور به سفارش",
     "invoice.manual_paid_entry": "ثبت دستی مبلغ پرداختی",
+    "invoice.installments_changed": "تغییر اقساط فاکتور",
+    "postal_shipment.created": "ثبت مرسوله پستی",
     # --- دریافت و پرداخت ----------------------------------------------------
     "payment.registered": "ثبت سند مالی",
     "payment.allocated": "تخصیص دریافت به فاکتور",

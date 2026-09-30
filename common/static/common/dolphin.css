@@ -4248,7 +4248,7 @@ dialog.dolphin-confirm {
 /* A pressed button gives a little (2%) — the thing you touched moves under your
    finger. The transition list restates the theme's own four properties and adds
    transform, since a `transition` declaration replaces rather than extends. */
-.btn {
+body .btn {
     transition: color var(--dolphin-dur) var(--dolphin-ease), background-color var(--dolphin-dur) var(--dolphin-ease),
         border-color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease),
         transform var(--dolphin-dur-fast) var(--dolphin-ease);
