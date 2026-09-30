@@ -73,6 +73,48 @@
         return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
     }
 
+    //: The last count each header badge showed, kept for this tab so a new page
+    //: paints the badge in its first frame instead of after a round trip. Cleared
+    //: on logout together with the chat cache (`clearChatCache`).
+    const BADGE_CACHE_PREFIX = "dolphin.badge.";
+
+    /**
+     * Keep a header badge truthful without taxing page loads.
+     *
+     * The badge is painted at once from the tab's last known count; the first
+     * real fetch waits for an idle moment (so it never competes with the page's
+     * own requests); a hidden tab makes no requests at all; and a tab that
+     * becomes visible again refreshes only if the last check is older than one
+     * interval.
+     */
+    function keepBadgeFresh({url, intervalMs, key, apply}) {
+        const storageKey = BADGE_CACHE_PREFIX + key;
+        try {
+            const cached = sessionStorage.getItem(storageKey);
+            if (cached !== null) apply(Number(cached));
+        } catch (error) {
+            // Storage refused (private mode): the first fetch paints the badge.
+        }
+        let lastRun = 0;
+        async function tick() {
+            if (document.hidden) return;
+            lastRun = Date.now();
+            try {
+                const data = await apiRequest(url);
+                apply(data.count);
+                try { sessionStorage.setItem(storageKey, String(data.count)); } catch (error) { /* see above */ }
+            } catch (error) {
+                // A missed poll tick is not worth bothering anyone about.
+            }
+        }
+        if (window.requestIdleCallback) window.requestIdleCallback(tick, {timeout: 1500});
+        else window.setTimeout(tick, 300);
+        setInterval(tick, intervalMs);
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden && Date.now() - lastRun > intervalMs) tick();
+        });
+    }
+
     function globalMessage(message, success = false) {
         const node = document.getElementById("global-message");
         if (!node) return;
@@ -17902,19 +17944,9 @@
             }
         }
 
-        async function pollCount() {
-            try {
-                const data = await apiRequest("/api/v1/reminders/count/");
-                setBadge(data.count);
-            } catch (error) {
-                // A missed poll tick is not worth bothering anyone about.
-            }
-        }
-
-        pollCount();
         // Slower than chat's twenty seconds: a due date does not move while
         // someone is looking at it, and this query touches four tables.
-        setInterval(pollCount, 60000);
+        keepBadgeFresh({url: "/api/v1/reminders/count/", intervalMs: 60000, key: "reminders", apply: setBadge});
     }
 
     /**
@@ -17943,7 +17975,7 @@
     function clearChatCache() {
         try {
             Object.keys(sessionStorage)
-                .filter((key) => key.startsWith(CHAT_CACHE_PREFIX))
+                .filter((key) => key.startsWith(CHAT_CACHE_PREFIX) || key.startsWith(BADGE_CACHE_PREFIX))
                 .forEach((key) => sessionStorage.removeItem(key));
         } catch (error) {
             // Storage refused (private mode): there is nothing to clear.
@@ -17952,16 +17984,7 @@
 
     function setupChatUnreadPoll() {
         if (!document.querySelector("[data-chat-unread-badge]")) return;
-        async function poll() {
-            try {
-                const data = await apiRequest("/api/v1/chat/unread-count/");
-                updateChatUnreadBadge(data.count);
-            } catch (error) {
-                // A missed poll tick is not worth bothering anyone about.
-            }
-        }
-        poll();
-        setInterval(poll, 20000);
+        keepBadgeFresh({url: "/api/v1/chat/unread-count/", intervalMs: 20000, key: "chat", apply: updateChatUnreadBadge});
     }
 
     /**
