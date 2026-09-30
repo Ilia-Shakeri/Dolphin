@@ -179,6 +179,16 @@ FEATURE_DEPENDENCIES = {
     # and the cheque-due-date reminder source are all gated on this, separate
     # from cash and bank transfer which stay under `payments` alone.
     "cheques": frozenset({"payments"}),
+
+    # accounting.Account / JournalEntry / JournalLine — a general ledger, not
+    # yet wired to any other module. Phase 1 only (DOLPHIN_ACCOUNTING_PLAN.md):
+    # manual double-entry posting and a trial balance, nothing that reads or
+    # writes billing/sales/inventory data automatically. No non-nullable FK
+    # reaches out of this app (JournalEntry.created_by points at the user
+    # model, which every deployment has), so it has no dependency at all —
+    # unlike lead_kanban/order_kanban, which group rows a parent module owns,
+    # this module owns its own rows outright.
+    "accounting_ledger": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -226,6 +236,12 @@ FEATURE_DEPENDENCIES = {
 #: `orders` instead of `leads` — a deployment that wants a leads board does
 #: not thereby want an orders board dragged onto its sales floor too.
 #:
+#: `accounting_ledger` (2026-09-08) joins for the `quotations`/`custom_branding`
+#: reason, not the `reminders` one: it is a real module with its own data
+#: (a general ledger), not a read-only convenience over pages a deployment
+#: already has, and phase 1 (DOLPHIN_ACCOUNTING_PLAN.md) ships no automatic
+#: posting from any other module yet — a deployment gets it by asking, same
+#: as chat, same as a kanban board.
 #: `panel_backup` (2026-09-20) joins the default-off side for a reason none
 #: of the others have: enabling it and starting its agent means one
 #: authenticated Platform Admin request can replace the whole database.
@@ -234,7 +250,7 @@ FEATURE_DEPENDENCIES = {
 #: default somebody discovers they had.
 DEFAULT_OFF_FEATURES = frozenset({
     "quotations", "custom_branding", "internal_chat", "lead_kanban", "order_kanban",
-    "panel_backup",
+    "accounting_ledger", "panel_backup",
 })
 
 FEATURES = frozenset(FEATURE_DEPENDENCIES)

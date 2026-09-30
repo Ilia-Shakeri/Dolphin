@@ -136,6 +136,9 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             if has_avatar(self.request.user)
             else (default_avatar_url(self.request.user) or "")
         )
+        # PRELIMINARY, UNCOMMITTED — see integration/apps.py
+        from common.deployment.profile import paired_accounting_base_url
+        context["accounting_base_url"] = paired_accounting_base_url()
         context["role_label"] = ROLE_LABELS[self.request.user.role]
         if self.request.user.role == User.Role.SALES_AGENT and self.request.user.workstream == User.Workstream.AFTER_SALES:
             context["role_label"] = f'{context["role_label"]} — خدمات پس از فروش'

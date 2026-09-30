@@ -54,6 +54,8 @@ INSTALLED_APPS = [
     "reports",
     "attachments",
     "chat",
+    "accounting",
+    "integration",  # PRELIMINARY, UNCOMMITTED — see integration/apps.py
 ]
 
 MIDDLEWARE = [

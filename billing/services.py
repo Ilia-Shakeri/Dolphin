@@ -1288,6 +1288,20 @@ def issue_invoice(*, actor, invoice):
             "status_to": Invoice.Status.ISSUED,
         },
     )
+    # PRELIMINARY, UNCOMMITTED (cross-product integration goal, 2026-09-08)
+    # — see integration/apps.py. Inside the same transaction as the status
+    # change above: either both happen, or neither does. A no-op unless
+    # pairing is configured and enabled.
+    from integration.services import enqueue_event
+
+    enqueue_event(
+        event_type="invoice.issued",
+        payload={
+            "number": locked.number, "customer_id": locked.customer_id,
+            "total_amount": str(locked.total_amount),
+        },
+        occurred_at=issued_at,
+    )
     return locked
 
 
@@ -1343,6 +1357,9 @@ def cancel_invoice(*, actor, invoice, reason=""):
         update_fields=["status", "cancelled_at", "stock_applied", "notes", "updated_at"]
     )
 
+    from billing.installments import cancel_plan_with_invoice
+
+    cancel_plan_with_invoice(locked)
     if was_issued:
         append_ledger_entry(
             actor=actor,
@@ -1354,9 +1371,6 @@ def cancel_invoice(*, actor, invoice, reason=""):
             reference_id=locked.pk,
             reference_number=locked.number,
         )
-    from billing.installments import cancel_plan_with_invoice
-
-    cancel_plan_with_invoice(locked)
     log_activity(
         actor=actor,
         operation="invoice.cancelled",
@@ -1367,6 +1381,14 @@ def cancel_invoice(*, actor, invoice, reason=""):
             "status_to": Invoice.Status.CANCELLED,
             "reason_provided": bool(reason),
         },
+    )
+    # PRELIMINARY, UNCOMMITTED — see the identical comment in issue_invoice above.
+    from integration.services import enqueue_event
+
+    enqueue_event(
+        event_type="invoice.cancelled",
+        payload={"number": locked.number, "customer_id": locked.customer_id, "reason": reason},
+        occurred_at=cancelled_at,
     )
     return locked
 

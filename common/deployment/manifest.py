@@ -43,20 +43,28 @@ class ManifestError(Exception):
 class VerifiedManifest:
     """A manifest whose signature and contents have both been accepted."""
 
-    __slots__ = ("profile_id", "features", "key_id", "issued_at", "fingerprint")
+    __slots__ = ("profile_id", "features", "key_id", "issued_at", "fingerprint", "accounting_base_url")
 
-    def __init__(self, *, profile_id, features, key_id, issued_at, fingerprint):
+    def __init__(self, *, profile_id, features, key_id, issued_at, fingerprint, accounting_base_url=""):
         self.profile_id = profile_id
         self.features = frozenset(features)
         self.key_id = key_id
         self.issued_at = issued_at
         self.fingerprint = fingerprint
+        #: PRELIMINARY, UNCOMMITTED (cross-product integration goal,
+        #: 2026-09-08) — mirrors Dolphin Accounting's own manifest field of
+        #: the same shape (VerifiedManifest.crm_base_url in that repo).
+        #: Entitlement, not configuration: non-empty means this customer is
+        #: also licensed for Dolphin Accounting at this base URL. Absent
+        #: means every cross-product control must be entirely omitted from
+        #: the UI, never merely disabled.
+        self.accounting_base_url = accounting_base_url
 
     def __repr__(self):
         return (
             f"VerifiedManifest(profile_id={self.profile_id!r}, "
             f"features={sorted(self.features)!r}, key_id={self.key_id!r}, "
-            f"fingerprint={self.fingerprint!r})"
+            f"fingerprint={self.fingerprint!r}, accounting_base_url={self.accounting_base_url!r})"
         )
 
 
@@ -149,6 +157,15 @@ def verify_manifest_bytes(raw, public_keys):
     if not isinstance(issued_at, str) or not issued_at:
         raise ManifestError("The deployment manifest does not record when it was issued.")
 
+    # PRELIMINARY, UNCOMMITTED — see VerifiedManifest.accounting_base_url.
+    accounting_base_url = payload.get("accounting_base_url", "")
+    if not isinstance(accounting_base_url, str):
+        raise ManifestError("The deployment manifest's accounting_base_url must be a string.")
+    if accounting_base_url and not (
+        accounting_base_url.startswith("https://") or accounting_base_url.startswith("http://")
+    ):
+        raise ManifestError("The deployment manifest's accounting_base_url must be an absolute URL.")
+
     return VerifiedManifest(
         profile_id=profile_id,
         features=frozenset(features),
@@ -157,6 +174,7 @@ def verify_manifest_bytes(raw, public_keys):
         # Identifies exactly which manifest is active, for startup logging and
         # for detecting a stale database cache after a restore.
         fingerprint=hashlib.sha256(raw).hexdigest(),
+        accounting_base_url=accounting_base_url.rstrip("/"),
     )
 
 

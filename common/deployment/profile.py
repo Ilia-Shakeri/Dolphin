@@ -26,15 +26,17 @@ DEVELOPMENT_PROFILE_ID = "development"
 class DeploymentProfile:
     """An immutable view of the feature set this deployment may run."""
 
-    __slots__ = ("profile_id", "features", "key_id", "issued_at", "fingerprint", "source")
+    __slots__ = ("profile_id", "features", "key_id", "issued_at", "fingerprint", "source", "accounting_base_url")
 
-    def __init__(self, *, profile_id, features, source, key_id="", issued_at="", fingerprint=""):
+    def __init__(self, *, profile_id, features, source, key_id="", issued_at="", fingerprint="", accounting_base_url=""):
         self.profile_id = profile_id
         self.features = frozenset(features)
         self.source = source
         self.key_id = key_id
         self.issued_at = issued_at
         self.fingerprint = fingerprint
+        # PRELIMINARY, UNCOMMITTED (cross-product integration goal, 2026-09-08).
+        self.accounting_base_url = accounting_base_url
 
     @property
     def is_signed(self):
@@ -106,6 +108,7 @@ def load_profile_from_settings(settings):
         key_id=manifest.key_id,
         issued_at=manifest.issued_at,
         fingerprint=manifest.fingerprint,
+        accounting_base_url=manifest.accounting_base_url,
     )
 
 
@@ -135,6 +138,14 @@ def feature_enabled(name):
     if name not in FEATURES:
         return False
     return name in active_profile().features
+
+
+def paired_accounting_base_url():
+    """This customer's licensed Dolphin Accounting base URL, or "" if not
+    entitled to pair. PRELIMINARY, UNCOMMITTED (cross-product integration
+    goal, 2026-09-08) — mirrors the identical function in the Dolphin
+    Accounting repo (`paired_crm_base_url`)."""
+    return active_profile().accounting_base_url
 
 
 class override_active_profile:

@@ -303,6 +303,21 @@ def register_payment(
             "amount": str(amount),
         },
     )
+    # PRELIMINARY, UNCOMMITTED (cross-product integration goal, 2026-09-08)
+    # — see integration/apps.py. Only a receipt, matching the goal's own
+    # named event ("payment received"); a disbursement is not a customer
+    # collection event. No-op unless pairing is configured and enabled.
+    if direction == Payment.Direction.RECEIPT:
+        from integration.services import enqueue_event
+
+        enqueue_event(
+            event_type="payment.received",
+            payload={
+                "number": payment.number, "customer_id": locked_customer.pk if locked_customer else None,
+                "amount": str(amount), "method": method,
+            },
+            occurred_at=received_at,
+        )
     return payment
 
 
@@ -539,6 +554,20 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
             "reason_provided": bool(reason),
         },
     )
+    # PRELIMINARY, UNCOMMITTED — see the identical comment in register_payment
+    # above. Only the two named events (cheque cleared/bounced) — PENDING and
+    # SPENT are this instrument's own internal states, not events the goal
+    # asked to sync.
+    if to_status in {Cheque.Status.CLEARED, Cheque.Status.BOUNCED}:
+        from integration.services import enqueue_event
+
+        enqueue_event(
+            event_type=f"cheque.{to_status}",
+            payload={
+                "serial_number": locked.serial_number, "bank_name": locked.bank_name,
+                "amount": str(locked.amount), "reason": reason,
+            },
+        )
     return locked
 
 
@@ -885,6 +914,18 @@ def cancel_payment(*, actor, payment, reason=""):
             "reason_provided": bool(reason),
         },
     )
+    # PRELIMINARY, UNCOMMITTED — see the identical comment in register_payment above.
+    if locked.direction == Payment.Direction.RECEIPT:
+        from integration.services import enqueue_event
+
+        enqueue_event(
+            event_type="payment.cancelled",
+            payload={
+                "number": locked.number, "customer_id": locked.customer_id,
+                "amount": str(locked.amount), "reason": reason,
+            },
+            occurred_at=locked.cancelled_at,
+        )
     return locked
 
 

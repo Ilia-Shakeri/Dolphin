@@ -365,6 +365,10 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # The row is replaced wholesale on a new upload
             # (`update_or_create`) and removed when the picture is cleared.
             "accounts_useravatar": "SELECT, INSERT, UPDATE, DELETE",
+            # General ledger (accounting/, phase 1 — DOLPHIN_ACCOUNTING_PLAN.md).
+            "accounting_account": "SELECT, INSERT, UPDATE",
+            "accounting_journalentry": "SELECT, INSERT",
+            "accounting_journalline": "SELECT, INSERT",
             "aftersales_aftersaleshistory": "SELECT, INSERT",
             "aftersales_aftersalesrequest": "SELECT, INSERT, UPDATE, DELETE",
             "auditlog_activitylog": "SELECT, INSERT",
@@ -397,6 +401,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # A saved message body is a convenience, not a record — editable
             # and deletable, unlike everything else in this map.
             "communications_smstemplate": "SELECT, INSERT, UPDATE, DELETE",
+            # PRELIMINARY, UNCOMMITTED (cross-product integration goal, 2026-09-08).
+            "integration_pairingsettings": "SELECT, INSERT, UPDATE",
+            "integration_outboundevent": "SELECT, INSERT, UPDATE",
             # Unlike the append-only tables here, an attachment really can be
             # deleted (elevated roles only, enforced by the service layer —
             # attachments/services.py) — DELETE is real, not merely absent.
@@ -461,6 +468,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # is part of the campaign history even after it stops being pursued.
             "sales_targetaudiencemember": "SELECT, INSERT, UPDATE, DELETE",
             "sales_postalstatushistory": "SELECT, INSERT",
+            # Ebazar shipments (2.29.0): status/cost updated in place, never deleted.
+            "sales_postalshipment": "SELECT, INSERT, UPDATE",
+            "sales_ebazarproductlink": "SELECT, INSERT, UPDATE",
             "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
             # Integrations (2.21.0): tokens are revoked in place, never deleted;
             # log rows are only ever added or pruned.
@@ -468,9 +478,6 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "integrations_domainevent": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_inboundwebhookreceipt": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_integration": "SELECT, INSERT, UPDATE, DELETE",
-            # Ebazar shipments (2.29.0): status/cost updated in place, never deleted.
-            "sales_postalshipment": "SELECT, INSERT, UPDATE",
-            "sales_ebazarproductlink": "SELECT, INSERT, UPDATE",
             "integrations_integrationlog": "SELECT, INSERT, DELETE",
             "integrations_webhookdelivery": "SELECT, INSERT, UPDATE, DELETE",
             "integrations_webhooksubscription": "SELECT, INSERT, UPDATE, DELETE",
@@ -522,6 +529,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "billing_customerledgerentry",
             "billing_chequestatushistory",
             "inventory_stockmovement",
+            "accounting_journalentry",
+            "accounting_journalline",
         ):
             with self.subTest(append_only=table_name):
                 self.assertNotIn(f"('{table_name}', 'SELECT, INSERT, UPDATE", self.bootstrap)

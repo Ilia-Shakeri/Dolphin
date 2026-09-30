@@ -319,6 +319,9 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # opt-in case, not a freeze artefact — see the reasoning beside it in
         # `common/deployment/registry.py`. `order_kanban` (2026-09-07) joins
         # for the identical reason, one module over from `lead_kanban`.
+        # `accounting_ledger` (2026-09-08, phase 1 of DOLPHIN_ACCOUNTING_PLAN.md)
+        # withholds for the `custom_branding`/`internal_chat` reason instead —
+        # a real module with its own data, not a read-only convenience.
         # `panel_backup` (2026-09-20) withholds for a reason stronger than
         # any of the above: enabling it and starting its agent means one
         # authenticated Platform Admin request can replace the whole
@@ -334,7 +337,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "panel_backup", "cheques",
+                "accounting_ledger", "panel_backup", "cheques",
             }),
         )
 
@@ -344,7 +347,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "panel_backup", "cheques",
+                "accounting_ledger", "panel_backup", "cheques",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

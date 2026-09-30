@@ -18005,6 +18005,29 @@
      * next tick. A closed drawer costs nothing; an open one updates every
      * few seconds without anyone touching it.
      */
+    /**
+     * PRELIMINARY, UNCOMMITTED — see integration/apps.py. Mints a fresh
+     * short-lived hand-off token per click (never once per page load, so a
+     * tab left open never tries to use an expired one) and follows it
+     * straight to Dolphin Accounting, already signed in.
+     */
+    function setupGoToAccounting() {
+        const button = document.getElementById("go-to-accounting");
+        if (!button) return;
+        button.addEventListener("click", async (event) => {
+            event.preventDefault();
+            button.classList.add("disabled");
+            try {
+                const data = await apiRequest("/api/v1/integration/handoff/mint/", {method: "POST"});
+                window.location.assign(data.url);
+            } catch (error) {
+                showError(error);
+            } finally {
+                button.classList.remove("disabled");
+            }
+        });
+    }
+
     function setupChat(prefix = "chat-drawer", options = {}) {
         // `prefix` picks which markup this instance drives: the header
         // drawer (`chat-drawer-*`, the default — every id below is
@@ -18654,6 +18677,7 @@
     // `setupChat` no-ops when `chat-page-thread-list` is not on the page.
     setupChat("chat-drawer", {container: "kt_drawer_chat", toggle: "kt_drawer_chat_toggle"});
     setupChat("chat-page", {isOpen: () => true});
+    setupGoToAccounting(); // PRELIMINARY, UNCOMMITTED — see integration/apps.py
 
     const page = document.body.dataset.page;
     if (page === "login") setupLogin();

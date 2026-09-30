@@ -527,6 +527,10 @@ FROM (
         -- The row is replaced wholesale when someone uploads a new picture
         -- (`update_or_create`) and removed when they clear it, so all four.
         ('accounts_useravatar', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- General ledger (accounting/, phase 1 — DOLPHIN_ACCOUNTING_PLAN.md).
+        ('accounting_account', 'SELECT, INSERT, UPDATE'),
+        ('accounting_journalentry', 'SELECT, INSERT'),
+        ('accounting_journalline', 'SELECT, INSERT'),
         ('aftersales_aftersaleshistory', 'SELECT, INSERT'),
         -- One row per uploaded file; deletion (elevated roles only, from the
         -- application) is a real DELETE, unlike the append-only tables above.
@@ -573,6 +577,13 @@ FROM (
         -- editable and deletable: a template is a convenience, not a record —
         -- messages already sent from one keep their own copy of the text.
         ('communications_smstemplate', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- PRELIMINARY, UNCOMMITTED (cross-product integration goal,
+        -- 2026-09-08) — see integration/apps.py. Singleton settings row
+        -- (edited) and an append-only outbox (attempts/last_error/
+        -- dispatched_at are rewritten in place by the same row, so UPDATE
+        -- is real here, unlike the other append-only tables in this file).
+        ('integration_pairingsettings', 'SELECT, INSERT, UPDATE'),
+        ('integration_outboundevent', 'SELECT, INSERT, UPDATE'),
         ('common_deploymentprofilecache', 'SELECT, INSERT, UPDATE'),
         -- One singleton row for the whole deployment (common.branding); a
         -- logo is cleared by writing NULL back into it, never by deleting
@@ -632,6 +643,8 @@ FROM (
         -- part of the campaign's history even after it stops being pursued.
         ('sales_targetaudiencemember', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_postalstatushistory', 'SELECT, INSERT'),
+        ('sales_postalshipment', 'SELECT, INSERT, UPDATE'),
+        ('sales_ebazarproductlink', 'SELECT, INSERT, UPDATE'),
         -- Post-carrier API connection settings, singleton row — same grant
         -- as its SMS counterpart just above.
         ('sales_postprovidersettings', 'SELECT, INSERT, UPDATE'),
@@ -643,8 +656,6 @@ FROM (
         -- Integrations (2.21.0). Connections and subscribers are edited and
         -- removed by the Platform Admin; tokens are revoked in place, never
         -- deleted; log rows, processed events and settled deliveries are
-        ('sales_postalshipment', 'SELECT, INSERT, UPDATE'),
-        ('sales_ebazarproductlink', 'SELECT, INSERT, UPDATE'),
         -- pruned by `prune_integration_logs`, which runs as this role; the
         -- outbox and deliveries are rewritten in place as they are retried.
         ('integrations_apitoken', 'SELECT, INSERT, UPDATE, DELETE'),
