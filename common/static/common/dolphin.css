@@ -4158,3 +4158,79 @@ details[open] > summary.card-header::after {
 dialog.dolphin-confirm {
     width: min(calc(100% - 2rem), 26rem);
 }
+
+/* Loading placeholders ------------------------------------------------------
+   Every list and card shows a `*-loading` node while its request is in flight.
+   Instead of a line of grey text they now read as the shape of what is coming:
+   three soft bars with a light sweep. The text stays in the DOM (font-size 0,
+   still announced to screen readers) so nothing about the markup changed. */
+[id$="-loading"]:not([hidden]) {
+    position: relative;
+    overflow: hidden;
+    min-height: 6.5rem;
+    padding: 0 !important;
+    font-size: 0;
+    color: transparent;
+    border-radius: 0.5rem;
+    background:
+        linear-gradient(var(--bs-gray-200), var(--bs-gray-200)) right 0 top 0.5rem / 100% 1rem no-repeat,
+        linear-gradient(var(--bs-gray-200), var(--bs-gray-200)) right 0 top 2.25rem / 82% 1rem no-repeat,
+        linear-gradient(var(--bs-gray-200), var(--bs-gray-200)) right 0 top 4rem / 64% 1rem no-repeat;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    [id$="-loading"]:not([hidden])::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bs-body-bg) 60%, transparent), transparent);
+        transform: translateX(-100%);
+        animation: dolphin-shimmer 1.4s ease-in-out infinite;
+    }
+
+    @keyframes dolphin-shimmer {
+        to {
+            transform: translateX(100%);
+        }
+    }
+}
+
+/* A button that is working ---------------------------------------------------
+   The spinner sits inside the button's own padding (absolutely placed), so the
+   button never changes width, and it fades in after 250ms so a fast request
+   never flashes one. Icon-only buttons have no room and keep just the dimming. */
+.btn[aria-busy="true"]:not(.btn-icon) {
+    position: relative;
+}
+
+.btn[aria-busy="true"]:not(.btn-icon)::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0.7rem;
+    top: 50%;
+    width: 0.95em;
+    height: 0.95em;
+    margin-top: -0.475em;
+    border: 2px solid currentColor;
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: dolphin-spin 0.8s linear infinite, dolphin-spin-in 120ms ease-out 250ms backwards;
+}
+
+@keyframes dolphin-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes dolphin-spin-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn[aria-busy="true"]:not(.btn-icon)::after {
+        animation-duration: 2.4s, 1ms;
+    }
+}

@@ -11,3 +11,9 @@ class UiPolishTests(SimpleTestCase):
         source = APP_JS.read_text(encoding="utf-8")
         self.assertNotIn("window.confirm(", source)
         self.assertIn("function confirmDialog(", source)
+    def test_loading_placeholders_and_busy_buttons(self):
+        css = APP_CSS.read_text(encoding="utf-8")
+        self.assertIn('[id$="-loading"]:not([hidden])', css)
+        self.assertIn('.btn[aria-busy="true"]', css)
+        self.assertIn("function setupBusyButtons(", APP_JS.read_text(encoding="utf-8"))
+
