@@ -411,6 +411,7 @@ deploy() {
     note "starting the stack"
     $COMPOSE up -d
     apply_nginx_config
+    reload_nginx_upstream
     recreate_integrations_worker
 
     note "running version, read from the container:"
@@ -421,6 +422,17 @@ deploy() {
     $COMPOSE ps
     echo
     note "done. Confirm the version in the panel footer before testing."
+}
+
+# nginx resolves `web` once, when it starts. `up -d` recreates the web
+# container with a new address whenever the image changes, and a nginx that
+# was not itself recreated keeps sending traffic to the old one: every request
+# answers 503 "Service unavailable" while the application is healthy. A reload
+# is cheap, drops no connection, and makes nginx resolve the name again.
+reload_nginx_upstream() {
+    note "reloading nginx so it resolves the new web container"
+    $COMPOSE exec -T nginx nginx -s reload >/dev/null 2>&1 \
+        || fail "nginx did not reload. The application may be healthy but unreachable: $COMPOSE restart nginx"
 }
 
 # The integrations worker (2.21.0) sits behind its own Compose profile, which

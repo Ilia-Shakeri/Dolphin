@@ -96,6 +96,17 @@ class DeployScriptEnvFileTests(SimpleTestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
+class NginxUpstreamRefreshTests(SimpleTestCase):
+    def test_a_release_reloads_nginx_after_the_stack_is_recreated(self):
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("reload_nginx_upstream() {", text)
+        self.assertIn("nginx -s reload", text)
+        body = text.split("    apply_nginx_config\n", 1)[1]
+        self.assertLess(
+            body.index("reload_nginx_upstream"), body.index("recreate_integrations_worker")
+        )
+
+
 class PrepareBackupVolumeScriptTests(SimpleTestCase):
     SCRIPT = REPOSITORY_ROOT / "scripts" / "prepare-backup-volume.sh"
 
