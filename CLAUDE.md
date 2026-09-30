@@ -70,7 +70,7 @@ The maintained served Dolphin UI is:
 
 • common/templates/common/**
 • profiles/templates/profiles/** (the shared customer/user profile page)
-• common/static/common/dolphin-app.js
+• common/static/common/js/main.js
 • common/static/common/dolphin.css
 • common/ui_urls.py
 • common/ui_views.py
@@ -684,6 +684,24 @@ Preserve compatibility with the UI kit runtime hooks (data-dolphin-*) used by th
 
 For dynamically inserted content, ensure required component initialization/reinitialization follows
 the existing project/UI kit pattern.
+
+16.1 Script Module Layout
+
+The panel script is a tree of ES modules under common/static/common/js/, resolved through an import
+map (common/templatetags/ui_modules.py) with bare specifiers such as "dolphin/core/api.js".
+
+• core/ — infrastructure with no DOM of its own (API client, messages, dates, digits, money).
+• ui/ — reusable components (dialogs, popovers, wizard, charts, tables, lists).
+• shell/ — what runs on every page (navigation, session, search, reminders, chat).
+• features/<name>/<page>.js — one module per served page, fetched only when that page opens
+  (pages.js maps each data-page to its module).
+• main.js — the entry point; pages.js — the page table.
+
+Imports point downwards only: core ← ui ← shell / features. A feature may import core, ui and modules
+of its own feature — never another feature and never shell. No module imports another in a cycle.
+common/tests/test_js_modules.py enforces the layering, the cycle rule, that every import resolves to
+an export, and that every data-page a template declares has an entry in pages.js. New code goes in
+the module that owns it; do not grow main.js.
 
 ────────
 

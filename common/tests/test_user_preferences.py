@@ -28,6 +28,7 @@ What is worth proving here, beyond that the fields save:
   this runs in a context processor on every page including the 500 handler.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 from decimal import Decimal
 
@@ -52,7 +53,7 @@ from common.templatetags.money_tags import money as template_money
 PASSWORD = "Strong-pass-882!"
 
 SCRIPT = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 BASE_TEMPLATE = (
     pathlib.Path(__file__).resolve().parents[2]

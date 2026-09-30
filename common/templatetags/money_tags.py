@@ -1,6 +1,6 @@
 """Render a stored amount the way every screen in the product renders it.
 
-The served pages group thousands in JavaScript (`money()` in `dolphin-app.js`).
+The served pages group thousands in JavaScript (`money()` in the panel script).
 The print and PDF documents are rendered by Django and had no equivalent, so a
 printed invoice showed `12500000.00` where the same amount on screen showed
 `12،500،000.00`. On a rial total that is not cosmetic: an unseparated eight-digit
@@ -20,7 +20,7 @@ from common.jalali import to_persian_digits
 
 register = template.Library()
 
-# U+060C ARABIC COMMA — the separator `dolphin-app.js` already uses, so the
+# U+060C ARABIC COMMA — the separator the panel script already uses, so the
 # printed document and the screen agree character for character.
 GROUP_SEPARATOR = "،"
 
@@ -96,7 +96,7 @@ def money(value, unit="rial"):
     if unit == "toman":
         whole, fraction = _to_toman(whole, fraction)
         label = TOMAN_LABEL
-    # Ceiling, matching `money()` in dolphin-app.js: any fraction at all
+    # Ceiling, matching `money()` in the panel script: any fraction at all
     # rounds up. A printed document and the screen it was checked against must
     # agree to the rial, so both use the same rule and neither may drift.
     if fraction and any(digit in "123456789" for digit in fraction):
@@ -109,7 +109,7 @@ def money(value, unit="rial"):
     # U+200F keeps the minus sign attached to the number inside RTL text.
     body = f"‏-{grouped}" if negative and grouped != "0" else grouped
     # Persian digits, same as `jalali_tags.py` already renders every date on
-    # this same printed document — `dolphin-app.js`'s `money()` matches this
+    # this same printed document — the panel script's `money()` matches this
     # since 1.7.14 (found missing in the 1.7.13 debug sweep: a rial figure
     # was the one place on screen still reading in Latin numerals next to
     # Jalali dates and counts). Converted last, after grouping and the sign,

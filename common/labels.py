@@ -6,13 +6,13 @@ Several model enums in this codebase carry English `TextChoices` labels
 never the thing being read: every page renders these through its own map.
 Until now the only Python copy lived in `common/ui_views.py`, for the two
 maps the printed invoice needed, and everything else was translated in
-`common/static/common/dolphin-app.js`.
+`common/static/common/js/`.
 
 The customer timeline composes its own sentences server-side, so it needs
 these words in Python too. Rather than a second copy beside the first, the
 Python-side maps live here and `ui_views` imports them.
 
-`dolphin-app.js` still holds its own copies (`DOCUMENT_STATUS_TEXT`,
+the panel script still holds its own copies (`DOCUMENT_STATUS_TEXT`,
 `PAYMENT_METHOD_TEXT`, …) and that is deliberate: those pages render rows
 the API sends as raw codes, in the browser, with no round trip to ask what
 a word is. The two sides must agree, and `common/tests/test_label_coverage.py`

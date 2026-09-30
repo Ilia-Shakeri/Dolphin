@@ -1,3 +1,4 @@
+from common.tests.panel_js import PANEL_SCRIPT
 import json
 import re
 from pathlib import Path
@@ -24,7 +25,7 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertEqual(len(ROLE_LABELS), 4)
 
     def test_client_has_persian_error_states_and_same_origin_requests(self):
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
 
         for status in (403, 404, 409, 429):
             self.assertIn(f'{status}: "', script)
@@ -172,7 +173,7 @@ class AuthShellUnitTests(SimpleTestCase):
         served page. Navigation and sign-out still have to work there, so the
         guard sits after them.
         """
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         guard = 'if (document.getElementById("app-error")) return;'
         self.assertIn(guard, script)
         before, _, after = script.partition(guard)

@@ -71,7 +71,7 @@ def panel_preferences(request):
     `panel_currency_unit` is exported as well as pre-rendered CSS because
     two other consumers need the raw value: `money_tags.money` in the
     printed documents, and the `data-currency-unit` attribute `base.html`
-    puts on `<body>` for `dolphin-app.js` to read.
+    puts on `<body>` for the panel script to read.
     """
     from common.preferences import currency_label, effective_preferences, needs_font_sheet, preference_css
 

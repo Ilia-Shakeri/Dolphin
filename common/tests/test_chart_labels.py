@@ -5,7 +5,7 @@ wedge either overlaps its neighbour or gets clipped past the ring's own
 edge, and a value label drawn at the inside tip of a short bar is the same
 colour the bar was filled — unreadable on a short bar, cramped on a long
 one. `renderDonutChart` and `renderBarChart` in `common/static/common/
-dolphin-app.js` are the two shared functions every chart in the panel is
+the panel script` are the two shared functions every chart in the panel is
 drawn through (reports, the customer dashboard, list-page charts), so
 fixing text placement there once fixes it everywhere at once.
 
@@ -14,12 +14,13 @@ Pinned by source pattern, the same way `test_dashboard_insights.py`'s
 configuration no Django test can execute.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
 
 SCRIPT = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 
 

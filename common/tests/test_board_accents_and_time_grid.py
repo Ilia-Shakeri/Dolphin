@@ -18,13 +18,14 @@ a browser at the time (halo shadows and header tints measured per column;
 `fc-timegrid-slot-minor` counted at zero in week and day view).
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 
 #: The statuses the two boards actually build columns from — leads from

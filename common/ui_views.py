@@ -1367,7 +1367,7 @@ class DolphinChatView(ActiveCrmView):
     would be "a second, divergent chat UI, not a fallback for it". That risk
     is real but not inherent to having a page — it is what happens if the
     page runs its own copy of the engine. This page does not: its script
-    (`setupChatPage`, `common/static/common/dolphin-app.js`) is the drawer's
+    (`setupChatPage`, `common/static/common/js/`) is the drawer's
     own `setupChat` given a different set of element ids and left open
     permanently instead of toggled by `data-dolphin-drawer`, so both read and
     write through the exact same `chat/` API, the same `sessionStorage`

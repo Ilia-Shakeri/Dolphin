@@ -21,6 +21,7 @@ the icon in the header"):
   while it exists in the DOM at all.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT, function_body
 import pathlib
 
 from django.test import Client, SimpleTestCase, TestCase
@@ -32,7 +33,7 @@ from common.deployment.registry import ALL_FEATURES
 PASSWORD = "Strong-pass-274!"
 
 SCRIPT = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 
 
@@ -203,7 +204,7 @@ class LiveChatTests(SimpleTestCase):
     def test_the_tab_copy_is_per_account_and_dies_with_the_session(self):
         self.assertIn('const CHAT_CACHE_PREFIX = "dolphin.chat.v1.";', SCRIPT)
         self.assertIn("`${CHAT_CACHE_PREFIX}${document.body.dataset.chatUserId || \"\"}`", self.body())
-        logout = SCRIPT[SCRIPT.index("function setupLogout()"):SCRIPT.index("function setupLogin()")]
+        logout = function_body("setupLogout")
         self.assertIn("clearChatCache();", logout)
 
     def test_a_sent_message_appears_before_the_server_answers(self):

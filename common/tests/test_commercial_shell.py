@@ -1,3 +1,4 @@
+from common.tests.panel_js import PANEL_SCRIPT
 import json
 from decimal import Decimal
 from pathlib import Path
@@ -21,7 +22,7 @@ def browser_delete_targets():
     """Every URL the panel's own script sends a `DELETE` to.
 
     Until 2.8.0 the rule below was spelled as a flat ban on the string
-    `method: "DELETE"` anywhere in `dolphin-app.js`, which worked only
+    `method: "DELETE"` anywhere in the panel script, which worked only
     because there were none. The rule it was protecting is narrower and
     still holds exactly: **this product never hard-deletes a business
     record from the browser** — a sale is corrected, a product is
@@ -36,7 +37,7 @@ def browser_delete_targets():
     than banning the verb keeps the real rule enforceable as the panel
     grows.
     """
-    script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+    script = (PANEL_SCRIPT).read_text(encoding="utf-8")
     targets = set()
     for fragment in script.split('method: "DELETE"')[:-1]:
         call = fragment.rsplit("apiRequest(", 1)[-1].strip()
@@ -92,7 +93,7 @@ ALLOWED_BROWSER_DELETE_TARGETS = {
 
 class CommercialShellContractTests(SimpleTestCase):
     def test_real_pages_states_and_identical_report_query_are_wired(self):
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         for page in ("products", "product-detail", "product-categories", "product-category-detail", "sales", "sale-detail", "user-performance", "activity-logs", "activity-log-detail"):
             self.assertIn(f'page === "{page}"', script)
         self.assertIn("function reportQuery(form)", script)
@@ -106,7 +107,7 @@ class CommercialShellContractTests(SimpleTestCase):
         form = template.split('id="create-sale-form"', 1)[1].split("</form>", 1)[0]
         for field in ("customer", "sold_by", "unit_price_snapshot", "total_amount", "status", "sold_at", "created_at", "updated_at"):
             self.assertNotIn(f'name="{field}"', form)
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         self.assertIn('formPayload(createForm, ["lead", "product", "quantity", "notes"])', script)
         self.assertNotIn("correction", template.lower())
         # No hard delete of a sale from the browser — see
@@ -139,7 +140,7 @@ class CommercialShellContractTests(SimpleTestCase):
         self.assertIn('id="open-import-products"', import_block)
         self.assertIn('id="import-products-file"', import_block)
 
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         self.assertIn('query.set("is_active", isActive)', script)
         self.assertIn('query.set("category", category)', script)
         # A product is deactivated, never destroyed from the browser.

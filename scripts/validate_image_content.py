@@ -71,7 +71,7 @@ EXPECT_PRESENT: list[str] = [
     "accounts/models.py",
     "sales/models.py",
     "common/ui_urls.py",
-    "common/static/common/dolphin-app.js",
+    "common/static/common/js/main.js",
     "common/static/common/dolphin.css",
     "common/static/common/brand/favicon.ico",
     "common/templates/common/base.html",

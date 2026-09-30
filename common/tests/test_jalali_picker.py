@@ -9,7 +9,7 @@ flatpickr (`common/static/common/ui/js/dolphin-plugins.js`), but it draws its gr
 straight from JS `Date` with no hook for a different calendar system, and
 this codebase already carries a complete, tested Jalali <-> Gregorian
 conversion layer (`common/jalali.py` on the server, its JS mirror in
-`dolphin-app.js` — pinned to each other by `test_jalali.py`'s own
+the panel script — pinned to each other by `test_jalali.py`'s own
 `FrontendParityTests`). `openJalaliPicker()` reuses that layer rather than
 inventing a second one, and reuses the theme's own dropdown shell
 (`.menu-sub-dropdown`, the same classes `#user-menu` and
@@ -32,12 +32,13 @@ repository's Django-only test suite can exercise directly:
   feature existed — the picker is additive, not a replacement.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 TEMPLATES = ROOT / "common" / "templates" / "common"
 

@@ -7,7 +7,7 @@ theme's own pattern — click a button, a popup opens, the filters live in it
 Twenty-five templates originally carried `<form class="list-filters">`, each
 with its own fields and its own submit wiring already attached directly to
 that form element (`setupPagedList({form, ...})` or a page's own handler).
-`setupListFilterPopovers()` in `dolphin-app.js` finds every remaining
+`setupListFilterPopovers()` in the panel script finds every remaining
 `.list-filters` form generically and moves it — the same DOM node, never a
 clone — into a dropdown panel opened by a new toggle button, the same
 hand-rolled `.show`-class pattern the reminder bell, search box and user
@@ -25,7 +25,7 @@ frequently-used list (`customers`, `leads`, `orders`, …) were converted by
 hand instead, each to its own `card-title`/`card-toolbar` markup
 (`.list-search` + `.list-filter`/`.list-filter-panel`, wired per page by
 `setupListFilter(prefix)` — see that function and `bindLiveSearch` in
-`dolphin-app.js`). The six report-style pages left below kept
+the panel script). The six report-style pages left below kept
 `setupListFilterPopovers()` unchanged for their own criteria form — a
 required date range submitted once, not something to live-filter — exactly
 as this file already tested.
@@ -35,7 +35,7 @@ pages (`customer_ledger.html` excluded — its «مشتری» select is a requir
 first choice, not a secondary filter, so a search box beside it would search
 nothing yet) gained their own `.list-search` box beside the same generic
 popover, live-filtering the report's own already-rendered result table —
-`bindReportTableSearch` in `dolphin-app.js`, not `setupListFilter`, since
+`bindReportTableSearch` in the panel script, not `setupListFilter`, since
 there is no server round trip to make once the report is already on the
 page. The toggle itself also dropped its "فیلتر" text at the same time, so
 every filter button in the panel — the seventeen hand-built ones and these
@@ -53,12 +53,13 @@ What is worth proving:
   fix or reaches for `!important` on a narrow screen.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
 
 SCRIPT = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 CSS = (
     pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
@@ -176,7 +177,7 @@ LIVE_SEARCH_TEMPLATES_WITHOUT_A_FILTER_PANEL = frozenset({"users/list.html"})
 
 class LiveSearchReachTests(SimpleTestCase):
     """The seventeen converted pages actually carry the new markup, and
-    `dolphin-app.js` actually wires each one — not just the six report pages
+    the panel script actually wires each one — not just the six report pages
     the class above already covers."""
 
     def test_every_converted_template_carries_the_new_markup(self):

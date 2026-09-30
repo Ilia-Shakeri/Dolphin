@@ -26,13 +26,14 @@ summing to the headers exactly, zero day cells outside the picker, and all
 twelve month names fitting their title without clipping.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 
 

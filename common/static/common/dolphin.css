@@ -892,7 +892,7 @@ textarea:focus-visible,
 
    Apex renders its own SVG and takes colours from the options object rather
    than from CSS, so almost nothing is styled here — the light/dark following
-   happens in `chartPalette()` and `apexBase()` in dolphin-app.js, which read
+   happens in `chartPalette()` and `apexBase()` in the panel script, which read
    the theme's custom properties at draw time. What is left is the part Apex
    cannot know: the container's size, and undoing the drop shadow it puts under
    data labels, which on a light bar renders as grey mud.
@@ -951,7 +951,7 @@ textarea:focus-visible,
    close to it. Apex sets the marker's colour and size inline in JS and gives
    the whole legend item a margin against its *neighbours*, but nothing
    between the marker and the label inside one item; `itemMargin` in
-   dolphin-app.js covers the neighbour spacing, this covers the inner gap.
+   the panel script covers the neighbour spacing, this covers the inner gap.
    `!important` is required to beat the inline style Apex sets on the same
    element. Logical rather than physical: this panel is always RTL, so
    `margin-inline-end` is the side that measured touching. */
@@ -1236,7 +1236,7 @@ dialog {
 /* Every list card's own search box, in `card-title` — the exact UI kit
    reference pattern (`apps/customers/list.html` in the purchased template):
    a magnifier icon absolute-positioned inside a solid input, not a separate
-   label/button. Lives live (see `bindLiveSearch` in dolphin-app.js) — no
+   label/button. Lives live (see `bindLiveSearch` in the panel script) — no
    submit button of its own, so nothing here is a `<form>`. */
 .list-search {
     position: relative;
@@ -1281,7 +1281,7 @@ dialog {
    reason `#user-menu`/`#reminder-bell-menu` above are: Popper lives in the
    plugins bundle this deployment does not load (see this file's own "2.
    Brand" section for the fuller version of that reasoning). `setupListFilter`
-   in dolphin-app.js toggles `[hidden]` and closes on an outside click/Escape,
+   in the panel script toggles `[hidden]` and closes on an outside click/Escape,
    mirroring `setupUserMenu`'s own toggle exactly. */
 .list-filter {
     position: relative;
@@ -1328,7 +1328,7 @@ dialog {
     font-size: 1.5rem;
 }
 
-/* A KPI tile's own trend strip (`renderSparkline`, dolphin-app.js,
+/* A KPI tile's own trend strip (`renderSparkline`, the panel script,
    2026-09-11) — fixed to the height the sparkline is drawn at so the tile
    does not jump between "before the chart mounts" and "after". */
 .kpi-sparkline {
@@ -1337,7 +1337,7 @@ dialog {
 
 /* 5b. Wizard review step ----------------------------------------------------
    The last step of every create wizard ("بازبینی و ثبت"), filled by
-   `renderWizardReview()` in dolphin-app.js.
+   `renderWizardReview()` in the panel script.
 
    It used to be a two-column `row g-3` of `col-md-6` cells, each stacking its
    own label above its own value. Reading six fields meant finding four
@@ -1572,7 +1572,7 @@ dialog {
 
 /* The week and day views (product-owner request 2026-09-19: the month grid
    was fine, these two were not). `CALENDAR_TIME_GRID_OPTIONS` in
-   dolphin-app.js already settled the behaviour — whole-hour slots, a now
+   the panel script already settled the behaviour — whole-hour slots, a now
    line, rows that fill the card; what is left is what the grid looks like,
    and FullCalendar's raw defaults were not built against this theme.
 
@@ -1706,7 +1706,7 @@ dialog {
 
 /* Each column carries its own status colour (product-owner request
    2026-09-19: «هاله رنگی شبیه به وضعیتش»). `paintBoardColumns()`
-   (dolphin-app.js) stamps `data-accent` from `STATUS_ACCENTS` — the same table
+   (the panel script) stamps `data-accent` from `STATUS_ACCENTS` — the same table
    the badge in every document list reads — so the column a cancelled lead
    sits in is the exact red its own row would be, and a status added to that
    table needs nothing here.
@@ -1799,7 +1799,7 @@ dialog {
 }
 /* jKanban's own inline `width`/`margin-left`/`margin-right` (set once, at
    `init()`, from `widthBoard`/`gutter` — see the comment beside `new
-   jKanban(...)` in dolphin-app.js) can only be beaten by `!important` here.
+   jKanban(...)` in the panel script) can only be beaten by `!important` here.
    Full width and no side margin: several side-by-side 300px boards do not
    fit a phone, so each becomes its own full-width stacked section instead —
    simpler than a horizontal-scrolling board for a handful of fixed
@@ -1820,7 +1820,7 @@ dialog {
     color: var(--bs-gray-900);
     font-size: 1.05rem;
 }
-/* The count badge `boardTitle()` (dolphin-app.js) builds beside each column's
+/* The count badge `boardTitle()` (the panel script) builds beside each column's
    label. `gap-2` on that wrapper already keeps it off the text, but a plain
    `badge-light-secondary` sits flush with its own digits at the theme's
    default badge padding — read on screen as crowding the label rather than a
@@ -1845,7 +1845,7 @@ dialog {
 }
 /* A column shows a fixed number of cards before it scrolls internally rather
    than growing the whole board — `jKanban`'s own `.kanban-drag` is the
-   per-column card list `boardElement()` (dolphin-app.js) returns and adds
+   per-column card list `boardElement()` (the panel script) returns and adds
    `.hover-scroll-overlay-y` to (the UI kit's own overlay scrollbar, the UI kit script
    loads it already — see that class's own rule in `assets/css/style.bundle.
    css` for the transparent-until-hover thumb this reuses rather than a
@@ -2134,7 +2134,7 @@ dialog {
 /* 6b. Province map ----------------------------------------------------------
    The customers page's own choropleth of Iran (product-owner request
    2026-09-09). Everything here is layout and the five-step scale; the geometry
-   is inline SVG built by `renderProvinceMap` in dolphin-app.js from the
+   is inline SVG built by `renderProvinceMap` in the panel script from the
    vendored `iran-provinces.json`.
 
    The five steps are the theme's own primary colour at rising opacity rather
@@ -2236,7 +2236,7 @@ dialog {
    The order and invoice wizards' second step (product-owner decision
    2026-09-09: cleaner, more minimal, more air). The row layout itself is the
    purchased theme's own repeater (`gap-5`, a narrow quantity column, an icon
-   delete button — see `createLineItemRows` in dolphin-app.js); what is here is
+   delete button — see `createLineItemRows` in the panel script); what is here is
    only the rhythm between rows, which the theme has no component for.
 
    A hairline rule between rows rather than a card around each: a boxed row per
@@ -2567,7 +2567,7 @@ dialog:has(.wizard-lines-step) {
 
 /* 8. Jalali date/time picker ------------------------------------------------ */
 
-/* The popup calendar `openJalaliPicker()` (dolphin-app.js) builds for every
+/* The popup calendar `openJalaliPicker()` (the panel script) builds for every
    `data-jalali` field. The panel's own surface — background, border-radius,
    box-shadow, the fade/move-in on open — is entirely the theme's
    `.menu-sub-dropdown` (see that function's own comment for why); what
@@ -2820,7 +2820,7 @@ dialog:has(.wizard-lines-step) {
     /* A drag that starts over a label must move the box, not select the
        label's text (2.18.1). `-webkit-user-drag` is the WebKit/Blink half of
        the `draggable="false"` the editor puts on every link in a box — see
-       `suppressNativeDrag` in dolphin-app.js for why the tile row needs it. */
+       `suppressNativeDrag` in the panel script for why the tile row needs it. */
     user-select: none;
     -webkit-user-drag: none;
 }
@@ -2894,7 +2894,7 @@ body.dashboard-editing #agent-work-queue {
 /* The lifted look while a widget is actively being dragged — replacing the
    `opacity: 0.45` this used to be, which read as "disabled", not "picked
    up". A real position transform on `.dashboard-widget` itself now tracks
-   the pointer (`bindGridDrag`, dolphin-app.js); the scale and shadow here
+   the pointer (`bindGridDrag`, the panel script); the scale and shadow here
    are purely the "this one is off the surface" cue, applied to the `.card`
    one level in so the transform driving position and the transform giving
    the lift never fight over the same property on the same element. */
@@ -2946,7 +2946,7 @@ body.dashboard-editing #agent-work-queue {
 /* A box is resized by its own border (2.18.4 — product owner: «این دکمه حذف
    شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد»; until then one corner
    button did it, and only for width). Eight invisible strips along the card's
-   edges and corners (`resizeHandles`, dolphin-app.js), each showing a short
+   edges and corners (`resizeHandles`, the panel script), each showing a short
    accent bar where the hand is.
 
    Laid over the *card's* edges, not the column's: a column is padded by half
@@ -3112,7 +3112,7 @@ body.dashboard-editing #agent-work-queue {
 
 /* "افزودن ویجت" — every widget this reader can have, in two groups
    (addable, and already on the dashboard), each with a preview of its own
-   real figure (dolphin-app.js, `renderWidgetPreview`). The dialog itself only
+   real figure (the panel script, `renderWidgetPreview`). The dialog itself only
    needs a width wide enough for the card grid below; everything else
    (backdrop, open animation, safe-area padding) comes from the app-wide
    `dialog` rules already in section 2. Wider since 2.18.2, when it began
@@ -4081,7 +4081,7 @@ details[open] > summary.card-header::after {
    tile dragged from a quarter to full width gets a bigger figure and a tile
    squeezed narrow gets a smaller one, instead of one fixed type size in every
    box. Charts follow the box's height through `fitWidgetChart` in
-   dolphin-app.js. Container units (`cqi`) rather than viewport units, so the
+   the panel script. Container units (`cqi`) rather than viewport units, so the
    result depends on the box and not on the screen. */
 .dashboard-widget > .card {
     container-type: inline-size;
@@ -4163,7 +4163,7 @@ details[open] > summary.card-header::after {
     font-weight: 700;
 }
 
-/* The shared confirmation dialog (`confirmDialog` in dolphin-app.js): narrower
+/* The shared confirmation dialog (`confirmDialog` in the panel script): narrower
    than a form dialog, since it holds one sentence and two buttons. */
 dialog.dolphin-confirm {
     width: min(calc(100% - 2rem), 26rem);

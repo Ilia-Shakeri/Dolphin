@@ -6,6 +6,7 @@ menu carries session management, and no interface anywhere offers to change a
 password.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
 
@@ -21,7 +22,7 @@ REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 TEMPLATE_ROOT = REPOSITORY_ROOT / "common" / "templates" / "common"
 #: The person profile's own templates (2.19.0) are served pages too.
 PROFILE_TEMPLATE_ROOT = REPOSITORY_ROOT / "profiles" / "templates" / "profiles"
-APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
+APP_JS = PANEL_SCRIPT
 
 
 class HeaderUserMenuTests(TestCase):

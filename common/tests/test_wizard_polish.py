@@ -29,6 +29,7 @@ Everything here reads the real source files, so none of it needs a browser or
 a database — and none of it can pass while the shipped file says otherwise.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
 
@@ -36,7 +37,7 @@ from django.test import SimpleTestCase
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 TEMPLATES = ROOT / "common" / "templates" / "common"
 

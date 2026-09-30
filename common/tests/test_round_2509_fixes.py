@@ -5,6 +5,7 @@ same style `test_chat_drawer.py` and `test_reminders.py` already use; markup
 is checked on the rendered page.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 from pathlib import Path
 
 from django.test import Client, SimpleTestCase, TestCase
@@ -12,7 +13,7 @@ from django.test import Client, SimpleTestCase, TestCase
 from accounts.models import User
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 PASSWORD = "Strong-pass-274!"
 
 

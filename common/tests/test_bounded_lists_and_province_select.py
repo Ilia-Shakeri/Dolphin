@@ -12,6 +12,7 @@ pinned by source pattern since none needs a browser or a database:
   mean a customer's own province never matched a region on the map, silently.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
@@ -19,7 +20,7 @@ from django.test import SimpleTestCase
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
 CSS = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 SCRIPT = (
-    REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 TEMPLATES = REPOSITORY_ROOT / "common" / "templates" / "common"
 PROFILE_TABS = REPOSITORY_ROOT / "profiles" / "templates" / "profiles" / "tabs"
@@ -80,7 +81,7 @@ class PerformanceScopeTableTests(SimpleTestCase):
 
 class ProvinceSelectTests(SimpleTestCase):
     """A typo-proof dropdown, not a second hand-typed list — see
-    `fillProvinceSelect`'s own docstring in dolphin-app.js."""
+    `fillProvinceSelect`'s own docstring in the panel script."""
 
     def test_fill_province_select_reads_the_same_source_the_map_uses(self):
         body = _function_body("fillProvinceSelect")

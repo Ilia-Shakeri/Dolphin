@@ -19,6 +19,7 @@ day" includes. `sales/tests/test_list_filters.py` covers the customer half;
 this covers the audit half against a real database.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
@@ -26,7 +27,7 @@ from django.test import SimpleTestCase
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "common" / "templates" / "common"
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 
 #: The report pages that carry a search box and a filter popover.
 REPORT_PAGES = sorted(

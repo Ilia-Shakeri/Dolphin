@@ -10,6 +10,7 @@ proves is narrower and easy to regress: nothing rendered points at a route that
 does not exist.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import re
 from pathlib import Path
 
@@ -23,7 +24,7 @@ from common.deployment.registry import ALL_FEATURES, FEATURE_DEPENDENCIES, missi
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "common" / "templates" / "common"
-SCRIPT = ROOT / "common" / "static" / "common" / "dolphin-app.js"
+SCRIPT = PANEL_SCRIPT
 
 # A template action is a literal path; a script endpoint is a template literal
 # whose interpolations stand in for ids and query strings.
@@ -215,7 +216,7 @@ class ScriptEndpointTests(SimpleTestCase):
     #: and the last `createElementNS` went with them, and the test then said in
     #: as many words that restoring it "needs a reason of its own". 2026-09-09 is
     #: that reason — the customers page's province map is hand-drawn SVG again
-    #: (`renderProvinceMap` in dolphin-app.js), because the purchased theme's own
+    #: (`renderProvinceMap` in the panel script), because the purchased theme's own
     #: map widget is amCharts served from the vendor's own delivery host, and
     #: this panel
     #: fetches nothing from any external origin. The exemption is one exact

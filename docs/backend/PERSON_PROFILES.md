@@ -16,7 +16,7 @@ and the guide to adding a third kind. The product decisions behind it are in
 | Timeline API | `profiles/views.py`, `profiles/urls.py` |
 | A user's activity timeline | `profiles/user_timeline.py` |
 | Page template and one template per tab | `profiles/templates/profiles/profile.html`, `…/tabs/*.inc` |
-| Tab shell and tab loaders | `common/static/common/dolphin-app.js` — `setupPersonProfile`, `setupProfileTabs`, `customerProfileLoaders`, `userProfileLoaders` |
+| Tab shell and tab loaders | `common/static/common/js/` — `setupPersonProfile`, `setupProfileTabs`, `customerProfileLoaders`, `userProfileLoaders` |
 | Presence | `accounts/middleware.py` (`PresenceMiddleware`, `is_online`) |
 | Province list | `common/provinces.py` (reads `common/static/common/iran-provinces.json`) |
 

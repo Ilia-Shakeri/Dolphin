@@ -1553,7 +1553,7 @@ round trip and the server must render print, PDF, and XLSX:
 * `common/jalali.py` — conversion, formatting, parsing, the operational
   timezone. Used by `common/templatetags/jalali_tags.py` (`|jalali`,
   `|jalali_datetime`, `|jalali_long`) and by `reports/xlsx.py`.
-* `common/static/common/dolphin-app.js` — the same arithmetic, plus
+* `common/static/common/js/` — the same arithmetic, plus
   `displayDate` / `displayDay` for rendering, `apiDate` / `apiDateTime` for
   submitting, `setupJalaliInputs` which gives every `[data-jalali]` field
   its behaviour once at start-up, and `openJalaliPicker` (2026-09-07) — a
@@ -2810,7 +2810,7 @@ Option A was taken: no charting library, one shared renderer, bars drawn from
 ### What ships
 
 `renderBarChart(chart, empty, items, options)` in
-`common/static/common/dolphin-app.js` is the only chart renderer. `items` is
+`common/static/common/js/` is the only chart renderer. `items` is
 `[{label, value, display}]` — `value` sizes the bar, `display` is the already
 formatted text the reader sees. Keeping those apart is deliberate: it is what
 stops a chart printing `12500000.00` beside tables reading `۱۲،۵۰۰،۰۰۰ ریال`.
@@ -2994,7 +2994,7 @@ Loaded assets, and only these, because they are what the served pages request:
 | `common/ui/fonts/dolphin-icons/*` | the icon font the sidebar uses |
 | `common/ui/fonts/IRANSansWeb*` | Persian typography |
 | `common/dolphin.css` | Dolphin-only: behaviour, brand, print |
-| `common/dolphin-app.js` | the application; one handler per `data-page` |
+| `common/js/main.js` and `common/js/**` | the application: ES modules, one entry per `data-page` in `pages.js` |
 
 **`dolphin-plugins.js` (3.5 MB) is deliberately not loaded.** The pages need
 `DolphinMenu` and `DolphinDrawer`, which live in `scripts.bundle.js`; they do not use
@@ -3053,7 +3053,7 @@ Each of these is a deliberate choice, not an omission.
    The markup, classes and `.show` rule are the theme's own, so it looks and
    behaves like every other UI-kit menu. `DolphinMenu` is not used to open it:
    it positions a dropdown with Popper, which ships only in the plugins bundle
-   above. Toggling the class is eight lines in `dolphin-app.js` and the anchoring
+   above. Toggling the class is eight lines in the panel script and the anchoring
    is three in `dolphin.css` — the same trade as the native dialogs, for the same
    reason. The sidebar accordion still uses `DolphinMenu`, which needs no Popper.
 

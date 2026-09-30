@@ -1,5 +1,5 @@
 {% comment %} جدول تماس‌های مرکز تلفن (۲.۲۳.۰)، مشترک میان زبانهٔ تماس‌های مشتری و کاربر.
-   ردیف‌ها را `loadPbxCalls` در dolphin-app.js از `/api/v1/calls/` پر می‌کند؛ دکمهٔ
+   ردیف‌ها را `loadPbxCalls` در the panel script از `/api/v1/calls/` پر می‌کند؛ دکمهٔ
    «پخش» فقط برای کسی ساخته می‌شود که API برایش `has_recording` برگرداند. {% endcomment %}
 <div id="{{ prefix }}-loading" class="text-center text-gray-700 py-10">در حال دریافت تماس‌ها…</div>
 <div id="{{ prefix }}-empty" class="text-center text-gray-700 py-10" hidden>{{ empty_text }}</div>

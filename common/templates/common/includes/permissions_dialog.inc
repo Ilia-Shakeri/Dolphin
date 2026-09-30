@@ -1,5 +1,5 @@
 {% comment %} The per-user Read/Edit/Delete matrix dialog, driven by
-   `setupPermissionsDialog()` in dolphin-app.js. Shared by User Management
+   `setupPermissionsDialog()` in the panel script. Shared by User Management
    and the «دسترسی‌ها» tab of a user's profile (2.19.0), so the two can never
    drift apart. {% endcomment %}
 <dialog id="permissions-dialog" aria-labelledby="permissions-title">

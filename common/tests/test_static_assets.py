@@ -11,6 +11,7 @@ settings constant that no code read until `common/management/commands/
 collectstatic.py` existed — it excluded nothing at all.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import json
 import posixpath
 import re
@@ -37,7 +38,7 @@ REQUIRED = (
     # theme's own library.
     "common/ui/js/dolphin-plugins.js",
     "common/dolphin.css",
-    "common/dolphin-app.js",
+    "common/js/main.js",
     "common/brand/Logo.webp",
     "common/brand/Logo.png",
     "common/brand/Logo-light.webp",
@@ -236,7 +237,7 @@ class ChartLibraryTests(SimpleTestCase):
     """
 
     SHELL = TEMPLATES / "base.html"
-    SCRIPT = ROOT / "common" / "static" / "common" / "dolphin-app.js"
+    SCRIPT = PANEL_SCRIPT
 
     def test_the_shell_loads_the_bundle_that_carries_apexcharts(self):
         """ApexCharts ships only inside `dolphin-plugins.js`; the theme has no

@@ -111,7 +111,7 @@ class AttachmentDownloadView(AttachmentAccessMixin, APIView):
 
 class AttachmentDeleteView(AttachmentAccessMixin, APIView):
     """POST, not the HTTP DELETE verb — every mutation in this codebase's API
-    goes through POST (see the bulk-delete actions elsewhere in dolphin-app.js),
+    goes through POST (see the bulk-delete actions elsewhere in the panel script),
     a convention `common/tests/test_commercial_shell.py` checks by scanning
     the whole shared script for a literal HTTP DELETE call.
     """

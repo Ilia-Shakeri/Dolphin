@@ -15,6 +15,7 @@ What is worth proving:
   that looks exactly as it did before this existed.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT, function_body
 import pathlib
 from datetime import timedelta
 from decimal import Decimal
@@ -527,7 +528,7 @@ class ColourfulPaletteTests(SimpleTestCase):
 
     def test_the_chart_palettes_own_last_colour_is_not_the_invisible_dark_one(self):
         script = (
-            pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+            PANEL_SCRIPT
         ).read_text(encoding="utf-8")
         start = script.index("function chartPalette()")
         end = script.index("\n    }", start)
@@ -556,7 +557,7 @@ class ChartOverlapFixTests(SimpleTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.script = (
-            pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+            PANEL_SCRIPT
         ).read_text(encoding="utf-8")
 
     def _function_body(self, name):
@@ -594,7 +595,7 @@ class KpiDirectionArrowTests(SimpleTestCase):
     computed a direction, and leaves the plain sentence alone otherwise."""
 
     script = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        PANEL_SCRIPT
     ).read_text(encoding="utf-8")
 
     def test_the_kpi_card_draws_a_themed_arrow_for_a_real_direction(self):
@@ -638,7 +639,7 @@ class MarkupCollisionTests(SimpleTestCase):
     """
 
     script = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        PANEL_SCRIPT
     ).read_text(encoding="utf-8")
 
     def test_the_dashboard_cards_use_their_own_attribute(self):
@@ -674,7 +675,7 @@ class PerformancePanelSubmitButtonTests(SimpleTestCase):
     """
 
     script = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        PANEL_SCRIPT
     ).read_text(encoding="utf-8")
     panel = (
         pathlib.Path(__file__).resolve().parents[2]
@@ -692,9 +693,7 @@ class PerformancePanelSubmitButtonTests(SimpleTestCase):
         valid and unrelated elsewhere in this file, for forms whose button
         really is a descendant — the check below is scoped to this one
         function, not the whole script."""
-        start = self.script.index("async function setupPerformancePanel(")
-        end = self.script.index("\n    async function setupUserPerformance(", start)
-        body = self.script[start:end]
+        body = function_body("setupPerformancePanel")
         self.assertIn(
             'document.querySelector(`button[type="submit"][form="${form.id}"]`)', body
         )
@@ -717,12 +716,11 @@ class ChartMountOrderTests(SimpleTestCase):
     """
 
     script = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        PANEL_SCRIPT
     ).read_text(encoding="utf-8")
 
     def body(self):
-        start = self.script.index("async function setupDashboardInsights()")
-        return self.script[start:self.script.index("\n    function kpiCard(", start)]
+        return function_body("setupDashboardInsights")
 
     def test_the_section_is_revealed_before_either_chart_renders(self):
         body = self.body()

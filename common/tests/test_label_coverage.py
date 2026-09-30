@@ -1,7 +1,7 @@
 """Every stored enum value must have a Persian name on screen.
 
 The panel translates stored values with hand-written maps in
-`dolphin-app.js`, and offers them as filter options in hand-written
+the panel script, and offers them as filter options in hand-written
 `<option>` lists. Both are copies of an enum that lives in Python, and a copy
 falls behind.
 
@@ -18,6 +18,7 @@ browser and no database, and they fail the moment an enum grows a member that
 the panel cannot name.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
 
@@ -36,7 +37,7 @@ from sales.models import Sale
 
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
-APP_JS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin-app.js"
+APP_JS = PANEL_SCRIPT
 LEDGER_PAGE = (
     REPOSITORY_ROOT / "common" / "templates" / "common" / "reports" / "customer_ledger.html"
 )
@@ -49,7 +50,7 @@ def js_map_keys(name):
     """The keys of a `const NAME = Object.freeze({...})` map in the panel script."""
     source = APP_JS.read_text(encoding="utf-8")
     match = re.search(rf"const {name} = Object\.freeze\(\{{(.*?)\}}\);", source, re.S)
-    assert match is not None, f"{name} not found in dolphin-app.js"
+    assert match is not None, f"{name} not found in the panel script"
     return set(re.findall(r"^\s*([a-z_0-9]+)\s*:", match.group(1), re.M))
 
 

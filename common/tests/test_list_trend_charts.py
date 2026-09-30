@@ -20,6 +20,7 @@ What is worth pinning here, in order of what would actually break:
 * **A key with no trend renders one chart, not one chart and a gap.**
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
 
@@ -30,7 +31,7 @@ from reports.list_charts import LIST_CHARTS, LIST_TRENDS, TREND_WEEKS
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 TEMPLATES = ROOT / "common" / "templates" / "common"
 INCLUDE = (TEMPLATES / "includes" / "list_charts.inc").read_text(encoding="utf-8")
 

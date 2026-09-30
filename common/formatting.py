@@ -38,7 +38,7 @@ def persian_digits(value):
 def money(amount, unit="rial"):
     """A stored rial amount, grouped, in Persian digits, in the reader's unit.
 
-    Matches the panel's own `money()` in `dolphin-app.js` character for
+    Matches the panel's own `money()` in the panel script character for
     character, including the ceiling: the product owner's rule is that a
     figure shown to a customer must never read lower than what is owed. In
     toman that ceiling costs at most one toman of overstatement, the same
@@ -57,7 +57,7 @@ def money(amount, unit="rial"):
     negative = value < 0
     # The ceiling is applied to the magnitude, not to the signed value, so
     # `-12.5` reads as `-13` and not `-12`: the two other formatters in this
-    # product (`money_tags.money`, `money()` in dolphin-app.js) both strip
+    # product (`money_tags.money`, `money()` in the panel script) both strip
     # the sign before rounding, and the three have to agree to the last
     # digit or a printed document and the screen it was checked against
     # would not.

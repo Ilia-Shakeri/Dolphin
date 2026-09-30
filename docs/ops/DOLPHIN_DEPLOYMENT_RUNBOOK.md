@@ -299,11 +299,11 @@ for path in \
   /static/common/ui/css/dolphin-plugins.rtl.css \
   /static/common/ui/js/dolphin-theme.js \
   /static/common/dolphin.css \
-  /static/common/dolphin-app.js \
+  /static/common/js/main.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
   /static/common/ui/fonts/IRANSansWeb.woff \
-  /static/plugins/global/fonts/dolphin-icons/dolphin-icons-duotone.woff ; do
+  /static/common/ui/fonts/dolphin-icons/dolphin-icons-duotone.woff ; do
   printf '%s ' "$path"
   curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}${path}"
 done
@@ -1641,7 +1641,7 @@ docker compose --env-file secrets/.env up -d --force-recreate nginx
 ```
 
 Then hard-refresh the browser (`Ctrl+F5`). The application's own CSS and JS were
-renamed to `dolphin.css` / `dolphin-app.js`; a cache holding the old names
+renamed to `dolphin.css` / the module tree under `js/`; a cache holding the old names
 renders the page unstyled even when the server is correct.
 
 ### 8.2 `collectstatic` fails or collects almost nothing
@@ -2506,11 +2506,11 @@ for path in \
   /static/common/ui/css/dolphin-plugins.rtl.css \
   /static/common/ui/js/dolphin-theme.js \
   /static/common/dolphin.css \
-  /static/common/dolphin-app.js \
+  /static/common/js/main.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
   /static/common/ui/fonts/IRANSansWeb.woff \
-  /static/plugins/global/fonts/dolphin-icons/dolphin-icons-duotone.woff ; do
+  /static/common/ui/fonts/dolphin-icons/dolphin-icons-duotone.woff ; do
   printf '%s ' "$path"
   curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}${path}"
 done

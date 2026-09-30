@@ -16,6 +16,7 @@ What is worth proving, in the same shape the reminder bell's tests take:
   still reports the truth, and a one-character query does no work at all.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 from decimal import Decimal
 
@@ -330,7 +331,7 @@ class PanelMarkupTests(SimpleTestCase):
     """The two topbar panels share their row markup rather than duplicating it."""
 
     script = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+        PANEL_SCRIPT
     ).read_text(encoding="utf-8")
     css = (
         pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"

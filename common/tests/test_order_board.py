@@ -1,5 +1,5 @@
 """The orders Kanban board: `/orders/board/`, its `order_kanban` feature
-gate, and the drag-to-move wiring in `setupOrderBoard()` (`dolphin-app.js`).
+gate, and the drag-to-move wiring in `setupOrderBoard()` (the panel script).
 
 Product-owner request (2026-09-07, first of the report's prioritised
 recommendations): a board view for orders, grouped by status, mirroring the
@@ -30,6 +30,7 @@ board's own test file already establishes for the shared plumbing:
   one bundle both boards load).
 """
 
+from common.tests.panel_js import PANEL_SCRIPT, function_body
 import pathlib
 
 from django.test import Client, SimpleTestCase, TestCase
@@ -41,17 +42,15 @@ from common.deployment.registry import ALL_FEATURES, DEFAULT_OFF_FEATURES, FEATU
 PASSWORD = "Strong-pass-604!"
 
 SCRIPT = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 CSS = (
     pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
 ).read_text(encoding="utf-8")
 
 
-def _function_body(name, end_marker):
-    start = SCRIPT.index(f"function {name}(")
-    end = SCRIPT.index(end_marker, start)
-    return SCRIPT[start:end]
+def _function_body(name, end_marker=None):
+    return function_body(name)
 
 
 def profile_without(*features):

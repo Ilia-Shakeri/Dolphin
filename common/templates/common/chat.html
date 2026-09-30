@@ -11,7 +11,7 @@
    (`the reference two-pane chat page`'s two-pane layout for this page; the drawer's
    own single-pane-at-a-time card for the header icon). Same engine, same
    ids-by-suffix contract as the drawer: `setupChat("chat-page", …)` in
-   `dolphin-app.js` drives this markup exactly the way `setupChat("chat-drawer", …)`
+   the panel script drives this markup exactly the way `setupChat("chat-drawer", …)`
    drives `#dolphin_drawer_chat`'s — same API calls, same `sessionStorage` cache,
    same read/unread rules. Nothing here re-implements chat; it only lays the
    same parts out wider. See `DolphinChatView` for why the page came back. {% endcomment %}

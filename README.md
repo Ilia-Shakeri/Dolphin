@@ -45,7 +45,7 @@ role-based defaults.
 | Shell | `common` | The served UI, permissions plumbing, deployment profile, panel backups, static assets |
 
 The panel itself lives in `common/templates/common/**` +
-`common/static/common/dolphin.css` + `dolphin-app.js`, routed through
+`common/static/common/dolphin.css` + the panel script, routed through
 `common/ui_urls.py`/`common/ui_views.py`. The reference template folder at the repository root is visual reference
 only — never served, never a source of business rules, and nothing in the
 panel depends on it.

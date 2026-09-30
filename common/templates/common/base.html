@@ -119,7 +119,7 @@
 </head>
 {% comment %} The UI kit's dark-sidebar layout is the one canonical shell for this product;
    no other demo variant is mixed in. `data-page` stays because it selects the
-   single page handler in dolphin-app.js. {% endcomment %}
+   single page handler in the panel script. {% endcomment %}
 {% comment %} The province map's own geometry file. Passed as a resolved
    `{% static %}` URL rather than hard-coded in the script, because static files
    are served from a hashed path in production and the script has no way to
@@ -151,7 +151,7 @@
          visitor; the drawer that would read it is never rendered for one. {% endcomment %}
       data-chat-user-id="{{ request.user.pk|default_if_none:'' }}"
       {% comment %} Rial or toman, this reader's own choice — read once by
-         `dolphin-app.js` (`CURRENCY_UNIT`) rather than fetched, because every
+         the panel script (`CURRENCY_UNIT`) rather than fetched, because every
          money cell in every table needs it and it cannot change without a
          page load. {% endcomment %}
       data-currency-unit="{{ panel_currency_unit|default:'rial' }}"
@@ -1035,7 +1035,7 @@
    expects Popper and jQuery to already exist. {% endcomment %}
 <script src="{% static 'common/ui/js/dolphin-plugins.js' %}?v={{ dolphin_version }}"></script>
 <script src="{% static 'common/ui/js/dolphin-theme.js' %}?v={{ dolphin_version }}"></script>
-<script src="{% static 'common/dolphin-app.js' %}?v={{ dolphin_version }}" defer></script>
+{% include "common/includes/app_script.inc" %}
 {% comment %} Paired with `extra_head` above — a page-specific vendor bundle,
    loaded after the shell's own scripts since the theme's plugin bundle (jQuery,
    Popper) already ran and this is what such an extra bundle expects to find. {% endcomment %}

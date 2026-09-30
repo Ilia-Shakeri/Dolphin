@@ -12,6 +12,7 @@ epoch — if the epoch were off by a day, as it was in the first draft, every
 anchor below would fail.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import datetime
 import re
 from pathlib import Path
@@ -22,7 +23,7 @@ from common import jalali
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "common" / "static" / "common" / "dolphin-app.js"
+SCRIPT = PANEL_SCRIPT
 
 # Published Gregorian/Jalali pairs. Nowruz is the year boundary, so these pin
 # both the epoch and the leap rule.

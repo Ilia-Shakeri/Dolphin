@@ -26,6 +26,7 @@ cards fully visible with 19px of the fifth showing, and the search container
 going 24px → 137px with its column's cards not moving a pixel.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
 
@@ -33,7 +34,7 @@ from django.test import SimpleTestCase
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 
 

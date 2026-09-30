@@ -7,6 +7,7 @@ the maintained script, and a feature this deployment does not run is absent
 rather than merely hidden.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -80,7 +81,7 @@ AGENT_FORBIDDEN_PAGES = (
 
 class BillingScriptContractTests(SimpleTestCase):
     def test_every_new_page_has_a_handler_and_no_dead_control_pattern(self):
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         for page in (
             "warehouses", "warehouse-detail", "stock-levels", "stock-movements",
             "orders", "order-detail",

@@ -29,6 +29,7 @@ And two positives that matter as much:
   parses, in the timestamp format it can compare.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import json
 import pathlib
 import re
@@ -54,7 +55,7 @@ PASSWORD = "Strong-pass-913!"
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 AGENT = (ROOT / "scripts" / "backup-agent.sh").read_text(encoding="utf-8")
 COMPOSE = (ROOT / "compose.yml").read_text(encoding="utf-8")
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 
 def code_only(source, comment="#"):
     """The source with its comments stripped.

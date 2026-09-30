@@ -1,8 +1,9 @@
 ﻿from pathlib import Path
+from common.tests.panel_js import PANEL_SCRIPT
 from django.test import SimpleTestCase
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_JS = ROOT / "static" / "common" / "dolphin-app.js"
+APP_JS = PANEL_SCRIPT
 APP_CSS = ROOT / "static" / "common" / "dolphin.css"
 
 

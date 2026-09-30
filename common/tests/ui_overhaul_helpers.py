@@ -10,12 +10,13 @@ rules. `media_block` asks for the block that actually contains the selector
 in question, which cannot drift.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
 TEMPLATES = ROOT / "common" / "templates" / "common"
 

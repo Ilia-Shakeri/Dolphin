@@ -1,0 +1,63 @@
+// One entry per served page (its `data-page`). The page's own module is fetched only
+// when that page is opened, so a user never downloads the code of screens they do not visit.
+export const PAGES = {
+    "login": async () => (await import("dolphin/features/login/login.js")).setupLogin(),
+    "dashboard": async () => (await import("dolphin/features/dashboard/dashboard.js")).setupDashboard(),
+    "users": async () => (await import("dolphin/features/users/users.js")).setupUsers(),
+    "customers": async () => (await import("dolphin/features/customers/customers.js")).setupCustomers(),
+    "person-profile": async () => (await import("dolphin/features/customers/person-profile.js")).setupPersonProfile(),
+    "leads": async () => (await import("dolphin/features/leads/leads.js")).setupLeads(),
+    "lead-calendar": async () => (await import("dolphin/features/leads/lead-calendar.js")).setupLeadCalendar(),
+    "lead-board": async () => (await import("dolphin/features/leads/lead-board.js")).setupLeadBoard(),
+    "after-sales-calendar": async () => (await import("dolphin/features/after_sales/after-sales-calendar.js")).setupAfterSalesCalendar(),
+    "lead-detail": async () => (await import("dolphin/features/leads/lead-detail.js")).setupLeadDetail(),
+    "interactions": async () => (await import("dolphin/features/interactions/interactions.js")).setupInteractions(),
+    "interaction-detail": async () => (await import("dolphin/features/interactions/interaction-detail.js")).setupInteractionDetail(),
+    "products": async () => (await import("dolphin/features/products/products.js")).setupProducts(),
+    "product-detail": async () => (await import("dolphin/features/products/product-detail.js")).setupProductDetail(),
+    "product-categories": async () => (await import("dolphin/features/products/product-categories.js")).setupProductCategories(),
+    "product-category-detail": async () => (await import("dolphin/features/products/product-category-detail.js")).setupProductCategoryDetail(),
+    "sales": async () => (await import("dolphin/features/sales/sales.js")).setupSales(),
+    "sale-detail": async () => (await import("dolphin/features/sales/sale-detail.js")).setupSaleDetail(),
+    "integrations": async () => (await import("dolphin/features/settings/integrations.js")).setupIntegrations(),
+    "sales-documents": async () => (await import("dolphin/features/sales/sales-documents.js")).setupSalesDocuments(),
+    "sales-document-detail": async () => (await import("dolphin/features/sales/sales-document-detail.js")).setupSalesDocumentDetail(),
+    "user-performance": async () => (await import("dolphin/features/reports/user-performance.js")).setupUserPerformance(),
+    "sales-document-report": async () => (await import("dolphin/features/sales/sales-document-report.js")).setupSalesDocumentReport(),
+    "inbound-sms-report": async () => (await import("dolphin/features/sms/inbound-sms-report.js")).setupInboundSMSReport(),
+    "outbound-sms": async () => (await import("dolphin/features/sms/outbound-sms.js")).setupOutboundSms(),
+    "after-sales": async () => (await import("dolphin/features/after_sales/after-sales.js")).setupAfterSales(),
+    "after-sales-detail": async () => (await import("dolphin/features/after_sales/after-sales-detail.js")).setupAfterSalesDetail(),
+    "activity-logs": async () => (await import("dolphin/features/activity/activity-logs.js")).setupActivityLogs(),
+    "activity-log-detail": async () => (await import("dolphin/features/activity/activity-log-detail.js")).setupActivityLogDetail(),
+    "warehouses": async () => (await import("dolphin/features/inventory/warehouses.js")).setupWarehouses(),
+    "warehouse-detail": async () => (await import("dolphin/features/inventory/warehouse-detail.js")).setupWarehouseDetail(),
+    "stock-levels": async () => (await import("dolphin/features/inventory/stock-levels.js")).setupStockLevels(),
+    "stock-movements": async () => (await import("dolphin/features/inventory/stock-movements.js")).setupStockMovements(),
+    "orders": async () => (await import("dolphin/features/billing/orders.js")).setupOrders(),
+    "order-board": async () => (await import("dolphin/features/billing/order-board.js")).setupOrderBoard(),
+    "order-detail": async () => (await import("dolphin/features/billing/order-detail.js")).setupOrderDetail(),
+    "invoices": async () => (await import("dolphin/features/billing/invoices.js")).setupInvoices(),
+    "invoice-detail": async () => (await import("dolphin/features/billing/invoice-detail.js")).setupInvoiceDetail(),
+    "payments": async () => (await import("dolphin/features/billing/payments.js")).setupPayments(),
+    "payment-detail": async () => (await import("dolphin/features/billing/payment-detail.js")).setupPaymentDetail(),
+    "cheques": async () => (await import("dolphin/features/billing/cheques.js")).setupCheques(),
+    "installments": async () => (await import("dolphin/features/billing/installments.js")).setupInstallments(),
+    "customer-ledger": async () => (await import("dolphin/features/billing/customer-ledger.js")).setupCustomerLedger(),
+    "receivables-report": async () => (await import("dolphin/features/billing/receivables-report.js")).setupReceivablesReport(),
+    "profit-report": async () => (await import("dolphin/features/billing/profit-report.js")).setupProfitReport(),
+    "stock-valuation-report": async () => (await import("dolphin/features/billing/stock-valuation-report.js")).setupStockValuationReport(),
+    "branding-settings": async () => (await import("dolphin/features/settings/branding-settings.js")).setupBrandingSettings(),
+    "settings": async () => {
+        const module0 = await import("dolphin/features/settings/settings-page.js");
+        const module1 = await import("dolphin/features/settings/backup-section.js");
+        const module2 = await import("dolphin/features/settings/scoring-section.js");
+        module0.setupSettingsPage();
+        module1.setupBackupSection();
+        module2.setupScoringSection();
+    },
+    "sms-provider-settings": async () => (await import("dolphin/features/settings/sms-provider-settings.js")).setupSmsProviderSettings(),
+    "post-provider-settings": async () => (await import("dolphin/features/settings/post-provider-settings.js")).setupPostProviderSettings(),
+    "invoice-print": async () => (await import("dolphin/features/billing/document-print.js")).setupDocumentPrint(),
+    "document-print": async () => (await import("dolphin/features/billing/document-print.js")).setupDocumentPrint(),
+};

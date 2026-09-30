@@ -32,7 +32,7 @@
   مجوز نیست.
 - رابط فارسی و RTL روی کیت رابط کاربری دلفین (`common/static/common/ui/`)، بدون مرحلهٔ build؛
   `common/templates/common/**`، `profiles/templates/profiles/**`،
-  `common/static/common/dolphin-app.js` و `dolphin.css`.
+  `common/static/common/js/` و `dolphin.css`.
 - PostgreSQL با تفکیک نقش‌ها (init / migration / app / backup) و گرنت جدول‌به‌جدول
   (`scripts/bootstrap-postgres.sh`)؛ دفترها و تاریخچه‌ها برای نقش برنامه
   فقط‌افزودنی‌اند.

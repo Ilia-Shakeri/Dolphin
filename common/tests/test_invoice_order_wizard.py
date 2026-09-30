@@ -24,6 +24,7 @@ plus one real capability fix, and this is what is worth pinning:
   collapse back to one, and the stepper returns to its first step.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT, function_body
 import pathlib
 
 from django.test import Client, SimpleTestCase, TestCase
@@ -33,14 +34,12 @@ from accounts.models import User
 PASSWORD = "Strong-pass-274!"
 
 SCRIPT = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin-app.js"
+    PANEL_SCRIPT
 ).read_text(encoding="utf-8")
 
 
-def _function_body(name, end_marker):
-    start = SCRIPT.index(f"function {name}(")
-    end = SCRIPT.index(end_marker, start)
-    return SCRIPT[start:end]
+def _function_body(name, end_marker=None):
+    return function_body(name)
 
 
 class WizardRenderingTests(TestCase):
@@ -131,8 +130,7 @@ class ScriptBehaviourTests(SimpleTestCase):
         `items` payload is the same `lines.collect()` the invoice wizard
         already used, and the order API already accepted more than one."""
         self.assertNotIn("documentFirstLine", SCRIPT)
-        orders_body_start = SCRIPT.index("async function setupOrders()")
-        orders_body = SCRIPT[orders_body_start:SCRIPT.index("async function setupInvoices()")]
+        orders_body = function_body("setupOrders")
         self.assertIn("items: lines.collect()", orders_body)
         # The builder now also takes an `onChange`, so the summary under the
         # rows can be redrawn — 2026-09-20, item 6.

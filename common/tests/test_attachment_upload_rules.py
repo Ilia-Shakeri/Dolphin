@@ -16,6 +16,7 @@ lie printed above a form. So these tests change the setting and assert the
 rendered panel moves with it.
 """
 
+from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.template import Context, Template
@@ -25,7 +26,7 @@ from attachments.models import ALLOWED_CONTENT_TYPES, DEFAULT_MAX_ATTACHMENT_BYT
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
 PANEL = (
     ROOT / "common" / "templates" / "common" / "includes" / "attachments_panel.inc"
 ).read_text(encoding="utf-8")

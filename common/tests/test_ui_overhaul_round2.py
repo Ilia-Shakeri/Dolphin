@@ -40,7 +40,7 @@ def exact_rule(selector, source=CODE):
 class JalaliPickerTitleSpacingTests(SimpleTestCase):
     """Item 1 — the month/year title in the date picker read as one jumbled
     word: 2026-09-20 split it into two buttons (`monthBtn`/`yearBtn` in
-    `openJalaliPicker`, dolphin-app.js) so each half opens its own grid, but
+    `openJalaliPicker`, the panel script) so each half opens its own grid, but
     both buttons carry the base `.btn` class the nav-arrow rule also
     selects — `.jalali-picker .jalali-picker-header .btn` forced them to a
     27px square meant for a lone icon, leaving ~0 content width once padding

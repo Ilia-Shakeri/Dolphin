@@ -1,3 +1,4 @@
+from common.tests.panel_js import PANEL_SCRIPT
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -26,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class SalesShellContractTests(SimpleTestCase):
     def test_client_covers_all_required_pages_and_states(self):
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         # `customer-detail` became the shared `person-profile` page in 2.19.0.
         for page in ("customers", "person-profile", "leads", "lead-detail", "interactions", "interaction-detail"):
             self.assertIn(f'page === "{page}"', script)
@@ -71,7 +72,7 @@ class SalesShellContractTests(SimpleTestCase):
             path.read_text(encoding="utf-8")
             for path in sorted((ROOT / "profiles" / "templates" / "profiles" / "tabs").glob("customer_*.inc"))
         )
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
 
         for field in ("postal_code", "category"):
             self.assertIn(f'name="{field}"', customer_list)
@@ -145,7 +146,7 @@ class SalesShellContractTests(SimpleTestCase):
             "company_it": "مدیر فنی مشتری",
             "platform_admin": "مدیر پلتفرم",
         }
-        script = (ROOT / "common" / "static" / "common" / "dolphin-app.js").read_text(encoding="utf-8")
+        script = (PANEL_SCRIPT).read_text(encoding="utf-8")
         views = (ROOT / "common" / "ui_views.py").read_text(encoding="utf-8")
         # The role selector lives on the user profile's «دسترسی‌ها» tab (2.19.0).
         user_detail = (ROOT / "profiles" / "templates" / "profiles" / "tabs" / "user_access.inc").read_text(encoding="utf-8")
