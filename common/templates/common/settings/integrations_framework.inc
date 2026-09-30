@@ -114,7 +114,7 @@
     <div class="row g-4">
         {% for row in integrations %}
         <div class="col-md-6"><a class="btn btn-outline btn-outline-dashed btn-active-light-primary d-flex align-items-start text-start gap-4 p-5 w-100 h-100" href="{% url row.settings_url_name %}">
-            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light-primary"><i class="ki-duotone {{ row.icon }} fs-2 text-primary" aria-hidden="true">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
+            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light-primary"><i class="di-duotone {{ row.icon }} fs-2 text-primary" aria-hidden="true">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
             <span class="min-w-0"><span class="d-block fw-bold text-gray-900">{{ row.label }}</span><span class="d-block text-muted fs-8">{{ row.description }}</span></span>
         </a></div>
         {% endfor %}
@@ -125,7 +125,7 @@
     <ul class="row g-4 list-unstyled mb-0" data-upcoming-services>
         {% for service in upcoming_services %}
         <li class="col-md-6"><div class="d-flex align-items-start gap-4 p-5 h-100 rounded border border-dashed border-gray-300" data-upcoming="{{ service.key }}">
-            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light"><i class="ki-duotone {{ service.icon }} fs-2 text-gray-500" aria-hidden="true">{% for path in ""|ljust:service.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
+            <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light"><i class="di-duotone {{ service.icon }} fs-2 text-gray-500" aria-hidden="true">{% for path in ""|ljust:service.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
             <span class="min-w-0 flex-grow-1"><span class="d-flex align-items-center gap-2 fw-bold text-gray-700">{{ service.label }} <span class="badge badge-light fs-9">به‌زودی</span></span><span class="d-block text-muted fs-8">{{ service.description }}</span></span>
         </div></li>
         {% endfor %}

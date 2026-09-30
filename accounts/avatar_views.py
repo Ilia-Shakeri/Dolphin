@@ -112,7 +112,7 @@ class UserAvatarView(APIView):
         },
         description=(
             "Whether this person has uploaded a picture, and the URL to show for "
-            "them either way — their own upload, or the Metronic cartoon derived "
+            "them either way — their own upload, or the built-in cartoon derived "
             "from their id."
         ),
     )

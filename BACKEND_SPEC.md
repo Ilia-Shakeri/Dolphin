@@ -88,7 +88,7 @@ What that authorised, and what it did **not**:
 
 **Tier B — confirmed Client-1 target.** **Status update (2026-08-16):** most of this tier is now implemented under the direct decision recorded in §2.4 — warehouse and inventory, stock movement, purchase cost, pricing/discount/profit semantics, Order and Quotation, Invoice and InvoiceItem, numbering/rounding/correction/cancellation, Payment, cheque, installment, customer ledger, receivables, profit reporting, and operational printing. What remains unimplemented in this tier is: secure operational files/documents, and the approved external website/store/payment/accounting integrations. The original list is kept below unchanged for traceability of what the tier contained: warehouse and inventory; stock movement; purchase cost; approved pricing/discount/profit semantics; Order and Quotation (lifecycle to be approved); accounting/legal Invoice and InvoiceItem; approved tax/numbering/rounding/correction/cancellation rules; Payment; cheque; installment; Customer Account/Ledger; receivables; approved profit/loss reporting; operational PDF and printing (expected for the first operational delivery, but blocked until the exact document meaning and a redacted approved example exist); secure operational files/documents; approved external website/store/payment/accounting integrations, only after exact providers and official documentation exist.
 
-**Tier C — candidate or low-priority backlog.** Not confirmed Client-1 delivery requirements unless a newer direct decision explicitly approves them: dynamic role/permission designer; complete Opportunity/Pipeline; general workflow-automation engine; installable PWA; abnormal-activity detection; full Task/Project/Meeting suite; saved filters; bulk XLSX import; dynamic report builder beyond specifically approved reports; every Metronic/vendor demo page; notification/session-management extensions beyond current baseline; every communication provider beyond the ones already contracted (SMS live-send core, and a post/postal provider settings seam); AI-assisted features (lead scoring, prediction, next-best-action, or any other scope — none started, no scope decision made); telephony beyond the Asterisk/FreePBX connector delivered in 2.22.0–2.23.0 (IVR, call-center queues management, cloud telephony providers); arbitrary other template functionality. These remain possible future product capabilities, not acceptance requirements. See `DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §8b for the prioritized, current version of this list.
+**Tier C — candidate or low-priority backlog.** Not confirmed Client-1 delivery requirements unless a newer direct decision explicitly approves them: dynamic role/permission designer; complete Opportunity/Pipeline; general workflow-automation engine; installable PWA; abnormal-activity detection; full Task/Project/Meeting suite; saved filters; bulk XLSX import; dynamic report builder beyond specifically approved reports; every UI-kit/vendor demo page; notification/session-management extensions beyond current baseline; every communication provider beyond the ones already contracted (SMS live-send core, and a post/postal provider settings seam); AI-assisted features (lead scoring, prediction, next-best-action, or any other scope — none started, no scope decision made); telephony beyond the Asterisk/FreePBX connector delivered in 2.22.0–2.23.0 (IVR, call-center queues management, cloud telephony providers); arbitrary other template functionality. These remain possible future product capabilities, not acceptance requirements. See `DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §8b for the prioritized, current version of this list.
 
 **Promoted out of Tier C since this tier was written (evidence-checked against current code, 2026-09-21):**
 - **Avatar picker** — a gallery of 52 built-in avatars plus personal upload, opened from a dialog on the profile menu. Shipped and confirmed (`accounts/avatars.py`, `accounts/avatar_views.py`, `/api/v1/avatar-defaults/`, `/api/v1/profile/avatar/default/`).
@@ -853,8 +853,8 @@ Use deterministic factories/fixtures and avoid real personal data.
 - Many original scripts simulate success and are not real API integrations.
 - Build small Dolphin-specific API/page modules rather than connecting every demo script.
 - Active product branding is `Dolphin` / `دلفین`.
-- Replace user-visible Metronic/KeenThemes branding, titles, login/footer text, and vendor/demo links.
-- Do not blindly rename runtime identifiers such as `KTMenu`, `KTDrawer`, `KTUtil`, `data-kt-*`, or vendor API names when behavior depends on them.
+- Replace user-visible vendor branding, titles, login/footer text, and vendor/demo links.
+- The UI kit's own components are named `DolphinMenu`, `DolphinDrawer`, `DolphinUtil` and `data-dolphin-*`; do not rename third-party library APIs (ApexCharts, FullCalendar, jKanban) when behavior depends on them.
 - Preserve legally required third-party notices outside user-visible product branding.
 - Active UI is Persian-only unless a newer requirement enables multilingual support.
 
@@ -2859,15 +2859,15 @@ feature-gated and role-scoped, so a chart needs no new backend:
 ### The decision: library or no library
 
 **ApexCharts is already inside the purchased theme** —
-`assets/plugins/global/plugins.bundle.js` contains it. It is not available at
+`assets/common/ui/js/dolphin-plugins.js` contains it. It is not available at
 runtime, for two deliberate reasons that both have to be undone to use it:
 
 * `STATICFILES_COLLECT_IGNORE` in `config/settings.py` excludes
-  `plugins.bundle.js` from `collectstatic`;
+  `dolphin-plugins.js` from `collectstatic`;
 * `common/templates/common/base.html` never references it.
 
-That bundle is **3.5 MB**. It is Bootstrap JS plus every Metronic plugin, not
-ApexCharts alone, and the panel currently needs only `KTMenu` and `KTDrawer`
+That bundle is **3.5 MB**. It is Bootstrap JS plus every bundled plugin, not
+ApexCharts alone, and the panel currently needs only `DolphinMenu` and `DolphinDrawer`
 from the theme's runtime. Loading it to draw a bar chart would multiply the
 panel's JavaScript payload for one feature.
 
@@ -2963,7 +2963,7 @@ server-side for exactly that reason.
 
 ### What this document is
 
-The served Persian RTL UI is built **on the purchased Metronic RTL theme**, not
+The served Persian RTL UI is built **on the Dolphin UI kit**, not
 on a lookalike. This map records, for every served route, which theme reference
 it came from and how faithful the result is. It does not make any demo page
 operational, and it never sources a business rule from one.
@@ -2978,26 +2978,26 @@ appearance and component structure — nothing else.
 shell is mixed in. From it the application takes:
 
 * the app root / page / header / wrapper / sidebar / main / footer skeleton and
-  its `data-kt-app-*` body attributes;
-* `KTMenu` accordion navigation in the sidebar (`menu-item`, `menu-link`,
-  `menu-sub-accordion`, `menu-bullet`, keenicons `ki-duotone` icons);
-* `KTDrawer` for the mobile sidebar, toggled by the header button;
+  its `data-dolphin-app-*` body attributes;
+* `DolphinMenu` accordion navigation in the sidebar (`menu-item`, `menu-link`,
+  `menu-sub-accordion`, `menu-bullet`, `di-duotone` icon-font icons);
+* `DolphinDrawer` for the mobile sidebar, toggled by the header button;
 * the theme's cards, tables, forms, grid, buttons, badges, alerts and spacing.
 
 Loaded assets, and only these, because they are what the served pages request:
 
 | Asset | Why |
 |---|---|
-| `plugins/global/plugins.bundle.rtl.css` | Bootstrap RTL base + keenicons font-face |
-| `css/style.bundle.rtl.css` | the theme itself; also resolves the Persian IRANSans face |
-| `js/scripts.bundle.js` | `KTUtil`, `KTMenu`, `KTDrawer`, `KTScroll` |
-| `plugins/global/fonts/keenicons/*` | the icon font the sidebar uses |
-| `fonts/IRANSansWeb*` | Persian typography |
+| `common/ui/css/dolphin-plugins.rtl.css` | Bootstrap RTL base + icon font-face |
+| `common/ui/css/dolphin-theme.rtl.css` | the theme itself; also resolves the Persian IRANSans face |
+| `common/ui/js/dolphin-theme.js` | `DolphinUtil`, `DolphinMenu`, `DolphinDrawer`, `DolphinScroll` |
+| `common/ui/fonts/dolphin-icons/*` | the icon font the sidebar uses |
+| `common/ui/fonts/IRANSansWeb*` | Persian typography |
 | `common/dolphin.css` | Dolphin-only: behaviour, brand, print |
 | `common/dolphin-app.js` | the application; one handler per `data-page` |
 
-**`plugins.bundle.js` (3.5 MB) is deliberately not loaded.** The pages need
-`KTMenu` and `KTDrawer`, which live in `scripts.bundle.js`; they do not use
+**`dolphin-plugins.js` (3.5 MB) is deliberately not loaded.** The pages need
+`DolphinMenu` and `DolphinDrawer`, which live in `scripts.bundle.js`; they do not use
 Bootstrap's JavaScript, because the modals are native `<dialog>`. Nothing on a
 served page depends on it, and a served page has zero severe console errors
 without it.
@@ -3051,11 +3051,11 @@ Each of these is a deliberate choice, not an omission.
 
 1. **The header user menu is the theme's panel, opened by the application.**
    The markup, classes and `.show` rule are the theme's own, so it looks and
-   behaves like every other Metronic menu. `KTMenu` is not used to open it:
+   behaves like every other UI-kit menu. `DolphinMenu` is not used to open it:
    it positions a dropdown with Popper, which ships only in the plugins bundle
    above. Toggling the class is eight lines in `dolphin-app.js` and the anchoring
    is three in `dolphin.css` — the same trade as the native dialogs, for the same
-   reason. The sidebar accordion still uses `KTMenu`, which needs no Popper.
+   reason. The sidebar accordion still uses `DolphinMenu`, which needs no Popper.
 
 2. **Modals are native `<dialog>`, not `.modal`.** The theme's modal needs
    Bootstrap's JavaScript, which would mean shipping the 3.5 MB plugins bundle

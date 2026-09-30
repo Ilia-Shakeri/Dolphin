@@ -376,28 +376,28 @@ class LabelModuleTests(SimpleTestCase):
 
 
 class IconPathTests(SimpleTestCase):
-    """Duotone keenicons are drawn from nested `.path*` spans, per glyph.
+    """Duotone dolphin-icons are drawn from nested `.path*` spans, per glyph.
 
     Every icon this project names is checked against the theme's own
-    stylesheet: `ki-call` has eight paths, `ki-calendar-tick` six,
-    `ki-delivery` five. Rendering a fixed two draws a fraction of the glyph —
+    stylesheet: `di-call` has eight paths, `di-calendar-tick` six,
+    `di-delivery` five. Rendering a fixed two draws a fraction of the glyph —
     which is what the first cut of all three topbar/timeline features did,
-    found by reading the theme's CSS rather than by any test. `ki-paper-clip`
+    found by reading the theme's CSS rather than by any test. `di-paper-clip`
     is the sharper case: it is a *solid* icon with no `.path*` rules at all,
-    so `ki-duotone` renders it blank, and the timeline uses `ki-file`.
+    so `di-duotone` renders it blank, and the timeline uses `di-file`.
     """
 
     css = (
         pathlib.Path(__file__).resolve().parents[2]
-        / "assets" / "plugins" / "global" / "plugins.bundle.css"
+        / "common" / "static" / "common" / "ui" / "css" / "dolphin-plugins.rtl.css"
     ).read_text(encoding="utf-8", errors="ignore")
 
     @classmethod
     def theme_path_count(cls, icon):
         import re
 
-        name = icon.removeprefix("ki-")
-        found = re.findall(rf"\.ki-{re.escape(name)}\s*\.path(\d+)", cls.css)
+        name = icon.removeprefix("di-")
+        found = re.findall(rf"\.di-{re.escape(name)}\s*\.path(\d+)", cls.css)
         return max((int(number) for number in found), default=0)
 
     def declared(self):
@@ -442,19 +442,19 @@ class IconPathTests(SimpleTestCase):
 
         import inspect
 
-        return re.findall(r'"(ki-[a-z0-9-]+)"', inspect.getsource(source))
+        return re.findall(r'"(di-[a-z0-9-]+)"', inspect.getsource(source))
 
     def test_the_attachment_icon_is_a_duotone_one(self):
         """The event builders must not name the pathless solid icon.
 
         Checked against the builders themselves rather than the module text,
-        because the module's own comment explains *why* `ki-paper-clip` was
+        because the module's own comment explains *why* `di-paper-clip` was
         rejected and would match a naive substring search.
         """
         from common import customer_timeline
 
-        self.assertGreater(self.theme_path_count("ki-file"), 0)
-        self.assertEqual(self.theme_path_count("ki-paper-clip"), 0)
+        self.assertGreater(self.theme_path_count("di-file"), 0)
+        self.assertEqual(self.theme_path_count("di-paper-clip"), 0)
         for _feature, source in customer_timeline.SOURCES:
             with self.subTest(source=source.__name__):
-                self.assertNotIn("ki-paper-clip", self._icons_in(source))
+                self.assertNotIn("di-paper-clip", self._icons_in(source))

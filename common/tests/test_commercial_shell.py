@@ -60,7 +60,7 @@ def browser_delete_targets():
 #: `endpoint` is the profile picture (2.14.0, `setupAvatarInput`). Like the
 #: dashboard layout above it, and unlike every business record in this
 #: product, it is not history: clearing it removes one row of this person's
-#: own presentation and the Metronic cartoon comes back. The service refuses
+#: own presentation and the built-in cartoon comes back. The service refuses
 #: it for anybody who may not administer that user
 #: (`accounts.avatars._require_may_edit`).
 #:

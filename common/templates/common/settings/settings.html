@@ -2,7 +2,7 @@
 {% block title %}تنظیمات{% endblock %}
 {% block page_id %}settings{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">حساب من</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-setting-2 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-setting-2 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}تنظیمات{% endblock %}
 {% block breadcrumb_current %}تنظیمات{% endblock %}
 {% block extra_head %}{% load static %}{% if not panel_font_sheet %}<link rel="stylesheet" href="{% static 'common/fonts/panel-fonts.css' %}?v={{ dolphin_version }}">{% endif %}{% endblock %}
@@ -135,7 +135,7 @@
    کن و خود داشبورد را قابل شخصی‌سازی کن»), so this card points at the control
    rather than growing a duplicate of it that could drift. {% endcomment %}
         <p class="text-gray-700 mb-4">
-            روی داشبورد، دکمهٔ <i class="ki-duotone ki-pencil fs-5 align-middle"><span class="path1"></span><span class="path2"></span></i>
+            روی داشبورد، دکمهٔ <i class="di-duotone di-pencil fs-5 align-middle"><span class="path1"></span><span class="path2"></span></i>
             «شخصی‌سازی» بالای صفحه را بزنید تا ویجت‌ها جابه‌جا، بزرگ و کوچک یا پنهان شوند.
         </p>
         <a class="btn btn-light" href="{% url 'common_ui:home' %}">رفتن به داشبورد</a>
@@ -191,7 +191,7 @@
         </div>
         <div class="card-toolbar">
             <button type="button" class="btn btn-sm btn-primary" id="backup-open" aria-haspopup="dialog" aria-controls="backup-dialog">
-                <i class="ki-duotone ki-shield-tick fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>مدیریت پشتیبان‌ها
+                <i class="di-duotone di-shield-tick fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>مدیریت پشتیبان‌ها
             </button>
         </div>
     </div>
@@ -210,7 +210,7 @@
 <dialog id="backup-dialog" class="backup-dialog" aria-labelledby="backup-dialog-title">
     <div class="d-flex align-items-center gap-3 mb-6">
         <button class="btn btn-icon btn-sm btn-light" type="button" data-backup-back aria-label="بازگشت به بخش‌ها" hidden>
-            <i class="ki-duotone ki-arrow-right fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-arrow-right fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
         </button>
         <h2 id="backup-dialog-title" class="mb-0 flex-grow-1">پشتیبان‌گیری و بازگردانی</h2>
         <button class="btn btn-icon btn-sm btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
@@ -219,17 +219,17 @@
     <div data-backup-view="home">
         <div class="row g-5">
             <div class="col-md-4"><button type="button" class="btn btn-outline btn-outline-dashed btn-active-light-primary w-100 h-100 text-start p-6 backup-tile" data-backup-open="history">
-                <i class="ki-duotone ki-time fs-2x text-primary mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-time fs-2x text-primary mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
                 <span class="d-block fs-5 fw-bold text-gray-900 mb-1">تاریخچه و دانلود</span>
                 <span class="d-block fs-7 text-gray-600">همهٔ پشتیبان‌های روی سرور با یادداشتشان، دانلود هر کدام، و درخواست‌های اخیر.</span>
             </button></div>
             <div class="col-md-4"><button type="button" class="btn btn-outline btn-outline-dashed btn-active-light-primary w-100 h-100 text-start p-6 backup-tile" data-backup-open="create">
-                <i class="ki-duotone ki-plus-square fs-2x text-success mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                <i class="di-duotone di-plus-square fs-2x text-success mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                 <span class="d-block fs-5 fw-bold text-gray-900 mb-1">پشتیبان‌گیری تازه</span>
                 <span class="d-block fs-7 text-gray-600">یک نسخهٔ کامل از پایگاه داده همین حالا، با یادداشت و دانلود خودکار.</span>
             </button></div>
             <div class="col-md-4"><button type="button" class="btn btn-outline btn-outline-dashed btn-active-light-danger w-100 h-100 text-start p-6 backup-tile" data-backup-open="restore">
-                <i class="ki-duotone ki-arrows-circle fs-2x text-danger mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-arrows-circle fs-2x text-danger mb-3 d-block" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
                 <span class="d-block fs-5 fw-bold text-gray-900 mb-1">بازگردانی</span>
                 <span class="d-block fs-7 text-gray-600">برگرداندن کل پایگاه داده به یک پشتیبان روی سرور یا فایلی که بارگذاری می‌کنید.</span>
             </button></div>
@@ -336,7 +336,7 @@
         {% if can_manage_branding %}
         <a class="btn btn-light-primary" id="open-panel-appearance"
            data-module="branding-settings" href="{% url 'common_ui:branding-settings' %}">
-            <i class="ki-duotone ki-picture fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-picture fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
             شخصی‌سازی پنل
         </a>
         {% endif %}
@@ -350,7 +350,7 @@
            دوباره بررسی می‌کند. {% endcomment %}
         {% if can_manage_integrations %}
         <a class="btn btn-light-primary" id="open-integrations" href="{% url 'common_ui:integrations' %}">
-            <i class="ki-duotone ki-abstract-26 fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-abstract-26 fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>
             یکپارچه‌سازی‌ها
         </a>
         {% endif %}

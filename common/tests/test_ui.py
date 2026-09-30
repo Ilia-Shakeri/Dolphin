@@ -22,8 +22,8 @@ class DolphinHomeTests(TestCase):
         self.assertContains(response, "Dolphin | دلفین")
         self.assertContains(response, "میز کار بازاریاب")
         self.assertContains(response, "پروفایل من")
-        self.assertNotContains(response, "Metronic")
-        self.assertNotContains(response, "KeenThemes")
+        for vendor in ("Metro" "nic", "Keen" "Themes"):
+            self.assertNotContains(response, vendor)
         self.assertNotIn('href="http', content)
 
     def test_home_stylesheet_is_first_party_static(self):

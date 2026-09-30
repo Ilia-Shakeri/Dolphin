@@ -115,8 +115,8 @@ class TemplateContentTests(TestCase):
 
     def test_the_jkanban_bundle_is_loaded(self):
         page = self.page("order.board.tpl.manager")
-        self.assertIn("plugins/custom/jkanban/jkanban.bundle.js", page)
-        self.assertIn("plugins/custom/jkanban/jkanban.bundle.rtl.css", page)
+        self.assertIn("common/ui/plugins/jkanban/jkanban.bundle.js", page)
+        self.assertIn("common/ui/plugins/jkanban/jkanban.bundle.rtl.css", page)
 
     def test_a_manager_is_marked_able_to_manage_orders(self):
         page = self.page("order.board.tpl.manager")

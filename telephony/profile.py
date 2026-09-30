@@ -79,7 +79,7 @@ def _events(calls, url):
             who = (call.user.get_full_name() or call.user.username) if call.user_id else ""
             parts.append(f"داخلی {to_persian_digits(call.extension)}" + (f" — {who}" if who else ""))
         events.append(_event(
-            "pbx_call", "تماس تلفنی", "ki-phone", STATUS_ACCENT.get(call.status, "primary"),
+            "pbx_call", "تماس تلفنی", "di-phone", STATUS_ACCENT.get(call.status, "primary"),
             at=call.started_at,
             title=f"{call.get_direction_display()} — {call.get_status_display()}",
             subtitle=" · ".join(part for part in parts if part),

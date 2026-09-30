@@ -91,7 +91,7 @@ def _customer_results(user, *, text, latin, digits):
         matches |= Q(phones__normalized_phone__contains=digits)
     found = customers_for(user).filter(matches).distinct().order_by("full_name", "id")
     return _group(
-        "customers", "مشتریان", "ki-profile-user", "primary", "/customers/", found,
+        "customers", "مشتریان", "di-profile-user", "primary", "/customers/", found,
         lambda row: (row.full_name, row.city or row.national_id or "بدون اطلاعات تکمیلی", f"/customers/{row.pk}/"),
     )
 
@@ -104,7 +104,7 @@ def _lead_results(user, *, text, latin, digits):
     )
     found = leads_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     return _group(
-        "leads", "سرنخ‌ها", "ki-call", "info", "/leads/", found,
+        "leads", "سرنخ‌ها", "di-call", "info", "/leads/", found,
         lambda row: (
             getattr(row.customer, "full_name", "") or f"سرنخ #{row.pk}",
             row.source or row.campaign_or_batch or "بدون منبع ثبت‌شده",
@@ -120,7 +120,7 @@ def _product_results(user, *, text, latin, digits):
     )
     found = products_for(user).filter(matches).distinct().order_by("name", "id")
     return _group(
-        "products", "محصولات", "ki-package", "success", "/products/", found,
+        "products", "محصولات", "di-package", "success", "/products/", found,
         lambda row: (row.name, row.sku or row.barcode or "بدون کد", f"/products/{row.pk}/"),
     )
 
@@ -128,14 +128,14 @@ def _product_results(user, *, text, latin, digits):
 def _invoice_results(user, *, text, latin, digits):
     return _document_group(
         invoices_for(user), text=text, latin=latin,
-        kind="invoices", label="فاکتورها", icon="ki-document", accent="warning", path="/invoices/",
+        kind="invoices", label="فاکتورها", icon="di-document", accent="warning", path="/invoices/",
     )
 
 
 def _order_results(user, *, text, latin, digits):
     return _document_group(
         orders_for(user), text=text, latin=latin,
-        kind="orders", label="سفارش‌ها", icon="ki-basket", accent="info", path="/orders/",
+        kind="orders", label="سفارش‌ها", icon="di-basket", accent="info", path="/orders/",
     )
 
 
@@ -146,7 +146,7 @@ def _payment_results(user, *, text, latin, digits):
     )
     found = payments_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     return _group(
-        "payments", "دریافت و پرداخت", "ki-dollar", "success", "/payments/", found,
+        "payments", "دریافت و پرداخت", "di-dollar", "success", "/payments/", found,
         lambda row: (
             row.number,
             getattr(row.customer, "full_name", "") or row.payee or "بدون طرف حساب",
@@ -163,7 +163,7 @@ def _sales_document_results(user, *, text, latin, digits):
     )
     found = sales_documents_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     return _group(
-        "sales_documents", "اسناد فروش", "ki-delivery", "primary", "/sales-documents/", found,
+        "sales_documents", "اسناد فروش", "di-delivery", "primary", "/sales-documents/", found,
         lambda row: (
             row.document_number,
             getattr(row.customer, "full_name", "") or row.postal_status or "—",
@@ -180,7 +180,7 @@ def _after_sales_results(user, *, text, latin, digits):
         after_sales_requests_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     )
     return _group(
-        "after_sales", "خدمات پس از فروش", "ki-wrench", "danger", "/after-sales/", found,
+        "after_sales", "خدمات پس از فروش", "di-wrench", "danger", "/after-sales/", found,
         lambda row: (
             getattr(row.customer, "full_name", "") or f"پرونده #{row.pk}",
             row.subject or row.status,
@@ -247,17 +247,17 @@ def search(user, query):
     return {"query": text, "count": sum(group["count"] for group in groups), "groups": groups}
 
 
-#: See `common.reminders.ICON_PATHS` — a duotone keenicon is drawn from that
+#: See `common.reminders.ICON_PATHS` — a duotone icon-font glyph is drawn from that
 #: many nested spans, and drawing fewer draws a partial glyph.
 ICON_PATHS = {
-    "ki-profile-user": 4,
-    "ki-call": 8,
-    "ki-package": 3,
-    "ki-document": 2,
-    "ki-basket": 4,
-    "ki-dollar": 3,
-    "ki-delivery": 5,
-    "ki-wrench": 2,
+    "di-profile-user": 4,
+    "di-call": 8,
+    "di-package": 3,
+    "di-document": 2,
+    "di-basket": 4,
+    "di-dollar": 3,
+    "di-delivery": 5,
+    "di-wrench": 2,
 }
 
 

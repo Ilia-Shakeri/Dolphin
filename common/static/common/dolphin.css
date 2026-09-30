@@ -59,7 +59,7 @@ dialog::backdrop {
 [data-bs-theme=dark] {
     --bs-app-header-base-bg-color: rgb(13 14 18 / 78%);
 }
-#kt_app_header.app-header {
+#dolphin_app_header.app-header {
     backdrop-filter: blur(14px) saturate(150%);
     -webkit-backdrop-filter: blur(14px) saturate(150%);
 }
@@ -151,7 +151,7 @@ dialog::backdrop {
    selector for selector — including the `.app-sidebar-logo` ancestor class
    the theme's own rule carries and a shorter version here first did not —
    rather than a bare `.app-sidebar-logo-minimize`, on purpose: this project
-   always sets `data-kt-app-sidebar-hoverable="true"` (base.html), so
+   always sets `data-dolphin-app-sidebar-hoverable="true"` (base.html), so
    collapsed-and-hovering peeks the full sidebar back open and the theme's
    own rule reverts this element to `display: none`. Missing that one class
    made this rule *less* specific than the theme's, not more — so `display:
@@ -160,8 +160,8 @@ dialog::backdrop {
    sets those) ever visibly applied. Caught by re-deriving the computed
    `display` after publishing, not by assuming the rule that compiled was
    the rule that won. */
-[data-kt-app-sidebar-minimize="on"]:not([data-kt-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-logo .app-sidebar-logo-minimize,
-[data-kt-app-sidebar-minimize="on"][data-kt-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-logo .app-sidebar-logo-minimize {
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-logo .app-sidebar-logo-minimize,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-logo .app-sidebar-logo-minimize {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -176,8 +176,8 @@ dialog::backdrop {
 
    The theme collapses `.app-sidebar` on its own: it swaps the two logos, fades
    the menu titles, and drives the width from `--bs-app-sidebar-width`, which its
-   own `[data-kt-app-sidebar-minimize=on]` rule sets to 75px. With
-   `data-kt-app-sidebar-hoverable="true"` on the body it also does hover-to-peek,
+   own `[data-dolphin-app-sidebar-minimize=on]` rule sets to 75px. With
+   `data-dolphin-app-sidebar-hoverable="true"` on the body it also does hover-to-peek,
    entirely in CSS. Verified against the vendor's own demo served locally: it
    collapses to exactly 75px with `transition-property: width`, keeps the menu
    wrapper at 265px, and lets the rail clip it.
@@ -222,7 +222,7 @@ dialog::backdrop {
 
        Hover-to-peek still works over the top of this: the theme's peek rule
        carries two attributes, a class and `:hover`, so it outranks this one. */
-    [data-kt-app-sidebar-minimize="on"] .app-sidebar {
+    [data-dolphin-app-sidebar-minimize="on"] .app-sidebar {
         width: 75px;
     }
 
@@ -240,7 +240,7 @@ dialog::backdrop {
        Product-owner decision: the panel should shift with it instead, with a
        smooth animation. `.app-main` already carries
        `transition: margin 0.3s ease` unconditionally at this breakpoint
-       (style.bundle.rtl.css), so adding the missing margin here is enough —
+       (dolphin-theme.rtl.css), so adding the missing margin here is enough —
        that existing transition animates both directions, in step with the
        sidebar's own `width 0.3s ease`, without a transition declared here.
 
@@ -253,9 +253,9 @@ dialog::backdrop {
        own hover-peek rule exactly (`hoverable=true`, `minimize=on`, `:hover`,
        `:not(.animating)` — that last guard is the theme's own means of not
        re-triggering a hover mid-transition) plus the general-sibling
-       combinator, since `#app-sidebar` and `#kt_app_main` are direct
-       siblings inside `#kt_app_wrapper` (base.html) in exactly that order. */
-    [data-kt-app-sidebar-minimize="on"][data-kt-app-sidebar-hoverable="true"] .app-sidebar:hover:not(.animating) ~ .app-main {
+       combinator, since `#app-sidebar` and `#dolphin_app_main` are direct
+       siblings inside `#dolphin_app_wrapper` (base.html) in exactly that order. */
+    [data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:hover:not(.animating) ~ .app-main {
         margin-right: calc(var(--bs-app-sidebar-width-actual) - var(--bs-app-sidebar-width));
     }
 }
@@ -307,19 +307,19 @@ dialog::backdrop {
    never changes the button's own size as it grows from one digit to three.
 
    Selected through the button's id deliberately. The theme ships
-   `.btn .badge { position: relative; top: -1px; }` (style.bundle.css), which
+   `.btn .badge { position: relative; top: -1px; }` (dolphin-theme.rtl.css), which
    outranks a single class here — a plain `.reminder-bell-badge` rule lost,
    the badge stayed in flow, and it rendered *beside* the bell inside the
    40px button instead of over its corner, squeezing the icon. Found in the
    live browser, not by any test. An id beats the theme's two classes
    without reaching for `!important`.
 
-   `#kt_drawer_chat_toggle` joined this rule in 1.9.0 when the chat unread
+   `#dolphin_drawer_chat_toggle` joined this rule in 1.9.0 when the chat unread
    badge moved off the sidebar and onto its own header icon, the same shape
    as the bell it sits beside — reusing the class rather than writing the
    fix a second time. */
 #reminder-bell-toggle .reminder-bell-badge,
-#kt_drawer_chat_toggle .reminder-bell-badge {
+#dolphin_drawer_chat_toggle .reminder-bell-badge {
     position: absolute;
     top: 0.15rem;
     inset-inline-end: 0.15rem;
@@ -331,7 +331,7 @@ dialog::backdrop {
 }
 
 /* The chat drawer's internal scrolling. The theme's own `.drawer` rule
-   (`assets/css/style.bundle.css`) gives `#kt_drawer_chat` a real height —
+   (`dolphin-theme.rtl.css`) gives `#dolphin_drawer_chat` a real height —
    `position: fixed; top: 0; bottom: 0` — so `.h-100` on the card inside it
    resolves to an actual pixel height, not an auto one. What Bootstrap's
    utilities do not supply is `min-height: 0` on the flex chain between that
@@ -342,15 +342,15 @@ dialog::backdrop {
    would scroll as one long page, header and footer included, exactly the
    `overflow: auto` its own CSS rule already carries as a fallback for
    content that does not manage its own internal scrolling. */
-#kt_drawer_chat_messenger,
-#kt_drawer_chat_messenger .card-body,
+#dolphin_drawer_chat_messenger,
+#dolphin_drawer_chat_messenger .card-body,
 #chat-drawer-list-panel,
 #chat-drawer-conversation-panel {
     min-height: 0;
 }
 
 /* The `/chat/` page (2.25.0) — the same engine as the drawer above, laid
-   out as Metronic's own two-pane `apps/chat/private.html` instead of one
+   out as the UI kit's own two-pane `the reference two-pane chat page` instead of one
    narrow card. Below `lg` it behaves exactly like the drawer: one pane at a
    time, `setupChat`'s own `showList`/`showConversation` toggling `.d-none`.
    At `lg` and up there is room for both — the contacts list should stay on
@@ -824,7 +824,7 @@ textarea:focus-visible,
 
 /* Theme popup -----------------------------------------------------------------
    One row in the user menu that opens the three choices beside it. Positioned
-   here rather than by KTMenu, whose submenu placement needs Popper — and Popper
+   here rather than by DolphinMenu, whose submenu placement needs Popper — and Popper
    is in the plugins bundle this deployment does not load.
 
    It opens to the inline-start edge of the row, which under RTL puts it to the
@@ -832,7 +832,7 @@ textarea:focus-visible,
 .theme-mode-item { position: relative; }
 
 /* `display` is stated here because the popup carries the theme's `.menu-sub`,
-   which is `display: none` until KTMenu adds `.show`. Nothing adds `.show`
+   which is `display: none` until DolphinMenu adds `.show`. Nothing adds `.show`
    here — the popup is opened by this project's own script — so without these
    two rules it stayed 0x0 no matter what the script did. The `[hidden]` pair
    keeps the attribute meaningful now that `display` is set explicitly. */
@@ -886,7 +886,7 @@ textarea:focus-visible,
 /* Charts -----------------------------------------------------------------
    Drawn by ApexCharts, which is the purchased theme's own chart library and
    the one every chart in its demos uses. It ships only inside
-   `plugins/global/plugins.bundle.js`, so that whole bundle is loaded and the
+   `plugins/global/dolphin-plugins.js`, so that whole bundle is loaded and the
    panel's asset weight went from roughly 576 KB to about 4.2 MB. That was the
    product owner's explicit call: the theme's charts, at the theme's cost.
 
@@ -908,7 +908,7 @@ textarea:focus-visible,
 
 /* The one typeface declaration in this sheet, and the reason it is allowed.
 
-   The theme's own `plugins.bundle.rtl.css` carries
+   The theme's own `dolphin-plugins.rtl.css` carries
    `.apexcharts-text, .apexcharts-title-text, .apexcharts-legend-text
    { font-family: Inter, ... !important }`. Apex sets IRANSansWeb inline from
    `chart.fontFamily`, and the vendor's `!important` beats it — so every axis
@@ -985,7 +985,7 @@ summary:focus-visible,
     outline-color: #9de1d8;
 }
 
-/* Metronic's `.text-muted` is #99A1B7 — 2.58:1 on a white card, below the 4.5:1
+/* The UI kit's `.text-muted` is #99A1B7 — 2.58:1 on a white card, below the 4.5:1
    AA needs for body text, and it carries the KPI labels and every empty state.
    `--bs-gray-700` is the theme's own next step up and reads at 5.9:1, so this
    stays inside the palette instead of introducing a colour.
@@ -1120,7 +1120,7 @@ summary:focus-visible,
 
    `!important`: measured first — every one of the theme's own spacing
    utilities, `.gap-2` included, is `!important` in the compiled bundle
-   (`assets/css/style.bundle.rtl.css`). A plain declaration here, loaded
+   (`dolphin-theme.rtl.css`). A plain declaration here, loaded
    after that bundle, still loses to it; only `!important` actually wins.
 
    `gap-3` and up are already `0.75rem` (9.75px at this root) in the theme's
@@ -1233,7 +1233,7 @@ dialog {
     border: 0;
 }
 
-/* Every list card's own search box, in `card-title` — the exact Metronic
+/* Every list card's own search box, in `card-title` — the exact UI kit
    reference pattern (`apps/customers/list.html` in the purchased template):
    a magnifier icon absolute-positioned inside a solid input, not a separate
    label/button. Lives live (see `bindLiveSearch` in dolphin-app.js) — no
@@ -1277,7 +1277,7 @@ dialog {
 
 /* The list card's own "فیلتر" control, in `card-toolbar` — a small icon
    button, not the old always-open row of selects, opening a panel anchored
-   under it. Positioned by hand rather than through KTMenu/Popper, the same
+   under it. Positioned by hand rather than through DolphinMenu/Popper, the same
    reason `#user-menu`/`#reminder-bell-menu` above are: Popper lives in the
    plugins bundle this deployment does not load (see this file's own "2.
    Brand" section for the fuller version of that reasoning). `setupListFilter`
@@ -1302,7 +1302,7 @@ dialog {
 
 /* A button that opens a panel needs to look pressed while it is open — the
    theme's own `.active`/`.show` treatment for `.btn-light-primary`, applied
-   by hand since this toggle is not KTMenu's. */
+   by hand since this toggle is not DolphinMenu's. */
 .list-filter-toggle[aria-expanded="true"] {
     color: var(--bs-primary);
     background-color: var(--bs-primary-light);
@@ -1846,7 +1846,7 @@ dialog {
 /* A column shows a fixed number of cards before it scrolls internally rather
    than growing the whole board — `jKanban`'s own `.kanban-drag` is the
    per-column card list `boardElement()` (dolphin-app.js) returns and adds
-   `.hover-scroll-overlay-y` to (Metronic's own overlay scrollbar, `dolphin.js`
+   `.hover-scroll-overlay-y` to (the UI kit's own overlay scrollbar, the UI kit script
    loads it already — see that class's own rule in `assets/css/style.bundle.
    css` for the transparent-until-hover thumb this reuses rather than a
    hand-rolled one).
@@ -1908,7 +1908,7 @@ dialog {
    (product-owner request 2026-09-12). The rest scroll into view inside the
    grid itself, the same "fixed count visible, the rest scrolls in place"
    rule the kanban columns above already use — `hover-scroll-overlay-y` is
-   the same Metronic overlay-scrollbar class those columns carry. Height is
+   the same UI kit overlay-scrollbar class those columns carry. Height is
    two tile rows (card content + row gap) at this breakpoint's own card
    height, not a guess: a role with eight or fewer tiles never shows a
    scrollbar at all, since the container is simply taller than its content. */
@@ -2244,7 +2244,7 @@ dialog {
    asked for. */
 /* The step itself is a column.
 
-   The theme lays every `[data-kt-stepper-element="content"].current` out as
+   The theme lays every `[data-dolphin-stepper-element="content"].current` out as
    `display: flex` with the default `row` direction, which is right for the
    steps that hold a single `.row` and wrong for this one: measured live at
    375px, its heading came out 34px wide, its intro paragraph 45px and the
@@ -2279,7 +2279,7 @@ dialog {
    bank/cheque fieldset, the notes row), not one control among several
    sharing a line, and reads as cramped at `mt-2`'s 0.5rem once stacked.
    `!important` because the theme's own `.mt-2 { margin-top: 0.5rem
-   !important; }` (style.bundle.rtl.css) is already `!important` — nothing
+   !important; }` (dolphin-theme.rtl.css) is already `!important` — nothing
    short of matching it wins. */
 .wizard-document-step > .mt-2 {
     margin-block-start: 1.75rem !important;
@@ -2572,7 +2572,7 @@ dialog:has(.wizard-lines-step) {
    box-shadow, the fade/move-in on open — is entirely the theme's
    `.menu-sub-dropdown` (see that function's own comment for why); what
    follows here is only the day-grid layout and cell states a Jalali
-   calendar needs and Metronic has no component for. Colours below are the
+   calendar needs and the UI kit has no component for. Colours below are the
    same `--bs-*` tokens the rest of the panel already reads and the same
    `.btn-*` state classes already used elsewhere in this app (the sidebar
    toggle, the filter popover's own buttons) — light/dark mode need no
@@ -2708,7 +2708,7 @@ dialog:has(.wizard-lines-step) {
 /* The title's two halves are buttons now (month, year), so they need to look
    pressable without turning the header into a toolbar.
    `padding` is `!important` for the same reason the chart font-family and
-   the print `display:none` already are in this file: Metronic's own
+   the print `display:none` already are in this file: the UI kit's own
    `.btn:not(...).btn-sm` (eight `:not()` clauses — specificity (0,10,0))
    outranks any selector built from this component's own classes, and kept
    winning the padding even after the width fix above, leaving the buttons
@@ -2929,7 +2929,7 @@ body.dashboard-editing #agent-work-queue {
 }
 
 /* The hide control. Solid danger rather than the light tint it used to
-   carry, an outline keenicon rather than a bare `×`, and — the part the
+   carry, an outline icon-font glyph rather than a bare `×`, and — the part the
    product owner actually asked for («دکمهٔ حذف فاصلهٔ بیشتری از لبه‌ها
    داشته باشد و ظاهر بهتری بگیرد», 2026-09-20) — held well clear of the
    corner by the `0.75rem` inset on `.dashboard-widget-controls` above plus
@@ -3192,7 +3192,7 @@ body.dashboard-editing #agent-work-queue {
    thumb is showing or not, so content does not shift by the bar's width on
    the first hover.
 
-   This replaces Metronic's own `hover-scroll-overlay-y` in these places.
+   This replaces the UI kit's own `hover-scroll-overlay-y` in these places.
    That class is still fine where the vendor uses it; it simply puts the bar
    on the wrong side for an RTL panel and has no touch fallback. */
 .dolphin-hover-scroll {
@@ -3359,7 +3359,7 @@ body.dashboard-editing #agent-work-queue {
    Almost everything here is layout. The buttons are the theme's own
    `btn-group btn-sm`, the selectors its `form-select-sm form-select-solid`,
    and the reset its `btn-icon btn-light` — this only arranges them and gives
-   the two things Metronic has no utility for: a row that wraps without
+   the two things the UI kit has no utility for: a row that wraps without
    collapsing its gaps, and fields narrow enough that two dates and a button
    still fit beside a heading. */
 
@@ -4263,7 +4263,7 @@ body .btn {
    is left behind afterwards (a lingering one would trap fixed descendants). */
 @supports not (view-transition-name: none) {
   @media (prefers-reduced-motion: no-preference) {
-    #kt_app_content_container {
+    #dolphin_app_content_container {
         animation: dolphin-page-in 180ms var(--dolphin-ease) backwards;
     }
   }
@@ -4284,7 +4284,7 @@ body .btn {
         view-transition-name: dolphin-sidebar;
     }
 
-    #kt_app_header {
+    #dolphin_app_header {
         view-transition-name: dolphin-header;
     }
 

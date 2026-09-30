@@ -258,7 +258,7 @@ INTEGRATIONS = (
         key="sms",
         label="سامانهٔ پیامک",
         description="درگاه ارسال پیامک خروجی و دریافت پیامک ورودی.",
-        icon="ki-sms",
+        icon="di-sms",
         icon_paths=2,
         # `SmsProviderSettingsAccessMixin`'s own second gate, exactly:
         # feature (below), then Platform Admin.
@@ -273,7 +273,7 @@ INTEGRATIONS = (
         key="post",
         label="سرویس پست",
         description="رهگیری وضعیت مرسوله‌ها و به‌روزرسانی خودکار مراحل ارسال.",
-        icon="ki-truck",
+        icon="di-truck",
         icon_paths=5,
         gate=lambda user: _has(user, "sales_documents.manage"),
         feature="sales_documents",
@@ -301,10 +301,10 @@ class UpcomingService:
 
 
 UPCOMING_SERVICES = (
-    UpcomingService("payment_gateway", "درگاه پرداخت", "دریافت آنلاین مبلغ فاکتور و ثبت خودکار دریافت.", "ki-credit-cart", 2),
-    UpcomingService("tax_system", "سامانهٔ مؤدیان", "ارسال فاکتور رسمی به سامانهٔ مالیاتی.", "ki-bank", 2),
-    UpcomingService("email", "ایمیل", "ارسال فاکتور و اعلان‌ها با ایمیل.", "ki-sms", 2),
-    UpcomingService("messengers", "پیام‌رسان‌ها", "ربات بله، تلگرام و واتس‌اپ با ارائه‌دهندهٔ اختصاصی (امروز: وب‌هوک ورودی عمومی).", "ki-message-text-2", 3),
+    UpcomingService("payment_gateway", "درگاه پرداخت", "دریافت آنلاین مبلغ فاکتور و ثبت خودکار دریافت.", "di-credit-cart", 2),
+    UpcomingService("tax_system", "سامانهٔ مؤدیان", "ارسال فاکتور رسمی به سامانهٔ مالیاتی.", "di-bank", 2),
+    UpcomingService("email", "ایمیل", "ارسال فاکتور و اعلان‌ها با ایمیل.", "di-sms", 2),
+    UpcomingService("messengers", "پیام‌رسان‌ها", "ربات بله، تلگرام و واتس‌اپ با ارائه‌دهندهٔ اختصاصی (امروز: وب‌هوک ورودی عمومی).", "di-message-text-2", 3),
 )
 
 

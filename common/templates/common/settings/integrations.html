@@ -4,7 +4,7 @@
 {% block page_id %}integrations{% endblock %}
 {% block body_data %}{% if can_manage_framework %} data-active-tab="{{ active_tab }}"{% endif %}{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">تنظیمات</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-abstract-26 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-abstract-26 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}یکپارچه‌سازی‌ها{% endblock %}
 {% block breadcrumb_current %}یکپارچه‌سازی‌ها{% endblock %}
 {% block content %}
@@ -59,7 +59,7 @@
                     <td>
                         <div class="d-flex align-items-start gap-3">
                             <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light-{{ row.state_accent }}">
-                                <i class="ki-duotone {{ row.icon }} fs-2 text-{{ row.state_accent }}" aria-hidden="true">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
+                                <i class="di-duotone {{ row.icon }} fs-2 text-{{ row.state_accent }}" aria-hidden="true">{% for path in ""|ljust:row.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
                             </span></span>
                             <div class="min-w-0">
                                 <span class="d-block fw-semibold text-gray-900">{{ row.label }}</span>

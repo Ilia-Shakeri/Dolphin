@@ -4,7 +4,7 @@
 {% block page_id %}person-profile{% endblock %}
 {% block body_data %}{% if person %} data-person-type="{{ person.type }}" data-person-id="{{ person.id }}"{% if person.type == "customer" %} data-customer-id="{{ person.id }}"{% else %} data-user-id="{{ person.id }}"{% endif %} data-active-tab="{{ active_tab }}"{% if can_originate %} data-can-originate="1"{% endif %}{% endif %}{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">{% if person.type == "customer" %}دفتر مشتریان{% elif is_own_profile %}حساب من{% else %}همکاران{% endif %}</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
 {% block page_title %}{% if person.type == "customer" %}پروفایل مشتری{% elif is_own_profile %}پروفایل من{% else %}پروفایل کاربر{% endif %}{% endblock %}
 {% block breadcrumb_current %}{% if person %}{{ person.name }}{% else %}پروفایل{% endif %}{% endblock %}
 {% block content %}
@@ -12,7 +12,7 @@
    می‌شود که view پس از بررسی دامنه در اختیار دارد؛ دادهٔ هر زبانه فقط وقتی آن
    زبانه برای اولین بار باز شود از API خودش خوانده می‌شود. زبانه‌ای که ویژگی یا
    دسترسی‌اش نیست اصلاً رندر نمی‌شود — و API پشت هر زبانه دوباره بررسی می‌کند.
-   نشانه‌گذاری سربرگ از قالب Metronic است: pages/user-profile/overview.html. {% endcomment %}
+   نشانه‌گذاری سربرگ از قالب است. {% endcomment %}
 <div class="card mb-5 mb-xl-8" id="{{ person.type }}-detail-content">
     <div class="card-body pt-9 pb-0">
         <div class="d-flex flex-wrap flex-sm-nowrap">
@@ -32,21 +32,21 @@
                         </div>
                         <div class="d-flex flex-wrap fw-semibold fs-6 mb-4 pe-2">
                             <span class="d-flex align-items-center text-gray-500 me-5 mb-2" data-profile-field="job_title"{% if person.job_title.tooltip %} title="{{ person.job_title.tooltip }}"{% endif %}>
-                                <i class="ki-duotone ki-profile-circle fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                <i class="di-duotone di-profile-circle fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                                 <span class="visually-hidden">سمت: </span>{{ person.job_title.value }}
                             </span>
                             <span class="d-flex align-items-center text-gray-500 me-5 mb-2" data-profile-field="province"{% if person.province.missing %} title="{{ person.province.tooltip }}"{% endif %}>
-                                <i class="ki-duotone ki-geolocation fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                                <i class="di-duotone di-geolocation fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
                                 <span class="visually-hidden">استان: </span>{% if person.province.missing %}—<span class="visually-hidden">{{ person.province.tooltip }}</span>{% else %}{{ person.province.value }}{% endif %}
                             </span>
                             {% if person.phone %}
                             <a class="d-flex align-items-center text-gray-500 text-hover-primary me-5 mb-2" data-profile-field="phone" href="{{ person.phone.tel }}" dir="ltr" title="تماس با {{ person.phone.display }}"{% if can_originate %} data-originate-number="{% firstof person.phone.e164 person.phone.tel|cut:'tel:' %}" data-originate-person-type="{{ person.type }}" data-originate-person-id="{{ person.id }}"{% endif %}>
-                                <i class="ki-duotone ki-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                                <i class="di-duotone di-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
                                 <span class="visually-hidden">تلفن: </span>{{ person.phone.display }}
                             </a>
                             {% else %}
                             <span class="d-flex align-items-center text-gray-500 me-5 mb-2" data-profile-field="phone" title="{{ person.phone_missing_tooltip }}">
-                                <i class="ki-duotone ki-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                                <i class="di-duotone di-phone fs-4 me-1" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
                                 <span class="visually-hidden">تلفن: </span>—<span class="visually-hidden">{{ person.phone_missing_tooltip }}</span>
                             </span>
                             {% endif %}
@@ -57,13 +57,13 @@
                         {% if action.href %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="{{ action.href }}" data-quick-action="{{ action.key }}">
                         {% elif action.tab %}<a class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" href="?tab={{ action.tab }}" data-profile-tab-link="{{ action.tab }}" data-quick-action="{{ action.key }}"{% for name, value in action.data.items %} data-{{ name }}="{{ value }}"{% endfor %}>
                         {% else %}<button class="btn btn-sm {% if action.primary %}btn-primary{% else %}btn-light{% endif %}" type="button" data-profile-action="{{ action.action }}" data-quick-action="{{ action.key }}"{% for name, value in action.data.items %} data-{{ name }}="{{ value }}"{% endfor %}>{% endif %}
-                            <i class="ki-duotone {{ action.icon }} fs-4 me-1" aria-hidden="true">{% for n in action.paths %}<span class="path{{ n }}"></span>{% endfor %}</i>{{ action.label }}
+                            <i class="di-duotone {{ action.icon }} fs-4 me-1" aria-hidden="true">{% for n in action.paths %}<span class="path{{ n }}"></span>{% endfor %}</i>{{ action.label }}
                         {% if action.href or action.tab %}</a>{% else %}</button>{% endif %}
                         {% endfor %}
                         {% if menu_actions %}
                         <div class="position-relative">
                             <button id="profile-more-toggle" class="btn btn-sm btn-icon btn-bg-light btn-active-color-primary" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="profile-more-menu" aria-label="عملیات بیشتر">
-                                <i class="ki-duotone ki-dots-horizontal fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                <i class="di-duotone di-dots-horizontal fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                             </button>
                             <div id="profile-more-menu" class="menu menu-sub menu-sub-dropdown menu-column menu-rounded menu-gray-800 menu-state-bg-light-primary fw-semibold w-225px py-3">
                                 {% for action in menu_actions %}

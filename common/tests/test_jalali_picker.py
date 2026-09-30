@@ -5,7 +5,7 @@ for picking a value, themed like the rest of the panel in both light and
 dark mode, rather than being a plain typed field with no visual affordance.
 
 Built in-house rather than adapted from a vendor picker: the theme bundles
-flatpickr (`assets/plugins/global/plugins.bundle.js`), but it draws its grid
+flatpickr (`common/static/common/ui/js/dolphin-plugins.js`), but it draws its grid
 straight from JS `Date` with no hook for a different calendar system, and
 this codebase already carries a complete, tested Jalali <-> Gregorian
 conversion layer (`common/jalali.py` on the server, its JS mirror in
@@ -14,7 +14,7 @@ conversion layer (`common/jalali.py` on the server, its JS mirror in
 inventing a second one, and reuses the theme's own dropdown shell
 (`.menu-sub-dropdown`, the same classes `#user-menu` and
 `setupListFilterPopovers()`'s panel already use) rather than a bespoke
-design, so only the day grid itself is custom CSS — the one piece Metronic
+design, so only the day grid itself is custom CSS — the one piece the UI kit
 has no component for.
 
 What is worth proving here, none of which a full browser run through this
@@ -112,14 +112,14 @@ class GridMathReuseTests(SimpleTestCase):
 class ShellReuseTests(SimpleTestCase):
     def test_the_panel_is_the_themes_own_dropdown_shell(self):
         """Background, box-shadow, border-radius and the fade/move-in on
-        open all come from `.menu-sub-dropdown` (style.bundle.rtl.css) —
+        open all come from `.menu-sub-dropdown` (dolphin-theme.rtl.css) —
         the same classes `#user-menu` and the filter popover's own panel
         already use, not a bespoke surface."""
         self.assertIn("menu menu-sub menu-sub-dropdown menu-column jalali-picker", OPEN_PICKER_BODY)
 
     def test_it_opens_and_closes_like_the_other_header_dropdowns(self):
         self.assertIn('panel.classList.add("show")', OPEN_PICKER_BODY)
-        self.assertNotIn("data-kt-menu-trigger", OPEN_PICKER_BODY)
+        self.assertNotIn("data-dolphin-menu-trigger", OPEN_PICKER_BODY)
 
     def test_escape_closes_only_the_picker_not_a_parent_dialog(self):
         """`stopPropagation` here is load-bearing: a field inside a

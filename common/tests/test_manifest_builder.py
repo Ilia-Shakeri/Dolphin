@@ -382,8 +382,8 @@ class StyleTests(SimpleTestCase):
 
     def test_the_embedded_font_data_actually_loaded_from_the_repository_asset(self):
         """Distinguishes a real embed from a silently-empty one: the same
-        `assets/fonts/IRANSansWeb.woff2` the served product itself loads
-        (`assets/css/style.bundle.rtl.css`) is what this reads, so a
+        `common/static/common/ui/fonts/IRANSansWeb.woff2` the served product itself loads
+        (`common/static/common/ui/css/dolphin-theme.rtl.css`) is what this reads, so a
         near-tiny base64 string here would mean the read quietly failed
         rather than that the font is genuinely small.
         """

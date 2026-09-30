@@ -150,7 +150,7 @@ class RoleShapeTests(DashboardFixtures):
 
         css = (
             pathlib.Path(__file__).resolve().parents[2]
-            / "assets" / "plugins" / "global" / "plugins.bundle.css"
+            / "common" / "static" / "common" / "ui" / "css" / "dolphin-plugins.rtl.css"
         ).read_text(encoding="utf-8", errors="ignore")
         self._an_issued_invoice()
         self.a_sale(amount="1000000.00")
@@ -162,8 +162,8 @@ class RoleShapeTests(DashboardFixtures):
         self.assertTrue(seen)
         for kpi in seen:
             with self.subTest(icon=kpi["icon"]):
-                name = kpi["icon"].removeprefix("ki-")
-                found = re.findall(rf"\.ki-{re.escape(name)}\s*\.path(\d+)", css)
+                name = kpi["icon"].removeprefix("di-")
+                found = re.findall(rf"\.di-{re.escape(name)}\s*\.path(\d+)", css)
                 self.assertTrue(found, f"{kpi['icon']} is not a duotone icon in this theme")
                 self.assertEqual(kpi["icon_paths"], max(int(number) for number in found))
 
@@ -602,7 +602,7 @@ class KpiDirectionArrowTests(SimpleTestCase):
         end = self.script.index("\n    function ", start + 1)
         body = self.script[start:end]
         self.assertIn('kpi.direction === "up"', body)
-        self.assertIn('ki-arrow-${isUp ? "up" : "down"}', body)
+        self.assertIn('di-arrow-${isUp ? "up" : "down"}', body)
         self.assertIn('text-${isUp ? "success" : "danger"}', body)
 
 

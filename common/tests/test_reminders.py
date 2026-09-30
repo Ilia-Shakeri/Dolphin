@@ -453,7 +453,7 @@ class BadgeStyleTests(SimpleTestCase):
     """The badge must outrank the theme's own rule for badges inside buttons.
 
     The purchased theme ships `.btn .badge { position: relative; top: -1px; }`
-    (`assets/css/style.bundle.css`). A single-class rule here loses to it, and
+    (`common/static/common/ui/css/dolphin-theme.rtl.css`). A single-class rule here loses to it, and
     when it did, the count rendered *beside* the bell inside the 40px button
     instead of over its corner, squeezing the icon off-centre. Nothing in the
     Python suite could see that — it was found in a live browser — so what is
@@ -467,7 +467,7 @@ class BadgeStyleTests(SimpleTestCase):
 
     def test_the_badge_rule_is_selected_through_the_button_id(self):
         self.assertIn("#reminder-bell-toggle .reminder-bell-badge,", self.css)
-        self.assertIn("#kt_drawer_chat_toggle .reminder-bell-badge {", self.css)
+        self.assertIn("#dolphin_drawer_chat_toggle .reminder-bell-badge {", self.css)
 
     def test_the_badge_is_taken_out_of_the_buttons_flow(self):
         rule = self._rule()

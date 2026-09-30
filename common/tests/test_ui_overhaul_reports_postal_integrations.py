@@ -8,8 +8,8 @@ two reports of the same shape written twice become two different wizards.
 Both gained an XLSX export that goes through the report view itself, so a
 workbook cannot disagree with the page it was downloaded from.
 
-One defect found by measuring rather than reading: the vendor's KTStepper
-marks the current step with `KTUtil.index(element)`, which is an element's
+One defect found by measuring rather than reading: the vendor's DolphinStepper
+marks the current step with `DolphinUtil.index(element)`, which is an element's
 position among *its parent's* children and not among the stepper's own
 elements. With the four contents sitting beside the nav row and the button
 row, every content's index came out one too high — the nav said step 4 while
@@ -112,13 +112,13 @@ class ReportWizardTests(SimpleTestCase):
     def test_both_wizards_have_the_same_four_steps(self):
         for name, text in (("parcels", PARCELS), ("inbound", INBOUND)):
             with self.subTest(page=name):
-                self.assertEqual(text.count('data-kt-stepper-element="nav"'), 4)
-                self.assertEqual(text.count('data-kt-stepper-element="content"'), 4)
+                self.assertEqual(text.count('data-dolphin-stepper-element="nav"'), 4)
+                self.assertEqual(text.count('data-dolphin-stepper-element="content"'), 4)
                 for title in ("بازهٔ زمانی", "پالایش", "چه چیزی را ببینیم", "نتیجه"):
                     self.assertIn(title, text)
 
     def test_the_steps_live_in_their_own_container(self):
-        """KTStepper marks the current step by `KTUtil.index(element)` — the
+        """DolphinStepper marks the current step by `DolphinUtil.index(element)` — the
         element's position among *its parent's* children. With the contents
         beside the nav row and the button row, every index came out one too
         high: measured live, the nav said 4 while the visible content was 3,
@@ -129,12 +129,12 @@ class ReportWizardTests(SimpleTestCase):
                 self.assertIn('<div class="report-steps">', text)
                 steps = text.split('<div class="report-steps">')[1]
                 self.assertEqual(steps.split("</div>\n\n        <div class=\"d-flex flex-stack")[0]
-                                 .count('data-kt-stepper-element="content"'), 4)
+                                 .count('data-dolphin-stepper-element="content"'), 4)
 
     def test_both_offer_a_way_back(self):
         for name, text in (("parcels", PARCELS), ("inbound", INBOUND)):
             with self.subTest(page=name):
-                self.assertIn('data-kt-stepper-action="previous"', text)
+                self.assertIn('data-dolphin-stepper-action="previous"', text)
                 self.assertIn("مرحلهٔ قبل", text)
 
     def test_a_report_with_no_sections_chosen_is_refused(self):
@@ -262,21 +262,17 @@ class PostalVocabularyTests(SimpleTestCase):
         )
 
     def test_each_carries_its_own_icon_and_that_icon_exists(self):
-        """A keenicon drawn with the wrong number of `path` spans renders as
-        a smudge, so the count is declared beside the name and checked
-        against the vendor's own demo page."""
-        demo = (ROOT / "src" / "plugins" / "keenicons" / "duotone" / "demo.html").read_text(
-            encoding="utf-8", errors="replace"
+        """An icon-font glyph drawn with the wrong number of `path` spans renders
+        as a smudge, so the count is declared beside the name and checked
+        against the icon stylesheet the panel serves."""
+        css = (ROOT / "common" / "static" / "common" / "ui" / "css" / "dolphin-plugins.rtl.css").read_text(
+            encoding="utf-8", errors="ignore"
         )
         for state in postal.POSTAL_STATES:
             with self.subTest(state=state.key):
-                match = re.search(
-                    r'class="ki-duotone %s"[^>]*>((?:<span class="path\d+"></span>)*)'
-                    % re.escape(state.icon),
-                    demo,
-                )
-                self.assertIsNotNone(match, f"{state.icon} is not a keenicon")
-                self.assertEqual(match.group(1).count("path"), state.icon_paths)
+                found = re.findall(r"\.%s\s*\.path(\d+)" % re.escape(state.icon), css)
+                self.assertTrue(found, f"{state.icon} is not an icon-font glyph")
+                self.assertEqual(max(int(number) for number in found), state.icon_paths)
 
     def test_the_order_is_the_order_a_parcel_travels(self):
         keys = [state.key for state in postal.POSTAL_STATES]

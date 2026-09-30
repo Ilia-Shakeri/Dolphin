@@ -2,11 +2,11 @@
 
 from django.conf import settings
 
-#: The cookie `KTToggle` writes when the sidebar is collapsed. The name is
-#: `data-kt-` plus the toggle's `data-kt-toggle-name`, and it is the vendor's
+#: The cookie `DolphinToggle` writes when the sidebar is collapsed. The name is
+#: `data-dolphin-` plus the toggle's `data-dolphin-toggle-name`, and it is the vendor's
 #: own contract — their markup expects the server to read it back and stamp the
 #: attribute on `<body>` before the page paints.
-SIDEBAR_MINIMIZE_COOKIE = "data-kt-app-sidebar-minimize"
+SIDEBAR_MINIMIZE_COOKIE = "data-dolphin-app-sidebar-minimize"
 
 
 def sidebar_state(request):

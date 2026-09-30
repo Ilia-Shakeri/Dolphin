@@ -10,19 +10,19 @@ from common.deployment.profile import feature_enabled
 from timeline.models import PersonNote, TimelineEntry
 from timeline.services import NOTE_READ
 
-#: How each kind of recorded event is shown: label, keenicon, its `.path`
+#: How each kind of recorded event is shown: label, icon-font glyph, its `.path`
 #: count, and the theme accent. A kind missing here still renders, with the
 #: generic row.
 KIND_STYLE = {
-    "note": ("یادداشت", "ki-notepad", 5, "primary"),
-    "task_created": ("وظیفهٔ تازه", "ki-add-notepad", 4, "info"),
-    "task_done": ("وظیفهٔ انجام‌شده", "ki-check-circle", 2, "success"),
-    "call": ("تماس تلفنی", "ki-call", 8, "primary"),
-    "missed_call": ("تماس بی‌پاسخ", "ki-call", 8, "danger"),
-    "message": ("پیام", "ki-message-text-2", 3, "info"),
-    "integration": ("رویداد یکپارچه‌سازی", "ki-abstract-26", 2, "warning"),
+    "note": ("یادداشت", "di-notepad", 5, "primary"),
+    "task_created": ("وظیفهٔ تازه", "di-add-notepad", 4, "info"),
+    "task_done": ("وظیفهٔ انجام‌شده", "di-check-circle", 2, "success"),
+    "call": ("تماس تلفنی", "di-call", 8, "primary"),
+    "missed_call": ("تماس بی‌پاسخ", "di-call", 8, "danger"),
+    "message": ("پیام", "di-message-text-2", 3, "info"),
+    "integration": ("رویداد یکپارچه‌سازی", "di-abstract-26", 2, "warning"),
 }
-DEFAULT_STYLE = ("رویداد", "ki-information-5", 3, "info")
+DEFAULT_STYLE = ("رویداد", "di-information-5", 3, "info")
 
 
 def recorded_entries_for(viewer, person_type, person_id):

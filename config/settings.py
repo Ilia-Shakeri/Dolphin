@@ -29,11 +29,6 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    # `common` is listed before `django.contrib.staticfiles` on purpose:
-    # Django resolves a management command to the *first* app in this list that
-    # provides it, so this ordering is what lets
-    # common/management/commands/collectstatic.py apply the deployment's own
-    # ignore list. Without it the override is silently never used.
     "common",
     "django.contrib.staticfiles",
     "rest_framework",
@@ -113,80 +108,11 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# The purchased Metronic build is the visual system for the served UI, so its
-# tree is the static root. It is mapped *without* a prefix on purpose: Django's
-# FileSystemFinder joins a prefix using os.sep, so a prefixed entry silently
-# fails to resolve forward-slash URLs on Windows, which is where this is
-# developed. Metronic's own CSS also resolves its fonts relatively
-# (`../fonts/IRANSansWeb.woff`, `fonts/keenicons/...`), so the directory shape
-# has to survive intact anyway.
-#
-# The favicon is a Dolphin brand asset and lives with the application, so
-# the theme's demo media directory is not needed at runtime at all.
-STATICFILES_DIRS = [BASE_DIR / "assets"]
-#: Applied by common/management/commands/collectstatic.py on every invocation.
-#: Patterns match a file name or a directory name while walking, so these are
-#: names rather than paths. Everything here is unreachable from a served page:
-#: theme demo imagery, icon families the UI never uses, the LTR builds of the
-#: RTL bundles, and bundles nothing loads.
-#:
-#: `plugins.bundle.js` was on this list until 1.3.12 and is deliberately not any
-#: more. It carries ApexCharts, which is what the purchased theme draws its
-#: charts with and what this panel's charts now use. It is 3.6 MB and brings
-#: jQuery, select2 and dropzone that nothing here calls — the product owner was
-#: told the size and asked for the theme's own charts regardless. Re-adding it
-#: here does not fail any build: collectstatic still reports success and every
-#: chart silently 404s at runtime, which is why it is also pinned in
-#: scripts/validate_image_content.py and common/tests/test_static_assets.py.
-#:
-#: `plugins/custom/*` was a single bare `"custom"` entry — matched by basename
-#: while walking, so it pruned the whole directory — until 1.7.5. That was
-#: correct when the comment said "none loaded"; it silently broke the day the
-#: lead calendar started loading `plugins/custom/fullcalendar/fullcalendar.
-#: bundle.js`. `collectstatic` still reported success (an ignored file is not
-#: a missing one), so the failure only ever showed up as the calendar page's
-#: own "در حال دریافت سرنخ‌ها…" never resolving in a deployment that actually
-#: runs `collectstatic` — `runserver` serves straight from `STATICFILES_DIRS`
-#: without it, which is why this did not reproduce locally. Listed below by
-#: name instead, one entry per still-unused bundle under `plugins/custom/`,
-#: so a future one gets the same silent-404 fate only on purpose.
-STATICFILES_COLLECT_IGNORE = [
-    "media",              # ~46MB of theme stock photography and illustrations
-    "ckeditor",           # plugins/custom/* demo bundles, none loaded —
-    "cookiealert",        # `fullcalendar` and `jkanban` are the two loaded
-    "cropper",            # exceptions (see above), so neither is in this list.
-    "datatables",
-    "draggable",
-    "flotcharts",
-    "formrepeater",
-    "fslightbox",
-    "jstree",
-    "leaflet",
-    "prismjs",
-    "tinymce",
-    "typedjs",
-    "vis-timeline",
-    # `assets/js/custom/*` — per-demo page scripts, also nothing loads any of
-    # these. A bare `"custom"` would prune `plugins/custom` again too (see
-    # above): a directory is matched by name alone while walking, with no way
-    # to say "custom, but only under js/" — so this is every subdirectory and
-    # top-level file `js/custom` actually holds, named individually instead.
-    "account",
-    "apps",
-    "authentication",
-    "pages",
-    "utilities",
-    "landing.js",
-    "widgets.js",          # assets/js/custom/widgets.js — distinct from
-                            # assets/js/widgets.bundle.js, excluded below too
-    "@fortawesome",       # icon families the UI does not use; it uses keenicons
-    "bootstrap-icons",
-    "line-awesome",
-    "style.bundle.css",   # LTR builds; this deployment is RTL only
-    "plugins.bundle.css",
-    "widgets.bundle.js",  # theme demo widgets, not loaded
-    "*.map",
-]
+# The panel's UI kit (theme and plugin bundles, icon and Persian fonts, the
+# calendar and Kanban libraries) is first-party static under
+# `common/static/common/ui/`, found by the app-directories finder, so no extra
+# static directory is configured. Nothing at the repository root is served.
+STATICFILES_DIRS = []
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Sized from the largest document the application itself permits, not picked as
 # a round number: BILLING_MAX_DOCUMENT_ITEMS lines, each carrying a

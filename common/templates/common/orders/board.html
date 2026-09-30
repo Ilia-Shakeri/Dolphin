@@ -3,12 +3,12 @@
 {% block title %}تابلوی سفارش‌ها{% endblock %}
 {% block page_id %}order-board{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد فروش</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-category page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-category page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>{% endblock %}
 {% block page_title %}تابلوی سفارش‌ها{% endblock %}
 {% block breadcrumb_current %}تابلوی سفارش‌ها{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:orders' %}">فهرست سفارش‌ها</a>{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'plugins/custom/jkanban/jkanban.bundle.rtl.css' %}?v={{ dolphin_version }}">
+<link rel="stylesheet" href="{% static 'common/ui/plugins/jkanban/jkanban.bundle.rtl.css' %}?v={{ dolphin_version }}">
 {% endblock %}
 {% block content %}
 {% comment %} همان سفارش‌هایی که فهرست نشان می‌دهد، فقط ستون‌بندی‌شده به‌جای جدول.
@@ -30,5 +30,5 @@
 </div></section>
 {% endblock %}
 {% block extra_scripts %}
-<script src="{% static 'plugins/custom/jkanban/jkanban.bundle.js' %}?v={{ dolphin_version }}"></script>
+<script src="{% static 'common/ui/plugins/jkanban/jkanban.bundle.js' %}?v={{ dolphin_version }}"></script>
 {% endblock %}

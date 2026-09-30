@@ -33,7 +33,7 @@ def _interaction_events(viewer, person):
         customer = row.customer or (row.lead.customer if row.lead_id else None)
         direction = labels.label(labels.INTERACTION_DIRECTION_LABELS, row.direction)
         events.append(_event(
-            "interaction", "تماس ثبت‌شده", "ki-call", "primary",
+            "interaction", "تماس ثبت‌شده", "di-call", "primary",
             at=row.occurred_at,
             title=row.outcome or "تماس",
             subtitle=f"{direction} — {customer.full_name}" if customer else direction,
@@ -51,7 +51,7 @@ def _lead_events(viewer, person):
     )
     return [
         _event(
-            "lead", "سرنخ واگذارشده", "ki-rocket", "info",
+            "lead", "سرنخ واگذارشده", "di-rocket", "info",
             at=row.assigned_at,
             title=row.customer.full_name if row.customer_id else (row.source or f"سرنخ #{row.pk}"),
             subtitle=row.get_status_display() if row.status else "بدون وضعیت",
@@ -65,7 +65,7 @@ def _customer_events(viewer, person):
     rows = customers_for(viewer).filter(created_by=person).order_by("-created_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "customer", "مشتری ثبت‌شده", "ki-profile-circle", "success",
+            "customer", "مشتری ثبت‌شده", "di-profile-circle", "success",
             at=row.created_at,
             title=row.full_name,
             subtitle=row.get_kind_display(),
@@ -89,7 +89,7 @@ def _sale_events(viewer, person):
     )
     return [
         _event(
-            "sale", "فروش", "ki-dollar", "success",
+            "sale", "فروش", "di-dollar", "success",
             at=row.sold_at,
             title=row.customer.full_name,
             subtitle=f"{labels.label(SALE_STATUS_LABELS, row.status)} — {money(row.total_amount, unit)}",
@@ -107,7 +107,7 @@ def _after_sales_events(viewer, person):
     )
     return [
         _event(
-            "after_sales", "پروندهٔ پس از فروش", "ki-wrench", "warning",
+            "after_sales", "پروندهٔ پس از فروش", "di-wrench", "warning",
             at=row.created_at,
             title=row.subject,
             subtitle=row.status,

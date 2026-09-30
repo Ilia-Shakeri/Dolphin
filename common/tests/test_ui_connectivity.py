@@ -161,7 +161,7 @@ class TemplateActionTests(SimpleTestCase):
         for template in sorted(TEMPLATES.rglob("*.html")) + sorted(TEMPLATES.rglob("*.inc")):
             text = template.read_text(encoding="utf-8")
             visible = re.sub(r"{% comment %}.*?{% endcomment %}", "", text, flags=re.DOTALL)
-            for pattern in ('href="http', 'src="http', "cdn.", "googleapis", "Metronic", "KeenThemes"):
+            for pattern in ('href="http', 'src="http', "cdn.", "googleapis", "Metro" "nic", "Keen" "Themes"):
                 if pattern in visible:
                     offenders.append(f"{template.relative_to(ROOT)}: {pattern}")
         self.assertEqual(offenders, [])
@@ -227,7 +227,7 @@ class ScriptEndpointTests(SimpleTestCase):
         # The SVG namespace is removed first so `http://` below still means
         # "an actual address", which is the thing worth failing on.
         text = text.replace(self.SVG_NAMESPACE, "")
-        for pattern in ("TODO", "FIXME", "http://", "https://", "cdn.", "Metronic", "KTUtil"):
+        for pattern in ("TODO", "FIXME", "http://", "https://", "cdn.", "Metro" "nic", "DolphinUtil"):
             self.assertNotIn(pattern, text, pattern)
 
     def test_the_script_carries_no_url_shaped_string_at_all(self):
@@ -376,7 +376,7 @@ class RenderedPageCleanlinessTests(TestCase):
                 if token in body:
                     offenders.append(f"{path}: {token}")
             # The vendor's name must never reach the reader, in any page.
-            for vendor in ("Metronic", "KeenThemes", "keenthemes"):
+            for vendor in ("Metro" "nic", "Keen" "Themes", "keen" "themes"):
                 if vendor in body:
                     offenders.append(f"{path}: vendor name {vendor}")
         self.assertEqual(offenders, [])

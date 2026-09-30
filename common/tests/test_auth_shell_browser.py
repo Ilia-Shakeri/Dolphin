@@ -315,7 +315,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.assertGreater(expanded, 200, "the sidebar should start open")
 
         # Collapse it with the toggle — the control that must also reopen it.
-        toggle = self.browser.find_element(By.ID, "kt_app_sidebar_toggle")
+        toggle = self.browser.find_element(By.ID, "dolphin_app_sidebar_toggle")
         toggle.click()
         self.wait.until(lambda driver: width() < 100)
 
@@ -327,11 +327,11 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         # pointer is still on the toggle after that click, and without the
         # suspension the peek reopens what was just closed — the sidebar never
         # narrows, so the toggle never moves out from under the pointer either.
-        content = self.browser.find_element(By.ID, "kt_app_main")
+        content = self.browser.find_element(By.ID, "dolphin_app_main")
         ActionChains(self.browser).move_to_element(content).perform()
         self.wait.until(
             lambda driver: driver.execute_script(
-                "return document.body.hasAttribute('data-kt-app-sidebar-hoverable')"
+                "return document.body.hasAttribute('data-dolphin-app-sidebar-hoverable')"
             )
         )
         self.assertLess(width(), 100, "it should stay a rail with the pointer away")
@@ -341,7 +341,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(lambda driver: width() > 200)
         self.assertEqual(
             self.browser.execute_script(
-                "return document.body.getAttribute('data-kt-app-sidebar-minimize')"
+                "return document.body.getAttribute('data-dolphin-app-sidebar-minimize')"
             ),
             "on",
             "a peek is not an un-collapse; the stored state must survive it",
@@ -364,7 +364,7 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(lambda driver: width() > 200)
         self.assertIsNone(
             self.browser.execute_script(
-                "return document.body.getAttribute('data-kt-app-sidebar-minimize')"
+                "return document.body.getAttribute('data-dolphin-app-sidebar-minimize')"
             )
         )
         self.assert_browser_clean()

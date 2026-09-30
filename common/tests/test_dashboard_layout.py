@@ -375,7 +375,7 @@ class DashboardEditorMarkupTests(LayoutFixtures):
     def test_the_pencil_control_is_present_and_labelled(self):
         page = self.page()
         self.assertIn('id="dashboard-edit-toggle"', page)
-        self.assertIn("ki-pencil", page)
+        self.assertIn("di-pencil", page)
         self.assertIn("شخصی‌سازی داشبورد", page)
 
     def test_the_editor_bar_starts_hidden(self):

@@ -61,7 +61,7 @@ TOP_SELLERS = 5
 
 
 def _kpi(
-    key, label, *, display, hint="", icon="ki-element-11", icon_paths=4, accent="primary", url=None,
+    key, label, *, display, hint="", icon="di-element-11", icon_paths=4, accent="primary", url=None,
     spark=None, direction=None,
 ):
     return {
@@ -145,7 +145,7 @@ def _sales_kpis(user, *, now, unit, trend=None):
             display=formatting.money(amount, unit),
             hint=_change_hint(amount, previous, noun="ماه"),
             direction=_change_direction(amount, previous),
-            icon="ki-chart-line-up", icon_paths=2, accent="success", url="/sales/",
+            icon="di-chart-line-up", icon_paths=2, accent="success", url="/sales/",
             spark=amount_spark,
         ),
         _kpi(
@@ -153,7 +153,7 @@ def _sales_kpis(user, *, now, unit, trend=None):
             display=formatting.persian_digits(count),
             hint=_change_hint(count, last_month.count(), noun="ماه"),
             direction=_change_direction(count, last_month.count()),
-            icon="ki-basket", icon_paths=4, accent="primary", url="/sales/",
+            icon="di-basket", icon_paths=4, accent="primary", url="/sales/",
             spark=count_spark,
         ),
     ]
@@ -175,7 +175,7 @@ def _receivables_kpi(user, *, now, unit):
             "outstanding", "مطالبات باز",
             display=formatting.money(outstanding, unit),
             hint=f"{formatting.persian_digits(unpaid)} فاکتور تسویه‌نشده",
-            icon="ki-wallet", icon_paths=4, accent="warning", url="/reports/receivables/",
+            icon="di-wallet", icon_paths=4, accent="warning", url="/reports/receivables/",
         )
     ]
 
@@ -206,7 +206,7 @@ def _call_kpi(user, *, now):
             display=formatting.persian_digits(this_week),
             hint=_change_hint(this_week, last_week, noun="هفته"),
             direction=_change_direction(this_week, last_week),
-            icon="ki-call", icon_paths=8, accent="info", url="/interactions/",
+            icon="di-call", icon_paths=8, accent="info", url="/interactions/",
             spark=buckets,
         )
     ]
@@ -224,13 +224,13 @@ def _after_sales_kpis(user, *, now):
                 f"{formatting.persian_digits(open_cases.filter(next_appointment_at__isnull=False).count())}"
                 " مورد با قرار ثبت‌شده"
             ),
-            icon="ki-wrench", icon_paths=2, accent="danger", url="/after-sales/",
+            icon="di-wrench", icon_paths=2, accent="danger", url="/after-sales/",
         ),
         _kpi(
             "after_sales_closed_this_month", "بسته‌شده در این ماه",
             display=formatting.persian_digits(scope.filter(closed_at__gte=start).count()),
             hint="از ابتدای ماه جاری",
-            icon="ki-check-circle", icon_paths=2, accent="success", url="/after-sales/",
+            icon="di-check-circle", icon_paths=2, accent="success", url="/after-sales/",
         ),
     ]
 

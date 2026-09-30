@@ -227,7 +227,7 @@ class LineStepValidationTests(SimpleTestCase):
 
 class InvoiceStepMarkupTests(SimpleTestCase):
     def test_the_two_percentages_sit_in_the_summary_beside_what_they_change(self):
-        step = INVOICES.split('class="wizard-lines-step"')[1].split("data-kt-stepper-element")[0]
+        step = INVOICES.split('class="wizard-lines-step"')[1].split("data-dolphin-stepper-element")[0]
         self.assertIn('id="create-invoice-totals"', step)
         summary = step.split('id="create-invoice-totals"')[1]
         self.assertIn('id="create-invoice-discount"', summary)

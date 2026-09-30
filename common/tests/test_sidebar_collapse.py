@@ -1,7 +1,7 @@
 """The sidebar collapses to its icons, and remembers that it did.
 
 The collapsing itself is the purchased theme's: its CSS reacts to
-`data-kt-app-sidebar-minimize` on `<body>`, and its `KTToggle` flips that
+`data-dolphin-app-sidebar-minimize` on `<body>`, and its `DolphinToggle` flips that
 attribute and writes a cookie. What this project owns is the three things the
 theme cannot supply — the attribute rendered server-side so a collapsed sidebar
 never paints open first, a second logo for a 75px rail, and a toggle in a place
@@ -39,7 +39,7 @@ class SidebarCollapseRenderingTests(TestCase):
     # --- the state has to survive a page load ------------------------------
 
     def test_a_fresh_visitor_gets_an_open_sidebar(self):
-        self.assertNotIn('data-kt-app-sidebar-minimize="on"', self.page())
+        self.assertNotIn('data-dolphin-app-sidebar-minimize="on"', self.page())
 
     def test_the_cookie_collapses_the_sidebar_on_the_server(self):
         """Rendered collapsed, not collapsed by script after paint.
@@ -49,34 +49,34 @@ class SidebarCollapseRenderingTests(TestCase):
         navigation.
         """
         self.client.cookies[SIDEBAR_MINIMIZE_COOKIE] = "on"
-        self.assertIn('data-kt-app-sidebar-minimize="on"', self.page())
+        self.assertIn('data-dolphin-app-sidebar-minimize="on"', self.page())
 
     def test_the_toggle_renders_pressed_when_collapsed(self):
         """Otherwise the chevron points the wrong way on a collapsed reload."""
         self.client.cookies[SIDEBAR_MINIMIZE_COOKIE] = "on"
         markup = self.page()
-        toggle = re.search(r'<button id="kt_app_sidebar_toggle"[^>]*>', markup).group(0)
+        toggle = re.search(r'<button id="dolphin_app_sidebar_toggle"[^>]*>', markup).group(0)
         self.assertIn("active", toggle)
 
     def test_any_other_cookie_value_leaves_the_sidebar_open(self):
         self.client.cookies[SIDEBAR_MINIMIZE_COOKIE] = "off"
-        self.assertNotIn('data-kt-app-sidebar-minimize="on"', self.page())
+        self.assertNotIn('data-dolphin-app-sidebar-minimize="on"', self.page())
 
     # --- the markup the theme's own JS and CSS look for --------------------
 
     def test_the_toggle_carries_the_attributes_kttoggle_binds_to(self):
-        """`KTToggle.createInstances()` finds these at DOM ready; nothing else
+        """`DolphinToggle.createInstances()` finds these at DOM ready; nothing else
         wires the button, so a missing attribute is a dead control."""
         markup = self.page()
-        toggle = re.search(r'<button id="kt_app_sidebar_toggle"[^>]*>', markup).group(0)
-        self.assertIn('data-kt-toggle="true"', toggle)
-        self.assertIn('data-kt-toggle-target="body"', toggle)
-        self.assertIn('data-kt-toggle-name="app-sidebar-minimize"', toggle)
-        self.assertIn('data-kt-toggle-state="active"', toggle)
+        toggle = re.search(r'<button id="dolphin_app_sidebar_toggle"[^>]*>', markup).group(0)
+        self.assertIn('data-dolphin-toggle="true"', toggle)
+        self.assertIn('data-dolphin-toggle-target="body"', toggle)
+        self.assertIn('data-dolphin-toggle-name="app-sidebar-minimize"', toggle)
+        self.assertIn('data-dolphin-toggle-state="active"', toggle)
 
     def test_the_toggle_is_reachable_without_sight(self):
         markup = self.page()
-        toggle = re.search(r'<button id="kt_app_sidebar_toggle"[^>]*>', markup).group(0)
+        toggle = re.search(r'<button id="dolphin_app_sidebar_toggle"[^>]*>', markup).group(0)
         self.assertIn("aria-label", toggle)
 
     def test_both_logos_are_rendered_so_neither_has_to_load_on_toggle(self):
@@ -86,12 +86,12 @@ class SidebarCollapseRenderingTests(TestCase):
         self.assertIn("app-sidebar-logo-minimize", markup)
 
     def test_the_cookie_name_is_the_one_the_theme_writes(self):
-        """`KTToggle` builds it as `data-kt-` + the toggle's name. If these ever
+        """`DolphinToggle` builds it as `data-dolphin-` + the toggle's name. If these ever
         disagree the sidebar collapses and forgets on the next page."""
         markup = self.page()
-        toggle = re.search(r'<button id="kt_app_sidebar_toggle"[^>]*>', markup).group(0)
-        name = re.search(r'data-kt-toggle-name="([^"]+)"', toggle).group(1)
-        self.assertEqual(SIDEBAR_MINIMIZE_COOKIE, f"data-kt-{name}")
+        toggle = re.search(r'<button id="dolphin_app_sidebar_toggle"[^>]*>', markup).group(0)
+        name = re.search(r'data-dolphin-toggle-name="([^"]+)"', toggle).group(1)
+        self.assertEqual(SIDEBAR_MINIMIZE_COOKIE, f"data-dolphin-{name}")
 
 
 class SidebarCollapseStyleTests(SimpleTestCase):
@@ -134,7 +134,7 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         markup = (
             REPOSITORY_ROOT / "common" / "templates" / "common" / "base.html"
         ).read_text(encoding="utf-8")
-        toggle = re.search(r'<button id="kt_app_sidebar_toggle".*?>', markup, re.S).group(0)
+        toggle = re.search(r'<button id="dolphin_app_sidebar_toggle".*?>', markup, re.S).group(0)
         for utility in ("position-absolute", "top-50", "start-100", "translate-middle", "rotate"):
             with self.subTest(utility=utility):
                 self.assertIn(utility, toggle)
@@ -174,7 +174,7 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         )
         self.assertRegex(
             self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: 75px',
+            r'\[data-dolphin-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: 75px',
         )
 
     def test_hovering_a_collapsed_sidebar_pushes_the_panel_with_it(self):
@@ -189,7 +189,7 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         effect underneath this rule and already accounts for that 75px.
         """
         match = re.search(
-            r'\[data-kt-app-sidebar-minimize="on"\]\[data-kt-app-sidebar-hoverable="true"\] '
+            r'\[data-dolphin-app-sidebar-minimize="on"\]\[data-dolphin-app-sidebar-hoverable="true"\] '
             r"\.app-sidebar:hover:not\(\.animating\) ~ \.app-main \{([^}]*)\}",
             self.css,
         )
@@ -204,7 +204,7 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         )
         # Not a second transition here: `.app-main` already carries
         # `transition: margin 0.3s ease` unconditionally at this breakpoint
-        # (style.bundle.rtl.css) — redeclaring it would risk a different
+        # (dolphin-theme.rtl.css) — redeclaring it would risk a different
         # easing/duration that desyncs the panel from the sidebar's own
         # `width 0.3s ease`.
         self.assertNotIn("transition", body)
@@ -213,17 +213,17 @@ class SidebarCollapseStyleTests(SimpleTestCase):
         """The one theme number copied into the override sheet, guarded so it
         cannot drift silently."""
         theme = (
-            REPOSITORY_ROOT / "assets" / "css" / "style.bundle.rtl.css"
+            REPOSITORY_ROOT / "common" / "static" / "common" / "ui" / "css" / "dolphin-theme.rtl.css"
         ).read_text(encoding="utf-8", errors="ignore")
         declared = re.search(
-            r"\[data-kt-app-sidebar-minimize=on\]\s*\{[^}]*?"
+            r"\[data-dolphin-app-sidebar-minimize=on\]\s*\{[^}]*?"
             r"--bs-app-sidebar-width:\s*([0-9]+px)",
             theme,
         )
         self.assertIsNotNone(declared, "the theme no longer declares a rail width")
         self.assertRegex(
             self.css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: '
+            r'\[data-dolphin-app-sidebar-minimize="on"\] \.app-sidebar \{\s*width: '
             + re.escape(declared.group(1)),
         )
 
@@ -276,14 +276,14 @@ class CollapsedSidebarMarkupTests(TestCase):
         css = PANEL_CSS.read_text(encoding="utf-8")
         self.assertNotRegex(
             css,
-            r'\[data-kt-app-sidebar-minimize="on"\] \.app-sidebar \.app-sidebar-toggle \{'
+            r'\[data-dolphin-app-sidebar-minimize="on"\] \.app-sidebar \.app-sidebar-toggle \{'
             r"\s*display: none",
         )
 
     def test_the_shell_asks_the_theme_for_hover_to_peek(self):
         """The whole feature is this attribute: the theme implements the peek in
         CSS with no JavaScript behind it."""
-        self.assertIn('data-kt-app-sidebar-hoverable="true"', self.markup)
+        self.assertIn('data-dolphin-app-sidebar-hoverable="true"', self.markup)
 
 
 class SelectStyleTests(SimpleTestCase):

@@ -1,4 +1,4 @@
-"""The invoice/order creation dialogs as multi-step Metronic wizards.
+"""The invoice/order creation dialogs as multi-step wizards.
 
 Product-owner request (2026-09-05): the fields crammed into one dialog should
 become "ویزارد چندمرحله‌ای" — a multi-step wizard, matching the purchased
@@ -8,7 +8,7 @@ Both dialogs already existed as native `<dialog>` create forms wired through
 the shared `setupDocumentList`. What changed here is purely presentational
 plus one real capability fix, and this is what is worth pinning:
 
-* the dialog content is now split across the theme's own real `KTStepper`
+* the dialog content is now split across the theme's own real `DolphinStepper`
   steps (`utilities/modals/wizards/create-account.html` is the vendor
   reference), not a hand-rolled tab system;
 * "next" is gated on the current step's own required fields — no
@@ -55,14 +55,14 @@ class WizardRenderingTests(TestCase):
         page = self.client.get("/invoices/").content.decode("utf-8")
         self.assertIn('id="create-invoice-stepper"', page)
         self.assertIn('class="stepper stepper-links d-flex flex-column"', page)
-        self.assertEqual(page.count('data-kt-stepper-element="nav"'), 4)
-        self.assertEqual(page.count('data-kt-stepper-element="content"'), 4)
+        self.assertEqual(page.count('data-dolphin-stepper-element="nav"'), 4)
+        self.assertEqual(page.count('data-dolphin-stepper-element="content"'), 4)
 
     def test_the_order_dialog_carries_a_real_stepper_too(self):
         page = self.client.get("/orders/").content.decode("utf-8")
         self.assertIn('id="create-order-stepper"', page)
-        self.assertEqual(page.count('data-kt-stepper-element="nav"'), 3)
-        self.assertEqual(page.count('data-kt-stepper-element="content"'), 3)
+        self.assertEqual(page.count('data-dolphin-stepper-element="nav"'), 3)
+        self.assertEqual(page.count('data-dolphin-stepper-element="content"'), 3)
 
     def test_both_wizards_end_on_a_review_step_before_the_real_submit(self):
         for path, review_id in (("/invoices/", "create-invoice-review"), ("/orders/", "create-order-review")):
@@ -71,7 +71,7 @@ class WizardRenderingTests(TestCase):
                 self.assertIn(f'id="{review_id}"', page)
                 # The real submit is still a native form submit — nothing new
                 # for `setupDocumentList`'s own handler to learn.
-                self.assertIn('type="submit" data-kt-stepper-action="submit"', page)
+                self.assertIn('type="submit" data-dolphin-stepper-action="submit"', page)
 
     def test_previous_and_next_are_plain_buttons_not_submits(self):
         """Only the last step's button may submit the form — an earlier
@@ -79,8 +79,8 @@ class WizardRenderingTests(TestCase):
         for path in ("/invoices/", "/orders/"):
             with self.subTest(path=path):
                 page = self.client.get(path).content.decode("utf-8")
-                self.assertIn('type="button" data-kt-stepper-action="previous"', page)
-                self.assertIn('type="button" data-kt-stepper-action="next"', page)
+                self.assertIn('type="button" data-dolphin-stepper-action="previous"', page)
+                self.assertIn('type="button" data-dolphin-stepper-action="next"', page)
 
     def test_the_order_dialog_no_longer_has_the_single_item_fields(self):
         """Superseded by the shared multi-row item editor below."""
@@ -102,7 +102,7 @@ class ScriptBehaviourTests(SimpleTestCase):
 
     def test_setup_wizard_is_the_real_kt_stepper_not_a_reinvention(self):
         body = _function_body("setupWizard", "\n    /**\n     * One dynamic")
-        self.assertIn("new KTStepper(root)", body)
+        self.assertIn("new DolphinStepper(root)", body)
         # No validation/dialog library this codebase does not otherwise use.
         self.assertNotIn("FormValidation", body)
         self.assertNotIn("Swal", body)

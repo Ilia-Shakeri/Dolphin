@@ -64,7 +64,7 @@ class JalaliPickerTitleSpacingTests(SimpleTestCase):
         self.assertRegex(body, r"gap:\s*0\.3rem")
 
     def test_scope_padding_wins_over_the_vendor_button(self):
-        # Metronic's own `.btn:not(...).btn-sm` (eight `:not()` clauses) has
+        # The UI kit's own `.btn:not(...).btn-sm` (eight `:not()` clauses) has
         # higher specificity than any selector built from this component's
         # own classes, so the padding override needs `!important` to
         # actually apply — without it the buttons kept the vendor's roomy
@@ -131,7 +131,7 @@ class BoardCardDetailsLinkTests(SimpleTestCase):
 class PaymentWizardDocumentStepTests(SimpleTestCase):
     """Item 5 — the receipts/payments wizard's «اطلاعات سند» step shared the
     exact bug `.wizard-lines-step` was already written to fix: the theme
-    lays every `[data-kt-stepper-element="content"]` out as `display:flex;
+    lays every `[data-dolphin-stepper-element="content"]` out as `display:flex;
     flex-direction:row` by default, and this step has up to five top-level
     children once a fieldset is shown, so they fought each other for one
     shared row instead of stacking. Measured live with «چک» selected before
@@ -140,7 +140,7 @@ class PaymentWizardDocumentStepTests(SimpleTestCase):
     """
 
     def test_the_step_carries_the_scoping_class(self):
-        self.assertIn('class="wizard-document-step" data-kt-stepper-element="content"', markup(PAYMENTS_LIST))
+        self.assertIn('class="wizard-document-step" data-dolphin-stepper-element="content"', markup(PAYMENTS_LIST))
 
     def test_the_step_is_a_column(self):
         body = rule(".wizard-document-step")
@@ -149,7 +149,7 @@ class PaymentWizardDocumentStepTests(SimpleTestCase):
 
     def test_the_sections_get_more_air_than_a_lone_form_row_would(self):
         # The theme's own `.mt-2` utility is itself `!important`
-        # (style.bundle.rtl.css), so beating it for just this step needs the
+        # (dolphin-theme.rtl.css), so beating it for just this step needs the
         # same — a single, targeted override, not a chain.
         body = rule(".wizard-document-step > .mt-2")
         self.assertIn("!important", body)
@@ -258,8 +258,8 @@ class ReportProvinceDropdownTests(SimpleTestCase):
 class ExcelButtonIconTests(SimpleTestCase):
     """Item 8 — every Excel import/export button in the panel gets a small,
     theme-consistent icon (product owner, 2026-09-21: «یه ایکون کوچولو
-    اکسل در دکمه باشه ... هماهنگ با تم اصلی»). Originally `ki-file-sheet`, a
-    real icon in the purchased, actually-bundled keenicons set — restated
+    اکسل در دکمه باشه ... هماهنگ با تم اصلی»). Originally `di-file-sheet`, a
+    real icon in the purchased, actually-bundled dolphin-icons set — restated
     2026-09-22 when the product owner asked for something more polished
     while keeping the same "coordinated with the theme, not a borrowed brand
     mark" direction: `common/includes/excel_icon.inc`, one shared first-party
@@ -300,14 +300,14 @@ class ExcelButtonIconTests(SimpleTestCase):
             )
 
     def test_no_button_still_carries_the_old_generic_icon(self):
-        """`ki-file-sheet` was the shared theme icon every Excel button used
+        """`di-file-sheet` was the shared theme icon every Excel button used
         before this — restated, not merely deleted, so a future revert to it
         (rather than to the new SVG) fails loudly here instead of silently
         passing `test_every_excel_button_carries_it` for the wrong reason."""
         for relative in self.TEMPLATE_PATHS:
             path = TEMPLATES / relative
             text = markup(path.read_text(encoding="utf-8"))
-            self.assertNotIn("ki-file-sheet", text, f"{relative} still uses the old generic Excel icon")
+            self.assertNotIn("di-file-sheet", text, f"{relative} still uses the old generic Excel icon")
 
 
 class DashboardWidgetDragTests(SimpleTestCase):

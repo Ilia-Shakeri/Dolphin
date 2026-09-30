@@ -505,7 +505,7 @@ class DashboardDragTests(SimpleTestCase):
 
 
 class DashboardResizeTests(SimpleTestCase):
-    """Restated 2.18.4. The corner grip (a `ki-arrow-two-diagonals` button
+    """Restated 2.18.4. The corner grip (a `di-arrow-two-diagonals` button
     that changed width only) became the box's own border, taken on any edge
     or corner, horizontally and vertically — product owner, 2026-09-27: «این
     دکمه حذف شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد». The tests
@@ -514,7 +514,7 @@ class DashboardResizeTests(SimpleTestCase):
     def test_the_grip_button_is_gone(self):
         body = function_body("setupDashboardEditor")
         self.assertNotIn("function resizeGrip(", SCRIPT)
-        self.assertNotIn("ki-arrow-two-diagonals fs-6", body)
+        self.assertNotIn("di-arrow-two-diagonals fs-6", body)
         self.assertNotIn("dashboard-widget-resize", CODE)
         self.assertNotIn("dashboard-widget-size", SCRIPT)
 
@@ -568,7 +568,7 @@ class DashboardHideButtonTests(SimpleTestCase):
 
     def test_it_is_a_real_icon_button_rather_than_a_bare_multiplication_sign(self):
         body = function_body("setupDashboardEditor")
-        self.assertIn('hide.innerHTML = \'<i class="ki-outline ki-cross fs-4"></i>\'', body)
+        self.assertIn('hide.innerHTML = \'<i class="di-outline di-cross fs-4"></i>\'', body)
         self.assertIn('hide.className = "btn btn-icon btn-sm btn-danger dashboard-widget-hide"', body)
 
     def test_it_names_the_box_it_would_hide(self):

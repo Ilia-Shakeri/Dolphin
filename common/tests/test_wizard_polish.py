@@ -12,7 +12,7 @@ Two defects were behind those sentences, and both are worth pinning because
 both are invisible from the code that renders the step:
 
 1. **The step was laid out sideways.** The theme's own stylesheet sets
-   `[data-kt-stepper-element="content"].current { display: flex }` with
+   `[data-dolphin-stepper-element="content"].current { display: flex }` with
    flexbox's default `row` direction. Every other step in every wizard has
    exactly one child (its `.row` of fields) so nobody noticed; the review
    steps have two or three (`h3`, the field list, sometimes a `p`), and those
@@ -45,7 +45,7 @@ TEMPLATES = ROOT / "common" / "templates" / "common"
 #: asserted about instead of failing a hard-coded name.
 WIZARD_PAGES = sorted(
     path for path in TEMPLATES.rglob("*.html")
-    if 'data-kt-stepper-element="nav"' in path.read_text(encoding="utf-8")
+    if 'data-dolphin-stepper-element="nav"' in path.read_text(encoding="utf-8")
 )
 
 
@@ -84,13 +84,13 @@ class ReviewStepLayoutTests(SimpleTestCase):
         """
         for page, dialog in _review_steps():
             with self.subTest(page=page):
-                last = dialog.rfind('data-kt-stepper-element="content"')
+                last = dialog.rfind('data-dolphin-stepper-element="content"')
                 tail = dialog[last:]
                 # The wrapper opens before the heading and the field list, and
                 # nothing else sits outside it inside that step.
                 self.assertRegex(
                     tail,
-                    r'data-kt-stepper-element="content">\s*<div class="w-100">\s*<h3',
+                    r'data-dolphin-stepper-element="content">\s*<div class="w-100">\s*<h3',
                 )
 
     def test_no_review_container_is_still_a_two_column_grid(self):
@@ -233,8 +233,8 @@ class StepGateTests(SimpleTestCase):
         for page, dialog in _review_steps():
             with self.subTest(page=page):
                 self.assertEqual(
-                    dialog.count('data-kt-stepper-element="nav"'),
-                    dialog.count('data-kt-stepper-element="content"'),
+                    dialog.count('data-dolphin-stepper-element="nav"'),
+                    dialog.count('data-dolphin-stepper-element="content"'),
                 )
 
     def test_the_review_step_is_always_the_last_one(self):
@@ -243,5 +243,5 @@ class StepGateTests(SimpleTestCase):
         reader never submits from."""
         for page, dialog in _review_steps():
             with self.subTest(page=page):
-                last = dialog.rfind('data-kt-stepper-element="content"')
+                last = dialog.rfind('data-dolphin-stepper-element="content"')
                 self.assertRegex(dialog[last:], r'id="[a-z-]*review"')

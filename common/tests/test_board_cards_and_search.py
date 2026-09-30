@@ -85,7 +85,7 @@ class CardDetailControlTests(SimpleTestCase):
 
     def test_it_is_three_dots(self):
         body = _function_body("boardCardHeader")
-        self.assertIn("ki-dots-vertical", body)
+        self.assertIn("di-dots-vertical", body)
 
     def test_it_sits_in_the_corner_and_is_drawn_rather_than_ghosted(self):
         """Restated 2026-09-20. It used to be pinned at `opacity: 0.55`

@@ -46,7 +46,7 @@ When sources disagree, use this order:
 7. docs/ops/*.md for operational/runbook contracts.
 8. Current maintained tests where they accurately represent intended behavior.
 9. Older Git history and historical prose.
-10. Vendor/demo source as visual/technical reference only.
+10. The reference template folder, if still present, as visual/technical reference only.
 
 Current code overrides stale prose.
 
@@ -58,7 +58,7 @@ If code and documentation disagree:
 • never silently rewrite code merely to make it match stale documentation.
 
 Never derive business rules, permissions, statuses, accounting semantics, workflows, or customer
-behavior from vendor/demo UI.
+behavior from any demo UI.
 
 ────────
 
@@ -78,23 +78,15 @@ The maintained served Dolphin UI is:
 These are the maintained first-party application UI surfaces unless current repository evidence
 shows otherwise.
 
-The purchased Metronic/vendor source may exist under locations such as:
+The Dolphin UI kit — the theme and plugin bundles, icon and Persian fonts, and the calendar and
+Kanban libraries the panel is built on — is first-party static under:
 
-• assets/
-• src/
-• dashboards/
-• pages/
-• apps/
-• layouts/
-• toolbars/
-• widgets/
-• utilities/
-• account/
-• authentication/
-• index.html
-• landing.html
+• common/static/common/ui/
 
-These vendor/demo sources are retained primarily as implementation and visual references.
+The kit was copied from a reference template and renamed to Dolphin's own names. A folder
+holding the untouched reference template may exist at the repository root until the product
+owner deletes it by hand. Nothing served, built, tested or documented may depend on that
+folder; common/tests/test_ui_independence.py enforces this.
 
 Do not assume a file is relevant merely from its filename. Search, open, and inspect the actual
 implementation before modifying behavior.
@@ -373,37 +365,38 @@ decision, not a default first-party rename pass — not as a precedent for chang
 already-deployed customer's own `.env` file may still use the old names; see the migration note in
 `docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md` for what that requires before its next deploy.
 
-Also preserve required vendor/runtime identifiers when changing them would break the purchased
-template or third-party runtime, including examples such as:
+Also preserve required third-party runtime identifiers when changing them would break the
+library, such as the ApexCharts, FullCalendar and jKanban APIs. The UI kit's own components use
+Dolphin names and must keep them:
 
-• KTMenu
-• KTDrawer
-• KTUtil
-• data-kt-*
+• DolphinMenu
+• DolphinDrawer
+• DolphinUtil
+• data-dolphin-*
 
 Do not rename third-party library identifiers, CSS classes, JavaScript APIs, package names, license
 references, or runtime hooks solely for branding.
 
-10.2 Metronic Branding Rule
+10.2 UI Kit Naming Rule
 
-Metronic is the purchased visual/component source, not Dolphin’s customer-facing brand.
+The UI kit was adapted from a purchased reference template, which is not Dolphin’s
+customer-facing brand and whose names must not appear in first-party files.
 
-When adapting a Metronic component into first-party Dolphin UI:
+When adding or adapting a UI component:
 
 • customer-visible labels must use Dolphin/product terminology,
-• copied demo content must be replaced with real Dolphin behavior/content,
-• do not expose “Metronic” as the product name,
-• preserve vendor technical identifiers where required for functionality,
+• demo content must be replaced with real Dolphin behavior/content,
+• component, class, attribute and icon names use Dolphin’s prefixes (Dolphin*, data-dolphin-*, di-*),
 • preserve required third-party LICENSE/NOTICE attribution.
 
-Never perform a blind repository-wide replacement of Metronic, Kariz, or other names.
+Never perform a blind repository-wide replacement of Kariz or other historical names.
 
 Classify each occurrence first:
 
 • customer-facing product branding → convert to Dolphin,
 • stale first-party historical naming → migrate when safe,
 • deliberate deployment compatibility identifier → preserve,
-• vendor runtime identifier → preserve,
+• third-party library runtime identifier → preserve,
 • required historical changelog record → preserve,
 • third-party license/attribution → preserve.
 
@@ -413,16 +406,16 @@ This distinction is mandatory.
 
 11. Frontend Source of Truth
 
-The purchased Metronic HTML template is the canonical visual and component source for Dolphin.
+The Dolphin UI kit (common/static/common/ui/) is the canonical visual and component source for Dolphin.
 
 This is a hard frontend rule.
 
 For normal frontend work, do not invent a parallel design system.
 
-Dolphin should look and behave like a professionally adapted Metronic product, not like a generic
+Dolphin should look and behave like a professionally designed product built on its UI kit, not like a generic
 AI-generated dashboard.
 
-Unless the product owner explicitly requests a different design, prefer Metronic’s existing:
+Unless the product owner explicitly requests a different design, prefer the UI kit’s existing:
 
 • shell,
 • page structure,
@@ -472,23 +465,23 @@ Find and inspect:
 
 Understand the actual defect or requirement before editing.
 
-Step 2 — Search Metronic
+Step 2 — Search the UI kit
 
-Search the purchased Metronic source for the closest matching component or page.
+Search the UI kit (common/static/common/ui/) and existing Dolphin templates for the closest matching component.
 
 Search by:
 
 • component type,
-• visible text from demo examples,
+• visible text from existing Dolphin pages,
 • relevant CSS classes,
-• data-kt-* attributes,
+• data-dolphin-* attributes,
 • JS initialization names,
 • chart library configuration,
 • layout structure.
 
 Do not stop at filenames or screenshots.
 
-Open and inspect the actual Metronic:
+Open and inspect the actual UI kit implementation:
 
 • HTML,
 • classes,
@@ -502,17 +495,17 @@ Step 3 — Adapt, Do Not Reinvent
 
 Use this preference order:
 
-1. Exact Metronic implementation.
-2. Closest Metronic implementation adapted to Dolphin data.
-3. Existing Dolphin component already derived from Metronic.
-4. Minimal custom extension of a Metronic pattern.
+1. Exact UI kit implementation.
+2. Closest UI kit implementation adapted to Dolphin data.
+3. Existing Dolphin component already built on the UI kit.
+4. Minimal custom extension of a UI kit pattern.
 5. New custom design only when no suitable pattern exists or the product owner explicitly requests it.
 
 Do not create a new component merely because writing one from scratch is faster.
 
 Step 4 — Preserve Real Behavior
 
-Metronic demo source supplies visual/component patterns only.
+Demo content supplies visual/component patterns only.
 
 Dolphin backend/API/service/model behavior supplies functional truth.
 
@@ -578,9 +571,9 @@ Verify:
 Do not solve RTL defects with arbitrary per-element offsets when the underlying layout can be made
 direction-aware.
 
-Prefer logical CSS properties and existing Metronic RTL behavior where appropriate.
+Prefer logical CSS properties and existing UI kit RTL behavior where appropriate.
 
-Do not assume that mirroring every visual element is correct. Follow established Metronic RTL and
+Do not assume that mirroring every visual element is correct. Follow established UI kit RTL and
 Dolphin product conventions.
 
 ────────
@@ -591,7 +584,7 @@ Charts are a known high-risk visual area and require explicit verification.
 
 Before changing or creating a chart:
 
-1. Find the closest Metronic chart/widget reference.
+1. Find the closest existing chart/widget in the UI kit or Dolphin pages.
 2. Inspect its actual markup and JS configuration.
 3. Inspect the Dolphin chart container and surrounding card/layout.
 4. Determine the chart library and existing initialization lifecycle.
@@ -630,7 +623,7 @@ Do not “fix” overlap by blindly:
 • hiding labels,
 • clipping overflow,
 
-unless the Metronic reference or a demonstrated layout requirement justifies that behavior.
+unless the UI kit’s own behavior or a demonstrated layout requirement justifies that behavior.
 
 A chart that technically renders but has misplaced labels, legends, tooltips, or values is not
 complete.
@@ -643,7 +636,7 @@ Minimize custom CSS.
 
 Use existing:
 
-• Metronic utility classes,
+• UI kit utility classes,
 • Bootstrap/layout utilities used by the project,
 • established Dolphin classes,
 • component classes,
@@ -662,12 +655,12 @@ Avoid:
 
 • arbitrary pixel nudges,
 • large !important chains,
-• duplicated vendor styles,
+• duplicated UI kit styles,
 • global selectors for local problems,
 • hardcoded layout hacks,
-• custom design tokens that duplicate Metronic.
+• custom design tokens that duplicate the UI kit’s.
 
-If custom CSS grows significantly for a standard component, stop and search Metronic again. A
+If custom CSS grows significantly for a standard component, stop and search the UI kit again. A
 canonical implementation may already exist.
 
 ────────
@@ -681,16 +674,16 @@ Do not:
 • duplicate global event listeners,
 • initialize the same component repeatedly,
 • create hidden dependencies between unrelated modules,
-• copy large vendor JS blocks when a supported initializer already exists,
+• copy large third-party JS blocks when a supported initializer already exists,
 • hardcode fake API responses,
 • make UI state the source of truth for permissions.
 
 Keep reusable behavior reusable, but do not create abstractions for one-time trivial behavior.
 
-Preserve compatibility with Metronic runtime hooks used by the served UI.
+Preserve compatibility with the UI kit runtime hooks (data-dolphin-*) used by the served UI.
 
 For dynamically inserted content, ensure required component initialization/reinitialization follows
-the existing project/vendor pattern.
+the existing project/UI kit pattern.
 
 ────────
 
@@ -720,7 +713,7 @@ parallel visual style.
 
 18. Dependencies
 
-Prefer existing project and vendor dependencies.
+Prefer existing project and UI kit dependencies.
 
 Before adding a dependency:
 
@@ -729,7 +722,7 @@ Before adding a dependency:
 • consider maintenance and security impact,
 • avoid introducing overlapping UI/component libraries.
 
-Do not add a new design system or component framework alongside Metronic for ordinary UI work.
+Do not add a new design system or component framework alongside the UI kit for ordinary UI work.
 
 Do not add a library for a trivial function that can be implemented safely and clearly with existing
 dependencies or standard platform features.
@@ -790,7 +783,7 @@ If browser tooling is available, use it for meaningful frontend changes.
 
 Visual review should compare the implementation against:
 
-• the relevant Metronic reference,
+• the relevant UI kit component,
 • existing Dolphin page conventions,
 • Persian RTL behavior,
 • responsive behavior.
@@ -1157,8 +1150,8 @@ Stop for a genuine unresolved decision involving:
 • unavailable required infrastructure,
 • release-blocking ambiguity that cannot safely be resolved from repository evidence.
 
-Do not stop for ordinary implementation choices that can be resolved from code, tests, Metronic
-references, or established project conventions.
+Do not stop for ordinary implementation choices that can be resolved from code, tests, UI kit
+components, or established project conventions.
 
 Do not ask the product owner questions that repository inspection can answer.
 
@@ -1236,8 +1229,8 @@ Do not provide long narration of routine work.
 For a meaningful frontend change, confirm as applicable:
 
 • served Dolphin implementation inspected,
-• closest Metronic reference found and inspected,
-• existing Dolphin/Metronic component reused where possible,
+• closest UI kit component found and inspected,
+• existing Dolphin/UI kit component reused where possible,
 • no unnecessary parallel design system introduced,
 • real backend behavior preserved,
 • no demo/placeholder controls introduced,
@@ -1293,13 +1286,13 @@ Only perform expensive full verification when the scope warrants it.
 
 42. Final Principle
 
-Dolphin is a shared commercial product with a purchased, proven visual system and a modular backend.
+Dolphin is a shared commercial product with a proven, first-party UI kit and a modular backend.
 
 When uncertain:
 
 • inspect before guessing,
 • reuse before inventing,
-• adapt Metronic before designing from scratch,
+• adapt the UI kit before designing from scratch,
 • enforce security in the backend,
 • keep customer features modular,
 • preserve data,

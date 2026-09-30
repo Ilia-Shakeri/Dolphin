@@ -1,11 +1,11 @@
 """Light, dark and system, chosen from the user menu.
 
-The switching is the purchased theme's: `KTThemeMode` binds the menu, resolves
+The switching is the purchased theme's: `DolphinThemeMode` binds the menu, resolves
 "system" against `prefers-color-scheme`, writes `data-bs-theme` on `<html>`,
 and remembers the choice. Bootstrap 5.3 and the theme's own variables do the
 rest, which is why no palette is defined in this project.
 
-What this project owns is the part `KTThemeMode` cannot do: it runs on
+What this project owns is the part `DolphinThemeMode` cannot do: it runs on
 DOMContentLoaded, and by then a dark-mode reader has already been shown a white
 page. The inline script in the head is the fix, and most of what is pinned here
 is that script and the markup the theme's JS looks for.
@@ -35,40 +35,40 @@ class ThemeModeMarkupTests(TestCase):
         self.markup = self.client.get("/customers/").content.decode("utf-8")
 
     def test_the_menu_is_the_container_the_themes_js_looks_for(self):
-        """`KTThemeMode.init()` queries this exact attribute; without it the
+        """`DolphinThemeMode.init()` queries this exact attribute; without it the
         three rows render and nothing happens when they are clicked."""
-        self.assertIn('data-kt-element="theme-mode-menu"', self.markup)
+        self.assertIn('data-dolphin-element="theme-mode-menu"', self.markup)
 
     def test_all_three_modes_are_offered(self):
         for value in ("light", "dark", "system"):
-            self.assertIn(f'data-kt-element="mode" data-kt-value="{value}"', self.markup)
+            self.assertIn(f'data-dolphin-element="mode" data-dolphin-value="{value}"', self.markup)
 
     def test_each_mode_carries_an_icon(self):
         """Asked for as «لوگو های مینیمال و جذاب» — the theme's own set."""
-        for icon in ("ki-night-day", "ki-moon", "ki-screen"):
+        for icon in ("di-night-day", "di-moon", "di-screen"):
             self.assertIn(icon, self.markup)
 
     def test_the_switcher_sits_inside_the_user_menu(self):
         """Where it was asked for, and — just as importantly — not in a nested
-        dropdown that KTMenu would own.
+        dropdown that DolphinMenu would own.
 
         The original reason was that Popper was absent, so a nested dropdown
         could not have been positioned at all. That reason expired in 1.3.12:
         the plugins bundle is loaded now, for ApexCharts, and Popper comes with
         it. The requirement outlived its reason — this popup is opened and
         placed by `setupThemeModePopup()` in this project's own script, and a
-        nested KTMenu would put a second thing in charge of where it sits.
+        nested DolphinMenu would put a second thing in charge of where it sits.
         """
         menu_start = self.markup.index('id="user-menu"')
         menu_end = self.markup.index('id="logout-form"')
         self.assertIn(
-            'data-kt-element="theme-mode-menu"', self.markup[menu_start:menu_end]
+            'data-dolphin-element="theme-mode-menu"', self.markup[menu_start:menu_end]
         )
 
     def test_the_modes_are_buttons_rather_than_links(self):
         """They change a setting; they do not go anywhere.
 
-        Written first as `<a href="#">`, which `KTThemeMode` binds happily —
+        Written first as `<a href="#">`, which `DolphinThemeMode` binds happily —
         and which put three dead links in the shell. `test_ui_connectivity`
         refuses those outright, and in a real browser each click also pushed a
         `#` onto the URL, which is what broke the navigation tests.
@@ -79,12 +79,12 @@ class ThemeModeMarkupTests(TestCase):
             # The element type and its two data attributes are the contract;
             # the utility classes on it are presentation and may change.
             pattern = (
-                r'<button[^>]*data-kt-element="mode"[^>]*data-kt-value="' + value + r'"'
+                r'<button[^>]*data-dolphin-element="mode"[^>]*data-dolphin-value="' + value + r'"'
             )
             self.assertRegex(self.markup, pattern)
             self.assertNotRegex(
                 self.markup,
-                r'<a[^>]*data-kt-element="mode"[^>]*data-kt-value="' + value + r'"',
+                r'<a[^>]*data-dolphin-element="mode"[^>]*data-dolphin-value="' + value + r'"',
             )
 
     def test_the_three_modes_sit_behind_one_row(self):
@@ -105,7 +105,7 @@ class ThemeModeMarkupTests(TestCase):
 
     def test_the_popup_states_its_own_display(self):
         """It carries the theme's `.menu-sub`, which is `display: none` until
-        KTMenu adds `.show`. Nothing adds `.show` here — this project's script
+        DolphinMenu adds `.show`. Nothing adds `.show` here — this project's script
         opens it — so without an explicit display it stayed 0x0 forever."""
         css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(
             encoding="utf-8"
@@ -142,7 +142,7 @@ class AccountMenuTests(TestCase):
     def test_the_button_wears_this_persons_own_face(self):
         """Restated 2.14.0: it wore a generic person glyph and now wears the
         reader's own picture — their upload if they made one, otherwise the
-        Metronic cartoon derived from their id (`accounts.avatars`).
+        built-in cartoon derived from their id (`accounts.avatars`).
 
         The rule is the one it always was and the reason is unchanged: 1.3.8
         put the theme's sun/moon here, which made the account control look
@@ -189,12 +189,12 @@ class ThemeBootstrapScriptTests(SimpleTestCase):
         self.assertIn("setAttribute", self.head)
 
     def test_it_runs_ahead_of_the_panel_script_that_would_otherwise_do_it(self):
-        """`KTThemeMode` sets the same attribute on DOMContentLoaded, which is
+        """`DolphinThemeMode` sets the same attribute on DOMContentLoaded, which is
         after the first paint. If this ever moved below the body it would stop
         being a fix and start being a second flash."""
         self.assertLess(
             self.template.index("data-bs-theme"),
-            self.template.index("js/scripts.bundle.js"),
+            self.template.index("common/ui/js/dolphin-theme.js"),
         )
 
     def test_system_is_resolved_on_every_load_rather_than_stored(self):
@@ -222,7 +222,7 @@ class ThemeBootstrapScriptTests(SimpleTestCase):
         self.assertIn('defaultThemeMode !== "system"', self.head)
 
     def test_the_stored_keys_are_the_ones_the_themes_js_uses(self):
-        """`KTThemeMode` reads `data-bs-theme-mode` for the choice and writes
+        """`DolphinThemeMode` reads `data-bs-theme-mode` for the choice and writes
         `data-bs-theme` for what it resolved to. Diverging on either name means
         the head script and the menu disagree about what was chosen."""
         self.assertIn("data-bs-theme-mode", self.head)

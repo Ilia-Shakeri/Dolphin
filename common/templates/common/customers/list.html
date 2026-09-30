@@ -2,7 +2,7 @@
 {% block title %}فهرست مشتریان{% endblock %}
 {% block page_id %}customers{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">دفتر مشتریان</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}مشتریان{% endblock %}
 {% block breadcrumb_current %}مشتریان{% endblock %}
 {% comment %} دو دفتر مشتری. بازاریاب اینجا را نمی‌بیند و فقط دفتر حقیقی را
@@ -16,13 +16,13 @@
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
-            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="customer-search">جست‌وجوی مشتری</label>
             <input class="form-control form-control-solid" id="customer-search" type="search" placeholder="نام، تلفن یا کد پستی">
         </div>
         <div class="list-filter">
             <button id="customer-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
-                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="customer-filter-panel" class="list-filter-panel" hidden>
                 <form id="customer-search-form" action="{% url 'common_ui:customers' %}" method="get">
@@ -143,12 +143,12 @@
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-customer-title">ساخت مشتری</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="stepper stepper-links d-flex flex-column" id="create-customer-stepper">
         <div class="stepper-nav py-5">
-            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">هویت مشتری</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">تماس و نشانی</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
+            <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">هویت مشتری</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">تماس و نشانی</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
         <form id="create-customer-form" action="/api/v1/customers/" method="post" novalidate>
-        <div class="current" data-kt-stepper-element="content">
+        <div class="current" data-dolphin-stepper-element="content">
             <div class="row g-5">
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-name">نام کامل</label><input class="form-control form-control-solid" id="create-customer-name" name="full_name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="full_name"></p></div>
                 {% comment %} نوع مشتری تعیین می‌کند این مشتری در کدام دفتر بنشیند. بازاریاب
@@ -164,7 +164,7 @@
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-category">دسته‌بندی</label><input class="form-control form-control-solid" id="create-customer-category" name="category" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
             </div>
         </div>
-        <div data-kt-stepper-element="content">
+        <div data-dolphin-stepper-element="content">
             <div class="row g-5">
                 {% comment %} A fixed list rather than free text (product-owner
                    request 2026-09-12): a typo or variant spelling here meant a
@@ -183,7 +183,7 @@
                 <div class="col-12"><label class="form-label fw-semibold" for="create-customer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-customer-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
             </div>
         </div>
-        <div data-kt-stepper-element="content">
+        <div data-dolphin-stepper-element="content">
             <div class="w-100">
                 <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی مشتری</h3>
                 <div class="wizard-review mb-4" id="create-customer-review"></div>
@@ -191,11 +191,11 @@
         </div>
         {% csrf_token %}
         <div class="d-flex flex-stack pt-5">
-            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
             <div class="d-flex gap-3">
                 <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
-                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
-                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ساخت مشتری</button>
+                <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">بعدی<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-dolphin-stepper-action="submit">ساخت مشتری</button>
             </div>
         </div>
         </form>

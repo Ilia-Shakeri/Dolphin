@@ -2,17 +2,17 @@
 {% block title %}گفت‌وگو{% endblock %}
 {% block page_id %}chat{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">ارتباطات</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-message-text-2 page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-message-text-2 page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
 {% block page_title %}گفت‌وگو{% endblock %}
 {% block breadcrumb_current %}گفت‌وگو{% endblock %}
 {% block content %}
 {% comment %} The fuller chat workspace (2.25.0), beside the header drawer, not
-   instead of it — both are the theme's own `kt_drawer_chat` pattern
-   (`apps/chat/private.html`'s two-pane layout for this page; the drawer's
+   instead of it — both are the theme's own `dolphin_drawer_chat` pattern
+   (`the reference two-pane chat page`'s two-pane layout for this page; the drawer's
    own single-pane-at-a-time card for the header icon). Same engine, same
    ids-by-suffix contract as the drawer: `setupChat("chat-page", …)` in
    `dolphin-app.js` drives this markup exactly the way `setupChat("chat-drawer", …)`
-   drives `#kt_drawer_chat`'s — same API calls, same `sessionStorage` cache,
+   drives `#dolphin_drawer_chat`'s — same API calls, same `sessionStorage` cache,
    same read/unread rules. Nothing here re-implements chat; it only lays the
    same parts out wider. See `DolphinChatView` for why the page came back. {% endcomment %}
 <div class="d-flex flex-column flex-lg-row">
@@ -24,7 +24,7 @@
                 </div>
                 <div class="card-toolbar">
                     <button type="button" class="btn btn-sm btn-icon btn-active-color-primary" id="chat-page-open-new" aria-label="گفت‌وگوی تازه">
-                        <i class="ki-duotone ki-plus fs-2"></i>
+                        <i class="di-duotone di-plus fs-2"></i>
                     </button>
                 </div>
             </div>
@@ -33,7 +33,7 @@
                 <div id="chat-page-threads-empty" class="text-center text-gray-700 py-10" hidden>
                     هنوز گفت‌وگویی ندارید — با دکمهٔ «+» گفت‌وگوی تازه بسازید.
                 </div>
-                <div id="chat-page-thread-list" class="scroll-y me-n5 pe-5 h-400px h-lg-auto d-flex flex-column gap-1" data-kt-scroll="true" data-kt-scroll-activate="{default: false, lg: true}" data-kt-scroll-max-height="auto" data-kt-scroll-dependencies="#kt_header, #kt_app_header, #kt_toolbar, #kt_app_toolbar" data-kt-scroll-wrappers="#kt_content, #kt_app_content" data-kt-scroll-offset="5px" hidden></div>
+                <div id="chat-page-thread-list" class="scroll-y me-n5 pe-5 h-400px h-lg-auto d-flex flex-column gap-1" data-dolphin-scroll="true" data-dolphin-scroll-activate="{default: false, lg: true}" data-dolphin-scroll-max-height="auto" data-dolphin-scroll-dependencies="#dolphin_header, #dolphin_app_header, #dolphin_toolbar, #dolphin_app_toolbar" data-dolphin-scroll-wrappers="#dolphin_content, #dolphin_app_content" data-dolphin-scroll-offset="5px" hidden></div>
             </div>
         </section>
     </div>
@@ -50,7 +50,7 @@
                 </div>
                 <div class="card-title align-items-center mb-0 d-none" id="chat-page-peer-title">
                     <button type="button" class="btn btn-sm btn-icon btn-active-color-primary me-2 d-lg-none" id="chat-page-back" aria-label="بازگشت به فهرست گفت‌وگوها">
-                        <i class="ki-duotone ki-arrow-left fs-2"><span class="path1"></span><span class="path2"></span></i>
+                        <i class="di-duotone di-arrow-left fs-2"><span class="path1"></span><span class="path2"></span></i>
                     </button>
                     <div class="d-flex flex-column">
                         <span id="chat-page-peer-name" class="fs-5 fw-bold text-gray-900 lh-1"></span>
@@ -60,11 +60,11 @@
             </div>
             <div class="card-body pt-5 flex-grow-1 d-flex flex-column overflow-hidden">
                 <div id="chat-page-conversation-panel" class="d-none flex-grow-1 d-flex flex-column overflow-hidden">
-                    <div id="chat-page-messages" class="scroll-y me-n5 pe-5 flex-grow-1" data-kt-scroll="true" data-kt-scroll-activate="{default: false, lg: true}" data-kt-scroll-max-height="auto" data-kt-scroll-dependencies="#kt_header, #kt_app_header, #kt_toolbar, #kt_app_toolbar, #chat-page-footer" data-kt-scroll-wrappers="#kt_content, #kt_app_content, #chat-page-messages" data-kt-scroll-offset="5px" data-chat-messages></div>
+                    <div id="chat-page-messages" class="scroll-y me-n5 pe-5 flex-grow-1" data-dolphin-scroll="true" data-dolphin-scroll-activate="{default: false, lg: true}" data-dolphin-scroll-max-height="auto" data-dolphin-scroll-dependencies="#dolphin_header, #dolphin_app_header, #dolphin_toolbar, #dolphin_app_toolbar, #chat-page-footer" data-dolphin-scroll-wrappers="#dolphin_content, #dolphin_app_content, #chat-page-messages" data-dolphin-scroll-offset="5px" data-chat-messages></div>
                     <p id="chat-page-messages-empty" class="text-center text-gray-700 py-10" hidden>هنوز پیامی در این گفت‌وگو نیست.</p>
                 </div>
                 <div class="flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center text-gray-600" id="chat-page-empty-state">
-                    <i class="ki-duotone ki-message-text-2 fs-3x text-gray-400 mb-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                    <i class="di-duotone di-message-text-2 fs-3x text-gray-400 mb-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
                     <p class="fs-6 mb-0">پیام‌های همین گفت‌وگو اینجا نمایش داده می‌شود.</p>
                 </div>
             </div>

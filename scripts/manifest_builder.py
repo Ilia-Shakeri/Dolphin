@@ -96,15 +96,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-# The same IRANSansWeb the served product uses (`assets/fonts/`, loaded by
-# `assets/css/style.bundle.rtl.css`) — read from disk and inlined as a data
+# The same IRANSansWeb the served product uses (`common/static/common/ui/fonts/`, loaded by
+# `common/static/common/ui/css/dolphin-theme.rtl.css`) — read from disk and inlined as a data
 # URI rather than served from a path, because this tool is a bare
 # `BaseHTTPRequestHandler` with no static-file route of its own, and adding
 # one for a single font file would be more surface than the font is worth.
 # Falls back to the system stack in `_STYLE` below if the checkout this runs
-# from is ever missing `assets/` (e.g. a stripped-down copy) rather than
+# from is ever missing `common/static/common/ui/` (e.g. a stripped-down copy) rather than
 # crashing the whole tool over a typeface.
-_FONT_PATH = REPOSITORY_ROOT / "assets" / "fonts" / "IRANSansWeb.woff2"
+_FONT_PATH = REPOSITORY_ROOT / "common" / "static" / "common" / "ui" / "fonts" / "IRANSansWeb.woff2"
 try:
     _IRANSANS_WOFF2_BASE64 = base64.b64encode(_FONT_PATH.read_bytes()).decode("ascii")
 except OSError:

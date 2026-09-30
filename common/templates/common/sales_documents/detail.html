@@ -4,7 +4,7 @@
 {% block page_id %}sales-document-detail{% endblock %}
 {% block body_data %} data-sales-document-id="{{ document_id }}"{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">سند عملیاتی و سابقه پست</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-delivery page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-delivery page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات سند فروش داخلی{% endblock %}
 {% block breadcrumb_current %}جزئیات سند فروش داخلی{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:sales-documents' %}">بازگشت</a>{% endblock %}
@@ -41,7 +41,7 @@
         <div id="shipment-message" class="alert alert-danger py-3 mb-5" role="alert" hidden></div>
         <div id="shipment-loading" class="text-center text-gray-700 py-8">در حال دریافت وضعیت مرسوله…</div>
         <div id="shipment-not-connected" class="notice d-flex bg-light-warning rounded border-warning border border-dashed p-5" hidden>
-            <i class="ki-duotone ki-information-5 fs-2tx text-warning ms-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+            <i class="di-duotone di-information-5 fs-2tx text-warning ms-4"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
             <div class="fs-6 text-gray-800">اتصال پست هنوز راه‌اندازی نشده است. مدیر پلتفرم باید در
                 <a href="{% url 'common_ui:integrations' %}">اتصال سرویس‌ها</a> اتصال «پست ایران» را با نام کاربری و گذرواژهٔ بازار الکترونیک اضافه کند؛
                 راهنمای کامل در <a href="{% url 'common_ui:post-provider-settings' %}">تنظیمات پست</a> است.</div>

@@ -45,51 +45,10 @@ secrets
 *.key
 *.p12
 *.pfx
-# The purchased theme is the served UI's design system, so the handful of files
-# the application actually loads MUST reach the image. Everything else under
-# assets/ is demo material and stays out.
-#
-# This was the Linux deployment bug: `assets` alone excluded the whole tree, so
-# /app/assets did not exist in the image, collectstatic found only the app's own
-# static dirs, and the browser got 404 for every theme bundle.
-#
-# Docker evaluates every pattern per path and the last match wins, so these
-# re-inclusions must stay after the directory exclusion above.
-assets
-!assets/css/style.bundle.rtl.css
-!assets/js/scripts.bundle.js
-!assets/plugins/global/plugins.bundle.rtl.css
-# ApexCharts, which every chart in the panel is drawn with since 1.3.12. It
-# ships only inside this bundle — the theme has no standalone build — so all
-# 3.6 MB of it is runtime, not demo material.
-!assets/plugins/global/plugins.bundle.js
-!assets/plugins/global/fonts/keenicons
-!assets/fonts
-# The lead follow-up calendar (1.7.1) draws with this bundle — the theme has
-# no standalone build of it either. Missing until 1.7.5: the blanket `assets`
-# exclusion above was never given a matching re-inclusion for it, so the
-# calendar page loaded, called FullCalendar, and there was no FullCalendar —
-# in any deployment that actually builds this Dockerfile, never in `runserver`,
-# which serves straight from the repository and never consults this file.
-!assets/plugins/custom/fullcalendar
-# The leads Kanban board (lead_kanban feature, 2026-09-05) draws with this one
-# — same reasoning as fullcalendar directly above, and the same mistake would
-# repeat here if this line were forgotten: the theme ships no standalone
-# jKanban build either.
-!assets/plugins/custom/jkanban
-src
-asides
-dashboards
-layouts
-pages
-toolbars
-widgets
-utilities
-account
-apps
-authentication
-index.html
-landing.html
+# The UI kit the panel serves is first-party static under
+# common/static/common/ui/ and ships with the application. The reference
+# template tree at the repository root is not part of the product.
+metronic
 code_dumper*.py
 
 # --- P0R.4 build-context hardening ---

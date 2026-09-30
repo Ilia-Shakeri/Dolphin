@@ -35,7 +35,7 @@ class LeadCalendarPageTests(TestCase):
     def test_the_fullcalendar_bundle_is_loaded_only_on_this_page(self):
         self.client.force_login(self.manager)
         page = self.client.get("/leads/calendar/").content.decode("utf-8")
-        self.assertIn("plugins/custom/fullcalendar/fullcalendar.bundle.js", page)
+        self.assertIn("common/ui/plugins/fullcalendar/fullcalendar.bundle.js", page)
         home = self.client.get("/").content.decode("utf-8")
         self.assertNotIn("plugins/custom/fullcalendar", home)
 

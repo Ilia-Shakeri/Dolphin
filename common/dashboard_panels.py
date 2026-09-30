@@ -72,7 +72,7 @@ def _tasks_panel(user, *, now):
             "url": _task_url(task),
         })
     return _panel(
-        "panel_tasks", "list", "وظایف من", "ki-check-circle", 2, "success",
+        "panel_tasks", "list", "وظایف من", "di-check-circle", 2, "success",
         count=open_tasks.count(), count_label="باز", items=items, empty="وظیفهٔ بازی ندارید.",
         url=f"/users/{user.pk}/?tab=tasks",
     )
@@ -95,7 +95,7 @@ def _chat_panel(user):
             "url": "/chat/",
         })
     return _panel(
-        "panel_chat", "list", "گفتگوهای اخیر", "ki-message-text-2", 3, "info",
+        "panel_chat", "list", "گفتگوهای اخیر", "di-message-text-2", 3, "info",
         count=total_unread_count(user), count_label="خوانده‌نشده", items=items, empty="هنوز گفتگویی ندارید.", url="/chat/",
     )
 
@@ -125,7 +125,7 @@ def _agenda_panel(user, *, now):
     for item in items:
         del item["_due"]
     return _panel(
-        "panel_agenda", "agenda", "برنامهٔ امروز", "ki-calendar-tick", 6, "primary",
+        "panel_agenda", "agenda", "برنامهٔ امروز", "di-calendar-tick", 6, "primary",
         count=result["count"], count_label="مورد", items=items[:PANEL_ROWS], empty="برای امروز کاری ندارید.",
         weekday=WEEKDAYS[(local.weekday() + 2) % 7],
         day=to_persian_digits(str(day)),
@@ -155,7 +155,7 @@ def _calendar_panel(user, *, now):
     ).values_list("due_at", flat=True)
     marked = sorted({to_jalali(timezone.localtime(value).date())[2] for value in due})
     return _panel(
-        "panel_calendar", "calendar", "تقویم ماه", "ki-calendar", 2, "warning",
+        "panel_calendar", "calendar", "تقویم ماه", "di-calendar", 2, "warning",
         count=len(marked), count_label="روز دارای وظیفه", items=[], empty="", url=f"/users/{user.pk}/?tab=tasks",
         month_name=JALALI_MONTHS[month - 1],
         year=to_persian_digits(str(year)),
@@ -187,7 +187,7 @@ def _calls_panel(user):
             "url": f"/customers/{call.person_id}/" if call.person_type == "customer" and call.person_id else None,
         })
     return _panel(
-        "panel_calls", "list", "تماس‌های اخیر", "ki-call", 8, "primary",
+        "panel_calls", "list", "تماس‌های اخیر", "di-call", 8, "primary",
         count=calls_for(user).filter(status=Call.Status.MISSED).count(), count_label="بی‌پاسخ",
         items=items, empty="تماسی ثبت نشده است.",
     )

@@ -20,7 +20,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
-from django.core.management import call_command, get_commands
+from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
 
 
@@ -29,13 +29,13 @@ TEMPLATES = ROOT / "common" / "templates" / "common"
 
 #: Everything a served page loads, by the exact path it asks for.
 REQUIRED = (
-    "css/style.bundle.rtl.css",
-    "plugins/global/plugins.bundle.rtl.css",
-    "js/scripts.bundle.js",
+    "common/ui/css/dolphin-theme.rtl.css",
+    "common/ui/css/dolphin-plugins.rtl.css",
+    "common/ui/js/dolphin-theme.js",
     # ApexCharts lives only in here, and every chart in the panel is drawn with
     # it. Excluded from the image until 1.3.12, when the charts moved onto the
     # theme's own library.
-    "plugins/global/plugins.bundle.js",
+    "common/ui/js/dolphin-plugins.js",
     "common/dolphin.css",
     "common/dolphin-app.js",
     "common/brand/Logo.webp",
@@ -51,8 +51,8 @@ REQUIRED = (
     "common/brand/android-chrome-192x192.png",
     "common/brand/android-chrome-512x512.png",
     "common/brand/site.webmanifest",
-    "fonts/IRANSansWeb.woff",
-    "plugins/global/fonts/keenicons/keenicons-duotone.woff",
+    "common/ui/fonts/IRANSansWeb.woff",
+    "common/ui/fonts/dolphin-icons/dolphin-icons-duotone.woff",
     # The lead follow-up calendar (1.7.1) draws with this bundle — the theme
     # has no standalone build of it. Missing until 1.7.5: `plugins/custom`
     # was ignored wholesale by both `STATICFILES_COLLECT_IGNORE` and
@@ -60,41 +60,16 @@ REQUIRED = (
     # calendar page's own loading state never resolved. `runserver` serves
     # straight from `STATICFILES_DIRS`, without either gate, which is why
     # this did not reproduce locally.
-    "plugins/custom/fullcalendar/fullcalendar.bundle.js",
-    "plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css",
+    "common/ui/plugins/fullcalendar/fullcalendar.bundle.js",
+    "common/ui/plugins/fullcalendar/fullcalendar.bundle.rtl.css",
     # The leads Kanban board (`lead_kanban` feature, 2026-09-05) draws with
     # this one — same reasoning as fullcalendar directly above.
-    "plugins/custom/jkanban/jkanban.bundle.js",
-    "plugins/custom/jkanban/jkanban.bundle.rtl.css",
+    "common/ui/plugins/jkanban/jkanban.bundle.js",
+    "common/ui/plugins/jkanban/jkanban.bundle.rtl.css",
 )
 
-#: Theme material no served page can reach.
-EXCLUDED = (
-    "media",
-    # `plugins/custom` was one blanket entry here until 1.7.5, when
-    # `fullcalendar` turned out to be a real exception (see REQUIRED above).
-    # Listed per-bundle instead, so the exclusion still holds for the 15
-    # vendor bundles nothing loads.
-    "plugins/custom/ckeditor",
-    "plugins/custom/cookiealert",
-    "plugins/custom/cropper",
-    "plugins/custom/datatables",
-    "plugins/custom/draggable",
-    "plugins/custom/flotcharts",
-    "plugins/custom/formrepeater",
-    "plugins/custom/fslightbox",
-    "plugins/custom/jstree",
-    "plugins/custom/leaflet",
-    "plugins/custom/prismjs",
-    "plugins/custom/tinymce",
-    "plugins/custom/typedjs",
-    "plugins/custom/vis-timeline",
-    "js/custom",
-    "plugins/global/fonts/line-awesome",
-    "plugins/global/fonts/@fortawesome",
-    "js/widgets.bundle.js",
-    "css/style.bundle.css",
-)
+#: Reference-template material that must never be collected.
+EXCLUDED = ("metronic",)
 
 
 class StaticResolutionTests(SimpleTestCase):
@@ -128,8 +103,8 @@ class StaticResolutionTests(SimpleTestCase):
         """A missing font file is a 404 on every page that loads the sheet."""
         missing = []
         for sheet, base in (
-            ("css/style.bundle.rtl.css", "css"),
-            ("plugins/global/plugins.bundle.rtl.css", "plugins/global"),
+            ("common/ui/css/dolphin-theme.rtl.css", "common/ui/css"),
+            ("common/ui/css/dolphin-plugins.rtl.css", "common/ui/css"),
         ):
             located = finders.find(sheet)
             self.assertIsNotNone(located, sheet)
@@ -155,16 +130,6 @@ class StaticResolutionTests(SimpleTestCase):
 
 class CollectStaticContentTests(SimpleTestCase):
     """What a release image would actually contain."""
-
-    def test_the_override_is_the_command_that_runs(self):
-        # Django resolves a command to the first app in INSTALLED_APPS that
-        # provides it; if `common` slipped below staticfiles the ignore list
-        # would silently stop applying.
-        self.assertEqual(get_commands()["collectstatic"], "common")
-        self.assertLess(
-            settings.INSTALLED_APPS.index("common"),
-            settings.INSTALLED_APPS.index("django.contrib.staticfiles"),
-        )
 
     def test_collected_output_has_what_is_needed_and_not_what_is_not(self):
         destination = Path(tempfile.mkdtemp(prefix="dolphin-static-"))
@@ -211,40 +176,19 @@ class ImageBuildContextTests(SimpleTestCase):
     def test_the_build_context_carries_the_theme_runtime(self):
         context = self._context_paths()
         for required in (
-            "assets/css/style.bundle.rtl.css",
-            "assets/plugins/global/plugins.bundle.rtl.css",
-            "assets/js/scripts.bundle.js",
-            "assets/fonts/IRANSansWeb.woff",
-            "assets/plugins/global/fonts/keenicons/keenicons-duotone.woff",
-            "assets/plugins/global/fonts/keenicons/keenicons-outline.woff",
-            "assets/plugins/global/fonts/keenicons/keenicons-solid.woff",
+            "common/static/common/ui/css/dolphin-theme.rtl.css",
+            "common/static/common/ui/css/dolphin-plugins.rtl.css",
+            "common/static/common/ui/js/dolphin-theme.js",
+            "common/static/common/ui/fonts/IRANSansWeb.woff",
+            "common/static/common/ui/fonts/dolphin-icons/dolphin-icons-duotone.woff",
+            "common/static/common/ui/fonts/dolphin-icons/dolphin-icons-outline.woff",
+            "common/static/common/ui/fonts/dolphin-icons/dolphin-icons-solid.woff",
         ):
             with self.subTest(required=required):
                 self.assertIn(required, context)
 
-    def test_the_build_context_still_excludes_the_demo_tree(self):
-        context = self._context_paths()
-        offenders = sorted(
-            path
-            for path in context
-            if path.startswith("assets/")
-            and (
-                path.startswith(("assets/media/", "assets/js/custom/"))
-                # `assets/plugins/custom/fullcalendar/` and `.../jkanban/` are
-                # the two exceptions (see REQUIRED in StaticResolutionTests
-                # above) — every other bundle under `plugins/custom/` still
-                # is not.
-                or (
-                    path.startswith("assets/plugins/custom/")
-                    and not path.startswith("assets/plugins/custom/fullcalendar/")
-                    and not path.startswith("assets/plugins/custom/jkanban/")
-                )
-                or "/fonts/line-awesome/" in path
-                or "/fonts/@fortawesome/" in path
-                or "/fonts/bootstrap-icons/" in path
-                or path.endswith(("widgets.bundle.js", "style.bundle.css"))
-            )
-        )
+    def test_the_build_context_excludes_the_reference_template_tree(self):
+        offenders = sorted(path for path in self._context_paths() if path.split("/")[0] == "metronic")
         self.assertEqual(offenders, [])
 
     def test_collectstatic_from_the_image_file_set_serves_the_theme(self):
@@ -262,7 +206,6 @@ class ImageBuildContextTests(SimpleTestCase):
                 destination = image / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
-            self.assertTrue((image / "assets").is_dir(), "/app/assets missing from the image")
 
             result = subprocess.run(
                 [sys.executable, "manage.py", "collectstatic", "--noinput", "-v", "0"],
@@ -277,10 +220,9 @@ class ImageBuildContextTests(SimpleTestCase):
             for asset in REQUIRED:
                 with self.subTest(asset=asset):
                     self.assertTrue((collected / asset).is_file(), asset)
-            # The four theme roots that were absent during the Linux failure.
             for directory in ("css", "js", "fonts", "plugins"):
                 with self.subTest(directory=directory):
-                    self.assertTrue((collected / directory).is_dir(), directory)
+                    self.assertTrue((collected / "common" / "ui" / directory).is_dir(), directory)
         finally:
             shutil.rmtree(image, ignore_errors=True)
 
@@ -297,20 +239,20 @@ class ChartLibraryTests(SimpleTestCase):
     SCRIPT = ROOT / "common" / "static" / "common" / "dolphin-app.js"
 
     def test_the_shell_loads_the_bundle_that_carries_apexcharts(self):
-        """ApexCharts ships only inside `plugins.bundle.js`; the theme has no
+        """ApexCharts ships only inside `dolphin-plugins.js`; the theme has no
         standalone build of it. Dropping this tag leaves every chart container
         empty with a `ReferenceError` and nothing else to show for it."""
-        self.assertIn("plugins/global/plugins.bundle.js", self.SHELL.read_text(encoding="utf-8"))
+        self.assertIn("common/ui/js/dolphin-plugins.js", self.SHELL.read_text(encoding="utf-8"))
 
     def test_the_plugins_bundle_loads_before_the_theme_script(self):
-        """`scripts.bundle.js` expects Popper and jQuery to already exist, and
+        """`dolphin-theme.js` expects Popper and jQuery to already exist, and
         both arrive in the plugins bundle. Loading them the other way round
         breaks the theme's own components rather than the charts, which makes
         it an easy mistake to file under the wrong cause."""
         shell = self.SHELL.read_text(encoding="utf-8")
         self.assertLess(
-            shell.index("plugins/global/plugins.bundle.js"),
-            shell.index("js/scripts.bundle.js"),
+            shell.index("common/ui/js/dolphin-plugins.js"),
+            shell.index("common/ui/js/dolphin-theme.js"),
         )
 
     def test_the_panel_draws_with_apexcharts_rather_than_by_hand(self):

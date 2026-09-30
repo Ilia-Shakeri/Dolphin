@@ -56,53 +56,9 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     ("database file", "**/*.sqlite3"),
     ("editor metadata", ".vscode"),
     ("editor metadata", ".idea"),
-    # Vendor/demo template tree - visual reference only, never served.
-    # `assets` is NOT denied wholesale: the served UI is built on the purchased
-    # theme, so the few bundles/fonts it loads must ship. The demo material
-    # inside it is denied by path instead, and the runtime files it does need
-    # are asserted in EXPECT_PRESENT below.
-    ("theme demo imagery", "assets/media"),
-    # `assets/plugins/custom` was one blanket entry here until 1.7.5, when the
-    # lead follow-up calendar's `fullcalendar` bundle turned out to be inside
-    # it — collected nowhere, and the calendar page's "در حال دریافت
-    # سرنخ‌ها…" state never resolved in any deployment that actually builds
-    # this image. Listed per-bundle instead, so a future one used by a served
-    # page only fails this gate the same way a required-but-missing file
-    # would (see EXPECT_PRESENT below), not silently.
-    ("theme demo plugin", "assets/plugins/custom/ckeditor"),
-    ("theme demo plugin", "assets/plugins/custom/cookiealert"),
-    ("theme demo plugin", "assets/plugins/custom/cropper"),
-    ("theme demo plugin", "assets/plugins/custom/datatables"),
-    ("theme demo plugin", "assets/plugins/custom/draggable"),
-    ("theme demo plugin", "assets/plugins/custom/flotcharts"),
-    ("theme demo plugin", "assets/plugins/custom/formrepeater"),
-    ("theme demo plugin", "assets/plugins/custom/fslightbox"),
-    ("theme demo plugin", "assets/plugins/custom/jstree"),
-    ("theme demo plugin", "assets/plugins/custom/leaflet"),
-    ("theme demo plugin", "assets/plugins/custom/prismjs"),
-    ("theme demo plugin", "assets/plugins/custom/tinymce"),
-    ("theme demo plugin", "assets/plugins/custom/typedjs"),
-    ("theme demo plugin", "assets/plugins/custom/vis-timeline"),
-    ("theme demo scripts", "assets/js/custom"),
-    ("unused icon family", "assets/plugins/global/fonts/@fortawesome"),
-    ("unused icon family", "assets/plugins/global/fonts/bootstrap-icons"),
-    ("unused icon family", "assets/plugins/global/fonts/line-awesome"),
-    ("unused LTR build", "assets/css/style.bundle.css"),
-    ("unused LTR build", "assets/plugins/global/plugins.bundle.css"),
-    ("unloaded bundle", "assets/js/widgets.bundle.js"),
-    ("vendor demo tree", "src"),
-    ("vendor demo tree", "dashboards"),
-    ("vendor demo tree", "pages"),
-    ("vendor demo tree", "apps"),
-    ("vendor demo tree", "layouts"),
-    ("vendor demo tree", "toolbars"),
-    ("vendor demo tree", "widgets"),
-    ("vendor demo tree", "utilities"),
-    ("vendor demo tree", "account"),
-    ("vendor demo tree", "authentication"),
-    ("vendor demo tree", "asides"),
-    ("vendor demo page", "index.html"),
-    ("vendor demo page", "landing.html"),
+    # The reference template tree lives in one folder at the repository root
+    # and is not part of the product.
+    ("reference template tree", "metronic"),
 ]
 
 # Paths the runtime genuinely needs. Guards against over-exclusion.
@@ -122,28 +78,28 @@ EXPECT_PRESENT: list[str] = [
     # The purchased theme's runtime. Without these the image builds and starts,
     # collectstatic reports success, and every page renders unstyled with a 404
     # for each bundle — which is exactly what happened before this list existed.
-    "assets/css/style.bundle.rtl.css",
-    "assets/plugins/global/plugins.bundle.rtl.css",
-    "assets/js/scripts.bundle.js",
+    "common/static/common/ui/css/dolphin-theme.rtl.css",
+    "common/static/common/ui/css/dolphin-plugins.rtl.css",
+    "common/static/common/ui/js/dolphin-theme.js",
     # ApexCharts, which every chart in the panel is drawn with. It exists only
     # inside this bundle — the theme ships no standalone build — so the whole
     # 3.6 MB of it is a runtime file, not demo material.
-    "assets/plugins/global/plugins.bundle.js",
+    "common/static/common/ui/js/dolphin-plugins.js",
     # The lead follow-up calendar's bundle (1.7.1) — the theme has no
     # standalone build of it either, so all of it is runtime, not demo
     # material. See the 1.7.5 comment on DENY_PATTERNS above.
-    "assets/plugins/custom/fullcalendar/fullcalendar.bundle.js",
-    "assets/plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css",
+    "common/static/common/ui/plugins/fullcalendar/fullcalendar.bundle.js",
+    "common/static/common/ui/plugins/fullcalendar/fullcalendar.bundle.rtl.css",
     # The leads Kanban board's bundle (lead_kanban feature, 2026-09-05) — same
     # reasoning as fullcalendar directly above.
-    "assets/plugins/custom/jkanban/jkanban.bundle.js",
-    "assets/plugins/custom/jkanban/jkanban.bundle.rtl.css",
-    "assets/fonts/IRANSansWeb.woff",
-    "assets/fonts/IRANSansWeb.ttf",
-    "assets/fonts/IRANSansWeb.eot",
-    "assets/plugins/global/fonts/keenicons/keenicons-duotone.woff",
-    "assets/plugins/global/fonts/keenicons/keenicons-outline.woff",
-    "assets/plugins/global/fonts/keenicons/keenicons-solid.woff",
+    "common/static/common/ui/plugins/jkanban/jkanban.bundle.js",
+    "common/static/common/ui/plugins/jkanban/jkanban.bundle.rtl.css",
+    "common/static/common/ui/fonts/IRANSansWeb.woff",
+    "common/static/common/ui/fonts/IRANSansWeb.ttf",
+    "common/static/common/ui/fonts/IRANSansWeb.woff2",
+    "common/static/common/ui/fonts/dolphin-icons/dolphin-icons-duotone.woff",
+    "common/static/common/ui/fonts/dolphin-icons/dolphin-icons-outline.woff",
+    "common/static/common/ui/fonts/dolphin-icons/dolphin-icons-solid.woff",
     # The typefaces a reader may choose (2.18.7) ship with the panel itself;
     # a missing file is a choice that silently renders as IRANSans.
     "common/static/common/fonts/panel-fonts.css",

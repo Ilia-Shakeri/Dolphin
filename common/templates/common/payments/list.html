@@ -13,7 +13,7 @@
 {% block page_id %}payments{% endblock %}
 {% block body_data %} data-payment-direction="{{ payment_direction|default:'receipt' }}"{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد مالی</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-wallet page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-wallet page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{% if payment_direction == "disbursement" %}پرداخت‌ها{% else %}دریافت‌ها{% endif %}{% endblock %}
 {% block breadcrumb_current %}{% if payment_direction == "disbursement" %}پرداخت‌ها{% else %}دریافت‌ها{% endif %}{% endblock %}
 {% comment %} The cheque and instalment shortcuts are gone from here: they are
@@ -24,13 +24,13 @@
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
-            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="payment-search">جستجو</label>
             <input class="form-control form-control-solid" id="payment-search" type="search" placeholder="{% if payment_direction == 'disbursement' %}شماره یا گیرنده{% else %}شماره یا مشتری{% endif %}">
         </div>
         <div class="list-filter">
             <button id="payment-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
-                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="payment-filter-panel" class="list-filter-panel" hidden>
                 <form id="payment-search-form" action="{% if payment_direction == 'disbursement' %}{% url 'common_ui:disbursements' %}{% else %}{% url 'common_ui:payments' %}{% endif %}" method="get">
@@ -83,12 +83,12 @@
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-payment-title">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="stepper stepper-links d-flex flex-column" id="create-payment-stepper">
         <div class="stepper-nav py-5">
-            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">روش پرداخت</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات سند</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
+            <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">روش پرداخت</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">اطلاعات سند</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
     <form id="create-payment-form" action="/api/v1/payments/" method="post" novalidate>
-        <div class="current" data-kt-stepper-element="content">
+        <div class="current" data-dolphin-stepper-element="content">
 
 {% comment %} The direction is not a choice on this form. Each desk records one
    kind of document, so asking again would only let an operator file a payment
@@ -121,7 +121,7 @@
    instead of five rows each at full width. `wizard-document-step` is the
    same fix `wizard-lines-step` already uses for the identical theme
    default (product owner, 2026-09-21: «فاصله‌های درست و زیبا»). {% endcomment %}
-        <div class="wizard-document-step" data-kt-stepper-element="content">
+        <div class="wizard-document-step" data-dolphin-stepper-element="content">
 
         <div class="row g-5">
 {% comment %} A searchable party, because the customer book is expected to grow
@@ -224,7 +224,7 @@
 
         <p class="text-muted fs-7 mt-5" id="create-payment-cheque-note" hidden>چک تازه همیشه با وضعیت «در انتظار» و حالت «ثبت نشده» ساخته می‌شود؛ تغییرشان از صفحهٔ چک‌ها انجام می‌شود.</p>
         </div>
-        <div data-kt-stepper-element="content">
+        <div data-dolphin-stepper-element="content">
             <div class="w-100">
                 <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سند</h3>
                 <div class="wizard-review mb-4" id="create-payment-review"></div>
@@ -232,11 +232,11 @@
         </div>
         {% csrf_token %}
         <div class="d-flex flex-stack pt-5">
-            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
             <div class="d-flex gap-3">
                 <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
-                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
-                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button>
+                <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">بعدی<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-dolphin-stepper-action="submit">{% if payment_direction == "disbursement" %}ثبت پرداخت{% else %}ثبت دریافت{% endif %}</button>
             </div>
         </div>
     </form>

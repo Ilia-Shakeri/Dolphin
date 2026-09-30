@@ -96,7 +96,7 @@ def _lead_reminders(user, *, now):
         }
         for lead in leads[:GROUP_ITEM_LIMIT]
     ]
-    return _group("lead_follow_up", "پیگیری سرنخ", "ki-call", "primary", total, items)
+    return _group("lead_follow_up", "پیگیری سرنخ", "di-call", "primary", total, items)
 
 
 def _appointment_reminders(user, *, now):
@@ -122,7 +122,7 @@ def _appointment_reminders(user, *, now):
         }
         for request in requests[:GROUP_ITEM_LIMIT]
     ]
-    return _group("after_sales_appointment", "قرار پس از فروش", "ki-calendar-tick", "info", total, items)
+    return _group("after_sales_appointment", "قرار پس از فروش", "di-calendar-tick", "info", total, items)
 
 
 def _task_reminders(user, *, now):
@@ -154,7 +154,7 @@ def _task_reminders(user, *, now):
         }
         for task in tasks[:GROUP_ITEM_LIMIT]
     ]
-    return _group("task_due", "وظیفه", "ki-check-circle", "success", total, items)
+    return _group("task_due", "وظیفه", "di-check-circle", "success", total, items)
 
 
 def _task_url(task):
@@ -189,7 +189,7 @@ def _cheque_reminders(user, *, now):
         }
         for cheque in cheques[:GROUP_ITEM_LIMIT]
     ]
-    return _group("cheque_due", "سررسید چک", "ki-bank", "warning", total, items)
+    return _group("cheque_due", "سررسید چک", "di-bank", "warning", total, items)
 
 
 def _instalment_reminders(user, *, now):
@@ -218,7 +218,7 @@ def _instalment_reminders(user, *, now):
         }
         for instalment in instalments[:GROUP_ITEM_LIMIT]
     ]
-    return _group("installment_due", "سررسید قسط", "ki-wallet", "danger", total, items)
+    return _group("installment_due", "سررسید قسط", "di-wallet", "danger", total, items)
 
 
 #: Every source, in the order the panel shows them: the two that are somebody's
@@ -269,16 +269,16 @@ def reminder_count_for(user, *, now=None):
     return total
 
 
-#: How many `.path*` spans each keenicon needs. A duotone glyph is drawn
+#: How many `.path*` spans each icon-font glyph needs. A duotone glyph is drawn
 #: from nested spans, and rendering fewer than it has draws a partial icon —
-#: `ki-call` has eight. Sent with the group rather than hardcoded in the
+#: `di-call` has eight. Sent with the group rather than hardcoded in the
 #: script for the same reason `WIDGET_STYLE` in `common/ui_views.py` sends
 #: `icon_paths` for the dashboard tiles: the count belongs with the icon.
 ICON_PATHS = {
-    "ki-call": 8,
-    "ki-calendar-tick": 6,
-    "ki-bank": 2,
-    "ki-wallet": 4,
+    "di-call": 8,
+    "di-calendar-tick": 6,
+    "di-bank": 2,
+    "di-wallet": 4,
 }
 
 

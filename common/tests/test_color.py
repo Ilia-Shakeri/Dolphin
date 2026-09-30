@@ -1,4 +1,4 @@
-"""`common.color`: deriving a full set of Bootstrap/Metronic primary-colour
+"""`common.color`: deriving a full set of Bootstrap primary-colour
 CSS custom properties from one hex value an admin picked.
 
 What is worth proving:

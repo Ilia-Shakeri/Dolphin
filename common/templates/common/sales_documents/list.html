@@ -2,7 +2,7 @@
 {% block title %}رهگیری پستی{% endblock %}
 {% block page_id %}sales-documents{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">سند عملیاتی؛ نه فاکتور حسابداری</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-delivery page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-delivery page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}رهگیری پستی{% endblock %}
 {% block breadcrumb_current %}رهگیری پستی{% endblock %}
 {% block page_actions %}{% endblock %}
@@ -10,13 +10,13 @@
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
-            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
             <label class="sr-only" for="sales-document-search">جستجو</label>
             <input class="form-control form-control-solid" id="sales-document-search" type="search" placeholder="شماره سند یا مشتری">
         </div>
         <div class="list-filter">
             <button id="sales-document-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
-                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="sales-document-filter-panel" class="list-filter-panel" hidden>
                 <form id="sales-document-search-form" action="{% url 'common_ui:sales-documents' %}" method="get">
@@ -70,11 +70,11 @@
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-sales-document-title">ثبت سند فروش داخلی</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="stepper stepper-links d-flex flex-column" id="create-sales-document-stepper">
         <div class="stepper-nav py-5">
-            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">اطلاعات سند</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
+            <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">اطلاعات سند</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
         </div>
         <form id="create-sales-document-form" action="/api/v1/sales-documents/" method="post" novalidate>
-        <div class="current" data-kt-stepper-element="content">
+        <div class="current" data-dolphin-stepper-element="content">
             <div class="row g-5">
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-customer">مشتری</label><select class="form-select form-select-solid" id="create-sales-document-customer" name="customer" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="customer"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-sales-document-sale">فروش مرتبط (اختیاری)</label><select class="form-select form-select-solid" id="create-sales-document-sale" name="sale"><option value="">بدون فروش مرتبط</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="sale"></p></div>
@@ -86,7 +86,7 @@
                 <div class="col-12"><label class="form-label fw-semibold" for="create-sales-document-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-sales-document-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
             </div>
         </div>
-        <div data-kt-stepper-element="content">
+        <div data-dolphin-stepper-element="content">
             <div class="w-100">
                 <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سند</h3>
                 <div class="wizard-review mb-4" id="create-sales-document-review"></div>
@@ -95,11 +95,11 @@
         </div>
         {% csrf_token %}
         <div class="d-flex flex-stack pt-5">
-            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
+            <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
             <div class="d-flex gap-3">
                 <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
-                <button class="btn btn-primary" type="button" data-kt-stepper-action="next">بعدی<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
-                <button class="btn btn-primary" type="submit" data-kt-stepper-action="submit">ثبت سند</button>
+                <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">بعدی<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+                <button class="btn btn-primary" type="submit" data-dolphin-stepper-action="submit">ثبت سند</button>
             </div>
         </div>
         </form>

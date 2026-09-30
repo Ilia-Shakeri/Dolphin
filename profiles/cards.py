@@ -405,14 +405,14 @@ class StatCard:
 
 
 CARDS = (
-    StatCard("income", "user", 4, "درآمد", "ki-dollar", 3, ("sales",), _reads_performance, _user_income),
-    StatCard("active_customers", "user", 5, "مشتریان فعال", "ki-profile-user", 4, ("leads",), _reads_performance, _user_active_customers),
-    StatCard("conversion", "user", 6, "نرخ تبدیل", "ki-chart-simple", 4, ("leads",), _reads_performance, _user_conversion),
-    StatCard("score", "user", 7, "امتیاز", "ki-medal-star", 4, ("person_scoring",), _score_visible("user"), _score("user"), True),
-    StatCard("debt", "customer", 4, "بدهکاری", "ki-wallet", 4, (), _customer_money_visible, _customer_debt),
-    StatCard("purchases", "customer", 5, "مجموع خرید", "ki-basket", 4, (), _customer_purchases_visible, _customer_purchases),
-    StatCard("last_interaction", "customer", 6, "آخرین تعامل", "ki-time", 2, (), lambda viewer, person: True, _customer_last_interaction),
-    StatCard("score", "customer", 7, "امتیاز", "ki-medal-star", 4, ("person_scoring",), _score_visible("customer"), _score("customer"), True),
+    StatCard("income", "user", 4, "درآمد", "di-dollar", 3, ("sales",), _reads_performance, _user_income),
+    StatCard("active_customers", "user", 5, "مشتریان فعال", "di-profile-user", 4, ("leads",), _reads_performance, _user_active_customers),
+    StatCard("conversion", "user", 6, "نرخ تبدیل", "di-chart-simple", 4, ("leads",), _reads_performance, _user_conversion),
+    StatCard("score", "user", 7, "امتیاز", "di-medal-star", 4, ("person_scoring",), _score_visible("user"), _score("user"), True),
+    StatCard("debt", "customer", 4, "بدهکاری", "di-wallet", 4, (), _customer_money_visible, _customer_debt),
+    StatCard("purchases", "customer", 5, "مجموع خرید", "di-basket", 4, (), _customer_purchases_visible, _customer_purchases),
+    StatCard("last_interaction", "customer", 6, "آخرین تعامل", "di-time", 2, (), lambda viewer, person: True, _customer_last_interaction),
+    StatCard("score", "customer", 7, "امتیاز", "di-medal-star", 4, ("person_scoring",), _score_visible("customer"), _score("customer"), True),
 )
 
 

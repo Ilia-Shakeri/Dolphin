@@ -214,7 +214,7 @@ DEFAULT_PANEL_FONT_FAMILY = PANEL_FONT_FAMILIES[0][0]
 #:
 #: Absolute pixels, stepped off the purchased theme's own base rather than
 #: percentages of the browser default. Measured in a real browser, not
-#: assumed: `style.bundle.rtl.css` ends with `html, body { font-size: 13px
+#: assumed: `dolphin-theme.rtl.css` ends with `html, body { font-size: 13px
 #: !important }`, so the root is 13px and not the 16px a percentage would be
 #: read against — `112.5%` came out as 18px, a 38% jump, where a step up was
 #: wanted. `13px` is that base exactly and emits no CSS at all.
@@ -279,7 +279,7 @@ class UserPreference(TimeStampedModel):
     currency_unit = models.CharField(
         max_length=8, choices=CurrencyUnit.choices, default=CurrencyUnit.RIAL,
     )
-    #: Mirrors what `KTThemeMode` already keeps in `localStorage` under
+    #: Mirrors what `DolphinThemeMode` already keeps in `localStorage` under
     #: `data-bs-theme-mode`. Stored server-side as well so the choice follows
     #: the person to another browser, and so the first painted frame is
     #: already right — `base.html` stamps it before any stylesheet loads.

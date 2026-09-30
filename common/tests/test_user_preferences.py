@@ -173,7 +173,7 @@ class GeneratedCssTests(PreferenceFixtures):
     def test_a_chosen_scale_moves_the_root_font_size(self):
         """`!important`, and pixels stepped off the theme's own base rather
         than a percentage of the browser default — both measured against the
-        rendered page, not assumed. `style.bundle.rtl.css` ends with
+        rendered page, not assumed. `dolphin-theme.rtl.css` ends with
         `html, body { font-size: 13px !important }`, so a weaker declaration
         never applies and a percentage would be read against 16px, turning a
         step up into a 38% jump.
@@ -188,7 +188,7 @@ class GeneratedCssTests(PreferenceFixtures):
         self.assertEqual(PANEL_FONT_SCALE_SIZES[DEFAULT_PANEL_FONT_SCALE], "13px")
         vendor = (
             pathlib.Path(__file__).resolve().parents[2]
-            / "assets" / "css" / "style.bundle.rtl.css"
+            / "common" / "static" / "common" / "ui" / "css" / "dolphin-theme.rtl.css"
         )
         if vendor.exists():
             self.assertIn("font-size: 13px !important", vendor.read_text(encoding="utf-8"))

@@ -179,11 +179,6 @@ class SalesShellContractTests(SimpleTestCase):
         )
         self.assertIsNotNone(customers_link)
         self.assertIn("مشتریان", customers_link.group(1))
-        branding = (ROOT / "scripts" / "check_html_branding.py").read_text(encoding="utf-8")
-        self.assertIn('"contacts": "مشتریان"', branding)
-        self.assertIn('"customers": "مشتریان"', branding)
-        self.assertIn('"add-contact": "افزودن مشتری"', branding)
-        self.assertIn('"edit-contact": "ویرایش مشتری"', branding)
 
 
 class SalesShellScopeTests(TestCase):

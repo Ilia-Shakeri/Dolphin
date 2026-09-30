@@ -100,18 +100,18 @@ def _shared_tabs(viewer, capabilities):
     """Tabs every person type has, each behind its own feature and capability."""
     tabs = []
     if feature_enabled("tasks") and capabilities & {"tasks.own", "tasks.company"}:
-        tabs.append(ProfileTab("tasks", "وظایف", "ki-check-circle", "profiles/tabs/tasks.inc"))
+        tabs.append(ProfileTab("tasks", "وظایف", "di-check-circle", "profiles/tabs/tasks.inc"))
     if feature_enabled("person_notes") and "notes.read" in capabilities:
-        tabs.append(ProfileTab("notes", "یادداشت‌ها", "ki-notepad", "profiles/tabs/notes.inc", 5))
+        tabs.append(ProfileTab("notes", "یادداشت‌ها", "di-notepad", "profiles/tabs/notes.inc", 5))
     return tabs
 
 
 def _shared_actions(capabilities):
     actions = []
     if feature_enabled("person_notes") and "notes.write" in capabilities:
-        actions.append(QuickAction("note", "یادداشت", "ki-notepad", tab="notes", icon_paths=5, data={"focus": "profile-note-body"}))
+        actions.append(QuickAction("note", "یادداشت", "di-notepad", tab="notes", icon_paths=5, data={"focus": "profile-note-body"}))
     if feature_enabled("tasks") and "tasks.manage" in capabilities:
-        actions.append(QuickAction("task", "وظیفه", "ki-add-notepad", action="add-task", icon_paths=4))
+        actions.append(QuickAction("task", "وظیفه", "di-add-notepad", action="add-task", icon_paths=4))
     return actions
 
 
@@ -125,14 +125,14 @@ def call_action(viewer, person_type, person, payload):
 
         if can_originate(viewer):
             return QuickAction(
-                "call", "تماس", "ki-call", action="originate", primary=True, icon_paths=8,
+                "call", "تماس", "di-call", action="originate", primary=True, icon_paths=8,
                 data={
                     "number": payload["e164"] or payload["tel"].removeprefix("tel:"),
                     "person-type": person_type,
                     "person-id": str(person.pk),
                 },
             )
-    return QuickAction("call", "تماس", "ki-call", href=payload["tel"], primary=True, icon_paths=8)
+    return QuickAction("call", "تماس", "di-call", href=payload["tel"], primary=True, icon_paths=8)
 
 
 def _with_calls(pulled, events):
@@ -220,11 +220,11 @@ class CustomerAdapter(PersonAdapter):
     def tabs(self, viewer, person):
         capabilities = capabilities_for(viewer)
         tabs = [
-            ProfileTab("overview", "بررسی اجمالی", "ki-element-11", "profiles/tabs/customer_overview.inc", 4),
-            ProfileTab("info", "اطلاعات", "ki-profile-circle", "profiles/tabs/customer_info.inc", 3),
+            ProfileTab("overview", "بررسی اجمالی", "di-element-11", "profiles/tabs/customer_overview.inc", 4),
+            ProfileTab("info", "اطلاعات", "di-profile-circle", "profiles/tabs/customer_info.inc", 3),
         ]
         if feature_enabled("leads") and capabilities.intersection({"leads.scoped", "leads.company"}):
-            tabs.append(ProfileTab("leads", "سرنخ‌ها", "ki-rocket", "profiles/tabs/customer_leads.inc"))
+            tabs.append(ProfileTab("leads", "سرنخ‌ها", "di-rocket", "profiles/tabs/customer_leads.inc"))
         # No «فعالیت‌ها» tab for a customer (2.27.0, product owner): the
         # overview's «آخرین رویدادها» box now holds the whole timeline,
         # scrollable, so a second tab repeating it only split one list in two.
@@ -232,14 +232,14 @@ class CustomerAdapter(PersonAdapter):
         # Since 2.27.0 a customer's calls tab is the call-centre records only
         # (the PBX box left it), so it exists exactly when those can be read.
         if sees_logged_calls:
-            tabs.append(ProfileTab("calls", "تماس‌ها", "ki-call", "profiles/tabs/customer_calls.inc", 8))
+            tabs.append(ProfileTab("calls", "تماس‌ها", "di-call", "profiles/tabs/customer_calls.inc", 8))
         if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
-            tabs.append(ProfileTab("finance", "خریدها و مالی", "ki-dollar", "profiles/tabs/customer_finance.inc", 3))
+            tabs.append(ProfileTab("finance", "خریدها و مالی", "di-dollar", "profiles/tabs/customer_finance.inc", 3))
         tabs.extend(_shared_tabs(viewer, capabilities))
         if feature_enabled("attachments"):
-            tabs.append(ProfileTab("documents", "اسناد", "ki-file", "profiles/tabs/documents.inc"))
+            tabs.append(ProfileTab("documents", "اسناد", "di-file", "profiles/tabs/documents.inc"))
         if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
-            tabs.append(ProfileTab("analysis", "آنالیز", "ki-chart-simple", "profiles/tabs/customer_analysis.inc", 4))
+            tabs.append(ProfileTab("analysis", "آنالیز", "di-chart-simple", "profiles/tabs/customer_analysis.inc", 4))
         return tabs
 
     def quick_actions(self, viewer, person):
@@ -251,20 +251,20 @@ class CustomerAdapter(PersonAdapter):
             if action:
                 actions.append(action)
         if feature_enabled("outbound_sms") and "sms.company" in capabilities and phone:
-            actions.append(QuickAction("sms", "پیامک", "ki-sms", href=f"{reverse('common_ui:outbound-sms')}?customer={person.pk}"))
+            actions.append(QuickAction("sms", "پیامک", "di-sms", href=f"{reverse('common_ui:outbound-sms')}?customer={person.pk}"))
         if "customers.manage" in capabilities:
-            actions.append(QuickAction("edit", "ویرایش", "ki-pencil", tab="info"))
+            actions.append(QuickAction("edit", "ویرایش", "di-pencil", tab="info"))
         actions.extend(_shared_actions(capabilities))
         if (
             feature_enabled("customer_ledger")
             and capabilities.intersection({"ledger.company", "ledger.own"})
         ):
             actions.append(QuickAction(
-                "ledger", "دفتر حساب مشتری", "ki-book", in_menu=True, icon_paths=4,
+                "ledger", "دفتر حساب مشتری", "di-book", in_menu=True, icon_paths=4,
                 href=f"{reverse('common_ui:customer-ledger')}?customer={person.pk}",
             ))
         actions.append(QuickAction(
-            "back", "بازگشت به فهرست مشتریان", "ki-arrow-right", in_menu=True,
+            "back", "بازگشت به فهرست مشتریان", "di-arrow-right", in_menu=True,
             href=reverse("common_ui:customers"),
         ))
         return actions
@@ -362,22 +362,22 @@ class UserAdapter(PersonAdapter):
         capabilities = capabilities_for(viewer)
         manages = self.manages(viewer, person)
         own = person.pk == viewer.pk
-        tabs = [ProfileTab("overview", "بررسی اجمالی", "ki-element-11", "profiles/tabs/user_overview.inc", 4)]
+        tabs = [ProfileTab("overview", "بررسی اجمالی", "di-element-11", "profiles/tabs/user_overview.inc", 4)]
         if manages or own:
-            tabs.append(ProfileTab("info", "اطلاعات", "ki-profile-circle", "profiles/tabs/user_info.inc", 3))
+            tabs.append(ProfileTab("info", "اطلاعات", "di-profile-circle", "profiles/tabs/user_info.inc", 3))
         if feature_enabled("leads") and capabilities.intersection({"leads.scoped", "leads.company"}):
-            tabs.append(ProfileTab("leads", "مشتریان و سرنخ‌ها", "ki-rocket", "profiles/tabs/user_leads.inc"))
+            tabs.append(ProfileTab("leads", "مشتریان و سرنخ‌ها", "di-rocket", "profiles/tabs/user_leads.inc"))
         if self.reads_performance(viewer, person):
-            tabs.append(ProfileTab("performance", "عملکرد", "ki-chart-simple", "profiles/tabs/user_performance.inc", 4))
+            tabs.append(ProfileTab("performance", "عملکرد", "di-chart-simple", "profiles/tabs/user_performance.inc", 4))
         if feature_enabled("telephony"):
             from telephony.profile import sees_calls_of
 
             if sees_calls_of(viewer, person):
-                tabs.append(ProfileTab("calls", "تماس‌ها", "ki-call", "profiles/tabs/user_calls.inc", 8))
-        tabs.append(ProfileTab("activity", "فعالیت‌ها", "ki-time", "profiles/tabs/activity.inc"))
+                tabs.append(ProfileTab("calls", "تماس‌ها", "di-call", "profiles/tabs/user_calls.inc", 8))
+        tabs.append(ProfileTab("activity", "فعالیت‌ها", "di-time", "profiles/tabs/activity.inc"))
         tabs.extend(_shared_tabs(viewer, capabilities))
         if manages:
-            tabs.append(ProfileTab("access", "دسترسی‌ها", "ki-shield-tick", "profiles/tabs/user_access.inc"))
+            tabs.append(ProfileTab("access", "دسترسی‌ها", "di-shield-tick", "profiles/tabs/user_access.inc"))
         return tabs
 
     def quick_actions(self, viewer, person):
@@ -389,21 +389,21 @@ class UserAdapter(PersonAdapter):
             actions.append(action)
         if feature_enabled("outbound_sms") and "sms.company" in capabilities and person.normalized_phone:
             actions.append(QuickAction(
-                "sms", "پیامک", "ki-sms",
+                "sms", "پیامک", "di-sms",
                 href=f"{reverse('common_ui:outbound-sms')}?phone={person.normalized_phone}",
             ))
         if manages or person.pk == viewer.pk:
-            actions.append(QuickAction("edit", "ویرایش", "ki-pencil", tab="info"))
+            actions.append(QuickAction("edit", "ویرایش", "di-pencil", tab="info"))
         actions.extend(_shared_actions(capabilities))
         if manages and has_any_capability(viewer, *ROLE_CHANGE_CAPABILITIES):
             actions.append(QuickAction(
-                "permissions", "مجوزها", "ki-key", action="permissions", in_menu=True,
+                "permissions", "مجوزها", "di-key", action="permissions", in_menu=True,
                 data={"user-id": str(person.pk), "user-name": self.display_name(person)},
             ))
-            actions.append(QuickAction("sessions", "نشست‌های فعال", "ki-lock", tab="access", in_menu=True, icon_paths=3))
+            actions.append(QuickAction("sessions", "نشست‌های فعال", "di-lock", tab="access", in_menu=True, icon_paths=3))
         if manages:
             actions.append(QuickAction(
-                "back", "بازگشت به فهرست کاربران", "ki-arrow-right", in_menu=True,
+                "back", "بازگشت به فهرست کاربران", "di-arrow-right", in_menu=True,
                 href=reverse("common_ui:users"),
             ))
         return actions

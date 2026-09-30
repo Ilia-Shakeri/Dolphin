@@ -19,7 +19,7 @@ trust that: it re-checks the size, sniffs the real type from the magic bytes
 rather than believing a `Content-Type`, and refuses anything else. A client
 is a convenience, never the boundary.
 
-**The default is a cartoon, not an empty circle.** Metronic ships 52 of them
+**The default is a cartoon, not an empty circle.** The panel ships 52 of them
 (`assets/media/svg/avatars/`), and which one a person gets is derived from
 their own primary key rather than stored — so it never changes under them,
 costs no column, and needs no migration to introduce.
@@ -41,7 +41,7 @@ MAX_AVATAR_BYTES = 2 * 1024 * 1024
 #: — the same reasoning `common.branding` applies to the panel logo.
 ALLOWED_AVATAR_CONTENT_TYPES = ("image/jpeg", "image/png", "image/webp")
 
-#: The Metronic cartoon set, by filename. Kept as a count plus a pattern
+#: The built-in cartoon set, by filename. Kept as a count plus a pattern
 #: rather than 52 literals: the files are numbered `001-`..`052-` with a
 #: descriptive suffix, so the list is read from the directory once at import
 #: and a set that grows or shrinks needs no edit here.

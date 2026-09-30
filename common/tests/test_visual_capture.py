@@ -1,7 +1,7 @@
 """Capture screenshots of the served UI for visual review.
 
 Not an assertion suite: this drives the real browser against the real static
-files so a human (or the agent) can compare the result with the Metronic
+files so a human (or the agent) can compare the result with the UI kit
 reference. It is skipped unless DOLPHIN_VISUAL_CAPTURE names an output directory,
 so it never runs as part of the normal suite.
 """

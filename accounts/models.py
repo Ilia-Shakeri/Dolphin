@@ -30,7 +30,7 @@ class User(AbstractUser):
     last_seen_at = models.DateTimeField(null=True, blank=True)
     role = models.CharField(max_length=32, choices=Role.choices, default=Role.SALES_AGENT, db_index=True)
     workstream = models.CharField(max_length=32, choices=Workstream.choices, default=Workstream.SALES, db_index=True)
-    # An explicit pick from the Metronic cartoon set (`accounts.avatars`),
+    # An explicit pick from the built-in cartoon set (`accounts.avatars`),
     # e.g. `"023-woman.svg"`. Blank is the common case and means "no explicit
     # choice" — `avatars.default_avatar_for` then falls back to the stable
     # hash it always used. Product-owner request 2026-09-21: «کاربران باید

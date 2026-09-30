@@ -11,7 +11,7 @@ that form element (`setupPagedList({form, ...})` or a page's own handler).
 `.list-filters` form generically and moves it — the same DOM node, never a
 clone — into a dropdown panel opened by a new toggle button, the same
 hand-rolled `.show`-class pattern the reminder bell, search box and user
-menu already use (not `data-kt-menu-trigger`, since `KTMenu` needs Popper,
+menu already use (not `data-dolphin-menu-trigger`, since `DolphinMenu` needs Popper,
 which is not loaded). It is untouched and still exactly this generic.
 
 **Update, 2026-09-09 (product-owner request):** the search box itself had to
@@ -125,8 +125,8 @@ class ReachTests(SimpleTestCase):
                 content = (TEMPLATES / name).read_text(encoding="utf-8")
                 self.assertNotIn("list-filters", content)
                 # What replaced it: four steps and a way back.
-                self.assertIn('data-kt-stepper-element="nav"', content)
-                self.assertIn('data-kt-stepper-action="previous"', content)
+                self.assertIn('data-dolphin-stepper-element="nav"', content)
+                self.assertIn('data-dolphin-stepper-action="previous"', content)
 
     def test_the_transformation_is_generic_not_a_hand_picked_list(self):
         body = _function_body("setupListFilterPopovers")
@@ -312,10 +312,10 @@ class InteractionTests(SimpleTestCase):
         the rule this asserts is measured there and what is left here is that
         this panel really does register.
 
-        Still not `data-kt-menu-trigger`: that needs Popper, which this build
+        Still not `data-dolphin-menu-trigger`: that needs Popper, which this build
         does not load."""
         self.assertIn("registerPopover({", self.body)
-        self.assertNotIn("data-kt-menu-trigger", self.body)
+        self.assertNotIn("data-dolphin-menu-trigger", self.body)
 
     def test_escape_closes_it_and_returns_focus(self):
         """Measured on the shared behaviour, which is the only copy of it."""

@@ -114,7 +114,7 @@ class InboundSMSShellBrowserTests(StaticLiveServerTestCase):
         # journey it always was.
         next_button = self.wait.until(
             expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR, '#inbound-sms-report-wizard [data-kt-stepper-action="next"]')
+                (By.CSS_SELECTOR, '#inbound-sms-report-wizard [data-dolphin-stepper-action="next"]')
             )
         )
         for _ in range(3):

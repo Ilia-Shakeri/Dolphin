@@ -76,15 +76,9 @@ class DockerImageContentTests(SimpleTestCase):
     """The 1.7.5 fullcalendar gap, guarded against recurring for jkanban:
     a bundle a served page loads must actually survive `.dockerignore`."""
 
-    def test_dockerignore_reinstates_the_jkanban_bundle(self):
-        self.assertIn("!assets/plugins/custom/jkanban", DOCKERIGNORE)
-
-    def test_the_validator_no_longer_flags_jkanban_as_unused_demo_material(self):
-        self.assertNotIn('"assets/plugins/custom/jkanban"', VALIDATOR)
-
     def test_the_validator_requires_both_jkanban_files(self):
-        self.assertIn("assets/plugins/custom/jkanban/jkanban.bundle.js", VALIDATOR)
-        self.assertIn("assets/plugins/custom/jkanban/jkanban.bundle.rtl.css", VALIDATOR)
+        self.assertIn("common/static/common/ui/plugins/jkanban/jkanban.bundle.js", VALIDATOR)
+        self.assertIn("common/static/common/ui/plugins/jkanban/jkanban.bundle.rtl.css", VALIDATOR)
 
 
 class FeatureGateTests(TestCase):
@@ -130,8 +124,8 @@ class TemplateContentTests(TestCase):
 
     def test_the_jkanban_bundle_is_loaded(self):
         page = self.page("board.tpl.manager")
-        self.assertIn("plugins/custom/jkanban/jkanban.bundle.js", page)
-        self.assertIn("plugins/custom/jkanban/jkanban.bundle.rtl.css", page)
+        self.assertIn("common/ui/plugins/jkanban/jkanban.bundle.js", page)
+        self.assertIn("common/ui/plugins/jkanban/jkanban.bundle.rtl.css", page)
 
     def test_a_manager_is_marked_able_to_manage_leads(self):
         page = self.page("board.tpl.manager")

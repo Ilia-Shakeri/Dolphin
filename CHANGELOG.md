@@ -42,6 +42,32 @@ TIARA در ۲۰۲۶-۰۹-۲۲ از `1.6.9` با نصب تازه (پاک‌ساز
 
 ---
 
+## [2.34.0] — ۲۰۲۶-۰۹-۳۰
+
+- **کیت رابط کاربری دلفین (مرحلهٔ اول جداسازی از قالب مرجع).** هر فایلی که پنل واقعاً بارگذاری
+  می‌کند (bundle تم، bundle پلاگین‌ها، JS تم، کتابخانهٔ تقویم و Kanban، فونت ایران‌سنس و
+  فونت آیکون‌ها) با نام‌های دلفین در `common/static/common/ui/` کپی شد:
+  `dolphin-theme.rtl.css`، `dolphin-plugins.rtl.css`، `dolphin-theme.js`، `dolphin-plugins.js`،
+  `fonts/dolphin-icons/…`. نام‌ها یک‌جا عوض شد: `KTMenu`/`KTDrawer`/`KTStepper`/… به
+  `DolphinMenu`/`DolphinDrawer`/`DolphinStepper`/…، صفات `data-kt-*` به `data-dolphin-*`، شناسه‌های
+  `kt_*` به `dolphin_*`، و کلاس‌های آیکون `ki-*` به `di-*`. قالب‌ها، JS، CSS و تست‌های دلفین با همان
+  قاعده به‌روز شدند. فونت‌های بلااستفاده (Font Awesome، Line Awesome، Bootstrap Icons) و قالب‌های
+  قدیمی فونت (eot، svg) کپی نشدند.
+- تمام سورس قالب مرجع (`assets`، `src`، `apps`، `pages`، `dashboards` و …) با `git mv` به یک
+  پوشه در ریشهٔ پروژه منتقل شد. هیچ‌چیز از آن پوشه سرو، ساخته، تست یا مستند نمی‌شود:
+  `STATICFILES_DIRS` خالی است، `.dockerignore` آن را از ایمیج بیرون نگه می‌دارد، و کل مجموعه
+  تست با پوشهٔ پنهان‌شده اجرا شد. تست دائمی `test_ui_independence` هر وابستگی تازه را رد می‌کند.
+  لوگوهای دلفین که داخل `assets/` بودند به `docs/brand-source/` رفتند.
+- `collectstatic` سفارشی و فهرست `STATICFILES_COLLECT_IGNORE` حذف شد (دیگر چیزی برای فیلتر
+  نیست). `scripts/check_html_branding.py` که صفحه‌های دمو را پاک‌سازی می‌کرد و تست آن حذف شد.
+- `CLAUDE.md` و اسناد زنده (`README`، `BACKEND_SPEC`، نقشهٔ راه) از «قالب خریداری‌شده» به «کیت
+  رابط کاربری دلفین» بازنویسی شد؛ این تغییر قواعد به دستور مستقیم مالک محصول است.
+- *اثر بر کاربران:* کوکی جمع‌شدن سایدبار از `data-kt-app-sidebar-minimize` به
+  `data-dolphin-app-sidebar-minimize` عوض شد؛ هر کاربر یک بار حالت جمع‌شدهٔ سایدبار را از نو
+  انتخاب می‌کند. هیچ مهاجرت پایگاه‌داده‌ای ندارد.
+
+---
+
 ## [2.33.9] — ۲۰۲۶-۰۹-۳۰
 
 - `scripts/deploy.sh` حالا بعد از بالا آوردن پشته، nginx را reload می‌کند (`reload_nginx_upstream`).

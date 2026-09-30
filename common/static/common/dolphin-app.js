@@ -276,7 +276,7 @@
      * Keep `aria-expanded` truthful on the sidebar toggle.
      *
      * Opening and closing the sidebar itself is the theme's drawer
-     * (`data-kt-drawer-toggle="#nav-toggle"`); this only mirrors that state
+     * (`data-dolphin-drawer-toggle="#nav-toggle"`); this only mirrors that state
      * into the attribute a screen reader reads, which the drawer does not set.
      */
     function setupNav() {
@@ -344,21 +344,21 @@
      * Scroll a sidebar accordion group into view once it opens.
      *
      * `.menu-item.menu-accordion` groups (`base.html`) toggle open/closed
-     * through the theme's own KTMenu (`data-kt-menu-trigger="click"`), which
-     * animates `.show`/height but never scrolls the sidebar's own KTScroll
-     * viewport (`#kt_app_sidebar_menu_scroll`) to follow it — so a group near
+     * through the theme's own DolphinMenu (`data-dolphin-menu-trigger="click"`), which
+     * animates `.show`/height but never scrolls the sidebar's own DolphinScroll
+     * viewport (`#dolphin_app_sidebar_menu_scroll`) to follow it — so a group near
      * the bottom of a long menu (e.g. «مدیریت سامانه») opens its submenu
      * mostly or entirely below the fold, and reaching it means scrolling by
      * hand every time (product-owner request 2026-09-12).
      *
-     * A fixed delay rather than a transitionend listener: KTMenu animates
+     * A fixed delay rather than a transitionend listener: DolphinMenu animates
      * height via its own timing, not a CSS transition this code can attach
      * to, and 300ms comfortably covers it without waiting on an event that
      * never fires.
      */
     function setupSidebarAccordionScroll() {
         const sidebar = document.getElementById("app-sidebar");
-        const scroller = document.getElementById("kt_app_sidebar_menu_scroll");
+        const scroller = document.getElementById("dolphin_app_sidebar_menu_scroll");
         if (!sidebar || !scroller) return;
 
         sidebar.addEventListener("click", (event) => {
@@ -492,7 +492,7 @@
     /**
      * Open and close the header user menu.
      *
-     * The theme owns how the panel looks and its `.show` rule; KTMenu would
+     * The theme owns how the panel looks and its `.show` rule; DolphinMenu would
      * normally toggle that class and position the panel with Popper, which
      * lives in the plugins bundle this deployment does not load. Toggling the
      * class is the whole of what was missing — placement is two CSS lines in
@@ -514,7 +514,7 @@
      * attribute rather than one of the theme's `.show`-styled dropdowns.
      * `toggle` carries `aria-expanded`, and
      * `.list-filter-toggle[aria-expanded="true"]` in dolphin.css gives it the
-     * pressed look KTMenu's own `.show` would have.
+     * pressed look DolphinMenu's own `.show` would have.
      *
      * The panel's own form still submits normally (`setupPagedList`'s own
      * `form.addEventListener("submit", ...)` above) — only the search box
@@ -1127,7 +1127,7 @@
         const symbolLabel = document.createElement("span");
         symbolLabel.className = `symbol-label bg-light-${panel.accent}`;
         const icon = document.createElement("i");
-        icon.className = `ki-duotone ${panel.icon} fs-2 text-${panel.accent}`;
+        icon.className = `di-duotone ${panel.icon} fs-2 text-${panel.accent}`;
         for (let index = 1; index <= (panel.icon_paths || 2); index += 1) {
             icon.appendChild(document.createElement("span")).className = `path${index}`;
         }
@@ -1290,7 +1290,7 @@
             const symbolLabel = document.createElement("span");
             symbolLabel.className = `symbol-label bg-light-${data.accent || "primary"}`;
             const icon = document.createElement("i");
-            icon.className = `ki-duotone ${data.icon || "ki-element-11"} fs-2 text-${data.accent || "primary"}`;
+            icon.className = `di-duotone ${data.icon || "di-element-11"} fs-2 text-${data.accent || "primary"}`;
             for (let index = 1; index <= (data.icon_paths || 2); index += 1) {
                 icon.appendChild(document.createElement("span")).className = `path${index}`;
             }
@@ -1562,8 +1562,8 @@
             action.classList.toggle("btn-light-primary", !placed);
             action.classList.toggle("btn-light-danger", placed);
             action.innerHTML = placed
-                ? '<i class="ki-outline ki-minus fs-4 me-1"></i>برداشتن از داشبورد'
-                : '<i class="ki-outline ki-plus fs-4 me-1"></i>افزودن به داشبورد';
+                ? '<i class="di-outline di-minus fs-4 me-1"></i>برداشتن از داشبورد'
+                : '<i class="di-outline di-plus fs-4 me-1"></i>افزودن به داشبورد';
             action.setAttribute("aria-label", `${placed ? "برداشتن از داشبورد" : "افزودن به داشبورد"}: ${label}`);
         }
 
@@ -1788,7 +1788,7 @@
          * Resizing by the box's own border — product owner, 2026-09-27:
          * «این دکمه حذف شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد» and
          * «همهٔ باکس‌ها باید از لبه‌ها به‌صورت افقی و عمودی بزرگ و کوچک شوند».
-         * Until 2.18.4 a box had one corner button (`ki-arrow-two-diagonals`)
+         * Until 2.18.4 a box had one corner button (`di-arrow-two-diagonals`)
          * that changed only its width.
          *
          * Snapped, never free pixels: widths to the steps of the theme's
@@ -1906,7 +1906,7 @@
             hide.className = "btn btn-icon btn-sm btn-danger dashboard-widget-hide";
             hide.title = "پنهان کردن";
             hide.setAttribute("aria-label", `پنهان کردن ${boxLabel(key)}`);
-            hide.innerHTML = '<i class="ki-outline ki-cross fs-4"></i>';
+            hide.innerHTML = '<i class="di-outline di-cross fs-4"></i>';
             hide.addEventListener("click", () => hideWidget(key));
             controls.appendChild(hide);
             return controls;
@@ -2228,7 +2228,7 @@
         const symbolLabel = document.createElement("span");
         symbolLabel.className = `symbol-label bg-light-${kpi.accent}`;
         const icon = document.createElement("i");
-        icon.className = `ki-duotone ${kpi.icon} fs-1 text-${kpi.accent}`;
+        icon.className = `di-duotone ${kpi.icon} fs-1 text-${kpi.accent}`;
         // Per-glyph path count, sent by the server for the same reason the
         // reminder bell and the timeline take it from there.
         for (let index = 1; index <= (kpi.icon_paths || 2); index += 1) {
@@ -2260,7 +2260,7 @@
         if (kpi.direction === "up" || kpi.direction === "down") {
             const isUp = kpi.direction === "up";
             const arrow = document.createElement("i");
-            arrow.className = `ki-duotone ki-arrow-${isUp ? "up" : "down"} fs-7 text-${isUp ? "success" : "danger"}`;
+            arrow.className = `di-duotone di-arrow-${isUp ? "up" : "down"} fs-7 text-${isUp ? "success" : "danger"}`;
             arrow.appendChild(document.createElement("span")).className = "path1";
             arrow.appendChild(document.createElement("span")).className = "path2";
             const text = document.createElement("span");
@@ -5220,7 +5220,7 @@
         const marker = document.createElement("span");
         marker.className = `customer-timeline-marker bg-light-${event.accent}`;
         const icon = document.createElement("i");
-        icon.className = `ki-duotone ${event.icon} fs-5 text-${event.accent}`;
+        icon.className = `di-duotone ${event.icon} fs-5 text-${event.accent}`;
         for (let index = 1; index <= (event.icon_paths || 2); index += 1) {
             const path = document.createElement("span");
             path.className = `path${index}`;
@@ -5996,7 +5996,7 @@
         completed: "success", missed: "danger", failed: "danger",
         no_answer: "warning", busy: "warning", ringing: "info", answered: "info",
     };
-    const CALL_DIRECTION_ICON = {inbound: "ki-entrance-left", outbound: "ki-exit-right", internal: "ki-arrow-right-left"};
+    const CALL_DIRECTION_ICON = {inbound: "di-entrance-left", outbound: "di-exit-right", internal: "di-arrow-right-left"};
 
     /** `155` → `۲:۳۵`, an hour or more → `۱:۰۲:۳۵`; nothing said → «—». */
     function talkTime(seconds) {
@@ -6275,7 +6275,7 @@
             header.className = "toast-header";
             const icon = document.createElement("i");
             const missed = detail.kind === "missed";
-            icon.className = `ki-duotone ki-phone fs-2 me-3 text-${missed ? "danger" : "success"}`;
+            icon.className = `di-duotone di-phone fs-2 me-3 text-${missed ? "danger" : "success"}`;
             icon.setAttribute("aria-hidden", "true");
             ["path1", "path2"].forEach((path) => {
                 const span = document.createElement("span");
@@ -7017,7 +7017,7 @@
         // of the three dots at 30% opacity, which read as one faint dot
         // (product owner, 2026-09-28: «باید بولد و واضح‌تر باشد»).
         const icon = document.createElement("i");
-        icon.className = "ki-solid ki-dots-vertical fs-2";
+        icon.className = "di-solid di-dots-vertical fs-2";
         icon.setAttribute("aria-hidden", "true");
         more.append(icon);
 
@@ -7103,7 +7103,7 @@
         toggle.setAttribute("aria-expanded", "false");
         toggle.setAttribute("aria-label", "جست‌وجو در این ستون");
         const icon = document.createElement("i");
-        icon.className = "ki-duotone ki-magnifier fs-5";
+        icon.className = "di-duotone di-magnifier fs-5";
         ["path1", "path2"].forEach((name) => {
             const path = document.createElement("span");
             path.className = name;
@@ -8851,7 +8851,7 @@
             mark.className = `postal-mini-step postal-mini-step-${step.stage}`;
             mark.title = step.label;
             const icon = document.createElement("i");
-            icon.className = `ki-duotone ${step.icon} fs-6`;
+            icon.className = `di-duotone ${step.icon} fs-6`;
             for (let path = 1; path <= (step.icon_paths || 2); path += 1) {
                 icon.appendChild(document.createElement("span")).className = `path${path}`;
             }
@@ -8981,7 +8981,7 @@
             const mark = document.createElement("span");
             mark.className = "postal-step-mark";
             const icon = document.createElement("i");
-            icon.className = `ki-duotone ${step.icon} fs-2`;
+            icon.className = `di-duotone ${step.icon} fs-2`;
             for (let path = 1; path <= (step.icon_paths || 2); path += 1) {
                 const span = document.createElement("span");
                 span.className = `path${path}`;
@@ -10449,7 +10449,7 @@
         reset.className = "btn btn-sm btn-light btn-icon dolphin-chart-reset";
         reset.title = "حالت پیش‌فرض";
         reset.setAttribute("aria-label", "حالت پیش‌فرض");
-        reset.innerHTML = '<i class="ki-outline ki-home-2 fs-4"></i>';
+        reset.innerHTML = '<i class="di-outline di-home-2 fs-4"></i>';
         reset.hidden = true;
         return reset;
     }
@@ -12708,7 +12708,7 @@
     }
 
     /**
-     * Wire the theme's own real `KTStepper` inside a create dialog's `.stepper`.
+     * Wire the theme's own real `DolphinStepper` inside a create dialog's `.stepper`.
      *
      * The vendor component only tracks the current step and toggles its own
      * `current`/`completed`/`pending`/`first`/`between`/`last` classes — the
@@ -12729,16 +12729,16 @@
     function setupWizard(dialog, {onReachLastStep, validateStep} = {}) {
         const root = dialog?.querySelector(".stepper");
         if (!root) return null;
-        const stepper = new KTStepper(root);
+        const stepper = new DolphinStepper(root);
         const form = root.querySelector("form");
-        const navs = [...root.querySelectorAll('[data-kt-stepper-element="nav"]')];
-        const contents = [...root.querySelectorAll('[data-kt-stepper-element="content"]')];
+        const navs = [...root.querySelectorAll('[data-dolphin-stepper-element="nav"]')];
+        const contents = [...root.querySelectorAll('[data-dolphin-stepper-element="content"]')];
         const totalSteps = navs.length;
         const contentOf = (index) => contents[index - 1];
 
         /** The step a field lives on, 1-based; 0 if it is on none of them. */
         function stepOf(node) {
-            const content = node?.closest('[data-kt-stepper-element="content"]');
+            const content = node?.closest('[data-dolphin-stepper-element="content"]');
             return content ? contents.indexOf(content) + 1 : 0;
         }
 
@@ -12752,7 +12752,7 @@
         }) : null;
         if (form && summary) wizardsByForm.set(form, {stepOf, stepTitle, summary});
 
-        stepper.on("kt.stepper.next", () => {
+        stepper.on("dolphin.stepper.next", () => {
             const current = stepper.getCurrentStepIndex();
             const invalid = contentOf(current)?.querySelector(":invalid");
             if (invalid) {
@@ -12789,7 +12789,7 @@
             dialog.scrollTop = 0;
             if (stepper.getCurrentStepIndex() === totalSteps) onReachLastStep?.();
         });
-        stepper.on("kt.stepper.previous", () => {
+        stepper.on("dolphin.stepper.previous", () => {
             stepper.goPrevious();
             dialog.scrollTop = 0;
         });
@@ -13026,12 +13026,12 @@
 
             const remove = document.createElement("button");
             // The theme's own repeater delete control, icon and all — a real
-            // `ki-cross` rather than a literal "×" character, which rendered
+            // `di-cross` rather than a literal "×" character, which rendered
             // at text weight beside two solid inputs.
             remove.className = "btn btn-sm btn-icon btn-light-danger wizard-line-remove";
             remove.type = "button";
             const removeIcon = document.createElement("i");
-            removeIcon.className = "ki-duotone ki-cross fs-2";
+            removeIcon.className = "di-duotone di-cross fs-2";
             ["path1", "path2"].forEach((name) => {
                 const path = document.createElement("span");
                 path.className = name;
@@ -14329,7 +14329,7 @@
                     // validation/scroll-reset/`onReachLastStep` wiring
                     // (`setupWizard` above) runs exactly as it does for an
                     // explicit click.
-                    createForm.querySelector('[data-kt-stepper-action="next"]')?.click();
+                    createForm.querySelector('[data-dolphin-stepper-action="next"]')?.click();
                 });
             });
 
@@ -15177,7 +15177,7 @@
                     button.setAttribute("aria-label", label);
                     button.title = label;
                     const glyph = document.createElement("i");
-                    glyph.className = `ki-duotone ki-${icon} fs-3`;
+                    glyph.className = `di-duotone di-${icon} fs-3`;
                     for (let index = 1; index <= iconPaths; index += 1) {
                         const path = document.createElement("span");
                         path.className = `path${index}`;
@@ -15728,8 +15728,8 @@
     /**
      * The theme row in the user menu, and the small popup beside it.
      *
-     * `KTThemeMode` already binds the three buttons and does the switching; it
-     * finds them by `data-kt-element` wherever they sit, so all that is left is
+     * `DolphinThemeMode` already binds the three buttons and does the switching; it
+     * finds them by `data-dolphin-element` wherever they sit, so all that is left is
      * showing and hiding the popup and keeping the row's own label current.
      *
      * Opened on hover and on click. Hover alone would strand a touch screen,
@@ -15739,7 +15739,7 @@
      * The collapsed mark expands the sidebar.
      *
      * It defers to the real toggle rather than flipping the attribute itself,
-     * so `KTToggle` stays the only thing that owns the state and writes the
+     * so `DolphinToggle` stays the only thing that owns the state and writes the
      * cookie the server reads back. Two controls, one source of truth.
      */
     /**
@@ -16023,7 +16023,7 @@
      * `.animating` class, which is long enough for the animation and not for a
      * pointer that simply stays where it is.
      *
-     * Suspending it by taking `data-kt-app-sidebar-hoverable` off the body,
+     * Suspending it by taking `data-dolphin-app-sidebar-hoverable` off the body,
      * rather than by adding a class of our own, is what keeps this to one line
      * of effect: every peek rule in the theme is keyed on that attribute, so
      * dropping it turns off the widened width and the expanded contents
@@ -16036,10 +16036,10 @@
      */
     function setupSidebarPeekGuard() {
         const sidebar = document.getElementById("app-sidebar");
-        const toggle = document.getElementById("kt_app_sidebar_toggle");
+        const toggle = document.getElementById("dolphin_app_sidebar_toggle");
         if (!sidebar || !toggle) return;
 
-        const HOVERABLE = "data-kt-app-sidebar-hoverable";
+        const HOVERABLE = "data-dolphin-app-sidebar-hoverable";
         toggle.addEventListener("click", () => {
             if (!sidebar.matches(":hover")) return;
             document.body.removeAttribute(HOVERABLE);
@@ -16052,7 +16052,7 @@
     /**
      * Redraw every chart when the panel changes theme.
      *
-     * `KTThemeMode` writes `data-bs-theme` on `<html>`, and does it both when a
+     * `DolphinThemeMode` writes `data-bs-theme` on `<html>`, and does it both when a
      * mode is picked and when a reader on "system" changes their OS setting, so
      * watching the attribute covers both without knowing which happened.
      */
@@ -16117,9 +16117,9 @@
         });
 
         // Choosing a mode closes the popup, updates the row, and saves the
-        // choice. The switching itself is KTThemeMode's; this only reacts to
+        // choice. The switching itself is DolphinThemeMode's; this only reacts to
         // it.
-        popup.querySelectorAll("[data-kt-element='mode']").forEach((button) => {
+        popup.querySelectorAll("[data-dolphin-element='mode']").forEach((button) => {
             // The row's own icon follows `data-bs-theme` through the theme's
             // CSS, so nothing here has to update it.
             button.addEventListener("click", () => {
@@ -16131,7 +16131,7 @@
                 // settings page would silently win back on the next load,
                 // and a reader who used the header switcher would watch
                 // their theme revert.
-                const mode = button.dataset.ktValue;
+                const mode = button.dataset.dolphinValue;
                 if (!mode) return;
                 apiRequest("/api/v1/preferences/", {method: "POST", body: {theme: mode}}).catch(() => {
                     // The theme has already changed on screen and in
@@ -16565,7 +16565,7 @@
      * selected, so there is no loading state and no first paint showing the
      * defaults before the real choice arrives. What this adds on top is the
      * save, and the two previews that have to happen without a reload:
-     * the colour theme (which `KTThemeMode` also keeps in `localStorage`)
+     * the colour theme (which `DolphinThemeMode` also keeps in `localStorage`)
      * and the typeface/scale, so the reader can see the choice they are
      * about to keep.
      */
@@ -16610,7 +16610,7 @@
                 : choice;
             document.documentElement.setAttribute("data-bs-theme", resolved);
             try {
-                // The same key `KTThemeMode` and the header's own theme
+                // The same key `DolphinThemeMode` and the header's own theme
                 // switcher use, so the two never disagree about what this
                 // machine last showed. The server-side preference is still
                 // what decides on a *different* machine; see the head
@@ -17139,7 +17139,7 @@
             card.dataset.provider = provider.key;
             const symbol = document.createElement("span");
             symbol.className = "symbol symbol-40px flex-shrink-0";
-            symbol.innerHTML = '<span class="symbol-label bg-light-primary"><i class="ki-duotone ki-abstract-26 fs-2 text-primary" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span>';
+            symbol.innerHTML = '<span class="symbol-label bg-light-primary"><i class="di-duotone di-abstract-26 fs-2 text-primary" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span>';
             const text = document.createElement("span");
             text.className = "min-w-0";
             const title = document.createElement("span");
@@ -17209,7 +17209,7 @@
             cell.className = "d-flex align-items-start gap-3";
             const symbol = document.createElement("span");
             symbol.className = "symbol symbol-40px flex-shrink-0";
-            symbol.innerHTML = `<span class="symbol-label bg-light-${STATUS_ACCENT[integration.status] || "secondary"}"><i class="ki-duotone ki-abstract-26 fs-2 text-${STATUS_ACCENT[integration.status] || "secondary"}" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span>`;
+            symbol.innerHTML = `<span class="symbol-label bg-light-${STATUS_ACCENT[integration.status] || "secondary"}"><i class="di-duotone di-abstract-26 fs-2 text-${STATUS_ACCENT[integration.status] || "secondary"}" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span>`;
             const text = document.createElement("div");
             text.className = "min-w-0";
             cell.append(symbol, text);
@@ -17714,7 +17714,7 @@
             const left = document.createElement("span");
             left.className = "d-flex align-items-center gap-2";
             const icon = document.createElement("i");
-            icon.className = `ki-duotone ${group.icon} fs-5 text-${group.accent}`;
+            icon.className = `di-duotone ${group.icon} fs-5 text-${group.accent}`;
             for (let index = 1; index <= (group.icon_paths || 2); index += 1) {
                 icon.append(searchPathSpan(index));
             }
@@ -17887,9 +17887,9 @@
             const heading = document.createElement("div");
             heading.className = "d-flex align-items-center gap-2 px-2 mb-1";
             const icon = document.createElement("i");
-            icon.className = `ki-duotone ${group.icon} fs-5 text-${group.accent}`;
-            // A duotone keenicon is drawn from nested `.path*` spans, and the
-            // count differs per glyph — `ki-call` has eight. The server sends
+            icon.className = `di-duotone ${group.icon} fs-5 text-${group.accent}`;
+            // A duotone icon-font glyph is drawn from nested `.path*` spans, and the
+            // count differs per glyph — `di-call` has eight. The server sends
             // it with the group, the same way the dashboard tiles carry
             // `icon_paths`; drawing two for an eight-path icon draws a
             // quarter of it.
@@ -17989,7 +17989,7 @@
 
     /**
      * Internal chat: a slide-in drawer, matching the purchased theme's own
-     * `kt_drawer_chat` pattern (header icon, `data-kt-drawer`, the same
+     * `dolphin_drawer_chat` pattern (header icon, `data-dolphin-drawer`, the same
      * message-bubble classes) with two states inside it — a thread list, or
      * one open conversation — since the theme's own demo shows a single
      * fixed conversation and this panel has many.
@@ -18034,7 +18034,7 @@
         // unchanged from before this was parametrised) or the full page
         // (`chat-page-*`, see `DolphinChatView`). Same engine either way —
         // same API calls, same cache key, same read/unread rules — only the
-        // ids and, through `options`, whether there is a `data-kt-drawer`
+        // ids and, through `options`, whether there is a `data-dolphin-drawer`
         // container/toggle to coordinate with.
         const id = (name) => `${prefix}-${name}`;
         const drawer = options.container ? document.getElementById(options.container) : null;
@@ -18510,12 +18510,12 @@
                 toggle.addEventListener(name, () => { if (!isOpen()) loadThreads(); }, {passive: true});
             });
 
-            // The theme's own KTDrawer binds its open/close click on this
+            // The theme's own DolphinDrawer binds its open/close click on this
             // same button; this listener runs alongside it, not instead of
             // it, and only reacts to the drawer actually being open — a
             // click that closes it triggers no wasted request.
             toggle.addEventListener("click", () => {
-                // KTDrawer flips its own `drawer-on` class synchronously
+                // DolphinDrawer flips its own `drawer-on` class synchronously
                 // inside the same click handler, but listener order between
                 // it and this one is not something to depend on — a
                 // microtask delay reads the class after every same-tick
@@ -18561,8 +18561,8 @@
      * the form now lives affects any lookup already written against it.
      *
      * Opened and closed the same hand-rolled way as the reminder bell, the
-     * search box and the user menu — `.show`, not `data-kt-menu-trigger` —
-     * for the same reason all three of those are: `KTMenu` positions its
+     * search box and the user menu — `.show`, not `data-dolphin-menu-trigger` —
+     * for the same reason all three of those are: `DolphinMenu` positions its
      * panel with Popper, and Popper lives in the plugins bundle this
      * deployment does not load.
      */
@@ -18593,7 +18593,7 @@
             // second id for the same relationship.
             if (form.id) toggle.dataset.filterToggleFor = form.id;
             const icon = document.createElement("i");
-            icon.className = "ki-duotone ki-filter fs-3";
+            icon.className = "di-duotone di-filter fs-3";
             icon.append(document.createElement("span"), document.createElement("span"));
             icon.children[0].className = "path1";
             icon.children[1].className = "path2";
@@ -18635,7 +18635,7 @@
 
             const popover = registerPopover({toggle, panel});
             // Closes the popover on a successful apply, matching the theme's
-            // own `data-kt-menu-dismiss` on its filter panel's submit button.
+            // own `data-dolphin-menu-dismiss` on its filter panel's submit button.
             form.addEventListener("submit", () => popover.close());
             // A native reset only restores the fields; nothing here re-asks
             // for the now-default list on its own. Resubmitting after the
@@ -18675,7 +18675,7 @@
     // The header drawer, on every page (2018.5's original instance,
     // unchanged); the full page, only where `/chat/`'s own markup exists —
     // `setupChat` no-ops when `chat-page-thread-list` is not on the page.
-    setupChat("chat-drawer", {container: "kt_drawer_chat", toggle: "kt_drawer_chat_toggle"});
+    setupChat("chat-drawer", {container: "dolphin_drawer_chat", toggle: "dolphin_drawer_chat_toggle"});
     setupChat("chat-page", {isOpen: () => true});
     setupGoToAccounting(); // PRELIMINARY, UNCOMMITTED — see integration/apps.py
 

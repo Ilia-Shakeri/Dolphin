@@ -60,7 +60,7 @@ class QuickAction:
 
     @property
     def paths(self):
-        """`.path1`…`.pathN` — a duotone keenicon draws nothing without them."""
+        """`.path1`…`.pathN` — a duotone icon-font glyph draws nothing without them."""
         return range(1, self.icon_paths + 1)
 
 

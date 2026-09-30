@@ -71,24 +71,24 @@ from sales.selectors import (
 DOCUMENT_STATUS_LABELS = labels.DOCUMENT_STATUS_LABELS
 SETTLEMENT_LABELS = labels.SETTLEMENT_LABELS
 
-#: How each dashboard tile is presented: a keenicon from the theme's own set and
-#: a Metronic accent. Purely visual — the figure and its scope come from the
+#: How each dashboard tile is presented: an icon-font glyph from the theme's own set and
+#: a UI-kit accent. Purely visual — the figure and its scope come from the
 #: capability check above, never from this table.
-DEFAULT_WIDGET_STYLE = {"icon": "ki-element-11", "accent": "primary", "icon_paths": 4}
+DEFAULT_WIDGET_STYLE = {"icon": "di-element-11", "accent": "primary", "icon_paths": 4}
 WIDGET_STYLE = {
-    "customers": {"icon": "ki-profile-user", "accent": "primary", "icon_paths": 4},
-    "leads": {"icon": "ki-phone", "accent": "info", "icon_paths": 2},
-    "interactions": {"icon": "ki-message-text-2", "accent": "info", "icon_paths": 3},
-    "sales": {"icon": "ki-handcart", "accent": "success", "icon_paths": 1},
-    "sales_documents": {"icon": "ki-delivery", "accent": "warning", "icon_paths": 5},
-    "after_sales": {"icon": "ki-shield-tick", "accent": "warning", "icon_paths": 2},
+    "customers": {"icon": "di-profile-user", "accent": "primary", "icon_paths": 4},
+    "leads": {"icon": "di-phone", "accent": "info", "icon_paths": 2},
+    "interactions": {"icon": "di-message-text-2", "accent": "info", "icon_paths": 3},
+    "sales": {"icon": "di-handcart", "accent": "success", "icon_paths": 1},
+    "sales_documents": {"icon": "di-delivery", "accent": "warning", "icon_paths": 5},
+    "after_sales": {"icon": "di-shield-tick", "accent": "warning", "icon_paths": 2},
     # `dark` used to be the accent for both of these — on this panel's own
     # dark theme, `--bs-dark` sits a few shades off the card background
     # itself, so the icon badge read as barely-there against everything
     # around it. Product-owner request 2026-09-11 ("رنگی و جذاب"): every
     # tile earns a colour a reader can actually see.
-    "users": {"icon": "ki-people", "accent": "primary", "icon_paths": 5},
-    "audit": {"icon": "ki-shield-search", "accent": "danger", "icon_paths": 4},
+    "users": {"icon": "di-people", "accent": "primary", "icon_paths": 5},
+    "audit": {"icon": "di-shield-search", "accent": "danger", "icon_paths": 4},
 }
 
 ROLE_LABELS = {
@@ -128,7 +128,7 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # regardless of what the template rendered.
         context["features"] = active_profile().features
         context["capabilities"] = capabilities
-        # The face the shell shows: this reader's own upload, or the Metronic
+        # The face the shell shows: this reader's own upload, or the UI kit
         # cartoon derived from their id. Resolved here rather than fetched by
         # the panel so the header never flashes a placeholder first.
         context["own_avatar_url"] = (
@@ -1369,7 +1369,7 @@ class DolphinChatView(ActiveCrmView):
     page runs its own copy of the engine. This page does not: its script
     (`setupChatPage`, `common/static/common/dolphin-app.js`) is the drawer's
     own `setupChat` given a different set of element ids and left open
-    permanently instead of toggled by `data-kt-drawer`, so both read and
+    permanently instead of toggled by `data-dolphin-drawer`, so both read and
     write through the exact same `chat/` API, the same `sessionStorage`
     cache key and the same unread/read semantics — one engine, two
     presentations, not two chat UIs. The drawer stays for a quick reply from

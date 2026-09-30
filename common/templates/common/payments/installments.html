@@ -2,7 +2,7 @@
 {% block title %}اقساط{% endblock %}
 {% block page_id %}installments{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">صندوق و دریافت</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-calendar page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-calendar page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}اقساط{% endblock %}
 {% block breadcrumb_current %}اقساط{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:payments' %}">دریافت‌ها</a>{% endblock %}
@@ -13,7 +13,7 @@
     <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-filter">
             <button id="installment-filter-toggle" class="btn btn-icon btn-light-primary list-filter-toggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="فیلتر">
-                <i class="ki-duotone ki-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-filter fs-3"><span class="path1"></span><span class="path2"></span></i>
             </button>
             <div id="installment-filter-panel" class="list-filter-panel" hidden>
                 <form id="installment-search-form" action="{% url 'common_ui:installments' %}" method="get">

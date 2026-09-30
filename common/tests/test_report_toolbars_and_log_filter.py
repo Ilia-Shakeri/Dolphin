@@ -119,7 +119,7 @@ class PostalTrackingRenameTests(SimpleTestCase):
     def test_the_old_name_is_gone_from_the_product(self):
         stale = []
         for path in ROOT.rglob("*.html"):
-            if "node_modules" in path.parts or "assets" in path.parts:
+            if "node_modules" in path.parts or "metronic" in path.parts:
                 continue
             if "اسناد فروش داخلی" in path.read_text(encoding="utf-8", errors="ignore"):
                 stale.append(path.name)

@@ -39,9 +39,9 @@ class HeaderUserMenuTests(TestCase):
         page = self.client.get("/").content.decode("utf-8")
         self.assertIn('id="user-menu-toggle"', page)
         self.assertIn('id="user-menu"', page)
-        # Opened by the theme's own KTMenu, so no Bootstrap JavaScript is needed.
-        self.assertIn('data-kt-menu-trigger="click"', page)
-        self.assertIn('data-kt-menu="true"', page)
+        # Opened by the theme's own DolphinMenu, so no Bootstrap JavaScript is needed.
+        self.assertIn('data-dolphin-menu-trigger="click"', page)
+        self.assertIn('data-dolphin-menu="true"', page)
         self.assertIn("مدیر فروش", page)
         self.assertIn(self.user.username, page)
 

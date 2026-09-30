@@ -14,7 +14,7 @@ the icon in the header"):
   parametrised by which markup it drives, so both read and write through the
   identical API calls, cache key and read/unread rules (`ScriptBehaviourTests`
   below, `PageReturnedTests`);
-* the drawer is the theme's own real `data-kt-drawer` component (open/close,
+* the drawer is the theme's own real `data-dolphin-drawer` component (open/close,
   overlay, responsive width all come from it), not a re-implementation;
 * the polling that makes it feel live only runs while the drawer is open
   (checked against the theme's own `drawer-on` class) or, for the page,
@@ -57,31 +57,31 @@ class DrawerRenderingTests(TestCase):
 
     def test_the_header_icon_is_on_the_page_by_default(self):
         page = self.page()
-        self.assertIn('id="kt_drawer_chat_toggle"', page)
+        self.assertIn('id="dolphin_drawer_chat_toggle"', page)
         self.assertIn("گفت‌وگوی داخلی", page)
 
     def test_the_drawer_itself_is_on_the_page(self):
         page = self.page()
-        self.assertIn('id="kt_drawer_chat"', page)
-        self.assertIn('data-kt-drawer="true"', page)
+        self.assertIn('id="dolphin_drawer_chat"', page)
+        self.assertIn('data-dolphin-drawer="true"', page)
         # The real theme component, not a rebuild: direction, overlay and
-        # the toggle/close wiring are all attributes the vendor's own KTDrawer
+        # the toggle/close wiring are all attributes the vendor's own DolphinDrawer
         # reads, the same ones `#app-sidebar` already relies on.
-        self.assertIn('data-kt-drawer-direction="end"', page)
-        self.assertIn('data-kt-drawer-toggle="#kt_drawer_chat_toggle"', page)
-        self.assertIn('data-kt-drawer-close="#kt_drawer_chat_close"', page)
+        self.assertIn('data-dolphin-drawer-direction="end"', page)
+        self.assertIn('data-dolphin-drawer-toggle="#dolphin_drawer_chat_toggle"', page)
+        self.assertIn('data-dolphin-drawer-close="#dolphin_drawer_chat_close"', page)
 
     def test_both_are_absent_when_the_feature_is_off(self):
         with override_active_profile(profile_without("internal_chat")):
             page = self.page()
-        self.assertNotIn('id="kt_drawer_chat_toggle"', page)
-        self.assertNotIn('id="kt_drawer_chat"', page)
+        self.assertNotIn('id="dolphin_drawer_chat_toggle"', page)
+        self.assertNotIn('id="dolphin_drawer_chat"', page)
 
     def test_the_icon_and_drawer_render_on_an_ordinary_page_too(self):
         """Not only the dashboard — every authenticated page carries them."""
         page = self.client.get("/customers/").content.decode("utf-8")
-        self.assertIn('id="kt_drawer_chat_toggle"', page)
-        self.assertIn('id="kt_drawer_chat"', page)
+        self.assertIn('id="dolphin_drawer_chat_toggle"', page)
+        self.assertIn('id="dolphin_drawer_chat"', page)
 
     def test_the_chat_user_id_is_set_on_the_shell_itself(self):
         """Not through a page-specific `body_data` override — the drawer
@@ -90,7 +90,7 @@ class DrawerRenderingTests(TestCase):
 
     def test_a_signed_out_visitor_gets_neither(self):
         page = Client().get("/login/").content.decode("utf-8")
-        self.assertNotIn("kt_drawer_chat", page)
+        self.assertNotIn("dolphin_drawer_chat", page)
 
 
 class PageReturnedTests(TestCase):
@@ -99,7 +99,7 @@ class PageReturnedTests(TestCase):
     "a second, divergent chat UI" — is answered by *how* the page comes
     back, not by keeping it gone: `DolphinChatView` renders the same
     `setupChat` engine the drawer runs, only given `chat-page-*` ids and
-    `isOpen: () => true` instead of `data-kt-drawer`'s own state (see
+    `isOpen: () => true` instead of `data-dolphin-drawer`'s own state (see
     `DolphinChatView`'s docstring and `ScriptBehaviourTests` below). One
     engine, two presentations — the drawer for a quick reply from anywhere,
     this page for the fuller workspace the sidebar now links to."""
@@ -149,7 +149,7 @@ class ScriptBehaviourTests(SimpleTestCase):
         can drive (the header drawer, the full page from `DolphinChatView`)
         — unconditionally, not gated on which page this is; the function
         itself is what no-ops where its markup is absent."""
-        self.assertIn('setupChat("chat-drawer", {container: "kt_drawer_chat", toggle: "kt_drawer_chat_toggle"});', SCRIPT)
+        self.assertIn('setupChat("chat-drawer", {container: "dolphin_drawer_chat", toggle: "dolphin_drawer_chat_toggle"});', SCRIPT)
         self.assertIn('setupChat("chat-page", {isOpen: () => true});', SCRIPT)
         self.assertNotIn('if (page === "chat") setupChat();', SCRIPT)
 
@@ -223,5 +223,5 @@ class LayoutRegressionTests(SimpleTestCase):
     ).read_text(encoding="utf-8")
 
     def test_the_flex_chain_gets_a_real_min_height(self):
-        self.assertIn("#kt_drawer_chat_messenger,", self.css)
-        self.assertIn("min-height: 0;", self.css.split("#kt_drawer_chat_messenger,")[1][:400])
+        self.assertIn("#dolphin_drawer_chat_messenger,", self.css)
+        self.assertIn("min-height: 0;", self.css.split("#dolphin_drawer_chat_messenger,")[1][:400])

@@ -314,8 +314,8 @@ class HiddenAvailableTests(TestCase):
         self.settings_row.save()
         update_user_dashboard_layout(actor=self.admin, hidden_widgets=["capability:leads.company"])
         tiles = [
-            {"capability": "leads.company", "label": "سرنخ", "value": 3, "icon": "ki-x", "icon_paths": 2, "accent": "info"},
-            {"capability": "audit.all", "label": "رویداد", "value": 9, "icon": "ki-y", "icon_paths": 2, "accent": "dark"},
+            {"capability": "leads.company", "label": "سرنخ", "value": 3, "icon": "di-x", "icon_paths": 2, "accent": "info"},
+            {"capability": "audit.all", "label": "رویداد", "value": 9, "icon": "di-y", "icon_paths": 2, "accent": "dark"},
         ]
         catalog = capability_tile_catalog(tiles, effective_layout(self.admin))
         self.assertEqual([entry["key"] for entry in catalog], ["capability:leads.company"])

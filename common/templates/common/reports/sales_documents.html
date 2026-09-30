@@ -2,7 +2,7 @@
 {% block title %}گزارش اسناد و پست{% endblock %}
 {% block page_id %}sales-document-report{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">بر پایه نشانی ثبت‌شده و وضعیت جاری</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-chart page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-chart page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}گزارش اسناد فروش و پست{% endblock %}
 {% block breadcrumb_current %}گزارش اسناد فروش و پست{% endblock %}
 {% block content %}
@@ -19,14 +19,14 @@
 <div id="sales-document-report-wizard">
     <div class="stepper stepper-links d-flex flex-column">
         <div class="stepper-nav py-5">
-            <div class="stepper-item current" data-kt-stepper-element="nav"><h3 class="stepper-title">بازهٔ زمانی</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">پالایش</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">چه چیزی را ببینیم</h3></div>
-            <div class="stepper-item" data-kt-stepper-element="nav"><h3 class="stepper-title">نتیجه</h3></div>
+            <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازهٔ زمانی</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">پالایش</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">چه چیزی را ببینیم</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">نتیجه</h3></div>
         </div>
 
         {% comment %} چهار مرحله داخل ظرف خودشان، نه مستقیم زیر `.stepper`.
-           KTStepper موقع علامت‌زدن مرحلهٔ جاری از `KTUtil.index(element)`
+           DolphinStepper موقع علامت‌زدن مرحلهٔ جاری از `DolphinUtil.index(element)`
            استفاده می‌کند — یعنی جایگاه المان میان فرزندان *والدش*، نه میان
            المان‌های stepper. اگر محتواها کنار نوار ناوبری و ردیف دکمه‌ها
            بنشینند، شمارهٔ هرکدام یکی جلوتر می‌افتد و صفحه مرحلهٔ قبلی را
@@ -37,7 +37,7 @@
            تگ‌های قالب (`test_ui_connectivity`) متن کامنت را هم می‌شمارد.
            {% endcomment %}
         <div class="report-steps">
-            <div class="current report-step" data-kt-stepper-element="content">
+            <div class="current report-step" data-dolphin-stepper-element="content">
                 <h3 class="fs-4 fw-bold text-gray-900 mb-2">گزارش برای کدام بازه؟</h3>
                 <p class="text-muted fs-7 mb-5">بر پایهٔ زمان ثبت سند. ابتدای بازه شامل و انتهای آن خارج از شمارش است.</p>
                 {% comment %} همان کنترل بازهٔ مشترک همهٔ نمودارهای پنل، نه یک جفت
@@ -45,7 +45,7 @@
                 <div id="sales-document-report-range"></div>
             </div>
 
-            <div class="report-step" data-kt-stepper-element="content">
+            <div class="report-step" data-dolphin-stepper-element="content">
                 <h3 class="fs-4 fw-bold text-gray-900 mb-2">محدودتر کنیم؟</h3>
                 <p class="text-muted fs-7 mb-5">هر کدام را خالی بگذارید، یعنی «همه».</p>
                 <div class="row g-5">
@@ -66,7 +66,7 @@
                 </div>
             </div>
 
-            <div class="report-step" data-kt-stepper-element="content">
+            <div class="report-step" data-dolphin-stepper-element="content">
                 <h3 class="fs-4 fw-bold text-gray-900 mb-2">کدام بخش‌ها را ببینید؟</h3>
                 <p class="text-muted fs-7 mb-5">هر بخشی که تیک بخورد در نتیجه می‌آید. بعد از ساخت گزارش هم می‌توانید همین تیک‌ها را عوض کنید.</p>
                 <div class="report-sections">
@@ -86,12 +86,12 @@
                 <p class="alert alert-danger fs-7 mt-5 mb-0" data-step-error role="alert" hidden></p>
             </div>
 
-            <div class="report-step" data-kt-stepper-element="content">
+            <div class="report-step" data-dolphin-stepper-element="content">
                 <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-5">
                     <h3 class="fs-4 fw-bold text-gray-900 mb-0">نتیجه</h3>
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <div class="list-search">
-                            <i class="ki-duotone ki-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
+                            <i class="di-duotone di-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
                             <label class="sr-only" for="sales-document-report-search">جست‌وجو در نتیجه</label>
                             <input class="form-control form-control-solid" id="sales-document-report-search" type="search" placeholder="استان، شهر یا وضعیت">
                         </div>
@@ -129,8 +129,8 @@
         </div>
 
         <div class="d-flex flex-stack pt-8">
-            <button class="btn btn-light-primary" type="button" data-kt-stepper-action="previous"><i class="ki-duotone ki-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>مرحلهٔ قبل</button>
-            <button class="btn btn-primary" type="button" data-kt-stepper-action="next">مرحلهٔ بعد<i class="ki-duotone ki-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+            <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>مرحلهٔ قبل</button>
+            <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">مرحلهٔ بعد<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
         </div>
     </div>
 </div>

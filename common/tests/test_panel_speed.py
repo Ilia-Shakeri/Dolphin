@@ -65,8 +65,8 @@ class StaticDeliveryTests(SimpleTestCase):
 
     def test_every_bundle_the_shell_links_carries_the_release(self):
         """Year-long caching is only safe when every release changes the URL."""
-        for asset in ("plugins/global/plugins.bundle.rtl.css", "css/style.bundle.rtl.css",
-                      "plugins/global/plugins.bundle.js", "js/scripts.bundle.js"):
+        for asset in ("common/ui/css/dolphin-plugins.rtl.css", "common/ui/css/dolphin-theme.rtl.css",
+                      "common/ui/js/dolphin-plugins.js", "common/ui/js/dolphin-theme.js"):
             with self.subTest(asset=asset):
                 self.assertIn(f"{{% static '{asset}' %}}?v={{{{ dolphin_version }}}}", BASE)
         for template in ("leads/board.html", "orders/board.html", "leads/calendar.html",

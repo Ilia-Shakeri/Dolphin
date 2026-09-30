@@ -4,7 +4,7 @@
 {% block page_id %}dashboard{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">{{ brand_name }}{% if brand_subtitle %} | {{ brand_subtitle }}{% endif %}</span>{% endblock %}
 {% block page_heading_id %}dashboard-title{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-element-11 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-element-11 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{{ dashboard_title }}{% endblock %}
 {% block breadcrumb_current %}{{ dashboard_title }}{% endblock %}
 {% comment %} نوار ویرایش داشبورد — در نوار عنوان صفحه، هم‌ردیف خود عنوان.
@@ -25,7 +25,7 @@
 {% if can_arrange_dashboard %}
     <div class="d-flex flex-wrap align-items-center justify-content-end gap-2" id="dashboard-editor-bar" hidden>
         <button type="button" class="btn btn-sm btn-light-primary" id="dashboard-add-widget-open" hidden>
-            <i class="ki-duotone ki-plus fs-4 me-1"></i>افزودن ویجت
+            <i class="di-duotone di-plus fs-4 me-1"></i>افزودن ویجت
         </button>
         <button type="button" class="btn btn-sm btn-light-danger" id="dashboard-edit-reset" hidden>
             بازگرداندن به پیش‌فرض
@@ -33,7 +33,7 @@
         <button type="button" class="btn btn-sm btn-primary" id="dashboard-edit-done" hidden>پایان ویرایش</button>
         <button type="button" class="btn btn-sm btn-icon btn-light" id="dashboard-edit-toggle"
                 title="شخصی‌سازی داشبورد" aria-label="شخصی‌سازی داشبورد" aria-pressed="false">
-            <i class="ki-duotone ki-pencil fs-4"><span class="path1"></span><span class="path2"></span></i>
+            <i class="di-duotone di-pencil fs-4"><span class="path1"></span><span class="path2"></span></i>
         </button>
     </div>
 {% endif %}
@@ -59,7 +59,7 @@
    باشند و حس و حال صفحه حالت ویرایش باشد». {% endcomment %}
     <div class="notice d-flex align-items-center bg-light-primary rounded border-primary border border-dashed p-4 mb-5"
          id="dashboard-edit-hint" role="status" hidden>
-        <i class="ki-duotone ki-pencil fs-2tx text-primary me-4 flex-shrink-0"><span class="path1"></span><span class="path2"></span></i>
+        <i class="di-duotone di-pencil fs-2tx text-primary me-4 flex-shrink-0"><span class="path1"></span><span class="path2"></span></i>
         <div class="fw-semibold">
             <h3 class="fs-6 fw-bold text-gray-900 mb-1">حالت ویرایش داشبورد</h3>
             <div class="fs-7 text-gray-700">
@@ -84,7 +84,7 @@
         <div class="d-flex align-items-center justify-content-between mb-2">
             <h2 class="fs-4 fw-bold mb-0" id="dashboard-add-widget-title">افزودن ویجت</h2>
             <button type="button" class="btn btn-sm btn-icon btn-light" data-close-dialog aria-label="بستن">
-                <i class="ki-duotone ki-cross fs-2"><span class="path1"></span><span class="path2"></span></i>
+                <i class="di-duotone di-cross fs-2"><span class="path1"></span><span class="path2"></span></i>
             </button>
         </div>
         <p class="text-muted fs-8 mb-5">همهٔ ویجت‌هایی که برای شما در دسترس است، با رقم واقعی همین حالا.</p>
@@ -118,7 +118,7 @@
          aria-label="نمای کلی دسترسی مجاز">
     {% for widget in dashboard_widgets %}
     <div class="dashboard-widget {{ widget.size }}" data-widget-key="{{ widget.key }}" data-widget-label="{{ widget.label }}"{% if widget.height %} style="--dashboard-min-height: {{ widget.height }}"{% endif %}>
-        {% comment %} The theme's stat tile: a keenicon in an accented symbol, the figure,
+        {% comment %} The theme's stat tile: an icon-font glyph in an accented symbol, the figure,
            then the label. Icon and accent are presentation carried on the widget;
            the figure and its scope come from the capability check in the view. {% endcomment %}
         <a class="card card-flush h-100 text-decoration-none border-hover-primary" data-capability="{{ widget.capability }}" href="{% url widget.url_name %}">
@@ -129,10 +129,10 @@
                        2026-09-11, "رنگی و جذاب"). {% endcomment %}
                     <span class="symbol symbol-50px">
                         <span class="symbol-label bg-light-{{ widget.accent }}">
-                            <i class="ki-duotone {{ widget.icon }} fs-1 text-{{ widget.accent }}">{% for path in ""|ljust:widget.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
+                            <i class="di-duotone {{ widget.icon }} fs-1 text-{{ widget.accent }}">{% for path in ""|ljust:widget.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
                         </span>
                     </span>
-                    <i class="ki-duotone ki-arrow-left fs-4 text-gray-500"><span class="path1"></span><span class="path2"></span></i>
+                    <i class="di-duotone di-arrow-left fs-4 text-gray-500"><span class="path1"></span><span class="path2"></span></i>
                 </div>
                 <span class="text-gray-900 fw-bolder fs-2hx lh-1">{{ widget.value|persian_digits }}</span>
                 <span class="text-gray-700 fw-semibold fs-7 mt-2">{{ widget.label }}</span>

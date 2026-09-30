@@ -2,21 +2,21 @@
 {% block title %}ارسال پیامک{% endblock %}
 {% block page_id %}outbound-sms{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">هستهٔ ارسال پیامک</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-sms page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-sms page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}ارسال پیامک{% endblock %}
 {% block breadcrumb_current %}ارسال پیامک{% endblock %}
-{% block page_actions %}{% if can_manage_sms_provider %}<a class="btn btn-light" href="{% url 'common_ui:sms-provider-settings' %}"><i class="ki-duotone ki-setting-2 fs-3 me-1"><span class="path1"></span><span class="path2"></span></i>تنظیمات سامانه</a>{% endif %}{% endblock %}
+{% block page_actions %}{% if can_manage_sms_provider %}<a class="btn btn-light" href="{% url 'common_ui:sms-provider-settings' %}"><i class="di-duotone di-setting-2 fs-3 me-1"><span class="path1"></span><span class="path2"></span></i>تنظیمات سامانه</a>{% endif %}{% endblock %}
 {% block content %}
 {% if sms_provider_configured %}
 <div class="notice d-flex bg-light-success rounded border-success border border-dashed p-5 mb-5">
-    <i class="ki-duotone ki-verify fs-2x text-success me-3"><span class="path1"></span><span class="path2"></span></i>
+    <i class="di-duotone di-verify fs-2x text-success me-3"><span class="path1"></span><span class="path2"></span></i>
     <div class="fw-semibold fs-6 text-gray-700">
         سامانهٔ پیامک متصل است{% if sms_provider_label %} — <span class="text-gray-900">{{ sms_provider_label }}</span>{% endif %}.
     </div>
 </div>
 {% else %}
 <div class="notice d-flex bg-light-warning rounded border-warning border border-dashed p-5 mb-5">
-    <i class="ki-duotone ki-information-5 fs-2x text-warning me-3"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+    <i class="di-duotone di-information-5 fs-2x text-warning me-3"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
     <div class="fw-semibold fs-6 text-gray-700">
         هنوز هیچ سامانهٔ پیامکی برای این استقرار تنظیم نشده — ارسال تا آن زمان ناموفق خواهد بود.
         {% if can_manage_sms_provider %}<a class="fw-bold" href="{% url 'common_ui:sms-provider-settings' %}">تنظیم سامانهٔ پیامک</a>{% else %}لطفاً از مدیر پلتفرم بخواهید آن را تنظیم کند.{% endif %}
@@ -117,7 +117,7 @@
                 <div class="col-12 d-flex justify-content-end">
                     {% comment %} دکمهٔ ارسال کوچک‌تر از ورودی متن، طبق درخواست. {% endcomment %}
                     <button class="btn btn-sm btn-primary" type="submit"{% if not sms_provider_configured %} disabled title="ابتدا سامانهٔ پیامک را تنظیم کنید"{% endif %}>
-                        <i class="ki-duotone ki-send fs-4 me-1"><span class="path1"></span><span class="path2"></span></i><span id="sms-submit-label">ارسال پیامک</span>
+                        <i class="di-duotone di-send fs-4 me-1"><span class="path1"></span><span class="path2"></span></i><span id="sms-submit-label">ارسال پیامک</span>
                     </button>
                 </div>
             </div>

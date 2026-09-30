@@ -1,7 +1,7 @@
-"""Deriving a full Bootstrap/Metronic "primary" colour set from one hex value
+"""Deriving a full Bootstrap "primary" colour set from one hex value
 an admin picked, for `common.branding`'s optional accent colour.
 
-The theme (`assets/css/style.bundle.css`) never reads a single `--bs-primary`
+The theme (`common/static/common/ui/css/dolphin-theme.rtl.css`) never reads a single `--bs-primary`
 token — buttons, badges, the stepper, links and focus rings each read one of
 several derived tokens (`--bs-primary-active` for hover, `--bs-primary-light`
 for the `.btn-light-primary`/badge tint, `--bs-primary-clarity` for a focus
@@ -15,10 +15,10 @@ Asking an admin to pick eight coordinated colours is not "cheap, self-
 service customisation" — it is the opposite. So this module picks one colour
 and derives the rest algorithmically (linear RGB interpolation toward white
 or black, the same mechanism every mainstream design-token generator uses),
-close enough to Metronic's own hand-picked derivations to read as "the same
+close enough to the UI kit's own hand-picked derivations to read as "the same
 family of colour", not colour-theory-perfect. `--bs-link-color` and its
 `-hover`/`-rgb` siblings are included because the theme's own default value
-(`#1B84FF`) is the *same* colour as `--bs-primary`, not merely similar — https://github.com/keenthemes routes both through the vendor's own SCSS
+(`#1B84FF`) is the *same* colour as `--bs-primary`, not merely similar — the UI kit's source routes both through the vendor's own SCSS
 `$primary` variable, so leaving links unrouted would announce this override
 as approximate.
 """
@@ -27,7 +27,7 @@ import re
 
 HEX_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 
-#: Metronic's own default accent (`--bs-primary` in `style.bundle.css`,
+#: The UI kit's own default accent (`--bs-primary` in `dolphin-theme.rtl.css`,
 #: light mode) — offering it back as the "reset to default" affordance means
 #: never inventing a colour name for "Dolphin blue" that lives nowhere else.
 DEFAULT_ACCENT = "#1B84FF"

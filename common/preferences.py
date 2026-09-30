@@ -151,7 +151,7 @@ def preference_css(preferences):
         stack = PANEL_FONT_FAMILY_STACKS.get(family)
         if stack:
             # Both the token and the literal, because the theme overrides its
-            # own token. `style.bundle.rtl.css` defines
+            # own token. `dolphin-theme.rtl.css` defines
             # `--bs-font-sans-serif` on `:root` and reaches it through
             # `body { font-family: var(--bs-body-font-family) }` — and then,
             # near the end of the same sheet, sets `html, body { font-family:

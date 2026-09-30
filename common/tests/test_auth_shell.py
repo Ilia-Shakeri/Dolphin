@@ -34,7 +34,7 @@ class AuthShellUnitTests(SimpleTestCase):
         # No static `.html` target in the *code*. Checked with comments
         # stripped: the panel talks to `/api/` and navigates by route, and the
         # blanket check this replaces also caught prose — three comments that
-        # merely cite `base.html`, `leads/list.html` and a Metronic demo page
+        # merely cite `base.html`, `leads/list.html` and a reference demo page
         # by name, which is exactly the kind of reference a comment should be
         # free to make (2026-09-20).
         code = re.sub(r"/\*.*?\*/", "", script, flags=re.S)
@@ -45,7 +45,7 @@ class AuthShellUnitTests(SimpleTestCase):
         """Layout is the purchased theme's job; the override sheet must not redo it.
 
         The responsive shell, sidebar and mobile drawer are the theme's own
-        (`app-sidebar`, `data-kt-drawer`), so the rules that used to build a
+        (`app-sidebar`, `data-dolphin-drawer`), so the rules that used to build a
         bespoke grid here are gone on purpose. What is left is only behaviour
         the theme does not cover, the brand mark, and the print sheet — and this
         test fails if a parallel design system starts growing back.
@@ -54,10 +54,10 @@ class AuthShellUnitTests(SimpleTestCase):
 
         # The theme provides the shell.
         self.assertIn('class="app-sidebar flex-column"', shell)
-        self.assertIn('data-kt-drawer="true"', shell)
-        self.assertIn('data-kt-drawer-toggle="#nav-toggle"', shell)
-        self.assertIn("css/style.bundle.rtl.css", shell)
-        self.assertIn("js/scripts.bundle.js", shell)
+        self.assertIn('data-dolphin-drawer="true"', shell)
+        self.assertIn('data-dolphin-drawer-toggle="#nav-toggle"', shell)
+        self.assertIn("common/ui/css/dolphin-theme.rtl.css", shell)
+        self.assertIn("common/ui/js/dolphin-theme.js", shell)
 
         # The override sheet stays small and must not restate the theme.
         #
@@ -414,11 +414,11 @@ class AuthShellBrowserTests(TestCase):
         same way `ChartLibraryTests` pins the load order in base.html."""
         content = self.client.get("/route-that-does-not-exist/").content.decode("utf-8")
 
-        self.assertIn('/static/plugins/global/plugins.bundle.rtl.css', content)
-        self.assertIn('/static/css/style.bundle.rtl.css', content)
+        self.assertIn('/static/common/ui/css/dolphin-plugins.rtl.css', content)
+        self.assertIn('/static/common/ui/css/dolphin-theme.rtl.css', content)
         self.assertLess(
-            content.index("plugins.bundle.rtl.css"),
-            content.index("style.bundle.rtl.css"),
+            content.index("dolphin-plugins.rtl.css"),
+            content.index("dolphin-theme.rtl.css"),
         )
 
 

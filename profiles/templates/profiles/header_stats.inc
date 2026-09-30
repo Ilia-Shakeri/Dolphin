@@ -1,6 +1,6 @@
 {% load jalali_tags %}
 {% comment %} کارت‌های آماری #۴ تا #۷ و نوار تکمیل پروفایل (۲.۲۰.۰) — همان «Stats» و
-   «پردازش» سربرگ Metronic (pages/user-profile/overview.html). فقط کارت‌هایی که
+   «پردازش» سربرگ قالب (the reference profile page). فقط کارت‌هایی که
    خواننده اجازهٔ دیدنشان را دارد رندر می‌شوند؛ مقدارشان از
    `/api/v1/profiles/<type>/<id>/cards/` می‌آید و کارتِ پنهان اصلاً محاسبه نمی‌شود. {% endcomment %}
 {% if stat_cards or completion %}
@@ -17,7 +17,7 @@
             {% for card in stat_cards %}
             <div class="border border-gray-300 border-dashed rounded min-w-125px py-3 px-4 me-6 mb-3 profile-stat-card" data-profile-card="{{ card.key }}"{% if card.explains %} role="button" tabindex="0" data-score-card aria-haspopup="dialog" aria-controls="profile-score-dialog"{% endif %}>
                 <div class="d-flex align-items-center">
-                    <i class="ki-duotone {{ card.icon }} fs-3 me-2 text-gray-500" data-card-icon aria-hidden="true">{% for n in card.paths %}<span class="path{{ n }}"></span>{% endfor %}</i>
+                    <i class="di-duotone {{ card.icon }} fs-3 me-2 text-gray-500" data-card-icon aria-hidden="true">{% for n in card.paths %}<span class="path{{ n }}"></span>{% endfor %}</i>
                     <div class="fs-2 fw-bold text-gray-900" data-card-value aria-live="polite">…</div>
                     <span class="badge badge-light fs-8 ms-2" data-card-trend hidden></span>
                 </div>

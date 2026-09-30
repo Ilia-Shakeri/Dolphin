@@ -1,9 +1,9 @@
 """Two low-contrast text colours, found and fixed in the same UI/UX audit
-(2026-09-05) that confirmed the rest of the panel already matches Metronic.
+(2026-09-05) that confirmed the rest of the panel already matches the UI kit.
 
 Both are the same shape of bug the codebase already fixed once for
 `.text-muted` (see the comment above `.text-muted` in `dolphin.css`): a
-theme-supplied gray reads fine on the Metronic demo's own background, but
+theme-supplied gray reads fine on the reference demo's own background, but
 falls short of WCAG AA's 4.5:1 for normal text once measured against where
 this panel actually puts it.
 

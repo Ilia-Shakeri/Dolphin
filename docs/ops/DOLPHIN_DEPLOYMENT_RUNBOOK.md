@@ -295,15 +295,15 @@ docker compose --env-file secrets/.env images
 
 ```bash
 for path in \
-  /static/css/style.bundle.rtl.css \
-  /static/plugins/global/plugins.bundle.rtl.css \
-  /static/js/scripts.bundle.js \
+  /static/common/ui/css/dolphin-theme.rtl.css \
+  /static/common/ui/css/dolphin-plugins.rtl.css \
+  /static/common/ui/js/dolphin-theme.js \
   /static/common/dolphin.css \
   /static/common/dolphin-app.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
-  /static/fonts/IRANSansWeb.woff \
-  /static/plugins/global/fonts/keenicons/keenicons-duotone.woff ; do
+  /static/common/ui/fonts/IRANSansWeb.woff \
+  /static/plugins/global/fonts/dolphin-icons/dolphin-icons-duotone.woff ; do
   printf '%s ' "$path"
   curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}${path}"
 done
@@ -1618,7 +1618,7 @@ Every entry below has actually happened on a Linux deployment of this stack.
 ### 8.1 The panel loads unstyled, or theme assets 404
 
 **Symptoms** — no dark sidebar, unstyled text, `404` for
-`style.bundle.rtl.css`, `plugins.bundle.rtl.css` or `scripts.bundle.js`.
+`dolphin-theme.rtl.css`, `dolphin-plugins.rtl.css` or `dolphin-theme.js`.
 
 **Likely cause** — the `static_data` volume was never populated (`migrate` not
 run, or it failed after the migration step), or the browser is holding a cache
@@ -1628,7 +1628,7 @@ from before the static filenames changed.
 
 ```bash
 docker compose --env-file secrets/.env run --rm --no-deps --entrypoint sh web -c 'ls /app/staticfiles | head'
-curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}/static/css/style.bundle.rtl.css"
+curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}/static/common/ui/css/dolphin-theme.rtl.css"
 ```
 
 `/app/staticfiles` must contain `css/`, `js/`, `fonts/`, `plugins/` and `common/`.
@@ -2502,15 +2502,15 @@ export PUBLIC='crm.example.com'     # or: export PUBLIC='203.0.113.10'
 
 ```bash
 for path in \
-  /static/css/style.bundle.rtl.css \
-  /static/plugins/global/plugins.bundle.rtl.css \
-  /static/js/scripts.bundle.js \
+  /static/common/ui/css/dolphin-theme.rtl.css \
+  /static/common/ui/css/dolphin-plugins.rtl.css \
+  /static/common/ui/js/dolphin-theme.js \
   /static/common/dolphin.css \
   /static/common/dolphin-app.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
-  /static/fonts/IRANSansWeb.woff \
-  /static/plugins/global/fonts/keenicons/keenicons-duotone.woff ; do
+  /static/common/ui/fonts/IRANSansWeb.woff \
+  /static/plugins/global/fonts/dolphin-icons/dolphin-icons-duotone.woff ; do
   printf '%s ' "$path"
   curl -s -o /dev/null -w '%{http_code}\n' "https://${PUBLIC}${path}"
 done
@@ -2768,7 +2768,7 @@ Keep the previous image digest written down. It is what rollback needs.
 | Browser warns about the certificate on an IP deployment | expected, self-signed | §2 scenario B limitation 1 |
 | Browser refuses to open the site at all, no click-through | HSTS was once enabled on this host name and the browser still holds the pin | clear the pin in the browser's HSTS settings; keep §2 scenario B's `0` |
 | Page renders unstyled | theme bundles 404 | §9 |
-| Persian text falls back, sidebar icons blank | IRANSans or keenicons 404 | §9 |
+| Persian text falls back, sidebar icons blank | IRANSans or dolphin-icons 404 | §9 |
 | PDF button absent | no renderer configured — expected unless §4's optional step was taken | `DOLPHIN_PDF_RENDERER` |
 | Dates show Gregorian | you are looking at the API or the XLSX `filters` sheet, both canonical by design | `../backend/DATE_AND_CALENDAR.md` |
 

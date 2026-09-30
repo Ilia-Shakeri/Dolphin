@@ -3,12 +3,12 @@
 {% block title %}تقویم پیگیری سرنخ‌ها{% endblock %}
 {% block page_id %}lead-calendar{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مرکز تماس</span>{% endblock %}
-{% block page_icon %}<i class="ki-duotone ki-calendar page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-calendar page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}تقویم پیگیری سرنخ‌ها{% endblock %}
 {% block breadcrumb_current %}تقویم پیگیری{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:leads' %}">فهرست سرنخ‌ها</a>{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.rtl.css' %}?v={{ dolphin_version }}">
+<link rel="stylesheet" href="{% static 'common/ui/plugins/fullcalendar/fullcalendar.bundle.rtl.css' %}?v={{ dolphin_version }}">
 {% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-body">
@@ -30,5 +30,5 @@
 </div></section>
 {% endblock %}
 {% block extra_scripts %}
-<script src="{% static 'plugins/custom/fullcalendar/fullcalendar.bundle.js' %}?v={{ dolphin_version }}"></script>
+<script src="{% static 'common/ui/plugins/fullcalendar/fullcalendar.bundle.js' %}?v={{ dolphin_version }}"></script>
 {% endblock %}

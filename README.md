@@ -46,17 +46,16 @@ role-based defaults.
 
 The panel itself lives in `common/templates/common/**` +
 `common/static/common/dolphin.css` + `dolphin-app.js`, routed through
-`common/ui_urls.py`/`common/ui_views.py`. Everything under `assets/`, `apps/`,
-`dashboards/`, `pages/`, and friends is the purchased Metronic theme's own
-demo content — visual reference only, never served, never a source of
-business rules.
+`common/ui_urls.py`/`common/ui_views.py`. The reference template folder at the repository root is visual reference
+only — never served, never a source of business rules, and nothing in the
+panel depends on it.
 
 ## Stack
 
 - **Backend:** Django 5.2 + Django REST Framework, Python 3.13
 - **Database:** PostgreSQL (SQLite for the default local/test run)
 - **Frontend:** Server-rendered Django templates, RTL, Persian (`fa`) —
-  Metronic theme + a small first-party JS/CSS layer, no build step
+  Dolphin UI kit (`common/static/common/ui/`) + a small first-party JS/CSS layer, no build step
 - **Auth:** Session-based, role defaults + per-user capability overrides
 - **Deployment:** Docker Compose, nginx edge, signed feature-manifest per
   customer

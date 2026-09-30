@@ -17,8 +17,8 @@
    shadow and the link back home rendered as bare underlined text. Same load
    order as base.html: plugin styles, then the theme bundle, then the
    Dolphin-specific overrides. {% endcomment %}
-    <link rel="stylesheet" href="{% static 'plugins/global/plugins.bundle.rtl.css' %}?v={{ dolphin_version }}">
-    <link rel="stylesheet" href="{% static 'css/style.bundle.rtl.css' %}?v={{ dolphin_version }}">
+    <link rel="stylesheet" href="{% static 'common/ui/css/dolphin-plugins.rtl.css' %}?v={{ dolphin_version }}">
+    <link rel="stylesheet" href="{% static 'common/ui/css/dolphin-theme.rtl.css' %}?v={{ dolphin_version }}">
     <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
 </head>
 <body>

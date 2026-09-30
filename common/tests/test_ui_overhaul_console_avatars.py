@@ -15,7 +15,7 @@ away from its own page list.
 **Item 13 — profile pictures.** A person can upload one; it is cropped
 square and resized to 512px in the browser before it is sent, and the server
 re-checks the size and sniffs the real type rather than trusting what the
-client declared. Until they upload one they get one of Metronic's 52 cartoon
+client declared. Until they upload one they get one of the UI kit's 52 cartoon
 avatars, chosen by a stable hash of their id — so it never changes under
 them and costs no column.
 

@@ -59,20 +59,20 @@ PER_SOURCE_LIMIT = 10
 TIMELINE_LIMIT = 40
 
 
-#: See `common.reminders.ICON_PATHS`. `ki-paper-clip` is deliberately not
-#: used for attachments here: it is a solid keenicon with no `.path*` spans
-#: at all, so `ki-duotone` renders it blank. `ki-file` is the duotone one.
+#: See `common.reminders.ICON_PATHS`. `di-paper-clip` is deliberately not
+#: used for attachments here: it is a solid icon-font glyph with no `.path*` spans
+#: at all, so `di-duotone` renders it blank. `di-file` is the duotone one.
 ICON_PATHS = {
-    "ki-call": 8,
-    "ki-rocket": 2,
-    "ki-basket": 4,
-    "ki-document": 2,
-    "ki-dollar": 3,
-    "ki-delivery": 5,
-    "ki-wrench": 2,
-    "ki-file": 2,
-    "ki-send": 2,
-    "ki-message-text": 3,
+    "di-call": 8,
+    "di-rocket": 2,
+    "di-basket": 4,
+    "di-document": 2,
+    "di-dollar": 3,
+    "di-delivery": 5,
+    "di-wrench": 2,
+    "di-file": 2,
+    "di-send": 2,
+    "di-message-text": 3,
 }
 
 
@@ -98,7 +98,7 @@ def _interaction_events(user, customer):
     )
     return [
         _event(
-            "interaction", "تماس", "ki-call", "primary",
+            "interaction", "تماس", "di-call", "primary",
             at=row.occurred_at,
             title=row.outcome or "تماس",
             subtitle=_direction_and_phone(row),
@@ -118,7 +118,7 @@ def _lead_events(user, customer):
     rows = leads_for(user).filter(customer=customer).order_by("-created_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "lead", "سرنخ", "ki-rocket", "info",
+            "lead", "سرنخ", "di-rocket", "info",
             at=row.created_at,
             title=row.source or row.campaign_or_batch or f"سرنخ #{row.pk}",
             subtitle=row.get_status_display() if row.status else "بدون وضعیت",
@@ -132,7 +132,7 @@ def _order_events(user, customer):
     rows = orders_for(user).filter(customer=customer).order_by("-created_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "order", "سفارش", "ki-basket", "info",
+            "order", "سفارش", "di-basket", "info",
             at=row.created_at,
             title=row.number,
             subtitle=labels.label(labels.DOCUMENT_STATUS_LABELS, row.status),
@@ -146,7 +146,7 @@ def _invoice_events(user, customer):
     rows = invoices_for(user).filter(customer=customer).order_by("-created_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "invoice", "فاکتور", "ki-document", "warning",
+            "invoice", "فاکتور", "di-document", "warning",
             # An invoice's own date is the day it was issued; a draft has
             # none yet, and falls back to when it was raised.
             at=row.issued_at or row.created_at,
@@ -162,7 +162,7 @@ def _payment_events(user, customer):
     rows = payments_for(user).filter(customer=customer).order_by("-received_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "payment", "دریافت و پرداخت", "ki-dollar", "success",
+            "payment", "دریافت و پرداخت", "di-dollar", "success",
             at=row.received_at,
             title=row.number,
             subtitle=f"{row.get_direction_display()} — {labels.label(labels.PAYMENT_METHOD_LABELS, row.method)}",
@@ -178,7 +178,7 @@ def _sales_document_events(user, customer):
     )
     return [
         _event(
-            "sales_document", "سند فروش", "ki-delivery", "primary",
+            "sales_document", "سند فروش", "di-delivery", "primary",
             at=row.created_at,
             title=row.document_number,
             subtitle=row.postal_status or "بدون وضعیت پستی",
@@ -196,7 +196,7 @@ def _after_sales_events(user, customer):
     )
     return [
         _event(
-            "after_sales", "خدمات پس از فروش", "ki-wrench", "danger",
+            "after_sales", "خدمات پس از فروش", "di-wrench", "danger",
             at=row.created_at,
             title=row.subject,
             subtitle=row.status,
@@ -215,7 +215,7 @@ def _attachment_events(user, customer):
     )
     return [
         _event(
-            "attachment", "پیوست", "ki-file", "info",
+            "attachment", "پیوست", "di-file", "info",
             at=row.uploaded_at,
             title=row.original_filename,
             subtitle=row.content_type,
@@ -231,7 +231,7 @@ def _outbound_sms_events(user, customer):
     rows = outbound_sms_for(user).filter(customer=customer).order_by("-sent_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "outbound_sms", "پیامک خروجی", "ki-send", "success",
+            "outbound_sms", "پیامک خروجی", "di-send", "success",
             at=row.sent_at,
             title=row.recipient_normalized,
             subtitle=labels.label(labels.OUTBOUND_SMS_STATUS_LABELS, row.status),
@@ -249,7 +249,7 @@ def _inbound_sms_events(user, customer):
     )
     return [
         _event(
-            "inbound_sms", "پیامک ورودی", "ki-message-text", "primary",
+            "inbound_sms", "پیامک ورودی", "di-message-text", "primary",
             at=row.provider_received_at,
             title=row.sender_normalized,
             subtitle=labels.label(labels.INBOUND_SMS_STATE_LABELS, row.processing_state),

@@ -43,7 +43,7 @@ from dataclasses import dataclass
 class PostalState:
     """One stop on a parcel's journey.
 
-    `icon` is a keenicon name from the purchased theme — presentation, kept
+    `icon` is an icon-font glyph name from the purchased theme — presentation, kept
     beside the state so the panel needs no second table of its own, the same
     way `common.ui_views.WIDGET_STYLE` already keeps a tile's icon beside its
     capability. The four were chosen against the pictures the product owner
@@ -54,7 +54,7 @@ class PostalState:
     key: str
     label: str
     icon: str
-    #: How many `<span class="pathN">` children that keenicon needs. Duotone
+    #: How many `<span class="pathN">` children that icon-font glyph needs. Duotone
     #: icons are drawn from two to seven layered paths and render as a smudge
     #: with the wrong count.
     icon_paths: int
@@ -68,28 +68,28 @@ POSTAL_STATES = (
     PostalState(
         key="in_store",
         label="انبار فروشگاه",
-        icon="ki-shop",
+        icon="di-shop",
         icon_paths=5,
         description="مرسوله آماده شده و هنوز در انبار فروشگاه است.",
     ),
     PostalState(
         key="handed_to_post",
         label="ارسال به پست",
-        icon="ki-delivery-3",
+        icon="di-delivery-3",
         icon_paths=3,
         description="مرسوله از انبار خارج و برای تحویل به پست فرستاده شده است.",
     ),
     PostalState(
         key="with_post",
         label="بستهٔ دست پست است",
-        icon="ki-parcel-tracking",
+        icon="di-parcel-tracking",
         icon_paths=3,
         description="پست مرسوله را تحویل گرفته و در شبکهٔ پستی است.",
     ),
     PostalState(
         key="out_for_delivery",
         label="ارسال به مشتری",
-        icon="ki-truck",
+        icon="di-truck",
         icon_paths=5,
         description="مرسوله برای تحویل به نشانی مشتری در مسیر است.",
     ),

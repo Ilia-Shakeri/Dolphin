@@ -214,18 +214,18 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
     def advance_wizard(self, dialog_id):
         """Click a create dialog's own "بعدی" past the step currently shown.
 
-        The invoice and order dialogs became real `KTStepper` wizards in
+        The invoice and order dialogs became real `DolphinStepper` wizards in
         1.11.0: a later step's fields are not visible — and Selenium refuses
         to click what is not visible — until that step becomes current. A
-        click that `KTStepper` itself refused (an invalid required field on
+        click that `DolphinStepper` itself refused (an invalid required field on
         the step being left) leaves the same content div "current", which is
         exactly what this waits past.
         """
         current = self.browser.find_element(
-            By.CSS_SELECTOR, f"#{dialog_id} [data-kt-stepper-element='content'].current"
+            By.CSS_SELECTOR, f"#{dialog_id} [data-dolphin-stepper-element='content'].current"
         )
         self.browser.find_element(
-            By.CSS_SELECTOR, f"#{dialog_id} [data-kt-stepper-action='next']"
+            By.CSS_SELECTOR, f"#{dialog_id} [data-dolphin-stepper-action='next']"
         ).click()
         self.wait.until(
             lambda driver: "current" not in current.get_attribute("class").split()
@@ -376,21 +376,21 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # advances the wizard by itself (there is nothing else to answer on
         # that step), so testing each mode's own fields means going back to
         # the method step between them — `advance_wizard` waits for the
-        # click's own advance, and `[data-kt-stepper-action="previous"]`
+        # click's own advance, and `[data-dolphin-stepper-action="previous"]`
         # returns to it the same way a person would.
         self.browser.get(f"{self.live_server_url}/payments/")
         self.open_create_dialog("open-create-payment", "create-payment-dialog")
 
         def choose_method(mode):
             step = self.browser.find_element(
-                By.CSS_SELECTOR, "#create-payment-dialog [data-kt-stepper-element='content'].current"
+                By.CSS_SELECTOR, "#create-payment-dialog [data-dolphin-stepper-element='content'].current"
             )
             self.browser.find_element(By.CSS_SELECTOR, f'[data-payment-mode="{mode}"]').click()
             self.wait.until(lambda driver: "current" not in step.get_attribute("class").split())
 
         def back_to_method_step():
             self.browser.find_element(
-                By.CSS_SELECTOR, "#create-payment-dialog [data-kt-stepper-action='previous']"
+                By.CSS_SELECTOR, "#create-payment-dialog [data-dolphin-stepper-action='previous']"
             ).click()
             self.wait.until(
                 expected_conditions.visibility_of_element_located(
