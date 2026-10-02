@@ -1,17 +1,17 @@
 {% extends "common/base.html" %}
-{% block title %}سفارش‌ها{% endblock %}
+{% block title %}درخواست‌های تأمین{% endblock %}
 {% block page_id %}orders{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">اسناد بازرگانی</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-basket-ok page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
-{% block page_title %}سفارش‌ها{% endblock %}
-{% block breadcrumb_current %}سفارش‌ها{% endblock %}
+{% block page_title %}درخواست‌های تأمین{% endblock %}
+{% block breadcrumb_current %}درخواست‌های تأمین{% endblock %}
 {% block page_actions %}{% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
             <i class="di-duotone di-magnifier fs-3 list-search-icon"><span class="path1"></span><span class="path2"></span></i>
-            <label class="sr-only" for="order-search">جستجوی سفارش</label>
+            <label class="sr-only" for="order-search">جستجوی درخواست تأمین</label>
             <input class="form-control form-control-solid" id="order-search" type="search" placeholder="شماره، مشتری یا کالا">
         </div>
         <div class="list-filter">
@@ -36,7 +36,7 @@
         </div>
     </div>
     <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
-        <button id="open-create-order" class="btn btn-primary" type="button">سفارش تازه</button>
+        <button id="open-create-order" class="btn btn-primary" type="button">درخواست تأمین تازه</button>
     </div>
 </div><div class="card-body pt-2">
     {% if can_hard_delete %}
@@ -45,7 +45,7 @@
         <button type="button" class="btn btn-sm btn-danger" data-orders-select="delete_selected">حذف موارد انتخاب‌شده</button>
     </div>
     {% endif %}
-    <div id="orders-loading" class="text-center text-gray-700 py-10">در حال دریافت سفارش‌ها…</div><div id="orders-empty" class="text-center text-gray-700 py-10" hidden>سفارشی پیدا نشد.</div>
+    <div id="orders-loading" class="text-center text-gray-700 py-10">در حال دریافت درخواست‌های تأمین…</div><div id="orders-empty" class="text-center text-gray-700 py-10" hidden>درخواست تأمینی پیدا نشد.</div>
     <div id="orders-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">{% if can_hard_delete %}<th class="w-25px"><input class="form-check-input" type="checkbox" data-orders-select="all" aria-label="انتخاب همه"></th>{% endif %}<th>شماره</th><th>مشتری</th><th>وضعیت</th><th class="text-center">مبلغ کل</th><th>تاریخ ثبت</th><th>زمان ارسال</th><th>ثبت‌کننده</th><th>عملیات</th></tr></thead><tbody id="orders-table-body"></tbody></table></div>
     <nav id="orders-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="orders-prev" class="btn btn-light" type="button">قبلی</button><span id="orders-page-label"></span><button id="orders-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
@@ -55,7 +55,7 @@
    صفحه دست‌نخورده کار می‌کند. {% endcomment %}
 {% include "common/includes/list_charts.inc" with chart_key="orders" %}
 <dialog id="create-order-dialog" aria-labelledby="create-order-title">
-    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">سفارش تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-order-title">درخواست تأمین تازه</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
 {% comment %} چندمرحله‌ای، به شکل ویزارد آمادهٔ کیت (همان `DolphinStepper` واقعی
    که فاکتور تازه هم از آن استفاده می‌کند). کالا دیگر یک ردیف ثابت نیست: همان
    افزودن‌ردیفِ فاکتور اینجا هم هست، پس چند کالا از همین‌جا قابل ثبت است و
@@ -71,7 +71,7 @@
         <div class="stepper stepper-links d-flex flex-column" id="create-order-stepper">
             <div class="stepper-nav py-5">
                 <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">مشتری و ارسال</h3></div>
-                <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">اقلام سفارش</h3></div>
+                <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">اقلام درخواست تأمین</h3></div>
                 <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
             </div>
             <form id="create-order-form" action="/api/v1/orders/" method="post" novalidate>
@@ -98,7 +98,7 @@
                 </div>
             </div>
             <div data-dolphin-stepper-element="content" class="wizard-lines-step">
-                <h3 class="fs-4 fw-bold text-gray-900 mb-2">اقلام سفارش</h3>
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">اقلام درخواست تأمین</h3>
                 <p class="text-muted fs-7 mb-6">کالا را جست‌وجو کنید و تعدادش را بگذارید. هر سطر یک قلم است؛ سطرهای بیشتر را پس از ثبت هم می‌شود از صفحهٔ جزئیات اضافه کرد.</p>
                 {% comment %} یک سرستون بالای همهٔ ردیف‌ها، نه برچسب روی تک‌تکشان —
                    همان کاری که مرجع repeater خودِ کیت می‌کند. ستون‌ها با
@@ -118,7 +118,7 @@
                 <p class="alert alert-danger fs-7 mt-4 mb-0" data-step-error role="alert" hidden></p>
 
                 {% comment %} فقط جمع اقلام، نه مالیات و تخفیف: این فرم عمداً نرخ
-                   مالیات نمی‌پرسد (کامنت مرحلهٔ اول) و `createFields` سفارش هم
+                   مالیات نمی‌پرسد (کامنت مرحلهٔ اول) و `createFields` درخواست تأمین هم
                    چیزی جز اقلام نمی‌فرستد. نمایش «مبلغ نهایی» اینجا یعنی ادعای
                    عددی که این فرم تعیینش نمی‌کند. {% endcomment %}
                 <div class="wizard-totals" id="create-order-totals">
@@ -126,14 +126,14 @@
                         <span class="wizard-totals-label">جمع اقلام <span class="text-muted fs-8">(<span data-total="count">۰</span> قلم)</span></span>
                         <span class="wizard-totals-value" data-total="gross">—</span>
                     </div>
-                    <p class="text-muted fs-8 mt-2 mb-0">مالیات و تخفیف سفارش پس از ثبت، هنگام صدور فاکتور تعیین می‌شود.</p>
+                    <p class="text-muted fs-8 mt-2 mb-0">مالیات و تخفیف درخواست تأمین پس از ثبت، هنگام صدور فاکتور تعیین می‌شود.</p>
                 </div>
             </div>
             <div data-dolphin-stepper-element="content">
                 <div class="w-100">
-                    <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی سفارش</h3>
+                    <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی درخواست تأمین</h3>
                     <div class="wizard-review mb-4" id="create-order-review"></div>
-                    <p class="text-muted">سفارش به‌صورت پیش‌نویس ثبت می‌شود؛ افزودن یا ویرایش سطرها پس از ثبت هم از صفحهٔ جزئیات ممکن است.</p>
+                    <p class="text-muted">درخواست تأمین به‌صورت پیش‌نویس ثبت می‌شود؛ افزودن یا ویرایش سطرها پس از ثبت هم از صفحهٔ جزئیات ممکن است.</p>
                 </div>
             </div>
             {% csrf_token %}
@@ -141,7 +141,7 @@
                 <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
                 <div class="d-flex gap-3">
                     <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">بعدی<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
-                    <button class="btn btn-primary" type="submit" data-dolphin-stepper-action="submit">ثبت سفارش</button>
+                    <button class="btn btn-primary" type="submit" data-dolphin-stepper-action="submit">ثبت درخواست تأمین</button>
                 </div>
             </div>
             </form>

@@ -346,7 +346,7 @@ LIST_CHARTS = {
     "invoices": ("invoices", ("invoices.scoped", "invoices.company"),
                  invoices_by_settlement, "تعداد فاکتور به تفکیک وضعیت تسویه"),
     "orders": ("orders", ("orders.scoped", "orders.company"),
-               orders_by_status, "تعداد سفارش به تفکیک وضعیت"),
+               orders_by_status, "تعداد درخواست تأمین به تفکیک وضعیت"),
     "payments": ("payments", ("payments.company",),
                  payments_by_method, "مبلغ دریافتی به تفکیک روش"),
     "payments-direction": ("payments", ("payments.company",),
@@ -629,7 +629,7 @@ TREND_WEEKS = 12
 #: owner, 2026-09-20: «عنوان/نام هر چارت با داده‌اش تطبیق داده شود»).
 LIST_TRENDS = {
     "invoices": (invoices_for, "created_at", "روند صدور فاکتور"),
-    "orders": (orders_for, "created_at", "روند ثبت سفارش"),
+    "orders": (orders_for, "created_at", "روند ثبت درخواست تأمین"),
     "payments": (payments_for, "received_at", "روند ثبت پرداخت"),
     "payments-direction": (payments_for, "received_at", "روند ثبت پرداخت"),
     "products": (products_for, "created_at", "روند افزودن محصول"),

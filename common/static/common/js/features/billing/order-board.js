@@ -66,7 +66,7 @@ export async function setupOrderBoard() {
         const wrap = document.createElement("div");
 
         wrap.append(boardCardHeader(
-            order.customer_name || `سفارش ${order.number || ""}`.trim(),
+            order.customer_name || `درخواست تأمین ${order.number || ""}`.trim(),
             `/orders/${order.id}/`,
         ));
 
@@ -137,8 +137,8 @@ export async function setupOrderBoard() {
         const empty = document.createElement("div");
         empty.className = "not-draggable lead-board-empty text-center fs-8 py-6";
         empty.textContent = pageState[status]?.search
-            ? "سفارشی با این جست‌وجو در این ستون نیست."
-            : "سفارشی در این وضعیت نیست.";
+            ? "درخواستی با این جست‌وجو در این ستون نیست."
+            : "درخواستی در این وضعیت نیست.";
         drag.append(empty);
     }
 
@@ -270,9 +270,9 @@ export async function setupOrderBoard() {
                     if (landedStatus !== toStatus) {
                         el.remove();
                         kanban.addElement(landedStatus, toItem(updated));
-                        globalMessage("موجودی کافی نبود؛ سفارش لغو شد.");
+                        globalMessage("موجودی کافی نبود؛ درخواست تأمین لغو شد.");
                     } else {
-                        globalMessage("وضعیت سفارش به‌روزرسانی شد.", true);
+                        globalMessage("وضعیت درخواست تأمین به‌روزرسانی شد.", true);
                     }
                     updateBoardCount(fromStatus, -1);
                     updateBoardCount(landedStatus, 1);

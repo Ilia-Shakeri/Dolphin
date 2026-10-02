@@ -268,11 +268,23 @@ class Order(CommercialDocument):
     # of the previous edit and be silently swallowed.
     stock_applied = models.BooleanField(default=False)
     stock_revision = models.PositiveIntegerField(default=0)
+    #: The issued invoice this order is a warehouse fulfilment request for
+    #: (2.37.0). The customer and the lines come from that invoice and are not
+    #: typed in; the stock mechanism above is unchanged. At most one request
+    #: that is not cancelled may exist per invoice (constraint below).
+    invoice = models.ForeignKey(
+        "billing.Invoice", null=True, blank=True, on_delete=models.PROTECT, related_name="fulfillment_requests"
+    )
 
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [
             *_document_constraints("order", ["draft", "confirmed", "fulfilled", "cancelled"]),
+            models.UniqueConstraint(
+                fields=["invoice"],
+                condition=Q(invoice__isnull=False) & ~Q(status="cancelled"),
+                name="uniq_active_fulfillment_per_invoice",
+            ),
             models.CheckConstraint(
                 condition=Q(shipping_method__in=["", "post", "courier"]),
                 name="order_shipping_method_valid",

@@ -991,8 +991,8 @@ class DolphinOrderDetailView(ScopedDetailView):
     template_name = "common/orders/detail.html"
     object_id_kwarg = "order_id"
     context_id_name = "order_id"
-    not_found_title = "سفارش پیدا نشد"
-    not_found_message = "سفارش در محدوده دسترسی شما وجود ندارد."
+    not_found_title = "درخواست تأمین پیدا نشد"
+    not_found_message = "درخواست تأمین در محدوده دسترسی شما وجود ندارد."
 
     def scoped_queryset(self):
         return orders_for(self.request.user)
@@ -1042,6 +1042,11 @@ class DolphinInvoiceDetailView(ScopedDetailView):
         # role may correct attributions; the API re-checks both.
         context["can_attribute_campaigns"] = (
             feature_enabled("campaigns") and "campaigns.attribute" in context["capabilities"]
+        )
+        # The warehouse fulfilment card (2.37.0): the orders feature, and a role
+        # that works orders (the API re-checks scope, status and uniqueness).
+        context["can_request_fulfillment"] = feature_enabled("orders") and (
+            "orders.manage" in context["capabilities"]
         )
         return context
 

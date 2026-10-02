@@ -7,6 +7,7 @@ import {money, moneyToStorage} from "dolphin/core/money.js";
 import {INSTALLMENT_DISPLAY_ACCENT, documentLineEditor} from "dolphin/features/billing/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {setupInvoiceCampaign} from "dolphin/ui/invoice-campaign.js";
+import {setupInvoiceFulfillment} from "dolphin/ui/invoice-fulfillment.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
 
@@ -322,6 +323,7 @@ export async function setupInvoiceDetail() {
         loading.hidden = true;
         content.hidden = false;
         setupInvoiceCampaign(invoiceId, invoice.status);
+        setupInvoiceFulfillment(invoiceId, invoice.status);
     } catch (error) {
         loading.hidden = true;
         showError(error);

@@ -85,6 +85,19 @@
     <nav id="invoice-allocations-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="invoice-allocations-prev" class="btn btn-light" type="button">قبلی</button><span id="invoice-allocations-page-label"></span><button id="invoice-allocations-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
 {% endif %}
+{% if can_request_fulfillment %}
+<section id="invoice-fulfillment" class="card mb-5 mb-xl-8" hidden><div class="card-body">
+    <h2 class="fs-3 fw-bold text-gray-900 mb-3">درخواست تأمین از انبار</h2>
+    <p class="text-muted fs-7 mb-4">مشتری، اقلام و مبلغ‌ها از همین فاکتور می‌آیند و قابل تغییر نیستند؛ فقط انبار و یادداشت را بدهید. تأیید درخواست (و خروج موجودی) با مسئول انبار است.</p>
+    <ul class="mb-4 ps-4" data-fulfillment-list></ul>
+    <form data-fulfillment-form class="row g-4 align-items-end" novalidate hidden>
+        <div class="col-md-4"><label class="form-label fw-semibold" for="invoice-fulfillment-warehouse">انبار</label><select class="form-select form-select-solid" id="invoice-fulfillment-warehouse" name="warehouse"></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
+        <div class="col-md-5"><label class="form-label fw-semibold" for="invoice-fulfillment-notes">یادداشت (اختیاری)</label><input class="form-control form-control-solid" id="invoice-fulfillment-notes" name="notes" maxlength="4000"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+        <div class="col-md-3"><button class="btn btn-primary w-100" type="submit">ثبت درخواست تأمین</button></div>
+    </form>
+    <p class="text-danger fs-8 mt-3 mb-0" data-error-for="invoice"></p>
+</div></section>
+{% endif %}
 {% if can_attribute_campaigns %}
 <section id="invoice-campaign" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <h2 class="fs-3 fw-bold text-gray-900 mb-3">کمپین فاکتور</h2>

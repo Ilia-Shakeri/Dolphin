@@ -24,6 +24,16 @@ export async function setupOrderDetail() {
         current = order;
         document.getElementById("order-number").value = order.number;
         document.getElementById("order-customer").value = order.customer_name;
+        // A request made from an invoice names it; its customer and lines come from there.
+        const invoiceRow = document.getElementById("order-invoice-row");
+        if (invoiceRow) {
+            invoiceRow.hidden = !order.invoice;
+            if (order.invoice) {
+                const link = document.getElementById("order-invoice-link");
+                link.href = `/invoices/${order.invoice}/`;
+                link.textContent = order.invoice_number || String(order.invoice);
+            }
+        }
         // Registration is server-generated and immutable, shown as a day.
         document.getElementById("order-registered-at").value = displayDay(order.created_at);
         document.getElementById("order-created-by").value = order.created_by_display || order.created_by;
@@ -89,7 +99,7 @@ export async function setupOrderDetail() {
             payload.expected_delivery_at = apiDateTime(textOrNull(data.get("expected_delivery_at")));
             const updated = await apiRequest(endpoint, {method: "PATCH", body: payload});
             apply(updated);
-            globalMessage("سربرگ سفارش ذخیره شد.", true);
+            globalMessage("سربرگ درخواست تأمین ذخیره شد.", true);
         });
     });
     // Changing the status is what moves stock, so it asks first and reports
@@ -99,7 +109,7 @@ export async function setupOrderDetail() {
         const next = statusSelect.value;
         if (!current || next === current.status) return;
         const label = labelled(DOCUMENT_STATUS_TEXT, next);
-        if (!await confirmDialog(`وضعیت سفارش به «${label}» تغییر کند؟`)) {
+        if (!await confirmDialog(`وضعیت درخواست تأمین به «${label}» تغییر کند؟`)) {
             statusSelect.value = current.status;
             return;
         }
@@ -111,9 +121,9 @@ export async function setupOrderDetail() {
             });
             apply(updated);
             if (updated.status === "cancelled" && next !== "cancelled") {
-                globalMessage("موجودی کافی نبود؛ سفارش لغو شد.");
+                globalMessage("موجودی کافی نبود؛ درخواست تأمین لغو شد.");
             } else {
-                globalMessage("وضعیت سفارش ثبت شد.", true);
+                globalMessage("وضعیت درخواست تأمین ثبت شد.", true);
             }
         } catch (error) {
             statusSelect.value = current.status;

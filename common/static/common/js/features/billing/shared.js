@@ -558,7 +558,8 @@ export function documentLineEditor({doc, endpoint, onSaved}) {
                 product_sku_snapshot: line.product_sku_snapshot,
             }));
             draft = stored.map((line) => ({...line}));
-            editable = document_.status === "draft";
+            // A request made from an invoice takes its lines from that invoice.
+            editable = document_.status === "draft" && !document_.invoice;
             if (editor) editor.hidden = !editable;
             render();
             document.getElementById(`${doc}-subtotal`).value = money(document_.subtotal_amount);

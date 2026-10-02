@@ -135,7 +135,7 @@ def _invoice_results(user, *, text, latin, digits):
 def _order_results(user, *, text, latin, digits):
     return _document_group(
         orders_for(user), text=text, latin=latin,
-        kind="orders", label="سفارش‌ها", icon="di-basket", accent="info", path="/orders/",
+        kind="orders", label="درخواست‌های تأمین", icon="di-basket", accent="info", path="/orders/",
     )
 
 

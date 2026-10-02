@@ -59,6 +59,7 @@ from billing.serializers import (
     ChequeStatusHistorySerializer,
     ChequeTransitionSerializer,
     ConvertOrderSerializer,
+    FulfillmentRequestSerializer,
     CreateInstallmentPlanSerializer,
     CustomerLedgerEntrySerializer,
     DocumentItemsSerializer,
@@ -75,6 +76,7 @@ from billing.serializers import (
     DocumentStatusTransitionSerializer,
 )
 from billing.services import (
+    create_fulfillment_request,
     link_invoice_to_order,
     record_manual_paid_entry,
     cancel_invoice,
@@ -214,16 +216,19 @@ class OrderViewSet(CommercialDocumentViewSet):
     queryset = Order.objects.none()
     serializer_class = OrderSerializer
     status_enum = Order.Status
-    sensitive_actions = frozenset({"create", "update", "partial_update", "items", "transition", "convert"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "items", "transition", "convert", "from_invoice"})
+    list_query_parameters = {"status", "customer", "invoice"}
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "total_amount", "confirmed_at", "number"]
 
     def get_queryset(self):
-        return self.filtered(
-            orders_for(self.request.user)
-            .select_related("customer", "lead", "quotation", "created_by")
-            .prefetch_related("items")
-        )
+        queryset = orders_for(self.request.user).select_related("customer", "lead", "quotation", "invoice", "created_by")
+        invoice = self.request.query_params.get("invoice")
+        if invoice is not None:
+            if not invoice.isdecimal() or int(invoice) < 1:
+                raise ValidationError({"invoice": "یک عدد صحیح مثبت وارد کنید."})
+            queryset = queryset.filter(invoice_id=int(invoice))
+        return self.filtered(queryset.prefetch_related("items"))
 
     @extend_schema(
         parameters=[
@@ -259,6 +264,14 @@ class OrderViewSet(CommercialDocumentViewSet):
         responses={201: InvoiceSerializer, **WRITE_RESPONSES},
         description="Copies a confirmed order into a new draft invoice. The order is unchanged.",
     )
+    @action(detail=False, methods=["post"], url_path="from-invoice")
+    def from_invoice(self, request):
+        """Ask the warehouse to supply an issued invoice (2.37.0)."""
+        serializer = FulfillmentRequestSerializer(data=request.data, context=self.get_serializer_context())
+        serializer.is_valid(raise_exception=True)
+        order = create_fulfillment_request(actor=request.user, **serializer.validated_data)
+        return Response(self.get_serializer(order).data, status=201)
+
     @action(detail=True, methods=["post"])
     def convert(self, request, pk=None):
         serializer = ConvertOrderSerializer(data=request.data, context=self.get_serializer_context())
@@ -301,7 +314,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
         order = self.request.query_params.get("order")
         if order is not None:
             if not str(order).isdigit():
-                raise ValidationError({"order": "شناسه عددی سفارش را وارد کنید."})
+                raise ValidationError({"order": "شناسه عددی درخواست تأمین را وارد کنید."})
             queryset = queryset.filter(order_id=int(order))
         # Official against unofficial is the split a reader of this list works
         # in, so it is a filter rather than something to find by scanning.

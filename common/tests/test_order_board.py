@@ -92,10 +92,10 @@ class FeatureGateTests(TestCase):
 
     def test_the_nav_link_only_appears_with_the_feature_on(self):
         with_feature = self.client.get("/orders/").content.decode("utf-8")
-        self.assertIn("تابلوی سفارش‌ها", with_feature)
+        self.assertIn("تابلوی درخواست‌های تأمین", with_feature)
         with override_active_profile(profile_without("order_kanban")):
             without_feature = self.client.get("/orders/").content.decode("utf-8")
-        self.assertNotIn("تابلوی سفارش‌ها", without_feature)
+        self.assertNotIn("تابلوی درخواست‌های تأمین", without_feature)
 
 
 class TemplateContentTests(TestCase):
@@ -131,7 +131,7 @@ class TemplateContentTests(TestCase):
 
     def test_the_page_links_back_to_the_ordinary_list(self):
         page = self.page("order.board.tpl.manager")
-        self.assertIn("فهرست سفارش‌ها", page)
+        self.assertIn("فهرست درخواست‌های تأمین", page)
 
 
 class ScriptTests(SimpleTestCase):
@@ -212,7 +212,7 @@ class ScriptTests(SimpleTestCase):
 
     def test_empty_columns_are_handled(self):
         self.assertIn("renderEmptyState", self.body)
-        self.assertIn("سفارشی در این وضعیت نیست", self.body)
+        self.assertIn("درخواستی در این وضعیت نیست", self.body)
 
 
 class StylingTests(SimpleTestCase):

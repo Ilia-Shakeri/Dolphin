@@ -73,7 +73,7 @@ MODULES = (
     Module("product_categories", "دسته‌بندی کالا", ("product_categories.read", "product_categories.manage"), ("product_categories.manage",), ("product_categories.delete",)),
     Module("products", "کاتالوگ محصولات", ("products.read", "products.manage"), ("products.manage",), ("products.delete",)),
     Module("quotations", "پیش‌فاکتورها", ("quotations.scoped", "quotations.company"), ("quotations.manage",)),
-    Module("orders", "سفارش‌ها", ("orders.scoped", "orders.company"), ("orders.manage",)),
+    Module("orders", "درخواست‌های تأمین", ("orders.scoped", "orders.company"), ("orders.manage",)),
     Module("invoices", "فاکتورها (اسناد مالی)", ("invoices.scoped", "invoices.company"), ("invoices.manage",)),
     Module("payments", "دریافت‌ها، پرداخت‌ها، چک و اقساط", ("payments.company",), ("payments.manage",)),
     Module("ledger", "دفتر حساب مشتری", ("ledger.own", "ledger.company")),

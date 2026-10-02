@@ -22,7 +22,7 @@ import logging
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from accounts.access import is_crm_identity
+from accounts.access import has_any_capability, is_crm_identity
 from accounts.models import User
 from auditlog.services import log_activity
 from billing.ledger import append_ledger_entry
@@ -466,11 +466,81 @@ def create_order(*, actor, customer, items, lead=None, quotation=None, **header)
     return order
 
 
+def _refuse_money_edit_on_fulfillment(order, changes):
+    """A request made from an invoice carries that invoice's money; it is not
+    re-priced on the warehouse side."""
+    if order.invoice_id and {"discount_amount", "tax_rate"} & set(changes):
+        raise BusinessConflictError({"discount_amount": "مبلغ درخواست تأمین از فاکتور می‌آید و تغییر نمی‌کند."})
+
+
+@transaction.atomic
+def create_fulfillment_request(*, actor, invoice, warehouse, notes="", expected_delivery_at=None, shipping_method=""):
+    """Ask the warehouse to supply the goods of one issued invoice (2.37.0).
+
+    Everything about the request comes from the invoice — customer, lines,
+    quantities, prices — so nobody types a different request from the one that
+    was invoiced. Only the warehouse, notes, delivery date and shipping method
+    are given. Approval (which moves the stock) is the warehouse side's:
+    see `transition_order`.
+    """
+    actor = _lock_document_writer(actor)
+    locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if not invoices_for(actor).filter(pk=locked_invoice.pk).exists():
+        raise BusinessPermissionDenied("این فاکتور خارج از دسترسی شماست.")
+    if locked_invoice.status != Invoice.Status.ISSUED:
+        raise BusinessConflictError({"invoice": "درخواست تأمین فقط از فاکتور صادرشده ساخته می‌شود."})
+    if locked_invoice.stock_applied:
+        raise BusinessConflictError({
+            "invoice": "موجودی همین فاکتور هنگام صدور از انبار کسر شده است؛ درخواست تأمین کسر دوباره می‌کرد."
+        })
+    active = Order.objects.filter(invoice=locked_invoice).exclude(status=Order.Status.CANCELLED).first()
+    if active is not None:
+        raise BusinessConflictError({
+            "invoice": f"برای این فاکتور درخواست تأمین فعالی (شمارهٔ {active.number}) وجود دارد."
+        })
+    if warehouse is None:
+        raise BusinessRuleError({"warehouse": "انبار تأمین‌کننده را انتخاب کنید."})
+    items = _copy_lines(locked_invoice.items.select_related("product").order_by("line_number"))
+    if not items:
+        raise BusinessConflictError({"invoice": "این فاکتور ردیفی برای تأمین ندارد."})
+    header = {"notes": notes or "", "warehouse": warehouse, "shipping_method": shipping_method or ""}
+    if expected_delivery_at is not None:
+        header["expected_delivery_at"] = expected_delivery_at
+    unknown_fields = set(header) - ORDER_HEADER_FIELDS
+    if unknown_fields:
+        raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown_fields)})
+    request_order = _create_document(
+        actor=actor,
+        model=Order,
+        item_model=OrderItem,
+        customer=locked_invoice.customer,
+        lead=None,
+        items=items,
+        header=header,
+        extra_fields={
+            "status": Order.Status.DRAFT,
+            "quotation": None,
+            "invoice": locked_invoice,
+            "expected_delivery_at": header.get("expected_delivery_at"),
+            "warehouse": _resolve_warehouse(warehouse),
+            "shipping_method": header.get("shipping_method") or "",
+        },
+    )
+    log_activity(
+        actor=actor,
+        operation="order.created_from_invoice",
+        instance=request_order,
+        changes={"invoice": locked_invoice.pk, "number": request_order.number, "item_count": len(items)},
+    )
+    return request_order
+
+
 @transaction.atomic
 def update_order(*, actor, order, **changes):
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)
     _require_editable(locked)
+    _refuse_money_edit_on_fulfillment(locked, changes)
     unknown = set(changes) - ORDER_HEADER_FIELDS
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
@@ -506,6 +576,8 @@ def replace_order_items(*, actor, order, items):
     """
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)
+    if locked.invoice_id:
+        raise BusinessConflictError({"items": "اقلام درخواست تأمین از فاکتور می‌آید و تغییر نمی‌کند؛ فاکتور را اصلاح کنید."})
     # What the warehouse is holding for this order *before* the edit.
     previous_quantities = _order_quantities(locked) if locked.stock_applied else {}
 
@@ -712,7 +784,16 @@ def transition_order(*, actor, order, to_status, reason=""):
     locked = Order.objects.select_for_update().get(pk=order.pk)
     _check_transition(locked, to_status)
     if to_status == Order.Status.CONFIRMED and not locked.items.exists():
-        raise BusinessConflictError({"items": "سفارش پیش از تأیید باید حداقل یک ردیف داشته باشد."})
+        raise BusinessConflictError({"items": "درخواست تأمین پیش از تأیید باید حداقل یک ردیف داشته باشد."})
+    if locked.invoice_id and to_status == Order.Status.CONFIRMED:
+        # A fulfilment request is approved by the warehouse side, not by whoever
+        # asked, and never against an invoice that already took its stock.
+        if not has_any_capability(actor, "inventory.manage"):
+            raise BusinessPermissionDenied("تأیید درخواست تأمین با مسئول انبار است.")
+        if locked.invoice.stock_applied:
+            raise BusinessConflictError({
+                "invoice": "موجودی فاکتور این درخواست پیش‌تر از انبار کسر شده است؛ تأیید کسر دوباره می‌کرد."
+            })
     previous = locked.status
     occurred_at = timezone.now()
 
@@ -790,9 +871,9 @@ def convert_quotation_to_order(*, actor, quotation, warehouse=None):
     actor = _lock_document_writer(actor)
     locked = Quotation.objects.select_for_update().get(pk=quotation.pk)
     if locked.status != Quotation.Status.ACCEPTED:
-        raise BusinessConflictError({"status": "فقط پیش‌فاکتور پذیرفته‌شده می‌تواند به سفارش تبدیل شود."})
+        raise BusinessConflictError({"status": "فقط پیش‌فاکتور پذیرفته‌شده می‌تواند به درخواست تأمین تبدیل شود."})
     if locked.orders.exclude(status=Order.Status.CANCELLED).exists():
-        raise BusinessConflictError({"quotation": "این پیش‌فاکتور قبلاً سفارش دارد."})
+        raise BusinessConflictError({"quotation": "این پیش‌فاکتور قبلاً درخواست تأمین دارد."})
     items = _copy_lines(locked.items.select_related("product").all())
     order = create_order(
         actor=actor,
@@ -834,7 +915,7 @@ def create_invoice(
     if order is not None:
         locked_order = Order.objects.select_for_update().get(pk=order.pk)
         if locked_order.customer_id != locked_customer.pk:
-            raise BusinessRuleError({"order": "سفارش باید متعلق به مشتری انتخاب‌شده باشد."})
+            raise BusinessRuleError({"order": "درخواست تأمین باید متعلق به مشتری انتخاب‌شده باشد."})
     locked_quotation = None
     if quotation is not None:
         locked_quotation = Quotation.objects.select_for_update().get(pk=quotation.pk)
@@ -1341,6 +1422,11 @@ def cancel_invoice(*, actor, invoice, reason=""):
     actor = _lock_billing_manager(actor)
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
     _check_transition(locked, Invoice.Status.CANCELLED)
+    open_request = Order.objects.filter(invoice=locked).exclude(status=Order.Status.CANCELLED).first()
+    if open_request is not None:
+        raise BusinessConflictError({
+            "invoice": f"پیش از لغو فاکتور، درخواست تأمین آن (شمارهٔ {open_request.number}) را لغو کنید."
+        })
     if locked.paid_amount > 0:
         raise BusinessConflictError({
             "paid_amount": "پیش از لغو این فاکتور، پرداخت‌های تخصیص‌یافته به آن را آزاد کنید."
@@ -1427,9 +1513,9 @@ def convert_order_to_invoice(*, actor, order, warehouse=None):
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)
     if locked.status not in {Order.Status.CONFIRMED, Order.Status.FULFILLED}:
-        raise BusinessConflictError({"status": "فقط سفارش تأییدشده می‌تواند به فاکتور تبدیل شود."})
+        raise BusinessConflictError({"status": "فقط درخواست تأمین تأییدشده می‌تواند به فاکتور تبدیل شود."})
     if locked.invoices.exclude(status=Invoice.Status.CANCELLED).exists():
-        raise BusinessConflictError({"order": "این سفارش قبلاً فاکتور دارد."})
+        raise BusinessConflictError({"order": "این درخواست تأمین قبلاً فاکتور دارد."})
     items = _copy_lines(locked.items.select_related("product").all())
     return create_invoice(
         actor=actor,
@@ -1540,11 +1626,11 @@ def link_invoice_to_order(*, actor, invoice, order):
     locked_order = None
     if order is not None:
         if not orders_for(actor).filter(pk=order.pk).exists():
-            raise BusinessPermissionDenied("این سفارش خارج از دسترسی شماست.")
+            raise BusinessPermissionDenied("این درخواست تأمین خارج از دسترسی شماست.")
         locked_order = Order.objects.select_for_update().get(pk=order.pk)
         if locked_order.customer_id != locked.customer_id:
             raise BusinessRuleError(
-                {"order": "سفارش و فاکتور باید متعلق به یک مشتری باشند."}
+                {"order": "درخواست تأمین و فاکتور باید متعلق به یک مشتری باشند."}
             )
 
     previous = locked.order_id

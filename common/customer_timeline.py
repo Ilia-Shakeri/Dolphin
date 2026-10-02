@@ -132,7 +132,7 @@ def _order_events(user, customer):
     rows = orders_for(user).filter(customer=customer).order_by("-created_at", "-id")[:PER_SOURCE_LIMIT]
     return [
         _event(
-            "order", "سفارش", "di-basket", "info",
+            "order", "درخواست تأمین", "di-basket", "info",
             at=row.created_at,
             title=row.number,
             subtitle=labels.label(labels.DOCUMENT_STATUS_LABELS, row.status),

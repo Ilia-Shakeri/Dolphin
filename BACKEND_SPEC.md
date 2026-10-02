@@ -1367,6 +1367,26 @@ the stock effect off: the cost snapshot is a *read*, and gross profit is
 measured against it. Without that split, turning the deduction off would have
 silently emptied the profit report.
 
+### Warehouse fulfilment request (2.37.0)
+
+In the panel an `Order` is called «درخواست تأمین از انبار» (user text only; the
+table, class and `/api/v1/orders/` path are unchanged, and the old paths keep
+working). A request may be made **from an issued invoice**:
+`POST /api/v1/orders/from-invoice/` with `invoice`, `warehouse` and optionally
+`notes`, `expected_delivery_at`, `shipping_method`. The customer, lines, quantities
+and prices come from the invoice on the server; any other field in the body (a
+price, a discount, a customer, items) is refused by name. Rules:
+
+- only an `issued` invoice, and only one non-cancelled request per invoice
+  (`uniq_active_fulfillment_per_invoice`); cancel the request to make another;
+- refused when the invoice already took its stock at issue
+  (`DOLPHIN_BILLING_INVOICE_AFFECTS_STOCK=true`) — approving would deduct twice;
+- the lines and the money of an invoice-linked request cannot be edited;
+- **approval** (the transition that moves stock, unchanged and exactly-once via
+  `stock_applied`/`stock_revision`) needs `inventory.manage`: the requester asks,
+  the warehouse side approves;
+- an invoice with a non-cancelled request cannot be cancelled (cancel the request first).
+
 ### Order inventory lifecycle
 
 | Event | Stock |
