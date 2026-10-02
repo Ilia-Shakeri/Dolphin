@@ -9,6 +9,7 @@
    دارد؛ این پنهان‌سازی مجوز نیست — `customers_for` دامنهٔ او را در سرور
    به همان دفتر محدود می‌کند. {% endcomment %}
 {% block page_actions %}
+{% if can_manage_customer_categories %}<button id="open-customer-categories" class="btn btn-light" type="button" aria-haspopup="dialog" aria-controls="customer-categories-dialog">مدیریت دسته‌بندی‌ها</button>{% endif %}
 <button id="open-export-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}خروجی لیست</button>
 {% if can_import_customers %}<button id="open-import-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی لیست</button>{% endif %}
 {% endblock %}
@@ -166,7 +167,8 @@
                 <div><label class="form-label fw-semibold" for="create-customer-economic-code">شماره اقتصادی</label><input class="form-control form-control-solid" id="create-customer-economic-code" name="economic_code" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="economic_code"></p></div>
                 </div></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-email">ایمیل</label><input class="form-control form-control-solid" id="create-customer-email" name="email" type="email" maxlength="254"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="email"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-category">دسته‌بندی</label><input class="form-control form-control-solid" id="create-customer-category" name="category" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-category">دسته‌بندی</label><select class="form-select form-select-solid" id="create-customer-category" name="category" data-customer-category-select><option value="">بدون دسته‌بندی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
+                {% if can_assign_customer_owner %}<div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-owner">مسئول مشتری</label><select class="form-select form-select-solid" id="create-customer-owner" name="owner"><option value="">خودم</option>{% for pk, name in customer_owner_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}</select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="owner"></p></div>{% endif %}
             </div>
         </div>
         <div data-dolphin-stepper-element="content">
@@ -208,6 +210,19 @@
 {% comment %} خروجی و ورودی هر دو یک شکل دارند: اول انتخاب لیست، بعد خود عملیات.
    سرستون‌های خروجی همان‌هایی است که ورودی می‌پذیرد، پس کاربر خروجی می‌گیرد، رویش
    می‌نویسد و همان فایل را برمی‌گرداند. {% endcomment %}
+{% if can_manage_customer_categories %}
+<dialog id="customer-categories-dialog" aria-labelledby="customer-categories-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="customer-categories-title">دسته‌بندی مشتریان</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form data-category-add class="d-flex gap-3 align-items-start mb-5" novalidate>
+        <div class="flex-grow-1"><label class="visually-hidden" for="customer-category-new">نام دسته‌بندی تازه</label><input class="form-control form-control-solid" id="customer-category-new" name="name" maxlength="100" placeholder="نام دسته‌بندی تازه"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
+        <button class="btn btn-primary" type="submit">افزودن</button>
+    </form>
+    <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نام</th><th>مشتری</th><th>وضعیت</th><th>عملیات</th></tr></thead><tbody data-category-rows></tbody></table></div>
+    <p class="text-center text-gray-700 py-6 mb-0" data-category-empty hidden>هنوز دسته‌بندی‌ای ساخته نشده است.</p>
+    <p class="text-muted fs-8 mt-4 mb-0">دسته‌بندی در حال استفاده حذف نمی‌شود؛ غیرفعالش کنید (مشتریان فعلی‌اش می‌مانند) یا مشتریانش را به دسته‌بندی دیگری منتقل کنید.</p>
+</dialog>
+{% endif %}
+
 <dialog id="export-customers-dialog" aria-labelledby="export-customers-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="export-customers-title">خروجی لیست</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="row g-5">

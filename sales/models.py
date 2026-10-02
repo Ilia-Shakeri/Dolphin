@@ -21,6 +21,28 @@ PRODUCT_BRAND_MAX_LENGTH = 120
 PRODUCT_BARCODE_MAX_LENGTH = 64
 
 
+class CustomerCategory(TimeStampedModel):
+    """A customer category chosen from a managed list (2.35.0).
+
+    Replaces the free-text `Customer.category` as the thing people pick from;
+    the text column stays, mirrored from the chosen category's name, so every
+    existing filter, export and report keeps reading what it always read.
+    """
+
+    name = models.CharField(max_length=CUSTOMER_CATEGORY_MAX_LENGTH)
+    normalized_name = models.CharField(max_length=CUSTOMER_CATEGORY_MAX_LENGTH, unique=True, editable=False)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_customer_categories")
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="updated_customer_categories")
+
+    class Meta:
+        ordering = ["name", "id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(name__regex=r"\S"), name="customer_category_name_nonblank"),
+            models.CheckConstraint(condition=Q(normalized_name__regex=r"\S"), name="customer_category_normalized_nonblank"),
+        ]
+
+
 class Customer(TimeStampedModel):
     class Kind(models.TextChoices):
         """Whether this customer is a person or an organisation.
@@ -67,12 +89,29 @@ class Customer(TimeStampedModel):
     address = models.CharField(max_length=CUSTOMER_ADDRESS_MAX_LENGTH, blank=True)
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_customers")
+    #: Who works this customer (2.35.0). Nullable only so the column can be
+    #: added to a populated table; every customer is given one by the backfill
+    #: and by every create path. A marketer's scope follows this, not
+    #: `created_by`, so a manager can hand a customer to someone.
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="owned_customers")
+    #: The managed category; `category` above mirrors its name for old readers.
+    category_ref = models.ForeignKey(CustomerCategory, on_delete=models.PROTECT, null=True, blank=True, related_name="customers")
     is_active = models.BooleanField(default=True, db_index=True)
+
+    def save(self, *args, **kwargs):
+        # No customer is ever left without someone who works it: a path that
+        # does not name an owner gives the customer to whoever created it.
+        if self.owner_id is None and self.created_by_id:
+            self.owner_id = self.created_by_id
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = {*kwargs["update_fields"], "owner"}
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [
             models.Index(fields=["created_by", "is_active", "-created_at"]),
+            models.Index(fields=["owner", "is_active", "-created_at"], name="customer_owner_active_idx"),
             # The customers page filters by province since 2.6.0, and province
             # is matched exactly (the form offers the thirty-one canonical
             # names, so there is nothing to match loosely). An exact-match

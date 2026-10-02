@@ -8,6 +8,7 @@ import {bucketLabel} from "dolphin/features/customers/shared.js";
 import {setupAttachmentsPanelFor} from "dolphin/ui/attachments.js";
 import {renderAreaChart, setupChartRange, showEmptyChart} from "dolphin/ui/charts.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
+import {fillCustomerCategorySelect} from "dolphin/ui/customer-categories.js";
 import {fillProvinceSelect} from "dolphin/ui/iran-map.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 import {loadPerformanceDetails} from "dolphin/ui/performance.js";
@@ -112,11 +113,14 @@ function customerProfileLoaders(customerId) {
     let customer = null;
 
     function fillCustomer(value) {
-        ["full_name", "job_title", "national_id", "economic_code", "email", "city", "postal_code", "category", "address", "notes"].forEach((name) => {
+        ["full_name", "job_title", "national_id", "economic_code", "email", "city", "postal_code", "address", "notes"].forEach((name) => {
             const input = document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`);
             if (input) input.value = value[name] || "";
         });
         fillProvinceSelect(document.getElementById("edit-customer-province"), value.province || "");
+        fillCustomerCategorySelect(document.getElementById("edit-customer-category"), value.category || "").catch(showError);
+        const ownerField = document.getElementById("edit-customer-owner");
+        if (ownerField && value.owner) ownerField.value = String(value.owner);
         // Only a legal customer has an economic code.
         const economic = document.getElementById("edit-customer-economic-code");
         if (economic) {
@@ -165,7 +169,10 @@ function customerProfileLoaders(customerId) {
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
-                customer = await apiRequest(endpoint, {method: "PATCH", body: formPayload(editForm, ["full_name", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"])});
+                const body = formPayload(editForm, ["full_name", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"]);
+                const ownerField = document.getElementById("edit-customer-owner");
+                if (ownerField?.value) body.owner = Number(ownerField.value);
+                customer = await apiRequest(endpoint, {method: "PATCH", body});
                 fillCustomer(customer);
                 reflectCustomer(customer);
                 globalMessage("مشخصات مشتری ذخیره شد.", true);

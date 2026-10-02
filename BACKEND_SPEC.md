@@ -301,7 +301,9 @@ Rules:
 - Sales Agents may create Customers and edit permitted fields only when the Customer is in their own/assigned visibility scope.
 - Normal UI deactivates rather than hard-deletes Customers.
 - Client-1 `postal_code` is an optional bounded text value; no country-specific normalization or validation rule is approved.
-- Client-1 `category` is an optional bounded text label; no category entity, hierarchy, fixed choice list, or lifecycle is approved.
+- **Superseded in 2.35.0:** `category` is still a bounded text label, but it now mirrors the name of a managed `CustomerCategory` (`category_ref`, PROTECT). Categories have a normalised unique name, an active flag, rename (customers' text follows), deactivate/reactivate (links kept, no new assignments), and transfer (move customers, retire the source). Management needs `customer_categories.manage`; deleting a used category is refused by PROTECT. Backfill (`manage.py backfill_customer_ownership --dry-run`) groups existing text by normalised spelling and never merges spellings that differ only by spacing or half-space — it reports them.
+- **Ownership (2.35.0):** `Customer.owner` (nullable FK, PROTECT; never null in practice — `Customer.save()` and every create path default it to `created_by`/actor). A marketer's scope is `owner = self`, not `created_by`. Naming or changing the owner needs `customers.assign_owner` (sales manager, company IT, platform admin); the new owner must be an active sales/management CRM user. Reassignment is audited as a changed `owner` field. Rolling back to a pre-2.35.0 release makes a customer a manager handed to someone invisible to that person and visible again to its creator; no data is lost.
+- **Kinds and economic code (2.34.7):** every role works both customer books; an individual customer has no `economic_code` (refused on write, cleared when a customer becomes individual); `customers.import` governs the Excel import.
 - The maintained Customer detail profile may show only Leads, Interactions, and Sales already visible to the actor through their existing backend scopes.
 
 ### 5.2 CustomerPhone

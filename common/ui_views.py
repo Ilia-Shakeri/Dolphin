@@ -186,6 +186,8 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # Both customer books are open to every role; the import is its own
         # capability (`customers.import`).
         context["can_manage_customer_kinds"] = True
+        context["can_assign_customer_owner"] = "customers.assign_owner" in capabilities
+        context["can_manage_customer_categories"] = "customer_categories.manage" in capabilities
         context["can_import_customers"] = "customers.import" in capabilities
         context["can_reassign_leads"] = context["can_deactivate_customers"]
         context["can_manage_products"] = context["can_deactivate_customers"]
@@ -440,6 +442,14 @@ class DolphinCustomerListView(ActiveCrmView):
     delete_capability = "customers.delete"
     required_feature = "customers"
     template_name = "common/customers/list.html"
+
+    def get_context_data(self, **kwargs):
+        from sales.selectors import customer_owner_choices
+
+        context = super().get_context_data(**kwargs)
+        if context.get("can_assign_customer_owner"):
+            context["customer_owner_choices"] = customer_owner_choices()
+        return context
 
 
 class ScopedDetailView(ActiveCrmView):

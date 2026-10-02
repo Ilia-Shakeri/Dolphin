@@ -4,6 +4,7 @@ import {apiDate, displayDay} from "dolphin/core/jalali.js";
 import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {bucketLabel} from "dolphin/features/customers/shared.js";
 import {renderAreaChart, renderBarChart, renderDonutChart, setupChartRange} from "dolphin/ui/charts.js";
+import {fillCustomerCategorySelect, setupCategoryManager} from "dolphin/ui/customer-categories.js";
 import {fillProvinceSelect, loadIranMap} from "dolphin/ui/iran-map.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
@@ -114,6 +115,10 @@ export function setupCustomers() {
     controller.load();
     const dialog = document.getElementById("create-customer-dialog");
     const createForm = document.getElementById("create-customer-form");
+    const categorySelect = document.getElementById("create-customer-category");
+    const loadCategories = () => fillCustomerCategorySelect(categorySelect, categorySelect.value).catch(showError);
+    loadCategories();
+    setupCategoryManager({onChange: loadCategories});
     const kindInput = document.getElementById("create-customer-kind");
     const economicReveal = document.getElementById("create-customer-economic-reveal");
     // The economic code belongs to a legal customer only: for an individual
@@ -181,6 +186,8 @@ export function setupCustomers() {
             const kindField = document.getElementById("create-customer-kind");
             payload.kind = kindField.value;
             if (payload.kind !== "legal") delete payload.economic_code;
+            const ownerField = document.getElementById("create-customer-owner");
+            if (ownerField?.value) payload.owner = Number(ownerField.value);
             const rawPhone = String(new FormData(createForm).get("phone_raw") || "").trim();
             if (rawPhone) payload.phone = {
                 raw_phone: rawPhone,

@@ -3,6 +3,7 @@ from django.db.models import Case, IntegerField, Q, Value, When
 from accounts.models import User
 from sales.models import (
     Customer,
+    CustomerCategory,
     CustomerPhone,
     Interaction,
     Lead,
@@ -36,10 +37,35 @@ def customers_for(user):
     if user.role == User.Role.SALES_AGENT:
         if user.workstream == User.Workstream.AFTER_SALES:
             return queryset.none()
-        return queryset.filter(created_by=user)
+        return queryset.filter(owner=user)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()
+
+
+def customer_categories_for(user):
+    """Everyone who works customers may read the list; a marketer sees only the
+    active ones (the ones they can assign)."""
+    queryset = CustomerCategory.objects.all()
+    if user.role == User.Role.SALES_AGENT:
+        if user.workstream == User.Workstream.AFTER_SALES:
+            return queryset.none()
+        return queryset.filter(is_active=True)
+    if user.role in ELEVATED_OPERATIONAL:
+        return queryset
+    return queryset.none()
+
+
+def customer_owner_choices():
+    """Who a customer may be handed to: active sales and management users,
+    never an after-sales operator or a non-CRM identity. Ids and display names
+    only — rendered into the page of someone who may assign owners."""
+    from accounts.access import crm_identities
+
+    users = crm_identities(User.objects.filter(is_active=True)).exclude(
+        role=User.Role.SALES_AGENT, workstream=User.Workstream.AFTER_SALES
+    ).order_by("first_name", "last_name", "username")
+    return [(user.pk, user.get_full_name() or user.username) for user in users]
 
 
 def phones_for(user):

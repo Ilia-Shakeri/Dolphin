@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -23,14 +23,14 @@ from common.throttles import SensitiveActionThrottleMixin, SensitiveRateThrottle
 from common.permissions import IsActiveAuthenticated
 from common.viewsets import AdminHardDeleteModelViewSet, filter_by_date_window
 from sales.permissions import HasSalesCapability
-from sales.models import Customer, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
-from sales.selectors import customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
+from sales.models import Customer, CustomerCategory, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
+from sales.selectors import customer_categories_for, customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerCategorySerializer, CustomerCategoryTransferSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
 from sales import ebazar, postal, postal_provider, shipping
-from sales.services import cancel_or_correct_sale, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
+from sales.services import cancel_or_correct_sale, set_customer_category_active, transfer_customer_category, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -583,6 +583,74 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteM
         lead = get_object_or_404(leads_for(request.user), pk=lead_id)
         result = import_target_audience_from_workbook(actor=request.user, lead=lead, stream=upload)
         return Response(TargetAudienceImportResultSerializer(result).data)
+
+
+class CustomerCategoryViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
+    """The managed list customers are categorised from (2.35.0).
+
+    A category in use cannot be deleted (customers reference it with PROTECT);
+    the answer is to deactivate it, or to transfer its customers to another.
+    """
+
+    required_feature = "customers"
+    delete_capability = "customer_categories.delete"
+    required_capabilities = ("customer_categories.read", "customer_categories.manage")
+    required_write_capabilities = ("customer_categories.manage",)
+    permission_classes = [IsActiveAuthenticated, HasSalesCapability]
+    queryset = CustomerCategory.objects.none()
+    serializer_class = CustomerCategorySerializer
+    sensitive_actions = frozenset({"create", "update", "partial_update", "deactivate", "reactivate", "transfer"})
+    search_fields = ["name"]
+    ordering_fields = ["name", "created_at"]
+    list_query_parameters = {"is_active"}
+
+    def get_queryset(self):
+        queryset = customer_categories_for(self.request.user).annotate(
+            customer_count_annotated=Count("customers")
+        ).order_by("name", "id")
+        is_active = self.request.query_params.get("is_active")
+        if is_active is not None:
+            if is_active not in {"true", "false"}:
+                raise ValidationError({"is_active": "مقدار باید true یا false باشد."})
+            queryset = queryset.filter(is_active=is_active == "true")
+        return queryset
+
+    def _require_manager(self):
+        if not has_any_capability(self.request.user, "customer_categories.manage"):
+            raise PermissionDenied("مدیریت دسته‌بندی مشتری مجاز نیست.")
+
+    def create(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().create(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        self._require_manager()
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(request=None, responses={200: CustomerCategorySerializer})
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        self._require_manager()
+        category = set_customer_category_active(actor=request.user, category=self.get_object(), active=False)
+        return Response(self.get_serializer(category).data)
+
+    @extend_schema(request=None, responses={200: CustomerCategorySerializer})
+    @action(detail=True, methods=["post"])
+    def reactivate(self, request, pk=None):
+        self._require_manager()
+        category = set_customer_category_active(actor=request.user, category=self.get_object(), active=True)
+        return Response(self.get_serializer(category).data)
+
+    @extend_schema(request=CustomerCategoryTransferSerializer, responses={200: None})
+    @action(detail=True, methods=["post"])
+    def transfer(self, request, pk=None):
+        self._require_manager()
+        body = CustomerCategoryTransferSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        moved = transfer_customer_category(
+            actor=request.user, category=self.get_object(), target=body.validated_data["target"]
+        )
+        return Response({"moved": moved})
 
 
 class ProductCategoryViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):

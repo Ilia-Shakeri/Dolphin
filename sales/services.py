@@ -18,6 +18,7 @@ from sales.models import (
     FREE_TEXT_MAX_LENGTH,
     INTERACTION_OUTCOME_MAX_LENGTH,
     Customer,
+    CustomerCategory,
     CustomerPhone,
     Interaction,
     Lead,
@@ -29,6 +30,7 @@ from sales.models import (
     PostalStatusHistory,
     TargetAudienceMember,
 )
+from sales.customer_backfill import clean_label, normalize_label
 from sales.selectors import customers_for, leads_for, sales_for, target_audience_for
 
 
@@ -49,6 +51,8 @@ CUSTOMER_MUTABLE_FIELDS = {
     "category",
     "address",
     "notes",
+    "owner",
+    "category_ref",
 }
 # `status` is set by the person working the campaign, not by the server: it
 # records their judgement of where the campaign stands. The three permitted
@@ -188,6 +192,49 @@ def _apply_economic_code_rule(data, kind, *, current=""):
             data["economic_code"] = ""
 
 
+def _resolve_owner_and_category(actor, data, *, creating):
+    """Ownership and the managed category, settled before a customer is written.
+
+    * `owner` may be named only by someone holding `customers.assign_owner`;
+      everyone else's customers are their own (create) or keep their owner
+      (update). The new owner must be an active CRM user who works customers.
+    * `category_ref` must be an active category; the legacy `category` text is
+      kept equal to its name so every older reader sees the same value. A bare
+      `category` text that names an active category links to it.
+    """
+    if "owner" in data:
+        if not has_any_capability(actor, "customers.assign_owner"):
+            raise BusinessPermissionDenied("تعیین مسئول مشتری برای نقش شما مجاز نیست.")
+        owner = data["owner"]
+        if owner is None:
+            raise BusinessRuleError({"owner": "مسئول مشتری را انتخاب کنید."})
+        locked = User.objects.filter(pk=owner.pk, is_active=True).first()
+        if locked is None or not is_crm_identity(locked) or locked.role not in OPERATIONAL_WRITERS:
+            raise BusinessRuleError({"owner": "مسئول باید کاربر فعالِ بخش فروش یا مدیریت باشد."})
+        data["owner"] = locked
+    elif creating:
+        data["owner"] = actor
+    if "category_ref" in data:
+        ref = data["category_ref"]
+        if ref is None:
+            data["category"] = data.get("category", "")
+        else:
+            ref = CustomerCategory.objects.filter(pk=ref.pk, is_active=True).first()
+            if ref is None:
+                raise BusinessRuleError({"category_ref": "یک دسته‌بندی فعال را انتخاب کنید."})
+            data["category_ref"] = ref
+            data["category"] = ref.name
+    elif data.get("category"):
+        match = CustomerCategory.objects.filter(
+            normalized_name=normalize_label(data["category"]), is_active=True
+        ).first()
+        data["category_ref"] = match
+        if match:
+            data["category"] = match.name
+    elif "category" in data:
+        data["category_ref"] = None
+
+
 @transaction.atomic
 def create_customer_with_phone(*, actor, phone=None, **data):
     actor = _lock_operational_actor(actor)
@@ -196,6 +243,7 @@ def create_customer_with_phone(*, actor, phone=None, **data):
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     _validate_text_lengths(data, CUSTOMER_TEXT_LIMITS)
     _validate_customer_kind(actor, data)
+    _resolve_owner_and_category(actor, data, creating=True)
     _apply_economic_code_rule(data, data.get("kind", Customer.Kind.INDIVIDUAL))
     customer = Customer.objects.create(created_by=actor, **data)
     log_activity(
@@ -220,6 +268,7 @@ def update_customer(*, actor, customer, **changes):
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     _validate_text_lengths(changes, CUSTOMER_TEXT_LIMITS)
     _validate_customer_kind(actor, changes)
+    _resolve_owner_and_category(actor, changes, creating=False)
     _apply_economic_code_rule(
         changes, changes.get("kind", locked.kind),
         current=locked.economic_code if "kind" in changes else "",
@@ -238,6 +287,99 @@ def update_customer(*, actor, customer, **changes):
             changes={"fields": sorted(changed_fields)},
         )
     return locked
+
+
+# --- Customer categories (2.35.0) --------------------------------------------
+
+def _require_category_manager(actor):
+    if not has_any_capability(actor, "customer_categories.manage"):
+        raise BusinessPermissionDenied("مدیریت دسته‌بندی مشتری مجاز نیست.")
+
+
+def _clean_customer_category_name(value):
+    name = clean_label(value)
+    if not name:
+        raise BusinessRuleError({"name": "نام دسته‌بندی الزامی است."})
+    if len(name) > CUSTOMER_CATEGORY_MAX_LENGTH:
+        raise BusinessRuleError({"name": f"نام دسته‌بندی نباید بیش از {CUSTOMER_CATEGORY_MAX_LENGTH} نویسه باشد."})
+    return name, normalize_label(name)
+
+
+@transaction.atomic
+def create_customer_category(*, actor, name):
+    actor = _lock_active_actor(actor)
+    _require_category_manager(actor)
+    name, normalized = _clean_customer_category_name(name)
+    try:
+        with transaction.atomic():
+            category = CustomerCategory.objects.create(
+                name=name, normalized_name=normalized, created_by=actor, updated_by=actor
+            )
+    except IntegrityError as exc:
+        raise BusinessConflictError({"name": "دسته‌بندی‌ای با این نام وجود دارد."}) from exc
+    log_activity(actor=actor, operation="customer_category.created", instance=category)
+    return category
+
+
+@transaction.atomic
+def rename_customer_category(*, actor, category, name):
+    """Rename; customers' mirrored text follows so old readers agree."""
+    actor = _lock_active_actor(actor)
+    _require_category_manager(actor)
+    locked = CustomerCategory.objects.select_for_update().get(pk=category.pk)
+    name, normalized = _clean_customer_category_name(name)
+    if locked.name == name:
+        return locked
+    locked.name, locked.normalized_name, locked.updated_by = name, normalized, actor
+    try:
+        with transaction.atomic():
+            locked.save(update_fields=["name", "normalized_name", "updated_by", "updated_at"])
+    except IntegrityError as exc:
+        raise BusinessConflictError({"name": "دسته‌بندی‌ای با این نام وجود دارد."}) from exc
+    Customer.objects.filter(category_ref=locked).update(category=name)
+    log_activity(actor=actor, operation="customer_category.renamed", instance=locked)
+    return locked
+
+
+@transaction.atomic
+def set_customer_category_active(*, actor, category, active):
+    """Deactivating keeps every customer's link; it only stops new assignments."""
+    actor = _lock_active_actor(actor)
+    _require_category_manager(actor)
+    locked = CustomerCategory.objects.select_for_update().get(pk=category.pk)
+    if locked.is_active == active:
+        raise BusinessConflictError({"is_active": "وضعیت دسته‌بندی همین است."})
+    locked.is_active, locked.updated_by = active, actor
+    locked.save(update_fields=["is_active", "updated_by", "updated_at"])
+    log_activity(
+        actor=actor,
+        operation="customer_category.reactivated" if active else "customer_category.deactivated",
+        instance=locked,
+    )
+    return locked
+
+
+@transaction.atomic
+def transfer_customer_category(*, actor, category, target):
+    """Move every customer of `category` to `target`, then retire `category`."""
+    actor = _lock_active_actor(actor)
+    _require_category_manager(actor)
+    source = CustomerCategory.objects.select_for_update().get(pk=category.pk)
+    destination = CustomerCategory.objects.select_for_update().get(pk=target.pk)
+    if source.pk == destination.pk:
+        raise BusinessRuleError({"target": "مقصد باید دسته‌بندی دیگری باشد."})
+    if not destination.is_active:
+        raise BusinessRuleError({"target": "دسته‌بندی مقصد باید فعال باشد."})
+    moved = Customer.objects.filter(category_ref=source).update(
+        category_ref=destination, category=destination.name
+    )
+    source.is_active, source.updated_by = False, actor
+    source.save(update_fields=["is_active", "updated_by", "updated_at"])
+    log_activity(
+        actor=actor, operation="customer_category.transferred", instance=source,
+        changes={"to": destination.pk, "customers": moved},
+    )
+    return moved
 
 
 @transaction.atomic

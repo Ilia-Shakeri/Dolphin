@@ -56,9 +56,10 @@ def owner_of(call):
         )
         if lead and is_crm_identity(lead.assigned_to):
             return lead.assigned_to
-        customer = Customer.objects.select_related("created_by").filter(pk=call.person_id).first()
-        if customer and customer.created_by.role == User.Role.SALES_AGENT and is_crm_identity(customer.created_by):
-            return customer.created_by
+        customer = Customer.objects.select_related("owner", "created_by").filter(pk=call.person_id).first()
+        worker = (customer.owner or customer.created_by) if customer else None
+        if worker and worker.role == User.Role.SALES_AGENT and is_crm_identity(worker):
+            return worker
     extension = call.extension
     if extension:
         row = Extension.objects.filter(integration_id=call.integration_id, number=extension, active=True).select_related("user").first()

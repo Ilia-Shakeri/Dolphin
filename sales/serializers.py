@@ -8,9 +8,9 @@ from accounts.models import User
 from common.phones import normalize_customer_phone
 from common.serializers import RejectServerFieldsMixin
 from sales import postal
-from sales.models import Customer, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalShipment, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
-from sales.selectors import customers_for, leads_for, product_categories_for, products_for, sales_for, target_audience_for
-from sales.services import add_target_audience_member, update_target_audience_member, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, update_customer, update_customer_phone, update_lead, update_product, update_product_category
+from sales.models import Customer, CustomerCategory, CustomerPhone, Interaction, Lead, LeadAssignmentHistory, PostalShipment, PostalStatusHistory, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
+from sales.selectors import customer_categories_for, customers_for, leads_for, product_categories_for, products_for, sales_for, target_audience_for
+from sales.services import add_target_audience_member, update_target_audience_member, create_customer_category, create_customer_phone, create_customer_with_phone, create_lead, create_product, create_product_category, mark_sale, record_interaction, register_sales_document, rename_customer_category, update_customer, update_customer_phone, update_lead, update_product, update_product_category
 
 
 def _scope_relation(field, queryset):
@@ -47,14 +47,25 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     created_by_display = serializers.SerializerMethodField()
     primary_phone = serializers.SerializerMethodField()
+    #: Who works this customer. Naming one needs `customers.assign_owner`; the
+    #: service refuses it otherwise, whatever the form offered.
+    owner = serializers.PrimaryKeyRelatedField(queryset=User.objects.filter(is_active=True), required=False)
+    owner_display = serializers.SerializerMethodField()
+    category_ref = serializers.PrimaryKeyRelatedField(
+        queryset=CustomerCategory.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = Customer
-        fields = ["id", "full_name", "kind", "kind_display", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
+        fields = ["id", "full_name", "kind", "kind_display", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "category_ref", "address", "notes", "owner", "owner_display", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
         read_only_fields = ["id", "created_by", "created_by_display", "is_active", "primary_phone", "kind_display", "created_at", "updated_at"]
 
     def get_created_by_display(self, instance) -> str:
         return instance.created_by.get_full_name() or instance.created_by.username
+
+    def get_owner_display(self, instance) -> str:
+        owner = instance.owner or instance.created_by
+        return owner.get_full_name() or owner.username
 
     @extend_schema_field(CustomerPrimaryPhoneSerializer(allow_null=True))
     def get_primary_phone(self, instance):
@@ -90,6 +101,30 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         if self.instance and "phone" in attrs:
             raise serializers.ValidationError({"phone": "تلفن فقط هنگام ایجاد مشتری قابل ثبت است."})
         return attrs
+
+
+class CustomerCategorySerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
+    server_fields = {"normalized_name", "is_active", "customer_count", "created_at", "updated_at"}
+    customer_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerCategory
+        fields = ["id", "name", "is_active", "customer_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_active", "customer_count", "created_at", "updated_at"]
+
+    def get_customer_count(self, instance) -> int:
+        counted = getattr(instance, "customer_count_annotated", None)
+        return counted if counted is not None else instance.customers.count()
+
+    def create(self, validated_data):
+        return create_customer_category(actor=self.context["request"].user, **validated_data)
+
+    def update(self, instance, validated_data):
+        return rename_customer_category(actor=self.context["request"].user, category=instance, **validated_data)
+
+
+class CustomerCategoryTransferSerializer(serializers.Serializer):
+    target = serializers.PrimaryKeyRelatedField(queryset=CustomerCategory.objects.filter(is_active=True))
 
 
 class CustomerPhoneSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):

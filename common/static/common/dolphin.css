@@ -4401,3 +4401,6 @@ tr.is-removing > td {
 }
 .calendar-event-move:hover,
 .calendar-event-move:focus-visible { opacity: 1; }
+
+/* The customer-category manager lists name, count, state and actions in a row. */
+#customer-categories-dialog { width: min(900px, 94vw); max-width: none; }
