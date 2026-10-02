@@ -299,7 +299,103 @@ class OrderItem(DocumentLine):
         ]
 
 
-class Invoice(CommercialDocument):
+
+# --- A cancelled invoice is a record, not a working document -----------------
+#
+# Cancelling is how a mistaken invoice leaves circulation, and from that moment
+# the row is audit evidence: the number was spent, the ledger carries its debit
+# and credit, the customer may hold a printed copy. Nothing may change it again —
+# not the panel, not the API, not a service, not an administrator. The rule is
+# kept here, on the model and its querysets, rather than in any one view, so a
+# new code path or a Django-admin session cannot step around it. The same holds
+# for an issued invoice's *deletion*: it leaves by cancellation or reissue only.
+
+CANCELLED_INVOICE_MESSAGE = "فاکتور لغوشده سند تاریخی است و قابل تغییر یا حذف نیست."
+UNDELETABLE_INVOICE_MESSAGE = "فقط پیش‌نویس فاکتور حذف می‌شود؛ فاکتور صادرشده را لغو یا مجدداً صادر کنید."
+
+
+def _conflict(message):
+    from common.exceptions import BusinessConflictError
+
+    return BusinessConflictError({"status": message})
+
+
+class InvoiceQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if self.filter(status="cancelled").exists():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().update(**kwargs)
+
+    def delete(self):
+        if self.exclude(status="draft").exists():
+            raise _conflict(
+                CANCELLED_INVOICE_MESSAGE if self.filter(status="cancelled").exists() else UNDELETABLE_INVOICE_MESSAGE
+            )
+        return super().delete()
+
+
+class InvoiceItemQuerySet(models.QuerySet):
+    def _refuse_cancelled(self, invoice_ids):
+        if Invoice.objects.filter(pk__in=set(invoice_ids), status="cancelled").exists():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+
+    def update(self, **kwargs):
+        self._refuse_cancelled(self.values_list("invoice_id", flat=True))
+        return super().update(**kwargs)
+
+    def delete(self):
+        self._refuse_cancelled(self.values_list("invoice_id", flat=True))
+        return super().delete()
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        self._refuse_cancelled(obj.invoice_id for obj in objs)
+        return super().bulk_create(objs, *args, **kwargs)
+
+
+class CancelledInvoiceGuard(models.Model):
+    objects = InvoiceQuerySet.as_manager()
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None and not self._state.adding:
+            stored = type(self).objects.filter(pk=self.pk).values_list("status", flat=True).first()
+            if stored == "cancelled":
+                raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        stored = type(self).objects.filter(pk=self.pk).values_list("status", flat=True).first()
+        if stored == "cancelled":
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        if stored not in (None, "draft"):
+            raise _conflict(UNDELETABLE_INVOICE_MESSAGE)
+        return super().delete(*args, **kwargs)
+
+
+class CancelledInvoiceItemGuard(models.Model):
+    objects = InvoiceItemQuerySet.as_manager()
+
+    class Meta:
+        abstract = True
+
+    def _invoice_is_cancelled(self):
+        return Invoice.objects.filter(pk=self.invoice_id, status="cancelled").exists()
+
+    def save(self, *args, **kwargs):
+        if self.invoice_id is not None and self._invoice_is_cancelled():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self._invoice_is_cancelled():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().delete(*args, **kwargs)
+
+
+class Invoice(CancelledInvoiceGuard, CommercialDocument):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         ISSUED = "issued", "Issued"
@@ -590,7 +686,7 @@ class Invoice(CommercialDocument):
         return self.SettlementStatus.PARTIALLY_PAID
 
 
-class InvoiceItem(DocumentLine):
+class InvoiceItem(CancelledInvoiceItemGuard, DocumentLine):
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="items")
     # Captured from the warehouse moving average at the moment of issue. It is
     # what makes a profit figure sourced rather than guessed; a draft invoice or
