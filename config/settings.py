@@ -397,6 +397,15 @@ BILLING_INVOICE_AFFECTS_STOCK = (
 # days before it. A manager can still correct the link by hand.
 CAMPAIGN_ATTRIBUTION_WINDOW_DAYS = int(os.environ.get("DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS", "30"))
 
+# Live updates (2.38.0). `DOLPHIN_REALTIME_ENABLED` is the hard off switch (also
+# gates the `realtime` feature); `DOLPHIN_REALTIME_SERVE_STREAMS` is set only on
+# the dedicated `realtime` service, the one process that holds event streams
+# open and LISTENs to PostgreSQL. The development server serves streams itself.
+REALTIME_ENABLED = os.environ.get("DOLPHIN_REALTIME_ENABLED", "false").lower() == "true"
+REALTIME_SERVE_STREAMS = os.environ.get("DOLPHIN_REALTIME_SERVE_STREAMS", "false").lower() == "true"
+REALTIME_MAX_CONNECTIONS = int(os.environ.get("DOLPHIN_REALTIME_MAX_CONNECTIONS", "200"))
+REALTIME_STREAM_SECONDS = int(os.environ.get("DOLPHIN_REALTIME_STREAM_SECONDS", "300"))
+
 # When a cheque payment credits the customer account: on clearing (default) or
 # at registration. Clearing is the safe default because an uncleared cheque is
 # not money received.

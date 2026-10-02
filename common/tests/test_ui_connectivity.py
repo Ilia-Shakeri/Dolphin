@@ -340,7 +340,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "accounting_ledger", "panel_backup", "cheques", "campaigns",
+                "accounting_ledger", "panel_backup", "cheques", "campaigns", "realtime",
             }),
         )
 
@@ -350,7 +350,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "accounting_ledger", "panel_backup", "cheques", "campaigns",
+                "accounting_ledger", "panel_backup", "cheques", "campaigns", "realtime",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

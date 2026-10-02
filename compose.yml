@@ -36,6 +36,10 @@ x-django-environment: &django-environment
   DOLPHIN_PDF_RENDERER: ${DOLPHIN_PDF_RENDERER:-}
   DOLPHIN_PDF_CHROMIUM_BINARY: ${DOLPHIN_PDF_CHROMIUM_BINARY:-}
   DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS: ${DOLPHIN_PDF_RENDER_TIMEOUT_SECONDS:-20}
+  # Live updates (2.38.0). Every process that writes data announces its changes
+  # when this is "true"; only the `realtime` service below serves the streams.
+  # Leave it unset to keep the panel exactly as it was.
+  DOLPHIN_REALTIME_ENABLED: ${DOLPHIN_REALTIME_ENABLED:-false}
 
 services:
   db:
@@ -470,6 +474,59 @@ services:
       - "8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip(); request = urllib.request.Request('http://127.0.0.1:8000/api/v1/health/live/', headers={'Host': host, 'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Live updates (feature `realtime`, 2.38.0): the one process that holds
+  # Server-Sent-Event streams open and LISTENs to PostgreSQL. A threaded worker
+  # (one thread per connected browser) rather than the sync `web` workers, so a
+  # long-lived stream can never starve ordinary requests. Behind its own profile:
+  # a deployment that does not start it keeps the previous behaviour, the panel
+  # simply falls back to refreshing on its timers. nginx routes
+  # `/api/v1/realtime/` here; if this service is absent that route answers 502
+  # and the browser stops trying. Needs no new software: it talks to the
+  # database `web` already uses.
+  realtime:
+    image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["realtime"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      <<: *django-environment
+      DOLPHIN_DATABASE_ROLE: app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      DOLPHIN_REALTIME_ENABLED: "true"
+      DOLPHIN_REALTIME_SERVE_STREAMS: "true"
+      DOLPHIN_REALTIME_MAX_CONNECTIONS: ${DOLPHIN_REALTIME_MAX_CONNECTIONS:-200}
+      DOLPHIN_REALTIME_STREAM_SECONDS: ${DOLPHIN_REALTIME_STREAM_SECONDS:-300}
+    depends_on:
+      db-finalize:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --worker-class gthread --workers 1 --threads $${DOLPHIN_REALTIME_MAX_CONNECTIONS:-200} --timeout 120 --graceful-timeout 10 --keep-alive 75
+    volumes:
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - backend
+      - frontend
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; host = os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip(); request = urllib.request.Request('http://127.0.0.1:8000/api/v1/realtime/health/', headers={'Host': host, 'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=3)"]
       interval: 30s
       timeout: 5s
       retries: 3

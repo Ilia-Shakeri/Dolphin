@@ -6,6 +6,7 @@
     <meta name="description" content="سامانه مدیریت ارتباط با مشتری {{ brand_name }}">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
+    {% if realtime_url %}<meta name="dolphin-realtime" content="{{ realtime_url }}">{% endif %}
     <title>{% block title %}خانه{% endblock %} | {{ brand_name }}</title>
     <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">

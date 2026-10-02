@@ -144,6 +144,13 @@ FEATURE_DEPENDENCIES = {
     # dependencies and nothing else.
     "campaigns": frozenset({"leads", "customers", "invoices"}),
 
+    # Live updates (2.38.0): lists, chat and the incoming-call popup refresh the
+    # moment something changes instead of on a timer. Needs the separate
+    # `realtime` service and its proxy route (docs/ops); without them the panel
+    # behaves exactly as before. It reads nothing and changes nothing itself —
+    # an event only says "ask the API again" — so it depends on no other module.
+    "realtime": frozenset(),
+
     # Order kanban board (سفارش‌ها): same shape as lead_kanban, one module
     # over. It has no mutation path of its own either — dragging a card
     # between columns goes through the existing
@@ -271,7 +278,7 @@ FEATURES = frozenset(FEATURE_DEPENDENCIES)
 DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "person_scoring", "tasks", "person_notes",
     "integrations", "outbound_webhooks", "public_api", "telephony",
-    "campaigns",
+    "campaigns", "realtime",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

@@ -108,6 +108,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
                 "scheduled-sms",
                 "score-recalculation",
                 "integrations-worker",
+                # Live updates (2.38.0): the same app-role connection `web` has.
+                "realtime",
             },
             "POSTGRES_BACKUP_PASSWORD": {
                 "db-bootstrap",

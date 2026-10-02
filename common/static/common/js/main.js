@@ -16,6 +16,7 @@ import {setupListFilterPopovers, setupPopoverDismissal} from "dolphin/ui/popover
 import {setupLogout, setupSessionsDialog} from "dolphin/shell/session.js";
 import {setupMoneyInputs} from "dolphin/core/money.js";
 import {setupProfileDialog} from "dolphin/shell/profile-dialog.js";
+import {setupRealtime} from "dolphin/shell/realtime.js";
 import {setupReminderBell} from "dolphin/shell/reminders.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 
@@ -50,6 +51,7 @@ function boot() {
     setupLatinDigitInputs();
 
     setupSearchableSelects();
+    setupRealtime();
     setupChartThemeRedraw();
     setupSidebarPeekGuard();
     setupThemeModePopup();

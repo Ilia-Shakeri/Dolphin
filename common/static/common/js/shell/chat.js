@@ -2,6 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate} from "dolphin/core/jalali.js";
 import {showError, withSubmit} from "dolphin/core/messages.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 import {BADGE_CACHE_PREFIX, keepBadgeFresh} from "dolphin/shell/badges.js";
 
 /**
@@ -554,6 +555,9 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
 
     readCache();
     showList();
+    // Live updates (2.38.0): a message in one of my conversations is read at
+    // once; the timers below remain the fallback.
+    onRealtime(["chat"], () => { pollThreads(); if (isOpen()) pollActiveThread(); }, {whenBusy: true, delay: 100});
     setInterval(pollThreads, THREAD_LIST_POLL_MS);
     setInterval(pollActiveThread, ACTIVE_THREAD_POLL_MS);
 }

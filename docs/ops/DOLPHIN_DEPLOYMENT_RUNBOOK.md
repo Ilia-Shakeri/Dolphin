@@ -706,6 +706,63 @@ against the same database is always possible.
   in place; the previous version ignores the new columns, but a person added to
   two campaigns while 2.36.0 ran is two audience rows to it.
 
+#### Live updates (2.38.0, feature `realtime`)
+
+Lists, chat and the incoming-call popup can refresh the moment something
+changes instead of on a timer. It adds **no new software and no new dependency**:
+a change announces itself with PostgreSQL `NOTIFY` inside its own transaction
+(so a rolled-back write announces nothing), and one small service holds
+Server-Sent-Event streams open to the browsers. An event carries no data — only
+«a customer changed» — and the page asks the ordinary API again, so every
+permission and scope still applies. A browser that cannot reach the stream just
+keeps refreshing the way it always did.
+
+It is **off by default** at three levels, and each is enough to turn it off:
+
+| Switch | Where | Effect |
+|---|---|---|
+| `realtime` feature | the signed manifest | no page declares a stream |
+| `DOLPHIN_REALTIME_ENABLED` (default `false`) | `secrets/.env` | no process announces events |
+| the `realtime` compose profile | `docker compose --profile realtime up -d` | nothing serves streams |
+
+To turn it on:
+
+1. Put `DOLPHIN_REALTIME_ENABLED=true` in `secrets/.env` (optionally
+   `DOLPHIN_REALTIME_MAX_CONNECTIONS`, default 200 browsers, and
+   `DOLPHIN_REALTIME_STREAM_SECONDS`, default 300 — a stream ends and reconnects
+   after that, which is also how a signed-out user stops receiving).
+2. Enable `realtime` in the deployment manifest.
+3. Start the service: `docker compose --profile realtime up -d realtime`
+   (one gunicorn `gthread` worker, one thread per connected browser; the ordinary
+   `web` workers never hold a stream and answer 404 for it).
+4. Make sure the proxy routes `/api/v1/realtime/` to it **without buffering**.
+   The repository's `nginx/default.conf` already does. A deployment behind a
+   shared edge proxy (outside this repository) needs the same block there:
+
+   ```nginx
+   location ^~ /api/v1/realtime/ {
+       proxy_pass http://<realtime-service>:8000;   # the `realtime` container
+       proxy_http_version 1.1;
+       proxy_set_header Connection "";
+       proxy_buffering off;
+       proxy_cache off;
+       proxy_read_timeout 3600s;
+       proxy_send_timeout 3600s;
+       proxy_set_header Host $host;
+       proxy_set_header X-Forwarded-For $remote_addr;
+       proxy_set_header X-Forwarded-Proto https;
+   }
+   ```
+   then `nginx -s reload`. Without the route the browser's requests answer 502,
+   it stops trying after a few attempts, and nothing else changes.
+5. Check: `docker compose exec realtime python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/realtime/health/').read())"`
+   reports `{"status":"ok","enabled":true,"listener":true,...}`.
+
+To turn it off: stop the profile (`docker compose --profile realtime stop realtime`)
+or unset the three switches above — there is nothing to migrate or clean up.
+*Rolling back* to a previous release needs nothing: the feature and the
+variable are unknown to it and ignored.
+
 ### 1.12 TLS certificate
 
 Domain: see [6](#6-domain-deployment). Static IP: see [7](#7-static-ip-deployment).

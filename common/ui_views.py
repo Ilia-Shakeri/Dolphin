@@ -1,3 +1,4 @@
+from django.urls import reverse
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY, logout
 from django.http import HttpResponse
@@ -139,6 +140,12 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         # PRELIMINARY, UNCOMMITTED — see integration/apps.py
         from common.deployment.profile import paired_accounting_base_url
         context["accounting_base_url"] = paired_accounting_base_url()
+        # Live updates (2.38.0): the page declares its stream only where the
+        # feature is on; a deployment without it renders nothing and the
+        # panel behaves as before.
+        from common import realtime
+
+        context["realtime_url"] = reverse("realtime-events") if realtime.available() else ""
         context["role_label"] = ROLE_LABELS[self.request.user.role]
         if self.request.user.role == User.Role.SALES_AGENT and self.request.user.workstream == User.Workstream.AFTER_SALES:
             context["role_label"] = f'{context["role_label"]} — خدمات پس از فروش'

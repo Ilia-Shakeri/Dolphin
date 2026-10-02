@@ -16,7 +16,7 @@
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="order-number">شماره درخواست تأمین</label><input class="form-control form-control-solid" id="order-number" disabled dir="ltr"></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="order-customer">مشتری</label><input class="form-control form-control-solid" id="order-customer" disabled></div>
-            <div class="col-md-6" id="order-invoice-row" hidden><span class="form-label fw-semibold d-block">فاکتور مرجع</span><a class="form-control form-control-solid d-block" id="order-invoice-link" href="#"></a></div>
+            <div class="col-md-6" id="order-invoice-row" hidden><span class="form-label fw-semibold d-block">فاکتور مرجع</span><a class="form-control form-control-solid d-block" id="order-invoice-link"></a></div>
             {% comment %} وضعیت فقط با مدیر پلتفرم عوض می‌شود و سرویس مستقل از این
                نشانه‌گذاری رد می‌کند. درخواست تأمین تازه همیشه پیش‌نویس است. {% endcomment %}
             {% if can_change_order_status %}

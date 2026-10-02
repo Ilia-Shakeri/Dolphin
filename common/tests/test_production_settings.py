@@ -417,7 +417,7 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertIn("add_header X-Request-ID $request_id always;", config)
         # Counted against the number of proxying locations rather than a fixed
         # number, so adding one cannot quietly skip the header contract.
-        proxied = config.count("proxy_pass http://web:8000;")
+        proxied = len(re.findall(r"^\s*proxy_pass ", config, re.M))  # every proxying location, to `web` or to `realtime`
         self.assertGreaterEqual(proxied, 2)
         self.assertEqual(config.count("proxy_set_header X-Request-ID $request_id;"), proxied)
         self.assertEqual(config.count("proxy_hide_header X-Request-ID;"), proxied)
@@ -450,7 +450,7 @@ class ProductionSettingsTests(SimpleTestCase):
             'add_header Strict-Transport-Security "${DOLPHIN_HSTS_HEADER}" always;',
             config,
         )
-        proxied = config.count("proxy_pass http://web:8000;")
+        proxied = len(re.findall(r"^\s*proxy_pass ", config, re.M))  # every proxying location, to `web` or to `realtime`
         self.assertGreaterEqual(proxied, 2)
         self.assertEqual(config.count("proxy_hide_header Strict-Transport-Security;"), proxied)
         self.assertEqual(config.count("proxy_set_header X-Forwarded-Proto https;"), proxied)

@@ -2,6 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate} from "dolphin/core/jalali.js";
 import {clearMessages, globalMessage, showError} from "dolphin/core/messages.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 import {localPhone} from "dolphin/ui/rows.js";
 
 /**
@@ -242,5 +243,8 @@ export function setupCallPopup() {
     }
 
     document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+    // Live updates (2.38.0): a call that concerns me shows its popup at once;
+    // the timer remains the fallback.
+    onRealtime(["call"], tick, {whenBusy: true, delay: 50});
     tick();
 }

@@ -343,6 +343,32 @@ Rules:
   `Sale` stays as the legacy/derived record. The menu entry «نتایج کمپین» moved under
   the «کمپین‌ها» group as «فروش‌های ثبت‌شده» (same `/sales/` page).
 
+### 5.1B Live updates (2.38.0, feature `realtime`)
+
+`common/realtime.py`. An event is `{k: kind, i: id?, u: users?, t: ms}` and carries
+**no data**: it says that something of a kind changed and the page re-reads through
+the ordinary API under its own permission and object scope. Kinds: `customer`,
+`lead`, `interaction`, `sale`, `campaign`, `invoice`, `order`, `payment`,
+`after_sales`, `inventory` (broadcast to connected CRM users, **without** the record
+id), and `chat` / `call` (addressed to the users concerned). Transport:
+`pg_notify('dolphin_events', …)` *inside the writing transaction* (a rollback
+announces nothing; a failing notify runs in a savepoint and is logged, never
+breaking the write); one `LISTEN` thread in the dedicated `realtime` process fans
+out to Server-Sent-Event streams at `GET /api/v1/realtime/events/` (CRM identities
+only, bounded by `DOLPHIN_REALTIME_MAX_CONNECTIONS` and
+`DOLPHIN_REALTIME_STREAM_SECONDS`, `X-Accel-Buffering: no`). Only the process with
+`DOLPHIN_REALTIME_SERVE_STREAMS=true` serves a stream; the sync `web` workers answer
+404. On SQLite (development) events go straight to the in-process subscribers after
+commit. Gates: the `realtime` feature (off by default), `DOLPHIN_REALTIME_ENABLED`,
+and the compose `realtime` profile. A browser that cannot connect backs off, stops
+after a few attempts, and keeps using its timers.
+
+*Decision record:* the Phase-0 plan proposed Django Channels + Redis (D9). That would
+have added eight hashed dependencies to the lock, a Redis service and an ASGI server
+to every deployment. PostgreSQL `LISTEN/NOTIFY` over SSE gives the same one-way "ask
+again" signal with none of them; two-way messaging is not needed because the panel
+sends over the ordinary API.
+
 ### 5.2 CustomerPhone
 
 Fields:

@@ -15,3 +15,12 @@ class CommonConfig(AppConfig):
         from common.deployment.profile import configure_from_settings
 
         configure_from_settings(settings)
+
+        # Live updates (2.38.0): announce saves, and — only in the dedicated
+        # `realtime` process — listen for them. Both are no-ops unless the
+        # `realtime` feature and DOLPHIN_REALTIME_ENABLED are on.
+        from common import realtime, realtime_signals
+
+        realtime_signals.connect()
+        if getattr(settings, "REALTIME_SERVE_STREAMS", False) and realtime.available():
+            realtime.ensure_listener()

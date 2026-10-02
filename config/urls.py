@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from common.permissions import IsActiveAuthenticated
+from common.realtime_views import EventStreamView, RealtimeHealthView
 from common.views import HealthView, LivenessView, ReadinessView
 from integration.views import HandoffAcceptView  # PRELIMINARY, UNCOMMITTED — see integration/apps.py
 
@@ -30,6 +31,8 @@ def build_urlpatterns():
         # PRELIMINARY, UNCOMMITTED — see integration/apps.py
         path("api/v1/", include("integration.urls")),
         path("integration/handoff/", HandoffAcceptView.as_view(), name="handoff-accept"),
+        path("api/v1/realtime/events/", EventStreamView.as_view(), name="realtime-events"),
+        path("api/v1/realtime/health/", RealtimeHealthView.as_view(), name="realtime-health"),
         path("api/v1/health/", HealthView.as_view(), name="health"),
         path("api/v1/health/live/", LivenessView.as_view(), name="health-live"),
         path("api/v1/health/ready/", ReadinessView.as_view(), name="health-ready"),

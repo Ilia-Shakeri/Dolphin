@@ -2,6 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {clearMessages, globalMessage, showError} from "dolphin/core/messages.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
+import {LIVE_KINDS, onRealtime} from "dolphin/ui/realtime.js";
 import {pageRangeLabel} from "dolphin/ui/table.js";
 
 export async function loadAllPages(url, limit = 20) {
@@ -188,15 +189,21 @@ export function setupPagedList({key, form, search, endpoint, renderRow}) {
     let currentPage = 1;
     const selection = setupRowSelection({key, body, reload: () => load(currentPage)});
 
-    async function load(page = 1) {
-        loading.hidden = false;
-        empty.hidden = true;
-        wrap.hidden = true;
-        pagination.hidden = true;
-        clearMessages();
-        selection.resetSelection();
+    async function load(page = 1, {quiet = false} = {}) {
+        // A live refresh (`quiet`) swaps the rows in place: no spinner, no
+        // cleared message, the selection kept — and a failure is not shown,
+        // because nobody asked for it.
+        if (!quiet) {
+            loading.hidden = false;
+            empty.hidden = true;
+            wrap.hidden = true;
+            pagination.hidden = true;
+            clearMessages();
+            selection.resetSelection();
+        }
         try {
             const data = await apiRequest(endpoint(page));
+            if (quiet) { empty.hidden = true; wrap.hidden = true; }
             body.replaceChildren(...data.results.map((item) => selection.decorateRow(item, renderRow(item))));
             loading.hidden = true;
             if (!data.results.length) { empty.hidden = false; return; }
@@ -207,10 +214,15 @@ export function setupPagedList({key, form, search, endpoint, renderRow}) {
             document.getElementById(`${key}-page-label`).textContent = pageRangeLabel(data, page);
             pagination.hidden = !data.previous && !data.next;
         } catch (error) {
+            if (quiet) return;
             loading.hidden = true;
             showError(error);
         }
     }
+    // Live updates (2.38.0): the list re-reads its current page when a record of
+    // its kind changes, through the same endpoint and scope as any other load.
+    const liveKinds = LIVE_KINDS[key];
+    if (liveKinds) onRealtime(liveKinds, () => load(currentPage, {quiet: true}));
     // A paged list embedded in a detail page (payment allocations, ledger
     // entries) has no filter form of its own; the caller passes null.
     form?.addEventListener("submit", (event) => { event.preventDefault(); load(1); });
