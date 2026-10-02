@@ -36,7 +36,7 @@ def customers_for(user):
     if user.role == User.Role.SALES_AGENT:
         if user.workstream == User.Workstream.AFTER_SALES:
             return queryset.none()
-        return queryset.filter(created_by=user, kind=Customer.Kind.INDIVIDUAL)
+        return queryset.filter(created_by=user)
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()

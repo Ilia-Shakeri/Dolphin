@@ -166,22 +166,26 @@ def _clean_single_line(value, *, field, limit):
 
 
 def _validate_customer_kind(actor, data):
-    """A customer's kind must be real, and must be one this actor may work.
-
-    A marketer's scope is the individual book (`customers_for`). Without this
-    check the API would let one create a legal customer and then be unable to
-    read back the record they had just written — the write would succeed and the
-    customer would be invisible to its own author. Refusing the write is the
-    honest answer.
-    """
+    """A customer's kind must be real. Every role may work either book."""
     if "kind" not in data:
         return
     kind = (data["kind"] or "").strip()
     if kind not in Customer.Kind.values:
         raise BusinessRuleError({"kind": "نوع مشتری را از فهرست انتخاب کنید."})
-    if actor.role == User.Role.SALES_AGENT and kind != Customer.Kind.INDIVIDUAL:
-        raise BusinessPermissionDenied("مشتریان حقوقی خارج از دسترسی شماست.")
     data["kind"] = kind
+
+
+def _apply_economic_code_rule(data, kind, *, current=""):
+    """An individual customer has no economic code; a legal one may.
+
+    Switching a customer to individual clears a stored code, and the change is
+    audited through the usual changed-fields record.
+    """
+    if kind == Customer.Kind.INDIVIDUAL:
+        if (data.get("economic_code") or "").strip():
+            raise BusinessRuleError({"economic_code": "شمارهٔ اقتصادی فقط برای مشتری حقوقی ثبت می‌شود."})
+        if "economic_code" in data or current:
+            data["economic_code"] = ""
 
 
 @transaction.atomic
@@ -192,6 +196,7 @@ def create_customer_with_phone(*, actor, phone=None, **data):
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     _validate_text_lengths(data, CUSTOMER_TEXT_LIMITS)
     _validate_customer_kind(actor, data)
+    _apply_economic_code_rule(data, data.get("kind", Customer.Kind.INDIVIDUAL))
     customer = Customer.objects.create(created_by=actor, **data)
     log_activity(
         actor=actor,
@@ -215,6 +220,10 @@ def update_customer(*, actor, customer, **changes):
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     _validate_text_lengths(changes, CUSTOMER_TEXT_LIMITS)
     _validate_customer_kind(actor, changes)
+    _apply_economic_code_rule(
+        changes, changes.get("kind", locked.kind),
+        current=locked.economic_code if "kind" in changes else "",
+    )
     changed_fields = []
     for field, value in changes.items():
         if getattr(locked, field) != value:

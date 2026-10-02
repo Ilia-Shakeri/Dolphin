@@ -8,7 +8,7 @@ import {fillProvinceSelect, loadIranMap} from "dolphin/ui/iran-map.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {appendCell, appendDetailLink, appendStatusCell} from "dolphin/ui/table.js";
-import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
+import {renderWizardReview, setupWizard} from "dolphin/ui/wizard.js";
 
 function customerRow(customer) {
     const row = document.createElement("tr");
@@ -114,14 +114,26 @@ export function setupCustomers() {
     controller.load();
     const dialog = document.getElementById("create-customer-dialog");
     const createForm = document.getElementById("create-customer-form");
+    const kindInput = document.getElementById("create-customer-kind");
+    const economicReveal = document.getElementById("create-customer-economic-reveal");
+    // The economic code belongs to a legal customer only: for an individual
+    // the field is hidden and switched off, so nothing typed there is sent.
+    const syncKind = () => {
+        const legal = kindInput.value === "legal";
+        economicReveal.classList.toggle("is-open", legal);
+        economicReveal.toggleAttribute("inert", !legal);
+        economicReveal.querySelectorAll("input").forEach((field) => { field.disabled = !legal; });
+    };
+    kindInput.addEventListener("change", syncKind);
+    syncKind();
     function renderCustomerReview() {
         const kindField = document.getElementById("create-customer-kind");
         const phoneRaw = document.getElementById("create-customer-phone").value.trim();
         renderWizardReview(document.getElementById("create-customer-review"), [
             ["نام کامل", createForm.full_name.value || "—"],
-            ...(kindField ? [["نوع مشتری", selectedOptionText(kindField)]] : []),
+            ["نوع مشتری", kindField.value === "legal" ? "حقوقی" : "حقیقی"],
             ["کد ملی", createForm.national_id.value || "—"],
-            ["شماره اقتصادی", createForm.economic_code.value || "—"],
+            ...(kindField.value === "legal" ? [["شماره اقتصادی", createForm.economic_code.value || "—"]] : []),
             ["ایمیل", createForm.email.value || "—"],
             ["دسته‌بندی", createForm.category.value || "—"],
             ["استان", createForm.province.value || "—"],
@@ -166,10 +178,9 @@ export function setupCustomers() {
         event.preventDefault();
         withSubmit(createForm, async () => {
             const payload = formPayload(createForm, ["full_name", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"]);
-            // Absent for a marketer, who has no such selector and whose
-            // customers are individuals by the model's own default.
             const kindField = document.getElementById("create-customer-kind");
-            if (kindField) payload.kind = kindField.value;
+            payload.kind = kindField.value;
+            if (payload.kind !== "legal") delete payload.economic_code;
             const rawPhone = String(new FormData(createForm).get("phone_raw") || "").trim();
             if (rawPhone) payload.phone = {
                 raw_phone: rawPhone,

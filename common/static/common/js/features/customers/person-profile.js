@@ -117,6 +117,12 @@ function customerProfileLoaders(customerId) {
             if (input) input.value = value[name] || "";
         });
         fillProvinceSelect(document.getElementById("edit-customer-province"), value.province || "");
+        // Only a legal customer has an economic code.
+        const economic = document.getElementById("edit-customer-economic-code");
+        if (economic) {
+            economic.disabled = value.kind !== "legal";
+            economic.closest(".col-md-6").hidden = value.kind !== "legal";
+        }
         document.getElementById("customer-created-by").value = value.created_by_display || value.created_by;
         // A status administrator gets a select; everyone else the read-only text.
         const activeSelect = document.getElementById("customer-active-select");

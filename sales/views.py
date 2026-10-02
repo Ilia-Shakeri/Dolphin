@@ -175,6 +175,8 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         parser_classes=[MultiPartParser],
     )
     def import_xlsx(self, request):
+        if not has_any_capability(request.user, "customers.import"):
+            raise PermissionDenied("ورود فهرست مشتریان برای نقش شما فعال نیست.")
         upload = request.FILES.get("file")
         if upload is None:
             raise ValidationError({"file": "فایل تکمیل‌شده را پیوست کنید."})

@@ -10,7 +10,7 @@
    به همان دفتر محدود می‌کند. {% endcomment %}
 {% block page_actions %}
 <button id="open-export-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}خروجی لیست</button>
-{% if can_manage_customer_kinds %}<button id="open-import-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی لیست</button>{% endif %}
+{% if can_import_customers %}<button id="open-import-customers" class="btn btn-light" type="button">{% include "common/includes/excel_icon.inc" %}ورودی لیست</button>{% endif %}
 {% endblock %}
 {% block content %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
@@ -151,15 +151,20 @@
         <div class="current" data-dolphin-stepper-element="content">
             <div class="row g-5">
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-name">نام کامل</label><input class="form-control form-control-solid" id="create-customer-name" name="full_name" required maxlength="255"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="full_name"></p></div>
-                {% comment %} نوع مشتری تعیین می‌کند این مشتری در کدام دفتر بنشیند. بازاریاب
-                   این انتخابگر را نمی‌بیند و سرویس هم مشتری حقوقی از او نمی‌پذیرد. {% endcomment %}
-                {% if can_manage_customer_kinds %}
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-kind">نوع مشتری</label><select class="form-select form-select-solid" id="create-customer-kind" name="kind"><option value="individual">حقیقی</option><option value="legal">حقوقی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="kind"></p></div>
-                {% endif %}
+                <div class="col-md-6">
+                    <span class="form-label fw-semibold d-block" id="create-customer-kind-label">نوع مشتری</span>
+                    <input type="hidden" id="create-customer-kind" name="kind" value="individual">
+                    <div class="dolphin-segmented" role="radiogroup" aria-labelledby="create-customer-kind-label" data-segmented-for="create-customer-kind">
+                        <button type="button" role="radio" aria-checked="true" class="dolphin-segmented-option is-selected" data-value="individual"><i class="di-duotone di-profile-circle fs-4 me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>حقیقی</button>
+                        <button type="button" role="radio" aria-checked="false" class="dolphin-segmented-option" data-value="legal"><i class="di-duotone di-office-bag fs-4 me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>حقوقی</button>
+                    </div>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="kind"></p>
+                </div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-national-id">کد ملی</label><input class="form-control form-control-solid" id="create-customer-national-id" name="national_id" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="national_id"></p></div>
-                {% comment %} فقط مشتری حقوقی شماره اقتصادی دارد، و فقط فاکتور رسمی آن را
-                   لازم دارد؛ پس اینجا اختیاری است. {% endcomment %}
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-economic-code">شماره اقتصادی</label><input class="form-control form-control-solid" id="create-customer-economic-code" name="economic_code" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="economic_code"></p></div>
+                {% comment %} شمارهٔ اقتصادی فقط برای مشتری حقوقی باز می‌شود (سرور هم همین را اعمال می‌کند). {% endcomment %}
+                <div class="col-md-6 dolphin-reveal" id="create-customer-economic-reveal" inert><div class="dolphin-reveal-inner">
+                <div><label class="form-label fw-semibold" for="create-customer-economic-code">شماره اقتصادی</label><input class="form-control form-control-solid" id="create-customer-economic-code" name="economic_code" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="economic_code"></p></div>
+                </div></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-email">ایمیل</label><input class="form-control form-control-solid" id="create-customer-email" name="email" type="email" maxlength="254"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="email"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-customer-category">دسته‌بندی</label><input class="form-control form-control-solid" id="create-customer-category" name="category" maxlength="100"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="category"></p></div>
             </div>

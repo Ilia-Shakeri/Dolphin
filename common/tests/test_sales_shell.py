@@ -91,13 +91,13 @@ class SalesShellContractTests(SimpleTestCase):
         self.assertIn("<th>تسویه</th>", customer_detail)
         self.assertIn("<th>مانده</th>", customer_detail)
 
-        # Two customer books, and the marketer is offered neither the switch nor
-        # the kind selector. That hiding is not the authorisation — see
-        # test_scope_attacks for what the backend refuses.
+        # Two customer books, open to every role (2.34.7); the import button is
+        # gated by its own capability, which the endpoint also enforces.
         self.assertIn('data-customer-kind="individual"', customer_list)
         self.assertIn('data-customer-kind="legal"', customer_list)
         self.assertIn('name="kind"', customer_list)
-        self.assertEqual(customer_list.count("can_manage_customer_kinds"), 5)
+        self.assertEqual(customer_list.count("can_manage_customer_kinds"), 3)
+        self.assertIn("can_import_customers", customer_list)
         self.assertIn('id="open-export-customers"', customer_list)
         self.assertIn('id="open-import-customers"', customer_list)
         self.assertNotIn("دریافت XLSX", customer_list)

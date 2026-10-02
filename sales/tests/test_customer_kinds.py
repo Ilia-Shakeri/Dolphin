@@ -1,10 +1,8 @@
 """Two customer books, and who may read and write each.
 
-The panel hides the حقوقی switch from a marketer. These tests are about what
-happens when the hiding is bypassed — because the hiding is not the
-authorisation. `customers_for` confines a marketer to the individual book in
-the database, and `_validate_customer_kind` refuses them a legal customer on the
-way in, so both directions are closed whatever the page rendered.
+Since 2.34.7 every role works both books; a marketer's scope is their own
+customers of either kind (`customers_for`). An individual customer has no
+economic code, a legal one may.
 """
 
 import io
@@ -82,32 +80,25 @@ class CustomerKindTests(TestCase):
 
     # --- read scope --------------------------------------------------------
 
-    def test_a_marketer_reads_only_the_individual_book(self):
+    def test_a_marketer_reads_their_own_customers_of_either_book(self):
         mine_individual = self.make(self.agent, "مشتری حقیقی من", Customer.Kind.INDIVIDUAL)
-        mine_legal = Customer.objects.create(
-            full_name="شرکت من", kind=Customer.Kind.LEGAL, created_by=self.agent
-        )
+        mine_legal = self.make(self.agent, "شرکت من", Customer.Kind.LEGAL)
         theirs = self.make(self.manager, "شرکت دیگری", Customer.Kind.LEGAL)
 
         visible = set(customers_for(self.agent))
-        self.assertEqual(visible, {mine_individual})
-        self.assertNotIn(mine_legal, visible)
+        self.assertEqual(visible, {mine_individual, mine_legal})
         self.assertNotIn(theirs, visible)
 
-    def test_a_marketer_asking_for_the_legal_book_gets_an_empty_page(self):
-        """Not someone else's customers, and not an error that leaks a count."""
+    def test_a_marketer_asking_for_the_legal_book_gets_only_their_own(self):
         self.make(self.agent, "حقیقی", Customer.Kind.INDIVIDUAL)
-        Customer.objects.create(
-            full_name="حقوقی", kind=Customer.Kind.LEGAL, created_by=self.agent
-        )
+        self.make(self.agent, "حقوقی", Customer.Kind.LEGAL)
+        self.make(self.manager, "حقوقی دیگری", Customer.Kind.LEGAL)
         response = self.client_for(self.agent).get("/api/v1/customers/?kind=legal")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["count"], 1)
 
-    def test_a_marketer_cannot_open_a_legal_customer_by_id(self):
-        legal = Customer.objects.create(
-            full_name="شرکت", kind=Customer.Kind.LEGAL, created_by=self.agent
-        )
+    def test_a_marketer_cannot_open_someone_elses_legal_customer_by_id(self):
+        legal = self.make(self.manager, "شرکت", Customer.Kind.LEGAL)
         response = self.client_for(self.agent).get(f"/api/v1/customers/{legal.pk}/")
         self.assertEqual(response.status_code, 404)
 
@@ -126,26 +117,43 @@ class CustomerKindTests(TestCase):
 
     # --- write scope -------------------------------------------------------
 
-    def test_a_marketer_cannot_create_a_legal_customer(self):
-        with self.assertRaises(BusinessPermissionDenied):
-            create_customer_with_phone(
-                actor=self.agent, full_name="شرکت", kind=Customer.Kind.LEGAL
-            )
-        self.assertEqual(Customer.objects.count(), 0)
+    def test_a_marketer_can_create_a_legal_customer(self):
+        customer = create_customer_with_phone(
+            actor=self.agent, full_name="شرکت", kind=Customer.Kind.LEGAL,
+            economic_code="411111111111",
+        )
+        self.assertEqual(customer.kind, Customer.Kind.LEGAL)
+        self.assertEqual(customer.economic_code, "411111111111")
 
-    def test_the_api_refuses_a_marketer_a_legal_customer(self):
+    def test_the_api_lets_a_marketer_create_a_legal_customer(self):
         response = self.client_for(self.agent).post(
             "/api/v1/customers/", {"full_name": "شرکت", "kind": "legal"}, format="json"
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 201)
+
+    def test_an_individual_cannot_carry_an_economic_code(self):
+        with self.assertRaises(BusinessRuleError) as caught:
+            create_customer_with_phone(
+                actor=self.manager, full_name="شخص", economic_code="411111111111"
+            )
+        self.assertIn("economic_code", caught.exception.detail)
         self.assertEqual(Customer.objects.count(), 0)
 
-    def test_a_marketer_cannot_move_their_own_customer_into_the_legal_book(self):
+    def test_switching_to_individual_clears_the_economic_code(self):
+        legal = create_customer_with_phone(
+            actor=self.manager, full_name="شرکت", kind=Customer.Kind.LEGAL,
+            economic_code="411111111111",
+        )
+        update_customer(actor=self.manager, customer=legal, kind=Customer.Kind.INDIVIDUAL)
+        legal.refresh_from_db()
+        self.assertEqual(legal.kind, Customer.Kind.INDIVIDUAL)
+        self.assertEqual(legal.economic_code, "")
+
+    def test_a_marketer_may_move_their_own_customer_into_the_legal_book(self):
         mine = self.make(self.agent, "شخص", Customer.Kind.INDIVIDUAL)
-        with self.assertRaises(BusinessPermissionDenied):
-            update_customer(actor=self.agent, customer=mine, kind=Customer.Kind.LEGAL)
+        update_customer(actor=self.agent, customer=mine, kind=Customer.Kind.LEGAL)
         mine.refresh_from_db()
-        self.assertEqual(mine.kind, Customer.Kind.INDIVIDUAL)
+        self.assertEqual(mine.kind, Customer.Kind.LEGAL)
 
     def test_an_unknown_kind_is_refused_by_name_rather_than_by_the_constraint(self):
         """The database would catch it too, but as an error naming no field."""
@@ -226,12 +234,12 @@ class CustomerSpreadsheetTests(TestCase):
                 }
                 self.assertEqual(names, expected)
 
-    def test_a_marketer_exports_only_their_own_individual_book(self):
+    def test_a_marketer_exports_only_their_own_customers(self):
         create_customer_with_phone(
-            actor=self.agent, full_name="مال من", kind=Customer.Kind.INDIVIDUAL
+            actor=self.agent, full_name="مال من", kind=Customer.Kind.LEGAL
         )
-        Customer.objects.create(
-            full_name="شرکت پنهان", kind=Customer.Kind.LEGAL, created_by=self.agent
+        create_customer_with_phone(
+            actor=self.manager, full_name="مال دیگری", kind=Customer.Kind.LEGAL
         )
         payload = self.client_for(self.agent).get(
             "/api/v1/exports/customers.xlsx?kind=legal"
@@ -241,7 +249,7 @@ class CustomerSpreadsheetTests(TestCase):
             line[1] for line in sheet.iter_rows(min_row=2, values_only=True)
             if line[0] is not None
         }
-        self.assertEqual(names, set())
+        self.assertEqual(names, {"مال من"})
 
     def test_the_chosen_list_wins_over_the_kind_written_in_the_file(self):
         """The operator picked a list to import into; a stray cell is not that."""
@@ -326,7 +334,7 @@ class CustomerSpreadsheetTests(TestCase):
             )
         self.assertEqual(Customer.objects.count(), 0)
 
-    def test_a_marketer_cannot_import_into_the_legal_book(self):
+    def test_a_role_without_the_import_capability_cannot_import(self):
         response = self.client_for(self.agent).post(
             "/api/v1/customers/import-xlsx/",
             {"file": sheet_from(row("شرکت", phone="09121110010")), "kind": "legal"},
