@@ -53,6 +53,22 @@ export function fillSelect(select, rows, label, emptyLabel) {
  * endpoint is derived from it rather than threaded through every one of
  * `setupPagedList`'s dozen call sites.
  */
+/**
+ * The rows just deleted slide out and fade before the list reloads, so the
+ * removal is seen rather than the table silently changing. Skipped for users
+ * who ask for reduced motion.
+ */
+async function playRemoval(body, deletedIds) {
+    if (!deletedIds?.length || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ids = new Set(deletedIds.map(String));
+    const rows = Array.from(body.querySelectorAll("[data-row-select]"))
+        .filter((box) => ids.has(box.dataset.rowSelect))
+        .map((box) => box.closest("tr"))
+        .filter(Boolean);
+    rows.forEach((row) => row.classList.add("is-removing"));
+    if (rows.length) await new Promise((resolve) => setTimeout(resolve, 320));
+}
+
 export function setupRowSelection({key, body, reload}) {
     const selectAll = document.querySelector(`[data-${key}-select="all"]`);
     if (!selectAll) return {decorateRow: (item, row) => row, resetSelection() {}};
@@ -102,6 +118,7 @@ export function setupRowSelection({key, body, reload}) {
             if (result.protected?.length) parts.push(`${toPersianDigits(String(result.protected.length))} مورد سابقهٔ وابسته داشت و حذف نشد`);
             if (result.denied?.length) parts.push(`${toPersianDigits(String(result.denied.length))} مورد مجاز به حذف نبود`);
             resetSelection();
+            await playRemoval(body, result.deleted);
             // `reload()` starts with `clearMessages()` (same as every
             // other `load()` in this file) — called first so it cannot
             // erase the very message it is about to show.

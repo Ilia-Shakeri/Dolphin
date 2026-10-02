@@ -9,7 +9,7 @@ import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wi
 function userRow(user) {
     const row = document.createElement("tr");
     const displayName = [user.first_name, user.last_name].filter(Boolean).join(" ") || "—";
-    const workstream = user.workstream === "after_sales" ? "خدمات پس از فروش" : "فروش و مرکز تماس";
+    const workstream = user.workstream === "after_sales" ? "خدمات پس از فروش" : "فروش و مرکز ارتباطات";
     const cells = [user.username, displayName, `${ROLE_LABELS[user.role] || "—"} — ${workstream}`];
     cells.forEach((value) => { const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell); });
     // The theme's badge, like every other list's status column (product-

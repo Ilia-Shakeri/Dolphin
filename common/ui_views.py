@@ -349,7 +349,7 @@ class DolphinHomeView(ActiveCrmView):
         add("leads.scoped", "صف سرنخ من", lead_scope.count, "common_ui:leads")
         add("leads.company", "سرنخ‌های شرکت", lead_scope.count, "common_ui:leads")
         add("interactions.scoped", "تماس‌های مجاز من", interaction_scope.count, "common_ui:interactions")
-        add("interactions.company", "فعالیت مرکز تماس", interaction_scope.count, "common_ui:interactions")
+        add("interactions.company", "فعالیت مرکز ارتباطات", interaction_scope.count, "common_ui:interactions")
         add("sales.own", "فروش‌های من", sale_scope.count, "common_ui:sales")
         add("sales.company", "فروش‌های شرکت", sale_scope.count, "common_ui:sales")
         add("sales_documents.scoped", "اسناد فروش مجاز", document_scope.count, "common_ui:sales-documents")
@@ -1354,6 +1354,19 @@ class DolphinSettingsView(ActiveCrmView):
             from scoring.views import catalog
 
             context["scoring_catalog"] = catalog()
+        # One tab per group that has anything to show this reader. A tab's
+        # content is rendered whether or not it is the active one (the page
+        # switches without a reload); `?tab=` makes any tab linkable.
+        tabs = [("display", "نمایش پنل")]
+        if context["can_manage_scoring"]:
+            tabs.append(("scoring", "امتیازدهی"))
+        if context["can_manage_backups"]:
+            tabs.append(("backups", "پشتیبان‌گیری"))
+        if context["can_manage_branding"] or context["can_manage_integrations"]:
+            tabs.append(("deployment", "استقرار"))
+        requested = self.request.GET.get("tab", "")
+        context["settings_tabs"] = tabs
+        context["active_tab"] = requested if requested in {key for key, _ in tabs} else "display"
         return context
 
 

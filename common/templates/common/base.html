@@ -534,7 +534,7 @@
                                 <div data-dolphin-menu-trigger="click" data-module="call-center" data-nav-group="call-center" class="menu-item menu-accordion">
                                     <span class="menu-link">
                                         <span class="menu-icon"><i class="di-duotone di-phone fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">مرکز تماس</span>
+                                        <span class="menu-title">مرکز ارتباطات</span>
                                         <span class="menu-arrow"></span>
                                     </span>
                                     <div class="menu-sub menu-sub-accordion">
@@ -549,7 +549,7 @@
                                         {% endif %}
                                         {% endif %}
                                         {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز تماس{% endif %}</span></a></div>
+                                        <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز ارتباطات{% endif %}</span></a></div>
                                         {% endif %}
                                     </div>
                                 </div>

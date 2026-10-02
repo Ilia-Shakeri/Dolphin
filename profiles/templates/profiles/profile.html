@@ -7,6 +7,7 @@
 {% block page_icon %}<i class="di-duotone di-profile-circle page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>{% endblock %}
 {% block page_title %}{% if person.type == "customer" %}پروفایل مشتری{% elif is_own_profile %}پروفایل من{% else %}پروفایل کاربر{% endif %}{% endblock %}
 {% block breadcrumb_current %}{% if person %}{{ person.name }}{% else %}پروفایل{% endif %}{% endblock %}
+{% block page_actions %}{% if person.type == "customer" %}<a class="btn btn-light" href="{% url 'common_ui:customers' %}">بازگشت به فهرست</a>{% elif not is_own_profile and can_manage_users %}<a class="btn btn-light" href="{% url 'common_ui:users' %}">بازگشت به فهرست</a>{% endif %}{% endblock %}
 {% block content %}
 {% comment %} یک پروفایل برای هر نوع شخص (۲.۱۹.۰). سربرگ همین‌جا از داده‌ای رندر
    می‌شود که view پس از بررسی دامنه در اختیار دارد؛ دادهٔ هر زبانه فقط وقتی آن

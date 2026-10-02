@@ -30,7 +30,7 @@ ROLE_LABELS = {
     User.Role.PLATFORM_ADMIN: "مدیر پلتفرم",
 }
 WORKSTREAM_LABELS = {
-    User.Workstream.SALES: "فروش و مرکز تماس",
+    User.Workstream.SALES: "فروش و مرکز ارتباطات",
     User.Workstream.AFTER_SALES: "خدمات پس از فروش",
 }
 

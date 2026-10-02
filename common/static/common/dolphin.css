@@ -4382,3 +4382,22 @@ body .btn {
         transition: none;
     }
 }
+
+/* A row deleted from a list slides out before the list reloads (ui/lists.js). */
+tr.is-removing > td {
+    opacity: 0;
+    transform: translateX(-24px);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+    tr.is-removing > td { transition: none; transform: none; }
+}
+
+/* «انتقال به تاریخ…» control inside a calendar event chip (ui/calendar.js). */
+.calendar-event-move {
+    margin-inline-start: 0.4rem;
+    cursor: pointer;
+    opacity: 0.75;
+}
+.calendar-event-move:hover,
+.calendar-event-move:focus-visible { opacity: 1; }

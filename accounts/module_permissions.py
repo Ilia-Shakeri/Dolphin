@@ -64,7 +64,7 @@ class Module:
 MODULES = (
     Module("customers", "مشتریان", ("customers.scoped", "customers.company"), ("customers.manage",), ("customers.delete",)),
     Module("leads", "سرنخ‌ها", ("leads.scoped", "leads.company"), ("leads.manage",), ("leads.delete",)),
-    Module("interactions", "تعامل‌های مرکز تماس", ("interactions.scoped", "interactions.company"), ("interactions.manage",), ("interactions.delete",)),
+    Module("interactions", "تعامل‌های مرکز ارتباطات", ("interactions.scoped", "interactions.company"), ("interactions.manage",), ("interactions.delete",)),
     Module("sales", "نتایج کمپین فروش", ("sales.own", "sales.company"), ("sales.manage",)),
     Module("product_categories", "دسته‌بندی کالا", ("product_categories.read", "product_categories.manage"), ("product_categories.manage",), ("product_categories.delete",)),
     Module("products", "کاتالوگ محصولات", ("products.read", "products.manage"), ("products.manage",), ("products.delete",)),
