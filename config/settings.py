@@ -392,6 +392,11 @@ BILLING_INVOICE_AFFECTS_STOCK = (
     os.environ.get("DOLPHIN_BILLING_INVOICE_AFFECTS_STOCK", "false").lower() == "true"
 )
 
+# Last-touch window for campaign attribution (2.36.0): an issued invoice counts
+# for the campaign whose person was most recently contacted within this many
+# days before it. A manager can still correct the link by hand.
+CAMPAIGN_ATTRIBUTION_WINDOW_DAYS = int(os.environ.get("DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS", "30"))
+
 # When a cheque payment credits the customer account: on clearing (default) or
 # at registration. Clearing is the safe default because an uncleared cheque is
 # not money received.

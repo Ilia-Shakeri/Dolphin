@@ -283,7 +283,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
     def test_the_day_one_set_satisfies_every_dependency(self):
         self.assertEqual(missing_dependencies(self.day_one), {})
 
-    def test_the_withheld_features_are_exactly_the_eleven_intended_ones(self):
+    def test_the_withheld_features_are_exactly_the_intended_ones(self):
         withheld = frozenset(ALL_FEATURES) - self.day_one - self.person_profile_features
         # `inbound_sms` and `outbound_sms` are both built and provider-neutral,
         # but no real gateway contract, credential, or owner has arrived for
@@ -332,13 +332,15 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # default for any new deployment once split out of `payments`
         # (`DEFAULT_OFF_FEATURES` omits it), absent here only because
         # Client-1's frozen day-one manifest predates the split.
+        # `campaigns` (2.36.0) is off by default everywhere: it needs
+        # `migrate_campaigns` and is switched on per manifest.
         self.assertEqual(
             withheld,
             frozenset({
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "accounting_ledger", "panel_backup", "cheques",
+                "accounting_ledger", "panel_backup", "cheques", "campaigns",
             }),
         )
 
@@ -348,7 +350,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "inbound_sms", "outbound_sms", "internal_it_role", "attachments",
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
-                "accounting_ledger", "panel_backup", "cheques",
+                "accounting_ledger", "panel_backup", "cheques", "campaigns",
             ):
                 self.assertNotIn(withheld, requires, f"{feature} requires {withheld}")
 

@@ -136,6 +136,14 @@ FEATURE_DEPENDENCIES = {
     # feature.
     "lead_kanban": frozenset({"leads"}),
 
+    # Campaigns as a real entity (2.36.0): the «کمپین‌ها» pages, per-campaign
+    # people and stages, last-touch invoice attribution and campaign
+    # analytics. Off by default (a deployment gets it from its manifest, after
+    # `manage.py migrate_campaigns` has run). It reads leads, customers and
+    # invoices but changes none of their tables, so the three are its hard
+    # dependencies and nothing else.
+    "campaigns": frozenset({"leads", "customers", "invoices"}),
+
     # Order kanban board (سفارش‌ها): same shape as lead_kanban, one module
     # over. It has no mutation path of its own either — dragging a card
     # between columns goes through the existing
@@ -263,6 +271,7 @@ FEATURES = frozenset(FEATURE_DEPENDENCIES)
 DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "person_scoring", "tasks", "person_notes",
     "integrations", "outbound_webhooks", "public_api", "telephony",
+    "campaigns",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

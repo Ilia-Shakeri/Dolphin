@@ -555,7 +555,27 @@
                                 </div>
                                 {% endif %}
 
-                                {% if "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
+                                {% if "campaigns" in features and "campaigns.scoped" in capabilities or "campaigns" in features and "campaigns.company" in capabilities %}
+                                <div data-dolphin-menu-trigger="click" data-module="campaigns" data-nav-group="campaigns" class="menu-item menu-accordion">
+                                    <span class="menu-link">
+                                        <span class="menu-icon"><i class="di-duotone di-send fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">کمپین‌ها</span>
+                                        <span class="menu-arrow"></span>
+                                    </span>
+                                    <div class="menu-sub menu-sub-accordion">
+                                        <div class="menu-item"><a data-module="campaigns" class="menu-link" href="{% url 'common_ui:campaigns' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">فهرست کمپین‌ها</span></a></div>
+                                        {% if "campaign_results.scoped" in capabilities or "campaign_results.company" in capabilities %}
+                                        <div class="menu-item"><a data-module="campaign-results" class="menu-link" href="{% url 'common_ui:campaign-results' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">نتایج</span></a></div>
+                                        {% endif %}
+                                        {% if "campaigns.analytics" in capabilities %}
+                                        <div class="menu-item"><a data-module="campaign-analytics" class="menu-link" href="{% url 'common_ui:campaign-analytics' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">آنالیز</span></a></div>
+                                        {% endif %}
+                                        {% if "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
+                                        <div class="menu-item"><a data-module="sales" class="menu-link" href="{% url 'common_ui:sales' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}فروش‌های ثبت‌شدهٔ من{% else %}فروش‌های ثبت‌شده{% endif %}</span></a></div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% elif "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
                                 <div class="menu-item">
                                     <a data-module="sales" class="menu-link" href="{% url 'common_ui:sales' %}">
                                         <span class="menu-icon"><i class="di-duotone di-handcart fs-2"></i></span>

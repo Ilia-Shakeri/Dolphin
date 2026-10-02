@@ -744,6 +744,9 @@ def record_interaction(*, actor, lead, target_member=None, **data):
     )
     if target_member is not None:
         refresh_target_member_status(member=target_member, actor=actor)
+        from sales.campaigns import advance_stage_on_contact
+
+        advance_stage_on_contact(target_member)
     next_follow_up_at = data.get("next_follow_up_at")
     if next_follow_up_at is not None and locked_lead.next_follow_up_at != next_follow_up_at:
         locked_lead.next_follow_up_at = next_follow_up_at
@@ -1166,9 +1169,15 @@ def add_target_audience_member(*, actor, lead, full_name, raw_phone, status="", 
     # decided by what happens to it, not by what anyone types.
     status = TargetAudienceMember.Status.LEAD
     normalized = normalize_customer_phone(raw_phone)
+    # Before campaigns (2.36.0) a phone appeared once in the whole audience, and
+    # that stays the rule for a container with no campaign. A container that
+    # belongs to a campaign is unique per campaign (a database constraint).
+    if locked_lead.campaign_id is None and TargetAudienceMember.objects.filter(normalized_phone=normalized).exists():
+        raise BusinessConflictError({"raw_phone": "این شماره قبلاً در این کمپین ثبت شده است."})
     try:
         member = TargetAudienceMember.objects.create(
             lead=locked_lead,
+            campaign_id=locked_lead.campaign_id,
             full_name=str(full_name).strip(),
             raw_phone=raw_phone,
             normalized_phone=normalized,
@@ -1209,6 +1218,12 @@ def update_target_audience_member(*, actor, member, **changes):
         changes["full_name"] = str(changes["full_name"]).strip()
         if not changes["full_name"]:
             raise BusinessRuleError({"full_name": "این فیلد الزامی است."})
+    if (
+        "normalized_phone" in changes
+        and locked.campaign_id is None
+        and TargetAudienceMember.objects.filter(normalized_phone=changes["normalized_phone"]).exclude(pk=locked.pk).exists()
+    ):
+        raise BusinessConflictError({"raw_phone": "این شماره قبلاً در این کمپین ثبت شده است."})
     changed_fields = []
     for field, value in changes.items():
         if getattr(locked, field) != value:

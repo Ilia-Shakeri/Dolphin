@@ -87,7 +87,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
 
     def get_queryset(self):
         queryset = (
-            customers_for(self.request.user).select_related("created_by").prefetch_related("phones")
+            customers_for(self.request.user).select_related("created_by", "owner").prefetch_related("phones")
         )
         # Narrowing only. `customers_for` has already decided which books this
         # caller may read at all, so a marketer asking for `kind=legal` gets an

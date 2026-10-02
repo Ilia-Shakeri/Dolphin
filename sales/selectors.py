@@ -164,4 +164,11 @@ def target_audience_for(user):
     audience of the campaigns assigned to them and nothing else. Read access
     only is a separate question from write access, which lives in the service.
     """
-    return TargetAudienceMember.objects.filter(lead__in=leads_for(user))
+    queryset = TargetAudienceMember.objects.filter(lead__in=leads_for(user))
+    if user.role == User.Role.SALES_AGENT and user.workstream != User.Workstream.AFTER_SALES:
+        # 2.36.0: a campaign person assigned to this marketer is theirs even
+        # when the hidden container behind it is not.
+        queryset = TargetAudienceMember.objects.filter(
+            Q(lead__in=leads_for(user)) | Q(assigned_to=user)
+        ).distinct()
+    return queryset

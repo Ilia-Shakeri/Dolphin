@@ -306,6 +306,43 @@ Rules:
 - **Kinds and economic code (2.34.7):** every role works both customer books; an individual customer has no `economic_code` (refused on write, cleared when a customer becomes individual); `customers.import` governs the Excel import.
 - The maintained Customer detail profile may show only Leads, Interactions, and Sales already visible to the actor through their existing backend scopes.
 
+### 5.1A Campaign (2.36.0, feature `campaigns`)
+
+`Campaign` is the real campaign entity (unique normalised name; status
+draft/active/paused/finished/archived; channel; dates; target count; budget;
+responsibles; three system campaigns `direct`/`referral`/`legacy`). Its people are
+`TargetAudienceMember` rows — **one per person per campaign** (the global unique
+phone constraint became `unique(campaign, normalized_phone)`), each with its own
+`assigned_to`, `stage` (new/contacted/engaged/converted/lost), `lost_reason`,
+`next_follow_up_at`, `converted_at` and `was_customer_on_entry`. Each campaign owns
+a hidden `Lead` container (`Lead.campaign`) so interactions, sales and quotations
+keep pointing at a `Lead`; the old `campaign_or_batch` text is untouched.
+
+Rules:
+
+- **Conversion** is a valid invoice (issued, not cancelled) issued to the person's
+  customer record after they entered the campaign. Being a customer already is the
+  flag `was_customer_on_entry`, never a win. `converted` is never typed in;
+  cancelling the backing invoice returns the person to engaged/new.
+- **Attribution** (`CampaignAttribution`, one row per invoice; `CampaignAttributionLog`
+  append-only) is last-touch within `CAMPAIGN_ATTRIBUTION_WINDOW_DAYS` (default 30),
+  run by billing right after `issue_invoice` in a savepoint that can never fail an
+  issue (failures are logged to `dolphin.campaigns`). `campaigns.attribute` may
+  correct it by hand with a reason, on an *issued* invoice only; the invoice is
+  never modified. Drafts and cancelled invoices count for nothing.
+- **Three numbers, never summed:** registered sales (`Sale`), valid invoices, and
+  collected (`Invoice.paid_amount`). Unknown is `None`/«—», not 0.
+- **Permissions:** `campaigns.scoped|company|manage|work|attribute|analytics|delete`,
+  `campaign_results.scoped|company`. A marketer reads the campaigns they are
+  responsible for or hold people in, works only people assigned to them, and sees no
+  money columns; analytics, export and manual attribution are manager-side.
+- **API:** `/api/v1/campaigns/` (+ `status/`, `add-member/`, `members/`, `results/`,
+  `analytics/`, `export/`, `attribute-invoice/`, `attribution-log/`),
+  `/api/v1/campaign-members/<id>/stage|assign/`.
+- **Sale (decision D1):** an invoice is the one source of revenue and conversion;
+  `Sale` stays as the legacy/derived record. The menu entry «نتایج کمپین» moved under
+  the «کمپین‌ها» group as «فروش‌های ثبت‌شده» (same `/sales/` page).
+
 ### 5.2 CustomerPhone
 
 Fields:

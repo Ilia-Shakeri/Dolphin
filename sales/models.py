@@ -10,6 +10,7 @@ from common.models import TimeStampedModel
 
 CUSTOMER_ADDRESS_MAX_LENGTH = 2000
 CUSTOMER_CATEGORY_MAX_LENGTH = 100
+CAMPAIGN_NAME_MAX_LENGTH = 120
 CUSTOMER_POSTAL_CODE_MAX_LENGTH = 32
 FREE_TEXT_MAX_LENGTH = 4000
 INTERACTION_OUTCOME_MAX_LENGTH = 80
@@ -235,6 +236,111 @@ class Product(TimeStampedModel):
         indexes = [models.Index(fields=["category", "is_active", "name"])]
 
 
+class Campaign(TimeStampedModel):
+    """A marketing campaign: the unit people are worked and measured by (2.36.0).
+
+    Until now a campaign was only free text (`Lead.campaign_or_batch`), so two
+    spellings were two campaigns and nothing could be measured. This is the
+    real entity. Its people are `TargetAudienceMember` rows (one per person per
+    campaign); its results are the valid invoices attributed to it
+    (`CampaignAttribution`).
+
+    `Lead` stays what it was — a work container other modules point at — and
+    each campaign owns one hidden container so those modules keep working.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "پیش‌نویس"
+        ACTIVE = "active", "فعال"
+        PAUSED = "paused", "متوقف"
+        FINISHED = "finished", "تمام‌شده"
+        ARCHIVED = "archived", "بایگانی"
+
+    class Channel(models.TextChoices):
+        PHONE = "phone", "تماس تلفنی"
+        SMS = "sms", "پیامک"
+        SOCIAL = "social", "شبکه‌های اجتماعی"
+        EXHIBITION = "exhibition", "نمایشگاه"
+        REFERRAL = "referral", "معرفی"
+        WEBSITE = "website", "وب‌سایت"
+        OTHER = "other", "سایر"
+
+    name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH)
+    normalized_name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH, unique=True, editable=False)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    channel = models.CharField(max_length=16, choices=Channel.choices, default=Channel.PHONE)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    target_count = models.PositiveIntegerField(null=True, blank=True)
+    budget = models.DecimalField(max_digits=18, decimal_places=2, null=True, blank=True)
+    responsibles = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="responsible_campaigns")
+    #: Set for the three campaigns every deployment has (`direct`, `referral`,
+    #: `legacy`); they cannot be deleted or renamed away from their meaning.
+    system_key = models.CharField(max_length=16, blank=True, default="")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_campaigns")
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="updated_campaigns")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(name__regex=r"\S"), name="campaign_name_nonblank"),
+            models.CheckConstraint(
+                condition=Q(status__in=["draft", "active", "paused", "finished", "archived"]),
+                name="campaign_status_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(starts_on__isnull=True) | Q(ends_on__isnull=True) | Q(ends_on__gte=models.F("starts_on")),
+                name="campaign_dates_ordered",
+            ),
+            models.UniqueConstraint(fields=["system_key"], condition=~Q(system_key=""), name="uniq_campaign_system_key"),
+        ]
+        indexes = [models.Index(fields=["status", "-created_at"])]
+
+
+class CampaignAttribution(TimeStampedModel):
+    """Which campaign a valid invoice counts for (2.36.0).
+
+    One row per invoice. Automatic attribution follows the last touch — the
+    campaign whose person this customer was, most recently contacted, inside
+    the window (`CAMPAIGN_ATTRIBUTION_WINDOW_DAYS`); a manager may correct it
+    by hand. Only the link to a campaign is ever changed; the invoice itself is
+    never touched, which is why this lives beside it and not on it.
+    """
+
+    class Source(models.TextChoices):
+        AUTO = "auto", "خودکار"
+        MANUAL = "manual", "دستی"
+
+    invoice = models.OneToOneField("billing.Invoice", on_delete=models.PROTECT, related_name="campaign_attribution")
+    campaign = models.ForeignKey(Campaign, on_delete=models.PROTECT, related_name="attributions")
+    member = models.ForeignKey(
+        "sales.TargetAudienceMember", null=True, blank=True, on_delete=models.SET_NULL, related_name="attributions"
+    )
+    source = models.CharField(max_length=8, choices=Source.choices, default=Source.AUTO)
+    attributed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="campaign_attributions_made"
+    )
+    reason = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["campaign", "-created_at"])]
+
+
+class CampaignAttributionLog(models.Model):
+    """Append-only history of every attribution and correction."""
+
+    invoice = models.ForeignKey("billing.Invoice", on_delete=models.PROTECT, related_name="campaign_attribution_log")
+    from_campaign = models.ForeignKey(Campaign, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    to_campaign = models.ForeignKey(Campaign, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    source = models.CharField(max_length=8)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    reason = models.CharField(max_length=500, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
 class Lead(TimeStampedModel):
     class Status(models.TextChoices):
         """The three states Client-1 tracks a campaign in.
@@ -258,6 +364,10 @@ class Lead(TimeStampedModel):
     )
     source = models.CharField(max_length=100, blank=True)
     campaign_or_batch = models.CharField(max_length=100, blank=True)
+    #: The real campaign this work container belongs to (2.36.0). Filled by
+    #: `migrate_campaigns` for existing leads and by the campaign services for
+    #: new ones; the free-text label above is kept as it was.
+    campaign = models.ForeignKey("sales.Campaign", null=True, blank=True, on_delete=models.PROTECT, related_name="leads")
     interested_product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.PROTECT, related_name="interested_leads")
     status = models.CharField(max_length=40, choices=Status.choices, default=Status.PENDING, blank=True, db_index=True)
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assigned_leads")
@@ -321,6 +431,37 @@ class TargetAudienceMember(TimeStampedModel):
     updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="updated_target_members")
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
 
+    class Stage(models.TextChoices):
+        """Where a person stands in a campaign (2.36.0).
+
+        Unlike `status` (derived, and inflated by anyone who happens to be a
+        customer already), `converted` is reached only through a valid invoice
+        attributed to this campaign — see `sales.campaign_attribution`.
+        """
+
+        NEW = "new", "جدید"
+        CONTACTED = "contacted", "تماس گرفته‌شده"
+        ENGAGED = "engaged", "در تعامل"
+        CONVERTED = "converted", "تبدیل‌شده"
+        LOST = "lost", "ازدست‌رفته"
+
+    campaign = models.ForeignKey(Campaign, null=True, blank=True, on_delete=models.PROTECT, related_name="members")
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assigned_campaign_members"
+    )
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    stage = models.CharField(max_length=12, choices=Stage.choices, default=Stage.NEW, db_index=True)
+    lost_reason = models.CharField(max_length=300, blank=True)
+    next_follow_up_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    converted_at = models.DateTimeField(null=True, blank=True)
+    #: The person was already a customer when they entered this campaign. A
+    #: flag, not a conversion: it is what stops the audience from "converting"
+    #: people the campaign never won.
+    was_customer_on_entry = models.BooleanField(default=False)
+
     class Meta:
         ordering = ["full_name", "id"]
         constraints = [
@@ -337,9 +478,21 @@ class TargetAudienceMember(TimeStampedModel):
             # the whole target audience — not once per campaign. Two campaigns
             # chasing the same number would otherwise each draw their own
             # conclusions about the same human being.
-            models.UniqueConstraint(fields=["normalized_phone"], name="uniq_target_member_phone"),
+            #
+            # 2.36.0: this rule moved to *per campaign* (below). The global
+            # constraint was dropped by migration 0029 — relaxing a unique
+            # constraint is safe for the previous release, which only ever
+            # inserts what it already checked.
+            models.UniqueConstraint(
+                fields=["campaign", "normalized_phone"], name="uniq_member_campaign_phone"
+            ),
+            models.CheckConstraint(
+                condition=Q(stage__in=["new", "contacted", "engaged", "converted", "lost"]),
+                name="target_member_stage_valid",
+            ),
         ]
         indexes = [
+            models.Index(fields=["campaign", "stage"], name="member_campaign_stage_idx"),
             models.Index(fields=["lead", "status", "full_name"]),
             models.Index(fields=["normalized_phone", "status"]),
         ]

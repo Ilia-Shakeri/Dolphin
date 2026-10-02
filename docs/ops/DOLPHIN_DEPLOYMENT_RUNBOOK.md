@@ -679,6 +679,33 @@ deducted, the same goods would leave twice for one sale. Setting this to `true`
 is correct only for a deployment that invoices straight out of stock with no
 order step — which is not this one.
 
+#### Customer ownership and campaigns (2.35.0 / 2.36.0)
+
+Both releases are **expand-only**: they add columns and tables and relax one
+unique constraint; nothing is dropped, so redeploying the previous version
+against the same database is always possible.
+
+* **2.35.0** — `sales.0026`–`0028` add `Customer.owner`, `CustomerCategory` and
+  `Customer.category_ref`, then fill them (idempotent). Preview with
+  `docker compose exec web python manage.py backfill_customer_ownership --dry-run`
+  (spellings that differ only by spacing or a half-space are listed, never merged).
+  *Rolling back:* a customer a manager handed to a marketer is invisible to that
+  marketer on the old version and visible to its creator again; no data is lost.
+* **2.36.0** — `sales.0029` adds `Campaign`, `CampaignAttribution(+Log)`, the new
+  audience columns, and replaces the global unique phone constraint with
+  *unique per campaign*. The `campaigns` feature is **off by default**: a
+  deployment gets it from its manifest. Order of operations:
+  1. deploy and migrate (nothing changes for users);
+  2. `docker compose exec web python manage.py migrate_campaigns --dry-run`, read
+     the counts and the "needs review" list;
+  3. `docker compose exec web python manage.py migrate_campaigns` (idempotent);
+  4. enable `campaigns` in the manifest.
+  Existing invoices are **not** attributed retroactively; only invoices issued
+  after the feature is on are. `DOLPHIN_CAMPAIGN_ATTRIBUTION_WINDOW_DAYS`
+  (default 30) is the last-touch window. *Rolling back:* leave the migrated data
+  in place; the previous version ignores the new columns, but a person added to
+  two campaigns while 2.36.0 ran is two audience rows to it.
+
 ### 1.12 TLS certificate
 
 Domain: see [6](#6-domain-deployment). Static IP: see [7](#7-static-ip-deployment).

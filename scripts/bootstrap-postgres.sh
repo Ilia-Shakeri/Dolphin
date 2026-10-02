@@ -632,6 +632,17 @@ FROM (
         ('django_session', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_customer', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_customerphone', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Managed customer categories (2.35.0): renamed, deactivated and, when
+        -- unused, deleted by whoever holds `customer_categories.delete`.
+        ('sales_customercategory', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Campaigns (2.36.0). A campaign is edited and deleted (when empty) by
+        -- its managers; the responsibles link is rewritten wholesale; an
+        -- invoice attribution is corrected in place, and every change is
+        -- appended to its log, which is never rewritten.
+        ('sales_campaign', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('sales_campaign_responsibles', 'SELECT, INSERT, DELETE'),
+        ('sales_campaignattribution', 'SELECT, INSERT, UPDATE'),
+        ('sales_campaignattributionlog', 'SELECT, INSERT'),
         ('sales_interaction', 'SELECT, INSERT, DELETE'),
         ('sales_lead', 'SELECT, INSERT, UPDATE, DELETE'),
         ('sales_leadassignmenthistory', 'SELECT, INSERT'),

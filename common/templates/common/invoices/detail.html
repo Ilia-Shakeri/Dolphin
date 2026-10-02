@@ -85,6 +85,18 @@
     <nav id="invoice-allocations-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="invoice-allocations-prev" class="btn btn-light" type="button">قبلی</button><span id="invoice-allocations-page-label"></span><button id="invoice-allocations-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
 {% endif %}
+{% if can_attribute_campaigns %}
+<section id="invoice-campaign" class="card mb-5 mb-xl-8" hidden><div class="card-body">
+    <h2 class="fs-3 fw-bold text-gray-900 mb-3">کمپین فاکتور</h2>
+    <p class="mb-4"><span class="text-muted">این فاکتور برای کمپین زیر حساب می‌شود: </span><strong data-campaign-current>—</strong></p>
+    <form data-campaign-form class="row g-4 align-items-end mb-4" novalidate hidden>
+        <div class="col-md-4"><label class="form-label fw-semibold" for="invoice-campaign-select">تغییر کمپین</label><select class="form-select form-select-solid" id="invoice-campaign-select" name="campaign"></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="campaign"></p></div>
+        <div class="col-md-5"><label class="form-label fw-semibold" for="invoice-campaign-reason">دلیل (الزامی)</label><input class="form-control form-control-solid" id="invoice-campaign-reason" name="reason" maxlength="500"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div>
+        <div class="col-md-3"><button class="btn btn-light-primary w-100" type="submit">ثبت تغییر</button></div>
+    </form>
+    <ul class="text-muted fs-8 mb-0 ps-4" data-campaign-history></ul>
+</div></section>
+{% endif %}
 {% if "attachments" in features %}
 {% include "common/includes/attachments_panel.inc" with attachments_field="invoice" can_upload=can_upload_attachment.invoice can_delete=can_delete_attachment.invoice %}
 {% endif %}

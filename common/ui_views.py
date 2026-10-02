@@ -480,6 +480,60 @@ class ScopedDetailView(ActiveCrmView):
         return context
 
 
+class _CampaignPage(ActiveCrmView):
+    """Shared by the four campaign pages (2.36.0). Rendering needs only the
+    `campaigns` feature; every figure and action behind it is the API's, which
+    checks the role capability and the object scope itself."""
+
+    required_feature = "campaigns"
+
+    def get_context_data(self, **kwargs):
+        from sales.models import Campaign
+        from sales.selectors import customer_owner_choices
+
+        context = super().get_context_data(**kwargs)
+        context["can_manage_campaigns"] = "campaigns.manage" in context["capabilities"]
+        context["campaign_channels"] = Campaign.Channel.choices
+        if context["can_manage_campaigns"]:
+            context["customer_owner_choices"] = customer_owner_choices()
+        return context
+
+
+class DolphinCampaignListView(_CampaignPage):
+    template_name = "common/campaigns/list.html"
+
+
+class DolphinCampaignResultsView(_CampaignPage):
+    template_name = "common/campaigns/results.html"
+
+
+class DolphinCampaignAnalyticsView(_CampaignPage):
+    template_name = "common/campaigns/analytics.html"
+
+
+class DolphinCampaignDetailView(ScopedDetailView):
+    required_feature = "campaigns"
+    template_name = "common/campaigns/detail.html"
+    object_id_kwarg = "campaign_id"
+    context_id_name = "campaign_id"
+    not_found_title = "کمپین پیدا نشد"
+    not_found_message = "این کمپین در محدودهٔ دسترسی شما وجود ندارد."
+
+    def scoped_queryset(self):
+        from sales.campaign_analytics import campaigns_for
+
+        return campaigns_for(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        from sales.selectors import customer_owner_choices
+
+        context = super().get_context_data(**kwargs)
+        context["can_manage_campaigns"] = "campaigns.manage" in context["capabilities"]
+        if context["can_manage_campaigns"]:
+            context["customer_owner_choices"] = customer_owner_choices()
+        return context
+
+
 class DolphinLeadListView(ActiveCrmView):
     #: Who besides the Platform Admin may delete from this page (2.18.8).
     delete_capability = "leads.delete"
@@ -981,6 +1035,15 @@ class DolphinInvoiceDetailView(ScopedDetailView):
 
     def scoped_queryset(self):
         return invoices_for(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # The campaign card (2.36.0): shown only where the feature runs and the
+        # role may correct attributions; the API re-checks both.
+        context["can_attribute_campaigns"] = (
+            feature_enabled("campaigns") and "campaigns.attribute" in context["capabilities"]
+        )
+        return context
 
 
 class PrintableDocumentView(ScopedDetailView):

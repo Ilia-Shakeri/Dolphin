@@ -1308,6 +1308,11 @@ def issue_invoice(*, actor, invoice):
             "status_to": Invoice.Status.ISSUED,
         },
     )
+    # Last-touch campaign attribution (2.36.0). A no-op unless the `campaigns`
+    # feature is on; it can never fail an issue (see the function).
+    from sales.campaign_attribution import attribute_issued_invoice
+
+    attribute_issued_invoice(invoice=locked, issued_at=issued_at)
     # PRELIMINARY, UNCOMMITTED (cross-product integration goal, 2026-09-08)
     # — see integration/apps.py. Inside the same transaction as the status
     # change above: either both happen, or neither does. A no-op unless
@@ -1381,6 +1386,9 @@ def cancel_invoice(*, actor, invoice, reason=""):
 
     cancel_plan_with_invoice(locked)
     if was_issued:
+        from sales.campaign_attribution import release_cancelled_invoice
+
+        release_cancelled_invoice(invoice=locked)
         append_ledger_entry(
             actor=actor,
             customer=locked.customer,

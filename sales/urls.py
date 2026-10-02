@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from sales.campaign_views import CampaignMemberViewSet, CampaignViewSet
 from sales.views import CustomerCategoryViewSet, CustomerPhoneViewSet, CustomerViewSet, InteractionViewSet, LeadViewSet, PostProviderSettingsView, ProductCategoryViewSet, ProductViewSet, SaleViewSet, SalesDocumentViewSet, TargetAudienceMemberViewSet, TestPostProviderConnectionView
 
 
@@ -10,6 +11,8 @@ router.register("customer-phones", CustomerPhoneViewSet, basename="customer-phon
 router.register("leads", LeadViewSet, basename="lead")
 router.register("interactions", InteractionViewSet, basename="interaction")
 router.register("target-audience", TargetAudienceMemberViewSet, basename="target-audience")
+router.register("campaigns", CampaignViewSet, basename="campaign")
+router.register("campaign-members", CampaignMemberViewSet, basename="campaign-member")
 router.register("customer-categories", CustomerCategoryViewSet, basename="customer-category")
 router.register("product-categories", ProductCategoryViewSet, basename="product-category")
 router.register("products", ProductViewSet, basename="product")
