@@ -4,6 +4,7 @@ import {apiDate, apiDateTime, displayDay} from "dolphin/core/jalali.js";
 import {clearMessages, showError, withSubmit} from "dolphin/core/messages.js";
 import {money, moneyOrNull, moneyToStorage, setupMoneyInputs, textOrNull} from "dolphin/core/money.js";
 import {CHEQUE_STATUS_TEXT, PAYMENT_METHOD_TEXT, loadCustomerOptions} from "dolphin/features/billing/shared.js";
+import {previewAllocation, renderAllocationPreview} from "dolphin/ui/allocation-preview.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
@@ -193,6 +194,26 @@ export async function setupPayments() {
         let wizardInvoices = [];
         let wizardInvoicesFor = null;
 
+        // What the receipt will have left after the rows below, from the amount
+        // typed above — the same arithmetic the server applies.
+        function refreshWizardPreview() {
+            const node = document.getElementById("create-payment-alloc-after");
+            if (!node || !wizardSplitRows) return;
+            const typed = moneyOrNull(document.getElementById("create-payment-amount")?.value);
+            if (typed === null) {
+                node.textContent = "—";
+                node.classList.remove("text-danger");
+                return;
+            }
+            renderAllocationPreview(node, previewAllocation({
+                rows: [...wizardSplitRows.querySelectorAll("[data-wizard-split-row]")],
+                invoiceSelector: "[data-wizard-split-invoice]",
+                amountSelector: "[data-wizard-split-amount]",
+                invoices: wizardInvoices,
+                available: typed,
+            }));
+        }
+
         function addWizardSplitRow() {
             if (!wizardSplitRows) return;
             const row = document.createElement("div");
@@ -242,7 +263,12 @@ export async function setupPayments() {
             remove.type = "button";
             remove.textContent = "×";
             remove.setAttribute("aria-label", "حذف سطر");
-            remove.addEventListener("click", () => row.remove());
+            remove.addEventListener("click", () => {
+                row.remove();
+                refreshWizardPreview();
+            });
+            amount.addEventListener("input", refreshWizardPreview);
+            select.addEventListener("change", refreshWizardPreview);
             row.append(picker, amount, remove);
             wizardSplitRows.append(row);
             setupMoneyInputs(row);
@@ -289,6 +315,7 @@ export async function setupPayments() {
 
         document.getElementById("create-payment-split-add")?.addEventListener("click", addWizardSplitRow);
         paymentCustomer?.addEventListener("change", refreshWizardAllocations);
+        document.getElementById("create-payment-amount")?.addEventListener("input", refreshWizardPreview);
         modeButtons.forEach((button) => button.addEventListener("click", refreshWizardAllocations));
 
         function renderPaymentReview() {

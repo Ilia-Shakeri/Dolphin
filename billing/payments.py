@@ -593,18 +593,14 @@ def allocate_payment_across(*, actor, payment, splits):
     if not splits:
         raise BusinessRuleError({"splits": "حداقل یک فاکتور را انتخاب کنید."})
 
-    seen = set()
     for index, split in enumerate(splits):
-        invoice = split.get("invoice")
-        if invoice is None:
+        if split.get("invoice") is None:
             raise BusinessRuleError({f"splits.{index}.invoice": "این فیلد الزامی است."})
-        # The same invoice twice would hit the unique constraint underneath and
-        # surface as a conflict about an allocation the operator never made.
-        if invoice.pk in seen:
-            raise BusinessRuleError({
-                f"splits.{index}.invoice": "این فاکتور بیش از یک‌بار فهرست شده است."
-            })
-        seen.add(invoice.pk)
+    # The same invoice may be listed more than once: each row is its own
+    # allocation, and because every row goes through `allocate_payment` in turn
+    # the invoice's balance and the receipt's remainder are re-read each time, so
+    # the rows add up against both limits and a batch that overshoots either one
+    # is refused whole.
 
     allocations = []
     for split in splits:
@@ -656,14 +652,9 @@ def allocate_payment(*, actor, payment, invoice, amount=None):
     if amount > outstanding:
         raise BusinessRuleError({"amount": "مبلغ از باقی‌مانده این فاکتور بیشتر است."})
 
-    try:
-        allocation = PaymentAllocation.objects.create(
-            payment=locked_payment, invoice=locked_invoice, amount=amount, created_by=actor
-        )
-    except IntegrityError as exc:
-        raise BusinessConflictError({
-            "invoice": "این پرداخت قبلاً به این فاکتور تخصیص یافته است."
-        }) from exc
+    allocation = PaymentAllocation.objects.create(
+        payment=locked_payment, invoice=locked_invoice, amount=amount, created_by=actor
+    )
 
     locked_payment.allocated_amount = quantize_money(locked_payment.allocated_amount + amount)
     locked_payment.save(update_fields=["allocated_amount", "updated_at"])

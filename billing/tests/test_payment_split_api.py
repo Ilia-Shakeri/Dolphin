@@ -162,7 +162,8 @@ class SplitAllocationApiTests(TestCase):
         payment = self.receipt("100.00")
         self.assertEqual(self.post_split(payment, [{"invoice": 999999}]).status_code, 400)
 
-    def test_the_same_invoice_twice_is_refused(self):
+    def test_the_same_invoice_twice_is_two_allocations(self):
+        """Since 2.34.4 a receipt may be applied to one invoice several times."""
         invoice = self.issued(quantity=2)
         payment = self.receipt("200.00")
         response = self.post_split(
@@ -172,7 +173,8 @@ class SplitAllocationApiTests(TestCase):
                 {"invoice": invoice.pk, "amount": "50.00"},
             ],
         )
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(len(response.json()), 2)
 
     def test_an_empty_split_is_refused(self):
         payment = self.receipt("100.00")

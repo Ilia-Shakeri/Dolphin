@@ -539,12 +539,9 @@ class PaymentSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        allocations = attrs.get("allocations") or []
-        seen = set()
-        for row in allocations:
-            if row["invoice"].pk in seen:
-                raise serializers.ValidationError({"allocations": "هر فاکتور فقط می‌تواند یک‌بار در تخصیص ظاهر شود."})
-            seen.add(row["invoice"].pk)
+        # The same invoice may appear on several rows: each is its own
+        # allocation and the service checks the rows against the invoice's
+        # balance and the receipt's remainder as they accumulate.
         return attrs
 
     def validate_method(self, value):
@@ -655,14 +652,6 @@ class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Seria
     def validate_splits(self, value):
         if not value:
             raise serializers.ValidationError("حداقل یک فاکتور را انتخاب کنید.")
-        seen = set()
-        for row in value:
-            invoice = row["invoice"]
-            if invoice.pk in seen:
-                raise serializers.ValidationError(
-                    "هر فاکتور فقط می‌تواند یک‌بار در تقسیم ظاهر شود."
-                )
-            seen.add(invoice.pk)
         return value
 
 

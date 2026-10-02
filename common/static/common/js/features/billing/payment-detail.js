@@ -4,6 +4,7 @@ import {apiDate, apiDateTime, displayDate, displayDay} from "dolphin/core/jalali
 import {globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {money, moneyOrNull, moneyToStorage, setupMoneyInputs, textOrNull} from "dolphin/core/money.js";
 import {CHEQUE_REGISTRATION_TEXT, CHEQUE_STATUS_TEXT, PAYMENT_METHOD_TEXT, loadCustomerOptions} from "dolphin/features/billing/shared.js";
+import {previewAllocation, renderAllocationPreview} from "dolphin/ui/allocation-preview.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
@@ -101,6 +102,7 @@ export async function setupPaymentDetail() {
         const statusRow = document.querySelector('[data-payment-detail="status"]');
         if (statusRow) statusRow.hidden = payment.method === "cheque";
         if (allocateSection) allocateSection.hidden = payment.status !== "confirmed";
+        renderAllocationSummary();
         if (payment.status === "confirmed") allocationsController?.load();
     }
 
@@ -114,8 +116,36 @@ export async function setupPaymentDetail() {
     const splitRows = document.getElementById("payment-split-rows");
     const splitTotal = document.getElementById("payment-split-total");
 
+    // The receipt's own figures, from the server, and the live remainder under
+    // the rows. Nothing is invented here: a remainder of zero closes the form
+    // and says so rather than leaving a button that can only be refused.
+    function renderAllocationSummary() {
+        const set = (id, value) => {
+            const node = document.getElementById(id);
+            if (node) node.textContent = value === null || value === undefined ? "—" : money(value);
+        };
+        set("payment-alloc-amount", payment?.amount);
+        set("payment-alloc-allocated", payment?.allocated_amount);
+        set("payment-alloc-remaining", payment?.unallocated_amount);
+        const exhausted = payment && Number(payment.unallocated_amount) <= 0;
+        const done = document.getElementById("payment-alloc-done");
+        if (done) done.hidden = !exhausted;
+        if (allocateForm) allocateForm.hidden = Boolean(exhausted);
+        refreshSplitTotal();
+    }
+
     function refreshSplitTotal() {
         if (!splitRows || !splitTotal) return;
+        const preview = previewAllocation({
+            rows: [...splitRows.querySelectorAll("[data-split-row]")],
+            invoiceSelector: "[data-split-invoice]",
+            amountSelector: "[data-split-amount]",
+            invoices: allocatableInvoices,
+            available: payment?.unallocated_amount,
+        });
+        renderAllocationPreview(document.getElementById("payment-alloc-after"), preview);
+        const submit = allocateForm?.querySelector('button[type="submit"]');
+        if (submit) submit.disabled = preview.over || preview.after < 0;
         let sum = 0;
         let anyBlank = false;
         splitRows.querySelectorAll("[data-split-amount]").forEach((input) => {
@@ -156,6 +186,7 @@ export async function setupPaymentDetail() {
         select.dataset.splitInvoice = "";
         select.setAttribute("data-searchable-source", "");
         select.setAttribute("aria-label", "فاکتور");
+        select.addEventListener("change", refreshSplitTotal);
         // Every open invoice of this customer, not the first fifty — the
         // one you are looking for is the one that would be cut.
         select.dataset.searchableLimit = "0";

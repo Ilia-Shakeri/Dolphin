@@ -98,7 +98,14 @@
 {% if payment_direction != "disbursement" %}
 <section id="payment-allocate-section" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">تخصیص به فاکتور</h2>
-    <p class="text-muted">تخصیص نه از ماندهٔ تخصیص‌نیافتهٔ دریافت بیشتر می‌شود و نه از ماندهٔ فاکتور. مبلغ هر سطر را خالی بگذارید تا تا سقف ماندهٔ همان فاکتور تخصیص یابد. همهٔ سطرها با هم ثبت می‌شوند و اگر یکی رد شود، هیچ‌کدام ثبت نمی‌شود.</p>
+    <div id="payment-alloc-summary" class="row g-3 mb-5 text-center">
+        <div class="col-6 col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted fs-8 mb-1">مبلغ دریافت</div><div class="fw-bold fs-5" id="payment-alloc-amount" dir="ltr">—</div></div></div>
+        <div class="col-6 col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted fs-8 mb-1">تخصیص‌یافته</div><div class="fw-bold fs-5" id="payment-alloc-allocated" dir="ltr">—</div></div></div>
+        <div class="col-6 col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted fs-8 mb-1">مانده دریافت</div><div class="fw-bold fs-5 text-primary" id="payment-alloc-remaining" dir="ltr">—</div></div></div>
+        <div class="col-6 col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted fs-8 mb-1">مانده پس از این تخصیص</div><div class="fw-bold fs-5" id="payment-alloc-after" dir="ltr">—</div></div></div>
+    </div>
+    <div id="payment-alloc-done" class="alert alert-success mb-5" role="status" hidden>تمام مبلغ این دریافت تخصیص یافته است؛ برای تخصیص دوباره، یکی از تخصیص‌های زیر را آزاد کنید.</div>
+    <p class="text-muted">تخصیص نه از ماندهٔ تخصیص‌نیافتهٔ دریافت بیشتر می‌شود و نه از ماندهٔ فاکتور. مبلغ هر سطر را خالی بگذارید تا تا سقف ماندهٔ همان فاکتور تخصیص یابد. یک دریافت را می‌توان چند بار، حتی به یک فاکتور، تخصیص داد. همهٔ سطرها با هم ثبت می‌شوند و اگر یکی رد شود، هیچ‌کدام ثبت نمی‌شود.</p>
     <form id="payment-allocate-form" novalidate>
         <div id="payment-split-rows" class="d-flex flex-column gap-3 mb-4"></div>
         <div class="d-flex flex-wrap align-items-center gap-3">

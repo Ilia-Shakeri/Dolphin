@@ -875,15 +875,17 @@ class PaymentAllocation(TimeStampedModel):
         ordering = ["-created_at", "-id"]
         constraints = [
             models.CheckConstraint(condition=Q(amount__gt=0), name="payment_allocation_amount_positive"),
-            models.UniqueConstraint(
-                fields=["payment", "invoice"],
-                condition=Q(is_reversed=False),
-                name="uniq_active_payment_invoice_allocation",
-            ),
         ]
         indexes = [
             models.Index(fields=["invoice", "-created_at"]),
             models.Index(fields=["payment", "-created_at"]),
+            # One receipt may be applied to the same invoice more than once (for
+            # example 20,000,000 as four allocations of 5,000,000). Each is its
+            # own auditable row, so what the database keeps is a fast lookup of
+            # them, not a ban on repeats. The sums that matter — what a receipt
+            # still has, what an invoice still owes — are enforced by the
+            # service under row locks and verified by `check_allocation_integrity`.
+            models.Index(fields=["payment", "invoice"], name="payalloc_payment_invoice_idx"),
         ]
 
 

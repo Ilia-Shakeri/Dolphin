@@ -162,19 +162,21 @@ class PaymentSplitTests(TestCase):
         self.assertEqual(first.paid_amount, Decimal("0.00"))
         self.assertEqual(payment.allocated_amount, Decimal("0.00"))
 
-    def test_the_same_invoice_twice_is_refused_as_such(self):
-        """Rather than surfacing as a confusing conflict from the unique index."""
+    def test_the_same_invoice_twice_is_two_allocations(self):
+        """Since 2.34.4 a receipt may be applied to one invoice several times."""
         invoice = self.issued_invoice(quantity=2)
         payment = self.receipt("200.00")
-        with self.assertRaises(BusinessRuleError):
-            allocate_payment_across(
-                actor=self.manager,
-                payment=payment,
-                splits=[
-                    {"invoice": invoice, "amount": Decimal("50.00")},
-                    {"invoice": invoice, "amount": Decimal("50.00")},
-                ],
-            )
+        allocations = allocate_payment_across(
+            actor=self.manager,
+            payment=payment,
+            splits=[
+                {"invoice": invoice, "amount": Decimal("50.00")},
+                {"invoice": invoice, "amount": Decimal("50.00")},
+            ],
+        )
+        self.assertEqual(len(allocations), 2)
+        payment.refresh_from_db()
+        self.assertEqual(payment.allocated_amount, Decimal("100.00"))
 
     def test_an_empty_split_is_refused(self):
         payment = self.receipt("100.00")
