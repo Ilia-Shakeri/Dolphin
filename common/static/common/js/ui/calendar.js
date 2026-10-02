@@ -1,5 +1,6 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
-import {gregorianToJalali, jalaliMonthLength, jalaliToGregorian, tehranParts} from "dolphin/core/jalali.js";
+import {gregorianToJalali, jalaliMonthLength, jalaliToGregorian, parseJalaliInput, tehranParts} from "dolphin/core/jalali.js";
+import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
 
 /**
  * The lead follow-up calendar.
@@ -84,7 +85,7 @@ export function persianSlotLabel(arg) {
  * an explicit `visibleRange`. `end` is exclusive, the way every
  * FullCalendar range is.
  */
-function jalaliMonthRange(date) {
+export function jalaliMonthRange(date) {
     const parts = tehranParts(date);
     const [year, month] = gregorianToJalali(parts.year, parts.month, parts.day);
     const [startY, startM, startD] = jalaliToGregorian(year, month, 1);
@@ -98,7 +99,7 @@ function jalaliMonthRange(date) {
 }
 
 /** The first day of the Jalali month `delta` months from `date`. */
-function shiftJalaliMonth(date, delta) {
+export function shiftJalaliMonth(date, delta) {
     const parts = tehranParts(date);
     const [year, month] = gregorianToJalali(parts.year, parts.month, parts.day);
     let nextYear = year;
@@ -157,3 +158,144 @@ export const CALENDAR_TIME_GRID_OPTIONS = {
     slotEventOverlap: false,
     dayMaxEvents: true,
 };
+
+/**
+ * Drag an event across months.
+ *
+ * A month grid shows one Jalali month, so an event could not be dragged to a
+ * day outside it. While one is being dragged, holding the pointer at the
+ * calendar's left or right edge steps the month, repeating while held. The
+ * calendar is right-to-left, so the left edge is the way forward: «ماه بعد»,
+ * matching the toolbar arrows. Only the month view does this; week and day
+ * views already step by a fixed span with FullCalendar's own controls.
+ *
+ * Returns the two FullCalendar hooks to spread into the calendar's options.
+ */
+const EDGE_ZONE_PX = 56;
+const EDGE_DWELL_MS = 650;
+
+export function monthEdgeDragHooks(getCalendar, container) {
+    let timer = null;
+    let side = 0; // -1 left edge, 1 right edge, 0 none
+
+    const stop = () => {
+        clearTimeout(timer);
+        timer = null;
+        side = 0;
+    };
+    const arm = () => {
+        timer = setTimeout(() => {
+            const calendar = getCalendar();
+            if (!calendar || calendar.view.type !== "jalaliMonth" || !side) return;
+            // Left edge → the next month, right edge → the previous one.
+            calendar.gotoDate(shiftJalaliMonth(calendar.getDate(), side < 0 ? 1 : -1));
+            arm();
+        }, EDGE_DWELL_MS);
+    };
+    const onMove = (event) => {
+        const point = event.touches?.[0] || event;
+        const box = container.getBoundingClientRect();
+        const inside = point.clientY >= box.top && point.clientY <= box.bottom;
+        const next = !inside ? 0 : point.clientX <= box.left + EDGE_ZONE_PX ? -1 : point.clientX >= box.right - EDGE_ZONE_PX ? 1 : 0;
+        if (next === side) return;
+        stop();
+        side = next;
+        if (side) arm();
+    };
+    return {
+        eventDragStart: () => {
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("touchmove", onMove, {passive: true});
+        },
+        eventDragStop: () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("touchmove", onMove);
+            stop();
+        },
+    };
+}
+
+let moveDialogNode = null;
+
+/**
+ * Ask for a Jalali date and resolve with a `Date` — the same day-of-month the
+ * user typed, at the event's own clock time — or `null` when cancelled.
+ *
+ * The keyboard-and-touch way to do what dragging does, and the only way to
+ * reach a day more than a month away without dragging through each one.
+ */
+export function promptMoveToDate(current) {
+    if (!moveDialogNode) {
+        const dialog = document.createElement("dialog");
+        dialog.className = "dolphin-confirm";
+        dialog.setAttribute("aria-labelledby", "dolphin-move-title");
+        dialog.innerHTML = '<h2 id="dolphin-move-title" class="fs-4 fw-bold mb-3">انتقال به تاریخ</h2>'
+            + '<label class="form-label fw-semibold" for="dolphin-move-date">تاریخ جدید</label>'
+            + '<input class="form-control form-control-solid" id="dolphin-move-date" type="text" data-jalali="date">'
+            + '<p class="text-danger fs-8 mt-1 mb-0" data-move-error></p>'
+            + '<div class="d-flex justify-content-end gap-3 mt-6">'
+            + '<button class="btn btn-light" type="button" data-move-cancel>انصراف</button>'
+            + '<button class="btn btn-primary" type="button" data-move-ok>انتقال</button></div>';
+        document.body.appendChild(dialog);
+        setupJalaliInputs(dialog);
+        moveDialogNode = dialog;
+    }
+    const dialog = moveDialogNode;
+    const input = dialog.querySelector("#dolphin-move-date");
+    const errorNode = dialog.querySelector("[data-move-error]");
+    input.value = "";
+    errorNode.textContent = "";
+    return new Promise((resolve) => {
+        let answer = null;
+        const finish = () => {
+            dialog.removeEventListener("close", finish);
+            dialog.removeEventListener("click", onClick);
+            resolve(answer);
+        };
+        const onClick = (event) => {
+            if (event.target.closest("[data-move-cancel]")) { dialog.close(); return; }
+            if (!event.target.closest("[data-move-ok]")) return;
+            try {
+                const parsed = parseJalaliInput(input.value);
+                if (!parsed) throw new Error("تاریخ جدید را وارد کنید.");
+                const [gy, gm, gd] = jalaliToGregorian(...parsed.jalali);
+                const moved = new Date(current);
+                moved.setFullYear(gy, gm - 1, gd);
+                answer = moved;
+                dialog.close();
+            } catch (error) {
+                errorNode.textContent = error.message;
+            }
+        };
+        dialog.addEventListener("close", finish);
+        dialog.addEventListener("click", onClick);
+        dialog.showModal();
+        input.focus();
+    });
+}
+
+/**
+ * A small «انتقال به تاریخ…» control inside an event chip. A span, not a
+ * button: the chip is itself a link, and a button may not sit inside one.
+ */
+export function addMoveToDateControl(info, onMove) {
+    const host = info.el.querySelector(".fc-event-title, .fc-event-main") || info.el;
+    const control = document.createElement("span");
+    control.className = "calendar-event-move";
+    control.setAttribute("role", "button");
+    control.tabIndex = 0;
+    control.title = "انتقال به تاریخ…";
+    control.setAttribute("aria-label", "انتقال به تاریخ…");
+    control.textContent = "⇄";
+    const open = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const moved = await promptMoveToDate(info.event.start);
+        if (moved) await onMove(moved);
+    };
+    control.addEventListener("click", open);
+    control.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") open(event);
+    });
+    host.append(control);
+}

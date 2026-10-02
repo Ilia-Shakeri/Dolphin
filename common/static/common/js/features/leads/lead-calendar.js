@@ -2,7 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {JALALI_MONTH_NAMES, PERSIAN_WEEKDAY_NAMES, displayDate, displayDay, gregorianToJalali, tehranParts} from "dolphin/core/jalali.js";
 import {errorText, globalMessage, showError} from "dolphin/core/messages.js";
-import {CALENDAR_TIME_FORMAT, CALENDAR_TIME_GRID_OPTIONS, JALALI_MONTH_VIEW, jalaliCalendarButtons, persianSlotLabel, persianiseEventTime} from "dolphin/ui/calendar.js";
+import {CALENDAR_TIME_FORMAT, CALENDAR_TIME_GRID_OPTIONS, JALALI_MONTH_VIEW, addMoveToDateControl, jalaliCalendarButtons, monthEdgeDragHooks, persianSlotLabel, persianiseEventTime} from "dolphin/ui/calendar.js";
 import {chartPalette} from "dolphin/ui/charts.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 
@@ -96,6 +96,14 @@ export async function setupLeadCalendar() {
             wrap.append(notes);
         }
         return wrap;
+    }
+
+    async function saveFollowUp(id, start) {
+        await apiRequest(`/api/v1/leads/${id}/`, {
+            method: "PATCH",
+            body: {next_follow_up_at: start.toISOString()},
+        });
+        globalMessage("تاریخ پیگیری به‌روزرسانی شد.", true);
     }
 
     // `let`, declared before the config that references it: the two
@@ -241,13 +249,10 @@ export async function setupLeadCalendar() {
         eventClick: (info) => {
             window.location.href = `/leads/${info.event.id}/`;
         },
+        ...monthEdgeDragHooks(() => calendar, container),
         eventDrop: async (info) => {
             try {
-                await apiRequest(`/api/v1/leads/${info.event.id}/`, {
-                    method: "PATCH",
-                    body: {next_follow_up_at: info.event.start.toISOString()},
-                });
-                globalMessage("تاریخ پیگیری به‌روزرسانی شد.", true);
+                await saveFollowUp(info.event.id, info.event.start);
             } catch (error) {
                 info.revert();
                 showError(error);
@@ -263,6 +268,14 @@ export async function setupLeadCalendar() {
             // gets no popover; the later real mount for the same event
             // still gets one normally.
             if (!lead) return;
+            addMoveToDateControl(info, async (moved) => {
+                try {
+                    await saveFollowUp(info.event.id, moved);
+                    calendar.refetchEvents();
+                } catch (error) {
+                    showError(error);
+                }
+            });
             const when = info.event.allDay
                 ? displayDay(info.event.startStr)
                 : displayDate(info.event.startStr);

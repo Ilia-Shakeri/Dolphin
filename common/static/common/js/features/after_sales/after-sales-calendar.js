@@ -2,7 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {JALALI_MONTH_NAMES, PERSIAN_WEEKDAY_NAMES, displayDate, displayDay, gregorianToJalali, tehranParts} from "dolphin/core/jalali.js";
 import {errorText, globalMessage, showError} from "dolphin/core/messages.js";
-import {CALENDAR_TIME_FORMAT, CALENDAR_TIME_GRID_OPTIONS, JALALI_MONTH_VIEW, jalaliCalendarButtons, persianSlotLabel, persianiseEventTime} from "dolphin/ui/calendar.js";
+import {CALENDAR_TIME_FORMAT, CALENDAR_TIME_GRID_OPTIONS, JALALI_MONTH_VIEW, addMoveToDateControl, jalaliCalendarButtons, monthEdgeDragHooks, persianSlotLabel, persianiseEventTime} from "dolphin/ui/calendar.js";
 import {chartPalette} from "dolphin/ui/charts.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 
@@ -94,6 +94,14 @@ export async function setupAfterSalesCalendar() {
     // `let`, declared before the config that references it: the two
     // custom month buttons below close over this and only ever run
     // after the assignment has happened.
+    async function saveAppointment(id, start) {
+        await apiRequest(`/api/v1/after-sales/${id}/schedule-appointment/`, {
+            method: "POST",
+            body: {appointment_at: start.toISOString()},
+        });
+        globalMessage("زمان قرار به‌روزرسانی شد.", true);
+    }
+
     let calendar;
     calendar = new FullCalendar.Calendar(container, {
         direction: "rtl",
@@ -207,13 +215,10 @@ export async function setupAfterSalesCalendar() {
         eventClick: (info) => {
             window.location.href = `/after-sales/${info.event.id}/`;
         },
+        ...monthEdgeDragHooks(() => calendar, container),
         eventDrop: async (info) => {
             try {
-                await apiRequest(`/api/v1/after-sales/${info.event.id}/schedule-appointment/`, {
-                    method: "POST",
-                    body: {appointment_at: info.event.start.toISOString()},
-                });
-                globalMessage("زمان قرار به‌روزرسانی شد.", true);
+                await saveAppointment(info.event.id, info.event.start);
             } catch (error) {
                 info.revert();
                 showError(error);
@@ -223,6 +228,14 @@ export async function setupAfterSalesCalendar() {
             persianiseEventTime(info);
             const {item, overdue} = info.event.extendedProps;
             if (!item) return;
+            addMoveToDateControl(info, async (moved) => {
+                try {
+                    await saveAppointment(info.event.id, moved);
+                    calendar.refetchEvents();
+                } catch (error) {
+                    showError(error);
+                }
+            });
             const when = info.event.allDay
                 ? displayDay(info.event.startStr)
                 : displayDate(info.event.startStr);
