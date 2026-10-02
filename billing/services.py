@@ -17,6 +17,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+import logging
+
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -250,7 +252,17 @@ def _create_document(*, actor, model, item_model, customer, lead, items, header,
     try:
         document.save()
     except IntegrityError as exc:
-        raise BusinessConflictError({"number": "شماره سند قبلاً استفاده شده است."}) from exc
+        # Only a clash on the number is a number problem. Any other constraint
+        # (an instalment term, a total, a status) used to be reported as «شماره
+        # سند قبلاً استفاده شده است» too, which sent the operator looking for a
+        # duplicate that did not exist.
+        detail = str(exc).lower()
+        if "number" in detail and ("unique" in detail or "duplicate" in detail):
+            raise BusinessConflictError({"number": "شماره سند قبلاً استفاده شده است."}) from exc
+        logging.getLogger("dolphin.billing").warning("document refused by a database constraint: %s", exc)
+        raise BusinessRuleError({
+            "non_field_errors": "مقادیر سند با قواعد ثبت سازگار نیست؛ مبالغ، تاریخ‌ها و شرایط اقساط را بررسی کنید."
+        }) from exc
     item_model.objects.bulk_create([
         item_model(**{model.__name__.lower(): document}, **line) for line in prepared
     ])
@@ -841,6 +853,14 @@ def create_invoice(
     payment_type = payment_type or Invoice.PaymentType.CASH
     if payment_type not in Invoice.PaymentType.values:
         raise BusinessRuleError({"payment_type": "نوع پرداخت را از فهرست انتخاب کنید."})
+    if payment_type == Invoice.PaymentType.INSTALLMENT:
+        missing = {}
+        if not installment_count:
+            missing["installment_count"] = "تعداد اقساط را وارد کنید."
+        if installment_first_due is None:
+            missing["installment_first_due"] = "تاریخ سررسید اولین قسط را وارد کنید."
+        if missing:
+            raise BusinessRuleError(missing)
     installment_terms = {
         "installment_down_payment": installment_down_payment,
         "installment_count": installment_count,

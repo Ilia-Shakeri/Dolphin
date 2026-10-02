@@ -55,6 +55,26 @@ function flattenErrorValue(value) {
     return String(value);
 }
 
+/**
+ * The reasons the server gave for a refusal, as one sentence, or "".
+ *
+ * A 400 or 409 from a business rule carries its Persian reason under the name of
+ * the field it concerns (`{seller_legal_name: "…"}`). Without a form there is no
+ * slot to put it in, so the page used to fall back to «داده‌های واردشده درست
+ * نیست» and the one thing the operator needed — what to fix — was thrown away.
+ * Other statuses stay generic: a 5xx message is not for the reader.
+ */
+function serverReasons(error) {
+    if (!(error instanceof ApiError) || ![400, 409].includes(error.status)) return "";
+    const payload = error.payload;
+    if (!payload || typeof payload !== "object") return "";
+    return Object.entries(payload)
+        .filter(([key]) => key !== "error")
+        .map(([, value]) => flattenErrorValue(value))
+        .filter(Boolean)
+        .join(" ");
+}
+
 export function showError(error, form = null) {
     if (error instanceof ApiError && error.payload?.error?.code === "authentication_failed") {
         window.location.assign("/login/");
@@ -74,7 +94,7 @@ export function showError(error, form = null) {
         // reasons are also summarised where they *are* standing.
         if (hasFieldError) reportWizardErrors(form);
     }
-    globalMessage(hasFieldError && error.status === 400 ? STATUS_MESSAGES[400] : errorText(error));
+    globalMessage(hasFieldError && error.status === 400 ? STATUS_MESSAGES[400] : serverReasons(error) || errorText(error));
 }
 
 export function formPayload(form, names) {
