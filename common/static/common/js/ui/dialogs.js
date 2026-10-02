@@ -58,10 +58,18 @@ export function confirmDialog(message) {
  * own focus trap and Escape-to-close are untouched; this only adds the
  * third way a modal is expected to close.
  */
+/**
+ * A click on the dim area outside an open dialog closes it — except a wizard.
+ *
+ * A wizard is a form someone is partway through, and a stray click outside it
+ * must never throw their entries away. A wizard closes only from its own close
+ * control (which asks first if anything was entered, `ui/wizard.js`).
+ */
 export function setupDialogBackdropClose() {
     document.addEventListener("click", (event) => {
-        if (event.target instanceof HTMLDialogElement && event.target.open) {
-            event.target.close();
-        }
+        const dialog = event.target;
+        if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return;
+        if (dialog.querySelector(".stepper")) return;
+        dialog.close();
     });
 }

@@ -1,4 +1,5 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
+import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {wizardsByForm} from "dolphin/core/form-errors.js";
 
 /**
@@ -20,11 +21,71 @@ import {wizardsByForm} from "dolphin/core/form-errors.js";
  * the existing `setupDocumentList` submit handler needs no change at
  * all: the wizard only decides which step is visible.
  */
+/**
+ * Wizards whose form has been touched since they were opened. One listener
+ * warns before the tab is closed or reloaded while any is open and dirty.
+ */
+const dirtyWizards = new Set();
+let unloadGuardBound = false;
+
+const UNSAVED_MESSAGE = "تغییرات ذخیره نشده‌اند. آیا مطمئن هستید که می‌خواهید خارج شوید؟";
+
+function bindUnloadGuard() {
+    if (unloadGuardBound) return;
+    unloadGuardBound = true;
+    window.addEventListener("beforeunload", (event) => {
+        if (!dirtyWizards.size) return;
+        event.preventDefault();
+        event.returnValue = "";
+    });
+}
+
+/**
+ * The shared rules for closing a wizard, applied to every one of them here
+ * rather than page by page:
+ *
+ * - "dirty" means the reader changed a field (a trusted `input`/`change`
+ *   event). Values the page fills in itself are not changes.
+ * - closing a pristine wizard is immediate;
+ * - closing a dirty one from its close control asks first;
+ * - Escape never closes a dirty wizard (it would throw the entries away
+ *   without a question) but closes a pristine one;
+ * - the backdrop never closes a wizard at all (`setupDialogBackdropClose`).
+ *
+ * Closing from code, after a successful save, is not intercepted.
+ */
+function guardWizardClosing(dialog, form) {
+    if (!(dialog instanceof HTMLDialogElement) || !form) return;
+    bindUnloadGuard();
+    const markDirty = (event) => {
+        if (event.isTrusted) dirtyWizards.add(dialog);
+    };
+    form.addEventListener("input", markDirty);
+    form.addEventListener("change", markDirty);
+    new MutationObserver(() => {
+        if (dialog.open) dirtyWizards.delete(dialog);
+    }).observe(dialog, {attributes: true, attributeFilter: ["open"]});
+    dialog.addEventListener("close", () => dirtyWizards.delete(dialog));
+    dialog.addEventListener("cancel", (event) => {
+        if (dirtyWizards.has(dialog)) event.preventDefault();
+    });
+    dialog.addEventListener("click", async (event) => {
+        if (!event.target.closest?.("[data-close-dialog]") || !dirtyWizards.has(dialog)) return;
+        event.stopPropagation();
+        event.preventDefault();
+        if (await confirmDialog(UNSAVED_MESSAGE)) {
+            dirtyWizards.delete(dialog);
+            dialog.close();
+        }
+    }, true);
+}
+
 export function setupWizard(dialog, {onReachLastStep, validateStep} = {}) {
     const root = dialog?.querySelector(".stepper");
     if (!root) return null;
     const stepper = new DolphinStepper(root);
     const form = root.querySelector("form");
+    guardWizardClosing(dialog, form);
     const navs = [...root.querySelectorAll('[data-dolphin-stepper-element="nav"]')];
     const contents = [...root.querySelectorAll('[data-dolphin-stepper-element="content"]')];
     const totalSteps = navs.length;
