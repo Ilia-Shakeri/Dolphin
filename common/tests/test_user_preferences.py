@@ -456,6 +456,24 @@ class SettingsPageTests(PreferenceFixtures):
         self.assertIn('id="open-settings"', sidebar)
         self.assertIn('href="/settings/"', page)
 
+    def test_sections_are_tabs_and_each_tab_is_linkable(self):
+        """2.34.10: the page is tabbed like «یکپارچه‌سازی‌ها»; `?tab=` opens one."""
+        page = self.page(self.admin).content.decode("utf-8")
+        self.assertIn("data-settings-tabs", page)
+        self.assertIn('id="settings-pane-display"', page)
+        self.assertNotIn('id="settings-pane-display" role="tabpanel" aria-labelledby="settings-tab-display" data-settings-pane="display" hidden', page)
+        self.client.force_login(self.admin)
+        other = self.client.get("/settings/?tab=deployment").content.decode("utf-8")
+        self.assertIn('data-settings-pane="display" hidden', other)
+        self.assertNotIn('data-settings-pane="deployment" hidden', other)
+        # An unknown tab falls back to the first; a role without a group has no tab for it.
+        fallback = self.client.get("/settings/?tab=nonsense").content.decode("utf-8")
+        self.assertNotIn('data-settings-pane="display" hidden', fallback)
+        self.client.force_login(self.agent)
+        agent_page = self.client.get("/settings/").content.decode("utf-8")
+        self.assertNotIn('data-settings-tab="deployment"', agent_page)
+        self.assertNotIn('data-settings-tab="backups"', agent_page)
+
     def test_the_page_module_is_wired(self):
         self.assertIn('if (page === "settings") {', SCRIPT)
         self.assertIn("setupSettingsPage();", SCRIPT)

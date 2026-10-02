@@ -15,6 +15,18 @@
    own page — `can_manage_branding` and friends, computed in
    `ActiveCrmView.get_context_data` from the feature *and* the role, and
    re-enforced by the endpoint regardless of what this rendered. {% endcomment %}
+<div class="card mb-6">
+    <div class="card-body pt-0 pb-0"><div class="d-flex overflow-auto h-55px">
+        <ul class="nav nav-stretch nav-line-tabs nav-line-tabs-2x border-transparent fs-5 fw-bold flex-nowrap" role="tablist" aria-label="بخش‌های تنظیمات" data-settings-tabs>
+            {% for key, label in settings_tabs %}
+            <li class="nav-item mt-2" role="presentation">
+                <a class="nav-link text-active-primary ms-0 me-10 py-5 text-nowrap{% if key == active_tab %} active{% endif %}" id="settings-tab-{{ key }}" href="?tab={{ key }}" role="tab" aria-controls="settings-pane-{{ key }}" aria-selected="{% if key == active_tab %}true{% else %}false{% endif %}" data-settings-tab="{{ key }}">{{ label }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div></div>
+</div>
+<div id="settings-pane-display" role="tabpanel" aria-labelledby="settings-tab-display" data-settings-pane="display"{% if active_tab != "display" %} hidden{% endif %}>
 <section class="card mb-5 mb-xl-8" id="panel-preferences">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
@@ -142,10 +154,12 @@
     </div>
 </section>
 {% endif %}
+</div>
 
 {% if can_manage_scoring %}
 {% comment %} وزن عامل‌های امتیاز اشخاص (۲.۲۰.۰). فقط «چقدر حساب شود» تنظیم‌شدنی است؛
    اینکه هر عامل چگونه سنجیده می‌شود در کد (`scoring/strategies.py`) ثابت است. {% endcomment %}
+<div id="settings-pane-scoring" role="tabpanel" aria-labelledby="settings-tab-scoring" data-settings-pane="scoring"{% if active_tab != "scoring" %} hidden{% endif %}>
 <section class="card mb-5 mb-xl-8" id="panel-scoring">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
@@ -175,6 +189,7 @@
         </div>
     </div>
 </section>
+</div>
 {% endif %}
 
 {% if can_manage_backups %}
@@ -183,6 +198,7 @@
    همان پنجره باز می‌شود و «بازگشت» به فهرست بخش‌ها برمی‌گرداند (مالک محصول
    ۲۰۲۶/۰۹/۲۸). هیچ کدام کاری انجام نمی‌دهد جز درخواست از عامل پشتیبان
    (`common/backups.py`). {% endcomment %}
+<div id="settings-pane-backups" role="tabpanel" aria-labelledby="settings-tab-backups" data-settings-pane="backups"{% if active_tab != "backups" %} hidden{% endif %}>
 <section class="card mb-5 mb-xl-8" id="panel-backups">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
@@ -206,6 +222,7 @@
         </div>
     </div>
 </section>
+</div>
 
 <dialog id="backup-dialog" class="backup-dialog" aria-labelledby="backup-dialog-title">
     <div class="d-flex align-items-center gap-3 mb-6">
@@ -325,6 +342,7 @@
 {% endif %}
 
 {% if can_manage_branding or can_manage_integrations %}
+<div id="settings-pane-deployment" role="tabpanel" aria-labelledby="settings-tab-deployment" data-settings-pane="deployment"{% if active_tab != "deployment" %} hidden{% endif %}>
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6">
         <div class="card-title flex-column">
@@ -356,5 +374,6 @@
         {% endif %}
     </div>
 </section>
+</div>
 {% endif %}
 {% endblock %}

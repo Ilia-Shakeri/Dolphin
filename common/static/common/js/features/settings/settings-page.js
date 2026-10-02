@@ -18,7 +18,32 @@ import {registerPopover} from "dolphin/ui/popover.js";
  * and the typeface/scale, so the reader can see the choice they are
  * about to keep.
  */
+/**
+ * Tabs switch without a reload. Every pane is already in the page; the links
+ * keep their `?tab=` href so each tab stays linkable and works without script.
+ */
+function setupSettingsTabs() {
+    const tabs = Array.from(document.querySelectorAll("[data-settings-tab]"));
+    if (!tabs.length) return;
+    const show = (key) => {
+        tabs.forEach((tab) => {
+            const active = tab.dataset.settingsTab === key;
+            tab.classList.toggle("active", active);
+            tab.setAttribute("aria-selected", String(active));
+        });
+        document.querySelectorAll("[data-settings-pane]").forEach((pane) => {
+            pane.hidden = pane.dataset.settingsPane !== key;
+        });
+    };
+    tabs.forEach((tab) => tab.addEventListener("click", (event) => {
+        event.preventDefault();
+        show(tab.dataset.settingsTab);
+        history.replaceState(null, "", tab.getAttribute("href"));
+    }));
+}
+
 export function setupSettingsPage() {
+    setupSettingsTabs();
     const form = document.getElementById("preferences-form");
     if (!form) return;
     const saved = document.getElementById("preferences-saved");
