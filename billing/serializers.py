@@ -49,6 +49,18 @@ def _display(user):
     return user.get_full_name() or user.username
 
 
+def percent_errors(label):
+    """Persian messages for a percentage field (a tax rate, a discount)."""
+    return {
+        "invalid": f"{label} باید یک عدد باشد.",
+        "min_value": f"{label} نمی‌تواند منفی باشد.",
+        "max_value": f"{label} نمی‌تواند از ۱۰۰ بیشتر باشد.",
+        "max_digits": f"{label} بیش از حد مجاز رقم دارد.",
+        "max_decimal_places": f"{label} حداکثر دو رقم اعشار دارد.",
+        "max_whole_digits": f"{label} بیش از حد مجاز رقم دارد.",
+    }
+
+
 class DocumentLineInputSerializer(RejectServerFieldsMixin, serializers.Serializer):
     """One requested document line.
 
@@ -134,6 +146,13 @@ class CommercialDocumentSerializer(ScopedLineItemsMixin, RejectServerFieldsMixin
     subtotal_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     tax_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
     total_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
+    #: Declared rather than derived from the model so the bounds and the Persian
+    #: messages are the product's own: the wizard sends numbers only, and this
+    #: is what answers anything that is not one.
+    tax_rate = serializers.DecimalField(
+        max_digits=5, decimal_places=2, min_value=0, max_value=100, required=False,
+        error_messages=percent_errors("نرخ مالیات"),
+    )
 
     def get_created_by_display(self, instance) -> str:
         return _display(instance.created_by)
@@ -301,6 +320,10 @@ class InvoiceSerializer(CommercialDocumentSerializer):
     #: نوع پرداخت — set when the invoice is created. Afterwards the count and
     #: the down payment change only through `set-installments`, which also
     #: reschedules an issued invoice's rows.
+    discount_percent = serializers.DecimalField(
+        max_digits=5, decimal_places=2, min_value=0, max_value=100, required=False, allow_null=True,
+        error_messages=percent_errors("درصد تخفیف"),
+    )
     payment_type = serializers.ChoiceField(choices=Invoice.PaymentType.choices, required=False)
     installment_down_payment = serializers.DecimalField(
         max_digits=18, decimal_places=2, required=False, allow_null=True, min_value=0

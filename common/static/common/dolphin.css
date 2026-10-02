@@ -2381,7 +2381,7 @@ dialog:has(.wizard-lines-step) {
 .wizard-totals {
     margin-top: 1.5rem;
     margin-inline-start: auto;
-    max-inline-size: 26rem;
+    max-inline-size: 30rem;
     padding: 1.25rem 1.5rem;
     border-radius: 0.625rem;
     background-color: var(--bs-gray-100);
@@ -2398,6 +2398,7 @@ dialog:has(.wizard-lines-step) {
 .wizard-totals-label {
     grid-column: 1;
     margin-bottom: 0;
+    white-space: nowrap;
     color: var(--bs-gray-700);
     font-weight: 500;
 }
@@ -2411,6 +2412,7 @@ dialog:has(.wizard-lines-step) {
 
 .wizard-totals-input input {
     inline-size: 100%;
+    border: 1px solid var(--bs-gray-300);
     text-align: center;
     font-variant-numeric: tabular-nums;
 }
@@ -4305,5 +4307,78 @@ body .btn {
 @media (prefers-reduced-motion: reduce) {
     .btn:active:not(:disabled):not(.disabled) {
         transform: none;
+    }
+}
+
+/* --- segmented toggle (2.34.6) ---------------------------------------------
+   Two or three exclusive options side by side — «نقد / اقساط» on the invoice
+   wizard. The selected option is filled, so the choice reads at a glance, and the
+   control keeps a 44px touch height. Behaviour: `ui/segmented.js`. */
+.dolphin-segmented {
+    display: inline-flex;
+    padding: 4px;
+    gap: 4px;
+    border-radius: 0.75rem;
+    background: var(--bs-gray-100);
+    border: 1px solid var(--bs-gray-200);
+}
+
+.dolphin-segmented-option {
+    min-height: 40px;
+    min-width: 7rem;
+    padding: 0 1.25rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--bs-gray-700);
+    font-weight: 600;
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease),
+        box-shadow var(--dolphin-dur) var(--dolphin-ease);
+}
+
+.dolphin-segmented-option:hover:not(.is-selected) {
+    color: var(--bs-gray-900);
+}
+
+.dolphin-segmented-option.is-selected {
+    background: var(--bs-primary);
+    color: var(--bs-primary-inverse, #fff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.dolphin-segmented-option:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* --- smooth reveal (2.34.6) -------------------------------------------------
+   Content that appears under a choice. A grid row animates from 0fr to 1fr, so
+   the height needs no measuring; `inert` (set by the script) keeps the collapsed
+   fields out of the tab order and away from screen readers. */
+.dolphin-reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows var(--dolphin-dur) var(--dolphin-ease), opacity var(--dolphin-dur) var(--dolphin-ease);
+}
+
+.dolphin-reveal.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.dolphin-reveal-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.dolphin-reveal.is-open .dolphin-reveal-inner {
+    overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dolphin-reveal,
+    .dolphin-segmented-option {
+        transition: none;
     }
 }

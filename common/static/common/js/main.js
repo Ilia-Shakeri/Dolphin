@@ -4,7 +4,9 @@ import {setupBusyButtons} from "dolphin/shell/busy.js";
 import {setupCallPopup, setupClickToCall} from "dolphin/shell/telephony.js";
 import {setupChartThemeRedraw, setupNav, setupNavActiveState, setupSidebarAccordionScroll, setupSidebarPeekGuard, setupThemeModePopup, setupUserMenu} from "dolphin/shell/nav.js";
 import {setupChat, setupChatUnreadPoll} from "dolphin/shell/chat.js";
+import {setupDecimalInputs} from "dolphin/core/decimal.js";
 import {setupDialogBackdropClose} from "dolphin/ui/dialogs.js";
+import {setupSegmentedControls} from "dolphin/ui/segmented.js";
 import {setupGlobalSearch} from "dolphin/shell/search.js";
 import {setupGoToAccounting} from "dolphin/shell/accounting-link.js";
 import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
@@ -40,6 +42,10 @@ function boot() {
     // here rather than per module, because a price is a price on whichever
     // screen it appears; dialogs are in the DOM at load, so they are covered.
     setupMoneyInputs();
+    // Rates and percentages: numbers only, however they are typed or pasted.
+    setupDecimalInputs();
+    // Segmented toggles redraw from the hidden input they stand for.
+    setupSegmentedControls();
     // Persian digits in every numeric field, including ones built later.
     setupLatinDigitInputs();
 

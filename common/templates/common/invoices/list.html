@@ -146,7 +146,7 @@
                         <label class="wizard-totals-label" for="create-invoice-discount">تخفیف سند</label>
                         <span class="wizard-totals-input">
                             <input class="form-control form-control-solid form-control-sm" id="create-invoice-discount"
-                                   name="discount_percent" type="number" min="0" max="100" step="0.01" value="0"
+                                   name="discount_percent" type="text" inputmode="decimal" dir="ltr" autocomplete="off" data-decimal-input data-decimal-max="100" data-decimal-places="2" value="0"
                                    aria-label="درصد تخفیف">
                             <span class="wizard-totals-unit">٪</span>
                         </span>
@@ -156,7 +156,7 @@
                         <label class="wizard-totals-label" for="create-invoice-tax">مالیات</label>
                         <span class="wizard-totals-input">
                             <input class="form-control form-control-solid form-control-sm" id="create-invoice-tax"
-                                   name="tax_rate" type="number" min="0" max="100" step="0.01" value="0"
+                                   name="tax_rate" type="text" inputmode="decimal" dir="ltr" autocomplete="off" data-decimal-input data-decimal-max="100" data-decimal-places="2" value="0"
                                    aria-label="نرخ مالیات">
                             <span class="wizard-totals-unit">٪</span>
                         </span>
@@ -173,15 +173,25 @@
             </div>
             <div data-dolphin-stepper-element="content">
                 <div class="row gx-6 gy-7">
-                    <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-payment-type">نوع پرداخت</label><select class="form-select form-select-solid" id="create-invoice-payment-type" name="payment_type"><option value="cash">نقدی</option><option value="installment">اقساط</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="payment_type"></p></div>
+                    <div class="col-md-6">
+                        <span class="form-label fw-semibold d-block" id="create-invoice-payment-type-label">نوع پرداخت</span>
+                        <input type="hidden" id="create-invoice-payment-type" name="payment_type" value="cash">
+                        <div class="dolphin-segmented" role="radiogroup" aria-labelledby="create-invoice-payment-type-label" data-segmented-for="create-invoice-payment-type">
+                            <button type="button" role="radio" aria-checked="true" class="dolphin-segmented-option is-selected" data-value="cash">نقدی</button>
+                            <button type="button" role="radio" aria-checked="false" class="dolphin-segmented-option" data-value="installment">اقساط</button>
+                        </div>
+                        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="payment_type"></p>
+                    </div>
                 </div>
-                <div class="row gx-6 gy-7 mt-0" id="create-invoice-installment-fields" hidden>
+                <div class="dolphin-reveal" id="create-invoice-installment-reveal" inert><div class="dolphin-reveal-inner">
+                <div class="row gx-6 gy-7 pt-6" id="create-invoice-installment-fields">
                     <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-down-payment">پیش‌پرداخت ({{ panel_currency_label }})</label><input class="form-control form-control-solid" id="create-invoice-down-payment" name="installment_down_payment" type="text" inputmode="numeric" data-money-input dir="ltr" placeholder="۰"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_down_payment"></p></div>
                     <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-installment-count">تعداد اقساط</label><input class="form-control form-control-solid" id="create-invoice-installment-count" name="installment_count" type="number" min="1" max="120" step="1" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_count"></p></div>
                     <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-first-due">تاریخ شروع اولین قسط</label><input class="form-control form-control-solid" id="create-invoice-first-due" name="installment_first_due" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_first_due"></p></div>
                     <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-interval-days">فاصله بین هر قسط (روز)</label><input class="form-control form-control-solid" id="create-invoice-interval-days" name="installment_interval_days" type="number" min="1" max="365" step="1" dir="ltr" value="30"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_interval_days"></p></div>
                     <div class="col-12"><p class="text-muted fs-8 mb-0">پیش‌پرداخت از مبلغ نهایی کم می‌شود و باقی‌مانده به‌طور مساوی بین اقساط تقسیم می‌شود.</p></div>
                 </div>
+                </div></div>
             </div>
             <div data-dolphin-stepper-element="content">
                 <div class="w-100">

@@ -28,15 +28,24 @@ export async function setupInvoices() {
         validateStep: (index, content) => validateLinesStep(content, lines),
     });
     const paymentTypeSelect = document.getElementById("create-invoice-payment-type");
+    const installmentReveal = document.getElementById("create-invoice-installment-reveal");
     const installmentFields = document.getElementById("create-invoice-installment-fields");
+    // Cash hides the instalment fields *and* switches them off: a disabled field
+    // is left out of the submitted form and of validation, so a value typed
+    // before changing one's mind can never reach the server.
     const syncPaymentType = () => {
         const installment = paymentTypeSelect?.value === "installment";
-        if (installmentFields) installmentFields.hidden = !installment;
-        ["down-payment", "installment-count", "first-due", "interval-days"].forEach((name) => {
-            const field = document.getElementById(`create-invoice-${name}`);
-            if (field) field.required = installment && name !== "down-payment";
+        installmentReveal?.classList.toggle("is-open", installment);
+        installmentReveal?.toggleAttribute("inert", !installment);
+        installmentFields?.querySelectorAll("input, select, textarea").forEach((field) => {
+            field.disabled = !installment;
+            field.required = installment && field.id !== "create-invoice-down-payment";
+        });
+        installmentFields?.querySelectorAll("[data-error-for]").forEach((node) => {
+            if (!installment) node.textContent = "";
         });
     };
+    syncPaymentType();
     paymentTypeSelect?.addEventListener("change", syncPaymentType);
 
     function renderReview() {
