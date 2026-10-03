@@ -336,6 +336,12 @@ class InvoiceSerializer(CommercialDocumentSerializer):
         required=False, allow_null=True, min_value=1, max_value=365
     )
 
+    campaign_name = serializers.SerializerMethodField()
+
+    def get_campaign_name(self, instance) -> str:
+        attribution = getattr(instance, "campaign_attribution", None)
+        return attribution.campaign.name if attribution is not None else ""
+
     class Meta:
         model = Invoice
         fields = [
@@ -349,7 +355,7 @@ class InvoiceSerializer(CommercialDocumentSerializer):
             "payment_type", "installment_down_payment", "installment_count",
             "installment_first_due", "installment_interval_days",
             "manual_paid_entry", "manual_settled_at", "is_manually_settled",
-            "notes", "created_by", "created_by_display",
+            "notes", "created_by", "created_by_display", "campaign_name",
             "items", "line_items", "created_at", "updated_at",
         ]
         read_only_fields = [

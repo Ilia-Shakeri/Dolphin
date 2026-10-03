@@ -321,7 +321,9 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     def get_queryset(self):
         queryset = self.filtered(
             invoices_for(self.request.user)
-            .select_related("customer", "order", "quotation", "warehouse", "created_by")
+            .select_related(
+                "customer", "order", "quotation", "warehouse", "created_by", "campaign_attribution__campaign"
+            )
             .prefetch_related("items")
         )
         order = self.request.query_params.get("order")

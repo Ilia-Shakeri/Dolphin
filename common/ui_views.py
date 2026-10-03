@@ -359,8 +359,19 @@ class DolphinHomeView(ActiveCrmView):
         add("leads.company", "سرنخ‌های شرکت", lead_scope.count, "common_ui:leads")
         add("interactions.scoped", "تماس‌های مجاز من", interaction_scope.count, "common_ui:interactions")
         add("interactions.company", "فعالیت تماس‌ها", interaction_scope.count, "common_ui:interactions")
-        add("sales.own", "فروش‌های من", sale_scope.count, "common_ui:sales")
-        add("sales.company", "فروش‌های شرکت", sale_scope.count, "common_ui:sales")
+        # «Sales» are issued invoices (2.39.16); the old campaign-result `Sale`
+        # rows are counted only on a deployment without the invoices feature.
+        if feature_enabled("invoices") and capabilities & {"invoices.scoped", "invoices.company"}:
+            from billing.models import Invoice
+
+            def issued_invoices():
+                return invoices_for(self.request.user).filter(status=Invoice.Status.ISSUED).count()
+
+            sales_count, sales_url = issued_invoices, "common_ui:invoices"
+        else:
+            sales_count, sales_url = sale_scope.count, "common_ui:sales"
+        add("sales.own", "فروش‌های من", sales_count, sales_url)
+        add("sales.company", "فروش‌های شرکت", sales_count, sales_url)
         add("sales_documents.scoped", "مرسوله‌های مجاز", document_scope.count, "common_ui:sales-documents")
         add("sales_documents.company", "رهگیری پستی", document_scope.count, "common_ui:sales-documents")
         add("after_sales.assigned", "پرونده‌های خدمات من", after_sales_scope.count, "common_ui:after-sales")

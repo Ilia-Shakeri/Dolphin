@@ -135,6 +135,8 @@ export async function setupInvoices() {
                 cell.classList.add("text-center");
             },
             (row, item) => appendCell(row, item.customer_name).classList.add("text-center"),
+            (row, item) => appendCell(row, item.campaign_name || "—").classList.add("text-center"),
+            (row, item) => appendCell(row, item.created_by_display || "—").classList.add("text-center"),
             (row, item) => appendStatusBadgeCell(row, DOCUMENT_STATUS_TEXT, item.status).classList.add("text-center"),
             (row, item) => appendMoneyCell(row, item.total_amount).classList.add("text-center"),
             (row, item) => appendMoneyCell(row, item.paid_amount).classList.add("text-center"),
