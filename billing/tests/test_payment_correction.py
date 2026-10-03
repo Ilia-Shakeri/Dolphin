@@ -206,6 +206,40 @@ class PaymentCorrectionTests(TestCase):
         self.assertEqual(invoice.paid_amount, Decimal("0.00"))
         self.assertEqual(invoice.balance_due, invoice.total_amount)
 
+    def _issued_invoice(self, customer=None):
+        warehouse = create_warehouse(actor=self.manager, code="fixwh2", name="انبار دو")
+        product = create_product(actor=self.manager, sku="FIX-2", name="کالا دو", current_price=Decimal("500.00"))
+        record_stock_movement(
+            actor=self.manager, warehouse=warehouse, product=product,
+            movement_type=StockMovement.MovementType.OPENING, quantity=10, unit_cost=Decimal("100.00"),
+        )
+        return issue_invoice(
+            actor=self.manager,
+            invoice=create_invoice(
+                actor=self.manager, customer=customer or self.customer, warehouse=warehouse,
+                items=[{"product": product, "quantity": 1}],
+            ),
+        )
+
+    def test_edits_made_together_with_a_smaller_amount_are_not_lost(self):
+        invoice = self._issued_invoice()
+        payment = self.receipt("500.00")
+        allocate_payment(actor=self.manager, payment=payment, invoice=invoice)
+        update_payment(actor=self.admin, payment=payment, amount=Decimal("100.00"), reference="REF-77", notes="n")
+        payment.refresh_from_db()
+        self.assertEqual((payment.amount, payment.reference, payment.notes), (Decimal("100.00"), "REF-77", "n"))
+
+    def test_changing_the_customer_frees_every_allocation(self):
+        invoice = self._issued_invoice()
+        payment = self.receipt("500.00")
+        allocate_payment(actor=self.manager, payment=payment, invoice=invoice)
+        update_payment(actor=self.admin, payment=payment, customer=self.other)
+        payment.refresh_from_db()
+        invoice.refresh_from_db()
+        self.assertEqual(payment.customer_id, self.other.pk)
+        self.assertEqual(payment.allocated_amount, Decimal("0.00"))
+        self.assertEqual(invoice.paid_amount, Decimal("0.00"))
+
     def test_only_what_no_longer_fits_is_released(self):
         """A release is per allocation, so the ones that still fit stay put."""
         warehouse = create_warehouse(actor=self.manager, code="fitwh", name="انبار")

@@ -571,6 +571,10 @@ def transition_cheque(*, actor, cheque, to_status, reason=""):
     return locked
 
 
+#: Upper bound on rows in one batch allocation.
+MAX_ALLOCATION_SPLITS = 50
+
+
 @transaction.atomic
 def allocate_payment_across(*, actor, payment, splits):
     """Apply one receipt to several invoices at once. (بند ۳.۱ و ۳.۲)
@@ -601,6 +605,19 @@ def allocate_payment_across(*, actor, payment, splits):
     # the invoice's balance and the receipt's remainder are re-read each time, so
     # the rows add up against both limits and a batch that overshoots either one
     # is refused whole.
+
+    if len(splits) > MAX_ALLOCATION_SPLITS:
+        raise BusinessRuleError({"splits": f"حداکثر {MAX_ALLOCATION_SPLITS} تقسیم در هر بار مجاز است."})
+    # One lock order everywhere: the receipt first, then its invoices by id.
+    # Taking the invoices in the operator's order let two receipts that touch
+    # the same two invoices in opposite order wait on each other.
+    Payment.objects.select_for_update().get(pk=payment.pk)
+    list(
+        Invoice.objects.select_for_update()
+        .filter(pk__in={split["invoice"].pk for split in splits})
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
 
     allocations = []
     for split in splits:
@@ -764,18 +781,15 @@ def update_payment(*, actor, payment, cheque=None, **data):
 
     if "amount" in data:
         data["amount"] = clean_money(data["amount"], field="amount", allow_zero=False)
-    if "customer" in data:
-        customer = data.pop("customer")
-        if customer is None:
-            if locked.direction == Payment.Direction.RECEIPT:
-                raise BusinessRuleError({"customer": "رسید باید مشتری داشته باشد."})
-            locked.customer = None
-        else:
-            locked.customer = Customer.objects.select_for_update().get(pk=customer.pk)
-    for field in ("received_at", "reference", "bank_name", "payee", "notes"):
-        if field in data:
-            setattr(locked, field, data[field])
     released_for_amount = []
+    new_customer = data.get("customer", locked.customer) if "customer" in data else locked.customer
+    if "customer" in data and getattr(new_customer, "pk", None) != locked.customer_id:
+        # Allocations only ever tie a receipt to its own customer's invoices,
+        # so changing the customer frees every one of them first.
+        for allocation in locked.allocations.filter(is_reversed=False).order_by("-id"):
+            release_allocation(actor=actor, allocation=allocation, reason="تغییر مشتری سند")
+            released_for_amount.append(allocation.pk)
+        locked.refresh_from_db()
     if "amount" in data:
         # Allocation is not compulsory: money may simply sit against the
         # customer's account without being tied to any invoice. So a smaller
@@ -800,7 +814,19 @@ def update_payment(*, actor, payment, cheque=None, **data):
                 )
                 released_for_amount.append(allocation.pk)
                 locked.refresh_from_db()
-        locked.amount = data["amount"]
+
+    if "customer" in data:
+        customer = data.pop("customer")
+        if customer is None:
+            if locked.direction == Payment.Direction.RECEIPT:
+                raise BusinessRuleError({"customer": "رسید باید مشتری داشته باشد."})
+            locked.customer = None
+        else:
+            locked.customer = Customer.objects.select_for_update().get(pk=customer.pk)
+    for field in ("received_at", "reference", "bank_name", "payee", "notes"):
+        if field in data:
+            setattr(locked, field, data[field])
+    locked.amount = data.get("amount", locked.amount)
 
     locked.save()
 
