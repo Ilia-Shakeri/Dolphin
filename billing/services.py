@@ -256,8 +256,7 @@ def _create_document(*, actor, model, item_model, customer, lead, items, header,
         # (an instalment term, a total, a status) used to be reported as «شماره
         # سند قبلاً استفاده شده است» too, which sent the operator looking for a
         # duplicate that did not exist.
-        detail = str(exc).lower()
-        if "number" in detail and ("unique" in detail or "duplicate" in detail):
+        if _is_number_clash(exc):
             raise BusinessConflictError({"number": "شماره سند قبلاً استفاده شده است."}) from exc
         logging.getLogger("dolphin.billing").warning("document refused by a database constraint: %s", exc)
         raise BusinessRuleError({
@@ -267,6 +266,20 @@ def _create_document(*, actor, model, item_model, customer, lead, items, header,
         item_model(**{model.__name__.lower(): document}, **line) for line in prepared
     ])
     return document
+
+
+def _is_number_clash(exc):
+    """Was this IntegrityError the unique constraint on a document number?
+
+    PostgreSQL names the violated constraint on the driver error, which is
+    exact; other backends (SQLite in development) only offer text, so the
+    message is the fallback there.
+    """
+    constraint = getattr(getattr(getattr(exc, "__cause__", None), "diag", None), "constraint_name", None)
+    if constraint:
+        return "number" in constraint.lower() and "uniq" in constraint.lower() or constraint.lower().endswith("number_key")
+    detail = str(exc).lower()
+    return "number" in detail and ("unique" in detail or "duplicate" in detail)
 
 
 def _replace_items(*, actor, document, item_model, items, relation):

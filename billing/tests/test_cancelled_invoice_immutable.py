@@ -121,3 +121,16 @@ class CancelledInvoiceImmutableTests(TestCase):
         draft.items.all().delete()
         draft.delete()
         self.assertFalse(Invoice.objects.filter(pk=draft.pk).exists())
+
+    def test_no_new_allocation_can_be_attached_to_a_cancelled_invoice(self):
+        from billing.models import Payment, PaymentAllocation
+        from billing.payments import register_payment
+
+        invoice = self.cancelled()
+        payment = register_payment(
+            actor=self.manager, customer=self.customer, method=Payment.Method.CASH, amount=Decimal("100.00")
+        )
+        with self.assertRaises(BusinessConflictError):
+            PaymentAllocation.objects.create(
+                payment=payment, invoice=invoice, amount=Decimal("100.00"), created_by=self.manager
+            )

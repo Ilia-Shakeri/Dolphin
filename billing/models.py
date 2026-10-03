@@ -870,7 +870,26 @@ class Payment(TimeStampedModel):
         return self.amount - self.allocated_amount
 
 
-class PaymentAllocation(TimeStampedModel):
+class NoNewRowsOnCancelledInvoice(models.Model):
+    """Nothing new may be attached to a cancelled invoice (2.39.12).
+
+    Only creation is refused: cancelling an invoice itself releases and closes
+    its allocations and plan, which are saves of existing rows.
+    """
+
+    class Meta:
+        abstract = True
+
+    def _owning_invoice_id(self):
+        return self.invoice_id
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and Invoice.objects.filter(pk=self._owning_invoice_id(), status="cancelled").exists():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().save(*args, **kwargs)
+
+
+class PaymentAllocation(NoNewRowsOnCancelledInvoice, TimeStampedModel):
     """One confirmed payment applied to one invoice.
 
     Allocation is a separate row rather than a field on either side because a
@@ -1043,7 +1062,7 @@ class ChequeStatusHistory(models.Model):
         indexes = [models.Index(fields=["cheque", "-changed_at"])]
 
 
-class InstallmentPlan(TimeStampedModel):
+class InstallmentPlan(NoNewRowsOnCancelledInvoice, TimeStampedModel):
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
         COMPLETED = "completed", "Completed"
@@ -1128,7 +1147,7 @@ class InstallmentPlan(TimeStampedModel):
         ]
 
 
-class Installment(TimeStampedModel):
+class Installment(NoNewRowsOnCancelledInvoice, TimeStampedModel):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         PARTIALLY_PAID = "partially_paid", "Partially paid"
@@ -1136,6 +1155,9 @@ class Installment(TimeStampedModel):
         CANCELLED = "cancelled", "Cancelled"
 
     plan = models.ForeignKey(InstallmentPlan, on_delete=models.PROTECT, related_name="installments")
+
+    def _owning_invoice_id(self):
+        return InstallmentPlan.objects.filter(pk=self.plan_id).values_list("invoice_id", flat=True).first()
     sequence = models.PositiveSmallIntegerField()
     due_date = models.DateField(db_index=True)
     amount = models.DecimalField(max_digits=18, decimal_places=2)
