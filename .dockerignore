@@ -86,3 +86,7 @@ Dockerfile
 *.swp
 .DS_Store
 **/*.map
+.claude
+.scratch
+apple-design-skill
+DOLPHIN_*PROMPT*.md
