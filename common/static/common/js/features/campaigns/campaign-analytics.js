@@ -44,7 +44,7 @@ export async function setupCampaignAnalytics() {
             .map((row) => ({label: row.name, value: row.conversion_rate, display: `${count(row.conversion_rate)}٪`}));
         renderBarChart(...chartHost("compare"), compare, {ariaLabel: "مقایسهٔ نرخ تبدیل"});
         renderAreaChart(...chartHost("invoices"), data.invoices_by_month.map((point) => ({
-            label: point.month, value: Number(point.count), display: count(point.count),
+            label: point.label || point.month, value: Number(point.count), display: count(point.count),
         })), {ariaLabel: "فاکتورهای معتبر در هر ماه"});
         renderAreaChart(...chartHost("joined"), data.members_by_day.map((point) => ({
             label: point.day, value: point.count, display: count(point.count),

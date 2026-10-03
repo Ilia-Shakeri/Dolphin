@@ -191,6 +191,33 @@ def _roll_up_children(rows):
     return rows
 
 
+def _jalali_month_series(attributions):
+    """Valid invoices per **Jalali** month (the calendar the users keep), oldest first."""
+    from common.jalali import JALALI_MONTHS, to_jalali, to_persian_digits
+
+    buckets = {}
+    per_day = (
+        attributions.annotate(d=TruncDate("invoice__issued_at")).values("d")
+        .annotate(n=Count("id"), amount=Coalesce(Sum("invoice__total_amount"), ZERO, output_field=DecimalField()))
+    )
+    for row in per_day:
+        if row["d"] is None:
+            continue
+        year, month, _day = to_jalali(row["d"])
+        bucket = buckets.setdefault((year, month), {"count": 0, "amount": ZERO})
+        bucket["count"] += row["n"]
+        bucket["amount"] += row["amount"]
+    return [
+        {
+            "month": f"{year}-{month:02d}",
+            "label": to_persian_digits(f"{JALALI_MONTHS[month - 1]} {year}"),
+            "count": bucket["count"],
+            "amount": bucket["amount"],
+        }
+        for (year, month), bucket in sorted(buckets.items())
+    ]
+
+
 def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
     """Funnel, first-contact speed and the two time series, for the chosen campaigns."""
     rows = campaign_rows(user, ids=ids, date_from=date_from, date_to=date_to)
@@ -205,13 +232,7 @@ def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
         ("در تعامل", sum(row["engaged"] for row in top)),
         ("تبدیل‌شده", sum(row["converted"] for row in top)),
     ]
-    invoices_by_month = [
-        {"month": row["m"].strftime("%Y-%m"), "count": row["n"], "amount": row["amount"]}
-        for row in _valid_attributions(campaign_ids, date_from, date_to)
-        .annotate(m=TruncMonth("invoice__issued_at")).values("m")
-        .annotate(n=Count("id"), amount=Coalesce(Sum("invoice__total_amount"), ZERO, output_field=DecimalField()))
-        .order_by("m")
-    ]
+    invoices_by_month = _jalali_month_series(_valid_attributions(campaign_ids, date_from, date_to))
     joined_by_day = [
         {"day": row["d"].isoformat(), "count": row["n"]}
         for row in members.annotate(d=TruncDate("created_at")).values("d").annotate(n=Count("id")).order_by("d")

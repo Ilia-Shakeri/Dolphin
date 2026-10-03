@@ -439,3 +439,15 @@ class MemberReminderTests(Fixtures):
         self.assertEqual(group["count"], 1)
         self.assertEqual(group["items"][0]["title"], "پیگیری")
         self.assertEqual(_lead_reminders(self.other_agent, now=timezone.now())["count"], 0)
+
+
+class JalaliSeriesTests(AttributionTests):
+    def test_valid_invoices_are_bucketed_by_jalali_month_with_a_persian_label(self):
+        person = self.member("09121110001")
+        self.called(person)
+        issue_invoice(actor=self.manager, invoice=self.invoice())
+        series = campaign_analysis(self.manager, ids=[self.campaign.pk])["invoices_by_month"]
+        self.assertEqual(len(series), 1)
+        self.assertRegex(series[0]["month"], r"^1[34]\d\d-\d\d$")
+        self.assertRegex(series[0]["label"], r"[۰-۹]{4}")
+        self.assertEqual(series[0]["count"], 1)
