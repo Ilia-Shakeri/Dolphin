@@ -553,9 +553,9 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login(self.agent)
         sidebar = self.browser.find_element(By.ID, "app-sidebar").text
-        self.assertIn("اسناد فروش", sidebar)
+        self.assertIn("فروش و تأمین", sidebar)
         self.assertIn("انبار و موجودی", sidebar)
-        self.assertNotIn("اسناد مالی", sidebar)
+        self.assertNotIn("مالی", sidebar.replace("فروش و تأمین", ""))
         self.assertNotIn("پیش‌فاکتور", sidebar)
 
         for path in (

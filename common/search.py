@@ -163,7 +163,7 @@ def _sales_document_results(user, *, text, latin, digits):
     )
     found = sales_documents_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     return _group(
-        "sales_documents", "اسناد فروش", "di-delivery", "primary", "/sales-documents/", found,
+        "sales_documents", "رهگیری پستی", "di-delivery", "primary", "/sales-documents/", found,
         lambda row: (
             row.document_number,
             getattr(row.customer, "full_name", "") or row.postal_status or "—",
