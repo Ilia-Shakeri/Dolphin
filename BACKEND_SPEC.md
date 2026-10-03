@@ -343,6 +343,34 @@ Rules:
   `Sale` stays as the legacy/derived record. The menu entry «نتایج کمپین» moved under
   the «کمپین‌ها» group as «فروش‌های ثبت‌شده» (same `/sales/` page).
 
+
+### 5.1B Campaign hierarchy, channels, supply batches (2.39.x)
+
+- **Channels.** `Campaign.channels` (JSON list of `Campaign.Channel` values, at least one)
+  replaces the single `channel`, which stays as a mirror of the first value for rollback.
+  The UI calls them «راه‌های ارتباط با مخاطب»; the word «کانال» is not used.
+- **Sub-campaigns.** `Campaign.parent` (two levels only). Names are unique per parent
+  (`uniq_campaign_name_top_level`, `uniq_campaign_name_per_parent`). People attach to a leaf:
+  adding a member to a campaign that has children is refused. A parent's figures are its own
+  people plus its children's, counted once (an invoice has one attribution); the analysis
+  funnel sums top-level rows only. A parent with non-archived children cannot be archived;
+  children's budget above the parent's is a warning (`budget_warning`), not an error.
+  System campaigns cannot be deleted through the API.
+- **Marketer work is on the person.** A marketer may log an interaction on a
+  `TargetAudienceMember` assigned to them even though the hidden container `Lead` has no
+  assignee; `next_follow_up_at` is written on the person; the reminders bell reads it.
+  `POST /campaign-members/{id}/customer/` links or creates the customer by phone (owner:
+  the marketer), idempotently.
+- **Attribution** now requires a real interaction in the window (entering a campaign is not a
+  touch); manual attribution only picks members present before issue and not `lost`.
+- **Supply batch.** `POST /orders/from-invoices/` creates one fulfilment request per issued
+  invoice (customers may differ) sharing `Order.batch_number` (`SB-…`), all or none, max 100.
+  A fulfilled fulfilment request (one with `invoice`) may be cancelled and returns its goods;
+  header discount and tax rate are copied from the invoice.
+- **Payments.** Lock order is receipt, then invoices by id; `update_payment` releases
+  allocations before applying fields; changing a receipt's customer releases all its
+  allocations; at most 50 splits per batch allocation.
+- **Cancelled invoice** also refuses new `PaymentAllocation`, `InstallmentPlan`, `Installment`.
 ### 5.1B Live updates (2.38.0, feature `realtime`)
 
 `common/realtime.py`. An event is `{k: kind, i: id?, u: users?, t: ms}` and carries
