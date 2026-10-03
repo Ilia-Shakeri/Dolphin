@@ -1913,17 +1913,10 @@ dialog {
    height, not a guess: a role with eight or fewer tiles never shows a
    scrollbar at all, since the container is simply taller than its content. */
 .dashboard-capability-grid {
-    max-height: 30rem;
+    /* Four rows of the default two-row tile (2.38.1: tiles are grid cells) */
+    max-height: 46rem;
     overflow-y: auto;
     padding-inline-end: 0.35rem;
-}
-
-/* A reader who has made a tile taller (2.18.4, a box's own border) has sized
-   this row themselves; a fixed two-row cap would then cut their second row
-   in half behind a scroll. The cap stands for everyone else. */
-.dashboard-capability-grid:has(> .dashboard-widget[style*="--dashboard-min-height"]) {
-    max-height: none;
-    overflow-y: visible;
 }
 
 /* The performance panel's own "جزئیات همان محدوده مجاز" table
@@ -2964,7 +2957,10 @@ body.dashboard-editing #agent-work-queue {
 }
 
 .dashboard-widget > .card {
-    min-height: var(--dashboard-min-height, auto);
+    /* The box is a grid cell: the card fills it, and what does not fit scrolls
+       inside the card rather than stretching the row (2.38.1). */
+    height: 100%;
+    min-height: 0;
 }
 
 .dashboard-resize-handle {
@@ -4090,8 +4086,11 @@ details[open] > summary.card-header::after {
 }
 
 .dashboard-kpi-value {
-    font-size: clamp(1.4rem, 14cqi, 3.25rem);
+    /* Smaller than before (2.38.1): a tile shows a figure, not a headline, and
+       an amount up to about a billion should sit on one line. */
+    font-size: clamp(1.1rem, 8.5cqi, 1.8rem);
     overflow-wrap: anywhere;
+    letter-spacing: -0.01em;
 }
 
 .dashboard-kpi-label {
@@ -4404,3 +4403,65 @@ tr.is-removing > td {
 
 /* The customer-category manager lists name, count, state and actions in a row. */
 #customer-categories-dialog { width: min(900px, 94vw); max-width: none; }
+
+/* --- The dashboard as a grid of cells (2.38.1) --------------------------------
+
+   Built like a phone home screen: one fixed row unit, a fixed number of
+   columns, and widgets that each take a whole number of columns and rows
+   (`common/dashboard_layout.py`: `WIDGET_SIZES`, `ROW_STEPS`). Widgets of
+   different sizes pack side by side, `dense` fills the holes a taller or
+   wider neighbour leaves, and a box is dragged or resized to the nearest
+   cell. The row and gap must stay equal to `ROW_REM` / `GAP_REM` there.
+
+   Twelve columns from `xl`, six on a tablet, two on a phone — where the small
+   tiles still sit two to a row, as on a phone's home screen. */
+:root {
+    --dashboard-row: 4.5rem;
+    --dashboard-gap: 1.25rem;
+}
+
+[data-dashboard-grid] {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: var(--dashboard-row);
+    grid-auto-flow: row dense;
+    gap: var(--dashboard-gap);
+    margin: 0 !important;
+}
+
+[data-dashboard-grid] > .dashboard-widget {
+    grid-row: span var(--dashboard-rows, 2);
+    width: auto;
+    max-width: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-width: 0;
+    min-height: 0;
+}
+
+.dashboard-span-3 { grid-column: span 3; }
+.dashboard-span-4 { grid-column: span 4; }
+.dashboard-span-6 { grid-column: span 6; }
+.dashboard-span-8 { grid-column: span 8; }
+.dashboard-span-9 { grid-column: span 9; }
+.dashboard-span-12 { grid-column: span 12; }
+
+@media (max-width: 1199.98px) {
+    [data-dashboard-grid] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .dashboard-span-3, .dashboard-span-4 { grid-column: span 3; }
+    .dashboard-span-6 { grid-column: span 3; }
+    .dashboard-span-8, .dashboard-span-9, .dashboard-span-12 { grid-column: span 6; }
+}
+
+@media (max-width: 575.98px) {
+    [data-dashboard-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+    .dashboard-span-3, .dashboard-span-4 { grid-column: span 1; }
+    .dashboard-span-6, .dashboard-span-8, .dashboard-span-9, .dashboard-span-12 { grid-column: span 2; }
+}
+
+/* A box's body scrolls inside its cell when its content is taller than the cell. */
+[data-dashboard-grid] > .dashboard-widget > .card > .card-body {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}

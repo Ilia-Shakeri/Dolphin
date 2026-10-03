@@ -197,13 +197,15 @@ class BorderResizeTests(SimpleTestCase):
     """«همهٔ باکس‌ها باید از لبه‌ها به‌صورت افقی و عمودی بزرگ و کوچک شوند»."""
 
     def test_a_box_carries_a_minimum_height_it_never_drops_below_its_content(self):
-        self.assertIn("min-height: var(--dashboard-min-height, auto)", rule(".dashboard-widget > .card"))
+        # 2.38.1: a box is a fixed grid cell; the card fills it and the editor
+        # never snaps to a row step shorter than the content.
+        self.assertIn("height: 100%", rule(".dashboard-widget > .card"))
         body = function_body("setupDashboardEditor")
-        self.assertIn("if (px <= naturalPx + 4) return null;", body)
+        self.assertIn("if (candidate < naturalPx - 4) return;", body)
 
     def test_a_saved_height_is_drawn_on_first_paint(self):
-        self.assertIn('style="--dashboard-min-height: {{ widget.height }}"', HOME)
-        self.assertIn('column.style.setProperty("--dashboard-min-height", widget.height)', function_body("placeDashboardWidget"))
+        self.assertIn('style="--dashboard-rows: {{ widget.height }}"', HOME)
+        self.assertIn('column.style.setProperty("--dashboard-rows", String(widget.height))', function_body("placeDashboardWidget"))
 
     def test_a_taller_box_gives_its_chart_the_room(self):
         body = function_body("setupDashboardEditor")
@@ -214,10 +216,9 @@ class BorderResizeTests(SimpleTestCase):
                         body.index("chart.target = chart.base + Math.max(0, Math.round(slackIn(chart.column)));"))
 
     def test_a_taller_tile_lifts_the_rows_two_row_cap(self):
-        """The tile row is capped at 30rem and scrolls; a reader who made a
-        tile taller would otherwise get their second row cut in half."""
-        declarations = rule('.dashboard-capability-grid:has(> .dashboard-widget[style*="--dashboard-min-height"])')
-        self.assertIn("max-height: none", declarations)
+        """The tile row is capped at four default tile rows and scrolls inside
+        itself instead of pushing the page down."""
+        self.assertIn("max-height: 46rem", rule(".dashboard-capability-grid"))
 
     def test_side_handles_are_not_offered_where_widths_cannot_show(self):
         from common.tests.ui_overhaul_helpers import media_block
@@ -240,7 +241,10 @@ class HeightValidationTests(TestCase):
         self.assertEqual(effective_layout(self.admin)["heights"], {"trend": "h24"})
         payload = {"kpis": [], "trend": {"title": "t", "points": [], "counts": []}, "breakdown": None,
                    "gauges": [], "agent_share": None}
-        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], "24rem")
+        # A pre-2.38.1 token (24rem) reads as the nearest row step (four rows).
+        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 4)
+        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "r8"})
+        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 8)
 
     def test_null_drops_a_height_and_unknown_tokens_are_refused(self):
         from common.dashboard_layout import effective_layout

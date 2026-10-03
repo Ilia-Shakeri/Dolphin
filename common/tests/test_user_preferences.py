@@ -492,7 +492,7 @@ class DigitScriptTests(PreferenceFixtures):
     def test_the_capability_tiles_render_persian_digits(self):
         self.client.force_login(self.admin)
         page = self.client.get("/").content.decode("utf-8")
-        tiles = page.split('class="text-gray-900 fw-bolder fs-2hx lh-1"')
+        tiles = page.split('class="dashboard-kpi-value text-gray-900 fw-bolder lh-1"')
         self.assertGreater(len(tiles), 1, "the capability tiles are gone")
         for tile in tiles[1:]:
             figure = tile.split(">", 1)[1].split("<", 1)[0].strip()

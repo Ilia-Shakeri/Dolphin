@@ -74,6 +74,17 @@ COLLECT = (
     "auditlog",
     "chat",
     "reports",
+    # Every other project app (a missing one loses the panel route table, so
+    # every feature would show as opening no pages): kept equal to INSTALLED_APPS
+    # by a test.
+    "profiles",
+    "timeline",
+    "tasks",
+    "scoring",
+    "integrations",
+    "telephony",
+    "accounting",
+    "integration",
 )
 
 

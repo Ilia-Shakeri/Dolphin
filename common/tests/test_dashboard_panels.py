@@ -43,7 +43,7 @@ class DashboardPanelTests(TestCase):
         self.assertEqual(result["count"], 3)
         self.assertEqual(result["items"][0]["badge"], "معوق")
         self.assertEqual(result["family"], "panel")
-        self.assertEqual(result["size"], "col-12 col-sm-6 col-xl-4")
+        self.assertEqual(result["size"], "dashboard-span-4")
 
     def test_tasks_panel_is_empty_not_absent_for_a_reader_with_no_tasks(self):
         result = panel(dashboard.dashboard_for(self.admin), "panel_tasks")
@@ -98,6 +98,6 @@ class DashboardPanelTests(TestCase):
             widget_order=["panel_calendar", "panel_chat"],
         )
         payload = dashboard.dashboard_for(self.admin)
-        self.assertEqual(panel(payload, "panel_chat")["size"], "col-12 col-xl-6")
+        self.assertEqual(panel(payload, "panel_chat")["size"], "dashboard-span-6")
         keys = [row["key"] for row in payload["panels"]]
         self.assertLess(keys.index("panel_calendar"), keys.index("panel_chat"))

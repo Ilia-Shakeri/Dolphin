@@ -62,12 +62,15 @@ TOP_SELLERS = 5
 
 def _kpi(
     key, label, *, display, hint="", icon="di-element-11", icon_paths=4, accent="primary", url=None,
-    spark=None, direction=None,
+    spark=None, direction=None, full_display="",
 ):
     return {
         "key": key,
         "label": label,
         "display": display,
+        # The exact figure when `display` is a shortened amount, for the tile's
+        # tooltip; blank when `display` already is the whole figure.
+        "full_display": full_display if full_display != display else "",
         "hint": hint,
         # "up"/"down" when `hint` states a month/week-over-month comparison,
         # else None — lets the tile show a direction arrow instead of asking
@@ -142,7 +145,8 @@ def _sales_kpis(user, *, now, unit, trend=None):
     return [
         _kpi(
             "sales_amount_this_month", "فروش این ماه",
-            display=formatting.money(amount, unit),
+            display=formatting.money_compact(amount, unit),
+            full_display=formatting.money(amount, unit),
             hint=_change_hint(amount, previous, noun="ماه"),
             direction=_change_direction(amount, previous),
             icon="di-chart-line-up", icon_paths=2, accent="success", url="/sales/",
@@ -173,7 +177,8 @@ def _receivables_kpi(user, *, now, unit):
     return [
         _kpi(
             "outstanding", "مطالبات باز",
-            display=formatting.money(outstanding, unit),
+            display=formatting.money_compact(outstanding, unit),
+            full_display=formatting.money(outstanding, unit),
             hint=f"{formatting.persian_digits(unpaid)} فاکتور تسویه‌نشده",
             icon="di-wallet", icon_paths=4, accent="warning", url="/reports/receivables/",
         )

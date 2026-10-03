@@ -35,6 +35,41 @@ def persian_digits(value):
     return str(value).translate(_PERSIAN)
 
 
+#: Names of the large decimal steps, largest first, for `money_compact`.
+_COMPACT_STEPS = (
+    (Decimal(10) ** 12, "هزار میلیارد"),
+    (Decimal(10) ** 9, "میلیارد"),
+    (Decimal(10) ** 6, "میلیون"),
+)
+
+
+def money_compact(amount, unit="rial"):
+    """A stored rial amount in the reader's unit, shortened for a small tile.
+
+    From a million up the figure is written as a short number and its step
+    («۱٫۲۵ میلیارد ریال»), so a dashboard tile never has to print a thirteen-
+    digit amount. Below a million it is exactly `money`. The shortened number is
+    rounded **up** to two decimals, the same direction `money` rounds, so a tile
+    never reads lower than what is owed; the exact figure stays available
+    through `money` (the tile's tooltip).
+    """
+    value = Decimal(amount or 0)
+    if unit == "toman":
+        value = value / RIALS_PER_TOMAN
+        label = TOMAN_LABEL
+    else:
+        label = CURRENCY_LABEL
+    magnitude = abs(value)
+    for step, name in _COMPACT_STEPS:
+        if magnitude >= step:
+            shown = (magnitude / step).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
+            text = f"{shown:f}".rstrip("0").rstrip(".")
+            text = text.replace(".", "٫")
+            sign = "‏-" if value < 0 else ""
+            return persian_digits(f"{sign}{text} {name} {label}")
+    return money(amount, unit)
+
+
 def money(amount, unit="rial"):
     """A stored rial amount, grouped, in Persian digits, in the reader's unit.
 

@@ -560,10 +560,11 @@ function calendarGrid(panel) {
  */
 function placeDashboardWidget(grid, widget) {
     const column = widget.column;
-    column.className = `dashboard-widget ${widget.size || "col-12 col-sm-6 col-xl-3"}`;
+    column.className = `dashboard-widget ${widget.size || "dashboard-span-3"}`;
     column.dataset.widgetKey = widget.key;
-    // A reader-chosen minimum height (2.18.4, `WIDGET_HEIGHTS`), or none.
-    if (widget.height) column.style.setProperty("--dashboard-min-height", widget.height);
+    // How many grid rows the box spans (2.38.1): the reader's choice or the
+    // widget's own default, resolved by the server (`height_for`).
+    if (widget.height) column.style.setProperty("--dashboard-rows", String(widget.height));
     grid.appendChild(column);
 }
 
@@ -905,16 +906,13 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         return true;
     }
 
-    /** Apply a height token — or `null`, the box's own content height —
-     * to a box on screen and remember it. */
+    /** Apply a row-count token to a box on screen and remember it. */
     function applyHeight(column, key, token) {
-        if ((heights[key] || null) === token) return false;
-        const next = {...heights};
-        if (token) next[key] = token; else delete next[key];
-        heights = next;
-        const length = token ? (heightChoices.find((choice) => choice.value === token) || {}).length : null;
-        if (length) column.style.setProperty("--dashboard-min-height", length);
-        else column.style.removeProperty("--dashboard-min-height");
+        if (!token || (heights[key] || null) === token) return false;
+        const rows = (heightChoices.find((choice) => choice.value === token) || {}).rows;
+        if (!rows) return false;
+        heights = {...heights, [key]: token};
+        column.style.setProperty("--dashboard-rows", String(rows));
         fitAllCharts();
         return true;
     }
@@ -939,21 +937,20 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     }
 
-    /** The nearest height step to `px` — or `null` when that is not
-     * taller than the box's own content. A minimum height below what the
-     * box already holds would be a size in name only. */
+    /** The nearest row step to `px`, never one too short for what the box
+     * has to show — a cell smaller than its content would clip it. */
     function heightTokenAt(px, naturalPx) {
-        if (px <= naturalPx + 4) return null;
         const rem = remPixels();
         let best = null;
         let distance = Infinity;
         heightChoices.forEach((choice) => {
             const candidate = parseFloat(choice.length) * rem;
-            if (candidate <= naturalPx) return;
+            if (candidate < naturalPx - 4) return;
             const gap = Math.abs(candidate - px);
             if (gap < distance) { distance = gap; best = choice.value; }
         });
-        return best;
+        // Nothing tall enough: the tallest step is the closest honest answer.
+        return best || (heightChoices.length ? heightChoices[heightChoices.length - 1].value : null);
     }
 
     /** The charts drawn inside one box, as `[element, instance]` pairs.
@@ -975,10 +972,9 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
      * original height. */
     function naturalHeight(column) {
         const card = column.querySelector(":scope > .card") || column;
-        const saved = column.style.getPropertyValue("--dashboard-min-height");
-        column.style.removeProperty("--dashboard-min-height");
-        let height = card.getBoundingClientRect().height;
-        if (saved) column.style.setProperty("--dashboard-min-height", saved);
+        // The box is a fixed cell now, so what it needs is its height less the
+        // room it has to spare (negative when it is already clipping).
+        let height = card.getBoundingClientRect().height - (card.querySelector(":scope > .card-body") ? slackIn(column) : 0);
         chartsIn(column).forEach(([element]) => {
             const base = Number(element.dataset.dashboardBaseHeight || 0);
             if (base) height -= Math.max(0, element.offsetHeight - base);
@@ -1175,12 +1171,13 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             const next = Math.min(steps.length - 1, Math.max(0, at + (wider ? 1 : -1)));
             handled = applySize(column, key, steps[next]);
         } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            const steps = [null, ...heightChoices.map((choice) => choice.value)];
+            const steps = heightChoices.map((choice) => choice.value);
             const natural = naturalHeight(column);
             const rem = remPixels();
-            const usable = steps.filter((step) => step === null
-                || parseFloat((heightChoices.find((choice) => choice.value === step) || {}).length) * rem > natural);
-            const at = Math.max(0, usable.indexOf(heights[key] || null));
+            const usable = steps.filter((step) => parseFloat((heightChoices.find((choice) => choice.value === step) || {}).length) * rem >= natural - 4);
+            const current = column.style.getPropertyValue("--dashboard-rows");
+            const currentToken = (heightChoices.find((choice) => String(choice.rows) === current) || {}).value;
+            const at = Math.max(0, usable.indexOf(heights[key] || currentToken));
             const next = Math.min(usable.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)));
             handled = applyHeight(column, key, usable[next]);
         } else {
@@ -1541,6 +1538,8 @@ function kpiCard(kpi) {
     const value = document.createElement("span");
     value.className = "dashboard-kpi-value text-gray-900 fw-bolder lh-1";
     value.textContent = kpi.display;
+    // A shortened amount keeps its exact figure one hover away.
+    if (kpi.full_display) value.title = kpi.full_display;
 
     const label = document.createElement("span");
     label.className = "dashboard-kpi-label text-gray-700 fw-semibold mt-2";

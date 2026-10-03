@@ -242,6 +242,21 @@ class ConsoleExeTests(SimpleTestCase):
             with self.subTest(package=package):
                 self.assertIn(f'"{package}"', EXE_BUILDER.split("COLLECT = (")[1].split(")")[0])
 
+    def test_every_installed_project_app_is_bundled(self):
+        """An app added to the project but not to COLLECT left the 2026-10 build
+        with no route table at all (it failed its own self-check on `accounting`)."""
+        from django.conf import settings
+
+        import re
+
+        block = re.search(r"COLLECT = \((.*?)\n\)", EXE_BUILDER.replace("\r\n", "\n"), re.S).group(1)
+        bundled = set(re.findall(r'^\s*"([a-z_]+)",', block, re.M))
+        project_apps = {
+            app for app in settings.INSTALLED_APPS
+            if not app.startswith(("django.", "rest_framework", "drf_spectacular"))
+        }
+        self.assertEqual(project_apps - bundled, set())
+
     def test_the_build_verifies_the_binary_rather_than_trusting_it(self):
         """The failure it guards does not crash: a bundle missing a project
         package loses the route table and shows every feature as opening no

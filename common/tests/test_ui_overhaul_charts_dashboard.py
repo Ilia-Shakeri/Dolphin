@@ -670,7 +670,7 @@ class CapabilityTileLayoutTests(TestCase):
         arranged = arrange_capability_tiles(self.tiles, self.user)
         self.assertEqual(len(arranged), 2)
         for tile in arranged:
-            self.assertIn("col-", tile["size"])
+            self.assertIn("dashboard-span-", tile["size"])
 
     def test_the_reader_s_own_order_is_honoured(self):
         update_user_dashboard_layout(

@@ -118,12 +118,12 @@ def _is_known_key(key):
 #: resizing became a drag on the box's own border, where a jump straight
 #: from half to full width read as the border refusing to follow the hand.
 WIDGET_SIZES = {
-    "quarter": ("یک‌چهارم", "col-12 col-sm-6 col-xl-3"),
-    "third": ("یک‌سوم", "col-12 col-sm-6 col-xl-4"),
-    "half": ("نصف", "col-12 col-xl-6"),
-    "two_thirds": ("دوسوم", "col-12 col-xl-8"),
-    "three_quarters": ("سه‌چهارم", "col-12 col-xl-9"),
-    "full": ("تمام‌عرض", "col-12"),
+    "quarter": ("یک‌چهارم", "dashboard-span-3"),
+    "third": ("یک‌سوم", "dashboard-span-4"),
+    "half": ("نصف", "dashboard-span-6"),
+    "two_thirds": ("دوسوم", "dashboard-span-8"),
+    "three_quarters": ("سه‌چهارم", "dashboard-span-9"),
+    "full": ("تمام‌عرض", "dashboard-span-12"),
 }
 
 #: `height token -> minimum card height`, for dragging a box's top or bottom
@@ -136,10 +136,56 @@ WIDGET_SIZES = {
 #: (`common.preferences`) scales the box with the text inside it. A widget
 #: missing from a reader's map takes its content's own height, which is what
 #: every box did before this existed.
-WIDGET_HEIGHTS = {
-    token: f"{token[1:]}rem"
-    for token in ("h10", "h12", "h14", "h16", "h18", "h20", "h22", "h24", "h28", "h32", "h36", "h40")
+#: The dashboard is a grid of **cells** (2.38.1): a fixed row unit
+#: (`--dashboard-row`, 4.5rem, in dolphin.css) and twelve columns, the way a phone
+#: home screen is built from one cell size. A widget occupies a whole number of
+#: columns (`WIDGET_SIZES`) and rows (below), widgets of different sizes pack
+#: side by side, and a box is dragged or resized to the nearest cell. The row
+#: and gap below must stay equal to the CSS custom properties.
+ROW_REM = 4.5
+GAP_REM = 1.25
+ROW_STEPS = (2, 3, 4, 5, 6, 7, 8, 9, 10, 12)
+
+
+def _span_length(rows):
+    """The height of a box spanning `rows` rows, in rem: its rows plus the gaps between them."""
+    return f"{rows * ROW_REM + (rows - 1) * GAP_REM:g}rem"
+
+
+#: `row token -> height of that many rows`, for dragging a box's top or bottom
+#: border. A *minimum* in spirit: the editor never lets a box be made shorter
+#: than what it has to show.
+WIDGET_HEIGHTS = {f"r{rows}": _span_length(rows) for rows in ROW_STEPS}
+ROWS_FOR_TOKEN = {f"r{rows}": rows for rows in ROW_STEPS}
+
+#: Tokens saved before 2.38.1, when a height was a free minimum in rem. They are
+#: read as the nearest row step and never rewritten behind anyone's back.
+for _legacy_rem in (10, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40):
+    _rows = min(ROW_STEPS, key=lambda steps: abs(steps * ROW_REM + (steps - 1) * GAP_REM - _legacy_rem))
+    ROWS_FOR_TOKEN[f"h{_legacy_rem}"] = _rows
+
+#: How many rows each widget is designed at when nobody has chosen. A figure tile
+#: is two; a gauge three; the lists and charts carry a body, so they are taller.
+DEFAULT_WIDGET_ROWS = {
+    "sales_amount_this_month": 3,
+    "sales_count_this_month": 3,
+    "outstanding": 3,
+    "calls_this_week": 3,
+    "after_sales_open": 3,
+    "after_sales_closed_this_month": 3,
+    "lead_conversion_rate": 4,
+    "receivables_collection_rate": 4,
+    "after_sales_closure_rate": 4,
+    "trend": 6,
+    "breakdown": 6,
+    "agent_share": 6,
+    "panel_tasks": 7,
+    "panel_chat": 7,
+    "panel_agenda": 7,
+    "panel_calendar": 8,
+    "panel_calls": 7,
 }
+FALLBACK_WIDGET_ROWS = 2
 
 #: The width each widget is designed at, used when the reader has not chosen
 #: one. The two chart cards are wide because they carry a plot, not a figure;
@@ -279,7 +325,7 @@ def _clean_heights(value, *, field):
     if unknown_keys:
         raise BusinessRuleError({field: f"ویجت ناشناخته: {', '.join(sorted(unknown_keys))}"})
     unknown_heights = sorted({
-        str(height) for height in value.values() if height is not None and height not in WIDGET_HEIGHTS
+        str(height) for height in value.values() if height is not None and height not in ROWS_FOR_TOKEN
     })
     if unknown_heights:
         raise BusinessRuleError({field: f"ارتفاع ناشناخته: {', '.join(unknown_heights)}"})
@@ -381,10 +427,11 @@ def size_class_for(key, sizes, default):
 
 
 def height_for(key, heights):
-    """One box's chosen minimum height as a CSS length, or `None` for its
-    content's own height — the default, and what a token saved by a
-    since-removed step falls back to."""
-    return WIDGET_HEIGHTS.get(heights.get(key))
+    """How many grid rows this box spans: the reader's choice, else the
+    widget's own default. A token saved by a since-removed step falls back to
+    the default rather than to nothing."""
+    chosen = ROWS_FOR_TOKEN.get(heights.get(key))
+    return chosen or DEFAULT_WIDGET_ROWS.get(key, FALLBACK_WIDGET_ROWS)
 
 
 def effective_layout(user):
@@ -430,7 +477,10 @@ def size_choices():
 
 def height_choices():
     """`WIDGET_HEIGHTS` in the shape the editor snaps a height drag to."""
-    return [{"value": token, "length": length} for token, length in WIDGET_HEIGHTS.items()]
+    return [
+        {"value": token, "length": length, "rows": ROWS_FOR_TOKEN[token]}
+        for token, length in WIDGET_HEIGHTS.items()
+    ]
 
 
 def layout_state(layout):
