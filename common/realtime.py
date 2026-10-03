@@ -49,8 +49,11 @@ def available():
 class Subscriber:
     def __init__(self, user_id):
         self.user_id = user_id
+        self.created = time.monotonic()
         self.queue = queue.Queue(maxsize=256)
         self.overflowed = False
+        #: Set when a newer connection of the same user pushed this one out.
+        self.evicted = False
 
     def offer(self, event):
         try:
@@ -70,7 +73,14 @@ class Broker:
 
     def subscribe(self, user_id):
         subscriber = Subscriber(user_id)
+        limit = int(getattr(settings, "REALTIME_MAX_PER_USER", 3))
         with self._lock:
+            mine = sorted((s for s in self._subscribers if s.user_id == user_id), key=lambda s: s.created)
+            # One user (many tabs, a runaway script) may not take every slot:
+            # beyond the per-user ceiling the oldest connections are told to end.
+            for old in mine[: max(len(mine) - limit + 1, 0)]:
+                old.evicted = True
+                self._subscribers.discard(old)
             self._subscribers.add(subscriber)
         return subscriber
 

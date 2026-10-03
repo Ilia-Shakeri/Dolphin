@@ -42,8 +42,10 @@ class EventStreamView(View):
 
         def stream():
             try:
-                yield "retry: 5000\n\n: connected\n\n"
-                while time.monotonic() < deadline:
+                # First message of every connection: a resync, so whatever changed while
+                # the browser was away (or reconnecting) is re-read.
+                yield f"retry: 5000\n\ndata: {json.dumps({'k': 'resync', 'i': None, 't': int(time.time() * 1000)})}\n\n"
+                while time.monotonic() < deadline and not subscriber.evicted:
                     if subscriber.overflowed:
                         subscriber.overflowed = False
                         yield f"data: {json.dumps({'k': 'resync', 'i': None, 't': int(time.time() * 1000)})}\n\n"
@@ -57,6 +59,9 @@ class EventStreamView(View):
                 realtime.BROKER.unsubscribe(subscriber)
 
         response = StreamingHttpResponse(stream(), content_type="text/event-stream")
+        # Freed on close even if the generator never started (a client that left
+        # before the first byte would otherwise keep its slot).
+        response._resource_closers.append(lambda: realtime.BROKER.unsubscribe(subscriber))
         response["Cache-Control"] = "no-cache, no-transform"
         # nginx: never buffer this response.
         response["X-Accel-Buffering"] = "no"

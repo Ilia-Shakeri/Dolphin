@@ -207,3 +207,26 @@ class PageTests(Fixtures):
         from common.deployment.registry import DEFAULT_FEATURES
 
         self.assertNotIn("realtime", DEFAULT_FEATURES)
+
+
+class PerUserCeilingTests(Fixtures):
+    @override_settings(REALTIME_MAX_PER_USER=2)
+    def test_a_user_beyond_the_ceiling_pushes_out_their_oldest_connection(self):
+        first = realtime.BROKER.subscribe(4242)
+        second = realtime.BROKER.subscribe(4242)
+        third = realtime.BROKER.subscribe(4242)
+        for subscriber in (first, second, third):
+            self.addCleanup(realtime.BROKER.unsubscribe, subscriber)
+        self.assertTrue(first.evicted)
+        self.assertFalse(second.evicted or third.evicted)
+
+    @override_settings(REALTIME_ENABLED=True, REALTIME_SERVE_STREAMS=True)
+    def test_every_connection_starts_with_a_resync(self):
+        request = RequestFactory().get("/api/v1/realtime/events/")
+        request.user = self.manager
+        with mock.patch("common.realtime_views.connections"):
+            response = EventStreamView.as_view()(request)
+        first = next(iter(response.streaming_content)).decode()
+        self.assertIn('"k": "resync"', first)
+        for closer in response._resource_closers:
+            closer()

@@ -29,20 +29,34 @@ export const LIVE_KINDS = {
  */
 export function onRealtime(kinds, handler, {delay = 400, whenBusy = false} = {}) {
     let timer = null;
+    let pending = null;
+    const blocked = () => document.hidden || (!whenBusy && document.querySelector("dialog[open]"));
+    // A change that arrives while the tab is hidden or a dialog is open is
+    // postponed, not forgotten: it runs when the page becomes visible or the
+    // dialog closes.
+    const flush = () => {
+        if (!pending || blocked()) return;
+        const detail = pending;
+        pending = null;
+        handler(detail);
+    };
     const listener = (event) => {
         const kind = event.detail?.kind;
         if (kind !== "resync" && !kinds.includes(kind)) return;
         clearTimeout(timer);
         timer = setTimeout(() => {
-            if (document.hidden) return;
-            // An open dialog is somebody mid-task; the list under it can wait.
-            if (!whenBusy && document.querySelector("dialog[open]")) return;
-            handler(event.detail);
+            pending = event.detail || {};
+            flush();
         }, delay);
     };
+    const retry = () => setTimeout(flush, 0);
     document.addEventListener("dolphin:realtime", listener);
+    document.addEventListener("visibilitychange", retry);
+    document.addEventListener("close", retry, true);
     return () => {
         clearTimeout(timer);
         document.removeEventListener("dolphin:realtime", listener);
+        document.removeEventListener("visibilitychange", retry);
+        document.removeEventListener("close", retry, true);
     };
 }
