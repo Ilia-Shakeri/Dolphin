@@ -73,7 +73,7 @@ export function setupCampaignDetail() {
         document.getElementById("campaign-name").textContent = value.name;
         const status = document.getElementById("campaign-status");
         status.replaceWith(Object.assign(campaignStatusBadge(value.status, value.status_display), {id: "campaign-status"}));
-        document.getElementById("campaign-channel").textContent = value.channel_display;
+        document.getElementById("campaign-channel").textContent = (value.channels_display || []).join("، ");
         renderFacts(value);
         renderStatusActions(value);
         document.title = `${value.name} | Dolphin`;

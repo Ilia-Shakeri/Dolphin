@@ -19,6 +19,7 @@ from common.viewsets import AdminHardDeleteModelViewSet
 from reports.xlsx import safe_spreadsheet_text
 from sales.campaign_analytics import campaign_analysis, campaign_rows, campaigns_for, members_for
 from sales.campaign_attribution import attribute_manually
+from sales.campaigns import channel_labels
 from sales.campaigns import (
     add_campaign_member,
     assign_campaign_member,
@@ -34,7 +35,8 @@ from sales.permissions import HasSalesCapability
 
 class CampaignSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    channel_display = serializers.CharField(source="get_channel_display", read_only=True)
+    channels = serializers.ListField(child=serializers.ChoiceField(choices=Campaign.Channel.choices), required=False)
+    channels_display = serializers.SerializerMethodField()
     responsibles = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(is_active=True), many=True, required=False
     )
@@ -45,11 +47,14 @@ class CampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = [
-            "id", "name", "status", "status_display", "channel", "channel_display", "starts_on", "ends_on",
+            "id", "name", "status", "status_display", "channels", "channels_display", "starts_on", "ends_on",
             "target_count", "budget", "responsibles", "responsibles_display", "member_count", "is_system",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "status", "status_display", "channel_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "status", "status_display", "channels_display", "created_at", "updated_at"]
+
+    def get_channels_display(self, instance) -> list:
+        return channel_labels(instance)
 
     def get_responsibles_display(self, instance) -> list:
         return [user.get_full_name() or user.username for user in instance.responsibles.all()]
@@ -169,8 +174,9 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         channel = self.request.query_params.get("channel")
         if channel:
             if channel not in Campaign.Channel.values:
-                raise ValidationError({"channel": "کانال نامعتبر است."})
-            queryset = queryset.filter(channel=channel)
+                raise ValidationError({"channel": "راه ارتباط نامعتبر است."})
+            ids = [pk for pk, values in queryset.values_list("pk", "channels") if channel in (values or [])]
+            queryset = queryset.filter(pk__in=ids)
         return queryset.order_by("-created_at", "-id")
 
     def list(self, request, *args, **kwargs):

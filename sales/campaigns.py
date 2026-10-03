@@ -39,7 +39,7 @@ STATUS_TRANSITIONS = {
     Campaign.Status.ARCHIVED: set(),
 }
 
-CAMPAIGN_EDITABLE = {"name", "channel", "starts_on", "ends_on", "target_count", "budget", "responsibles"}
+CAMPAIGN_EDITABLE = {"name", "channels", "starts_on", "ends_on", "target_count", "budget", "responsibles"}
 MEMBER_STAGES_SETTABLE = {
     TargetAudienceMember.Stage.NEW,
     TargetAudienceMember.Stage.CONTACTED,
@@ -70,6 +70,27 @@ def _validate_responsibles(users):
             raise BusinessRuleError({"responsibles": "مسئول کمپین باید کاربر فعالِ فروش یا مدیریت باشد."})
 
 
+def clean_channels(value):
+    """A de-duplicated, ordered list of valid `Campaign.Channel` values (at least one)."""
+    if isinstance(value, str) or not isinstance(value, (list, tuple, set)):
+        raise BusinessRuleError({"channels": "راه‌های ارتباط باید فهرست باشد."})
+    cleaned = []
+    for item in value:
+        if item not in Campaign.Channel.values:
+            raise BusinessRuleError({"channels": "راه ارتباط نامعتبر است."})
+        if item not in cleaned:
+            cleaned.append(item)
+    if not cleaned:
+        raise BusinessRuleError({"channels": "حداقل یک راه ارتباط انتخاب کنید."})
+    return cleaned
+
+
+def channel_labels(campaign):
+    labels = dict(Campaign.Channel.choices)
+    values = campaign.channels or [campaign.channel]
+    return [str(labels[value]) for value in values if value in labels]
+
+
 def _validate_numbers(data):
     if data.get("target_count") is not None and data["target_count"] < 0:
         raise BusinessRuleError({"target_count": "هدف نمی‌تواند منفی باشد."})
@@ -92,7 +113,7 @@ def ensure_system_campaigns(actor):
             campaign, _ = Campaign.objects.get_or_create(
                 normalized_name=normalized,
                 defaults={
-                    "name": clean, "channel": channel, "status": Campaign.Status.ACTIVE,
+                    "name": clean, "channel": channel, "channels": [channel], "status": Campaign.Status.ACTIVE,
                     "system_key": key, "created_by": actor, "updated_by": actor,
                 },
             )
@@ -110,6 +131,8 @@ def create_campaign(*, actor, name, responsibles=(), **data):
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     clean, normalized = _clean_name(name)
+    data["channels"] = clean_channels(data.get("channels", [Campaign.Channel.PHONE]))
+    data["channel"] = data["channels"][0]
     _validate_numbers(data)
     _validate_responsibles(responsibles)
     try:
@@ -136,6 +159,9 @@ def update_campaign(*, actor, campaign, **changes):
         if locked.system_key:
             raise BusinessRuleError({"name": "نام کمپین سیستمی قابل تغییر نیست."})
         changes["name"], changes["normalized_name"] = _clean_name(changes["name"])
+    if "channels" in changes:
+        changes["channels"] = clean_channels(changes["channels"])
+        changes["channel"] = changes["channels"][0]
     _validate_numbers({**{f: getattr(locked, f) for f in ("target_count", "budget", "starts_on", "ends_on")}, **changes})
     changed = [field for field, value in changes.items() if getattr(locked, field) != value]
     for field in changed:

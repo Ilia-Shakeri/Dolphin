@@ -20,6 +20,7 @@ from django.db.models.functions import Coalesce, TruncDate, TruncMonth
 
 from accounts.access import has_any_capability
 from accounts.models import User
+from sales.campaigns import channel_labels
 from sales.models import Campaign, CampaignAttribution, Interaction, Sale, TargetAudienceMember
 
 ZERO = Decimal("0.00")
@@ -127,8 +128,9 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
             "name": campaign.name,
             "status": campaign.status,
             "status_display": campaign.get_status_display(),
-            "channel": campaign.channel,
-            "channel_display": campaign.get_channel_display(),
+            "channels": campaign.channels or [campaign.channel],
+            "channels_display": channel_labels(campaign),
+            "channel_display": "، ".join(channel_labels(campaign)),
             "is_system": bool(campaign.system_key),
             "starts_on": campaign.starts_on,
             "ends_on": campaign.ends_on,

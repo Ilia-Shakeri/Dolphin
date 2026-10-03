@@ -268,7 +268,10 @@ class Campaign(TimeStampedModel):
     name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH)
     normalized_name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH, unique=True, editable=False)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    #: Legacy single value, kept for rollback to 2.38.x; always the first of `channels`.
     channel = models.CharField(max_length=16, choices=Channel.choices, default=Channel.PHONE)
+    #: How the audience is reached (one, several or all of `Channel`) — 2.39.0.
+    channels = models.JSONField(default=list, blank=True)
     starts_on = models.DateField(null=True, blank=True)
     ends_on = models.DateField(null=True, blank=True)
     target_count = models.PositiveIntegerField(null=True, blank=True)

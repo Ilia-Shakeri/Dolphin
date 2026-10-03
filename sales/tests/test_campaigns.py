@@ -313,3 +313,48 @@ class MigrationTests(Fixtures):
         self.assertEqual(a.campaign_or_batch, "بهار ۱۴۰۵")  # the old text is untouched
         again = run_migration(apply=True)
         self.assertEqual((again.campaigns_to_create, again.leads_to_link, again.members_to_migrate), (0, 0, 0))
+
+
+class CampaignChannelsTests(Fixtures):
+    def test_a_campaign_keeps_several_contact_channels_and_the_first_mirrors_the_legacy_column(self):
+        campaign = create_campaign(actor=self.manager, name="چندراهه", channels=["sms", "exhibition", "sms"])
+        self.assertEqual(campaign.channels, ["sms", "exhibition"])
+        self.assertEqual(campaign.channel, "sms")
+        update_campaign(actor=self.manager, campaign=campaign, channels=["website"])
+        campaign.refresh_from_db()
+        self.assertEqual((campaign.channels, campaign.channel), (["website"], "website"))
+
+    def test_invalid_or_empty_channels_are_refused(self):
+        for bad in ([], ["telegram"], "sms"):
+            with self.assertRaises(BusinessRuleError):
+                create_campaign(actor=self.manager, name="بد", channels=bad)
+
+    def test_the_list_filters_by_any_of_a_campaigns_channels(self):
+        create_campaign(actor=self.manager, name="الف", channels=["sms", "referral"])
+        body = self.client_for(self.manager).get("/api/v1/campaigns/?channel=sms").json()
+        self.assertEqual([row["name"] for row in body["results"]], ["الف"])
+
+
+class AssignedMemberCallTests(Fixtures):
+    def test_an_agent_can_log_a_call_on_a_person_assigned_to_them_and_the_follow_up_lands_on_that_person(self):
+        from sales.campaigns import container_lead
+
+        mine = self.member("09121110010", "من")
+        other = self.member("09121110011", "دیگری")
+        assign_campaign_member(actor=self.manager, member=mine, to_user=self.agent)
+        mine.refresh_from_db()
+        lead = container_lead(self.campaign, self.manager)
+        when = timezone.now() + timedelta(days=2)
+        record_interaction(
+            actor=self.agent, lead=lead, target_member=mine, phone=mine.raw_phone, direction="outbound",
+            outcome="پاسخ داد", occurred_at=timezone.now(), next_follow_up_at=when,
+        )
+        mine.refresh_from_db()
+        other.refresh_from_db()
+        self.assertEqual(mine.next_follow_up_at, when)
+        self.assertIsNone(other.next_follow_up_at)
+        with self.assertRaises(BusinessPermissionDenied):
+            record_interaction(
+                actor=self.agent, lead=lead, target_member=other, phone=other.raw_phone, direction="outbound",
+                outcome="x", occurred_at=timezone.now(),
+            )

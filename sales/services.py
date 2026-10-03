@@ -730,7 +730,9 @@ def record_interaction(*, actor, lead, target_member=None, **data):
     _validate_text_lengths(data, INTERACTION_TEXT_LIMITS)
     _validate_interaction_data(data)
     locked_lead = Lead.objects.select_for_update().get(pk=lead.pk)
-    if actor.role == User.Role.SALES_AGENT and locked_lead.assigned_to_id != actor.pk:
+    # A campaign's container has no assignee; the person worked is assigned.
+    owns_member = target_member is not None and target_member.assigned_to_id == actor.pk
+    if actor.role == User.Role.SALES_AGENT and locked_lead.assigned_to_id != actor.pk and not owns_member:
         raise BusinessPermissionDenied("این سرنخ خارج از دسترسی شماست.")
     customer = locked_lead.customer
     if target_member is not None:
@@ -748,7 +750,12 @@ def record_interaction(*, actor, lead, target_member=None, **data):
 
         advance_stage_on_contact(target_member)
     next_follow_up_at = data.get("next_follow_up_at")
-    if next_follow_up_at is not None and locked_lead.next_follow_up_at != next_follow_up_at:
+    if next_follow_up_at is not None and target_member is not None:
+        # The follow-up belongs to the person called, never to the shared container.
+        if target_member.next_follow_up_at != next_follow_up_at:
+            target_member.next_follow_up_at = next_follow_up_at
+            target_member.save(update_fields=["next_follow_up_at", "updated_at"])
+    elif next_follow_up_at is not None and locked_lead.next_follow_up_at != next_follow_up_at:
         locked_lead.next_follow_up_at = next_follow_up_at
         locked_lead.save(update_fields=["next_follow_up_at", "updated_at"])
     return interaction

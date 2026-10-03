@@ -24,7 +24,7 @@ export function campaignStatusBadge(status, label) {
 function campaignRow(campaign) {
     const row = document.createElement("tr");
     appendCell(row, campaign.name);
-    appendCell(row, campaign.channel_display);
+    appendCell(row, (campaign.channels_display || []).join("، "));
     const state = document.createElement("td");
     state.append(campaignStatusBadge(campaign.status, campaign.status_display));
     row.append(state);
@@ -70,7 +70,7 @@ export function setupCampaigns() {
             const field = (name) => createForm.elements[name];
             const body = {
                 name: field("name").value,
-                channel: field("channel").value,
+                channels: Array.from(createForm.querySelectorAll('input[name="channels"]:checked')).map((box) => box.value),
                 responsibles: Array.from(field("responsibles").selectedOptions).map((option) => Number(option.value)),
             };
             const starts = apiDate(field("starts_on").value);
