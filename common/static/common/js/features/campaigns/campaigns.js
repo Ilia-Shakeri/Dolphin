@@ -3,6 +3,7 @@ import {toPersianDigits} from "dolphin/core/digits.js";
 import {apiDate, displayDay} from "dolphin/core/jalali.js";
 import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {moneyOrNull} from "dolphin/core/money.js";
+import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {appendCell, appendDetailLink} from "dolphin/ui/table.js";
 
@@ -69,6 +70,7 @@ export function setupCampaigns() {
     const dialog = document.getElementById("create-campaign-dialog");
     const createForm = document.getElementById("create-campaign-form");
     if (!dialog || !createForm) return;
+    enhanceChecklistSelect(createForm.elements.responsibles);
     const parentField = createForm.elements.parent;
     const title = document.getElementById("create-campaign-title");
     const openCreate = (parent) => {

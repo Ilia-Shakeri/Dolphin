@@ -3,6 +3,7 @@ import {toPersianDigits} from "dolphin/core/digits.js";
 import {apiDate} from "dolphin/core/jalali.js";
 import {clearMessages, showError} from "dolphin/core/messages.js";
 import {money} from "dolphin/core/money.js";
+import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 import {renderAreaChart, renderBarChart} from "dolphin/ui/charts.js";
 
@@ -15,6 +16,7 @@ function chartHost(name) {
 export async function setupCampaignAnalytics() {
     const form = document.getElementById("analytics-form");
     const select = document.getElementById("analytics-campaigns");
+    enhanceChecklistSelect(select);
 
     try {
         const campaigns = await loadAllPages("/api/v1/campaigns/");
