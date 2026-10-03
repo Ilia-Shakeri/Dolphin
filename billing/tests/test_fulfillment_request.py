@@ -199,3 +199,31 @@ class BatchTests(Fixtures):
         self.assertEqual(response.status_code, 409, response.content)
         self.assertFalse(Order.objects.exclude(batch_number="").exists())
         self.assertFalse(Order.objects.filter(invoice=good).exists())
+
+
+class CancelFulfilledTests(Fixtures):
+    def test_a_fulfilled_request_can_be_cancelled_and_the_goods_come_back(self):
+        request = create_fulfillment_request(actor=self.agent, invoice=self.issued(quantity=4), warehouse=self.warehouse)
+        transition_order(actor=self.manager, order=request, to_status=Order.Status.CONFIRMED)
+        transition_order(actor=self.manager, order=request, to_status=Order.Status.FULFILLED)
+        self.assertEqual(self.on_hand(), 6)
+        transition_order(actor=self.manager, order=request, to_status=Order.Status.CANCELLED)
+        request.refresh_from_db()
+        self.assertEqual((request.status, self.on_hand()), (Order.Status.CANCELLED, 10))
+
+    def test_an_ordinary_fulfilled_order_stays_final(self):
+        order = Order.objects.create(
+            number="SO-TEST-1", customer=self.customer, created_by=self.manager, status=Order.Status.FULFILLED
+        )
+        with self.assertRaises(BusinessConflictError):
+            transition_order(actor=self.manager, order=order, to_status=Order.Status.CANCELLED)
+
+
+class HeaderCopyTests(Fixtures):
+    def test_the_request_restates_the_invoices_header_discount_tax_and_total(self):
+        invoice = self.issued(quantity=2)
+        request = create_fulfillment_request(actor=self.agent, invoice=invoice, warehouse=self.warehouse)
+        self.assertEqual(
+            (request.discount_amount, request.tax_rate, request.total_amount),
+            (invoice.discount_amount, invoice.tax_rate, invoice.total_amount),
+        )

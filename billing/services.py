@@ -506,6 +506,12 @@ def create_fulfillment_request(*, actor, invoice, warehouse, notes="", expected_
         raise BusinessConflictError({
             "invoice": "موجودی همین فاکتور هنگام صدور از انبار کسر شده است؛ درخواست تأمین کسر دوباره می‌کرد."
         })
+    # An invoice converted from an order (the older `Invoice.order` link) already
+    # had its goods taken by that order; supplying it again would deduct twice.
+    if locked_invoice.order_id and Order.objects.filter(pk=locked_invoice.order_id, stock_applied=True).exists():
+        raise BusinessConflictError({
+            "invoice": "کالای این فاکتور پیش‌تر با سفارشِ مبدأ از انبار کسر شده است؛ درخواست تأمین کسر دوباره می‌کرد."
+        })
     active = Order.objects.filter(invoice=locked_invoice).exclude(status=Order.Status.CANCELLED).first()
     if active is not None:
         raise BusinessConflictError({
@@ -516,7 +522,12 @@ def create_fulfillment_request(*, actor, invoice, warehouse, notes="", expected_
     items = _copy_lines(locked_invoice.items.select_related("product").order_by("line_number"))
     if not items:
         raise BusinessConflictError({"invoice": "این فاکتور ردیفی برای تأمین ندارد."})
-    header = {"notes": notes or "", "warehouse": warehouse, "shipping_method": shipping_method or ""}
+    # The request restates what was invoiced, so the header discount and tax
+    # rate come across with the lines (lines alone gave a different total).
+    header = {
+        "notes": notes or "", "warehouse": warehouse, "shipping_method": shipping_method or "",
+        "discount_amount": locked_invoice.discount_amount, "tax_rate": locked_invoice.tax_rate,
+    }
     if expected_delivery_at is not None:
         header["expected_delivery_at"] = expected_delivery_at
     unknown_fields = set(header) - ORDER_HEADER_FIELDS
@@ -829,7 +840,11 @@ def _reconcile_order_stock(*, actor, order, previous, occurred_at):
 def transition_order(*, actor, order, to_status, reason=""):
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)
-    _check_transition(locked, to_status)
+    # A warehouse fulfilment request that was already fulfilled may still be
+    # cancelled (2.39.17): its goods are returned to stock and the invoice is no
+    # longer locked by it. An ordinary order stays final once fulfilled.
+    if not (locked.invoice_id and locked.status == Order.Status.FULFILLED and to_status == Order.Status.CANCELLED):
+        _check_transition(locked, to_status)
     if to_status == Order.Status.CONFIRMED and not locked.items.exists():
         raise BusinessConflictError({"items": "درخواست تأمین پیش از تأیید باید حداقل یک ردیف داشته باشد."})
     if locked.invoice_id and to_status == Order.Status.CONFIRMED:
