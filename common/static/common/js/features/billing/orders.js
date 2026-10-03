@@ -4,12 +4,14 @@ import {DOCUMENT_STATUS_TEXT} from "dolphin/core/labels.js";
 import {showError} from "dolphin/core/messages.js";
 import {money, textOrNull} from "dolphin/core/money.js";
 import {EMPTY_LINE_ROWS, createLineItemRows, loadCustomerOptions, numberOrNull, renderDocumentTotals, setupDocumentList, validateLinesStep} from "dolphin/features/billing/shared.js";
+import {setupSupplyBatch} from "dolphin/features/billing/supply-batch.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 import {loadWarehouseOptions, setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 import {appendCell, appendMoneyCell, appendStatusBadgeCell} from "dolphin/ui/table.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
 
 export async function setupOrders() {
+    setupSupplyBatch();
     const lineHost = document.getElementById("create-order-lines");
     const redrawTotals = () => renderDocumentTotals("create-order", lines);
     // Replaced once the catalogue arrives below; a no-op stub means an

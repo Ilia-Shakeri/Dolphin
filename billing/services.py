@@ -536,6 +536,40 @@ def create_fulfillment_request(*, actor, invoice, warehouse, notes="", expected_
 
 
 @transaction.atomic
+def create_fulfillment_batch(*, actor, invoices, warehouse, notes="", expected_delivery_at=None, shipping_method=""):
+    """One supply document for several issued invoices (2.39.6).
+
+    Each invoice still gets its own request (customer, lines and the stock
+    mechanism stay exactly as for a single one), and all of them carry one
+    shared `batch_number` — so invoices of one customer or of many travel to
+    the warehouse as a single numbered document. All or none.
+    """
+    actor = _lock_document_writer(actor)
+    unique = list(dict.fromkeys(invoice.pk for invoice in invoices))
+    if not unique:
+        raise BusinessRuleError({"invoices": "حداقل یک فاکتور را انتخاب کنید."})
+    if len(unique) > 100:
+        raise BusinessRuleError({"invoices": "حداکثر ۱۰۰ فاکتور در هر سند مجاز است."})
+    number = next_document_number("supply_batch")
+    orders = []
+    for invoice in Invoice.objects.filter(pk__in=unique).order_by("pk"):
+        order = create_fulfillment_request(
+            actor=actor, invoice=invoice, warehouse=warehouse, notes=notes,
+            expected_delivery_at=expected_delivery_at, shipping_method=shipping_method,
+        )
+        order.batch_number = number
+        order.save(update_fields=["batch_number", "updated_at"])
+        orders.append(order)
+    if len(orders) != len(unique):
+        raise BusinessRuleError({"invoices": "برخی فاکتورها یافت نشد."})
+    log_activity(
+        actor=actor, operation="order.batch_created", instance=orders[0],
+        changes={"batch": number, "orders": [order.pk for order in orders]},
+    )
+    return number, orders
+
+
+@transaction.atomic
 def update_order(*, actor, order, **changes):
     actor = _lock_document_writer(actor)
     locked = Order.objects.select_for_update().get(pk=order.pk)

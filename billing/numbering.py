@@ -15,7 +15,7 @@ from billing.models import DocumentSequence
 from common.exceptions import BusinessRuleError
 
 
-KINDS = ("quotation", "order", "invoice", "official_invoice", "payment")
+KINDS = ("quotation", "order", "invoice", "official_invoice", "payment", "supply_batch")
 DEFAULT_FORMATS = {
     "quotation": "QT-{sequence:06d}",
     "order": "SO-{sequence:06d}",
@@ -28,6 +28,8 @@ DEFAULT_FORMATS = {
     # series, and that series has to be gapless.
     "official_invoice": "OINV-{sequence:06d}",
     "payment": "PY-{sequence:06d}",
+    # One number for a supply document that groups several invoices (2.39.6).
+    "supply_batch": "SB-{sequence:06d}",
 }
 # A number goes onto paperwork a customer keeps, so it stays printable ASCII
 # with no separators that would break a filename or a CSV cell.

@@ -37,6 +37,7 @@
     </div>
     <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
         <button id="open-create-order" class="btn btn-primary" type="button">درخواست تأمین تازه</button>
+        <button id="open-supply-batch" class="btn btn-light-primary" type="button">درخواست تأمین از چند فاکتور</button>
     </div>
 </div><div class="card-body pt-2">
     {% if can_hard_delete %}
@@ -146,5 +147,22 @@
             </div>
             </form>
         </div>
+</dialog>
+<dialog id="supply-batch-dialog" aria-labelledby="supply-batch-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="supply-batch-title">درخواست تأمین از چند فاکتور</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="supply-batch-form" novalidate>
+        <fieldset class="mb-5">
+            <legend class="form-label fw-semibold">فاکتورهای صادرشده‌ای که هنوز درخواست فعال ندارند</legend>
+            <input class="form-control form-control-solid mb-3" id="supply-batch-search" type="search" placeholder="جست‌وجوی شماره یا مشتری" autocomplete="off">
+            <div id="supply-batch-list" class="border rounded p-3 mh-300px overflow-auto" role="group" aria-label="فاکتورها"></div>
+            <p class="text-muted fs-8 mt-2 mb-0"><span id="supply-batch-count">۰</span> فاکتور انتخاب شده است. فاکتورهای چند مشتری در یک سند ثبت می‌شوند.</p>
+            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoices"></p>
+        </fieldset>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="supply-batch-warehouse">انبار</label><select class="form-select form-select-solid" id="supply-batch-warehouse" name="warehouse" required></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="warehouse"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="supply-batch-notes">یادداشت</label><input class="form-control form-control-solid" id="supply-batch-notes" name="notes" maxlength="500"></div>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت درخواست</button></div>
+    </form>
 </dialog>
 {% endblock %}

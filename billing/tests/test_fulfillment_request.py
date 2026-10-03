@@ -163,3 +163,39 @@ class InvoiceCancellationTests(Fixtures):
         cancel_invoice(actor=self.manager, invoice=invoice, reason="آزمون")
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, Invoice.Status.CANCELLED)
+
+
+class BatchTests(Fixtures):
+    def test_several_invoices_of_different_customers_go_out_as_one_numbered_document(self):
+        first = self.issued(quantity=1)
+        other = create_customer_with_phone(actor=self.agent, full_name="خریدار دو", phone={"raw_phone": "09121110002"})
+        second = issue_invoice(
+            actor=self.manager,
+            invoice=create_invoice(
+                actor=self.agent, customer=other,
+                items=[{"product": self.product, "quantity": 1, "unit_price": self.product.current_price}],
+            ),
+        )
+        response = self.api(self.agent).post(
+            "/api/v1/orders/from-invoices/",
+            {"invoices": [first.pk, second.pk], "warehouse": self.warehouse.pk}, format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        body = response.json()
+        self.assertTrue(body["batch_number"].startswith("SB-"))
+        self.assertEqual(len(body["orders"]), 2)
+        self.assertEqual({row["batch_number"] for row in body["orders"]}, {body["batch_number"]})
+
+    def test_one_bad_invoice_fails_the_whole_document(self):
+        good = self.issued(quantity=1)
+        draft = create_invoice(
+            actor=self.manager, customer=self.customer,
+            items=[{"product": self.product, "quantity": 1, "unit_price": self.product.current_price}],
+        )
+        response = self.api(self.manager).post(
+            "/api/v1/orders/from-invoices/",
+            {"invoices": [good.pk, draft.pk], "warehouse": self.warehouse.pk}, format="json",
+        )
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertFalse(Order.objects.exclude(batch_number="").exists())
+        self.assertFalse(Order.objects.filter(invoice=good).exists())

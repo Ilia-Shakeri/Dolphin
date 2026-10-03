@@ -222,7 +222,7 @@ class OrderSerializer(CommercialDocumentSerializer):
     server_fields = {
         "number", "status", "customer_name", "subtotal_amount", "tax_amount", "total_amount",
         "confirmed_at", "created_by", "created_by_display", "line_items", "created_at", "updated_at",
-        "invoice", "invoice_number",
+        "invoice", "invoice_number", "batch_number",
     }
     line_items = OrderItemSerializer(source="items", many=True, read_only=True)
     invoice_number = serializers.CharField(source="invoice.number", read_only=True, default="")
@@ -230,7 +230,7 @@ class OrderSerializer(CommercialDocumentSerializer):
     class Meta:
         model = Order
         fields = [
-            "id", "number", "customer", "customer_name", "lead", "quotation", "invoice", "invoice_number", "warehouse",
+            "id", "number", "batch_number", "customer", "customer_name", "lead", "quotation", "invoice", "invoice_number", "warehouse",
             "shipping_method", "status",
             "subtotal_amount", "discount_amount", "tax_rate", "tax_amount", "total_amount",
             "expected_delivery_at", "confirmed_at", "notes", "created_by", "created_by_display",
@@ -239,7 +239,7 @@ class OrderSerializer(CommercialDocumentSerializer):
         read_only_fields = [
             "id", "number", "customer_name", "status", "subtotal_amount", "tax_amount",
             "total_amount", "confirmed_at", "created_by", "created_by_display", "line_items",
-            "created_at", "updated_at", "invoice", "invoice_number",
+            "created_at", "updated_at", "invoice", "invoice_number", "batch_number",
         ]
 
     def __init__(self, *args, **kwargs):
@@ -414,6 +414,23 @@ class DocumentStatusTransitionSerializer(RejectServerFieldsMixin, serializers.Se
 
 class ReasonSerializer(RejectServerFieldsMixin, serializers.Serializer):
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class FulfillmentBatchSerializer(serializers.Serializer):
+    """Several issued invoices to supply as one document (2.39.6)."""
+
+    invoices = serializers.PrimaryKeyRelatedField(queryset=Invoice.objects.none(), many=True, allow_empty=False)
+    warehouse = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.none())
+    notes = serializers.CharField(required=False, allow_blank=True, max_length=4000)
+    expected_delivery_at = serializers.DateTimeField(required=False, allow_null=True)
+    shipping_method = serializers.ChoiceField(choices=Order.ShippingMethod.choices, required=False, allow_blank=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            _scope_relation(self.fields["invoices"].child_relation, invoices_for(request.user))
+            _scope_relation(self.fields["warehouse"], warehouses_for(request.user).filter(is_active=True))
 
 
 class FulfillmentRequestSerializer(serializers.Serializer):

@@ -59,6 +59,7 @@ from billing.serializers import (
     ChequeStatusHistorySerializer,
     ChequeTransitionSerializer,
     ConvertOrderSerializer,
+    FulfillmentBatchSerializer,
     FulfillmentRequestSerializer,
     CreateInstallmentPlanSerializer,
     CustomerLedgerEntrySerializer,
@@ -76,6 +77,7 @@ from billing.serializers import (
     DocumentStatusTransitionSerializer,
 )
 from billing.services import (
+    create_fulfillment_batch,
     create_fulfillment_request,
     link_invoice_to_order,
     record_manual_paid_entry,
@@ -216,7 +218,7 @@ class OrderViewSet(CommercialDocumentViewSet):
     queryset = Order.objects.none()
     serializer_class = OrderSerializer
     status_enum = Order.Status
-    sensitive_actions = frozenset({"create", "update", "partial_update", "items", "transition", "convert", "from_invoice"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "items", "transition", "convert", "from_invoice", "from_invoices"})
     list_query_parameters = {"status", "customer", "invoice"}
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "total_amount", "confirmed_at", "number"]
@@ -271,6 +273,17 @@ class OrderViewSet(CommercialDocumentViewSet):
         serializer.is_valid(raise_exception=True)
         order = create_fulfillment_request(actor=request.user, **serializer.validated_data)
         return Response(self.get_serializer(order).data, status=201)
+
+    @extend_schema(request=FulfillmentBatchSerializer, responses={201: OrderSerializer(many=True)})
+    @action(detail=False, methods=["post"], url_path="from-invoices")
+    def from_invoices(self, request):
+        """Supply several issued invoices as one numbered document (2.39.6)."""
+        serializer = FulfillmentBatchSerializer(data=request.data, context=self.get_serializer_context())
+        serializer.is_valid(raise_exception=True)
+        number, orders = create_fulfillment_batch(actor=request.user, **serializer.validated_data)
+        return Response(
+            {"batch_number": number, "orders": self.get_serializer(orders, many=True).data}, status=201
+        )
 
     @action(detail=True, methods=["post"])
     def convert(self, request, pk=None):

@@ -275,6 +275,9 @@ class Order(CommercialDocument):
     invoice = models.ForeignKey(
         "billing.Invoice", null=True, blank=True, on_delete=models.PROTECT, related_name="fulfillment_requests"
     )
+    #: Set when several invoices were sent to the warehouse as one supply
+    #: document (2.39.6): every request of that document carries its number.
+    batch_number = models.CharField(max_length=DOCUMENT_NUMBER_MAX_LENGTH, blank=True, default="", db_index=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
