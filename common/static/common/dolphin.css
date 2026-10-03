@@ -4542,7 +4542,13 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:h
 [data-dashboard-grid] .dashboard-widget .symbol .symbol-label .path2 { color: var(--dashboard-accent); }
 [data-dashboard-grid] .dashboard-widget .symbol.symbol-50px { width: 2.9rem; height: 2.9rem; }
 [data-dashboard-grid] .dashboard-widget .dashboard-kpi-label { color: var(--bs-gray-700); }
-[data-dashboard-grid] .dashboard-widget .dashboard-kpi-value { font-variant-numeric: tabular-nums; color: var(--bs-gray-900); }
+[data-dashboard-grid] .dashboard-widget .dashboard-kpi-value {
+    display: block;
+    /* Air between the icon row and the figure: the figure never touches the icon. */
+    margin-top: 1rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-gray-900);
+}
 @media (prefers-reduced-motion: reduce) {
     [data-dashboard-grid] > .dashboard-widget > .card { transition: none; }
     body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:hover { transform: none; }
