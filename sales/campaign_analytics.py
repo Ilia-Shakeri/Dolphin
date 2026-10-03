@@ -79,7 +79,8 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
     """One row per visible campaign, in the shape the pages and the export share."""
     campaigns = campaigns_for(user)
     if ids:
-        campaigns = campaigns.filter(pk__in=ids)
+        # Choosing a parent includes its sub-campaigns, so its row can be rolled up.
+        campaigns = campaigns.filter(Q(pk__in=ids) | Q(parent_id__in=ids))
     campaigns = list(campaigns.order_by("-created_at", "-id"))
     campaign_ids = [campaign.pk for campaign in campaigns]
     members = members_for(user).filter(campaign_id__in=campaign_ids)
@@ -125,6 +126,7 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
         reached = contacted.get(campaign.pk, 0)
         row = {
             "id": campaign.pk,
+            "parent_id": campaign.parent_id,
             "name": campaign.name,
             "status": campaign.status,
             "status_display": campaign.get_status_display(),
@@ -156,6 +158,36 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
                 "budget": campaign.budget,
             })
         rows.append(row)
+    return _roll_up_children(rows)
+
+
+_SUMMED = (
+    "members", "contacted", "engaged", "converted", "already_customers",
+    "registered_sales_count", "registered_sales_amount", "valid_invoices_count",
+    "valid_invoices_amount", "collected_amount",
+)
+
+
+def _roll_up_children(rows):
+    """A parent's numbers are its own people plus its sub-campaigns', counted
+    once: an invoice is attributed to exactly one campaign, so summing the
+    rows never counts it twice."""
+    children = defaultdict(list)
+    for row in rows:
+        if row["parent_id"] is not None:
+            children[row["parent_id"]].append(row)
+    for row in rows:
+        kids = children.get(row["id"])
+        row["children_count"] = len(kids or [])
+        if not kids:
+            continue
+        for key in _SUMMED:
+            if key in row:
+                row[key] = row[key] + sum(kid[key] for kid in kids)
+        for stage in row["stages"]:
+            row["stages"][stage] += sum(kid["stages"][stage] for kid in kids)
+        total = row["members"]
+        row["conversion_rate"] = round(row["converted"] * 100 / total, 1) if total else None
     return rows
 
 
@@ -164,11 +196,14 @@ def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
     rows = campaign_rows(user, ids=ids, date_from=date_from, date_to=date_to)
     campaign_ids = [row["id"] for row in rows]
     members = members_for(user).filter(campaign_id__in=campaign_ids)
+    shown = {row["id"] for row in rows}
+    # Parents already carry their sub-campaigns' numbers: count top rows only.
+    top = [row for row in rows if row["parent_id"] not in shown]
     funnel = [
-        ("اعضای کمپین", sum(row["members"] for row in rows)),
-        ("تماس گرفته‌شده", sum(row["contacted"] for row in rows)),
-        ("در تعامل", sum(row["engaged"] for row in rows)),
-        ("تبدیل‌شده", sum(row["converted"] for row in rows)),
+        ("اعضای کمپین", sum(row["members"] for row in top)),
+        ("تماس گرفته‌شده", sum(row["contacted"] for row in top)),
+        ("در تعامل", sum(row["engaged"] for row in top)),
+        ("تبدیل‌شده", sum(row["converted"] for row in top)),
     ]
     invoices_by_month = [
         {"month": row["m"].strftime("%Y-%m"), "count": row["n"], "amount": row["amount"]}

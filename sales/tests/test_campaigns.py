@@ -358,3 +358,34 @@ class AssignedMemberCallTests(Fixtures):
                 actor=self.agent, lead=lead, target_member=other, phone=other.raw_phone, direction="outbound",
                 outcome="x", occurred_at=timezone.now(),
             )
+
+
+class SubCampaignTests(Fixtures):
+    def test_two_levels_only_and_names_are_unique_per_parent(self):
+        child = create_campaign(actor=self.manager, name="اینستاگرام", parent=self.campaign)
+        other = create_campaign(actor=self.manager, name="دیگر")
+        create_campaign(actor=self.manager, name="اینستاگرام", parent=other)  # same name under another parent
+        with self.assertRaises(BusinessConflictError):
+            create_campaign(actor=self.manager, name="اینستاگرام", parent=self.campaign)
+        with self.assertRaises(BusinessRuleError):
+            create_campaign(actor=self.manager, name="سطح سوم", parent=child)
+
+    def test_people_go_to_a_sub_campaign_and_the_parent_rolls_them_up_once(self):
+        child = create_campaign(actor=self.manager, name="نمایشگاه", parent=self.campaign)
+        add_campaign_member(actor=self.manager, campaign=child, full_name="الف", raw_phone="09121110021")
+        with self.assertRaises(BusinessConflictError):
+            add_campaign_member(actor=self.manager, campaign=self.campaign, full_name="ب", raw_phone="09121110022")
+        rows = {row["id"]: row for row in campaign_rows(self.manager, ids=[self.campaign.pk])}
+        self.assertEqual(rows[child.pk]["members"], 1)
+        self.assertEqual(rows[self.campaign.pk]["members"], 1)
+        self.assertEqual(rows[self.campaign.pk]["children_count"], 1)
+        analysis = campaign_analysis(self.manager, ids=[self.campaign.pk])
+        self.assertEqual(analysis["funnel"][0]["value"], 1)
+
+    def test_a_parent_with_live_sub_campaigns_cannot_be_archived_and_budget_overshoot_only_warns(self):
+        self.campaign.budget = Decimal("100")
+        self.campaign.save()
+        child = create_campaign(actor=self.manager, name="بزرگ", parent=self.campaign, budget=Decimal("500"))
+        self.assertTrue(child.budget_warning)
+        with self.assertRaises(BusinessConflictError):
+            set_campaign_status(actor=self.manager, campaign=self.campaign, status="archived")

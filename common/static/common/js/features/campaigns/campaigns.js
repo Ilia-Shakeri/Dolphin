@@ -21,9 +21,12 @@ export function campaignStatusBadge(status, label) {
     return badge;
 }
 
+let openSubCampaign = null;
+
 function campaignRow(campaign) {
     const row = document.createElement("tr");
-    appendCell(row, campaign.name);
+    const children = campaign.children_count ? ` (${toPersianDigits(String(campaign.children_count))} زیرکمپین)` : "";
+    appendCell(row, campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : `${campaign.name}${children}`);
     appendCell(row, (campaign.channels_display || []).join("، "));
     const state = document.createElement("td");
     state.append(campaignStatusBadge(campaign.status, campaign.status_display));
@@ -32,6 +35,14 @@ function campaignRow(campaign) {
     appendCell(row, campaign.starts_on ? displayDay(campaign.starts_on) : "");
     appendCell(row, campaign.ends_on ? displayDay(campaign.ends_on) : "");
     appendDetailLink(row, `/campaigns/${campaign.id}/`);
+    if (openSubCampaign && !campaign.parent && !campaign.is_system) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-sm btn-light-primary ms-2";
+        button.textContent = "زیرکمپین جدید";
+        button.addEventListener("click", () => openSubCampaign(campaign));
+        row.lastElementChild.append(button);
+    }
     return row;
 }
 
@@ -58,11 +69,17 @@ export function setupCampaigns() {
     const dialog = document.getElementById("create-campaign-dialog");
     const createForm = document.getElementById("create-campaign-form");
     if (!dialog || !createForm) return;
-    document.getElementById("open-create-campaign").addEventListener("click", () => {
+    const parentField = createForm.elements.parent;
+    const title = document.getElementById("create-campaign-title");
+    const openCreate = (parent) => {
         createForm.reset();
         clearMessages(createForm);
+        parentField.value = parent ? String(parent.id) : "";
+        title.textContent = parent ? `زیرکمپین جدید برای «${parent.name}»` : "کمپین جدید";
         dialog.showModal();
-    });
+    };
+    openSubCampaign = openCreate;
+    document.getElementById("open-create-campaign").addEventListener("click", () => openCreate(null));
     dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
     createForm.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -73,6 +90,7 @@ export function setupCampaigns() {
                 channels: Array.from(createForm.querySelectorAll('input[name="channels"]:checked')).map((box) => box.value),
                 responsibles: Array.from(field("responsibles").selectedOptions).map((option) => Number(option.value)),
             };
+            if (parentField.value) body.parent = Number(parentField.value);
             const starts = apiDate(field("starts_on").value);
             const ends = apiDate(field("ends_on").value);
             if (starts) body.starts_on = starts;

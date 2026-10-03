@@ -91,6 +91,14 @@ def channel_labels(campaign):
     return [str(labels[value]) for value in values if value in labels]
 
 
+def budget_overshoot(parent):
+    """By how much the sub-campaigns' budgets exceed the parent's (a warning, never an error); 0 if not."""
+    if parent.budget is None:
+        return 0
+    total = sum((child.budget or 0) for child in parent.children.all())
+    return max(total - parent.budget, 0)
+
+
 def _validate_numbers(data):
     if data.get("target_count") is not None and data["target_count"] < 0:
         raise BusinessRuleError({"target_count": "هدف نمی‌تواند منفی باشد."})
@@ -111,7 +119,7 @@ def ensure_system_campaigns(actor):
         if campaign is None:
             clean, normalized = _clean_name(name)
             campaign, _ = Campaign.objects.get_or_create(
-                normalized_name=normalized,
+                normalized_name=normalized, parent=None,
                 defaults={
                     "name": clean, "channel": channel, "channels": [channel], "status": Campaign.Status.ACTIVE,
                     "system_key": key, "created_by": actor, "updated_by": actor,
@@ -125,8 +133,16 @@ def ensure_system_campaigns(actor):
 
 
 @transaction.atomic
-def create_campaign(*, actor, name, responsibles=(), **data):
+def create_campaign(*, actor, name, responsibles=(), parent=None, **data):
     actor = _require_manager(actor)
+    if parent is not None:
+        parent = Campaign.objects.select_for_update().get(pk=parent.pk)
+        if parent.parent_id is not None:
+            raise BusinessRuleError({"parent": "زیرکمپین فقط یک سطح دارد؛ زیرکمپین نمی‌تواند زیرکمپین داشته باشد."})
+        if parent.system_key:
+            raise BusinessRuleError({"parent": "کمپین سیستمی زیرکمپین نمی‌پذیرد."})
+        if parent.status == Campaign.Status.ARCHIVED:
+            raise BusinessConflictError({"parent": "کمپین بایگانی‌شده زیرکمپین نمی‌پذیرد."})
     unknown = set(data) - CAMPAIGN_EDITABLE
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
@@ -138,12 +154,16 @@ def create_campaign(*, actor, name, responsibles=(), **data):
     try:
         with transaction.atomic():
             campaign = Campaign.objects.create(
-                name=clean, normalized_name=normalized, created_by=actor, updated_by=actor, **data
+                name=clean, normalized_name=normalized, parent=parent, created_by=actor, updated_by=actor, **data
             )
     except IntegrityError as exc:
         raise BusinessConflictError({"name": "کمپینی با این نام وجود دارد."}) from exc
     campaign.responsibles.set(responsibles)
     log_activity(actor=actor, operation="campaign.created", instance=campaign, changes={"fields": sorted(data)})
+    if parent is not None:
+        overshoot = budget_overshoot(parent)
+        if overshoot:
+            campaign.budget_warning = overshoot
     return campaign
 
 
@@ -192,6 +212,8 @@ def set_campaign_status(*, actor, campaign, status):
         raise BusinessConflictError({"status": "این تغییر وضعیت برای کمپین مجاز نیست."})
     if locked.system_key and status == Campaign.Status.ARCHIVED:
         raise BusinessConflictError({"status": "کمپین سیستمی بایگانی نمی‌شود."})
+    if status == Campaign.Status.ARCHIVED and locked.children.exclude(status=Campaign.Status.ARCHIVED).exists():
+        raise BusinessConflictError({"status": "ابتدا زیرکمپین‌های این کمپین را بایگانی کنید."})
     previous = locked.status
     locked.status, locked.updated_by = status, actor
     locked.save(update_fields=["status", "updated_by", "updated_at"])
@@ -219,6 +241,8 @@ def add_campaign_member(*, actor, campaign, full_name, raw_phone, notes="", assi
     locked = Campaign.objects.select_for_update().get(pk=campaign.pk)
     if locked.status == Campaign.Status.ARCHIVED:
         raise BusinessConflictError({"campaign": "کمپین بایگانی‌شده مخاطب تازه نمی‌پذیرد."})
+    if locked.children.exists():
+        raise BusinessConflictError({"campaign": "این کمپین زیرکمپین دارد؛ مخاطب را به یکی از زیرکمپین‌ها اضافه کنید."})
     name = str(full_name).strip()
     if not name:
         raise BusinessRuleError({"full_name": "این فیلد الزامی است."})

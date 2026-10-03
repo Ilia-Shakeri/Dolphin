@@ -266,7 +266,10 @@ class Campaign(TimeStampedModel):
         OTHER = "other", "سایر"
 
     name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH)
-    normalized_name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH, unique=True, editable=False)
+    normalized_name = models.CharField(max_length=CAMPAIGN_NAME_MAX_LENGTH, editable=False)
+    #: A campaign may have sub-campaigns (two levels only, 2.39.0); people are
+    #: attached to the leaf. Names are unique per parent.
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="children")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True)
     #: Legacy single value, kept for rollback to 2.38.x; always the first of `channels`.
     channel = models.CharField(max_length=16, choices=Channel.choices, default=Channel.PHONE)
@@ -296,6 +299,15 @@ class Campaign(TimeStampedModel):
                 name="campaign_dates_ordered",
             ),
             models.UniqueConstraint(fields=["system_key"], condition=~Q(system_key=""), name="uniq_campaign_system_key"),
+            models.UniqueConstraint(
+                fields=["normalized_name"], condition=Q(parent__isnull=True), name="uniq_campaign_name_top_level"
+            ),
+            models.UniqueConstraint(
+                fields=["parent", "normalized_name"], condition=Q(parent__isnull=False), name="uniq_campaign_name_per_parent"
+            ),
+            models.CheckConstraint(
+                condition=Q(parent__isnull=True) | ~Q(parent=models.F("id")), name="campaign_not_own_parent"
+            ),
         ]
         indexes = [models.Index(fields=["status", "-created_at"])]
 

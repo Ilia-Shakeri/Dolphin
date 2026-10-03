@@ -41,13 +41,19 @@ class CampaignSerializer(serializers.ModelSerializer):
         queryset=User.objects.filter(is_active=True), many=True, required=False
     )
     responsibles_display = serializers.SerializerMethodField()
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Campaign.objects.filter(parent__isnull=True), required=False, allow_null=True
+    )
+    parent_name = serializers.CharField(source="parent.name", read_only=True, default="")
+    children_count = serializers.SerializerMethodField()
+    budget_warning = serializers.SerializerMethodField()
     member_count = serializers.SerializerMethodField()
     is_system = serializers.SerializerMethodField()
 
     class Meta:
         model = Campaign
         fields = [
-            "id", "name", "status", "status_display", "channels", "channels_display", "starts_on", "ends_on",
+            "id", "name", "parent", "parent_name", "children_count", "budget_warning", "status", "status_display", "channels", "channels_display", "starts_on", "ends_on",
             "target_count", "budget", "responsibles", "responsibles_display", "member_count", "is_system",
             "created_at", "updated_at",
         ]
@@ -62,6 +68,17 @@ class CampaignSerializer(serializers.ModelSerializer):
     def get_member_count(self, instance) -> int:
         return getattr(instance, "member_count_annotated", None) or instance.members.count()
 
+    def get_children_count(self, instance) -> int:
+        return instance.children.count()
+
+    def get_budget_warning(self, instance):
+        from sales.campaigns import budget_overshoot
+
+        over = getattr(instance, "budget_warning", None)
+        if over is None:
+            over = budget_overshoot(instance.parent if instance.parent_id else instance)
+        return str(over) if over else None
+
     def get_is_system(self, instance) -> bool:
         return bool(instance.system_key)
 
@@ -73,12 +90,19 @@ class CampaignSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
         if not self._budget_visible():
             data.pop("budget", None)
+            data.pop("budget_warning", None)
         return data
+
+    def validate_parent(self, value):
+        if self.instance is not None and value != self.instance.parent:
+            raise serializers.ValidationError("کمپین بعد از ساخت به والد دیگری منتقل نمی‌شود.")
+        return value
 
     def create(self, validated_data):
         return create_campaign(actor=self.context["request"].user, **validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop("parent", None)
         return update_campaign(actor=self.context["request"].user, campaign=instance, **validated_data)
 
 
@@ -183,6 +207,12 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         if has_any_capability(request.user, "campaigns.manage"):
             ensure_system_campaigns(request.user)
         return super().list(request, *args, **kwargs)
+
+    def _extra_delete_guard(self, request, instance):
+        from common.exceptions import BusinessPermissionDenied
+
+        if instance.system_key:
+            raise BusinessPermissionDenied("کمپین سیستمی حذف نمی‌شود.")
 
     def _manager_only(self):
         if not has_any_capability(self.request.user, "campaigns.manage"):
