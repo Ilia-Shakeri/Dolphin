@@ -214,7 +214,7 @@ class CoreWorkflowTests(TestCase):
 
     def test_customer_profile_fields_and_primary_phone_are_backward_compatible(self):
         client = APIClient()
-        client.force_authenticate(self.agent)
+        client.force_authenticate(self.manager)  # free-text categories are a manager's tool (2.39.4)
         response = client.post(
             "/api/v1/customers/",
             {
@@ -276,7 +276,7 @@ class CoreWorkflowTests(TestCase):
         self.assertEqual(Customer._meta.get_field("category").max_length, CUSTOMER_CATEGORY_MAX_LENGTH)
         with self.assertRaises(BusinessRuleError):
             update_customer(
-                actor=self.agent,
+                actor=self.manager,
                 customer=Customer.objects.get(pk=response.data["id"]),
                 category="x" * (CUSTOMER_CATEGORY_MAX_LENGTH + 1),
             )

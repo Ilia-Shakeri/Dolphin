@@ -211,6 +211,8 @@ def _resolve_owner_and_category(actor, data, *, creating):
         locked = User.objects.filter(pk=owner.pk, is_active=True).first()
         if locked is None or not is_crm_identity(locked) or locked.role not in OPERATIONAL_WRITERS:
             raise BusinessRuleError({"owner": "مسئول باید کاربر فعالِ بخش فروش یا مدیریت باشد."})
+        if locked.role == User.Role.SALES_AGENT and locked.workstream == User.Workstream.AFTER_SALES:
+            raise BusinessRuleError({"owner": "کاربر پس از فروش نمی‌تواند مسئول مشتری باشد."})
         data["owner"] = locked
     elif creating:
         data["owner"] = actor
@@ -225,6 +227,8 @@ def _resolve_owner_and_category(actor, data, *, creating):
             data["category_ref"] = ref
             data["category"] = ref.name
     elif data.get("category"):
+        if not has_any_capability(actor, "customer_categories.manage"):
+            raise BusinessPermissionDenied("دسته‌بندی را از فهرست دسته‌بندی‌ها انتخاب کنید.")
         match = CustomerCategory.objects.filter(
             normalized_name=normalize_label(data["category"]), is_active=True
         ).first()

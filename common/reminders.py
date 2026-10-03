@@ -43,8 +43,8 @@ from aftersales.selectors import after_sales_requests_for
 from billing.selectors import cheques_for, installments_for
 from common.deployment.profile import feature_enabled
 from common.jalali import to_persian_digits
-from sales.models import Lead
-from sales.selectors import leads_for
+from sales.models import Lead, TargetAudienceMember
+from sales.selectors import leads_for, target_audience_for
 
 #: How far ahead money is worth warning about. A cheque or an instalment
 #: needs arranging before its due date, unlike a phone call, which is either
@@ -83,7 +83,16 @@ def _lead_reminders(user, *, now):
         .select_related("customer")
         .order_by("next_follow_up_at", "id")
     )
-    total = leads.count()
+    # A campaign's follow-up lives on the person called (2.39.4), not on the
+    # container, so those people are reminders in their own right.
+    people = (
+        target_audience_for(user)
+        .filter(next_follow_up_at__isnull=False, next_follow_up_at__lte=end_of_today)
+        .exclude(stage__in=[TargetAudienceMember.Stage.LOST, TargetAudienceMember.Stage.CONVERTED])
+        .select_related("campaign")
+        .order_by("next_follow_up_at", "id")
+    )
+    total = leads.count() + people.count()
     items = [
         {
             "id": lead.pk,
@@ -95,7 +104,19 @@ def _lead_reminders(user, *, now):
             "url": f"/leads/{lead.pk}/",
         }
         for lead in leads[:GROUP_ITEM_LIMIT]
+    ] + [
+        {
+            "id": f"m{person.pk}",
+            "title": person.full_name,
+            "subtitle": person.campaign.name if person.campaign_id else "کمپین",
+            "due_at": person.next_follow_up_at.isoformat(),
+            "due_kind": "datetime",
+            "overdue": person.next_follow_up_at < now,
+            "url": f"/campaigns/{person.campaign_id}/",
+        }
+        for person in people[:GROUP_ITEM_LIMIT]
     ]
+    items = sorted(items, key=lambda item: item["due_at"])[:GROUP_ITEM_LIMIT]
     return _group("lead_follow_up", "پیگیری سرنخ", "di-call", "primary", total, items)
 
 

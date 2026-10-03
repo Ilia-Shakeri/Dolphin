@@ -413,3 +413,16 @@ class EnsureCustomerTests(Fixtures):
         person = self.member("09121110032", "دیگری")
         with self.assertRaises(BusinessPermissionDenied):
             ensure_customer_for_member(actor=self.agent, member=person)
+
+
+class MemberReminderTests(Fixtures):
+    def test_a_due_follow_up_on_an_assigned_person_reaches_that_marketers_bell_only(self):
+        from common.reminders import _lead_reminders
+
+        mine = self.member("09121110041", "پیگیری")
+        assign_campaign_member(actor=self.manager, member=mine, to_user=self.agent)
+        TargetAudienceMember.objects.filter(pk=mine.pk).update(next_follow_up_at=timezone.now() - timedelta(hours=1))
+        group = _lead_reminders(self.agent, now=timezone.now())
+        self.assertEqual(group["count"], 1)
+        self.assertEqual(group["items"][0]["title"], "پیگیری")
+        self.assertEqual(_lead_reminders(self.other_agent, now=timezone.now())["count"], 0)

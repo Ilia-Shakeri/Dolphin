@@ -103,13 +103,15 @@ def import_target_audience_from_workbook(*, actor, lead, stream):
     index = _header_index(sheet)
     result = TargetAudienceImportResult()
 
-    # Existing identities across the whole audience, read once — not scoped to
-    # `lead`, because `uniq_target_member_phone` isn't either. Phones are
+    # Existing identities of this campaign, read once. Phones are
     # compared in their normalized form, the form that constraint is written
     # over, so this check and the database agree about what a duplicate is.
-    existing_phones = set(
-        TargetAudienceMember.objects.values_list("normalized_phone", flat=True)
-    )
+    # Since 2.36.0 the constraint is per campaign (`uniq_member_campaign_phone`),
+    # so a number already in another campaign is not a duplicate here — and
+    # reporting it as one would let a marketer probe the whole audience.
+    existing = TargetAudienceMember.objects.all()
+    existing = existing.filter(campaign_id=lead.campaign_id) if lead.campaign_id else existing.filter(lead=lead)
+    existing_phones = set(existing.values_list("normalized_phone", flat=True))
     seen_phones = set()
 
     for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
