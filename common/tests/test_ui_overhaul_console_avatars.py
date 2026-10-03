@@ -191,7 +191,9 @@ class ConsoleLanguageTests(SimpleTestCase):
 
     def test_no_page_is_hard_coded_persian_any_more(self):
         self.assertNotIn('<html lang="fa" dir="rtl">', CONSOLE)
-        self.assertEqual(CONSOLE.count("<html {_document_attrs(lang)}>"), 5)
+        # One shared shell frames every page (2026-10-03 redesign), so the
+        # direction is decided in exactly one place.
+        self.assertEqual(CONSOLE.count("<html {_document_attrs(lang)}>"), 1)
 
     def test_the_switch_is_a_link_that_keeps_you_where_you_are(self):
         body = python_function("_language_bar_html", CONSOLE)

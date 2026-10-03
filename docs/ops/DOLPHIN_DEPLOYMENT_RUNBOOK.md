@@ -755,7 +755,7 @@ To turn it on:
    ```
    then `nginx -s reload`. Without the route the browser's requests answer 502,
    it stops trying after a few attempts, and nothing else changes.
-5. Check: `docker compose exec realtime python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/api/v1/realtime/health/').read())"`
+5. Check: `docker compose exec realtime python -c "import os,urllib.request;host=os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip();print(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/v1/realtime/health/',headers={'Host':host,'X-Forwarded-Proto':'https'})).read())"`
    reports `{"status":"ok","enabled":true,"listener":true,...}`.
 
 To turn it off: stop the profile (`docker compose --profile realtime stop realtime`)
