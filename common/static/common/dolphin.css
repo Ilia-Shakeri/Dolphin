@@ -4495,6 +4495,8 @@ tr.is-removing > td {
    card colour, a hairline edge, a deep shadow and a thin accent line across the
    top. Content sits close to the edge, so a box carries no empty band; nothing in
    it scrolls. The accent is the one the box's icon wears (`data-accent`). */
+/* Elevation tokens: a hairline plus a very soft neutral shadow — no coloured halo. */
+:root { --dolphin-elev-0: none; --dolphin-elev-1: 0 1px 2px rgba(0, 0, 0, 0.06); --dolphin-elev-2: 0 2px 8px rgba(0, 0, 0, 0.1); }
 .dashboard-widget { --dashboard-accent: var(--bs-primary); }
 .dashboard-widget[data-accent="success"] { --dashboard-accent: var(--bs-success); }
 .dashboard-widget[data-accent="info"] { --dashboard-accent: var(--bs-info); }
@@ -4505,12 +4507,10 @@ tr.is-removing > td {
 [data-dashboard-grid] > .dashboard-widget > .card {
     position: relative;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--dashboard-accent) 14%, var(--bs-border-color, rgba(128, 128, 128, 0.25)));
+    border: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.25));
     border-radius: 1.15rem;
-    background:
-        radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--dashboard-accent) 14%, transparent) 0%, transparent 62%),
-        var(--bs-card-bg, var(--bs-body-bg));
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 14px 30px -18px color-mix(in srgb, var(--dashboard-accent) 55%, rgba(0, 0, 0, 0.5));
+    background: var(--bs-card-bg, var(--bs-body-bg));
+    box-shadow: var(--dolphin-elev-1);
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 [data-dashboard-grid] > .dashboard-widget > .card::before {
@@ -4518,15 +4518,15 @@ tr.is-removing > td {
     position: absolute;
     inset-inline: 1.1rem;
     top: 0;
-    height: 3px;
-    border-radius: 0 0 3px 3px;
-    background: linear-gradient(90deg, var(--dashboard-accent), color-mix(in srgb, var(--dashboard-accent) 20%, transparent));
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--dashboard-accent);
 }
 body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.card:hover,
 body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:hover {
     transform: translateY(-2px);
-    border-color: color-mix(in srgb, var(--dashboard-accent) 45%, transparent);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 18px 34px -16px color-mix(in srgb, var(--dashboard-accent) 65%, rgba(0, 0, 0, 0.5));
+    border-color: var(--bs-gray-400);
+    box-shadow: var(--dolphin-elev-2);
 }
 [data-dashboard-grid] > .dashboard-widget > .card > .card-body {
     min-height: 0;
@@ -4535,10 +4535,18 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:h
 }
 [data-dashboard-grid] .dashboard-widget .symbol .symbol-label {
     border-radius: 0.9rem;
-    background: color-mix(in srgb, var(--dashboard-accent) 16%, transparent) !important;
+    background: var(--bs-gray-100) !important;
 }
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label i,
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label .path1,
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label .path2 { color: var(--dashboard-accent); }
 [data-dashboard-grid] .dashboard-widget .symbol.symbol-50px { width: 2.9rem; height: 2.9rem; }
 [data-dashboard-grid] .dashboard-widget .dashboard-kpi-label { color: var(--bs-gray-700); }
+[data-dashboard-grid] .dashboard-widget .dashboard-kpi-value { font-variant-numeric: tabular-nums; color: var(--bs-gray-900); }
+@media (prefers-reduced-motion: reduce) {
+    [data-dashboard-grid] > .dashboard-widget > .card { transition: none; }
+    body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:hover { transform: none; }
+}
 
 /* --- The collapsed sidebar: a square halo around each icon (2.38.2) ------------
 
