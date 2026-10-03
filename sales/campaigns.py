@@ -18,6 +18,8 @@ from sales.customer_backfill import clean_label, normalize_label
 from sales.models import CAMPAIGN_NAME_MAX_LENGTH, Campaign, Customer, Lead, TargetAudienceMember
 from sales.services import (
     ELEVATED_OPERATORS,
+    create_customer_with_phone,
+    refresh_target_members_for_phone,
     _lock_active_actor,
     _lock_operational_actor,
     refresh_target_member_status,
@@ -268,6 +270,38 @@ def add_campaign_member(*, actor, campaign, full_name, raw_phone, notes="", assi
         raise BusinessConflictError({"raw_phone": "این شماره قبلاً در این کمپین ثبت شده است."}) from exc
     log_activity(actor=actor, operation="campaign_member.added", instance=member, changes={"campaign": locked.pk})
     return refresh_target_member_status(member=member, actor=actor)
+
+
+@transaction.atomic
+def ensure_customer_for_member(*, actor, member):
+    """The customer record for a campaign person, created if they have none.
+
+    Matched by the normalised phone; an existing customer is linked, never
+    duplicated. A new customer is owned by the marketer who works the person
+    (or by the actor), so the invoice wizard can then pick them. Idempotent.
+    """
+    actor = _lock_operational_actor(actor)
+    locked = TargetAudienceMember.objects.select_for_update().get(pk=member.pk)
+    if actor.role == User.Role.SALES_AGENT and locked.assigned_to_id != actor.pk:
+        raise BusinessPermissionDenied("این مخاطب خارج از دسترسی شماست.")
+    if locked.customer_id is None:
+        existing = Customer.objects.filter(
+            phones__normalized_phone=locked.normalized_phone, phones__is_active=True
+        ).order_by("pk").first()
+        if existing is None:
+            data = {"full_name": locked.full_name}
+            if actor.role != User.Role.SALES_AGENT and locked.assigned_to_id:
+                data["owner"] = locked.assigned_to
+            existing = create_customer_with_phone(
+                actor=actor, phone={"raw_phone": locked.raw_phone, "is_primary": True}, **data
+            )
+            log_activity(
+                actor=actor, operation="campaign_member.customer_created", instance=locked,
+                changes={"customer": existing.pk},
+            )
+        refresh_target_members_for_phone(normalized_phone=locked.normalized_phone, actor=actor)
+        locked.refresh_from_db()
+    return locked
 
 
 def _agent_target(user):

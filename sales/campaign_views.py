@@ -24,6 +24,7 @@ from sales.campaigns import (
     add_campaign_member,
     assign_campaign_member,
     create_campaign,
+    ensure_customer_for_member,
     ensure_system_campaigns,
     set_campaign_status,
     set_member_stage,
@@ -116,7 +117,7 @@ class CampaignMemberSerializer(serializers.ModelSerializer):
         fields = [
             "id", "campaign", "campaign_name", "full_name", "raw_phone", "stage", "stage_display", "lost_reason",
             "assigned_to", "assigned_to_display", "next_follow_up_at", "converted_at", "was_customer_on_entry",
-            "created_at",
+            "status", "customer", "created_at",
         ]
         read_only_fields = fields
 
@@ -353,7 +354,7 @@ class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, 
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = TargetAudienceMember.objects.none()
     serializer_class = CampaignMemberSerializer
-    sensitive_actions = frozenset({"stage", "assign"})
+    sensitive_actions = frozenset({"stage", "assign", "customer"})
 
     def get_queryset(self):
         return members_for(self.request.user).select_related("campaign", "assigned_to")
@@ -364,6 +365,12 @@ class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, 
         body = StageSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         member = set_member_stage(actor=request.user, member=self.get_object(), **body.validated_data)
+        return Response(CampaignMemberSerializer(member).data)
+
+    @extend_schema(request=None, responses={200: CampaignMemberSerializer})
+    @action(detail=True, methods=["post"], url_path="customer")
+    def customer(self, request, pk=None):
+        member = ensure_customer_for_member(actor=request.user, member=self.get_object())
         return Response(CampaignMemberSerializer(member).data)
 
     @extend_schema(request=AssignSerializer, responses={200: CampaignMemberSerializer})

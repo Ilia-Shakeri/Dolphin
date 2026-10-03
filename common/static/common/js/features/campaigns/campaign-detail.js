@@ -116,7 +116,23 @@ export function setupCampaignDetail() {
         }
         row.append(stageCell);
         appendCell(row, member.assigned_to_display);
-        appendCell(row, member.was_customer_on_entry ? "از قبل مشتری بوده" : (member.lost_reason || ""));
+        const note = document.createElement("td");
+        note.textContent = member.was_customer_on_entry ? "از قبل مشتری بوده" : (member.lost_reason || "");
+        if (member.status !== "customer" && member.stage !== "lost") {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "btn btn-sm btn-light-primary";
+            button.textContent = "ثبت به‌عنوان مشتری";
+            button.addEventListener("click", async () => {
+                try {
+                    await apiRequest(`/api/v1/campaign-members/${member.id}/customer/`, {method: "POST"});
+                    globalMessage("مشتری ثبت شد و در فهرست مشتریان است.", true);
+                    members?.load();
+                } catch (error) { showError(error); }
+            });
+            note.append(button);
+        }
+        row.append(note);
         return row;
     }
 

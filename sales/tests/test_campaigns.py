@@ -389,3 +389,27 @@ class SubCampaignTests(Fixtures):
         self.assertTrue(child.budget_warning)
         with self.assertRaises(BusinessConflictError):
             set_campaign_status(actor=self.manager, campaign=self.campaign, status="archived")
+
+
+class EnsureCustomerTests(Fixtures):
+    def test_a_person_becomes_a_customer_once_and_the_marketer_owns_the_record(self):
+        from sales.campaigns import ensure_customer_for_member
+        from sales.models import Customer
+
+        person = self.member("09121110031", "خریدار")
+        assign_campaign_member(actor=self.manager, member=person, to_user=self.agent)
+        person.refresh_from_db()
+        first = ensure_customer_for_member(actor=self.agent, member=person)
+        again = ensure_customer_for_member(actor=self.agent, member=person)
+        self.assertIsNotNone(first.customer_id)
+        self.assertEqual(first.customer_id, again.customer_id)
+        self.assertEqual(first.status, "customer")
+        self.assertEqual(Customer.objects.filter(full_name="خریدار").count(), 1)
+        self.assertEqual(Customer.objects.get(pk=first.customer_id).owner_id, self.agent.pk)
+
+    def test_an_agent_cannot_convert_someone_elses_person(self):
+        from sales.campaigns import ensure_customer_for_member
+
+        person = self.member("09121110032", "دیگری")
+        with self.assertRaises(BusinessPermissionDenied):
+            ensure_customer_for_member(actor=self.agent, member=person)
