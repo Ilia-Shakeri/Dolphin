@@ -38,7 +38,8 @@ class SalesShellContractTests(SimpleTestCase):
         self.assertIn("/api/v1/leads/work-queue/", script)
         self.assertIn('`/customers/${lead.customer}/`', script)
         self.assertIn('`/interactions/?lead=${lead.id}`', script)
-        self.assertIn('`/sales/?lead=${lead.id}`', script)
+        self.assertNotIn('`/sales/?lead=${lead.id}`', script)  # the old Sale entry is gone (2.39.3)
+        self.assertIn('`/invoices/`', script)
         self.assertIn('credentials: "same-origin"', script)
         for page in ("sales-documents", "sales-document-detail", "sales-document-report"):
             self.assertIn(f'page === "{page}"', script)

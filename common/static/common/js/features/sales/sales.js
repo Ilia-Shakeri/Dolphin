@@ -56,7 +56,10 @@ export async function setupSales() {
         ]);
     }
     const saleWizard = setupWizard(dialog, {onReachLastStep: renderSaleReview});
-    document.getElementById("open-create-sale").addEventListener("click", () => {
+    // The entry point is a link to the invoice flow now (2.39.3); the dialog
+    // opens only from a legacy `?lead=` deep link, if a button is ever present.
+    const openButton = document.getElementById("open-create-sale");
+    if (openButton?.tagName === "BUTTON") openButton.addEventListener("click", () => {
         createForm.reset();
         clearMessages(createForm);
         saleWizard?.goFirst();

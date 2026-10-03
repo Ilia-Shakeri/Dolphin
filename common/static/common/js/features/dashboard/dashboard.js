@@ -18,7 +18,7 @@ function workQueueRow(lead) {
     const links = [
         [`/leads/${lead.id}/`, "سرنخ"],
         [`/interactions/?lead=${lead.id}`, "ثبت تماس"],
-        [`/sales/?lead=${lead.id}`, "ثبت فروش"],
+        [`/invoices/`, "فاکتور"],
     ];
     // The customer link exists only when there is a customer to open.
     if (lead.customer) links.unshift([`/customers/${lead.customer}/`, "مشتری"]);
