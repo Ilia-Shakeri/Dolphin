@@ -32,8 +32,12 @@ def window_days():
 
 
 def _last_touch(member):
-    last = member.interactions.order_by("-occurred_at").values_list("occurred_at", flat=True).first()
-    return last or member.created_at
+    """When this person was last actually spoken to; `None` if never.
+
+    Entering a campaign is not a touch: someone who was only imported and never
+    contacted must not win an invoice from a campaign that really worked them.
+    """
+    return member.interactions.order_by("-occurred_at").values_list("occurred_at", flat=True).first()
 
 
 def _candidates(invoice, at):
@@ -53,8 +57,11 @@ def _candidates(invoice, at):
         .exclude(campaign__system_key__in=["direct", "referral", "legacy"])
         .exclude(stage=TargetAudienceMember.Stage.LOST)
     )
-    scored = [(member, _last_touch(member)) for member in members]
-    return sorted((pair for pair in scored if cutoff <= pair[1] <= at), key=lambda pair: pair[1], reverse=True)
+    scored = [(member, _last_touch(member)) for member in members.order_by("pk")]
+    return sorted(
+        (pair for pair in scored if pair[1] is not None and cutoff <= pair[1] <= at),
+        key=lambda pair: (pair[1], pair[0].pk), reverse=True,
+    )
 
 
 def _mark_converted(member, at):
@@ -151,7 +158,17 @@ def attribute_manually(*, actor, invoice, campaign, reason):
     from sales.models import CustomerPhone
 
     phones = CustomerPhone.objects.filter(customer_id=locked.customer_id, is_active=True).values_list("normalized_phone", flat=True)
-    member = TargetAudienceMember.objects.filter(campaign=campaign, normalized_phone__in=list(phones)).first()
+    # Only people who were already in the campaign when the invoice was issued
+    # and were not written off; the earliest such entry, so the choice is stable.
+    member = (
+        TargetAudienceMember.objects.filter(
+            campaign=campaign, normalized_phone__in=list(phones),
+            created_at__lte=locked.issued_at or timezone.now(),
+        )
+        .exclude(stage=TargetAudienceMember.Stage.LOST)
+        .order_by("created_at", "pk")
+        .first()
+    )
     if existing is None:
         CampaignAttribution.objects.create(
             invoice=locked, campaign=campaign, member=member,

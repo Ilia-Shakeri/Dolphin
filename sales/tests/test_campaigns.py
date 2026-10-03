@@ -185,8 +185,20 @@ class AttributionTests(Fixtures):
             items=[{"product": self.product, "quantity": 1, "unit_price": self.product.current_price}],
         )
 
+    def called(self, person, days_ago=1):
+        record_interaction(
+            actor=self.manager, lead=person.lead, target_member=person, phone=person.raw_phone,
+            direction="outbound", outcome="پاسخ داد", occurred_at=timezone.now() - timedelta(days=days_ago),
+        )
+
+    def test_a_person_who_was_never_contacted_is_not_attributed(self):
+        self.member("09121110001")
+        invoice = issue_invoice(actor=self.manager, invoice=self.invoice())
+        self.assertFalse(CampaignAttribution.objects.filter(invoice=invoice).exists())
+
     def test_a_valid_invoice_converts_the_person_it_follows_and_cancelling_undoes_it(self):
         person = self.member("09121110001")
+        self.called(person)
         # a person already in the book on entry is flagged, not converted
         self.assertTrue(person.was_customer_on_entry)
         invoice = issue_invoice(actor=self.manager, invoice=self.invoice())
@@ -258,6 +270,7 @@ class AttributionTests(Fixtures):
 
     def test_the_three_money_figures_stay_apart_and_unknowns_are_not_zero(self):
         person = self.member("09121110001")
+        self.called(person)
         invoice = issue_invoice(actor=self.manager, invoice=self.invoice())
         row = campaign_rows(self.manager, ids=[self.campaign.pk])[0]
         self.assertEqual(row["valid_invoices_count"], 1)
