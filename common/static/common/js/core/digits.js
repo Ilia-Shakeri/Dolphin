@@ -52,7 +52,9 @@ function insertLatin(field, text) {
     // no selection API, so `setRangeText` throws there.
     if (document.execCommand && document.execCommand("insertText", false, text)) return;
     field.value += text;
-    field.dispatchEvent(new Event("input", {bubbles: true}));
+    const synthetic = new Event("input", {bubbles: true});
+    synthetic.userInitiated = true;
+    field.dispatchEvent(synthetic);
 }
 
 export function setupLatinDigitInputs() {

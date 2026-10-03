@@ -58,7 +58,7 @@ function guardWizardClosing(dialog, form) {
     if (!(dialog instanceof HTMLDialogElement) || !form) return;
     bindUnloadGuard();
     const markDirty = (event) => {
-        if (event.isTrusted) dirtyWizards.add(dialog);
+        if (event.isTrusted || event.userInitiated) dirtyWizards.add(dialog);
     };
     form.addEventListener("input", markDirty);
     form.addEventListener("change", markDirty);

@@ -8,6 +8,7 @@
  * changing the hidden input from code (or resetting the form) redraws the
  * toggle, so the two can never disagree.
  */
+import {dispatchUserEvent} from "dolphin/core/events.js";
 export function syncSegmented(group) {
     const input = document.getElementById(group.dataset.segmentedFor);
     if (!input) return;
@@ -28,7 +29,7 @@ export function setupSegmentedControls(root = document) {
         const choose = (option) => {
             if (input.value === option.dataset.value) return;
             input.value = option.dataset.value;
-            input.dispatchEvent(new Event("change", {bubbles: true}));
+            dispatchUserEvent(input, "change");
         };
         group.addEventListener("click", (event) => {
             const option = event.target.closest('[role="radio"]');

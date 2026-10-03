@@ -2,6 +2,7 @@ import {toLatinDigits, toPersianDigits} from "dolphin/core/digits.js";
 import {fillSelect, loadAllPages} from "dolphin/ui/lists.js";
 
 /**
+import {dispatchUserEvent} from "dolphin/core/events.js";
  * Make one `[data-searchable-select]` block usable by typing.
  *
  * The real `<select>` stays in the DOM, keeps the value, and is what
@@ -48,7 +49,7 @@ function setupSearchableSelect(root) {
         input.value = option.textContent;
         // Anything listening to the select (a dependent field, a reload)
         // hears the same event it would from a real selection.
-        select.dispatchEvent(new Event("change", {bubbles: true}));
+        dispatchUserEvent(select, "change");
         close();
     }
 

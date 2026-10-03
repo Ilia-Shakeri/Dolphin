@@ -6,6 +6,10 @@
  */
 const DESTRUCTIVE_WORDS = /حذف|باطل|ابطال|لغو|غیرفعال|پایان|آزاد|بسته/;
 let confirmDialogNode = null;
+/** Where the latest pointer press began (see `setupDialogBackdropClose`). */
+let pressStartedOn = null;
+document.addEventListener("pointerdown", (event) => { pressStartedOn = event.target; }, true);
+
 export function confirmDialog(message) {
     if (!confirmDialogNode) {
         const dialog = document.createElement("dialog");
@@ -35,7 +39,7 @@ export function confirmDialog(message) {
         };
         const onClose = () => cleanup();
         const onClick = (event) => {
-            if (event.target === dialog) { dialog.close(); return; }
+            if (event.target === dialog) { if (pressStartedOn === dialog) dialog.close(); return; }
             if (event.target.closest("[data-confirm-ok]")) { answer = true; dialog.close(); }
             else if (event.target.closest("[data-confirm-cancel]")) dialog.close();
         };
@@ -70,6 +74,10 @@ export function setupDialogBackdropClose() {
         const dialog = event.target;
         if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return;
         if (dialog.querySelector(".stepper")) return;
+        // Dragging a text selection out of a field and releasing over the dim
+        // area is a click on the dialog element too; only a press that also
+        // began there counts.
+        if (pressStartedOn !== dialog) return;
         dialog.close();
     });
 }

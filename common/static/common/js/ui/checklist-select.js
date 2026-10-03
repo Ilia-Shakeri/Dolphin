@@ -1,4 +1,5 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
+import {dispatchUserEvent} from "dolphin/core/events.js";
 
 /**
  * Turns a `<select multiple>` into a searchable checklist (2.39.7).
@@ -69,7 +70,7 @@ export function enhanceChecklistSelect(select) {
             box.addEventListener("change", () => {
                 option.selected = box.checked;
                 refresh();
-                select.dispatchEvent(new Event("change", {bubbles: true}));
+                dispatchUserEvent(select, "change");
             });
             const text = document.createElement("span");
             text.className = "form-check-label";
@@ -88,7 +89,7 @@ export function enhanceChecklistSelect(select) {
             box.checked = value;
         });
         refresh();
-        select.dispatchEvent(new Event("change", {bubbles: true}));
+        dispatchUserEvent(select, "change");
     };
     all.addEventListener("click", () => setAll(true));
     none.addEventListener("click", () => setAll(false));

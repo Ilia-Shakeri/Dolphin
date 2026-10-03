@@ -2,6 +2,7 @@ import {toLatinDigits, toPersianDigits} from "dolphin/core/digits.js";
 import {JALALI_MONTH_NAMES, JALALI_WEEKDAY_LETTERS, gregorianToJalali, jalaliMonthLength, jalaliWeekday, pad2, pad4, parseJalaliInput, tehranParts} from "dolphin/core/jalali.js";
 
 let closeOpenJalaliPicker = null; // the open picker's own teardown, or null
+import {dispatchUserEvent} from "dolphin/core/events.js";
 let openJalaliPickerField = null; // which field it belongs to
 
 /**
@@ -377,8 +378,8 @@ function openJalaliPicker(field) {
             ? toPersianDigits(`${pad4(selected.year)}/${pad2(selected.month)}/${pad2(selected.day)} ${pad2(hour)}:${pad2(minute)}`)
             : toPersianDigits(`${pad4(selected.year)}/${pad2(selected.month)}/${pad2(selected.day)}`);
         field.value = text;
-        field.dispatchEvent(new Event("input", {bubbles: true}));
-        field.dispatchEvent(new Event("change", {bubbles: true}));
+        dispatchUserEvent(field, "input");
+        dispatchUserEvent(field, "change");
         field.dispatchEvent(new Event("blur"));
     }
 
@@ -426,8 +427,8 @@ function openJalaliPicker(field) {
 
     clearBtn.addEventListener("click", () => {
         field.value = "";
-        field.dispatchEvent(new Event("input", {bubbles: true}));
-        field.dispatchEvent(new Event("change", {bubbles: true}));
+        dispatchUserEvent(field, "input");
+        dispatchUserEvent(field, "change");
         field.dispatchEvent(new Event("blur"));
         close();
     });

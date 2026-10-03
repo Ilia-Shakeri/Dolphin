@@ -14,7 +14,10 @@ import {toLatinDigits} from "dolphin/core/digits.js";
  * The server validates again; this is the first line, not the only one.
  */
 export function normalizeDecimal(raw, places = 2) {
-    const text = toLatinDigits(String(raw ?? "")).replace(/[٫،,/]/g, ".");
+    let text = toLatinDigits(String(raw ?? "")).replace(/٬/g, "").replace(/٫/g, ".");
+    // «1,234.5»: when a real point is already there, commas are thousands
+    // separators and go; with no point, a comma / «،» / «/» is the decimal mark.
+    text = text.includes(".") ? text.replace(/[،,/]/g, "") : text.replace(/[،,/]/g, ".");
     let whole = "";
     let fraction = "";
     let seenPoint = false;

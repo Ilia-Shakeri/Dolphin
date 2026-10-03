@@ -26,7 +26,7 @@ export async function setupLeads() {
     function renderLeadReview() {
         renderWizardReview(document.getElementById("create-lead-review"), [
             ["منبع", document.getElementById("create-lead-source").value || "—"],
-            ["کمپین یا نوبت", document.getElementById("create-lead-campaign").value || "—"],
+            ["کمپین", document.getElementById("create-lead-campaign").value || "—"],
             ["وضعیت", selectedOptionText(document.getElementById("create-lead-status"))],
             ["پیگیری بعدی", document.getElementById("create-lead-follow-up").value || "—"],
             ["یادداشت", document.getElementById("create-lead-notes").value || "—"],

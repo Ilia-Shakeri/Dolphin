@@ -83,7 +83,12 @@ def _cell(row, index, name):
     # produce `9121234567.0`.
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
-    return str(value).strip()
+    text = str(value).strip()
+    # Our own export prefixes `'` to a value that starts like a formula
+    # (a `+98…` phone); reading the file back must undo exactly that.
+    if text[:1] == "'" and text[1:2] in ("=", "+", "-", "@"):
+        text = text[1:]
+    return text
 
 
 @transaction.atomic

@@ -87,8 +87,9 @@ export function setupRowSelection({key, body, reload}) {
         const boxes = Array.from(body.querySelectorAll("[data-row-select]"));
         if (toolbar) toolbar.hidden = selected.size === 0;
         if (countNode) countNode.textContent = toPersianDigits(String(selected.size));
-        selectAll.checked = boxes.length > 0 && selected.size === boxes.length;
-        selectAll.indeterminate = selected.size > 0 && selected.size < boxes.length;
+        const shown = boxes.filter((box) => box.checked).length;
+        selectAll.checked = boxes.length > 0 && shown === boxes.length;
+        selectAll.indeterminate = shown > 0 && shown < boxes.length;
     }
 
     selectAll.addEventListener("change", () => {
@@ -110,6 +111,7 @@ export function setupRowSelection({key, body, reload}) {
         if (!await confirmDialog(
             `${count} مورد برای همیشه حذف شود؟ این کار قابل بازگشت نیست. رکوردی که سابقهٔ دیگری به آن وابسته است حذف نخواهد شد. اگر مطمئن نیستید، به‌جای حذف، از غیرفعال‌سازی در همان صفحهٔ رکورد استفاده کنید.`
         )) return;
+        deleteButton.disabled = true;
         try {
             const result = await apiRequest(`/api/v1/${key}/bulk-delete/`, {method: "POST", body: {ids}});
             const deletedCount = result.deleted?.length || 0;
@@ -127,6 +129,8 @@ export function setupRowSelection({key, body, reload}) {
             globalMessage(parts.join(" — ") || "موردی حذف نشد.", deletedCount > 0 && blockedCount === 0);
         } catch (error) {
             showError(error);
+        } finally {
+            deleteButton.disabled = false;
         }
     });
 
@@ -137,6 +141,8 @@ export function setupRowSelection({key, body, reload}) {
         checkbox.className = "form-check-input";
         checkbox.dataset.rowSelect = String(item.id);
         checkbox.setAttribute("aria-label", "انتخاب ردیف");
+        // A row redrawn after a refresh keeps the choice the reader already made.
+        checkbox.checked = selected.has(item.id);
         checkbox.addEventListener("change", () => {
             if (checkbox.checked) selected.add(item.id); else selected.delete(item.id);
             updateToolbar();
