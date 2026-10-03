@@ -117,7 +117,7 @@
          id="dashboard-capability-tiles" data-dashboard-grid
          aria-label="نمای کلی دسترسی مجاز">
     {% for widget in dashboard_widgets %}
-    <div class="dashboard-widget {{ widget.size }}" data-widget-key="{{ widget.key }}" data-widget-label="{{ widget.label }}" style="--dashboard-rows: {{ widget.height }}">
+    <div class="dashboard-widget {{ widget.size }}" data-widget-key="{{ widget.key }}" data-widget-label="{{ widget.label }}" data-accent="{{ widget.accent }}" data-height-chosen="{% if widget.height_chosen %}1{% endif %}" style="--dashboard-rows: {{ widget.height }}{% if widget.position %}; --dashboard-x: {{ widget.position.0 }}; --dashboard-y: {{ widget.position.1 }}{% endif %}">
         {% comment %} The theme's stat tile: an icon-font glyph in an accented symbol, the figure,
            then the label. Icon and accent are presentation carried on the widget;
            the figure and its scope come from the capability check in the view. {% endcomment %}

@@ -318,6 +318,11 @@ class UserDashboardLayout(TimeStampedModel):
     #: of every layout saved before this field existed, so the default needs
     #: no data migration.
     widget_heights = models.JSONField(default=dict, blank=True)
+    #: `{widget key: [column, row]}` — where a box sits on the cell grid
+    #: (2.38.2), both counted from 1 from the grid's start corner. A widget
+    #: missing here is placed automatically; one that has a position stays
+    #: exactly there, gaps and all, on a wide screen.
+    widget_positions = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"چیدمان داشبورد {self.user_id}"

@@ -70,6 +70,12 @@ export async function setupDashboard() {
         if (grid) setupDashboardEditor(grid);
     });
     await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard"), insights]);
+    // Every box takes the rows its content needs; again when the page's width,
+    // the fonts or the charts change what that is.
+    fitDashboardRows();
+    window.addEventListener("resize", scheduleFitRows);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleFitRows);
+    window.addEventListener("load", scheduleFitRows);
 }
 
 /** The editor's starting state rendered into the page itself
@@ -168,6 +174,8 @@ async function setupDashboardInsights() {
             column,
             size: kpi.size,
             height: kpi.height,
+            height_chosen: kpi.height_chosen,
+            position: kpi.position,
             mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent}); },
         });
     });
@@ -182,6 +190,8 @@ async function setupDashboardInsights() {
             column,
             size: gauge.size,
             height: gauge.height,
+            height_chosen: gauge.height_chosen,
+            position: gauge.position,
             mount: () => renderGaugeChart(canvas, empty, gauge.value, {
                 ariaLabel: `${gauge.label}: ${gauge.display}`,
                 accent: gauge.accent,
@@ -199,6 +209,8 @@ async function setupDashboardInsights() {
             column: panelCard(panel),
             size: panel.size,
             height: panel.height,
+            height_chosen: panel.height_chosen,
+            position: panel.position,
             mount: () => {},
         });
     });
@@ -216,6 +228,8 @@ async function setupDashboardInsights() {
             column: card,
             size: data.trend.size,
             height: data.trend.height,
+            height_chosen: data.trend.height_chosen,
+            position: data.trend.position,
             // Mixed rather than a bare area: `_sales_trend` (common/
             // dashboard.py) returns the same twelve weeks' order count
             // alongside the amount, and a reader asking "how is sales
@@ -268,6 +282,8 @@ async function setupDashboardInsights() {
             column: card,
             size: data.agent_share.size,
             height: data.agent_share.height,
+            height_chosen: data.agent_share.height_chosen,
+            position: data.agent_share.position,
             mount: () => renderMultiGaugeChart(
                 document.getElementById("dashboard-agent-share-chart"),
                 document.getElementById("dashboard-agent-share-empty"),
@@ -297,6 +313,8 @@ async function setupDashboardInsights() {
             column: card,
             size: data.breakdown.size,
             height: data.breakdown.height,
+            height_chosen: data.breakdown.height_chosen,
+            position: data.breakdown.position,
             mount: () => renderDonutChart(
                 document.getElementById("dashboard-breakdown-chart"),
                 document.getElementById("dashboard-breakdown-empty"),
@@ -551,6 +569,159 @@ function calendarGrid(panel) {
 }
 
 /**
+ * The dashboard's cell grid, as numbers (2.38.2).
+ *
+ * Twelve columns and rows of half a rem, no grid gap — a box keeps its own
+ * margin, so two boxes are a rem apart and a box is as tall as its content to
+ * within half a rem. A box has a size in cells and, once placed by hand, a
+ * position in cells (`--dashboard-x` / `--dashboard-y`, both from 1, counted
+ * from the grid's start corner so the same numbers are right on an RTL and an
+ * LTR page). Positions apply on a wide screen only; below `xl` the boxes flow
+ * in order, so a phone never shows a layout that needs a desktop's width.
+ */
+const WIDE_GRID = window.matchMedia("(min-width: 1200px)");
+const GRID_COLUMNS = 12;
+
+function boxSpan(column) {
+    const match = /dashboard-span-(\d+)/.exec(column.className);
+    return match ? Number(match[1]) : 3;
+}
+
+function boxRows(column) {
+    return Number(column.style.getPropertyValue("--dashboard-rows")) || 1;
+}
+
+function boxSpot(column) {
+    const x = Number(column.style.getPropertyValue("--dashboard-x"));
+    const y = Number(column.style.getPropertyValue("--dashboard-y"));
+    return x && y ? {x, y} : null;
+}
+
+function setBoxSpot(column, x, y) {
+    column.style.setProperty("--dashboard-x", String(x));
+    column.style.setProperty("--dashboard-y", String(y));
+}
+
+function boxRect(column) {
+    const spot = boxSpot(column);
+    return spot ? {x: spot.x, y: spot.y, w: boxSpan(column), h: boxRows(column)} : null;
+}
+
+function rectsOverlap(a, b) {
+    return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+function placedBoxes(host) {
+    return Array.from(host.children).filter((node) => node.dataset && node.dataset.widgetKey && !node.hidden);
+}
+
+/** What the grid is made of, in pixels. */
+function gridMetrics(host) {
+    const style = getComputedStyle(host);
+    const rect = host.getBoundingClientRect();
+    const row = parseFloat(style.gridAutoRows) || 8;
+    return {rect, row, col: rect.width / GRID_COLUMNS, rtl: style.direction === "rtl"};
+}
+
+/** Pin every box that is still placed automatically to where it is drawn now,
+ * so each has numbers to compare. Only on a wide screen. */
+function freezeBoxes(host) {
+    if (!WIDE_GRID.matches) return;
+    const metrics = gridMetrics(host);
+    placedBoxes(host).forEach((column) => {
+        if (boxSpot(column)) return;
+        const rect = column.getBoundingClientRect();
+        const start = metrics.rtl ? metrics.rect.right - rect.right : rect.left - metrics.rect.left;
+        const x = Math.min(GRID_COLUMNS - boxSpan(column) + 1, Math.max(1, Math.round(start / metrics.col) + 1));
+        const y = Math.max(1, Math.round((rect.top - metrics.rect.top) / metrics.row) + 1);
+        setBoxSpot(column, x, y);
+    });
+}
+
+/** Whether `column` sits on another box's cells. */
+function collidesWithOthers(host, column, rect = boxRect(column)) {
+    if (!rect) return false;
+    return placedBoxes(host).some((other) => {
+        if (other === column) return false;
+        const otherRect = boxRect(other);
+        return otherRect && rectsOverlap(rect, otherRect);
+    });
+}
+
+/** The nearest spot to `want` where a box of this size overlaps nothing. */
+function nearestFreeSpot(host, column, want) {
+    const w = boxSpan(column);
+    const h = boxRows(column);
+    const others = placedBoxes(host).filter((other) => other !== column).map(boxRect).filter(Boolean);
+    let best = null;
+    let bestDistance = Infinity;
+    for (let y = 1; y <= want.y + 240; y += 1) {
+        for (let x = 1; x <= GRID_COLUMNS - w + 1; x += 1) {
+            const candidate = {x, y, w, h};
+            if (others.some((other) => rectsOverlap(candidate, other))) continue;
+            // Rows are half a rem, columns are a twelfth of the grid: weigh a
+            // row as a fraction of a column so "nearest" is nearest to the eye.
+            const distance = ((x - want.x) * 8) ** 2 + (y - want.y) ** 2;
+            if (distance < bestDistance) { bestDistance = distance; best = {x, y}; }
+        }
+        if (best && (y - want.y) ** 2 > bestDistance) break;
+    }
+    return best;
+}
+
+/** After a box grew (content, a resize, a new font), push down whatever it now
+ * sits on, top to bottom, so nothing is ever drawn over anything else. */
+function resolveOverlaps(host) {
+    if (!WIDE_GRID.matches) return;
+    const items = placedBoxes(host).filter((column) => boxSpot(column))
+        .sort((a, b) => boxSpot(a).y - boxSpot(b).y || boxSpot(a).x - boxSpot(b).x);
+    const settled = [];
+    items.forEach((column) => {
+        let rect = boxRect(column);
+        let clash = settled.find((other) => rectsOverlap(rect, other));
+        while (clash) {
+            rect = {...rect, y: clash.y + clash.h};
+            clash = settled.find((other) => rectsOverlap(rect, other));
+        }
+        if (rect.y !== boxSpot(column).y) setBoxSpot(column, rect.x, rect.y);
+        settled.push(rect);
+    });
+}
+
+/**
+ * Give every box exactly the rows its content needs — no empty band under it
+ * and nothing that scrolls. A box whose height the reader chose keeps it, but
+ * never below its content. Measured with the card at its natural height; the
+ * smallest number of rows that holds it is set.
+ */
+export function fitDashboardRows() {
+    const hosts = Array.from(document.querySelectorAll("[data-dashboard-grid]"));
+    hosts.forEach((host) => {
+        const style = getComputedStyle(host);
+        const row = parseFloat(style.gridAutoRows) || 8;
+        const boxes = placedBoxes(host);
+        boxes.forEach((column) => column.classList.add("is-measuring"));
+        const needs = boxes.map((column) => {
+            const card = column.querySelector(":scope > .card") || column;
+            const margin = parseFloat(getComputedStyle(column).marginTop) + parseFloat(getComputedStyle(column).marginBottom);
+            return Math.ceil((card.getBoundingClientRect().height + margin) / row);
+        });
+        boxes.forEach((column) => column.classList.remove("is-measuring"));
+        boxes.forEach((column, index) => {
+            const chosen = column.dataset.heightChosen === "1" ? boxRows(column) : 0;
+            column.style.setProperty("--dashboard-rows", String(Math.min(120, Math.max(6, needs[index], chosen))));
+        });
+        resolveOverlaps(host);
+    });
+}
+
+let fitTimer = null;
+function scheduleFitRows() {
+    clearTimeout(fitTimer);
+    fitTimer = setTimeout(fitDashboardRows, 120);
+}
+
+/**
  * Put one widget's column into the grid at its chosen width.
  *
  * The width is the Bootstrap column classes the server resolved from
@@ -565,6 +736,10 @@ function placeDashboardWidget(grid, widget) {
     // How many grid rows the box spans (2.38.1): the reader's choice or the
     // widget's own default, resolved by the server (`height_for`).
     if (widget.height) column.style.setProperty("--dashboard-rows", String(widget.height));
+    column.dataset.heightChosen = widget.height_chosen ? "1" : "";
+    // The box's accent colour (glow and top edge) is the one its icon wears.
+    column.dataset.accent = (widget.data && widget.data.accent) || "primary";
+    if (widget.position) setBoxSpot(column, widget.position[0], widget.position[1]);
     grid.appendChild(column);
 }
 
@@ -900,9 +1075,24 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (sizes[key] === token) return false;
         const classes = (sizeChoices.find((choice) => choice.value === token) || {}).classes;
         if (!classes) return false;
+        const before = {sizes, className: column.className, spot: boxSpot(column)};
         sizes = {...sizes, [key]: token};
         const keep = ["editing", "resizing", "dragging"].filter((name) => column.classList.contains(name));
         column.className = ["dashboard-widget", ...keep, classes].join(" ");
+        if (WIDE_GRID.matches) {
+            const host = column.parentElement;
+            freezeBoxes(host);
+            const spot = boxSpot(column);
+            // A box wider than the room to its end slides back toward the start…
+            if (spot && spot.x + boxSpan(column) - 1 > GRID_COLUMNS) setBoxSpot(column, GRID_COLUMNS - boxSpan(column) + 1, spot.y);
+            // …and one that would land on a neighbour simply does not grow.
+            if (collidesWithOthers(host, column)) {
+                sizes = before.sizes;
+                column.className = before.className;
+                if (before.spot) setBoxSpot(column, before.spot.x, before.spot.y);
+                return false;
+            }
+        }
         return true;
     }
 
@@ -911,10 +1101,40 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (!token || (heights[key] || null) === token) return false;
         const rows = (heightChoices.find((choice) => choice.value === token) || {}).rows;
         if (!rows) return false;
+        const before = {heights, rows: column.style.getPropertyValue("--dashboard-rows")};
         heights = {...heights, [key]: token};
         column.style.setProperty("--dashboard-rows", String(rows));
+        column.dataset.heightChosen = "1";
+        if (WIDE_GRID.matches) {
+            const host = column.parentElement;
+            freezeBoxes(host);
+            if (collidesWithOthers(host, column)) {
+                heights = before.heights;
+                column.style.setProperty("--dashboard-rows", before.rows);
+                return false;
+            }
+        }
         fitAllCharts();
         return true;
+    }
+
+    /** What to save after a move or a resize: sizes and heights, and — on a
+     * wide screen — where every box sits, with its rows kept as chosen so the
+     * next paint reproduces exactly this arrangement. */
+    function layoutBody() {
+        const body = {widget_sizes: sizes, widget_heights: heights};
+        if (!WIDE_GRID.matches) return body;
+        const positions = {};
+        const keptHeights = {...heights};
+        grids.forEach((host) => placedBoxes(host).forEach((column) => {
+            const key = column.dataset.widgetKey;
+            const spot = boxSpot(column);
+            if (spot) positions[key] = [spot.x, spot.y];
+            keptHeights[key] = `r${boxRows(column)}`;
+            column.dataset.heightChosen = "1";
+        }));
+        heights = keptHeights;
+        return {widget_sizes: sizes, widget_heights: heights, widget_positions: positions};
     }
 
     //: How much of the row each width step takes, for snapping a dragged
@@ -1139,7 +1359,7 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
                     handle.classList.remove("active");
                     if (changed) {
                         fitAllCharts();
-                        save({widget_sizes: sizes, widget_heights: heights});
+                        save(layoutBody());
                     }
                 }
                 document.addEventListener("pointermove", onMove);
@@ -1184,7 +1404,7 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             return;
         }
         event.preventDefault();
-        if (handled) save({widget_sizes: sizes, widget_heights: heights});
+        if (handled) save(layoutBody());
     }
 
     function widgetControls(column, key) {
@@ -1311,6 +1531,29 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         // The widget last swapped with, this drag only — see the guard
         // in `onPointerMove` for why it exists.
         let lastSwapTarget = null;
+        // Free placement (wide screens): where the box would land, and the
+        // outline that shows it.
+        let dropSpot = null;
+        let hint = null;
+
+        function updateDropHint() {
+            const metrics = gridMetrics(host);
+            const rect = dragged.getBoundingClientRect();
+            const start = metrics.rtl ? metrics.rect.right - rect.right : rect.left - metrics.rect.left;
+            const w = boxSpan(dragged);
+            const h = boxRows(dragged);
+            const x = Math.min(GRID_COLUMNS - w + 1, Math.max(1, Math.round(start / metrics.col) + 1));
+            const y = Math.max(1, Math.round((rect.top - metrics.rect.top) / metrics.row) + 1);
+            dropSpot = {x, y};
+            if (!hint) {
+                hint = document.createElement("div");
+                hint.className = "dashboard-drop-hint";
+                host.appendChild(hint);
+            }
+            hint.style.gridColumn = `${x} / span ${w}`;
+            hint.style.gridRow = `${y} / span ${h}`;
+            hint.classList.toggle("is-blocked", collidesWithOthers(host, dragged, {x, y, w, h}));
+        }
 
         /** Re-anchors the dragged card under the pointer at its current
          * grab point, measured against wherever the card's own layout
@@ -1373,6 +1616,11 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             // "the card being dragged" — the same reason `letCard
             // DetailsLinkThrough` (kanban boards, above) has to reason
             // about event targets rather than assuming one.
+            if (WIDE_GRID.matches) {
+                followPointer(event.clientX, event.clientY);
+                updateDropHint();
+                return;
+            }
             dragged.style.pointerEvents = "none";
             const target = document.elementFromPoint(event.clientX, event.clientY)
                 ?.closest("[data-widget-key]");
@@ -1415,8 +1663,22 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
                 // whose result is predictable from where the card
                 // landed. `moved` guards a plain click (opening the hide
                 // button, say) from being recorded as a no-op reorder.
-                if (moved) save({widget_order: currentOrder()});
+                if (moved && WIDE_GRID.matches && dropSpot) {
+                    const w = boxSpan(dragged);
+                    const h = boxRows(dragged);
+                    let spot = dropSpot;
+                    // On top of something: the nearest free place instead.
+                    if (collidesWithOthers(host, dragged, {x: spot.x, y: spot.y, w, h})) {
+                        spot = nearestFreeSpot(host, dragged, spot) || boxSpot(dragged) || spot;
+                    }
+                    setBoxSpot(dragged, spot.x, spot.y);
+                    save({widget_order: currentOrder(), ...layoutBody()});
+                } else if (moved) {
+                    save({widget_order: currentOrder()});
+                }
             }
+            if (hint) { hint.remove(); hint = null; }
+            dropSpot = null;
             dragged = null;
             moved = false;
         }
@@ -1431,6 +1693,8 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             dragged = column;
             moved = false;
             lastSwapTarget = null;
+            // Every box needs numbers before one can be moved among them.
+            freezeBoxes(host);
             startClientX = event.clientX;
             startClientY = event.clientY;
             const rect = column.getBoundingClientRect();
@@ -1458,6 +1722,9 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (reset) reset.hidden = !editing || !layout.is_customised;
         if (addWidgetOpen) addWidgetOpen.hidden = !editing;
         if (editing) enterEditing(); else leaveEditing();
+        // Edit controls change nothing a box needs, but leaving edit mode is a
+        // good moment to make sure every box is exactly as tall as it should be.
+        if (!editing) fitDashboardRows();
     }
 
     toggle.addEventListener("click", () => setEditing(!editing));

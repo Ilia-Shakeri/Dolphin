@@ -54,6 +54,7 @@ class DashboardLayoutView(APIView):
             "widget_order": effective["order"],
             "widget_sizes": effective["sizes"],
             "widget_heights": effective["heights"],
+            "widget_positions": effective["positions"],
             "locked_hidden": sorted(effective["deployment_hidden"]),
             "is_customised": effective["is_customised"],
             "catalog": [
@@ -102,6 +103,7 @@ class DashboardLayoutView(APIView):
             widget_order=data.get("widget_order"),
             widget_sizes=data.get("widget_sizes"),
             widget_heights=data.get("widget_heights"),
+            widget_positions=data.get("widget_positions"),
         )
         return self._respond(request)
 

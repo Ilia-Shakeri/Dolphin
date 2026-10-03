@@ -66,7 +66,7 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
 class UserDashboardLayoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserDashboardLayout
-        fields = ("hidden_widgets", "widget_order", "widget_sizes", "widget_heights", "updated_at")
+        fields = ("hidden_widgets", "widget_order", "widget_sizes", "widget_heights", "widget_positions", "updated_at")
         read_only_fields = fields
 
 
@@ -84,6 +84,10 @@ class UserDashboardLayoutUpdateSerializer(RejectServerFieldsMixin, serializers.S
     widget_sizes = serializers.DictField(child=serializers.CharField(), required=False)
     #: `None` for a key means "back to its content height" (2.18.4).
     widget_heights = serializers.DictField(child=serializers.CharField(allow_null=True), required=False)
+    #: `[column, row]` per key; `None` frees a box back to automatic placement (2.38.2).
+    widget_positions = serializers.DictField(
+        child=serializers.ListField(child=serializers.IntegerField(), allow_null=True), required=False
+    )
 
 
 class UserPreferenceSerializer(serializers.ModelSerializer):

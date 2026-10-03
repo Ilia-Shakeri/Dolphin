@@ -137,19 +137,28 @@ WIDGET_SIZES = {
 #: missing from a reader's map takes its content's own height, which is what
 #: every box did before this existed.
 #: The dashboard is a grid of **cells** (2.38.1): a fixed row unit
-#: (`--dashboard-row`, 4.5rem, in dolphin.css) and twelve columns, the way a phone
+#: (`--dashboard-row`, 0.5rem, in dolphin.css) and twelve columns, the way a phone
 #: home screen is built from one cell size. A widget occupies a whole number of
 #: columns (`WIDGET_SIZES`) and rows (below), widgets of different sizes pack
 #: side by side, and a box is dragged or resized to the nearest cell. The row
 #: and gap below must stay equal to the CSS custom properties.
-ROW_REM = 4.5
-GAP_REM = 1.25
-ROW_STEPS = (2, 3, 4, 5, 6, 7, 8, 9, 10, 12)
+ROW_REM = 0.5
+GAP_REM = 0.0
+GUTTER_REM = 0.5  # each box's own margin: two of them are the visible gap between boxes
+#: A fine row (0.5rem, no grid gap — the gap is each box's own margin) so a box
+#: can be as tall as its content with at most half a rem of air, rather than
+#: snapping to a few tall steps: the page measures each box and takes the smallest
+#: number of rows that holds it. Steps are every row from 6 to 120.
+ROW_STEPS = tuple(range(6, 121))
+#: Columns on the wide grid; a position's column is 1..GRID_COLUMNS.
+GRID_COLUMNS = 12
+MAX_ROW_POSITION = 800
 
 
 def _span_length(rows):
-    """The height of a box spanning `rows` rows, in rem: its rows plus the gaps between them."""
-    return f"{rows * ROW_REM + (rows - 1) * GAP_REM:g}rem"
+    """The height of the *card* of a box spanning `rows` rows, in rem: the rows
+    less the margin the box keeps on each side."""
+    return f"{rows * ROW_REM - 2 * GUTTER_REM:g}rem"
 
 
 #: `row token -> height of that many rows`, for dragging a box's top or bottom
@@ -161,31 +170,33 @@ ROWS_FOR_TOKEN = {f"r{rows}": rows for rows in ROW_STEPS}
 #: Tokens saved before 2.38.1, when a height was a free minimum in rem. They are
 #: read as the nearest row step and never rewritten behind anyone's back.
 for _legacy_rem in (10, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40):
-    _rows = min(ROW_STEPS, key=lambda steps: abs(steps * ROW_REM + (steps - 1) * GAP_REM - _legacy_rem))
+    _rows = min(ROW_STEPS, key=lambda steps: abs(steps * ROW_REM - 2 * GUTTER_REM - _legacy_rem))
     ROWS_FOR_TOKEN[f"h{_legacy_rem}"] = _rows
 
 #: How many rows each widget is designed at when nobody has chosen. A figure tile
 #: is two; a gauge three; the lists and charts carry a body, so they are taller.
+#: Only the first-paint guess: the page measures every box that has no chosen
+#: height and sets the rows it actually needs.
 DEFAULT_WIDGET_ROWS = {
-    "sales_amount_this_month": 3,
-    "sales_count_this_month": 3,
-    "outstanding": 3,
-    "calls_this_week": 3,
-    "after_sales_open": 3,
-    "after_sales_closed_this_month": 3,
-    "lead_conversion_rate": 4,
-    "receivables_collection_rate": 4,
-    "after_sales_closure_rate": 4,
-    "trend": 6,
-    "breakdown": 6,
-    "agent_share": 6,
-    "panel_tasks": 7,
-    "panel_chat": 7,
-    "panel_agenda": 7,
-    "panel_calendar": 8,
-    "panel_calls": 7,
+    "sales_amount_this_month": 30,
+    "sales_count_this_month": 30,
+    "outstanding": 30,
+    "calls_this_week": 30,
+    "after_sales_open": 30,
+    "after_sales_closed_this_month": 30,
+    "lead_conversion_rate": 36,
+    "receivables_collection_rate": 36,
+    "after_sales_closure_rate": 36,
+    "trend": 50,
+    "breakdown": 50,
+    "agent_share": 50,
+    "panel_tasks": 54,
+    "panel_chat": 54,
+    "panel_agenda": 54,
+    "panel_calendar": 62,
+    "panel_calls": 54,
 }
-FALLBACK_WIDGET_ROWS = 2
+FALLBACK_WIDGET_ROWS = 22
 
 #: The width each widget is designed at, used when the reader has not chosen
 #: one. The two chart cards are wide because they carry a plot, not a figure;
@@ -239,6 +250,8 @@ def arrange_capability_tiles(widgets, user, layout=None):
             "key": key,
             "size": size_class_for(key, layout["sizes"], DEFAULT_CAPABILITY_SIZE),
             "height": height_for(key, layout["heights"]),
+            "height_chosen": key in layout["heights"],
+            "position": layout["positions"].get(key),
         })
     return _ordered(arranged, key_of=lambda item: item["key"], order=layout["order"])
 
@@ -332,6 +345,35 @@ def _clean_heights(value, *, field):
     return {key: height for key, height in value.items() if height is not None}
 
 
+def _clean_positions(value, *, field):
+    """`{widget key: [column, row]}`; a key mapped to `None` is dropped.
+
+    Only the shape is checked here (two whole numbers in range): whether the box
+    fits beside its neighbours is the page's business, and the server never
+    needs to know — the page never places two boxes on the same cell, and an
+    overlap from a stale save is resolved on the next paint.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise BusinessRuleError({field: "جای ویجت‌ها نامعتبر است."})
+    unknown_keys = [key for key in value if not _is_known_key(key)]
+    if unknown_keys:
+        raise BusinessRuleError({field: f"ویجت ناشناخته: {', '.join(sorted(unknown_keys))}"})
+    cleaned = {}
+    for key, spot in value.items():
+        if spot is None:
+            continue
+        if (
+            not isinstance(spot, (list, tuple)) or len(spot) != 2
+            or not all(isinstance(part, int) and not isinstance(part, bool) for part in spot)
+            or not 1 <= spot[0] <= GRID_COLUMNS or not 1 <= spot[1] <= MAX_ROW_POSITION
+        ):
+            raise BusinessRuleError({field: f"جای ویجت «{key}» نامعتبر است."})
+        cleaned[key] = [spot[0], spot[1]]
+    return cleaned
+
+
 def _clean_sizes(value, *, field):
     if value is None:
         return None
@@ -349,6 +391,7 @@ def _clean_sizes(value, *, field):
 @transaction.atomic
 def update_user_dashboard_layout(
     *, actor, hidden_widgets=None, widget_order=None, widget_sizes=None, widget_heights=None,
+    widget_positions=None,
 ):
     """Save this actor's own dashboard arrangement.
 
@@ -385,6 +428,17 @@ def update_user_dashboard_layout(
     if cleaned_heights is not None:
         row.widget_heights = cleaned_heights
         changed.append("widget_heights")
+
+    cleaned_positions = _clean_positions(widget_positions, field="widget_positions")
+    if cleaned_positions is not None:
+        # Merged, not replaced, and `None` frees one box: the page sends only
+        # the boxes it moved, so one move never has to re-send every other.
+        merged = {**(row.widget_positions or {}), **cleaned_positions}
+        for key, spot in (widget_positions or {}).items():
+            if spot is None:
+                merged.pop(key, None)
+        row.widget_positions = merged
+        changed.append("widget_positions")
 
     if changed:
         row.save(update_fields=[*changed, "updated_at"])
@@ -451,17 +505,20 @@ def effective_layout(user):
     order = list(deployment.widget_order)
     sizes = {}
     heights = {}
+    positions = {}
     if layout is not None:
         hidden |= set(layout.hidden_widgets)
         if layout.widget_order:
             order = list(layout.widget_order)
         sizes = dict(layout.widget_sizes or {})
         heights = dict(layout.widget_heights or {})
+        positions = dict(layout.widget_positions or {})
     return {
         "hidden": frozenset(hidden),
         "order": order,
         "sizes": sizes,
         "heights": heights,
+        "positions": positions,
         "deployment_hidden": frozenset(deployment.hidden_widgets),
         "is_customised": layout is not None,
     }
@@ -494,6 +551,7 @@ def layout_state(layout):
         "hidden": sorted(layout["hidden"]),
         "sizes": dict(layout["sizes"]),
         "heights": dict(layout["heights"]),
+        "positions": dict(layout["positions"]),
         "locked_hidden": sorted(layout["deployment_hidden"]),
         "is_customised": layout["is_customised"],
     }
@@ -523,9 +581,18 @@ def apply_layout(dashboard_payload, user=None):
     sizes = layout["sizes"]
 
     heights = layout["heights"]
+    positions = layout["positions"]
 
     def _sized(item):
-        return {**item, "size": size_class(item["key"], sizes), "height": height_for(item["key"], heights)}
+        return {
+            **item,
+            "size": size_class(item["key"], sizes),
+            "height": height_for(item["key"], heights),
+            # The row count is *chosen* only when the reader saved one; otherwise
+            # the page measures the box and fits it.
+            "height_chosen": item["key"] in heights,
+            "position": positions.get(item["key"]),
+        }
 
     kpis = [_sized(kpi) for kpi in dashboard_payload["kpis"] if kpi["key"] not in hidden]
     kpis = _ordered(kpis, key_of=lambda kpi: kpi["key"], order=order)

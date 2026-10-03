@@ -98,7 +98,7 @@ class LayoutStateRenderTests(TestCase):
         state = self.state()
         self.assertEqual(
             set(state),
-            {"order", "hidden", "sizes", "heights", "locked_hidden", "is_customised",
+            {"order", "hidden", "sizes", "heights", "positions", "locked_hidden", "is_customised",
              "size_choices", "height_choices"},
         )
         self.assertFalse(state["is_customised"])
@@ -204,7 +204,7 @@ class BorderResizeTests(SimpleTestCase):
         self.assertIn("if (candidate < naturalPx - 4) return;", body)
 
     def test_a_saved_height_is_drawn_on_first_paint(self):
-        self.assertIn('style="--dashboard-rows: {{ widget.height }}"', HOME)
+        self.assertIn('style="--dashboard-rows: {{ widget.height }}', HOME)
         self.assertIn('column.style.setProperty("--dashboard-rows", String(widget.height))', function_body("placeDashboardWidget"))
 
     def test_a_taller_box_gives_its_chart_the_room(self):
@@ -216,9 +216,10 @@ class BorderResizeTests(SimpleTestCase):
                         body.index("chart.target = chart.base + Math.max(0, Math.round(slackIn(chart.column)));"))
 
     def test_a_taller_tile_lifts_the_rows_two_row_cap(self):
-        """The tile row is capped at four default tile rows and scrolls inside
-        itself instead of pushing the page down."""
-        self.assertIn("max-height: 46rem", rule(".dashboard-capability-grid"))
+        """2.38.2: the tile row has no cap and no scroll — its tiles are boxes on the
+        cell grid like every other, as tall as their content."""
+        self.assertNotIn("max-height", rule(".dashboard-capability-grid"))
+        self.assertNotIn("overflow", rule(".dashboard-capability-grid"))
 
     def test_side_handles_are_not_offered_where_widths_cannot_show(self):
         from common.tests.ui_overhaul_helpers import media_block
@@ -241,8 +242,8 @@ class HeightValidationTests(TestCase):
         self.assertEqual(effective_layout(self.admin)["heights"], {"trend": "h24"})
         payload = {"kpis": [], "trend": {"title": "t", "points": [], "counts": []}, "breakdown": None,
                    "gauges": [], "agent_share": None}
-        # A pre-2.38.1 token (24rem) reads as the nearest row step (four rows).
-        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 4)
+        # A pre-2.38.1 token (24rem) reads as the nearest row step (fifty half-rem rows).
+        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 50)
         update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "r8"})
         self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 8)
 
