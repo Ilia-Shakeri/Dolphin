@@ -32,7 +32,13 @@ class EventStreamView(View):
         limit = int(getattr(settings, "REALTIME_MAX_CONNECTIONS", 200))
         if realtime.BROKER.count() >= limit:
             return HttpResponse(status=503, headers={"Retry-After": "30"})
-        subscriber = realtime.BROKER.subscribe(request.user.pk)
+        from accounts.access import capabilities_for
+
+        # Read once, before the connection is released: a stream lasts minutes
+        # and ends (REALTIME_STREAM_SECONDS), so a changed role takes effect on
+        # the next reconnect.
+        kinds = realtime.kinds_for_capabilities(capabilities_for(request.user))
+        subscriber = realtime.BROKER.subscribe(request.user.pk, kinds)
         # The stream reads nothing from the database from here on, so this
         # thread must not sit on a connection for the minutes it stays open: a
         # few hundred browsers would otherwise hold a few hundred database

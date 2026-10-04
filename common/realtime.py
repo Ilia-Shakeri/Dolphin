@@ -41,14 +41,38 @@ MAX_PAYLOAD_BYTES = 6000
 KINDS_WITHOUT_ID = frozenset({"customer", "payment", "lead", "interaction", "invoice", "order", "campaign", "sale", "after_sales"})
 
 
+#: Who may hear that a kind of record changed (2.39.23): the read capabilities of
+#: the module that lists it. A kind not named here (chat, call — always sent to
+#: named users only — and resync) is not filtered this way.
+KIND_CAPABILITIES = {
+    "customer": {"customers.scoped", "customers.company"},
+    "lead": {"leads.scoped", "leads.company"},
+    "interaction": {"interactions.scoped", "interactions.company"},
+    "sale": {"sales.own", "sales.company"},
+    "campaign": {"campaigns.scoped", "campaigns.company"},
+    "invoice": {"invoices.scoped", "invoices.company"},
+    "order": {"orders.scoped", "orders.company"},
+    "payment": {"payments.company"},
+    "after_sales": {"after_sales.company", "after_sales.assigned"},
+    "inventory": {"inventory.read", "inventory.manage"},
+}
+
+
+def kinds_for_capabilities(capabilities):
+    """The record kinds a holder of `capabilities` may be told about."""
+    return frozenset(kind for kind, needed in KIND_CAPABILITIES.items() if needed & set(capabilities))
+
+
 def available():
     """Publishing is worth doing only when the feature is on and not switched off."""
     return bool(getattr(settings, "REALTIME_ENABLED", False)) and feature_enabled("realtime")
 
 
 class Subscriber:
-    def __init__(self, user_id):
+    def __init__(self, user_id, kinds=None):
         self.user_id = user_id
+        #: `None` = every kind (internal use and tests); otherwise only these.
+        self.kinds = kinds
         self.created = time.monotonic()
         self.queue = queue.Queue(maxsize=256)
         self.overflowed = False
@@ -71,8 +95,8 @@ class Broker:
         self._lock = threading.Lock()
         self._subscribers = set()
 
-    def subscribe(self, user_id):
-        subscriber = Subscriber(user_id)
+    def subscribe(self, user_id, kinds=None):
+        subscriber = Subscriber(user_id, kinds)
         limit = int(getattr(settings, "REALTIME_MAX_PER_USER", 3))
         with self._lock:
             mine = sorted((s for s in self._subscribers if s.user_id == user_id), key=lambda s: s.created)
@@ -95,7 +119,12 @@ class Broker:
     def deliver(self, event):
         users = event.get("u")
         with self._lock:
-            targets = [s for s in self._subscribers if users is None or s.user_id in users]
+            kind = event.get("k")
+            targets = [
+                s for s in self._subscribers
+                if (users is None or s.user_id in users)
+                and (s.kinds is None or kind not in KIND_CAPABILITIES or kind in s.kinds)
+            ]
         for subscriber in targets:
             subscriber.offer(event)
 

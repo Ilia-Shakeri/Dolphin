@@ -230,3 +230,23 @@ class PerUserCeilingTests(Fixtures):
         self.assertIn('"k": "resync"', first)
         for closer in response._resource_closers:
             closer()
+
+
+class KindScopeTests(Fixtures):
+    def test_a_subscriber_hears_only_the_kinds_its_capabilities_allow(self):
+        kinds = realtime.kinds_for_capabilities({"customers.scoped", "leads.scoped"})
+        narrow = realtime.BROKER.subscribe(777, kinds)
+        self.addCleanup(realtime.BROKER.unsubscribe, narrow)
+        realtime.BROKER.deliver({"k": "invoice", "i": 1, "u": None, "t": 1})
+        realtime.BROKER.deliver({"k": "customer", "i": 2, "u": None, "t": 2})
+        realtime.BROKER.deliver({"k": "resync", "i": None, "u": None, "t": 3})
+        heard = []
+        while not narrow.queue.empty():
+            heard.append(narrow.queue.get_nowait()["k"])
+        self.assertEqual(heard, ["customer", "resync"])
+
+    def test_a_marketer_is_not_told_about_payments(self):
+        from accounts.access import capabilities_for
+
+        agent = User.objects.create_user(username="rt.agent", password=PASSWORD, role=User.Role.SALES_AGENT)
+        self.assertNotIn("payment", realtime.kinds_for_capabilities(capabilities_for(agent)))
