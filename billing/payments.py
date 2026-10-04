@@ -576,7 +576,7 @@ MAX_ALLOCATION_SPLITS = 50
 
 
 @transaction.atomic
-def allocate_payment_across(*, actor, payment, splits):
+def allocate_payment_across(*, actor, payment, splits, request_key=""):
     """Apply one receipt to several invoices at once. (بند ۳.۱ و ۳.۲)
 
     `splits` is a sequence of `{"invoice": Invoice, "amount": Decimal|None}`.
@@ -612,6 +612,14 @@ def allocate_payment_across(*, actor, payment, splits):
     # Taking the invoices in the operator's order let two receipts that touch
     # the same two invoices in opposite order wait on each other.
     Payment.objects.select_for_update().get(pk=payment.pk)
+    request_key = str(request_key or "").strip()[:64]
+    if request_key:
+        # The same submission sent twice (a double click, a retry after a lost
+        # response) returns what the first one made instead of allocating again.
+        # Checked under the receipt's lock, so two copies cannot both pass.
+        done = list(PaymentAllocation.objects.filter(payment_id=payment.pk, request_key=request_key).order_by("id"))
+        if done:
+            return done
     list(
         Invoice.objects.select_for_update()
         .filter(pk__in={split["invoice"].pk for split in splits})
@@ -629,6 +637,10 @@ def allocate_payment_across(*, actor, payment, splits):
                 amount=split.get("amount"),
             )
         )
+    if request_key:
+        PaymentAllocation.objects.filter(pk__in=[row.pk for row in allocations]).update(request_key=request_key)
+        for row in allocations:
+            row.request_key = request_key
     return allocations
 
 
@@ -703,7 +715,8 @@ def release_allocation(*, actor, allocation, reason=""):
     invoice = Invoice.objects.select_for_update().get(pk=locked.invoice_id)
 
     locked.is_reversed = True
-    locked.save(update_fields=["is_reversed", "updated_at"])
+    locked.release_reason = str(reason or "").strip()[:500]
+    locked.save(update_fields=["is_reversed", "release_reason", "updated_at"])
     payment.allocated_amount = quantize_money(payment.allocated_amount - locked.amount)
     payment.save(update_fields=["allocated_amount", "updated_at"])
     invoice.paid_amount = quantize_money(invoice.paid_amount - locked.amount)

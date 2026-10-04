@@ -670,7 +670,7 @@ class PaymentAllocationSerializer(serializers.ModelSerializer):
         model = PaymentAllocation
         fields = [
             "id", "payment", "payment_number", "invoice", "invoice_number", "amount",
-            "is_reversed", "created_by", "created_by_display", "created_at",
+            "is_reversed", "release_reason", "created_by", "created_by_display", "created_at",
         ]
         read_only_fields = fields
 
@@ -726,6 +726,8 @@ class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Seria
     """
 
     splits = AllocatePaymentSerializer(many=True)
+    #: One per opened allocation form; a resent submission is answered, not repeated.
+    request_key = serializers.CharField(required=False, allow_blank=True, max_length=64)
 
     def validate_splits(self, value):
         if not value:

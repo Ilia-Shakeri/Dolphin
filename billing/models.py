@@ -904,6 +904,11 @@ class PaymentAllocation(NoNewRowsOnCancelledInvoice, TimeStampedModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_payment_allocations"
     )
     is_reversed = models.BooleanField(default=False)
+    #: Why it was released, as the operator wrote it (2.39.18); blank while active.
+    release_reason = models.CharField(max_length=500, blank=True, default="")
+    #: The submission this row came from (one key per opened allocation form,
+    #: 2.39.18). A resent submission with the same key creates nothing new.
+    request_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]

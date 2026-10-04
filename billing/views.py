@@ -599,6 +599,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, HardDeleteMixin, StrictQueryP
             actor=request.user,
             payment=self.get_object(),
             splits=serializer.validated_data["splits"],
+            request_key=serializer.validated_data.get("request_key", ""),
         )
         return Response(
             PaymentAllocationSerializer(allocations, many=True).data, status=201

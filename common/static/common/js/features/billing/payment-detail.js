@@ -232,6 +232,11 @@ export async function setupPaymentDetail() {
 
     document.getElementById("payment-split-add")?.addEventListener("click", addSplitRow);
 
+    // One key per filled-in form: a double click or a retry after a lost
+    // response is answered with what the first submission made (2.39.18).
+    const newRequestKey = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+    let requestKey = newRequestKey();
+
     allocateForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         withSubmit(allocateForm, async () => {
@@ -249,7 +254,8 @@ export async function setupPaymentDetail() {
                 if (slot) slot.textContent = "حداقل یک فاکتور را انتخاب کنید.";
                 return;
             }
-            await apiRequest(`${endpoint}allocate-across/`, {method: "POST", body: {splits}});
+            await apiRequest(`${endpoint}allocate-across/`, {method: "POST", body: {splits, request_key: requestKey}});
+            requestKey = newRequestKey();
             globalMessage("دریافت به فاکتور تخصیص یافت.", true);
             splitRows.replaceChildren();
             addSplitRow();
