@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from accounts.models import User
-from sales.models import Customer
+from sales.models import Customer, Product
 from sales.models import Lead
 from sales.services import add_target_audience_member, create_customer_with_phone, create_lead, create_product, mark_sale
 
@@ -313,7 +313,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
     def test_product_sale_report_export_and_activity_log_flow(self):
         customer = create_customer_with_phone(actor=self.platform, full_name="مشتری فروش مرورگر")
-        create_lead(actor=self.platform, customer=customer, source="ثبت مستقیم مرورگر")
+        direct_lead = create_lead(actor=self.platform, customer=customer, source="ثبت مستقیم مرورگر")
         inactive_product = create_product(
             actor=self.platform,
             sku="WEB-INACTIVE",
@@ -349,16 +349,11 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.find_element(By.CSS_SELECTOR, "#edit-product-form button[type='submit']").click()
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "global-message"), "محصول ذخیره شد"))
 
-        self.browser.get(f"{self.live_server_url}/sales/")
-        self.open_create_dialog("open-create-sale", "create-sale-dialog")
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sale-lead")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-sale-lead")).select_by_visible_text("مشتری فروش مرورگر — ثبت مستقیم مرورگر")
-        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول مرورگر — ۱۵ ریال")
-        quantity = self.browser.find_element(By.ID, "create-sale-quantity")
-        quantity.clear()
-        quantity.send_keys("2")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
-        self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
+        # Since 2.39.20 a new sale is an invoice; the legacy result is recorded
+        # by the service and the page is still where it is read and cancelled.
+        browser_product = Product.objects.get(name="محصول مرورگر")
+        legacy = mark_sale(actor=self.platform, lead=direct_lead, product=browser_product, quantity=2)
+        self.browser.get(f"{self.live_server_url}/sales/{legacy.pk}/")
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sale-detail-content")))
         # The box shows the formatted amount now, not the raw decimal, so
         # this reads what a person reads.
@@ -594,13 +589,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         campaign.customer = converted
         campaign.save(update_fields=["customer"])
 
-        self.browser.get(f"{self.live_server_url}/sales/?lead={lead_id}")
-        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-sale-dialog")))
-        self.assertEqual(Select(self.browser.find_element(By.ID, "create-sale-lead")).first_selected_option.get_attribute("value"), lead_id)
-        Select(self.browser.find_element(By.ID, "create-sale-product")).select_by_visible_text("محصول روزانه — ۲۰ ریال")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-sale-form button[type='submit']").click()
-        self.wait.until(expected_conditions.url_matches(r"/sales/\d+/$"))
-        sale_url = self.browser.current_url
+        daily_product = Product.objects.get(name="محصول روزانه")
+        daily_sale = mark_sale(actor=agent, lead=campaign, product=daily_product, quantity=1)
+        self.browser.get(f"{self.live_server_url}/sales/{daily_sale.pk}/")
+        sale_url = f"{self.live_server_url}/sales/{daily_sale.pk}/"
         # The URL changes on redirect, but the detail page then fetches its own
         # data. Reading the field at redirect time races that fetch: on SQLite
         # the gap is microseconds, on real PostgreSQL under load it is not.

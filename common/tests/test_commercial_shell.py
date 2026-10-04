@@ -104,11 +104,12 @@ class CommercialShellContractTests(SimpleTestCase):
 
     def test_sale_browser_sends_only_user_owned_inputs(self):
         template = (ROOT / "common" / "templates" / "common" / "sales" / "list.html").read_text(encoding="utf-8")
-        form = template.split('id="create-sale-form"', 1)[1].split("</form>", 1)[0]
-        for field in ("customer", "sold_by", "unit_price_snapshot", "total_amount", "status", "sold_at", "created_at", "updated_at"):
-            self.assertNotIn(f'name="{field}"', form)
+        # 2.39.20: a sale is recorded as an invoice; the old «ثبت فروش» form is
+        # gone from the page and its script, and the toolbar links to invoices.
+        self.assertNotIn('id="create-sale-form"', template)
+        self.assertIn('href="/invoices/"', template)
         script = (PANEL_SCRIPT).read_text(encoding="utf-8")
-        self.assertIn('formPayload(createForm, ["lead", "product", "quantity", "notes"])', script)
+        self.assertNotIn('formPayload(createForm, ["lead", "product", "quantity", "notes"])', script)
         self.assertNotIn("correction", template.lower())
         # No hard delete of a sale from the browser — see
         # `browser_delete_targets` for why this is a list and not a ban.

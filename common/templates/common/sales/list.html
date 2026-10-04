@@ -54,38 +54,4 @@
    نقش یا استقرار به آن دسترسی نداشته باشد، فقط این کارت پیام می‌دهد و بقیهٔ
    صفحه دست‌نخورده کار می‌کند. {% endcomment %}
 {% include "common/includes/list_charts.inc" with chart_key="sales" %}
-<dialog id="create-sale-dialog" aria-labelledby="create-sale-title">
-    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="create-sale-title">ثبت فروش</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
-    <div class="stepper stepper-links d-flex flex-column" id="create-sale-stepper">
-        <div class="stepper-nav py-5">
-            <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">اطلاعات فروش</h3></div>
-            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازبینی و ثبت</h3></div>
-        </div>
-        <form id="create-sale-form" action="/api/v1/sales/" method="post" novalidate>
-        <div class="current" data-dolphin-stepper-element="content">
-            <div class="row g-5">
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-sale-lead">سرنخ مجاز</label><select class="form-select form-select-solid" id="create-sale-lead" name="lead" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lead"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-sale-product">محصول فعال</label><select class="form-select form-select-solid" id="create-sale-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-sale-quantity">تعداد</label><input class="form-control form-control-solid" id="create-sale-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
-                <div class="col-12"><label class="form-label fw-semibold" for="create-sale-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-sale-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
-            </div>
-        </div>
-        <div data-dolphin-stepper-element="content">
-            <div class="w-100">
-                <h3 class="fs-5 fw-bold text-gray-900 mb-3">بازبینی فروش</h3>
-                <div class="wizard-review mb-4" id="create-sale-review"></div>
-                <p class="text-muted">قیمت لحظه فروش، مبلغ کل، مشتری، ثبت‌کننده فروش و زمان ثبت را سامانه تعیین می‌کند.</p>
-            </div>
-        </div>
-        {% csrf_token %}
-        <div class="d-flex flex-stack pt-5">
-            <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>قبلی</button>
-            <div class="d-flex gap-3">
-                <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">بعدی<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
-                <button class="btn btn-primary" type="submit" data-dolphin-stepper-action="submit">ثبت فروش</button>
-            </div>
-        </div>
-        </form>
-    </div>
-</dialog>
 {% endblock %}
