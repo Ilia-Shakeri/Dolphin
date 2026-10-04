@@ -475,7 +475,10 @@ class TargetAudienceMember(TimeStampedModel):
     #: The person was already a customer when they entered this campaign. A
     #: flag, not a conversion: it is what stops the audience from "converting"
     #: people the campaign never won.
-    was_customer_on_entry = models.BooleanField(default=False)
+    #: True/False for a person added from 2.36.0 on; `None` (unknown) for a row
+    #: brought over by `migrate_campaigns` from 2.39.24 on, because today's
+    #: status says nothing about whether they were a customer when they entered.
+    was_customer_on_entry = models.BooleanField(default=False, null=True)
 
     class Meta:
         ordering = ["full_name", "id"]

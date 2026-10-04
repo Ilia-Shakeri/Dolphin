@@ -11,10 +11,16 @@
   lead's assignee and follow-up. Nothing is rewritten: the old text label, the
   lead rows, interactions, sales and the derived `status` stay as they were, so
   the previous release keeps working on the same database.
-* A person whose derived status was «مشتری» is flagged
-  `was_customer_on_entry`; they are **not** counted as conversions — only a
-  valid attributed invoice does that.
+* `was_customer_on_entry` is left unknown (`None`) for migrated people
+  (2.39.24): their status today does not say whether they were a customer when
+  they entered. Nobody is counted as converted by the migration — only a valid
+  attributed invoice does that.
+* A campaign created from a group whose leads were all «تکمیل» starts as
+  «تمام‌شده», all «کنسل شده» as «بایگانی»; anything else as «فعال».
+* `--report FILE.csv` writes one row per migrated person (and per review group).
 """
+
+import csv
 
 from dataclasses import dataclass, field
 
@@ -34,6 +40,15 @@ class MigrationReport:
     already_customers: int = 0
     lost_from_failed: int = 0
     needs_review: list = field(default_factory=list)
+    rows: list = field(default_factory=list)
+
+    def write_csv(self, path):
+        with open(path, "w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["member_id", "campaign", "stage", "old_status", "note"])
+            writer.writerows(self.rows)
+            for group in self.needs_review:
+                writer.writerow(["", " | ".join(group), "", "", "needs review: spellings differ only by spacing"])
 
     def lines(self):
         out = [
@@ -71,14 +86,25 @@ def run_migration(*, apply):
 
     system = ensure_system_campaigns(actor) if apply else {}
     by_key = {c.normalized_name: c for c in Campaign.objects.all()}
+    statuses = {}
+    for lead in Lead.objects.filter(campaign__isnull=True).only("campaign_or_batch", "status"):
+        key = normalize_label(lead.campaign_or_batch) or normalize_label(legacy_name)
+        statuses.setdefault(key, set()).add(lead.status)
     for key, label in labels.items():
         if key in by_key:
             continue
         report.campaigns_to_create += 1
+        seen = statuses.get(key, set())
+        if seen == {Lead.Status.COMPLETED}:
+            status = Campaign.Status.FINISHED
+        elif seen == {Lead.Status.CANCELLED}:
+            status = Campaign.Status.ARCHIVED
+        else:
+            status = Campaign.Status.ACTIVE
         if apply:
             by_key[key] = Campaign.objects.create(
-                name=label[:120], normalized_name=key[:120], status=Campaign.Status.ACTIVE,
-                created_by=actor, updated_by=actor,
+                name=label[:120], normalized_name=key[:120], status=status,
+                channels=[Campaign.Channel.PHONE], created_by=actor, updated_by=actor,
             )
     if system:
         by_key.update({c.normalized_name: c for c in system.values()})
@@ -96,6 +122,11 @@ def run_migration(*, apply):
         failed = member.status == TargetAudienceMember.Status.FAILED
         report.already_customers += int(customer)
         report.lost_from_failed += int(failed)
+        report.rows.append([
+            member.pk, member.lead.campaign_or_batch or legacy_name,
+            "lost" if failed else ("contacted" if member.interactions.exists() else "new"),
+            member.status, "was customer at migration (entry unknown)" if customer else "",
+        ])
         if not apply:
             continue
         lead = member.lead
@@ -113,6 +144,6 @@ def run_migration(*, apply):
             assigned_to_id=lead.assigned_to_id, assigned_by_id=lead.assigned_by_id, assigned_at=lead.assigned_at,
             next_follow_up_at=lead.next_follow_up_at, stage=stage,
             lost_reason="از وضعیت قدیمی «ناموفق»" if failed else "",
-            was_customer_on_entry=customer,
+            was_customer_on_entry=None,
         )
     return report

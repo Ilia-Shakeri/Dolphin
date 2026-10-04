@@ -493,3 +493,26 @@ class CampaignTreeOrderTests(Fixtures):
         names = [row["name"] for row in self.client_for(self.manager).get("/api/v1/campaigns/?page=1").json()["results"]]
         self.assertLess(names.index(later.name), names.index(self.campaign.name))
         self.assertEqual(names.index(child.name), names.index(self.campaign.name) + 1)
+
+
+class MigrationDetailTests(Fixtures):
+    def test_entry_is_unknown_status_carries_over_and_a_csv_is_written(self):
+        import csv
+        import os
+        import tempfile
+
+        done = create_lead(actor=self.manager, campaign_or_batch="تمام‌شده قدیمی")
+        add_target_audience_member(actor=self.manager, lead=done, full_name="الف", raw_phone="09125550011")
+        Lead.objects.filter(pk=done.pk).update(status=Lead.Status.COMPLETED, assigned_to=None, assigned_by=None, assigned_at=None)
+        handle, path = tempfile.mkstemp(suffix=".csv")
+        os.close(handle)
+        self.addCleanup(os.remove, path)
+        call_command("migrate_campaigns", "--report", path, stdout=StringIO())
+        done.refresh_from_db()
+        self.assertEqual(done.campaign.status, Campaign.Status.FINISHED)
+        member = TargetAudienceMember.objects.get(lead=done)
+        self.assertIsNone(member.was_customer_on_entry)
+        with open(path, encoding="utf-8-sig") as report:
+            rows = list(csv.reader(report))
+        self.assertEqual(rows[0][0], "member_id")
+        self.assertIn(str(member.pk), [row[0] for row in rows[1:]])

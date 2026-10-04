@@ -212,7 +212,11 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         )
 
     def list(self, request, *args, **kwargs):
-        if has_any_capability(request.user, "campaigns.manage"):
+        # Normally a no-op read: the three system campaigns exist after the first
+        # manager's visit, and only then does a GET take the write path (2.39.24).
+        if has_any_capability(request.user, "campaigns.manage") and (
+            Campaign.objects.filter(system_key__in=["direct", "referral", "legacy"]).count() < 3
+        ):
             ensure_system_campaigns(request.user)
         return super().list(request, *args, **kwargs)
 
