@@ -55,7 +55,10 @@ def mask_secret(value, *, keep=4):
         return ""
     if len(text) <= keep * 2:
         return "•" * len(text)
-    return "•" * (len(text) - keep) + text[-keep:]
+    # At most eight bullets (2.39.27): the hint is stored in 40-character
+    # columns, and a 43-character webhook secret used to overflow them —
+    # PostgreSQL refused the row (SQLite never checks lengths).
+    return "•" * min(len(text) - keep, 8) + text[-keep:]
 
 
 @dataclass(frozen=True)

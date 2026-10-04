@@ -128,11 +128,52 @@ def _change_direction(current, previous):
     return None
 
 
+class _SalesSource:
+    """Where «فروش» is read from (2.39.27).
+
+    A sale is an issued invoice wherever the invoices feature is on and the
+    reader may see invoices: the legacy campaign `Sale` rows have had no create
+    path since 2.39.20, so counting them would freeze the dashboard. Without
+    invoices (or without access to them, or before the first issued invoice)
+    the legacy rows are still the source.
+    """
+
+    def __init__(self, user):
+        from accounts.access import capabilities_for
+
+        self.user = user
+        caps = capabilities_for(user)
+        issued = None
+        if feature_enabled("invoices") and caps & {"invoices.scoped", "invoices.company"}:
+            issued = invoices_for(user).filter(status="issued")
+        # A deployment that only ever recorded legacy results keeps showing
+        # them until its first invoice is issued.
+        self.invoices = issued is not None and issued.exists()
+        if self.invoices:
+            self.scope = issued
+            self.when, self.seller, self.url = "issued_at", "created_by", "/invoices/"
+        else:
+            self.scope = sales_for(user).exclude(status=Sale.Status.CANCELLED) if feature_enabled("sales") else Sale.objects.none()
+            self.when, self.seller, self.url = "sold_at", "sold_by", "/sales/"
+
+    def since(self, start, end=None):
+        rows = self.scope.filter(**{f"{self.when}__gte": start})
+        return rows.filter(**{f"{self.when}__lt": end}) if end is not None else rows
+
+    def exists(self):
+        """Whether the sales sections are drawn at all: once there is anything
+        to report — a cancelled legacy result still means the month reads zero
+        rather than the section disappearing."""
+        if self.invoices:
+            return True
+        return feature_enabled("sales") and sales_for(self.user).exists()
+
+
 def _sales_kpis(user, *, now, unit, trend=None):
-    scope = sales_for(user).exclude(status=Sale.Status.CANCELLED)
+    source = _SalesSource(user)
     start, previous_start, previous_end = _month_bounds(now)
-    this_month = scope.filter(sold_at__gte=start)
-    last_month = scope.filter(sold_at__gte=previous_start, sold_at__lt=previous_end)
+    this_month = source.since(start)
+    last_month = source.since(previous_start, previous_end)
     amount = this_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
     previous = last_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
     count = this_month.count()
@@ -149,7 +190,7 @@ def _sales_kpis(user, *, now, unit, trend=None):
             full_display=formatting.money(amount, unit),
             hint=_change_hint(amount, previous, noun="ماه"),
             direction=_change_direction(amount, previous),
-            icon="di-chart-line-up", icon_paths=2, accent="success", url="/sales/",
+            icon="di-chart-line-up", icon_paths=2, accent="success", url=source.url,
             spark=amount_spark,
         ),
         _kpi(
@@ -157,7 +198,7 @@ def _sales_kpis(user, *, now, unit, trend=None):
             display=formatting.persian_digits(count),
             hint=_change_hint(count, last_month.count(), noun="ماه"),
             direction=_change_direction(count, last_month.count()),
-            icon="di-basket", icon_paths=4, accent="primary", url="/sales/",
+            icon="di-basket", icon_paths=4, accent="primary", url=source.url,
             spark=count_spark,
         ),
     ]
@@ -333,12 +374,8 @@ def _sales_trend(user, *, now, unit):
     local_now = timezone.localtime(now)
     start_of_today = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
     first_bucket_start = start_of_today - timedelta(weeks=TREND_WEEKS - 1, days=local_now.weekday())
-    rows = (
-        sales_for(user)
-        .exclude(status=Sale.Status.CANCELLED)
-        .filter(sold_at__gte=first_bucket_start)
-        .values_list("sold_at", "total_amount")
-    )
+    source = _SalesSource(user)
+    rows = source.since(first_bucket_start).values_list(source.when, "total_amount")
     amount_buckets = [Decimal("0")] * TREND_WEEKS
     count_buckets = [0] * TREND_WEEKS
     for sold_at, amount in rows:
@@ -417,14 +454,20 @@ def _agent_share(user, *, now, unit):
     compare, which in practice means a manager, IT, or platform-admin view.
     """
     start, _previous_start, _previous_end = _month_bounds(now)
-    rows = list(
-        sales_for(user)
-        .exclude(status=Sale.Status.CANCELLED)
-        .filter(sold_at__gte=start)
-        .values("sold_by_id", "sold_by__username", "sold_by__first_name", "sold_by__last_name")
+    source = _SalesSource(user)
+    seller = source.seller
+    rows = [
+        {
+            "sold_by__username": row[f"{seller}__username"],
+            "sold_by__first_name": row[f"{seller}__first_name"],
+            "sold_by__last_name": row[f"{seller}__last_name"],
+            "total": row["total"],
+        }
+        for row in source.since(start)
+        .values(f"{seller}_id", f"{seller}__username", f"{seller}__first_name", f"{seller}__last_name")
         .annotate(total=Sum("total_amount"))
         .order_by("-total")
-    )
+    ]
     if len(rows) < 2:
         return None
 
@@ -482,11 +525,12 @@ def dashboard_for(user, *, now=None):
     # (2026-09-11) ride on this same twelve-week query rather than running a
     # second one for a six-point strip.
     trend = None
-    if feature_enabled("sales") and sales_for(user).exists():
+    has_sales = _SalesSource(user).exists()
+    if has_sales:
         trend = _sales_trend(user, now=now, unit=unit)
 
     kpis = []
-    if feature_enabled("sales") and sales_for(user).exists():
+    if has_sales:
         kpis.extend(_sales_kpis(user, now=now, unit=unit, trend=trend))
     if feature_enabled("invoices") and invoices_for(user).exists():
         kpis.extend(_receivables_kpi(user, now=now, unit=unit))
@@ -505,7 +549,7 @@ def dashboard_for(user, *, now=None):
     gauges = _gauges(user, now=now, unit=unit)
 
     agent_share = None
-    if feature_enabled("sales") and sales_for(user).exists():
+    if has_sales:
         agent_share = _agent_share(user, now=now, unit=unit)
 
     # This deployment's default arrangement with this reader's own overlay

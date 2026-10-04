@@ -154,6 +154,8 @@ class RowLocksUnderPostgresRulesTests(TransactionTestCase):
 
     def test_the_same_lock_is_fine_inside_a_transaction(self):
         """The other half: protected code is unaffected by any of this."""
+        if connection.vendor != "sqlite":
+            self.skipTest("the proof below relies on SQLite rejecting FOR UPDATE")
         original = type(connection.features).has_select_for_update
         try:
             type(connection.features).has_select_for_update = True

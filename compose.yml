@@ -486,7 +486,9 @@ services:
   # simply falls back to refreshing on its timers. nginx routes
   # `/api/v1/realtime/` here; if this service is absent that route answers 502
   # and the browser stops trying. Needs no new software: it talks to the
-  # database `web` already uses.
+  # database `web` already uses. Threads are the connection ceiling plus eight
+  # (2.39.27), so the health check and the polite 503 for one browser too many
+  # always find a free thread.
   realtime:
     image: ${DOLPHIN_APP_IMAGE:?DOLPHIN_APP_IMAGE must be one reviewed repository@sha256:digest reference}
     profiles: ["realtime"]
@@ -515,7 +517,7 @@ services:
     command:
       - sh
       - -c
-      - exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --worker-class gthread --workers 1 --threads $${DOLPHIN_REALTIME_MAX_CONNECTIONS:-200} --timeout 120 --graceful-timeout 10 --keep-alive 75
+      - exec gunicorn config.wsgi:application --bind 0.0.0.0:8000 --worker-class gthread --workers 1 --threads $$(( $${DOLPHIN_REALTIME_MAX_CONNECTIONS:-200} + 8 )) --timeout 120 --graceful-timeout 10 --keep-alive 75
     volumes:
       - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
     tmpfs:

@@ -27,3 +27,20 @@ class InvoiceSalesTileTests(TestCase):
         self.assertEqual(len(tiles), 1)
         self.assertEqual(tiles[0]["value"], 1)
         self.assertEqual(tiles[0]["url_name"], "common_ui:invoices")
+
+
+class InvoiceSalesKpiTests(TestCase):
+    def test_this_months_sales_kpis_read_issued_invoices(self):
+        from common import dashboard
+
+        manager = User.objects.create_user(username="kpi.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER)
+        product = create_product(actor=manager, sku="KP-1", name="کالا", current_price=Decimal("3000000.00"))
+        customer = create_customer_with_phone(actor=manager, full_name="خریدار", phone={"raw_phone": "09121110091"})
+        for _ in range(2):
+            issue_invoice(actor=manager, invoice=create_invoice(
+                actor=manager, customer=customer,
+                items=[{"product": product, "quantity": 1, "unit_price": product.current_price}],
+            ))
+        kpis = {kpi["key"]: kpi for kpi in dashboard.dashboard_for(manager)["kpis"]}
+        self.assertEqual(kpis["sales_count_this_month"]["display"], "۲")
+        self.assertEqual(kpis["sales_amount_this_month"]["url"], "/invoices/")

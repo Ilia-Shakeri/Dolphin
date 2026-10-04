@@ -740,7 +740,11 @@ To turn it on:
    shared edge proxy (outside this repository) needs the same block there:
 
    ```nginx
+   # in the http block, once: limit_conn_zone $binary_remote_addr zone=realtime_conn:10m;
    location ^~ /api/v1/realtime/ {
+       limit_except GET { deny all; }
+       limit_conn realtime_conn 6;
+       limit_conn_status 429;
        proxy_pass http://<realtime-service>:8000;   # the `realtime` container
        proxy_http_version 1.1;
        proxy_set_header Connection "";
@@ -758,6 +762,10 @@ To turn it on:
    and nothing else changes.
 5. Check: `docker compose exec realtime python -c "import os,urllib.request;host=os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip();print(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/v1/realtime/health/',headers={'Host':host,'X-Forwarded-Proto':'https'})).read())"`
    reports `{"status":"ok","enabled":true,"listener":true,...}`.
+
+The `realtime` service runs `DOLPHIN_REALTIME_MAX_CONNECTIONS` + 8 threads (2.39.27) so its
+health check and the 503 for one browser too many always find a free thread; the
+repository's nginx allows at most six streams per client address.
 
 Since 2.39.15 one user holds at most three streams at once (the Django setting
 `REALTIME_MAX_PER_USER`, default 3; a fourth tab ends that user's oldest stream), so

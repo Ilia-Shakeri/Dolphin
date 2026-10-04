@@ -501,6 +501,8 @@ class IntegrationRegistryTests(SimpleTestCase):
         # Too short for a hint to mean anything.
         self.assertEqual(integrations.mask_secret("abc"), "•••")
         self.assertEqual(integrations.mask_secret(""), "")
+        # A long secret (a 43-character webhook key) still fits a 40-character column.
+        self.assertEqual(integrations.mask_secret("x" * 39 + "WXYZ"), "••••••••WXYZ")
 
     def test_the_template_draws_whatever_the_table_holds(self):
         """Adding a service must be one row and no template change."""

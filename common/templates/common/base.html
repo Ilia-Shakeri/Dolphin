@@ -531,31 +531,6 @@
                                 {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities or "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
                                 <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">فروش و مشتریان</div></div>
                                 {% endif %}
-                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
-                                <div data-dolphin-menu-trigger="click" data-module="call-center" data-nav-group="call-center" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-phone fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">سرنخ‌ها و مشتریان</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="customers" class="menu-link" href="{% url 'common_ui:customers' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">مشتریان</span></a></div>
-                                        {% endif %}
-                                        {% if "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="leads" class="menu-link" href="{% url 'common_ui:leads' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}صف سرنخ من{% else %}سرنخ‌ها{% endif %}</span></a></div>
-                                        <div class="menu-item"><a data-module="lead-calendar" class="menu-link" href="{% url 'common_ui:lead-calendar' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تقویم پیگیری</span></a></div>
-                                        {% if "lead_kanban" in features %}
-                                        <div class="menu-item"><a data-module="lead-board" class="menu-link" href="{% url 'common_ui:lead-board' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تابلوی سرنخ‌ها</span></a></div>
-                                        {% endif %}
-                                        {% endif %}
-                                        {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز ارتباطات{% endif %}</span></a></div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-
                                 {% if "campaigns" in features and "campaigns.scoped" in capabilities or "campaigns" in features and "campaigns.company" in capabilities %}
                                 <div data-dolphin-menu-trigger="click" data-module="campaigns" data-nav-group="campaigns" class="menu-item menu-accordion">
                                     <span class="menu-link">
@@ -582,6 +557,31 @@
                                         <span class="menu-icon"><i class="di-duotone di-handcart fs-2"></i></span>
                                         <span class="menu-title">{% if request.user.role == 'sales_agent' %}نتایج کمپین من{% else %}نتایج کمپین{% endif %}</span>
                                     </a>
+                                </div>
+                                {% endif %}
+
+                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
+                                <div data-dolphin-menu-trigger="click" data-module="call-center" data-nav-group="call-center" class="menu-item menu-accordion">
+                                    <span class="menu-link">
+                                        <span class="menu-icon"><i class="di-duotone di-phone fs-2"><span class="path1"></span><span class="path2"></span></i></span>
+                                        <span class="menu-title">سرنخ‌ها و مشتریان</span>
+                                        <span class="menu-arrow"></span>
+                                    </span>
+                                    <div class="menu-sub menu-sub-accordion">
+                                        {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities %}
+                                        <div class="menu-item"><a data-module="customers" class="menu-link" href="{% url 'common_ui:customers' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">مشتریان</span></a></div>
+                                        {% endif %}
+                                        {% if "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities %}
+                                        <div class="menu-item"><a data-module="leads" class="menu-link" href="{% url 'common_ui:leads' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}صف سرنخ من{% else %}سرنخ‌ها{% endif %}</span></a></div>
+                                        <div class="menu-item"><a data-module="lead-calendar" class="menu-link" href="{% url 'common_ui:lead-calendar' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تقویم پیگیری</span></a></div>
+                                        {% if "lead_kanban" in features %}
+                                        <div class="menu-item"><a data-module="lead-board" class="menu-link" href="{% url 'common_ui:lead-board' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تابلوی سرنخ‌ها</span></a></div>
+                                        {% endif %}
+                                        {% endif %}
+                                        {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
+                                        <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز ارتباطات{% endif %}</span></a></div>
+                                        {% endif %}
+                                    </div>
                                 </div>
                                 {% endif %}
 
