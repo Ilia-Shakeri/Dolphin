@@ -77,3 +77,6 @@ codex-plugin-cc-probe/
 # nginx config last applied). Host-local; never part of a release.
 .deploy-previous-image
 .deploy-nginx-config
+
+# Local, session-only verification settings (never shipped)
+config/_*_settings.py
