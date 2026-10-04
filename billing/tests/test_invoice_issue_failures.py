@@ -11,7 +11,9 @@ official number spent, no ledger entry, no stock movement.
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -132,3 +134,27 @@ class IssueFailureTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, Invoice.Status.ISSUED)
         self.assertEqual(invoice.installment_plan.installments.count(), 4)
+
+
+class IssueQueryCountTests(TestCase):
+    def test_issuing_reads_costs_once_however_many_lines(self):
+        from inventory.services import create_warehouse
+
+        manager = User.objects.create_user(username="qc.manager", password="Strong-pass-937!", role=User.Role.SALES_MANAGER)
+        customer = create_customer_with_phone(actor=manager, full_name="م", phone={"raw_phone": "09121110088"})
+        warehouse = create_warehouse(actor=manager, code="qcwh", name="انبار")
+        products = [
+            create_product(actor=manager, sku=f"QC-{n}", name=f"کالا {n}", current_price=Decimal("10.00")) for n in range(6)
+        ]
+
+        def issue(count):
+            draft = create_invoice(
+                actor=manager, customer=customer, warehouse=warehouse,
+                items=[{"product": product, "quantity": 1, "unit_price": product.current_price} for product in products[:count]],
+            )
+            with CaptureQueriesContext(connection) as queries:
+                issue_invoice(actor=manager, invoice=draft)
+            return len(queries)
+
+        issue(1)  # first issue creates one-off rows (number sequence…) that are not per line
+        self.assertEqual(issue(2), issue(6))

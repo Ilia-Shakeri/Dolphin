@@ -1411,12 +1411,19 @@ def issue_invoice(*, actor, invoice):
     # the order already did. Without this, turning off the stock effect would
     # silently empty the profit report.
     if locked.warehouse_id is not None:
+        # One read of the costs and one write for all lines (2.39.22), not a
+        # query and a save per line.
+        costs = dict(
+            StockItem.objects.filter(
+                warehouse_id=locked.warehouse_id, product_id__in={item.product_id for item in items}
+            ).values_list("product_id", "average_cost")
+        )
+        now = timezone.now()
         for item in items:
-            stock = StockItem.objects.filter(
-                warehouse_id=locked.warehouse_id, product_id=item.product_id
-            ).first()
-            item.unit_cost_snapshot = stock.average_cost if stock is not None else Decimal("0.00")
-            item.save(update_fields=["unit_cost_snapshot", "updated_at"])
+            item.unit_cost_snapshot = costs.get(item.product_id, Decimal("0.00"))
+            item.updated_at = now
+        if items:
+            InvoiceItem.objects.bulk_update(items, ["unit_cost_snapshot", "updated_at"])
 
     if locked.warehouse_id is not None and invoice_affects_stock():
         for item in items:
