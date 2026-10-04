@@ -753,10 +753,15 @@ To turn it on:
        proxy_set_header X-Forwarded-Proto https;
    }
    ```
-   then `nginx -s reload`. Without the route the browser's requests answer 502,
-   it stops trying after a few attempts, and nothing else changes.
+   then `nginx -s reload`. Without the route the browser's requests answer 502;
+   since 2.39.15 it backs off with jitter and then retries every five minutes,
+   and nothing else changes.
 5. Check: `docker compose exec realtime python -c "import os,urllib.request;host=os.environ['DJANGO_ALLOWED_HOSTS'].split(',')[0].strip();print(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8000/api/v1/realtime/health/',headers={'Host':host,'X-Forwarded-Proto':'https'})).read())"`
    reports `{"status":"ok","enabled":true,"listener":true,...}`.
+
+Since 2.39.15 one user holds at most three streams at once (the Django setting
+`REALTIME_MAX_PER_USER`, default 3; a fourth tab ends that user's oldest stream), so
+one person's open tabs cannot use up `DOLPHIN_REALTIME_MAX_CONNECTIONS`.
 
 To turn it off: stop the profile (`docker compose --profile realtime stop realtime`)
 or unset the three switches above — there is nothing to migrate or clean up.
@@ -1122,6 +1127,19 @@ Use this when the script cannot run, or to understand what it does.
   roles or the per-table grant contract. Running them otherwise is harmless but
   prompts for passwords unnecessarily.
 * **New external volumes** — only when the release adds one.
+
+### Release notes that change the upgrade — 2.39.x
+
+* **Migrations** `sales/0030_campaign_channels`, `sales/0031_campaign_parent`,
+  `billing/0019_order_batch_number`, `common/0010_dashboard_widget_positions` are
+  additive (new columns or conditional unique constraints; `0030` backfills
+  `channels` from `channel`, idempotently). No grants change.
+* **Rolling back to 2.38.x** after `0031`: the old global unique constraint on
+  campaign names comes back on reverse migration, which fails if two sub-campaigns
+  under different parents now share a name. Rename one first.
+* **Numbering:** supply documents use the new kind `supply_batch` (`SB-000001`).
+  A deployment that customises `BILLING_NUMBER_FORMATS` may add a format for it;
+  without one the default is used.
 
 ### Rollback triggers
 
