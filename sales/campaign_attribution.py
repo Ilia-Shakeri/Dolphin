@@ -101,6 +101,8 @@ def attribute_issued_invoice(*, invoice, issued_at):
         with transaction.atomic():
             if CampaignAttribution.objects.filter(invoice=invoice).exists():
                 return None
+            if invoice.campaign_id:
+                return _attribute_to_chosen(invoice, issued_at)
             ranked = _candidates(invoice, issued_at)
             if not ranked:
                 return None
@@ -116,6 +118,34 @@ def attribute_issued_invoice(*, invoice, issued_at):
     except Exception:  # noqa: BLE001 - see docstring: logged, never blocks issuing
         logger.exception("campaign attribution failed for invoice %s", invoice.pk)
         return None
+
+
+def _attribute_to_chosen(invoice, issued_at):
+    """The operator named the campaign in the invoice wizard: that is the
+    explicit context and it wins over any last-touch guess (2.39.19)."""
+    from sales.models import CustomerPhone
+
+    phones = list(
+        CustomerPhone.objects.filter(customer_id=invoice.customer_id, is_active=True).values_list("normalized_phone", flat=True)
+    )
+    member = (
+        TargetAudienceMember.objects.filter(campaign_id=invoice.campaign_id, normalized_phone__in=phones, created_at__lte=issued_at)
+        .exclude(stage=TargetAudienceMember.Stage.LOST)
+        .order_by("created_at", "pk")
+        .first()
+    )
+    attribution = CampaignAttribution.objects.create(
+        invoice=invoice, campaign_id=invoice.campaign_id, member=member,
+        source=CampaignAttribution.Source.MANUAL, attributed_by=invoice.created_by,
+        reason="انتخاب کمپین در ویزارد فاکتور",
+    )
+    CampaignAttributionLog.objects.create(
+        invoice=invoice, to_campaign_id=invoice.campaign_id, source="manual",
+        actor=invoice.created_by, reason="انتخاب کمپین در ویزارد فاکتور",
+    )
+    if member is not None:
+        _mark_converted(member, issued_at)
+    return attribution
 
 
 def release_cancelled_invoice(*, invoice):

@@ -102,6 +102,7 @@
                     {% comment %} نوع فاکتور فقط تعیین می‌کند چه هویت‌هایی هنگام صدور لازم است.
                        محاسبهٔ مالیات، ترتیب تخفیف و رند کردن دست‌نخورده می‌ماند. {% endcomment %}
                     <div class="col-md-6"><label class="form-label fw-semibold" for="create-invoice-type">نوع فاکتور</label><select class="form-select form-select-solid" id="create-invoice-type" name="invoice_type"><option value="unofficial">غیررسمی</option><option value="official">رسمی</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="invoice_type"></p></div>
+                    {% if "campaigns" in features %}<div class="col-md-6" id="create-invoice-campaign-wrap" hidden><label class="form-label fw-semibold" for="create-invoice-campaign">کمپین (اختیاری)</label><select class="form-select form-select-solid" id="create-invoice-campaign" name="campaign"><option value="">خودکار (آخرین تماس)</option></select><p class="text-muted fs-8 mt-1 mb-0">اگر می‌دانید این فروش از کدام کمپین آمده، انتخاب کنید.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="campaign"></p></div>{% endif %}
 {% comment %} «تاریخ صدور» فیلد خودش را دارد و همان چیزی است که روی کاغذ نوشته
    می‌شود. با `issued_at` یکی نیست: آن، ثبتِ سامانه از لحظهٔ صدور است و قید مدل
    می‌گوید پیش‌نویس اصلاً نمی‌تواند داشته باشدش. خالی گذاشتنش یعنی روز صدور. {% endcomment %}

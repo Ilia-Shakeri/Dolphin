@@ -286,7 +286,7 @@ class InvoiceSerializer(CommercialDocumentSerializer):
         "stock_applied", "created_by", "created_by_display", "line_items", "created_at", "updated_at",
         "manual_paid_entry", "manual_settled_at", "is_manually_settled", "canonical_balance_due",
         "invoice_type_display", "official_number", "customer_kind", "customer_national_id",
-        "customer_economic_code",
+        "customer_economic_code", "campaign_name",
     }
     line_items = InvoiceItemSerializer(source="items", many=True, read_only=True)
     paid_amount = serializers.DecimalField(max_digits=18, decimal_places=2, read_only=True)
@@ -355,7 +355,7 @@ class InvoiceSerializer(CommercialDocumentSerializer):
             "payment_type", "installment_down_payment", "installment_count",
             "installment_first_due", "installment_interval_days",
             "manual_paid_entry", "manual_settled_at", "is_manually_settled",
-            "notes", "created_by", "created_by_display", "campaign_name",
+            "notes", "created_by", "created_by_display", "campaign", "campaign_name",
             "items", "line_items", "created_at", "updated_at",
         ]
         read_only_fields = [

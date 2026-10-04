@@ -451,3 +451,36 @@ class JalaliSeriesTests(AttributionTests):
         self.assertRegex(series[0]["month"], r"^1[34]\d\d-\d\d$")
         self.assertRegex(series[0]["label"], r"[۰-۹]{4}")
         self.assertEqual(series[0]["count"], 1)
+
+
+class ChosenCampaignTests(Fixtures):
+    def setUp(self):
+        super().setUp()
+        self.product = create_product(actor=self.manager, sku="CH-1", name="کالا", current_price=Decimal("1000.00"))
+        self.customer = create_customer_with_phone(
+            actor=self.manager, full_name="خریدار", phone={"raw_phone": "09121110051", "is_primary": True}
+        )
+
+    def test_a_campaign_named_in_the_wizard_wins_over_last_touch(self):
+        other = create_campaign(actor=self.manager, name="نمایشگاه")
+        person = self.member("09121110051", campaign=other)
+        record_interaction(
+            actor=self.manager, lead=person.lead, target_member=person, phone=person.raw_phone,
+            direction="outbound", outcome="الف", occurred_at=timezone.now() - timedelta(days=1),
+        )
+        draft = create_invoice(
+            actor=self.manager, customer=self.customer, campaign=self.campaign,
+            items=[{"product": self.product, "quantity": 1, "unit_price": self.product.current_price}],
+        )
+        invoice = issue_invoice(actor=self.manager, invoice=draft)
+        attribution = CampaignAttribution.objects.get(invoice=invoice)
+        self.assertEqual((attribution.campaign, attribution.source), (self.campaign, "manual"))
+
+    def test_a_marketer_cannot_name_a_campaign_they_do_not_see(self):
+        hidden = create_campaign(actor=self.manager, name="پنهان")
+        customer = create_customer_with_phone(actor=self.other_agent, full_name="ب", phone={"raw_phone": "09121110052"})
+        with self.assertRaises(BusinessRuleError):
+            create_invoice(
+                actor=self.other_agent, customer=customer, campaign=hidden,
+                items=[{"product": self.product, "quantity": 1, "unit_price": self.product.current_price}],
+            )

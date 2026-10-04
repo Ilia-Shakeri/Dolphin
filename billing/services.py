@@ -68,6 +68,8 @@ INVOICE_HEADER_FIELDS = {
     # The document-level discount as a percentage of the subtotal (2.26.0).
     # An alternative to `discount_amount`, never alongside it.
     "discount_percent",
+    # The campaign the operator names for this sale (2.39.19), draft only.
+    "campaign",
 }
 
 
@@ -963,6 +965,19 @@ def _resolve_warehouse(warehouse):
 
 
 @transaction.atomic
+def _visible_campaign(actor, campaign):
+    """A campaign the actor may see and that still takes results, or None."""
+    if campaign is None:
+        return None
+    from sales.campaign_analytics import campaigns_for
+    from sales.models import Campaign
+
+    found = campaigns_for(actor).filter(pk=campaign.pk).exclude(status=Campaign.Status.ARCHIVED).first()
+    if found is None:
+        raise BusinessRuleError({"campaign": "این کمپین برای شما در دسترس نیست یا بایگانی شده است."})
+    return found
+
+
 def create_invoice(
     *, actor, customer, items, order=None, quotation=None, sale=None,
     payment_type=None, installment_down_payment=None, installment_count=None,
@@ -1041,6 +1056,7 @@ def create_invoice(
             # the fields named here, so accepting the value and then not storing
             # it would be worse than refusing it.
             "document_date": header.get("document_date"),
+            "campaign": _visible_campaign(actor, header.get("campaign")),
             "payment_type": payment_type,
             **(
                 {
@@ -1117,6 +1133,8 @@ def update_invoice(*, actor, invoice, **changes):
     for field in ("due_at", "notes", "document_date"):
         if field in changes:
             setattr(locked, field, changes[field])
+    if "campaign" in changes:
+        locked.campaign = _visible_campaign(actor, changes["campaign"])
     if locked.status == Invoice.Status.ISSUED:
         # Nothing here can change subtotal, discount or tax — `notes` is the
         # only field this branch reaches — so the totals stay exactly the

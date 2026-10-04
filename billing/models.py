@@ -572,6 +572,13 @@ class Invoice(CancelledInvoiceGuard, CommercialDocument):
     paid_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
     cancelled_at = models.DateTimeField(null=True, blank=True)
     stock_applied = models.BooleanField(default=False)
+    #: The campaign the operator says this sale came from (2.39.19), chosen in
+    #: the invoice wizard. When set, issuing attributes the invoice to it before
+    #: any last-touch guess. Optional; the attribution itself still lives in
+    #: `sales.CampaignAttribution`.
+    campaign = models.ForeignKey(
+        "sales.Campaign", null=True, blank=True, on_delete=models.PROTECT, related_name="intended_invoices"
+    )
 
     # --- Manual settlement -------------------------------------------------
     #

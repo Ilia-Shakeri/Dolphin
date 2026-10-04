@@ -19,7 +19,25 @@ const INVOICE_TYPE_TEXT = Object.freeze({
     unofficial: "غیررسمی",
 });
 
+async function loadInvoiceCampaigns() {
+    const wrap = document.getElementById("create-invoice-campaign-wrap");
+    const select = document.getElementById("create-invoice-campaign");
+    if (!wrap || !select) return;
+    try {
+        const campaigns = (await loadAllPages("/api/v1/campaigns/?ordering=name"))
+            .filter((campaign) => campaign.status !== "archived" && !campaign.children_count);
+        if (!campaigns.length) return;
+        select.append(...campaigns.map((campaign) => new Option(
+            campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : campaign.name, String(campaign.id),
+        )));
+        wrap.hidden = false;
+    } catch (error) {
+        // A role without campaign access simply does not get the choice.
+    }
+}
+
 export async function setupInvoices() {
+    loadInvoiceCampaigns();
     const lineHost = document.getElementById("create-invoice-lines");
     let lines = EMPTY_LINE_ROWS;
     const dialog = document.getElementById("create-invoice-dialog");
@@ -179,6 +197,7 @@ export async function setupInvoices() {
             // fills it from the day it was issued.
             const documentDate = apiDate(data.get("document_date"));
             if (documentDate) body.document_date = documentDate;
+            if (data.get("campaign")) body.campaign = Number(data.get("campaign"));
             if (data.get("payment_type") === "installment") {
                 body.payment_type = "installment";
                 body.installment_down_payment = moneyToStorage(data.get("installment_down_payment")) || "0";
