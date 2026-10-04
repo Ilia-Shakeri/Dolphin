@@ -484,3 +484,12 @@ class ChosenCampaignTests(Fixtures):
                 actor=self.other_agent, customer=customer, campaign=hidden,
                 items=[{"product": self.product, "quantity": 1, "unit_price": self.product.current_price}],
             )
+
+
+class CampaignTreeOrderTests(Fixtures):
+    def test_the_list_shows_each_parent_followed_by_its_children(self):
+        child = create_campaign(actor=self.manager, name="زیر نوروز", parent=self.campaign)
+        later = create_campaign(actor=self.manager, name="یلدا")
+        names = [row["name"] for row in self.client_for(self.manager).get("/api/v1/campaigns/?page=1").json()["results"]]
+        self.assertLess(names.index(later.name), names.index(self.campaign.name))
+        self.assertEqual(names.index(child.name), names.index(self.campaign.name) + 1)

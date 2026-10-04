@@ -202,7 +202,14 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
                 raise ValidationError({"channel": "راه ارتباط نامعتبر است."})
             ids = [pk for pk, values in queryset.values_list("pk", "channels") if channel in (values or [])]
             queryset = queryset.filter(pk__in=ids)
-        return queryset.order_by("-created_at", "-id")
+        # A tree by default (2.39.21): each top-level campaign, newest first,
+        # followed directly by its sub-campaigns. An explicit `ordering` wins.
+        from django.db.models import F
+        from django.db.models.functions import Coalesce
+
+        return queryset.annotate(tree_root=Coalesce("parent_id", "id")).order_by(
+            "-tree_root", F("parent_id").asc(nulls_first=True), "-created_at", "-id"
+        )
 
     def list(self, request, *args, **kwargs):
         if has_any_capability(request.user, "campaigns.manage"):

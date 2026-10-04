@@ -27,7 +27,13 @@ let openSubCampaign = null;
 function campaignRow(campaign) {
     const row = document.createElement("tr");
     const children = campaign.children_count ? ` (${toPersianDigits(String(campaign.children_count))} زیرکمپین)` : "";
-    appendCell(row, campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : `${campaign.name}${children}`);
+    const nameCell = appendCell(row, campaign.parent ? `↳ ${campaign.name}` : `${campaign.name}${children}`);
+    if (campaign.parent) {
+        nameCell.classList.add("text-gray-700", "ps-8");
+        nameCell.title = `زیرکمپینِ «${campaign.parent_name}»`;
+    } else {
+        nameCell.classList.add("fw-semibold");
+    }
     appendCell(row, (campaign.channels_display || []).join("، "));
     const state = document.createElement("td");
     state.append(campaignStatusBadge(campaign.status, campaign.status_display));
