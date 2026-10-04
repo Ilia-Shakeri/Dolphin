@@ -378,6 +378,34 @@ class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, 
         member = set_member_stage(actor=request.user, member=self.get_object(), **body.validated_data)
         return Response(CampaignMemberSerializer(member).data)
 
+    @extend_schema(responses={200: CampaignMemberSerializer(many=True)})
+    @action(detail=False, methods=["get"], url_path="follow-ups")
+    def follow_ups(self, request):
+        """Campaign people with a follow-up in [follow_up_from, follow_up_to) —
+        the follow-up calendar's second source (2.39.25). Same scope as the
+        list: a marketer gets only the people assigned to them. At most 500."""
+        from django.utils import timezone
+        from django.utils.dateparse import parse_datetime
+
+        bounds = {}
+        for name in ("follow_up_from", "follow_up_to"):
+            raw = request.query_params.get(name)
+            value = parse_datetime(raw) if raw else None
+            if raw and (value is None or timezone.is_naive(value)):
+                raise ValidationError({name: "زمان را با منطقهٔ زمانی (ISO 8601) بفرستید."})
+            bounds[name] = value
+        queryset = (
+            self.get_queryset()
+            .filter(next_follow_up_at__isnull=False)
+            .exclude(stage__in=[TargetAudienceMember.Stage.LOST, TargetAudienceMember.Stage.CONVERTED])
+        )
+        if bounds["follow_up_from"]:
+            queryset = queryset.filter(next_follow_up_at__gte=bounds["follow_up_from"])
+        if bounds["follow_up_to"]:
+            queryset = queryset.filter(next_follow_up_at__lt=bounds["follow_up_to"])
+        rows = queryset.order_by("next_follow_up_at", "id")[:500]
+        return Response(CampaignMemberSerializer(rows, many=True).data)
+
     @extend_schema(request=None, responses={200: CampaignMemberSerializer})
     @action(detail=True, methods=["post"], url_path="customer")
     def customer(self, request, pk=None):

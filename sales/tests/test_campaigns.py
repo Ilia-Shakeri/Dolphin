@@ -516,3 +516,22 @@ class MigrationDetailTests(Fixtures):
             rows = list(csv.reader(report))
         self.assertEqual(rows[0][0], "member_id")
         self.assertIn(str(member.pk), [row[0] for row in rows[1:]])
+
+
+class MemberFollowUpCalendarTests(Fixtures):
+    def test_a_marketer_sees_only_their_own_people_in_the_window(self):
+        mine = self.member("09121110061", "من")
+        other = self.member("09121110062", "دیگری")
+        assign_campaign_member(actor=self.manager, member=mine, to_user=self.agent)
+        assign_campaign_member(actor=self.manager, member=other, to_user=self.other_agent)
+        when = timezone.now() + timedelta(days=1)
+        TargetAudienceMember.objects.filter(pk__in=[mine.pk, other.pk]).update(next_follow_up_at=when)
+        start = (timezone.now()).isoformat()
+        end = (timezone.now() + timedelta(days=3)).isoformat()
+        response = self.client_for(self.agent).get(
+            "/api/v1/campaign-members/follow-ups/", {"follow_up_from": start, "follow_up_to": end}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([row["full_name"] for row in response.json()], ["من"])
+        bad = self.client_for(self.agent).get("/api/v1/campaign-members/follow-ups/", {"follow_up_from": "2026-01-01"})
+        self.assertEqual(bad.status_code, 400)

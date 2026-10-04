@@ -36,7 +36,35 @@ export async function setupLeadCalendar() {
         pending: {label: "در انتظار تکمیل", color: palette[0], badgeClass: "badge-light-primary"},
         completed: {label: "تکمیل", color: palette[1], badgeClass: "badge-light-success"},
         cancelled: {label: "کنسل شده", color: palette[4], badgeClass: "badge-light-danger"},
+        // A person in a campaign (2.39.25): their follow-up lives on them, not on
+        // the campaign's hidden container, so they are a source of their own.
+        member: {label: "مخاطب کمپین", color: palette[2], badgeClass: "badge-light-info"},
     };
+
+    function memberEvent(member, now) {
+        const meta = STATUS_META.member;
+        const parts = tehranParts(member.next_follow_up_at);
+        const lead = {
+            customer_name: member.full_name,
+            assigned_to_display: member.assigned_to_display,
+            source: "کمپین",
+            campaign_or_batch: member.campaign_name,
+            notes: "",
+        };
+        const overdue = new Date(member.next_follow_up_at) < now;
+        return {
+            id: `m${member.id}`,
+            title: `${member.full_name} — ${member.campaign_name}`,
+            start: member.next_follow_up_at,
+            allDay: Boolean(parts && parts.hour === 0 && parts.minute === 0),
+            backgroundColor: meta.color,
+            borderColor: meta.color,
+            startEditable: false,
+            durationEditable: false,
+            classNames: overdue ? ["fc-event-overdue"] : [],
+            extendedProps: {lead, meta, overdue, campaignUrl: `/campaigns/${member.campaign}/`},
+        };
+    }
 
     /**
      * A hover preview richer than one title-attribute line: who it's for,
@@ -209,12 +237,16 @@ export async function setupLeadCalendar() {
                     follow_up_from: fetchInfo.startStr,
                     follow_up_to: fetchInfo.endStr,
                 });
-                const leads = await loadAllPages(`/api/v1/leads/?${query}`);
+                const [leads, members] = await Promise.all([
+                    loadAllPages(`/api/v1/leads/?${query}`),
+                    // A deployment or role without campaigns simply has none.
+                    apiRequest(`/api/v1/campaign-members/follow-ups/?${query}`).catch(() => []),
+                ]);
                 loading.hidden = true;
                 errorNode.hidden = true;
                 container.hidden = false;
                 const now = new Date();
-                successCallback(leads.map((lead) => {
+                successCallback([...leads.map((lead) => {
                     // A follow-up set from the date-only picker lands on
                     // Tehran midnight; that is what "all day" means here —
                     // a time-precise one (set from an interaction's own
@@ -238,7 +270,7 @@ export async function setupLeadCalendar() {
                         classNames: overdue ? ["fc-event-overdue"] : [],
                         extendedProps: {lead, meta, overdue},
                     };
-                }));
+                }), ...(Array.isArray(members) ? members : []).map((member) => memberEvent(member, now))]);
             } catch (error) {
                 loading.hidden = true;
                 errorNode.textContent = errorText(error);
@@ -247,7 +279,8 @@ export async function setupLeadCalendar() {
             }
         },
         eventClick: (info) => {
-            window.location.href = `/leads/${info.event.id}/`;
+            const campaignUrl = info.event.extendedProps.campaignUrl;
+            window.location.href = campaignUrl || `/leads/${info.event.id}/`;
         },
         ...monthEdgeDragHooks(() => calendar, container),
         eventDrop: async (info) => {

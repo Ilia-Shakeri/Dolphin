@@ -1504,6 +1504,7 @@ dialog {
 .calendar-legend-dot[data-status="pending"] { background-color: var(--bs-primary); }
 .calendar-legend-dot[data-status="completed"] { background-color: var(--bs-success); }
 .calendar-legend-dot[data-status="cancelled"] { background-color: var(--bs-danger); }
+.calendar-legend-dot[data-status="member"] { background-color: var(--bs-info); }
 /* A ring, not a fill: "overdue" is a second, independent fact about a
    pending follow-up (its own dot above already carries the real status
    colour), not a fourth status — so this reads as an overlay, not a peer. */
