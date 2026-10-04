@@ -964,7 +964,6 @@ def _resolve_warehouse(warehouse):
     return locked
 
 
-@transaction.atomic
 def _visible_campaign(actor, campaign):
     """A campaign the actor may see and that still takes results, or None."""
     if campaign is None:
@@ -978,6 +977,7 @@ def _visible_campaign(actor, campaign):
     return found
 
 
+@transaction.atomic
 def create_invoice(
     *, actor, customer, items, order=None, quotation=None, sale=None,
     payment_type=None, installment_down_payment=None, installment_count=None,

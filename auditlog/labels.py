@@ -54,6 +54,8 @@ OPERATION_LABELS = {
     "quotation.items_replaced": "تغییر اقلام پیش‌فاکتور",
     "quotation.status_changed": "تغییر وضعیت پیش‌فاکتور",
     "order.created": "ثبت درخواست تأمین",
+    "order.batch_created": "ثبت سند تأمین برای چند فاکتور",
+    "campaign_member.customer_created": "ثبت مخاطب کمپین به‌عنوان مشتری",
     "order.updated": "ویرایش درخواست تأمین",
     "order.items_replaced": "تغییر اقلام درخواست تأمین",
     "order.status_changed": "تغییر وضعیت درخواست تأمین",

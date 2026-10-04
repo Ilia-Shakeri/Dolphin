@@ -73,7 +73,7 @@ class WizardInventoryTests(SimpleTestCase):
     def test_the_product_still_has_wizards_to_check(self):
         """Guards every other test in this file: a selector that quietly
         matched nothing would make all of them pass while proving nothing."""
-        self.assertGreaterEqual(len(list(_review_steps())), 15)
+        self.assertGreaterEqual(len(list(_review_steps())), 14)  # «ثبت فروش» removed in 2.39.20
 
 
 class ReviewStepLayoutTests(SimpleTestCase):

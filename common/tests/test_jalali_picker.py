@@ -174,9 +174,12 @@ class InteractionTests(SimpleTestCase):
         """`input`/`change` for anything already watching the field, `blur`
         so the pre-existing validity/error-clearing handler runs the same
         way it does after typing."""
-        for event_name in ('"input"', '"change"', '"blur"'):
+        # Since 2.39.14 `input`/`change` go through `dispatchUserEvent`, which
+        # marks them as the reader's own change for the wizard's guard.
+        for event_name in ('"input"', '"change"'):
             with self.subTest(event=event_name):
-                self.assertIn(f"new Event({event_name}", OPEN_PICKER_BODY)
+                self.assertIn(f"dispatchUserEvent(field, {event_name})", OPEN_PICKER_BODY)
+        self.assertIn('new Event("blur"', OPEN_PICKER_BODY)
 
     def test_the_grid_is_a_constant_six_weeks_so_navigating_months_does_not_resize_it(self):
         self.assertIn("const totalCells = 42;", OPEN_PICKER_BODY)

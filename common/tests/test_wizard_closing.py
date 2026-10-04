@@ -25,7 +25,7 @@ def wizard_dialogs():
 class WizardClosingTests(SimpleTestCase):
     def test_no_wizard_has_a_second_cancel_button_at_the_bottom(self):
         found = list(wizard_dialogs())
-        self.assertGreaterEqual(len(found), 15)
+        self.assertGreaterEqual(len(found), 14)  # «ثبت فروش» removed in 2.39.20
         for name, block in found:
             with self.subTest(template=name):
                 self.assertNotIn("data-close-dialog>انصراف", block)

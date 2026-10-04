@@ -72,7 +72,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     def get_children_count(self, instance) -> int:
         return instance.children.count()
 
-    def get_budget_warning(self, instance):
+    def get_budget_warning(self, instance) -> str | None:
         from sales.campaigns import budget_overshoot
 
         over = getattr(instance, "budget_warning", None)

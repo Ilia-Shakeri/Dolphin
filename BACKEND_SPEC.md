@@ -371,14 +371,36 @@ Rules:
   allocations before applying fields; changing a receipt's customer releases all its
   allocations; at most 50 splits per batch allocation.
 - **Cancelled invoice** also refuses new `PaymentAllocation`, `InstallmentPlan`, `Installment`.
+- **Allocation idempotency (2.39.18).** `allocate-across` takes an optional `request_key`
+  (one per opened form). A resent submission with a key already used on that receipt
+  returns the rows it made and creates nothing; the check runs under the receipt's lock.
+  Deliberate repeats (four separate 5,000,000 allocations) are separate submissions and
+  are kept. `PaymentAllocation.release_reason` stores the operator's reason on release.
+- **Explicit campaign (2.39.19).** `Invoice.campaign` (optional, draft only, a campaign the
+  actor can see and that is not archived). Issuing attributes the invoice to it first
+  (source `manual`, reason «انتخاب کمپین در ویزارد فاکتور»); last touch applies only when it
+  is empty.
+- **Legacy `Sale`.** No create path in the UI since 2.39.20; existing rows are listed,
+  read and cancelled as before, and the dashboard's «فروش‌های شرکت» counts issued
+  invoices when the invoices feature is on.
+- **Campaign list order (2.39.21).** Default ordering is a tree: each top-level campaign
+  (newest first) directly followed by its children; an explicit `ordering` wins.
+- **Migration (2.39.24).** `migrate_campaigns` leaves `was_customer_on_entry` unknown
+  (`None`) for migrated people, carries an all-completed / all-cancelled lead group over as
+  `finished` / `archived`, and writes `--report FILE.csv`.
+- **Follow-up calendar (2.39.25).** `GET /campaign-members/follow-ups/?follow_up_from&follow_up_to`
+  (ISO instants with offset) returns, within the caller's member scope, people with a
+  follow-up in the window (not `lost`/`converted`, at most 500).
+
 ### 5.1B Live updates (2.38.0, feature `realtime`)
 
 `common/realtime.py`. An event is `{k: kind, i: id?, u: users?, t: ms}` and carries
 **no data**: it says that something of a kind changed and the page re-reads through
 the ordinary API under its own permission and object scope. Kinds: `customer`,
 `lead`, `interaction`, `sale`, `campaign`, `invoice`, `order`, `payment`,
-`after_sales`, `inventory` (broadcast to connected CRM users, **without** the record
-id), and `chat` / `call` (addressed to the users concerned). Transport:
+`after_sales`, `inventory` (sent, **without** the record id, only to connections whose
+user holds a read capability of that module — `KIND_CAPABILITIES`, fixed when the stream
+opens, 2.39.23), and `chat` / `call` (addressed to the users concerned). Transport:
 `pg_notify('dolphin_events', …)` *inside the writing transaction* (a rollback
 announces nothing; a failing notify runs in a savepoint and is logged, never
 breaking the write); one `LISTEN` thread in the dedicated `realtime` process fans
@@ -388,8 +410,12 @@ only, bounded by `DOLPHIN_REALTIME_MAX_CONNECTIONS` and
 `DOLPHIN_REALTIME_SERVE_STREAMS=true` serves a stream; the sync `web` workers answer
 404. On SQLite (development) events go straight to the in-process subscribers after
 commit. Gates: the `realtime` feature (off by default), `DOLPHIN_REALTIME_ENABLED`,
-and the compose `realtime` profile. A browser that cannot connect backs off, stops
-after a few attempts, and keeps using its timers.
+and the compose `realtime` profile. One user holds at most `REALTIME_MAX_PER_USER`
+(3) streams — a newer one ends the oldest; every stream starts with a `resync`; a
+slot is freed even if the client leaves before the first byte (2.39.15). A browser
+that cannot connect backs off with jitter and then retries every five minutes; an
+event that arrives while the tab is hidden or a dialog is open is postponed, not
+dropped.
 
 *Decision record:* the Phase-0 plan proposed Django Channels + Redis (D9). That would
 have added eight hashed dependencies to the lock, a Redis service and an ASGI server
