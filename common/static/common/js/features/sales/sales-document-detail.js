@@ -87,6 +87,31 @@ function fillSalesDocument(item) {
     if (section) section.hidden = !item.is_active;
 }
 
+/** One history cell: the state's own icon (`sales.postal.POSTAL_STATES`)
+ * beside its label, or the label alone for free text from before the
+ * vocabulary. The icon is decorative; the label is the text. */
+function statusCell(label, icon) {
+    const cell = document.createElement("td");
+    const wrap = document.createElement("span");
+    wrap.className = "d-inline-flex align-items-center gap-2";
+    if (icon && icon.icon) {
+        const glyph = document.createElement("i");
+        glyph.className = `di-duotone ${icon.icon} fs-4 text-primary`;
+        glyph.setAttribute("aria-hidden", "true");
+        for (let path = 1; path <= (icon.icon_paths || 2); path += 1) {
+            const span = document.createElement("span");
+            span.className = `path${path}`;
+            glyph.append(span);
+        }
+        wrap.append(glyph);
+    }
+    const text = document.createElement("span");
+    text.textContent = label;
+    wrap.append(text);
+    cell.append(wrap);
+    return cell;
+}
+
 async function loadPostalHistory(id) {
     const loading = document.getElementById("postal-history-loading");
     const empty = document.getElementById("postal-history-empty");
@@ -94,9 +119,11 @@ async function loadPostalHistory(id) {
     const rows = await loadAllPages(`/api/v1/sales-documents/${id}/postal-history/`);
     const nodes = rows.map((item) => {
         const row = document.createElement("tr");
+        row.append(
+            statusCell(item.from_status_display || item.from_status || "آغاز", item.from_status_icon),
+            statusCell(item.to_status_display || item.to_status, item.to_status_icon),
+        );
         [
-            item.from_status_display || item.from_status || "آغاز",
-            item.to_status_display || item.to_status,
             item.changed_by_display || item.changed_by,
             item.reason || "—",
             displayDate(item.changed_at),

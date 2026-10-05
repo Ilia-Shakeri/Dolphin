@@ -53,6 +53,18 @@ class ModuleGraphTests(SimpleTestCase):
         self.assertTrue((MODULE_ROOT / "main.js").is_file())
         self.assertTrue((MODULE_ROOT / "pages.js").is_file())
 
+    def test_no_import_is_hidden_inside_a_comment(self):
+        """An import inserted into a doc comment is matched by the regex
+        above yet never runs: `ui/searchable-select.js` called
+        `dispatchUserEvent` from 2.39.14 to 2.40.7 with its import inside
+        `/** … */`, so choosing an option threw. Imports sit above any comment."""
+        problems = []
+        for relative in module_paths():
+            for comment in re.findall(r"/\*.*?\*/", module_source(relative), flags=re.S):
+                if re.search(r"^\s*import\s*\{", comment, flags=re.M):
+                    problems.append(relative)
+        self.assertEqual(problems, [])
+
     def test_every_import_resolves_to_a_file_and_an_export(self):
         exports = {relative: set(EXPORT.findall(module_source(relative))) for relative in module_paths()}
         problems = []

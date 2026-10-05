@@ -428,6 +428,11 @@ Rules:
 - **Live updates.** Events of one transaction are coalesced; after the listener reconnects
   a `resync` is broadcast; a displaced stream gets a final `bye`; cross-site requests are
   refused; per-user and per-address limits are deployment variables.
+- **Post service (2.40.7).** The «سرویس پست» integration row reads the framework connection of
+  provider `ebazar_post` (state, last error, masked username, default service type); its test is
+  `POST /integrations/{id}/test/` (Platform Admin). `PostProviderSettings` and
+  `/post-provider-settings/` are kept for compatibility but no longer offered in the UI.
+  Postal history rows carry `from_status_icon` / `to_status_icon` from `sales.postal.POSTAL_STATES`.
 
 ### 5.1B Live updates (2.38.0, feature `realtime`)
 

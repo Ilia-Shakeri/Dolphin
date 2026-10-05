@@ -25,6 +25,12 @@ import {appendCell, pageRangeLabel} from "dolphin/ui/table.js";
  * field list (`#integration-catalog`); secrets are write-only — a blank
  * secret field keeps what is stored, and nothing secret is ever read back.
  */
+//: The post carrier's connection is the «سرویس پست» row above the table
+//: (2.40.7, `common/integrations.py`), not a second entry of its own: it is
+//: left out of the connections table and of the «افزودن اتصال» catalog, and
+//: that row's «ویرایش اتصال» opens this editor (`?edit=ebazar_post`).
+const POST_PROVIDER = "ebazar_post";
+
 function setupIntegrationFramework() {
     const catalogNode = document.getElementById("integration-catalog");
     if (!catalogNode) return;
@@ -246,7 +252,7 @@ function setupIntegrationFramework() {
     // settings page), and what is only planned — named, never pressable.
     const catalogDialog = document.getElementById("integration-catalog-dialog");
     const catalogHost = document.getElementById("integration-catalog-providers");
-    catalog.providers.forEach((provider) => {
+    catalog.providers.filter((provider) => provider.key !== POST_PROVIDER).forEach((provider) => {
         const column = document.createElement("div");
         column.className = "col-md-6";
         const card = document.createElement("button");
@@ -408,7 +414,7 @@ function setupIntegrationFramework() {
     async function loadConnections() {
         try {
             integrations = await apiRequest("/api/v1/integrations/");
-            connections.fill(integrations.map(connectionRow));
+            connections.fill(integrations.filter((integration) => integration.provider_key !== POST_PROVIDER).map(connectionRow));
             const chosen = logFilter.value;
             logFilter.replaceChildren(logFilter.options[0]);
             integrations.forEach((integration) => {
@@ -739,14 +745,29 @@ function setupIntegrationFramework() {
         }
     }
 
-    loadConnections().then(() => { loadLogs(1); loadExtensions(); });
+    loadConnections().then(() => {
+        loadLogs(1);
+        loadExtensions();
+        // Arrived from «سرویس پست» → «ساختن/ویرایش اتصال»: open that
+        // connection's editor, or a new one for its provider.
+        const wanted = new URLSearchParams(window.location.search).get("edit");
+        if (wanted === POST_PROVIDER && providersByKey[POST_PROVIDER]) {
+            const existing = integrations.find((integration) => integration.provider_key === POST_PROVIDER);
+            openConnection(existing || null, POST_PROVIDER);
+        }
+    });
     loadSubscriptions();
     loadTokens();
 }
 
-export function setupIntegrations() {
-    document.querySelectorAll("[data-integration-test]").forEach((button) => {
-        const card = button.closest("[data-integration]");
+/**
+ * The «آزمایش اتصال» buttons of the built-in rows, wherever they are drawn
+ * (this page, and «سرویس پست»'s own page). Each posts to the URL its row
+ * declared and prints what came back — the provider's own words.
+ */
+export function bindIntegrationTests(root = document) {
+    root.querySelectorAll("[data-integration-test]").forEach((button) => {
+        const card = button.closest("[data-integration], #post-connection");
         const result = card?.querySelector("[data-integration-result]");
         button.addEventListener("click", async () => {
             button.disabled = true;
@@ -760,12 +781,16 @@ export function setupIntegrations() {
                     method: "POST",
                     body: {},
                 });
+                // Two answer shapes: a built-in service's own test
+                // (`success`, `status_detail`) and a framework connection's
+                // (`ok`, `message`).
+                const ok = data.success ?? data.ok;
                 if (result) {
-                    result.className = `alert fs-8 mt-3 mb-0 ${data.success ? "alert-success" : "alert-danger"}`;
+                    result.className = `alert fs-8 mt-3 mb-0 ${ok ? "alert-success" : "alert-danger"}`;
                     // The provider's own words, not a sentence written
                     // here: an operator debugging a gateway needs what
                     // the gateway actually said.
-                    result.textContent = data.status_detail || (data.success ? "اتصال برقرار است." : "اتصال برقرار نشد.");
+                    result.textContent = data.status_detail || data.message || (ok ? "اتصال برقرار است." : "اتصال برقرار نشد.");
                 }
             } catch (error) {
                 if (result) result.hidden = true;
@@ -775,5 +800,9 @@ export function setupIntegrations() {
             }
         });
     });
+}
+
+export function setupIntegrations() {
+    bindIntegrationTests();
     setupIntegrationFramework();
 }

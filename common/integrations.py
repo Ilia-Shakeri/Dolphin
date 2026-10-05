@@ -116,8 +116,9 @@ class Integration:
     #: Its own settings page, or `None` for one with nothing to open.
     settings_url_name: str = None
     #: `POST` here to test the connection, or `None` where no test exists.
-    #: A test that cannot really be run is not offered.
-    test_url: str = None
+    #: A test that cannot really be run is not offered. May be `(user) -> url`
+    #: when the address depends on a row that exists (or not) at request time.
+    test_url: object = None
     #: `(user) -> IntegrationStatus`.
     status: Callable = None
     #: Extra facts worth showing under the row, `[(label, value)]`.
@@ -203,56 +204,73 @@ def _sms_details(_user):
     ]
 
 
+def _post_connection():
+    """The one «پست ایران — بازار الکترونیک» connection (2.40.7), enabled first.
+
+    Since 2.40.7 the «سرویس پست» row *is* this connection: the framework's
+    `ebazar_post` provider is what registers and follows parcels
+    (`sales.shipping`). The older generic form (`PostProviderSettings`: a base
+    URL and a header key) never drove a carrier, so it is no longer offered;
+    its row stays in the database untouched.
+    """
+    from integrations.models import Integration
+    from sales.shipping import PROVIDER_KEY
+
+    return Integration.objects.filter(provider_key=PROVIDER_KEY).order_by("-enabled", "id").first()
+
+
 def _post_status(_user):
-    from sales.postal import carrier_for
-    from sales.postal_provider import get_post_provider_settings
-
-    from sales import shipping
-
-    carrier = carrier_for(None)
-    row = get_post_provider_settings()
-    if shipping.is_connected():
+    row = _post_connection()
+    if row is None:
         return IntegrationStatus(
-            state="configured",
-            summary="اتصال «پست ایران — بازار الکترونیک» فعال است؛ مرسوله از صفحهٔ سند فروش ثبت می‌شود و وضعیت آن خودکار به‌روز می‌شود.",
+            state="unconfigured",
+            summary="اتصال «پست ایران — بازار الکترونیک» هنوز ساخته نشده؛ تا آن زمان وضعیت مرسوله‌ها دستی ثبت می‌شود.",
         )
-    manual_summary = (
-        "وضعیت مرسوله‌ها دستی ثبت می‌شود. رابط اتصال به سرویس پست آماده "
-        "است و با افزوده‌شدن یک ارائه‌دهنده، همین چهار حالت را پر می‌کند."
-    )
-    if carrier.supports_tracking:
-        return IntegrationStatus(state="configured", summary=carrier.label)
-    if row.is_enabled and row.base_url:
-        return IntegrationStatus(
-            state="configured",
-            summary=f"اتصال «{row.label}» ذخیره شده و فعال است — {manual_summary}",
-            secret_hint=mask_secret(row.api_key),
-        )
-    if row.base_url or row.api_key:
+    hint = next(iter(row.secret_hints.values()), "") if row.secret_hints else ""
+    if not row.enabled:
         return IntegrationStatus(
             state="disabled",
-            summary=f"تنظیمات ذخیره شده ولی خاموش است. {manual_summary}",
-            secret_hint=mask_secret(row.api_key),
+            summary="اتصال ساخته شده ولی خاموش است؛ وضعیت مرسوله‌ها دستی ثبت می‌شود.",
+            secret_hint=hint, last_error=row.last_error, last_error_at=row.last_health_at if row.last_error else None,
         )
-    return IntegrationStatus(state="unconfigured", summary=manual_summary)
+    connected = row.status == row.Status.OK
+    return IntegrationStatus(
+        state="connected" if connected else "configured",
+        summary="مرسوله از صفحهٔ سند فروش در پست ثبت می‌شود، بارکد رهگیری می‌گیرد و وضعیتش هر ۱۵ دقیقه خودکار به‌روز می‌شود.",
+        secret_hint=hint, last_error=row.last_error, last_error_at=row.last_health_at if row.last_error else None,
+    )
 
 
 def _post_details(_user):
-    from sales.postal import POSTAL_STATES, carrier_for
-    from sales.postal_provider import get_post_provider_settings
+    from sales import ebazar
+    from sales.postal import POSTAL_STATES
 
-    from sales import shipping
-
-    row = get_post_provider_settings()
-    connected = shipping.is_connected()
+    row = _post_connection()
     details = [
-        ("ارائه‌دهنده", "پست ایران (بازار الکترونیک)" if connected else carrier_for(None).label),
-        ("رهگیری خودکار", "دارد" if connected or carrier_for(None).supports_tracking else "ندارد"),
+        ("ارائه‌دهنده", "پست ایران — بازار الکترونیک"),
+        ("رهگیری خودکار", "دارد" if row is not None and row.enabled else "ندارد"),
         ("حالت‌های تعریف‌شده", "، ".join(state.label for state in POSTAL_STATES)),
     ]
-    if row.base_url:
-        details.append(("نشانی پایهٔ سرویس", row.base_url))
+    if row is not None:
+        config = row.config or {}
+        try:
+            service = ebazar.SERVICE_TYPES.get(int(config.get("default_service_type", 1)))
+        except (TypeError, ValueError):
+            service = None
+        if service:
+            details.append(("نوع سرویس پیش‌فرض", service))
     return details
+
+
+def _post_test_url(user):
+    """The connection's own test, for whoever may run it (the framework's
+    Platform Admin gate); none before the connection exists."""
+    from common.deployment.profile import feature_enabled
+
+    row = _post_connection()
+    if row is None or user.role != _platform_admin_role() or not feature_enabled("integrations"):
+        return None
+    return f"/api/v1/integrations/{row.pk}/test/"
 
 
 #: The table. One entry per service; adding one needs nothing else.
@@ -275,13 +293,15 @@ INTEGRATIONS = (
     Integration(
         key="post",
         label="سرویس پست",
-        description="رهگیری وضعیت مرسوله‌ها و به‌روزرسانی خودکار مراحل ارسال.",
+        # One service, one row (2.40.7): the carrier is named here rather than
+        # as a second connection of its own.
+        description="پست ایران — بازار الکترونیک: ثبت مرسوله، هزینهٔ ارسال، کد رهگیری و پیگیری خودکار وضعیت.",
         icon="di-truck",
         icon_paths=5,
         gate=lambda user: _has(user, "sales_documents.manage"),
         feature="sales_documents",
         settings_url_name="common_ui:post-provider-settings",
-        test_url="/api/v1/post-provider-settings/test/",
+        test_url=_post_test_url,
         status=_post_status,
         details=_post_details,
     ),
@@ -367,7 +387,7 @@ def visible_integrations(user):
             "icon": integration.icon,
             "icon_paths": integration.icon_paths,
             "settings_url_name": integration.settings_url_name,
-            "test_url": integration.test_url,
+            "test_url": integration.test_url(user) if callable(integration.test_url) else integration.test_url,
             "state": status.state,
             "state_label": label,
             "state_accent": accent,

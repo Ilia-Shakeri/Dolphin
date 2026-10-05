@@ -165,6 +165,13 @@ def stepper_for(value):
     return marks
 
 
+def icon_for(value):
+    """`{"icon", "icon_paths"}` of a known state, or `None` for free text —
+    the same table every surface draws from (2.40.7)."""
+    state = state_for(value)
+    return {"icon": state.icon, "icon_paths": state.icon_paths} if state is not None else None
+
+
 def choices():
     """`[(key, label)]`, for a form that offers the vocabulary."""
     return [(state.key, state.label) for state in POSTAL_STATES]

@@ -1,8 +1,8 @@
+import {dispatchUserEvent} from "dolphin/core/events.js";
 import {toLatinDigits, toPersianDigits} from "dolphin/core/digits.js";
 import {fillSelect, loadAllPages} from "dolphin/ui/lists.js";
 
 /**
-import {dispatchUserEvent} from "dolphin/core/events.js";
  * Make one `[data-searchable-select]` block usable by typing.
  *
  * The real `<select>` stays in the DOM, keeps the value, and is what

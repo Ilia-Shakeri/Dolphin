@@ -898,6 +898,22 @@ class DolphinPostProviderSettingsView(ActiveCrmView):
             ), status=403)
         return super().dispatch(request, *args, **kwargs)
 
+    def get_context_data(self, **kwargs):
+        """The «سرویس پست» row itself (2.40.7) — the same status, details and
+        test the integrations page shows — and whether this reader may build
+        or edit the connection, which is the integrations framework's own
+        gate (Platform Admin, `integrations` feature)."""
+        from common.integrations import visible_integrations
+
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        if getattr(user, "is_authenticated", False) and "error_status" not in kwargs:
+            context["post_row"] = next((row for row in visible_integrations(user) if row["key"] == "post"), None)
+            context["can_edit_post_connection"] = (
+                user.role == User.Role.PLATFORM_ADMIN and feature_enabled("integrations")
+            )
+        return context
+
 
 class AfterSalesAccessView(ActiveCrmView):
     def dispatch(self, request, *args, **kwargs):

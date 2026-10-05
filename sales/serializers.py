@@ -670,12 +670,16 @@ class PostalStatusHistorySerializer(serializers.ModelSerializer):
     #: above it. A free-text row from before the vocabulary prints unchanged.
     from_status_display = serializers.SerializerMethodField()
     to_status_display = serializers.SerializerMethodField()
+    #: The state's icon from `sales.postal.POSTAL_STATES` (2.40.7), `null` for
+    #: a free-text status from before the vocabulary.
+    from_status_icon = serializers.SerializerMethodField()
+    to_status_icon = serializers.SerializerMethodField()
 
     class Meta:
         model = PostalStatusHistory
         fields = [
-            "id", "document", "from_status", "from_status_display",
-            "to_status", "to_status_display",
+            "id", "document", "from_status", "from_status_display", "from_status_icon",
+            "to_status", "to_status_display", "to_status_icon",
             "changed_by", "changed_by_display", "reason", "changed_at",
         ]
         read_only_fields = fields
@@ -688,6 +692,12 @@ class PostalStatusHistorySerializer(serializers.ModelSerializer):
 
     def get_to_status_display(self, instance) -> str:
         return postal.label_for(instance.to_status)
+
+    def get_from_status_icon(self, instance) -> dict | None:
+        return postal.icon_for(instance.from_status)
+
+    def get_to_status_icon(self, instance) -> dict | None:
+        return postal.icon_for(instance.to_status)
 
 
 class PostalStateSerializer(serializers.Serializer):
