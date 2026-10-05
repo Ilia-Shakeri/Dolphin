@@ -44,7 +44,7 @@
    رادیوهای واقعی‌اند، پس صفحه‌کلید، ذخیره و پیش‌نمایش زنده مثل قبل کار می‌کنند.
    قلم‌هایی که با پنل نمی‌آیند برچسب «اگر روی دستگاه نصب باشد» دارند. {% endcomment %}
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold d-block" id="preference-font-family-label" for="preference-font-family-toggle">قلم پنل</label>
+                    <label class="form-label fw-bold fs-6 d-block mb-3" id="preference-font-family-label" for="preference-font-family-toggle">قلم پنل</label>
                     <div class="position-relative">
                         <button type="button" class="form-select form-select-solid text-start font-family-toggle" id="preference-font-family-toggle"
                                 aria-haspopup="true" aria-expanded="false" aria-controls="preference-font-family">
@@ -73,7 +73,7 @@
    صورت‌حساب حساب در قالب). خود ورودی‌ها رادیوی واقعی‌اند، پس صفحه‌کلید و
    صفحه‌خوان همان رفتار یک گروه رادیویی را می‌گیرند. {% endcomment %}
                 <div class="col-md-6">
-                    <span class="form-label fw-semibold d-block" id="preference-font-scale-label">اندازهٔ قلم</span>
+                    <span class="form-label fw-bold fs-6 d-block mb-3" id="preference-font-scale-label">اندازهٔ قلم</span>
                     <div class="d-flex flex-wrap gap-3" role="radiogroup" id="preference-font-scale"
                          aria-labelledby="preference-font-scale-label">
                         {% for option in preference_catalog.font_scales %}
@@ -90,15 +90,15 @@
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="font_scale"></p>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold d-block">واحد پول</label>
-                    <div class="d-flex flex-wrap gap-6" role="radiogroup" aria-label="واحد پول">
+{% comment %} The shared segmented toggle (2.40.6), large: the same field name
+   `currency_unit`, carried by the hidden input the toggle writes
+   (`ui/segmented.js`), so saving reads it exactly as it read the radios. {% endcomment %}
+                    <span class="form-label fw-bold fs-6 d-block mb-3" id="preference-currency-label">واحد پول</span>
+                    <input type="hidden" id="preference-currency-unit" name="currency_unit" value="{{ current_preferences.currency_unit }}">
+                    <div class="dolphin-segmented dolphin-segmented-lg" role="radiogroup" aria-labelledby="preference-currency-label" data-segmented-for="preference-currency-unit">
                         {% for option in preference_catalog.currency_units %}
-                        <div class="form-check form-check-custom form-check-solid">
-                            <input class="form-check-input" type="radio" name="currency_unit"
-                                   id="preference-currency-{{ option.value }}" value="{{ option.value }}"
-                                   {% if option.value == current_preferences.currency_unit %}checked{% endif %}>
-                            <label class="form-check-label" for="preference-currency-{{ option.value }}">{{ option.label }}</label>
-                        </div>
+                        <button type="button" role="radio" class="dolphin-segmented-option{% if option.value == current_preferences.currency_unit %} is-selected{% endif %}"
+                                aria-checked="{% if option.value == current_preferences.currency_unit %}true{% else %}false{% endif %}" data-value="{{ option.value }}">{{ option.label }}</button>
                         {% endfor %}
                     </div>
 {% comment %} Said plainly, because it is the one preference on this page that
@@ -109,8 +109,8 @@
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="currency_unit"></p>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold d-block">حالت رنگی</label>
-                    <div class="d-flex flex-wrap gap-6" role="radiogroup" aria-label="حالت رنگی">
+                    <span class="form-label fw-bold fs-6 d-block mb-3" id="preference-theme-label">حالت رنگی</span>
+                    <div class="d-flex flex-wrap gap-6" role="radiogroup" aria-labelledby="preference-theme-label">
                         {% for option in preference_catalog.themes %}
                         <div class="form-check form-check-custom form-check-solid">
                             <input class="form-check-input" type="radio" name="theme"
