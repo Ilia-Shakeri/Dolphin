@@ -648,27 +648,6 @@ function collidesWithOthers(host, column, rect = boxRect(column)) {
     });
 }
 
-/** The nearest spot to `want` where a box of this size overlaps nothing. */
-function nearestFreeSpot(host, column, want) {
-    const w = boxSpan(column);
-    const h = boxRows(column);
-    const others = placedBoxes(host).filter((other) => other !== column).map(boxRect).filter(Boolean);
-    let best = null;
-    let bestDistance = Infinity;
-    for (let y = 1; y <= want.y + 240; y += 1) {
-        for (let x = 1; x <= GRID_COLUMNS - w + 1; x += 1) {
-            const candidate = {x, y, w, h};
-            if (others.some((other) => rectsOverlap(candidate, other))) continue;
-            // Rows are half a rem, columns are a twelfth of the grid: weigh a
-            // row as a fraction of a column so "nearest" is nearest to the eye.
-            const distance = ((x - want.x) * 8) ** 2 + (y - want.y) ** 2;
-            if (distance < bestDistance) { bestDistance = distance; best = {x, y}; }
-        }
-        if (best && (y - want.y) ** 2 > bestDistance) break;
-    }
-    return best;
-}
-
 /** After a box grew (content, a resize, a new font), push down whatever it now
  * sits on, top to bottom, so nothing is ever drawn over anything else. */
 function resolveOverlaps(host) {
@@ -686,6 +665,46 @@ function resolveOverlaps(host) {
         if (rect.y !== boxSpot(column).y) setBoxSpot(column, rect.x, rect.y);
         settled.push(rect);
     });
+}
+
+/** Put `pinned` where it is and push every box it now sits on — and every
+ * box those then sit on — straight down (2.40.2, product-owner decision: a
+ * drop never lands on a "nearest free place" the reader did not choose). */
+function pushDownAround(host, pinned) {
+    if (!WIDE_GRID.matches) return;
+    const settled = [boxRect(pinned)];
+    placedBoxes(host).filter((column) => column !== pinned && boxSpot(column))
+        .sort((a, b) => boxSpot(a).y - boxSpot(b).y || boxSpot(a).x - boxSpot(b).x)
+        .forEach((column) => {
+            let rect = boxRect(column);
+            let clash = settled.find((other) => rectsOverlap(rect, other));
+            while (clash) {
+                rect = {...rect, y: clash.y + clash.h};
+                clash = settled.find((other) => rectsOverlap(rect, other));
+            }
+            if (rect.y !== boxSpot(column).y) setBoxSpot(column, rect.x, rect.y);
+            settled.push(rect);
+        });
+}
+
+/** «مرتب‌سازی»: lift every box as high as it goes without touching another,
+ * top to bottom, keeping its column. The only way the grid closes its gaps —
+ * a drop never moves anything up behind the reader's back. */
+function compactUpward(host) {
+    if (!WIDE_GRID.matches) return;
+    const settled = [];
+    placedBoxes(host).filter((column) => boxSpot(column))
+        .sort((a, b) => boxSpot(a).y - boxSpot(b).y || boxSpot(a).x - boxSpot(b).x)
+        .forEach((column) => {
+            let rect = {...boxRect(column), y: 1};
+            let clash = settled.find((other) => rectsOverlap(rect, other));
+            while (clash) {
+                rect = {...rect, y: clash.y + clash.h};
+                clash = settled.find((other) => rectsOverlap(rect, other));
+            }
+            setBoxSpot(column, rect.x, rect.y);
+            settled.push(rect);
+        });
 }
 
 /**
@@ -709,7 +728,8 @@ export function fitDashboardRows() {
         boxes.forEach((column) => column.classList.remove("is-measuring"));
         boxes.forEach((column, index) => {
             const chosen = column.dataset.heightChosen === "1" ? boxRows(column) : 0;
-            column.style.setProperty("--dashboard-rows", String(Math.min(120, Math.max(6, needs[index], chosen))));
+            const floor = Number(column.dataset.minRows) || 6;
+            column.style.setProperty("--dashboard-rows", String(Math.min(120, Math.max(floor, needs[index], chosen))));
         });
         resolveOverlaps(host);
     });
@@ -737,6 +757,8 @@ function placeDashboardWidget(grid, widget) {
     // widget's own default, resolved by the server (`height_for`).
     if (widget.height) column.style.setProperty("--dashboard-rows", String(widget.height));
     column.dataset.heightChosen = widget.height_chosen ? "1" : "";
+    const minimum = (dashboardLayoutState()?.minimums || {})[widget.key];
+    if (minimum) column.dataset.minRows = String(minimum.rows);
     // The box's accent colour (glow and top edge) is the one its icon wears.
     column.dataset.accent = (widget.data && widget.data.accent) || "primary";
     if (widget.position) setBoxSpot(column, widget.position[0], widget.position[1]);
@@ -858,6 +880,19 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
     const pageState = dashboardLayoutState() || {};
     let sizeChoices = pageState.size_choices || [];
     const heightChoices = pageState.height_choices || [];
+    // The smallest box each widget reads at (2.40.2, `WIDGET_MIN_SIZES` /
+    // `WIDGET_MIN_ROWS`); the server raises anything smaller as well.
+    const minimums = pageState.minimums || {};
+    // Arranging needs the twelve-column grid; on a phone the boxes are one
+    // column in saved order and there is nothing to place (2.40.2).
+    const narrowScreen = window.matchMedia("(max-width: 767.98px)");
+    const narrowNote = document.getElementById("dashboard-edit-narrow");
+    // Changes are a draft until «ذخیره» (2.40.2): Escape or «انصراف»
+    // throws the draft away, so trying an arrangement costs nothing.
+    let draft = null;
+    const saveButton = document.getElementById("dashboard-edit-done");
+    const cancelButton = document.getElementById("dashboard-edit-cancel");
+    const compactButton = document.getElementById("dashboard-edit-compact");
     // Only what this reader hid themselves can be put back. A widget
     // this deployment's default hides never reached the payload, so it
     // is not in `widgets` and cannot be listed here either.
@@ -889,18 +924,52 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             .filter(Boolean);
     }
 
-    async function save(body) {
+    function save(body) {
+        // While editing, a change only joins the draft; `flush` sends it.
+        // `widget_positions` merges on the server, so the draft merges too.
+        draft = {
+            ...(draft || {}),
+            ...body,
+            ...(body.widget_positions ? {widget_positions: {...((draft || {}).widget_positions || {}), ...body.widget_positions}} : {}),
+        };
+        if (saveButton) saveButton.disabled = false;
+        return Promise.resolve();
+    }
+
+    async function flush() {
+        if (!draft) return true;
+        const body = draft;
         try {
             const saved = await apiRequest("/api/v1/dashboard-layout/", {method: "POST", body});
+            draft = null;
             if (saved && Array.isArray(saved.sizes) && saved.sizes.length) sizeChoices = saved.sizes;
             if (reset) reset.hidden = !editing || !saved || !saved.is_customised;
+            return true;
         } catch (error) {
-            // The arrangement is already applied on screen; saying so
-            // and leaving it is better than snapping every widget back
-            // while the reader is mid-edit. The next page load shows
-            // whatever the server actually holds.
+            // The draft stays on screen and unsent, so «ذخیره» can be tried
+            // again; nothing snaps back under the reader.
             showError(error);
+            return false;
         }
+    }
+
+    function belowMinimumWidth(key, token) {
+        const minimum = minimums[key] && minimums[key].size;
+        if (!minimum) return false;
+        const steps = sizeChoices.map((choice) => choice.value);
+        return steps.indexOf(token) < steps.indexOf(minimum);
+    }
+
+    function minimumRows(key) {
+        return (minimums[key] && minimums[key].rows) || 6;
+    }
+
+    /** A short pulse on the box and a spoken note: this is as small as it goes. */
+    function flagMinimum(column) {
+        column.classList.remove("at-minimum");
+        void column.offsetWidth;
+        column.classList.add("at-minimum");
+        if (hint) hint.querySelector("[data-edit-status]")?.replaceChildren("این باکس کوچک‌تر از این خوانا نیست.");
     }
 
     // "افزودن ویجت" — every widget this reader can have, each with a
@@ -1066,12 +1135,13 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             // real, per-reader data the page never drew — a full reload
             // is the same "ask the server again" the reset button
             // already uses, not a special case.
-            if (addWidgetAdded) window.location.reload();
+            if (addWidgetAdded) flush().then((ok) => { if (ok) window.location.reload(); });
         });
     }
 
     /** Apply a width token to a box on screen and remember it. */
     function applySize(column, key, token) {
+        if (belowMinimumWidth(key, token)) { flagMinimum(column); return false; }
         if (sizes[key] === token) return false;
         const classes = (sizeChoices.find((choice) => choice.value === token) || {}).classes;
         if (!classes) return false;
@@ -1101,6 +1171,7 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (!token || (heights[key] || null) === token) return false;
         const rows = (heightChoices.find((choice) => choice.value === token) || {}).rows;
         if (!rows) return false;
+        if (rows < minimumRows(key)) { flagMinimum(column); return false; }
         const before = {heights, rows: column.style.getPropertyValue("--dashboard-rows")};
         heights = {...heights, [key]: token};
         column.style.setProperty("--dashboard-rows", String(rows));
@@ -1552,7 +1623,8 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
             }
             hint.style.gridColumn = `${x} / span ${w}`;
             hint.style.gridRow = `${y} / span ${h}`;
-            hint.classList.toggle("is-blocked", collidesWithOthers(host, dragged, {x, y, w, h}));
+            // Never blocked any more: whatever is there moves down on drop.
+            hint.classList.toggle("will-push", collidesWithOthers(host, dragged, {x, y, w, h}));
         }
 
         /** Re-anchors the dragged card under the pointer at its current
@@ -1664,14 +1736,10 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
                 // landed. `moved` guards a plain click (opening the hide
                 // button, say) from being recorded as a no-op reorder.
                 if (moved && WIDE_GRID.matches && dropSpot) {
-                    const w = boxSpan(dragged);
-                    const h = boxRows(dragged);
-                    let spot = dropSpot;
-                    // On top of something: the nearest free place instead.
-                    if (collidesWithOthers(host, dragged, {x: spot.x, y: spot.y, w, h})) {
-                        spot = nearestFreeSpot(host, dragged, spot) || boxSpot(dragged) || spot;
-                    }
-                    setBoxSpot(dragged, spot.x, spot.y);
+                    // Exactly where it was dropped; whatever was there moves
+                    // down, and nothing moves up until «مرتب‌سازی».
+                    setBoxSpot(dragged, dropSpot.x, dropSpot.y);
+                    pushDownAround(host, dragged);
                     save({widget_order: currentOrder(), ...layoutBody()});
                 } else if (moved) {
                     save({widget_order: currentOrder()});
@@ -1708,6 +1776,11 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
     }
 
     function setEditing(next) {
+        if (next && narrowScreen.matches) {
+            if (narrowNote) narrowNote.hidden = false;
+            return;
+        }
+        if (narrowNote) narrowNote.hidden = true;
         editing = next;
         toggle.setAttribute("aria-pressed", String(editing));
         // Solid while editing, not the light tint it used to take — the
@@ -1718,7 +1791,9 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         // everything that is not being arranged steps back.
         document.body.classList.toggle("dashboard-editing", editing);
         if (hint) hint.hidden = !editing;
-        if (done) done.hidden = !editing;
+        if (done) { done.hidden = !editing; done.disabled = !draft; }
+        if (cancelButton) cancelButton.hidden = !editing;
+        if (compactButton) compactButton.hidden = !editing || !WIDE_GRID.matches;
         if (reset) reset.hidden = !editing || !layout.is_customised;
         if (addWidgetOpen) addWidgetOpen.hidden = !editing;
         if (editing) enterEditing(); else leaveEditing();
@@ -1727,15 +1802,40 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (!editing) fitDashboardRows();
     }
 
-    toggle.addEventListener("click", () => setEditing(!editing));
-    if (done) done.addEventListener("click", () => setEditing(false));
-    // Escape leaves edit mode, as it leaves every other mode in this
-    // panel — unless a dialog is open, which Escape closes first.
+    /** Leave edit mode without the draft: the page is redrawn from what the
+     * server holds, which is exactly the arrangement before this edit. */
+    function discard() {
+        // Cleared first, so the leave-page guard below does not ask about it.
+        if (draft) { draft = null; window.location.reload(); return; }
+        setEditing(false);
+    }
+
+    toggle.addEventListener("click", () => (editing ? discard() : setEditing(true)));
+    if (done) {
+        done.addEventListener("click", async () => {
+            if (await flush()) setEditing(false);
+        });
+    }
+    if (cancelButton) cancelButton.addEventListener("click", discard);
+    if (compactButton) {
+        compactButton.addEventListener("click", () => {
+            grids.forEach((host) => { freezeBoxes(host); compactUpward(host); });
+            save({widget_order: currentOrder(), ...layoutBody()});
+        });
+    }
+    // Escape throws the draft away and leaves edit mode, as it leaves every
+    // other mode in this panel — unless a dialog is open, which Escape
+    // closes first.
     document.addEventListener("keydown", (event) => {
-        if (editing && event.key === "Escape" && !document.querySelector("dialog[open]")) setEditing(false);
+        if (editing && event.key === "Escape" && !document.querySelector("dialog[open]")) discard();
+    });
+    // A draft is not lost silently by leaving the page.
+    window.addEventListener("beforeunload", (event) => {
+        if (draft && editing) { event.preventDefault(); event.returnValue = ""; }
     });
     if (reset) {
         reset.addEventListener("click", async () => {
+            draft = null;
             try {
                 await apiRequest("/api/v1/dashboard-layout/", {method: "DELETE"});
             } catch (error) {

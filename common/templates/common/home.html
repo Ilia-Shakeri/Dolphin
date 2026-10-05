@@ -30,7 +30,10 @@
         <button type="button" class="btn btn-sm btn-light-danger" id="dashboard-edit-reset" hidden>
             بازگرداندن به پیش‌فرض
         </button>
-        <button type="button" class="btn btn-sm btn-primary" id="dashboard-edit-done" hidden>پایان ویرایش</button>
+        <button type="button" class="btn btn-sm btn-light" id="dashboard-edit-compact" hidden
+                title="بالا کشیدن باکس‌ها تا جای خالی بسته شود">مرتب‌سازی</button>
+        <button type="button" class="btn btn-sm btn-light" id="dashboard-edit-cancel" hidden>انصراف</button>
+        <button type="button" class="btn btn-sm btn-primary" id="dashboard-edit-done" hidden disabled>ذخیره</button>
         <button type="button" class="btn btn-sm btn-icon btn-light" id="dashboard-edit-toggle"
                 title="شخصی‌سازی داشبورد" aria-label="شخصی‌سازی داشبورد" aria-pressed="false">
             <i class="di-duotone di-pencil fs-4"><span class="path1"></span><span class="path2"></span></i>
@@ -57,15 +60,20 @@
    زمینهٔ کم‌رنگ اصلی و کادر خط‌چین، نه یک سطر متن کم‌رنگ. مالک محصول
    ۲۰۲۶/۰۹/۲۷: «وقتی حالت ویرایش فعال است ویجت‌ها باید کادر نقطه‌چین داشته
    باشند و حس و حال صفحه حالت ویرایش باشد». {% endcomment %}
+    <div class="notice d-flex align-items-center bg-light rounded border border-dashed p-4 mb-5"
+         id="dashboard-edit-narrow" role="status" hidden>
+        <div class="fs-7 text-gray-700 fw-semibold">جای باکس‌ها روی صفحه‌ای پهن‌تر (از ۷۶۸ پیکسل به بالا) ویرایش می‌شود؛ این‌جا باکس‌ها به همان ترتیب ذخیره‌شده یکی زیر دیگری نشان داده می‌شوند.</div>
+    </div>
     <div class="notice d-flex align-items-center bg-light-primary rounded border-primary border border-dashed p-4 mb-5"
          id="dashboard-edit-hint" role="status" hidden>
         <i class="di-duotone di-pencil fs-2tx text-primary me-4 flex-shrink-0"><span class="path1"></span><span class="path2"></span></i>
         <div class="fw-semibold">
             <h3 class="fs-6 fw-bold text-gray-900 mb-1">حالت ویرایش داشبورد</h3>
             <div class="fs-7 text-gray-700">
-                هر باکس را از هر جای خودش بکشید تا جابه‌جا شود؛ لبه‌های هر باکس را بگیرید و بکشید تا پهن‌تر، باریک‌تر، بلندتر یا کوتاه‌تر شود؛ با × پنهانش کنید.
-                تغییرها همان لحظه ذخیره می‌شوند.
+                هر باکس را بکشید و هر جا خواستید رها کنید؛ باکس‌هایی که آن‌جا بودند پایین می‌روند. لبه‌ها را بکشید تا اندازه عوض شود (هر باکس حداقلی دارد که کوچک‌تر از آن خوانا نیست)؛ با × پنهانش کنید.
+                «مرتب‌سازی» جاهای خالی را می‌بندد. تا «ذخیره» را نزنید چیزی ذخیره نمی‌شود؛ Esc یا «انصراف» تغییرها را کنار می‌گذارد.
             </div>
+            <div class="fs-7 text-primary fw-semibold mt-1" data-edit-status aria-live="polite"></div>
         </div>
     </div>
     {% comment %} «افزودن ویجت» — گالریِ همهٔ ویجت‌هایی که این خواننده می‌تواند

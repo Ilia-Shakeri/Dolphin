@@ -213,6 +213,57 @@ DEFAULT_WIDGET_SIZES = {
 }
 FALLBACK_WIDGET_SIZE = "quarter"
 
+#: The smallest box each widget still reads at (2.40.2), in the same two units
+#: the editor snaps to: a width step of `WIDGET_SIZES` and a number of rows.
+#: Below these a chart's axis labels and legend no longer fit beside the plot
+#: (the twelve-week trend at a quarter's width was the case that broke), so
+#: the editor stops there, the server raises a smaller saved size to it, and a
+#: layout saved before this existed is read at the minimum — never rewritten.
+#: A widget absent here may take any step; its height still never drops below
+#: its own content (`fitDashboardRows`).
+WIDGET_MIN_SIZES = {
+    "trend": "half",
+    "breakdown": "third",
+    "agent_share": "half",
+    "panel_tasks": "third",
+    "panel_chat": "third",
+    "panel_agenda": "third",
+    "panel_calendar": "third",
+    "panel_calls": "third",
+}
+WIDGET_MIN_ROWS = {
+    "trend": 40,
+    "breakdown": 40,
+    "agent_share": 40,
+    "lead_conversion_rate": 30,
+    "receivables_collection_rate": 30,
+    "after_sales_closure_rate": 30,
+    "panel_tasks": 40,
+    "panel_chat": 40,
+    "panel_agenda": 40,
+    "panel_calendar": 50,
+    "panel_calls": 40,
+}
+_SIZE_STEPS = list(WIDGET_SIZES)
+
+
+def clamp_size(key, token):
+    """`token`, or this widget's minimum when `token` is narrower."""
+    minimum = WIDGET_MIN_SIZES.get(key)
+    if minimum is None or token not in WIDGET_SIZES:
+        return token
+    return minimum if _SIZE_STEPS.index(token) < _SIZE_STEPS.index(minimum) else token
+
+
+def min_rows(key):
+    return WIDGET_MIN_ROWS.get(key, ROW_STEPS[0])
+
+
+def widget_minimums():
+    """The minimums in the shape the editor reads (`dashboard-layout-state`)."""
+    keys = sorted(set(WIDGET_MIN_SIZES) | set(WIDGET_MIN_ROWS))
+    return {key: {"size": WIDGET_MIN_SIZES.get(key, _SIZE_STEPS[0]), "rows": min_rows(key)} for key in keys}
+
 #: A capability tile is a figure and a label; a quarter is what it was
 #: designed at and what every one of them renders as until a reader says
 #: otherwise. Named rather than left to `FALLBACK_WIDGET_SIZE` so the two can
@@ -342,7 +393,13 @@ def _clean_heights(value, *, field):
     })
     if unknown_heights:
         raise BusinessRuleError({field: f"ارتفاع ناشناخته: {', '.join(unknown_heights)}"})
-    return {key: height for key, height in value.items() if height is not None}
+    # A height below the widget's minimum is raised to it, not refused: the
+    # editor already stops there, so only a stale page or a hand-made request
+    # sends one, and the reader still gets the nearest size that works.
+    return {
+        key: height if ROWS_FOR_TOKEN[height] >= min_rows(key) else f"r{min_rows(key)}"
+        for key, height in value.items() if height is not None
+    }
 
 
 def _clean_positions(value, *, field):
@@ -385,7 +442,8 @@ def _clean_sizes(value, *, field):
     unknown_sizes = sorted({str(size) for size in value.values() if size not in WIDGET_SIZES})
     if unknown_sizes:
         raise BusinessRuleError({field: f"اندازهٔ ناشناخته: {', '.join(unknown_sizes)}"})
-    return dict(value)
+    # Raised to the widget's minimum, for the same reason as heights above.
+    return {key: clamp_size(key, size) for key, size in value.items()}
 
 
 @transaction.atomic
@@ -476,7 +534,7 @@ def size_class(key, sizes):
 
 def size_class_for(key, sizes, default):
     """The same, with the caller naming what "unset" means for its own row."""
-    token = sizes.get(key) or default
+    token = clamp_size(key, sizes.get(key) or default)
     return WIDGET_SIZES.get(token, WIDGET_SIZES[FALLBACK_WIDGET_SIZE])[1]
 
 
@@ -485,7 +543,7 @@ def height_for(key, heights):
     widget's own default. A token saved by a since-removed step falls back to
     the default rather than to nothing."""
     chosen = ROWS_FOR_TOKEN.get(heights.get(key))
-    return chosen or DEFAULT_WIDGET_ROWS.get(key, FALLBACK_WIDGET_ROWS)
+    return max(chosen or DEFAULT_WIDGET_ROWS.get(key, FALLBACK_WIDGET_ROWS), min_rows(key))
 
 
 def effective_layout(user):

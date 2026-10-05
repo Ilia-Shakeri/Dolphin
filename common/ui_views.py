@@ -27,6 +27,7 @@ from common.dashboard_layout import (
     height_choices,
     layout_state,
     size_choices,
+    widget_minimums,
 )
 from common.integrations import any_integration_configurable, visible_integrations
 from common.deployment.profile import active_profile, feature_enabled
@@ -414,6 +415,7 @@ class DolphinHomeView(ActiveCrmView):
             **layout_state(layout),
             "size_choices": size_choices(),
             "height_choices": height_choices(),
+            "minimums": widget_minimums(),
         }
         # Every tile this reader could have, hidden ones included, for the
         # "افزودن ویجت" dialog's real-figure previews.

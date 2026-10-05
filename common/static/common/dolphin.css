@@ -4601,9 +4601,25 @@ tr.is-removing > td {
     pointer-events: none;
     z-index: 1;
 }
-.dashboard-drop-hint.is-blocked {
-    border-color: var(--bs-danger);
-    background: color-mix(in srgb, var(--bs-danger) 10%, transparent);
+/* A drop on other boxes is allowed (they move down, 2.40.2): the outline
+   says so in the warning hue rather than refusing in red. */
+.dashboard-drop-hint.will-push {
+    border-color: var(--bs-warning);
+    background: color-mix(in srgb, var(--bs-warning) 10%, transparent);
+}
+/* As small as this widget goes (`WIDGET_MIN_SIZES`): one short pulse of its
+   outline, and the edit notice says it in words. */
+.dashboard-widget.at-minimum > .card {
+    animation: dashboard-at-minimum var(--dolphin-dur) var(--dolphin-ease) 2;
+}
+@keyframes dashboard-at-minimum {
+    50% { box-shadow: 0 0 0 2px var(--bs-warning); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-widget.at-minimum > .card {
+        animation: none;
+        box-shadow: 0 0 0 2px var(--bs-warning);
+    }
 }
 
 /* --- The widget card (2.38.2) -------------------------------------------------

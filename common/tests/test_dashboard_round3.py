@@ -99,7 +99,7 @@ class LayoutStateRenderTests(TestCase):
         self.assertEqual(
             set(state),
             {"order", "hidden", "sizes", "heights", "positions", "locked_hidden", "is_customised",
-             "size_choices", "height_choices"},
+             "size_choices", "height_choices", "minimums"},
         )
         self.assertFalse(state["is_customised"])
 
@@ -244,16 +244,19 @@ class HeightValidationTests(TestCase):
                    "gauges": [], "agent_share": None}
         # A pre-2.38.1 token (24rem) reads as the nearest row step (fifty half-rem rows).
         self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 50)
+        # Below the trend's minimum (2.40.2, `WIDGET_MIN_ROWS`) a height is
+        # raised to it on save, so the chart keeps room for its axis and legend.
         update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "r8"})
-        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 8)
+        self.assertEqual(effective_layout(self.admin)["heights"], {"trend": "r40"})
+        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 40)
 
     def test_null_drops_a_height_and_unknown_tokens_are_refused(self):
         from common.dashboard_layout import effective_layout
         from common.exceptions import BusinessRuleError
 
-        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "h24", "breakdown": "h12"})
-        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": None, "breakdown": "h12"})
-        self.assertEqual(effective_layout(self.admin)["heights"], {"breakdown": "h12"})
+        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "h24", "outstanding": "h12"})
+        update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": None, "outstanding": "h12"})
+        self.assertEqual(effective_layout(self.admin)["heights"], {"outstanding": "h12"})
         with self.assertRaises(BusinessRuleError):
             update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "900px"})
         with self.assertRaises(BusinessRuleError):
