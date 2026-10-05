@@ -92,10 +92,10 @@ class FeatureGateTests(TestCase):
 
     def test_the_nav_link_only_appears_with_the_feature_on(self):
         with_feature = self.client.get("/orders/").content.decode("utf-8")
-        self.assertIn("تابلوی درخواست‌های تأمین", with_feature)
+        self.assertIn("تابلوی تأمین", with_feature)  # menu label since 2.40.0
         with override_active_profile(profile_without("order_kanban")):
             without_feature = self.client.get("/orders/").content.decode("utf-8")
-        self.assertNotIn("تابلوی درخواست‌های تأمین", without_feature)
+        self.assertNotIn("تابلوی تأمین", without_feature)
 
 
 class TemplateContentTests(TestCase):

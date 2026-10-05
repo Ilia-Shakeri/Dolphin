@@ -294,7 +294,8 @@ class AuthShellBrowserTests(TestCase):
                     self.assertNotIn('data-module="users"', content)
                 if role == User.Role.SALES_AGENT:
                     self.assertNotIn('data-module="audit"', content)
-                    self.assertIn("محصولات (فقط خواندنی)", content)
+                    # One name per page since 2.40.0; read-only is enforced by the page and API.
+                    self.assertIn('data-module="products"', content)
                     self.assertIn('id="agent-work-queue"', content)
                     self.assertIn("پیگیری بعدی", content)
                     self.assertIn('data-performance-panel="dashboard"', content)

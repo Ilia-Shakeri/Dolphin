@@ -764,12 +764,17 @@ To turn it on:
    reports `{"status":"ok","enabled":true,"listener":true,...}`.
 
 The `realtime` service runs `DOLPHIN_REALTIME_MAX_CONNECTIONS` + 8 threads (2.39.27) so its
-health check and the 503 for one browser too many always find a free thread; the
-repository's nginx allows at most six streams per client address.
+health check and the 503 for one browser too many always find a free thread. The
+repository's nginx allows at most `DOLPHIN_REALTIME_MAX_PER_ADDRESS` streams per client
+address (2.40.0, default 50 — an office behind one NAT address shares it; 2.39.27 had a
+fixed six) and answers 404 for `/api/v1/realtime/health/` from outside, so the listener's
+state is visible only inside the stack.
 
-Since 2.39.15 one user holds at most three streams at once (the Django setting
-`REALTIME_MAX_PER_USER`, default 3; a fourth tab ends that user's oldest stream), so
-one person's open tabs cannot use up `DOLPHIN_REALTIME_MAX_CONNECTIONS`.
+One user holds at most `DOLPHIN_REALTIME_MAX_PER_USER` streams at once (default 3, an
+environment variable since 2.40.0); one more tab ends that user's oldest stream with a
+final `bye` event, and that tab does not reconnect by itself. A tab left hidden for a
+minute releases its stream and reopens it when shown. Streams are refused when the
+browser says the request came from another site.
 
 To turn it off: stop the profile (`docker compose --profile realtime stop realtime`)
 or unset the three switches above — there is nothing to migrate or clean up.
@@ -1148,6 +1153,26 @@ Use this when the script cannot run, or to understand what it does.
 * **Numbering:** supply documents use the new kind `supply_batch` (`SB-000001`).
   A deployment that customises `BILLING_NUMBER_FORMATS` may add a format for it;
   without one the default is used.
+
+### Release notes that change the upgrade — 2.40.x
+
+* **Migration** `billing/0022_allocation_request_key_unique` rewrites the shared
+  `request_key` of a multi-invoice allocation into one key per row (`<key>:<n>`,
+  idempotent) and adds the unique constraint `uniq_allocation_request_key`. Take the
+  `pg_dump` backup first, as for every release.
+* **Rolling back to 2.39.27** — rehearsed on PostgreSQL 16 with data created by 2.39.27:
+  either restore the backup taken before the upgrade and start 2.39.27, or, keeping the
+  data, run `docker compose run --rm migrate python manage.py migrate billing 0021`
+  **with the 2.40 image** and only then switch to the 2.39.27 image. Starting 2.39.27
+  on a database still at `0022` makes its multi-invoice allocation fail on the
+  constraint.
+* **Optional, read-only first:** `python manage.py backfill_order_invoice_links` reports
+  supply requests whose invoices are linked only through the legacy `Invoice.order`
+  field; `--apply` writes the links. `python manage.py check_allocation_integrity` now also
+  reports cross-customer allocations, active allocations on unconfirmed payments or
+  cancelled invoices, over-paid invoices and instalments. Neither runs by itself.
+* **New optional variables:** `DOLPHIN_REALTIME_MAX_PER_USER` (default 3) and
+  `DOLPHIN_REALTIME_MAX_PER_ADDRESS` (default 50); see [1.11](#111-client-1-business-switches).
 
 ### Rollback triggers
 

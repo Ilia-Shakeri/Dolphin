@@ -95,6 +95,13 @@ export function enhanceChecklistSelect(select) {
     none.addEventListener("click", () => setAll(false));
     search.addEventListener("input", filter);
     new MutationObserver(build).observe(select, {childList: true});
+    // Options selected from code (a form being filled in for editing) show
+    // as ticked too (2.40.0); the checklist's own changes are user events.
+    select.addEventListener("change", (event) => {
+        if (event.userInitiated) return;
+        boxes.forEach(({option, box}) => { box.checked = option.selected; });
+        refresh();
+    });
     select.form?.addEventListener("reset", () => setTimeout(build));
     build();
 }

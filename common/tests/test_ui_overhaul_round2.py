@@ -393,20 +393,22 @@ class IntegrationsNavRenameTests(SimpleTestCase):
     """
 
     def test_the_sidebar_no_longer_links_straight_to_sms_settings(self):
-        markup_text = markup(BASE)
-        self.assertNotIn('href="{% url \'common_ui:sms-provider-settings\' %}"', markup_text)
-        self.assertIn(
-            '<a data-module="integrations" class="menu-link" href="{% url \'common_ui:integrations\' %}">',
-            markup_text,
-        )
+        # The sidebar is drawn from `common.navigation` since 2.40.0.
+        from common.navigation import GROUPS
+
+        url_names = {item.url_name for group in GROUPS for item in group.items}
+        self.assertNotIn("common_ui:sms-provider-settings", url_names)
+        integrations = [item for group in GROUPS for item in group.items if item.module == "integrations"]
         # Renamed «یکپارچه‌سازی‌ها» in 2.21.0, when the page grew into the
         # integrations framework (product-owner task, 2026-09-27).
-        self.assertIn("یکپارچه‌سازی‌ها", markup_text)
+        self.assertEqual([(item.label, item.url_name) for item in integrations], [("یکپارچه‌سازی‌ها", "common_ui:integrations")])
 
     def test_the_sidebar_accordion_shows_for_anyone_who_can_configure_something(self):
-        markup_text = markup(BASE)
-        self.assertIn("can_manage_integrations", markup_text)
-        self.assertNotIn("can_manage_sms_provider", markup_text)
+        from common.navigation import GROUPS
+
+        item = next(item for group in GROUPS for item in group.items if item.module == "integrations")
+        self.assertTrue(item.visible({"features": set(), "capabilities": set(), "can_manage_integrations": True}))
+        self.assertFalse(item.visible({"features": set(), "capabilities": set(), "can_manage_sms_provider": True}))
 
     def test_the_sms_page_keeps_its_own_contextual_shortcut(self):
         outbound = (TEMPLATES / "sms" / "outbound.html").read_text(encoding="utf-8")

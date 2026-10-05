@@ -195,7 +195,8 @@ export function setupCampaignDetail() {
             editForm.elements.starts_on.value = campaign.starts_on ? displayDay(campaign.starts_on) : "";
             editForm.elements.ends_on.value = campaign.ends_on ? displayDay(campaign.ends_on) : "";
             editForm.elements.target_count.value = campaign.target_count ?? "";
-            editForm.elements.budget.value = campaign.budget ?? "";
+            // In the reader's unit, unrounded, so saving does not move the amount.
+            editForm.elements.budget.value = campaign.budget ? money(campaign.budget, {withCurrency: false, exact: true}) : "";
             editForm.querySelectorAll('input[name="channels"]').forEach((box) => { box.checked = (campaign.channels || []).includes(box.value); });
             const chosen = new Set((campaign.responsibles || []).map(String));
             Array.from(editForm.elements.responsibles.options).forEach((option) => { option.selected = chosen.has(option.value); });

@@ -260,12 +260,12 @@ class InvoiceStepMarkupTests(SimpleTestCase):
 
 class SettingsPlacementTests(SimpleTestCase):
     def test_the_settings_link_is_the_last_entry_in_the_sidebar(self):
-        sidebar = markup(BASE).split('id="app-sidebar"')[1]
-        self.assertIn('id="open-settings"', sidebar)
-        # Nothing but this link's own markup between it and the end of the
-        # navigation — it really is the last entry, not merely present.
-        after = sidebar.split('id="open-settings"')[1].split("</a>", 1)[1].split("</nav>")[0]
-        self.assertNotIn("menu-link", after)
+        # The sidebar is drawn from `common.navigation` since 2.40.0.
+        from common.navigation import GROUPS
+
+        self.assertEqual(GROUPS[-1].key, "settings")
+        self.assertEqual([item.module for item in GROUPS[-1].items], ["settings"])
+        self.assertIn('id="open-settings"', markup(BASE))
 
     def test_it_is_gone_from_the_user_menu(self):
         menu = markup(BASE).split('id="user-menu"')[1].split("</div>\n                        </div>")[0]
@@ -308,11 +308,13 @@ class BrandingPlacementTests(SimpleTestCase):
         `can_manage_integrations` (item 11 — the entry now opens the
         general connections hub, not SMS settings alone), so this is the
         gate the accordion actually opens on today."""
-        self.assertNotIn(
-            "can_view_audit or can_manage_users or can_manage_branding or can_manage_integrations",
-            BASE,
-        )
-        self.assertIn("can_view_audit or can_manage_users or can_manage_integrations", BASE)
+        from common.navigation import GROUPS
+
+        administration = next(group for group in GROUPS if group.key == "administration")
+        # The group is drawn only when one of its links is; branding opens none.
+        self.assertEqual([item.module for item in administration.items], ["audit", "users", "integrations"])
+        hidden = administration.items[0].visible({"features": set(), "capabilities": set(), "can_manage_branding": True})
+        self.assertFalse(hidden)
 
 
 # ===========================================================================

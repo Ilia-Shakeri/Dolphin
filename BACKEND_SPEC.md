@@ -392,6 +392,43 @@ Rules:
   (ISO instants with offset) returns, within the caller's member scope, people with a
   follow-up in the window (not `lost`/`converted`, at most 500).
 
+### 5.1C Campaign to supply chain, reports, money safety (2.40.0)
+
+- **Invoice from a campaign person.** `POST /invoices/` accepts `campaign_member` (write-only,
+  within the caller's member scope) instead of `customer`; exactly one is required. The
+  customer is found or created by normalised phone in the same transaction (owner: the
+  member's marketer), never duplicated.
+- **On issue** `link_campaign_people_to_customer` links every campaign entry with the
+  customer's phone to the customer and marks it a customer; a failure is logged and never
+  blocks the issue. A person who was a customer on entry is never counted as converted.
+- **Interactions on a campaign person.** `lead` is optional when `target_member` is given;
+  a marketer may record and read interactions on people assigned to them.
+- **Work leads.** The hidden container lead of a campaign is excluded from the lead list and
+  API, search, reminders, the lead board and dashboard charts (`work_leads_for`). A new lead
+  or audience member requires a campaign; existing rows without one keep working.
+  `PATCH /leads/{id}/` with `customer: null` is a no-op.
+- **Hierarchy.** A campaign with direct members cannot get sub-campaigns; depth two is also
+  enforced in `Campaign.save`. A parent without its own target/budget reports the sum of
+  its children. Over-budget children produce a warning, not a refusal.
+- **Reports.** Results, analytics and Excel add a «بدون کمپین» row (company scope, no
+  campaign filter) and «مانده»; rows sum to the company total. The funnel is monotone with
+  two money steps; Jalali months without invoices appear as zero; interactions before the
+  window are counted and reported, not dropped.
+- **Manual paid** (`record_manual_paid_entry`) only for an issued invoice.
+- **Lock order everywhere** — receipt, then its allocations by id, then invoices by id — in
+  allocate, release, cancel and update of a receipt.
+- **Allocation keys.** Each row of a batch stores `<request_key>:<n>`; the database
+  enforces uniqueness per receipt (`uniq_allocation_request_key`, migration
+  `billing/0022`). The same key with a different split answers 409. Single allocation also
+  takes a key (max 56 characters).
+- **Cancelled invoice** is protected on bulk paths too (`bulk_create`, `bulk_update`,
+  `update` of allocations, plans, instalments); only closing rows to `cancelled` passes.
+- **Supply requests.** Confirm and issue also check the legacy `Invoice.order` link for
+  stock already taken; cancelling a confirmed or fulfilled request needs `inventory.manage`.
+- **Live updates.** Events of one transaction are coalesced; after the listener reconnects
+  a `resync` is broadcast; a displaced stream gets a final `bye`; cross-site requests are
+  refused; per-user and per-address limits are deployment variables.
+
 ### 5.1B Live updates (2.38.0, feature `realtime`)
 
 `common/realtime.py`. An event is `{k: kind, i: id?, u: users?, t: ms}` and carries

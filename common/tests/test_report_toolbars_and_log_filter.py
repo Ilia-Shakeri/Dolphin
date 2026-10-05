@@ -128,7 +128,8 @@ class PostalTrackingRenameTests(SimpleTestCase):
 
     def test_the_page_and_its_menu_entry_carry_the_new_name(self):
         self.assertIn("رهگیری پستی", _read(TEMPLATES / "sales_documents" / "list.html"))
-        self.assertIn("رهگیری پستی", _read(TEMPLATES / "base.html"))
+        # The menu is drawn from the navigation registry since 2.40.0.
+        self.assertIn("رهگیری پستی", (ROOT / "common" / "navigation.py").read_text(encoding="utf-8"))
 
     def test_the_module_permission_label_was_renamed_with_it(self):
         """Otherwise the permissions screen would still offer the page under
