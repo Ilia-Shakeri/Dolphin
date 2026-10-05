@@ -26,7 +26,7 @@
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="stock-threshold">حداکثر موجودی</label>
-                        <input class="form-control form-control-solid" id="stock-threshold" name="below_or_equal" type="number" step="1" placeholder="موجودی کمتر یا برابر">
+                        <input class="form-control form-control-solid" id="stock-threshold" name="below_or_equal" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" dir="ltr" placeholder="موجودی کمتر یا برابر">
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="stock-ordering">مرتب‌سازی</label>
@@ -73,7 +73,7 @@
                     <option value="return_in">برگشت از مشتری</option>
                     <option value="sale">ارسال به مشتری</option>
                 </select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="movement_type"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-quantity">تعداد</label><input class="form-control form-control-solid" id="create-movement-quantity" name="quantity" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" dir="ltr" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-movement-cost">بهای واحد</label><input class="form-control form-control-solid" id="create-movement-cost" name="unit_cost" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="unit_cost"></p></div>
                 <div class="col-12"><label class="form-label fw-semibold" for="create-movement-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-movement-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
             </div>
@@ -109,7 +109,7 @@
                 <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-from-warehouse">از انبار</label><select class="form-select form-select-solid" id="transfer-from-warehouse" name="from_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="from_warehouse"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-to-warehouse">به انبار</label><select class="form-select form-select-solid" id="transfer-to-warehouse" name="to_warehouse" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_warehouse"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-product">کالا</label><select class="form-select form-select-solid" id="transfer-product" name="product" required><option value="">در حال دریافت…</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="product"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-quantity">تعداد</label><input class="form-control form-control-solid" id="transfer-quantity" name="quantity" type="number" min="1" step="1" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="transfer-quantity">تعداد</label><input class="form-control form-control-solid" id="transfer-quantity" name="quantity" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" dir="ltr" value="1" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="quantity"></p></div>
                 <div class="col-12"><label class="form-label fw-semibold" for="transfer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="transfer-notes" name="notes" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
             </div>
         </div>

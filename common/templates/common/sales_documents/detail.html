@@ -65,7 +65,7 @@
         </div>
         <form id="shipment-form" novalidate hidden>
             <div class="row g-5">
-                <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-weight">وزن کل مرسوله (گرم)</label><input class="form-control form-control-solid" id="shipment-weight" type="number" min="1" max="30000" inputmode="numeric" value="1000" dir="ltr" required><div class="form-text">حداکثر ۳۰٬۰۰۰ گرم؛ بیش از ۵۰۰۰ گرم فقط «پیشتاز».</div></div>
+                <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-weight">وزن کل مرسوله (گرم)</label><input class="form-control form-control-solid" id="shipment-weight" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" data-decimal-max="30000" value="1000" dir="ltr" required><div class="form-text">حداکثر ۳۰٬۰۰۰ گرم؛ بیش از ۵۰۰۰ گرم فقط «پیشتاز».</div></div>
                 <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-service">نوع سرویس</label><select class="form-select form-select-solid" id="shipment-service"></select></div>
                 <div class="col-md-4"><label class="form-label fw-semibold" for="shipment-pay">نوع پرداخت</label><select class="form-select form-select-solid" id="shipment-pay"></select></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="shipment-email">ایمیل گیرنده <span class="text-gray-600 fw-normal">(اگر در پروندهٔ مشتری نیست)</span></label><input class="form-control form-control-solid" id="shipment-email" type="email" dir="ltr" autocomplete="off"></div>

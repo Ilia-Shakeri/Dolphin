@@ -1,5 +1,6 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
+import {bindDecimalInput} from "dolphin/core/decimal.js";
 import {apiDateTime, displayDate} from "dolphin/core/jalali.js";
 import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
@@ -189,7 +190,14 @@ function setupIntegrationFramework() {
             } else {
                 input = document.createElement("input");
                 input.className = field.kind === "bool" ? "form-check-input" : "form-control form-control-solid";
-                input.type = {bool: "checkbox", int: "number", url: "url", password: "password"}[field.kind] || (field.secret ? "password" : "text");
+                input.type = {bool: "checkbox", url: "url", password: "password"}[field.kind] || (field.secret ? "password" : "text");
+                if (field.kind === "int") {
+                    // A whole number in any digits (2.40.14, `core/decimal.js`).
+                    input.inputMode = "numeric";
+                    input.dataset.decimalInput = "";
+                    input.dataset.decimalPlaces = "0";
+                    bindDecimalInput(input);
+                }
                 if (field.secret) input.autocomplete = "new-password";
                 if (["url", "int", "password"].includes(field.kind) || field.secret || field.ltr) input.dir = "ltr";
             }

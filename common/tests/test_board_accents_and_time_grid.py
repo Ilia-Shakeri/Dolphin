@@ -118,7 +118,9 @@ class CalendarTimeGridTests(SimpleTestCase):
     def test_both_calendars_use_the_same_options(self):
         """Lead follow-up and after-sales are the two calendars this product
         has; a fix applied to one of them is the bug this asserts against."""
-        self.assertEqual(SCRIPT.count("...CALENDAR_TIME_GRID_OPTIONS,"), 2)
+        # One shell since 2.40.12 (`createJalaliCalendar`), used by both.
+        self.assertEqual(SCRIPT.count("...CALENDAR_TIME_GRID_OPTIONS,"), 1)
+        self.assertEqual(SCRIPT.count("    createJalaliCalendar({"), 2)
 
     def test_the_week_and_day_views_show_where_now_is(self):
         block = SCRIPT.split("const CALENDAR_TIME_GRID_OPTIONS = {")[1].split("};")[0]

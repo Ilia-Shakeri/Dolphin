@@ -175,7 +175,7 @@
                 {% for factor in factors %}
                 <div class="d-flex align-items-center justify-content-between gap-4 mb-3">
                     <label class="form-label fw-semibold mb-0" for="scoring-{{ person_type }}-{{ factor.key }}">{{ factor.label }}</label>
-                    <input class="form-control form-control-solid form-control-sm w-100px" id="scoring-{{ person_type }}-{{ factor.key }}" name="{{ factor.key }}" type="number" min="0" max="100" step="1" required value="{{ factor.weight }}" data-default="{{ factor.default }}" dir="ltr">
+                    <input class="form-control form-control-solid form-control-sm w-100px" id="scoring-{{ person_type }}-{{ factor.key }}" name="{{ factor.key }}" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="0" data-decimal-max="100" required value="{{ factor.weight }}" data-default="{{ factor.default }}" dir="ltr">
                 </div>
                 <p class="text-danger fs-8 mt-1 mb-0" data-error-for="{{ factor.key }}"></p>
                 {% endfor %}

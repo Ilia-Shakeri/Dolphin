@@ -247,7 +247,9 @@ class JalaliMonthViewTests(SimpleTestCase):
         grid titled «مهر» never showed all of مهر."""
         self.assertIn("const JALALI_MONTH_VIEW = {", SCRIPT)
         self.assertIn("visibleRange: (current) => jalaliMonthRange(current)", SCRIPT)
-        self.assertEqual(SCRIPT.count('initialView: "jalaliMonth"'), 2)
+        # One shell since 2.40.12 (`createJalaliCalendar`), used by both.
+        self.assertEqual(SCRIPT.count('initialView: "jalaliMonth"'), 1)
+        self.assertEqual(SCRIPT.count("    createJalaliCalendar({"), 2)
 
     def test_the_range_ends_the_day_after_the_last_one(self):
         """FullCalendar ranges are end-exclusive; an inclusive end would
@@ -278,13 +280,13 @@ class JalaliMonthViewTests(SimpleTestCase):
         `next` authored first, next renders on the right in both month view
         and week/day view, matching the picker header."""
         self.assertIn('start: "jalaliNext,jalaliPrev,next,prev today"', SCRIPT)
-        self.assertEqual(SCRIPT.count(".fc-jalaliPrev-button, .fc-jalaliNext-button"), 2)
+        self.assertEqual(SCRIPT.count(".fc-jalaliPrev-button, .fc-jalaliNext-button"), 1)
 
     def test_cell_numbers_are_month_view_only(self):
         """In week and day view the column header already carries the date;
         a number repeated in every hour cell was that date written again."""
         self.assertEqual(
-            SCRIPT.count('arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""'), 2,
+            SCRIPT.count('arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""'), 1,
         )
 
     def test_the_old_gregorian_view_name_is_gone(self):

@@ -1,4 +1,5 @@
 import {apiRequest} from "dolphin/core/api.js";
+import {bindDecimalInput} from "dolphin/core/decimal.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {money, moneyOrNull} from "dolphin/core/money.js";
@@ -163,12 +164,17 @@ export function createLineItemRows(host, products, {onChange} = {}) {
 
         const quantity = document.createElement("input");
         quantity.className = "form-control form-control-solid wizard-line-quantity";
-        quantity.type = "number";
-        quantity.min = "1";
+        // A whole number, typed in any digits (2.40.14, `core/decimal.js`).
+        quantity.type = "text";
+        quantity.inputMode = "numeric";
+        quantity.dir = "ltr";
+        quantity.dataset.decimalInput = "";
+        quantity.dataset.decimalPlaces = "0";
+        quantity.dataset.decimalMin = "1";
         // `clean_quantity`'s own ceiling (billing/money.py). Stated here so
-        // the browser refuses it before the request rather than after.
-        quantity.max = "1000000";
-        quantity.step = "1";
+        // the field refuses it before the request rather than after.
+        quantity.dataset.decimalMax = "1000000";
+        bindDecimalInput(quantity);
         quantity.value = "1";
         quantity.required = true;
         quantity.dataset.lineQuantity = "";

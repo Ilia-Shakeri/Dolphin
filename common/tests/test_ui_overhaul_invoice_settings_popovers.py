@@ -145,9 +145,11 @@ class LineRowTests(SimpleTestCase):
         body = function_body("createLineItemRows")
         self.assertIn("select.required = true;", body)
         self.assertIn("quantity.required = true;", body)
-        self.assertIn('quantity.min = "1";', body)
+        # Since 2.40.14 the range is `core/decimal.js`'s, not a number input's.
+        self.assertIn('quantity.dataset.decimalMin = "1";', body)
         # `clean_quantity`'s own ceiling.
-        self.assertIn('quantity.max = "1000000";', body)
+        self.assertIn('quantity.dataset.decimalMax = "1000000";', body)
+        self.assertIn("bindDecimalInput(quantity);", body)
 
     def test_both_wizards_use_the_same_row_builder(self):
         self.assertEqual(SCRIPT.count("function createLineItemRows("), 1)

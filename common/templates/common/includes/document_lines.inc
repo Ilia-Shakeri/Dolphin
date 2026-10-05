@@ -23,9 +23,9 @@
         <h3>افزودن سطر</h3>
         <form id="{{ doc }}-add-line-form" class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
             <label class="sr-only" for="{{ doc }}-line-product">کالا</label><select class="form-select form-select-solid w-auto flex-grow-1" id="{{ doc }}-line-product" name="product" required><option value="">در حال دریافت…</option></select>
-            <label class="sr-only" for="{{ doc }}-line-quantity">تعداد</label><input class="form-control form-control-solid w-auto flex-grow-1" id="{{ doc }}-line-quantity" name="quantity" type="number" min="1" step="1" value="1" required placeholder="تعداد">
+            <label class="sr-only" for="{{ doc }}-line-quantity">تعداد</label><input class="form-control form-control-solid w-auto flex-grow-1" id="{{ doc }}-line-quantity" name="quantity" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" dir="ltr" value="1" required placeholder="تعداد">
             <label class="sr-only" for="{{ doc }}-line-price">قیمت واحد</label><input class="form-control form-control-solid w-auto flex-grow-1" id="{{ doc }}-line-price" name="unit_price" type="text" inputmode="numeric" data-money-input dir="ltr" placeholder="قیمت واحد به {{ panel_currency_label }} (اختیاری)">
-            {% if doc != "invoice" %}<label class="sr-only" for="{{ doc }}-line-discount">تخفیف سطر (٪)</label><input class="form-control form-control-solid w-auto flex-grow-1" id="{{ doc }}-line-discount" name="discount_percent" type="number" min="0" max="100" step="0.01" placeholder="تخفیف ٪">{% endif %}
+            {% if doc != "invoice" %}<label class="sr-only" for="{{ doc }}-line-discount">تخفیف سطر (٪)</label><input class="form-control form-control-solid w-auto flex-grow-1" id="{{ doc }}-line-discount" name="discount_percent" type="text" inputmode="decimal" data-decimal-input data-decimal-places="2" data-decimal-min="0" data-decimal-max="100" dir="ltr" placeholder="تخفیف ٪">{% endif %}
             <button class="btn btn-light" type="submit">افزودن به سند</button>
         </form>
         <p class="text-muted">قیمت واحد خالی بماند، قیمت جاری کالا در همان لحظه ثبت می‌شود. تغییرات تا فشردن «ذخیره اقلام» روی سند اعمال نمی‌شود.</p>
@@ -41,9 +41,9 @@
     <form id="invoice-totals-form" novalidate>
         <div class="row g-5">
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-subtotal">جمع اقلام</label><input class="form-control form-control-solid" id="invoice-subtotal" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-discount-rate">نرخ تخفیف سند (٪)</label><input class="form-control form-control-solid" id="invoice-discount-rate" name="discount_percent" type="number" min="0" max="100" step="0.01" dir="ltr" disabled><p class="text-danger fs-8 mt-1 mb-0" data-error-for="discount_percent"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-discount-rate">نرخ تخفیف سند (٪)</label><input class="form-control form-control-solid" id="invoice-discount-rate" name="discount_percent" type="text" inputmode="decimal" data-decimal-input data-decimal-places="2" data-decimal-min="0" data-decimal-max="100" dir="ltr" disabled><p class="text-danger fs-8 mt-1 mb-0" data-error-for="discount_percent"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-discount-total">تخفیف سند</label><input class="form-control form-control-solid" id="invoice-discount-total" disabled></div>
-            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-tax-rate-view">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="invoice-tax-rate-view" name="tax_rate" type="number" min="0" max="100" step="0.01" dir="ltr" disabled><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-tax-rate-view">نرخ مالیات (٪)</label><input class="form-control form-control-solid" id="invoice-tax-rate-view" name="tax_rate" type="text" inputmode="decimal" data-decimal-input data-decimal-places="2" data-decimal-min="0" data-decimal-max="100" dir="ltr" disabled><p class="text-danger fs-8 mt-1 mb-0" data-error-for="tax_rate"></p></div>
             <div class="col-md-6"><label class="form-label fw-semibold" for="invoice-tax-amount">مالیات</label><input class="form-control form-control-solid" id="invoice-tax-amount" disabled></div>
             {% comment %} The figure the document is about, drawn heavier than the parts
                it is made of — the theme's own light-primary state and a larger
