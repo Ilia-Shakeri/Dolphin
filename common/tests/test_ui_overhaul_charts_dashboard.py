@@ -638,9 +638,10 @@ class DashboardAddWidgetTests(SimpleTestCase):
         render — an added widget's real data was never fetched, so there is
         nothing to insert into the DOM in place. The reset button already
         reloads for exactly this reason; this reuses that, not a new
-        mechanism."""
+        mechanism. Since 2.40.2 edits are a draft until «ذخیره», so the draft
+        is saved first and the page reloads only once that save succeeded."""
         body = function_body("setupDashboardEditor")
-        self.assertIn('if (addWidgetAdded) window.location.reload();', body)
+        self.assertIn("if (addWidgetAdded) flush().then((ok) => { if (ok) window.location.reload(); });", body)
 
     def test_the_grid_is_css_grid_not_a_flex_wrap_hack(self):
         declarations = rule(".dashboard-add-widget-grid")

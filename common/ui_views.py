@@ -413,9 +413,9 @@ class DolphinHomeView(ActiveCrmView):
         # for them on every dashboard load.
         context["dashboard_layout_state"] = {
             **layout_state(layout),
+            "minimums": widget_minimums(),
             "size_choices": size_choices(),
             "height_choices": height_choices(),
-            "minimums": widget_minimums(),
         }
         # Every tile this reader could have, hidden ones included, for the
         # "افزودن ویجت" dialog's real-figure previews.

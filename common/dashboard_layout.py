@@ -260,9 +260,12 @@ def min_rows(key):
 
 
 def widget_minimums():
-    """The minimums in the shape the editor reads (`dashboard-layout-state`)."""
+    """The minimums in the shape the editor reads (`dashboard-layout-state`):
+    `{key: [size step, rows]}`. A pair, not a nested object: the state is
+    rendered into the page, and a page must never contain `}}` (it reads as
+    leaked template syntax — `test_ui_connectivity`)."""
     keys = sorted(set(WIDGET_MIN_SIZES) | set(WIDGET_MIN_ROWS))
-    return {key: {"size": WIDGET_MIN_SIZES.get(key, _SIZE_STEPS[0]), "rows": min_rows(key)} for key in keys}
+    return {key: [WIDGET_MIN_SIZES.get(key, _SIZE_STEPS[0]), min_rows(key)] for key in keys}
 
 #: A capability tile is a figure and a label; a quarter is what it was
 #: designed at and what every one of them renders as until a reader says

@@ -173,11 +173,15 @@
                 </div>
             </div>
             <div data-dolphin-stepper-element="content">
+                <div class="w-100">
+                {% comment %} The step's title already says «نوع پرداخت», so the toggle stands
+                   alone, centred and large (2.40.5); the name stays for assistive
+                   technology, and the review step still reads it. {% endcomment %}
                 <div class="row gx-6 gy-7">
-                    <div class="col-md-6">
-                        <span class="form-label fw-semibold d-block" id="create-invoice-payment-type-label">نوع پرداخت</span>
+                    <div class="col-12 d-flex flex-column align-items-center">
+                        <span class="visually-hidden" id="create-invoice-payment-type-label">نوع پرداخت</span>
                         <input type="hidden" id="create-invoice-payment-type" name="payment_type" value="cash">
-                        <div class="dolphin-segmented" role="radiogroup" aria-labelledby="create-invoice-payment-type-label" data-segmented-for="create-invoice-payment-type">
+                        <div class="dolphin-segmented dolphin-segmented-lg" role="radiogroup" aria-labelledby="create-invoice-payment-type-label" data-segmented-for="create-invoice-payment-type">
                             <button type="button" role="radio" aria-checked="true" class="dolphin-segmented-option is-selected" data-value="cash">نقدی</button>
                             <button type="button" role="radio" aria-checked="false" class="dolphin-segmented-option" data-value="installment">اقساط</button>
                         </div>
@@ -193,6 +197,7 @@
                     <div class="col-12"><p class="text-muted fs-8 mb-0">پیش‌پرداخت از مبلغ نهایی کم می‌شود و باقی‌مانده به‌طور مساوی بین اقساط تقسیم می‌شود.</p></div>
                 </div>
                 </div></div>
+                </div>
             </div>
             <div data-dolphin-stepper-element="content">
                 <div class="w-100">

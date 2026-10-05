@@ -46,7 +46,7 @@ class RegistryTests(SimpleTestCase):
         self.assertEqual(clamp_size("outstanding", "quarter"), "quarter")
 
     def test_the_editor_receives_the_minimums(self):
-        self.assertEqual(widget_minimums()["trend"], {"size": "half", "rows": WIDGET_MIN_ROWS["trend"]})
+        self.assertEqual(widget_minimums()["trend"], ["half", WIDGET_MIN_ROWS["trend"]])
 
 
 class ServerClampTests(TestCase):

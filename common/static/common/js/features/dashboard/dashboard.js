@@ -758,7 +758,7 @@ function placeDashboardWidget(grid, widget) {
     if (widget.height) column.style.setProperty("--dashboard-rows", String(widget.height));
     column.dataset.heightChosen = widget.height_chosen ? "1" : "";
     const minimum = (dashboardLayoutState()?.minimums || {})[widget.key];
-    if (minimum) column.dataset.minRows = String(minimum.rows);
+    if (minimum) column.dataset.minRows = String(minimum[1]);
     // The box's accent colour (its top edge and icon tile) is the one its icon wears.
     column.dataset.accent = (widget.data && widget.data.accent) || "primary";
     if (widget.position) setBoxSpot(column, widget.position[0], widget.position[1]);
@@ -954,14 +954,14 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
     }
 
     function belowMinimumWidth(key, token) {
-        const minimum = minimums[key] && minimums[key].size;
+        const minimum = minimums[key] && minimums[key][0];
         if (!minimum) return false;
         const steps = sizeChoices.map((choice) => choice.value);
         return steps.indexOf(token) < steps.indexOf(minimum);
     }
 
     function minimumRows(key) {
-        return (minimums[key] && minimums[key].rows) || 6;
+        return (minimums[key] && minimums[key][1]) || 6;
     }
 
     /** A short pulse on the box and a spoken note: this is as small as it goes. */

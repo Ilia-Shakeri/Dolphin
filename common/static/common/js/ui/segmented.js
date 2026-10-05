@@ -39,7 +39,10 @@ export function setupSegmentedControls(root = document) {
             if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
             const options = [...group.querySelectorAll('[role="radio"]:not(:disabled)')];
             const index = options.findIndex((option) => option.dataset.value === input.value);
-            const step = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : -1;
+            // "Next" is the way the options read: leftwards in RTL.
+            const rtl = getComputedStyle(group).direction === "rtl";
+            const forward = event.key === "ArrowDown" || event.key === (rtl ? "ArrowLeft" : "ArrowRight");
+            const step = forward ? 1 : -1;
             const next = options[(index + step + options.length) % options.length];
             if (next) {
                 event.preventDefault();

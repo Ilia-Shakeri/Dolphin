@@ -4591,6 +4591,24 @@ body .btn {
     outline-offset: 2px;
 }
 
+/* The larger toggle (2.40.5): a choice that is the whole of its step. */
+.dolphin-segmented-lg .dolphin-segmented-option {
+    min-height: 48px;
+    min-width: 9rem;
+    padding: 0 1.75rem;
+    font-size: 1rem;
+}
+@media (max-width: 575.98px) {
+    .dolphin-segmented-lg {
+        display: flex;
+        width: 100%;
+    }
+    .dolphin-segmented-lg .dolphin-segmented-option {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
 /* --- smooth reveal (2.34.6) -------------------------------------------------
    Content that appears under a choice. A grid row animates from 0fr to 1fr, so
    the height needs no measuring; `inert` (set by the script) keeps the collapsed
