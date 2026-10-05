@@ -1,5 +1,6 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
-import {gregorianToJalali, jalaliMonthLength, jalaliToGregorian, parseJalaliInput, tehranParts} from "dolphin/core/jalali.js";
+import {JALALI_MONTH_NAMES, PERSIAN_WEEKDAY_NAMES, displayDate, displayDay, gregorianToJalali, jalaliMonthLength, jalaliToGregorian, parseJalaliInput, tehranParts, tehranToInstant} from "dolphin/core/jalali.js";
+import {errorText, showError} from "dolphin/core/messages.js";
 import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
 
 /**
@@ -298,4 +299,164 @@ export function addMoveToDateControl(info, onMove) {
         if (event.key === "Enter" || event.key === " ") open(event);
     });
     host.append(control);
+}
+
+/**
+ * The instant to store for a moved event (2.40.12).
+ *
+ * A timed event's `Date` is already the instant. An all-day event's `Date`
+ * is midnight *in the browser's* time zone, and `toISOString()` on it named
+ * a different instant for every reader outside Tehran — an all-day follow-up
+ * dragged from abroad landed on the day before. All-day means midnight in
+ * Tehran, the panel's own zone, whatever zone the browser is in.
+ */
+export function calendarInstant(date, allDay) {
+    if (!allDay) return date.toISOString();
+    return tehranToInstant(date.getFullYear(), date.getMonth() + 1, date.getDate(), 0, 0).toISOString();
+}
+
+function jalaliDayLabel(date) {
+    const [, , day] = gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    return toPersianDigits(String(day));
+}
+
+function jalaliTitle(date, exact) {
+    const [year, month, day] = gregorianToJalali(date.getFullYear(), date.getMonth() + 1, date.getDate());
+    const monthYear = `${JALALI_MONTH_NAMES[month - 1]} ${toPersianDigits(String(year))}`;
+    // `exact`: the day view has only one date on screen and nothing else
+    // naming it, unlike month view (numbered cells) or week view (a date
+    // under each column's own header) — so its title carries the day too.
+    return exact ? `${toPersianDigits(String(day))} ${monthYear}` : monthYear;
+}
+
+/**
+ * One Jalali FullCalendar (2.40.12) — the shell the follow-up calendar and the
+ * after-sales calendar shared line for line while each kept its own copy.
+ *
+ * What differs is passed in:
+ * - `fetchEvents(fetchInfo)` resolves to FullCalendar events for the range;
+ * - `recordOf(event)` is the record an event belongs to, or `null` for one
+ *   that is shown but not moved here (a campaign person on the lead side);
+ * - `save(id, instant)` stores a new time (an ISO instant, `calendarInstant`);
+ * - `popover(event, when)` builds the hover card from `textContent` only —
+ *   `innerHTML` is read once, for Bootstrap's Popover, after every value in
+ *   it was already escaped;
+ * - `eventUrl(event)` is where clicking an event goes.
+ *
+ * Returns the calendar, already rendered.
+ */
+export function createJalaliCalendar({container, loading, errorNode, fetchEvents, recordOf, save, popover, eventUrl}) {
+    const persist = async (event, date) => {
+        await save(event.id, calendarInstant(date, event.allDay));
+    };
+    let calendar;
+    calendar = new FullCalendar.Calendar(container, {
+        direction: "rtl",
+        height: "auto",
+        firstDay: 6, // Saturday — the Iranian week start.
+        // A month grid shows one Jalali month whole; days of the next and
+        // previous Gregorian months would otherwise appear in it.
+        showNonCurrentDates: false,
+        // `jalaliMonth`, not FullCalendar's own `dayGridMonth`: that one is a
+        // *Gregorian* month (see `jalaliMonthRange`).
+        initialView: "jalaliMonth",
+        views: {jalaliMonth: {...JALALI_MONTH_VIEW, buttonText: "ماه"}},
+        customButtons: jalaliCalendarButtons(() => calendar),
+        // Two prev/next pairs, swapped by `datesSet`: the custom one steps a
+        // whole Jalali month, FullCalendar's own a fixed week or day.
+        headerToolbar: {start: "jalaliNext,jalaliPrev,next,prev today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+        buttonText: {today: "امروز", week: "هفته", day: "روز"},
+        dayHeaderContent: (arg) => {
+            const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];
+            if (arg.view.type === "jalaliMonth") return weekday;
+            const wrap = document.createElement("div");
+            const nameLine = document.createElement("div");
+            nameLine.textContent = weekday;
+            // Small and muted: the row is the day names; the date stays
+            // because a week with no dates cannot be read.
+            const dayLine = document.createElement("div");
+            dayLine.className = "fs-8 fw-semibold text-muted";
+            dayLine.textContent = jalaliDayLabel(arg.date);
+            wrap.append(nameLine, dayLine);
+            return {domNodes: [wrap]};
+        },
+        // Numbers in the cells belong to the month view alone.
+        dayCellContent: (arg) => (arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""),
+        datesSet: (info) => {
+            const monthView = info.view.type === "jalaliMonth";
+            container.querySelectorAll(".fc-jalaliPrev-button, .fc-jalaliNext-button")
+                .forEach((button) => { button.hidden = !monthView; });
+            container.querySelectorAll(".fc-prev-button, .fc-next-button")
+                .forEach((button) => { button.hidden = monthView; });
+            const titleEl = container.querySelector(".fc-toolbar-title");
+            if (!titleEl) return;
+            if (info.view.type === "timeGridDay") {
+                titleEl.textContent = jalaliTitle(info.view.currentStart, true);
+                return;
+            }
+            const middle = new Date((info.view.currentStart.getTime() + info.view.currentEnd.getTime()) / 2);
+            titleEl.textContent = jalaliTitle(middle, false);
+        },
+        editable: true,
+        eventStartEditable: true,
+        eventDurationEditable: false,
+        ...CALENDAR_TIME_GRID_OPTIONS,
+        eventDisplay: "block",
+        eventTimeFormat: CALENDAR_TIME_FORMAT,
+        slotLabelFormat: CALENDAR_TIME_FORMAT,
+        slotLabelContent: persianSlotLabel,
+        allDayText: "تمام‌روز",
+        moreLinkText: (count) => `+${toPersianDigits(String(count))} مورد دیگر`,
+        events: async (fetchInfo, successCallback, failureCallback) => {
+            try {
+                const events = await fetchEvents(fetchInfo);
+                loading.hidden = true;
+                errorNode.hidden = true;
+                container.hidden = false;
+                successCallback(events);
+            } catch (error) {
+                loading.hidden = true;
+                errorNode.textContent = errorText(error);
+                errorNode.hidden = false;
+                failureCallback(error);
+            }
+        },
+        eventClick: (info) => { window.location.href = eventUrl(info.event); },
+        ...monthEdgeDragHooks(() => calendar, container),
+        eventDrop: async (info) => {
+            try {
+                await persist(info.event, info.event.start);
+            } catch (error) {
+                info.revert();
+                showError(error);
+            }
+        },
+        eventDidMount: (info) => {
+            persianiseEventTime(info);
+            if (!recordOf(info.event)) return;
+            addMoveToDateControl(info, async (moved) => {
+                try {
+                    await persist(info.event, moved);
+                    calendar.refetchEvents();
+                } catch (error) {
+                    showError(error);
+                }
+            });
+            const when = info.event.allDay ? displayDay(info.event.startStr) : displayDate(info.event.startStr);
+            const content = popover(info.event, when);
+            if (!content) return;
+            new bootstrap.Popover(info.el, {
+                trigger: "hover focus",
+                placement: "top",
+                html: true,
+                customClass: "lead-calendar-popover",
+                content: content.innerHTML,
+            });
+        },
+        eventWillUnmount: (info) => {
+            bootstrap.Popover.getInstance(info.el)?.dispose();
+        },
+    });
+    calendar.render();
+    return calendar;
 }

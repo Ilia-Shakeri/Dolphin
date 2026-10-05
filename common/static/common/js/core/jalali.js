@@ -99,7 +99,7 @@ function tehranOffsetMinutes(utcMillis) {
 }
 
 /** Tehran wall-clock parts -> the exact instant they name. */
-function tehranToInstant(year, month, day, hour, minute) {
+export function tehranToInstant(year, month, day, hour, minute) {
     const naive = Date.UTC(year, month - 1, day, hour, minute);
     // Two passes settle the offset even across a DST transition.
     let guess = naive - tehranOffsetMinutes(naive) * 60000;
