@@ -8,47 +8,65 @@
    rhythm. Its social sign-in, "remember me", password reset and sign-up links
    are deliberately not carried over — Client-1 policy is username and password
    only, and a control may exist here only if it really works. {% endcomment %}
-<div class="d-flex flex-column flex-root" id="dolphin_app_root">
+{% comment %} 2.40.4: the same two halves — the form, and the brand on its fixed dark
+   aside — with motion that only ever moves `transform` and `opacity`: the
+   aside's light drifts slowly behind the mark, and the mark, the title, the two
+   fields and the button arrive one after another. `prefers-reduced-motion`
+   turns all of it off (dolphin.css, "Login page"). Nothing here is fetched
+   from anywhere else, and the form's contract — its one action, its two
+   field names, CSRF, the autocomplete hints a password manager reads — is
+   exactly what it was. {% endcomment %}
+<div class="d-flex flex-column flex-root login-page" id="dolphin_app_root">
     <div class="d-flex flex-column flex-lg-row flex-column-fluid">
-        <div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-10 order-2 order-lg-1">
+        <div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-6 p-sm-10 order-2 order-lg-1">
             <div class="d-flex flex-center flex-column flex-lg-row-fluid">
-                <div class="w-lg-500px p-10">
+                <div class="login-card w-100 p-6 p-sm-10" id="login-card">
                     <form class="form w-100" id="login-form" action="/api/v1/auth/login/" method="post" novalidate>
                         {% csrf_token %}
-                        <div class="text-center mb-11">
+                        <div class="text-center mb-10 login-enter" style="--login-step: 1">
                             <h1 class="text-gray-900 fw-bolder mb-3" id="login-title">ورود به سامانه</h1>
-                            <div class="text-gray-500 fw-semibold fs-6">نام کاربری و گذرواژه سازمانی خود را وارد کنید.</div>
+                            <div class="text-gray-600 fw-semibold fs-6">نام کاربری و گذرواژه سازمانی خود را وارد کنید.</div>
                         </div>
                         <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>
-                        <div class="fv-row mb-8">
-                            <label class="form-label fs-6 fw-bolder text-gray-900" for="login-username">نام کاربری</label>
-                            <input class="form-control bg-transparent" id="login-username" name="username" type="text" autocomplete="username" required maxlength="150">
+                        <div class="fv-row mb-7 login-enter" style="--login-step: 2">
+                            <div class="form-floating">
+                                <input class="form-control" id="login-username" name="username" type="text" placeholder=" " autocomplete="username" required maxlength="150" autofocus>
+                                <label for="login-username">نام کاربری</label>
+                            </div>
                             <p class="text-danger fs-8 mt-1 mb-0" data-error-for="username"></p>
                         </div>
-                        <div class="fv-row mb-8">
-                            <label class="form-label fs-6 fw-bolder text-gray-900" for="login-password">گذرواژه</label>
-                            <input class="form-control bg-transparent" id="login-password" name="password" type="password" autocomplete="current-password" required>
+                        <div class="fv-row mb-7 login-enter" style="--login-step: 3">
+                            <div class="form-floating login-password">
+                                <input class="form-control" id="login-password" name="password" type="password" placeholder=" " autocomplete="current-password" required aria-describedby="login-caps">
+                                <label for="login-password">گذرواژه</label>
+                                <button type="button" class="btn btn-icon btn-sm login-password-toggle" id="login-password-toggle"
+                                        aria-controls="login-password" aria-pressed="false" aria-label="نمایش گذرواژه">
+                                    <i class="di-duotone di-eye fs-2" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                                </button>
+                            </div>
+                            <p class="text-warning-emphasis fs-8 mt-1 mb-0 login-caps" id="login-caps" role="status" hidden>کلید Caps Lock روشن است.</p>
                             <p class="text-danger fs-8 mt-1 mb-0" data-error-for="password"></p>
                         </div>
-                        <div class="d-grid mb-10">
-                            <button class="btn btn-primary" type="submit">ورود</button>
+                        <div class="d-grid login-enter" style="--login-step: 4">
+                            <button class="btn btn-primary login-submit" type="submit">ورود</button>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
-        <div class="d-flex flex-lg-row-fluid w-lg-50 bgi-size-cover bgi-position-center order-1 order-lg-2" style="background-color:#1e1e2d">
-            <div class="d-flex flex-column flex-center py-15 px-5 px-md-15 w-100">
+        <div class="d-flex flex-lg-row-fluid w-lg-50 order-1 order-lg-2 login-aside" style="background-color:#1e1e2d">
+            <div class="login-aside-light" aria-hidden="true"></div>
+            <div class="d-flex flex-column flex-center py-10 py-lg-15 px-5 px-md-15 w-100 login-aside-content">
                 {% comment %} The full name lockup, not the bare icon plus separate headings: on
                    this dark aside it is the one place the brand gets to be the whole story,
                    large and on its own. A custom brand has no equivalent combined-lockup
                    image to upload (only a plain logo mark), so it gets the mark plus the
                    name as text instead of the same single pre-composed asset. {% endcomment %}
                 {% if brand_is_custom %}
-                <img class="brand-mark brand-mark-login mb-4" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" style="max-height:120px" onerror="this.hidden=true">
-                <div class="text-white fs-2 fw-bold mb-3">{{ brand_name }}</div>
+                <img class="brand-mark brand-mark-login mb-4 login-enter" style="--login-step: 0; max-height:120px" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" onerror="this.hidden=true">
+                <div class="text-white fs-2 fw-bold mb-3 login-enter" style="--login-step: 1">{{ brand_name }}</div>
                 {% else %}
-                <picture>
+                <picture class="login-enter" style="--login-step: 0">
                     <source type="image/webp" srcset="{% static 'common/brand/Logo-With-Name.webp' %}">
                     <img class="brand-mark brand-mark-login mb-7" src="{% static 'common/brand/Logo-With-Name.png' %}" width="1343" height="1024" alt="Dolphin | دلفین">
                 </picture>

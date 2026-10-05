@@ -643,6 +643,133 @@ dialog::backdrop {
     color: #C4CADA;
 }
 
+/* Login page (2.40.4) -----------------------------------------------------------
+   Motion moves only `transform` and `opacity`, so it never re-lays out the page:
+   the aside's light drifts slowly behind the mark; the mark, the title, the two
+   fields and the button arrive in turn (`--login-step`); a refusal shakes the
+   card once; a success fades it. All of it is off under reduced motion. */
+.login-page .login-card {
+    max-width: 30rem;
+    border-radius: 1rem;
+    transition: opacity var(--dolphin-dur) var(--dolphin-ease), transform var(--dolphin-dur) var(--dolphin-ease);
+}
+.login-page .login-card.login-success {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.99);
+}
+.login-page .login-shake {
+    animation: login-shake 360ms var(--dolphin-ease) 1;
+}
+@keyframes login-shake {
+    20%, 60% { transform: translateX(-0.4rem); }
+    40%, 80% { transform: translateX(0.4rem); }
+}
+.login-page .login-enter {
+    animation: login-enter 520ms var(--dolphin-ease) both;
+    animation-delay: calc(var(--login-step, 0) * 90ms + 80ms);
+}
+@keyframes login-enter {
+    from { opacity: 0; transform: translateY(0.75rem); }
+}
+/* Floating labels sit on the inline start, as everything else in RTL does. */
+.login-page .form-floating > label {
+    inset-inline-start: 0;
+    right: auto;
+    transform-origin: 100% 0;
+}
+.login-page .form-floating > .form-control {
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+/* Room for the show/hide button on the inline end, so typed text never runs under it. */
+.login-page .login-password > .form-control {
+    padding-inline-end: 3rem;
+}
+.login-page .login-password-toggle {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 0.5rem;
+    z-index: 3;
+    width: 2.75rem;
+    height: 2.75rem;
+    transform: translateY(-50%);
+    color: var(--bs-gray-600);
+}
+.login-page .login-password-toggle:hover,
+.login-page .login-password-toggle:focus-visible,
+.login-page .login-password-toggle[aria-pressed="true"] {
+    color: var(--bs-primary);
+}
+.login-page .login-submit {
+    min-height: 3rem;
+    font-size: 1rem;
+}
+/* The aside: the fixed dark panel, with two soft lights drifting behind the mark. */
+.login-page .login-aside {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+.login-page .login-aside-content {
+    position: relative;
+    z-index: 1;
+}
+.login-page .login-aside-light,
+.login-page .login-aside-light::after {
+    position: absolute;
+    z-index: 0;
+    width: 70%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.5;
+    will-change: transform;
+}
+.login-page .login-aside-light {
+    top: -20%;
+    inset-inline-start: -15%;
+    background: radial-gradient(closest-side, rgb(27 132 255 / 45%), transparent);
+    animation: login-drift 18s ease-in-out infinite alternate;
+}
+.login-page .login-aside-light::after {
+    content: "";
+    top: 90%;
+    inset-inline-start: 70%;
+    background: radial-gradient(closest-side, rgb(0 162 157 / 40%), transparent);
+    animation: login-drift 22s ease-in-out infinite alternate-reverse;
+}
+@keyframes login-drift {
+    to { transform: translate(18%, 22%) scale(1.15); }
+}
+@media (max-width: 991.98px) {
+    /* On a phone the form leads; the aside shrinks to a brand header and its
+       lights stay still. */
+    .login-page .login-aside-light,
+    .login-page .login-aside-light::after {
+        animation: none;
+    }
+}
+@media (max-width: 575.98px) {
+    /* A phone gets the form first: the brand is a short strip, not a hero. */
+    .login-page .login-aside-content {
+        padding-block: 1.25rem !important;
+    }
+    .login-page .brand-mark-login {
+        width: min(11rem, 60%);
+        margin-bottom: 0.5rem !important;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .login-page .login-enter,
+    .login-page .login-shake,
+    .login-page .login-aside-light,
+    .login-page .login-aside-light::after {
+        animation: none;
+    }
+    .login-page .login-card {
+        transition: none;
+    }
+}
+
 /* 3. Print ---------------------------------------------------------------- */
 
 /* The printed invoice and quotation deliberately do not use the theme: paper
