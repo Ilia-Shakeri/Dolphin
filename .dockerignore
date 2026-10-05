@@ -80,7 +80,6 @@ Dockerfile
 .dockerignore
 .gitignore
 .gitattributes
-.editorconfig
 .vscode
 .idea
 *.swp
@@ -90,3 +89,12 @@ Dockerfile
 .scratch
 apple-design-skill
 DOLPHIN_*PROMPT*.md
+# A signed customer manifest is mounted at run time, never baked into an image.
+manifest.json
+# Local development settings and helpers (2.40.0).
+config/devcheck_settings.py
+config/_*_settings.py
+*.sqlite3
+Claude outputs
+codex-plugin-cc-probe
+wheels

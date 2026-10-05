@@ -54,6 +54,8 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     ("private key", "**/*.key"),
     ("database dump", "**/*.sql.gz"),
     ("database file", "**/*.sqlite3"),
+    ("signed customer manifest", "manifest.json"),
+    ("development settings", "config/devcheck_settings.py"),
     ("editor metadata", ".vscode"),
     ("editor metadata", ".idea"),
     # The reference template tree lives in one folder at the repository root

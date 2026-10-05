@@ -73,11 +73,14 @@ class PreviewHelperTests(SimpleTestCase):
         self.assertFalse(_reachable(port, timeout=0.2))
 
     def test_free_port_skips_a_port_already_bound(self):
+        # Bound to a port the OS hands out, never a fixed number another process
+        # on the machine might already hold (that made this test flaky).
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as taken:
-            taken.bind(("127.0.0.1", 8918))
+            taken.bind(("127.0.0.1", 0))
             taken.listen(1)
-            port = preview_runner._free_port(start=8918)
-            self.assertNotEqual(port, 8918)
+            busy = taken.getsockname()[1]
+            port = preview_runner._free_port(start=busy)
+            self.assertNotEqual(port, busy)
 
     def test_status_is_none_when_nothing_is_running(self):
         preview_runner.stop()  # in case an earlier test in this run left one

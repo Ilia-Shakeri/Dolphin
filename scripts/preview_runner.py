@@ -84,7 +84,13 @@ _current = None  # PreviewState | None
 def _free_port(start=DEFAULT_PORT_START, attempts=50):
     for candidate in range(start, start + attempts):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            # On Windows SO_REUSEADDR lets a bind succeed on a port another
+            # socket is listening on, so a busy port looked free; exclusive use
+            # is the Windows equivalent of the POSIX behaviour.
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            else:
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 probe.bind(("127.0.0.1", candidate))
             except OSError:
