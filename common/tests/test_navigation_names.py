@@ -41,6 +41,23 @@ class NavigationRegistryTests(SimpleTestCase):
             for retired in RETIRED:
                 self.assertNotIn(retired, eyebrow, path.name)
 
+    def test_every_eyebrow_anywhere_is_a_group_name(self):
+        """Detail and profile pages too, not only the pages in the menu
+        (2.40.16): the eyebrow names the menu group the reader came from."""
+        import re
+
+        allowed = {group.label for group in GROUPS} | {"مدیریت پلتفرم", "مدیریت تیم فروش", "مدیریت فنی", "حساب من", "تنظیمات استقرار"}
+        roots = [TEMPLATES, Path(__file__).resolve().parents[2] / "profiles" / "templates"]
+        for root in roots:
+            for path in root.rglob("*.html"):
+                block = re.search(r"{% block page_eyebrow %}(.*?){% endblock %}", path.read_text(encoding="utf-8"), re.S)
+                if not block or "{{" in block.group(1):
+                    continue
+                text = re.sub(r"<[^>]+>", "", block.group(1))
+                for word in re.split(r"{%[^%]*%}", text):
+                    if word.strip():
+                        self.assertIn(word.strip(), allowed, path.name)
+
     def test_every_registered_page_has_a_label(self):
         self.assertTrue(all(LABELS.values()))
 
