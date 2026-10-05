@@ -759,7 +759,7 @@ function placeDashboardWidget(grid, widget) {
     column.dataset.heightChosen = widget.height_chosen ? "1" : "";
     const minimum = (dashboardLayoutState()?.minimums || {})[widget.key];
     if (minimum) column.dataset.minRows = String(minimum.rows);
-    // The box's accent colour (glow and top edge) is the one its icon wears.
+    // The box's accent colour (its top edge and icon tile) is the one its icon wears.
     column.dataset.accent = (widget.data && widget.data.accent) || "primary";
     if (widget.position) setBoxSpot(column, widget.position[0], widget.position[1]);
     grid.appendChild(column);
@@ -1861,6 +1861,19 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
     });
 }
 
+/**
+ * One KPI card (2.40.3): the icon in a tinted tile and the title beside it
+ * at the inline start; at the inline end a chip with the change and a
+ * sparkline in the icon's hue; the big figure below, and one muted caption.
+ * In RTL that puts the icon and title on the right and the chip on the left.
+ *
+ * Contract, all from the server (`common.dashboard._kpi`): `icon`,
+ * `accent` (the tone), `label`, `display` (the shortened figure, unit
+ * included) and `full_display`, `delta` (`{text, direction, tone}` or
+ * `null` — a chip only when there is a real comparison or count), `spark`
+ * (a real series or `null`), `caption`, `url`. Nothing is invented: no
+ * chip without a base, no line under three points.
+ */
 function kpiCard(kpi) {
     const column = document.createElement("div");
     column.className = "col-sm-6 col-xl-3";
@@ -1868,8 +1881,7 @@ function kpiCard(kpi) {
     // A link when the figure has somewhere to go, a plain card when it
     // does not — rather than an anchor with a dead href.
     const card = document.createElement(kpi.url ? "a" : "div");
-    card.className = "card card-flush h-100 text-decoration-none"
-        + (kpi.url ? " border-hover-primary" : "");
+    card.className = "card card-flush h-100 text-decoration-none kpi-card";
     if (kpi.url) card.href = kpi.url;
     // Deliberately not `data-kpi`: the performance panel further down
     // this same page already owns that attribute for its own four
@@ -1878,19 +1890,17 @@ function kpiCard(kpi) {
     card.dataset.dashboardKpi = kpi.key;
 
     const body = document.createElement("div");
-    body.className = "card-body d-flex flex-column justify-content-between py-6";
+    body.className = "card-body kpi-card-body";
 
-    const top = document.createElement("div");
-    top.className = "d-flex align-items-center justify-content-between mb-4";
-    const symbol = document.createElement("span");
-    // Bigger and bolder than before (product-owner request 2026-09-11,
-    // "رنگی و جذاب" — colourful and eye-catching): 50px/fs-1 rather than
-    // 40px/fs-2, the theme's own next size step up, not an arbitrary one.
-    symbol.className = "symbol symbol-50px";
-    const symbolLabel = document.createElement("span");
-    symbolLabel.className = `symbol-label bg-light-${kpi.accent}`;
+    const head = document.createElement("div");
+    head.className = "kpi-card-head";
+    const titleRow = document.createElement("div");
+    titleRow.className = "kpi-card-title-row";
+    const tile = document.createElement("span");
+    tile.className = "kpi-card-icon";
+    tile.setAttribute("aria-hidden", "true");
     const icon = document.createElement("i");
-    icon.className = `di-duotone ${kpi.icon} fs-1 text-${kpi.accent}`;
+    icon.className = `di-duotone ${kpi.icon}`;
     // Per-glyph path count, sent by the server for the same reason the
     // reminder bell and the timeline take it from there.
     for (let index = 1; index <= (kpi.icon_paths || 2); index += 1) {
@@ -1898,60 +1908,68 @@ function kpiCard(kpi) {
         path.className = `path${index}`;
         icon.appendChild(path);
     }
-    symbolLabel.appendChild(icon);
-    symbol.appendChild(symbolLabel);
-    top.appendChild(symbol);
+    tile.appendChild(icon);
+    const title = document.createElement("span");
+    title.className = "kpi-card-title dashboard-kpi-label";
+    title.textContent = kpi.label;
+    titleRow.append(tile, title);
+    head.appendChild(titleRow);
+
+    let spark = null;
+    const trailing = document.createElement("div");
+    trailing.className = "kpi-card-trailing";
+    if (kpi.delta) trailing.appendChild(kpiChip(kpi.delta));
+    // A line needs at least three points to be a shape; fewer is no line.
+    if (Array.isArray(kpi.spark) && kpi.spark.length >= 3) {
+        spark = document.createElement("div");
+        spark.className = "kpi-sparkline";
+        spark.setAttribute("role", "img");
+        spark.setAttribute("aria-label", `روند ${kpi.label}: ${kpi.spark.length} دورهٔ اخیر`);
+        trailing.appendChild(spark);
+    }
+    if (trailing.childElementCount) head.appendChild(trailing);
 
     const value = document.createElement("span");
-    value.className = "dashboard-kpi-value text-gray-900 fw-bolder lh-1";
+    value.className = "dashboard-kpi-value";
     value.textContent = kpi.display;
-    // A shortened amount keeps its exact figure one hover away.
-    if (kpi.full_display) value.title = kpi.full_display;
-
-    const label = document.createElement("span");
-    label.className = "dashboard-kpi-label text-gray-700 fw-semibold mt-2";
-    label.textContent = kpi.label;
-
-    // A month/week-over-month change reads its direction from a sentence
-    // ("۱۲٪ کمتر از...") alone otherwise — the theme's own stat widgets
-    // (widgets/statistics.html) pair that sentence with an arrow colour
-    // so the direction reads before the words do. Only drawn when the
-    // backend actually computed one (`_change_direction`, common/
-    // dashboard.py) — a KPI with no month-over-month base (e.g. مطالبات
-    // باز) keeps its plain hint rather than a fabricated arrow.
-    const hint = document.createElement("span");
-    hint.className = "d-flex align-items-center gap-1 fs-8 mt-1";
-    if (kpi.direction === "up" || kpi.direction === "down") {
-        const isUp = kpi.direction === "up";
-        const arrow = document.createElement("i");
-        arrow.className = `di-duotone di-arrow-${isUp ? "up" : "down"} fs-7 text-${isUp ? "success" : "danger"}`;
-        arrow.appendChild(document.createElement("span")).className = "path1";
-        arrow.appendChild(document.createElement("span")).className = "path2";
-        const text = document.createElement("span");
-        text.className = "text-muted";
-        text.textContent = kpi.hint;
-        hint.append(arrow, text);
-    } else {
-        hint.classList.add("text-muted");
-        hint.textContent = kpi.hint;
+    // A shortened amount keeps its exact figure one hover away, and a
+    // screen reader hears the exact one.
+    if (kpi.full_display) {
+        value.title = kpi.full_display;
+        value.setAttribute("aria-label", kpi.full_display);
     }
 
-    body.append(top, value, label, hint);
-
-    // The spark slot only exists when there is something to put in it —
-    // an empty 36px strip under every tile, spark or not, would be a
-    // blank gap on the three-quarters of KPIs that have no cheap series
-    // to draw one from.
-    let spark = null;
-    if (kpi.spark) {
-        spark = document.createElement("div");
-        spark.className = "kpi-sparkline mt-3";
-        body.appendChild(spark);
+    body.append(head, value);
+    if (kpi.caption) {
+        const caption = document.createElement("span");
+        caption.className = "kpi-card-caption";
+        caption.textContent = kpi.caption;
+        body.appendChild(caption);
     }
 
     card.appendChild(body);
     column.appendChild(card);
     return {column, spark};
+}
+
+/** The change chip: an arrow and a sign as well as the colour, so the
+ * direction never rests on colour alone. */
+function kpiChip(delta) {
+    const chip = document.createElement("span");
+    chip.className = "kpi-chip";
+    chip.dataset.tone = delta.tone || "primary";
+    if (delta.direction === "up" || delta.direction === "down") {
+        const arrow = document.createElement("i");
+        arrow.className = `di-duotone di-arrow-${delta.direction === "up" ? "up" : "down"}`;
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.appendChild(document.createElement("span")).className = "path1";
+        arrow.appendChild(document.createElement("span")).className = "path2";
+        chip.appendChild(arrow);
+    }
+    const text = document.createElement("bdi");
+    text.textContent = delta.text;
+    chip.appendChild(text);
+    return chip;
 }
 
 /**
@@ -2217,7 +2235,7 @@ function renderGaugeChart(chart, empty, value, options = {}) {
  * in it.
  */
 function renderSparkline(el, values, options = {}) {
-    if (!el || !Array.isArray(values) || values.length < 2) return;
+    if (!el || !Array.isArray(values) || values.length < 3) return;
     const {accent = "primary"} = options;
     const color = getComputedStyle(document.documentElement).getPropertyValue(`--bs-${accent}`).trim()
         || chartPalette()[0];
@@ -2227,11 +2245,19 @@ function renderSparkline(el, values, options = {}) {
         liveCharts.delete(el);
     }
     el.replaceChildren();
+    // One smooth stroke over a very soft fill of the same hue, no axes, no
+    // shadow, and a dot on the latest point — the figure below is that
+    // point (2.40.3). Not animated: a tile redraws on every theme switch.
     const instance = new ApexCharts(el, {
-        chart: {height: 36, type: "line", sparkline: {enabled: true}, animations: {enabled: false}},
+        chart: {height: 36, type: "area", sparkline: {enabled: true}, animations: {enabled: false}, dropShadow: {enabled: false}},
         series: [{data: values}],
         colors: [color],
         stroke: {curve: "smooth", width: 2},
+        fill: {type: "solid", opacity: 0.08},
+        markers: {
+            size: 0,
+            discrete: [{seriesIndex: 0, dataPointIndex: values.length - 1, size: 3, fillColor: color, strokeColor: color}],
+        },
         tooltip: {enabled: false},
     });
     instance.render();

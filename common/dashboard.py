@@ -62,7 +62,7 @@ TOP_SELLERS = 5
 
 def _kpi(
     key, label, *, display, hint="", icon="di-element-11", icon_paths=4, accent="primary", url=None,
-    spark=None, direction=None, full_display="",
+    spark=None, direction=None, full_display="", delta=None, caption=None,
 ):
     return {
         "key": key,
@@ -89,6 +89,12 @@ def _kpi(
         # same "absent, not fabricated" rule every other optional part of
         # this panel already follows.
         "spark": spark,
+        # The card's chip (2.40.3): `{"text", "direction", "tone"}` from a real
+        # comparison or a real count, or `None` — never a placeholder. When a
+        # chip carries the comparison, `caption` says what it compares against
+        # so the card does not repeat the same figure in words.
+        "delta": delta,
+        "caption": caption if caption is not None else hint,
     }
 
 
@@ -117,6 +123,37 @@ def _change_hint(current, previous, *, noun):
     if current:
         return f"در {noun} گذشته چیزی ثبت نشده بود"
     return f"در این {noun} چیزی ثبت نشده"
+
+
+def _change_delta(current, previous):
+    """The chip for exactly the comparison `_change_hint` words: «+۱۲٪» or
+    «−۸٪», or `None` when there is no base or no change."""
+    if not previous or previous <= 0:
+        return None
+    percent = int(round((current - previous) / previous * 100))
+    if percent == 0:
+        return None
+    up = percent > 0
+    return {
+        "text": f"{'+' if up else '−'}{formatting.persian_digits(abs(percent))}٪",
+        "direction": "up" if up else "down",
+        "tone": "success" if up else "danger",
+    }
+
+
+def _count_chip(count, words, tone):
+    """A chip that states a real count («۷ تسویه‌نشده»); none for zero."""
+    if not count:
+        return None
+    return {"text": f"{formatting.persian_digits(count)} {words}", "direction": None, "tone": tone}
+
+
+def _compared_caption(current, previous, *, noun):
+    """The caption under a figure whose chip carries the change: what the
+    chip compares against; the full hint when there is no chip."""
+    if _change_delta(current, previous):
+        return f"نسبت به همین بازه در {noun} گذشته"
+    return _change_hint(current, previous, noun=noun)
 
 
 def _change_direction(current, previous):
@@ -177,6 +214,7 @@ def _sales_kpis(user, *, now, unit, trend=None):
     amount = this_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
     previous = last_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
     count = this_month.count()
+    previous_count = last_month.count()
     # The tile's own spark rides on the trend this same call already computed
     # (`dashboard_for` builds it first) rather than a second query — the last
     # SPARK_WEEKS points of the same twelve-week series, oldest first, same
@@ -190,14 +228,18 @@ def _sales_kpis(user, *, now, unit, trend=None):
             full_display=formatting.money(amount, unit),
             hint=_change_hint(amount, previous, noun="ماه"),
             direction=_change_direction(amount, previous),
+            delta=_change_delta(amount, previous),
+            caption=_compared_caption(amount, previous, noun="ماه"),
             icon="di-chart-line-up", icon_paths=2, accent="success", url=source.url,
             spark=amount_spark,
         ),
         _kpi(
             "sales_count_this_month", "تعداد فروش این ماه",
             display=formatting.persian_digits(count),
-            hint=_change_hint(count, last_month.count(), noun="ماه"),
-            direction=_change_direction(count, last_month.count()),
+            hint=_change_hint(count, previous_count, noun="ماه"),
+            direction=_change_direction(count, previous_count),
+            delta=_change_delta(count, previous_count),
+            caption=_compared_caption(count, previous_count, noun="ماه"),
             icon="di-basket", icon_paths=4, accent="primary", url=source.url,
             spark=count_spark,
         ),
@@ -221,6 +263,8 @@ def _receivables_kpi(user, *, now, unit):
             display=formatting.money_compact(outstanding, unit),
             full_display=formatting.money(outstanding, unit),
             hint=f"{formatting.persian_digits(unpaid)} فاکتور تسویه‌نشده",
+            delta=_count_chip(unpaid, "تسویه‌نشده", "warning"),
+            caption="مانده‌ی فاکتورهای صادرشده",
             icon="di-wallet", icon_paths=4, accent="warning", url="/reports/receivables/",
         )
     ]
@@ -252,6 +296,8 @@ def _call_kpi(user, *, now):
             display=formatting.persian_digits(this_week),
             hint=_change_hint(this_week, last_week, noun="هفته"),
             direction=_change_direction(this_week, last_week),
+            delta=_change_delta(this_week, last_week),
+            caption=_compared_caption(this_week, last_week, noun="هفته"),
             icon="di-call", icon_paths=8, accent="info", url="/interactions/",
             spark=buckets,
         )
@@ -261,15 +307,15 @@ def _call_kpi(user, *, now):
 def _after_sales_kpis(user, *, now):
     scope = after_sales_requests_for(user)
     open_cases = scope.filter(closed_at__isnull=True)
+    with_appointment = open_cases.filter(next_appointment_at__isnull=False).count()
     start, _previous_start, _previous_end = _month_bounds(now)
     return [
         _kpi(
             "after_sales_open", "پرونده‌های باز",
             display=formatting.persian_digits(open_cases.count()),
-            hint=(
-                f"{formatting.persian_digits(open_cases.filter(next_appointment_at__isnull=False).count())}"
-                " مورد با قرار ثبت‌شده"
-            ),
+            hint=f"{formatting.persian_digits(with_appointment)} مورد با قرار ثبت‌شده",
+            delta=_count_chip(with_appointment, "با قرار", "info"),
+            caption="پرونده‌های بسته‌نشده",
             icon="di-wrench", icon_paths=2, accent="danger", url="/after-sales/",
         ),
         _kpi(

@@ -592,20 +592,32 @@ class KpiDirectionArrowTests(SimpleTestCase):
     """A KPI tile's own hint used to be a plain sentence — "۱۰٪ کمتر از
     ماه گذشته" — with no arrow or colour, so telling an increase from a
     decrease meant reading the whole thing (design review, 2026-09-12).
-    `kpiCard` now draws a themed up/down arrow when the backend actually
-    computed a direction, and leaves the plain sentence alone otherwise."""
+    Since 2.40.3 the arrow sits in the card's change chip (`kpiChip`), drawn
+    only when the backend computed a direction, with the sign in the text as
+    well, so the direction never rests on colour alone. The chip's tone comes
+    from the server (`common.dashboard._change_delta`)."""
 
     script = (
         PANEL_SCRIPT
     ).read_text(encoding="utf-8")
 
     def test_the_kpi_card_draws_a_themed_arrow_for_a_real_direction(self):
-        start = self.script.index("function kpiCard(kpi)")
-        end = self.script.index("\n    function ", start + 1)
+        start = self.script.index("function kpiChip(delta)")
+        end = self.script.index("function gaugeCard(", start)
         body = self.script[start:end]
-        self.assertIn('kpi.direction === "up"', body)
-        self.assertIn('di-arrow-${isUp ? "up" : "down"}', body)
-        self.assertIn('text-${isUp ? "success" : "danger"}', body)
+        self.assertIn('if (delta.direction === "up" || delta.direction === "down")', body)
+        self.assertIn('di-arrow-${delta.direction === "up" ? "up" : "down"}', body)
+        self.assertIn('chip.dataset.tone = delta.tone', body)
+        self.assertIn("if (kpi.delta) trailing.appendChild(kpiChip(kpi.delta));", self.script)
+
+    def test_the_server_signs_the_change_and_picks_the_tone(self):
+        from common.dashboard import _change_delta
+
+        self.assertEqual(_change_delta(112, 100), {"text": "+۱۲٪", "direction": "up", "tone": "success"})
+        self.assertEqual(_change_delta(92, 100), {"text": "−۸٪", "direction": "down", "tone": "danger"})
+        # No base, or no change: no chip, never a fabricated one.
+        self.assertIsNone(_change_delta(5, 0))
+        self.assertIsNone(_change_delta(100, 100))
 
 
 class SharedFormattingTests(SimpleTestCase):

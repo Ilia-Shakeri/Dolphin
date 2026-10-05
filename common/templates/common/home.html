@@ -126,24 +126,20 @@
          aria-label="نمای کلی دسترسی مجاز">
     {% for widget in dashboard_widgets %}
     <div class="dashboard-widget {{ widget.size }}" data-widget-key="{{ widget.key }}" data-widget-label="{{ widget.label }}" data-accent="{{ widget.accent }}" data-height-chosen="{% if widget.height_chosen %}1{% endif %}" style="--dashboard-rows: {{ widget.height }}{% if widget.position %}; --dashboard-x: {{ widget.position.0 }}; --dashboard-y: {{ widget.position.1 }}{% endif %}">
-        {% comment %} The theme's stat tile: an icon-font glyph in an accented symbol, the figure,
-           then the label. Icon and accent are presentation carried on the widget;
-           the figure and its scope come from the capability check in the view. {% endcomment %}
-        <a class="card card-flush h-100 text-decoration-none border-hover-primary" data-capability="{{ widget.capability }}" href="{% url widget.url_name %}">
-            <div class="card-body d-flex flex-column justify-content-between py-4">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    {% comment %} 50px/fs-1 rather than 40px/fs-2 — the theme's
-                       own next size step up (product-owner request
-                       2026-09-11, "رنگی و جذاب"). {% endcomment %}
-                    <span class="symbol symbol-50px">
-                        <span class="symbol-label bg-light-{{ widget.accent }}">
-                            <i class="di-duotone {{ widget.icon }} fs-1 text-{{ widget.accent }}">{% for path in ""|ljust:widget.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i>
-                        </span>
-                    </span>
-                    <i class="di-duotone di-arrow-left fs-4 text-gray-500"><span class="path1"></span><span class="path2"></span></i>
+        {% comment %} The same KPI card as the insight figures below (2.40.3,
+           `kpiCard` in dashboard.js): the icon in a tinted tile and the label
+           beside it, the figure under them. No chip: a capability tile has a
+           count, not a comparison, and a chip is never invented. The figure
+           and its scope come from the capability check in the view. {% endcomment %}
+        <a class="card card-flush h-100 text-decoration-none kpi-card" data-capability="{{ widget.capability }}" href="{% url widget.url_name %}">
+            <div class="card-body kpi-card-body">
+                <div class="kpi-card-head">
+                    <div class="kpi-card-title-row">
+                        <span class="kpi-card-icon" aria-hidden="true"><i class="di-duotone {{ widget.icon }}">{% for path in ""|ljust:widget.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span>
+                        <span class="kpi-card-title">{{ widget.label }}</span>
+                    </div>
                 </div>
                 <span class="dashboard-kpi-value text-gray-900 fw-bolder lh-1">{{ widget.value|persian_digits }}</span>
-                <span class="text-gray-700 fw-semibold fs-7 mt-2">{{ widget.label }}</span>
             </div>
         </a>
     </div>

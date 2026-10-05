@@ -723,16 +723,16 @@ dialog::backdrop {
 
 /* 4. Theme repairs and product polish ------------------------------------- */
 
-/* The purchased bundle compiles nine declarations as
+/* The UI kit's theme bundle was compiled with nine declarations of the form
    `box-shadow: false, 0 0 0 0.25rem …`. `false` is not a valid shadow, so the
-   browser discards the whole declaration and the focus ring the theme intends
-   never appears — on `.form-control`, `.form-select`, and every validation
-   state. Buttons are fine, because their focus rule is valid CSS.
+   browser discarded each whole declaration and the focus ring never appeared
+   — on `.form-control`, `.form-select`, and every validation state. Those
+   dead declarations were deleted from `dolphin-theme.rtl.css` in 2.40.3
+   (deleting them changes no rendering).
 
-   This restores the ring the theme meant to draw rather than inventing a new
+   This draws the ring the theme meant to draw rather than inventing a new
    one, and uses `:focus-visible` so it appears for keyboard users without
-   ringing every mouse click. Recompiling the vendor Sass would be the other
-   fix; this is the one that does not fork the purchased theme. */
+   ringing every mouse click. */
 .form-control:focus-visible,
 .form-select:focus-visible,
 .form-check-input:focus-visible,
@@ -1834,11 +1834,11 @@ dialog {
    `--bs-<accent>*` variables, which are redefined for dark mode — so the
    halo follows the theme instead of being a colour frozen into this file.
 
-   The halo itself is deliberately two shadows, not a border: a 1px inset-
-   looking ring at low alpha to draw the column's edge, and a soft, offset
-   glow beneath it. A border would have moved every column by a pixel and
-   fought the vendor's own box model; a shadow paints outside the box and
-   changes no geometry at all. */
+   The edge is a 1px ring drawn as a shadow, not a border: a border would
+   have moved every column by a pixel and fought the vendor's own box model;
+   a shadow paints outside the box and changes no geometry at all. The soft
+   coloured glow that used to sit beneath it was removed in 2.40.3 — the
+   panel draws no coloured halos (the dashboard dropped its own in 2.39). */
 #lead-board .kanban-board[data-accent="primary"],
 #order-board .kanban-board[data-accent="primary"] {
     --dolphin-board-accent: var(--bs-primary);
@@ -1878,8 +1878,7 @@ dialog {
 #lead-board .kanban-board[data-accent],
 #order-board .kanban-board[data-accent] {
     box-shadow:
-        0 0 0 1px rgba(var(--dolphin-board-accent-rgb), 0.22),
-        0 0.75rem 1.75rem -0.9rem rgba(var(--dolphin-board-accent-rgb), 0.45);
+        0 0 0 1px rgba(var(--dolphin-board-accent-rgb), 0.22);
 }
 /* The tinted header rounds its own top corners to match the board's, rather
    than the board clipping it with `overflow: hidden` — a clipping container
@@ -4655,11 +4654,123 @@ tr.is-removing > td {
     border-radius: 0 0 2px 2px;
     background: var(--dashboard-accent);
 }
+/* Hover changes the edge colour only (2.40.3): no lift and no deeper shadow,
+   so a pointer crossing the grid never makes the boxes jump. */
 body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.card:hover,
 body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:hover {
-    transform: translateY(-2px);
     border-color: var(--bs-gray-400);
-    box-shadow: var(--dolphin-elev-2);
+}
+body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-card:hover,
+body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-card:focus-visible {
+    border-color: var(--dashboard-accent);
+}
+
+/* --- The KPI card (2.40.3) ------------------------------------------------------
+
+   One component for every figure on the dashboard — the capability tiles and
+   the insight KPIs (`kpiCard`, dashboard.js). Inline start: the icon in a
+   tinted rounded tile and the title. Inline end: a chip with the change (arrow
+   and sign, not colour alone) and a sparkline in the icon's hue. Below: the
+   figure, tabular, then one muted caption. The tone is the widget's accent
+   (`data-accent` → `--dashboard-accent`); the chip's ink is that tone darkened
+   (light) or lightened (dark) far enough for 4.5:1 on its tint
+   (`test_kpi_card.ContrastTests`). */
+.kpi-card { --kpi-chip-tone: var(--bs-primary); }
+.kpi-card .kpi-chip[data-tone="success"] { --kpi-chip-tone: var(--bs-success); }
+.kpi-card .kpi-chip[data-tone="warning"] { --kpi-chip-tone: var(--bs-warning); }
+.kpi-card .kpi-chip[data-tone="info"] { --kpi-chip-tone: var(--bs-info); }
+.kpi-card .kpi-chip[data-tone="danger"] { --kpi-chip-tone: var(--bs-danger); }
+.kpi-card .kpi-chip { --kpi-chip-ink: color-mix(in srgb, var(--kpi-chip-tone) 55%, #000); }
+[data-bs-theme=dark] .kpi-card .kpi-chip { --kpi-chip-ink: color-mix(in srgb, var(--kpi-chip-tone) 45%, #fff); }
+
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card {
+    border-radius: 1rem;
+}
+/* The accent line across the top belongs to the chart cards; a KPI card's
+   colour is its icon tile. */
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card::before {
+    content: none;
+}
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card > .kpi-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.kpi-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.kpi-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+.kpi-card-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--dashboard-accent) 14%, transparent);
+    color: var(--dashboard-accent);
+    font-size: 1.5rem;
+}
+.kpi-card-icon i,
+.kpi-card-icon i [class^="path"] {
+    color: var(--dashboard-accent);
+}
+.kpi-card-title {
+    color: var(--bs-gray-800);
+    font-weight: 600;
+    font-size: clamp(0.85rem, 4.2cqi, 1rem);
+    line-height: 1.4;
+}
+.kpi-card-trailing {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+}
+.kpi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--kpi-chip-tone) 14%, transparent);
+    color: var(--kpi-chip-ink);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-chip i,
+.kpi-chip i [class^="path"] {
+    color: var(--kpi-chip-ink);
+    font-size: 0.85rem;
+}
+.kpi-card .kpi-sparkline {
+    width: 5.5rem;
+    height: 36px;
+}
+[data-dashboard-grid] .dashboard-widget .kpi-card .dashboard-kpi-value {
+    margin-top: auto;
+    font-size: clamp(1.4rem, 9cqi, 2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-card-caption {
+    /* gray-700, not 600: 600 is 3.6:1 on a white card, under AA for small text. */
+    color: var(--bs-gray-700);
+    font-size: 0.8rem;
+    line-height: 1.5;
 }
 [data-dashboard-grid] > .dashboard-widget > .card > .card-body {
     min-height: 0;

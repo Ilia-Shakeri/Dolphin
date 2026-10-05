@@ -2373,7 +2373,6 @@ progress {
   background-clip: padding-box;
   border: 1px solid var(--bs-gray-300);
   border-radius: 0.475rem;
-  box-shadow: false;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2392,7 +2391,6 @@ progress {
   background-color: var(--bs-body-bg);
   border-color: var(--bs-gray-400);
   outline: 0;
-  box-shadow: false, 0 0 0 0.25rem rgba(27, 132, 255, 0.25);
 }
 .form-control::-webkit-date-and-time-value {
   min-width: 85px;
@@ -2529,7 +2527,6 @@ textarea.form-control-lg {
   background-size: 16px 12px;
   border: 1px solid var(--bs-gray-300);
   border-radius: 0.475rem;
-  box-shadow: false;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2540,7 +2537,6 @@ textarea.form-control-lg {
 .form-select:focus {
   border-color: var(--bs-gray-400);
   outline: 0;
-  box-shadow: false, 0 0 0 0.25rem rgba(var(--bs-component-active-bg), 0.25);
 }
 .form-select[multiple], .form-select[size]:not([size="1"]) {
   padding-left: 1rem;
@@ -3015,7 +3011,6 @@ textarea.form-control-lg {
 }
 .was-validated .form-control:valid:focus, .form-control.is-valid:focus {
   border-color: var(--bs-form-valid-border-color);
-  box-shadow: false, 0 0 0 0.25rem rgba(var(--bs-success-rgb), 0.25);
 }
 
 .was-validated textarea.form-control:valid, textarea.form-control.is-valid {
@@ -3034,7 +3029,6 @@ textarea.form-control-lg {
 }
 .was-validated .form-select:valid:focus, .form-select.is-valid:focus {
   border-color: var(--bs-form-valid-border-color);
-  box-shadow: false, 0 0 0 0.25rem rgba(var(--bs-success-rgb), 0.25);
 }
 
 .was-validated .form-control-color:valid, .form-control-color.is-valid {
@@ -3105,7 +3099,6 @@ textarea.form-control-lg {
 }
 .was-validated .form-control:invalid:focus, .form-control.is-invalid:focus {
   border-color: var(--bs-form-invalid-border-color);
-  box-shadow: false, 0 0 0 0.25rem rgba(var(--bs-danger-rgb), 0.25);
 }
 
 .was-validated textarea.form-control:invalid, textarea.form-control.is-invalid {
@@ -3124,7 +3117,6 @@ textarea.form-control-lg {
 }
 .was-validated .form-select:invalid:focus, .form-select.is-invalid:focus {
   border-color: var(--bs-form-invalid-border-color);
-  box-shadow: false, 0 0 0 0.25rem rgba(var(--bs-danger-rgb), 0.25);
 }
 
 .was-validated .form-control-color:invalid, .form-control-color.is-invalid {
@@ -36227,7 +36219,6 @@ code:not([class*=language-]).code-dark {
 }
 .form-select:focus {
   border-color: var(--bs-gray-400);
-  box-shadow: false, 0 0 0 0.25rem rgba(var(--bs-component-active-bg), 0.25);
 }
 .form-select:disabled {
   color: var(--bs-gray-500);
