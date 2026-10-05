@@ -43,7 +43,8 @@ class ChecklistPolishTests(SimpleTestCase):
 
     def test_typing_a_search_never_marks_a_wizard_changed(self):
         self.assertIn('search.dataset.dirtyIgnore = "";', self.script)
-        self.assertIn('if (event.target?.closest?.("[data-dirty-ignore]")) return;', self.wizard)
+        dialogs = (SCRIPTS / "ui" / "dialogs.js").read_text(encoding="utf-8")
+        self.assertIn('if (event.target?.closest?.("[data-dirty-ignore]")) return;', dialogs)
 
     def test_nothing_ticked_means_all_only_where_it_does(self):
         self.assertIn('(emptyMeansAll ? "هیچ‌کدام (یعنی همه)" : "هیچ‌کدام")', self.script)

@@ -52,7 +52,7 @@
             <div class="col-12"><label class="form-label fw-semibold" for="cheque-transition-reason">دلیل</label><textarea class="form-control form-control-solid" id="cheque-transition-reason" name="reason" maxlength="500"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div>
         </div>
         <p class="text-muted">تنها گذارهای مجاز از وضعیت فعلی نمایش داده می‌شوند. ثبت «وصول» حساب مشتری را بستانکار می‌کند؛ «بازگردانده‌شده» یا «ابطال» اثر مالی چک را برمی‌گرداند.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت وضعیت</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت وضعیت</button></div>
     </form>
 </dialog>
 {% comment %} خرج کردن چک دریافتی: همان چک است که به دیگری داده می‌شود، پس
@@ -65,7 +65,7 @@
             <div class="col-12"><label class="form-label fw-semibold" for="spend-cheque-reason">توضیح</label><input class="form-control form-control-solid" id="spend-cheque-reason" maxlength="500"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p></div>
         </div>
         <p class="text-muted fs-7 mt-5">با خرج شدن چک، سند دریافت مربوط به آن بسته می‌شود؛ چون پول دیگر از این مسیر به حساب ما نمی‌آید.</p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button id="confirm-spend-cheque" class="btn btn-primary" type="button">ثبت</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button id="confirm-spend-cheque" class="btn btn-primary" type="button">ثبت</button></div>
     </form>
 </dialog>
 {% endblock %}

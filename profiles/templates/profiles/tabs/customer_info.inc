@@ -41,6 +41,6 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="phone-label">برچسب</label><input class="form-control form-control-solid" id="phone-label" name="label" maxlength="40"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
             <div class="col-12 d-flex align-items-center gap-3"><input class="form-check-input" id="phone-primary" name="is_primary" type="checkbox"><label class="form-label fw-semibold" for="phone-primary">شماره اصلی</label><p class="text-danger fs-8 mt-1 mb-0" data-error-for="is_primary"></p></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره تلفن</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تلفن</button></div>
     </form>
 </dialog>

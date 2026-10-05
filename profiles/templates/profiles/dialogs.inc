@@ -40,7 +40,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="profile-task-assignee">مسئول</label><select class="form-select form-select-solid" id="profile-task-assignee" name="assignee">{% for pk, name in task_assignees %}<option value="{{ pk }}"{% if pk == default_task_assignee %} selected{% endif %}>{{ name }}</option>{% endfor %}</select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="assignee"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="profile-task-notes">توضیح</label><textarea class="form-control form-control-solid" id="profile-task-notes" name="notes" maxlength="2000" rows="3"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="person"></p></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ثبت وظیفه</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ثبت وظیفه</button></div>
     </form>
 </dialog>
 {% endif %}

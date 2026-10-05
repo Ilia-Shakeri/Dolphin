@@ -35,7 +35,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="extension-label">برچسب</label><input class="form-control form-control-solid" id="extension-label" name="label" maxlength="120" placeholder="مثلاً میز پذیرش"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
             <div class="col-12 d-flex align-items-center gap-3"><input class="form-check-input" id="extension-active" name="active" type="checkbox" checked><label class="form-label fw-semibold mb-0" for="extension-active">فعال</label></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
     </form>
 </dialog>
 {% endif %}
@@ -144,7 +144,7 @@
             <div class="col-12 d-flex align-items-center gap-3"><input class="form-check-input" id="integration-enabled" name="enabled" type="checkbox"><label class="form-label fw-semibold mb-0" for="integration-enabled">روشن باشد</label></div>
             <p class="col-12 text-danger fs-8 mb-0" data-error-for="secrets"></p>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
     </form>
 </dialog>
 
@@ -156,7 +156,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold required" for="subscription-url">نشانی (https)</label><input class="form-control form-control-solid" id="subscription-url" name="url" type="url" required maxlength="500" dir="ltr" placeholder="https://"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="url"></p></div>
             <fieldset class="col-12"><legend class="form-label fw-semibold fs-6">رویدادها <span class="text-muted fs-8 fw-normal">(هیچ‌کدام = همه)</span></legend><div class="d-flex flex-wrap gap-4" id="subscription-events"></div><p class="text-danger fs-8 mt-1 mb-0" data-error-for="event_types"></p></fieldset>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ذخیره</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره</button></div>
     </form>
 </dialog>
 
@@ -169,7 +169,7 @@
             <fieldset class="col-md-6"><legend class="form-label fw-semibold fs-6">دامنه</legend><div class="d-flex gap-5"><label class="d-flex align-items-center gap-2"><input class="form-check-input" type="checkbox" name="scopes" value="read" checked>خواندن</label><label class="d-flex align-items-center gap-2"><input class="form-check-input" type="checkbox" name="scopes" value="write">نوشتن</label></div><p class="text-danger fs-8 mt-1 mb-0" data-error-for="scopes"></p></fieldset>
             <div class="col-md-6"><label class="form-label fw-semibold" for="token-expires">انقضا (اختیاری)</label><input class="form-control form-control-solid" id="token-expires" name="expires_at" type="text" data-jalali="datetime"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="expires_at"></p></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ساخت توکن</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ساخت توکن</button></div>
     </form>
 </dialog>
 

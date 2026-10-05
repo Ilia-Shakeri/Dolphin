@@ -1,5 +1,5 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
-import {confirmDialog} from "dolphin/ui/dialogs.js";
+import {guardDirtyDialog} from "dolphin/ui/dialogs.js";
 import {wizardsByForm} from "dolphin/core/form-errors.js";
 
 /**
@@ -22,65 +22,13 @@ import {wizardsByForm} from "dolphin/core/form-errors.js";
  * all: the wizard only decides which step is visible.
  */
 /**
- * Wizards whose form has been touched since they were opened. One listener
- * warns before the tab is closed or reloaded while any is open and dirty.
- */
-const dirtyWizards = new Set();
-let unloadGuardBound = false;
-
-const UNSAVED_MESSAGE = "تغییرات ذخیره نشده‌اند. آیا مطمئن هستید که می‌خواهید خارج شوید؟";
-
-function bindUnloadGuard() {
-    if (unloadGuardBound) return;
-    unloadGuardBound = true;
-    window.addEventListener("beforeunload", (event) => {
-        if (!dirtyWizards.size) return;
-        event.preventDefault();
-        event.returnValue = "";
-    });
-}
-
-/**
- * The shared rules for closing a wizard, applied to every one of them here
- * rather than page by page:
- *
- * - "dirty" means the reader changed a field (a trusted `input`/`change`
- *   event). Values the page fills in itself are not changes.
- * - closing a pristine wizard is immediate;
- * - closing a dirty one from its close control asks first;
- * - Escape never closes a dirty wizard (it would throw the entries away
- *   without a question) but closes a pristine one;
- * - the backdrop never closes a wizard at all (`setupDialogBackdropClose`).
- *
- * Closing from code, after a successful save, is not intercepted.
+ * A wizard closes by the shared dialog rules (`guardDirtyDialog`,
+ * `ui/dialogs.js`): untouched closes at once, touched asks first, Escape
+ * never discards entries, and — unlike other dialogs — the backdrop never
+ * closes a wizard at all (`setupDialogBackdropClose`).
  */
 function guardWizardClosing(dialog, form) {
-    if (!(dialog instanceof HTMLDialogElement) || !form) return;
-    bindUnloadGuard();
-    const markDirty = (event) => {
-        // A control that only narrows what is shown (a checklist's search
-        // box) is not an answer; typing in it changes nothing to lose.
-        if (event.target?.closest?.("[data-dirty-ignore]")) return;
-        if (event.isTrusted || event.userInitiated) dirtyWizards.add(dialog);
-    };
-    form.addEventListener("input", markDirty);
-    form.addEventListener("change", markDirty);
-    new MutationObserver(() => {
-        if (dialog.open) dirtyWizards.delete(dialog);
-    }).observe(dialog, {attributes: true, attributeFilter: ["open"]});
-    dialog.addEventListener("close", () => dirtyWizards.delete(dialog));
-    dialog.addEventListener("cancel", (event) => {
-        if (dirtyWizards.has(dialog)) event.preventDefault();
-    });
-    dialog.addEventListener("click", async (event) => {
-        if (!event.target.closest?.("[data-close-dialog]") || !dirtyWizards.has(dialog)) return;
-        event.stopPropagation();
-        event.preventDefault();
-        if (await confirmDialog(UNSAVED_MESSAGE)) {
-            dirtyWizards.delete(dialog);
-            dialog.close();
-        }
-    }, true);
+    guardDirtyDialog(dialog, form);
 }
 
 export function setupWizard(dialog, {onReachLastStep, validateStep} = {}) {

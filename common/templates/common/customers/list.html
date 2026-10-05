@@ -229,7 +229,7 @@
     <div class="row g-5">
         <div class="col-12"><label class="form-label fw-semibold" for="export-customers-kind">لیست</label><select class="form-select form-select-solid" id="export-customers-kind"><option value="individual">{% customer_kind_label "individual" %}</option>{% if can_manage_customer_kinds %}<option value="legal">{% customer_kind_label "legal" %}</option>{% endif %}</select></div>
     </div>
-    <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button id="download-customers" class="btn btn-primary" type="button">دانلود</button></div>
+    <div class="d-flex justify-content-end gap-3 mt-6"><button id="download-customers" class="btn btn-primary" type="button">دانلود</button></div>
 </dialog>
 {% if can_manage_customer_kinds %}
 <dialog id="import-customers-dialog" aria-labelledby="import-customers-title">
@@ -238,7 +238,7 @@
         <div class="col-12"><label class="form-label fw-semibold" for="import-customers-kind">لیست</label><select class="form-select form-select-solid" id="import-customers-kind"><option value="individual">{% customer_kind_label "individual" %}</option><option value="legal">{% customer_kind_label "legal" %}</option></select></div>
         <div class="col-12"><label class="form-label fw-semibold" for="import-customers-file">بارگذاری فایل</label><input class="form-control form-control-solid" id="import-customers-file" type="file" accept=".xlsx"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="file"></p></div>
     </div>
-    <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button id="upload-customers" class="btn btn-primary" type="button">بارگذاری</button></div>
+    <div class="d-flex justify-content-end gap-3 mt-6"><button id="upload-customers" class="btn btn-primary" type="button">بارگذاری</button></div>
 </dialog>
 {% endif %}
 {% endblock %}

@@ -45,7 +45,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="create-campaign-budget">بودجه ({{ panel_currency_label }})</label><input class="form-control form-control-solid" id="create-campaign-budget" name="budget" type="text" inputmode="numeric" data-money-input><p class="text-danger fs-8 mt-1 mb-0" data-error-for="budget"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="create-campaign-responsibles">مسئولان</label><select class="form-select form-select-solid" id="create-campaign-responsibles" name="responsibles" multiple>{% for pk, name in customer_owner_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}</select><p class="text-muted fs-8 mt-1 mb-0">هر کسی را که می‌خواهید تیک بزنید.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="responsibles"></p></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">ساخت کمپین</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ساخت کمپین</button></div>
     </form>
 </dialog>
 {% endif %}

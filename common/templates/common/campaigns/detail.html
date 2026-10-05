@@ -53,7 +53,7 @@
             <div class="col-md-6"><label class="form-label fw-semibold" for="add-member-phone">تلفن</label><input class="form-control form-control-solid" id="add-member-phone" name="raw_phone" maxlength="40" dir="ltr" inputmode="tel" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="raw_phone"></p></div>
             <div class="col-12"><label class="form-label fw-semibold" for="add-member-assignee">واگذاری به (اختیاری)</label><select class="form-select form-select-solid" id="add-member-assignee" name="assigned_to"><option value="">بدون واگذاری</option>{% for pk, name in customer_owner_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}</select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="assigned_to"></p></div>
         </div>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-primary" type="submit">افزودن</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">افزودن</button></div>
     </form>
 </dialog>
 {% endif %}
@@ -61,7 +61,7 @@
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="member-lost-title">ازدست‌رفتن مخاطب</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <form id="member-lost-form" novalidate>
         <label class="form-label fw-semibold" for="member-lost-reason">دلیل</label><input class="form-control form-control-solid" id="member-lost-reason" name="lost_reason" maxlength="300" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="lost_reason"></p>
-        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button class="btn btn-danger" type="submit">ثبت</button></div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-danger" type="submit">ثبت</button></div>
     </form>
 </dialog>
 {% endblock %}
