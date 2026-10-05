@@ -2,7 +2,7 @@
 {% block title %}جزئیات کمپین{% endblock %}
 {% block page_id %}campaign-detail{% endblock %}
 {% block body_data %} data-campaign-id="{{ campaign_id }}"{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">کمپین</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">کمپین‌ها</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-send page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}جزئیات کمپین{% endblock %}
 {% block breadcrumb_current %}جزئیات کمپین{% endblock %}
@@ -12,7 +12,7 @@
 <section id="campaign-content" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <div class="d-flex flex-stack flex-wrap gap-3 mb-5">
         <div><h2 class="fs-3 fw-bold text-gray-900 mb-1" id="campaign-name"></h2><div class="d-flex flex-wrap gap-2 align-items-center"><span class="badge badge-light-primary" id="campaign-status"></span><span class="text-muted fs-7" id="campaign-channel"></span></div></div>
-        {% if can_manage_campaigns %}<div class="d-flex flex-wrap gap-2" id="campaign-status-actions"></div>{% endif %}
+        {% if can_manage_campaigns %}<div class="d-flex flex-wrap gap-2"><button id="open-edit-campaign" class="btn btn-sm btn-light-primary" type="button">ویرایش کمپین</button><div class="d-flex flex-wrap gap-2" id="campaign-status-actions"></div></div>{% endif %}
     </div>
     <dl class="row mb-0" id="campaign-facts"></dl>
 </div></section>
@@ -30,6 +30,21 @@
     <nav id="campaign-members-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden><button id="campaign-members-prev" class="btn btn-light" type="button">قبلی</button><span id="campaign-members-page-label"></span><button id="campaign-members-next" class="btn btn-light" type="button">بعدی</button></nav>
 </div></section>
 {% if can_manage_campaigns %}
+<dialog id="edit-campaign-dialog" aria-labelledby="edit-campaign-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="edit-campaign-title">ویرایش کمپین</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="edit-campaign-form" novalidate>
+        <div class="row g-5">
+            <div class="col-12"><label class="form-label fw-semibold" for="edit-campaign-name">نام کمپین</label><input class="form-control form-control-solid" id="edit-campaign-name" name="name" maxlength="120" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="name"></p></div>
+            <div class="col-12"><fieldset><legend class="form-label fw-semibold">راه‌های ارتباط با مخاطب</legend><div class="d-flex flex-wrap gap-4">{% for value, label in campaign_channels %}<label class="form-check form-check-custom form-check-solid"><input class="form-check-input" type="checkbox" name="channels" value="{{ value }}"><span class="form-check-label">{{ label }}</span></label>{% endfor %}</div><p class="text-muted fs-8 mt-1 mb-0">حداقل یک مورد را تیک بزنید.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="channels"></p></fieldset></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-campaign-starts">شروع</label><input class="form-control form-control-solid" id="edit-campaign-starts" name="starts_on" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="starts_on"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-campaign-ends">پایان</label><input class="form-control form-control-solid" id="edit-campaign-ends" name="ends_on" type="text" data-jalali="date"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="ends_on"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-campaign-target">هدف (تعداد مخاطب)</label><input class="form-control form-control-solid" id="edit-campaign-target" name="target_count" type="text" inputmode="numeric" dir="ltr" autocomplete="off" data-decimal-input data-decimal-places="0"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="target_count"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="edit-campaign-budget">بودجه ({{ panel_currency_label }})</label><input class="form-control form-control-solid" id="edit-campaign-budget" name="budget" type="text" inputmode="numeric" data-money-input><p class="text-danger fs-8 mt-1 mb-0" data-error-for="budget"></p></div>
+            <div class="col-12"><label class="form-label fw-semibold" for="edit-campaign-responsibles">مسئولان</label><select class="form-select form-select-solid" id="edit-campaign-responsibles" name="responsibles" multiple>{% for pk, name in customer_owner_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}</select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="responsibles"></p></div>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیرهٔ تغییرات</button></div>
+    </form>
+</dialog>
 <dialog id="add-member-dialog" aria-labelledby="add-member-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="add-member-title">افزودن مخاطب</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <form id="add-member-form" novalidate>

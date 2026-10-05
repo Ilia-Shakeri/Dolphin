@@ -54,3 +54,31 @@ class SidebarReachabilityTests(TestCase):
         self.client.force_login(agent)
         modules = {module for module, _ in self.sidebar_links(self.client.get("/").content.decode("utf-8"))}
         self.assertFalse(modules & {"payments", "disbursements", "cheques", "installments", "receivables-report", "profit-report"})
+
+
+class PageNamesMatchTheMenuTests(TestCase):
+    """A page's <title> and breadcrumb read exactly as its menu entry (2.40.0)."""
+
+    TITLE = re.compile(r"<title>(.*?) \|", re.S)
+    LINK = re.compile(r'<a (?:id="[^"]+" )?data-module="([^"]+)" class="menu-link" href="(/[^"]*)">(?:<span class="menu-bullet">.*?</span></span>)?\s*(?:<span class="menu-icon">.*?</span>\s*)?<span class="menu-title">(.*?)</span>', re.S)
+
+    def test_title_and_breadcrumb_equal_the_menu_label(self):
+        cache.clear()
+        for index, role in enumerate((User.Role.SALES_MANAGER, User.Role.PLATFORM_ADMIN, User.Role.SALES_AGENT)):
+            user = User.objects.create_user(username=f"names.{index}", password=PASSWORD, role=role)
+            self.client.force_login(user)
+            home = self.client.get("/").content.decode("utf-8")
+            sidebar = home[home.index('id="app-sidebar"'):]
+            links = self.LINK.findall(sidebar)
+            self.assertGreater(len(links), 5, role)
+            for module, href, label in links:
+                if href == "/":
+                    continue  # the dashboard's title names the role's own panel
+                page = self.client.get(href)
+                if page.status_code != 200:
+                    continue
+                html = page.content.decode("utf-8")
+                crumb = re.search(r'<li class="breadcrumb-item text-gray-900">(.*?)</li>', html, re.S)
+                with self.subTest(role=role, module=module):
+                    self.assertEqual(self.TITLE.search(html).group(1).strip(), label.strip())
+                    self.assertEqual(crumb.group(1).strip(), label.strip())

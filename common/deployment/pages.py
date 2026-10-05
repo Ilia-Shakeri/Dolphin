@@ -54,7 +54,7 @@ PAGE_TITLES = {
     "common_ui:campaigns": "کمپین‌ها",
     "common_ui:campaign-detail": "جزئیات کمپین",
     "common_ui:campaign-results": "نتایج کمپین‌ها",
-    "common_ui:campaign-analytics": "آنالیز کمپین‌ها",
+    "common_ui:campaign-analytics": "تحلیل کمپین‌ها",
     "common_ui:sales-documents": "رهگیری پستی",
     "common_ui:sales-document-detail": "جزئیات سند فروش",
     "common_ui:products": "محصولات",

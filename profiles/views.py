@@ -124,7 +124,7 @@ class PersonScoreView(APIView):
 
 
 class PersonAnalysisView(APIView):
-    """`GET profiles/customer/<id>/analysis/` — the customer «آنالیز» tab (2.33.0)."""
+    """`GET profiles/customer/<id>/analysis/` — the customer «تحلیل» tab (2.33.0)."""
 
     permission_classes = [IsActiveAuthenticated]
 

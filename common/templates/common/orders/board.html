@@ -1,11 +1,13 @@
 {% extends "common/base.html" %}
+{% load navigation_tags %}
+{% block page_tabs %}{% page_tabs "supply" "order-board" %}{% endblock %}
 {% load static %}
-{% block title %}تابلوی درخواست‌های تأمین{% endblock %}
+{% block title %}تابلوی تأمین{% endblock %}
 {% block page_id %}order-board{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">فروش و تأمین</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">فروش</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-category page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>{% endblock %}
-{% block page_title %}تابلوی درخواست‌های تأمین{% endblock %}
-{% block breadcrumb_current %}تابلوی درخواست‌های تأمین{% endblock %}
+{% block page_title %}تابلوی تأمین{% endblock %}
+{% block breadcrumb_current %}تابلوی تأمین{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:orders' %}">فهرست درخواست‌های تأمین</a>{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'common/ui/plugins/jkanban/jkanban.bundle.rtl.css' %}?v={{ dolphin_version }}">

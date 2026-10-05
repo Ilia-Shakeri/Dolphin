@@ -1,8 +1,10 @@
 {% extends "common/base.html" %}
+{% load navigation_tags %}
+{% block page_tabs %}{% page_tabs "leads" "lead-board" %}{% endblock %}
 {% load static %}
 {% block title %}تابلوی سرنخ‌ها{% endblock %}
 {% block page_id %}lead-board{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">پیگیری فروش</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">سرنخ‌ها و پیگیری</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-category page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>{% endblock %}
 {% block page_title %}تابلوی سرنخ‌ها{% endblock %}
 {% block breadcrumb_current %}تابلوی سرنخ‌ها{% endblock %}

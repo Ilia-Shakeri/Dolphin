@@ -197,11 +197,14 @@ class AttributionTests(Fixtures):
         self.assertFalse(CampaignAttribution.objects.filter(invoice=invoice).exists())
 
     def test_a_valid_invoice_converts_the_person_it_follows_and_cancelling_undoes_it(self):
-        person = self.member("09121110001")
+        # someone new enters, is called, and only then becomes a customer
+        person = self.member("09121110077")
+        self.assertFalse(person.was_customer_on_entry)
         self.called(person)
-        # a person already in the book on entry is flagged, not converted
-        self.assertTrue(person.was_customer_on_entry)
-        invoice = issue_invoice(actor=self.manager, invoice=self.invoice())
+        buyer = create_customer_with_phone(
+            actor=self.manager, full_name="خریدار تازه", phone={"raw_phone": "09121110077", "is_primary": True}
+        )
+        invoice = issue_invoice(actor=self.manager, invoice=self.invoice(customer=buyer))
         attribution = CampaignAttribution.objects.get(invoice=invoice)
         self.assertEqual((attribution.campaign, attribution.source), (self.campaign, "auto"))
         person.refresh_from_db()
@@ -215,6 +218,15 @@ class AttributionTests(Fixtures):
         rows = campaign_rows(self.manager, ids=[self.campaign.pk])
         self.assertEqual(rows[0]["converted"], 0)
         self.assertEqual(rows[0]["valid_invoices_count"], 0)
+
+    def test_a_person_who_was_already_a_customer_is_flagged_never_converted(self):
+        person = self.member("09121110001")
+        self.assertTrue(person.was_customer_on_entry)
+        self.called(person)
+        invoice = issue_invoice(actor=self.manager, invoice=self.invoice())
+        self.assertTrue(CampaignAttribution.objects.filter(invoice=invoice, campaign=self.campaign).exists())
+        person.refresh_from_db()
+        self.assertNotEqual(person.stage, "converted")
 
     def test_a_draft_never_counts(self):
         self.member("09121110001")

@@ -65,6 +65,11 @@ def _candidates(invoice, at):
 
 
 def _mark_converted(member, at):
+    # Someone who was a customer before entering the campaign is flagged, never
+    # converted (module docstring; enforced since 2.40.0). The invoice still
+    # counts for the campaign's money — only the person's stage stays.
+    if member.was_customer_on_entry:
+        return
     if member.stage != TargetAudienceMember.Stage.CONVERTED:
         member.stage = TargetAudienceMember.Stage.CONVERTED
         member.converted_at = at

@@ -17,7 +17,7 @@ from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
 from common.viewsets import AdminHardDeleteModelViewSet
 from reports.xlsx import safe_spreadsheet_text
-from sales.campaign_analytics import campaign_analysis, campaign_rows, campaigns_for, members_for
+from sales.campaign_analytics import campaign_analysis, campaign_rows, campaigns_for, members_for, unattributed_row
 from sales.campaign_attribution import attribute_manually
 from sales.campaigns import channel_labels
 from sales.campaigns import (
@@ -275,32 +275,47 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
             request.user, ids=_ids_param(request), date_from=_date_param(request, "date_from"),
             date_to=_date_param(request, "date_to"), with_money=with_money,
         )
+        # «بدون کمپین» closes the sum to the company's figures (2.40.0); only
+        # when no campaign filter narrows the view.
+        if with_money and not _ids_param(request):
+            rows.append(unattributed_row(
+                request.user, date_from=_date_param(request, "date_from"), date_to=_date_param(request, "date_to"),
+            ))
         return Response({"results": rows, "with_money": with_money})
 
     @action(detail=False, methods=["get"])
     def analytics(self, request):
         if not has_any_capability(request.user, "campaigns.analytics"):
-            raise PermissionDenied("آنالیز کمپین برای نقش شما فعال نیست.")
-        return Response(campaign_analysis(
+            raise PermissionDenied("تحلیل کمپین برای نقش شما فعال نیست.")
+        data = campaign_analysis(
             request.user, ids=_ids_param(request),
             date_from=_date_param(request, "date_from"), date_to=_date_param(request, "date_to"),
-        ))
+        )
+        if has_any_capability(request.user, "campaigns.company") and not _ids_param(request):
+            data["campaigns"].append(unattributed_row(
+                request.user, date_from=_date_param(request, "date_from"), date_to=_date_param(request, "date_to"),
+            ))
+        return Response(data)
 
     @action(detail=False, methods=["get"])
     def export(self, request):
         if not has_any_capability(request.user, "campaigns.analytics"):
-            raise PermissionDenied("خروجی آنالیز کمپین برای نقش شما فعال نیست.")
+            raise PermissionDenied("خروجی تحلیل کمپین برای نقش شما فعال نیست.")
         rows = campaign_rows(
             request.user, ids=_ids_param(request), date_from=_date_param(request, "date_from"),
             date_to=_date_param(request, "date_to"),
         )
+        if has_any_capability(request.user, "campaigns.company") and not _ids_param(request):
+            rows.append(unattributed_row(
+                request.user, date_from=_date_param(request, "date_from"), date_to=_date_param(request, "date_to"),
+            ))
         workbook = Workbook()
         sheet = workbook.active
         sheet.title = "campaigns"
         sheet.append([
             "کمپین", "وضعیت", "کانال", "اعضا", "تماس گرفته‌شده", "در تعامل", "تبدیل‌شده", "از قبل مشتری",
             "نرخ تبدیل (٪)", "فروش ثبت‌شده (تعداد)", "فروش ثبت‌شده (مبلغ)", "فاکتور معتبر (تعداد)",
-            "فاکتور معتبر (مبلغ)", "وصول‌شده", "بودجه",
+            "فاکتور معتبر (مبلغ)", "وصول‌شده", "مانده", "بودجه",
         ])
         for row in rows:
             sheet.append([
@@ -309,6 +324,7 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
                 row["conversion_rate"] if row["conversion_rate"] is not None else "",
                 row["registered_sales_count"], float(row["registered_sales_amount"]),
                 row["valid_invoices_count"], float(row["valid_invoices_amount"]), float(row["collected_amount"]),
+                float(row["remaining_amount"]),
                 float(row["budget"]) if row["budget"] is not None else "",
             ])
         stream = io.BytesIO()
@@ -377,6 +393,18 @@ class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, 
         body.is_valid(raise_exception=True)
         member = set_member_stage(actor=request.user, member=self.get_object(), **body.validated_data)
         return Response(CampaignMemberSerializer(member).data)
+
+    @extend_schema(responses={200: CampaignMemberSerializer(many=True)})
+    @action(detail=False, methods=["get"])
+    def prospects(self, request):
+        """People not yet linked to a customer, for the invoice wizard's
+        «انتخاب از اشخاص کمپین» (2.40.0). Caller's member scope; at most 500."""
+        rows = (
+            self.get_queryset().filter(customer__isnull=True)
+            .exclude(stage=TargetAudienceMember.Stage.LOST)
+            .order_by("full_name", "id")[:500]
+        )
+        return Response(CampaignMemberSerializer(rows, many=True).data)
 
     @extend_schema(responses={200: CampaignMemberSerializer(many=True)})
     @action(detail=False, methods=["get"], url_path="follow-ups")

@@ -1,7 +1,9 @@
 {% extends "common/base.html" %}
+{% load navigation_tags %}
+{% block page_tabs %}{% page_tabs "campaigns" "campaign-results" %}{% endblock %}
 {% block title %}نتایج کمپین‌ها{% endblock %}
 {% block page_id %}campaign-results{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">نتیجهٔ کار هر کمپین</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">کمپین‌ها</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-chart-simple page-heading-icon"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>{% endblock %}
 {% block page_title %}نتایج کمپین‌ها{% endblock %}
 {% block breadcrumb_current %}نتایج کمپین‌ها{% endblock %}

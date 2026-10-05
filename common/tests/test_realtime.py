@@ -250,3 +250,55 @@ class KindScopeTests(Fixtures):
 
         agent = User.objects.create_user(username="rt.agent", password=PASSWORD, role=User.Role.SALES_AGENT)
         self.assertNotIn("payment", realtime.kinds_for_capabilities(capabilities_for(agent)))
+
+
+@override_settings(REALTIME_ENABLED=True, REALTIME_SERVE_STREAMS=True)
+class HardeningTests(Fixtures):
+    def setUp(self):
+        super().setUp()
+        from django.db import connection as real
+
+        # The in-process path, on either database: these tests read the broker.
+        patcher = mock.patch.object(real, "vendor", "sqlite")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_bulk_write_announces_each_kind_once_per_transaction(self):
+        from django.db import transaction as tx
+
+        with self.captureOnCommitCallbacks(execute=True):
+            with tx.atomic():
+                for number in range(50):
+                    realtime.publish("customer", object_id=number)
+                realtime.publish("lead")
+        kinds = [event["k"] for event in self.drain()]
+        self.assertEqual(sorted(kinds), ["customer", "lead"])
+
+    def test_a_cross_site_page_cannot_open_a_stream(self):
+        request = RequestFactory().get("/api/v1/realtime/events/", HTTP_SEC_FETCH_SITE="cross-site")
+        request.user = self.manager
+        self.assertEqual(EventStreamView.as_view()(request).status_code, 403)
+        request = RequestFactory().get("/api/v1/realtime/events/", HTTP_ORIGIN="https://evil.example")
+        request.user = self.manager
+        self.assertEqual(EventStreamView.as_view()(request).status_code, 403)
+
+    @override_settings(REALTIME_MAX_PER_USER=1)
+    def test_an_evicted_stream_ends_with_a_terminal_bye(self):
+        request = RequestFactory().get("/api/v1/realtime/events/")
+        request.user = self.manager
+        with mock.patch("common.realtime_views.connections"):
+            response = EventStreamView.as_view()(request)
+        chunks = iter(response.streaming_content)
+        next(chunks)  # the opening resync
+        realtime.BROKER.subscribe(self.manager.pk)  # a newer tab pushes this one out
+        rest = "".join(chunk.decode() for chunk in chunks)
+        self.assertIn("event: bye", rest)
+        for closer in response._resource_closers:
+            closer()
+
+    def test_the_health_probe_reports_the_listener_not_just_a_flag(self):
+        with mock.patch("common.realtime.listener_running", return_value=True), \
+                mock.patch("common.realtime.listener_healthy", return_value=False):
+            response = self.client.get("/api/v1/realtime/health/")
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn("enabled", response.json())

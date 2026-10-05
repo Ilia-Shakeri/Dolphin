@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.db import IntegrityError
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
@@ -283,10 +284,28 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
             _scope_relation(self.fields["customer"], Customer.objects.none())
             _scope_relation(self.fields["interested_product"], Product.objects.none())
 
+    def get_fields(self):
+        fields = super().get_fields()
+        # A new lead belongs to a campaign (2.40.0): campaign-less leads made
+        # before stay valid, but none is created without one any more.
+        from sales.campaign_analytics import campaigns_for
+        from sales.models import Campaign
+
+        request = self.context.get("request")
+        scope = campaigns_for(request.user) if request and request.user.is_authenticated else Campaign.objects.none()
+        fields["campaign"] = serializers.PrimaryKeyRelatedField(
+            queryset=scope.exclude(status=Campaign.Status.ARCHIVED), required=self.instance is None,
+            allow_null=False, write_only=True,
+        )
+        return fields
+
     def create(self, validated_data):
         return create_lead(actor=self.context["request"].user, **validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop("campaign", None)
+        if "customer" in validated_data and validated_data["customer"] == instance.customer:
+            validated_data.pop("customer")
         return update_lead(actor=self.context["request"].user, lead=instance, **validated_data)
 
     def validate(self, attrs):
@@ -331,6 +350,10 @@ class TargetAudienceMemberSerializer(RejectServerFieldsMixin, serializers.ModelS
         _scope_relation(self.fields["lead"], queryset)
 
     def create(self, validated_data):
+        # A new person belongs to a campaign (2.40.0); people already in a
+        # campaign-less container stay as they are.
+        if validated_data["lead"].campaign_id is None:
+            raise serializers.ValidationError({"lead": "این سرنخ کمپین ندارد؛ شخص تازه را از صفحهٔ کمپین اضافه کنید."})
         return add_target_audience_member(actor=self.context["request"].user, **validated_data)
 
     def update(self, instance, validated_data):
@@ -454,6 +477,9 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
         model = Interaction
         fields = ["id", "lead", "customer", "customer_name", "target_member", "agent", "agent_display", "phone", "direction", "outcome", "occurred_at", "next_follow_up_at", "notes", "created_at", "updated_at"]
         read_only_fields = ["id", "customer", "customer_name", "agent", "agent_display", "created_at", "updated_at"]
+        # A call on a campaign person names the person; its lead is the
+        # person's own campaign container and may be left out (2.40.0).
+        extra_kwargs = {"lead": {"required": False}}
 
     def get_customer_name(self, instance) -> str:
         if instance.customer_id:
@@ -468,7 +494,12 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
         request = self.context.get("request")
         queryset = leads_for(request.user) if request and request.user.is_authenticated else Lead.objects.none()
         if request and request.user.is_authenticated and request.user.role == User.Role.SALES_AGENT:
-            queryset = queryset.filter(assigned_to=request.user)
+            # A campaign's container has no assignee; a marketer reaches it
+            # through the people in it that are assigned to them (2.40.0).
+            queryset = Lead.objects.filter(
+                Q(pk__in=queryset.filter(assigned_to=request.user).values("pk"))
+                | Q(target_audience__assigned_to=request.user)
+            ).distinct()
         _scope_relation(self.fields["lead"], queryset)
         # The identity picker offers only the audience of campaigns this user
         # may work, so a marketer searches within their own assignments.
@@ -486,6 +517,12 @@ class InteractionSerializer(RejectServerFieldsMixin, serializers.ModelSerializer
         attrs = super().validate(attrs)
         if self.instance and "lead" in attrs and attrs["lead"] != self.instance.lead:
             raise serializers.ValidationError({"lead": "سرنخ تعامل قابل تغییر نیست."})
+        if self.instance is None:
+            member = attrs.get("target_member")
+            if member is not None and attrs.get("lead") is None:
+                attrs["lead"] = member.lead
+            if attrs.get("lead") is None:
+                raise serializers.ValidationError({"lead": "سرنخ یا شخص کمپین را انتخاب کنید."})
         return attrs
 
 

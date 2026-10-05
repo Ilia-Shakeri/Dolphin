@@ -30,7 +30,7 @@ ROLE_LABELS = {
     User.Role.PLATFORM_ADMIN: "مدیر پلتفرم",
 }
 WORKSTREAM_LABELS = {
-    User.Workstream.SALES: "فروش و مرکز ارتباطات",
+    User.Workstream.SALES: "فروش و تماس‌ها",
     User.Workstream.AFTER_SALES: "خدمات پس از فروش",
 }
 
@@ -239,7 +239,7 @@ class CustomerAdapter(PersonAdapter):
         if feature_enabled("attachments"):
             tabs.append(ProfileTab("documents", "اسناد", "di-file", "profiles/tabs/documents.inc"))
         if feature_enabled("invoices") and capabilities.intersection({"invoices.scoped", "invoices.company"}):
-            tabs.append(ProfileTab("analysis", "آنالیز", "di-chart-simple", "profiles/tabs/customer_analysis.inc", 4))
+            tabs.append(ProfileTab("analysis", "تحلیل", "di-chart-simple", "profiles/tabs/customer_analysis.inc", 4))
         return tabs
 
     def quick_actions(self, viewer, person):

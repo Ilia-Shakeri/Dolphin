@@ -1,10 +1,12 @@
 {% extends "common/base.html" %}
+{% load navigation_tags %}
+{% block page_tabs %}{% page_tabs "leads" "lead-calendar" %}{% endblock %}
 {% load static %}
-{% block title %}تقویم پیگیری سرنخ‌ها{% endblock %}
+{% block title %}تقویم پیگیری{% endblock %}
 {% block page_id %}lead-calendar{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">سرنخ‌ها و مشتریان</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">سرنخ‌ها و پیگیری</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-calendar page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
-{% block page_title %}تقویم پیگیری سرنخ‌ها{% endblock %}
+{% block page_title %}تقویم پیگیری{% endblock %}
 {% block breadcrumb_current %}تقویم پیگیری{% endblock %}
 {% block page_actions %}<a class="btn btn-light" href="{% url 'common_ui:leads' %}">فهرست سرنخ‌ها</a>{% endblock %}
 {% block extra_head %}

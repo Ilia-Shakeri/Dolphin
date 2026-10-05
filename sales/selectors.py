@@ -83,11 +83,20 @@ def leads_for(user):
     return queryset.none()
 
 
+def work_leads_for(user):
+    """The leads a person works as leads (2.40.0): `leads_for` without the
+    hidden per-campaign containers (`source="campaign"`), which are plumbing
+    for campaign people, not leads anyone opens. Every lead list, count,
+    search, reminder and board reads this; authorisation still uses
+    `leads_for`."""
+    return leads_for(user).exclude(source="campaign")
+
+
 def lead_work_queue_for(user):
     if user.role != User.Role.SALES_AGENT:
         return Lead.objects.none()
     return (
-        leads_for(user)
+        work_leads_for(user)
         .filter(assigned_to=user)
         .annotate(
             _follow_up_missing=Case(
@@ -105,7 +114,10 @@ def interactions_for(user):
     if user.role == User.Role.SALES_AGENT:
         if user.workstream == User.Workstream.AFTER_SALES:
             return queryset.none()
-        return queryset.filter(lead__assigned_to=user)
+        # Their leads' calls, the calls they made themselves, and the calls on
+        # campaign people assigned to them (2.40.0) — a campaign container has
+        # no assignee, so `lead__assigned_to` alone hid a marketer's own calls.
+        return queryset.filter(Q(lead__assigned_to=user) | Q(agent=user) | Q(target_member__assigned_to=user)).distinct()
     if user.role in ELEVATED_OPERATIONAL:
         return queryset
     return queryset.none()

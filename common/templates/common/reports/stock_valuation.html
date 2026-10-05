@@ -1,10 +1,10 @@
 {% extends "common/base.html" %}
 {% block title %}ارزش موجودی{% endblock %}
 {% block page_id %}stock-valuation-report{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">گزارش‌های مالی</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">گزارش‌ها</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-cube-2 page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
-{% block page_title %}ارزش موجودی انبار{% endblock %}
-{% block breadcrumb_current %}ارزش موجودی انبار{% endblock %}
+{% block page_title %}ارزش موجودی{% endblock %}
+{% block breadcrumb_current %}ارزش موجودی{% endblock %}
 {% block page_actions %}<a id="valuation-export" class="btn btn-light" href="/api/v1/exports/stock-valuation.xlsx">{% include "common/includes/excel_icon.inc" %}خروجی اکسل</a>{% endblock %}
 {% block content %}
 {% comment %} A live search over the report's own product rows, beside the

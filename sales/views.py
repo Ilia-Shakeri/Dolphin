@@ -24,7 +24,7 @@ from common.permissions import IsActiveAuthenticated
 from common.viewsets import AdminHardDeleteModelViewSet, filter_by_date_window
 from sales.permissions import HasSalesCapability
 from sales.models import Customer, CustomerCategory, CustomerPhone, Interaction, Lead, Product, ProductCategory, Sale, SalesDocument, TargetAudienceMember
-from sales.selectors import customer_categories_for, customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for
+from sales.selectors import customer_categories_for, customers_for, interactions_for, target_audience_for, lead_work_queue_for, leads_for, phones_for, product_categories_for, products_for, sales_documents_for, sales_for, work_leads_for
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
@@ -368,7 +368,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     }
 
     def get_queryset(self):
-        queryset = leads_for(self.request.user).select_related("customer", "assigned_to", "assigned_by", "interested_product")
+        queryset = work_leads_for(self.request.user).select_related("customer", "assigned_to", "assigned_by", "interested_product")
         status_value = self.request.query_params.get("status")
         # An empty value means "every status" — the filter form's own first
         # option — and is not the same as an unknown one. A value outside
@@ -581,6 +581,8 @@ class TargetAudienceMemberViewSet(SensitiveActionThrottleMixin, AdminHardDeleteM
         except (TypeError, ValueError) as exc:
             raise ValidationError({"lead": "باید عددی صحیح و مثبت باشد."}) from exc
         lead = get_object_or_404(leads_for(request.user), pk=lead_id)
+        if lead.campaign_id is None:
+            raise ValidationError({"lead": "این سرنخ کمپین ندارد؛ فهرست اشخاص را از صفحهٔ کمپین وارد کنید."})
         result = import_target_audience_from_workbook(actor=request.user, lead=lead, stream=upload)
         return Response(TargetAudienceImportResultSerializer(result).data)
 

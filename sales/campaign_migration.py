@@ -85,13 +85,20 @@ def run_migration(*, apply):
     report.needs_review = [sorted(group) for group in groups.values() if len(group) > 1]
 
     system = ensure_system_campaigns(actor) if apply else {}
-    by_key = {c.normalized_name: c for c in Campaign.objects.all()}
+    # Only top-level campaigns: since 2.39.1 a name is unique per parent, so a
+    # sub-campaign may share a top-level name and must not swallow its leads.
+    by_key = {c.normalized_name: c for c in Campaign.objects.filter(parent__isnull=True)}
+    legacy_key = normalize_label(legacy_name)
     statuses = {}
     for lead in Lead.objects.filter(campaign__isnull=True).only("campaign_or_batch", "status"):
         key = normalize_label(lead.campaign_or_batch) or normalize_label(legacy_name)
         statuses.setdefault(key, set()).add(lead.status)
     for key, label in labels.items():
         if key in by_key:
+            continue
+        if key == legacy_key and not apply:
+            # The legacy system campaign is ensured, not created from leads; a
+            # dry run must not report it as one more campaign to create.
             continue
         report.campaigns_to_create += 1
         seen = statuses.get(key, set())

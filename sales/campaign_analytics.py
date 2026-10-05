@@ -62,17 +62,23 @@ def _valid_attributions(campaign_ids, date_from=None, date_to=None):
     return queryset
 
 
-def _first_contact_hours(members):
+def _first_contact(members):
     """Average hours from entering a campaign to the first logged interaction,
-    over people who were contacted at all; `None` when nobody was."""
+    over people who were contacted at all (`None` when nobody was), and how
+    many people were left out because their first call is dated before they
+    entered (a back-dated call, 2.40.0 — reported, not silently dropped)."""
     firsts = (
         Interaction.objects.filter(target_member__in=members)
         .values("target_member_id", "target_member__created_at")
         .annotate(first=Min("occurred_at"))
     )
     spans = [(row["first"] - row["target_member__created_at"]).total_seconds() / 3600 for row in firsts]
-    spans = [span for span in spans if span >= 0]
-    return round(sum(spans) / len(spans), 1) if spans else None
+    kept = [span for span in spans if span >= 0]
+    return (round(sum(kept) / len(kept), 1) if kept else None), len(spans) - len(kept)
+
+
+def _first_contact_hours(members):
+    return _first_contact(members)[0]
 
 
 def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=True):
@@ -158,7 +164,41 @@ def campaign_rows(user, *, ids=None, date_from=None, date_to=None, with_money=Tr
                 "budget": campaign.budget,
             })
         rows.append(row)
-    return _roll_up_children(rows)
+    rows = _roll_up_children(rows)
+    if with_money:
+        for row in rows:
+            row["remaining_amount"] = row["valid_invoices_amount"] - row["collected_amount"]
+    return rows
+
+
+def unattributed_row(user, *, date_from=None, date_to=None):
+    """«بدون کمپین» (2.40.0): issued invoices the reader may see that count for
+    no campaign, in the same shape as a campaign row, so the rows add up to the
+    company's figures. Money-capable readers only."""
+    from billing.models import Invoice
+    from billing.selectors import invoices_for
+
+    invoices = invoices_for(user).filter(status=Invoice.Status.ISSUED, campaign_attribution__isnull=True)
+    if date_from:
+        invoices = invoices.filter(issued_at__date__gte=date_from)
+    if date_to:
+        invoices = invoices.filter(issued_at__date__lte=date_to)
+    totals = invoices.aggregate(
+        n=Count("id"),
+        amount=Coalesce(Sum("total_amount"), ZERO, output_field=DecimalField()),
+        collected=Coalesce(Sum("paid_amount"), ZERO, output_field=DecimalField()),
+    )
+    return {
+        "id": None, "parent_id": None, "name": "بدون کمپین", "status": "", "status_display": "—",
+        "channels": [], "channels_display": [], "channel_display": "—", "is_system": True,
+        "starts_on": None, "ends_on": None, "target_count": None, "members": 0,
+        "stages": {stage: 0 for stage in TargetAudienceMember.Stage.values}, "contacted": 0, "engaged": 0,
+        "converted": 0, "already_customers": 0, "conversion_rate": None, "target_progress": None,
+        "children_count": 0, "registered_sales_count": 0, "registered_sales_amount": ZERO,
+        "valid_invoices_count": totals["n"], "valid_invoices_amount": totals["amount"],
+        "collected_amount": totals["collected"], "remaining_amount": totals["amount"] - totals["collected"],
+        "budget": None, "unattributed": True,
+    }
 
 
 _SUMMED = (
@@ -188,10 +228,46 @@ def _roll_up_children(rows):
             row["stages"][stage] += sum(kid["stages"][stage] for kid in kids)
         total = row["members"]
         row["conversion_rate"] = round(row["converted"] * 100 / total, 1) if total else None
+        # A parent without its own target or budget is the sum of its
+        # children's (2.40.0); one with its own keeps it — that is its cap.
+        if row.get("target_count") is None:
+            targets = [kid["target_count"] for kid in kids if kid.get("target_count") is not None]
+            row["target_count"] = sum(targets) if targets else None
+        if "budget" in row and row["budget"] is None:
+            budgets = [kid["budget"] for kid in kids if kid.get("budget") is not None]
+            row["budget"] = sum(budgets) if budgets else None
+        row["target_progress"] = round(total * 100 / row["target_count"], 1) if row.get("target_count") else None
     return rows
 
 
-def _jalali_month_series(attributions):
+def _funnel(members, campaign_ids):
+    """Each step a subset of the one before it (2.40.0), ending in money:
+    people -> contacted -> engaged -> converted -> with a valid invoice -> paid.
+    Counted as sets of people, so no step can exceed the previous one."""
+    from billing.models import Invoice
+
+    contacted = members.filter(interactions__isnull=False).values("pk").distinct()
+    engaged = members.filter(
+        pk__in=contacted,
+        stage__in=[TargetAudienceMember.Stage.ENGAGED, TargetAudienceMember.Stage.CONVERTED],
+    ).values("pk")
+    converted = members.filter(pk__in=engaged, stage=TargetAudienceMember.Stage.CONVERTED).values("pk")
+    valid = CampaignAttribution.objects.filter(
+        member__in=converted, campaign_id__in=campaign_ids, invoice__status=Invoice.Status.ISSUED
+    )
+    with_invoice = valid.values("member").distinct()
+    paid = valid.filter(invoice__paid_amount__gt=0).values("member").distinct()
+    return [
+        ("اعضای کمپین", members.count()),
+        ("تماس گرفته‌شده", contacted.count()),
+        ("در تعامل", engaged.count()),
+        ("تبدیل‌شده", converted.count()),
+        ("دارای فاکتور معتبر", with_invoice.count()),
+        ("وصول‌شده", paid.count()),
+    ]
+
+
+def _jalali_month_series(attributions, *, date_from=None, date_to=None):
     """Valid invoices per **Jalali** month (the calendar the users keep), oldest first."""
     from common.jalali import JALALI_MONTHS, to_jalali, to_persian_digits
 
@@ -207,14 +283,27 @@ def _jalali_month_series(attributions):
         bucket = buckets.setdefault((year, month), {"count": 0, "amount": ZERO})
         bucket["count"] += row["n"]
         bucket["amount"] += row["amount"]
+    # Every month in the span appears, empty ones as zero (2.40.0): a gap in
+    # the series would read as «no data» rather than «no sales».
+    keys = sorted(buckets)
+    if date_from:
+        keys.append(tuple(to_jalali(date_from)[:2]))
+    if date_to:
+        keys.append(tuple(to_jalali(date_to)[:2]))
+    span = []
+    if keys:
+        (year, month), last = min(keys), max(keys)
+        while (year, month) <= last:
+            span.append((year, month))
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
     return [
         {
             "month": f"{year}-{month:02d}",
             "label": to_persian_digits(f"{JALALI_MONTHS[month - 1]} {year}"),
-            "count": bucket["count"],
-            "amount": bucket["amount"],
+            "count": buckets.get((year, month), {}).get("count", 0),
+            "amount": buckets.get((year, month), {}).get("amount", ZERO),
         }
-        for (year, month), bucket in sorted(buckets.items())
+        for year, month in span
     ]
 
 
@@ -223,16 +312,11 @@ def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
     rows = campaign_rows(user, ids=ids, date_from=date_from, date_to=date_to)
     campaign_ids = [row["id"] for row in rows]
     members = members_for(user).filter(campaign_id__in=campaign_ids)
-    shown = {row["id"] for row in rows}
-    # Parents already carry their sub-campaigns' numbers: count top rows only.
-    top = [row for row in rows if row["parent_id"] not in shown]
-    funnel = [
-        ("اعضای کمپین", sum(row["members"] for row in top)),
-        ("تماس گرفته‌شده", sum(row["contacted"] for row in top)),
-        ("در تعامل", sum(row["engaged"] for row in top)),
-        ("تبدیل‌شده", sum(row["converted"] for row in top)),
-    ]
-    invoices_by_month = _jalali_month_series(_valid_attributions(campaign_ids, date_from, date_to))
+    funnel = _funnel(members, campaign_ids)
+    invoices_by_month = _jalali_month_series(
+        _valid_attributions(campaign_ids, date_from, date_to), date_from=date_from, date_to=date_to
+    )
+    hours, back_dated = _first_contact(members)
     joined_by_day = [
         {"day": row["d"].isoformat(), "count": row["n"]}
         for row in members.annotate(d=TruncDate("created_at")).values("d").annotate(n=Count("id")).order_by("d")
@@ -240,7 +324,8 @@ def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
     return {
         "campaigns": rows,
         "funnel": [{"label": label, "value": value} for label, value in funnel],
-        "first_contact_hours": _first_contact_hours(members),
+        "first_contact_hours": hours,
+        "first_contact_excluded": back_dated,
         "invoices_by_month": invoices_by_month,
         "members_by_day": joined_by_day,
     }

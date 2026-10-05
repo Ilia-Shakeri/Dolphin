@@ -38,7 +38,7 @@ from common.dashboard_panels import panels_for
 from common.preferences import effective_preferences
 from common.deployment.profile import feature_enabled
 from sales.models import Lead, Sale
-from sales.selectors import interactions_for, leads_for, sales_for
+from sales.selectors import interactions_for, leads_for, sales_for, work_leads_for
 
 #: Weeks on the trend chart. A quarter is long enough to show a direction and
 #: short enough that the most recent weeks are still legible.
@@ -309,7 +309,7 @@ def _gauges(user, *, now, unit):
     gauges = []
 
     if feature_enabled("leads"):
-        leads = leads_for(user)
+        leads = work_leads_for(user)
         decided = leads.filter(status__in=[Lead.Status.COMPLETED, Lead.Status.CANCELLED]).count()
         if decided:
             completed = leads.filter(status=Lead.Status.COMPLETED).count()
@@ -408,7 +408,7 @@ def _jalali_day(value):
 
 def _lead_breakdown(user):
     rows = (
-        leads_for(user)
+        work_leads_for(user)
         .values("status")
         .annotate(total=Count("id"))
         .order_by("-total")[:BREAKDOWN_LIMIT]
@@ -543,7 +543,7 @@ def dashboard_for(user, *, now=None):
     if after_sales_side:
         if feature_enabled("after_sales") and after_sales_requests_for(user).exists():
             breakdown = _after_sales_breakdown(user)
-    elif feature_enabled("leads") and leads_for(user).exists():
+    elif feature_enabled("leads") and work_leads_for(user).exists():
         breakdown = _lead_breakdown(user)
 
     gauges = _gauges(user, now=now, unit=unit)

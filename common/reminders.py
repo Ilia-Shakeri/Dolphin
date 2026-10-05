@@ -44,7 +44,7 @@ from billing.selectors import cheques_for, installments_for
 from common.deployment.profile import feature_enabled
 from common.jalali import to_persian_digits
 from sales.models import Lead, TargetAudienceMember
-from sales.selectors import leads_for, target_audience_for
+from sales.selectors import leads_for, target_audience_for, work_leads_for
 
 #: How far ahead money is worth warning about. A cheque or an instalment
 #: needs arranging before its due date, unlike a phone call, which is either
@@ -74,7 +74,7 @@ def _lead_reminders(user, *, now):
     """Follow-ups that are due — overdue, or falling today."""
     end_of_today = _end_of_today(now)
     leads = (
-        leads_for(user)
+        work_leads_for(user)
         .filter(
             next_follow_up_at__isnull=False,
             next_follow_up_at__lte=end_of_today,

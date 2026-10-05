@@ -877,11 +877,51 @@ class Payment(TimeStampedModel):
         return self.amount - self.allocated_amount
 
 
-class NoNewRowsOnCancelledInvoice(models.Model):
-    """Nothing new may be attached to a cancelled invoice (2.39.12).
+class InvoiceChildQuerySet(models.QuerySet):
+    """Bulk paths for rows that hang off an invoice (2.40.0).
 
-    Only creation is refused: cancelling an invoice itself releases and closes
-    its allocations and plan, which are saves of existing rows.
+    `invoice_lookup` names the path from the row to its invoice. The one change
+    still allowed on a cancelled invoice's rows is closing them
+    (`status="cancelled"`), which the cancellation itself does.
+    """
+
+    invoice_lookup = "invoice"
+
+    def _touches_cancelled(self):
+        return self.filter(**{f"{self.invoice_lookup}__status": "cancelled"}).exists()
+
+    def update(self, **kwargs):
+        closing = set(kwargs) <= {"status", "updated_at"} and kwargs.get("status") == "cancelled"
+        if not closing and self._touches_cancelled():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().update(**kwargs)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        ids = {obj._owning_invoice_id() for obj in objs}
+        if Invoice.objects.filter(pk__in=ids, status="cancelled").exists():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def bulk_update(self, objs, fields, *args, **kwargs):
+        objs = list(objs)
+        closing = set(fields) <= {"status", "updated_at"} and all(getattr(obj, "status", None) == "cancelled" for obj in objs)
+        ids = {obj._owning_invoice_id() for obj in objs}
+        if not closing and Invoice.objects.filter(pk__in=ids, status="cancelled").exists():
+            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        return super().bulk_update(objs, fields, *args, **kwargs)
+
+
+class InstallmentQuerySet(InvoiceChildQuerySet):
+    invoice_lookup = "plan__invoice"
+
+
+class NoNewRowsOnCancelledInvoice(models.Model):
+    """A cancelled invoice's money rows are history (2.39.12, widened 2.40.0).
+
+    Nothing new is attached to it, and an existing row changes only to be
+    closed (`status="cancelled"`) — which is what cancelling the invoice does to
+    its plan and instalments. Bulk paths are guarded by `InvoiceChildQuerySet`.
     """
 
     class Meta:
@@ -891,8 +931,10 @@ class NoNewRowsOnCancelledInvoice(models.Model):
         return self.invoice_id
 
     def save(self, *args, **kwargs):
-        if self._state.adding and Invoice.objects.filter(pk=self._owning_invoice_id(), status="cancelled").exists():
-            raise _conflict(CANCELLED_INVOICE_MESSAGE)
+        if Invoice.objects.filter(pk=self._owning_invoice_id(), status="cancelled").exists():
+            closing = not self._state.adding and getattr(self, "status", None) == "cancelled"
+            if not closing:
+                raise _conflict(CANCELLED_INVOICE_MESSAGE)
         return super().save(*args, **kwargs)
 
 
@@ -904,6 +946,8 @@ class PaymentAllocation(NoNewRowsOnCancelledInvoice, TimeStampedModel):
     payments; both directions must stay auditable.
     """
 
+    objects = InvoiceChildQuerySet.as_manager()
+
     payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name="allocations")
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="allocations")
     amount = models.DecimalField(max_digits=18, decimal_places=2)
@@ -914,12 +958,17 @@ class PaymentAllocation(NoNewRowsOnCancelledInvoice, TimeStampedModel):
     #: Why it was released, as the operator wrote it (2.39.18); blank while active.
     release_reason = models.CharField(max_length=500, blank=True, default="")
     #: The submission this row came from (one key per opened allocation form,
-    #: 2.39.18). A resent submission with the same key creates nothing new.
+    #: 2.39.18), stored as `<key>:<n>` and unique per receipt (2.40.0). A resent
+    #: submission with the same key creates nothing new.
     request_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
 
     class Meta:
         ordering = ["-created_at", "-id"]
         constraints = [
+            models.UniqueConstraint(
+                fields=["payment", "request_key"], condition=~Q(request_key=""),
+                name="uniq_allocation_request_key",
+            ),
             models.CheckConstraint(condition=Q(amount__gt=0), name="payment_allocation_amount_positive"),
         ]
         indexes = [
@@ -1075,6 +1124,8 @@ class ChequeStatusHistory(models.Model):
 
 
 class InstallmentPlan(NoNewRowsOnCancelledInvoice, TimeStampedModel):
+
+    objects = InvoiceChildQuerySet.as_manager()
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
         COMPLETED = "completed", "Completed"
@@ -1160,6 +1211,8 @@ class InstallmentPlan(NoNewRowsOnCancelledInvoice, TimeStampedModel):
 
 
 class Installment(NoNewRowsOnCancelledInvoice, TimeStampedModel):
+
+    objects = InstallmentQuerySet.as_manager()
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         PARTIALLY_PAID = "partially_paid", "Partially paid"

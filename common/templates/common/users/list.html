@@ -1,7 +1,7 @@
 {% extends "common/base.html" %}
-{% block title %}فهرست کاربران{% endblock %}
+{% block title %}{{ user_admin_label }}{% endblock %}
 {% block page_id %}users{% endblock %}
-{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مدیریت دسترسی</span>{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مدیریت</span>{% endblock %}
 {% block page_icon %}<i class="di-duotone di-user page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}{{ user_admin_label }}{% endblock %}
 {% block breadcrumb_current %}{{ user_admin_label }}{% endblock %}
@@ -56,7 +56,7 @@
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-email">ایمیل</label><input class="form-control form-control-solid" id="create-email" name="email" type="email" maxlength="254"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="email"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-phone">تلفن</label><input class="form-control form-control-solid" id="create-phone" name="phone" type="tel" maxlength="32"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="phone"></p></div>
                 <div class="col-md-6"><label class="form-label fw-semibold" for="create-role">نقش</label><select class="form-select form-select-solid" id="create-role" name="role" required>{% for value, label in assignable_roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="role"></p></div>
-                <div class="col-md-6"><label class="form-label fw-semibold" for="create-workstream">حوزه کاری</label><select class="form-select form-select-solid" id="create-workstream" name="workstream"><option value="sales">فروش و مرکز ارتباطات</option><option value="after_sales">خدمات پس از فروش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="workstream"></p></div>
+                <div class="col-md-6"><label class="form-label fw-semibold" for="create-workstream">حوزه کاری</label><select class="form-select form-select-solid" id="create-workstream" name="workstream"><option value="sales">فروش و تماس‌ها</option><option value="after_sales">خدمات پس از فروش</option></select><p class="text-danger fs-8 mt-1 mb-0" data-error-for="workstream"></p></div>
             </div>
         </div>
         <div data-dolphin-stepper-element="content">

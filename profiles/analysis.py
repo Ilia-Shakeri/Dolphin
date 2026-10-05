@@ -1,4 +1,4 @@
-"""The customer profile's «آنالیز» tab (2.33.0): five figures and a monthly line each.
+"""The customer profile's «تحلیل» tab (2.33.0): five figures and a monthly line each.
 
 Every figure reads through the owning module's own selector, so a viewer sees
 only what their scope allows; a figure the viewer may not read is reported as

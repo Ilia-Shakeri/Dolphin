@@ -1,9 +1,10 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
-import {displayDay} from "dolphin/core/jalali.js";
+import {apiDate, displayDay} from "dolphin/core/jalali.js";
 import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
-import {money} from "dolphin/core/money.js";
+import {money, moneyOrNull} from "dolphin/core/money.js";
 import {campaignStatusBadge} from "dolphin/features/campaigns/campaigns.js";
+import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {appendCell} from "dolphin/ui/table.js";
 
@@ -177,6 +178,53 @@ export function setupCampaignDetail() {
                 addDialog.close();
                 globalMessage("مخاطب به کمپین افزوده شد.", true);
                 members?.load(1);
+            });
+        });
+    }
+
+    // --- editing (2.40.0): every field, contact ways as checkboxes ---------
+    const editDialog = document.getElementById("edit-campaign-dialog");
+    const editForm = document.getElementById("edit-campaign-form");
+    if (editDialog && editForm) {
+        enhanceChecklistSelect(editForm.elements.responsibles);
+        editDialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => editDialog.close()));
+        document.getElementById("open-edit-campaign")?.addEventListener("click", () => {
+            if (!campaign) return;
+            clearMessages(editForm);
+            editForm.elements.name.value = campaign.name;
+            editForm.elements.starts_on.value = campaign.starts_on ? displayDay(campaign.starts_on) : "";
+            editForm.elements.ends_on.value = campaign.ends_on ? displayDay(campaign.ends_on) : "";
+            editForm.elements.target_count.value = campaign.target_count ?? "";
+            editForm.elements.budget.value = campaign.budget ?? "";
+            editForm.querySelectorAll('input[name="channels"]').forEach((box) => { box.checked = (campaign.channels || []).includes(box.value); });
+            const chosen = new Set((campaign.responsibles || []).map(String));
+            Array.from(editForm.elements.responsibles.options).forEach((option) => { option.selected = chosen.has(option.value); });
+            editForm.elements.responsibles.dispatchEvent(new Event("change"));
+            editDialog.showModal();
+        });
+        editForm.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(editForm, async () => {
+                const channels = Array.from(editForm.querySelectorAll('input[name="channels"]:checked')).map((box) => box.value);
+                if (!channels.length) {
+                    const slot = editForm.querySelector('[data-error-for="channels"]');
+                    if (slot) slot.textContent = "حداقل یک راه ارتباط را تیک بزنید.";
+                    return;
+                }
+                const target = String(editForm.elements.target_count.value || "").trim();
+                const body = {
+                    name: editForm.elements.name.value,
+                    channels,
+                    starts_on: apiDate(editForm.elements.starts_on.value),
+                    ends_on: apiDate(editForm.elements.ends_on.value),
+                    target_count: target ? Number(target) : null,
+                    responsibles: Array.from(editForm.elements.responsibles.selectedOptions).map((option) => Number(option.value)),
+                };
+                if (editForm.elements.budget) body.budget = moneyOrNull(editForm.elements.budget.value);
+                campaign = await apiRequest(endpoint, {method: "PATCH", body});
+                render(campaign);
+                editDialog.close();
+                globalMessage("کمپین ذخیره شد.", true);
             });
         });
     }

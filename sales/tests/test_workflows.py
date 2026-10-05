@@ -749,6 +749,8 @@ class CoreWorkflowTests(TestCase):
                         "customer": customer_id,
                         "interested_product": product_id,
                         "source": "manual",
+                        # A new lead belongs to a campaign since 2.40.0.
+                        "campaign": self.parity_campaign().pk,
                     },
                     format="json",
                 )
@@ -1045,11 +1047,35 @@ class CoreWorkflowTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("created_by", response.data)
 
+    def parity_campaign(self):
+        from sales.campaigns import create_campaign
+        from sales.models import Campaign
+
+        return Campaign.objects.filter(name="کمپین آزمون").first() or create_campaign(actor=self.manager, name="کمپین آزمون", responsibles=[self.agent])
+
+    def test_a_new_lead_needs_a_campaign(self):
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        response = client.post("/api/v1/leads/", {"customer": self.customer.pk, "source": "manual"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("campaign", response.data)
+        ok = client.post("/api/v1/leads/", {"customer": self.customer.pk, "source": "manual", "campaign": self.parity_campaign().pk}, format="json")
+        self.assertEqual(ok.status_code, 201)
+        self.assertEqual(Lead.objects.get(pk=ok.data["id"]).campaign.name, "کمپین آزمون")
+
+    def test_clearing_the_customer_of_a_lead_without_one_is_a_no_op(self):
+        lead = create_lead(actor=self.manager, source="بدون مشتری")
+        client = APIClient()
+        client.force_authenticate(self.manager)
+        response = client.patch(f"/api/v1/leads/{lead.pk}/", {"customer": None}, format="json")
+        self.assertIn(response.status_code, (200, 400))
+
     def test_workflow_ownership_fields_are_rejected(self):
         client = APIClient()
         client.force_authenticate(self.agent)
         lead_response = client.post("/api/v1/leads/", {
             "customer": self.customer.pk,
+            "campaign": self.parity_campaign().pk,
             "assigned_to": self.other.pk,
         }, format="json")
         self.assertEqual(lead_response.status_code, 400)

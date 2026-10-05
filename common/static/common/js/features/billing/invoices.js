@@ -1,3 +1,4 @@
+import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {apiDate, displayDay} from "dolphin/core/jalali.js";
 import {DOCUMENT_STATUS_TEXT} from "dolphin/core/labels.js";
@@ -18,6 +19,25 @@ const INVOICE_TYPE_TEXT = Object.freeze({
     official: "رسمی",
     unofficial: "غیررسمی",
 });
+
+// Campaign people not yet customers (2.40.0): picking one makes the server find
+// or create the customer by phone in the same request («m:<id>» values).
+async function addCampaignPeopleToCustomerPicker() {
+    const select = document.getElementById("create-invoice-customer");
+    if (!select) return;
+    try {
+        const people = await apiRequest("/api/v1/campaign-members/prospects/");
+        if (!Array.isArray(people) || !people.length) return;
+        const group = document.createElement("optgroup");
+        group.label = "انتخاب از اشخاص کمپین";
+        people.forEach((person) => group.append(new Option(
+            `${person.full_name} — ${person.campaign_name || "کمپین"}`, `m:${person.id}`,
+        )));
+        select.append(group);
+    } catch (error) {
+        // A role or deployment without campaigns simply has no such group.
+    }
+}
 
 async function loadInvoiceCampaigns() {
     const wrap = document.getElementById("create-invoice-campaign-wrap");
@@ -106,6 +126,7 @@ export async function setupInvoices() {
             loadCustomerOptions(document.getElementById("create-invoice-customer"), "یک مشتری انتخاب کنید"),
             loadAllPages("/api/v1/products/?is_active=true&ordering=name"),
         ]);
+        await addCampaignPeopleToCustomerPicker();
         lines = createLineItemRows(lineHost, products, {onChange: redrawTotals});
         setupSearchableSelects(dialog);
         lines.addLine();
@@ -181,8 +202,9 @@ export async function setupInvoices() {
             // No warehouse: an invoice moves no stock, so naming one would
             // suggest an effect it does not have.
             const discountPercent = Number(data.get("discount_percent")) || 0;
+            const picked = String(data.get("customer") || "");
             const body = {
-                customer: Number(data.get("customer")),
+                ...(picked.startsWith("m:") ? {campaign_member: Number(picked.slice(2))} : {customer: Number(picked)}),
                 invoice_type: String(data.get("invoice_type") || "unofficial"),
                 tax_rate: Number(data.get("tax_rate")) || 0,
                 // The document's own discount (2.26.0, product owner): one

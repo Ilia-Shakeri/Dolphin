@@ -170,17 +170,12 @@ class SalesShellContractTests(SimpleTestCase):
         self.assertIn('not_found_title = "مشتری پیدا نشد"', profile_views)
         self.assertNotIn("مشخصات بازاریاب (کال سنتر) ذخیره شد", script)
 
-        base = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
-        # The customers entry is a theme menu item now, so its label sits in a
-        # `menu-title` span rather than directly inside the anchor. What is
-        # pinned here is the wording and the target, not the markup around them.
-        customers_link = re.search(
-            r'data-module="customers"[^>]*href="\{% url .common_ui:customers. %\}"[^>]*>(.*?)</a>',
-            base,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(customers_link)
-        self.assertIn("مشتریان", customers_link.group(1))
+        # The sidebar is drawn from the navigation registry since 2.40.0; the
+        # customers entry's wording and target are pinned there.
+        from common.navigation import GROUPS
+
+        customers = [item for group in GROUPS for item in group.items if item.module == "customers"]
+        self.assertEqual([(item.label, item.url_name) for item in customers], [("مشتریان", "common_ui:customers")])
 
 
 class SalesShellScopeTests(TestCase):

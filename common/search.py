@@ -44,6 +44,7 @@ from sales.selectors import (
     leads_for,
     products_for,
     sales_documents_for,
+    work_leads_for,
 )
 
 #: Shorter than this and every source matches nearly everything, which is
@@ -102,7 +103,7 @@ def _lead_results(user, *, text, latin, digits):
         | Q(source__icontains=text)
         | Q(campaign_or_batch__icontains=text)
     )
-    found = leads_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
+    found = work_leads_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     return _group(
         "leads", "سرنخ‌ها", "di-call", "info", "/leads/", found,
         lambda row: (
@@ -111,6 +112,27 @@ def _lead_results(user, *, text, latin, digits):
             f"/leads/{row.pk}/",
         ),
     )
+
+
+def _campaign_member_results(user, *, text, latin, digits):
+    """Campaign people (2.40.0), within the reader's member scope: a marketer
+    finds only the people assigned to them."""
+    from sales.campaign_analytics import members_for
+
+    matches = Q(full_name__icontains=text)
+    if digits:
+        matches |= Q(normalized_phone__contains=digits)
+    found = (
+        members_for(user).filter(matches).select_related("campaign", "assigned_to")
+        .distinct().order_by("full_name", "id")
+    )
+
+    def describe(row):
+        owner = row.assigned_to
+        owner_name = (owner.get_full_name() or owner.username) if owner else "بدون مسئول"
+        return row.full_name, f"{row.campaign.name if row.campaign_id else 'کمپین'} — {owner_name}", f"/campaigns/{row.campaign_id}/"
+
+    return _group("campaign_members", "اشخاص کمپین", "di-people", "warning", "/campaigns/", found, describe)
 
 
 def _product_results(user, *, text, latin, digits):
@@ -213,6 +235,7 @@ def _document_group(queryset, *, text, latin, kind, label, icon, accent, path):
 SOURCES = (
     ("customers", _customer_results),
     ("leads", _lead_results),
+    ("campaigns", _campaign_member_results),
     ("products", _product_results),
     ("invoices", _invoice_results),
     ("orders", _order_results),
@@ -258,6 +281,7 @@ ICON_PATHS = {
     "di-dollar": 3,
     "di-delivery": 5,
     "di-wrench": 2,
+    "di-people": 5,
 }
 
 

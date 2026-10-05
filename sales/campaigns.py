@@ -145,6 +145,12 @@ def create_campaign(*, actor, name, responsibles=(), parent=None, **data):
             raise BusinessRuleError({"parent": "کمپین سیستمی زیرکمپین نمی‌پذیرد."})
         if parent.status == Campaign.Status.ARCHIVED:
             raise BusinessConflictError({"parent": "کمپین بایگانی‌شده زیرکمپین نمی‌پذیرد."})
+        # People sit on leaves (2.40.0): a campaign that already holds people of
+        # its own cannot become a parent, or they would sit beside its children.
+        if parent.members.exists():
+            raise BusinessConflictError({
+                "parent": "این کمپین خودش مخاطب دارد؛ زیرکمپین فقط برای کمپینی ساخته می‌شود که هنوز مخاطب مستقیم ندارد."
+            })
     unknown = set(data) - CAMPAIGN_EDITABLE
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
@@ -302,6 +308,26 @@ def ensure_customer_for_member(*, actor, member):
         refresh_target_members_for_phone(normalized_phone=locked.normalized_phone, actor=actor)
         locked.refresh_from_db()
     return locked
+
+
+def link_campaign_people_to_customer(*, customer, actor=None):
+    """Mark every campaign entry that shares one of `customer`'s phones as that
+    customer (2.40.0). Idempotent; a failure is logged and swallowed so it can
+    never block the invoice being issued."""
+    import logging
+
+    from sales.models import CustomerPhone
+
+    try:
+        with transaction.atomic():
+            phones = CustomerPhone.objects.filter(customer=customer, is_active=True).exclude(normalized_phone="")
+            pending = TargetAudienceMember.objects.filter(
+                normalized_phone__in=phones.values("normalized_phone")
+            ).exclude(customer=customer)
+            for normalized in set(pending.values_list("normalized_phone", flat=True)):
+                refresh_target_members_for_phone(normalized_phone=normalized, actor=actor)
+    except Exception:  # noqa: BLE001 - logged, never blocks issuing
+        logging.getLogger("dolphin.campaigns").exception("linking campaign people failed for customer %s", customer.pk)
 
 
 def _agent_target(user):

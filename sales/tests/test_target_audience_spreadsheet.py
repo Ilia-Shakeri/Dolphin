@@ -54,6 +54,15 @@ class TargetAudienceSpreadsheetTests(TestCase):
         self.lead = create_lead(actor=self.manager, customer=customer, source="manual")
         self.other_lead = create_lead(actor=self.manager, customer=customer, source="manual")
 
+
+    def _give_campaign(self):
+        """New people belong to a campaign since 2.40.0; these API tests need one."""
+        from sales.campaigns import create_campaign
+        from sales.models import Lead
+
+        campaign = create_campaign(actor=self.manager, name=f"کمپین {self.lead.pk}")
+        Lead.objects.filter(pk=self.lead.pk).update(campaign=campaign)
+        self.lead.refresh_from_db()
     def client_for(self, user):
         client = APIClient()
         client.force_authenticate(user)
@@ -195,6 +204,7 @@ class TargetAudienceSpreadsheetTests(TestCase):
         (`_require_target_audience_editor`), not merely the lead being outside
         their read scope.
         """
+        self._give_campaign()
         reassign_lead(actor=self.manager, lead=self.lead, to_user=self.agent)
         upload = sheet_from(row("مهم نیست", "09121110012"))
         upload.name = "audience.xlsx"
@@ -229,6 +239,7 @@ class TargetAudienceSpreadsheetTests(TestCase):
         self.assertEqual(TargetAudienceMember.objects.filter(lead=self.lead).count(), 0)
 
     def test_the_endpoint_reports_all_three_counts(self):
+        self._give_campaign()
         add_target_audience_member(
             actor=self.manager, lead=self.lead, full_name="موجود", raw_phone="09121110014",
         )

@@ -55,6 +55,9 @@ export async function setupCampaignAnalytics() {
         document.getElementById("analytics-converted").textContent = count(data.funnel[3]?.value ?? 0);
         document.getElementById("analytics-first-contact").textContent = data.first_contact_hours === null
             ? "—" : `${count(data.first_contact_hours)} ساعت`;
+        document.getElementById("analytics-first-contact-note").textContent = data.first_contact_excluded
+            ? `${count(data.first_contact_excluded)} نفر با تماسِ پیش از تاریخ ورود کنار گذاشته شدند.` : "";
+        document.getElementById("analytics-empty").hidden = data.campaigns.length > 0;
         const table = document.getElementById("analytics-table");
         table.replaceChildren(...data.campaigns.map((row) => {
             const tr = document.createElement("tr");
@@ -62,6 +65,7 @@ export async function setupCampaignAnalytics() {
                 row.name, count(row.members), count(row.contacted), count(row.engaged), count(row.converted),
                 row.conversion_rate === null ? "—" : `${count(row.conversion_rate)}٪`,
                 count(row.valid_invoices_count), money(row.valid_invoices_amount), money(row.collected_amount),
+                row.remaining_amount === undefined || row.remaining_amount === null ? "—" : money(row.remaining_amount),
             ].forEach((value) => {
                 const td = document.createElement("td");
                 td.textContent = value;
@@ -74,11 +78,27 @@ export async function setupCampaignAnalytics() {
     async function load() {
         clearMessages();
         const error = document.getElementById("analytics-error");
+        const loading = document.getElementById("analytics-loading");
         error.hidden = true;
+        // A typed date the panel cannot read is reported, never silently
+        // dropped from the query (2.40.0).
+        for (const id of ["analytics-from", "analytics-to"]) {
+            const field = document.getElementById(id);
+            if (field.value.trim() && !apiDate(field.value)) {
+                error.textContent = "تاریخ را به شکل ۱۴۰۵/۰۵/۲۵ بنویسید.";
+                error.hidden = false;
+                field.focus();
+                return;
+            }
+        }
+        loading.hidden = false;
         try {
             draw(await apiRequest(`/api/v1/campaigns/analytics/?${query()}`));
         } catch (failure) {
-            showError(failure);
+            error.textContent = failure?.message || "تحلیل دریافت نشد؛ دوباره تلاش کنید.";
+            error.hidden = false;
+        } finally {
+            loading.hidden = true;
         }
     }
 

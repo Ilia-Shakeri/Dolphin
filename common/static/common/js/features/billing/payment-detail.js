@@ -145,7 +145,7 @@ export async function setupPaymentDetail() {
         });
         renderAllocationPreview(document.getElementById("payment-alloc-after"), preview);
         const submit = allocateForm?.querySelector('button[type="submit"]');
-        if (submit) submit.disabled = preview.over || preview.after < 0;
+        if (submit) submit.disabled = preview.over || preview.after.startsWith("-");
         let sum = 0;
         let anyBlank = false;
         splitRows.querySelectorAll("[data-split-amount]").forEach((input) => {
@@ -332,7 +332,11 @@ export async function setupPaymentDetail() {
             const row = document.createElement("tr");
             appendCell(row, allocation.invoice_number).dir = "ltr";
             appendMoneyCell(row, allocation.amount);
-            appendCell(row, allocation.is_reversed ? "آزادشده" : "فعال");
+            // The reason it was released travels with it (2.40.0).
+            const state = appendCell(row, allocation.is_reversed
+                ? (allocation.release_reason ? `آزادشده — ${allocation.release_reason}` : "آزادشده")
+                : "فعال");
+            if (allocation.release_reason) state.title = allocation.release_reason;
             appendCell(row, displayDay(allocation.created_at));
             const actions = document.createElement("td");
             actions.className = "row-actions";

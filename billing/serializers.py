@@ -389,11 +389,42 @@ class InvoiceSerializer(CommercialDocumentSerializer):
             else Warehouse.objects.none(),
         )
 
+    def get_fields(self):
+        fields = super().get_fields()
+        # A campaign person may be chosen instead of a customer (2.40.0): the
+        # customer is then found or created by phone in the same transaction.
+        from sales.campaign_analytics import members_for
+        from sales.models import TargetAudienceMember
+
+        request = self.context.get("request")
+        authenticated = bool(request and request.user.is_authenticated)
+        fields["campaign_member"] = serializers.PrimaryKeyRelatedField(
+            queryset=members_for(request.user) if authenticated else TargetAudienceMember.objects.none(),
+            required=False, allow_null=True, write_only=True,
+        )
+        if "customer" in fields and self.instance is None:
+            fields["customer"].required = False
+        return fields
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if self.instance is None and not attrs.get("customer") and not attrs.get("campaign_member"):
+            raise serializers.ValidationError({"customer": "مشتری یا یکی از اشخاص کمپین را انتخاب کنید."})
+        return attrs
+
     def create(self, validated_data):
         items = validated_data.pop("items")
-        return create_invoice(actor=self.context["request"].user, items=items, **validated_data)
+        member = validated_data.pop("campaign_member", None)
+        actor = self.context["request"].user
+        with transaction.atomic():
+            if member is not None and not validated_data.get("customer"):
+                from sales.campaigns import ensure_customer_for_member
+
+                validated_data["customer"] = ensure_customer_for_member(actor=actor, member=member).customer
+            return create_invoice(actor=actor, items=items, **validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop("campaign_member", None)
         for field in ("items", "customer", "order", "quotation", "sale"):
             validated_data.pop(field, None)
         for field in (
@@ -717,6 +748,13 @@ class AllocatePaymentSerializer(RejectServerFieldsMixin, serializers.Serializer)
     )
 
 
+class AllocatePaymentOnceSerializer(AllocatePaymentSerializer):
+    """The single-allocation endpoint takes the same submission key as
+    `allocate-across` (2.40.0)."""
+
+    request_key = serializers.CharField(required=False, allow_blank=True, max_length=56)
+
+
 class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Serializer):
     """One receipt, several invoices, one submission. (بند ۳.۱ و ۳.۲)
 
@@ -727,7 +765,7 @@ class AllocatePaymentAcrossSerializer(RejectServerFieldsMixin, serializers.Seria
 
     splits = AllocatePaymentSerializer(many=True)
     #: One per opened allocation form; a resent submission is answered, not repeated.
-    request_key = serializers.CharField(required=False, allow_blank=True, max_length=64)
+    request_key = serializers.CharField(required=False, allow_blank=True, max_length=56)
 
     def validate_splits(self, value):
         if not value:

@@ -1,4 +1,4 @@
-{% load static %}
+{% load static navigation_tags %}
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -506,233 +506,14 @@
                                  id="dolphin_app_sidebar_menu" data-dolphin-menu="true" data-dolphin-menu-expand="false"
                                  aria-label="فهرست بخش‌های {{ brand_name }}">
 
-                                <div class="menu-item">
-                                    <a data-module="dashboard" class="menu-link" href="{% url 'common_ui:home' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-element-11 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i></span>
-                                        <span class="menu-title">داشبورد</span>
-                                    </a>
-                                </div>
-
-{% comment %} A link needs both an enabling capability (role) and an enabled feature
-   (deployment profile). The two are separate controls: the backend enforces
-   each independently, and this markup is display only.
-
-   Section labels below (`.menu-content.text-uppercase`) are the theme's own
-   class combination — used in the purchased template's own quick-actions
-   menu (`apps/customers/list.html`) for exactly this: a plain, muted,
-   uppercase heading inside a non-interactive `menu-item`, not a new pattern
-   invented for this codebase. Product-owner decision 2026-09-09: group the
-   previously-flat list of top-level entries so related modules read as one
-   cluster, the same way the purchased template's own richer demo sidebars
-   do — nothing here changes which links exist or what gates them, only
-   where they sit and what introduces them. A group with every one of its
-   own links hidden (feature/role) renders no heading either, the same
-   "absent, not disabled" rule every link here already followed. {% endcomment %}
-                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities or "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
-                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">فروش و مشتریان</div></div>
-                                {% endif %}
-                                {% if "campaigns" in features and "campaigns.scoped" in capabilities or "campaigns" in features and "campaigns.company" in capabilities %}
-                                <div data-dolphin-menu-trigger="click" data-module="campaigns" data-nav-group="campaigns" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-send fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">کمپین‌ها</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        <div class="menu-item"><a data-module="campaigns" class="menu-link" href="{% url 'common_ui:campaigns' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">فهرست کمپین‌ها</span></a></div>
-                                        {% if "campaign_results.scoped" in capabilities or "campaign_results.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="campaign-results" class="menu-link" href="{% url 'common_ui:campaign-results' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">نتایج</span></a></div>
-                                        {% endif %}
-                                        {% if "campaigns.analytics" in capabilities %}
-                                        <div class="menu-item"><a data-module="campaign-analytics" class="menu-link" href="{% url 'common_ui:campaign-analytics' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">آنالیز</span></a></div>
-                                        {% endif %}
-                                        {% if "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="sales" class="menu-link" href="{% url 'common_ui:sales' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}فروش‌های ثبت‌شدهٔ من{% else %}فروش‌های ثبت‌شده{% endif %}</span></a></div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% elif "sales" in features and "sales.own" in capabilities or "sales" in features and "sales.company" in capabilities %}
-                                <div class="menu-item">
-                                    <a data-module="sales" class="menu-link" href="{% url 'common_ui:sales' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-handcart fs-2"></i></span>
-                                        <span class="menu-title">{% if request.user.role == 'sales_agent' %}نتایج کمپین من{% else %}نتایج کمپین{% endif %}</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-                                {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities or "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities or "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
-                                <div data-dolphin-menu-trigger="click" data-module="call-center" data-nav-group="call-center" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-phone fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">سرنخ‌ها و مشتریان</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        {% if "customers" in features and "customers.scoped" in capabilities or "customers" in features and "customers.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="customers" class="menu-link" href="{% url 'common_ui:customers' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">مشتریان</span></a></div>
-                                        {% endif %}
-                                        {% if "leads" in features and "leads.scoped" in capabilities or "leads" in features and "leads.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="leads" class="menu-link" href="{% url 'common_ui:leads' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}صف سرنخ من{% else %}سرنخ‌ها{% endif %}</span></a></div>
-                                        <div class="menu-item"><a data-module="lead-calendar" class="menu-link" href="{% url 'common_ui:lead-calendar' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تقویم پیگیری</span></a></div>
-                                        {% if "lead_kanban" in features %}
-                                        <div class="menu-item"><a data-module="lead-board" class="menu-link" href="{% url 'common_ui:lead-board' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تابلوی سرنخ‌ها</span></a></div>
-                                        {% endif %}
-                                        {% endif %}
-                                        {% if "leads" in features and "interactions.scoped" in capabilities or "leads" in features and "interactions.company" in capabilities %}
-                                        <div class="menu-item"><a data-module="interactions" class="menu-link" href="{% url 'common_ui:interactions' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}تماس‌های من{% else %}فعالیت مرکز ارتباطات{% endif %}</span></a></div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities or "payments" in features and can_handle_payments or "sales_documents" in features and "sales_documents.scoped" in capabilities or "sales_documents" in features and "sales_documents.company" in capabilities %}
-                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">اسناد و مالی</div></div>
-                                {% endif %}
-                                {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities or "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}
-                                <div data-dolphin-menu-trigger="click" data-module="billing" data-nav-group="billing" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-document fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">فروش و تأمین</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        {% if "orders" in features and "orders.scoped" in capabilities or "orders" in features and "orders.company" in capabilities %}<div class="menu-item"><a data-module="orders" class="menu-link" href="{% url 'common_ui:orders' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">درخواست‌های تأمین</span></a></div>{% endif %}
-                                        {% if "order_kanban" in features and "orders.scoped" in capabilities or "order_kanban" in features and "orders.company" in capabilities %}<div class="menu-item"><a data-module="order-board" class="menu-link" href="{% url 'common_ui:order-board' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">تابلوی درخواست‌های تأمین</span></a></div>{% endif %}
-                                        {% if "invoices" in features and "invoices.scoped" in capabilities or "invoices" in features and "invoices.company" in capabilities %}<div class="menu-item"><a data-module="invoices" class="menu-link" href="{% url 'common_ui:invoices' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">فاکتورها</span></a></div>{% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if "payments" in features and can_handle_payments %}
-                                <div data-dolphin-menu-trigger="click" data-module="treasury" data-nav-group="treasury" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-wallet fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i></span>
-                                        <span class="menu-title">مالی</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        <div class="menu-item"><a data-module="payments" class="menu-link" href="{% url 'common_ui:payments' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">دریافت‌ها</span></a></div>
-                                        <div class="menu-item"><a data-module="disbursements" class="menu-link" href="{% url 'common_ui:disbursements' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">پرداخت‌ها</span></a></div>
-                                        {% if "cheques" in features %}<div class="menu-item"><a data-module="cheques" class="menu-link" href="{% url 'common_ui:cheques' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">چک‌ها</span></a></div>{% endif %}
-                                        <div class="menu-item"><a data-module="installments" class="menu-link" href="{% url 'common_ui:installments' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">اقساط</span></a></div>
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if "sales_documents" in features and "sales_documents.scoped" in capabilities or "sales_documents" in features and "sales_documents.company" in capabilities %}
-                                <div class="menu-item">
-                                    <a data-module="sales-documents" class="menu-link" href="{% url 'common_ui:sales-documents' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-delivery fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i></span>
-                                        <span class="menu-title">رهگیری پستی</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-                                {% if "inventory" in features and can_read_inventory or "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
-                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">انبار و کاتالوگ</div></div>
-                                {% endif %}
-                                {% if "inventory" in features and can_read_inventory %}
-                                <div data-dolphin-menu-trigger="click" data-module="inventory" data-nav-group="inventory" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-package fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
-                                        <span class="menu-title">انبار و موجودی</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        <div class="menu-item"><a data-module="stock-levels" class="menu-link" href="{% url 'common_ui:stock-levels' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">موجودی کالا</span></a></div>
-                                        <div class="menu-item"><a data-module="warehouses" class="menu-link" href="{% url 'common_ui:warehouses' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">انبارها{% if not can_manage_inventory %} (فقط خواندنی){% endif %}</span></a></div>
-                                        <div class="menu-item"><a data-module="stock-movements" class="menu-link" href="{% url 'common_ui:stock-movements' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">گردش انبار</span></a></div>
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities or "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
-                                <div data-dolphin-menu-trigger="click" data-module="catalog" data-nav-group="catalog" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-basket fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i></span>
-                                        <span class="menu-title">کاتالوگ محصولات</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        {% if "products" in features and "products.read" in capabilities or "products" in features and "products.manage" in capabilities %}
-                                        <div class="menu-item"><a data-module="products" class="menu-link" href="{% url 'common_ui:products' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">محصولات{% if request.user.role == 'sales_agent' %} (فقط خواندنی){% endif %}</span></a></div>
-                                        {% endif %}
-                                        {% if "products" in features and "product_categories.read" in capabilities or "products" in features and "product_categories.manage" in capabilities %}
-                                        <div class="menu-item"><a data-module="product-categories" class="menu-link" href="{% url 'common_ui:product-categories' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">دسته‌بندی‌ها{% if request.user.role == 'sales_agent' %} (فقط خواندنی){% endif %}</span></a></div>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if "after_sales" in features and "after_sales.assigned" in capabilities or "after_sales" in features and "after_sales.company" in capabilities %}
-                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">خدمات پس از فروش</div></div>
-                                {% endif %}
-                                {% if "after_sales" in features and "after_sales.assigned" in capabilities or "after_sales" in features and "after_sales.company" in capabilities %}
-                                <div class="menu-item">
-                                    <a data-module="after-sales" class="menu-link" href="{% url 'common_ui:after-sales' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-shield-tick fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">{% if request.user.role == 'sales_agent' %}پرونده‌های خدمات من{% else %}خدمات پس از فروش{% endif %}</span>
-                                    </a>
-                                </div>
-                                <div class="menu-item">
-                                    <a data-module="after-sales-calendar" class="menu-link" href="{% url 'common_ui:after-sales-calendar' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-calendar fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">تقویم خدمات پس از فروش</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-{% comment %} Internal chat moved off the sidebar in 1.9.0 and onto a header icon +
-   slide-in drawer, matching the purchased theme's own chat pattern
-   (`dolphin_drawer_chat` in its demo pages) — the theme itself never puts chat in
-   the sidebar either. 2.25.0 put a link back (product-owner decision): the
-   drawer is still there for a quick reply from anywhere, this entry opens
-   the fuller page (`DolphinChatView`) that shares its engine. The toggle
-   button and the drawer markup are further down this file, beside the
-   reminder bell and search. {% endcomment %}
-
-                                {% if can_send_sms and "outbound_sms" in features or "internal_chat" in features or "reports" in features and "reports.own" in capabilities or "reports" in features and "reports.company" in capabilities %}
-                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">گزارش و ارتباطات</div></div>
-                                {% endif %}
-                                {% if "internal_chat" in features %}
-                                <div class="menu-item">
-                                    <a data-module="chat" class="menu-link" href="{% url 'common_ui:chat' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-message-text-2 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
-                                        <span class="menu-title">گفت‌وگو</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-                                {% if can_send_sms and "outbound_sms" in features %}
-                                <div class="menu-item">
-                                    <a data-module="outbound-sms" class="menu-link" href="{% url 'common_ui:outbound-sms' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-sms fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">ارسال پیامک</span>
-                                    </a>
-                                </div>
-                                {% endif %}
-
-                                {% if "reports" in features and "reports.own" in capabilities or "reports" in features and "reports.company" in capabilities %}
-                                <div data-dolphin-menu-trigger="click" data-module="reports" data-nav-group="reports" class="menu-item menu-accordion">
-                                    <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-chart-simple fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i></span>
-                                        <span class="menu-title">گزارش‌ها</span>
-                                        <span class="menu-arrow"></span>
-                                    </span>
-                                    <div class="menu-sub menu-sub-accordion">
-                                        <div class="menu-item"><a data-module="performance" class="menu-link" href="{% url 'common_ui:user-performance' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{% if request.user.role == 'sales_agent' %}عملکرد من{% else %}گزارش شرکت{% endif %}</span></a></div>
-                                        {% if "sales_documents" in features %}<div class="menu-item"><a data-module="sales-document-report" class="menu-link" href="{% url 'common_ui:sales-document-report' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">گزارش اسناد و پست</span></a></div>{% endif %}
-                                        {% if can_view_company_reports and "invoices" in features %}<div class="menu-item"><a data-module="receivables-report" class="menu-link" href="{% url 'common_ui:receivables-report' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">مطالبات</span></a></div>{% endif %}
-                                        {% if can_view_company_reports and "invoices" in features %}<div class="menu-item"><a data-module="profit-report" class="menu-link" href="{% url 'common_ui:profit-report' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">سود ناخالص</span></a></div>{% endif %}
-                                        {% if can_view_company_reports and "inventory" in features %}<div class="menu-item"><a data-module="stock-valuation-report" class="menu-link" href="{% url 'common_ui:stock-valuation-report' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">ارزش موجودی</span></a></div>{% endif %}
-                                        {% if can_view_ledger and "customer_ledger" in features %}<div class="menu-item"><a data-module="customer-ledger" class="menu-link" href="{% url 'common_ui:customer-ledger' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">دفتر حساب مشتری</span></a></div>{% endif %}
-                                        {% if can_view_sms_report and "inbound_sms" in features %}<div class="menu-item"><a data-module="inbound-sms-report" class="menu-link" href="{% url 'common_ui:inbound-sms-report' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">گزارش پیامک ورودی</span></a></div>{% endif %}
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% comment %} PRELIMINARY, UNCOMMITTED — see integration/apps.py. Entirely
-                                   absent, not merely disabled, unless the signed manifest itself grants
-                                   this customer an Accounting pairing entitlement. {% endcomment %}
+{% comment %} The sidebar is drawn from one registry, `common/navigation.py` (2.40.0):
+   groups in the order work flows (campaign → lead → customer → invoice →
+   supply → money), each link with the feature and capability that show it.
+   Display only — every page and API checks the same controls again. A
+   group whose links are all hidden is not drawn at all. {% endcomment %}
+                                {% sidebar_navigation as nav_groups %}
+                                {% for group in nav_groups %}
+                                {% if group.key == "settings" %}
                                 {% if accounting_base_url %}
                                 <div class="menu-item">
                                     <button id="go-to-accounting" data-module="go-to-accounting" type="button" class="menu-link w-100 text-start border-0 bg-transparent">
@@ -741,49 +522,28 @@
                                     </button>
                                 </div>
                                 {% endif %}
-                                {% comment %} `can_manage_branding` left both gates on 2026-09-20: it no
-   longer opens anything in this accordion, so a reader who holds only that
-   capability would otherwise see an empty «مدیریت» heading over an
-   accordion with nothing in it. {% endcomment %}
-                                {% if can_view_audit or can_manage_users or can_manage_integrations %}
-                                <div class="menu-item"><div class="menu-content text-muted pb-2 pt-5 px-3 fs-8 text-uppercase">مدیریت</div></div>
                                 {% endif %}
-                                {% if can_view_audit or can_manage_users or can_manage_integrations %}
-                                <div data-dolphin-menu-trigger="click" data-nav-group="administration"{% if is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
+                                {% if group.single %}{% with link=group.links.0 %}
+                                <div class="menu-item">
+                                    <a {% if link.module == "settings" %}id="open-settings" {% endif %}data-module="{{ link.module }}" class="menu-link" href="{{ link.url }}">
+                                        <span class="menu-icon"><i class="di-duotone {{ group.icon }} fs-2">{% for n in group.icon_paths %}<span class="path{{ n }}"></span>{% endfor %}</i></span>
+                                        <span class="menu-title">{{ link.label }}</span>
+                                    </a>
+                                </div>
+                                {% endwith %}{% else %}
+                                <div data-dolphin-menu-trigger="click" data-module="{{ group.key }}" data-nav-group="{{ group.key }}"{% if group.key == "administration" and is_platform_navigation %} data-platform-navigation="true"{% endif %} class="menu-item menu-accordion">
                                     <span class="menu-link">
-                                        <span class="menu-icon"><i class="di-duotone di-setting-2 fs-2"><span class="path1"></span><span class="path2"></span></i></span>
-                                        <span class="menu-title">{% if is_platform_navigation %}مدیریت پلتفرم{% elif request.user.role == 'sales_manager' %}مدیریت تیم فروش{% else %}مدیریت فنی{% endif %}</span>
+                                        <span class="menu-icon"><i class="di-duotone {{ group.icon }} fs-2">{% for n in group.icon_paths %}<span class="path{{ n }}"></span>{% endfor %}</i></span>
+                                        <span class="menu-title">{{ group.label }}</span>
                                         <span class="menu-arrow"></span>
                                     </span>
                                     <div class="menu-sub menu-sub-accordion">
-                                        {% if can_view_audit %}<div class="menu-item"><a data-module="audit" class="menu-link" href="{% url 'common_ui:activity-logs' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">رویدادهای سامانه</span></a></div>{% endif %}
-                                        {% if can_manage_users %}<div class="menu-item"><a data-module="users" class="menu-link" href="{% url 'common_ui:users' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{{ user_admin_label }}</span></a></div>{% endif %}
-{% comment %} «برند و لوگوی پنل» used to be a sidebar entry here. It is
-   reached from «تنظیمات» → «شخصی‌سازی پنل» since 2026-09-20 (product owner:
-   «برند و لوگو پنل را از جای فعلی بردار و داخل تنظیمات ادمین با عنوان
-   شخصی‌سازی پنل بگذار»). `can_manage_branding` still gates it in exactly the
-   same places: the card in the settings page, the view, and the API. {% endcomment %}
-{% comment %} این‌جا تا ۲۰۲۶/۰۹/۲۱ لینک جداگانه‌ای به «تنظیمات سامانهٔ پیامک»
-   بود. مالک محصول: «تنظیمات سامانهٔ پیامک باید به اتصال سامانه‌ها تغییر اسم
-   یابد و ... با کلیک بر روی آن بتوان وارد تنظیماتش شد». حالا یک دروازهٔ ورود
-   به همان صفحهٔ اتصال (`common/integrations.py`) است که پیامک یکی از
-   ردیف‌های آن است، نه یک میان‌بر جدا به تنظیمات فقط‌پیامکی. {% endcomment %}
-                                        {% if can_manage_integrations %}<div class="menu-item"><a data-module="integrations" class="menu-link" href="{% url 'common_ui:integrations' %}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">یکپارچه‌سازی‌ها</span></a></div>{% endif %}
+                                        {% for link in group.links %}<div class="menu-item"><a data-module="{{ link.module }}" class="menu-link" href="{{ link.url }}"><span class="menu-bullet"><span class="bullet bullet-dot"></span></span><span class="menu-title">{{ link.label }}</span></a></div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                                 {% endif %}
-
-{% comment %} «تنظیمات» — last in the sidebar, below every business module,
-   where a settings entry sits in the purchased theme's own demos. No role
-   gate: every reader has display preferences of their own. The
-   deployment-wide sections *inside* that page keep their own gates, which is
-   what «شخصی‌سازی پنل» is now reached through. {% endcomment %}
-                                <div class="menu-item">
-                                    <a id="open-settings" data-module="settings" class="menu-link" href="{% url 'common_ui:settings' %}">
-                                        <span class="menu-icon"><i class="di-duotone di-setting-3 fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i></span>
-                                        <span class="menu-title">تنظیمات</span>
-                                    </a>
-                                </div>
+                                {% endfor %}
 
                                 {% comment %} No profile entry here: the account owner's own controls —
                                    profile, active sessions, sign out — live in the header user
@@ -837,6 +597,7 @@
                              what the page is *for*, and tests target it. {% endcomment %}
                           <div id="main-content">
                             <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-5" role="alert" hidden></div>
+                            {% block page_tabs %}{% endblock %}
                             {% if error_status %}
                                 <div class="card" id="app-error">
                                     <div class="card-body text-center py-15">

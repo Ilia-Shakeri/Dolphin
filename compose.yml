@@ -511,6 +511,7 @@ services:
       DOLPHIN_REALTIME_SERVE_STREAMS: "true"
       DOLPHIN_REALTIME_MAX_CONNECTIONS: ${DOLPHIN_REALTIME_MAX_CONNECTIONS:-200}
       DOLPHIN_REALTIME_STREAM_SECONDS: ${DOLPHIN_REALTIME_STREAM_SECONDS:-300}
+      DOLPHIN_REALTIME_MAX_PER_USER: ${DOLPHIN_REALTIME_MAX_PER_USER:-3}
     depends_on:
       db-finalize:
         condition: service_completed_successfully
@@ -547,7 +548,10 @@ services:
     environment:
       DOLPHIN_PUBLIC_HOST: ${DOLPHIN_PUBLIC_HOST}
       DOLPHIN_HSTS_HEADER: ${DOLPHIN_HSTS_HEADER}
-      NGINX_ENVSUBST_FILTER: DOLPHIN_PUBLIC_HOST|DOLPHIN_HSTS_HEADER
+      # Live-update streams per client address (2.40.0); an office behind one
+      # NAT shares an address, so the default is generous.
+      DOLPHIN_REALTIME_MAX_PER_ADDRESS: ${DOLPHIN_REALTIME_MAX_PER_ADDRESS:-50}
+      NGINX_ENVSUBST_FILTER: DOLPHIN_PUBLIC_HOST|DOLPHIN_HSTS_HEADER|DOLPHIN_REALTIME_MAX_PER_ADDRESS
     ports:
       - "80:80"
       - "443:443"

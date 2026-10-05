@@ -270,18 +270,36 @@ def _create_document(*, actor, model, item_model, customer, lead, items, header,
     return document
 
 
-def _is_number_clash(exc):
-    """Was this IntegrityError the unique constraint on a document number?
+#: The exact unique constraints behind the two document numbers (2.40.0).
+#: `number` is a `unique=True` field, so PostgreSQL names it `<table>_number_key`.
+_NUMBER_CONSTRAINTS = {"billing_quotation_number_key", "billing_order_number_key", "billing_invoice_number_key"}
+_OFFICIAL_NUMBER_CONSTRAINT = "invoice_official_number_unique"
+
+
+def _number_clash_kind(exc):
+    """Which number this IntegrityError clashed on: "number", "official_number",
+    or None for any other constraint.
 
     PostgreSQL names the violated constraint on the driver error, which is
-    exact; other backends (SQLite in development) only offer text, so the
-    message is the fallback there.
+    exact; SQLite (development) only offers text naming the column, so that is
+    the fallback. Matching the names exactly keeps the official-number
+    constraint from being reported as an ordinary number clash.
     """
     constraint = getattr(getattr(getattr(exc, "__cause__", None), "diag", None), "constraint_name", None)
     if constraint:
-        return "number" in constraint.lower() and "uniq" in constraint.lower() or constraint.lower().endswith("number_key")
+        if constraint == _OFFICIAL_NUMBER_CONSTRAINT:
+            return "official_number"
+        return "number" if constraint in _NUMBER_CONSTRAINTS else None
     detail = str(exc).lower()
-    return "number" in detail and ("unique" in detail or "duplicate" in detail)
+    if "official_number" in detail:
+        return "official_number"
+    if any(f"{table}.number" in detail for table in ("billing_quotation", "billing_order", "billing_invoice")):
+        return "number"
+    return None
+
+
+def _is_number_clash(exc):
+    return _number_clash_kind(exc) == "number"
 
 
 def _replace_items(*, actor, document, item_model, items, relation):
@@ -858,6 +876,22 @@ def transition_order(*, actor, order, to_status, reason=""):
             raise BusinessConflictError({
                 "invoice": "موجودی فاکتور این درخواست پیش‌تر از انبار کسر شده است؛ تأیید کسر دوباره می‌کرد."
             })
+        # Re-checked at approval too (2.40.0), not only at creation: the older
+        # `Invoice.order` link may point at an order that already moved stock.
+        if locked.invoice.order_id and Order.objects.filter(
+            pk=locked.invoice.order_id, stock_applied=True
+        ).exclude(pk=locked.pk).exists():
+            raise BusinessConflictError({
+                "invoice": "کالای این فاکتور با سفارش مبدأ از انبار کسر شده است؛ تأیید کسر دوباره می‌کرد."
+            })
+    # Returning goods to stock is the warehouse's call (2.40.0): cancelling an
+    # approved or fulfilled supply request moves stock back.
+    if (
+        locked.invoice_id and to_status == Order.Status.CANCELLED
+        and locked.status in {Order.Status.CONFIRMED, Order.Status.FULFILLED}
+        and not has_any_capability(actor, "inventory.manage")
+    ):
+        raise BusinessPermissionDenied("لغو درخواست تأییدشده یا انجام‌شده با مسئول انبار است (موجودی برمی‌گردد).")
     previous = locked.status
     occurred_at = timezone.now()
 
@@ -1425,7 +1459,13 @@ def issue_invoice(*, actor, invoice):
         if items:
             InvoiceItem.objects.bulk_update(items, ["unit_cost_snapshot", "updated_at"])
 
-    if locked.warehouse_id is not None and invoice_affects_stock():
+    stock_taken_elsewhere = (
+        (locked.order_id and Order.objects.filter(pk=locked.order_id, stock_applied=True).exists())
+        or Order.objects.filter(invoice=locked, stock_applied=True).exists()
+    )
+    # An invoice whose goods already left with its order or its supply request
+    # never moves stock a second time on issue (2.40.0).
+    if locked.warehouse_id is not None and invoice_affects_stock() and not stock_taken_elsewhere:
         for item in items:
             record_stock_movement(
                 actor=actor,
@@ -1446,11 +1486,17 @@ def issue_invoice(*, actor, invoice):
     locked.issued_at = issued_at
     # `official_number` is in the same write as the status, so an invoice can
     # never be issued without its number, nor hold a number without being issued.
-    locked.save(update_fields=[
-        "status", "issued_at", "document_date", "stock_applied", "official_number",
-        "updated_at",
-        *PARTY_SNAPSHOT_FIELDS,
-    ])
+    try:
+        with transaction.atomic():
+            locked.save(update_fields=[
+                "status", "issued_at", "document_date", "stock_applied", "official_number",
+                "updated_at",
+                *PARTY_SNAPSHOT_FIELDS,
+            ])
+    except IntegrityError as exc:
+        if _number_clash_kind(exc) == "official_number":
+            raise BusinessConflictError({"official_number": "این شمارهٔ رسمی پیش‌تر به فاکتور دیگری داده شده است."}) from exc
+        raise
 
     from billing.installments import build_plan_at_issue
 
@@ -1480,6 +1526,11 @@ def issue_invoice(*, actor, invoice):
     # feature is on; it can never fail an issue (see the function).
     from sales.campaign_attribution import attribute_issued_invoice
 
+    # The buyer's campaign entries become «مشتری» (2.40.0) — before attribution,
+    # so the person attribution picks is already linked. Never blocks issuing.
+    from sales.campaigns import link_campaign_people_to_customer
+
+    link_campaign_people_to_customer(customer=locked.customer, actor=actor)
     attribute_issued_invoice(invoice=locked, issued_at=issued_at)
     # PRELIMINARY, UNCOMMITTED (cross-product integration goal, 2026-09-08)
     # — see integration/apps.py. Inside the same transaction as the status
@@ -1657,6 +1708,10 @@ def record_manual_paid_entry(*, actor, invoice, amount):
     locked = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if not invoices_for(actor).filter(pk=locked.pk).exists():
         raise BusinessPermissionDenied("این فاکتور خارج از دسترسی شماست.")
+    # Only an issued invoice owes anything (2.40.0): a draft or a cancelled one
+    # has nothing to declare paid.
+    if locked.status != Invoice.Status.ISSUED:
+        raise BusinessConflictError({"manual_paid_entry": "پرداخت دستی فقط برای فاکتور صادرشده ثبت می‌شود."})
     entry = clean_money(amount, field="manual_paid_entry")
     if entry > locked.total_amount:
         raise BusinessRuleError(

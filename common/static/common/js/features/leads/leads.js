@@ -1,7 +1,7 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {apiDateTime} from "dolphin/core/jalali.js";
 import {clearMessages, formPayload, showError, withSubmit} from "dolphin/core/messages.js";
-import {setupPagedList} from "dolphin/ui/lists.js";
+import {loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {leadRow} from "dolphin/ui/rows.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
@@ -26,7 +26,7 @@ export async function setupLeads() {
     function renderLeadReview() {
         renderWizardReview(document.getElementById("create-lead-review"), [
             ["منبع", document.getElementById("create-lead-source").value || "—"],
-            ["کمپین", document.getElementById("create-lead-campaign").value || "—"],
+            ["کمپین", selectedOptionText(document.getElementById("create-lead-campaign"))],
             ["وضعیت", selectedOptionText(document.getElementById("create-lead-status"))],
             ["پیگیری بعدی", document.getElementById("create-lead-follow-up").value || "—"],
             ["یادداشت", document.getElementById("create-lead-notes").value || "—"],
@@ -42,6 +42,13 @@ export async function setupLeads() {
     dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
     try {
         await controller.load();
+        // A new lead belongs to a campaign (2.40.0).
+        const campaigns = await loadAllPages("/api/v1/campaigns/?ordering=name");
+        const select = document.getElementById("create-lead-campaign");
+        campaigns.filter((campaign) => campaign.status !== "archived" && !campaign.children_count)
+            .forEach((campaign) => select.append(new Option(
+                campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : campaign.name, String(campaign.id),
+            )));
     } catch (error) { showError(error); }
     createForm.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -49,7 +56,8 @@ export async function setupLeads() {
             const data = new FormData(createForm);
             // No customer and no interested product: a campaign is worked
             // from its target audience.
-            const payload = formPayload(createForm, ["source", "campaign_or_batch", "status", "notes"]);
+            const payload = formPayload(createForm, ["source", "status", "notes"]);
+            payload.campaign = Number(data.get("campaign"));
             if (data.get("next_follow_up_at")) payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));
             const lead = await apiRequest(createForm.action, {method: "POST", body: payload});
             window.location.assign(`/leads/${lead.id}/`);

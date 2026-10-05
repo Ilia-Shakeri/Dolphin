@@ -362,7 +362,7 @@ function customerProfileLoaders(customerId) {
     };
 }
 
-// The customer «آنالیز» tab (2.33.0): one request fills five figures; the
+// The customer «تحلیل» tab (2.33.0): one request fills five figures; the
 // box the reader picks decides which monthly series the smooth line draws.
 async function setupCustomerAnalysis(customerId) {
     const root = document.getElementById("customer-analysis");

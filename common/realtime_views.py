@@ -29,6 +29,13 @@ class EventStreamView(View):
             raise Http404
         if not is_crm_identity(request.user):
             return HttpResponse(status=401)
+        # Same-site only (2.40.0): a page on another site may not hold a stream
+        # with this user's cookie.
+        if request.headers.get("Sec-Fetch-Site") not in (None, "same-origin", "same-site", "none"):
+            return HttpResponse(status=403)
+        origin = request.headers.get("Origin")
+        if origin and origin.split("://", 1)[-1] != request.get_host():
+            return HttpResponse(status=403)
         limit = int(getattr(settings, "REALTIME_MAX_CONNECTIONS", 200))
         if realtime.BROKER.count() >= limit:
             return HttpResponse(status=503, headers={"Retry-After": "30"})
@@ -64,7 +71,13 @@ class EventStreamView(View):
             finally:
                 realtime.BROKER.unsubscribe(subscriber)
 
-        response = StreamingHttpResponse(stream(), content_type="text/event-stream")
+        def stream_with_goodbye():
+            yield from stream()
+            if subscriber.evicted:
+                # Terminal: a newer tab of the same user took this slot.
+                yield f"event: bye\ndata: {json.dumps({'k': 'bye'})}\n\n"
+
+        response = StreamingHttpResponse(stream_with_goodbye(), content_type="text/event-stream")
         # Freed on close even if the generator never started (a client that left
         # before the first byte would otherwise keep its slot).
         response._resource_closers.append(lambda: realtime.BROKER.unsubscribe(subscriber))
@@ -80,9 +93,9 @@ class RealtimeHealthView(View):
     def get(self, request):
         if not getattr(settings, "REALTIME_SERVE_STREAMS", False):
             raise Http404
-        return JsonResponse({
-            "status": "ok",
-            "enabled": realtime.available(),
-            "listener": realtime.listener_running(),
-            "connections": realtime.BROKER.count(),
-        })
+        # Nothing about users or events; the listener's real state (2.40.0).
+        healthy = realtime.listener_healthy() or not realtime.listener_running()
+        return JsonResponse(
+            {"status": "ok" if healthy else "degraded", "listener": realtime.listener_healthy(), "connections": realtime.BROKER.count()},
+            status=200 if healthy else 503,
+        )

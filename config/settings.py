@@ -405,6 +405,9 @@ REALTIME_ENABLED = os.environ.get("DOLPHIN_REALTIME_ENABLED", "false").lower() =
 REALTIME_SERVE_STREAMS = os.environ.get("DOLPHIN_REALTIME_SERVE_STREAMS", "false").lower() == "true"
 REALTIME_MAX_CONNECTIONS = int(os.environ.get("DOLPHIN_REALTIME_MAX_CONNECTIONS", "200"))
 REALTIME_STREAM_SECONDS = int(os.environ.get("DOLPHIN_REALTIME_STREAM_SECONDS", "300"))
+# Streams one user may hold at once (2.40.0, was a fixed 3); a newer tab ends
+# the oldest with a terminal `bye`.
+REALTIME_MAX_PER_USER = int(os.environ.get("DOLPHIN_REALTIME_MAX_PER_USER", "3"))
 
 # When a cheque payment credits the customer account: on clearing (default) or
 # at registration. Clearing is the safe default because an uncleared cheque is

@@ -24,16 +24,33 @@ export function setupRealtime() {
         document.dispatchEvent(new CustomEvent("dolphin:realtime", {detail: {kind: data.k, id: data.i ?? null}}));
     }
 
+    let stopped = false;
+    let hideTimer = null;
+
+    function close() {
+        clearTimeout(retryTimer);
+        source?.close();
+        source = null;
+    }
+
     function open() {
+        if (stopped || source) return;
         source = new EventSource(url);
         source.onopen = () => { failures = 0; };
         source.onmessage = (message) => {
             try { announce(JSON.parse(message.data)); } catch (error) { /* a malformed event is ignored */ }
         };
+        // A newer tab of the same user took this slot (2.40.0): stop for good
+        // instead of reconnecting and pushing that tab out in turn.
+        source.addEventListener("bye", () => {
+            stopped = true;
+            close();
+        });
         source.onerror = () => {
             // The browser retries a dropped connection by itself; a refused one
             // (404/502/401) it closes, which is where this takes over.
-            if (source.readyState !== EventSource.CLOSED) return;
+            if (!source || source.readyState !== EventSource.CLOSED) return;
+            source = null;
             failures += 1;
             clearTimeout(retryTimer);
             // Backs off with jitter (so a restarted server is not hit by every
@@ -45,10 +62,16 @@ export function setupRealtime() {
     }
 
     open();
-    // Catch up at once on returning to the tab: events were not delivered
-    // while it was hidden.
+    // A hidden tab gives its stream back after a minute (2.40.0) and catches up
+    // with one re-read when it is shown again.
     document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) announce({k: "resync", i: null});
+        clearTimeout(hideTimer);
+        if (document.hidden) {
+            hideTimer = setTimeout(close, 60000);
+        } else {
+            if (!source && !stopped) open();
+            announce({k: "resync", i: null});
+        }
     });
     window.addEventListener("pagehide", () => source?.close());
 }

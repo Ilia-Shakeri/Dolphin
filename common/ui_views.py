@@ -59,6 +59,7 @@ from sales.selectors import (
     products_for,
     sales_documents_for,
     sales_for,
+    work_leads_for,
 )
 
 
@@ -348,7 +349,7 @@ class DolphinHomeView(ActiveCrmView):
                 })
 
         customer_scope = customers_for(self.request.user)
-        lead_scope = leads_for(self.request.user)
+        lead_scope = work_leads_for(self.request.user)
         interaction_scope = interactions_for(self.request.user)
         sale_scope = sales_for(self.request.user)
         document_scope = sales_documents_for(self.request.user)
@@ -548,7 +549,10 @@ class DolphinCampaignDetailView(ScopedDetailView):
         context = super().get_context_data(**kwargs)
         context["can_manage_campaigns"] = "campaigns.manage" in context["capabilities"]
         if context["can_manage_campaigns"]:
+            from sales.models import Campaign
+
             context["customer_owner_choices"] = customer_owner_choices()
+            context["campaign_channels"] = Campaign.Channel.choices
         return context
 
 

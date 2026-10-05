@@ -22,6 +22,7 @@ const MONEY_COLUMNS = [
     ["فروش ثبت‌شده", (row) => `${count(row.registered_sales_count)} — ${money(row.registered_sales_amount)}`],
     ["فاکتور معتبر", (row) => `${count(row.valid_invoices_count)} — ${money(row.valid_invoices_amount)}`],
     ["وصول‌شده", (row) => money(row.collected_amount)],
+    ["مانده", (row) => (row.remaining_amount === undefined ? "—" : money(row.remaining_amount))],
 ];
 
 export function setupCampaignResults() {
@@ -58,11 +59,18 @@ export function setupCampaignResults() {
             head.replaceChildren(headRow);
             body.replaceChildren(...data.results.map((row) => {
                 const tr = document.createElement("tr");
+                // The whole row opens the campaign (2.40.0); «بدون کمپین» has no page.
+                if (row.id) {
+                    tr.classList.add("cursor-pointer");
+                    tr.addEventListener("click", (event) => {
+                        if (!event.target.closest("a")) window.location.assign(`/campaigns/${row.id}/`);
+                    });
+                }
                 columns.forEach(([, render], index) => {
                     const td = document.createElement("td");
                     const value = render(row);
                     if (value instanceof Node) td.append(value);
-                    else if (index === 0) {
+                    else if (index === 0 && row.id) {
                         const link = document.createElement("a");
                         link.href = `/campaigns/${row.id}/`;
                         link.textContent = value;

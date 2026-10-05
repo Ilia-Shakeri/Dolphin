@@ -1,20 +1,36 @@
-"""One name per menu group, used the same way in the menu and on its pages (2.39.11)."""
+"""One navigation registry, one name per page (2.40.0, widened from 2.39.11)."""
 
 from pathlib import Path
 
 from django.test import SimpleTestCase
 
+from common.navigation import GROUPS, LABELS
+
 TEMPLATES = Path(__file__).resolve().parents[1] / "templates" / "common"
-GROUPS = ("سرنخ‌ها و مشتریان", "کمپین‌ها", "فروش و تأمین", "مالی", "انبار و موجودی")
+RETIRED = ("مرکز ارتباطات", "اسناد فروش", "اسناد مالی", "اسناد بازرگانی", "آنالیز")
 
 
-class NavigationNameTests(SimpleTestCase):
-    def test_menu_groups_carry_the_agreed_names_and_the_retired_ones_are_gone(self):
+class NavigationRegistryTests(SimpleTestCase):
+    def test_groups_follow_the_business_flow_and_stay_small(self):
+        keys = [group.key for group in GROUPS]
+        flow = ["campaigns", "leads", "customers", "sales", "inventory", "finance"]
+        self.assertEqual([key for key in keys if key in flow], flow)
+        for group in GROUPS:
+            with self.subTest(group=group.key):
+                self.assertLessEqual(len(group.items), 6)
+
+    def test_no_label_appears_twice_and_retired_words_are_gone(self):
+        labels = [item.label for group in GROUPS for item in group.items]
+        self.assertEqual(len(labels), len(set(labels)))
+        captions = [group.label for group in GROUPS] + labels
+        for word in RETIRED:
+            for caption in captions:
+                self.assertNotIn(word, caption)
+
+    def test_the_sidebar_is_drawn_from_the_registry(self):
         base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
-        for name in GROUPS:
-            self.assertIn(f'<span class="menu-title">{name}</span>', base)
-        for retired in ("مرکز ارتباطات", "اسناد فروش", "اسناد مالی"):
-            self.assertNotIn(f'<span class="menu-title">{retired}</span>', base)
+        self.assertIn("{% sidebar_navigation as nav_groups %}", base)
+        self.assertNotIn('<span class="menu-title">مشتریان</span>', base)
 
     def test_page_eyebrows_never_use_a_retired_group_name(self):
         for path in TEMPLATES.rglob("*.html"):
@@ -22,5 +38,29 @@ class NavigationNameTests(SimpleTestCase):
             if "block page_eyebrow" not in text:
                 continue
             eyebrow = text.split("block page_eyebrow", 1)[1].split("endblock", 1)[0]
-            for retired in ("مرکز ارتباطات", "اسناد بازرگانی", "اسناد مالی"):
+            for retired in RETIRED:
                 self.assertNotIn(retired, eyebrow, path.name)
+
+    def test_every_registered_page_has_a_label(self):
+        self.assertTrue(all(LABELS.values()))
+
+
+class EyebrowTests(SimpleTestCase):
+    def test_each_listed_pages_eyebrow_is_its_menu_group(self):
+        import re
+
+        from django.urls import resolve, reverse
+
+        for group in GROUPS:
+            if group.key in {"dashboard", "settings"}:
+                continue
+            for item in group.items:
+                view = resolve(reverse(item.url_name)).func.view_class
+                template = (Path(__file__).resolve().parents[1] / "templates" / view.template_name)
+                text = template.read_text(encoding="utf-8")
+                eyebrow = re.search(r'{% block page_eyebrow %}<span[^>]*>(.*?)</span>', text)
+                if eyebrow is None:
+                    continue
+                with self.subTest(page=item.url_name):
+                    expected = "مدیریت" if group.key == "administration" else group.label
+                    self.assertEqual(eyebrow.group(1), expected)

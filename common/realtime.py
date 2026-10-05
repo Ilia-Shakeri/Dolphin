@@ -76,7 +76,8 @@ class Subscriber:
         self.created = time.monotonic()
         self.queue = queue.Queue(maxsize=256)
         self.overflowed = False
-        #: Set when a newer connection of the same user pushed this one out.
+        #: Set when a newer connection of the same user pushed this one out; the
+        #: stream then ends with a terminal `bye` the browser must not retry.
         self.evicted = False
 
     def offer(self, event):
@@ -138,12 +139,42 @@ def public_event(event):
     return {"k": kind, "i": None if kind in KINDS_WITHOUT_ID else event.get("i"), "t": event["t"]}
 
 
+def _already_announced(event):
+    """True when the same announcement was already made in this transaction
+    (2.40.0): an import of 5000 rows is one «customers changed», not 5000.
+
+    The set lives on the connection beside a marker callback queued with
+    `on_commit`; when the marker is no longer queued (the transaction committed
+    or rolled back) the set belongs to a finished transaction and starts over.
+    Outside a transaction nothing is coalesced.
+    """
+    if not getattr(connection, "in_atomic_block", False) or not hasattr(connection, "run_on_commit"):
+        return False
+    state = getattr(connection, "_dolphin_realtime_state", None)
+    queued = {entry[1] for entry in connection.run_on_commit}
+    if state is None or state["marker"] not in queued:
+        def marker():
+            return None
+
+        state = {"marker": marker, "seen": set()}
+        connection._dolphin_realtime_state = state
+        transaction.on_commit(marker)
+    key = (event["k"], tuple(event["u"]) if event["u"] is not None else None,
+           None if event["k"] in KINDS_WITHOUT_ID else event["i"])
+    if key in state["seen"]:
+        return True
+    state["seen"].add(key)
+    return False
+
+
 def publish(kind, *, object_id=None, users=None):
     """Announce a change. A no-op unless live updates are on; never raises."""
     if not available():
         return
     event = {"k": kind, "i": object_id, "u": sorted(set(users)) if users is not None else None, "t": int(time.time() * 1000)}
     try:
+        if _already_announced(event):
+            return
         if connection.vendor == "postgresql":
             payload = json.dumps(event, separators=(",", ":"))
             if len(payload.encode("utf-8")) > MAX_PAYLOAD_BYTES:
@@ -178,9 +209,16 @@ def _connection_parameters():
     return {key: value for key, value in parameters.items() if value not in ("", None)}
 
 
+#: When the LISTEN connection last proved alive (monotonic seconds), or None.
+_listener_alive_at = None
+#: Whether the listener has connected at least once (a reconnect then resyncs).
+_listener_connected_before = False
+
+
 def _listen_forever():
     import psycopg
 
+    global _listener_alive_at, _listener_connected_before
     delay = 1
     while True:
         try:
@@ -188,13 +226,21 @@ def _listen_forever():
                 listener.execute(f"LISTEN {CHANNEL}")
                 logger.info("realtime listener connected")
                 delay = 1
+                _listener_alive_at = time.monotonic()
+                if _listener_connected_before:
+                    # Events published while the connection was down are lost:
+                    # every browser re-reads what it shows (2.40.0).
+                    BROKER.deliver({"k": "resync", "i": None, "u": None, "t": int(time.time() * 1000)})
+                _listener_connected_before = True
                 while True:
+                    _listener_alive_at = time.monotonic()
                     for notice in listener.notifies(timeout=30):
                         try:
                             BROKER.deliver(json.loads(notice.payload))
                         except ValueError:
                             logger.warning("ignored a malformed live update")
         except Exception:  # noqa: BLE001 - reconnect with backoff; browsers keep their fallback meanwhile
+            _listener_alive_at = None
             logger.exception("realtime listener lost its connection; retrying in %ss", delay)
             time.sleep(delay)
             delay = min(delay * 2, 30)
@@ -214,6 +260,12 @@ def ensure_listener():
 
 def listener_running():
     return _listener_started
+
+
+def listener_healthy():
+    """The LISTEN connection answered within the last minute (2.40.0) — not
+    merely «a thread was started». The notifies loop wakes every 30 s."""
+    return _listener_alive_at is not None and time.monotonic() - _listener_alive_at < 75
 
 
 def serves_streams():

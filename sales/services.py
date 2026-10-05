@@ -278,17 +278,23 @@ def update_customer(*, actor, customer, **changes):
         current=locked.economic_code if "kind" in changes else "",
     )
     changed_fields = []
+    previous_owner = locked.owner_id
     for field, value in changes.items():
         if getattr(locked, field) != value:
             setattr(locked, field, value)
             changed_fields.append(field)
     if changed_fields:
         locked.save(update_fields=[*changed_fields, "updated_at"])
+        details = {"fields": sorted(changed_fields)}
+        if "owner" in changed_fields:
+            # Who it moved from and to (2.40.0), not only that it moved.
+            details["owner_from"] = previous_owner
+            details["owner_to"] = locked.owner_id
         log_activity(
             actor=actor,
             operation="customer.updated",
             instance=locked,
-            changes={"fields": sorted(changed_fields)},
+            changes=details,
         )
     return locked
 
@@ -468,7 +474,7 @@ def deactivate_customer_phone(*, actor, phone):
 
 
 @transaction.atomic
-def create_lead(*, actor, customer=None, **data):
+def create_lead(*, actor, customer=None, campaign=None, **data):
     """Start a campaign.
 
     `customer` is optional: a campaign is worked from its target audience, and
@@ -483,7 +489,11 @@ def create_lead(*, actor, customer=None, **data):
     _validate_lead_status(data)
     if customer is not None and not customers_for(actor).filter(pk=customer.pk).exists():
         raise BusinessPermissionDenied("این مشتری خارج از دسترسی شماست.")
-    lead = Lead.objects.create(customer=customer, created_by=actor, source_payload={}, **data)
+    if campaign is not None:
+        # The campaign entity (2.40.0); the free-text label follows it so
+        # older readers of `campaign_or_batch` see the same name.
+        data.setdefault("campaign_or_batch", campaign.name[:100])
+    lead = Lead.objects.create(customer=customer, campaign=campaign, created_by=actor, source_payload={}, **data)
     log_activity(
         actor=actor,
         operation="lead.created",
@@ -500,7 +510,9 @@ def update_lead(*, actor, lead, **changes):
     if actor.role == User.Role.SALES_AGENT and locked.assigned_to_id != actor.pk:
         raise BusinessPermissionDenied("این سرنخ خارج از دسترسی شماست.")
     if "customer" in changes:
-        if changes["customer"].pk != locked.customer_id:
+        # `None` on a lead with no customer is a no-op, not a crash (2.40.0).
+        new_id = changes["customer"].pk if changes["customer"] is not None else None
+        if new_id != locked.customer_id:
             raise BusinessRuleError({"customer": "مشتری سرنخ قابل تغییر نیست."})
         changes.pop("customer")
     unknown = set(changes) - LEAD_MUTABLE_FIELDS
@@ -792,8 +804,10 @@ def mark_sale(*, actor, lead, product=None, quantity=1, total_amount=None, **dat
     if total_amount > MAX_MONEY:
         raise BusinessRuleError({"total_amount": "مبلغ بیش از حد مجاز است."})
     if locked_lead.customer_id is None:
+        # A campaign container names no customer: a sale to a campaign person
+        # is an invoice (2.40.0), which also makes them a customer.
         raise BusinessRuleError({
-            "customer": "پیش از ثبت نتیجه این کمپین، مشتری را مشخص کنید."
+            "lead": "فروش به اشخاص کمپین با «فاکتور جدید» ثبت می‌شود؛ از صفحهٔ فاکتورها، شخص را از «انتخاب از اشخاص کمپین» برگزینید."
         })
     # `sold_at` is NOT NULL with no database default. The serializer defaults it
     # to now, so the panel always supplies one — but a caller that does not (a

@@ -612,13 +612,27 @@ def allocate_payment_across(*, actor, payment, splits, request_key=""):
     # Taking the invoices in the operator's order let two receipts that touch
     # the same two invoices in opposite order wait on each other.
     Payment.objects.select_for_update().get(pk=payment.pk)
-    request_key = str(request_key or "").strip()[:64]
+    request_key = str(request_key or "").strip()[:56]
     if request_key:
         # The same submission sent twice (a double click, a retry after a lost
         # response) returns what the first one made instead of allocating again.
-        # Checked under the receipt's lock, so two copies cannot both pass.
-        done = list(PaymentAllocation.objects.filter(payment_id=payment.pk, request_key=request_key).order_by("id"))
+        # Checked under the receipt's lock, so two copies cannot both pass; each
+        # row stores `<key>:<n>`, which the database keeps unique per receipt.
+        done = list(
+            PaymentAllocation.objects.filter(payment_id=payment.pk, request_key__startswith=f"{request_key}:")
+            .order_by("id")
+        )
         if done:
+            asked = [(split["invoice"].pk, split.get("amount")) for split in splits]
+            made = [(row.invoice_id, row.amount) for row in done]
+            same = len(asked) == len(made) and all(
+                invoice == row_invoice and (amount is None or amount == row_amount)
+                for (invoice, amount), (row_invoice, row_amount) in zip(asked, made)
+            )
+            if not same:
+                raise BusinessConflictError({
+                    "request_key": "این فرم پیش‌تر با تقسیم دیگری ثبت شده است؛ صفحه را تازه کنید و دوباره تخصیص دهید."
+                })
             return done
     list(
         Invoice.objects.select_for_update()
@@ -638,9 +652,9 @@ def allocate_payment_across(*, actor, payment, splits, request_key=""):
             )
         )
     if request_key:
-        PaymentAllocation.objects.filter(pk__in=[row.pk for row in allocations]).update(request_key=request_key)
-        for row in allocations:
-            row.request_key = request_key
+        for index, row in enumerate(allocations):
+            row.request_key = f"{request_key}:{index}"
+            PaymentAllocation.objects.filter(pk=row.pk).update(request_key=row.request_key)
     return allocations
 
 
@@ -669,7 +683,10 @@ def allocate_payment(*, actor, payment, invoice, amount=None):
         raise BusinessRuleError({"invoice": "فاکتور و پرداخت باید متعلق به یک مشتری باشند."})
 
     available = locked_payment.unallocated_amount
-    outstanding = locked_invoice.balance_due
+    # The payment records' own figure (2.40.0): a manual «پرداخت شده» mark
+    # zeroes `balance_due` for display but must never stop real money being
+    # applied; allocating it is what makes the records agree with the mark.
+    outstanding = locked_invoice.canonical_balance_due
     if available <= 0:
         raise BusinessConflictError({"payment": "این پرداخت به‌طور کامل تخصیص یافته است."})
     if outstanding <= 0:
@@ -704,15 +721,29 @@ def allocate_payment(*, actor, payment, invoice, amount=None):
     return allocation
 
 
+def _lock_allocations_then_invoices(payment):
+    """With the payment already locked: its active allocations by id, then the
+    invoices they touch by id — the shared lock order (2.40.0)."""
+    active = list(
+        PaymentAllocation.objects.select_for_update().filter(payment=payment, is_reversed=False)
+        .order_by("id").values_list("invoice_id", flat=True)
+    )
+    list(Invoice.objects.select_for_update().filter(pk__in=set(active)).order_by("pk").values_list("pk", flat=True))
+
+
 @transaction.atomic
 def release_allocation(*, actor, allocation, reason=""):
     """Undo one allocation without deleting it."""
     actor = _lock_payment_manager(actor)
+    # One lock order everywhere (2.40.0): payment, then its allocations by id,
+    # then invoices by id. Taking the allocation first here, while a cancel
+    # held the payment and waited for the allocation, could deadlock.
+    payment_id, invoice_id = PaymentAllocation.objects.values_list("payment_id", "invoice_id").get(pk=allocation.pk)
+    payment = Payment.objects.select_for_update().get(pk=payment_id)
     locked = PaymentAllocation.objects.select_for_update().get(pk=allocation.pk)
     if locked.is_reversed:
         raise BusinessConflictError({"is_reversed": "این تخصیص قبلاً آزاد شده است."})
-    payment = Payment.objects.select_for_update().get(pk=locked.payment_id)
-    invoice = Invoice.objects.select_for_update().get(pk=locked.invoice_id)
+    invoice = Invoice.objects.select_for_update().get(pk=invoice_id)
 
     locked.is_reversed = True
     locked.release_reason = str(reason or "").strip()[:500]
@@ -783,6 +814,7 @@ def update_payment(*, actor, payment, cheque=None, **data):
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
 
     locked = Payment.objects.select_for_update().get(pk=payment.pk)
+    _lock_allocations_then_invoices(locked)
     target_status = data.pop("status", locked.status)
     if target_status not in {Payment.Status.CONFIRMED, Payment.Status.CANCELLED}:
         raise BusinessRuleError({"status": "پرداخت فقط می‌تواند تأییدشده یا لغوشده باشد."})
@@ -915,7 +947,8 @@ def cancel_payment(*, actor, payment, reason=""):
         raise BusinessConflictError({"status": "این پرداخت قبلاً لغو شده است."})
     was_confirmed = locked.status == Payment.Status.CONFIRMED
 
-    for allocation in locked.allocations.filter(is_reversed=False):
+    _lock_allocations_then_invoices(locked)
+    for allocation in locked.allocations.filter(is_reversed=False).order_by("id"):
         release_allocation(actor=actor, allocation=allocation, reason=reason)
 
     locked.refresh_from_db()

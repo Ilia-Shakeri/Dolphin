@@ -21,6 +21,6 @@ class ChecklistTests(SimpleTestCase):
             path.name for path in TEMPLATES.rglob("*.html")
             if "<select" in (text := path.read_text(encoding="utf-8")) and " multiple" in text
         )
-        self.assertEqual(multiple, ["analytics.html", "list.html"])
-        for name in ("campaigns.js", "campaign-analytics.js"):
+        self.assertEqual(multiple, ["analytics.html", "detail.html", "list.html"])
+        for name in ("campaigns.js", "campaign-analytics.js", "campaign-detail.js"):
             self.assertIn("enhanceChecklistSelect(", (SCRIPTS / "features" / "campaigns" / name).read_text(encoding="utf-8"))

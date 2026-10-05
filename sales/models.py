@@ -311,6 +311,18 @@ class Campaign(TimeStampedModel):
         ]
         indexes = [models.Index(fields=["status", "-created_at"])]
 
+    def save(self, *args, **kwargs):
+        # Two levels only, whatever path writes the row (2.40.0): the service
+        # checks this too, but a script or the admin must not slip a third.
+        if self.parent_id is not None:
+            if self.parent_id == self.pk:
+                raise ValueError("A campaign cannot be its own parent.")
+            if Campaign.objects.filter(pk=self.parent_id, parent__isnull=False).exists():
+                from common.exceptions import BusinessRuleError
+
+                raise BusinessRuleError({"parent": "زیرکمپین فقط یک سطح دارد."})
+        super().save(*args, **kwargs)
+
 
 class CampaignAttribution(TimeStampedModel):
     """Which campaign a valid invoice counts for (2.36.0).

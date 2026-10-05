@@ -266,3 +266,30 @@ export function setupThemeModePopup() {
     });
 
 }
+
+/**
+ * In-page tab bars (`page_tabs`, 2.40.0): arrow keys move between tabs the
+ * way a tablist does, Home/End jump to the ends. In RTL the visual order runs
+ * right to left, so ArrowLeft is «next». Each tab is a link to its own URL.
+ */
+export function setupPageTabs() {
+    for (const bar of document.querySelectorAll("[data-page-tabs]")) {
+        const tabs = Array.from(bar.querySelectorAll('[role="tab"]'));
+        bar.addEventListener("keydown", (event) => {
+            const index = tabs.indexOf(document.activeElement);
+            if (index < 0) return;
+            const rtl = getComputedStyle(bar).direction === "rtl";
+            const next = rtl ? "ArrowLeft" : "ArrowRight";
+            const previous = rtl ? "ArrowRight" : "ArrowLeft";
+            let target = null;
+            if (event.key === next) target = tabs[(index + 1) % tabs.length];
+            else if (event.key === previous) target = tabs[(index - 1 + tabs.length) % tabs.length];
+            else if (event.key === "Home") target = tabs[0];
+            else if (event.key === "End") target = tabs[tabs.length - 1];
+            if (!target) return;
+            event.preventDefault();
+            tabs.forEach((tab) => tab.setAttribute("tabindex", tab === target ? "0" : "-1"));
+            target.focus();
+        });
+    }
+}

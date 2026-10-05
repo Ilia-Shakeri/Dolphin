@@ -41,6 +41,15 @@ class TargetAudienceTests(TestCase):
         )
         self.lead = create_lead(actor=self.manager, customer=self.customer, source="manual")
 
+
+    def _give_campaign(self):
+        """New people belong to a campaign since 2.40.0; these API tests need one."""
+        from sales.campaigns import create_campaign
+        from sales.models import Lead
+
+        campaign = create_campaign(actor=self.manager, name=f"کمپین {self.lead.pk}")
+        Lead.objects.filter(pk=self.lead.pk).update(campaign=campaign)
+        self.lead.refresh_from_db()
     def _add(self, name="فرد هدف", phone="09120002222", **kwargs):
         return add_target_audience_member(
             actor=self.manager, lead=self.lead, full_name=name, raw_phone=phone, **kwargs
@@ -187,6 +196,7 @@ class TargetAudienceTests(TestCase):
         self.assertEqual(len(identifiers), 1)
 
     def test_the_api_refuses_a_marketer_write(self):
+        self._give_campaign()
         self.lead.assigned_to = self.agent
         self.lead.assigned_by = self.manager
         self.lead.assigned_at = timezone.now()
@@ -202,6 +212,7 @@ class TargetAudienceTests(TestCase):
         self.assertFalse(TargetAudienceMember.objects.filter(full_name="نفوذی").exists())
 
     def test_the_api_creates_and_lists_for_a_manager(self):
+        self._give_campaign()
         client = APIClient()
         client.force_authenticate(self.manager)
         created = client.post(

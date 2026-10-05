@@ -52,6 +52,7 @@ from billing.serializers import (
     InvoiceOrderLinkSerializer,
     ManualPaidEntrySerializer,
     AllocatePaymentAcrossSerializer,
+    AllocatePaymentOnceSerializer,
     AllocatePaymentSerializer,
     ChequeSerializer,
     ChequeRegistrationSerializer,
@@ -574,14 +575,19 @@ class PaymentViewSet(SensitiveActionThrottleMixin, HardDeleteMixin, StrictQueryP
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(request=AllocatePaymentSerializer, responses={201: PaymentAllocationSerializer, **WRITE_RESPONSES})
+    @extend_schema(request=AllocatePaymentOnceSerializer, responses={201: PaymentAllocationSerializer, **WRITE_RESPONSES})
     @action(detail=True, methods=["post"])
     def allocate(self, request, pk=None):
-        serializer = AllocatePaymentSerializer(data=request.data, context=self.get_serializer_context())
+        serializer = AllocatePaymentOnceSerializer(data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
-        allocation = allocate_payment(
-            actor=request.user, payment=self.get_object(), **serializer.validated_data
-        )
+        data = dict(serializer.validated_data)
+        key = data.pop("request_key", "")
+        if key:
+            [allocation] = allocate_payment_across(
+                actor=request.user, payment=self.get_object(), splits=[data], request_key=key,
+            )
+        else:
+            allocation = allocate_payment(actor=request.user, payment=self.get_object(), **data)
         return Response(PaymentAllocationSerializer(allocation).data, status=201)
 
     @extend_schema(
