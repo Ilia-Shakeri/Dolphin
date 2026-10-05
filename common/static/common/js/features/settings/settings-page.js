@@ -21,25 +21,55 @@ import {registerPopover} from "dolphin/ui/popover.js";
 /**
  * Tabs switch without a reload. Every pane is already in the page; the links
  * keep their `?tab=` href so each tab stays linkable and works without script.
+ *
+ * Since 2.40.13 a switch is a history entry (`pushState`), so Back returns to
+ * the tab before it (`popstate`), and the tab bar is one tab stop: the arrow
+ * keys move between tabs in the reading direction, Home and End to the ends
+ * (roving `tabindex`, the same as `setupPageTabs` in `shell/nav.js`).
  */
 function setupSettingsTabs() {
     const tabs = Array.from(document.querySelectorAll("[data-settings-tab]"));
     if (!tabs.length) return;
+    const keyFrom = (search) => new URLSearchParams(search).get("tab");
     const show = (key) => {
+        if (!tabs.some((tab) => tab.dataset.settingsTab === key)) key = tabs[0].dataset.settingsTab;
         tabs.forEach((tab) => {
             const active = tab.dataset.settingsTab === key;
             tab.classList.toggle("active", active);
             tab.setAttribute("aria-selected", String(active));
+            tab.tabIndex = active ? 0 : -1;
         });
         document.querySelectorAll("[data-settings-pane]").forEach((pane) => {
             pane.hidden = pane.dataset.settingsPane !== key;
         });
     };
-    tabs.forEach((tab) => tab.addEventListener("click", (event) => {
-        event.preventDefault();
+    const choose = (tab) => {
         show(tab.dataset.settingsTab);
-        history.replaceState(null, "", tab.getAttribute("href"));
-    }));
+        if (keyFrom(window.location.search) !== tab.dataset.settingsTab) {
+            history.pushState({settingsTab: tab.dataset.settingsTab}, "", tab.getAttribute("href"));
+        }
+    };
+    tabs.forEach((tab) => {
+        tab.tabIndex = tab.getAttribute("aria-selected") === "true" ? 0 : -1;
+        tab.addEventListener("click", (event) => {
+            event.preventDefault();
+            choose(tab);
+        });
+        tab.addEventListener("keydown", (event) => {
+            const rtl = getComputedStyle(tab).direction === "rtl";
+            const index = tabs.indexOf(tab);
+            let target = null;
+            if (event.key === (rtl ? "ArrowLeft" : "ArrowRight")) target = tabs[(index + 1) % tabs.length];
+            else if (event.key === (rtl ? "ArrowRight" : "ArrowLeft")) target = tabs[(index - 1 + tabs.length) % tabs.length];
+            else if (event.key === "Home") target = tabs[0];
+            else if (event.key === "End") target = tabs[tabs.length - 1];
+            if (!target) return;
+            event.preventDefault();
+            choose(target);
+            target.focus();
+        });
+    });
+    window.addEventListener("popstate", () => show(keyFrom(window.location.search)));
 }
 
 export function setupSettingsPage() {
