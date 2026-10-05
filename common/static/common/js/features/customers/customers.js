@@ -5,6 +5,7 @@ import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "
 import {bucketLabel} from "dolphin/features/customers/shared.js";
 import {renderAreaChart, renderBarChart, renderDonutChart, setupChartRange} from "dolphin/ui/charts.js";
 import {fillCustomerCategorySelect, setupCategoryManager} from "dolphin/ui/customer-categories.js";
+import {customerKindBadge} from "dolphin/ui/customer-kind.js";
 import {fillProvinceSelect, loadIranMap} from "dolphin/ui/iran-map.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
@@ -136,7 +137,7 @@ export function setupCustomers() {
         const phoneRaw = document.getElementById("create-customer-phone").value.trim();
         renderWizardReview(document.getElementById("create-customer-review"), [
             ["نام کامل", createForm.full_name.value || "—"],
-            ["نوع مشتری", kindField.value === "legal" ? "حقوقی" : "حقیقی"],
+            ["نوع مشتری", customerKindBadge(kindField.value)],
             ["کد ملی", createForm.national_id.value || "—"],
             ...(kindField.value === "legal" ? [["شماره اقتصادی", createForm.economic_code.value || "—"]] : []),
             ["ایمیل", createForm.email.value || "—"],

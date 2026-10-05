@@ -1,4 +1,5 @@
 {% extends "common/base.html" %}
+{% load customer_kind_tags %}
 {% block title %}مشتریان{% endblock %}
 {% block page_id %}customers{% endblock %}
 {% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مشتریان</span>{% endblock %}
@@ -85,8 +86,8 @@
     <div class="card-toolbar gap-3">
         {% if can_manage_customer_kinds %}
         <div class="btn-group" role="group" aria-label="انتخاب دفتر مشتری">
-            <button id="customer-kind-individual" class="btn btn-light-primary" type="button" data-customer-kind="individual" aria-pressed="true">حقیقی</button>
-            <button id="customer-kind-legal" class="btn btn-light" type="button" data-customer-kind="legal" aria-pressed="false">حقوقی</button>
+            <button id="customer-kind-individual" class="btn btn-light-primary" type="button" data-customer-kind="individual" aria-pressed="true">{% customer_kind "individual" %}</button>
+            <button id="customer-kind-legal" class="btn btn-light" type="button" data-customer-kind="legal" aria-pressed="false">{% customer_kind "legal" %}</button>
         </div>
         {% endif %}
         <button id="open-create-customer" class="btn btn-primary" type="button">مشتری جدید</button>
@@ -156,8 +157,8 @@
                     <span class="form-label fw-semibold d-block" id="create-customer-kind-label">نوع مشتری</span>
                     <input type="hidden" id="create-customer-kind" name="kind" value="individual">
                     <div class="dolphin-segmented" role="radiogroup" aria-labelledby="create-customer-kind-label" data-segmented-for="create-customer-kind">
-                        <button type="button" role="radio" aria-checked="true" class="dolphin-segmented-option is-selected" data-value="individual"><i class="di-duotone di-profile-circle fs-4 me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>حقیقی</button>
-                        <button type="button" role="radio" aria-checked="false" class="dolphin-segmented-option" data-value="legal"><i class="di-duotone di-office-bag fs-4 me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span></i>حقوقی</button>
+                        <button type="button" role="radio" aria-checked="true" class="dolphin-segmented-option is-selected" data-value="individual">{% customer_kind "individual" %}</button>
+                        <button type="button" role="radio" aria-checked="false" class="dolphin-segmented-option" data-value="legal">{% customer_kind "legal" %}</button>
                     </div>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="kind"></p>
                 </div>
@@ -226,7 +227,7 @@
 <dialog id="export-customers-dialog" aria-labelledby="export-customers-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="export-customers-title">خروجی لیست</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="row g-5">
-        <div class="col-12"><label class="form-label fw-semibold" for="export-customers-kind">لیست</label><select class="form-select form-select-solid" id="export-customers-kind"><option value="individual">حقیقی</option>{% if can_manage_customer_kinds %}<option value="legal">حقوقی</option>{% endif %}</select></div>
+        <div class="col-12"><label class="form-label fw-semibold" for="export-customers-kind">لیست</label><select class="form-select form-select-solid" id="export-customers-kind"><option value="individual">{% customer_kind_label "individual" %}</option>{% if can_manage_customer_kinds %}<option value="legal">{% customer_kind_label "legal" %}</option>{% endif %}</select></div>
     </div>
     <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button id="download-customers" class="btn btn-primary" type="button">دانلود</button></div>
 </dialog>
@@ -234,7 +235,7 @@
 <dialog id="import-customers-dialog" aria-labelledby="import-customers-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="import-customers-title">ورودی لیست</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
     <div class="row g-5">
-        <div class="col-12"><label class="form-label fw-semibold" for="import-customers-kind">لیست</label><select class="form-select form-select-solid" id="import-customers-kind"><option value="individual">حقیقی</option><option value="legal">حقوقی</option></select></div>
+        <div class="col-12"><label class="form-label fw-semibold" for="import-customers-kind">لیست</label><select class="form-select form-select-solid" id="import-customers-kind"><option value="individual">{% customer_kind_label "individual" %}</option><option value="legal">{% customer_kind_label "legal" %}</option></select></div>
         <div class="col-12"><label class="form-label fw-semibold" for="import-customers-file">بارگذاری فایل</label><input class="form-control form-control-solid" id="import-customers-file" type="file" accept=".xlsx"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="file"></p></div>
     </div>
     <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-light" type="button" data-close-dialog>انصراف</button><button id="upload-customers" class="btn btn-primary" type="button">بارگذاری</button></div>

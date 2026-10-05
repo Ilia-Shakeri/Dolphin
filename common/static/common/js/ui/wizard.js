@@ -280,7 +280,9 @@ export function renderWizardReview(container, rows) {
         // hand; doing it here as well means the twelve that did not — an
         // audit of every wizard found them, 2026-09-19 — are covered too,
         // and a wizard written later cannot reintroduce the gap.
-        valueEl.textContent = String(value ?? "").trim() || "—";
+        // A value may be an element (a kind badge, 2.40.8), drawn as is.
+        if (value instanceof Node) valueEl.append(value);
+        else valueEl.textContent = String(value ?? "").trim() || "—";
         line.append(labelEl, valueEl);
         container.append(line);
     });

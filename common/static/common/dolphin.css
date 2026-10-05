@@ -4969,3 +4969,23 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
 [data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-arrow {
     display: none;
 }
+
+/* «حقیقی» / «حقوقی» with their icon (2.40.8, `{% customer_kind %}` and
+   `ui/customer-kind.js`): the icon is exactly one em and takes the text's own
+   colour, so it matches whatever size and colour the word is set in. */
+.customer-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+}
+.customer-kind-icon {
+    width: 1em;
+    height: 1em;
+    font-size: 1em;
+    line-height: 1;
+    vertical-align: -0.125em;
+    color: currentColor;
+}
+.customer-kind-icon [class^="path"]::before {
+    color: currentColor;
+}

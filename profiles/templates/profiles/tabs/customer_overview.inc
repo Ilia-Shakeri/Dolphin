@@ -1,4 +1,4 @@
-{% load jalali_tags %}
+{% load jalali_tags customer_kind_tags %}
 <div class="row g-5 g-xl-8">
     <div class="col-xl-5">
         <section class="card h-100"><div class="card-body">
@@ -8,7 +8,7 @@
             </div>
             {% with customer=person_object %}
             <dl class="mb-0">
-                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">نوع</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break" data-overview-field="kind_display">مشتری {{ customer.get_kind_display }}</dd></div>
+                <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">نوع</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break" data-overview-field="kind_display">{% customer_kind customer.kind %}</dd></div>
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">سمت</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break" data-overview-field="job_title">{{ customer.job_title|default:"—" }}</dd></div>
                 <div class="row mb-5"><dt class="col-5 fw-semibold text-muted">کد ملی</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break"><span data-overview-field="national_id" dir="ltr">{{ customer.national_id|default:"—"|persian_digits }}</span></dd></div>
                 {% if customer.kind == "legal" or customer.economic_code %}<div class="row mb-5"><dt class="col-5 fw-semibold text-muted">شماره اقتصادی</dt><dd class="col-7 fw-bold fs-6 text-gray-800 mb-0 text-break"><span data-overview-field="economic_code" dir="ltr">{{ customer.economic_code|default:"—"|persian_digits }}</span></dd></div>{% endif %}
