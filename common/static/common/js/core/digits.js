@@ -12,6 +12,20 @@ export function toLatinDigits(text) {
 }
 
 /**
+ * What a reader types into a search box, in the form the data is stored:
+ * Arabic ي/ى/ك become Persian ی/ک (an Arabic keyboard layout types them),
+ * and Arabic-Indic digits become Persian ones, which the server reads as
+ * digits like any other. The server normalises the letters again; this
+ * only keeps the two-character floor honest for what was typed.
+ */
+export function normalizeSearchText(text) {
+    return String(text)
+        .replace(/[يى]/g, "ی")
+        .replace(/ك/g, "ک")
+        .replace(/[٠-٩]/g, (d) => PERSIAN_DIGITS[d.charCodeAt(0) - 0x0660]);
+}
+
+/**
  * Group a price field as it is typed, so nobody types separators by hand.
  *
  * Applied to `[data-money-input]`. The field is `type="text"` rather than

@@ -245,6 +245,11 @@ SOURCES = (
 )
 
 
+#: Arabic letters an Arabic keyboard layout types, in the Persian form the
+#: panel stores names in (as `sales.services` cleans them).
+_PERSIAN_LETTERS = str.maketrans({"ي": "ی", "ى": "ی", "ك": "ک"})
+
+
 def search(user, query):
     """Everything matching `query` that this user may see, grouped by module.
 
@@ -255,7 +260,7 @@ def search(user, query):
     no groups rather than an error: the box is typed into one letter at a
     time, and the first letter is not a mistake to report.
     """
-    text = (query or "").strip()
+    text = (query or "").strip().translate(_PERSIAN_LETTERS)
     if len(text) < MIN_QUERY_LENGTH:
         return {"query": text, "count": 0, "groups": []}
     latin = to_latin_digits(text)

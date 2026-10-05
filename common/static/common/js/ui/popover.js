@@ -40,12 +40,14 @@ const openablePopovers = [];
  * keeping its own copy of the behaviour.
  *
  * `onOpen`/`onClose` are optional — the search box focuses its input,
- * the bell fetches its list.
+ * the bell fetches its list. `inside` is an optional element that also
+ * counts as inside the panel for the outside-click rule: the search
+ * field sits beside its results, not in them (2.40.1).
  *
  * Returns `{open, close, flip, isOpen}` for the callers that close the
  * panel themselves, such as a filter form on submit.
  */
-export function registerPopover({toggle, panel, onOpen, onClose, useHidden = false}) {
+export function registerPopover({toggle, panel, onOpen, onClose, inside = null, useHidden = false}) {
     if (!toggle || !panel) return null;
 
     const isOpen = useHidden
@@ -55,6 +57,7 @@ export function registerPopover({toggle, panel, onOpen, onClose, useHidden = fal
     const entry = {
         toggle,
         panel,
+        inside,
         isOpen,
         open: () => setOpen(true),
         close: () => setOpen(false),
@@ -101,6 +104,7 @@ export function setupPopoverDismissal() {
             if (!entry.isOpen()) return;
             if (entry.panel.contains(event.target)) return;
             if (entry.toggle.contains(event.target)) return;
+            if (entry.inside && entry.inside.contains(event.target)) return;
             entry.close();
         });
     });

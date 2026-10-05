@@ -63,6 +63,18 @@ dialog::backdrop {
     backdrop-filter: blur(14px) saturate(150%);
     -webkit-backdrop-filter: blur(14px) saturate(150%);
 }
+/* The blur makes the header a stacking context. Below the `lg` breakpoint the
+   theme leaves the header in the flow (not fixed, no z-index), so that context
+   was painted under the page's cards — and with it every panel that hangs off
+   the header: the search results and the reminder list opened *behind* the
+   first card on a phone (seen at 375px, 2.40.1). Lifting the header above the
+   content is the cause fixed, not each panel. */
+@media (max-width: 991.98px) {
+    #dolphin_app_header.app-header {
+        position: relative;
+        z-index: 105;
+    }
+}
 
 /* The small spreadsheet icon on every Excel export/import button
    (`common/includes/excel_icon.inc`) — an inline SVG, not a font ligature, so
@@ -428,12 +440,101 @@ dialog::backdrop {
     max-width: calc(100vw - 1.5rem);
 }
 
-/* Global search, anchored and scroll-capped exactly like the bell above. */
+/* Global search (2.40.1): the magnifier becomes the field, with the motion of
+   a board column's own search (`#order-board .board-search`): the *box*
+   animates its width between two explicit values, the field fills whatever
+   the box currently is, and the height never changes — so the header does
+   not move and its neighbours are pushed along, never covered. The closed
+   width is the toggle's own `w-40px`/`h-40px` square, named once here. */
+.topbar-search {
+    --topbar-search-closed: 40px;
+    --topbar-search-open: 22.5rem;
+    display: flex;
+    align-items: center;
+    min-width: var(--topbar-search-closed);
+    width: var(--topbar-search-closed);
+    border-radius: var(--bs-border-radius);
+    overflow: hidden;
+    transition: min-width var(--dolphin-dur) var(--dolphin-ease), width var(--dolphin-dur) var(--dolphin-ease),
+        background-color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease);
+}
+.topbar-search-open {
+    min-width: var(--topbar-search-open);
+    width: var(--topbar-search-open);
+    background-color: var(--bs-gray-100);
+    box-shadow: inset 0 0 0 1px var(--bs-gray-300);
+}
+.topbar-search-open:focus-within {
+    box-shadow: inset 0 0 0 1px var(--bs-primary);
+}
+.topbar-search > .btn {
+    flex: 0 0 auto;
+}
+.topbar-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--bs-gray-900);
+    font-family: inherit;
+    font-size: 1rem;
+}
+/* The box draws the focus ring (`:focus-within` above), not the field in it. */
+.topbar-search-input:focus,
+.topbar-search-input:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+.topbar-search-input::placeholder {
+    color: var(--bs-gray-500);
+}
+/* The box has its own close glyph; the browser's second one would sit beside it. */
+.topbar-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+.topbar-search-close {
+    color: var(--bs-gray-500);
+    opacity: 0;
+    transition: opacity var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.topbar-search-open .topbar-search-close {
+    opacity: 1;
+}
+.topbar-search-close:hover,
+.topbar-search-close:focus-visible {
+    color: var(--bs-gray-800);
+}
+@media (max-width: 991.98px) {
+    .topbar-search {
+        --topbar-search-open: 17rem;
+    }
+}
+
+/* Results hang under the field and are exactly as wide as it — the wrap is
+   the box's own width — scroll-capped like the bell above. Out of sight
+   until there is something to show (`data-idle`), so an empty field is
+   just a field. */
 #global-search-menu {
     position: absolute;
     top: calc(100% + 0.5rem);
     inset-inline-end: 0;
+    width: 100%;
     max-width: calc(100vw - 1.5rem);
+}
+#global-search-menu[data-idle] {
+    display: none;
+}
+#global-search-menu .topbar-list-item.active {
+    background-color: var(--bs-gray-100);
+}
+@media (prefers-reduced-motion: reduce) {
+    .topbar-search,
+    .topbar-search-close {
+        transition: none;
+    }
 }
 
 .global-search-body {
@@ -465,6 +566,21 @@ dialog::backdrop {
         top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
         inset-inline-start: 0.75rem;
         inset-inline-end: auto;
+    }
+    /* On a phone there is no room to push anything along: the open field
+       lies over the header's whole width, centred on the header's own
+       height, and its results take the same width under it. */
+    .topbar-search-open {
+        position: fixed;
+        z-index: 106;
+        top: calc((var(--bs-app-header-height, 60px) - var(--topbar-search-closed)) / 2);
+        inset-inline-start: 0.75rem;
+        width: calc(100vw - 1.5rem);
+        min-width: 0;
+        background-color: var(--bs-body-bg);
+    }
+    #global-search-menu {
+        width: calc(100vw - 1.5rem);
     }
 }
 
