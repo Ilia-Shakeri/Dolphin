@@ -72,7 +72,7 @@ async function playRemoval(body, deletedIds) {
 
 export function setupRowSelection({key, body, reload}) {
     const selectAll = document.querySelector(`[data-${key}-select="all"]`);
-    if (!selectAll) return {decorateRow: (item, row) => row, resetSelection() {}};
+    if (!selectAll) return {decorateRow: (item, row) => row, resetSelection() {}, keepOnlyShown() {}};
     const toolbar = document.querySelector(`[data-${key}-toolbar="selected"]`);
     const countNode = document.querySelector(`[data-${key}-select="selected_count"]`);
     const deleteButton = document.querySelector(`[data-${key}-select="delete_selected"]`);
@@ -80,6 +80,18 @@ export function setupRowSelection({key, body, reload}) {
 
     function resetSelection() {
         selected = new Set();
+        updateToolbar();
+    }
+
+    /**
+     * After a live refresh redrew the rows (2.40.11): a chosen row that is no
+     * longer on the page — deleted or moved by someone else — is no longer
+     * chosen, so the toolbar's count and the bulk delete only ever name rows
+     * the reader can see.
+     */
+    function keepOnlyShown() {
+        const shown = new Set(Array.from(body.querySelectorAll("[data-row-select]")).map((box) => Number(box.dataset.rowSelect)));
+        selected = new Set(Array.from(selected).filter((id) => shown.has(id)));
         updateToolbar();
     }
 
@@ -152,7 +164,7 @@ export function setupRowSelection({key, body, reload}) {
         return row;
     }
 
-    return {decorateRow, resetSelection};
+    return {decorateRow, resetSelection, keepOnlyShown};
 }
 
 /**
@@ -211,6 +223,7 @@ export function setupPagedList({key, form, search, endpoint, renderRow}) {
             const data = await apiRequest(endpoint(page));
             if (quiet) { empty.hidden = true; wrap.hidden = true; }
             body.replaceChildren(...data.results.map((item) => selection.decorateRow(item, renderRow(item))));
+            if (quiet) selection.keepOnlyShown();
             loading.hidden = true;
             if (!data.results.length) { empty.hidden = false; return; }
             wrap.hidden = false;
