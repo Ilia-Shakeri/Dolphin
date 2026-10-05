@@ -1533,6 +1533,15 @@ is cancelled, and `موجودی کافی نبود` is appended to its note.
 Client-1 asked for a `پرداخت شده` box an operator can type into, where entering
 exactly the outstanding amount marks the invoice settled.
 
+**Status (2.40.15): API only, kept for compatibility.** The panel no longer offers
+the box: the paid figure on an invoice is only ever the sum of the allocations
+recorded on the receipts desk. `POST /api/v1/invoices/{id}/manual-paid/` remains
+— same request (`amount`), same rules (issued invoices only, never above the
+total, one-way settlement, audited as `invoice.manual_paid_entry`) — so an
+integration that already uses it, and invoices already settled through it, keep
+working. Removing it would be a breaking change and needs a product decision and
+a MAJOR release. New integrations should record a payment and allocate it instead.
+
 This is a **display** decision and not an accounting one. It creates no Payment,
 no PaymentAllocation and no ledger entry, and it never touches `paid_amount`,
 the customer balance, receivables reporting or stock. `canonical_balance_due`
