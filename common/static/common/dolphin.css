@@ -4989,3 +4989,38 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
 .customer-kind-icon [class^="path"]::before {
     color: currentColor;
 }
+
+/* The checklist for a `<select multiple>` (`ui/checklist-select.js`, 2.40.9):
+   the search box takes the room the row has rather than a fixed 200px, the
+   list scrolls inside its own box, and on a phone the counter drops to its
+   own line instead of squeezing the buttons. */
+.dolphin-checklist-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.dolphin-checklist-search {
+    flex: 1 1 12rem;
+    min-width: 0;
+    max-width: 22rem;
+}
+.dolphin-checklist-counter {
+    margin-inline-start: auto;
+}
+.dolphin-checklist-list {
+    max-height: 13rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+@media (max-width: 575.98px) {
+    .dolphin-checklist-search {
+        flex-basis: 100%;
+        max-width: none;
+    }
+    .dolphin-checklist-counter {
+        flex-basis: 100%;
+        margin-inline-start: 0;
+    }
+}

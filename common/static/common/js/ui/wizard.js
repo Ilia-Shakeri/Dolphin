@@ -58,6 +58,9 @@ function guardWizardClosing(dialog, form) {
     if (!(dialog instanceof HTMLDialogElement) || !form) return;
     bindUnloadGuard();
     const markDirty = (event) => {
+        // A control that only narrows what is shown (a checklist's search
+        // box) is not an answer; typing in it changes nothing to lose.
+        if (event.target?.closest?.("[data-dirty-ignore]")) return;
         if (event.isTrusted || event.userInitiated) dirtyWizards.add(dialog);
     };
     form.addEventListener("input", markDirty);

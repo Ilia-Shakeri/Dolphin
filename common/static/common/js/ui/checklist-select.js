@@ -1,4 +1,4 @@
-import {toPersianDigits} from "dolphin/core/digits.js";
+import {normalizeSearchText, toPersianDigits} from "dolphin/core/digits.js";
 import {dispatchUserEvent} from "dolphin/core/events.js";
 
 /**
@@ -7,8 +7,16 @@ import {dispatchUserEvent} from "dolphin/core/events.js";
  * The select stays in the DOM as the form's single source of truth (so every
  * reader of `selectedOptions` keeps working); the checklist only mirrors it.
  * Nobody has to know about holding Ctrl.
+ *
+ * `emptyMeansAll` is for a filter where ticking nothing means "all of them"
+ * (campaign analytics); only there does the counter say so (2.40.9).
+ * Typing in the search box filters; it is not an answer, so it never marks
+ * a wizard as changed (`data-dirty-ignore`, `ui/wizard.js`).
  */
-export function enhanceChecklistSelect(select) {
+//: Persian and Arabic forms of a letter or digit, and Latin digits, all match.
+const searchable = (text) => toPersianDigits(normalizeSearchText(text)).toLowerCase();
+
+export function enhanceChecklistSelect(select, {emptyMeansAll = false} = {}) {
     if (!select || select.dataset.checklistReady) return;
     select.dataset.checklistReady = "1";
     select.hidden = true;
@@ -17,12 +25,14 @@ export function enhanceChecklistSelect(select) {
     const wrap = document.createElement("div");
     wrap.className = "dolphin-checklist border rounded p-3";
     const tools = document.createElement("div");
-    tools.className = "d-flex flex-wrap align-items-center gap-2 mb-2";
+    tools.className = "dolphin-checklist-tools";
     const search = document.createElement("input");
     search.type = "search";
-    search.className = "form-control form-control-sm form-control-solid w-200px";
+    search.className = "form-control form-control-sm form-control-solid dolphin-checklist-search";
     search.placeholder = "جست‌وجو";
     search.autocomplete = "off";
+    search.dataset.dirtyIgnore = "";
+    search.setAttribute("aria-label", "جست‌وجو در گزینه‌ها");
     const all = document.createElement("button");
     all.type = "button";
     all.className = "btn btn-sm btn-light";
@@ -32,25 +42,36 @@ export function enhanceChecklistSelect(select) {
     none.className = "btn btn-sm btn-light";
     none.textContent = "پاک‌کردن";
     const counter = document.createElement("span");
-    counter.className = "text-muted fs-8 ms-auto";
+    counter.className = "text-muted fs-8 dolphin-checklist-counter";
     counter.setAttribute("aria-live", "polite");
     tools.append(search, all, none, counter);
     const list = document.createElement("div");
-    list.className = "mh-200px overflow-auto";
+    list.className = "dolphin-checklist-list";
     list.setAttribute("role", "group");
     const label = select.id ? document.querySelector(`label[for="${select.id}"]`) : null;
     if (label) list.setAttribute("aria-label", label.textContent.trim());
-    wrap.append(tools, list);
+    const noMatch = document.createElement("p");
+    noMatch.className = "text-muted fs-7 mb-0 py-2";
+    noMatch.textContent = "گزینه‌ای با این جست‌وجو نیست.";
+    noMatch.hidden = true;
+    wrap.append(tools, list, noMatch);
     select.after(wrap);
 
     const boxes = [];
     const refresh = () => {
         const n = Array.from(select.options).filter((option) => option.selected).length;
-        counter.textContent = n ? `${toPersianDigits(String(n))} مورد انتخاب شد` : "هیچ‌کدام (یعنی همه)";
+        counter.textContent = n
+            ? `${toPersianDigits(String(n))} مورد انتخاب شد`
+            : (emptyMeansAll ? "هیچ‌کدام (یعنی همه)" : "هیچ‌کدام");
     };
     const filter = () => {
-        const term = search.value.trim();
-        boxes.forEach(({row, option}) => { row.hidden = Boolean(term) && !option.text.includes(term); });
+        const term = searchable(search.value.trim());
+        let shown = 0;
+        boxes.forEach(({row, option}) => {
+            row.hidden = Boolean(term) && !searchable(option.text).includes(term);
+            if (!row.hidden) shown += 1;
+        });
+        noMatch.hidden = !term || shown > 0;
     };
     const build = () => {
         boxes.length = 0;

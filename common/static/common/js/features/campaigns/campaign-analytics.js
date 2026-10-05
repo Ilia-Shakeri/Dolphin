@@ -16,7 +16,7 @@ function chartHost(name) {
 export async function setupCampaignAnalytics() {
     const form = document.getElementById("analytics-form");
     const select = document.getElementById("analytics-campaigns");
-    enhanceChecklistSelect(select);
+    enhanceChecklistSelect(select, {emptyMeansAll: true});
 
     try {
         const campaigns = await loadAllPages("/api/v1/campaigns/");
