@@ -923,7 +923,26 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
     action_query_parameters = {"postal_history": {"page"}, "shipping_places": {"province"}}
 
     def get_queryset(self):
-        queryset = sales_documents_for(self.request.user).select_related("customer", "sale", "registered_by")
+        from django.db.models import OuterRef, Subquery
+
+        from sales.models import PostalShipment
+
+        latest = PostalShipment.objects.filter(document=OuterRef("pk"), is_cancelled=False).order_by("-id")
+        queryset = sales_documents_for(self.request.user).select_related("customer", "sale", "registered_by").annotate(
+            carrier_code=Subquery(latest.values("carrier_status_code")[:1]),
+            carrier_text=Subquery(latest.values("carrier_status_text")[:1]),
+        )
+        status = self.request.query_params.get("postal_status")
+        carrier = postal.carrier_status_for(status) if status else None
+        if carrier is not None:
+            # A post-office status (2.40.26): stored on the document by hand,
+            # or the carrier's latest word on its shipment.
+            from django.db.models import Q
+
+            matches = Q(postal_status=carrier.key) | Q(carrier_text=carrier.label)
+            if carrier.code is not None:
+                matches |= Q(carrier_code=carrier.code)
+            queryset = queryset.filter(matches)
         filters = {
             "postal_status": "postal_status",
             "province": "province_snapshot",
@@ -931,7 +950,7 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
         }
         for parameter, field in filters.items():
             value = self.request.query_params.get(parameter)
-            if value is not None:
+            if value is not None and not (parameter == "postal_status" and carrier is not None):
                 queryset = queryset.filter(**{field: value})
         is_active = self.request.query_params.get("is_active")
         if is_active is not None:
@@ -983,9 +1002,13 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
     )
     @action(detail=False, methods=["get"], url_path="postal-states")
     def postal_states(self, request):
-        return Response({"results": PostalStateSerializer(
-            [vars(state) for state in postal.POSTAL_STATES], many=True
-        ).data})
+        stages = [{**vars(state), "group": "stage", "stage": state.key, "tone": "primary"} for state in postal.POSTAL_STATES]
+        carrier = [
+            {"key": status.key, "label": status.label, "icon": status.icon, "icon_paths": status.icon_paths,
+             "description": "", "group": "carrier", "stage": status.stage, "tone": status.tone}
+            for status in postal.CARRIER_STATUSES
+        ]
+        return Response({"results": PostalStateSerializer(stages + carrier, many=True).data})
 
     @extend_schema(responses={200: PostalStatusHistorySerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
     @action(detail=True, methods=["get"], url_path="postal-history")

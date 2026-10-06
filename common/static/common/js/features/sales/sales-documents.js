@@ -1,6 +1,6 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {clearMessages, formPayload, showError, withSubmit} from "dolphin/core/messages.js";
-import {fillPostalStates} from "dolphin/features/sales/shared.js";
+import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {appendCell, appendDetailLink} from "dolphin/ui/table.js";
@@ -30,8 +30,13 @@ import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wi
 function postalStatusCell(row, item) {
     const cell = document.createElement("td");
     const steps = item.postal_stepper;
+    // The post office's own status, with its icon, beside the stepper
+    // (2.40.26) — and alone for a status outside the four stages (a return,
+    // a seizure), which the stepper cannot place.
+    const badge = postalBadge(item.postal_badge);
     if (!steps || !steps.length) {
-        cell.textContent = item.postal_status || "—";
+        if (badge) cell.append(badge);
+        else cell.textContent = item.postal_status || "—";
         row.appendChild(cell);
         return;
     }
@@ -51,7 +56,11 @@ function postalStatusCell(row, item) {
         mark.append(icon);
         return mark;
     }));
-    cell.append(list);
+    const wrap = document.createElement("div");
+    wrap.className = "d-flex flex-column align-items-start gap-1";
+    wrap.append(list);
+    if (badge) wrap.append(badge);
+    cell.append(wrap);
     row.appendChild(cell);
 }
 
@@ -86,6 +95,10 @@ export async function setupSalesDocuments() {
         },
         renderRow: salesDocumentRow,
     });
+    // Every stage and every Iran Post status (2.40.26), grouped.
+    try {
+        await fillPostalStates(document.getElementById("sales-document-postal-status"), {emptyLabel: "همهٔ وضعیت‌ها"});
+    } catch (error) { showError(error); }
     controller.load();
     const dialog = document.getElementById("create-sales-document-dialog");
     if (!dialog) return;

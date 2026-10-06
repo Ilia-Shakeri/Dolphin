@@ -23,7 +23,7 @@
    همان جدول را نگه دارد. سندی که وضعیتش متن آزادِ قدیمی است، این کارت را
    اصلاً نمی‌گیرد و همان متن ثبت‌شده را در فیلد بالا نشان می‌دهد. {% endcomment %}
 <section class="card mb-5 mb-xl-8" id="postal-stepper-card" hidden><div class="card-body">
-    <h2 class="fs-3 fw-bold text-gray-900 mb-5">مسیر مرسوله</h2>
+    <div class="d-flex flex-wrap align-items-center gap-3 mb-5"><h2 class="fs-3 fw-bold text-gray-900 mb-0">مسیر مرسوله</h2><span id="postal-badge-slot"></span></div>
     <ol class="postal-stepper" id="postal-stepper" aria-label="مراحل ارسال مرسوله"></ol>
 </div></section>
 <section class="card mb-5 mb-xl-8"><div class="card-body"><h2 class="fs-3 fw-bold text-gray-900 mb-5">تاریخچه وضعیت پستی</h2><div id="postal-history-loading" class="text-center text-gray-700 py-10">در حال دریافت تاریخچه…</div><div id="postal-history-empty" class="text-center text-gray-700 py-10" hidden>تاریخچه‌ای نیست.</div><div id="postal-history-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>از</th><th>به</th><th>ثبت‌کننده</th><th>دلیل</th><th>زمان</th></tr></thead><tbody id="postal-history-table-body"></tbody></table></div></div></section>

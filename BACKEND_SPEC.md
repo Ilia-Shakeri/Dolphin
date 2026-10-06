@@ -436,6 +436,11 @@ Rules:
 - **Campaign «سایر» (2.40.22).** `Campaign.other_channels` (list of up to 10 names, ≤ 60 characters
   each) is required when `channels` holds `other` and emptied otherwise; `channels_display` shows
   those names in place of «سایر».
+- **Iran Post statuses (2.40.26).** `sales.postal.CARRIER_STATUSES` lists every post-office status
+  (key, label, icon, stage or none, tone, numeric code where the service has one). `postal_status`
+  accepts these keys besides the four stages; `state_for` places them on their stage. Documents carry
+  `postal_badge` (latest shipment's carrier status, else the stored status); `?postal_status=<carrier
+  key>` matches either. `/sales-documents/postal-states/` returns both groups (`group`: stage/carrier).
 - **Repeatable report filters (2.40.21).** `GET /reports/sales-documents/` (and its export) accepts
   `province` and `postal_status` repeated — a row matches any of them; `GET /reports/inbound-sms/`
   (and drill-down, export) accepts `processing_state` repeated. One value behaves as before; every

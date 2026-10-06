@@ -86,7 +86,8 @@ class ReportWizardTests(SimpleTestCase):
         # Calls, not the definition: the signature destructures its argument
         # and so matches the same text.
         calls = SCRIPT.count("setupReportWizard({") - SCRIPT.count("function setupReportWizard({")
-        self.assertEqual(calls, 2)
+        # Campaign analysis became the third in 2.40.23.
+        self.assertEqual(calls, 3)
 
     def test_it_steps_with_the_component_the_creation_wizards_use(self):
         """Not a second stepper written for reports."""
@@ -412,10 +413,12 @@ class PostalApiTests(TestCase):
         client.force_authenticate(self.manager)
         response = client.get("/api/v1/sales-documents/postal-states/")
         self.assertEqual(response.status_code, 200, response.data)
+        # The four stops first, then every Iran Post status (2.40.26).
         self.assertEqual(
             [row["key"] for row in response.data["results"]],
-            [state.key for state in postal.POSTAL_STATES],
+            [state.key for state in postal.POSTAL_STATES] + [status.key for status in postal.CARRIER_STATUSES],
         )
+        self.assertEqual({row["group"] for row in response.data["results"]}, {"stage", "carrier"})
 
     def test_a_document_carries_its_label_and_its_stepper(self):
         from rest_framework.test import APIClient

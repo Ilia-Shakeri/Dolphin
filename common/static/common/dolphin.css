@@ -5068,3 +5068,13 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     border-style: solid;
     border-color: var(--bs-primary);
 }
+
+/* A postal status with its own icon (2.40.26, `postalBadge`): Iran Post's
+   word on the parcel beside the four-stage stepper. */
+.postal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    white-space: nowrap;
+}

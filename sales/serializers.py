@@ -617,25 +617,47 @@ class SalesDocumentSerializer(RejectServerFieldsMixin, serializers.ModelSerializ
     #: status outside the vocabulary, because a progress bar with nothing
     #: current would say something false about where the parcel is.
     postal_stepper = serializers.SerializerMethodField()
+    #: The status to draw beside the stepper, with its own icon (2.40.26): the
+    #: post office's latest word on the parcel when it has one, else the
+    #: document's own status. `null` for free text from before the vocabulary.
+    postal_badge = serializers.SerializerMethodField()
 
     class Meta:
         model = SalesDocument
         fields = [
             "id", "customer", "customer_name", "sale", "document_number",
             "province_snapshot", "city_snapshot", "postal_code_snapshot", "address_snapshot",
-            "postal_status", "postal_status_display", "postal_stepper",
+            "postal_status", "postal_status_display", "postal_stepper", "postal_badge",
             "registered_at", "registered_by", "registered_by_display",
             "is_active", "notes", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "customer_name", "province_snapshot", "city_snapshot", "postal_code_snapshot",
-            "address_snapshot", "postal_status_display", "postal_stepper",
+            "address_snapshot", "postal_status_display", "postal_stepper", "postal_badge",
             "registered_at", "registered_by", "registered_by_display",
             "is_active", "created_at", "updated_at",
         ]
 
     def get_postal_status_display(self, instance) -> str:
         return postal.label_for(instance.postal_status)
+
+    def get_postal_badge(self, instance) -> dict | None:
+        # `carrier_code`/`carrier_text` are annotated by the list (one query
+        # for the page, `SalesDocumentViewSet.get_queryset`); a single read
+        # without them looks the latest shipment up.
+        if hasattr(instance, "carrier_code"):
+            code, text = instance.carrier_code, instance.carrier_text
+        else:
+            shipment = instance.shipments.filter(is_cancelled=False).order_by("-id").only(
+                "carrier_status_code", "carrier_status_text"
+            ).first()
+            code = shipment.carrier_status_code if shipment else None
+            text = shipment.carrier_status_text if shipment else ""
+        if code is not None or text:
+            carrier = postal.badge_for(code=code, text=text or "")
+            if carrier is not None:
+                return carrier
+        return postal.badge_for(instance.postal_status)
 
     @extend_schema_field(PostalStepSerializer(many=True))
     def get_postal_stepper(self, instance):
@@ -712,7 +734,12 @@ class PostalStateSerializer(serializers.Serializer):
     label = serializers.CharField()
     icon = serializers.CharField()
     icon_paths = serializers.IntegerField()
-    description = serializers.CharField()
+    description = serializers.CharField(required=False, default="")
+    #: `stage` for the four stops, `carrier` for Iran Post's own statuses
+    #: (2.40.26); a carrier status names the `stage` it sits on, if any.
+    group = serializers.CharField(default="stage")
+    stage = serializers.CharField(allow_null=True, default=None)
+    tone = serializers.CharField(default="primary")
 
 
 class PostProviderSettingsSerializer(serializers.ModelSerializer):

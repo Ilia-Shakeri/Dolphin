@@ -2,7 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate} from "dolphin/core/jalali.js";
 import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
-import {fillPostalStates} from "dolphin/features/sales/shared.js";
+import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
 import {appendCell} from "dolphin/ui/table.js";
@@ -22,12 +22,17 @@ import {appendCell} from "dolphin/ui/table.js";
  * about where the parcel is; the stored text is still shown in the
  * «وضعیت پستی جاری» field above.
  */
-function renderPostalStepper(steps) {
+function renderPostalStepper(steps, badge) {
     const card = document.getElementById("postal-stepper-card");
     const list = document.getElementById("postal-stepper");
     if (!card || !list) return;
+    // The post office's own status, with its icon (2.40.26); for a status
+    // outside the four stages the card shows it alone.
+    const slot = document.getElementById("postal-badge-slot");
+    const node = postalBadge(badge);
+    if (slot) slot.replaceChildren(...(node ? [node] : []));
     if (!steps || !steps.length) {
-        card.hidden = true;
+        card.hidden = !node;
         list.replaceChildren();
         return;
     }
@@ -80,7 +85,7 @@ function fillSalesDocument(item) {
     // written before the vocabulary, the text the operator typed.
     document.getElementById("sales-document-status").value =
         item.postal_status_display || item.postal_status;
-    renderPostalStepper(item.postal_stepper);
+    renderPostalStepper(item.postal_stepper, item.postal_badge);
     document.getElementById("sales-document-notes").value = item.notes || "";
     document.getElementById("sales-document-active-state").textContent = item.is_active ? "سند فعال است." : "سند غیرفعال است؛ تاریخچه حفظ شده است.";
     const section = document.getElementById("postal-transition-section");

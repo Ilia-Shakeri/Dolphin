@@ -22,7 +22,7 @@
                 <form id="sales-document-search-form" action="{% url 'common_ui:sales-documents' %}" method="get">
                     <div class="mb-4">
                         <label class="form-label" for="sales-document-postal-status">وضعیت پستی</label>
-                        <input class="form-control form-control-solid" id="sales-document-postal-status" name="postal_status" maxlength="80" placeholder="وضعیت پستی دقیق">
+                        <select class="form-select form-select-solid" id="sales-document-postal-status" name="postal_status" aria-label="وضعیت پستی"><option value="">همهٔ وضعیت‌ها</option></select>
                     </div>
                     <div class="mb-4">
                         <label class="form-label" for="sales-document-province">استان</label>

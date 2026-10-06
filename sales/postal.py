@@ -106,6 +106,88 @@ _BY_KEY = {state.key: state for state in POSTAL_STATES}
 _BY_LABEL = {state.label: state for state in POSTAL_STATES}
 
 
+@dataclass(frozen=True)
+class CarrierStatus:
+    """One of Iran Post's own parcel statuses (2.40.26).
+
+    The four `POSTAL_STATES` are the stages a parcel moves through; these are
+    every status the post office itself reports — including the ones that are
+    not a stage at all (a return, a seizure, an expired parcel). `stage` is the
+    stage a status belongs to, for the stepper, or `None` when it is outside
+    the journey; `tone` colours its badge. Each has its own icon from the UI
+    kit's set, and no two share one (`test_postal_statuses`).
+    """
+
+    key: str
+    label: str
+    icon: str
+    icon_paths: int
+    stage: str | None
+    tone: str
+    #: The web service's numeric code (`sales.ebazar.PARCEL_STATUSES`), or
+    #: `None` for a status the post office shows but the service does not code.
+    code: int | None = None
+
+
+CARRIER_STATUSES = (
+    CarrierStatus("under_review", "تحت بررسی", "di-search-list", 3, "in_store", "info", 0),
+    CarrierStatus("ready_to_send", "آماده ارسال", "di-package", 3, "handed_to_post", "primary", 2),
+    CarrierStatus("sent", "ارسال شده", "di-send", 2, "with_post", "primary", 5),
+    CarrierStatus("arrived_province", "وارده به استان توزیع", "di-geolocation", 2, "with_post", "info"),
+    CarrierStatus("with_postman", "تحویل به نامه رسان", "di-scooter", 7, "out_for_delivery", "primary"),
+    CarrierStatus("first_visit", "مراجعه اول", "di-home-2", 2, "out_for_delivery", "info"),
+    CarrierStatus("second_visit", "مراجعه دوم", "di-notification-status", 4, "out_for_delivery", "warning"),
+    CarrierStatus("po_box", "توزیع درصندوق پستی", "di-sms", 2, "out_for_delivery", "success"),
+    CarrierStatus("smart_locker", "توزیع درصندوق هوشمند (لاکرز)", "di-safe-home", 2, "out_for_delivery", "success"),
+    CarrierStatus("delivered", "توزیع شده", "di-check-circle", 2, "out_for_delivery", "success", 7),
+    CarrierStatus("finance_confirmed", "تایید شده مالی", "di-verify", 2, None, "success", 70),
+    CarrierStatus("collected", "وصول شده", "di-dollar", 3, None, "success", 71),
+    CarrierStatus("not_found", "پیدا نشد", "di-question-2", 3, None, "danger", -1),
+    CarrierStatus("cancelled_by_sender", "انصرافی", "di-cross-circle", 2, None, "danger", 1),
+    CarrierStatus("ready_error", "اشتباه در آماده به ارسال", "di-shield-cross", 3, None, "warning", 3),
+    CarrierStatus("manager_absent", "عدم حضور مدیر", "di-user-square", 3, None, "warning", 4),
+    CarrierStatus("refused", "عدم قبول", "di-dislike", 2, None, "danger", 6),
+    CarrierStatus("counter_held", "باجه معطله", "di-time", 2, None, "warning", 8),
+    CarrierStatus("seized", "توقیفی", "di-lock", 3, None, "danger", 9),
+    CarrierStatus("pre_return", "پیش برگشتی", "di-arrow-circle-right", 2, None, "warning", 10),
+    CarrierStatus("returned", "برگشتی نهایی", "di-exit-left", 2, None, "danger", 11),
+    CarrierStatus("return_confirmed", "تایید برگشتی", "di-arrows-loop", 2, None, "danger", 255),
+    CarrierStatus("damaged", "خسارتی", "di-cross-square", 2, None, "danger"),
+    CarrierStatus("shortage", "بی ترتیبی(کسری مرسوله)", "di-information-5", 3, None, "warning"),
+    CarrierStatus("expired", "منقضی شده", "di-calendar-remove", 6, None, "danger"),
+)
+
+_CARRIER_BY_KEY = {status.key: status for status in CARRIER_STATUSES}
+_CARRIER_BY_LABEL = {status.label: status for status in CARRIER_STATUSES}
+_CARRIER_BY_CODE = {status.code: status for status in CARRIER_STATUSES if status.code is not None}
+
+
+def carrier_status_for(value=None, *, code=None):
+    """A post-office status by its key, its label or its numeric code."""
+    if code is not None:
+        return _CARRIER_BY_CODE.get(code)
+    if not value:
+        return None
+    text = str(value).strip()
+    return _CARRIER_BY_KEY.get(text) or _CARRIER_BY_LABEL.get(text)
+
+
+def badge_for(value=None, *, code=None, text=""):
+    """What to draw for a status: `{key, label, icon, icon_paths, tone}`.
+
+    A stored stage, a stored post-office status, or (for a shipment) the
+    carrier's code or words; `None` when none of them is known."""
+    detail = carrier_status_for(value) or carrier_status_for(code=code) or carrier_status_for(text)
+    if detail is not None:
+        return {"key": detail.key, "label": detail.label, "icon": detail.icon,
+                "icon_paths": detail.icon_paths, "tone": detail.tone}
+    stage = _BY_KEY.get(str(value or "").strip()) or _BY_LABEL.get(str(value or "").strip())
+    if stage is not None:
+        return {"key": stage.key, "label": stage.label, "icon": stage.icon,
+                "icon_paths": stage.icon_paths, "tone": "primary"}
+    return None
+
+
 def state_for(value):
     """The state a stored `postal_status` names, or `None` for free text.
 
@@ -116,7 +198,12 @@ def state_for(value):
     if not value:
         return None
     text = str(value).strip()
-    return _BY_KEY.get(text) or _BY_LABEL.get(text)
+    stage = _BY_KEY.get(text) or _BY_LABEL.get(text)
+    if stage is not None:
+        return stage
+    # A post-office status (2.40.26) sits on the stage it belongs to, if any.
+    detail = carrier_status_for(text)
+    return _BY_KEY.get(detail.stage) if detail is not None and detail.stage else None
 
 
 def state_index(value):
@@ -132,6 +219,9 @@ def label_for(value):
     an empty string and never a key: a reader looking at a document written
     before the vocabulary existed should see what was actually recorded.
     """
+    detail = carrier_status_for(value)
+    if detail is not None:
+        return detail.label
     state = state_for(value)
     return state.label if state is not None else (str(value).strip() or "نامشخص")
 
@@ -168,13 +258,15 @@ def stepper_for(value):
 def icon_for(value):
     """`{"icon", "icon_paths"}` of a known state, or `None` for free text —
     the same table every surface draws from (2.40.7)."""
-    state = state_for(value)
-    return {"icon": state.icon, "icon_paths": state.icon_paths} if state is not None else None
+    badge = badge_for(value)
+    return {"icon": badge["icon"], "icon_paths": badge["icon_paths"]} if badge is not None else None
 
 
 def choices():
     """`[(key, label)]`, for a form that offers the vocabulary."""
-    return [(state.key, state.label) for state in POSTAL_STATES]
+    return [(state.key, state.label) for state in POSTAL_STATES] + [
+        (status.key, status.label) for status in CARRIER_STATUSES
+    ]
 
 
 # --- the carrier seam --------------------------------------------------------
