@@ -5050,3 +5050,21 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
 .report-wizard-card.campaign-analytics-card {
     max-width: 90rem;
 }
+
+/* Page tab bars (`{% page_tabs %}`, 2.40.0). The UI kit's `nav-pills-custom`
+   clears the active pill's background while Bootstrap's pill rule keeps its
+   text white, so the current tab was white on white — invisible (found
+   2.40.24). The current tab reads as the kit's own selected card: a solid
+   primary edge, a light primary fill and primary text. */
+.dolphin-page-tabs.nav-pills-custom .nav-link {
+    color: var(--bs-gray-700);
+}
+.dolphin-page-tabs.nav-pills-custom .nav-link:hover {
+    color: var(--bs-primary);
+}
+.dolphin-page-tabs.nav-pills-custom .nav-link.active {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+    border-style: solid;
+    border-color: var(--bs-primary);
+}

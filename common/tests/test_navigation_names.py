@@ -81,3 +81,13 @@ class EyebrowTests(SimpleTestCase):
                 with self.subTest(page=item.url_name):
                     expected = "مدیریت" if group.key == "administration" else group.label
                     self.assertEqual(eyebrow.group(1), expected)
+
+
+class PageTabColourTests(SimpleTestCase):
+    """2.40.24: the current page tab is visible (it was white on white)."""
+
+    def test_the_active_tab_has_its_own_colours(self):
+        css = (Path(__file__).resolve().parents[1] / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+        rule = css.split(".dolphin-page-tabs.nav-pills-custom .nav-link.active {")[1].split("}")[0]
+        self.assertIn("color: var(--bs-primary);", rule)
+        self.assertIn("background-color: var(--bs-primary-light);", rule)
