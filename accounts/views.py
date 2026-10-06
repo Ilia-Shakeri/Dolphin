@@ -23,10 +23,11 @@ from accounts.serializers import (
     SessionListSerializer,
     SessionRevokeResultSerializer,
     SessionRevokeSerializer,
+    PasswordSetSerializer,
     UserPermissionsSerializer,
     UserSerializer,
 )
-from accounts.services import reset_user_permissions, set_user_permission_overrides, user_permissions_for
+from accounts.services import reset_user_permissions, set_user_password, set_user_permission_overrides, user_permissions_for
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
     CONFLICT_RESPONSE,
@@ -164,7 +165,7 @@ class UserViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     queryset = User.objects.none()
     serializer_class = UserSerializer
     permission_classes = [IsUserReader]
-    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions", "set_password"})
     search_fields = ["username", "first_name", "last_name", "email", "phone"]
     ordering_fields = ["username", "role", "workstream", "is_active", "created_at"]
 
@@ -218,6 +219,26 @@ class UserViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
             raise PermissionDenied("حذف حساب کاربری خودتان از این مسیر ممکن نیست.")
         if instance.role == User.Role.PLATFORM_ADMIN:
             raise PermissionDenied("حساب مدیر پلتفرم از این مسیر قابل حذف نیست.")
+
+    @extend_schema(
+        request=PasswordSetSerializer,
+        responses={204: None, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 429: THROTTLED_RESPONSE},
+        description=(
+            "Sets this user's password (2.40.32). Platform Admin only. Django's password validators apply; "
+            "the value is never logged or returned. Every session of the account ends, except the caller's "
+            "own when they set their own."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="set-password")
+    def set_password(self, request, pk=None):
+        target = self.get_object()
+        serializer = PasswordSetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        set_user_password(
+            actor=request.user, target=target, password=serializer.validated_data["password"],
+            keep_session_key=request.session.session_key or "",
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
         request=RoleChangeSerializer,

@@ -168,6 +168,8 @@ The Client-1 role identity and Persian display mapping is **CONFIRMED**:
 
 **Correction (product-owner decision, 2026-08-18): hand-recorded stock movements.** The movement write endpoint accepts exactly `opening`, `return_in` and `sale`. Other kinds remain in the model and are written by the operation that produces them (transfer, order issue), never typed in.
 
+**Correction (product-owner decision, 2026-10-07, 2.40.32): a Platform Admin sets a password.** «ادمین باید بتواند از پروفایل هر کاربر رمز او را تغییر دهد». `POST users/{id}/set-password/` (`password`, `password_confirm`), Platform Admin only (`set_user_password`), Django's validators, audited as `user.password_set` without the value, sensitive-throttled. Every session of the account ends, except the caller's own when they set their own. `PATCH users/{id}/` still refuses `password`; the paragraph below is the superseded 2026-08-18 rule, kept as history.
+
 **Correction (product-owner decision, 2026-08-18): no role changes a password.** A password is set once, when the account is created. No interface offers to change one and the API refuses `password` on update, for every role including `platform_admin`. This removes an in-application credential-reset path entirely rather than restricting it. A forgotten password is recovered on the deployment host with `manage.py changepassword`, which needs server access rather than a session; the consequence — that account recovery now requires the operator, and that there is still no self-service reset (requirement 1.6 remains `BLOCKED_EXTERNAL` for want of an email/SMS provider) — is accepted deliberately.
 
 **Correction (PM decisions, 2026-08-18).** The following supersede earlier
@@ -241,7 +243,7 @@ else may re-grant it.
 | Export own report | Yes | Yes | Yes | Yes |
 | Export company report | No | Yes | Yes | Yes |
 | Manage ordinary users (create/edit/deactivate/reactivate) | No | **No** | **No** | Yes, every clean CRM identity |
-| Change an existing user's password | No | No | No | **No — not exposed to any role** |
+| Change an existing user's password | No | No | No | **Yes — `set-password` (2.40.32)** |
 | Change role or operational workstream | No | **No** | **No** | Yes |
 | Assign CRM roles | No | No | No | Yes |
 | Grant platform admin/superuser | No | No | No | Yes |
@@ -436,6 +438,9 @@ Rules:
 - **Campaign «سایر» (2.40.22).** `Campaign.other_channels` (list of up to 10 names, ≤ 60 characters
   each) is required when `channels` holds `other` and emptied otherwise; `channels_display` shows
   those names in place of «سایر».
+- **Customer list import (2.40.32).** `customers.import` is a row of its own in the admin's
+  permission matrix (`customers_import`); a Sales Agent starts without it and an admin grants it.
+  Imported customers are owned by the importer.
 - **Sensitive reads (2.40.31).** `SensitiveRateThrottle` throttles safe methods on scope
   `sensitive_read` (240/min) and writes on `sensitive` (30/min), per user; reads no longer spend
   the writes' budget.

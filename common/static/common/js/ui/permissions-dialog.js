@@ -18,7 +18,14 @@ import {confirmDialog} from "dolphin/ui/dialogs.js";
  */
 export function setupPermissionsDialog() {
     const dialog = document.getElementById("permissions-dialog");
-    if (!dialog) return;
+    if (!dialog || dialog.dataset.ready) return;
+    dialog.dataset.ready = "true";
+    // Lifted to <body> (2.40.32). On a profile it is rendered inside the
+    // «دسترسی‌ها» tab's pane; a modal <dialog> whose ancestor is `hidden`
+    // still makes the whole page inert but draws nothing — the panel looks
+    // frozen with no dialog on screen. At the body it shows wherever it is
+    // opened from.
+    if (dialog.parentElement !== document.body) document.body.append(dialog);
     const loading = document.getElementById("permissions-loading");
     const body = document.getElementById("permissions-body");
     const errorBox = document.getElementById("permissions-error");
@@ -156,14 +163,22 @@ export function setupPermissionsDialog() {
         body.hidden = true;
         errorBox.hidden = true;
         editing = false;
+        // A request that never answers left «در حال دریافت…» on screen for
+        // good; after 20 seconds it is abandoned with a message instead.
+        const timeout = new AbortController();
+        const timer = setTimeout(() => timeout.abort(), 20000);
         try {
-            current = await apiRequest(`/api/v1/users/${userId}/permissions/`);
+            current = await apiRequest(`/api/v1/users/${userId}/permissions/`, {signal: timeout.signal});
             loading.hidden = true;
             body.hidden = false;
             render();
         } catch (error) {
             loading.hidden = true;
-            showError(errorText(error));
+            showError(error?.name === "AbortError"
+                ? "پاسخی از سرور نرسید. پنجره را ببندید و دوباره امتحان کنید."
+                : errorText(error));
+        } finally {
+            clearTimeout(timer);
         }
     }
 

@@ -58,6 +58,19 @@ async function setupUserSessions(userId) {
         }
     }
 
+    // Setting this account's password (2.40.32): the server ends its
+    // sessions, so the list is read again afterwards.
+    const passwordForm = document.getElementById("set-password-form");
+    passwordForm?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        withSubmit(passwordForm, async () => {
+            await apiRequest(passwordForm.action, {method: "POST", body: formPayload(passwordForm, ["password", "password_confirm"])});
+            passwordForm.reset();
+            globalMessage("گذرواژه تغییر کرد و نشست‌های این حساب پایان یافت.", true);
+            await load();
+        });
+    });
+
     revoke.addEventListener("click", async () => {
         if (!await confirmDialog("همه نشست‌های فعال این کاربر پایان یابد؟")) return;
         revoke.disabled = true;
@@ -762,6 +775,8 @@ async function setupUserAccessTab(userId) {
     const roleForm = document.getElementById("change-role-form");
     if (roleForm) {
         const permissionsDialog = document.getElementById("role-change-access-dialog");
+        // Out of the tab pane, for the reason the permissions dialog is (2.40.32).
+        if (permissionsDialog.parentElement !== document.body) document.body.append(permissionsDialog);
         permissionsDialog.querySelectorAll("[data-close-dialog]").forEach((button) => {
             button.addEventListener("click", () => permissionsDialog.close());
         });

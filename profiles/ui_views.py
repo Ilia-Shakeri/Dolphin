@@ -178,6 +178,9 @@ class UserProfileView(PersonProfileView):
         context["profile_edit_mode"] = "admin" if manages else ("self" if person.pk == viewer.pk else "")
         context["profile_can_change_roles"] = manages and has_any_capability(viewer, *ROLE_CHANGE_CAPABILITIES)
         context["assignable_roles"] = assignable_roles(viewer) if context["profile_can_change_roles"] else []
+        # Setting another account's password (2.40.32): Platform Admin only,
+        # the same gate `set_user_password` enforces.
+        context["profile_can_set_password"] = manages and viewer.role == User.Role.PLATFORM_ADMIN
         context["workstream_labels"] = WORKSTREAM_LABELS
         context["target_username"] = person.username
         return context

@@ -195,3 +195,15 @@ class PermissionMatrixUpdateSerializer(RejectServerFieldsMixin, serializers.Seri
     """
 
     matrix = serializers.DictField(child=serializers.DictField())
+
+
+class PasswordSetSerializer(serializers.Serializer):
+    """`POST users/{id}/set-password/` (2.40.32): the new password, twice."""
+
+    password = serializers.CharField(write_only=True, trim_whitespace=False, max_length=128)
+    password_confirm = serializers.CharField(write_only=True, trim_whitespace=False, max_length=128)
+
+    def validate(self, attrs):
+        if attrs["password"] != attrs["password_confirm"]:
+            raise serializers.ValidationError({"password_confirm": "تکرار گذرواژه با خودش یکی نیست."})
+        return attrs

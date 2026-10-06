@@ -23,6 +23,16 @@
         <button class="btn btn-light" type="button" data-close-dialog>انصراف از تغییر نقش</button>
     </div>
 </dialog>
+{% if profile_can_set_password %}<form id="set-password-form" action="/api/v1/users/{{ target_user_id }}/set-password/" class="card mb-5 mb-xl-8" novalidate>
+    <div class="card-body">
+    <h2 class="fs-3 fw-bold text-gray-900 mb-2 d-flex align-items-center gap-2"><i class="di-duotone di-key fs-2 text-primary" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>تغییر گذرواژه</h2>
+    <p class="text-muted mb-5">{% if is_own_profile %}گذرواژهٔ تازهٔ حساب خودتان؛ نشست‌های دیگر شما پایان می‌یابد و همین نشست می‌ماند.{% else %}گذرواژهٔ تازه را به خود کاربر بدهید. همهٔ نشست‌های فعال او پایان می‌یابد و باید با گذرواژهٔ تازه وارد شود.{% endif %}</p>
+    <div class="row g-5">
+        <div class="col-md-6"><label class="form-label fw-semibold required" for="set-password-new">گذرواژهٔ تازه</label><input class="form-control form-control-solid" id="set-password-new" name="password" type="password" required minlength="8" autocomplete="new-password" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="password"></p></div>
+        <div class="col-md-6"><label class="form-label fw-semibold required" for="set-password-confirm">تکرار گذرواژهٔ تازه</label><input class="form-control form-control-solid" id="set-password-confirm" name="password_confirm" type="password" required minlength="8" autocomplete="new-password" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="password_confirm"></p></div>
+    </div>
+    <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">تغییر گذرواژه</button></div>
+</div></form>{% endif %}
 <section class="card mb-5 mb-xl-8"><div class="card-body d-flex flex-wrap flex-stack align-items-center gap-4">
     <div>
         <h2 class="fs-3 fw-bold text-gray-900 mb-2">مجوزهای بخش‌ها</h2>

@@ -160,6 +160,33 @@ def create_crm_user(*, actor, password, role, **data):
 
 
 @transaction.atomic
+def set_user_password(*, actor, target, password, keep_session_key=""):
+    """A Platform Admin sets another account's password (2.40.32).
+
+    Product-owner decision, 2026-10-07: «ادمین باید بتواند از پروفایل هر کاربر
+    رمز او را تغییر دهد» — reversing 2026-08-18's "no interface changes a
+    password". Admin-only through `_locked_users`; Django's validators decide
+    what is acceptable; the value is never logged. Every session of the
+    account ends — a changed password means whoever was signed in with the old
+    one is not any more — except the caller's own when they change their own.
+    """
+    actor, target = _locked_users(actor, target)
+    if not isinstance(password, str) or not password:
+        raise BusinessRuleError({"password": "گذرواژهٔ تازه را وارد کنید."})
+    try:
+        validate_password(password, user=target)
+    except DjangoValidationError as exc:
+        raise BusinessRuleError({"password": persian_password_messages(exc)}) from exc
+    target.set_password(password)
+    target.save(update_fields=["password", "updated_at"])
+    log_activity(actor=actor, operation="user.password_set", instance=target, changes={"password_set": True})
+    from accounts.sessions import revoke_sessions
+
+    revoke_sessions(actor=actor, target=target, keep_session_key=keep_session_key if actor.pk == target.pk else "")
+    return target
+
+
+@transaction.atomic
 def update_crm_user(*, actor, target, **changes):
     lock_platform_admin_guard()
     actor, target = _locked_users(actor, target)

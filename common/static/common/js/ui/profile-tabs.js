@@ -20,6 +20,9 @@ import {motionBehavior} from "dolphin/core/motion.js";
 export function setupProfileTabs(loaders) {
     const tabs = Array.from(document.querySelectorAll("[data-profile-tab]"));
     if (!tabs.length) return null;
+    // Every dialog a pane renders lives at the body (2.40.32): a modal opened
+    // while its pane is `hidden` would make the page inert and draw nothing.
+    document.querySelectorAll("[data-profile-pane] dialog").forEach((dialog) => document.body.append(dialog));
     const keys = tabs.map((tab) => tab.dataset.profileTab);
     const panes = new Map(
         Array.from(document.querySelectorAll("[data-profile-pane]")).map((pane) => [pane.dataset.profilePane, pane]),

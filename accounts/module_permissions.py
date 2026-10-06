@@ -63,6 +63,11 @@ class Module:
 
 MODULES = (
     Module("customers", "مشتریان", ("customers.scoped", "customers.company"), ("customers.manage",), ("customers.delete",)),
+    # Importing a customer list from Excel (2.40.32, product owner: «بازاریاب باید
+    # بتواند ورودی لیست مشتریان بدهد ولی باید مجوز آن توسط ادمین داده شود»).
+    # One capability, so one checkbox: a marketer starts without it and an
+    # admin ticks it here; the imported customers are the importer's own.
+    Module("customers_import", "اجازهٔ ورودی لیست مشتریان (اکسل)", ("customers.import",)),
     Module("customer_categories", "دسته‌بندی مشتری", ("customer_categories.read", "customer_categories.manage"), ("customer_categories.manage",), ("customer_categories.delete",)),
     Module("campaigns", "کمپین‌ها", ("campaigns.scoped", "campaigns.company"), ("campaigns.manage", "campaigns.work"), ("campaigns.delete",)),
     Module("campaign_results", "نتایج کمپین‌ها", ("campaign_results.scoped", "campaign_results.company")),
