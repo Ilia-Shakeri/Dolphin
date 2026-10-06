@@ -246,7 +246,8 @@ class ReportProvinceDropdownTests(SimpleTestCase):
 
     def test_the_field_is_a_select_not_a_text_input(self):
         markup_text = markup(self.template)
-        self.assertIn('<select class="form-select form-select-solid" id="document-report-province">', markup_text)
+        # Several provinces at once since 2.40.21 (a multi-select checklist).
+        self.assertIn('<select class="form-select form-select-solid" id="document-report-province" multiple>', markup_text)
         self.assertNotIn('id="document-report-province" maxlength', markup_text)
 
     def test_it_is_filled_from_the_same_canonical_list_the_map_uses(self):

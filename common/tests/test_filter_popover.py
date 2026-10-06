@@ -102,6 +102,15 @@ REPORT_FILTER_TEMPLATES = frozenset({
     "reports/stock_valuation.html",
 })
 
+#: The three campaign pages joined in 2.40.25 (product owner: «در صفحات
+#: کمپین … فیلترها باید مثل بقیهٔ صفحه‌ها داخل یک پاپ‌آپ مخصوص باشند»).
+#: Not reports: they keep their own search, or have none to keep.
+CAMPAIGN_FILTER_TEMPLATES = frozenset({
+    "campaigns/detail.html",
+    "campaigns/list.html",
+    "campaigns/results.html",
+})
+
 
 class ReachTests(SimpleTestCase):
     def test_the_known_set_of_templates_still_carries_the_shared_class(self):
@@ -118,7 +127,7 @@ class ReachTests(SimpleTestCase):
         The other seventeen list pages converted to their own explicit
         `.list-search`/`.list-filter` markup on purpose (2026-09-09) and are
         expected to be absent here — see this module's own docstring."""
-        self.assertEqual(set(FILTER_TEMPLATES), REPORT_FILTER_TEMPLATES)
+        self.assertEqual(set(FILTER_TEMPLATES), REPORT_FILTER_TEMPLATES | CAMPAIGN_FILTER_TEMPLATES)
 
     def test_the_two_rebuilt_reports_have_no_filter_form_to_own(self):
         for name in ("reports/sales_documents.html", "reports/inbound_sms.html"):
