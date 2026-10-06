@@ -4,6 +4,7 @@ import {displayDate} from "dolphin/core/jalali.js";
 import {LEAD_STATUS_LABELS} from "dolphin/core/labels.js";
 import {errorText, globalMessage, showError} from "dolphin/core/messages.js";
 import {boardCardHeader, letCardDetailsLinkThrough, paintBoardColumns, setupBoardColumnSearch} from "dolphin/ui/boards.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 
 /**
  * The leads Kanban board — the same three real `Lead.status` values
@@ -302,6 +303,13 @@ export async function setupLeadBoard() {
             renderLoadMore(status);
             renderEmptyState(status);
             setupBoardColumnSearch(container, status, (term) => reloadColumn(status, term));
+        });
+        // Live (2.40.34): a card someone else added, moved or changed shows up
+        // in its column; never mid-drag, which would pull the card out of the
+        // reader's hand.
+        onRealtime(["lead"], () => {
+            if (document.querySelector(".gu-mirror")) return;
+            STATUSES.forEach((status) => reloadColumn(status, pageState[status]?.search || ""));
         });
     } catch (error) {
         loading.hidden = true;

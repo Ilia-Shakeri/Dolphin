@@ -3,6 +3,7 @@ import unicodedata
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Count
 from django.utils import timezone
 
 from accounts.access import has_any_capability, is_crm_identity
@@ -17,6 +18,7 @@ from sales.models import (
     CUSTOMER_POSTAL_CODE_MAX_LENGTH,
     FREE_TEXT_MAX_LENGTH,
     INTERACTION_OUTCOME_MAX_LENGTH,
+    Campaign,
     Customer,
     CustomerCategory,
     CustomerPhone,
@@ -473,13 +475,83 @@ def deactivate_customer_phone(*, actor, phone):
     return locked
 
 
+#: `create_lead(assignee=AUTO_ASSIGN)`: share the lead out among the campaign's
+#: responsibles (2.40.35).
+AUTO_ASSIGN = "auto"
+
+
+def _can_work_leads(user):
+    return (
+        user is not None
+        and user.is_active
+        and is_crm_identity(user)
+        and user.role in OPERATIONAL_WRITERS
+        and not (user.role == User.Role.SALES_AGENT and user.workstream == User.Workstream.AFTER_SALES)
+    )
+
+
+def campaign_lead_assignees(campaign):
+    """Who a new lead of `campaign` may go to automatically: its responsibles
+    who work leads — a sub-campaign without any of its own uses its parent's."""
+    if campaign is None:
+        return []
+    people = [user for user in campaign.responsibles.all() if _can_work_leads(user)]
+    if not people and campaign.parent_id:
+        people = [user for user in campaign.parent.responsibles.all() if _can_work_leads(user)]
+    return sorted(people, key=lambda user: user.pk)
+
+
+def pick_balanced_assignee(campaign, candidates):
+    """The responsible holding the fewest leads of this campaign; among equals,
+    chosen at random (2.40.35, product owner: «باید خودکار و شانسی باشد تا تمامی
+    مسئولان آن کمپین تعداد برابر سرنخ داشته باشند»). Fewest-first keeps the
+    counts level however leads arrive; the random tie-break means nobody is
+    always first."""
+    import random
+
+    counts = dict(
+        Lead.objects.filter(campaign=campaign, assigned_to__in=candidates)
+        .exclude(source="campaign")
+        .values_list("assigned_to")
+        .annotate(total=Count("id"))
+    )
+    fewest = min(counts.get(user.pk, 0) for user in candidates)
+    return random.SystemRandom().choice([user for user in candidates if counts.get(user.pk, 0) == fewest])
+
+
+def _resolve_new_lead_assignee(actor, campaign, assignee):
+    """Who a lead being created goes to, and how that was decided."""
+    if assignee in (None, AUTO_ASSIGN):
+        if campaign is not None:
+            # One creation at a time per campaign, so two leads made at the
+            # same moment do not both go to whoever had the fewest.
+            Campaign.objects.select_for_update().filter(pk=campaign.pk).first()
+        candidates = campaign_lead_assignees(campaign)
+        if candidates:
+            return pick_balanced_assignee(campaign, candidates), "auto"
+        # No responsibles: unassigned, as before — a marketer still sees the
+        # lead they made (`leads_for`: created by them and unassigned).
+        return None, None
+    target = User.objects.filter(pk=getattr(assignee, "pk", assignee)).first()
+    if not _can_work_leads(target):
+        raise BusinessRuleError({"assigned_to": "مسئول باید کاربر فعالِ بخش فروش یا مدیریت باشد."})
+    if actor.role not in ELEVATED_OPERATORS and target.pk != actor.pk:
+        raise BusinessPermissionDenied("بازاریاب فقط می‌تواند سرنخ را به خودش بدهد یا تقسیم خودکار را انتخاب کند.")
+    return target, "manual"
+
+
 @transaction.atomic
-def create_lead(*, actor, customer=None, campaign=None, **data):
+def create_lead(*, actor, customer=None, campaign=None, assignee=AUTO_ASSIGN, **data):
     """Start a campaign.
 
     `customer` is optional: a campaign is worked from its target audience, and
     the people in it are not customers yet. When one is named it still has to
     be inside the caller's scope.
+
+    `assignee` (2.40.35): `AUTO_ASSIGN`, the default, shares new leads out
+    evenly among the campaign's responsibles (`pick_balanced_assignee`); a user
+    instead is a manual choice — anyone who works leads for a manager, only
+    themselves for a marketer.
     """
     actor = _lock_operational_actor(actor)
     unknown = set(data) - LEAD_MUTABLE_FIELDS
@@ -493,12 +565,26 @@ def create_lead(*, actor, customer=None, campaign=None, **data):
         # The campaign entity (2.40.0); the free-text label follows it so
         # older readers of `campaign_or_batch` see the same name.
         data.setdefault("campaign_or_batch", campaign.name[:100])
-    lead = Lead.objects.create(customer=customer, campaign=campaign, created_by=actor, source_payload={}, **data)
+    target, how = _resolve_new_lead_assignee(actor, campaign, assignee)
+    assignment = {}
+    if target is not None:
+        assignment = {"assigned_to": target, "assigned_by": actor, "assigned_at": timezone.now()}
+    lead = Lead.objects.create(customer=customer, campaign=campaign, created_by=actor, source_payload={}, **assignment, **data)
+    if target is not None:
+        LeadAssignmentHistory.objects.create(
+            lead=lead, from_user=None, to_user=target, changed_by=actor,
+            reason="تخصیص خودکار و برابر بین مسئولان کمپین" if how == "auto" else "تخصیص هنگام ساخت",
+        )
     log_activity(
         actor=actor,
         operation="lead.created",
         instance=lead,
-        changes={"customer": customer.pk if customer else None, "fields": sorted(data)},
+        changes={
+            "customer": customer.pk if customer else None,
+            "fields": sorted(data),
+            "assigned_to": target.pk if target else None,
+            "assignment": how,
+        },
     )
     return lead
 

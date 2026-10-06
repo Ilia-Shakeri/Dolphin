@@ -58,9 +58,9 @@ def _function_body(name, end_marker):
 
 
 OPEN_PICKER_BODY = _function_body("openJalaliPicker", "\n    function setupJalaliInputs(")
-SETUP_BODY = _function_body(
-    "setupJalaliInputs", "\n    async function loadAllPages("
-)
+# Up to its own closing brace: what follows it in the bundled script depends
+# on module order, which moves as modules are added (2.40.34).
+SETUP_BODY = _function_body("setupJalaliInputs", "\n    }\n")
 JALALI_WEEKDAY_BODY = _function_body("jalaliWeekday", "\n    let closeOpenJalaliPicker")
 
 

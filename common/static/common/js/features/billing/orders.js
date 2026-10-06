@@ -30,7 +30,9 @@ export async function setupOrders() {
             ["انبار", selectedOptionText(document.getElementById("create-order-warehouse"))],
             ["روش ارسال", selectedOptionText(document.getElementById("create-order-shipping"))],
             ["تاریخ ارسال", document.getElementById("create-order-delivery")?.value || "تعیین نشده"],
-            ["تعداد اقلام", toPersianDigits(String(lines.count()))],
+            // How many different products, not how many rows (2.40.33, product
+            // owner: «تعداد اقلام باید به تنوع محصولات تبدیل شود»).
+            ["تنوع محصولات", toPersianDigits(String(new Set(lines.collect().map((line) => line.product).filter(Boolean)).size))],
             ["جمع اقلام", money(lines.grossTotals().reduce((sum, line) => sum + line, 0))],
             // The form collects «توضیحات» and the review never showed it —
             // found by auditing every wizard's review against its own form

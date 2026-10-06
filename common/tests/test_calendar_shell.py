@@ -20,7 +20,7 @@ from django.test import SimpleTestCase
 JS_ROOT = Path(__file__).resolve().parents[1] / "static" / "common" / "js"
 NODE = shutil.which("node")
 MODULES = ("core/api.js", "core/digits.js", "core/events.js", "core/form-errors.js", "core/jalali.js",
-           "core/messages.js", "ui/jalali-picker.js", "ui/calendar.js")
+           "core/messages.js", "ui/jalali-picker.js", "ui/realtime.js", "ui/calendar.js")
 LEAD = (JS_ROOT / "features" / "leads" / "lead-calendar.js").read_text(encoding="utf-8")
 AFTER_SALES = (JS_ROOT / "features" / "after_sales" / "after-sales-calendar.js").read_text(encoding="utf-8")
 

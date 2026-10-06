@@ -6,6 +6,7 @@ import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {setupProfileTabs} from "dolphin/ui/profile-tabs.js";
 import {appendCell, pageRangeLabel} from "dolphin/ui/table.js";
+import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
 
 /**
  * The «اتصال سرویس‌ها» page: one card per integration, each with a real
@@ -78,6 +79,13 @@ function setupIntegrationFramework() {
     }
 
     function button(label, className, handler) {
+        // Delete is the red trash icon everywhere (2.40.33).
+        if (label === "حذف") {
+            const trash = trashButton("حذف");
+            trash.classList.add("btn-sm");
+            trash.addEventListener("click", () => handler(trash));
+            return trash;
+        }
         const node = document.createElement("button");
         node.type = "button";
         node.className = `btn btn-sm ${className}`;
@@ -405,6 +413,7 @@ function setupIntegrationFramework() {
                 node.disabled = true;
                 try {
                     await apiRequest(`/api/v1/integrations/${integration.id}/`, {method: "DELETE"});
+                    await removeWithMotion(node.closest("tr"));
                     globalMessage("اتصال حذف شد.", true);
                     await loadConnections();
                 } catch (error) {
@@ -565,6 +574,7 @@ function setupIntegrationFramework() {
                         node.disabled = true;
                         try {
                             await apiRequest(`/api/v1/webhook-subscriptions/${subscription.id}/`, {method: "DELETE"});
+                            await removeWithMotion(node.closest("tr"));
                             await loadSubscriptions();
                         } catch (error) {
                             node.disabled = false;
@@ -737,6 +747,7 @@ function setupIntegrationFramework() {
                         node.disabled = true;
                         try {
                             await apiRequest(`/api/v1/telephony/extensions/${extension.id}/`, {method: "DELETE"});
+                            await removeWithMotion(node.closest("tr"));
                             await loadExtensions();
                         } catch (error) {
                             node.disabled = false;

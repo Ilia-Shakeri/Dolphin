@@ -4,6 +4,7 @@ import {displayDate} from "dolphin/core/jalali.js";
 import {globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {appendCell} from "dolphin/ui/table.js";
+import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
 
 /**
  * The chart card beneath a list page, wherever one is declared.
@@ -55,14 +56,13 @@ function attachmentRow(panel, item) {
         .forEach((value) => appendCell(row, value));
     const actions = document.createElement("td");
     if (panel.dataset.canDelete === "true") {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "btn btn-sm btn-light-danger";
-        button.textContent = "حذف";
+        const button = trashButton(`حذف پیوست ${item.original_filename || ""}`.trim());
+        button.classList.add("btn-sm");
         button.addEventListener("click", async () => {
             if (!await confirmDialog("این پیوست برای همیشه حذف شود؟")) return;
             try {
                 await apiRequest(`/api/v1/attachments/${item.id}/delete/`, {method: "POST"});
+                await removeWithMotion(row);
                 await loadAttachments(panel);
             } catch (error) {
                 showError(error);

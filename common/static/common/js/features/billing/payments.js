@@ -10,6 +10,7 @@ import {setupListFilter} from "dolphin/ui/popover.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 import {appendCell, appendDetailLink, appendMoneyCell, appendStatusBadgeCell, labelled} from "dolphin/ui/table.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
+import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
 
 const PAYMENT_STATUS_TEXT = Object.freeze({
     pending: "در انتظار وصول",
@@ -258,13 +259,9 @@ export async function setupPayments() {
             amount.setAttribute("data-money-input", "");
             amount.dataset.wizardSplitAmount = "";
             amount.setAttribute("aria-label", "مبلغ تخصیص");
-            const remove = document.createElement("button");
-            remove.className = "btn btn-icon btn-light-danger";
-            remove.type = "button";
-            remove.textContent = "×";
-            remove.setAttribute("aria-label", "حذف سطر");
-            remove.addEventListener("click", () => {
-                row.remove();
+            const remove = trashButton("حذف سطر");
+            remove.addEventListener("click", async () => {
+                await removeWithMotion(row);
                 refreshWizardPreview();
             });
             amount.addEventListener("input", refreshWizardPreview);

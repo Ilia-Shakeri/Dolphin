@@ -5244,3 +5244,147 @@ input.form-control.form-control-solid[disabled]:not([name]) {
     opacity: 1;
     cursor: default;
 }
+
+/* A dialog's close (×) button (2.40.33, product owner: «دکمه بستن (X) باید یک هالهٔ
+   قرمز و زیبا داشته باشد که با هاور پررنگ‌تر شود»). Every wizard and dialog
+   carries the same icon button with `data-close-dialog`; it gets a soft red
+   tint at rest, and on hover or keyboard focus a stronger tint with a red
+   halo around it. Colour and shadow only — nothing moves. */
+/* `!important` and the longer selector: the kit's own `.btn.btn-light:hover` /
+   `:focus` rule sets the background with `!important` (0,4,0), which turned the
+   button grey on hover. */
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) {
+    color: var(--bs-danger);
+    border-color: transparent;
+    background-color: rgb(248 40 90 / 10%) !important;
+    border-radius: 0.75rem;
+    font-size: 1.35rem;
+    line-height: 1;
+    box-shadow: 0 0 0 0 rgb(248 40 90 / 0%);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover,
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):focus-visible {
+    color: #fff;
+    background-color: var(--bs-danger) !important;
+    box-shadow: 0 0 0 0.3rem rgb(248 40 90 / 22%), 0 0.4rem 1rem -0.2rem rgb(248 40 90 / 45%);
+}
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):active {
+    box-shadow: 0 0 0 0.2rem rgb(248 40 90 / 30%);
+}
+
+/* Delete is a red trash icon (2.40.33, `ui/trash.js`). At rest a soft red tile;
+   on hover or keyboard focus a solid red tile with a halo, and the can tilts
+   as if its lid were lifted; pressed, it settles. What was deleted leaves
+   (`.is-leaving`): it fades and slides out, then the list closes over it. */
+.btn.btn-icon.btn-trash {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.7rem;
+    color: var(--bs-danger);
+    background-color: rgb(248 40 90 / 10%);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.btn.btn-icon.btn-trash i,
+.btn.btn-icon.btn-trash i [class^="path"]::before { color: currentColor; }
+.btn.btn-icon.btn-trash i { display: inline-block; transform-origin: 50% 85%; }
+.btn.btn-icon.btn-trash:hover,
+.btn.btn-icon.btn-trash:focus-visible {
+    color: #fff;
+    background-color: var(--bs-danger);
+    box-shadow: 0 0 0 0.28rem rgb(248 40 90 / 20%), 0 0.4rem 1rem -0.3rem rgb(248 40 90 / 50%);
+}
+.btn.btn-icon.btn-trash:active { transform: scale(0.94); }
+.btn.btn-icon.btn-trash[disabled] { opacity: 0.55; box-shadow: none; }
+.btn-trash.btn-sm { width: 2rem; height: 2rem; border-radius: 0.6rem; }
+@media (prefers-reduced-motion: no-preference) {
+    .btn.btn-icon.btn-trash:hover i,
+    .btn.btn-icon.btn-trash:focus-visible i { animation: trash-tilt 480ms var(--dolphin-ease) 1; }
+}
+@keyframes trash-tilt {
+    0% { transform: rotate(0); }
+    30% { transform: rotate(-14deg); }
+    60% { transform: rotate(9deg); }
+    100% { transform: rotate(0); }
+}
+.is-leaving {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+tr.is-leaving > td {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+/* New-message cards, bottom-left (2.40.34, `shell/chat-toast.js`). Physical
+   left on purpose: the product owner placed them «پایین سمت چپ», which in this
+   RTL panel is the end side, clear of the sidebar. They slide in from the
+   edge, rest on a card surface with a soft shadow, and leave the same way. */
+.chat-toasts {
+    position: fixed;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: min(22rem, calc(100vw - 2rem));
+    pointer-events: none;
+}
+.chat-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: 1rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-align: start;
+    box-shadow: 0 1.25rem 2.5rem -1rem rgb(7 20 55 / 35%);
+    cursor: pointer;
+    animation: chat-toast-in 320ms var(--dolphin-ease) both;
+    transition: opacity 240ms ease, transform 240ms var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+[data-bs-theme=dark] .chat-toast {
+    border-color: var(--bs-border-color);
+    box-shadow: 0 1.25rem 2.5rem -1rem rgb(0 0 0 / 70%);
+}
+.chat-toast:hover { box-shadow: 0 1.5rem 2.75rem -1rem rgb(27 132 255 / 35%); }
+.chat-toast:focus-visible { outline: 3px solid rgb(27 132 255 / 40%); outline-offset: 2px; }
+.chat-toast.is-leaving { opacity: 0; transform: translateX(-1.5rem); }
+.chat-toast-avatar {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-weight: 700;
+}
+.chat-toast-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1 1 auto; }
+.chat-toast-name { font-weight: 700; color: var(--bs-gray-900); }
+.chat-toast-body {
+    color: var(--bs-gray-700);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+.chat-toast-close { flex: 0 0 auto; color: var(--bs-gray-500); font-size: 1.2rem; line-height: 1; padding-inline: 0.15rem; }
+.chat-toast-close:hover { color: var(--bs-danger); }
+@keyframes chat-toast-in {
+    from { opacity: 0; transform: translateX(-1.5rem) scale(0.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .chat-toast { animation: none; transition: none; }
+}

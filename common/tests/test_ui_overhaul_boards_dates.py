@@ -246,7 +246,9 @@ class JalaliMonthViewTests(SimpleTestCase):
         """FullCalendar's own `dayGridMonth` is Gregorian, which is why a
         grid titled «مهر» never showed all of مهر."""
         self.assertIn("const JALALI_MONTH_VIEW = {", SCRIPT)
-        self.assertIn("visibleRange: (current) => jalaliMonthRange(current)", SCRIPT)
+        # Widened to whole weeks since 2.40.35, or FullCalendar draws a month
+        # that does not start on a Saturday as one row (`weekAligned`).
+        self.assertIn("visibleRange: (current) => weekAligned(jalaliMonthRange(current))", SCRIPT)
         # One shell since 2.40.12 (`createJalaliCalendar`), used by both.
         self.assertEqual(SCRIPT.count('initialView: "jalaliMonth"'), 1)
         self.assertEqual(SCRIPT.count("    createJalaliCalendar({"), 2)
@@ -285,8 +287,10 @@ class JalaliMonthViewTests(SimpleTestCase):
     def test_cell_numbers_are_month_view_only(self):
         """In week and day view the column header already carries the date;
         a number repeated in every hour cell was that date written again."""
+        # …and only on the month's own days (2.40.35): the week-filling days
+        # around it stay blank.
         self.assertEqual(
-            SCRIPT.count('arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""'), 1,
+            SCRIPT.count('arg.view.type === "jalaliMonth" && !isOutsideJalaliMonth(arg.date, arg.view)'), 1,
         )
 
     def test_the_old_gregorian_view_name_is_gone(self):

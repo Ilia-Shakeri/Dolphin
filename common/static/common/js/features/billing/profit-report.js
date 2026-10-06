@@ -6,6 +6,7 @@ import {loadCustomerOptions, renderReportRows, reportSection} from "dolphin/feat
 import {chartPalette, renderBarChart} from "dolphin/ui/charts.js";
 import {bindReportTableSearch} from "dolphin/ui/report-wizard.js";
 import {appendActionLinks, appendCell, appendMoneyCell} from "dolphin/ui/table.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 
 /**
  * Revenue against cost against gross profit, for the period.
@@ -117,4 +118,6 @@ export async function setupProfitReport() {
         showError(error);
     }
     load();
+    // Live (2.40.34): the figures follow the records they add up.
+    onRealtime(["invoice", "payment", "inventory"], () => load(), {delay: 1500});
 }

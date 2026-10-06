@@ -153,7 +153,10 @@ class SelfServiceSessionTests(TestCase):
 
 
 class PasswordChangeAbsentTests(TestCase):
-    """No served page offers to change a password, for any role."""
+    """No served page offers to change a password — except the one place the
+    product owner asked for on 2026-10-07 (2.40.32): a Platform Admin's
+    «تغییر گذرواژه» on a user profile's «دسترسی‌ها» tab, which
+    `accounts/tests/test_set_password.py` covers. Everywhere else stays clean."""
 
     def setUp(self):
         self.admin = User.objects.create_user(
@@ -199,6 +202,9 @@ class PasswordChangeAbsentTests(TestCase):
     TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL = frozenset({
         "provider_settings.html", "post_provider_settings.html",
     })
+    #: The admin-only password form (2.40.32), rendered under
+    #: `profile_can_set_password` alone.
+    TEMPLATES_WITH_THE_ADMIN_PASSWORD_FORM = frozenset({"user_access.inc"})
 
     def test_no_served_template_offers_a_password_change(self):
         offenders = []
@@ -206,6 +212,9 @@ class PasswordChangeAbsentTests(TestCase):
             if path.name == "login.html":
                 continue  # Signing in is not changing a password.
             if path.name in self.TEMPLATES_WITH_A_THIRD_PARTY_CREDENTIAL:
+                continue
+            if path.name in self.TEMPLATES_WITH_THE_ADMIN_PASSWORD_FORM:
+                self.assertIn("{% if profile_can_set_password %}", path.read_text(encoding="utf-8"))
                 continue
             text = path.read_text(encoding="utf-8")
             for marker in ("گذرواژه تازه", "تغییر گذرواژه", "تغییر رمز", "new-password"):

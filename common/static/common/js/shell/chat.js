@@ -187,8 +187,23 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
         writeCache();
     }
 
+    // Which conversation is on screen right now, for the new-message cards
+    // (`shell/chat-toast.js`, 2.40.34): none for the one the reader is in.
+    let markedThread = null;
+    function markOpenThread() {
+        const value = activeThreadId && isOpen() ? String(activeThreadId) : null;
+        if (value) {
+            document.body.dataset.chatOpenThread = value;
+            markedThread = value;
+        } else if (markedThread && document.body.dataset.chatOpenThread === markedThread) {
+            delete document.body.dataset.chatOpenThread;
+            markedThread = null;
+        }
+    }
+
     function showList() {
         activeThreadId = null;
+        markOpenThread();
         pointPageLinks(null);
         listTitle.classList.remove("d-none");
         peerTitle.classList.add("d-none");
@@ -353,6 +368,7 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
 
     async function openThread(threadId) {
         activeThreadId = threadId;
+        markOpenThread();
         pointPageLinks(threadId);
         lastMessageId = 0;
         renderedIds.clear();
@@ -532,6 +548,20 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
         button.addEventListener("click", () => newDialog.close()));
 
     if (toggle) {
+        // A new-message card was clicked (2.40.34): open the drawer on that
+        // conversation. The full chat page, where there is no drawer, opens it
+        // in place.
+        document.addEventListener("dolphin:chat-open-thread", async (event) => {
+            const threadId = Number(event.detail?.threadId);
+            if (!threadId) return;
+            if (document.getElementById("chat-page-thread-list")) return;
+            if (!isOpen()) toggle.click();
+            if (!threads.some((thread) => thread.id === threadId)) await loadThreads();
+            openThread(threadId);
+        });
+        // The drawer closing leaves no conversation on screen.
+        new MutationObserver(markOpenThread).observe(drawer || toggle, {attributes: true, attributeFilter: ["class"]});
+
         // Intent before the click: a pointer over the chat icon, or
         // keyboard focus on it, starts the thread-list request, so
         // opening the drawer usually finds it already answered.
@@ -566,6 +596,16 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
         pollActiveThread();
         loadThreads();
     });
+
+    if (!toggle && !drawer) {
+        // The full chat page: a card for another conversation opens it here.
+        document.addEventListener("dolphin:chat-open-thread", async (event) => {
+            const threadId = Number(event.detail?.threadId);
+            if (!threadId) return;
+            if (!threads.some((thread) => thread.id === threadId)) await loadThreads();
+            openThread(threadId);
+        });
+    }
 
     readCache();
     showList();

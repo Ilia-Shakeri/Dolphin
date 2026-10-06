@@ -84,3 +84,12 @@ export const STATUS_ACCENTS = Object.freeze({
     transfer_in: "info",
     transfer_out: "info",
 });
+
+/**
+ * A campaign as a choice reads «کمپین (زیرکمپین)» (2.40.33, product owner:
+ * «در دراپ‌داون کمپین باید این شکلی نشان داده شود: کمپین (زیر کمپین)»): the
+ * parent first, the sub-campaign in brackets; a top-level campaign is its name.
+ */
+export function campaignLabel(campaign) {
+    return campaign.parent_name ? `${campaign.parent_name} (${campaign.name})` : campaign.name;
+}

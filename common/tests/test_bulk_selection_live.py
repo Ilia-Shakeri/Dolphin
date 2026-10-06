@@ -34,9 +34,13 @@ class LiveRefreshSelectionTests(SimpleTestCase):
 class TrashIconTests(SimpleTestCase):
     def test_every_bulk_delete_button_has_the_trash_icon(self):
         buttons = []
+        # Since 2.40.33 the icon alone, a red trash button, named for assistive
+        # tech and as its tooltip (`btn-trash`); fifteen lists with the campaigns
+        # and their members.
         for path in TEMPLATES.rglob("*.html"):
-            buttons += re.findall(r'data-[a-z-]+-select="delete_selected">(.*?)</button>', path.read_text(encoding="utf-8"))
-        self.assertGreaterEqual(len(buttons), 13)
-        for inner in buttons:
-            self.assertIn('class="di-duotone di-trash fs-4 me-1" aria-hidden="true"', inner)
-            self.assertTrue(inner.endswith("حذف موارد انتخاب‌شده"))
+            buttons += re.findall(r'(<button[^>]*select="delete_selected"[^>]*>)(.*?)</button>', path.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(buttons), 15)
+        for tag, inner in buttons:
+            self.assertIn("btn-trash", tag)
+            self.assertIn('aria-label="حذف موارد انتخاب‌شده"', tag)
+            self.assertIn('class="di-duotone di-trash fs-3" aria-hidden="true"', inner)

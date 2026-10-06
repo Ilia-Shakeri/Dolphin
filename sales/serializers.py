@@ -263,10 +263,13 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         source="customer.full_name", read_only=True, default=""
     )
     assigned_to_display = serializers.SerializerMethodField()
+    #: Who a new lead goes to (2.40.35): left out or empty, it is shared out
+    #: evenly among the campaign's responsibles; a user id is a manual choice.
+    assign_to = serializers.IntegerField(write_only=True, required=False, allow_null=True, min_value=1)
 
     class Meta:
         model = Lead
-        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "created_at", "updated_at"]
+        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "created_at", "updated_at"]
         read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
 
     def get_assigned_to_display(self, instance) -> str:
@@ -300,9 +303,13 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         return fields
 
     def create(self, validated_data):
-        return create_lead(actor=self.context["request"].user, **validated_data)
+        from sales.services import AUTO_ASSIGN
+
+        assignee = validated_data.pop("assign_to", None) or AUTO_ASSIGN
+        return create_lead(actor=self.context["request"].user, assignee=assignee, **validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop("assign_to", None)
         validated_data.pop("campaign", None)
         if "customer" in validated_data and validated_data["customer"] == instance.customer:
             validated_data.pop("customer")

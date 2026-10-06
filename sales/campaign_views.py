@@ -15,7 +15,7 @@ from accounts.access import has_any_capability
 from accounts.models import User
 from common.permissions import FeatureGatedAPIMixin, IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin
-from common.viewsets import AdminHardDeleteModelViewSet
+from common.viewsets import AdminHardDeleteModelViewSet, HardDeleteMixin
 from reports.xlsx import safe_spreadsheet_text
 from sales.campaign_analytics import campaign_analysis, campaign_rows, campaigns_for, members_for, unattributed_row
 from sales.campaign_attribution import attribute_manually
@@ -391,7 +391,7 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
         ]})
 
 
-class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, viewsets.GenericViewSet):
+class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, HardDeleteMixin, viewsets.GenericViewSet):
     required_feature = "campaigns"
     required_capabilities = ("campaigns.scoped", "campaigns.company")
     #: A marketer may move their own people between stages (`campaigns.work`);
@@ -400,7 +400,11 @@ class CampaignMemberViewSet(FeatureGatedAPIMixin, SensitiveActionThrottleMixin, 
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = TargetAudienceMember.objects.none()
     serializer_class = CampaignMemberSerializer
-    sensitive_actions = frozenset({"stage", "assign", "customer"})
+    sensitive_actions = frozenset({"stage", "assign", "customer", "bulk_delete", "destroy"})
+    #: A person added by mistake can be removed (2.40.33): one row or several,
+    #: by whoever may delete campaigns. One a call was recorded against stays
+    #: (the interaction protects it); a campaign attribution keeps its campaign.
+    delete_capability = "campaigns.delete"
 
     def get_queryset(self):
         return members_for(self.request.user).select_related("campaign", "assigned_to")

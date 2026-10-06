@@ -7,6 +7,7 @@ import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 import {appendCell, appendDetailLink, appendMoneyCell} from "dolphin/ui/table.js";
+import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
 
 export const PAYMENT_METHOD_TEXT = Object.freeze({
     cash: "نقدی",
@@ -185,23 +186,12 @@ export function createLineItemRows(host, products, {onChange} = {}) {
         total.dataset.lineTotal = "";
         total.dataset.label = "جمع ردیف";
 
-        const remove = document.createElement("button");
-        // The theme's own repeater delete control, icon and all — a real
-        // `di-cross` rather than a literal "×" character, which rendered
-        // at text weight beside two solid inputs.
-        remove.className = "btn btn-sm btn-icon btn-light-danger wizard-line-remove";
-        remove.type = "button";
-        const removeIcon = document.createElement("i");
-        removeIcon.className = "di-duotone di-cross fs-2";
-        ["path1", "path2"].forEach((name) => {
-            const path = document.createElement("span");
-            path.className = name;
-            removeIcon.append(path);
-        });
-        remove.append(removeIcon);
-        remove.setAttribute("aria-label", "حذف ردیف");
-        remove.addEventListener("click", () => {
-            row.remove();
+        // The red trash icon every delete uses (2.40.33), and the line
+        // leaves with motion.
+        const remove = trashButton("حذف ردیف");
+        remove.classList.add("btn-sm", "wizard-line-remove");
+        remove.addEventListener("click", async () => {
+            await removeWithMotion(row);
             // Never none: a document without a line cannot be submitted,
             // so the form always offers one to fill.
             if (!host.children.length) addLine();
@@ -411,11 +401,10 @@ export function documentLineEditor({doc, endpoint, onSaved}) {
             const actions = document.createElement("td");
             actions.className = "row-actions";
             if (editable) {
-                const remove = document.createElement("button");
-                remove.type = "button";
-                remove.className = "btn btn-sm btn-light";
-                remove.textContent = "حذف سطر";
-                remove.addEventListener("click", () => {
+                const remove = trashButton("حذف سطر");
+                remove.classList.add("btn-sm");
+                remove.addEventListener("click", async () => {
+                    await removeWithMotion(row);
                     draft.splice(index, 1);
                     render();
                 });

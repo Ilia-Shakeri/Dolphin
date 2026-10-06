@@ -438,6 +438,20 @@ Rules:
 - **Campaign «سایر» (2.40.22).** `Campaign.other_channels` (list of up to 10 names, ≤ 60 characters
   each) is required when `channels` holds `other` and emptied otherwise; `channels_display` shows
   those names in place of «سایر».
+- **New leads shared out among a campaign's responsibles (2.40.33).** `create_lead(assignee=AUTO_ASSIGN)`,
+  the default (API: `assign_to` absent or null): the lead goes to the responsible of its campaign
+  (its parent's when it names none) holding the fewest leads of that campaign, ties broken at
+  random; only users who work leads qualify. `assign_to=<user id>` is a manual choice — any such
+  user for a Sales Manager and above, only themselves for a Sales Agent. A campaign with no
+  responsibles leaves the lead unassigned, as before. Each assignment writes
+  `LeadAssignmentHistory`; the campaign row is locked so simultaneous creations stay balanced.
+- **Campaign members can be deleted (2.40.33).** `POST campaign-members/bulk-delete/` and
+  `DELETE campaign-members/{id}/` under `campaigns.delete` (`HardDeleteMixin`); a member a call was
+  recorded against is protected; attributions keep their campaign (`SET_NULL` on the member).
+- **Live updates cover the panel (2.40.33).** Besides the lists, sales documents, postal shipments,
+  products, warehouses and stock, quotations, cheques, instalments, after-sales history, SMS, tasks,
+  notes, attachments and users announce changes (`common/realtime_signals.LIST_KINDS`); a save that
+  touches only `last_login`/`last_seen_at` does not.
 - **Customer list import (2.40.32).** `customers.import` is a row of its own in the admin's
   permission matrix (`customers_import`); a Sales Agent starts without it and an admin grants it.
   Imported customers are owned by the importer.

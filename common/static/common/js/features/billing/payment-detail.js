@@ -9,6 +9,7 @@ import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
+import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
 
 export async function setupPaymentDetail() {
     const paymentId = document.body.dataset.paymentId;
@@ -212,13 +213,9 @@ export async function setupPaymentDetail() {
         amount.dataset.splitAmount = "";
         amount.setAttribute("aria-label", "مبلغ");
         amount.addEventListener("input", refreshSplitTotal);
-        const remove = document.createElement("button");
-        remove.className = "btn btn-icon btn-light-danger";
-        remove.type = "button";
-        remove.textContent = "×";
-        remove.setAttribute("aria-label", "حذف سطر");
-        remove.addEventListener("click", () => {
-            row.remove();
+        const remove = trashButton("حذف سطر");
+        remove.addEventListener("click", async () => {
+            await removeWithMotion(row);
             refreshSplitTotal();
         });
         row.append(picker, amount, remove);

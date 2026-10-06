@@ -4,6 +4,7 @@ import {apiDate} from "dolphin/core/jalali.js";
 import {clearMessages, showError} from "dolphin/core/messages.js";
 import {money} from "dolphin/core/money.js";
 import {campaignStatusBadge} from "dolphin/features/campaigns/campaigns.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 
 const count = (value) => toPersianDigits(String(value));
 const percent = (value) => (value === null || value === undefined ? "—" : `${toPersianDigits(String(value))}٪`);
@@ -92,4 +93,6 @@ export function setupCampaignResults() {
         load();
     });
     load();
+    // Live (2.40.34): the figures follow the records they add up.
+    onRealtime(["campaign", "lead", "invoice", "sale"], () => load(), {delay: 1500});
 }

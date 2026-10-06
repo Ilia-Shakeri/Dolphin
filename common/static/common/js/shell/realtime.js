@@ -12,9 +12,20 @@
 const MAX_FAILURES = 5;
 const SLOW_RETRY_MS = 5 * 60 * 1000;
 
+//: Without a live stream, how often a visible page re-reads what it shows.
+const FALLBACK_RESYNC_MS = 45000;
+
 export function setupRealtime() {
     const meta = document.querySelector('meta[name="dolphin-realtime"]');
-    if (!meta || typeof window.EventSource === "undefined") return;
+    if (!meta || typeof window.EventSource === "undefined") {
+        // No stream on this deployment (or this browser): the panel still
+        // stays current (2.40.34) — every live subscriber re-reads on a slow
+        // timer while the tab is visible, and at once when it is shown again.
+        const resync = () => document.dispatchEvent(new CustomEvent("dolphin:realtime", {detail: {kind: "resync", id: null}}));
+        setInterval(() => { if (!document.hidden) resync(); }, FALLBACK_RESYNC_MS);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) resync(); });
+        return;
+    }
     const url = meta.content;
     let source = null;
     let failures = 0;

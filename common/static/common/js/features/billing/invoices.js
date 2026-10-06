@@ -1,7 +1,7 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {apiDate, displayDay} from "dolphin/core/jalali.js";
-import {DOCUMENT_STATUS_TEXT} from "dolphin/core/labels.js";
+import {campaignLabel, DOCUMENT_STATUS_TEXT} from "dolphin/core/labels.js";
 import {showError} from "dolphin/core/messages.js";
 import {money, moneyToStorage} from "dolphin/core/money.js";
 import {EMPTY_LINE_ROWS, createLineItemRows, documentTotals, loadCustomerOptions, renderDocumentTotals, setupDocumentList, validateLinesStep} from "dolphin/features/billing/shared.js";
@@ -48,7 +48,7 @@ async function loadInvoiceCampaigns() {
             .filter((campaign) => campaign.status !== "archived" && !campaign.children_count);
         if (!campaigns.length) return;
         select.append(...campaigns.map((campaign) => new Option(
-            campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : campaign.name, String(campaign.id),
+            campaignLabel(campaign), String(campaign.id),
         )));
         wrap.hidden = false;
     } catch (error) {

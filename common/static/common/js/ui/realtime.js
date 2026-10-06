@@ -21,7 +21,27 @@ export const LIVE_KINDS = {
     payments: ["payment"],
     sales: ["sale"],
     "after-sales": ["after_sales"],
+    // 2.40.34: the rest of the lists.
+    "sales-documents": ["sales_document"],
+    products: ["product"],
+    "product-categories": ["product"],
+    warehouses: ["inventory"],
+    stock: ["inventory"],
+    "stock-movements": ["inventory"],
+    cheques: ["payment"],
+    installments: ["invoice", "payment"],
+    quotations: ["quotation"],
+    users: ["user"],
+    "outbound-sms": ["sms"],
+    "inbound-sms": ["sms"],
 };
+
+/** Every kind a business record announces — what the dashboard, which counts
+ * all of them, listens to (2.40.34). */
+export const ALL_BUSINESS_KINDS = [
+    "customer", "lead", "interaction", "campaign", "order", "invoice", "payment", "sale",
+    "after_sales", "inventory", "sales_document", "product", "quotation", "sms", "task",
+];
 
 /**
  * Run `handler` when one of `kinds` changes (or the stream says to re-read

@@ -5,6 +5,7 @@ import {loadCustomerOptions, renderReportRows, reportSection} from "dolphin/feat
 import {chartPalette, renderBarChart} from "dolphin/ui/charts.js";
 import {bindReportTableSearch} from "dolphin/ui/report-wizard.js";
 import {appendActionLinks, appendCell, appendMoneyCell} from "dolphin/ui/table.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 
 /**
  * Five colours that escalate, for the receivables ageing buckets.
@@ -122,4 +123,6 @@ export async function setupReceivablesReport() {
         showError(error);
     }
     load();
+    // Live (2.40.34): the figures follow the records they add up.
+    onRealtime(["invoice", "payment"], () => load(), {delay: 1500});
 }

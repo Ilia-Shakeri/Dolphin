@@ -7,6 +7,7 @@ import {renderBarChart} from "dolphin/ui/charts.js";
 import {bindReportTableSearch} from "dolphin/ui/report-wizard.js";
 import {loadWarehouseOptions} from "dolphin/ui/searchable-select.js";
 import {appendCell, appendMoneyCell} from "dolphin/ui/table.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 
 /**
  * The ten products holding the most stock value.
@@ -82,4 +83,6 @@ export async function setupStockValuationReport() {
         showError(error);
     }
     load();
+    // Live (2.40.34): the figures follow the records they add up.
+    onRealtime(["inventory", "product"], () => load(), {delay: 1500});
 }

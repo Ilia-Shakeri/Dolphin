@@ -15,6 +15,7 @@ import {loadPerformanceDetails} from "dolphin/ui/performance.js";
 import {openPermissionsDialog, setupPermissionsDialog} from "dolphin/ui/permissions-dialog.js";
 import {registerPopover} from "dolphin/ui/popover.js";
 import {setupProfileTabs} from "dolphin/ui/profile-tabs.js";
+import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
 import {reportQuery} from "dolphin/ui/report-wizard.js";
 import {interactionRow, leadRow, localPhone} from "dolphin/ui/rows.js";
 import {appendActionLinks, appendCell, appendDetailLink, appendMoneyCell, appendStatusBadgeCell, appendStatusCell, labelled, pageRangeLabel, statusText} from "dolphin/ui/table.js";
@@ -1199,17 +1200,15 @@ function setupNotesTab(personType, personId) {
             tools.appendChild(edit);
         }
         if (note.can_delete) {
-            const remove = document.createElement("button");
-            remove.type = "button";
-            remove.className = "btn btn-sm btn-light-danger";
-            remove.textContent = "حذف";
+            const remove = trashButton("حذف یادداشت");
+            remove.classList.add("btn-sm");
             remove.addEventListener("click", async () => {
                 if (!await confirmDialog("این یادداشت برای همیشه حذف شود؟")) return;
                 remove.disabled = true;
                 clearMessages();
                 try {
                     await apiRequest(`/api/v1/person-notes/${note.id}/`, {method: "DELETE"});
-                    item.remove();
+                    await removeWithMotion(item);
                     refreshEmpty();
                     globalMessage("یادداشت حذف شد.", true);
                 } catch (error) {

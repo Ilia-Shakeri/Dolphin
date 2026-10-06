@@ -1,3 +1,4 @@
+import {campaignLabel} from "dolphin/core/labels.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {showError} from "dolphin/core/messages.js";
 import {money} from "dolphin/core/money.js";
@@ -24,7 +25,7 @@ export async function setupCampaignAnalytics() {
     try {
         const campaigns = await loadAllPages("/api/v1/campaigns/");
         select.replaceChildren(...campaigns.map((campaign) => new Option(
-            campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : campaign.name, String(campaign.id),
+            campaignLabel(campaign), String(campaign.id),
         )));
     } catch (error) {
         showError(error);

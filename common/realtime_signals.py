@@ -25,11 +25,42 @@ LIST_KINDS = {
     "billing.PaymentAllocation": "payment",
     "aftersales.AfterSalesRequest": "after_sales",
     "inventory.StockMovement": "inventory",
+    # The rest of the panel (2.40.34, product owner: «کل پنل، مخصوصاً داشبورد،
+    # باید لایو باشد»): the pages that list or count these redraw too.
+    "sales.SalesDocument": "sales_document",
+    "sales.PostalShipment": "sales_document",
+    "sales.PostalStatusHistory": "sales_document",
+    "sales.Product": "product",
+    "sales.ProductCategory": "product",
+    "sales.CustomerCategory": "customer",
+    "inventory.Warehouse": "inventory",
+    "inventory.StockItem": "inventory",
+    "billing.Quotation": "quotation",
+    "billing.Cheque": "payment",
+    "billing.Installment": "invoice",
+    "billing.InstallmentPlan": "invoice",
+    "aftersales.AfterSalesHistory": "after_sales",
+    "communications.InboundSMS": "sms",
+    "communications.OutboundSMS": "sms",
+    "communications.SmsCampaign": "sms",
+    "tasks.Task": "task",
+    "timeline.PersonNote": "note",
+    "attachments.Attachment": "attachment",
+    "accounts.User": "user",
 }
+
+
+#: Saves that only record that someone is around — a sign-in, a request — and
+#: change nothing a page shows; announcing them would redraw every users list
+#: in the company on every click (2.40.34).
+QUIET_FIELDS = frozenset({"last_login", "last_seen_at", "updated_at"})
 
 
 def _announce(kind):
     def handler(sender, instance, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        if update_fields and set(update_fields) <= QUIET_FIELDS:
+            return
         realtime.publish(kind, object_id=instance.pk)
 
     return handler

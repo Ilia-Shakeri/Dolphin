@@ -2,6 +2,7 @@ import {toPersianDigits} from "dolphin/core/digits.js";
 import {JALALI_MONTH_NAMES, PERSIAN_WEEKDAY_NAMES, displayDate, displayDay, gregorianToJalali, jalaliMonthLength, jalaliToGregorian, parseJalaliInput, tehranParts, tehranToInstant} from "dolphin/core/jalali.js";
 import {errorText, showError} from "dolphin/core/messages.js";
 import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 
 /**
  * The lead follow-up calendar.
@@ -126,8 +127,39 @@ export function shiftJalaliMonth(date, delta) {
  */
 export const JALALI_MONTH_VIEW = {
     type: "dayGrid",
-    visibleRange: (current) => jalaliMonthRange(current),
+    visibleRange: (current) => weekAligned(jalaliMonthRange(current)),
 };
+
+/**
+ * The month's span widened to whole weeks, Saturday to Friday (2.40.35).
+ *
+ * FullCalendar breaks a day grid into week rows only when its range is a
+ * whole number of weeks; a bare 29-, 30- or 31-day range that does not start
+ * on a Saturday was drawn as one row of thirty squeezed cells — measured: آبان،
+ * دی، بهمن و اسفند ۱۴۰۵ each rendered 1 row, 112px tall (product owner:
+ * «تقویم‌ها در حالت ماهانه در بعضی از ماه‌های آینده خراب می‌شود»). The days
+ * this adds either side belong to the neighbouring months and are drawn as
+ * outside the month (`isOutsideJalaliMonth`): no number, no events, greyed.
+ */
+export function weekAligned({start, end}) {
+    const first = new Date(start);
+    first.setDate(first.getDate() - ((first.getDay() + 1) % 7)); // back to Saturday
+    const last = new Date(end);
+    last.setDate(last.getDate() + ((6 - last.getDay() + 7) % 7)); // on to the next Saturday (exclusive)
+    return {start: first, end: last};
+}
+
+/** The Jalali month a month view is showing: the one its middle falls in. */
+export function shownJalaliMonth(view) {
+    return jalaliMonthRange(new Date((view.currentStart.getTime() + view.currentEnd.getTime()) / 2));
+}
+
+/** A day cell of the month grid that belongs to the month before or after. */
+export function isOutsideJalaliMonth(date, view) {
+    if (view.type !== "jalaliMonth") return false;
+    const month = shownJalaliMonth(view);
+    return date < month.start || date >= month.end;
+}
 
 /**
  * Wire the two custom month buttons onto a calendar instance.
@@ -341,11 +373,13 @@ function jalaliTitle(date, exact) {
  * - `popover(event, when)` builds the hover card from `textContent` only —
  *   `innerHTML` is read once, for Bootstrap's Popover, after every value in
  *   it was already escaped;
- * - `eventUrl(event)` is where clicking an event goes.
+ * - `eventUrl(event)` is where clicking an event goes;
+ * - `liveKinds` (2.40.34) are the kinds of change that refetch the visible
+ *   range, so an appointment someone else set appears without a reload.
  *
  * Returns the calendar, already rendered.
  */
-export function createJalaliCalendar({container, loading, errorNode, fetchEvents, recordOf, save, popover, eventUrl}) {
+export function createJalaliCalendar({container, loading, errorNode, fetchEvents, recordOf, save, popover, eventUrl, liveKinds = []}) {
     const persist = async (event, date) => {
         await save(event.id, calendarInstant(date, event.allDay));
     };
@@ -380,8 +414,11 @@ export function createJalaliCalendar({container, loading, errorNode, fetchEvents
             wrap.append(nameLine, dayLine);
             return {domNodes: [wrap]};
         },
-        // Numbers in the cells belong to the month view alone.
-        dayCellContent: (arg) => (arg.view.type === "jalaliMonth" ? jalaliDayLabel(arg.date) : ""),
+        // Numbers in the cells belong to the month view alone, and to its
+        // own month's days (the week-filling days around it stay blank).
+        dayCellContent: (arg) => (arg.view.type === "jalaliMonth" && !isOutsideJalaliMonth(arg.date, arg.view)
+            ? jalaliDayLabel(arg.date) : ""),
+        dayCellClassNames: (arg) => (isOutsideJalaliMonth(arg.date, arg.view) ? ["fc-day-disabled", "jalali-outside"] : []),
         datesSet: (info) => {
             const monthView = info.view.type === "jalaliMonth";
             container.querySelectorAll(".fc-jalaliPrev-button, .fc-jalaliNext-button")
@@ -409,7 +446,12 @@ export function createJalaliCalendar({container, loading, errorNode, fetchEvents
         moreLinkText: (count) => `+${toPersianDigits(String(count))} مورد دیگر`,
         events: async (fetchInfo, successCallback, failureCallback) => {
             try {
-                const events = await fetchEvents(fetchInfo);
+                let events = await fetchEvents(fetchInfo);
+                // The week-filling days around a month are blank; what falls on
+                // them belongs to the month next door and shows there.
+                if (calendar?.view?.type === "jalaliMonth") {
+                    events = events.filter((event) => !isOutsideJalaliMonth(new Date(event.start), calendar.view));
+                }
                 loading.hidden = true;
                 errorNode.hidden = true;
                 container.hidden = false;
@@ -458,5 +500,6 @@ export function createJalaliCalendar({container, loading, errorNode, fetchEvents
         },
     });
     calendar.render();
+    if (liveKinds.length) onRealtime(liveKinds, () => calendar.refetchEvents());
     return calendar;
 }

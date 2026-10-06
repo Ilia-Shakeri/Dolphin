@@ -1,3 +1,4 @@
+import {campaignLabel} from "dolphin/core/labels.js";
 import {apiRequest} from "dolphin/core/api.js";
 import {apiDateTime} from "dolphin/core/jalali.js";
 import {clearMessages, formPayload, showError, withSubmit} from "dolphin/core/messages.js";
@@ -27,6 +28,7 @@ export async function setupLeads() {
         renderWizardReview(document.getElementById("create-lead-review"), [
             ["منبع", document.getElementById("create-lead-source").value || "—"],
             ["کمپین", selectedOptionText(document.getElementById("create-lead-campaign"))],
+            ["مسئول", selectedOptionText(document.getElementById("create-lead-assignee"))],
             ["وضعیت", selectedOptionText(document.getElementById("create-lead-status"))],
             ["پیگیری بعدی", document.getElementById("create-lead-follow-up").value || "—"],
             ["یادداشت", document.getElementById("create-lead-notes").value || "—"],
@@ -47,8 +49,24 @@ export async function setupLeads() {
         const select = document.getElementById("create-lead-campaign");
         campaigns.filter((campaign) => campaign.status !== "archived" && !campaign.children_count)
             .forEach((campaign) => select.append(new Option(
-                campaign.parent_name ? `${campaign.parent_name} ← ${campaign.name}` : campaign.name, String(campaign.id),
+                campaignLabel(campaign), String(campaign.id),
             )));
+        // Who «خودکار» shares this campaign's leads among (2.40.35): its own
+        // responsibles, or its parent's when it names none.
+        const byId = new Map(campaigns.map((campaign) => [String(campaign.id), campaign]));
+        const hint = document.getElementById("create-lead-assignee-hint");
+        const showResponsibles = () => {
+            const campaign = byId.get(select.value);
+            if (!campaign) { hint.textContent = ""; return; }
+            const parent = campaign.parent ? byId.get(String(campaign.parent)) : null;
+            const names = (campaign.responsibles_display || []).length
+                ? campaign.responsibles_display
+                : (parent?.responsibles_display || []);
+            hint.textContent = names.length
+                ? `مسئولان این کمپین: ${names.join("، ")}`
+                : "این کمپین مسئولی ندارد؛ با «خودکار» سرنخ بدون مسئول ساخته می‌شود.";
+        };
+        select.addEventListener("change", showResponsibles);
     } catch (error) { showError(error); }
     createForm.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -58,6 +76,7 @@ export async function setupLeads() {
             // from its target audience.
             const payload = formPayload(createForm, ["source", "status", "notes"]);
             payload.campaign = Number(data.get("campaign"));
+            if (data.get("assign_to")) payload.assign_to = Number(data.get("assign_to"));
             if (data.get("next_follow_up_at")) payload.next_follow_up_at = apiDateTime(data.get("next_follow_up_at"));
             const lead = await apiRequest(createForm.action, {method: "POST", body: payload});
             window.location.assign(`/leads/${lead.id}/`);

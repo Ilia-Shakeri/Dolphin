@@ -522,6 +522,8 @@ class _CampaignPage(ActiveCrmView):
 
 class DolphinCampaignListView(_CampaignPage):
     template_name = "common/campaigns/list.html"
+    # Rows can be chosen and deleted (2.40.33), like every other list.
+    delete_capability = "campaigns.delete"
 
 
 class DolphinCampaignResultsView(_CampaignPage):
@@ -535,6 +537,8 @@ class DolphinCampaignAnalyticsView(_CampaignPage):
 class DolphinCampaignDetailView(ScopedDetailView):
     required_feature = "campaigns"
     template_name = "common/campaigns/detail.html"
+    # Its members list: chosen and deleted together (2.40.33).
+    delete_capability = "campaigns.delete"
     object_id_kwarg = "campaign_id"
     context_id_name = "campaign_id"
     not_found_title = "کمپین پیدا نشد"
@@ -563,6 +567,20 @@ class DolphinLeadListView(ActiveCrmView):
     delete_capability = "leads.delete"
     required_feature = "leads"
     template_name = "common/leads/list.html"
+
+    def get_context_data(self, **kwargs):
+        from sales.selectors import customer_owner_choices
+        from sales.services import ELEVATED_OPERATORS
+
+        context = super().get_context_data(**kwargs)
+        # The wizard's «مسئول» (2.40.35): automatic by default; a manager may
+        # name anyone who works leads, a marketer only themselves —
+        # `create_lead` enforces the same.
+        user = self.request.user
+        context["lead_assignee_choices"] = (
+            customer_owner_choices() if user.role in ELEVATED_OPERATORS else [(user.pk, "خودم")]
+        )
+        return context
 
 
 class DolphinLeadCalendarView(ActiveCrmView):

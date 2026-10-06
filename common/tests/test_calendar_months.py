@@ -57,7 +57,7 @@ class JalaliMonthRangeTests(SimpleTestCase):
             tmp = Path(tmp)
             # The panel's bare `dolphin/...` specifiers resolve through an
             # import map in the browser; here they point at a copy on disk.
-            for relative in ("core/api.js", "core/digits.js", "core/events.js", "core/form-errors.js", "core/jalali.js", "core/messages.js", "ui/jalali-picker.js", "ui/calendar.js"):
+            for relative in ("core/api.js", "core/digits.js", "core/events.js", "core/form-errors.js", "core/jalali.js", "core/messages.js", "ui/jalali-picker.js", "ui/realtime.js", "ui/calendar.js"):
                 text = (JS_ROOT / relative).read_text(encoding="utf-8")
                 text = text.replace('"dolphin/', f'"{(tmp).as_uri()}/')
                 target = tmp / relative

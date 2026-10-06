@@ -19,11 +19,20 @@ function csrfToken() {
     return match ? decodeURIComponent(match[1]) : "";
 }
 
+//: When this page last changed something on the server (2.40.34) — so the
+//: live update that change sets off is recognised as the page's own echo.
+let lastWrite = 0;
+
+export function lastWriteAt() {
+    return lastWrite;
+}
+
 export async function apiRequest(url, options = {}) {
     const method = (options.method || "GET").toUpperCase();
     const headers = {Accept: "application/json", ...(options.headers || {})};
     if (!(["GET", "HEAD", "OPTIONS"].includes(method))) {
         headers["X-CSRFToken"] = csrfToken();
+        lastWrite = Date.now();
     }
     if (options.body !== undefined) {
         if (options.raw) {

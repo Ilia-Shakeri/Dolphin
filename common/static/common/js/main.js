@@ -4,6 +4,7 @@ import {setupBusyButtons} from "dolphin/shell/busy.js";
 import {setupCallPopup, setupClickToCall} from "dolphin/shell/telephony.js";
 import {setupChartThemeRedraw, setupNav, setupNavActiveState, setupPageTabs, setupSidebarAccordionScroll, setupSidebarPeekGuard, setupThemeModePopup, setupUserMenu} from "dolphin/shell/nav.js";
 import {setupChat, setupChatUnreadPoll} from "dolphin/shell/chat.js";
+import {setupChatToasts} from "dolphin/shell/chat-toast.js";
 import {setupDecimalInputs} from "dolphin/core/decimal.js";
 import {setupDialogBackdropClose} from "dolphin/ui/dialogs.js";
 import {setupSegmentedControls} from "dolphin/ui/segmented.js";
@@ -13,11 +14,13 @@ import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
 import {setupLatinDigitInputs} from "dolphin/core/digits.js";
 import {setupListCharts} from "dolphin/ui/list-charts.js";
 import {setupListFilterPopovers, setupPopoverDismissal} from "dolphin/ui/popover.js";
+import {setupLivePage} from "dolphin/shell/live-page.js";
 import {setupLogout, setupSessionsDialog} from "dolphin/shell/session.js";
 import {setupMoneyInputs} from "dolphin/core/money.js";
 import {setupProfileDialog} from "dolphin/shell/profile-dialog.js";
 import {setupRealtime} from "dolphin/shell/realtime.js";
 import {setupReminderBell} from "dolphin/shell/reminders.js";
+import {setupRequiredLabels} from "dolphin/ui/required-labels.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 
 function boot() {
@@ -32,6 +35,8 @@ function boot() {
     setupUserMenu();
     setupSessionsDialog();
     setupDialogBackdropClose();
+    setupRequiredLabels();
+    setupLivePage();
 
     // A denied page is served with the error card in place of its content, so
     // its module has no markup to bind to and every call it makes would be
@@ -82,6 +87,7 @@ function boot() {
     // `setupChat` no-ops when `chat-page-thread-list` is not on the page.
     setupChat("chat-drawer", {container: "dolphin_drawer_chat", toggle: "dolphin_drawer_chat_toggle"});
     setupChat("chat-page", {isOpen: () => true, openFromUrl: true});
+    setupChatToasts();
     setupGoToAccounting(); // PRELIMINARY, UNCOMMITTED — see integration/apps.py
 
     const page = document.body.dataset.page;

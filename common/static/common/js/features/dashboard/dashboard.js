@@ -4,6 +4,7 @@ import {displayDay} from "dolphin/core/jalali.js";
 import {showError} from "dolphin/core/messages.js";
 import {apexBase, chartFontFamily, chartInk, chartPalette, chartRedraws, chartResetButton, chartResetEvents, liveCharts, mountApex, renderDonutChart, showEmptyChart, thinningFormatter} from "dolphin/ui/charts.js";
 import {setupPerformancePanel} from "dolphin/ui/performance.js";
+import {ALL_BUSINESS_KINDS, onRealtime} from "dolphin/ui/realtime.js";
 import {appendCell, pageRangeLabel} from "dolphin/ui/table.js";
 
 function workQueueRow(lead) {
@@ -58,8 +59,11 @@ async function setupWorkQueue() {
     }
     previous.addEventListener("click", () => load(currentPage - 1));
     next.addEventListener("click", () => load(currentPage + 1));
+    reloadWorkQueue = () => load(currentPage);
     await load();
 }
+
+let reloadWorkQueue = null;
 
 export async function setupDashboard() {
     // The editor starts once the insight grid has been placed — it
@@ -70,6 +74,9 @@ export async function setupDashboard() {
         if (grid) setupDashboardEditor(grid);
     });
     await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard"), insights]);
+    // Live (2.40.34, product owner: «کل پنل، مخصوصاً داشبورد، باید لایو باشد»):
+    // a change anywhere the dashboard counts is redrawn in place.
+    onRealtime(ALL_BUSINESS_KINDS, refreshDashboard, {delay: 1200});
     // Every box takes the rows its content needs; again when the page's width,
     // the fonts or the charts change what that is.
     fitDashboardRows();
@@ -380,8 +387,108 @@ async function setupDashboardInsights() {
     // created node not yet attached has none.
     widgets.forEach((widget) => widget.mount());
     widgets.forEach((widget) => fitWidgetChart(widget.column));
+    liveWidgets = widgets;
 
     return pageState ? {grid, widgets, layout, hiddenAvailable} : null;
+}
+
+/** The boxes on the page, for `refreshDashboard`. */
+let liveWidgets = null;
+let refreshing = false;
+
+/**
+ * Redraws every box's figures where it stands (2.40.34). The boxes stay
+ * where the reader put them: each one's content is rebuilt from the fresh
+ * payload with the same builder that drew it and swapped inside its own
+ * column, then its chart is drawn again. The capability tiles are the
+ * server's own markup, so their figures are read from a fresh render of the
+ * page. Never while the layout is being edited, and never two at once.
+ */
+async function refreshDashboard() {
+    if (refreshing || document.body.classList.contains("dashboard-editing")) return;
+    refreshing = true;
+    try {
+        await Promise.all([refreshInsights(), refreshTiles(), reloadWorkQueue?.()]);
+        scheduleFitRows();
+    } catch (error) {
+        // A missed refresh needs no message: the next change, or the next
+        // visit, draws the page again.
+    } finally {
+        refreshing = false;
+    }
+}
+
+async function refreshInsights() {
+    if (!liveWidgets) return;
+    const data = await apiRequest("/api/v1/dashboard/");
+    const swap = (key, column, payload) => {
+        const current = liveWidgets.get(key);
+        if (!current) return false;
+        current.column.replaceChildren(...column.children);
+        current.data = payload;
+        return true;
+    };
+    data.kpis.forEach((kpi) => {
+        const built = kpiCard(kpi);
+        if (swap(kpi.key, built.column, kpi) && built.spark && kpi.spark) {
+            renderSparkline(built.spark, kpi.spark, {accent: kpi.accent});
+        }
+    });
+    (data.gauges || []).forEach((gauge) => {
+        const built = gaugeCard(gauge);
+        if (swap(gauge.key, built.column, gauge)) {
+            renderGaugeChart(built.canvas, built.empty, gauge.value, {
+                ariaLabel: `${gauge.label}: ${gauge.display}`, accent: gauge.accent, label: gauge.label,
+            });
+        }
+    });
+    (data.panels || []).forEach((panel) => swap(panel.key, panelCard(panel), panel));
+    if (data.trend && liveWidgets.has("trend")) {
+        document.getElementById("dashboard-trend-summary").textContent = data.trend.summary;
+        renderMixedChart(
+            document.getElementById("dashboard-trend-chart"),
+            document.getElementById("dashboard-trend-empty"),
+            data.trend.points,
+            data.trend.counts,
+            {
+                seriesNames: ["مبلغ فروش", "تعداد فروش"],
+                summary: data.trend.summary,
+                ariaLabel: data.trend.title,
+                resetButton: document.querySelector("#dashboard-trend-controls .dolphin-chart-reset"),
+            },
+        );
+    }
+    if (data.agent_share && liveWidgets.has("agent_share")) {
+        document.getElementById("dashboard-agent-share-summary").textContent =
+            `مجموع فروش این ماه: ${data.agent_share.total_display}`;
+        renderMultiGaugeChart(
+            document.getElementById("dashboard-agent-share-chart"),
+            document.getElementById("dashboard-agent-share-empty"),
+            data.agent_share.items,
+            {ariaLabel: data.agent_share.title},
+        );
+    }
+    if (data.breakdown && liveWidgets.has("breakdown")) {
+        renderDonutChart(
+            document.getElementById("dashboard-breakdown-chart"),
+            document.getElementById("dashboard-breakdown-empty"),
+            data.breakdown.items,
+            {ariaLabel: data.breakdown.title},
+        );
+    }
+}
+
+async function refreshTiles() {
+    const tiles = document.querySelectorAll('[data-widget-key^="capability:"]');
+    if (!tiles.length) return;
+    const response = await fetch(window.location.pathname, {credentials: "same-origin", headers: {Accept: "text/html"}});
+    if (!response.ok) return;
+    const fresh = new DOMParser().parseFromString(await response.text(), "text/html");
+    tiles.forEach((tile) => {
+        const source = fresh.querySelector(`[data-widget-key="${CSS.escape(tile.dataset.widgetKey)}"] .dashboard-kpi-value`);
+        const target = tile.querySelector(".dashboard-kpi-value");
+        if (source && target && target.textContent !== source.textContent) target.textContent = source.textContent;
+    });
 }
 
 /**
@@ -1852,6 +1959,8 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         // The page-level half of the edit-mode look (dolphin.css §9):
         // everything that is not being arranged steps back.
         document.body.classList.toggle("dashboard-editing", editing);
+        // A change that arrived while arranging was held back; catch up now.
+        if (!editing) refreshDashboard();
         if (hint) hint.hidden = !editing;
         if (done) { done.hidden = !editing; done.disabled = !draft; }
         if (cancelButton) cancelButton.hidden = !editing;

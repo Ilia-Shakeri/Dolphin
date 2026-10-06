@@ -1,5 +1,6 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {chartPalette, renderAreaChart, renderBarChart, renderChartFilters, renderDonutChart, setupChartRange} from "dolphin/ui/charts.js";
+import {LIVE_KINDS, onRealtime} from "dolphin/ui/realtime.js";
 
 /**
  * The direction chart beside each list page's composition chart
@@ -107,5 +108,14 @@ export async function setupListCharts() {
         }
 
         await load();
+        // Live (2.40.34): the chart follows its list.
+        const kinds = LIVE_KINDS[key] || CHART_ONLY_KINDS[key];
+        if (kinds) onRealtime(kinds, () => load(), {delay: 1500});
     }));
 }
+
+/** Chart keys that are not also a list's key. */
+const CHART_ONLY_KINDS = {
+    inventory: ["inventory"],
+    "payments-direction": ["payment"],
+};

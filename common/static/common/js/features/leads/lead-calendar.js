@@ -124,6 +124,7 @@ export async function setupLeadCalendar() {
     // The shell — toolbar, Jalali titles, drag and «انتقال به تاریخ» — is
     // `createJalaliCalendar`, shared with the after-sales calendar.
     createJalaliCalendar({
+        liveKinds: ["lead", "campaign"],
         container,
         loading,
         errorNode,
