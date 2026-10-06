@@ -84,7 +84,11 @@ export function chartInk() {
     const style = getComputedStyle(document.documentElement);
     return {
         grid: style.getPropertyValue("--bs-gray-300").trim() || "#DBDFE9",
-        muted: style.getPropertyValue("--bs-gray-500").trim() || "#99A1B7",
+        // Axis labels and legends: gray-500 is 2.6:1 on a white card; gray-700
+        // passes AA there (2.40.31). The dark theme's gray-500 already reads.
+        muted: document.documentElement.getAttribute("data-bs-theme") === "dark"
+            ? (style.getPropertyValue("--bs-gray-500").trim() || "#99A1B7")
+            : (style.getPropertyValue("--bs-gray-700").trim() || "#4B5675"),
         text: style.getPropertyValue("--bs-gray-800").trim() || "#252F4A",
     };
 }

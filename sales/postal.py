@@ -262,6 +262,15 @@ def icon_for(value):
     return {"icon": badge["icon"], "icon_paths": badge["icon_paths"]} if badge is not None else None
 
 
+def keys_matching(text):
+    """Every vocabulary key whose Persian label contains `text` (2.40.31), so a
+    search in the words people read finds rows that store the key."""
+    needle = str(text or "").strip()
+    if not needle:
+        return []
+    return [key for key, label in choices() if needle in label]
+
+
 def choices():
     """`[(key, label)]`, for a form that offers the vocabulary."""
     return [(state.key, state.label) for state in POSTAL_STATES] + [

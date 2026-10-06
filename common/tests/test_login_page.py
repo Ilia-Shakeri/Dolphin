@@ -49,7 +49,8 @@ class RenderedPageTests(TestCase):
 class MotionTests(SimpleTestCase):
     def test_motion_uses_only_transform_and_opacity(self):
         frames = re.findall(r"@keyframes login-[a-z-]+ \{(.*?)\n\}", _login_css(), flags=re.S)
-        self.assertEqual(len(frames), 3)
+        # enter, shake, drift — and the aside's waves (2.40.31).
+        self.assertEqual(len(frames), 4)
         for body in frames:
             properties = set(re.findall(r"([a-z-]+):", body))
             self.assertLessEqual(properties, {"opacity", "transform"}, body)

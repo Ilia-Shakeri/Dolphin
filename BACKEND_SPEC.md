@@ -436,6 +436,9 @@ Rules:
 - **Campaign «سایر» (2.40.22).** `Campaign.other_channels` (list of up to 10 names, ≤ 60 characters
   each) is required when `channels` holds `other` and emptied otherwise; `channels_display` shows
   those names in place of «سایر».
+- **Sensitive reads (2.40.31).** `SensitiveRateThrottle` throttles safe methods on scope
+  `sensitive_read` (240/min) and writes on `sensitive` (30/min), per user; reads no longer spend
+  the writes' budget.
 - **Iran Post statuses (2.40.26).** `sales.postal.CARRIER_STATUSES` lists every post-office status
   (key, label, icon, stage or none, tone, numeric code where the service has one). `postal_status`
   accepts these keys besides the four stages; `state_for` places them on their stage. Documents carry

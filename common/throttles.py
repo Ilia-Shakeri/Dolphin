@@ -1,8 +1,28 @@
+from rest_framework.permissions import SAFE_METHODS
 from rest_framework.throttling import UserRateThrottle
 
 
 class SensitiveRateThrottle(UserRateThrottle):
+    """Writes on `sensitive` (30/min); reads of the same endpoints on a budget
+    of their own, `sensitive_read` (2.40.31).
+
+    Until then a read shared the writes' budget, and one budget across every
+    report, list chart, activity log and SMS page: a manager moving between
+    reports, or changing a report's range a few times, was refused (429)
+    inside a minute — measured: «درخواست‌ها بیش از حد مجاز است» on five pages
+    of one walk through the panel. Reads stay bounded, generously; writes keep
+    the tight budget they always had.
+    """
+
     scope = "sensitive"
+    read_scope = "sensitive_read"
+
+    def allow_request(self, request, view):
+        if request.method in SAFE_METHODS:
+            self.scope = self.read_scope
+            self.rate = self.get_rate()
+            self.num_requests, self.duration = self.parse_rate(self.rate)
+        return super().allow_request(request, view)
 
 
 class ChatReadThrottle(UserRateThrottle):

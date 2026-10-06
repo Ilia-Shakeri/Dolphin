@@ -42,6 +42,7 @@ from billing.selectors import invoices_for, orders_for, payments_for
 from common import labels
 from common.deployment.profile import feature_enabled
 from communications.selectors import inbound_sms_for, outbound_sms_for
+from sales import postal
 from sales.selectors import (
     customers_for,
     interactions_for,
@@ -181,7 +182,8 @@ def _sales_document_events(user, customer):
             "sales_document", "سند فروش", "di-delivery", "primary",
             at=row.created_at,
             title=row.document_number,
-            subtitle=row.postal_status or "بدون وضعیت پستی",
+            # The vocabulary's own words, never its key (2.40.31).
+            subtitle=postal.label_for(row.postal_status) if row.postal_status else "بدون وضعیت پستی",
             url=f"/sales-documents/{row.pk}/",
         )
         for row in rows

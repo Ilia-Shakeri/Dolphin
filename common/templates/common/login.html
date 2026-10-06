@@ -18,7 +18,7 @@
    exactly what it was. {% endcomment %}
 <div class="d-flex flex-column flex-root login-page" id="dolphin_app_root">
     <div class="d-flex flex-column flex-lg-row flex-column-fluid">
-        <div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-6 p-sm-10 order-2 order-lg-1">
+        <div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-6 p-sm-10 order-2 order-lg-1 login-main">
             <div class="d-flex flex-center flex-column flex-lg-row-fluid">
                 <div class="login-card w-100 p-6 p-sm-10" id="login-card">
                     <form class="form w-100" id="login-form" action="/api/v1/auth/login/" method="post" novalidate>
@@ -54,8 +54,14 @@
                 </div>
             </div>
         </div>
-        <div class="d-flex flex-lg-row-fluid w-lg-50 order-1 order-lg-2 login-aside" style="background-color:#1e1e2d">
+        <div class="d-flex flex-lg-row-fluid w-lg-50 order-1 order-lg-2 login-aside">
             <div class="login-aside-light" aria-hidden="true"></div>
+            {% comment %} Two slow waves along the aside's foot (2.40.31): decoration only,
+               `transform` alone, still under reduced motion. {% endcomment %}
+            <div class="login-aside-waves" aria-hidden="true">
+                <svg class="login-wave login-wave-back" viewBox="0 0 1600 160" preserveAspectRatio="none"><path d="M0 90 C 200 50 400 130 600 90 S 1000 50 1200 90 S 1400 130 1600 90 V 160 H 0 Z"/></svg>
+                <svg class="login-wave login-wave-front" viewBox="0 0 1600 160" preserveAspectRatio="none"><path d="M0 115 C 200 85 400 145 600 115 S 1000 85 1200 115 S 1400 145 1600 115 V 160 H 0 Z"/></svg>
+            </div>
             <div class="d-flex flex-column flex-center py-10 py-lg-15 px-5 px-md-15 w-100 login-aside-content">
                 {% comment %} The full name lockup, not the bare icon plus separate headings: on
                    this dark aside it is the one place the brand gets to be the whole story,
@@ -73,7 +79,7 @@
                 {% endif %}
                 {% comment %} Not `.text-gray-400`: that colour flips with the reader's
                    own light/dark choice, but this aside's background never does
-                   (`style="background-color:#1e1e2d"` above) — see `.login-aside-subtitle`
+                   (`.login-aside`'s fixed `--login-aside-bg`) — see `.login-aside-subtitle`
                    in dolphin.css for the measured reason. {% endcomment %}
                 <div class="login-aside-subtitle fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
             </div>

@@ -39,6 +39,7 @@ from aftersales.selectors import after_sales_requests_for
 from billing.selectors import invoices_for, orders_for, payments_for
 from common.deployment.profile import feature_enabled
 from common.jalali import to_latin_digits
+from sales import postal
 from sales.selectors import (
     customers_for,
     leads_for,
@@ -182,13 +183,15 @@ def _sales_document_results(user, *, text, latin, digits):
         Q(document_number__icontains=latin)
         | Q(customer__full_name__icontains=text)
         | Q(postal_status__icontains=text)
+        # A status stored as its key is found by the words people read (2.40.31).
+        | Q(postal_status__in=postal.keys_matching(text))
     )
     found = sales_documents_for(user).filter(matches).select_related("customer").distinct().order_by("-id")
     return _group(
         "sales_documents", "رهگیری پستی", "di-delivery", "primary", "/sales-documents/", found,
         lambda row: (
             row.document_number,
-            getattr(row.customer, "full_name", "") or row.postal_status or "—",
+            getattr(row.customer, "full_name", "") or (postal.label_for(row.postal_status) if row.postal_status else "—"),
             f"/sales-documents/{row.pk}/",
         ),
     )

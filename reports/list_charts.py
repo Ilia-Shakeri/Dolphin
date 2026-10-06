@@ -425,8 +425,11 @@ def _related_options(field, label_field):
     return build
 
 
-def _text_options(field):
-    """The distinct non-empty free-text values occurring in this reader's scope."""
+def _text_options(field, labeller=None):
+    """The distinct non-empty free-text values occurring in this reader's scope.
+
+    `labeller` turns a stored value into what a reader is shown (2.40.31: a
+    postal status stored as its key showed the key)."""
 
     def build(queryset):
         rows = (
@@ -436,9 +439,15 @@ def _text_options(field):
             .distinct()
             .order_by(field)
         )
-        return [{"value": value, "label": value} for value in rows]
+        return [{"value": value, "label": labeller(value) if labeller else value} for value in rows]
 
     return build
+
+
+def _postal_label(value):
+    from sales import postal
+
+    return postal.label_for(value)
 
 
 #: key -> the filters that key offers, in the order they are drawn.
@@ -490,7 +499,7 @@ CHART_FILTERS = {
     # honest on a database that predates it.
     "sales-documents": (
         ChartFilter("postal_status", "وضعیت پستی", "همهٔ وضعیت‌ها", "postal_status",
-                    _text_options("postal_status")),
+                    _text_options("postal_status", _postal_label)),
     ),
 }
 

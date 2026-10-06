@@ -8,7 +8,7 @@
            محصول‌مالک ۲۰۲۶/۰۹/۰۸. دکمهٔ «به‌روزرسانی» با `form="..."` به فرم
            پایین وصل می‌ماند، بدون این‌که خودش داخلش باشد. {% endcomment %}
         <div class="d-flex flex-wrap gap-3">
-            <a id="{{ panel_prefix }}-performance-xlsx" class="btn btn-light" href="/api/v1/exports/user-performance.xlsx" download>{% include "common/includes/excel_icon.inc" %}دریافت XLSX</a>
+            <a id="{{ panel_prefix }}-performance-xlsx" class="btn btn-light" href="/api/v1/exports/user-performance.xlsx" download>{% include "common/includes/excel_icon.inc" %}خروجی اکسل</a>
             <button class="btn btn-primary" type="submit" form="{{ panel_prefix }}-performance-filter-form">به‌روزرسانی</button>
         </div>
     </div>

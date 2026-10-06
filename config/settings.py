@@ -266,6 +266,9 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login": "10/min",
         "sensitive": "30/min",
+        # Reads of the same endpoints (2.40.31, `SensitiveRateThrottle`):
+        # reports, list charts, logs. A person moving between pages.
+        "sensitive_read": "240/min",
         # Internal chat's own budgets (`common.throttles.ChatReadThrottle` /
         # `ChatSendThrottle`): polling several open tabs at the drawer's
         # rate stays well inside the first; the second is a person typing.

@@ -6,12 +6,12 @@
    اجرا می‌کند اختلاف پیدا نمی‌کند. {% endcomment %}
 <section class="card mb-5 mb-xl-8" data-attachments-panel data-attachments-field="{{ attachments_field }}" data-can-delete="{{ can_delete|yesno:'true,false' }}" data-attachments-max-bytes="{% attachment_max_bytes %}" data-attachments-accept="{% attachment_accept %}">
 <div class="card-body">
-    <div class="d-flex flex-wrap flex-stack align-items-center mb-2"><h2 class="fs-3 fw-bold text-gray-900 mb-0">پیوست‌ها</h2></div>
+    <div class="d-flex flex-wrap flex-stack align-items-center mb-2"><h2 class="fs-3 fw-bold text-gray-900 mb-0 d-flex align-items-center gap-2"><i class="di-outline di-paper-clip fs-2 text-primary" aria-hidden="true"></i>پیوست‌ها</h2></div>
     <p class="text-muted fs-7 mb-5">فایل‌های مربوط به این رکورد را این‌جا نگه دارید. فقط {% attachment_types_label %} پذیرفته می‌شود و حجم هر فایل حداکثر {% attachment_max_label %} است. نوع فایل از روی محتوای خودش بررسی می‌شود، نه از روی پسوند نام.</p>
     {% if can_upload %}
     <form data-attachments-upload-form class="d-flex flex-wrap align-items-center gap-3 mb-5" novalidate>
-        <input type="file" accept="{% attachment_accept %}" required class="form-control form-control-solid" style="max-width: 24rem" data-attachments-file aria-describedby="attachments-rules-{{ attachments_field }}">
-        <button class="btn btn-primary" type="submit">افزودن پیوست</button>
+        <input type="file" accept="{% attachment_accept %}" required class="form-control form-control-solid" style="max-width: 24rem" data-attachments-file aria-label="فایل پیوست" aria-describedby="attachments-rules-{{ attachments_field }}">
+        <button class="btn btn-primary d-inline-flex align-items-center gap-2" type="submit"><i class="di-outline di-paper-clip fs-4" aria-hidden="true"></i>افزودن پیوست</button>
         <span id="attachments-rules-{{ attachments_field }}" class="sr-only">فقط {% attachment_types_label %}، حداکثر {% attachment_max_label %}.</span>
         <p class="text-danger fs-8 mt-1 mb-0 w-100" data-error-for="file"></p>
         <p class="text-danger fs-8 mt-1 mb-0 w-100" data-error-for="parent"></p>

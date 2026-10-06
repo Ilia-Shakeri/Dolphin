@@ -712,11 +712,76 @@ dialog::backdrop {
     min-height: 3rem;
     font-size: 1rem;
 }
+
+/* A calmer, more finished surface (2.40.31) — appearance only; the form, its
+   fields, names and behaviour are untouched. On a wide screen the form sits on
+   a quiet card; the fields are a touch taller with a soft focus ring; the
+   button lifts a little on hover and settles on press. The show/hide eye was a
+   kit duotone whose outline is drawn at 30% — on gray-600 it read as a lone
+   dot; it is drawn at full weight here. */
+.login-page .login-main { flex-grow: 1; }
+@media (min-width: 992px) {
+    .login-page .login-card {
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-gray-200);
+        box-shadow: 0 1.75rem 3.5rem -2rem rgb(7 20 55 / 22%);
+    }
+    [data-bs-theme=dark] .login-page .login-card {
+        border-color: var(--bs-border-color);
+        box-shadow: 0 1.75rem 3.5rem -2rem rgb(0 0 0 / 60%);
+    }
+}
+.login-page .form-floating > .form-control {
+    min-height: 3.6rem;
+    border-radius: 0.75rem;
+}
+.login-page .form-floating > .form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.25rem rgb(27 132 255 / 18%);
+}
+.login-page .login-password-toggle { color: var(--bs-gray-700); border-radius: 0.6rem; }
+.login-page .login-password-toggle i [class^="path"]::before { opacity: 1; }
+.login-page .login-password-toggle:hover,
+.login-page .login-password-toggle[aria-pressed="true"] { background: var(--bs-primary-light); }
+.login-page .login-submit {
+    min-height: 3.25rem;
+    border-radius: 0.75rem;
+    font-weight: 700;
+    box-shadow: 0 0.75rem 1.5rem -0.85rem rgb(27 132 255 / 75%);
+    transition: transform var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease), background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.login-page .login-submit:hover { transform: translateY(-1px); box-shadow: 0 1rem 1.75rem -0.85rem rgb(27 132 255 / 85%); }
+.login-page .login-submit:active { transform: translateY(0) scale(0.99); }
+.login-page #login-title { letter-spacing: -0.01em; }
 /* The aside: the fixed dark panel, with two soft lights drifting behind the mark. */
 .login-page .login-aside {
+    /* Fixed, not themed: the brand panel is dark for every reader (was the
+       inline `#1e1e2d` on the element; 2.40.31 made it a token and gave it
+       depth). */
+    --login-aside-bg: #1e1e2d;
     position: relative;
     overflow: hidden;
     isolation: isolate;
+    background: radial-gradient(120% 90% at 20% 0%, #1b2547 0%, var(--login-aside-bg) 62%);
+}
+.login-page .login-aside-waves {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 9rem;
+    z-index: 0;
+    pointer-events: none;
+}
+.login-page .login-wave {
+    position: absolute;
+    inset: auto 0 0 0;
+    width: 200%;
+    height: 100%;
+}
+.login-page .login-wave path { fill: rgb(27 132 255 / 16%); }
+.login-page .login-wave-back { opacity: 0.6; animation: login-wave 38s linear infinite reverse; }
+.login-page .login-wave-front { animation: login-wave 26s linear infinite; }
+@keyframes login-wave {
+    to { transform: translateX(50%); }
 }
 .login-page .login-aside-content {
     position: relative;
@@ -756,11 +821,15 @@ dialog::backdrop {
     .login-page .login-aside-light::after {
         animation: none;
     }
+    /* The form is centred in what is left of the screen, not parked at its top
+       over an empty half (2.40.31). */
+    .login-page .login-main { justify-content: center; }
+    .login-page .login-aside-waves { height: 3rem; }
 }
 @media (max-width: 575.98px) {
     /* A phone gets the form first: the brand is a short strip, not a hero. */
     .login-page .login-aside-content {
-        padding-block: 1.25rem !important;
+        padding-block: 1.25rem 2.5rem !important;
     }
     .login-page .brand-mark-login {
         width: min(11rem, 60%);
@@ -771,9 +840,11 @@ dialog::backdrop {
     .login-page .login-enter,
     .login-page .login-shake,
     .login-page .login-aside-light,
-    .login-page .login-aside-light::after {
+    .login-page .login-aside-light::after,
+    .login-page .login-wave {
         animation: none;
     }
+    .login-page .login-submit:hover { transform: none; }
     .login-page .login-card {
         transition: none;
     }
@@ -4864,14 +4935,19 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     flex-direction: column;
     gap: 0.75rem;
 }
+/* Wraps (2.40.31): on a narrow card — two to a row on a phone — the chip and
+   the sparkline drop under the title instead of being drawn over it. The
+   title keeps at least 9rem; below that the trailing block takes its own line. */
 .kpi-card-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
 }
 .kpi-card-title-row {
     display: flex;
+    flex: 1 1 9rem;
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
@@ -4901,6 +4977,8 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
 .kpi-card-trailing {
     display: flex;
     flex: 0 0 auto;
+    max-width: 100%;
+    margin-inline-start: auto;
     flex-direction: column;
     align-items: flex-end;
     gap: 0.4rem;
@@ -4925,7 +5003,9 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
 }
 .kpi-card .kpi-sparkline {
     width: 5.5rem;
+    max-width: 100%;
     height: 36px;
+    overflow: hidden;
 }
 [data-dashboard-grid] .dashboard-widget .kpi-card .dashboard-kpi-value {
     margin-top: auto;
@@ -5113,3 +5193,54 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
 }
 .chat-page-link .di-arrow-up-left [class^="path"]::before { color: var(--bs-primary); }
 .chat-page-link .di-arrow-up-left .path1::before { opacity: 0.45; }
+
+/* Light-theme contrast (2.40.31). The UI kit's light badges put the full
+   tone on its own pale tint — «فعال» measured 2.1:1, «صادرشده» the same — and
+   its inactive line tabs are gray-500 (2.6:1). The badge ink is the tone
+   darkened, the way the KPI chip's is, and the tabs take gray-700; the dark
+   theme keeps the kit's values, which already read. */
+[data-bs-theme=light] .badge-light-success { color: color-mix(in srgb, var(--bs-success) 50%, #000); }
+[data-bs-theme=light] .badge-light-primary { color: color-mix(in srgb, var(--bs-primary) 70%, #000); }
+[data-bs-theme=light] .badge-light-info { color: color-mix(in srgb, var(--bs-info) 65%, #000); }
+[data-bs-theme=light] .badge-light-warning { color: color-mix(in srgb, var(--bs-warning) 45%, #000); }
+[data-bs-theme=light] .badge-light-danger { color: color-mix(in srgb, var(--bs-danger) 70%, #000); }
+[data-bs-theme=light] .nav-line-tabs .nav-item .nav-link:not(.active) { color: var(--bs-gray-700); }
+
+/* Brand colours that lived in inline `style` attributes (2.40.31). */
+:root { --dolphin-brand-dark: #1e1e2d; --dolphin-brand-tint: #9de1d8; }
+.brand-subtitle { color: var(--dolphin-brand-tint); }
+.branding-logo-preview {
+    max-width: 64px;
+    max-height: 64px;
+    border-radius: 0.5rem;
+    background: var(--dolphin-brand-dark);
+    padding: 0.4rem;
+}
+
+/* Tables on a phone (2.40.31). A list table squeezed into 390px wrapped each
+   cell word by word — the users list's «نقش» ran to six lines a row. Every
+   list table already sits in `.table-responsive`; on a phone the table keeps
+   a readable minimum width and that wrapper scrolls it sideways instead. */
+@media (max-width: 575.98px) {
+    .table-responsive > .table { min-width: 40rem; }
+    .table-responsive { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+}
+
+/* Read-only facts on detail pages (2.40.31). A detail page shows its facts in
+   disabled inputs — a grey box per value that reads as a form you cannot
+   use. A disabled input with no `name` is never submitted and never
+   re-enabled (the editable ones carry a name: order-detail.js re-enables
+   `input[name]`), so it is drawn as what it is: a value under its label. */
+input.form-control.form-control-solid[disabled]:not([name]) {
+    background-color: transparent;
+    border-color: transparent;
+    border-bottom: 1px dashed var(--bs-gray-300);
+    border-radius: 0;
+    padding-inline: 0;
+    padding-block: 0.35rem 0.55rem;
+    min-height: 0;
+    color: var(--bs-gray-900);
+    font-weight: 600;
+    opacity: 1;
+    cursor: default;
+}
