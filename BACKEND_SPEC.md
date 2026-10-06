@@ -433,6 +433,9 @@ Rules:
   `POST /integrations/{id}/test/` (Platform Admin). `PostProviderSettings` and
   `/post-provider-settings/` are kept for compatibility but no longer offered in the UI.
   Postal history rows carry `from_status_icon` / `to_status_icon` from `sales.postal.POSTAL_STATES`.
+- **Campaign «سایر» (2.40.22).** `Campaign.other_channels` (list of up to 10 names, ≤ 60 characters
+  each) is required when `channels` holds `other` and emptied otherwise; `channels_display` shows
+  those names in place of «سایر».
 - **Repeatable report filters (2.40.21).** `GET /reports/sales-documents/` (and its export) accepts
   `province` and `postal_status` repeated — a row matches any of them; `GET /reports/inbound-sms/`
   (and drill-down, export) accepts `processing_state` repeated. One value behaves as before; every

@@ -41,7 +41,9 @@ STATUS_TRANSITIONS = {
     Campaign.Status.ARCHIVED: set(),
 }
 
-CAMPAIGN_EDITABLE = {"name", "channels", "starts_on", "ends_on", "target_count", "budget", "responsibles"}
+CAMPAIGN_EDITABLE = {"name", "channels", "other_channels", "starts_on", "ends_on", "target_count", "budget", "responsibles"}
+OTHER_CHANNEL_MAX_LENGTH = 60
+OTHER_CHANNEL_MAX_COUNT = 10
 MEMBER_STAGES_SETTABLE = {
     TargetAudienceMember.Stage.NEW,
     TargetAudienceMember.Stage.CONTACTED,
@@ -87,10 +89,43 @@ def clean_channels(value):
     return cleaned
 
 
+def clean_other_channels(value, channels):
+    """The operator's own names for «سایر» (2.40.22): required, one or several,
+    when `channels` holds `other`; dropped when it does not."""
+    if Campaign.Channel.OTHER not in channels:
+        return []
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, (list, tuple)):
+        raise BusinessRuleError({"other_channels": "راه‌های دیگر باید فهرست باشد."})
+    cleaned = []
+    for item in value:
+        text = " ".join(str(item or "").split())
+        if not text:
+            continue
+        if len(text) > OTHER_CHANNEL_MAX_LENGTH:
+            raise BusinessRuleError({"other_channels": f"هر مورد حداکثر {OTHER_CHANNEL_MAX_LENGTH} نویسه است."})
+        if text not in cleaned:
+            cleaned.append(text)
+    if not cleaned:
+        raise BusinessRuleError({"other_channels": "«سایر» انتخاب شده؛ بنویسید چه راهی است."})
+    if len(cleaned) > OTHER_CHANNEL_MAX_COUNT:
+        raise BusinessRuleError({"other_channels": f"حداکثر {OTHER_CHANNEL_MAX_COUNT} مورد."})
+    return cleaned
+
+
 def channel_labels(campaign):
+    """The channels as a reader reads them; «سایر» is replaced by what the
+    operator wrote for it (2.40.22)."""
     labels = dict(Campaign.Channel.choices)
     values = campaign.channels or [campaign.channel]
-    return [str(labels[value]) for value in values if value in labels]
+    shown = []
+    for value in values:
+        if value == Campaign.Channel.OTHER and campaign.other_channels:
+            shown.extend(campaign.other_channels)
+        elif value in labels:
+            shown.append(str(labels[value]))
+    return shown
 
 
 def budget_overshoot(parent):
@@ -157,6 +192,7 @@ def create_campaign(*, actor, name, responsibles=(), parent=None, **data):
     clean, normalized = _clean_name(name)
     data["channels"] = clean_channels(data.get("channels", [Campaign.Channel.PHONE]))
     data["channel"] = data["channels"][0]
+    data["other_channels"] = clean_other_channels(data.get("other_channels", []), data["channels"])
     _validate_numbers(data)
     _validate_responsibles(responsibles)
     try:
@@ -190,6 +226,10 @@ def update_campaign(*, actor, campaign, **changes):
     if "channels" in changes:
         changes["channels"] = clean_channels(changes["channels"])
         changes["channel"] = changes["channels"][0]
+    if "channels" in changes or "other_channels" in changes:
+        changes["other_channels"] = clean_other_channels(
+            changes.get("other_channels", locked.other_channels), changes.get("channels", locked.channels),
+        )
     _validate_numbers({**{f: getattr(locked, f) for f in ("target_count", "budget", "starts_on", "ends_on")}, **changes})
     changed = [field for field, value in changes.items() if getattr(locked, field) != value]
     for field in changed:

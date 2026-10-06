@@ -275,6 +275,10 @@ class Campaign(TimeStampedModel):
     channel = models.CharField(max_length=16, choices=Channel.choices, default=Channel.PHONE)
     #: How the audience is reached (one, several or all of `Channel`) — 2.39.0.
     channels = models.JSONField(default=list, blank=True)
+    #: What «سایر» means for this campaign, in the operator's words — one or
+    #: several (2.40.22). Required when `channels` holds `other`, empty
+    #: otherwise (`sales.campaigns.clean_other_channels`).
+    other_channels = models.JSONField(default=list, blank=True)
     starts_on = models.DateField(null=True, blank=True)
     ends_on = models.DateField(null=True, blank=True)
     target_count = models.PositiveIntegerField(null=True, blank=True)

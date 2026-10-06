@@ -38,6 +38,10 @@ class CampaignSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     channels = serializers.ListField(child=serializers.ChoiceField(choices=Campaign.Channel.choices), required=False)
     channels_display = serializers.SerializerMethodField()
+    #: What «سایر» is, in the operator's words (2.40.22).
+    other_channels = serializers.ListField(
+        child=serializers.CharField(max_length=60, allow_blank=True), required=False, max_length=10,
+    )
     responsibles = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(is_active=True), many=True, required=False
     )
@@ -54,7 +58,7 @@ class CampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = Campaign
         fields = [
-            "id", "name", "parent", "parent_name", "children_count", "budget_warning", "status", "status_display", "channels", "channels_display", "starts_on", "ends_on",
+            "id", "name", "parent", "parent_name", "children_count", "budget_warning", "status", "status_display", "channels", "other_channels", "channels_display", "starts_on", "ends_on",
             "target_count", "budget", "responsibles", "responsibles_display", "member_count", "is_system",
             "created_at", "updated_at",
         ]

@@ -7,6 +7,7 @@ import {campaignStatusBadge} from "dolphin/features/campaigns/campaigns.js";
 import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {appendCell} from "dolphin/ui/table.js";
+import {setupOtherChannels} from "dolphin/features/campaigns/other-channels.js";
 
 const NEXT_STATUS = {
     draft: [["active", "فعال‌سازی", "btn-primary"], ["archived", "بایگانی", "btn-light"]],
@@ -198,11 +199,13 @@ export function setupCampaignDetail() {
             // In the reader's unit, unrounded, so saving does not move the amount.
             editForm.elements.budget.value = campaign.budget ? money(campaign.budget, {withCurrency: false, exact: true}) : "";
             editForm.querySelectorAll('input[name="channels"]').forEach((box) => { box.checked = (campaign.channels || []).includes(box.value); });
+            otherChannels.fill(campaign.other_channels);
             const chosen = new Set((campaign.responsibles || []).map(String));
             Array.from(editForm.elements.responsibles.options).forEach((option) => { option.selected = chosen.has(option.value); });
             editForm.elements.responsibles.dispatchEvent(new Event("change"));
             editDialog.showModal();
         });
+        const otherChannels = setupOtherChannels(editForm);
         editForm.addEventListener("submit", (event) => {
             event.preventDefault();
             withSubmit(editForm, async () => {
@@ -216,6 +219,7 @@ export function setupCampaignDetail() {
                 const body = {
                     name: editForm.elements.name.value,
                     channels,
+                    other_channels: otherChannels.values(),
                     starts_on: apiDate(editForm.elements.starts_on.value),
                     ends_on: apiDate(editForm.elements.ends_on.value),
                     target_count: target ? Number(target) : null,

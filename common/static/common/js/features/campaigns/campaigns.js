@@ -6,6 +6,7 @@ import {moneyOrNull} from "dolphin/core/money.js";
 import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {appendCell, appendDetailLink} from "dolphin/ui/table.js";
+import {setupOtherChannels} from "dolphin/features/campaigns/other-channels.js";
 
 const STATUS_BADGES = {
     draft: "badge-light",
@@ -89,6 +90,7 @@ export function setupCampaigns() {
     openSubCampaign = openCreate;
     document.getElementById("open-create-campaign").addEventListener("click", () => openCreate(null));
     dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+    const otherChannels = setupOtherChannels(createForm);
     createForm.addEventListener("submit", (event) => {
         event.preventDefault();
         withSubmit(createForm, async () => {
@@ -96,6 +98,7 @@ export function setupCampaigns() {
             const body = {
                 name: field("name").value,
                 channels: Array.from(createForm.querySelectorAll('input[name="channels"]:checked')).map((box) => box.value),
+                other_channels: otherChannels.values(),
                 responsibles: Array.from(field("responsibles").selectedOptions).map((option) => Number(option.value)),
             };
             if (parentField.value) body.parent = Number(parentField.value);
