@@ -247,8 +247,8 @@ class HeightValidationTests(TestCase):
         # Below the trend's minimum (2.40.2, `WIDGET_MIN_ROWS`) a height is
         # raised to it on save, so the chart keeps room for its axis and legend.
         update_user_dashboard_layout(actor=self.admin, widget_heights={"trend": "r8"})
-        self.assertEqual(effective_layout(self.admin)["heights"], {"trend": "r40"})
-        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 40)
+        self.assertEqual(effective_layout(self.admin)["heights"], {"trend": "r50"})
+        self.assertEqual(apply_layout(payload, self.admin)["trend"]["height"], 50)
 
     def test_null_drops_a_height_and_unknown_tokens_are_refused(self):
         from common.dashboard_layout import effective_layout

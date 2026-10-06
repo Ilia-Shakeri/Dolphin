@@ -157,7 +157,8 @@ class ApplyLayoutTests(LayoutFixtures):
         has to arrive with the widget or the grid cannot place it."""
         result = dashboard_layout.apply_layout(self.base_payload(), self.agent)
         self.assertEqual(result["kpis"][0]["size"], dashboard_layout.WIDGET_SIZES["quarter"][1])
-        self.assertEqual(result["trend"]["size"], dashboard_layout.WIDGET_SIZES["half"][1])
+        # Two thirds since 2.40.20 (the trend is never squeezed).
+        self.assertEqual(result["trend"]["size"], dashboard_layout.WIDGET_SIZES["two_thirds"][1])
         self.assertEqual(result["agent_share"]["size"], dashboard_layout.WIDGET_SIZES["full"][1])
 
     def test_a_saved_size_overrides_the_designed_default(self):

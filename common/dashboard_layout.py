@@ -202,7 +202,7 @@ FALLBACK_WIDGET_ROWS = 22
 #: one. The two chart cards are wide because they carry a plot, not a figure;
 #: everything else is a tile.
 DEFAULT_WIDGET_SIZES = {
-    "trend": "half",
+    "trend": "two_thirds",
     "breakdown": "third",
     "agent_share": "full",
     "panel_tasks": "third",
@@ -222,7 +222,9 @@ FALLBACK_WIDGET_SIZE = "quarter"
 #: A widget absent here may take any step; its height still never drops below
 #: its own content (`fitDashboardRows`).
 WIDGET_MIN_SIZES = {
-    "trend": "half",
+    # Two thirds since 2.40.20: at half, twelve weekly columns and the legend
+    # left the plot too narrow to read on an ordinary laptop screen.
+    "trend": "two_thirds",
     "breakdown": "third",
     "agent_share": "half",
     "panel_tasks": "third",
@@ -232,7 +234,7 @@ WIDGET_MIN_SIZES = {
     "panel_calls": "third",
 }
 WIDGET_MIN_ROWS = {
-    "trend": 40,
+    "trend": 50,
     "breakdown": 40,
     "agent_share": 40,
     "lead_conversion_rate": 30,

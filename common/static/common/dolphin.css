@@ -4741,6 +4741,17 @@ tr.is-removing > td {
     .dashboard-span-6, .dashboard-span-8, .dashboard-span-9, .dashboard-span-12 { --dashboard-span: 2; }
 }
 
+/* The twelve-week trend is never squeezed (2.40.20, product owner: «باید بزرگ
+   بماند و کوچک نشود»). Below the wide grid it takes the whole row: at half of
+   a narrower grid its twelve weekly columns drew as hairlines and the chart
+   read as empty. On the wide grid its minimum is two thirds
+   (`WIDGET_MIN_SIZES`). */
+@media (max-width: 1199.98px) {
+    [data-dashboard-grid] > .dashboard-widget[data-widget-key="trend"] {
+        grid-column: 1 / -1;
+    }
+}
+
 /* While the page measures a box it is let take its own height. */
 /* `!important`: the tiles carry Bootstrap's own `h-100`, which is one. */
 [data-dashboard-grid] > .dashboard-widget.is-measuring > .card { height: auto !important; }

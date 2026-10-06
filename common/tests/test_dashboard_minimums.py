@@ -41,12 +41,13 @@ class RegistryTests(SimpleTestCase):
 
     def test_the_trend_cannot_be_a_quarter(self):
         """The case that broke: twelve weekly bars and a legend in a quarter."""
-        self.assertEqual(clamp_size("trend", "quarter"), "half")
+        self.assertEqual(clamp_size("trend", "quarter"), "two_thirds")
+        self.assertEqual(clamp_size("trend", "half"), "two_thirds")
         self.assertEqual(clamp_size("trend", "full"), "full")
         self.assertEqual(clamp_size("outstanding", "quarter"), "quarter")
 
     def test_the_editor_receives_the_minimums(self):
-        self.assertEqual(widget_minimums()["trend"], ["half", WIDGET_MIN_ROWS["trend"]])
+        self.assertEqual(widget_minimums()["trend"], ["two_thirds", WIDGET_MIN_ROWS["trend"]])
 
 
 class ServerClampTests(TestCase):
@@ -57,7 +58,7 @@ class ServerClampTests(TestCase):
 
     def test_a_saved_size_below_the_minimum_is_raised(self):
         update_user_dashboard_layout(actor=self.user, widget_sizes={"trend": "quarter", "outstanding": "quarter"})
-        self.assertEqual(effective_layout(self.user)["sizes"], {"trend": "half", "outstanding": "quarter"})
+        self.assertEqual(effective_layout(self.user)["sizes"], {"trend": "two_thirds", "outstanding": "quarter"})
 
     def test_a_saved_height_below_the_minimum_is_raised(self):
         update_user_dashboard_layout(actor=self.user, widget_heights={"trend": "r10"})
@@ -66,10 +67,10 @@ class ServerClampTests(TestCase):
     def test_an_old_layout_is_read_at_the_minimum_and_not_rewritten(self):
         UserDashboardLayout.objects.create(pk=self.user.pk, widget_sizes={"trend": "quarter"}, widget_heights={"trend": "r8"})
         arranged = apply_layout(self.payload, self.user)["trend"]
-        self.assertEqual(arranged["size"], WIDGET_SIZES["half"][1])
+        self.assertEqual(arranged["size"], WIDGET_SIZES["two_thirds"][1])
         self.assertEqual(arranged["height"], WIDGET_MIN_ROWS["trend"])
         self.assertEqual(UserDashboardLayout.objects.get(pk=self.user.pk).widget_sizes, {"trend": "quarter"})
-        self.assertEqual(size_class("trend", {"trend": "quarter"}), WIDGET_SIZES["half"][1])
+        self.assertEqual(size_class("trend", {"trend": "quarter"}), WIDGET_SIZES["two_thirds"][1])
 
 
 class EditorTests(SimpleTestCase):
@@ -125,3 +126,16 @@ class OneGridTests(SimpleTestCase):
         body = SCRIPT.split("function liftLegacyPositions(grid, tiles) {")[1].split("\n}\n")[0]
         self.assertIn("if (!overlapping) return;", body)
         self.assertIn("setBoxSpot(column, spot.x, spot.y + below - top);", body)
+
+
+class TrendStaysLargeTests(SimpleTestCase):
+    """2.40.20: the twelve-week trend is never squeezed."""
+
+    def test_full_row_below_the_wide_grid(self):
+        css = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+        block = css.split('[data-dashboard-grid] > .dashboard-widget[data-widget-key="trend"] {')[1].split("}")[0]
+        self.assertIn("grid-column: 1 / -1;", block)
+
+    def test_two_thirds_and_fifty_rows_at_least_on_the_wide_grid(self):
+        self.assertEqual(WIDGET_MIN_SIZES["trend"], "two_thirds")
+        self.assertEqual(WIDGET_MIN_ROWS["trend"], 50)
