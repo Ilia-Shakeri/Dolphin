@@ -52,3 +52,16 @@ class PageTests(SimpleTestCase):
         driver = (ROOT / "common" / "static" / "common" / "js" / "ui" / "report-wizard.js").read_text(encoding="utf-8")
         body = driver.split("async function build() {")[1].split("\n    }\n")[0]
         self.assertLess(body.index("show(content);"), body.index("render(report);"))
+
+
+class FilterPopoverTests(SimpleTestCase):
+    """2.40.25: every campaign page puts its filters behind the filter icon,
+    like every other list (`form.list-filters` → `setupListFilterPopovers`)."""
+
+    def test_each_campaign_page_has_a_list_filters_form(self):
+        root = ROOT / "common" / "templates" / "common" / "campaigns"
+        for name, form_id in (("list.html", "campaigns-search-form"), ("results.html", "results-filter-form"), ("detail.html", "campaign-members-filter-form")):
+            with self.subTest(page=name):
+                text = (root / name).read_text(encoding="utf-8")
+                self.assertRegex(text, rf'<form id="{form_id}" class="list-filters"')
+                self.assertIn("list-filters-submit", text.split(f'id="{form_id}"')[1].split("</form>")[0])

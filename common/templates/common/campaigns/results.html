@@ -12,9 +12,12 @@
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title flex-column"><h2>نتایج</h2><span class="text-muted fs-7 mt-1">«—» یعنی دادهٔ کافی وجود ندارد، نه صفر. فروش ثبت‌شده، فاکتور معتبر و وصول‌شده سه عدد جدا هستند و با هم جمع نمی‌شوند.</span></div>
     <div class="card-toolbar flex-wrap gap-2">
-        <label class="sr-only" for="results-from">از تاریخ</label><input class="form-control form-control-solid w-150px" id="results-from" type="text" data-jalali="date" placeholder="از تاریخ">
-        <label class="sr-only" for="results-to">تا تاریخ</label><input class="form-control form-control-solid w-150px" id="results-to" type="text" data-jalali="date" placeholder="تا تاریخ">
-        <button id="results-apply" class="btn btn-light-primary" type="button">اعمال</button>
+        {% comment %} In the filter popover behind the filter icon (2.40.25). {% endcomment %}
+        <form id="results-filter-form" class="list-filters" novalidate>
+            <label class="sr-only" for="results-from">از تاریخ</label><input class="form-control form-control-solid" id="results-from" type="text" data-jalali="date" placeholder="از تاریخ">
+            <label class="sr-only" for="results-to">تا تاریخ</label><input class="form-control form-control-solid" id="results-to" type="text" data-jalali="date" placeholder="تا تاریخ">
+            <button id="results-apply" class="btn btn-primary list-filters-submit" type="submit">اعمال</button>
+        </form>
     </div>
 </div><div class="card-body pt-2">
     <div id="results-loading" class="text-center text-gray-700 py-10">در حال دریافت نتایج…</div>

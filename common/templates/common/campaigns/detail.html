@@ -19,8 +19,12 @@
 <section class="card mb-5 mb-xl-8" id="campaign-members-card" hidden><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title"><h2 class="fs-3 fw-bold mb-0">مخاطبان کمپین</h2></div>
     <div class="card-toolbar flex-wrap gap-2">
+        {% comment %} In the filter popover behind the filter icon (2.40.25). {% endcomment %}
+        <form id="campaign-members-filter-form" class="list-filters" novalidate>
         <label class="sr-only" for="campaign-members-stage">مرحله</label>
-        <select class="form-select form-select-solid w-175px" id="campaign-members-stage"><option value="">همه مرحله‌ها</option><option value="new">جدید</option><option value="contacted">تماس گرفته‌شده</option><option value="engaged">در تعامل</option><option value="converted">تبدیل‌شده</option><option value="lost">ازدست‌رفته</option></select>
+        <select class="form-select form-select-solid" id="campaign-members-stage"><option value="">همه مرحله‌ها</option><option value="new">جدید</option><option value="contacted">تماس گرفته‌شده</option><option value="engaged">در تعامل</option><option value="converted">تبدیل‌شده</option><option value="lost">ازدست‌رفته</option></select>
+        <button class="btn btn-primary list-filters-submit" type="submit">اعمال</button>
+        </form>
         {% if can_manage_campaigns %}<button id="open-add-member" class="btn btn-primary" type="button">افزودن مخاطب</button>{% endif %}
     </div>
 </div><div class="card-body pt-2">

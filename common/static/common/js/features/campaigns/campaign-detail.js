@@ -159,7 +159,10 @@ export function setupCampaignDetail() {
         },
         renderRow: memberRow,
     });
-    document.getElementById("campaign-members-stage").addEventListener("change", () => members?.load(1));
+    document.getElementById("campaign-members-filter-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        members?.load(1);
+    });
 
     const addDialog = document.getElementById("add-member-dialog");
     const addForm = document.getElementById("add-member-form");

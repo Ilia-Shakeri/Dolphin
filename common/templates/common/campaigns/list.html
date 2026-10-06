@@ -16,12 +16,14 @@
             <label class="sr-only" for="campaigns-search">جستجوی کمپین</label>
             <input class="form-control form-control-solid" id="campaigns-search" type="search" placeholder="نام کمپین">
         </div>
-        <form id="campaigns-search-form" class="d-flex gap-2" action="{% url 'common_ui:campaigns' %}" method="get">
+        {% comment %} `list-filters`: the panel moves this form into the filter
+           popover behind the filter icon, like every other list (2.40.25). {% endcomment %}
+        <form id="campaigns-search-form" class="list-filters" action="{% url 'common_ui:campaigns' %}" method="get">
             <label class="sr-only" for="campaigns-status">وضعیت</label>
-            <select class="form-select form-select-solid w-175px" id="campaigns-status" name="status"><option value="">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="active">فعال</option><option value="paused">متوقف</option><option value="finished">تمام‌شده</option><option value="archived">بایگانی</option></select>
+            <select class="form-select form-select-solid" id="campaigns-status" name="status"><option value="">همه وضعیت‌ها</option><option value="draft">پیش‌نویس</option><option value="active">فعال</option><option value="paused">متوقف</option><option value="finished">تمام‌شده</option><option value="archived">بایگانی</option></select>
             <label class="sr-only" for="campaigns-channel">راه ارتباط</label>
-            <select class="form-select form-select-solid w-175px" id="campaigns-channel" name="channel"><option value="">همه راه‌های ارتباط</option>{% for value, label in campaign_channels %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
-            <button class="btn btn-light-primary" type="submit">اعمال</button>
+            <select class="form-select form-select-solid" id="campaigns-channel" name="channel"><option value="">همه راه‌های ارتباط</option>{% for value, label in campaign_channels %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select>
+            <button class="btn btn-primary list-filters-submit" type="submit">اعمال</button>
         </form>
     </div>
 </div><div class="card-body pt-2">

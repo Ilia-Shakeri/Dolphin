@@ -87,6 +87,9 @@ export function setupCampaignResults() {
         }
     }
 
-    document.getElementById("results-apply").addEventListener("click", load);
+    document.getElementById("results-filter-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        load();
+    });
     load();
 }
