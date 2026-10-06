@@ -105,3 +105,23 @@ class EditorTests(SimpleTestCase):
     def test_a_phone_is_told_rather_than_given_a_broken_editor(self):
         self.assertIn('window.matchMedia("(max-width: 767.98px)")', SCRIPT)
         self.assertIn('id="dashboard-edit-narrow"', HOME)
+
+
+class OneGridTests(SimpleTestCase):
+    """2.40.19: tiles and insight boxes share one grid, so any box can sit in
+    any row («تمامی ویجت ها باید بتوانند هرجا قرار بگیرند»)."""
+
+    def test_the_tiles_move_into_the_insight_grid(self):
+        self.assertIn('const tilesHost = document.getElementById("dashboard-capability-tiles");', SCRIPT)
+        self.assertIn("grid.appendChild(tiles.get(key));", SCRIPT)
+        self.assertIn('tilesHost.removeAttribute("data-dashboard-grid");', SCRIPT)
+
+    def test_order_interleaves_tiles_and_insights(self):
+        body = SCRIPT.split('const placed = new Set();\n    (layout.order || []).forEach((key) => {')[1].split("});")[0]
+        self.assertIn("if (tiles.has(key)) {", body)
+        self.assertIn("placeDashboardWidget(grid, widget);", body)
+
+    def test_a_layout_from_two_grids_is_lifted_once(self):
+        body = SCRIPT.split("function liftLegacyPositions(grid, tiles) {")[1].split("\n}\n")[0]
+        self.assertIn("if (!overlapping) return;", body)
+        self.assertIn("setBoxSpot(column, spot.x, spot.y + below - top);", body)

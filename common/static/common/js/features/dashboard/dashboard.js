@@ -336,18 +336,44 @@ async function setupDashboardInsights() {
     // insertion order is the fallback for anything the saved order does
     // not mention — the same "an unlisted widget keeps its position"
     // rule `_ordered` applies on the Python side.
+    //
+    // One grid for every box (2.40.19, product owner: «تمامی ویجت ها باید
+    // بتوانند هرجا قرار بگیرند»). The capability tiles are rendered by the
+    // server in their own row above; they move into this grid here, so a
+    // tile and a chart can share a row in any order. The tiles' own section
+    // is left empty and stops being a grid.
+    const tilesHost = document.getElementById("dashboard-capability-tiles");
+    const tiles = new Map(
+        tilesHost ? [...tilesHost.querySelectorAll(":scope > [data-widget-key]")].map((column) => [column.dataset.widgetKey, column]) : [],
+    );
     const placed = new Set();
     (layout.order || []).forEach((key) => {
+        if (placed.has(key)) return;
+        if (tiles.has(key)) {
+            placed.add(key);
+            grid.appendChild(tiles.get(key));
+            return;
+        }
         const widget = widgets.get(key);
-        if (!widget || placed.has(key)) return;
+        if (!widget) return;
         placed.add(key);
         placeDashboardWidget(grid, widget);
+    });
+    tiles.forEach((column, key) => {
+        if (placed.has(key)) return;
+        placed.add(key);
+        grid.appendChild(column);
     });
     widgets.forEach((widget, key) => {
         if (placed.has(key)) return;
         placed.add(key);
         placeDashboardWidget(grid, widget);
     });
+    if (tilesHost && tiles.size) {
+        tilesHost.removeAttribute("data-dashboard-grid");
+        tilesHost.hidden = true;
+        liftLegacyPositions(grid, tiles);
+    }
 
     // Mounted after every column is in the DOM, same rule as every other
     // chart here — Apex measures a real element's width, and a freshly
@@ -356,6 +382,42 @@ async function setupDashboardInsights() {
     widgets.forEach((widget) => fitWidgetChart(widget.column));
 
     return pageState ? {grid, widgets, layout, hiddenAvailable} : null;
+}
+
+/**
+ * A layout saved before the two rows became one grid (2.40.19) placed the
+ * tiles and the insight boxes each from row 1 of its own grid (or left the
+ * tiles to flow), so in the one grid they would sit on or among each other.
+ * Here, once: tiles with no saved place are laid across the top rows in
+ * order, and when a saved insight box would then share cells with a tile,
+ * every saved insight box moves down below the tiles. The next save stores
+ * the merged arrangement, which never overlaps (`pushDownAround`).
+ */
+function liftLegacyPositions(grid, tiles) {
+    const tileColumns = [...tiles.values()];
+    if (tileColumns.every((column) => !boxSpot(column))) {
+        let x = 1;
+        let y = 1;
+        let rowHeight = 0;
+        tileColumns.forEach((column) => {
+            const w = boxSpan(column);
+            if (x + w - 1 > GRID_COLUMNS) { x = 1; y += rowHeight; rowHeight = 0; }
+            setBoxSpot(column, x, y);
+            x += w;
+            rowHeight = Math.max(rowHeight, boxRows(column));
+        });
+    }
+    const tileRects = tileColumns.map(boxRect).filter(Boolean);
+    if (!tileRects.length) return;
+    const others = placedBoxes(grid).filter((column) => !tiles.has(column.dataset.widgetKey) && boxSpot(column));
+    const overlapping = others.some((column) => tileRects.some((rect) => rectsOverlap(rect, boxRect(column))));
+    if (!overlapping) return;
+    const below = Math.max(...tileRects.map((rect) => rect.y + rect.h));
+    const top = Math.min(...others.map((column) => boxSpot(column).y));
+    others.forEach((column) => {
+        const spot = boxSpot(column);
+        setBoxSpot(column, spot.x, spot.y + below - top);
+    });
 }
 
 /**
