@@ -725,3 +725,24 @@ class CapabilityTileLayoutTests(TestCase):
         )
         reset_user_dashboard_layout(actor=self.user)
         self.assertEqual(len(arrange_capability_tiles(self.tiles, self.user)), 2)
+
+
+class DashboardSpanSpecificityTests(SimpleTestCase):
+    """2.40.29 (product owner: «ویجت روند فروش دوازده هفتهٔ اخیر … کوچک نمایش
+    داده می‌شود»): the box rule `[data-dashboard-grid] > .dashboard-widget`
+    outranks the one-class `.dashboard-span-*` rules, so a default span
+    declared on it made every box three columns wide — measured, the trend at
+    303px of a 1263px grid. The default lives in the `var()` fallback."""
+
+    def box_rule(self):
+        start = CSS.index("[data-dashboard-grid] > .dashboard-widget {")
+        return CSS[start:CSS.index("}", start)]
+
+    def test_the_box_rule_does_not_declare_a_span(self):
+        rule = self.box_rule()
+        self.assertNotIn("--dashboard-span:", rule)
+        self.assertIn("grid-column: span var(--dashboard-span, 3);", rule)
+
+    def test_placed_boxes_use_the_same_fallback(self):
+        self.assertIn("grid-column: var(--dashboard-x) / span var(--dashboard-span, 3);", CSS)
+        self.assertIn(".dashboard-span-8 { --dashboard-span: 8; }", CSS)

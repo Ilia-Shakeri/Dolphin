@@ -244,10 +244,18 @@ class DrawerToPageTests(TestCase):
         start = page.index('id="dolphin_drawer_chat"')
         return page[start:page.index('id="chat-drawer-list-panel"', start)]
 
-    def test_the_title_and_a_toolbar_button_lead_to_the_chats_page(self):
+    def test_a_small_arrow_beside_the_title_leads_to_the_chats_page(self):
+        """2.40.29: «یه فلش کوچک بغل هدر» — beside the list's title and beside
+        an open conversation's name, not a button in the toolbar."""
         drawer = self.drawer()
         self.assertEqual(drawer.count('href="/chat/" data-chat-page-link="chat-drawer"'), 2)
-        self.assertIn('aria-label="رفتن به صفحهٔ گفت‌وگوها"', drawer)
+        self.assertEqual(drawer.count("di-arrow-up-left fs-3"), 2)
+        self.assertIn('گفت‌وگوها<i class="di-duotone di-arrow-up-left fs-3"', drawer)
+        toolbar = drawer[drawer.index('class="card-toolbar"'):]
+        self.assertNotIn("data-chat-page-link", toolbar)
+        # A `{# #}` comment spanning lines is printed, not dropped — measured
+        # here in 2.40.29 before it shipped.
+        self.assertNotIn("{#", drawer)
 
     def test_an_open_conversation_is_carried_to_the_page(self):
         self.assertIn("pointPageLinks(threadId);", SCRIPT)

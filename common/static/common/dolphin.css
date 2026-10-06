@@ -4702,9 +4702,12 @@ tr.is-removing > td {
     margin-block-end: calc(1.5rem - var(--dashboard-gutter)) !important;
 }
 
+/* The width comes from the box's own `.dashboard-span-*` class. The default is
+   a `var()` fallback, not a `--dashboard-span: 3` here (2.40.29): this rule
+   outranks the one-class span rules below, so a default declared here made
+   every box three columns wide — the twelve-week trend among them. */
 [data-dashboard-grid] > .dashboard-widget {
-    --dashboard-span: 3;
-    grid-column: span var(--dashboard-span);
+    grid-column: span var(--dashboard-span, 3);
     grid-row: span var(--dashboard-rows, 22);
     width: auto;
     max-width: none;
@@ -4723,7 +4726,7 @@ tr.is-removing > td {
 
 @media (min-width: 1200px) {
     [data-dashboard-grid] > .dashboard-widget[style*="--dashboard-x"] {
-        grid-column: var(--dashboard-x) / span var(--dashboard-span);
+        grid-column: var(--dashboard-x) / span var(--dashboard-span, 3);
         grid-row: var(--dashboard-y) / span var(--dashboard-rows, 22);
     }
 }
@@ -4968,12 +4971,20 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
    With the titles hidden, a menu link is still the full width of the rail, so its
    hover and active highlight read as a long pill with an icon in the middle. In
    the collapsed rail a link is a square of its own, centred, with softly rounded
-   corners — the highlight hugs the icon. */
+   corners — the highlight hugs the icon.
+
+   Centred in the 75px rail, not in its row (2.40.29): the theme keeps the menu
+   wrapper at the open width and lets the rail clip it (section 2b), so
+   `margin-inline: auto` centred the square 130px into the 265px row — outside
+   the rail, and every icon vanished. The square sits a fixed distance from the
+   rail's leading edge instead: half the rail minus half the square, less what
+   already precedes the row there (the scroll area's `mx-3`, 0.75rem, and the
+   theme's 0.115rem on each top-level `.menu-item`). */
 [data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link,
 [data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link {
     width: 2.9rem;
     height: 2.9rem;
-    margin-inline: auto;
+    margin-inline: calc((75px - 2.9rem) / 2 - 0.75rem - 0.115rem) 0;
     padding: 0;
     justify-content: center;
     border-radius: 0.8rem;
@@ -5078,3 +5089,14 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     font-weight: 600;
     white-space: nowrap;
 }
+
+/* The chat drawer's way to the full chats page (2.40.29): a small arrow beside
+   the title, not a toolbar button, in the accent colour so it reads as a way
+   somewhere rather than as decoration. */
+.chat-page-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.chat-page-link .di-arrow-up-left [class^="path"]::before { color: var(--bs-primary); }
+.chat-page-link .di-arrow-up-left .path1::before { opacity: 0.45; }

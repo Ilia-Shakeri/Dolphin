@@ -744,8 +744,10 @@
     <div class="card w-100 border-0 rounded-0 d-flex flex-column h-100" id="dolphin_drawer_chat_messenger">
         <div class="card-header align-items-center" id="chat-drawer-header">
             <div class="card-title mb-0" id="chat-drawer-list-title">
-                {# The title is also the way to the full chats page (2.40.27). #}
-                <h2 class="mb-0"><a class="text-gray-900 text-hover-primary" href="{% url 'common_ui:chat' %}" data-chat-page-link="chat-drawer">گفت‌وگوها</a></h2>
+                {% comment %} The title, with a small arrow beside it, is the way to the
+                   full chats page (2.40.27; the arrow beside the title, 2.40.29). {% endcomment %}
+                <h2 class="mb-0"><a class="chat-page-link text-gray-900 text-hover-primary" href="{% url 'common_ui:chat' %}" data-chat-page-link="chat-drawer"
+                    title="رفتن به صفحهٔ گفت‌وگوها">گفت‌وگوها<i class="di-duotone di-arrow-up-left fs-3" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></a></h2>
             </div>
             <div class="card-title align-items-center mb-0 d-none" id="chat-drawer-peer-title">
                 <button type="button" class="btn btn-sm btn-icon btn-active-color-primary me-2" id="chat-drawer-back" aria-label="بازگشت به فهرست گفت‌وگوها">
@@ -755,12 +757,10 @@
                     <span id="chat-drawer-peer-name" class="fs-5 fw-bold text-gray-900 lh-1"></span>
                     <span id="chat-drawer-peer-role" class="fs-8 text-muted"></span>
                 </div>
+                <a class="chat-page-link btn btn-sm btn-icon btn-active-color-primary w-25px h-25px ms-1" href="{% url 'common_ui:chat' %}" data-chat-page-link="chat-drawer"
+                   aria-label="باز کردن این گفت‌وگو در صفحهٔ گفت‌وگوها" title="باز کردن در صفحهٔ گفت‌وگوها"><i class="di-duotone di-arrow-up-left fs-3" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></a>
             </div>
             <div class="card-toolbar">
-                <a class="btn btn-sm btn-icon btn-active-color-primary" href="{% url 'common_ui:chat' %}" data-chat-page-link="chat-drawer"
-                   aria-label="رفتن به صفحهٔ گفت‌وگوها" title="رفتن به صفحهٔ گفت‌وگوها">
-                    <i class="di-duotone di-maximize fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span><span class="path4"></span><span class="path5"></span></i>
-                </a>
                 <button type="button" class="btn btn-sm btn-icon btn-active-color-primary" id="chat-drawer-open-new" aria-label="گفت‌وگوی تازه">
                     <i class="di-duotone di-plus fs-2"></i>
                 </button>
