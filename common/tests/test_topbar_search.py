@@ -168,3 +168,19 @@ class HeaderStackingTests(SimpleTestCase):
         rule = block.split("@media (max-width: 991.98px) {")[1].split("}")[0]
         self.assertIn("position: relative", rule)
         self.assertIn("z-index: 105", rule)
+
+
+class CleanOpenFieldTests(SimpleTestCase):
+    """2.40.18: the open field shows no blue ring and no blue square."""
+
+    def test_no_focus_ring_on_the_box(self):
+        self.assertNotIn(".topbar-search-open:focus-within", CSS)
+
+    def test_the_field_beats_the_panels_keyboard_ring(self):
+        rule = CSS.split("#global-search-input:focus,\n#global-search-input:focus-visible {")[1].split("}")[0]
+        self.assertIn("outline: none", rule)
+
+    def test_the_magnifier_has_no_tint_while_open(self):
+        self.assertIn(".topbar-search-open #global-search-toggle:hover", CSS)
+        rule = CSS.split(".topbar-search-open #global-search-toggle:focus {")[1].split("}")[0]
+        self.assertIn("background-color: transparent !important", rule)

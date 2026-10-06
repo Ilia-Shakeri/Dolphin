@@ -464,8 +464,15 @@ dialog::backdrop {
     background-color: var(--bs-gray-100);
     box-shadow: inset 0 0 0 1px var(--bs-gray-300);
 }
-.topbar-search-open:focus-within {
-    box-shadow: inset 0 0 0 1px var(--bs-primary);
+/* No blue ring on the box or the field (product owner, 2026-10-06: «تمیز و
+   بدون خط آبی»): the open box itself is the sign of where typing goes. */
+/* Open, the magnifier is the field's glyph, not a button to hover: the
+   theme's hover tint (`bg-hover-light-primary`, itself `!important`) read as
+   a selected blue square inside the field. */
+.topbar-search-open #global-search-toggle,
+.topbar-search-open #global-search-toggle:hover,
+.topbar-search-open #global-search-toggle:focus {
+    background-color: transparent !important;
 }
 .topbar-search > .btn {
     flex: 0 0 auto;
@@ -482,9 +489,11 @@ dialog::backdrop {
     font-family: inherit;
     font-size: 1rem;
 }
-/* The box draws the focus ring (`:focus-within` above), not the field in it. */
-.topbar-search-input:focus,
-.topbar-search-input:focus-visible {
+/* An id, not the class: the panel's own keyboard ring
+   (`[tabindex]:focus-visible`) has the class's specificity and comes later,
+   so it drew a blue box inside the open field (2.40.18). */
+#global-search-input:focus,
+#global-search-input:focus-visible {
     outline: none;
     box-shadow: none;
 }
