@@ -20,13 +20,18 @@ class InboundSMSReportQuerySerializer(RejectServerFieldsMixin, serializers.Seria
     period_end = OffsetAwareDateTimeField(help_text="Exclusive provider-received timestamp.")
     provider_code = serializers.RegexField(r"^[a-z0-9][a-z0-9_-]{0,49}$", required=False)
     recipient_normalized = serializers.RegexField(r"^\+[1-9][0-9]{7,14}$", required=False)
-    processing_state = serializers.ChoiceField(choices=InboundSMS.ProcessingState.choices, required=False)
+    #: Repeat for several (2.40.21): `processing_state=linked&processing_state=unmatched`.
+    processing_state = serializers.MultipleChoiceField(choices=InboundSMS.ProcessingState.choices, required=False)
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        if "processing_state" in attrs:
+            attrs["processing_state"] = sorted(attrs["processing_state"]) or None
         getlist = getattr(self.initial_data, "getlist", None)
         if getlist:
-            repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
+            repeated = sorted(
+                name for name in self.initial_data if len(getlist(name)) > 1 and name != "processing_state"
+            )
             if repeated:
                 raise serializers.ValidationError(
                     {name: "این پارامتر باید فقط یک‌بار وارد شود." for name in repeated}

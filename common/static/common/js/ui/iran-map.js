@@ -77,13 +77,17 @@ export async function fillProvinceSelect(select, selectedValue = "", {placeholde
         .map((province) => province.name)
         .sort((a, b) => a.localeCompare(b, "fa"));
     select.replaceChildren();
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
     // A form asks a person to choose one; a filter asks which subset to
     // show, and its empty option means "all of them". Same list, same
-    // source, different sentence for the same blank value.
-    placeholder.textContent = placeholderText;
-    select.appendChild(placeholder);
+    // source, different sentence for the same blank value. A checklist of
+    // provinces (`placeholder: null`) has no empty option: ticking none is
+    // "all" there.
+    if (placeholderText !== null) {
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = placeholderText;
+        select.appendChild(placeholder);
+    }
     names.forEach((name) => {
         const option = document.createElement("option");
         option.value = name;

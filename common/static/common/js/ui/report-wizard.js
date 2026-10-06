@@ -59,6 +59,12 @@ export function setupReportWizard({prefix, endpoint, exportUrl, extraQuery, rend
     function query() {
         const params = new URLSearchParams(range ? range.window() : {});
         Object.entries(extraQuery ? extraQuery() : {}).forEach(([name, value]) => {
+            // A filter of several values (a checklist, 2.40.21) is the same
+            // parameter repeated; the server reads every one of them.
+            if (Array.isArray(value)) {
+                value.map((item) => String(item ?? "").trim()).filter(Boolean).forEach((item) => params.append(name, item));
+                return;
+            }
             const text = String(value ?? "").trim();
             if (text) params.set(name, text);
         });

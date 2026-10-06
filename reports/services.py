@@ -230,11 +230,24 @@ def user_performance_details(
     return "sale", queryset
 
 
+def _one_or_many(value):
+    """A filter given once or several times, as a list; `None` for none."""
+    if value is None:
+        return None
+    values = [value] if isinstance(value, str) else [item for item in value if item != ""]
+    return values or None
+
+
 def build_sales_document_report(
     *, actor, period_start: datetime, period_end: datetime,
-    province: str | None = None, city: str | None = None,
-    postal_status: str | None = None, is_active: bool | None = None,
+    province: str | list[str] | None = None, city: str | None = None,
+    postal_status: str | list[str] | None = None, is_active: bool | None = None,
 ) -> SalesDocumentReport:
+    """Documents registered in the window, by place and by postal status.
+
+    `province` and `postal_status` take one value or several (2.40.21); a
+    document matches when its value is any of them, and an empty list is no
+    filter at all."""
     current_actor = crm_identities(
         User.objects.filter(
             pk=getattr(actor, "pk", None),
@@ -254,12 +267,14 @@ def build_sales_document_report(
         registered_at__gte=period_start,
         registered_at__lt=period_end,
     )
+    province = _one_or_many(province)
+    postal_status = _one_or_many(postal_status)
     filters = {"province": province, "city": city, "postal_status": postal_status, "is_active": is_active}
-    for field, value in (
-        ("province_snapshot", province), ("city_snapshot", city), ("postal_status", postal_status),
-    ):
-        if value is not None:
-            queryset = queryset.filter(**{field: value})
+    for field, values in (("province_snapshot", province), ("postal_status", postal_status)):
+        if values:
+            queryset = queryset.filter(**{f"{field}__in": values})
+    if city is not None:
+        queryset = queryset.filter(city_snapshot=city)
     if is_active is not None:
         queryset = queryset.filter(is_active=is_active)
     geography = queryset.values("province_snapshot", "city_snapshot").annotate(count=Count("id")).order_by("province_snapshot", "city_snapshot")

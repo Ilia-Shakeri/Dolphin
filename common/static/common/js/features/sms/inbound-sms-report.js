@@ -4,6 +4,7 @@ import {displayDate, displayDay} from "dolphin/core/jalali.js";
 import {errorText, showError} from "dolphin/core/messages.js";
 import {motionBehavior} from "dolphin/core/motion.js";
 import {renderAreaChart, renderBarChart} from "dolphin/ui/charts.js";
+import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {bindReportTableSearch, setupReportWizard} from "dolphin/ui/report-wizard.js";
 import {appendCell} from "dolphin/ui/table.js";
 
@@ -130,6 +131,7 @@ export async function setupInboundSMSReport() {
         [document.getElementById("inbound-sms-table-body")],
     );
 
+    enhanceChecklistSelect(document.getElementById("inbound-sms-state"), {emptyMeansAll: true});
     inboundSMSReportWizard = setupReportWizard({
         prefix: "inbound-sms-report",
         endpoint: "/api/v1/reports/inbound-sms/",
@@ -137,7 +139,8 @@ export async function setupInboundSMSReport() {
         extraQuery: () => ({
             provider_code: document.getElementById("inbound-sms-provider").value,
             recipient_normalized: document.getElementById("inbound-sms-recipient").value,
-            processing_state: document.getElementById("inbound-sms-state").value,
+            // Several states may be ticked (2.40.21); none means all.
+            processing_state: Array.from(document.getElementById("inbound-sms-state").selectedOptions, (option) => option.value),
         }),
         isEmpty: (report) => !report.total,
         render: (report) => {

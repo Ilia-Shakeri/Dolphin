@@ -29,7 +29,9 @@ def filtered_inbound_sms(
     if recipient_normalized:
         queryset = queryset.filter(recipient_normalized=recipient_normalized)
     if processing_state:
-        queryset = queryset.filter(processing_state=processing_state)
+        # One state or several (2.40.21).
+        states = [processing_state] if isinstance(processing_state, str) else list(processing_state)
+        queryset = queryset.filter(processing_state__in=states)
     return queryset
 
 

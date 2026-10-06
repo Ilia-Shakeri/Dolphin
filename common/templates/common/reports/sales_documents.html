@@ -56,13 +56,13 @@
                        پالایش این گزارش دقیقاً برابر می‌خواهد، نه شامل.
                        (مالک محصول، ۲۰۲۶/۰۹/۲۱: «استان باید منو دراپ‌داون
                        باشه»). {% endcomment %}
-                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-province">استان</label><select class="form-select form-select-solid" id="document-report-province"></select></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-province">استان</label><select class="form-select form-select-solid" id="document-report-province" multiple></select></div>
                     <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-city">شهر</label><input class="form-control form-control-solid" id="document-report-city" maxlength="100" placeholder="همهٔ شهرها"></div>
                     {% comment %} انتخابگر از واژگان `sales/postal.py`، که اسکریپت
                        پرش می‌کند — نه جعبهٔ متن آزادی که تایپ اشتباه در آن یک
                        گزارش خالی می‌سازد. {% endcomment %}
-                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-status">وضعیت پستی</label><select class="form-select form-select-solid" id="document-report-status"></select></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-active">حالت سند</label><select class="form-select form-select-solid" id="document-report-active"><option value="">همه</option><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-status">وضعیت پستی</label><select class="form-select form-select-solid" id="document-report-status" multiple></select></div>
+                    <div class="col-md-6"><label class="form-label fw-semibold" for="document-report-active">حالت سند</label><select class="form-select form-select-solid" id="document-report-active" multiple><option value="true">فعال</option><option value="false">غیرفعال</option></select></div>
                 </div>
             </div>
 

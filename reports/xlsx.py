@@ -421,6 +421,8 @@ def build_sales_document_workbook(report):
     summary.append(("period_end", report.period_end))
     summary.append(("total_documents", report.total))
     for name, value in (report.filters or {}).items():
+        if isinstance(value, (list, tuple)):
+            value = "، ".join(str(item) for item in value)
         summary.append((f"filter_{name}", safe_spreadsheet_text("" if value is None else str(value))))
     return _finish(workbook, sheet)
 

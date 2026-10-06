@@ -112,16 +112,20 @@ class UserPerformanceReportSerializer(serializers.Serializer):
 class SalesDocumentReportQuerySerializer(RejectServerFieldsMixin, serializers.Serializer):
     period_start = OffsetAwareDateTimeField(help_text="Inclusive registration timestamp.")
     period_end = OffsetAwareDateTimeField(help_text="Exclusive registration timestamp.")
-    province = serializers.CharField(max_length=100, required=False)
+    #: Repeat the parameter for several (2.40.21): `province=a&province=b`.
+    province = serializers.ListField(child=serializers.CharField(max_length=100), required=False, max_length=50)
     city = serializers.CharField(max_length=100, required=False)
-    postal_status = serializers.CharField(max_length=80, required=False)
+    postal_status = serializers.ListField(child=serializers.CharField(max_length=80), required=False, max_length=50)
     is_active = serializers.BooleanField(required=False, allow_null=True, default=None)
+
+    #: The filters that take several values; every other one is given once.
+    MULTIPLE = {"province", "postal_status"}
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
         getlist = getattr(self.initial_data, "getlist", None)
         if getlist:
-            repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1)
+            repeated = sorted(name for name in self.initial_data if len(getlist(name)) > 1 and name not in self.MULTIPLE)
             if repeated:
                 raise serializers.ValidationError(
                     {name: "این پارامتر باید فقط یک‌بار وارد شود." for name in repeated}

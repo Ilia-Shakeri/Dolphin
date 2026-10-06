@@ -1,6 +1,7 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {showError} from "dolphin/core/messages.js";
 import {fillPostalStates, postalStateLabels} from "dolphin/features/sales/shared.js";
+import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {fillProvinceSelect} from "dolphin/ui/iran-map.js";
 import {bindReportTableSearch, setupReportWizard} from "dolphin/ui/report-wizard.js";
 import {appendCell} from "dolphin/ui/table.js";
@@ -26,7 +27,7 @@ export async function setupSalesDocumentReport() {
         // The postal vocabulary, so a filter cannot be a typo. "همه" is
         // the empty option: a report with no status filter is the
         // default and the common case.
-        await fillPostalStates(statusFilter, {emptyLabel: "همهٔ وضعیت‌ها"});
+        await fillPostalStates(statusFilter);
     } catch (error) {
         showError(error);
     }
@@ -35,9 +36,12 @@ export async function setupSalesDocumentReport() {
     // match (`reports/services.py`) can only ever be handed a spelling
     // that actually exists (product owner, 2026-09-21: «استان باید منو
     // دراپ‌داون باشه»).
-    await fillProvinceSelect(document.getElementById("document-report-province"), "", {
-        placeholder: "همهٔ استان‌ها",
-    });
+    const provinceFilter = document.getElementById("document-report-province");
+    const activeFilter = document.getElementById("document-report-active");
+    await fillProvinceSelect(provinceFilter, "", {placeholder: null});
+    // Several of each may be ticked (2.40.21); none ticked means all.
+    [provinceFilter, statusFilter, activeFilter].forEach((select) => enhanceChecklistSelect(select, {emptyMeansAll: true}));
+    const chosen = (select) => Array.from(select.selectedOptions, (option) => option.value);
 
     bindReportTableSearch(document.getElementById("sales-document-report-search"), [
         document.getElementById("sales-document-geography-body"),
@@ -49,10 +53,11 @@ export async function setupSalesDocumentReport() {
         endpoint: "/api/v1/reports/sales-documents/",
         exportUrl: "/api/v1/exports/sales-documents.xlsx",
         extraQuery: () => ({
-            province: document.getElementById("document-report-province").value,
+            province: chosen(provinceFilter),
             city: document.getElementById("document-report-city").value,
-            postal_status: statusFilter.value,
-            is_active: document.getElementById("document-report-active").value,
+            postal_status: chosen(statusFilter),
+            // Both ticked, or neither, is every document: no filter.
+            is_active: chosen(activeFilter).length === 1 ? chosen(activeFilter)[0] : "",
         }),
         isEmpty: (report) => !report.total,
         render: (report) => {
