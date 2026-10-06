@@ -7,33 +7,145 @@
 {% block page_icon %}<i class="di-duotone di-chart-line-up page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
 {% block page_title %}تحلیل کمپین‌ها{% endblock %}
 {% block breadcrumb_current %}تحلیل کمپین‌ها{% endblock %}
-{% block page_actions %}<button id="analytics-print" class="btn btn-light" type="button">چاپ / PDF</button><button id="analytics-export" class="btn btn-light" type="button">خروجی Excel</button>{% endblock %}
 {% block content %}
-{% comment %} انتخاب کمپین‌ها و بازهٔ زمانی؛ هر نمودار یک قالب ثابت است (قیف، تبدیل، مقایسه، سری زمانی)
-   تا تحلیل بدون ساختن گزارش دستی در دسترس باشد. {% endcomment %}
-<section class="card mb-5 mb-xl-8"><div class="card-body">
-    <form id="analytics-form" class="row g-5 align-items-end" novalidate>
-        <div class="col-lg-5"><label class="form-label fw-semibold" for="analytics-campaigns">کمپین‌ها</label><select class="form-select form-select-solid" id="analytics-campaigns" multiple aria-describedby="analytics-campaigns-hint"></select><p class="text-muted fs-8 mt-1 mb-0" id="analytics-campaigns-hint">هیچ‌کدام انتخاب نشود یعنی همهٔ کمپین‌ها. موارد دلخواه را تیک بزنید.</p></div>
-        <div class="col-lg-2"><label class="form-label fw-semibold" for="analytics-from">از تاریخ</label><input class="form-control form-control-solid" id="analytics-from" type="text" data-jalali="date"></div>
-        <div class="col-lg-2"><label class="form-label fw-semibold" for="analytics-to">تا تاریخ</label><input class="form-control form-control-solid" id="analytics-to" type="text" data-jalali="date"></div>
-        <div class="col-lg-3 d-flex gap-2"><button class="btn btn-primary flex-grow-1" type="submit">نمایش تحلیل</button></div>
-    </form>
-    <p class="text-danger mt-4 mb-0" id="analytics-error" role="alert" hidden></p>
-    <p class="text-muted mt-4 mb-0" id="analytics-loading" aria-live="polite" hidden>در حال دریافت تحلیل…</p>
-    <p class="text-muted mt-4 mb-0" id="analytics-empty" hidden>برای این انتخاب کمپینی پیدا نشد.</p>
+{% comment %} تحلیل کمپین‌ها مرحله‌به‌مرحله (۲.۴۰.۲۳، مالک محصول: «ظاهر مرتب‌تر و بهتری
+   داشته باشد و مرحله‌ای باشد و بتوانیم چند کمپین را با هم مقایسه کنیم»): همان
+   درایور گزارش‌های مرحله‌ای (`setupReportWizard`) — کدام کمپین‌ها، کدام بازه،
+   کدام بخش‌ها، نتیجه. بخش «مقایسه» هر کمپین انتخاب‌شده را کنار بقیه می‌گذارد.
+   محتواها داخل ظرف خودشان‌اند؛ دلیلش در قالب گزارش اسناد فروش آمده. {% endcomment %}
+<section class="card report-wizard-card campaign-analytics-card"><div class="card-body">
+<div id="campaign-analytics-wizard">
+    <div class="stepper stepper-links d-flex flex-column">
+        <div class="stepper-nav py-5">
+            <div class="stepper-item current" data-dolphin-stepper-element="nav"><h3 class="stepper-title">کمپین‌ها</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">بازهٔ زمانی</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">چه چیزی را ببینیم</h3></div>
+            <div class="stepper-item" data-dolphin-stepper-element="nav"><h3 class="stepper-title">نتیجه</h3></div>
+        </div>
+
+        <div class="report-steps">
+            <div class="current report-step" data-dolphin-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">کدام کمپین‌ها را تحلیل یا مقایسه کنیم؟</h3>
+                <p class="text-muted fs-7 mb-5">چند کمپین را تیک بزنید تا کنار هم مقایسه شوند؛ هیچ‌کدام یعنی همهٔ کمپین‌ها. زیرکمپین‌ها در کمپین والد حساب می‌شوند.</p>
+                <label class="visually-hidden" for="analytics-campaigns">کمپین‌ها</label>
+                <select class="form-select form-select-solid" id="analytics-campaigns" multiple></select>
+            </div>
+
+            <div class="report-step" data-dolphin-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">در کدام بازه؟</h3>
+                <p class="text-muted fs-7 mb-5">اعضا بر پایهٔ تاریخ ورود به کمپین و مبالغ بر پایهٔ تاریخ صدور فاکتور شمرده می‌شوند.</p>
+                <div id="campaign-analytics-range"></div>
+            </div>
+
+            <div class="report-step" data-dolphin-stepper-element="content">
+                <h3 class="fs-4 fw-bold text-gray-900 mb-2">کدام بخش‌ها را ببینید؟</h3>
+                <p class="text-muted fs-7 mb-5">بعد از ساخت تحلیل هم می‌توانید همین تیک‌ها را عوض کنید.</p>
+                <div class="report-sections">
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="summary" checked>
+                        <span><span class="report-section-title">خلاصه</span><span class="report-section-note">مخاطبان، تبدیل‌شده‌ها، فاکتور معتبر و سرعت اولین تماس.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="compare" checked>
+                        <span><span class="report-section-title">مقایسهٔ کمپین‌ها</span><span class="report-section-note">هر کمپین کنار بقیه: مخاطب، تماس، تبدیل، فاکتور و نرخ تبدیل.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="monthly" checked>
+                        <span><span class="report-section-title">فاکتورها در هر ماه</span><span class="report-section-note">فاکتورهای معتبر هر کمپین، ماه به ماه.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="funnel" checked>
+                        <span><span class="report-section-title">قیف</span><span class="report-section-note">از عضو تا وصول، برای همهٔ کمپین‌های انتخاب‌شده با هم.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="joined">
+                        <span><span class="report-section-title">ورود مخاطب در هر روز</span><span class="report-section-note">چند نفر هر روز به کمپین‌ها اضافه شدند.</span></span>
+                    </label>
+                    <label class="report-section">
+                        <input class="form-check-input" type="checkbox" data-report-section="table" checked>
+                        <span><span class="report-section-title">جدول کامل</span><span class="report-section-note">همهٔ اعداد هر کمپین، با مبلغ، وصول و مانده.</span></span>
+                    </label>
+                </div>
+                <p class="alert alert-danger fs-7 mt-5 mb-0" data-step-error role="alert" hidden></p>
+            </div>
+
+            <div class="report-step" data-dolphin-stepper-element="content">
+                <div class="d-flex flex-wrap flex-stack align-items-center gap-3 mb-5">
+                    <h3 class="fs-4 fw-bold text-gray-900 mb-0">نتیجه</h3>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <button class="btn btn-sm btn-light" type="button" id="analytics-print">چاپ / PDF</button>
+                        <button class="btn btn-sm btn-light-primary" type="button" id="campaign-analytics-export">
+                            {% include "common/includes/excel_icon.inc" %}
+                            خروجی اکسل
+                        </button>
+                    </div>
+                </div>
+
+                <div id="campaign-analytics-loading" class="text-center text-gray-700 py-10" hidden>در حال ساخت تحلیل…</div>
+                <div id="campaign-analytics-empty" class="text-center text-gray-700 py-10" hidden>برای این انتخاب، کمپینی پیدا نشد.</div>
+                <div id="campaign-analytics-error" class="state state-error" role="alert" hidden></div>
+
+                <div id="campaign-analytics-content" hidden>
+                    <div class="row g-5 mb-8" data-report-panel="summary">
+                        <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5">
+                            <span class="text-muted fw-semibold fs-7 d-block">کل مخاطبان</span>
+                            <span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="analytics-members">—</span>
+                        </div></div></div>
+                        <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5">
+                            <span class="text-muted fw-semibold fs-7 d-block">تبدیل‌شده (با فاکتور معتبر)</span>
+                            <span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="analytics-converted">—</span>
+                        </div></div></div>
+                        <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5">
+                            <span class="text-muted fw-semibold fs-7 d-block">مبلغ فاکتورهای معتبر</span>
+                            <span class="text-gray-900 fw-bolder fs-2 mt-2 d-block" id="analytics-amount">—</span>
+                        </div></div></div>
+                        <div class="col-sm-6 col-xl-3"><div class="card card-flush h-100 border border-gray-300"><div class="card-body py-5">
+                            <span class="text-muted fw-semibold fs-7 d-block">میانگین زمان تا اولین تماس</span>
+                            <span class="text-gray-900 fw-bolder fs-2x mt-2 d-block" id="analytics-first-contact">—</span>
+                            <span class="text-muted fs-8 d-block mt-1" id="analytics-first-contact-note"></span>
+                        </div></div></div>
+                    </div>
+
+                    <div class="mb-8" data-report-panel="compare">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-1">مقایسهٔ کمپین‌ها</h4>
+                        <p class="text-muted fs-7 mb-4" id="analytics-compare-note"></p>
+                        <div class="row g-5">
+                            <div class="col-xl-8"><div class="performance-chart" id="chart-compare-funnel" role="img" aria-label="مقایسهٔ کمپین‌ها" hidden></div><p class="text-center text-gray-700 py-10" id="chart-compare-funnel-empty" hidden>داده‌ای برای نمایش نیست.</p></div>
+                            <div class="col-xl-4"><h5 class="fs-6 fw-bold text-gray-800 mb-2">نرخ تبدیل (٪)</h5><div class="performance-chart" id="chart-compare" role="img" aria-label="مقایسهٔ نرخ تبدیل" hidden></div><p class="text-center text-gray-700 py-10" id="chart-compare-empty" hidden>داده‌ای برای نمایش نیست.</p></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-8" data-report-panel="monthly">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">فاکتورهای معتبر در هر ماه</h4>
+                        <div class="performance-chart" id="chart-monthly" role="img" aria-label="فاکتورهای معتبر هر کمپین در هر ماه" hidden></div>
+                        <p class="text-center text-gray-700 py-10" id="chart-monthly-empty" hidden>در این بازه فاکتور معتبری نیست.</p>
+                    </div>
+
+                    <div class="mb-8" data-report-panel="funnel">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">قیف کمپین‌های انتخاب‌شده</h4>
+                        <div class="performance-chart" id="chart-funnel" role="img" aria-label="قیف کمپین" hidden></div>
+                        <p class="text-center text-gray-700 py-10" id="chart-funnel-empty" hidden>داده‌ای برای نمایش نیست.</p>
+                    </div>
+
+                    <div class="mb-8" data-report-panel="joined">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">ورود مخاطب در هر روز</h4>
+                        <div class="performance-chart" id="chart-joined" role="img" aria-label="ورود مخاطب در هر روز" hidden></div>
+                        <p class="text-center text-gray-700 py-10" id="chart-joined-empty" hidden>داده‌ای برای نمایش نیست.</p>
+                    </div>
+
+                    <div data-report-panel="table">
+                        <h4 class="fs-5 fw-bold text-gray-900 mb-4">جدول کامل</h4>
+                        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>کمپین</th><th>مخاطب</th><th>تماس</th><th>تعامل</th><th>تبدیل</th><th>نرخ تبدیل</th><th>فاکتور معتبر</th><th>مبلغ فاکتور</th><th>وصول‌شده</th><th>مانده</th></tr></thead><tbody id="analytics-table"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-stack pt-8">
+            <button class="btn btn-light-primary" type="button" data-dolphin-stepper-action="previous"><i class="di-duotone di-arrow-left fs-4 me-1"><span class="path1"></span><span class="path2"></span></i>مرحلهٔ قبل</button>
+            <button class="btn btn-primary" type="button" data-dolphin-stepper-action="next">مرحلهٔ بعد<i class="di-duotone di-arrow-left fs-4 ms-1"><span class="path1"></span><span class="path2"></span></i></button>
+        </div>
+    </div>
+</div>
 </div></section>
-<div class="row g-5 g-xl-8 mb-5 mb-xl-8">
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted fs-7 mb-2">میانگین زمان تا اولین تماس <span class="text-muted ms-1" tabindex="0" role="note" title="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند." aria-label="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند."><i class="di-duotone di-information-5 fs-6"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></div><div class="fs-1 fw-bold text-gray-900" id="analytics-first-contact">—</div><div class="text-muted fs-8 mt-1" id="analytics-first-contact-note"></div></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted fs-7 mb-2">کل مخاطبان <span class="text-muted ms-1" tabindex="0" role="note" title="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند." aria-label="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند."><i class="di-duotone di-information-5 fs-6"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></div><div class="fs-1 fw-bold text-gray-900" id="analytics-members">—</div></div></div></div>
-    <div class="col-md-4"><div class="card h-100"><div class="card-body"><div class="text-muted fs-7 mb-2">تبدیل‌شده (با فاکتور معتبر) <span class="text-muted ms-1" tabindex="0" role="note" title="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند." aria-label="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند."><i class="di-duotone di-information-5 fs-6"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></div><div class="fs-1 fw-bold text-gray-900" id="analytics-converted">—</div></div></div></div>
-</div>
-<div class="row g-5 g-xl-8 mb-5 mb-xl-8">
-    <div class="col-xl-6"><section class="card h-100"><div class="card-body"><h2 class="fs-4 fw-bold mb-4">قیف کمپین <span class="text-muted ms-1" tabindex="0" role="note" title="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند. مراحل پولی از فاکتورهای معتبر همان اشخاص است." aria-label="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند. مراحل پولی از فاکتورهای معتبر همان اشخاص است."><i class="di-duotone di-information-5 fs-6"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></h2><div class="performance-chart" id="chart-funnel" role="img" aria-label="قیف کمپین" hidden></div><p class="text-center text-gray-700 py-10" id="chart-funnel-empty" hidden>داده‌ای برای نمایش نیست.</p></div></section></div>
-    <div class="col-xl-6"><section class="card h-100"><div class="card-body"><h2 class="fs-4 fw-bold mb-4">مقایسهٔ نرخ تبدیل کمپین‌ها (٪)</h2><div class="performance-chart" id="chart-compare" role="img" aria-label="مقایسهٔ نرخ تبدیل" hidden></div><p class="text-center text-gray-700 py-10" id="chart-compare-empty" hidden>داده‌ای برای نمایش نیست.</p></div></section></div>
-</div>
-<div class="row g-5 g-xl-8 mb-5 mb-xl-8">
-    <div class="col-xl-6"><section class="card h-100"><div class="card-body"><h2 class="fs-4 fw-bold mb-4">فاکتورهای معتبر در هر ماه <span class="text-muted ms-1" tabindex="0" role="note" title="مبالغ بر پایهٔ تاریخ صدور فاکتور در بازهٔ انتخابی حساب می‌شوند." aria-label="مبالغ بر پایهٔ تاریخ صدور فاکتور در بازهٔ انتخابی حساب می‌شوند."><i class="di-duotone di-information-5 fs-6"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></h2><div class="performance-chart" id="chart-invoices" role="img" aria-label="فاکتورهای معتبر در هر ماه" hidden></div><p class="text-center text-gray-700 py-10" id="chart-invoices-empty" hidden>داده‌ای برای نمایش نیست.</p></div></section></div>
-    <div class="col-xl-6"><section class="card h-100"><div class="card-body"><h2 class="fs-4 fw-bold mb-4">ورود مخاطب در هر روز <span class="text-muted ms-1" tabindex="0" role="note" title="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند." aria-label="اعضا بر پایهٔ تاریخ ورود به کمپین در بازهٔ انتخابی شمرده می‌شوند."><i class="di-duotone di-information-5 fs-6"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></h2><div class="performance-chart" id="chart-joined" role="img" aria-label="ورود مخاطب در هر روز" hidden></div><p class="text-center text-gray-700 py-10" id="chart-joined-empty" hidden>داده‌ای برای نمایش نیست.</p></div></section></div>
-</div>
-<section class="card mb-5 mb-xl-8"><div class="card-body"><h2 class="fs-4 fw-bold mb-4">جدول مقایسه</h2><div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>کمپین</th><th>مخاطب</th><th>تماس</th><th>تعامل</th><th>تبدیل</th><th>نرخ تبدیل</th><th>فاکتور معتبر</th><th>مبلغ فاکتور</th><th>وصول‌شده</th><th>مانده</th></tr></thead><tbody id="analytics-table"></tbody></table></div></div></section>
 {% endblock %}

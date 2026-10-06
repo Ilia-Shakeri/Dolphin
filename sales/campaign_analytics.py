@@ -328,4 +328,51 @@ def campaign_analysis(user, *, ids=None, date_from=None, date_to=None):
         "first_contact_excluded": back_dated,
         "invoices_by_month": invoices_by_month,
         "members_by_day": joined_by_day,
+        "comparison": _comparison(rows, ids=ids, months=invoices_by_month, date_from=date_from, date_to=date_to),
     }
+
+
+#: How many campaigns the comparison charts draw side by side; more than this
+#: and neither the bars nor the lines can be told apart.
+COMPARE_LIMIT = 8
+
+
+def _comparison(rows, *, ids, months, date_from=None, date_to=None):
+    """The chosen campaigns side by side (2.40.23).
+
+    Compared are the campaigns the reader picked — or, with none picked, the
+    top-level campaigns — each with its sub-campaigns rolled in (`rows` already
+    holds that), at most `COMPARE_LIMIT` of them by valid-invoice amount. Per
+    campaign: the funnel's counts, and valid invoices per Jalali month on the
+    same months as the overall series, so the lines line up.
+    """
+    if ids:
+        chosen = [row for row in rows if row["id"] in set(ids)]
+    else:
+        chosen = [row for row in rows if row.get("parent_id") is None and not row.get("is_system")]
+    chosen.sort(key=lambda row: (row.get("valid_invoices_amount") or ZERO, row["members"]), reverse=True)
+    chosen = chosen[:COMPARE_LIMIT]
+    month_keys = [point["month"] for point in months]
+    children = defaultdict(list)
+    for row in rows:
+        if row.get("parent_id") is not None:
+            children[row["parent_id"]].append(row["id"])
+    compared = []
+    for row in chosen:
+        own_ids = [row["id"], *children.get(row["id"], [])]
+        series = {
+            point["month"]: point["count"]
+            for point in _jalali_month_series(_valid_attributions(own_ids, date_from, date_to), date_from=date_from, date_to=date_to)
+        }
+        compared.append({
+            "id": row["id"],
+            "name": row["name"],
+            "members": row["members"],
+            "contacted": row["contacted"],
+            "converted": row["converted"],
+            "valid_invoices_count": row.get("valid_invoices_count", 0),
+            "valid_invoices_amount": row.get("valid_invoices_amount", ZERO),
+            "conversion_rate": row["conversion_rate"],
+            "invoices_by_month": [series.get(key, 0) for key in month_keys],
+        })
+    return {"months": [point["label"] for point in months], "campaigns": compared}

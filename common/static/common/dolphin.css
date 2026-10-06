@@ -5044,3 +5044,9 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
         margin-inline-start: 0;
     }
 }
+
+/* Campaign analysis is a report wizard whose result is charts side by side
+   (2.40.23); the reports' 60rem column would squeeze them. */
+.report-wizard-card.campaign-analytics-card {
+    max-width: 90rem;
+}

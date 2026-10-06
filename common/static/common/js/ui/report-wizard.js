@@ -29,8 +29,10 @@ import {setupWizard} from "dolphin/ui/wizard.js";
  * @param extraQuery  () -> object, this report's own filter fields
  * @param render      (report) -> void, draws it
  * @param isEmpty     (report) -> bool, "nothing to show"
+ * @param rangeOptions options for the range control (`setupChartRange`),
+ *                     e.g. `{initial: "all", allTime: true}`
  */
-export function setupReportWizard({prefix, endpoint, exportUrl, extraQuery, render, isEmpty}) {
+export function setupReportWizard({prefix, endpoint, exportUrl, extraQuery, render, isEmpty, rangeOptions = {}}) {
     const root = document.getElementById(`${prefix}-wizard`);
     if (!root) return null;
 
@@ -46,7 +48,7 @@ export function setupReportWizard({prefix, endpoint, exportUrl, extraQuery, rend
     const range = setupChartRange(
         document.getElementById(`${prefix}-range`),
         () => {},
-        {initial: "30d", label: "بازهٔ زمانی گزارش"},
+        {initial: "30d", label: "بازهٔ زمانی گزارش", ...rangeOptions},
     );
 
     /** The sections this reader ticked on the "what to show" step. */
@@ -93,9 +95,13 @@ export function setupReportWizard({prefix, endpoint, exportUrl, extraQuery, rend
                 show(empty);
                 return;
             }
+            // Shown before drawing, not after (2.40.23): a chart measures its
+            // container when it mounts, and one mounted inside a hidden result
+            // drew at zero width and stayed blank. Sections the reader did not
+            // ask for are hidden after their charts have their size.
+            show(content);
             render(report);
             applySections();
-            show(content);
         } catch (error) {
             if (errorNote) {
                 errorNote.textContent = errorText(error);

@@ -235,6 +235,8 @@ const CHART_RANGES = Object.freeze([
 //: open on a year, which is what they always covered — see `setupChartRange`'s
 //: `initial` option.
 const DEFAULT_CHART_RANGE = "30d";
+//: Only where `setupChartRange` is asked for it (`allTime`): the whole history.
+const ALL_TIME_RANGE = Object.freeze({key: "all", label: "همهٔ زمان‌ها", days: null});
 
 /**
  * A range selector and, beside it, the way back from a zoom.
@@ -255,6 +257,9 @@ export function setupChartRange(host, onChange, options = {}) {
     host.dataset.chartRangeReady = "1";
     const initial = options.initial || DEFAULT_CHART_RANGE;
     let active = initial;
+    // «همهٔ زمان‌ها» — no window at all — for a page whose subject can be
+    // older than a year (campaign analysis, 2.40.23). Off unless asked for.
+    const ranges = options.allTime ? [ALL_TIME_RANGE, ...CHART_RANGES] : CHART_RANGES;
 
     host.classList.add("dolphin-chart-controls");
     const group = document.createElement("div");
@@ -286,7 +291,7 @@ export function setupChartRange(host, onChange, options = {}) {
         onChange(chartRangeWindow(active, from.value, to.value));
     }
 
-    CHART_RANGES.forEach((range) => {
+    ranges.forEach((range) => {
         const button = document.createElement("button");
         button.type = "button";
         button.dataset.chartPreset = range.key;
@@ -302,10 +307,11 @@ export function setupChartRange(host, onChange, options = {}) {
                 other.classList.toggle("btn-light", !chosen);
                 other.setAttribute("aria-pressed", String(chosen));
             });
-            custom.hidden = range.days !== null;
+            const isCustom = range.key === "custom";
+            custom.hidden = !isCustom;
             // A preset redraws at once; a custom range waits for both
             // ends, because half a window is not a window.
-            if (range.days !== null) emit();
+            if (!isCustom) emit();
             else from.focus();
         });
         group.append(button);
@@ -901,5 +907,72 @@ export function renderBarChart(chart, empty, items, options = {}) {
             ...base.tooltip,
             y: {formatter: (_value, {dataPointIndex}) => displays[dataPointIndex]},
         },
+    }, ariaLabel);
+}
+
+/**
+ * Several named things, each measured on the same few counts, side by side
+ * (2.40.23 — campaigns compared on their funnel). Vertical groups: one group
+ * per thing, one bar per measure, the measure's colour the same in every
+ * group so the eye compares like with like. `series` is `[{name, values}]`,
+ * `values` lining up with `categories`.
+ */
+export function renderGroupedBarChart(chart, empty, categories, series, options = {}) {
+    const {ariaLabel = null, height = 320, format = (value) => toPersianDigits(String(value))} = options;
+    if (!chart || !empty) return;
+    chartRedraws.set(chart, () => renderGroupedBarChart(chart, empty, categories, series, options));
+    if (!categories.length || !series.some((one) => one.values.some((value) => Number(value) > 0))) {
+        showEmptyChart(chart, empty);
+        return;
+    }
+    const ink = chartInk();
+    const base = apexBase(height);
+    mountApex(chart, empty, {
+        ...base,
+        chart: {...base.chart, type: "bar"},
+        series: series.map((one) => ({name: one.name, data: one.values.map(Number)})),
+        colors: chartPalette(),
+        plotOptions: {bar: {columnWidth: categories.length > 4 ? "70%" : "50%", borderRadius: 3}},
+        dataLabels: {enabled: false},
+        xaxis: {
+            categories,
+            labels: {style: {colors: ink.muted, fontFamily: chartFontFamily()}, trim: true, hideOverlappingLabels: false},
+        },
+        yaxis: {labels: {style: {colors: ink.muted}, formatter: (value) => format(Math.round(value))}},
+        tooltip: {...base.tooltip, y: {formatter: (value) => format(value)}},
+        legend: {...base.legend, position: "top"},
+    }, ariaLabel);
+}
+
+/**
+ * One line per named thing over the same periods (2.40.23 — valid invoices
+ * per month, per campaign). `series` is `[{name, values}]`, `values` lining
+ * up with `labels`; a thing with nothing in any period still gets its line.
+ */
+export function renderMultiLineChart(chart, empty, labels, series, options = {}) {
+    const {ariaLabel = null, height = 320, format = (value) => toPersianDigits(String(value))} = options;
+    if (!chart || !empty) return;
+    chartRedraws.set(chart, () => renderMultiLineChart(chart, empty, labels, series, options));
+    if (labels.length < 2 || !series.length || !series.some((one) => one.values.some((value) => Number(value) > 0))) {
+        showEmptyChart(chart, empty);
+        return;
+    }
+    const ink = chartInk();
+    const base = apexBase(height);
+    mountApex(chart, empty, {
+        ...base,
+        chart: {...base.chart, type: "line"},
+        series: series.map((one) => ({name: one.name, data: one.values.map(Number)})),
+        colors: chartPalette(),
+        stroke: {curve: "smooth", width: 2.5},
+        markers: {size: 3, strokeWidth: 0},
+        dataLabels: {enabled: false},
+        xaxis: {
+            categories: labels,
+            labels: {style: {colors: ink.muted, fontFamily: chartFontFamily()}, formatter: thinningFormatter(labels, 8)},
+        },
+        yaxis: {labels: {style: {colors: ink.muted}, formatter: (value) => format(Math.round(value))}},
+        tooltip: {...base.tooltip, shared: true, y: {formatter: (value) => format(value)}},
+        legend: {...base.legend, position: "top"},
     }, ariaLabel);
 }

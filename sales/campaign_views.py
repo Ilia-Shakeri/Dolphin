@@ -1,7 +1,7 @@
 """`/api/v1/campaigns/` and `/api/v1/campaign-members/` (2.36.0)."""
 
 import io
-from datetime import date
+from datetime import date, timedelta
 
 from django.http import HttpResponse
 from drf_spectacular.utils import extend_schema
@@ -156,6 +156,21 @@ class AttributeInvoiceSerializer(serializers.Serializer):
 def _date_param(request, name):
     raw = request.query_params.get(name)
     if not raw:
+        # The step-by-step page sends the shared range control's window
+        # (2.40.23): an instant pair, read here as the Tehran days it covers
+        # (the end is exclusive).
+        instant = {"date_from": "period_start", "date_to": "period_end"}.get(name)
+        stamp = request.query_params.get(instant) if instant else None
+        if stamp:
+            from django.utils import timezone
+            from django.utils.dateparse import parse_datetime
+
+            moment = parse_datetime(stamp)
+            if moment is None or timezone.is_naive(moment):
+                raise ValidationError({instant: "زمان باید با منطقهٔ زمانی باشد."})
+            if name == "date_to":
+                moment -= timedelta(microseconds=1)
+            return timezone.localtime(moment).date()
         return None
     try:
         return date.fromisoformat(raw)
@@ -184,9 +199,9 @@ class CampaignViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
     ordering_fields = ["name", "created_at", "starts_on"]
     list_query_parameters = {"status", "channel"}
     action_query_parameters = {
-        "analytics": {"campaigns", "date_from", "date_to"},
+        "analytics": {"campaigns", "date_from", "date_to", "period_start", "period_end"},
         "results": {"campaigns", "date_from", "date_to"},
-        "export": {"campaigns", "date_from", "date_to"},
+        "export": {"campaigns", "date_from", "date_to", "period_start", "period_end"},
         "members": {"stage", "page"},
         "attribution_log": {"invoice"},
     }
