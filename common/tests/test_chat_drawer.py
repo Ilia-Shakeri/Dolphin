@@ -151,7 +151,7 @@ class ScriptBehaviourTests(SimpleTestCase):
         — unconditionally, not gated on which page this is; the function
         itself is what no-ops where its markup is absent."""
         self.assertIn('setupChat("chat-drawer", {container: "dolphin_drawer_chat", toggle: "dolphin_drawer_chat_toggle"});', SCRIPT)
-        self.assertIn('setupChat("chat-page", {isOpen: () => true});', SCRIPT)
+        self.assertIn('setupChat("chat-page", {isOpen: () => true, openFromUrl: true});', SCRIPT)
         self.assertNotIn('if (page === "chat") setupChat();', SCRIPT)
 
     def test_polling_is_gated_on_the_themes_own_open_state_class(self):
@@ -226,3 +226,31 @@ class LayoutRegressionTests(SimpleTestCase):
     def test_the_flex_chain_gets_a_real_min_height(self):
         self.assertIn("#dolphin_drawer_chat_messenger,", self.css)
         self.assertIn("min-height: 0;", self.css.split("#dolphin_drawer_chat_messenger,")[1][:400])
+
+
+class DrawerToPageTests(TestCase):
+    """Product owner, 2026-10-06: «پاپ‌آپ گفت‌وگوها … باید یه دکمه برای رفتن
+    به صفحهٔ خودش داشته باشد (و یا کلیک بر روی هدر آن ما را به صفحهٔ اصلی
+    گفت‌وگوها ببرد)» — both, and an open conversation goes along."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="chatdrawer.link", password=PASSWORD, role=User.Role.SALES_MANAGER
+        )
+        self.client.force_login(self.user)
+
+    def drawer(self):
+        page = self.client.get("/").content.decode("utf-8")
+        start = page.index('id="dolphin_drawer_chat"')
+        return page[start:page.index('id="chat-drawer-list-panel"', start)]
+
+    def test_the_title_and_a_toolbar_button_lead_to_the_chats_page(self):
+        drawer = self.drawer()
+        self.assertEqual(drawer.count('href="/chat/" data-chat-page-link="chat-drawer"'), 2)
+        self.assertIn('aria-label="رفتن به صفحهٔ گفت‌وگوها"', drawer)
+
+    def test_an_open_conversation_is_carried_to_the_page(self):
+        self.assertIn("pointPageLinks(threadId);", SCRIPT)
+        self.assertIn('url.searchParams.set("thread", String(threadId))', SCRIPT)
+        self.assertIn('setupChat("chat-page", {isOpen: () => true, openFromUrl: true})', SCRIPT)
+        self.assertIn("if (threads.some((thread) => thread.id === wanted)) openThread(wanted);", SCRIPT)

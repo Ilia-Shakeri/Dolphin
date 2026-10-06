@@ -83,6 +83,18 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
     // Only the page has room to show "nothing is open yet" beside the
     // list rather than in place of it; the drawer has no such element.
     const emptyState = document.getElementById(id("empty-state"));
+    // The drawer's way to the full chats page (2.40.27): its title and a
+    // toolbar button. With a conversation open they take it along, so the
+    // page opens on the same one (`?thread=`, read below).
+    const pageLinks = Array.from(document.querySelectorAll(`[data-chat-page-link="${prefix}"]`));
+    function pointPageLinks(threadId) {
+        pageLinks.forEach((link) => {
+            const url = new URL(link.dataset.chatPageUrl || link.getAttribute("href"), window.location.origin);
+            link.dataset.chatPageUrl ||= url.pathname;
+            if (threadId) url.searchParams.set("thread", String(threadId));
+            link.setAttribute("href", `${url.pathname}${url.search}`);
+        });
+    }
 
     const AVATAR_COLORS = ["primary", "success", "info", "warning", "danger"];
     function avatarColor(userId) {
@@ -177,6 +189,7 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
 
     function showList() {
         activeThreadId = null;
+        pointPageLinks(null);
         listTitle.classList.remove("d-none");
         peerTitle.classList.add("d-none");
         listPanel.classList.remove("d-none");
@@ -340,6 +353,7 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
 
     async function openThread(threadId) {
         activeThreadId = threadId;
+        pointPageLinks(threadId);
         lastMessageId = 0;
         renderedIds.clear();
         showConversation();
@@ -555,6 +569,16 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
 
     readCache();
     showList();
+    if (options.openFromUrl) {
+        // Arrived from the drawer with a conversation open (2.40.27): open
+        // it here too — once the list says it is one of the reader's own.
+        const wanted = Number(new URLSearchParams(window.location.search).get("thread"));
+        if (wanted > 0) {
+            loadThreads().then(() => {
+                if (threads.some((thread) => thread.id === wanted)) openThread(wanted);
+            });
+        }
+    }
     // Live updates (2.38.0): a message in one of my conversations is read at
     // once; the timers below remain the fallback.
     onRealtime(["chat"], () => { pollThreads(); if (isOpen()) pollActiveThread(); }, {whenBusy: true, delay: 100});

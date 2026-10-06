@@ -346,9 +346,11 @@ class PostalStepperUITests(SimpleTestCase):
         self.assertIn("step.icon_paths", body)
 
     def test_an_unknown_status_hides_the_card(self):
+        """No stage and no post-office status: nothing to show. A status
+        outside the stages (2.40.26) keeps the card for its badge alone."""
         body = function_body("renderPostalStepper")
         self.assertIn("if (!steps || !steps.length) {", body)
-        self.assertIn("card.hidden = true;", body)
+        self.assertIn("card.hidden = !node;", body)
 
     def test_the_current_stop_is_announced_and_not_only_coloured(self):
         body = function_body("renderPostalStepper")
@@ -383,7 +385,9 @@ class PostalStepperUITests(SimpleTestCase):
 
     def test_one_loader_fills_every_such_selector(self):
         self.assertEqual(SCRIPT.count("function fillPostalStates("), 1)
-        self.assertEqual(SCRIPT.count("fillPostalStates("), 4)
+        # The definition, then: create form, change-status form, the sales
+        # document report's filter and the tracking list's filter (2.40.26).
+        self.assertEqual(SCRIPT.count("fillPostalStates("), 5)
 
     def test_the_vocabulary_is_fetched_once_per_page(self):
         """Three surfaces want it and three requests for a four-row constant

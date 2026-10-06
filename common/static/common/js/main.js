@@ -81,7 +81,7 @@ function boot() {
     // unchanged); the full page, only where `/chat/`'s own markup exists —
     // `setupChat` no-ops when `chat-page-thread-list` is not on the page.
     setupChat("chat-drawer", {container: "dolphin_drawer_chat", toggle: "dolphin_drawer_chat_toggle"});
-    setupChat("chat-page", {isOpen: () => true});
+    setupChat("chat-page", {isOpen: () => true, openFromUrl: true});
     setupGoToAccounting(); // PRELIMINARY, UNCOMMITTED — see integration/apps.py
 
     const page = document.body.dataset.page;
