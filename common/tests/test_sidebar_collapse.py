@@ -303,3 +303,25 @@ class SelectStyleTests(SimpleTestCase):
     def test_the_placeholder_row_reads_as_an_instruction(self):
         """`fillSelect` writes it with an empty value; it is not a choice."""
         self.assertIn('.form-select option[value=""]', self.css)
+
+
+class RailIconCentringTests(SimpleTestCase):
+    """2.40.29-2.40.30 (product owner, with a screenshot: «ایکون‌ها همچنان
+    زیبا و در جای خود نیستند»). Two causes, both measured: the square was
+    centred in the 265px menu row the theme keeps behind the 75px rail, and
+    the faded title still took 40-50px inside the square, pushing the icon to
+    its edge. Measured after both: square and icon centres 0px from the rail's."""
+
+    css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+
+    def test_the_square_is_placed_from_the_rails_edge_not_centred_in_the_row(self):
+        self.assertIn("margin-inline: calc((75px - 2.9rem) / 2 - 0.75rem - 0.115rem) 0;", self.css)
+
+    def test_the_faded_title_takes_no_room(self):
+        start = self.css.index("*/", self.css.index("/* The title takes no room in the rail (2.40.30)."))
+        rule = self.css[start:self.css.index("}", start)]
+        self.assertIn(".app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-title", rule)
+        self.assertIn("flex: 0 0 0;", rule)
+        self.assertIn("width: 0;", rule)
+        # Not removed: the theme's fade still plays when the rail opens.
+        self.assertNotIn("display: none", rule)

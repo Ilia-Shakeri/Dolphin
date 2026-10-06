@@ -5001,6 +5001,19 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     display: none;
 }
 
+/* The title takes no room in the rail (2.40.30). The theme only fades it
+   (`opacity: 0`), so it kept its 40-50px inside the square and pushed the icon
+   to the square's edge and out of the rail. Zero width rather than
+   `display: none`, so the theme's fade still plays when the rail opens. */
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link .menu-title,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-title {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
 /* «حقیقی» / «حقوقی» with their icon (2.40.8, `{% customer_kind %}` and
    `ui/customer-kind.js`): the icon is exactly one em and takes the text's own
    colour, so it matches whatever size and colour the word is set in. */
