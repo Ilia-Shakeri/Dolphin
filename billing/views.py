@@ -868,7 +868,9 @@ class InstallmentViewSet(StrictQueryParametersMixin, mixins.ListModelMixin, mixi
     list_query_parameters = {"plan", "status", "due_before"}
 
     def get_queryset(self):
-        queryset = installments_for(self.request.user).select_related("plan__invoice__customer")
+        from billing.installments import visible_installments
+
+        queryset = visible_installments(installments_for(self.request.user)).select_related("plan__invoice__customer")
         plan = self.request.query_params.get("plan")
         if plan is not None:
             if not plan.isdecimal() or int(plan) < 1:

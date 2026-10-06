@@ -77,14 +77,49 @@ def schedule_rows(*, total_amount, down_payment, installment_count, first_due, i
 
 
 def _replace_rows(plan, *, invoice, down, count, first_due, interval_days, down_due):
-    plan.installments.all().delete()
-    Installment.objects.bulk_create([
-        Installment(plan=plan, sequence=sequence, due_date=due, amount=amount)
+    """Make the plan's rows the schedule for these terms — without deleting one.
+
+    The application's database role has no DELETE on `billing_installment`
+    (`scripts/bootstrap-postgres.sh`: money is corrected, never erased), so
+    the PostgreSQL deployment refused the old delete-and-recreate with a
+    `ProgrammingError` — every instalment invoice failed to issue (2.40.17).
+    Each row of the schedule now updates the row of the same sequence (paid
+    amount back to zero; the caller re-applies what was paid), a missing one
+    is created, and a row the new schedule no longer has is cancelled. A
+    cancelled row of an active plan is superseded: lists and the plan's own
+    payload leave it out (`visible_installments`).
+    """
+    wanted = {
+        sequence: (due, amount)
         for sequence, due, amount in schedule_rows(
             total_amount=invoice.total_amount, down_payment=down, installment_count=count,
             first_due=first_due, interval_days=interval_days, down_due=down_due,
         )
+    }
+    existing = {row.sequence: row for row in plan.installments.select_for_update()}
+    for sequence, row in existing.items():
+        if sequence in wanted:
+            row.due_date, row.amount = wanted[sequence]
+            row.paid_amount = Decimal("0.00")
+            row.status = Installment.Status.PENDING
+        else:
+            row.paid_amount = Decimal("0.00")
+            row.status = Installment.Status.CANCELLED
+        row.save(update_fields=["due_date", "amount", "paid_amount", "status", "updated_at"])
+    Installment.objects.bulk_create([
+        Installment(plan=plan, sequence=sequence, due_date=due, amount=amount)
+        for sequence, (due, amount) in sorted(wanted.items())
+        if sequence not in existing
     ])
+
+
+def visible_installments(queryset):
+    """Rows a reader should see: everything, except rows an active plan
+    superseded when its terms changed (`_replace_rows`). A cancelled plan
+    keeps showing all its rows, cancelled — that is what happened to them."""
+    return queryset.exclude(
+        status=Installment.Status.CANCELLED, plan__status=InstallmentPlan.Status.ACTIVE
+    )
 
 
 def build_plan_at_issue(*, actor, invoice, issued_on):
@@ -208,7 +243,7 @@ def invoice_summary(invoice):
     editable = invoice.status == Invoice.Status.DRAFT
     if plan is not None:
         editable = invoice.status == Invoice.Status.ISSUED and _is_editable_plan(plan, invoice)
-        for row in plan.installments.order_by("sequence"):
+        for row in visible_installments(plan.installments.all()).order_by("sequence"):
             key = display_status(
                 invoice_status=invoice.status, status=row.status, due_date=row.due_date,
                 paid_amount=row.paid_amount,

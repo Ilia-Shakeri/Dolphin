@@ -52,8 +52,12 @@ class InstallmentInvoiceTests(TestCase):
         return issue_invoice(actor=self.manager, invoice=self._invoice(**terms))
 
     def _rows(self, invoice):
+        # The rows the plan has now; a row a reschedule superseded is
+        # cancelled rather than deleted (2.40.17) and is not part of it.
+        from billing.installments import visible_installments
+
         return list(
-            InstallmentPlan.objects.get(invoice=invoice).installments.order_by("sequence")
+            visible_installments(InstallmentPlan.objects.get(invoice=invoice).installments.all()).order_by("sequence")
             .values_list("sequence", "amount", "paid_amount", "status")
         )
 

@@ -882,7 +882,7 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
     invoice_number = serializers.CharField(source="invoice.number", read_only=True)
     customer = serializers.IntegerField(source="invoice.customer_id", read_only=True)
     customer_name = serializers.CharField(source="invoice.customer.full_name", read_only=True)
-    installments = InstallmentSerializer(many=True, read_only=True)
+    installments = serializers.SerializerMethodField()
     created_by_display = serializers.SerializerMethodField()
 
     class Meta:
@@ -898,6 +898,14 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
 
     def get_created_by_display(self, instance) -> str:
         return _display(instance.created_by)
+
+    @extend_schema_field(InstallmentSerializer(many=True))
+    def get_installments(self, instance):
+        # Rows a change of terms superseded are not part of the plan any more.
+        from billing.installments import visible_installments
+
+        rows = visible_installments(instance.installments.all()).order_by("sequence")
+        return InstallmentSerializer(rows, many=True, context=self.context).data
 
 
 class CreateInstallmentPlanSerializer(RejectServerFieldsMixin, serializers.Serializer):
