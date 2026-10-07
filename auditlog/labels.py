@@ -182,3 +182,75 @@ def operation_label(operation):
     if not operation:
         return "—"
     return OPERATION_LABELS.get(operation, operation)
+
+
+#: Stored `object_type` (the model's `app.model` label) -> what the panel shows
+#: (2.40.36). Same rule as the operations: the stored value is the machine
+#: contract and stays; this only names it for a reader.
+OBJECT_TYPE_LABELS = {
+    "accounts.user": "کاربر",
+    "accounts.usercapabilityoverride": "مجوز اختصاصی کاربر",
+    "accounts.useravatar": "تصویر پروفایل",
+    "common.brandsettings": "شخصی‌سازی پنل",
+    "common.dashboardsettings": "چیدمان پیش‌فرض داشبورد",
+    "common.userpreference": "تنظیمات کاربر",
+    "common.userdashboardlayout": "چیدمان داشبورد کاربر",
+    "common.backupjob": "پشتیبان‌گیری",
+    "sales.customercategory": "دسته‌بندی مشتری",
+    "sales.customer": "مشتری",
+    "sales.customerphone": "شمارهٔ تلفن مشتری",
+    "sales.productcategory": "دسته‌بندی کالا",
+    "sales.product": "کالا",
+    "sales.campaign": "کمپین",
+    "sales.campaignattribution": "انتساب کمپین",
+    "sales.campaignattributionlog": "تاریخچهٔ انتساب کمپین",
+    "sales.lead": "سرنخ",
+    "sales.targetaudiencemember": "مخاطب کمپین",
+    "sales.leadassignmenthistory": "تاریخچهٔ واگذاری سرنخ",
+    "sales.interaction": "تماس",
+    "sales.sale": "فروش",
+    "sales.salesdocument": "سند فروش",
+    "sales.postprovidersettings": "تنظیمات سرویس پست",
+    "sales.postalstatushistory": "تاریخچهٔ وضعیت پستی",
+    "sales.postalshipment": "مرسولهٔ پستی",
+    "aftersales.aftersalesrequest": "پروندهٔ خدمات پس از فروش",
+    "aftersales.aftersaleshistory": "تاریخچهٔ پروندهٔ پس از فروش",
+    "communications.inboundsms": "پیامک دریافتی",
+    "communications.outboundsms": "پیامک ارسالی",
+    "communications.smsprovidersettings": "تنظیمات سامانهٔ پیامک",
+    "communications.smstemplate": "الگوی پیامک",
+    "communications.smscampaign": "ارسال گروهی پیامک",
+    "inventory.warehouse": "انبار",
+    "inventory.stockitem": "موجودی کالا",
+    "inventory.stockmovement": "گردش انبار",
+    "timeline.personnote": "یادداشت",
+    "tasks.task": "وظیفه",
+    "scoring.scoringsettings": "تنظیمات امتیازدهی",
+    "integrations.integration": "اتصال",
+    "integrations.webhooksubscription": "اشتراک رویداد",
+    "integrations.apitoken": "توکن دسترسی",
+    "telephony.extension": "داخلی تلفن",
+    "telephony.call": "تماس تلفنی",
+    "billing.quotation": "پیش‌فاکتور",
+    "billing.order": "درخواست تأمین",
+    "billing.invoice": "فاکتور",
+    "billing.payment": "دریافت / پرداخت",
+    "billing.paymentallocation": "تخصیص دریافت",
+    "billing.cheque": "چک",
+    "billing.installmentplan": "طرح اقساط",
+    "billing.installment": "قسط",
+    "billing.customerledgerentry": "ردیف دفتر مشتری",
+    "attachments.attachment": "پیوست",
+    "chat.chatthread": "گفت‌وگو",
+    "chat.chatmessage": "پیام گفت‌وگو",
+    "accounting.account": "حساب",
+    "accounting.journalentry": "سند حسابداری",
+    "integration.pairingsettings": "اتصال به حسابداری",
+}
+
+
+def object_type_label(object_type):
+    """The Persian name for a stored object type; the stored value when unknown."""
+    if not object_type:
+        return "—"
+    return OBJECT_TYPE_LABELS.get(object_type, object_type)

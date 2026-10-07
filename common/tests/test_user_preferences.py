@@ -87,10 +87,14 @@ class DefaultsTests(PreferenceFixtures):
         """The login page renders through the same context processor."""
         self.assertEqual(preferences.effective_preferences(None), preferences.DEFAULTS)
 
-    def test_the_defaults_emit_no_css_at_all(self):
-        """`base.html` writes `{% if panel_preference_css %}`, so "kept the
-        defaults" has to be falsy, not an empty-but-present style block."""
-        self.assertIsNone(preferences.preference_css(preferences.DEFAULTS))
+    def test_the_defaults_emit_the_default_face_only(self):
+        """Since 2.40.36 the default face (Vazirmatn) is not the theme's own,
+        so the defaults carry exactly that; the theme's own face at the default
+        scale still emits nothing (`{% if panel_preference_css %}`)."""
+        css = preferences.preference_css(preferences.DEFAULTS)
+        self.assertIn('"Vazirmatn FD"', css)
+        self.assertNotIn("font-size", css)
+        self.assertIsNone(preferences.preference_css({**preferences.DEFAULTS, "font_family": "iransans"}))
 
     def test_an_unreadable_database_falls_back_rather_than_raising(self):
         """This runs on every page including the 500 handler; one failure

@@ -86,9 +86,11 @@ class EditorTests(SimpleTestCase):
         self.assertIn("setBoxSpot(dragged, dropSpot.x, dropSpot.y);\n                    pushDownAround(host, dragged);", SCRIPT)
         self.assertNotIn("nearestFreeSpot", SCRIPT)
 
-    def test_only_the_sort_button_moves_boxes_up(self):
-        # The definition and the one call, from the «مرتب‌سازی» button.
-        self.assertEqual(SCRIPT.count("compactUpward("), 2)
+    def test_only_the_sort_button_moves_boxes_up_while_editing(self):
+        # The definition, the «مرتب‌سازی» button, and since 2.40.36 the close
+        # of a saved arrangement's holes on every visit — never while editing.
+        self.assertEqual(SCRIPT.count("compactUpward("), 3)
+        self.assertIn('if (host.dataset.compact && !document.body.classList.contains("dashboard-editing")) compactUpward(host);', SCRIPT)
         self.assertIn('id="dashboard-edit-compact"', HOME)
 
     def test_changes_are_a_draft_until_saved(self):

@@ -16,6 +16,7 @@ from common.models import (
     PANEL_FONT_FAMILIES,
     PANEL_FONT_FAMILIES_BUNDLED,
     PANEL_FONT_FAMILY_STACKS,
+    THEME_PANEL_FONT_FAMILY,
 )
 from common.tests.ui_overhaul_helpers import CODE, ROOT, SCRIPT, TEMPLATES, function_body
 
@@ -32,7 +33,8 @@ def registered_families():
 class BundledFontTests(SimpleTestCase):
     def test_every_bundled_face_is_registered_and_first_in_its_stack(self):
         registered = registered_families()
-        for family in PANEL_FONT_FAMILIES_BUNDLED - {DEFAULT_PANEL_FONT_FAMILY}:
+        # The theme's own IRANSans is registered by the theme's stylesheet.
+        for family in PANEL_FONT_FAMILIES_BUNDLED - {THEME_PANEL_FONT_FAMILY}:
             with self.subTest(family=family):
                 first = PANEL_FONT_FAMILY_STACKS[family].split(",")[0].strip().strip('"')
                 self.assertIn(first, registered)
@@ -81,7 +83,10 @@ class WholePanelTests(SimpleTestCase):
         base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
         self.assertIn("{% if panel_font_sheet %}<link rel=\"stylesheet\" href=\"{% static 'common/fonts/panel-fonts.css' %}", base)
         self.assertTrue(preferences.needs_font_sheet({"font_family": "vazirmatn"}))
-        self.assertFalse(preferences.needs_font_sheet({"font_family": DEFAULT_PANEL_FONT_FAMILY}))
+        # The default is Vazirmatn since 2.40.36, so the sheet loads for it;
+        # only the theme's own face needs none.
+        self.assertTrue(preferences.needs_font_sheet({"font_family": DEFAULT_PANEL_FONT_FAMILY}))
+        self.assertFalse(preferences.needs_font_sheet({"font_family": THEME_PANEL_FONT_FAMILY}))
         self.assertFalse(preferences.needs_font_sheet({"font_family": "tahoma"}))
 
     def test_the_live_preview_reads_the_stack_from_the_page(self):

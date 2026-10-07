@@ -180,7 +180,7 @@ dialog::backdrop {
     width: 2.75rem;
     height: 2.75rem;
     border-radius: 0.75rem;
-    background-color: rgba(27, 132, 255, 0.14);
+    background-color: rgba(var(--bs-primary-rgb), 0.14);
 }
 
 /* 2b. Collapsed sidebar ---------------------------------------------------
@@ -2118,7 +2118,13 @@ dialog {
 #lead-board .kanban-board[data-accent] header .kanban-title-board .badge,
 #order-board .kanban-board[data-accent] header .kanban-title-board .badge {
     background-color: rgba(var(--dolphin-board-accent-rgb), 0.16);
-    color: var(--dolphin-board-accent);
+    /* The figure in a deeper shade of the accent (2.40.36): the accent itself
+       on its own 16% tint read at 2.3:1 for the yellow column. */
+    color: color-mix(in srgb, var(--dolphin-board-accent) 55%, #000);
+}
+[data-bs-theme=dark] #lead-board .kanban-board[data-accent] header .kanban-title-board .badge,
+[data-bs-theme=dark] #order-board .kanban-board[data-accent] header .kanban-title-board .badge {
+    color: color-mix(in srgb, var(--dolphin-board-accent) 70%, #fff);
 }
 /* jKanban's own inline `width`/`margin-left`/`margin-right` (set once, at
    `init()`, from `widthBoard`/`gutter` — see the comment beside `new
@@ -4838,6 +4844,194 @@ tr.is-removing > td {
 /* `!important`: the tiles carry Bootstrap's own `h-100`, which is one. */
 [data-dashboard-grid] > .dashboard-widget.is-measuring > .card { height: auto !important; }
 
+/* The page stage (2.40.36): a page's content appears once, with its first data
+   in place, instead of a «در حال دریافت…» line that is then replaced and pushes
+   everything under it down (measured CLS up to 0.9). Until `revealPage`
+   (main.js) the content is invisible — `visibility`, so charts still measure
+   their real width — and a skeleton card stands in for it. The stylesheet shows
+   the page by itself after four seconds should the script never get there. */
+/* File fields in Persian (2.40.36, `ui/file-inputs.js`): the UI kit's field
+   with a «انتخاب فایل» button and the chosen name, instead of the browser's
+   own «Choose File / No file chosen». */
+.dolphin-file {
+    position: relative;
+    display: flex !important;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    min-width: 0;
+}
+.dolphin-file:focus-within { box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--bs-primary) 25%, transparent); }
+.dolphin-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.dolphin-file-button { flex: 0 0 auto; pointer-events: none; }
+.dolphin-file-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--bs-gray-600);
+}
+.dolphin-file.has-file .dolphin-file-name { color: var(--bs-gray-900); }
+
+/* A checkbox's or radio's label reads at 4.5:1 or better (2.40.36): the UI
+   kit draws it in gray-500, 2.6:1 on a white card. A checked one is the
+   strongest line of its group. */
+.form-check-label { color: var(--bs-gray-700); }
+.form-check-input:checked ~ .form-check-label { color: var(--bs-gray-900); }
+
+/* The page heading sits closer to the content (2.40.36): the toolbar's own
+   padding was the larger part of the 200px before a page's first card. */
+@media (min-width: 992px) {
+    #dolphin_app_toolbar.app-toolbar { padding-block: 0.75rem 1rem !important; }
+}
+
+/* A page's actions on a phone (2.40.36): one row of compact buttons that
+   scrolls sideways, rather than three tall tiles each breaking its label over
+   two lines and taking the screen's first row. */
+@media (max-width: 575.98px) {
+    #dolphin_app_toolbar_container > .d-flex:last-child {
+        width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-block-end: 0.15rem;
+    }
+    #dolphin_app_toolbar_container > .d-flex:last-child::-webkit-scrollbar { display: none; }
+    #dolphin_app_toolbar_container > .d-flex:last-child .btn {
+        flex: 0 0 auto;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+}
+
+/* Profile header actions (2.40.36): one icon size, centred on the label, in
+   the accent colour on the light buttons — not a small grey glyph sitting low. */
+[data-profile-actions] .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+[data-profile-actions] .btn > i {
+    margin: 0 !important;
+    font-size: 1.15rem !important;
+    line-height: 1;
+}
+[data-profile-actions] .btn.btn-light > i,
+[data-profile-actions] .btn.btn-light > i [class^="path"] { color: var(--bs-primary); }
+
+/* Status colours as text, readable in light mode (2.40.36). The UI kit's
+   success, warning, info and danger are fill colours: as text on white they
+   read at 2.3:1 (green «آنلاین»), 1.9:1 (amber) and 3.6:1 (red) — under the
+   4.5:1 small text needs. As text, a badge's figure or an alert's message they
+   take a deeper shade of the same hue; fills, borders and icons keep the
+   kit's own. Dark mode keeps the kit's colours, which read well on dark. */
+[data-bs-theme=light] {
+    --dolphin-ink-success: color-mix(in srgb, var(--bs-success) 62%, #000);
+    --dolphin-ink-warning: color-mix(in srgb, var(--bs-warning) 50%, #000);
+    --dolphin-ink-info: color-mix(in srgb, var(--bs-info) 72%, #000);
+    --dolphin-ink-danger: color-mix(in srgb, var(--bs-danger) 82%, #000);
+}
+[data-bs-theme=light] .text-success:not(i):not(svg),
+[data-bs-theme=light] .badge-light-success,
+[data-bs-theme=light] .alert-success { color: var(--dolphin-ink-success) !important; }
+[data-bs-theme=light] .text-warning:not(i):not(svg),
+[data-bs-theme=light] .badge-light-warning,
+[data-bs-theme=light] .alert-warning { color: var(--dolphin-ink-warning) !important; }
+[data-bs-theme=light] .text-info:not(i):not(svg),
+[data-bs-theme=light] .badge-light-info,
+[data-bs-theme=light] .alert-info { color: var(--dolphin-ink-info) !important; }
+[data-bs-theme=light] .text-danger:not(i):not(svg),
+[data-bs-theme=light] .badge-light-danger,
+[data-bs-theme=light] .alert-danger { color: var(--dolphin-ink-danger) !important; }
+
+/* A number, a phone or a code in a table (2.40.36): written left to right so
+   «+۹۸۹۱۲…» keeps its plus sign in front, but aligned with its column's
+   right-to-left header, and never broken across lines («INV-» / «۰۰۰۰۰۵»). */
+.table td[dir="ltr"] { white-space: nowrap; }
+.table td[dir="ltr"]:not(.text-center):not(.text-start):not(.text-end) { text-align: right; }
+
+/* The page's own scrollbar keeps its room from the first frame (2.40.36). A
+   page opens shorter than the window, its data arrives, it grows past the
+   bottom and the scrollbar appears — and every element on the page moved
+   sideways by the bar's width at once. Measured: CLS 0.93 on «رویدادهای
+   سامانه», 0.3 on the lists; 0.06 with the room reserved. */
+html { scrollbar-gutter: stable; }
+/* The footer under a loading page would ride down as the content arrives. */
+body:has(.page-stage[data-booting], .dashboard-stage[data-booting]) #dolphin_app_footer { visibility: hidden; }
+
+.page-stage { position: relative; }
+.page-stage[data-booting] { min-height: 18rem; }
+.page-stage[data-booting] > * {
+    visibility: hidden;
+    animation: dashboard-stage-failsafe 0s linear 4s forwards;
+}
+/* A dialog the page opens at once (a deep link) is never held back. */
+.page-stage[data-booting] dialog[open] { visibility: visible; }
+.page-stage[data-booting]::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 16rem;
+    border-radius: 0.95rem;
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 45%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, transparent 0 2.25rem, var(--bs-gray-200) 2.25rem 3.1rem, transparent 3.1rem 3.6rem) 1.75rem 0.5rem / calc(100% - 3.5rem) calc(100% - 2rem) no-repeat,
+        var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-200);
+    animation: dolphin-skeleton-sweep 1.2s ease-in-out infinite, dashboard-loader-failsafe 0s linear 4s forwards;
+}
+[data-bs-theme=dark] .page-stage[data-booting]::before {
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 6%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, transparent 0 2.25rem, var(--bs-gray-200) 2.25rem 3.1rem, transparent 3.1rem 3.6rem) 1.75rem 0.5rem / calc(100% - 3.5rem) calc(100% - 2rem) no-repeat,
+        var(--bs-body-bg);
+}
+.page-stage.is-revealed > * {
+    animation: dashboard-stage-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes dolphin-skeleton-sweep {
+    from { background-position: -60% 0, 1.75rem 0.5rem, 0 0; }
+    to { background-position: 160% 0, 1.75rem 0.5rem, 0 0; }
+}
+
+/* Loading lines as skeleton rows (2.40.36): every «در حال دریافت…» block
+   (`[id$="-loading"]`) keeps its words for a screen reader but draws three
+   shimmering bars, so a part that loads later fills the shape it held. */
+.text-center.text-gray-700[id$="-loading"]:not([hidden]) {
+    position: relative;
+    min-height: 7.5rem;
+    color: transparent !important;
+    user-select: none;
+}
+.text-center.text-gray-700[id$="-loading"]:not([hidden])::before {
+    content: "";
+    position: absolute;
+    inset: 1rem 0;
+    border-radius: 0.5rem;
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 45%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, var(--bs-gray-200) 0 0.85rem, transparent 0.85rem 1.85rem);
+    animation: dolphin-skeleton-sweep 1.2s ease-in-out infinite;
+}
+[data-bs-theme=dark] .text-center.text-gray-700[id$="-loading"]:not([hidden])::before {
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 6%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, var(--bs-gray-200) 0 0.85rem, transparent 0.85rem 1.85rem);
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-stage.is-revealed > * { animation: none; }
+    .page-stage[data-booting]::before { animation: dashboard-loader-failsafe 0s linear 4s forwards; }
+    .text-center.text-gray-700[id$="-loading"]:not([hidden])::before { animation: none; }
+}
+
 /* The dashboard stage (2.40.35): every box appears at once. Until the script
    has placed the boxes, drawn the charts and fitted the heights, the stage is
    invisible — `visibility`, so a chart still measures its real width — and one
@@ -5272,12 +5466,72 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     .table-responsive { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 }
 
+/* …and since 2.40.36 a list table is a list of cards on a phone instead
+   (`ui/stack-tables.js`): each row a card, each cell a «label: value» line,
+   nothing to scroll sideways. A table with fewer than three columns keeps the
+   rule above. */
+@media (max-width: 575.98px) {
+    .table-responsive > .table.dolphin-stack { min-width: 0; }
+    .table.dolphin-stack > thead { display: none; }
+    .table.dolphin-stack,
+    .table.dolphin-stack > tbody { display: block; width: 100%; }
+    .table.dolphin-stack > tbody > tr {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+        margin-block-end: 0.75rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid var(--bs-gray-200) !important;
+        border-radius: 0.85rem;
+        background: var(--bs-body-bg);
+    }
+    .table.dolphin-stack > tbody > tr > td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        min-width: 0;
+        padding: 0.15rem 0 !important;
+        border: 0 !important;
+        text-align: start !important;
+        white-space: normal;
+    }
+    .table.dolphin-stack > tbody > tr > td[dir="ltr"] { direction: ltr; flex-direction: row-reverse; }
+    .table.dolphin-stack > tbody > tr > td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        color: var(--bs-gray-600);
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    /* No header text (a selection box, the actions): the content alone. */
+    .table.dolphin-stack > tbody > tr > td[data-label=""]::before,
+    .table.dolphin-stack > tbody > tr > td[data-stack-full]::before { content: none; }
+    .table.dolphin-stack > tbody > tr > td[data-label=""] { justify-content: flex-end; }
+    .table.dolphin-stack > tbody > tr > td[data-stack-full] { justify-content: center; }
+    /* The first named field is the card's title. */
+    .table.dolphin-stack > tbody > tr > td:not([data-label=""]):first-of-type,
+    .table.dolphin-stack > tbody > tr > td[data-label=""] + td:not([data-label=""]) {
+        font-weight: 700;
+        color: var(--bs-gray-900);
+    }
+    .table.dolphin-stack .form-check-input { width: 1.85rem; height: 1.85rem; }
+}
+
 /* Read-only facts on detail pages (2.40.31). A detail page shows its facts in
    disabled inputs — a grey box per value that reads as a form you cannot
    use. A disabled input with no `name` is never submitted and never
    re-enabled (the editable ones carry a name: order-detail.js re-enables
    `input[name]`), so it is drawn as what it is: a value under its label. */
-input.form-control.form-control-solid[disabled]:not([name]) {
+input.form-control.form-control-solid[disabled]:not([name]),
+/* Since 2.40.36 also an editable field that is locked on a detail page (an
+   issued invoice's type and date, a lead a reader may not edit): it is a value
+   now, not a grey box that looks like it should open. A dialog keeps its own
+   fields as they are. */
+body[data-page$="-detail"] #page-stage :is(input.form-control.form-control-solid, textarea.form-control.form-control-solid):disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled :is(input.form-control.form-control-solid, textarea.form-control.form-control-solid):not(dialog *),
+body[data-page$="-detail"] #page-stage select.form-select.form-select-solid:disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled select.form-select.form-select-solid:not(dialog *) {
     background-color: transparent;
     border-color: transparent;
     border-bottom: 1px dashed var(--bs-gray-300);
@@ -5289,6 +5543,28 @@ input.form-control.form-control-solid[disabled]:not([name]) {
     font-weight: 600;
     opacity: 1;
     cursor: default;
+}
+body[data-page$="-detail"] #page-stage select.form-select.form-select-solid:disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled select.form-select.form-select-solid:not(dialog *) {
+    background-image: none;
+    appearance: none;
+}
+body[data-page$="-detail"] #page-stage textarea.form-control.form-control-solid:disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled textarea.form-control.form-control-solid:not(dialog *) {
+    resize: none;
+    font-weight: 400;
+}
+
+/* A detail page's «ذخیره» row stays in reach (2.40.36): it sticks to the bottom
+   of the window while its form scrolls, instead of waiting below a long form. */
+body[data-page$="-detail"] #page-stage form .d-flex.justify-content-end:has(> .btn-primary[type="submit"]):not(dialog *) {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin-block-end: -0.5rem;
+    padding-block: 0.85rem;
+    background: var(--bs-card-bg, var(--bs-body-bg));
+    border-top: 1px solid var(--bs-gray-200);
 }
 
 /* A dialog's close (×) button (2.40.33, product owner: «دکمه بستن (X) باید یک هالهٔ

@@ -312,9 +312,11 @@ class TemplateRenderingTests(BrandingFixtures):
         self.assertNotContains(page, "تیارا", status_code=200)
         self.assertContains(page, "Dolphin")
 
-    def test_no_style_override_is_rendered_with_no_accent_color_set(self):
+    def test_no_accent_color_set_renders_the_panels_own_light_primary(self):
+        """2.40.36: the panel's readable light-mode blue, and nothing for dark."""
         page = self.client.get("/login/")
-        self.assertNotContains(page, "--bs-primary:", status_code=200)
+        self.assertContains(page, "--bs-primary:#0071E3;", status_code=200)
+        self.assertNotContains(page, "[data-bs-theme=dark]{--bs-primary")
 
     def test_a_saved_accent_color_reaches_the_pre_login_page_as_a_style_override(self):
         branding.update_brand_settings(actor=self.admin, accent_color="#ff0000")
@@ -327,7 +329,8 @@ class TemplateRenderingTests(BrandingFixtures):
         branding.update_brand_settings(actor=self.admin, accent_color="#ff0000")
         with override_active_profile(without_custom_branding()):
             page = self.client.get("/login/")
-        self.assertNotContains(page, "--bs-primary:", status_code=200)
+        self.assertNotContains(page, "--bs-primary:#ff0000;", status_code=200)
+        self.assertContains(page, "--bs-primary:#0071E3;")
 
 
 class OtherSurfacesTests(BrandingFixtures):

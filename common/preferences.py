@@ -34,6 +34,7 @@ from common.models import (
     PANEL_FONT_FAMILY_STACKS,
     PANEL_FONT_SCALE_SIZES,
     PANEL_FONT_SCALES,
+    THEME_PANEL_FONT_FAMILY,
     UserPreference,
 )
 
@@ -147,7 +148,9 @@ def preference_css(preferences):
     family = preferences.get("font_family") or DEFAULT_PANEL_FONT_FAMILY
     scale = preferences.get("font_scale") or DEFAULT_PANEL_FONT_SCALE
     declarations = []
-    if family != DEFAULT_PANEL_FONT_FAMILY:
+    # Against the theme's own face, not the default: since 2.40.36 the default
+    # (Vazirmatn) is itself one the theme does not set.
+    if family != THEME_PANEL_FONT_FAMILY:
         stack = PANEL_FONT_FAMILY_STACKS.get(family)
         if stack:
             # Both the token and the literal, because the theme overrides its
@@ -188,7 +191,7 @@ def needs_font_sheet(preferences):
     reader — only when their face is one the panel ships beyond the theme's
     own default. Everyone else is spared the extra stylesheet."""
     family = preferences.get("font_family") or DEFAULT_PANEL_FONT_FAMILY
-    return family != DEFAULT_PANEL_FONT_FAMILY and family in PANEL_FONT_FAMILIES_BUNDLED
+    return family != THEME_PANEL_FONT_FAMILY and family in PANEL_FONT_FAMILIES_BUNDLED
 
 
 def currency_label(unit):

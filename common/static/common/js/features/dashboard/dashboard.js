@@ -2,7 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDay} from "dolphin/core/jalali.js";
 import {showError} from "dolphin/core/messages.js";
-import {apexBase, chartFontFamily, chartInk, chartPalette, chartRedraws, chartResetButton, chartResetEvents, liveCharts, mountApex, renderDonutChart, showEmptyChart, thinningFormatter} from "dolphin/ui/charts.js";
+import {apexBase, chartFontFamily, compactAmount, chartInk, chartPalette, chartRedraws, chartResetButton, chartResetEvents, liveCharts, mountApex, renderDonutChart, showEmptyChart, thinningFormatter} from "dolphin/ui/charts.js";
 import {setupPerformancePanel} from "dolphin/ui/performance.js";
 import {ALL_BUSINESS_KINDS, onRealtime} from "dolphin/ui/realtime.js";
 import {appendCell, pageRangeLabel} from "dolphin/ui/table.js";
@@ -411,6 +411,11 @@ async function setupDashboardInsights() {
     // به صورت دیفالت مرتب و تمیز باشد»).
     const tidy = ![...tiles.values()].some(boxSpot) && ![...widgets.values()].some((widget) => widget.position);
     if (tidy) grid.dataset.tidy = "1";
+    // An arrangement the reader saved keeps its columns and order, but the
+    // holes between its boxes close upward on every visit (2.40.36, product
+    // owner: «جاهای خالی خودکار بسته شوند») — what «مرتب‌سازی» does in the
+    // editor. While the page is being arranged nothing moves on its own.
+    else grid.dataset.compact = "1";
     const placed = new Set();
     const order = tidy && !(layout.order || []).length
         ? [...tiles.keys(), ...[...widgets.values()].sort((a, b) => WIDGET_BANDS[a.family] - WIDGET_BANDS[b.family]).map((widget) => widget.key)]
@@ -1023,7 +1028,10 @@ export function fitDashboardRows() {
             column.style.setProperty("--dashboard-rows", String(value));
         });
         if (host.dataset.tidy && WIDE_GRID.matches) shelfLayout(host, rows);
-        else resolveOverlaps(host);
+        else {
+            resolveOverlaps(host);
+            if (host.dataset.compact && !document.body.classList.contains("dashboard-editing")) compactUpward(host);
+        }
     });
 }
 
@@ -2247,7 +2255,11 @@ function kpiCard(kpi) {
     trailing.className = "kpi-card-trailing";
     if (kpi.delta) trailing.appendChild(kpiChip(kpi.delta));
     // A line needs at least three points to be a shape; fewer is no line.
-    if (Array.isArray(kpi.spark) && kpi.spark.length >= 3) {
+    // A line only when there is a history to draw (2.40.36): a series that is
+    // zero until its last point drew a cliff from nothing — a jump the figure
+    // and its caption («در ماه گذشته چیزی ثبت نشده بود») already say plainly.
+    const history = Array.isArray(kpi.spark) ? kpi.spark.slice(0, -1) : [];
+    if (Array.isArray(kpi.spark) && kpi.spark.length >= 3 && history.some((value) => Number(value) !== 0)) {
         spark = document.createElement("div");
         spark.className = "kpi-sparkline";
         spark.setAttribute("role", "img");
@@ -2450,7 +2462,7 @@ function renderMixedChart(chart, empty, points, counts, options = {}) {
                 seriesName: seriesNames[0],
                 labels: {
                     style: {fontFamily: chartFontFamily(), fontSize: "12px", colors: amountColor},
-                    formatter: (value) => toPersianDigits(String(Math.round(value))),
+                    formatter: compactAmount,
                 },
             },
             {

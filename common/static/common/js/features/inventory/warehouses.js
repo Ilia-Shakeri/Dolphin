@@ -9,7 +9,7 @@ import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wi
 
 function warehouseRow(warehouse) {
     const row = document.createElement("tr");
-    appendCell(row, warehouse.code);
+    appendCell(row, warehouse.code).dir = "ltr";
     appendCell(row, warehouse.name);
     appendCell(row, warehouse.address);
     appendCell(row, warehouse.is_default ? "بله" : "خیر");

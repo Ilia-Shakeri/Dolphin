@@ -7,7 +7,7 @@ import {appendCell, appendDetailLink} from "dolphin/ui/table.js";
 function activityLogRow(item) {
     const row = document.createElement("tr");
     appendCell(row, item.operation_display || item.operation);
-    appendCell(row, item.object_type);
+    appendCell(row, item.object_type_display || item.object_type);
     appendCell(row, item.object_id);
     appendCell(row, ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot);
     appendCell(row, displayDate(item.created_at));

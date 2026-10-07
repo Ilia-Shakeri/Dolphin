@@ -10,7 +10,7 @@ import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wi
 
 function productRow(product) {
     const row = document.createElement("tr");
-    appendCell(row, product.sku);
+    appendCell(row, product.sku).dir = "ltr";
     appendCell(row, product.name);
     appendCell(row, product.category_name || "بدون دسته‌بندی");
     appendCell(row, product.brand || "—");

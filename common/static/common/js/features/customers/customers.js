@@ -15,7 +15,7 @@ import {renderWizardReview, setupWizard} from "dolphin/ui/wizard.js";
 function customerRow(customer) {
     const row = document.createElement("tr");
     appendCell(row, customer.full_name);
-    appendCell(row, customer.primary_phone?.normalized_phone || customer.primary_phone?.raw_phone || "—");
+    appendCell(row, customer.primary_phone?.normalized_phone || customer.primary_phone?.raw_phone || "—").dir = "ltr";
     appendCell(row, customer.category);
     appendCell(row, customer.postal_code);
     appendCell(row, customer.city);

@@ -16,13 +16,57 @@
    Every family here is under the SIL Open Font License 1.1; each folder
    carries its own OFL.txt, as that license requires.
 
-     vazirmatn/  Vazirmatn 33.0.3 — Saber Rastikerdar     (variable, 100–900)
+     vazirmatn/  Vazirmatn 33.0.3 — Saber Rastikerdar     (variable, 100–900; and its
+                 Farsi-digits build, «Vazirmatn FD», 400–800, the panel default
+                 since 2.40.36: the same face drawing 0–9 as ۰–۹, as the theme's
+                 IRANSans did, so a phone or a document number that reaches the
+                 page in Latin digits still reads in Persian ones)
      sahel/      Sahel 3.4.0      — Saber Rastikerdar
      shabnam/    Shabnam 5.0.0    — Saber Rastikerdar
      samim/      Samim 4.0.5      — Saber Rastikerdar
      estedad/    Estedad 5.3.0    — Amin Abedi            (variable, 100–900)
      parastoo/   Parastoo 2.0.1   — Saber Rastikerdar
 */
+
+@font-face {
+    font-family: "Vazirmatn FD";
+    src: url("vazirmatn/Vazirmatn-FD-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazirmatn FD";
+    src: url("vazirmatn/Vazirmatn-FD-Medium.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazirmatn FD";
+    src: url("vazirmatn/Vazirmatn-FD-SemiBold.woff2") format("woff2");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazirmatn FD";
+    src: url("vazirmatn/Vazirmatn-FD-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Vazirmatn FD";
+    src: url("vazirmatn/Vazirmatn-FD-ExtraBold.woff2") format("woff2");
+    font-weight: 800;
+    font-style: normal;
+    font-display: swap;
+}
 
 @font-face {
     font-family: "Vazirmatn";

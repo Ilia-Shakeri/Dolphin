@@ -165,3 +165,33 @@ export function setupDialogBackdropClose() {
         dialog.close();
     });
 }
+
+const FIRST_FIELD = 'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled]):not([readonly])';
+
+/**
+ * A dialog opens on its first field, not on its close button (2.40.36).
+ *
+ * `showModal()` focuses the first focusable element, which in every dialog of
+ * this panel is the × in its header: the first thing the reader saw was the
+ * close button in its red focus state, and typing went nowhere. The first
+ * visible field takes the focus instead; a dialog with no field (a
+ * confirmation, a list) keeps the browser's choice, and an element marked
+ * `autofocus` keeps its own. Not on a touch screen (see below).
+ */
+export function setupDialogFocus() {
+    // On a touch screen focusing a field opens the keyboard over the dialog
+    // the reader has not looked at yet; there the browser's choice stands.
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    new MutationObserver((mutations) => {
+        mutations.forEach(({target}) => {
+            if (!(target instanceof HTMLDialogElement) || !target.open) return;
+            if (target.querySelector("[autofocus]")) return;
+            requestAnimationFrame(() => {
+                const active = document.activeElement;
+                if (active && active !== target && !active.closest("[data-close-dialog]")) return;
+                const field = Array.from(target.querySelectorAll(FIRST_FIELD)).find((node) => node.offsetParent !== null);
+                field?.focus({preventScroll: true});
+            });
+        });
+    }).observe(document.body, {attributes: true, attributeFilter: ["open"], subtree: true});
+}

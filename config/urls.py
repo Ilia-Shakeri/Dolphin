@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.contrib import admin
+from django.templatetags.static import static
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from common.permissions import IsActiveAuthenticated
 from common.realtime_views import EventStreamView, RealtimeHealthView
@@ -36,6 +38,9 @@ def build_urlpatterns():
         path("api/v1/health/", HealthView.as_view(), name="health"),
         path("api/v1/health/live/", LivenessView.as_view(), name="health-live"),
         path("api/v1/health/ready/", ReadinessView.as_view(), name="health-ready"),
+        # A browser asks for `/favicon.ico` on its own, whatever the page links
+        # (2.40.36): answered with the panel's icon instead of a 404.
+        path("favicon.ico", RedirectView.as_view(url=static("common/brand/favicon.ico"), permanent=True)),
     ]
     # Django Admin is a server-administration plane reserved for the product
     # owner's management path. It is registered only when explicitly enabled, so

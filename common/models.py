@@ -187,9 +187,14 @@ class DashboardSettings(TimeStampedModel):
 #: itself (`common/static/common/fonts/`), so they render the same on every
 #: machine, internet or not. The installed-only faces stay for the readers
 #: who already chose them.
+#:
+#: Vazirmatn is the default since 2.40.36 (product owner: «پنل باید چشم‌نواز
+#: باشد»): it is a variable face with real weights from 100 to 900, where the
+#: theme's IRANSans ships one regular weight and every bold heading and figure
+#: was the browser's synthesized bold.
 PANEL_FONT_FAMILIES = (
-    ("iransans", "ایران‌سنس (پیش‌فرض)", 'IRANSansWeb, Helvetica, sans-serif'),
-    ("vazirmatn", "وزیرمتن", 'Vazirmatn, IRANSansWeb, Helvetica, sans-serif'),
+    ("vazirmatn", "وزیرمتن (پیش‌فرض)", '"Vazirmatn FD", Vazirmatn, IRANSansWeb, Helvetica, sans-serif'),
+    ("iransans", "ایران‌سنس", 'IRANSansWeb, Helvetica, sans-serif'),
     ("estedad", "استعداد", 'Estedad, IRANSansWeb, Helvetica, sans-serif'),
     ("sahel", "ساحل", 'Sahel, IRANSansWeb, Helvetica, sans-serif'),
     ("shabnam", "شبنم", 'Shabnam, IRANSansWeb, Helvetica, sans-serif'),
@@ -206,6 +211,9 @@ PANEL_FONT_FAMILIES = (
 PANEL_FONT_FAMILIES_BUNDLED = frozenset({"iransans", "vazirmatn", "estedad", "sahel", "shabnam", "samim", "parastoo"})
 PANEL_FONT_FAMILY_STACKS = {value: stack for value, _label, stack in PANEL_FONT_FAMILIES}
 DEFAULT_PANEL_FONT_FAMILY = PANEL_FONT_FAMILIES[0][0]
+#: The face the purchased theme's own stylesheet sets; any other one, the
+#: default included, is applied by `common.preferences.preference_css`.
+THEME_PANEL_FONT_FAMILY = "iransans"
 
 #: Panel scale, as `(value, Persian label, root font-size)`. The theme's whole
 #: type ramp (`.fs-1` … `.fs-8`) and most of its spacing are `rem`, so moving

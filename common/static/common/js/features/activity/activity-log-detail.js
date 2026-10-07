@@ -10,7 +10,7 @@ export async function setupActivityLogDetail() {
     try {
         const item = await apiRequest(`/api/v1/activity-logs/${id}/`);
         document.getElementById("activity-operation").value = item.operation_display || item.operation;
-        document.getElementById("activity-object-type").value = item.object_type;
+        document.getElementById("activity-object-type").value = item.object_type_display || item.object_type;
         document.getElementById("activity-object-id").value = item.object_id || "";
         document.getElementById("activity-actor").value = item.actor || "";
         document.getElementById("activity-actor-role").value = ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot;

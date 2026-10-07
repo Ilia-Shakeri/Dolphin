@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from auditlog.labels import operation_label
+from auditlog.labels import object_type_label, operation_label
 from auditlog.models import ActivityLog
 
 
@@ -10,8 +10,14 @@ class ActivityLogSerializer(serializers.ModelSerializer):
     #: against the log keeps the stable `noun.verb` form.
     operation_display = serializers.SerializerMethodField()
 
+    #: The same for the record kind (2.40.36): «سند فروش», not `sales.salesdocument`.
+    object_type_display = serializers.SerializerMethodField()
+
     def get_operation_display(self, instance) -> str:
         return operation_label(instance.operation)
+
+    def get_object_type_display(self, instance) -> str:
+        return object_type_label(instance.object_type)
 
     class Meta:
         model = ActivityLog
@@ -22,6 +28,7 @@ class ActivityLogSerializer(serializers.ModelSerializer):
             "operation",
             "operation_display",
             "object_type",
+            "object_type_display",
             "object_id",
             "object_role_snapshot",
             "safe_changes",

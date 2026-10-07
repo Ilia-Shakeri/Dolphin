@@ -94,7 +94,7 @@ export function setupCampaignDetail() {
     function memberRow(member) {
         const row = document.createElement("tr");
         appendCell(row, member.full_name);
-        appendCell(row, toPersianDigits(member.raw_phone));
+        appendCell(row, toPersianDigits(member.raw_phone)).dir = "ltr";
         const stageCell = document.createElement("td");
         if (member.stage === "converted") {
             stageCell.append(campaignStatusBadge("active", member.stage_display));

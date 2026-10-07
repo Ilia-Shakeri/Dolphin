@@ -368,7 +368,9 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     }
 
     def get_queryset(self):
-        queryset = work_leads_for(self.request.user).select_related("customer", "assigned_to", "assigned_by", "interested_product")
+        queryset = work_leads_for(self.request.user).select_related(
+            "customer", "assigned_to", "assigned_by", "interested_product", "campaign__parent",
+        )
         status_value = self.request.query_params.get("status")
         # An empty value means "every status" — the filter form's own first
         # option — and is not the same as an unknown one. A value outside

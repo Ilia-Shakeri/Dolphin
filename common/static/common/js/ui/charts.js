@@ -601,6 +601,23 @@ function compactAxisLabel(label) {
  * twelve category labels still rendered, each overlapping the label
  * beside it (design review, 2026-09-12).
  */
+/**
+ * An amount axis label a reader takes in at a glance (2.40.36): «۲۵ میلیون»
+ * rather than «25000000». Whole numbers below a thousand stay as they are; one
+ * decimal place only where it says something («۲٫۵ میلیارد»).
+ */
+export function compactAmount(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "";
+    const size = Math.abs(number);
+    const steps = [[1e9, "میلیارد"], [1e6, "میلیون"], [1e3, "هزار"]];
+    const step = steps.find(([unit]) => size >= unit);
+    if (!step) return toPersianDigits(String(Math.round(number)));
+    const scaled = number / step[0];
+    const shown = Math.abs(scaled) >= 10 || Number.isInteger(scaled) ? Math.round(scaled) : Math.round(scaled * 10) / 10;
+    return `${toPersianDigits(String(shown).replace(".", "٫"))} ${step[1]}`;
+}
+
 export function thinningFormatter(labels, maxLabels) {
     const step = Math.max(1, Math.ceil(labels.length / Math.max(1, maxLabels)));
     return (value) => {

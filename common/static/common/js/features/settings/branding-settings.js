@@ -19,7 +19,7 @@ export function setupBrandingSettings() {
     const emptyNote = document.getElementById("branding-logo-empty");
     const removeRow = document.getElementById("branding-remove-logo-row");
     const removeBox = document.getElementById("branding-remove-logo");
-    const DEFAULT_ACCENT_COLOR = "#1b84ff";
+    const DEFAULT_ACCENT_COLOR = "#0071e3";
     const colorField = document.getElementById("branding-accent-color");
     const colorHexField = document.getElementById("branding-accent-color-hex");
     const colorResetButton = document.getElementById("branding-accent-color-reset");
@@ -80,6 +80,7 @@ export function setupBrandingSettings() {
             if (removeBox.checked) payload.set("remove_logo", "true");
             const data = await apiRequest("/api/v1/branding/", {method: "POST", body: payload, raw: true});
             document.getElementById("branding-logo-file").value = "";
+            document.getElementById("branding-logo-file").dispatchEvent(new Event("change"));
             colorField.value = data.accent_color || DEFAULT_ACCENT_COLOR;
             colorHexField.value = data.accent_color || "";
             showLogo(Boolean(data.has_logo));

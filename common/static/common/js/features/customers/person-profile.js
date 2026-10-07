@@ -110,8 +110,8 @@ function setupUserSessions(userId) {
 
 function phoneRow(phone, edit, deactivate) {
     const row = document.createElement("tr");
-    appendCell(row, phone.raw_phone);
-    appendCell(row, phone.normalized_phone);
+    appendCell(row, phone.raw_phone).dir = "ltr";
+    appendCell(row, phone.normalized_phone).dir = "ltr";
     appendCell(row, phone.label);
     appendCell(row, phone.is_primary ? "بله" : "خیر");
     appendStatusCell(row, (phone.is_active));

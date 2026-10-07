@@ -34,7 +34,7 @@ export function leadRow(lead) {
 export function interactionRow(interaction) {
     const row = document.createElement("tr");
     appendCell(row, interaction.customer_name || interaction.customer);
-    appendCell(row, interaction.phone);
+    appendCell(row, interaction.phone).dir = "ltr";
     appendCell(row, directionText(interaction.direction));
     appendCell(row, interaction.outcome);
     appendCell(row, displayDate(interaction.occurred_at));

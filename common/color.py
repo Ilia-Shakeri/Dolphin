@@ -32,6 +32,13 @@ HEX_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 #: never inventing a colour name for "Dolphin blue" that lives nowhere else.
 DEFAULT_ACCENT = "#1B84FF"
 
+#: The panel's own light-mode primary when no deployment colour is set
+#: (2.40.36). The UI kit's `#1B84FF` carries white button text at 3.6:1 and is
+#: 3.5:1 as link text on the page — under the 4.5:1 that small text needs.
+#: `#0071E3` is the same blue a step deeper: 4.7:1 both ways. Dark mode keeps
+#: the kit's own blue, which reads at 4.9:1 on the dark page.
+PANEL_LIGHT_ACCENT = "#0071E3"
+
 
 def is_valid_hex_color(value):
     return bool(HEX_PATTERN.match(str(value or "")))
@@ -124,3 +131,12 @@ def accent_theme_css(hex_color):
         return f"{selector}{{{declarations}}}"
 
     return _block("[data-bs-theme=light]", light_variables) + _block("[data-bs-theme=dark]", dark_variables)
+
+
+def panel_default_accent_css():
+    """The light-mode primary tokens for `PANEL_LIGHT_ACCENT`, for a deployment
+    that set no colour of its own; dark mode is left to the UI kit."""
+    variables = accent_theme_variables(PANEL_LIGHT_ACCENT)
+    variables["bs-primary-light"] = _rgb_to_hex(_mix(_hex_to_rgb(PANEL_LIGHT_ACCENT), (255, 255, 255), 0.88))
+    declarations = "".join(f"--{name}:{value};" for name, value in variables.items())
+    return f"[data-bs-theme=light]{{{declarations}}}"

@@ -23,6 +23,7 @@ export async function setupLeadDetail() {
         document.getElementById("edit-lead-status").value = value.status || "pending";
         document.getElementById("edit-lead-source").value = value.source || "";
         document.getElementById("edit-lead-campaign").value = value.campaign_or_batch || "";
+        document.getElementById("lead-campaign-display").value = value.campaign_display || "—";
         // Follow-up is a date; the time of day was never used for anything.
         document.getElementById("edit-lead-follow-up").value = localDateTimeValue(value.next_follow_up_at);
         document.getElementById("edit-lead-notes").value = value.notes || "";

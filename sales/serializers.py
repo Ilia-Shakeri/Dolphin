@@ -254,7 +254,7 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
+    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -263,14 +263,24 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         source="customer.full_name", read_only=True, default=""
     )
     assigned_to_display = serializers.SerializerMethodField()
+    #: The campaign the lead belongs to, as the panel names it — «کمپین
+    #: (زیرکمپین)» (2.40.36). The legacy free-text `campaign_or_batch` is a
+    #: different, older field.
+    campaign_display = serializers.SerializerMethodField()
     #: Who a new lead goes to (2.40.35): left out or empty, it is shared out
     #: evenly among the campaign's responsibles; a user id is a manual choice.
     assign_to = serializers.IntegerField(write_only=True, required=False, allow_null=True, min_value=1)
 
     class Meta:
         model = Lead
-        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "campaign_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+
+    def get_campaign_display(self, instance) -> str:
+        campaign = instance.campaign
+        if campaign is None:
+            return ""
+        return f"{campaign.parent.name} ({campaign.name})" if campaign.parent_id else campaign.name
 
     def get_assigned_to_display(self, instance) -> str:
         if instance.assigned_to is None:

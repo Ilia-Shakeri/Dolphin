@@ -6,8 +6,10 @@ import {setupChartThemeRedraw, setupNav, setupNavActiveState, setupPageTabs, set
 import {setupChat, setupChatUnreadPoll} from "dolphin/shell/chat.js";
 import {setupChatToasts} from "dolphin/shell/chat-toast.js";
 import {setupDecimalInputs} from "dolphin/core/decimal.js";
-import {setupDialogBackdropClose} from "dolphin/ui/dialogs.js";
+import {setupDialogBackdropClose, setupDialogFocus} from "dolphin/ui/dialogs.js";
+import {setupFileInputs} from "dolphin/ui/file-inputs.js";
 import {setupSegmentedControls} from "dolphin/ui/segmented.js";
+import {setupStackedTables} from "dolphin/ui/stack-tables.js";
 import {setupGlobalSearch} from "dolphin/shell/search.js";
 import {setupGoToAccounting} from "dolphin/shell/accounting-link.js";
 import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
@@ -35,7 +37,10 @@ function boot() {
     setupUserMenu();
     setupSessionsDialog();
     setupDialogBackdropClose();
+    setupDialogFocus();
     setupRequiredLabels();
+    setupFileInputs();
+    setupStackedTables();
     setupLivePage();
 
     // A denied page is served with the error card in place of its content, so
@@ -92,9 +97,25 @@ function boot() {
 
     const page = document.body.dataset.page;
 
-    // A page's own module is fetched only when that page is opened.
+    // A page's own module is fetched only when that page is opened. The page
+    // is shown once its first load is done (or after `REVEAL_DEADLINE_MS`),
+    // all at once rather than piece by piece (2.40.36, `#page-stage`).
     const loadPage = PAGES[page];
-    if (loadPage) loadPage();
+    const loaded = loadPage ? Promise.resolve().then(loadPage).catch(() => {}) : Promise.resolve();
+    Promise.race([loaded, new Promise((resolve) => { setTimeout(resolve, REVEAL_DEADLINE_MS); })]).then(revealPage);
+}
+
+/** How long a page waits for its first load before showing what it has. */
+const REVEAL_DEADLINE_MS = 1800;
+
+function revealPage() {
+    const stage = document.getElementById("page-stage");
+    if (!stage || !stage.hasAttribute("data-booting")) return;
+    // Two frames: the content the module just put in place is laid out first.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        stage.removeAttribute("data-booting");
+        stage.classList.add("is-revealed");
+    }));
 }
 
 boot();

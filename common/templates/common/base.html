@@ -61,10 +61,25 @@
    who kept the theme's default pays for a stylesheet they never use. The
    settings page loads it for everyone, to draw each choice in its own face. {% endcomment %}
     {% if panel_font_sheet %}<link rel="stylesheet" href="{% static 'common/fonts/panel-fonts.css' %}?v={{ dolphin_version }}">{% endif %}
+{% comment %} The default face (Vazirmatn since 2.40.36) is fetched with the page rather than
+   when the first text is laid out, so the text is drawn in it from the start and
+   does not swap faces under the reader. {% endcomment %}
+    {% if panel_font_family == "vazirmatn" %}<link rel="preload" href="{% static 'common/fonts/vazirmatn/Vazirmatn-FD-Regular.woff2' %}" as="font" type="font/woff2" crossorigin><link rel="preload" href="{% static 'common/fonts/vazirmatn/Vazirmatn-FD-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>{% endif %}
 {% comment %} Extension point for a page that needs one more vendor bundle the
    shell does not load for everyone — e.g. the lead follow-up calendar's
    FullCalendar stylesheet. Empty for every other page. {% endcomment %}
     {% block extra_head %}{% endblock %}
+{% comment %} Instant navigation (2.40.36): a panel page is fetched when the pointer rests
+   on its link (`moderate`), so the click finds it already downloaded. Prefetch
+   only — nothing runs until the page is really opened — and never the API, an
+   export or a download. Browsers without speculation rules ignore the block. {% endcomment %}
+    <script type="speculationrules">
+    {"prefetch": [ {"where": {"and": [
+        {"href_matches": "/*"},
+        {"not": {"href_matches": ["/api/*", "/admin/*", "/static/*", "/media/*"] } },
+        {"not": {"selector_matches": "[download], [target=_blank], [data-no-prefetch]"} }
+    ] }, "eagerness": "moderate"} ] }
+    </script>
 {% comment %} The theme is applied before the stylesheets get a chance to paint.
 
    `DolphinThemeMode` sets `data-bs-theme` itself, but it runs on DOMContentLoaded —
@@ -563,6 +578,27 @@
                 </div>
             </div>
 
+{% comment %} The current page's menu entry is lit and its group opened here, before
+   the first paint (2.40.36) — the same rule `setupNavActiveState` (shell/nav.js)
+   applies again once the modules load. Until then the group opened only after
+   the module had run and the whole menu below it slid down on every page. {% endcomment %}
+            <script>
+                (function () {
+                    var sidebar = document.getElementById("app-sidebar");
+                    if (!sidebar) return;
+                    var path = document.body.dataset.navMatch || window.location.pathname;
+                    var best = null, bestLength = -1;
+                    sidebar.querySelectorAll(".menu-link[href]").forEach(function (link) {
+                        var href = new URL(link.getAttribute("href"), window.location.origin).pathname;
+                        var matches = href === "/" ? path === "/" : path.indexOf(href) === 0;
+                        if (matches && href.length > bestLength) { best = link; bestLength = href.length; }
+                    });
+                    if (!best) return;
+                    best.classList.add("active");
+                    var group = best.closest(".menu-item.menu-accordion");
+                    if (group) group.classList.add("here", "show");
+                })();
+            </script>
             <div class="app-main flex-column flex-row-fluid" id="dolphin_app_main">
                 <div class="d-flex flex-column flex-column-fluid">
 {% comment %} The theme's page toolbar: section, title, breadcrumb, and the page's own
@@ -615,7 +651,16 @@
                                     </div>
                                 </div>
                             {% else %}
+{% comment %} صحنهٔ صفحه (2.40.36): تا نخستین بارگذاری خود صفحه تمام نشده، محتوا
+   پنهان (`visibility`، تا نمودارها عرض واقعی را بسنجند) و یک اسکلت جایش است؛ بعد
+   یکجا و نرم ظاهر می‌شود (`revealPage`، main.js). پیش از این هر صفحه اول «در حال
+   دریافت…» را نشان می‌داد و بعد محتوای کامل را جایش می‌گذاشت، و هرچه زیرش بود
+   یک‌باره پایین می‌پرید (CLS تا ۰٫۹). اگر اسکریپت هرگز به آن‌جا نرسد، خود CSS
+   صحنه را نشان می‌دهد. صفحه‌ای که صحنهٔ خودش را دارد (داشبورد) `page_booting`
+   را خالی می‌کند. {% endcomment %}
+                                <div id="page-stage" class="page-stage" {% block page_booting %}data-booting{% endblock %}>
                                 {% block content %}{% endblock %}
+                                </div>
                             {% endif %}
                           </div>
                         </div>
@@ -818,12 +863,12 @@
    and each module would then initialise before the one it depends on had been
    assigned further down the same file. A body-end script still sees
    readyState "loading", so every module registers a real listener instead. {% endcomment %}
-{% comment %} The theme's plugin bundle, loaded for its charts.
-
-   It carries ApexCharts, which is what every chart in the purchased theme is
-   drawn with, and the product owner asked for those charts specifically and
-   accepted the weight: the bundle is 3.6 MB and brings jQuery, select2 and
-   dropzone along with ApexCharts, none of which this panel uses.
+{% comment %} The UI kit's vendor bundle: jQuery, Popper, Bootstrap and ApexCharts —
+   what the theme script and the panel's charts need, and nothing else. Until
+   2.40.36 it was the reference template's whole global bundle (3.6 MB: Select2,
+   Dropzone, Quill, Tempus Dominus, FormValidation, Chart.js and more, none of
+   which this panel used); it is now 0.9 MB. FullCalendar and jKanban are loaded
+   only by the pages that draw them (`extra_scripts`).
 
    Vendor load order — plugins before scripts — because `dolphin-theme.js`
    expects Popper and jQuery to already exist. {% endcomment %}

@@ -9,7 +9,7 @@ import {renderWizardReview, setupWizard} from "dolphin/ui/wizard.js";
 function productCategoryRow(category) {
     const row = document.createElement("tr");
     appendCell(row, category.display_order);
-    appendCell(row, category.code);
+    appendCell(row, category.code).dir = "ltr";
     appendCell(row, category.name);
     appendStatusCell(row, (category.is_active));
     appendDetailLink(row, `/product-categories/${category.id}/`);
