@@ -2556,6 +2556,14 @@ dialog {
    A hairline rule between rows rather than a card around each: a boxed row per
    line reads as four heavy objects stacked, which is the opposite of what was
    asked for. */
+/* The wizard footer (2.40.35, product owner: «دکمهٔ بعدی باید همیشه سمت چپ
+   باشد»): «قبلی» at the inline start (the right), «بعدی» and «ثبت» always at
+   the inline end (the left). On the first step the theme hides «قبلی», and
+   `flex-stack`'s space-between then slid the lone «بعدی» to the right. */
+.flex-stack:has(> [data-dolphin-stepper-action="previous"]) > :last-child {
+    margin-inline-start: auto;
+}
+
 /* The step itself is a column.
 
    The theme lays every `[data-dolphin-stepper-element="content"].current` out as
@@ -4830,6 +4838,40 @@ tr.is-removing > td {
 /* `!important`: the tiles carry Bootstrap's own `h-100`, which is one. */
 [data-dashboard-grid] > .dashboard-widget.is-measuring > .card { height: auto !important; }
 
+/* The dashboard stage (2.40.35): every box appears at once. Until the script
+   has placed the boxes, drawn the charts and fitted the heights, the stage is
+   invisible — `visibility`, so a chart still measures its real width — and one
+   loader stands in for it. Should the script never get there, the stage shows
+   itself after eight seconds anyway. */
+.dashboard-stage { position: relative; }
+.dashboard-stage-loader { display: none; }
+.dashboard-stage[data-booting] { min-height: 18rem; }
+.dashboard-stage[data-booting] > :not(.dashboard-stage-loader) {
+    visibility: hidden;
+    animation: dashboard-stage-failsafe 0s linear 8s forwards;
+}
+.dashboard-stage[data-booting] > .dashboard-stage-loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 7rem;
+    animation: dashboard-loader-failsafe 0s linear 8s forwards;
+}
+@keyframes dashboard-stage-failsafe { to { visibility: visible; } }
+@keyframes dashboard-loader-failsafe { to { visibility: hidden; } }
+.dashboard-stage.is-revealed > :not(.dashboard-stage-loader) {
+    animation: dashboard-stage-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes dashboard-stage-in {
+    from { opacity: 0; transform: translateY(0.5rem); }
+    to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-stage.is-revealed > :not(.dashboard-stage-loader) { animation: none; }
+}
+
 /* Where a dragged box would land. */
 .dashboard-drop-hint {
     margin: var(--dashboard-gutter);
@@ -5007,8 +5049,12 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     height: 36px;
     overflow: hidden;
 }
+/* Centred in the room between the head and the caption (2.40.35, product
+   owner: «اعداد داخل ویجت‌های تک‌عددی باید تقریباً وسط‌چین باشند»). */
 [data-dashboard-grid] .dashboard-widget .kpi-card .dashboard-kpi-value {
-    margin-top: auto;
+    margin-block: auto;
+    align-self: center;
+    text-align: center;
     font-size: clamp(1.4rem, 9cqi, 2rem);
     font-weight: 800;
     line-height: 1.15;

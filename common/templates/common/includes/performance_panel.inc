@@ -1,4 +1,4 @@
-<section class="card mb-5 mb-xl-8" data-performance-panel="{{ panel_prefix }}" data-company-scope="{{ can_view_company_reports|yesno:'true,false' }}" aria-labelledby="{{ panel_prefix }}-performance-title"><div class="card-body">
+<section class="card{% if in_widget %} card-flush h-100{% else %} mb-5 mb-xl-8{% endif %}" data-performance-panel="{{ panel_prefix }}" data-company-scope="{{ can_view_company_reports|yesno:'true,false' }}" aria-labelledby="{{ panel_prefix }}-performance-title"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-4">
         <div>
             <h2 id="{{ panel_prefix }}-performance-title">{% if can_view_company_reports %}عملکرد عملیاتی شرکت{% else %}عملکرد عملیاتی من{% endif %}</h2>

@@ -122,7 +122,7 @@ class HttpProviderRealRequestTests(EchoServerCase):
             result = sms.send_via_configured_provider(to="+989121110000", body="سلام")
         self.assertTrue(result.success)
         self.assertEqual(result.provider_code, "http")
-        self.assertIn("HTTP 200", result.status_detail)
+        self.assertIn("کد 200", result.status_detail)
 
         received = self.server.last_request
         self.assertEqual(received["body"], {"receptor": "+989121110000", "message": "سلام", "sender": "30001234"})
@@ -141,13 +141,13 @@ class HttpProviderRealRequestTests(EchoServerCase):
         with override_settings(SMS_PROVIDER="http", SMS_API_URL=self.url, SMS_API_BODY_TEMPLATE=BODY_TEMPLATE):
             result = sms.send_via_configured_provider(to="+989121110000", body="FAIL_ME please")
         self.assertFalse(result.success)
-        self.assertIn("HTTP 400", result.status_detail)
+        self.assertIn("کد 400", result.status_detail)
 
     def test_a_malformed_json_template_is_a_failed_result_not_a_raise(self):
         with override_settings(SMS_PROVIDER="http", SMS_API_URL=self.url, SMS_API_BODY_TEMPLATE="not json"):
             result = sms.send_via_configured_provider(to="+989121110000", body="hi")
         self.assertFalse(result.success)
-        self.assertIn("misconfigured", result.status_detail)
+        self.assertIn("تنظیمات ناقص", result.status_detail)
 
     def test_malformed_headers_json_is_a_failed_result_not_a_raise(self):
         with override_settings(
@@ -156,7 +156,7 @@ class HttpProviderRealRequestTests(EchoServerCase):
         ):
             result = sms.send_via_configured_provider(to="+989121110000", body="hi")
         self.assertFalse(result.success)
-        self.assertIn("misconfigured", result.status_detail)
+        self.assertIn("تنظیمات ناقص", result.status_detail)
 
     def test_an_unreachable_url_is_a_failed_result_not_a_raise(self):
         with override_settings(
@@ -164,7 +164,7 @@ class HttpProviderRealRequestTests(EchoServerCase):
         ):
             result = sms.send_via_configured_provider(to="+989121110000", body="hi")
         self.assertFalse(result.success)
-        self.assertIn("connection error", result.status_detail)
+        self.assertIn("خطای اتصال", result.status_detail)
 
     def test_the_api_key_never_appears_in_the_stored_status_detail(self):
         with override_settings(
@@ -383,7 +383,7 @@ class SendOutboundSmsAttemptTests(EchoServerCase, TestCase):
         with override_settings(SMS_PROVIDER="http", SMS_API_URL=self.url, SMS_API_BODY_TEMPLATE=BODY_TEMPLATE):
             message = send_outbound_sms(actor=self.manager, body="FAIL_ME on purpose", customer=self.customer)
         self.assertEqual(message.status, OutboundSMS.Status.FAILED)
-        self.assertIn("HTTP 400", message.status_detail)
+        self.assertIn("کد 400", message.status_detail)
         self.assertTrue(ActivityLog.objects.filter(operation="outbound_sms.failed", object_id=str(message.pk)).exists())
 
     def test_a_lead_alone_resolves_its_own_customer(self):

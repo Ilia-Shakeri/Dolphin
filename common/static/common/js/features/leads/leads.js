@@ -51,22 +51,32 @@ export async function setupLeads() {
             .forEach((campaign) => select.append(new Option(
                 campaignLabel(campaign), String(campaign.id),
             )));
-        // Who «خودکار» shares this campaign's leads among (2.40.35): its own
-        // responsibles, or its parent's when it names none.
+        // «مسئول» offers only the chosen campaign's responsibles — its own, or
+        // its parent's when it names none (2.40.35, product owner: «دراپ‌داون
+        // مسئول باید فقط مسئولان آن کمپین را نشان دهد»); `create_lead` refuses
+        // anyone else. The names are the ones this reader may assign to
+        // (`lead_assignee_choices`: everyone who works leads for a manager,
+        // only «خودم» for a marketer).
         const byId = new Map(campaigns.map((campaign) => [String(campaign.id), campaign]));
-        const hint = document.getElementById("create-lead-assignee-hint");
+        const assignee = document.getElementById("create-lead-assignee");
+        let assignable = [];
+        try {
+            assignable = JSON.parse(document.getElementById("create-lead-assignee-choices").textContent);
+        } catch (error) {
+            assignable = [];
+        }
         const showResponsibles = () => {
             const campaign = byId.get(select.value);
-            if (!campaign) { hint.textContent = ""; return; }
-            const parent = campaign.parent ? byId.get(String(campaign.parent)) : null;
-            const names = (campaign.responsibles_display || []).length
-                ? campaign.responsibles_display
-                : (parent?.responsibles_display || []);
-            hint.textContent = names.length
-                ? `مسئولان این کمپین: ${names.join("، ")}`
-                : "این کمپین مسئولی ندارد؛ با «خودکار» سرنخ بدون مسئول ساخته می‌شود.";
+            const parent = campaign?.parent ? byId.get(String(campaign.parent)) : null;
+            const own = campaign?.responsibles || [];
+            const ids = new Set((own.length ? own : (parent?.responsibles || [])).map(String));
+            assignee.replaceChildren(assignee.options[0] || new Option("خودکار — تقسیم برابر بین مسئولان کمپین", ""));
+            assignable.filter(([pk]) => ids.has(String(pk)))
+                .forEach(([pk, name]) => assignee.append(new Option(name, String(pk))));
+            assignee.value = "";
         };
         select.addEventListener("change", showResponsibles);
+        document.getElementById("open-create-lead").addEventListener("click", showResponsibles);
     } catch (error) { showError(error); }
     createForm.addEventListener("submit", (event) => {
         event.preventDefault();

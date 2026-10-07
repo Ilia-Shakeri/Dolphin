@@ -296,7 +296,9 @@ class APITests(LayoutFixtures):
             format="json",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["hidden_widgets"], ["outstanding"])
+        # The effective hidden set: their own choice, plus the opt-in widgets
+        # they have not added (`OPT_IN_WIDGETS`, 2.40.35).
+        self.assertEqual(response.data["hidden_widgets"], ["outstanding", "performance"])
         self.assertEqual(response.data["widget_order"], ["trend", "breakdown"])
         self.assertEqual(response.data["widget_sizes"], {"trend": "full"})
         self.assertTrue(response.data["is_customised"])

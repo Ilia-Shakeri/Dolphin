@@ -15,6 +15,7 @@ from rest_framework.exceptions import (
 from rest_framework.views import exception_handler as drf_exception_handler
 from rest_framework.response import Response
 
+from common.persian_errors import persianise
 from common.request_context import current_request_context
 from common.request_logging import write_server_fault_log
 
@@ -91,10 +92,11 @@ def api_exception_handler(exc, context):
             },
             status=500,
         )
-    if isinstance(response.data, dict):
-        payload = dict(response.data)
+    data = persianise(response.data)
+    if isinstance(data, dict):
+        payload = dict(data)
     else:
-        payload = {"detail": response.data}
+        payload = {"detail": data}
     payload["error"] = {
         "code": _stable_error_code(exc),
         "request_id": current_request_context().request_id,

@@ -286,7 +286,7 @@ class EbazarClient:
             raise EbazarError("پاسخ سرویس پست ساختار انتظاری را ندارد.")
         code = data.get("ResCode")
         if status != 200 or code not in (0, None):
-            raise EbazarError(error_message(code, data.get("ResMsg") or f"HTTP {status}"), code=code)
+            raise EbazarError(error_message(code, data.get("ResMsg") or f"کد پاسخ {status}"), code=code)
         return data.get("Data")
 
     # -- the documented calls -------------------------------------------------

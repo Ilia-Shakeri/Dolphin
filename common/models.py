@@ -323,6 +323,11 @@ class UserDashboardLayout(TimeStampedModel):
     #: missing here is placed automatically; one that has a position stays
     #: exactly there, gaps and all, on a wide screen.
     widget_positions = models.JSONField(default=dict, blank=True)
+    #: The opt-in widgets this reader put on their dashboard (2.40.35) —
+    #: `common.dashboard_layout.OPT_IN_WIDGETS`, which nobody has until they
+    #: add it. A list rather than a flag per widget, so a later opt-in widget
+    #: needs no migration.
+    shown_widgets = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"چیدمان داشبورد {self.user_id}"

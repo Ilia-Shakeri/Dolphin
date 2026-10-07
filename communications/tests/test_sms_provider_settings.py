@@ -209,7 +209,7 @@ class TestConnectionViewTests(TestCase):
         response = self.client.post("/api/v1/sms-provider-settings/test/", {}, format="json")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()["success"])
-        self.assertIn("HTTP 200", response.json()["status_detail"])
+        self.assertIn("کد 200", response.json()["status_detail"])
 
     def test_no_test_url_configured_is_a_reported_failure_not_an_error(self):
         response = self.client.post("/api/v1/sms-provider-settings/test/", {}, format="json")

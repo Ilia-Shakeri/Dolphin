@@ -629,9 +629,10 @@ class DashboardAddWidgetTests(SimpleTestCase):
     def test_adding_one_is_the_same_save_call_the_restore_bar_uses(self):
         """No second write path: both the flat bar and this dialog end at
         the same `save({hidden_widgets: hidden})`, so there is exactly one
-        place that decides what "hidden" means."""
+        place that decides what "hidden" means. Since 2.40.35 the same call
+        also carries the opt-in widgets this reader added."""
         body = function_body("addBackWidget")
-        self.assertIn("save({hidden_widgets: hidden})", body)
+        self.assertIn("save({hidden_widgets: hidden.filter((item) => !optIn.has(item)), shown_widgets: shown})", body)
 
     def test_closing_after_a_real_add_reloads_the_page(self):
         """The grid only ever holds what `apply_layout` already decided to

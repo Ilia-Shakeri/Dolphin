@@ -22,6 +22,8 @@ import itertools
 import logging
 import random
 
+from common.persian_errors import ami_reason
+
 logger = logging.getLogger("dolphin.telephony.ami")
 
 CONNECT_TIMEOUT = 10
@@ -226,7 +228,7 @@ async def run_forever(
         except Exception as error:  # noqa: BLE001 — reconnect on anything
             logger.info("AMI session ended: %s: %s", type(error).__name__, error)
             if on_status:
-                await on_status(False, f"اتصال به AMI برقرار نیست: {type(error).__name__}")
+                await on_status(False, f"اتصال به AMI برقرار نیست: {ami_reason(error)}")
         finally:
             if on_connected:
                 try:

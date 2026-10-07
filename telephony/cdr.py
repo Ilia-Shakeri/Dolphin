@@ -69,7 +69,7 @@ def fetch_rows(config, secrets, since, until, *, limit=BATCH):
             cursorclass=pymysql.cursors.DictCursor,
         )
     except pymysql.MySQLError as error:
-        raise CdrUnavailable(f"اتصال به پایگاه CDR ممکن نشد ({error.args[0] if error.args else 'error'}).") from error
+        raise CdrUnavailable(f"اتصال به پایگاه CDR ممکن نشد (کد خطای پایگاه داده: {error.args[0] if error.args else 'نامشخص'}).") from error
     try:
         with connection.cursor() as cursor:
             cursor.execute(f"SHOW COLUMNS FROM `{table}`")
@@ -84,7 +84,7 @@ def fetch_rows(config, secrets, since, until, *, limit=BATCH):
             )
             return list(cursor.fetchall())
     except pymysql.MySQLError as error:
-        raise CdrUnavailable(f"خواندن CDR ممکن نشد ({error.args[0] if error.args else 'error'}).") from error
+        raise CdrUnavailable(f"خواندن CDR ممکن نشد (کد خطای پایگاه داده: {error.args[0] if error.args else 'نامشخص'}).") from error
     finally:
         connection.close()
 

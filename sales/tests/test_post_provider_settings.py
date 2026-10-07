@@ -122,7 +122,7 @@ class PostProviderConnectivityTests(TestCase):
         )
         result = postal_provider.test_connectivity(row)
         self.assertFalse(result.success)
-        self.assertIn("connection error", result.status_detail)
+        self.assertIn("خطای اتصال", result.status_detail)
 
 
 class PostProviderSettingsApiTests(TestCase):

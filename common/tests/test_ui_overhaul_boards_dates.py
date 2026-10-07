@@ -281,7 +281,9 @@ class JalaliMonthViewTests(SimpleTestCase):
         `openJalaliPicker`'s own header row). Confirmed in-browser: with
         `next` authored first, next renders on the right in both month view
         and week/day view, matching the picker header."""
-        self.assertIn('start: "jalaliNext,jalaliPrev,next,prev today"', SCRIPT)
+        # Swapped back in 2.40.35 (product owner: «در صفحه‌های تقویم باید جای
+        # دکمه‌های قبلی و بعدی عوض شود»): previous on the right, next on the left.
+        self.assertIn('start: "jalaliPrev,jalaliNext,prev,next today"', SCRIPT)
         self.assertEqual(SCRIPT.count(".fc-jalaliPrev-button, .fc-jalaliNext-button"), 1)
 
     def test_cell_numbers_are_month_view_only(self):

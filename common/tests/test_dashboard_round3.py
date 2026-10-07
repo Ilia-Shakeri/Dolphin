@@ -98,8 +98,8 @@ class LayoutStateRenderTests(TestCase):
         state = self.state()
         self.assertEqual(
             set(state),
-            {"order", "hidden", "sizes", "heights", "positions", "locked_hidden", "is_customised",
-             "size_choices", "height_choices", "minimums"},
+            {"order", "hidden", "sizes", "heights", "positions", "locked_hidden", "shown", "opt_in",
+             "is_customised", "size_choices", "height_choices", "minimums"},
         )
         self.assertFalse(state["is_customised"])
 

@@ -25,6 +25,7 @@ from django.db import close_old_connections, transaction
 from django.utils import timezone
 
 from common.deployment.profile import feature_enabled
+from common.persian_errors import ami_reason
 
 logger = logging.getLogger("dolphin.telephony.worker")
 
@@ -166,7 +167,7 @@ async def _originate_loop(integration, executor, live, stop):
                     ok = (response.get("Response") or "").lower() == "success"
                     message = "" if ok else f"مرکز تلفن تماس را نپذیرفت: {response.get('Message') or ''}".strip()
                 except Exception as error:  # noqa: BLE001 — reported on the request
-                    ok, message = False, f"ارسال به مرکز تلفن ناموفق بود: {type(error).__name__}"
+                    ok, message = False, f"ارسال به مرکز تلفن ناموفق بود: {ami_reason(error)}"
                 await loop.run_in_executor(executor, _fresh, _settle_originate, request, ok, message)
         try:
             await asyncio.wait_for(stop.wait(), timeout=ORIGINATE_POLL)

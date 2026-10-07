@@ -59,6 +59,7 @@ from dataclasses import dataclass
 from django.conf import settings
 
 from common.http_probe import run_http_probe
+from common.persian_errors import http_answer
 
 
 class SmsProviderUnavailable(RuntimeError):
@@ -276,9 +277,9 @@ def _parse_json_object(raw_headers, *, field_label):
     try:
         extra = json.loads(raw_headers)
         if not isinstance(extra, dict):
-            raise ValueError(f"{field_label} must be a JSON object")
+            raise ValueError(field_label)
     except ValueError:
-        return None, f"misconfigured: {field_label} is not a valid JSON object"
+        return None, f"تنظیمات ناقص: «{field_label}» یک شیء JSON معتبر نیست."
     return {str(key): str(value) for key, value in extra.items()}, None
 
 
@@ -288,15 +289,15 @@ def _build_send_request(config, *, to, body, sender, msg_id, extra_headers):
     `SmsSendResult` when the template/headers are themselves invalid.
     """
     if not config.send_url:
-        return None, SmsSendResult(provider_code="http", success=False, status_detail="misconfigured: send URL is empty")
+        return None, SmsSendResult(provider_code="http", success=False, status_detail="تنظیمات ناقص: نشانی ارسال خالی است.")
     if not config.body_template.strip():
-        return None, SmsSendResult(provider_code="http", success=False, status_detail="misconfigured: body template is empty")
+        return None, SmsSendResult(provider_code="http", success=False, status_detail="تنظیمات ناقص: الگوی متن درخواست خالی است.")
     try:
         template = json.loads(config.body_template)
     except ValueError:
-        return None, SmsSendResult(provider_code="http", success=False, status_detail="misconfigured: body template is not valid JSON")
+        return None, SmsSendResult(provider_code="http", success=False, status_detail="تنظیمات ناقص: الگوی متن درخواست JSON معتبر نیست.")
 
-    static_headers, error = _parse_json_object(config.headers, field_label="headers")
+    static_headers, error = _parse_json_object(config.headers, field_label="سرآیندها")
     if error is not None:
         return None, SmsSendResult(provider_code="http", success=False, status_detail=error)
 
@@ -319,7 +320,7 @@ def _send_via_http(config, *, to, body, msg_id, provider_code):
         return SmsSendResult(provider_code=provider_code, success=False, status_detail=error_detail)
 
     success = 200 <= status <= 299
-    detail = f"HTTP {status}: {response_text[:_MAX_RESPONSE_DETAIL]}".strip()
+    detail = http_answer(status, response_text[:_MAX_RESPONSE_DETAIL])
     return SmsSendResult(provider_code=provider_code, success=success, status_detail=detail)
 
 
@@ -338,14 +339,14 @@ def _acquire_oauth2_token(config):
     both costs nothing against a gateway that only reads one of them.
     """
     if not config.token_url.strip():
-        return None, "misconfigured: token URL is empty"
+        return None, "تنظیمات ناقص: نشانی دریافت توکن خالی است."
 
     query = {}
     if config.token_username:
         query["username"] = config.token_username
     if config.token_password:
         query["password"] = config.token_password
-    extra_params, error = _parse_json_object(config.token_extra_params, field_label="token extra params")
+    extra_params, error = _parse_json_object(config.token_extra_params, field_label="پارامترهای اضافهٔ توکن")
     if error is not None:
         return None, error
     query.update(extra_params)
@@ -365,14 +366,14 @@ def _acquire_oauth2_token(config):
     if error_detail is not None:
         return None, error_detail
     if not (200 <= status <= 299):
-        return None, f"token request failed: HTTP {status}: {response_text[:_MAX_RESPONSE_DETAIL]}".strip()
+        return None, "دریافت توکن ناموفق بود؛ " + http_answer(status, response_text[:_MAX_RESPONSE_DETAIL])
     try:
         parsed = json.loads(response_text) if response_text else {}
     except ValueError:
-        return None, "token response was not valid JSON"
+        return None, "پاسخ دریافت توکن قابل خواندن نبود."
     token = parsed.get("access_token") if isinstance(parsed, dict) else None
     if not token or not isinstance(token, str):
-        return None, "token response carried no access_token"
+        return None, "پاسخ دریافت توکن، توکن دسترسی (access_token) نداشت."
     return token, None
 
 
@@ -407,7 +408,7 @@ def _send_via_http_with_bearer(config, *, to, body, msg_id, token):
         return SmsSendResult(provider_code="oauth2", success=False, status_detail=error_detail)
 
     success = 200 <= status <= 299
-    detail = f"HTTP {status}: {response_text[:_MAX_RESPONSE_DETAIL]}".strip()
+    detail = http_answer(status, response_text[:_MAX_RESPONSE_DETAIL])
     return SmsSendResult(provider_code="oauth2", success=success, status_detail=detail)
 
 
@@ -431,7 +432,7 @@ def test_connectivity(config):
             return SmsSendResult(provider_code="test", success=False, status_detail=error_detail)
         headers["Authorization"] = f"Bearer {token}"
     else:
-        static_headers, error = _parse_json_object(config.headers, field_label="headers")
+        static_headers, error = _parse_json_object(config.headers, field_label="سرآیندها")
         if error is not None:
             return SmsSendResult(provider_code="test", success=False, status_detail=error)
         headers.update(static_headers)
@@ -441,5 +442,5 @@ def test_connectivity(config):
     if error_detail is not None:
         return SmsSendResult(provider_code="test", success=False, status_detail=error_detail)
     success = 200 <= status <= 299
-    detail = f"HTTP {status}: {response_text[:_MAX_RESPONSE_DETAIL]}".strip()
+    detail = http_answer(status, response_text[:_MAX_RESPONSE_DETAIL])
     return SmsSendResult(provider_code="test", success=success, status_detail=detail)

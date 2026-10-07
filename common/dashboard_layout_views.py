@@ -56,6 +56,7 @@ class DashboardLayoutView(APIView):
             "widget_heights": effective["heights"],
             "widget_positions": effective["positions"],
             "locked_hidden": sorted(effective["deployment_hidden"]),
+            "shown_widgets": sorted(effective["shown"]),
             "is_customised": effective["is_customised"],
             "catalog": [
                 {"key": key, "label": label, "feature": feature}
@@ -104,6 +105,7 @@ class DashboardLayoutView(APIView):
             widget_sizes=data.get("widget_sizes"),
             widget_heights=data.get("widget_heights"),
             widget_positions=data.get("widget_positions"),
+            shown_widgets=data.get("shown_widgets"),
         )
         return self._respond(request)
 

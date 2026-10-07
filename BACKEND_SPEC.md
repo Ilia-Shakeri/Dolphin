@@ -93,7 +93,7 @@ What that authorised, and what it did **not**:
 **Promoted out of Tier C since this tier was written (evidence-checked against current code, 2026-09-21):**
 - **Avatar picker** — a gallery of 52 built-in avatars plus personal upload, opened from a dialog on the profile menu. Shipped and confirmed (`accounts/avatars.py`, `accounts/avatar_views.py`, `/api/v1/avatar-defaults/`, `/api/v1/profile/avatar/default/`).
 - **Global cross-module search** — `common/search.py`, eight sources, feature `global_search`, default-on. Shipped and confirmed.
-- **Personal settings and dashboard personalization** — `common.models.UserPreference` (font/size/currency-unit/color-mode) and `UserDashboardLayout` (per-user drag/resize/hide overlay on the deployment default), `/settings/`, `/api/v1/preferences/`, `/api/v1/dashboard-layout/`. Shipped and confirmed.
+- **Personal settings and dashboard personalization** — `common.models.UserPreference` (font/size/currency-unit/color-mode) and `UserDashboardLayout` (per-user drag/resize/hide overlay on the deployment default), `/settings/`, `/api/v1/preferences/`, `/api/v1/dashboard-layout/`. Shipped and confirmed. Since 2.40.35 some widgets are opt-in (`OPT_IN_WIDGETS`: the operational-performance report, gated on `reports.own`/`reports.company`): hidden until the reader's own `shown_widgets` names them; `hidden_widgets` in the API response is the effective hidden set and so includes them.
 
 `FINAL_WAVE_LOW` (used in older prose/Git history for the Tier-B financial/inventory/file families) meant "required but last in implementation order," not optional. It is superseded by Tier B above; do not reintroduce it as a separate label.
 
@@ -448,7 +448,8 @@ Rules:
   the default (API: `assign_to` absent or null): the lead goes to the responsible of its campaign
   (its parent's when it names none) holding the fewest leads of that campaign, ties broken at
   random; only users who work leads qualify. `assign_to=<user id>` is a manual choice — any such
-  user for a Sales Manager and above, only themselves for a Sales Agent. A campaign with no
+  user for a Sales Manager and above, only themselves for a Sales Agent — and, since 2.40.35, one of
+  the campaign's own responsibles whenever it has any (400 on `assign_to` otherwise). A campaign with no
   responsibles leaves the lead unassigned, as before. Each assignment writes
   `LeadAssignmentHistory`; the campaign row is locked so simultaneous creations stay balanced.
 - **Campaign members can be deleted (2.40.33).** `POST campaign-members/bulk-delete/` and

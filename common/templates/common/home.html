@@ -117,6 +117,14 @@
    below are arranged by one control and saved in one overlay. Each tile's
    own width comes from that overlay (`arrange_capability_tiles`), which is
    why the column classes are a variable rather than a literal. {% endcomment %}
+{% comment %} صحنهٔ داشبورد (2.40.35). مالک محصول: «وقتی وارد داشبورد می‌شویم
+   تمامی ویجت‌ها باید همزمان لود شوند». تا همهٔ باکس‌ها جا نگرفته‌اند، نمودارها
+   کشیده نشده‌اند و ارتفاع‌ها اندازه نشده‌اند، صحنه پنهان (`visibility`، نه
+   `display` — نمودار باید عرض واقعی ظرفش را بسنجد) و یک نشانگر بارگذاری به
+   جایش است؛ بعد همه با هم پدیدار می‌شوند (`revealDashboard`، dashboard.js). اگر
+   اسکریپت هرگز به آن‌جا نرسد، خود CSS پس از چند ثانیه صحنه را نشان می‌دهد. {% endcomment %}
+<div class="dashboard-stage" id="dashboard-stage" data-booting>
+<div class="dashboard-stage-loader" aria-hidden="true"><span class="spinner-border text-primary"></span></div>
 {% comment %} اسکرول این ردیف عمداً همان کلاس قالب (`hover-scroll-overlay-y`)
    است و نه `.dolphin-hover-scroll` تازه: آن کلاس ظرف را به `direction: ltr`
    می‌برد تا نوار اسکرول سمت راست بیفتد، و این ظرف یک ردیف فلکسِ بوت‌استرپ
@@ -224,12 +232,20 @@
                 </p>
             </div></div>
         </div>
+{% comment %} «عملکرد عملیاتی» — گزارش عملکرد به شکل یک ویجت (2.40.35): پیش‌فرض
+   روی داشبورد نیست و از «افزودن ویجت» اضافه و با × برداشته می‌شود
+   (`OPT_IN_WIDGETS`، dashboard_layout.py). همان دو قابلیتی که صفحهٔ گزارش و
+   نقطهٔ انتهایی‌اش می‌خواهند؛ صفحهٔ «عملکرد کاربران» در گزارش‌ها همچنان
+   همین گزارش را کامل دارد. {% endcomment %}
+        {% if 'reports.own' in capabilities or 'reports.company' in capabilities %}
+        <div class="dashboard-widget" data-widget-key="performance" id="dashboard-performance-card" hidden>
+            {% include "common/includes/performance_panel.inc" with panel_prefix="dashboard" in_widget=True %}
+        </div>
+        {% endif %}
     </div>
 </section>
 {% endif %}
-{% if 'reports.own' in capabilities or 'reports.company' in capabilities %}
-    {% include "common/includes/performance_panel.inc" with panel_prefix="dashboard" %}
-{% endif %}
+</div>
 {% if request.user.role == "sales_agent" and request.user.workstream == "sales" %}
 <section class="card mb-6" id="agent-work-queue" aria-labelledby="agent-work-queue-title"><div class="card-body">
     <div class="d-flex flex-wrap flex-stack align-items-center mb-4"><div><h2 id="agent-work-queue-title">صف کار امروز</h2><p class="text-muted">سرنخ‌های تخصیص‌یافته؛ پیگیری زمان‌دار زودتر دیده می‌شود.</p></div><a class="btn btn-light" href="{% url 'common_ui:leads' %}">همه سرنخ‌های من</a></div>

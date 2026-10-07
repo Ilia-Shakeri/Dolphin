@@ -487,14 +487,14 @@ class ApiTests(DashboardFixtures):
         # dialog's preview (`common.dashboard_layout._hidden_available`).
         self.assertEqual(
             set(response.data),
-            {"kpis", "panels", "trend", "breakdown", "gauges", "agent_share", "hidden_available", "layout"},
+            {"kpis", "panels", "trend", "breakdown", "gauges", "agent_share", "performance", "hidden_available", "layout"},
         )
         self.assertEqual(
             set(response.data["layout"]),
             # `heights` joined in 2.18.4, when a box's border became
             # draggable vertically as well as horizontally; `positions` in
             # 2.38.2, when a box could be placed anywhere on the grid.
-            {"order", "hidden", "sizes", "heights", "positions", "locked_hidden", "is_customised"},
+            {"order", "hidden", "sizes", "heights", "positions", "locked_hidden", "shown", "opt_in", "is_customised"},
         )
 
     def test_the_result_may_not_be_cached(self):

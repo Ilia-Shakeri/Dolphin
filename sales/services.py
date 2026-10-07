@@ -535,6 +535,11 @@ def _resolve_new_lead_assignee(actor, campaign, assignee):
     target = User.objects.filter(pk=getattr(assignee, "pk", assignee)).first()
     if not _can_work_leads(target):
         raise BusinessRuleError({"assigned_to": "مسئول باید کاربر فعالِ بخش فروش یا مدیریت باشد."})
+    # A manual choice is one of the campaign's own responsibles when it has any
+    # (2.40.35) — the same list the wizard offers.
+    candidates = campaign_lead_assignees(campaign)
+    if candidates and target.pk not in {user.pk for user in candidates}:
+        raise BusinessRuleError({"assign_to": "مسئول باید یکی از مسئولان همین کمپین باشد."})
     if actor.role not in ELEVATED_OPERATORS and target.pk != actor.pk:
         raise BusinessPermissionDenied("بازاریاب فقط می‌تواند سرنخ را به خودش بدهد یا تقسیم خودکار را انتخاب کند.")
     return target, "manual"

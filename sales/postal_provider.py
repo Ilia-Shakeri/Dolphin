@@ -28,6 +28,7 @@ from django.db import transaction
 from auditlog.services import log_activity
 from common.exceptions import BusinessRuleError
 from common.http_probe import MAX_RESPONSE_DETAIL, run_http_probe
+from common.persian_errors import http_answer
 
 LABEL_MAX_LENGTH = 120
 URL_MAX_LENGTH = 500
@@ -148,5 +149,5 @@ def test_connectivity(row):
     if error_detail is not None:
         return PostProviderTestResult(success=False, status_detail=error_detail)
     success = 200 <= status <= 299
-    detail = f"HTTP {status}: {response_text[:MAX_RESPONSE_DETAIL]}".strip()
+    detail = http_answer(status, response_text[:MAX_RESPONSE_DETAIL])
     return PostProviderTestResult(success=success, status_detail=detail)

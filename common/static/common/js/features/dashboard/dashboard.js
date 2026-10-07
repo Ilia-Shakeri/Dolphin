@@ -64,6 +64,23 @@ async function setupWorkQueue() {
 }
 
 let reloadWorkQueue = null;
+/** The performance widget's first load, when it is on the dashboard. */
+let performanceReady = null;
+/** How long the page waits for every box before showing what it has. */
+const REVEAL_DEADLINE_MS = 6000;
+
+/**
+ * Show every box at once (2.40.35, product owner: «وقتی وارد داشبورد می‌شویم
+ * تمامی ویجت‌ها باید همزمان لود شوند»). The stage (`#dashboard-stage`,
+ * home.html) stays invisible behind one loader until the boxes are placed,
+ * their charts drawn and their heights fitted, then fades in as one.
+ */
+function revealDashboard() {
+    const stage = document.getElementById("dashboard-stage");
+    if (!stage || !stage.hasAttribute("data-booting")) return;
+    stage.removeAttribute("data-booting");
+    stage.classList.add("is-revealed");
+}
 
 export async function setupDashboard() {
     // The editor starts once the insight grid has been placed — it
@@ -73,7 +90,12 @@ export async function setupDashboard() {
     const insights = setupDashboardInsights().then((grid) => {
         if (grid) setupDashboardEditor(grid);
     });
-    await Promise.all([setupWorkQueue(), setupPerformancePanel("dashboard"), insights]);
+    const workQueue = setupWorkQueue();
+    const everything = insights.then(() => performanceReady).catch(() => {});
+    await Promise.race([everything, new Promise((resolve) => { setTimeout(resolve, REVEAL_DEADLINE_MS); })]);
+    fitDashboardRows();
+    revealDashboard();
+    await Promise.all([workQueue, everything]);
     // Live (2.40.34, product owner: «کل پنل، مخصوصاً داشبورد، باید لایو باشد»):
     // a change anywhere the dashboard counts is redrawn in place.
     onRealtime(ALL_BUSINESS_KINDS, refreshDashboard, {delay: 1200});
@@ -222,6 +244,35 @@ async function setupDashboardInsights() {
         });
     });
 
+    // «عملکرد عملیاتی» (2.40.35): the report panel as a widget, on the
+    // dashboard only when the reader added it (`OPT_IN_WIDGETS`). Its markup
+    // is the shared include parked in the store; its figures load once it is
+    // placed, and the reveal waits for that first load.
+    const performanceCard = document.getElementById("dashboard-performance-card");
+    if (data.performance && performanceCard) {
+        performanceCard.hidden = false;
+        widgets.set("performance", {
+            key: "performance",
+            label: data.performance.title,
+            family: "performance",
+            data: data.performance,
+            column: performanceCard,
+            size: data.performance.size,
+            height: data.performance.height,
+            height_chosen: data.performance.height_chosen,
+            position: data.performance.position,
+            mount: () => {
+                performanceReady = setupPerformancePanel("dashboard");
+                // Its details table opens and closes inside the box; the box
+                // follows its content's height.
+                if (typeof ResizeObserver === "function") {
+                    const content = performanceCard.querySelector(".card-body");
+                    if (content) new ResizeObserver(scheduleFitRows).observe(content);
+                }
+            },
+        });
+    }
+
     if (data.trend) {
         const card = document.getElementById("dashboard-trend-card");
         document.getElementById("dashboard-trend-title").textContent = data.trend.title;
@@ -353,8 +404,18 @@ async function setupDashboardInsights() {
     const tiles = new Map(
         tilesHost ? [...tilesHost.querySelectorAll(":scope > [data-widget-key]")].map((column) => [column.dataset.widgetKey, column]) : [],
     );
+    tiles.forEach((column) => { column.dataset.band = String(WIDGET_BANDS.tile); });
+    // Nobody placed anything yet — the default dashboard: laid out in tidy
+    // shelves (`shelfLayout`), every family in its own band, rather than
+    // left to the browser's packing (2.40.35, product owner: «داشبورد باید
+    // به صورت دیفالت مرتب و تمیز باشد»).
+    const tidy = ![...tiles.values()].some(boxSpot) && ![...widgets.values()].some((widget) => widget.position);
+    if (tidy) grid.dataset.tidy = "1";
     const placed = new Set();
-    (layout.order || []).forEach((key) => {
+    const order = tidy && !(layout.order || []).length
+        ? [...tiles.keys(), ...[...widgets.values()].sort((a, b) => WIDGET_BANDS[a.family] - WIDGET_BANDS[b.family]).map((widget) => widget.key)]
+        : (layout.order || []);
+    order.forEach((key) => {
         if (placed.has(key)) return;
         if (tiles.has(key)) {
             placed.add(key);
@@ -379,7 +440,7 @@ async function setupDashboardInsights() {
     if (tilesHost && tiles.size) {
         tilesHost.removeAttribute("data-dashboard-grid");
         tilesHost.hidden = true;
-        liftLegacyPositions(grid, tiles);
+        if (!tidy) liftLegacyPositions(grid, tiles);
     }
 
     // Mounted after every column is in the DOM, same rule as every other
@@ -543,7 +604,7 @@ function liftLegacyPositions(grid, tiles) {
 function fitWidgetChart(column) {
     const card = column.querySelector(":scope > .card");
     const host = card && card.querySelector("[id$='-chart'], .dashboard-gauge-canvas");
-    if (!host || column.dataset.chartFit) return;
+    if (!host || column.dataset.chartFit || column.dataset.widgetKey === "performance") return;
     column.dataset.chartFit = "1";
     let base = null;
     let frame = 0;
@@ -750,6 +811,64 @@ function calendarGrid(panel) {
  */
 const WIDE_GRID = window.matchMedia("(min-width: 1200px)");
 const GRID_COLUMNS = 12;
+/** The most rows a box is fitted to (`ROW_STEPS`' last step, dashboard_layout.py). */
+const MAX_FIT_ROWS = 400;
+/** The default dashboard's bands, top to bottom: what a reader scans first. */
+const WIDGET_BANDS = {tile: 0, kpi: 1, gauge: 2, trend: 3, breakdown: 3, panel: 4, agent_share: 5, performance: 6};
+/** The widths the server knows (`WIDGET_SIZES`), in columns. */
+const SPAN_STEPS = [3, 4, 6, 8, 9, 12];
+const SIZE_FOR_SPAN = {3: "quarter", 4: "third", 6: "half", 8: "two_thirds", 9: "three_quarters", 12: "full"};
+
+function setBoxSpan(column, span) {
+    column.className = column.className.replace(/dashboard-span-\d+/, `dashboard-span-${span}`);
+}
+
+/**
+ * The default dashboard (2.40.35): boxes in shelves. Each shelf is one row of
+ * boxes from one band, as many as fit across; a shelf that does not fill the
+ * row shares the room out (equal boxes split it evenly, otherwise the last box
+ * takes the rest), and every box on a shelf is as tall as the tallest — no
+ * ragged bottoms, no holes. Run on every fit until the reader arranges the
+ * page themselves; their first save keeps exactly this as their own.
+ */
+function shelfLayout(host, rows) {
+    let shelf = [];
+    let used = 0;
+    let band = null;
+    let y = 1;
+    const close = () => {
+        if (!shelf.length) return;
+        const room = GRID_COLUMNS - used;
+        if (room > 0) {
+            const spans = shelf.map(boxSpan);
+            if (spans.every((span) => span === spans[0]) && GRID_COLUMNS % shelf.length === 0) {
+                shelf.forEach((column) => setBoxSpan(column, GRID_COLUMNS / shelf.length));
+            } else {
+                const last = shelf[shelf.length - 1];
+                if (SPAN_STEPS.includes(boxSpan(last) + room)) setBoxSpan(last, boxSpan(last) + room);
+            }
+        }
+        const height = Math.max(...shelf.map((column) => rows.get(column)));
+        let x = 1;
+        shelf.forEach((column) => {
+            setBoxSpot(column, x, y);
+            column.style.setProperty("--dashboard-rows", String(height));
+            x += boxSpan(column);
+        });
+        y += height;
+        shelf = [];
+        used = 0;
+    };
+    placedBoxes(host).forEach((column) => {
+        const own = Number(column.dataset.band ?? 9);
+        const span = Math.min(boxSpan(column), GRID_COLUMNS);
+        if (shelf.length && (own !== band || used + span > GRID_COLUMNS)) close();
+        band = own;
+        shelf.push(column);
+        used += span;
+    });
+    close();
+}
 
 function boxSpan(column) {
     const match = /dashboard-span-(\d+)/.exec(column.className);
@@ -895,12 +1014,16 @@ export function fitDashboardRows() {
             return Math.ceil((card.getBoundingClientRect().height + margin) / row);
         });
         boxes.forEach((column) => column.classList.remove("is-measuring"));
+        const rows = new Map();
         boxes.forEach((column, index) => {
             const chosen = column.dataset.heightChosen === "1" ? boxRows(column) : 0;
             const floor = Number(column.dataset.minRows) || 6;
-            column.style.setProperty("--dashboard-rows", String(Math.min(120, Math.max(floor, needs[index], chosen))));
+            const value = Math.min(MAX_FIT_ROWS, Math.max(floor, needs[index], chosen));
+            rows.set(column, value);
+            column.style.setProperty("--dashboard-rows", String(value));
         });
-        resolveOverlaps(host);
+        if (host.dataset.tidy && WIDE_GRID.matches) shelfLayout(host, rows);
+        else resolveOverlaps(host);
     });
 }
 
@@ -926,6 +1049,7 @@ function placeDashboardWidget(grid, widget) {
     // widget's own default, resolved by the server (`height_for`).
     if (widget.height) column.style.setProperty("--dashboard-rows", String(widget.height));
     column.dataset.heightChosen = widget.height_chosen ? "1" : "";
+    column.dataset.band = String(WIDGET_BANDS[widget.family] ?? 9);
     const minimum = (dashboardLayoutState()?.minimums || {})[widget.key];
     if (minimum) column.dataset.minRows = String(minimum[1]);
     // The box's accent colour (its top edge and icon tile) is the one its icon wears.
@@ -970,6 +1094,16 @@ function renderWidgetPreview(host, entry) {
             ? toPersianDigits(String(data.value ?? 0))
             : (data.display || "—");
         host.append(symbol, figure);
+        return;
+    }
+    if (entry.family === "performance") {
+        const icon = document.createElement("i");
+        icon.className = "di-duotone di-chart-simple fs-2tx text-primary";
+        for (let index = 1; index <= 4; index += 1) icon.appendChild(document.createElement("span")).className = `path${index}`;
+        const text = document.createElement("span");
+        text.className = "text-gray-700 fs-8";
+        text.textContent = data.summary || "";
+        host.append(icon, text);
         return;
     }
     if (entry.family === "panel") {
@@ -1066,6 +1200,13 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
     // this deployment's default hides never reached the payload, so it
     // is not in `widgets` and cannot be listed here either.
     let hidden = (layout.hidden || []).filter((key) => !(layout.locked_hidden || []).includes(key));
+    // Opt-in widgets (2.40.35, `OPT_IN_WIDGETS`) are on the page only while
+    // they are in this list; adding or removing one edits it.
+    const optIn = new Set(layout.opt_in || pageState.opt_in || []);
+    let shown = [...(layout.shown || pageState.shown || [])];
+    // The default page arranges itself (`shelfLayout`) until the reader
+    // arranges it; while editing it holds still.
+    const tidyHosts = grids.filter((host) => host.dataset.tidy);
     let dragged = null;
 
     /** Every box on the page, both grids, in the order they are drawn. */
@@ -1111,6 +1252,11 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         try {
             const saved = await apiRequest("/api/v1/dashboard-layout/", {method: "POST", body});
             draft = null;
+            // Only shown or hidden boxes, nothing placed: the page is still the
+            // default and goes on arranging itself; once a place is saved, the
+            // reader's arrangement is what stands.
+            if (body.widget_positions) tidyHosts.length = 0;
+            else tidyHosts.forEach((host) => { host.dataset.tidy = "1"; });
             if (saved && Array.isArray(saved.sizes) && saved.sizes.length) sizeChoices = saved.sizes;
             if (reset) reset.hidden = !editing || !saved || !saved.is_customised;
             return true;
@@ -1200,7 +1346,8 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         const column = boxColumn(key);
         if (column) column.hidden = true;
         refreshAddWidgetGrid();
-        return save({hidden_widgets: hidden});
+        if (optIn.has(key)) shown = shown.filter((item) => item !== key);
+        return save({hidden_widgets: hidden.filter((item) => !optIn.has(item)), shown_widgets: shown});
     }
 
     function addBackWidget(key) {
@@ -1213,7 +1360,8 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (column) column.hidden = false;
         else addWidgetAdded = true;
         refreshAddWidgetGrid();
-        return save({hidden_widgets: hidden});
+        if (optIn.has(key) && !shown.includes(key)) shown = [...shown, key];
+        return save({hidden_widgets: hidden.filter((item) => !optIn.has(item)), shown_widgets: shown});
     }
 
     function buildAddWidgetGrid() {
@@ -1366,14 +1514,19 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (!WIDE_GRID.matches) return body;
         const positions = {};
         const keptHeights = {...heights};
+        const keptSizes = {...sizes};
         grids.forEach((host) => placedBoxes(host).forEach((column) => {
             const key = column.dataset.widgetKey;
             const spot = boxSpot(column);
             if (spot) positions[key] = [spot.x, spot.y];
             keptHeights[key] = `r${boxRows(column)}`;
             column.dataset.heightChosen = "1";
+            // The width it is drawn at — on the default page the shelves may
+            // have widened it, and a saved place needs its saved width.
+            if (SIZE_FOR_SPAN[boxSpan(column)]) keptSizes[key] = SIZE_FOR_SPAN[boxSpan(column)];
         }));
         heights = keptHeights;
+        sizes = keptSizes;
         return {widget_sizes: sizes, widget_heights: heights, widget_positions: positions};
     }
 
@@ -1967,6 +2120,7 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
         if (compactButton) compactButton.hidden = !editing || !WIDE_GRID.matches;
         if (reset) reset.hidden = !editing || !layout.is_customised;
         if (addWidgetOpen) addWidgetOpen.hidden = !editing;
+        if (editing) tidyHosts.forEach((host) => { delete host.dataset.tidy; });
         if (editing) enterEditing(); else leaveEditing();
         // Edit controls change nothing a box needs, but leaving edit mode is a
         // good moment to make sure every box is exactly as tall as it should be.
@@ -1978,6 +2132,8 @@ function setupDashboardEditor({grid, widgets, layout, hiddenAvailable}) {
     function discard() {
         // Cleared first, so the leave-page guard below does not ask about it.
         if (draft) { draft = null; window.location.reload(); return; }
+        // Nothing was changed: the default page goes back to arranging itself.
+        tidyHosts.forEach((host) => { host.dataset.tidy = "1"; });
         setEditing(false);
     }
 

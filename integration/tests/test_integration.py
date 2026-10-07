@@ -290,7 +290,7 @@ class DispatchOutboundEventsCommandTests(TestCase):
         event.refresh_from_db()
         self.assertIsNone(event.dispatched_at)
         self.assertEqual(event.attempts, 1)
-        self.assertIn("connection error", event.last_error)
+        self.assertIn("خطای اتصال", event.last_error)
 
     def test_no_pairing_configured_is_a_silent_no_op(self):
         PairingSettings.objects.all().delete()

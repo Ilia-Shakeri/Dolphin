@@ -8,6 +8,7 @@ PBX's time zone.
 
 import asyncio
 
+from common.persian_errors import ami_reason
 from integrations.providers import ConfigField, ConnectionResult, Provider, register
 
 #: Connection kinds that carry calls.
@@ -91,7 +92,7 @@ class AsteriskProvider(Provider):
         try:
             banner = asyncio.run(asyncio.wait_for(probe(), 20))
         except Exception as error:  # noqa: BLE001 — the reason is the answer
-            return ConnectionResult(False, f"AMI پاسخ نداد یا ورود رد شد: {type(error).__name__}: {error}"[:300])
+            return ConnectionResult(False, f"AMI پاسخ نداد یا ورود رد شد: {ami_reason(error)}"[:300])
         message = f"AMI متصل است ({banner})."
         from telephony.cdr import CdrUnavailable, configured, fetch_rows
 

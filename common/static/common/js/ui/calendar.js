@@ -176,11 +176,14 @@ export function jalaliCalendarButtons(getCalendar) {
         if (calendar) calendar.gotoDate(shiftJalaliMonth(calendar.getDate(), delta));
     };
     return {
-        // Left goes back and right goes forward, matching the date
-        // picker's own header (`openJalaliPicker`) so the two controls
-        // in this panel that step through months agree with each other.
-        jalaliPrev: {text: "‹", hint: "ماه قبل", click: () => step(-1)},
-        jalaliNext: {text: "›", hint: "ماه بعد", click: () => step(1)},
+        // Right goes back and left goes forward, the way a Persian page
+        // turns (2.40.35, product owner: «در صفحه‌های تقویم باید جای دکمه‌های
+        // قبلی و بعدی عوض شود»); each arrow points out at its own edge. The
+        // vendor's own chevron icons, as on its week/day prev/next beside
+        // them — not ‹ and ›, which are mirrored glyphs in a right-to-left
+        // toolbar and drew pointing inward.
+        jalaliPrev: {icon: "chevron-right", hint: "ماه قبل", click: () => step(-1)},
+        jalaliNext: {icon: "chevron-left", hint: "ماه بعد", click: () => step(1)},
     };
 }
 
@@ -397,8 +400,11 @@ export function createJalaliCalendar({container, loading, errorNode, fetchEvents
         views: {jalaliMonth: {...JALALI_MONTH_VIEW, buttonText: "ماه"}},
         customButtons: jalaliCalendarButtons(() => calendar),
         // Two prev/next pairs, swapped by `datesSet`: the custom one steps a
-        // whole Jalali month, FullCalendar's own a fixed week or day.
-        headerToolbar: {start: "jalaliNext,jalaliPrev,next,prev today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+        // whole Jalali month, FullCalendar's own a fixed week or day. In this
+        // right-to-left toolbar the first-named sits rightmost: «قبلی» on the
+        // right, «بعدی» on the left (2.40.35); FullCalendar mirrors its own
+        // chevrons for `direction: "rtl"`.
+        headerToolbar: {start: "jalaliPrev,jalaliNext,prev,next today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
         buttonText: {today: "امروز", week: "هفته", day: "روز"},
         dayHeaderContent: (arg) => {
             const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];

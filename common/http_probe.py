@@ -18,6 +18,8 @@ reason.
 import urllib.error
 import urllib.request
 
+from common.persian_errors import network_reason
+
 #: How much of a response body is worth keeping — enough to recognise an
 #: error message, not enough to store or log anything resembling the
 #: response's own payload wholesale.
@@ -44,4 +46,4 @@ def run_http_probe(request, *, timeout):
         text = error.read(MAX_RESPONSE_DETAIL).decode("utf-8", errors="replace") if error.fp else ""
         return error.code, text, None
     except (urllib.error.URLError, OSError, ValueError) as error:
-        return None, "", f"connection error: {error.__class__.__name__}"
+        return None, "", f"خطای اتصال: {network_reason(error)}"

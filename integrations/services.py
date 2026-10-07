@@ -20,6 +20,7 @@ from auditlog.services import log_activity
 from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessPermissionDenied, BusinessRuleError
 from common.integrations import mask_secret
+from common.persian_errors import network_reason
 from integrations.crypto import SecretsUnavailable, decrypt_json, encrypt_json
 from integrations.events import EVENT_TYPES
 from integrations.models import ApiToken, Integration, IntegrationLog, WebhookSubscription
@@ -182,7 +183,7 @@ def test_integration(*, actor, integration):
     except Exception as error:  # noqa: BLE001 — a provider's own failure is the answer
         from integrations.providers import ConnectionResult
 
-        result = ConnectionResult(False, f"{type(error).__name__}: {error}")
+        result = ConnectionResult(False, f"آزمون اتصال ناموفق بود: {network_reason(error)}")
     record_health(integration, result.ok, result.message)
     log(
         integration,

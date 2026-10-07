@@ -66,7 +66,10 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
 class UserDashboardLayoutSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserDashboardLayout
-        fields = ("hidden_widgets", "widget_order", "widget_sizes", "widget_heights", "widget_positions", "updated_at")
+        fields = (
+            "hidden_widgets", "widget_order", "widget_sizes", "widget_heights", "widget_positions", "shown_widgets",
+            "updated_at",
+        )
         read_only_fields = fields
 
 
@@ -80,6 +83,8 @@ class UserDashboardLayoutUpdateSerializer(RejectServerFieldsMixin, serializers.S
     """
 
     hidden_widgets = serializers.ListField(child=serializers.CharField(), required=False)
+    #: The opt-in widgets this reader added (2.40.35, `OPT_IN_WIDGETS`).
+    shown_widgets = serializers.ListField(child=serializers.CharField(), required=False)
     widget_order = serializers.ListField(child=serializers.CharField(), required=False)
     widget_sizes = serializers.DictField(child=serializers.CharField(), required=False)
     #: `None` for a key means "back to its content height" (2.18.4).

@@ -29,6 +29,7 @@ from decimal import Decimal
 from django.db.models import Count, Sum
 from django.utils import timezone
 
+from accounts.access import has_any_capability
 from accounts.models import User
 from aftersales.selectors import after_sales_requests_for
 from billing.selectors import invoices_for
@@ -602,7 +603,19 @@ def dashboard_for(user, *, now=None):
     # on top, applied last — after every KPI/trend/breakdown/gauge/share
     # above has already been scoped to what this specific reader may see.
     # See `common.dashboard_layout`.
+    # The operational-performance report as a widget (2.40.35) — the same two
+    # capabilities its page and its endpoint require; its figures are fetched
+    # by the widget itself from `/api/v1/reports/user-performance/`.
+    performance = None
+    if has_any_capability(user, "reports.own", "reports.company"):
+        company = has_any_capability(user, "reports.company")
+        performance = {
+            "title": "عملکرد عملیاتی شرکت" if company else "عملکرد عملیاتی من",
+            "summary": "مشتری‌های ثبت‌شده و فروش‌های تأییدشده در بازهٔ انتخابی.",
+            "url": "/reports/user-performance/",
+        }
+
     return apply_layout({
         "kpis": kpis, "trend": trend, "breakdown": breakdown, "gauges": gauges, "agent_share": agent_share,
-        "panels": panels_for(user, now=now),
+        "panels": panels_for(user, now=now), "performance": performance,
     }, user)

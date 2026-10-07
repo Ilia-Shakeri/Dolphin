@@ -27,13 +27,22 @@ import {appendActionLinks, appendCell, appendDetailLink, appendMoneyCell, append
  * than disabled for anyone else. Ending sessions signs the person out; it
  * does not disable the account, which is the separate control above.
  */
-async function setupUserSessions(userId) {
+/**
+ * «نشست‌های فعال» and «تغییر گذرواژه» (2.40.35): two dialogs opened from the
+ * profile's «بیشتر» menu, over whichever tab is showing. The sessions are read
+ * when the dialog opens, not with the page.
+ */
+function setupUserSessions(userId) {
+    const sessionsDialog = document.getElementById("user-sessions-dialog");
+    const passwordDialog = document.getElementById("set-password-dialog");
+    [sessionsDialog, passwordDialog].forEach((dialog) => {
+        dialog?.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+    });
     const wrap = document.getElementById("user-sessions-table-wrap");
     const body = document.getElementById("user-sessions-table-body");
     const loading = document.getElementById("user-sessions-loading");
     const empty = document.getElementById("user-sessions-empty");
     const revoke = document.getElementById("revoke-user-sessions");
-    if (!wrap || !body || !loading || !empty || !revoke) return;
 
     async function load() {
         loading.hidden = false;
@@ -60,18 +69,30 @@ async function setupUserSessions(userId) {
     }
 
     // Setting this account's password (2.40.32): the server ends its
-    // sessions, so the list is read again afterwards.
+    // sessions.
     const passwordForm = document.getElementById("set-password-form");
     passwordForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         withSubmit(passwordForm, async () => {
             await apiRequest(passwordForm.action, {method: "POST", body: formPayload(passwordForm, ["password", "password_confirm"])});
             passwordForm.reset();
+            passwordDialog?.close();
             globalMessage("گذرواژه تغییر کرد و نشست‌های این حساب پایان یافت.", true);
-            await load();
         });
     });
 
+    document.addEventListener("click", (event) => {
+        if (event.target.closest('[data-profile-action="set-password"]') && passwordDialog) {
+            passwordForm?.reset();
+            clearMessages(passwordForm);
+            passwordDialog.showModal();
+        } else if (event.target.closest('[data-profile-action="sessions"]') && sessionsDialog) {
+            sessionsDialog.showModal();
+            load();
+        }
+    });
+
+    if (!wrap || !body || !loading || !empty || !revoke) return;
     revoke.addEventListener("click", async () => {
         if (!await confirmDialog("همه نشست‌های فعال این کاربر پایان یابد؟")) return;
         revoke.disabled = true;
@@ -85,8 +106,6 @@ async function setupUserSessions(userId) {
             showError(error);
         }
     });
-
-    await load();
 }
 
 function phoneRow(phone, edit, deactivate) {
@@ -841,8 +860,6 @@ async function setupUserAccessTab(userId) {
             showError(error);
         }
     });
-
-    await setupUserSessions(userId);
 }
 
 /**
@@ -1476,6 +1493,7 @@ export function setupPersonProfile() {
         ? customerProfileLoaders(personId)
         : userProfileLoaders(personId);
     setupProfileTabs(loaders);
+    if (personType !== "customer") setupUserSessions(personId);
     setupProfileCards(personType, personId);
     setupTaskDialog(personType, personId);
     const scoreDialog = document.getElementById("profile-score-dialog");

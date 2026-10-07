@@ -400,7 +400,14 @@ class UserAdapter(PersonAdapter):
                 "permissions", "مجوزها", "di-key", action="permissions", in_menu=True,
                 data={"user-id": str(person.pk), "user-name": self.display_name(person)},
             ))
-            actions.append(QuickAction("sessions", "نشست‌های فعال", "di-lock", tab="access", in_menu=True, icon_paths=3))
+            # Both open a dialog over whichever tab is showing (2.40.35); the
+            # password only for the Platform Admin, the gate `set_user_password`
+            # enforces.
+            if viewer.role == User.Role.PLATFORM_ADMIN:
+                actions.append(QuickAction("password", "تغییر گذرواژه", "di-key", action="set-password", in_menu=True))
+            actions.append(QuickAction(
+                "sessions", "نشست‌های فعال", "di-lock", action="sessions", in_menu=True, icon_paths=3,
+            ))
         if manages:
             actions.append(QuickAction(
                 "back", "بازگشت به فهرست کاربران", "di-arrow-right", in_menu=True,

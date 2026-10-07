@@ -30,6 +30,7 @@ from django.utils import timezone
 from integration.models import OutboundEvent
 from integration.services import get_pairing_settings
 from common.deployment.profile import paired_accounting_base_url
+from common.persian_errors import http_answer, network_reason
 
 MAX_RESPONSE_DETAIL = 200
 REQUEST_TIMEOUT_SECONDS = 10
@@ -51,12 +52,12 @@ def _dispatch_one(event, *, base_url, secret):
     )
     try:
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
-            return True, f"HTTP {response.status}"
+            return True, http_answer(response.status)
     except urllib.error.HTTPError as error:
         detail = error.read(MAX_RESPONSE_DETAIL).decode("utf-8", errors="replace") if error.fp else ""
-        return False, f"HTTP {error.code}: {detail}"
+        return False, http_answer(error.code, detail)
     except (urllib.error.URLError, OSError, ValueError) as error:
-        return False, f"connection error: {error.__class__.__name__}"
+        return False, f"خطای اتصال: {network_reason(error)}"
 
 
 class Command(BaseCommand):

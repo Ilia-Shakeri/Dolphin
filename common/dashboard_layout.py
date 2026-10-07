@@ -59,7 +59,14 @@ WIDGET_CATALOG = [
     ("panel_agenda", "برنامهٔ امروز", "یادآورها"),
     ("panel_calendar", "تقویم ماه", "وظایف"),
     ("panel_calls", "تماس‌های اخیر", "تلفن"),
+    ("performance", "عملکرد عملیاتی", "گزارش‌ها"),
 ]
+
+#: Widgets nobody has until they add them from «افزودن ویجت» (2.40.35, product
+#: owner: «عملکرد عملیاتی شرکت مثل یک ویجت در داشبورد باشد و قابلیت حذف شدن
+#: داشته باشد و به صورت دیفالت وجود نداشته باشد»). Hidden unless the reader's
+#: own `shown_widgets` names them; removing one takes it out of that list again.
+OPT_IN_WIDGETS = frozenset({"performance"})
 
 WIDGET_KEYS = frozenset(key for key, _label, _feature in WIDGET_CATALOG)
 
@@ -148,8 +155,9 @@ GUTTER_REM = 0.5  # each box's own margin: two of them are the visible gap betwe
 #: A fine row (0.5rem, no grid gap — the gap is each box's own margin) so a box
 #: can be as tall as its content with at most half a rem of air, rather than
 #: snapping to a few tall steps: the page measures each box and takes the smallest
-#: number of rows that holds it. Steps are every row from 6 to 120.
-ROW_STEPS = tuple(range(6, 121))
+#: number of rows that holds it. Steps are every row from 6 to 400 (120 until
+#: 2.40.35, when the operational-performance report became a widget taller than that).
+ROW_STEPS = tuple(range(6, 401))
 #: Columns on the wide grid; a position's column is 1..GRID_COLUMNS.
 GRID_COLUMNS = 12
 MAX_ROW_POSITION = 800
@@ -195,6 +203,7 @@ DEFAULT_WIDGET_ROWS = {
     "panel_agenda": 54,
     "panel_calendar": 62,
     "panel_calls": 54,
+    "performance": 110,
 }
 FALLBACK_WIDGET_ROWS = 22
 
@@ -203,6 +212,9 @@ FALLBACK_WIDGET_ROWS = 22
 #: everything else is a tile.
 DEFAULT_WIDGET_SIZES = {
     "trend": "two_thirds",
+    "lead_conversion_rate": "third",
+    "receivables_collection_rate": "third",
+    "after_sales_closure_rate": "third",
     "breakdown": "third",
     "agent_share": "full",
     "panel_tasks": "third",
@@ -210,6 +222,7 @@ DEFAULT_WIDGET_SIZES = {
     "panel_agenda": "third",
     "panel_calendar": "third",
     "panel_calls": "third",
+    "performance": "full",
 }
 FALLBACK_WIDGET_SIZE = "quarter"
 
@@ -222,16 +235,19 @@ FALLBACK_WIDGET_SIZE = "quarter"
 #: A widget absent here may take any step; its height still never drops below
 #: its own content (`fitDashboardRows`).
 WIDGET_MIN_SIZES = {
-    # Two thirds since 2.40.20: at half, twelve weekly columns and the legend
-    # left the plot too narrow to read on an ordinary laptop screen.
-    "trend": "two_thirds",
+    # A third since 2.40.35 (product owner: «ویجت‌های مستطیلی را باید بتوان
+    # کوچک‌تر کرد و به مربع تبدیل کرد»): at a third and its default fifty rows
+    # the trend is about square, and the chart keeps its labels there.
+    "trend": "third",
     "breakdown": "third",
-    "agent_share": "half",
+    "agent_share": "third",
     "panel_tasks": "third",
     "panel_chat": "third",
     "panel_agenda": "third",
     "panel_calendar": "third",
     "panel_calls": "third",
+    # A filter row, four figures, a chart and a table: half is the least it reads at.
+    "performance": "half",
 }
 WIDGET_MIN_ROWS = {
     "trend": 50,
@@ -245,6 +261,7 @@ WIDGET_MIN_ROWS = {
     "panel_agenda": 40,
     "panel_calendar": 50,
     "panel_calls": 40,
+    "performance": 40,
 }
 _SIZE_STEPS = list(WIDGET_SIZES)
 
@@ -454,7 +471,7 @@ def _clean_sizes(value, *, field):
 @transaction.atomic
 def update_user_dashboard_layout(
     *, actor, hidden_widgets=None, widget_order=None, widget_sizes=None, widget_heights=None,
-    widget_positions=None,
+    widget_positions=None, shown_widgets=None,
 ):
     """Save this actor's own dashboard arrangement.
 
@@ -476,6 +493,11 @@ def update_user_dashboard_layout(
     if cleaned_hidden is not None:
         row.hidden_widgets = cleaned_hidden
         changed.append("hidden_widgets")
+
+    cleaned_shown = _clean_keys(shown_widgets, field="shown_widgets")
+    if cleaned_shown is not None:
+        row.shown_widgets = [key for key in cleaned_shown if key in OPT_IN_WIDGETS]
+        changed.append("shown_widgets")
 
     cleaned_order = _clean_keys(widget_order, field="widget_order")
     if cleaned_order is not None:
@@ -569,6 +591,7 @@ def effective_layout(user):
     sizes = {}
     heights = {}
     positions = {}
+    shown = set()
     if layout is not None:
         hidden |= set(layout.hidden_widgets)
         if layout.widget_order:
@@ -576,6 +599,11 @@ def effective_layout(user):
         sizes = dict(layout.widget_sizes or {})
         heights = dict(layout.widget_heights or {})
         positions = dict(layout.widget_positions or {})
+        shown = set(layout.shown_widgets or []) & OPT_IN_WIDGETS
+    # An opt-in widget is hidden until this reader added it — and only their
+    # `shown_widgets` decides it, unless the deployment itself hides it.
+    hidden -= OPT_IN_WIDGETS - set(deployment.hidden_widgets)
+    hidden |= OPT_IN_WIDGETS - shown
     return {
         "hidden": frozenset(hidden),
         "order": order,
@@ -583,6 +611,7 @@ def effective_layout(user):
         "heights": heights,
         "positions": positions,
         "deployment_hidden": frozenset(deployment.hidden_widgets),
+        "shown": frozenset(shown),
         "is_customised": layout is not None,
     }
 
@@ -616,6 +645,8 @@ def layout_state(layout):
         "heights": dict(layout["heights"]),
         "positions": dict(layout["positions"]),
         "locked_hidden": sorted(layout["deployment_hidden"]),
+        "shown": sorted(layout["shown"]),
+        "opt_in": sorted(OPT_IN_WIDGETS),
         "is_customised": layout["is_customised"],
     }
 
@@ -681,6 +712,12 @@ def apply_layout(dashboard_payload, user=None):
     else:
         agent_share = None
 
+    performance = dashboard_payload.get("performance")
+    if performance is not None and "performance" not in hidden:
+        performance = _sized({**performance, "key": "performance"})
+    else:
+        performance = None
+
     panels = [_sized(panel) for panel in dashboard_payload.get("panels", []) if panel["key"] not in hidden]
     panels = _ordered(panels, key_of=lambda panel: panel["key"], order=order)
 
@@ -691,6 +728,7 @@ def apply_layout(dashboard_payload, user=None):
         "breakdown": breakdown,
         "gauges": gauges,
         "agent_share": agent_share,
+        "performance": performance,
         "hidden_available": _hidden_available(dashboard_payload, layout),
         # `locked_hidden` is what the editor may *not* offer to unhide — sent
         # so the page can leave those rows out of the widget list entirely
@@ -701,7 +739,9 @@ def apply_layout(dashboard_payload, user=None):
 
 #: The families the "افزودن ویجت" dialog draws a preview for, per insight
 #: part — the same five shapes the dashboard itself renders.
-_SINGLE_PARTS = (("trend", "trend"), ("breakdown", "breakdown"), ("agent_share", "agent_share"))
+_SINGLE_PARTS = (
+    ("trend", "trend"), ("breakdown", "breakdown"), ("agent_share", "agent_share"), ("performance", "performance"),
+)
 
 
 def _hidden_available(dashboard_payload, layout):
@@ -731,7 +771,7 @@ def _hidden_available(dashboard_payload, layout):
         if panel["key"] in reader_hidden:
             available.append({**panel, "size": size_class(panel["key"], sizes)})
     for key, family in _SINGLE_PARTS:
-        part = dashboard_payload[key]
+        part = dashboard_payload.get(key)
         if part is not None and key in reader_hidden:
             available.append({"family": family, **part, "key": key, "size": size_class(key, sizes)})
     return available
