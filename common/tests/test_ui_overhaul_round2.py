@@ -188,7 +188,8 @@ class PostalMiniStepperTests(SimpleTestCase):
 
     def test_the_list_row_calls_it_instead_of_printing_raw_text(self):
         body = function_body("salesDocumentRow", SCRIPT)
-        self.assertIn("postalStatusCell(row, item)", body)
+        # Into the card's status line since the two-pane page (2.40.34).
+        self.assertIn("postalStatusCell(row, item, status)", body)
         self.assertNotIn('appendCell(row, item.postal_status)', body)
 
     def test_four_icons_sit_flush_against_each_other(self):

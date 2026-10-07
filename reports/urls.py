@@ -1,5 +1,7 @@
 from django.urls import path
 
+from reports.marketer_views import MarketerRankingView
+
 from reports.customer_views import (
     CustomerCityReportView,
     CustomerProvinceReportView,
@@ -37,6 +39,7 @@ urlpatterns = [
     path("reports/sales-documents/", SalesDocumentReportView.as_view(), name="sales-document-report"),
     path("reports/receivables/", ReceivablesReportView.as_view(), name="receivables-report"),
     path("reports/profit/", ProfitReportView.as_view(), name="profit-report"),
+    path("reports/marketers/", MarketerRankingView.as_view(), name="marketer-ranking"),
     path("reports/stock-valuation/", InventoryValuationReportView.as_view(), name="stock-valuation-report"),
     path("exports/sales-documents.xlsx", SalesDocumentReportExportView.as_view(), name="sales-document-report-export"),
     path("exports/user-performance.xlsx", UserPerformanceExportView.as_view(), name="user-performance-export"),

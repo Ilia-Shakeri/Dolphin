@@ -124,6 +124,7 @@ GROUPS = (
     )),
     Group("reports", "گزارش‌ها", "di-chart-simple", 4, (
         Item("performance", "عملکرد فروش", "common_ui:user-performance", _feature_and("reports", "reports.own", "reports.company")),
+        Item("marketer-ranking", "رتبه‌بندی بازاریاب‌ها", "common_ui:marketer-ranking", _flag("can_view_company_reports", "reports")),
         Item("receivables-report", "مطالبات", "common_ui:receivables-report", _flag("can_view_company_reports", "invoices")),
         Item("profit-report", "سود ناخالص", "common_ui:profit-report", _flag("can_view_company_reports", "invoices")),
         Item("stock-valuation-report", "ارزش موجودی", "common_ui:stock-valuation-report", _flag("can_view_company_reports", "inventory")),

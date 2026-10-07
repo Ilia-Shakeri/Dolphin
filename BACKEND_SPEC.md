@@ -438,6 +438,12 @@ Rules:
 - **Campaign «سایر» (2.40.22).** `Campaign.other_channels` (list of up to 10 names, ≤ 60 characters
   each) is required when `channels` holds `other` and emptied otherwise; `channels_display` shows
   those names in place of «سایر».
+- **Marketer ranking (2.40.34).** `GET reports/marketers/?period_start&period_end&ordering`
+  (`reports/marketers.py`), feature `reports`, `reports.company` only. Every active Sales Agent of
+  the sales workstream: issued invoices they created (count, amount, collected = `paid_amount`,
+  average), customers created, interactions logged, work leads assigned/completed in the window and
+  the completion rate; competition ranking by `ordering`, `previous_rank` over the equal window
+  before (null when they did nothing then), share of the period's sales amount.
 - **New leads shared out among a campaign's responsibles (2.40.33).** `create_lead(assignee=AUTO_ASSIGN)`,
   the default (API: `assign_to` absent or null): the lead goes to the responsible of its campaign
   (its parent's when it names none) holding the fewest leads of that campaign, ties broken at

@@ -1,9 +1,10 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {clearMessages, formPayload, showError, withSubmit} from "dolphin/core/messages.js";
+import {setupPostalPane} from "dolphin/features/sales/postal-pane.js";
 import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
+import {onRealtime} from "dolphin/ui/realtime.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
-import {appendCell, appendDetailLink} from "dolphin/ui/table.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
 
 /**
@@ -27,8 +28,7 @@ import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wi
  * the same reason: four icons with none of them current would claim to
  * know where the parcel is when nobody does.
  */
-function postalStatusCell(row, item) {
-    const cell = document.createElement("td");
+function postalStatusCell(row, item, cell = document.createElement("td")) {
     const steps = item.postal_stepper;
     // The post office's own status, with its icon, beside the stepper
     // (2.40.26) — and alone for a status outside the four stages (a return,
@@ -64,15 +64,40 @@ function postalStatusCell(row, item) {
     row.appendChild(cell);
 }
 
+/**
+ * One shipment as a card in the list pane (2.40.34): number and post status
+ * on top, the customer, then where it is going and its four stages. The whole
+ * card opens the shipment in the pane beside it; a real link inside keeps
+ * «open in a new tab» working.
+ */
 function salesDocumentRow(item) {
     const row = document.createElement("tr");
-    appendCell(row, item.document_number);
-    appendCell(row, item.customer_name || item.customer);
-    appendCell(row, item.sale || "—");
-    appendCell(row, [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ") || "—");
-    postalStatusCell(row, item);
-    appendCell(row, item.is_active ? "فعال" : "غیرفعال");
-    appendDetailLink(row, `/sales-documents/${item.id}/`);
+    row.className = "postal-list-row";
+    row.dataset.documentId = String(item.id);
+    if (!item.is_active) row.classList.add("is-inactive");
+    const cell = document.createElement("td");
+    const card = document.createElement("div");
+    card.className = "postal-list-item";
+    const top = document.createElement("div");
+    top.className = "postal-list-top";
+    const link = document.createElement("a");
+    link.className = "postal-list-number";
+    link.href = `/sales-documents/${item.id}/`;
+    link.dir = "ltr";
+    link.textContent = item.document_number;
+    top.append(link);
+    const customer = document.createElement("div");
+    customer.className = "postal-list-customer";
+    customer.textContent = item.customer_name || "—";
+    const place = document.createElement("div");
+    place.className = "postal-list-place";
+    place.textContent = [item.province_snapshot, item.city_snapshot].filter(Boolean).join(" / ") || "بدون نشانی";
+    const status = document.createElement("div");
+    status.className = "postal-list-status";
+    postalStatusCell(row, item, status);
+    card.append(top, customer, place, status);
+    cell.append(card);
+    row.append(cell);
     return row;
 }
 
@@ -99,7 +124,37 @@ export async function setupSalesDocuments() {
     try {
         await fillPostalStates(document.getElementById("sales-document-postal-status"), {emptyLabel: "همهٔ وضعیت‌ها"});
     } catch (error) { showError(error); }
-    controller.load();
+
+    // Two panes (2.40.34): a card opens its shipment beside the list; the
+    // address keeps it (`?doc=`), so a link or a reload opens the same one.
+    const workspace = document.getElementById("postal-workspace");
+    const body = document.getElementById("sales-documents-table-body");
+    const pane = workspace ? setupPostalPane({workspace, onChanged: () => controller.load(controller.page, {quiet: true})}) : null;
+    const mark = () => body.querySelectorAll("[data-document-id]").forEach((row) => {
+        row.classList.toggle("is-selected", row.dataset.documentId === pane?.shownId);
+    });
+    const open = (id) => {
+        pane.show(id);
+        const url = new URL(window.location.href);
+        url.searchParams.set("doc", id);
+        window.history.replaceState(null, "", url);
+        mark();
+    };
+    body.addEventListener("click", (event) => {
+        if (!pane || event.target.closest("input, a")) return;
+        const row = event.target.closest("[data-document-id]");
+        if (row) open(row.dataset.documentId);
+    });
+    new MutationObserver(mark).observe(body, {childList: true});
+    await controller.load();
+    const wanted = new URLSearchParams(window.location.search).get("doc");
+    const first = body.querySelector("[data-document-id]");
+    if (pane && wanted) open(wanted);
+    else if (pane && first && window.matchMedia("(min-width: 992px)").matches) open(first.dataset.documentId);
+    // The shipment on screen follows a change made elsewhere.
+    onRealtime(["sales_document"], (detail) => {
+        if (pane?.shownId && (detail.kind === "resync" || String(detail.id) === pane.shownId)) pane.refresh();
+    });
     const dialog = document.getElementById("create-sales-document-dialog");
     if (!dialog) return;
     const createForm = document.getElementById("create-sales-document-form");

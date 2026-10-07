@@ -79,6 +79,7 @@ PAGE_TITLES = {
     "common_ui:sales-document-report": "گزارش اسناد فروش و پست",
     "common_ui:receivables-report": "گزارش مطالبات",
     "common_ui:profit-report": "گزارش سود",
+    "common_ui:marketer-ranking": "رتبه‌بندی بازاریاب‌ها",
     "common_ui:stock-valuation-report": "گزارش ارزش موجودی",
     "common_ui:customer-ledger": "دفتر حساب مشتری",
     "common_ui:user-performance": "عملکرد کاربران",

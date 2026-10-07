@@ -27,6 +27,7 @@ export const PAGES = {
     "sales-documents": async () => (await import("dolphin/features/sales/sales-documents.js")).setupSalesDocuments(),
     "sales-document-detail": async () => (await import("dolphin/features/sales/sales-document-detail.js")).setupSalesDocumentDetail(),
     "user-performance": async () => (await import("dolphin/features/reports/user-performance.js")).setupUserPerformance(),
+    "marketer-ranking": async () => (await import("dolphin/features/reports/marketer-ranking.js")).setupMarketerRanking(),
     "sales-document-report": async () => (await import("dolphin/features/sales/sales-document-report.js")).setupSalesDocumentReport(),
     "inbound-sms-report": async () => (await import("dolphin/features/sms/inbound-sms-report.js")).setupInboundSMSReport(),
     "outbound-sms": async () => (await import("dolphin/features/sms/outbound-sms.js")).setupOutboundSms(),

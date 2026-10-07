@@ -250,5 +250,5 @@ export function setupPagedList({key, form, search, endpoint, renderRow}) {
     bindLiveSearch(search, () => load(1));
     previous.addEventListener("click", () => load(currentPage - 1));
     next.addEventListener("click", () => load(currentPage + 1));
-    return {load};
+    return {load, get page() { return currentPage; }};
 }

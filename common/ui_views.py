@@ -1400,6 +1400,14 @@ class DolphinReceivablesReportView(CompanyReportView):
     template_name = "common/reports/receivables.html"
 
 
+class DolphinMarketerRankingView(CompanyReportView):
+    """«تحلیل و رتبه‌بندی بازاریاب‌ها» (2.40.34): company-wide, so
+    `reports.company` like the money reports."""
+
+    required_feature = "reports"
+    template_name = "common/reports/marketers.html"
+
+
 class DolphinProfitReportView(CompanyReportView):
     required_feature = "invoices"
     template_name = "common/reports/profit.html"

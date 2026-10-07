@@ -5388,3 +5388,238 @@ tr.is-leaving > td {
 @media (prefers-reduced-motion: reduce) {
     .chat-toast { animation: none; transition: none; }
 }
+
+/* Marketer ranking (2.40.34, `features/reports/marketer-ranking.js`). The three
+   in front stand on a podium of cards — gold, silver, bronze on the medal only,
+   so the colour marks the place and not the whole card; the table repeats the
+   medal colours on its rank badges and draws each one's share of sales as a
+   thin bar behind the figure. Rank movement is an arrow and a number, never
+   colour alone. */
+.marketer-podium {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+@media (max-width: 767.98px) { .marketer-podium { grid-template-columns: minmax(0, 1fr); } }
+.marketer-podium-card {
+    --medal: #c69214;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1.4rem 1.5rem 1.25rem;
+    border-radius: 1rem;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-200);
+    box-shadow: 0 1rem 2rem -1.5rem rgb(7 20 55 / 30%);
+}
+[data-bs-theme=dark] .marketer-podium-card { border-color: var(--bs-border-color); }
+.marketer-podium-card[data-place="1"] { --medal: #c69214; border-top: 3px solid var(--medal); }
+.marketer-podium-card[data-place="2"] { --medal: #7c8698; border-top: 3px solid var(--medal); }
+.marketer-podium-card[data-place="3"] { --medal: #b0683a; border-top: 3px solid var(--medal); }
+.marketer-medal {
+    position: absolute;
+    inset-inline-end: 1.25rem;
+    top: 1.1rem;
+    display: inline-grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--medal) 16%, transparent);
+    color: var(--medal);
+    font-weight: 800;
+}
+.marketer-podium-figure {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--bs-gray-900);
+    font-variant-numeric: tabular-nums;
+}
+.marketer-avatar {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-weight: 700;
+}
+.marketer-move {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--bs-gray-700);
+    background: var(--bs-gray-100);
+}
+.marketer-move[data-move="up"] { color: color-mix(in srgb, var(--bs-success) 55%, #000); background: color-mix(in srgb, var(--bs-success) 14%, transparent); }
+.marketer-move[data-move="down"] { color: color-mix(in srgb, var(--bs-danger) 70%, #000); background: color-mix(in srgb, var(--bs-danger) 12%, transparent); }
+[data-bs-theme=dark] .marketer-move[data-move="up"] { color: color-mix(in srgb, var(--bs-success) 55%, #fff); }
+[data-bs-theme=dark] .marketer-move[data-move="down"] { color: color-mix(in srgb, var(--bs-danger) 50%, #fff); }
+.marketer-move[data-move="new"] { color: var(--bs-primary); background: var(--bs-primary-light); }
+.marketer-rank {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.9rem;
+    height: 1.9rem;
+    padding-inline: 0.35rem;
+    border-radius: 0.6rem;
+    font-weight: 800;
+    background: var(--bs-gray-100);
+    color: var(--bs-gray-800);
+}
+.marketer-rank[data-place="1"] { background: color-mix(in srgb, #c69214 18%, transparent); color: #8a6200; }
+.marketer-rank[data-place="2"] { background: color-mix(in srgb, #7c8698 20%, transparent); color: #4b5466; }
+.marketer-rank[data-place="3"] { background: color-mix(in srgb, #b0683a 18%, transparent); color: #7d4320; }
+[data-bs-theme=dark] .marketer-rank[data-place="1"] { color: #f2c54b; }
+[data-bs-theme=dark] .marketer-rank[data-place="2"] { color: #c3c9d4; }
+[data-bs-theme=dark] .marketer-rank[data-place="3"] { color: #e3a07a; }
+.marketer-share {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-width: 6rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+}
+.marketer-share-bar {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--share);
+    background: color-mix(in srgb, var(--bs-primary) 16%, transparent);
+}
+.marketer-share > span:last-child { position: relative; }
+
+/* Postal tracking in two panes (2.40.34, like the chat page). The list is a
+   column of cards that scrolls on its own beside the shipment on screen; the
+   chosen card carries the accent on its leading edge. On a phone one pane at a
+   time: the list, and the shipment once one is opened (`.is-viewing`). */
+.postal-list-card { height: 100%; }
+@media (min-width: 992px) {
+    .postal-list-scroll { max-height: calc(100vh - 21rem); overflow-y: auto; margin-inline: -0.5rem; padding-inline: 0.5rem; }
+    .postal-detail-card { position: sticky; top: calc(var(--bs-app-header-height, 70px) + 1rem); }
+}
+.postal-list-table { border-collapse: separate; border-spacing: 0 0.5rem; }
+.postal-list-table > tbody > tr > td { padding: 0; border: 0; vertical-align: top; }
+.postal-list-table > tbody > tr > td:first-child:not(:last-child) { padding-top: 1rem; padding-inline-end: 0.6rem; width: 1.6rem; }
+.postal-list-row { cursor: pointer; }
+.postal-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--bs-gray-200);
+    border-inline-start: 3px solid transparent;
+    border-radius: 0.85rem;
+    background: var(--bs-body-bg);
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease), transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+[data-bs-theme=dark] .postal-list-item { border-color: var(--bs-border-color); border-inline-start-color: transparent; }
+.postal-list-row:hover .postal-list-item { box-shadow: 0 0.6rem 1.4rem -1rem rgb(7 20 55 / 35%); transform: translateY(-1px); }
+.postal-list-row.is-selected .postal-list-item { border-inline-start-color: var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 6%, var(--bs-body-bg)); }
+.postal-list-row.is-inactive .postal-list-item { opacity: 0.65; }
+.postal-list-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.postal-list-number { font-weight: 800; color: var(--bs-gray-900); font-variant-numeric: tabular-nums; }
+.postal-list-number:hover { color: var(--bs-primary); }
+.postal-list-customer { font-weight: 600; color: var(--bs-gray-800); }
+.postal-list-place { font-size: 0.8rem; color: var(--bs-gray-700); }
+.postal-list-status { margin-top: 0.15rem; }
+
+.postal-detail-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 22rem;
+    text-align: center;
+}
+.postal-placeholder-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1.25rem;
+    margin-bottom: 0.5rem;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-size: 2.25rem;
+}
+.postal-placeholder-icon i [class^="path"]::before { color: var(--bs-primary); }
+#postal-detail-body { padding: 1.5rem 1.75rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.postal-pane-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.9rem; }
+.postal-pane-number { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.postal-pane-section { padding: 1.1rem 1.25rem; border-radius: 0.9rem; background: var(--bs-gray-100); }
+.postal-pane-stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.25rem; }
+.postal-pane-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.45rem; text-align: center; }
+.postal-pane-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1.35rem;
+    inset-inline-start: calc(50% + 1.6rem);
+    inset-inline-end: calc(-50% + 1.6rem);
+    height: 2px;
+    background: var(--bs-gray-300);
+}
+.postal-pane-step-done:not(:last-child)::after { background: var(--bs-primary); }
+.postal-pane-step-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 2.7rem;
+    height: 2.7rem;
+    border-radius: 50%;
+    background: var(--bs-body-bg);
+    border: 2px solid var(--bs-gray-300);
+    color: var(--bs-gray-600);
+}
+.postal-pane-step-mark i [class^="path"]::before { color: currentColor; }
+.postal-pane-step-done .postal-pane-step-mark { border-color: var(--bs-primary); color: var(--bs-primary); }
+.postal-pane-step-current .postal-pane-step-mark { border-color: var(--bs-primary); background: var(--bs-primary); color: #fff; box-shadow: 0 0 0 0.3rem rgb(27 132 255 / 20%); }
+.postal-pane-step-label { font-size: 0.8rem; font-weight: 600; color: var(--bs-gray-700); }
+.postal-pane-step-current .postal-pane-step-label { color: var(--bs-gray-900); font-weight: 800; }
+.postal-pane-move-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 0.6rem; }
+@media (max-width: 575.98px) { .postal-pane-move-row { grid-template-columns: minmax(0, 1fr); } }
+.postal-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
+@media (max-width: 575.98px) { .postal-facts { grid-template-columns: minmax(0, 1fr); } }
+.postal-fact { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.postal-fact-label { font-size: 0.75rem; color: var(--bs-gray-700); }
+.postal-fact-value { font-weight: 600; color: var(--bs-gray-900); overflow-wrap: anywhere; }
+.postal-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.postal-timeline-item { position: relative; display: flex; gap: 0.85rem; }
+.postal-timeline-item:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 1rem;
+    top: 2.2rem;
+    bottom: -0.9rem;
+    width: 2px;
+    background: var(--bs-gray-300);
+}
+.postal-timeline-dot {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+}
+.postal-timeline-dot i [class^="path"]::before { color: currentColor; }
+.postal-timeline-body { display: flex; flex-direction: column; gap: 0.1rem; padding-top: 0.2rem; }
+@media (max-width: 991.98px) {
+    .postal-workspace .postal-detail-pane { display: none; }
+    .postal-workspace.is-viewing .postal-list-pane { display: none; }
+    .postal-workspace.is-viewing .postal-detail-pane { display: block; }
+}
