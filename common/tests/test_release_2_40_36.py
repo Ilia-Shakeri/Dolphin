@@ -68,7 +68,7 @@ class LighterVendorTests(SimpleTestCase):
     def test_links_are_prefetched_never_the_api(self):
         rules = json.loads(re.search(r'<script type="speculationrules">(.*?)</script>', BASE, re.S).group(1))
         prefetch = rules["prefetch"][0]
-        self.assertEqual(prefetch["eagerness"], "moderate")
+        self.assertEqual(prefetch["eagerness"], "conservative")
         self.assertIn("/api/*", json.dumps(prefetch))
 
 

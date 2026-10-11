@@ -57,7 +57,7 @@ function documentListRow(document_, columns, href) {
     return row;
 }
 
-export function setupDocumentList({key, prefix, endpoint, columns, detailPath, createFields, onOpen}) {
+export async function setupDocumentList({key, prefix, endpoint, columns, detailPath, createFields, onOpen}) {
     const form = document.getElementById(`${prefix}-search-form`);
     setupListFilter(prefix);
     const dialog = document.getElementById(`create-${prefix}-dialog`);
@@ -87,7 +87,9 @@ export function setupDocumentList({key, prefix, endpoint, columns, detailPath, c
         endpoint,
         renderRow: (row) => documentListRow(row, columns, (item) => `${detailPath}${item.id}/`),
     });
-    controller.load();
+    // Awaited (2.40.37): the page is shown once its rows are in place
+    // (`revealPage`, main.js), not before them with the rows arriving later.
+    await controller.load();
     return controller;
 }
 

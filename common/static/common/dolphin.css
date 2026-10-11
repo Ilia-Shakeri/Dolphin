@@ -4995,7 +4995,10 @@ body:has(.page-stage[data-booting], .dashboard-stage[data-booting]) #dolphin_app
         var(--bs-body-bg);
 }
 .page-stage.is-revealed > * {
-    animation: dashboard-stage-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    /* `backwards`, not `both`: nothing stays filled once it has played, so no
+       transform lingers on the page's blocks (a fixed-position menu inside one
+       would otherwise be placed against it). */
+    animation: dashboard-stage-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 @keyframes dolphin-skeleton-sweep {
     from { background-position: -60% 0, 1.75rem 0.5rem, 0 0; }
@@ -5056,7 +5059,7 @@ body:has(.page-stage[data-booting], .dashboard-stage[data-booting]) #dolphin_app
 @keyframes dashboard-stage-failsafe { to { visibility: visible; } }
 @keyframes dashboard-loader-failsafe { to { visibility: hidden; } }
 .dashboard-stage.is-revealed > :not(.dashboard-stage-loader) {
-    animation: dashboard-stage-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: dashboard-stage-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 @keyframes dashboard-stage-in {
     from { opacity: 0; transform: translateY(0.5rem); }
@@ -5496,7 +5499,7 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
         text-align: start !important;
         white-space: normal;
     }
-    .table.dolphin-stack > tbody > tr > td[dir="ltr"] { direction: ltr; flex-direction: row-reverse; }
+    .table.dolphin-stack > tbody > tr > td[dir="ltr"] { direction: ltr; flex-direction: row-reverse; white-space: nowrap; }
     .table.dolphin-stack > tbody > tr > td::before {
         content: attr(data-label);
         flex: 0 0 auto;

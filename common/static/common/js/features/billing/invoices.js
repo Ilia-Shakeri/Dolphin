@@ -142,7 +142,7 @@ export async function setupInvoices() {
         lines.addLine();
         redrawTotals();
     });
-    setupDocumentList({
+    await setupDocumentList({
         key: "invoices",
         prefix: "invoice",
         detailPath: "/invoices/",

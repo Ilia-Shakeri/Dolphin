@@ -20,58 +20,6 @@ export function setupNav() {
 }
 
 /**
- * Mark the sidebar entry the current page belongs to.
- *
- * The theme's own classes do the work: `.menu-link.active` colours the
- * entry, and `.here.show` on a parent `.menu-accordion` both opens it and
- * colours its title — so an entry inside a group lights up together with
- * its group, which is what the product asks for.
- *
- * Matching is by longest URL prefix rather than by an id per page, so a
- * detail route (`/customers/12/`) lights up the list entry it came from and
- * a page added later needs nothing here. Exactly one group is ever open:
- * the one containing the current page, or none on the dashboard.
- */
-export function setupNavActiveState() {
-    const sidebar = document.getElementById("app-sidebar");
-    if (!sidebar) return;
-    // Normally the current URL, but a page may name the entry it belongs to
-    // instead. Receipts and disbursements are one document behind one detail
-    // route, so `/payments/12/` prefix-matches «دریافت‌ها» whichever desk it
-    // was opened from — and a disbursement lit the wrong entry. The page
-    // knows its own direction server-side; this lets it say so.
-    const path = document.body.dataset.navMatch || window.location.pathname;
-
-    let best = null;
-    let bestLength = -1;
-    for (const link of sidebar.querySelectorAll(".menu-link[href]")) {
-        const href = new URL(link.getAttribute("href"), window.location.origin).pathname;
-        // "/" would otherwise prefix-match every page, so the dashboard
-        // matches only itself.
-        const matches = href === "/" ? path === "/" : path.startsWith(href);
-        if (matches && href.length > bestLength) {
-            best = link;
-            bestLength = href.length;
-        }
-    }
-    if (!best) return;
-
-    for (const item of sidebar.querySelectorAll(".menu-item.menu-accordion")) {
-        item.classList.remove("here", "show");
-    }
-    for (const link of sidebar.querySelectorAll(".menu-link.active")) {
-        link.classList.remove("active");
-    }
-
-    best.classList.add("active");
-    best.setAttribute("aria-current", "page");
-    const group = best.closest(".menu-item.menu-accordion");
-    if (group) {
-        group.classList.add("here", "show");
-    }
-}
-
-/**
  * Scroll a sidebar accordion group into view once it opens.
  *
  * `.menu-item.menu-accordion` groups (`base.html`) toggle open/closed

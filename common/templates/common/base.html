@@ -69,16 +69,18 @@
    shell does not load for everyone — e.g. the lead follow-up calendar's
    FullCalendar stylesheet. Empty for every other page. {% endcomment %}
     {% block extra_head %}{% endblock %}
-{% comment %} Instant navigation (2.40.36): a panel page is fetched when the pointer rests
-   on its link (`moderate`), so the click finds it already downloaded. Prefetch
-   only — nothing runs until the page is really opened — and never the API, an
-   export or a download. Browsers without speculation rules ignore the block. {% endcomment %}
+{% comment %} Quicker navigation (2.40.36): a panel page is fetched as soon as the press
+   on its link begins (`conservative`), so it is on its way before the click
+   completes. Not on hover: resting the pointer on the sidebar would render pages
+   nobody opens, and a page fetched long before its click could be stale. Prefetch
+   only, never the API, an export or a download. Browsers without speculation
+   rules ignore the block. {% endcomment %}
     <script type="speculationrules">
     {"prefetch": [ {"where": {"and": [
         {"href_matches": "/*"},
         {"not": {"href_matches": ["/api/*", "/admin/*", "/static/*", "/media/*"] } },
         {"not": {"selector_matches": "[download], [target=_blank], [data-no-prefetch]"} }
-    ] }, "eagerness": "moderate"} ] }
+    ] }, "eagerness": "conservative"} ] }
     </script>
 {% comment %} The theme is applied before the stylesheets get a chance to paint.
 
@@ -578,10 +580,17 @@
                 </div>
             </div>
 
-{% comment %} The current page's menu entry is lit and its group opened here, before
-   the first paint (2.40.36) — the same rule `setupNavActiveState` (shell/nav.js)
-   applies again once the modules load. Until then the group opened only after
-   the module had run and the whole menu below it slid down on every page. {% endcomment %}
+{% comment %} The current page's menu entry is lit and its group opened here, before the
+   first paint (2.40.36) — the one place this is decided. Until then a module did
+   it after the page had drawn, and the whole menu below the group slid down on
+   every page.
+
+   The UI kit's own classes do the work: `.menu-link.active` colours the entry and
+   `.here.show` on its `.menu-accordion` opens the group and colours its title.
+   Matching is by longest URL prefix, so a detail route (`/customers/12/`) lights
+   the list entry it came from; "/" matches only the dashboard. A page may name
+   the entry it belongs to instead (`data-nav-match` on `<body>`): receipts and
+   disbursements share one detail route, and the page knows its own direction. {% endcomment %}
             <script>
                 (function () {
                     var sidebar = document.getElementById("app-sidebar");
@@ -595,6 +604,7 @@
                     });
                     if (!best) return;
                     best.classList.add("active");
+                    best.setAttribute("aria-current", "page");
                     var group = best.closest(".menu-item.menu-accordion");
                     if (group) group.classList.add("here", "show");
                 })();

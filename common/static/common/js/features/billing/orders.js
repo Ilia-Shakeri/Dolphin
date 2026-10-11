@@ -59,7 +59,7 @@ export async function setupOrders() {
         lines.addLine();
         redrawTotals();
     });
-    setupDocumentList({
+    await setupDocumentList({
         key: "orders",
         prefix: "order",
         detailPath: "/orders/",

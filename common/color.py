@@ -120,23 +120,25 @@ def accent_theme_css(hex_color):
     """
     if not hex_color:
         return None
-    rgb = _hex_to_rgb(hex_color)
-    light_variables = accent_theme_variables(hex_color)
-    light_variables["bs-primary-light"] = _rgb_to_hex(_mix(rgb, (255, 255, 255), 0.88))
     dark_variables = accent_theme_variables(hex_color)
-    dark_variables["bs-primary-light"] = _rgb_to_hex(_mix(rgb, (0, 0, 0), 0.85))
-
-    def _block(selector, variables):
-        declarations = "".join(f"--{name}:{value};" for name, value in variables.items())
-        return f"{selector}{{{declarations}}}"
-
-    return _block("[data-bs-theme=light]", light_variables) + _block("[data-bs-theme=dark]", dark_variables)
+    dark_variables["bs-primary-light"] = _rgb_to_hex(_mix(_hex_to_rgb(hex_color), (0, 0, 0), 0.85))
+    return _light_block(hex_color) + _block("[data-bs-theme=dark]", dark_variables)
 
 
 def panel_default_accent_css():
     """The light-mode primary tokens for `PANEL_LIGHT_ACCENT`, for a deployment
     that set no colour of its own; dark mode is left to the UI kit."""
-    variables = accent_theme_variables(PANEL_LIGHT_ACCENT)
-    variables["bs-primary-light"] = _rgb_to_hex(_mix(_hex_to_rgb(PANEL_LIGHT_ACCENT), (255, 255, 255), 0.88))
+    return _light_block(PANEL_LIGHT_ACCENT)
+
+
+def _block(selector, variables):
     declarations = "".join(f"--{name}:{value};" for name, value in variables.items())
-    return f"[data-bs-theme=light]{{{declarations}}}"
+    return f"{selector}{{{declarations}}}"
+
+
+def _light_block(hex_color):
+    """The light theme's primary tokens for one colour — shared by a
+    deployment's own colour and the panel's default, so the two never drift."""
+    variables = accent_theme_variables(hex_color)
+    variables["bs-primary-light"] = _rgb_to_hex(_mix(_hex_to_rgb(hex_color), (255, 255, 255), 0.88))
+    return _block("[data-bs-theme=light]", variables)

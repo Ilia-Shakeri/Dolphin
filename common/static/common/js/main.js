@@ -2,7 +2,7 @@ import {PAGES} from "dolphin/pages.js";
 import {setupAttachmentsPanel} from "dolphin/ui/attachments.js";
 import {setupBusyButtons} from "dolphin/shell/busy.js";
 import {setupCallPopup, setupClickToCall} from "dolphin/shell/telephony.js";
-import {setupChartThemeRedraw, setupNav, setupNavActiveState, setupPageTabs, setupSidebarAccordionScroll, setupSidebarPeekGuard, setupThemeModePopup, setupUserMenu} from "dolphin/shell/nav.js";
+import {setupChartThemeRedraw, setupNav, setupPageTabs, setupSidebarAccordionScroll, setupSidebarPeekGuard, setupThemeModePopup, setupUserMenu} from "dolphin/shell/nav.js";
 import {setupChat, setupChatUnreadPoll} from "dolphin/shell/chat.js";
 import {setupChatToasts} from "dolphin/shell/chat-toast.js";
 import {setupDecimalInputs} from "dolphin/core/decimal.js";
@@ -30,7 +30,6 @@ function boot() {
     setupJalaliInputs();
     setupNav();
     setupBusyButtons();
-    setupNavActiveState();
     setupPageTabs();
     setupSidebarAccordionScroll();
     setupLogout();

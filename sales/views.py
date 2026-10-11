@@ -250,7 +250,7 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
                 | Q(target_audience__normalized_phone__in=phones)
             )
             .distinct()
-            .select_related("customer", "assigned_to", "assigned_by", "interested_product")
+            .select_related("customer", "assigned_to", "assigned_by", "interested_product", "campaign__parent")
             .order_by("-created_at", "-id")
         )
         page = self.paginate_queryset(queryset)
@@ -436,7 +436,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
         if request.user.role != User.Role.SALES_AGENT:
             raise PermissionDenied("صف کاری فقط برای بازاریاب‌ها در دسترس است.")
         queryset = lead_work_queue_for(request.user).select_related(
-            "customer", "assigned_to", "assigned_by", "interested_product"
+            "customer", "assigned_to", "assigned_by", "interested_product", "campaign__parent"
         )
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)

@@ -10,7 +10,8 @@
  *
  * Each cell is given the text of its column's header (`data-label`), which the
  * phone stylesheet prints before the value. Rows are labelled whenever a list
- * draws new ones, so paging, filtering and live refreshes are covered.
+ * draws new ones — each table's own body is watched, nothing else on the page —
+ * so paging, filtering and live refreshes are covered.
  */
 
 const STACKED = "dolphin-stack";
@@ -40,15 +41,9 @@ function labelRows(table) {
 
 export function setupStackedTables(root = document.getElementById("main-content")) {
     if (!root) return;
-    const tables = () => root.querySelectorAll(".table-responsive > table.table");
-    tables().forEach(labelRows);
-    let pending = false;
-    new MutationObserver((mutations) => {
-        if (pending || !mutations.some((mutation) => mutation.addedNodes.length)) return;
-        pending = true;
-        requestAnimationFrame(() => {
-            pending = false;
-            tables().forEach(labelRows);
-        });
-    }).observe(root, {childList: true, subtree: true});
+    root.querySelectorAll(".table-responsive > table.table").forEach((table) => {
+        labelRows(table);
+        const observer = new MutationObserver(() => labelRows(table));
+        Array.from(table.tBodies).forEach((body) => observer.observe(body, {childList: true}));
+    });
 }
