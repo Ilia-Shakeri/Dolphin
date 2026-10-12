@@ -1173,6 +1173,15 @@ Use this when the script cannot run, or to understand what it does.
   cancelled invoices, over-paid invoices and instalments. Neither runs by itself.
 * **New optional variables:** `DOLPHIN_REALTIME_MAX_PER_USER` (default 3) and
   `DOLPHIN_REALTIME_MAX_PER_ADDRESS` (default 50); see [1.11](#111-client-1-business-switches).
+* **Later 2.40.x migrations — all additive, none moves data:**
+  `sales/0033_campaign_other_channels` (2.40.22, a JSON column),
+  `common/0011_user_dashboard_shown_widgets` (2.40.35, a JSON column) and
+  `common/0012_vazirmatn_default_font` (2.40.36, only the default of `font_family`; a
+  stored font choice is kept). 2.40.37 to 2.40.40 add none. The new JSON columns are
+  `NOT NULL` without a database default, so an older image cannot insert into those tables
+  — rolling back while keeping the data means reversing them **with the newer image**
+  first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
+  release before 2.40.22, `migrate sales 0032`. Then switch images.
 
 ### Rollback triggers
 

@@ -91,7 +91,7 @@ documentation map below.
 python manage.py test --settings=config.test_settings
 ```
 
-Runs the suite (about 3,400 non-browser tests as of 2.40.34) against an
+Runs the suite (about 3,440 non-browser tests as of 2.40.40) against an
 isolated SQLite database — no external services required. Run it serially
 (`--parallel` does not work with the temporary SQLite database on Windows). The
 `*_browser` Selenium tests need a real browser stack and are not part of the
@@ -120,7 +120,6 @@ PostgreSQL proof suite in the "Isolated PostgreSQL testing" section of
 | [`docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md`](docs/ops/DOLPHIN_DEPLOYMENT_RUNBOOK.md) | Deployment, backup/restore, rollback, security, incident response — the primary ops document |
 | [`DOLPHIN_ACCOUNTING_PLAN.md`](DOLPHIN_ACCOUNTING_PLAN.md) | Analysis and phasing of the accounting product, with the open questions that need the owner's or an accountant's decision |
 | [`docs/PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md`](docs/PERSON_PROFILE_AND_INTEGRATIONS_PLAN.md) | Decision record D1–D21 behind profiles, integrations and telephony (delivered) |
-| [`docs/DOLPHIN_CAPABILITIES_FOR_INVOICE_FA.txt`](docs/DOLPHIN_CAPABILITIES_FOR_INVOICE_FA.txt) | The numbered capability list used in customer paperwork (Persian); its status marks are stale, the roadmap is the truth |
 | [`docs/backend/PERSON_PROFILES.md`](docs/backend/PERSON_PROFILES.md), [`INTEGRATIONS.md`](docs/backend/INTEGRATIONS.md), [`TELEPHONY.md`](docs/backend/TELEPHONY.md), [`SHIPPING.md`](docs/backend/SHIPPING.md) | Contracts of the profile, integrations, telephony and Iran Post shipping modules |
 | [`docs/ops/ASTERISK_GO_LIVE.md`](docs/ops/ASTERISK_GO_LIVE.md), [`PBX_CONNECTION_GUIDES.md`](docs/ops/PBX_CONNECTION_GUIDES.md) | Connecting a customer's Asterisk/FreePBX step by step; per-brand guides for other PBXs |
 | [`docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md`](docs/ops/CUSTOMER_FEATURE_UPDATE_GUIDE.md) | Turning on a new feature module for an existing customer, without repeating the runbook |
