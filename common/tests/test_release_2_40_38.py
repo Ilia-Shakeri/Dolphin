@@ -47,10 +47,11 @@ class SidebarAndBrandTests(SimpleTestCase):
 
 
 class DialogTests(SimpleTestCase):
-    def test_the_close_control_is_a_quiet_circle(self):
+    def test_the_close_control_is_a_small_circle_with_a_faint_red_halo(self):
+        # Grey in 2.40.38; a faint red halo since 2.40.39 (product owner).
         block = CSS.split("dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) {")[1].split("}")[0]
         self.assertIn("border-radius: 999px;", block)
-        self.assertNotIn("--bs-danger", block)
+        self.assertIn("background-color: rgb(248 40 90 / 8%) !important;", block)
 
     def test_a_dialog_closes_with_a_motion(self):
         self.assertIn("display 260ms allow-discrete, overlay 260ms allow-discrete", CSS)

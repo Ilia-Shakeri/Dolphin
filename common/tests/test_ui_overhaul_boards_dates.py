@@ -146,10 +146,12 @@ class DatePickerTests(SimpleTestCase):
 
     def test_each_arrow_points_at_its_own_edge(self):
         picker = SCRIPT.split("function openJalaliPicker(", 1)[1]
-        self.assertIn('navButton("»", "سال بعد")', picker)
-        self.assertIn('navButton("›", "ماه بعد")', picker)
-        self.assertIn('navButton("‹", "ماه قبل")', picker)
-        self.assertIn('navButton("«", "سال قبل")', picker)
+        # Turned round in 2.40.39 (product owner: «تمامی دکمه‌های < را با > عوض کن
+        # و برعکس»); the buttons keep their places.
+        self.assertIn('navButton("«", "سال بعد")', picker)
+        self.assertIn('navButton("‹", "ماه بعد")', picker)
+        self.assertIn('navButton("›", "ماه قبل")', picker)
+        self.assertIn('navButton("»", "سال قبل")', picker)
 
     def test_the_title_opens_a_month_grid_and_a_year_grid(self):
         picker = SCRIPT.split("function openJalaliPicker(", 1)[1]
@@ -283,7 +285,7 @@ class JalaliMonthViewTests(SimpleTestCase):
         and week/day view, matching the picker header."""
         # Swapped back in 2.40.35 (product owner: «در صفحه‌های تقویم باید جای
         # دکمه‌های قبلی و بعدی عوض شود»): previous on the right, next on the left.
-        self.assertIn('start: "jalaliPrev,jalaliNext,prev,next today"', SCRIPT)
+        self.assertIn('start: "jalaliPrev,jalaliNext,stepPrev,stepNext today"', SCRIPT)
         self.assertEqual(SCRIPT.count(".fc-jalaliPrev-button, .fc-jalaliNext-button"), 1)
 
     def test_cell_numbers_are_month_view_only(self):

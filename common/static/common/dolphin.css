@@ -5329,6 +5329,20 @@ body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-c
     border-radius: 0.8rem;
 }
 
+/* The section the current page is in wears the same halo as an active entry
+   (2.40.39, product owner: «در سایدبار حالت بسته، آیکن قسمتی که داخلش هستیم
+   باید دورش یک هاله باشد، مثل آیکن داشبورد»). Open, the entry itself is lit;
+   collapsed, only the section's icon is in view, so the section carries it. */
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item.here > .menu-link,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item.here > .menu-link {
+    background-color: rgba(var(--bs-primary-rgb), 0.14);
+    box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.08);
+}
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item.here > .menu-link .menu-icon i,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item.here > .menu-link .menu-icon i {
+    color: var(--bs-primary) !important;
+}
+
 [data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link .menu-icon,
 [data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-icon {
     margin: 0;
@@ -5597,19 +5611,23 @@ body[data-page$="-detail"] #page-stage form .d-flex.justify-content-end:has(> .b
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) {
     width: 30px !important;
     height: 30px !important;
-    color: var(--bs-gray-700);
+    color: color-mix(in srgb, var(--bs-danger) 70%, var(--bs-gray-700));
     border-color: transparent;
-    background-color: color-mix(in srgb, var(--bs-gray-500) 18%, transparent) !important;
+    /* A faint red halo (2.40.39, product owner: «دکمهٔ بستن ویزاردها باید یک هالهٔ
+       خیلی کم از قرمز داشته باشد»): a tint and a soft ring, red only in hue. */
+    background-color: rgb(248 40 90 / 8%) !important;
+    box-shadow: 0 0 0 3px rgb(248 40 90 / 6%);
     border-radius: 999px;
     font-size: 1rem;
     line-height: 1;
-    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
 }
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) i { font-size: 1.15rem !important; }
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover,
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):focus-visible {
-    color: var(--bs-gray-900);
-    background-color: color-mix(in srgb, var(--bs-gray-500) 30%, transparent) !important;
+    color: var(--bs-danger);
+    background-color: rgb(248 40 90 / 14%) !important;
+    box-shadow: 0 0 0 4px rgb(248 40 90 / 10%);
 }
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):active { scale: 0.92; }
 
@@ -6178,10 +6196,6 @@ body:not([data-page="login"]) .badge { border-radius: 999px; }
 tr.is-row-link:hover .btn.row-detail-link,
 .btn.row-detail-link:focus-visible { color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), 0.1) !important; }
 
-/* -- Restrained colour on the dashboard ----------------------------------------------
-   One accent for the figures' icons; colour is kept for what it means (a
-   chip's direction, a gauge's rate, a board column's state). */
-[data-dashboard-grid] > .dashboard-widget { --dashboard-accent: var(--bs-primary); }
 
 /* -- Sliding tab indicator (`ui/tab-indicator.js`) ----------------------------------- */
 .nav-line-tabs.has-indicator { position: relative; }
@@ -6314,4 +6328,30 @@ tr.is-row-link:hover .btn.row-detail-link,
 }
 @media (prefers-reduced-transparency: reduce) {
     .dolphin-tab-bar { background: var(--bs-app-bg-color); backdrop-filter: none; }
+}
+
+/* -- Toggles that move when they change (2.40.39) ------------------------------------
+   Product owner: «دکمه‌های toggle باید یک انیمیشن روان و کوچک داشته باشند موقع
+   عوض شدن». A segmented option, a button-style radio and a switch each ease
+   their colour and give a small settle when they become the chosen one; a
+   checkbox or radio fills with the same curve. */
+.dolphin-segmented-option,
+.btn-check + .btn,
+.form-check-input {
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), border-color var(--dolphin-dur) var(--dolphin-ease),
+        color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease),
+        background-position var(--dolphin-dur) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .dolphin-segmented-option.is-selected,
+    .btn-check:checked + .btn,
+    .form-check-input:checked { animation: dolphin-toggle-settle 300ms var(--dolphin-ease); }
+    .dolphin-segmented-option:active,
+    .btn-check + .btn:active,
+    .form-check-input:active { scale: 0.94; }
+}
+@keyframes dolphin-toggle-settle {
+    0% { scale: 0.9; }
+    60% { scale: 1.04; }
+    100% { scale: 1; }
 }

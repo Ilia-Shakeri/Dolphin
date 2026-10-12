@@ -205,7 +205,7 @@ async function setupDashboardInsights() {
             height: kpi.height,
             height_chosen: kpi.height_chosen,
             position: kpi.position,
-            mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: "primary"}); },
+            mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent}); },
         });
     });
 
@@ -501,7 +501,7 @@ async function refreshInsights() {
     data.kpis.forEach((kpi) => {
         const built = kpiCard(kpi);
         if (swap(kpi.key, built.column, kpi) && built.spark && kpi.spark) {
-            renderSparkline(built.spark, kpi.spark, {accent: "primary"});
+            renderSparkline(built.spark, kpi.spark, {accent: kpi.accent});
         }
     });
     (data.gauges || []).forEach((gauge) => {

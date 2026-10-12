@@ -264,7 +264,7 @@ class CustomerAdapter(PersonAdapter):
                 href=f"{reverse('common_ui:customer-ledger')}?customer={person.pk}",
             ))
         actions.append(QuickAction(
-            "back", "بازگشت به فهرست مشتریان", "di-arrow-right", in_menu=True,
+            "back", "بازگشت به فهرست مشتریان", "di-arrow-left", in_menu=True,
             href=reverse("common_ui:customers"),
         ))
         return actions
@@ -410,7 +410,7 @@ class UserAdapter(PersonAdapter):
             ))
         if manages:
             actions.append(QuickAction(
-                "back", "بازگشت به فهرست کاربران", "di-arrow-right", in_menu=True,
+                "back", "بازگشت به فهرست کاربران", "di-arrow-left", in_menu=True,
                 href=reverse("common_ui:users"),
             ))
         return actions

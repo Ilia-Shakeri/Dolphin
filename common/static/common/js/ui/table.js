@@ -22,9 +22,10 @@ export function appendDetailLink(row, href) {
     link.href = href;
     link.setAttribute("aria-label", "جزئیات");
     link.title = "جزئیات";
-    // `di-right` draws pointing left in the RTL icon sheet: forward, here.
+    // `di-left` draws pointing right in the RTL icon sheet (2.40.39, owner:
+    // «تمامی دکمه‌های < را با > عوض کن و برعکس»).
     const icon = document.createElement("i");
-    icon.className = "di-outline di-right";
+    icon.className = "di-outline di-left";
     icon.setAttribute("aria-hidden", "true");
     link.appendChild(icon);
     cell.appendChild(link);

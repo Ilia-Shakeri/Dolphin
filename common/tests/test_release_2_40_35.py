@@ -155,9 +155,11 @@ class WizardAndCalendarTests(SimpleTestCase):
 
     def test_the_calendars_put_previous_on_the_right(self):
         script = (JS / "ui" / "calendar.js").read_text(encoding="utf-8")
-        self.assertIn('start: "jalaliPrev,jalaliNext,prev,next today"', script)
-        self.assertIn('jalaliPrev: {icon: "chevron-right"', script)
-        self.assertIn('jalaliNext: {icon: "chevron-left"', script)
+        # Positions as in 2.40.35; arrows turned round in 2.40.39, and the
+        # week/day pair is the panel's own (`stepPrev`/`stepNext`).
+        self.assertIn('start: "jalaliPrev,jalaliNext,stepPrev,stepNext today"', script)
+        self.assertIn('jalaliPrev: {icon: "chevron-left"', script)
+        self.assertIn('jalaliNext: {icon: "chevron-right"', script)
 
 
 class ProfileMenuTests(TestCase):

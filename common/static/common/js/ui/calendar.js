@@ -177,13 +177,18 @@ export function jalaliCalendarButtons(getCalendar) {
     };
     return {
         // Right goes back and left goes forward, the way a Persian page
-        // turns (2.40.35, product owner: «در صفحه‌های تقویم باید جای دکمه‌های
-        // قبلی و بعدی عوض شود»); each arrow points out at its own edge. The
-        // vendor's own chevron icons, as on its week/day prev/next beside
-        // them — not ‹ and ›, which are mirrored glyphs in a right-to-left
-        // toolbar and drew pointing inward.
-        jalaliPrev: {icon: "chevron-right", hint: "ماه قبل", click: () => step(-1)},
-        jalaliNext: {icon: "chevron-left", hint: "ماه بعد", click: () => step(1)},
+        // turns (2.40.35); the arrows were turned round in 2.40.39 (product
+        // owner: «تمامی دکمه‌های < را با > عوض کن و برعکس؛ تقویم و ویزاردها
+        // مخصوصاً»), so «قبلی» shows ‹ and «بعدی» ›. The vendor's own chevron
+        // icons, as on its week/day prev/next beside them (`buttonIcons`).
+        jalaliPrev: {icon: "chevron-left", hint: "ماه قبل", click: () => step(-1)},
+        jalaliNext: {icon: "chevron-right", hint: "ماه بعد", click: () => step(1)},
+        // The week and day views' own pair. Not the vendor's `prev`/`next`:
+        // in a right-to-left calendar it picks those buttons' arrows itself and
+        // ignores `buttonIcons`, so they could not be turned round with the
+        // rest (2.40.39).
+        stepPrev: {icon: "chevron-left", hint: "قبلی", click: () => getCalendar()?.prev()},
+        stepNext: {icon: "chevron-right", hint: "بعدی", click: () => getCalendar()?.next()},
     };
 }
 
@@ -404,7 +409,7 @@ export function createJalaliCalendar({container, loading, errorNode, fetchEvents
         // right-to-left toolbar the first-named sits rightmost: «قبلی» on the
         // right, «بعدی» on the left (2.40.35); FullCalendar mirrors its own
         // chevrons for `direction: "rtl"`.
-        headerToolbar: {start: "jalaliPrev,jalaliNext,prev,next today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
+        headerToolbar: {start: "jalaliPrev,jalaliNext,stepPrev,stepNext today", center: "title", end: "jalaliMonth,timeGridWeek,timeGridDay"},
         buttonText: {today: "امروز", week: "هفته", day: "روز"},
         dayHeaderContent: (arg) => {
             const weekday = PERSIAN_WEEKDAY_NAMES[arg.date.getDay()];
@@ -429,7 +434,7 @@ export function createJalaliCalendar({container, loading, errorNode, fetchEvents
             const monthView = info.view.type === "jalaliMonth";
             container.querySelectorAll(".fc-jalaliPrev-button, .fc-jalaliNext-button")
                 .forEach((button) => { button.hidden = !monthView; });
-            container.querySelectorAll(".fc-prev-button, .fc-next-button")
+            container.querySelectorAll(".fc-stepPrev-button, .fc-stepNext-button")
                 .forEach((button) => { button.hidden = monthView; });
             const titleEl = container.querySelector(".fc-toolbar-title");
             if (!titleEl) return;

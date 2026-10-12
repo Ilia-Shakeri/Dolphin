@@ -545,10 +545,10 @@ export function renderDonutChart(chart, empty, items, options = {}) {
                             color: ink.muted,
                             fontFamily: chartFontFamily(),
                             formatter: () =>
-                                total ||
+                                compactFigure(total ||
                                 toPersianDigits(
                                     String(usable.reduce((carry, item) => carry + item.value, 0)),
-                                ),
+                                )),
                         },
                         value: {
                             color: ink.text,
@@ -556,7 +556,7 @@ export function renderDonutChart(chart, empty, items, options = {}) {
                             fontSize: "20px",
                             fontWeight: 700,
                             formatter: (_value, opts) =>
-                                displays[opts?.seriesIndex ?? 0] ?? _value,
+                                compactFigure(displays[opts?.seriesIndex ?? 0] ?? _value),
                         },
                         name: {
                             color: ink.muted,
@@ -614,8 +614,26 @@ export function compactAmount(value) {
     const step = steps.find(([unit]) => size >= unit);
     if (!step) return toPersianDigits(String(Math.round(number)));
     const scaled = number / step[0];
-    const shown = Math.abs(scaled) >= 10 || Number.isInteger(scaled) ? Math.round(scaled) : Math.round(scaled * 10) / 10;
+    const shown = Math.abs(scaled) >= 100 || Number.isInteger(scaled) ? Math.round(scaled) : Math.round(scaled * 10) / 10;
     return `${toPersianDigits(String(shown).replace(".", "٫"))} ${step[1]}`;
+}
+
+/**
+ * A ring's centre figure that fits inside the ring (2.40.39, product owner:
+ * «نمودارهای دایره‌ای وقتی عدد بزرگ می‌شود باید عدد را با میلیون و میلیارد
+ * بنویسند»): an already formatted figure — «۴۰٬۵۰۰٬۰۰۰ ریال» — of a million or
+ * more is written short, «۴۰٫۵ میلیون ریال»; anything smaller, or anything that
+ * is not a figure, is left as it is.
+ */
+export function compactFigure(text) {
+    const value = String(text ?? "");
+    const digits = value.replace(/[۰-۹]/g, (digit) => "۰۱۲۳۴۵۶۷۸۹".indexOf(digit)).replace(/[٠-٩]/g, (digit) => "٠١٢٣٤٥٦٧٨٩".indexOf(digit));
+    const match = digits.match(/-?\d[\d,،٬]*(\.\d+)?/);
+    if (!match) return value;
+    const number = Number(match[0].replace(/[,،٬]/g, ""));
+    if (!Number.isFinite(number) || Math.abs(number) < 1e6) return value;
+    const unit = digits.slice(match.index + match[0].length).trim();
+    return unit ? `${compactAmount(number)} ${unit}` : compactAmount(number);
 }
 
 export function thinningFormatter(labels, maxLabels) {

@@ -107,7 +107,7 @@ export function setupPostalPane({workspace, onChanged}) {
         const back = el("button", "btn btn-sm btn-icon btn-light d-lg-none");
         back.type = "button";
         back.setAttribute("aria-label", "بازگشت به فهرست مرسوله‌ها");
-        back.append(icon("di-arrow-right", 2, "fs-3"));
+        back.append(icon("di-arrow-left", 2, "fs-3"));
         back.addEventListener("click", () => workspace.classList.remove("is-viewing"));
         const titles = el("div", "d-flex flex-column gap-1 min-w-0");
         const number = el("h2", "fs-2 fw-bolder text-gray-900 mb-0 postal-pane-number", item.document_number);

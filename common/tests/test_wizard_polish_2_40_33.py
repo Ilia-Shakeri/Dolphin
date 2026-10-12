@@ -24,16 +24,17 @@ TEMPLATES = [path for base in ("common/templates", "profiles/templates") for pat
 
 
 class WizardChromeTests(SimpleTestCase):
-    def test_every_previous_button_points_right_and_next_points_left(self):
+    def test_every_previous_and_next_button_carries_its_arrow(self):
         # The RTL icon sheet mirrors direction glyphs: `di-left` draws «›».
+        # Turned round in 2.40.39: «قبلی» `di-right` («‹»), «بعدی» `di-left` («›»).
         for path in TEMPLATES:
             text = path.read_text(encoding="utf-8")
             for match in re.finditer(r'data-dolphin-stepper-action="previous"><i class="([^"]+)"', text):
                 with self.subTest(path=path.name):
-                    self.assertIn("di-left", match.group(1))
+                    self.assertIn("di-right", match.group(1))
             for match in re.finditer(r'data-dolphin-stepper-action="next">[^<]*<i class="([^"]+)"', text):
                 with self.subTest(path=path.name):
-                    self.assertIn("di-right", match.group(1))
+                    self.assertIn("di-left", match.group(1))
 
     def test_required_labels_are_read_from_the_controls(self):
         module = (JS / "ui" / "required-labels.js").read_text(encoding="utf-8")
@@ -45,7 +46,7 @@ class WizardChromeTests(SimpleTestCase):
         # after the design review); it still has to beat the kit's own
         # `!important` hover background.
         self.assertIn("dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover", CSS)
-        self.assertIn("background-color: color-mix(in srgb, var(--bs-gray-500) 30%, transparent) !important;", CSS)
+        self.assertIn("background-color: rgb(248 40 90 / 14%) !important;", CSS)
 
 
 class TrashTests(SimpleTestCase):

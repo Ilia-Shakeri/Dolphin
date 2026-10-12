@@ -98,8 +98,8 @@ function openJalaliPicker(field) {
     //
     // DOM order is visual order in this `dir="rtl"` row: first child
     // sits rightmost.
-    const nextYearBtn = navButton("»", "سال بعد");
-    const nextMonthBtn = navButton("›", "ماه بعد");
+    const nextYearBtn = navButton("«", "سال بعد");
+    const nextMonthBtn = navButton("‹", "ماه بعد");
     const title = document.createElement("span");
     title.className = "jalali-picker-title";
     // The title is two buttons, not a label: the month name opens the
@@ -115,8 +115,8 @@ function openJalaliPicker(field) {
     yearBtn.className = "btn btn-sm btn-light jalali-picker-scope";
     yearBtn.setAttribute("aria-label", "انتخاب سال");
     title.append(monthBtn, yearBtn);
-    const prevMonthBtn = navButton("‹", "ماه قبل");
-    const prevYearBtn = navButton("«", "سال قبل");
+    const prevMonthBtn = navButton("›", "ماه قبل");
+    const prevYearBtn = navButton("»", "سال قبل");
     header.append(nextYearBtn, nextMonthBtn, title, prevMonthBtn, prevYearBtn);
 
     const weekdays = document.createElement("div");
