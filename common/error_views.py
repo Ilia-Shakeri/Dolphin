@@ -112,11 +112,11 @@ def server_error(request):
             request,
             status=500,
             code="server_error",
-            detail="خطای داخلی سامانه.",
+            detail="مشکلی در سامانه پیش آمد؛ کمی بعد دوباره امتحان کنید.",
         )
     return _ui_error(
         request,
         status=500,
         title="خطای سامانه",
-        message="خطایی رخ داد. کمی بعد دوباره تلاش کنید.",
+        message="مشکلی در سامانه پیش آمد؛ کمی بعد دوباره امتحان کنید.",
     )

@@ -864,15 +864,17 @@
             </div>
         </div>
         <div class="card-footer pt-4 d-none" id="chat-drawer-footer">
-            <form id="chat-drawer-send-form" novalidate>
-                <textarea id="chat-drawer-message-input" class="form-control form-control-flush mb-3" rows="1" maxlength="4000"
-                          placeholder="نوشتن پیام… (Enter برای ارسال، Shift+Enter برای خط تازه)"></textarea>
-                <p class="text-danger fs-8 mb-3" data-error-for="body"></p>
-                <div class="d-flex flex-stack">
-                    <span class="text-muted fs-7">Enter برای ارسال</span>
-                    <button class="btn btn-primary" type="submit">ارسال</button>
+            <form id="chat-drawer-send-form" class="chat-composer" novalidate>
+                <div class="chat-composer-field">
+                    <textarea id="chat-drawer-message-input" class="chat-composer-input" rows="1" maxlength="4000"
+                          placeholder="پیام…" aria-label="متن پیام"></textarea>
+                    <button class="btn btn-icon btn-primary chat-composer-send" type="submit" aria-label="ارسال">
+                    <i class="di-duotone di-send fs-3" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                    </button>
                 </div>
-            </form>
+                <p class="text-danger fs-8 mt-2 mb-0" data-error-for="body"></p>
+                <p class="chat-composer-hint">Enter برای ارسال · Shift+Enter برای خط تازه</p>
+                </form>
         </div>
     </div>
 </div>

@@ -84,7 +84,7 @@ def api_exception_handler(exc, context):
             pass
         return Response(
             {
-                "detail": "خطای داخلی سامانه.",
+                "detail": "مشکلی در سامانه پیش آمد؛ کمی بعد دوباره امتحان کنید.",
                 "error": {
                     "code": "server_error",
                     "request_id": current_request_context().request_id,

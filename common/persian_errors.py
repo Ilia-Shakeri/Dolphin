@@ -45,6 +45,20 @@ BY_CODE = {
     "unsupported_media_type": "نوع داده‌های ارسال‌شده پذیرفته نیست.",
     "not_acceptable": "پاسخ با این قالب در دسترس نیست.",
 }
+#: The framework's own wording for an empty field, a refusal or too many
+#: tries is Persian but stiff («این مقدار نباید توهی باشد», «اطلاعات برای
+#: اعتبارسنجی ارسال نشده است»). 2.40.40, product owner: «ارورهای پنل باید
+#: فارسی و ساده باشند». Replaced only where the text is the framework's
+#: default — a business rule's own sentence under the same code is kept.
+PLAIN_BY_CODE = {
+    "required": "این فیلد را پر کنید.",
+    "blank": "این فیلد را پر کنید.",
+    "null": "این فیلد را پر کنید.",
+    "permission_denied": "اجازهٔ این کار را ندارید.",
+    "not_authenticated": "ابتدا وارد سامانه شوید.",
+    "authentication_failed": "ورود شما معتبر نیست؛ دوباره وارد شوید.",
+    "throttled": "تعداد تلاش‌ها زیاد شد؛ کمی بعد دوباره امتحان کنید.",
+}
 DATE_SENTENCE = "تاریخ یا زمان معتبر نیست؛ آن را از تقویم انتخاب کنید."
 FALLBACK = "مقدار واردشده معتبر نیست."
 
@@ -54,6 +68,29 @@ def needs_persian(text):
     if not isinstance(text, str) or not _LATIN_WORD.search(text):
         return False
     return not _PERSIAN.search(text) or bool(_TECHNICAL.search(text))
+
+
+def _framework_defaults():
+    from django import forms
+    from rest_framework import exceptions, fields
+
+    return {
+        "required": {str(fields.Field.default_error_messages["required"]), str(forms.Field.default_error_messages["required"])},
+        "blank": {str(fields.CharField.default_error_messages["blank"])},
+        "null": {str(fields.Field.default_error_messages["null"])},
+        "permission_denied": {str(exceptions.PermissionDenied.default_detail)},
+        "not_authenticated": {str(exceptions.NotAuthenticated.default_detail)},
+        "authentication_failed": {str(exceptions.AuthenticationFailed.default_detail)},
+    }
+
+
+def plain_sentence(text, code):
+    """The plain sentence for a framework default message, or None."""
+    if code not in PLAIN_BY_CODE or not isinstance(text, str):
+        return None
+    if code == "throttled":
+        return PLAIN_BY_CODE[code]
+    return PLAIN_BY_CODE[code] if text in _framework_defaults()[code] else None
 
 
 def _sentence_for(text, code):
@@ -70,9 +107,13 @@ def persianise(data):
         return {key: (value if key == "error" else persianise(value)) for key, value in data.items()}
     if isinstance(data, list):
         return [persianise(value) for value in data]
-    if isinstance(data, str) and needs_persian(data):
+    if isinstance(data, str):
         code = getattr(data, "code", None)
-        return ErrorDetail(_sentence_for(data, code), code=code)
+        plain = plain_sentence(data, code)
+        if plain:
+            return ErrorDetail(plain, code=code)
+        if needs_persian(data):
+            return ErrorDetail(_sentence_for(data, code), code=code)
     return data
 
 

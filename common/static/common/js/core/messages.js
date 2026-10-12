@@ -1,4 +1,4 @@
-import {ApiError, STATUS_MESSAGES} from "dolphin/core/api.js";
+import {ApiError, GENERIC_MESSAGE, STATUS_MESSAGES} from "dolphin/core/api.js";
 import {reportWizardErrors, wizardsByForm} from "dolphin/core/form-errors.js";
 
 export function globalMessage(message, success = false) {
@@ -27,8 +27,8 @@ export function clearMessages(form) {
 }
 
 export function errorText(error) {
-    if (!(error instanceof ApiError)) return "ارتباط با سامانه برقرار نشد. دوباره تلاش کنید.";
-    return STATUS_MESSAGES[error.status] || "خطایی رخ داد. دوباره تلاش کنید.";
+    if (!(error instanceof ApiError)) return "اتصال برقرار نشد؛ اینترنت را بررسی کنید و دوباره امتحان کنید.";
+    return STATUS_MESSAGES[error.status] || GENERIC_MESSAGE;
 }
 
 /**

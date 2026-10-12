@@ -369,7 +369,7 @@ class SystemApiTests(TestCase):
         self.assertEqual(
             response.data,
             {
-                "detail": "خطای داخلی سامانه.",
+                "detail": "مشکلی در سامانه پیش آمد؛ کمی بعد دوباره امتحان کنید.",
                 "error": {
                     "code": "server_error",
                     "request_id": "error-server-1",

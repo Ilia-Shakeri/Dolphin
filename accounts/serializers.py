@@ -23,7 +23,7 @@ class LoginSerializer(RejectServerFieldsMixin, serializers.Serializer):
         attrs = super().validate(attrs)
         user = authenticate(request=self.context.get("request"), username=attrs["username"], password=attrs["password"])
         if not is_crm_identity(user):
-            raise serializers.ValidationError("نام کاربری یا رمز عبور نادرست است.")
+            raise serializers.ValidationError("نام کاربری یا رمز عبور اشتباه می‌باشد.")
         attrs["user"] = user
         return attrs
 

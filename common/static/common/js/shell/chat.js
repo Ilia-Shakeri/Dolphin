@@ -305,44 +305,29 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
             if (renderedIds.has(message.id)) return null;
             renderedIds.add(message.id);
         }
+        // A message is its bubble (2.40.40, product owner: «ساعت و تاریخ پیام را
+        // فقط هنگام هاور یا کلیک روی آن نشان بده»). The time sits under the
+        // bubble, hidden until the pointer rests on the message, the message is
+        // tapped, or it takes keyboard focus; a message still on its way says
+        // so at once. Who wrote it is the side it is on and its colour, as in
+        // any one-to-one conversation.
         const row = document.createElement("div");
-        row.className = `d-flex mb-6 ${message.mine ? "justify-content-end" : "justify-content-start"}`;
-        const wrap = document.createElement("div");
-        wrap.className = `d-flex flex-column ${message.mine ? "align-items-end" : "align-items-start"}`;
-
-        const meta = document.createElement("div");
-        meta.className = "d-flex align-items-center mb-2";
-        const senderId = message.mine
-            ? Number(document.body.dataset.chatUserId)
-            : (threads.find((t) => t.id === activeThreadId)?.peer.id ?? 0);
-        const senderName = message.mine ? "شما" : message.sender_display_name;
-        if (message.mine) {
-            const metaTime = document.createElement("span");
-            metaTime.className = "fs-8 text-muted me-1";
-            metaTime.textContent = message.pending ? "در حال ارسال…" : displayDate(message.created_at);
-            const metaName = document.createElement("span");
-            metaName.className = "fs-7 fw-bold text-gray-900 ms-1";
-            metaName.textContent = senderName;
-            meta.append(metaTime, metaName, avatarSymbol(senderName, senderId));
-        } else {
-            const metaName = document.createElement("span");
-            metaName.className = "fs-7 fw-bold text-gray-900 me-1";
-            metaName.textContent = senderName;
-            const metaTime = document.createElement("span");
-            metaTime.className = "fs-8 text-muted ms-1";
-            metaTime.textContent = displayDate(message.created_at);
-            meta.append(avatarSymbol(senderName, senderId), metaName, metaTime);
-        }
-
+        row.className = `chat-msg ${message.mine ? "is-mine" : "is-theirs"}`;
+        row.tabIndex = 0;
         const bubble = document.createElement("div");
-        bubble.className = `p-4 rounded fw-semibold mw-lg-300px ${message.mine ? "bg-light-primary text-end" : "bg-light-info text-start"}`;
-        bubble.style.whiteSpace = "pre-wrap";
-        bubble.style.wordBreak = "break-word";
+        bubble.className = "chat-msg-bubble";
         bubble.textContent = message.body;
-
-        wrap.append(meta, bubble);
-        row.appendChild(wrap);
-        if (message.pending) row.classList.add("opacity-50");
+        const time = document.createElement("time");
+        time.className = "chat-msg-time";
+        if (message.created_at) time.dateTime = message.created_at;
+        time.textContent = message.pending ? "در حال ارسال…" : displayDate(message.created_at);
+        row.append(bubble, time);
+        row.setAttribute("aria-label", `${message.mine ? "شما" : message.sender_display_name}: ${message.body}`);
+        row.addEventListener("click", () => {
+            if (window.getSelection()?.toString()) return;
+            row.classList.toggle("show-time");
+        });
+        if (message.pending) row.classList.add("is-pending");
         messagesEl.appendChild(row);
         return row;
     }
@@ -483,6 +468,15 @@ export function setupChat(prefix = "chat-drawer", options = {}) {
             loadThreads();
         });
     });
+
+    // The field grows with what is typed, up to six lines, then scrolls.
+    const growInput = () => {
+        messageInput.style.height = "auto";
+        messageInput.style.height = `${Math.min(messageInput.scrollHeight, 160)}px`;
+        sendForm.classList.toggle("has-text", Boolean(messageInput.value.trim()));
+    };
+    messageInput.addEventListener("input", growInput);
+    sendForm.addEventListener("submit", () => requestAnimationFrame(growInput));
 
     messageInput.addEventListener("keydown", (event) => {
         if (event.key === "Enter" && !event.shiftKey) {

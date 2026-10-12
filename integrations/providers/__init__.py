@@ -150,12 +150,12 @@ def clean_config(provider, raw_config, raw_secrets, *, existing_secrets=None):
                     continue
                 secrets[item.key] = value
             if item.required and not secrets.get(item.key):
-                errors[item.key] = "این مقدار لازم است."
+                errors[item.key] = "این فیلد را پر کنید."
             continue
         value = raw_config.get(item.key, item.default)
         if value in (None, ""):
             if item.required:
-                errors[item.key] = "این مقدار لازم است."
+                errors[item.key] = "این فیلد را پر کنید."
             continue
         try:
             config[item.key] = _coerce(item, value)

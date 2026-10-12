@@ -1,14 +1,16 @@
+// Short and plain (2.40.40, product owner: «ارورهای پنل باید فارسی و ساده باشند»).
 export const STATUS_MESSAGES = Object.freeze({
-    400: "داده‌های واردشده درست نیست. موارد مشخص‌شده را اصلاح کنید.",
-    403: "اجازه انجام این کار را ندارید.",
-    404: "مورد درخواستی پیدا نشد.",
-    409: "این تغییر با وضعیت فعلی سامانه سازگار نیست.",
-    429: "درخواست‌ها بیش از حد مجاز است. کمی بعد دوباره تلاش کنید.",
+    400: "لطفاً موارد مشخص‌شده را درست کنید.",
+    403: "اجازهٔ این کار را ندارید.",
+    404: "پیدا نشد.",
+    409: "این کار الان ممکن نیست.",
+    429: "تعداد تلاش‌ها زیاد شد؛ کمی بعد دوباره امتحان کنید.",
 });
+export const GENERIC_MESSAGE = "مشکلی پیش آمد؛ دوباره امتحان کنید.";
 
 export class ApiError extends Error {
     constructor(status, payload) {
-        super(STATUS_MESSAGES[status] || "خطایی رخ داد. دوباره تلاش کنید.");
+        super(STATUS_MESSAGES[status] || GENERIC_MESSAGE);
         this.status = status;
         this.payload = payload || {};
     }

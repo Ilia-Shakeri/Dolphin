@@ -40,6 +40,10 @@
    these few rules give the element the theme's own card surface. */
 dialog {
     width: min(calc(100% - 2rem), 44rem);
+    /* The scrollbar's room is kept from the start (2.40.40): a wizard step that
+       grows past the dialog's height no longer narrows every field when its
+       scrollbar appears. */
+    scrollbar-gutter: stable;
     max-height: calc(100vh - 2rem);
     overflow: auto;
     padding: 1.75rem;
@@ -6233,7 +6237,11 @@ tr.is-row-link:hover .btn.row-detail-link,
         transition: opacity 180ms var(--dolphin-ease), scale 180ms var(--dolphin-ease), translate 260ms var(--dolphin-ease), display 260ms allow-discrete, overlay 260ms allow-discrete;
     }
     dialog:not([open]) { opacity: 0; scale: 0.97; }
-    dialog[open] { opacity: 1; scale: 1; animation: none; }
+    /* `none`, not `1` (2.40.40): any `scale` or `translate` other than none makes
+       the dialog the box a `position: fixed` child is placed in, and the date
+       picker a wizard opens inside its dialog appeared shifted by the dialog's
+       own offset. At rest the dialog carries no transform at all. */
+    dialog[open] { opacity: 1; scale: none; translate: none; animation: none; }
     @starting-style {
         dialog[open] { opacity: 0; scale: 0.97; }
     }
@@ -6247,7 +6255,7 @@ tr.is-row-link:hover .btn.row-detail-link,
 /* -- Menus open from their button ----------------------------------------------------- */
 @media (prefers-reduced-motion: no-preference) {
     .menu-sub-dropdown { transition: opacity 150ms var(--dolphin-ease), scale 150ms var(--dolphin-ease); transform-origin: top; }
-    .menu-sub-dropdown.show { opacity: 1; scale: 1; }
+    .menu-sub-dropdown.show { opacity: 1; scale: none; }
     @starting-style {
         .menu-sub-dropdown.show { opacity: 0; scale: 0.96; }
     }
@@ -6277,7 +6285,7 @@ tr.is-row-link:hover .btn.row-detail-link,
     }
     @media (prefers-reduced-motion: no-preference) {
         dialog:not([open]) { opacity: 1; scale: 1; translate: 0 100%; }
-        dialog[open] { translate: 0 0; }
+        dialog[open] { translate: none; }
         @starting-style {
             dialog[open] { opacity: 1; scale: 1; translate: 0 100%; }
         }
@@ -6354,4 +6362,183 @@ tr.is-row-link:hover .btn.row-detail-link,
     0% { scale: 0.9; }
     60% { scale: 1.04; }
     100% { scale: 1; }
+}
+
+/* -- The conversation (2.40.40) -------------------------------------------------------
+   Product owner: «در صفحهٔ گفتگوها باید قسمت ارسال پیام یوزرها را بهتر نمایش
+   دهد و ساعت و تاریخ پیام را فقط هنگام هاور یا کلیک روی آن نشان دهد». A
+   message is a rounded bubble — the reader's own in the accent colour, the
+   other person's on a quiet grey — and its time slides out beneath it on
+   hover, tap or focus. The composer is one rounded field with the send
+   button inside it, growing with the text. */
+.chat-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: min(78%, 34rem);
+    margin-bottom: 0.4rem;
+    outline: none;
+    cursor: default;
+}
+.chat-msg.is-mine { margin-inline-start: auto; align-items: flex-end; }
+.chat-msg.is-theirs { margin-inline-end: auto; align-items: flex-start; }
+.chat-msg-bubble {
+    padding: 0.6rem 0.95rem;
+    border-radius: 18px;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    transition: filter var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.chat-msg.is-mine .chat-msg-bubble {
+    background: var(--bs-primary);
+    color: #fff;
+    border-end-end-radius: 6px;
+}
+.chat-msg.is-theirs .chat-msg-bubble {
+    background: var(--bs-gray-200);
+    color: var(--bs-gray-900);
+    border-end-start-radius: 6px;
+}
+.chat-msg.is-pending .chat-msg-bubble { opacity: 0.6; }
+.chat-msg-time {
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding-inline: 0.35rem;
+    color: var(--bs-gray-600);
+    font-size: 0.85rem;
+    transition: max-height var(--dolphin-dur) var(--dolphin-ease), opacity var(--dolphin-dur) var(--dolphin-ease), margin var(--dolphin-dur) var(--dolphin-ease);
+}
+.chat-msg:hover .chat-msg-time,
+.chat-msg:focus-visible .chat-msg-time,
+.chat-msg.show-time .chat-msg-time,
+.chat-msg.is-pending .chat-msg-time {
+    max-height: 1.6rem;
+    opacity: 1;
+    margin-top: 0.2rem;
+}
+.chat-msg:focus-visible .chat-msg-bubble { box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.3); }
+@media (hover: hover) {
+    .chat-msg:hover .chat-msg-bubble { filter: brightness(0.97); }
+}
+
+.chat-composer-field {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    padding: 0.35rem;
+    padding-inline-start: 1rem;
+    border: 1px solid var(--bs-gray-300);
+    border-radius: 22px;
+    background: var(--bs-body-bg);
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.chat-composer-field:focus-within {
+    border-color: rgba(var(--bs-primary-rgb), 0.55);
+    box-shadow: 0 0 0 4px rgba(var(--bs-primary-rgb), 0.12);
+}
+.chat-composer-input {
+    flex: 1 1 auto;
+    min-height: 2.4rem;
+    max-height: 160px;
+    padding: 0.55rem 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: var(--bs-gray-900);
+    font-size: 1.05rem;
+    line-height: 1.5;
+}
+/* The field around it already rings on focus; the panel's textarea ring would
+   draw a second box inside it. */
+.chat-composer-input:focus-visible { box-shadow: none; }
+.chat-composer-send.btn.btn-icon {
+    flex: 0 0 auto;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    opacity: 0.45;
+    transition: opacity var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.chat-composer.has-text .chat-composer-send.btn.btn-icon { opacity: 1; }
+.chat-composer-send i,
+.chat-composer-send i [class^="path"] { color: #fff; }
+.chat-composer-hint {
+    margin: 0.4rem 0.75rem 0;
+    color: var(--bs-gray-500);
+    font-size: 0.8rem;
+}
+@media (pointer: coarse) {
+    .chat-composer-hint { display: none; }
+}
+
+/* -- Dropdown lists in the panel's own style (2.40.40) ------------------------------------
+   Product owner: «تمامی اینپوت‌هایی که دراپ‌داون دارند، منوی دراپ‌داون باید شبیه به
+   تم پنل باشد». A `<select>` opened the operating system's own list — grey,
+   square and in the system font. Where the browser lets a page style that
+   list (`appearance: base-select`), it is the panel's: a rounded card with a
+   soft shadow, the panel's face, roomy rows, the chosen row in the accent
+   tint, opening with the same short motion as the panel's menus. The field
+   itself keeps the UI kit's look and chevron. Browsers without the feature
+   keep their own list, as before. */
+@supports (appearance: base-select) {
+    select.form-select:not([multiple]):not([size]),
+    select.form-select:not([multiple]):not([size])::picker(select) {
+        appearance: base-select;
+    }
+    select.form-select:not([multiple]):not([size]) {
+        display: flex;
+        align-items: center;
+    }
+    select.form-select:not([multiple]):not([size])::picker-icon { display: none; }
+    select.form-select:not([multiple]):not([size])::picker(select) {
+        margin-block: 6px;
+        padding: 6px;
+        max-height: min(22rem, 60vh);
+        border: 1px solid color-mix(in srgb, var(--bs-gray-500) 18%, transparent);
+        border-radius: 14px;
+        background: var(--bs-body-bg);
+        color: var(--bs-gray-900);
+        font-family: inherit;
+        box-shadow: 0 2px 6px rgb(0 0 0 / 6%), 0 18px 40px -12px rgb(0 0 0 / 22%);
+        transition: opacity 150ms var(--dolphin-ease), scale 150ms var(--dolphin-ease), display 150ms allow-discrete, overlay 150ms allow-discrete;
+        transform-origin: top;
+    }
+    select.form-select:not([multiple]):not([size]):not(:open)::picker(select) { opacity: 0; scale: 0.97; }
+    select.form-select:not([multiple]):not([size]):open::picker(select) { opacity: 1; scale: none; }
+    @starting-style {
+        select.form-select:not([multiple]):not([size]):open::picker(select) { opacity: 0; scale: 0.97; }
+    }
+    select.form-select:not([multiple]):not([size]) option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.5rem;
+        padding: 0.45rem 0.75rem;
+        border-radius: 9px;
+        font-size: 1rem;
+        color: var(--bs-gray-800);
+        cursor: pointer;
+        transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+    }
+    select.form-select:not([multiple]):not([size]) option:hover,
+    select.form-select:not([multiple]):not([size]) option:focus-visible {
+        background-color: color-mix(in srgb, var(--bs-gray-500) 12%, transparent);
+        outline: none;
+    }
+    select.form-select:not([multiple]):not([size]) option:checked {
+        background-color: rgba(var(--bs-primary-rgb), 0.12);
+        color: var(--bs-primary);
+        font-weight: 600;
+    }
+    select.form-select:not([multiple]):not([size]) option::checkmark {
+        order: 1;
+        margin-inline-start: auto;
+        color: var(--bs-primary);
+    }
+    select.form-select:not([multiple]):not([size]) option:disabled { opacity: 0.45; cursor: default; }
+    select.form-select:not([multiple]):not([size]) optgroup { padding: 0.25rem 0; color: var(--bs-gray-600); font-size: 0.9rem; font-weight: 600; }
 }
