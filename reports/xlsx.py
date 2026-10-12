@@ -456,3 +456,51 @@ def build_inbound_sms_workbook(report):
         summary.append((f"filter_{name}", safe_spreadsheet_text("" if value is None else str(value))))
     return _finish(workbook, sheet)
 
+
+MARKETER_HEADERS = (
+    "rank", "previous_rank", "user_id", "name", "sales_count", "sales_amount", "share_percent",
+    "collected_amount", "average_amount", "customers_count", "calls_count", "leads_assigned",
+    "leads_completed", "conversion_rate",
+)
+
+
+def build_marketer_ranking_workbook(report):
+    """The marketer ranking (2.40.41): one row per marketer, in rank order,
+    plus a summary of the window, the ordering and the totals."""
+    workbook, sheet = _new_workbook("marketers")
+    sheet.append(MARKETER_HEADERS)
+    for row in report["results"]:
+        sheet.append((
+            row.rank,
+            row.previous_rank,
+            row.user_id,
+            safe_spreadsheet_text(row.name),
+            row.sales_count,
+            format(row.sales_amount, ".2f"),
+            format(row.share, ".1f"),
+            format(row.collected_amount, ".2f"),
+            format(row.average_amount, ".2f"),
+            row.customers_count,
+            row.calls_count,
+            row.leads_assigned,
+            row.leads_completed,
+            "" if row.conversion_rate is None else format(row.conversion_rate, ".1f"),
+        ))
+    _write_money_columns(sheet, 6, 6)
+    _write_money_columns(sheet, 8, 9)
+
+    labels = {option["value"]: option["label"] for option in report["orderings"]}
+    totals = report["totals"]
+    summary = workbook.create_sheet("summary")
+    summary.append(("metric", "value"))
+    summary.append(("period_start", spreadsheet_datetime(report["period_start"])))
+    summary.append(("period_end", spreadsheet_datetime(report["period_end"])))
+    summary.append(("ordering", report["ordering"]))
+    summary.append(("ordering_label", labels.get(report["ordering"], "")))
+    summary.append(("marketers", totals["marketers"]))
+    summary.append(("sales_count", totals["sales_count"]))
+    summary.append(("sales_amount", format(totals["sales_amount"], ".2f")))
+    summary.append(("collected_amount", format(totals["collected_amount"], ".2f")))
+    summary.append(("customers_count", totals["customers_count"]))
+    summary.append(("calls_count", totals["calls_count"]))
+    return _finish(workbook, sheet)

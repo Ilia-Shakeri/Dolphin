@@ -1,6 +1,7 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {statusText} from "dolphin/ui/table.js";
 
 function setSelectValue(select, value) {
@@ -29,9 +30,11 @@ export async function setupWarehouseDetail() {
     const content = document.getElementById("warehouse-detail-content");
     const dangerZone = document.getElementById("warehouse-danger-zone");
     let warehouse;
+    // Live (2.40.41): the record redraws in place when it changes elsewhere.
+    const show = (value) => { warehouse = value; fillWarehouse(value); settle(value); };
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: show});
     try {
-        warehouse = await apiRequest(endpoint);
-        fillWarehouse(warehouse);
+        show(await apiRequest(endpoint));
         loading.hidden = true;
         content.hidden = false;
         if (dangerZone) dangerZone.hidden = false;
@@ -47,8 +50,7 @@ export async function setupWarehouseDetail() {
             withSubmit(form, async () => {
                 const payload = formPayload(form, ["name", "address"]);
                 payload.is_default = new FormData(form).get("is_default") === "true";
-                warehouse = await apiRequest(endpoint, {method: "PATCH", body: payload});
-                fillWarehouse(warehouse);
+                show(await apiRequest(endpoint, {method: "PATCH", body: payload}));
                 globalMessage("انبار ذخیره شد.", true);
             });
         });
@@ -60,8 +62,7 @@ export async function setupWarehouseDetail() {
         if (!await confirmDialog(prompt)) return;
         toggle.disabled = true;
         try {
-            warehouse = await apiRequest(`${endpoint}${action}/`, {method: "POST"});
-            fillWarehouse(warehouse);
+            show(await apiRequest(`${endpoint}${action}/`, {method: "POST"}));
             globalMessage(warehouse.is_active ? "انبار فعال شد." : "انبار غیرفعال شد.", true);
         } catch (error) {
             showError(error);

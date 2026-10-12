@@ -1,8 +1,9 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
-import {errorText} from "dolphin/core/messages.js";
-import {money} from "dolphin/core/money.js";
+import {clearMessages, errorText, globalMessage, withSubmit} from "dolphin/core/messages.js";
+import {money, moneyOrNull, setupMoneyInputs} from "dolphin/core/money.js";
 import {renderBarChart, setupChartRange} from "dolphin/ui/charts.js";
+import {guardDirtyDialog} from "dolphin/ui/dialogs.js";
 import {onRealtime} from "dolphin/ui/realtime.js";
 
 const count = (value) => toPersianDigits(String(value));
@@ -66,9 +67,11 @@ export async function setupMarketerRanking() {
     const content = document.getElementById("marketers-content");
     if (!ordering || !content) return;
     let windowParams = {};
+    const exportLink = document.getElementById("marketers-export");
 
     async function load() {
         if (!windowParams.period_start) return;
+        if (exportLink) exportLink.href = `/api/v1/exports/marketers.xlsx?${new URLSearchParams({...windowParams, ordering: ordering.value || "sales_amount"})}`;
         errorNode.hidden = true;
         const query = new URLSearchParams({...windowParams, ordering: ordering.value || "sales_amount"});
         let data;
@@ -182,7 +185,165 @@ export async function setupMarketerRanking() {
     }, {label: "بازهٔ رتبه‌بندی"});
     windowParams = range ? range.window() : {};
     ordering.addEventListener("change", load);
+    setupMonthlyTargets();
     await load();
     // Live: a new invoice, payment, customer or call moves the table.
     onRealtime(["invoice", "payment", "customer", "interaction", "lead"], load, {delay: 1500});
+}
+
+/** The month a target reading is about, stepped one month at a time. */
+function stepMonth({year, month}, delta) {
+    const index = year * 12 + (month - 1) + delta;
+    return {year: Math.floor(index / 12), month: (index % 12) + 1};
+}
+
+/** «۷۲٪»: a target's progress as a whole percentage, Persian digits. */
+function wholePercent(value) {
+    if (value === null || value === undefined) return "—";
+    return `${toPersianDigits(String(Math.round(Number(value))))}٪`;
+}
+
+/** A target's progress colour: met, close, or still far. */
+function progressTone(percent) {
+    if (percent === null || percent === undefined) return "secondary";
+    const value = Number(percent);
+    if (value >= 100) return "success";
+    if (value >= 60) return "primary";
+    return "warning";
+}
+
+/**
+ * «هدف ماهانهٔ فروش» (2.40.41): each marketer's sales in a Jalali month
+ * against the target a manager set, one bar each; and for whoever holds
+ * `sales_targets.manage` (the server says so in `can_manage`) a dialog that
+ * sets the whole month's targets at once.
+ */
+function setupMonthlyTargets() {
+    const list = document.getElementById("marketer-targets-list");
+    if (!list) return;
+    const loading = document.getElementById("marketer-targets-loading");
+    const errorNode = document.getElementById("marketer-targets-error");
+    const empty = document.getElementById("marketer-targets-empty");
+    const monthLabel = document.getElementById("marketer-targets-month");
+    const summary = document.getElementById("marketer-targets-summary");
+    const editButton = document.getElementById("marketer-targets-edit");
+    const dialog = document.getElementById("marketer-targets-dialog");
+    const form = document.getElementById("marketer-targets-form");
+    const fields = document.getElementById("marketer-targets-fields");
+    let shown = null;
+    let report = null;
+    let token = 0;
+
+    async function load(month = shown) {
+        const mine = ++token;
+        errorNode.hidden = true;
+        const query = new URLSearchParams(month ? {year: String(month.year), month: String(month.month)} : {});
+        let data;
+        try {
+            data = await apiRequest(`/api/v1/reports/marketers/targets/?${query}`);
+        } catch (error) {
+            if (mine !== token) return;
+            loading.hidden = true;
+            errorNode.textContent = errorText(error);
+            errorNode.hidden = false;
+            return;
+        }
+        if (mine !== token) return;
+        draw(data);
+    }
+
+    function draw(data) {
+        report = data;
+        shown = {year: data.year, month: data.month};
+        loading.hidden = true;
+        monthLabel.textContent = data.label;
+        editButton.hidden = !data.can_manage;
+        const totals = data.totals;
+        summary.textContent = totals.with_target
+            ? `${toPersianDigits(String(totals.with_target))} بازاریاب هدف دارند — ${money(totals.achieved)} از ${money(totals.target)}${totals.percent === null ? "" : ` (${wholePercent(totals.percent)})`}`
+            : "برای این ماه هنوز هدفی تعیین نشده است.";
+        empty.hidden = data.results.length > 0;
+        list.hidden = data.results.length === 0;
+        list.replaceChildren(...data.results.map((row) => {
+            const item = document.createElement("li");
+            item.className = "marketer-target";
+            const who = document.createElement("span");
+            who.className = "marketer-target-who";
+            who.append(avatar(row.name), profileLink(row));
+            const figures = document.createElement("span");
+            figures.className = "marketer-target-figures";
+            figures.textContent = row.target === null
+                ? `بدون هدف · فروش ${money(row.achieved)}`
+                : `${money(row.achieved)} از ${money(row.target)}`;
+            const bar = document.createElement("span");
+            bar.className = "marketer-target-bar";
+            bar.dataset.tone = progressTone(row.percent);
+            bar.setAttribute("role", "progressbar");
+            bar.setAttribute("aria-valuemin", "0");
+            bar.setAttribute("aria-valuemax", "100");
+            const reached = row.percent === null ? 0 : Math.min(100, Number(row.percent));
+            bar.setAttribute("aria-valuenow", String(Math.round(reached)));
+            bar.setAttribute("aria-label", `پیشرفت ${row.name}`);
+            bar.style.setProperty("--progress", `${reached}%`);
+            const share = document.createElement("span");
+            share.className = "marketer-target-percent";
+            share.textContent = wholePercent(row.percent);
+            item.append(who, figures, bar, share);
+            return item;
+        }));
+    }
+
+    document.getElementById("marketer-targets-prev").addEventListener("click", () => shown && load(stepMonth(shown, -1)));
+    document.getElementById("marketer-targets-next").addEventListener("click", () => shown && load(stepMonth(shown, 1)));
+
+    if (dialog && form) {
+        guardDirtyDialog(dialog, form);
+        dialog.querySelectorAll("[data-close-dialog]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+        editButton.addEventListener("click", () => {
+            if (!report) return;
+            clearMessages(form);
+            document.getElementById("marketer-targets-dialog-month").textContent = report.label;
+            fields.replaceChildren(...report.results.map((row) => {
+                const field = document.createElement("div");
+                field.className = "marketer-targets-field";
+                const label = document.createElement("label");
+                label.className = "form-label fw-semibold mb-0";
+                label.setAttribute("for", `marketer-target-${row.user_id}`);
+                label.textContent = row.name;
+                const input = document.createElement("input");
+                input.className = "form-control form-control-solid";
+                input.id = `marketer-target-${row.user_id}`;
+                input.type = "text";
+                input.dir = "ltr";
+                input.dataset.moneyInput = "";
+                input.dataset.userId = String(row.user_id);
+                input.placeholder = "بدون هدف";
+                input.value = row.target === null ? "" : money(row.target, {withCurrency: false, exact: true});
+                field.append(label, input);
+                return field;
+            }));
+            setupMoneyInputs(fields);
+            dialog.showModal();
+        });
+        form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            withSubmit(form, async () => {
+                const targets = Array.from(fields.querySelectorAll("[data-user-id]")).map((input) => ({
+                    user_id: Number(input.dataset.userId),
+                    amount: moneyOrNull(input.value),
+                }));
+                const data = await apiRequest("/api/v1/reports/marketers/targets/", {
+                    method: "PUT",
+                    body: {year: report.year, month: report.month, targets},
+                });
+                dialog.close();
+                draw(data);
+                globalMessage(`هدف‌های ${data.label} ذخیره شد.`, true);
+            });
+        });
+    }
+
+    load();
+    // A new invoice moves a bar; a target set elsewhere redraws the month.
+    onRealtime(["invoice", "sales_target"], () => load(), {delay: 1500});
 }

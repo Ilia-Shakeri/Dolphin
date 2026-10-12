@@ -72,7 +72,7 @@ async function playRemoval(body, deletedIds) {
 
 export function setupRowSelection({key, body, reload}) {
     const selectAll = document.querySelector(`[data-${key}-select="all"]`);
-    if (!selectAll) return {decorateRow: (item, row) => row, resetSelection() {}, keepOnlyShown() {}};
+    if (!selectAll) return {decorateRow: (item, row) => row, resetSelection() {}, keepOnlyShown() {}, selectedIds: () => []};
     const toolbar = document.querySelector(`[data-${key}-toolbar="selected"]`);
     const countNode = document.querySelector(`[data-${key}-select="selected_count"]`);
     const deleteButton = document.querySelector(`[data-${key}-select="delete_selected"]`);
@@ -164,7 +164,11 @@ export function setupRowSelection({key, body, reload}) {
         return row;
     }
 
-    return {decorateRow, resetSelection, keepOnlyShown};
+    // The chosen rows, for a page's own bulk action beside the delete
+    // (the postal status change, 2.40.41).
+    const selectedIds = () => Array.from(selected);
+
+    return {decorateRow, resetSelection, keepOnlyShown, selectedIds};
 }
 
 /**
@@ -250,5 +254,5 @@ export function setupPagedList({key, form, search, endpoint, renderRow}) {
     bindLiveSearch(search, () => load(1));
     previous.addEventListener("click", () => load(currentPage - 1));
     next.addEventListener("click", () => load(currentPage + 1));
-    return {load, get page() { return currentPage; }};
+    return {load, selection, get page() { return currentPage; }};
 }

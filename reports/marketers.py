@@ -55,7 +55,9 @@ class MarketerRow:
     share: Decimal
 
 
-def _marketers():
+def marketers_queryset():
+    """Every active marketer (Sales Agent of the sales workstream), the people
+    the ranking and the monthly targets are about."""
     return crm_identities(
         User.objects.filter(is_active=True, role=User.Role.SALES_AGENT).exclude(workstream=User.Workstream.AFTER_SALES)
     ).order_by("id")
@@ -134,7 +136,7 @@ def build_marketer_ranking(*, actor, period_start, period_end, ordering="sales_a
         ordering = "sales_amount"
     if period_end <= period_start:
         raise InvalidReportPeriod
-    users = list(_marketers())
+    users = list(marketers_queryset())
     current = _metric_rows(users, period_start, period_end)
     length = period_end - period_start
     before = _metric_rows(users, period_start - length, period_start)

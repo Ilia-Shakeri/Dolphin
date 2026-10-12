@@ -3,6 +3,7 @@ import {displayDate} from "dolphin/core/jalali.js";
 import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {money} from "dolphin/core/money.js";
 import {SALE_STATUS_TEXT} from "dolphin/features/sales/shared.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {labelled} from "dolphin/ui/table.js";
 
 function saleStatusText(value) {
@@ -32,9 +33,12 @@ export async function setupSaleDetail() {
     const loading = document.getElementById("sale-detail-loading");
     const content = document.getElementById("sale-detail-content");
     let sale;
+    // Live (2.40.41): the record redraws in place when it changes elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: (value) => { sale = value; fillSale(value); }});
     try {
         sale = await apiRequest(endpoint);
         fillSale(sale);
+        settle(sale);
         loading.hidden = true;
         content.hidden = false;
     } catch (error) {
@@ -48,6 +52,7 @@ export async function setupSaleDetail() {
         withSubmit(form, async () => {
             sale = await apiRequest(form.action, {method: "POST", body: formPayload(form, ["reason"])});
             fillSale(sale);
+            settle(sale);
             globalMessage("فروش لغو شد.", true);
         });
     });

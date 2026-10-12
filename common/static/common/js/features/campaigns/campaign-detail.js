@@ -6,6 +6,7 @@ import {money, moneyOrNull} from "dolphin/core/money.js";
 import {campaignStatusBadge} from "dolphin/features/campaigns/campaigns.js";
 import {enhanceChecklistSelect} from "dolphin/ui/checklist-select.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {appendCell} from "dolphin/ui/table.js";
 import {setupOtherChannels} from "dolphin/features/campaigns/other-channels.js";
 
@@ -26,6 +27,9 @@ export function setupCampaignDetail() {
     const membersCard = document.getElementById("campaign-members-card");
     let campaign = null;
     let members = null;
+    // Live (2.40.41): the campaign's facts redraw in place when it changes
+    // elsewhere (its members list refreshes itself).
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: (value) => { campaign = value; render(value); }});
 
     function renderFacts(value) {
         const facts = document.getElementById("campaign-facts");
@@ -72,6 +76,7 @@ export function setupCampaignDetail() {
     }
 
     function render(value) {
+        settle(value);
         document.getElementById("campaign-name").textContent = value.name;
         const status = document.getElementById("campaign-status");
         status.replaceWith(Object.assign(campaignStatusBadge(value.status, value.status_display), {id: "campaign-status"}));

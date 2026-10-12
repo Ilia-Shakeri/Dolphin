@@ -5,6 +5,7 @@ import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/me
 import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {appendCell} from "dolphin/ui/table.js";
 
 /**
@@ -145,9 +146,12 @@ export async function setupSalesDocumentDetail() {
     const loading = document.getElementById("sales-document-detail-loading");
     const content = document.getElementById("sales-document-detail-content");
     let item;
+    // Live (2.40.41): the parcel and its history redraw in place when it
+    // changes elsewhere — a carrier update, a bulk status change.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: async (value) => { item = value; fillSalesDocument(value); await loadPostalHistory(id); }});
     try {
         [item] = await Promise.all([apiRequest(endpoint), loadPostalHistory(id)]);
-        fillSalesDocument(item); loading.hidden = true; content.hidden = false;
+        fillSalesDocument(item); settle(item); loading.hidden = true; content.hidden = false;
     } catch (error) { loading.hidden = true; document.getElementById("postal-history-loading").hidden = true; showError(error); return; }
     // Filled from the same list the stepper is drawn from, so the form
     // can never offer a state the stepper cannot show.
@@ -164,11 +168,11 @@ export async function setupSalesDocumentDetail() {
         event.preventDefault();
         withSubmit(form, async () => {
             item = await apiRequest(form.action, {method: "POST", body: formPayload(form, ["to_status", "reason"])});
-            fillSalesDocument(item); form.reset(); await loadPostalHistory(id); globalMessage("وضعیت پستی ثبت شد.", true);
+            fillSalesDocument(item); form.reset(); settle(item); await loadPostalHistory(id); globalMessage("وضعیت پستی ثبت شد.", true);
         });
     });
     document.getElementById("deactivate-sales-document")?.addEventListener("click", async () => {
         if (!await confirmDialog("این سند غیرفعال شود؟ تاریخچه پاک نمی‌شود.")) return;
-        try { item = await apiRequest(`${endpoint}deactivate/`, {method: "POST"}); fillSalesDocument(item); globalMessage("سند غیرفعال شد.", true); } catch (error) { showError(error); }
+        try { item = await apiRequest(`${endpoint}deactivate/`, {method: "POST"}); fillSalesDocument(item); settle(item); globalMessage("سند غیرفعال شد.", true); } catch (error) { showError(error); }
     });
 }

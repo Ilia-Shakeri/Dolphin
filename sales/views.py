@@ -28,9 +28,9 @@ from sales.selectors import customer_categories_for, customers_for, interactions
 from sales.customer_imports import import_customers_from_workbook
 from sales.imports import import_products_from_workbook
 from sales.target_audience_imports import import_target_audience_from_workbook
-from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerCategorySerializer, CustomerCategoryTransferSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
+from sales.serializers import CancelSaleSerializer, CustomerActivationSerializer, CustomerCategorySerializer, CustomerCategoryTransferSerializer, CustomerImportResultSerializer, ProductActivationSerializer, ProductImportResultSerializer, CustomerPhoneSerializer, CustomerSerializer, InteractionSerializer, LeadAssigneeSerializer, LeadAssignmentHistorySerializer, LeadSerializer, PostalShipmentSerializer, PostalStateSerializer, BulkPostalStatusResultSerializer, BulkPostalStatusTransitionSerializer, PostalStatusHistorySerializer, PostalStatusTransitionSerializer, PostProviderSettingsSerializer, PostProviderSettingsUpdateSerializer, ShipmentChangeSerializer, ShipmentCreateSerializer, ShipmentTermsSerializer, ProductCategorySerializer, ProductSerializer, ReassignSerializer, SaleSerializer, SalesDocumentSerializer, TargetAudienceImportResultSerializer, TargetAudienceMemberSerializer
 from sales import ebazar, postal, postal_provider, shipping
-from sales.services import cancel_or_correct_sale, set_customer_category_active, transfer_customer_category, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status
+from sales.services import cancel_or_correct_sale, set_customer_category_active, transfer_customer_category, deactivate_customer, set_customer_active, deactivate_customer_phone, deactivate_product, set_product_active, deactivate_product_category, deactivate_sales_document, reactivate_product_category, reassign_lead, transition_postal_status, bulk_transition_postal_status
 
 
 ELEVATED_OPERATORS = {User.Role.SALES_MANAGER, User.Role.COMPANY_IT, User.Role.PLATFORM_ADMIN}
@@ -917,7 +917,7 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
     permission_classes = [IsActiveAuthenticated, HasSalesCapability]
     queryset = SalesDocument.objects.none()
     serializer_class = SalesDocumentSerializer
-    sensitive_actions = frozenset({"create", "transition_postal_status", "deactivate", "shipment_create", "shipment_change"})
+    sensitive_actions = frozenset({"create", "transition_postal_status", "bulk_transition_postal_status", "deactivate", "shipment_create", "shipment_change"})
     http_method_names = ["get", "post", "head", "options"]
     search_fields = ["document_number", "customer__full_name", "province_snapshot", "city_snapshot", "postal_code_snapshot", "address_snapshot", "postal_status"]
     ordering_fields = ["registered_at", "document_number", "province_snapshot", "city_snapshot", "postal_status"]
@@ -989,6 +989,22 @@ class SalesDocumentViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelVie
         serializer.is_valid(raise_exception=True)
         document = transition_postal_status(actor=request.user, document=self.get_object(), **serializer.validated_data)
         return Response(self.get_serializer(document).data)
+
+    @extend_schema(
+        request=BulkPostalStatusTransitionSerializer,
+        responses={200: BulkPostalStatusResultSerializer, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 429: THROTTLED_RESPONSE},
+        description=(
+            "Move up to 200 documents to one postal status (2.40.41). Each goes through the "
+            "single-change rule; a document already in that status, inactive, or outside the "
+            "caller's scope is skipped and named in `skipped`, and the rest move in one transaction."
+        ),
+    )
+    @action(detail=False, methods=["post"], url_path="bulk-transition-postal-status")
+    def bulk_transition_postal_status(self, request):
+        serializer = BulkPostalStatusTransitionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = bulk_transition_postal_status(actor=request.user, documents=self.get_queryset(), **serializer.validated_data)
+        return Response(BulkPostalStatusResultSerializer(result).data)
 
     @extend_schema(
         responses={200: PostalStateSerializer(many=True), 403: ACCESS_DENIED_RESPONSE},

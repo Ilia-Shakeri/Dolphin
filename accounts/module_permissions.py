@@ -86,6 +86,8 @@ MODULES = (
     Module("sales_documents", "رهگیری پستی", ("sales_documents.scoped", "sales_documents.company"), ("sales_documents.manage",), ("sales_documents.delete",)),
     Module("after_sales", "خدمات پس از فروش", ("after_sales.company", "after_sales.assigned"), ("after_sales.manage",), ("after_sales.delete",)),
     Module("reports", "گزارش‌ها", ("reports.own", "reports.company")),
+    # One checkbox (2.40.41): who may set the marketers' monthly sales targets.
+    Module("sales_targets", "تعیین هدف ماهانهٔ فروش", ("sales_targets.manage",)),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
     # Person profile (2.20.0). Tasks: `tasks.own` is one's own list,
     # `tasks.company` everyone's; notes are read and written on the profiles

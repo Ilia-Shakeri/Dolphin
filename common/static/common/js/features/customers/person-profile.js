@@ -11,6 +11,7 @@ import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {fillCustomerCategorySelect} from "dolphin/ui/customer-categories.js";
 import {fillProvinceSelect} from "dolphin/ui/iran-map.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {loadPerformanceDetails} from "dolphin/ui/performance.js";
 import {openPermissionsDialog, setupPermissionsDialog} from "dolphin/ui/permissions-dialog.js";
 import {registerPopover} from "dolphin/ui/popover.js";
@@ -191,12 +192,22 @@ function customerProfileLoaders(customerId) {
         Object.entries(facts).forEach(([name, text]) => setOverviewFact(name, text));
     }
 
+    // Live (2.40.41): a change made elsewhere reaches the header, the
+    // overview and — once it has been opened — the info form.
+    let infoShown = false;
+    document.addEventListener("dolphin:customer-record", (event) => {
+        customer = event.detail;
+        reflectCustomer(customer);
+        if (infoShown) fillCustomer(customer);
+    });
+
     async function setupInfo() {
         const editForm = document.getElementById("edit-customer-form");
         const loadingNode = editForm.querySelector("[data-info-loading]");
         const fields = editForm.querySelector("[data-info-fields]");
         customer = await apiRequest(endpoint);
         fillCustomer(customer);
+        infoShown = true;
         loadingNode.hidden = true;
         fields.hidden = false;
         editForm.addEventListener("submit", (event) => {
@@ -892,16 +903,23 @@ function setupProfileCards(personType, personId) {
         }
     }
 
+    function readCards() {
+        const query = new URLSearchParams({period: select ? select.value : ""});
+        return apiRequest(`/api/v1/profiles/${personType}/${personId}/cards/?${query}`);
+    }
+
+    function paintCards(data) {
+        data.cards.forEach((card) => {
+            const box = host.querySelector(`[data-profile-card="${card.key}"]`);
+            if (box) paint(box, card);
+        });
+    }
+
     async function load() {
         host.setAttribute("aria-busy", "true");
         host.querySelectorAll("[data-card-value]").forEach((node) => { node.textContent = "…"; });
         try {
-            const query = new URLSearchParams({period: select ? select.value : ""});
-            const data = await apiRequest(`/api/v1/profiles/${personType}/${personId}/cards/?${query}`);
-            data.cards.forEach((card) => {
-                const box = host.querySelector(`[data-profile-card="${card.key}"]`);
-                if (box) paint(box, card);
-            });
+            paintCards(await readCards());
         } catch (error) {
             host.querySelectorAll("[data-profile-card]").forEach((box) => {
                 box.querySelector("[data-card-value]").textContent = "—";
@@ -924,6 +942,7 @@ function setupProfileCards(personType, personId) {
         });
     }
     load();
+    return {readCards, paintCards};
 }
 
 /** Why the score is what it is: each factor, its points and its reason. */
@@ -1494,8 +1513,23 @@ export function setupPersonProfile() {
         : userProfileLoaders(personId);
     setupProfileTabs(loaders);
     if (personType !== "customer") setupUserSessions(personId);
-    setupProfileCards(personType, personId);
+    const cards = setupProfileCards(personType, personId);
     setupTaskDialog(personType, personId);
+    // Live (2.40.41): the stat cards and, on a customer, the record itself
+    // redraw in place when something they count changes elsewhere.
+    liveRecord({
+        read: async () => {
+            const [record, cardData] = await Promise.all([
+                personType === "customer" ? apiRequest(`/api/v1/customers/${personId}/`) : null,
+                cards ? cards.readCards() : null,
+            ]);
+            return {record, cards: cardData};
+        },
+        draw: ({record, cards: cardData}) => {
+            if (record) document.dispatchEvent(new CustomEvent("dolphin:customer-record", {detail: record}));
+            if (cardData) cards.paintCards(cardData);
+        },
+    });
     const scoreDialog = document.getElementById("profile-score-dialog");
     scoreDialog?.querySelectorAll("[data-close-dialog]").forEach((button) => {
         button.addEventListener("click", () => scoreDialog.close());

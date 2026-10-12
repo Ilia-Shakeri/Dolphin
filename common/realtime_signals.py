@@ -47,6 +47,7 @@ LIST_KINDS = {
     "timeline.PersonNote": "note",
     "attachments.Attachment": "attachment",
     "accounts.User": "user",
+    "sales.SalesTarget": "sales_target",
 }
 
 

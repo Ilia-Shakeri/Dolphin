@@ -1,6 +1,7 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {statusText} from "dolphin/ui/table.js";
 
 function fillProductCategory(category) {
@@ -24,9 +25,11 @@ export async function setupProductCategoryDetail() {
     const loading = document.getElementById("product-category-detail-loading");
     const content = document.getElementById("product-category-detail-content");
     let category;
+    // Live (2.40.41): the record redraws in place when it changes elsewhere.
+    const show = (value) => { category = value; fillProductCategory(value); settle(value); };
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: show});
     try {
-        category = await apiRequest(endpoint);
-        fillProductCategory(category);
+        show(await apiRequest(endpoint));
         loading.hidden = true;
         content.hidden = false;
     } catch (error) {
@@ -41,8 +44,7 @@ export async function setupProductCategoryDetail() {
             withSubmit(form, async () => {
                 const payload = formPayload(form, ["name", "description"]);
                 payload.display_order = Number(new FormData(form).get("display_order"));
-                category = await apiRequest(endpoint, {method: "PATCH", body: payload});
-                fillProductCategory(category);
+                show(await apiRequest(endpoint, {method: "PATCH", body: payload}));
                 globalMessage("دسته‌بندی ذخیره شد.", true);
             });
         });
@@ -54,8 +56,7 @@ export async function setupProductCategoryDetail() {
         if (!await confirmDialog(prompt)) return;
         toggle.disabled = true;
         try {
-            category = await apiRequest(`${endpoint}${action}/`, {method: "POST"});
-            fillProductCategory(category);
+            show(await apiRequest(`${endpoint}${action}/`, {method: "POST"}));
             globalMessage(category.is_active ? "دسته‌بندی فعال شد." : "دسته‌بندی غیرفعال شد.", true);
         } catch (error) {
             showError(error);

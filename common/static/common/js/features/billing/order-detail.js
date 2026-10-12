@@ -5,6 +5,7 @@ import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/
 import {textOrNull} from "dolphin/core/money.js";
 import {documentLineEditor} from "dolphin/features/billing/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
 
 export async function setupOrderDetail() {
@@ -19,9 +20,12 @@ export async function setupOrderDetail() {
     const lines = documentLineEditor({doc: "order", endpoint, onSaved: (updated) => apply(updated)});
 
     let current = null;
+    // Live (2.40.41): the request redraws in place when it changes elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: async (order) => { apply(order); await loadLinkedInvoices(); }});
 
     function apply(order) {
         current = order;
+        settle(order);
         document.getElementById("order-number").value = order.number;
         document.getElementById("order-customer").value = order.customer_name;
         // A request made from an invoice names it; its customer and lines come from there.

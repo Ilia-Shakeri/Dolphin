@@ -478,6 +478,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # Ebazar shipments (2.29.0): status/cost updated in place, never deleted.
             "sales_postalshipment": "SELECT, INSERT, UPDATE",
             "sales_ebazarproductlink": "SELECT, INSERT, UPDATE",
+            "sales_salestarget": "SELECT, INSERT, UPDATE, DELETE",
             "sales_postprovidersettings": "SELECT, INSERT, UPDATE",
             # Integrations (2.21.0): tokens are revoked in place, never deleted;
             # log rows are only ever added or pruned.

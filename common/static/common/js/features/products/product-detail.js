@@ -3,6 +3,7 @@ import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "
 import {money, moneyToStorage} from "dolphin/core/money.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {fillSelect, loadAllPages} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {statusText} from "dolphin/ui/table.js";
 
 function fillProduct(product) {
@@ -30,6 +31,9 @@ export async function setupProductDetail() {
     const loading = document.getElementById("product-detail-loading");
     const content = document.getElementById("product-detail-content");
     let product;
+    // Live (2.40.41): the record redraws in place when it changes elsewhere.
+    const show = (value) => { product = value; fillProduct(value); settle(value); };
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: show});
     try {
         const [productValue, categories] = await Promise.all([
             apiRequest(endpoint),
@@ -40,7 +44,7 @@ export async function setupProductDetail() {
             categories.push({id: product.category, name: `${product.category_name || "دسته‌بندی"} (غیرفعال)`});
         }
         fillSelect(document.getElementById("edit-product-category"), categories, (category) => category.name, "بدون دسته‌بندی");
-        fillProduct(product);
+        show(product);
         loading.hidden = true;
         content.hidden = false;
     } catch (error) {
@@ -56,8 +60,7 @@ export async function setupProductDetail() {
                 const payload = formPayload(form, ["sku", "name", "brand", "unit", "description"]);
                 payload.current_price = moneyToStorage(new FormData(form).get("current_price"));
                 payload.category = new FormData(form).get("category") ? Number(new FormData(form).get("category")) : null;
-                product = await apiRequest(endpoint, {method: "PATCH", body: payload});
-                fillProduct(product);
+                show(await apiRequest(endpoint, {method: "PATCH", body: payload}));
                 globalMessage("محصول ذخیره شد.", true);
             });
         });
@@ -76,10 +79,9 @@ export async function setupProductDetail() {
         activeSelect.disabled = true;
         clearMessages();
         try {
-            product = await apiRequest(`${endpoint}set-active/`, {
+            show(await apiRequest(`${endpoint}set-active/`, {
                 method: "POST", body: {is_active: nextActive},
-            });
-            fillProduct(product);
+            }));
             globalMessage(nextActive ? "محصول دوباره فعال شد." : "محصول غیرفعال شد.", true);
         } catch (error) {
             activeSelect.value = String(Boolean(product.is_active));

@@ -1021,6 +1021,52 @@ def transition_postal_status(*, actor, document, to_status, reason=""):
         raise BusinessRuleError({"reason": "این فیلد نباید بیش از ۵۰۰ نویسه داشته باشد."})
     if locked.postal_status == to_status:
         raise BusinessConflictError({"to_status": "وضعیت پستی هم‌اکنون همین مقدار است."})
+    return _record_postal_transition(actor=actor, locked=locked, to_status=to_status, reason=reason)
+
+
+#: The most documents one bulk status change may name (2.40.41).
+BULK_POSTAL_LIMIT = 200
+
+
+@transaction.atomic
+def bulk_transition_postal_status(*, actor, documents, ids, to_status, reason=""):
+    """Move several parcels to one postal status at once (2.40.41).
+
+    Product owner (roadmap «اولویت ۱.۵»): «رهگیری پستی دوتکه: انتخاب گروهی
+    مرسوله‌ها برای تغییر وضعیت یکجا». Each document goes through exactly the
+    rule a single change does; one that cannot move — already in that status,
+    inactive, or not among `documents` (the caller's scoped queryset) — is
+    skipped and named, while the rest move. Returns `{changed, skipped}`.
+    """
+    actor = _lock_active_actor(actor)
+    if not has_any_capability(actor, "sales_documents.manage"):
+        raise BusinessPermissionDenied("تغییر وضعیت پستی مجاز نیست.")
+    ids = list(dict.fromkeys(ids))
+    if not ids:
+        raise BusinessRuleError({"ids": "دست‌کم یک مرسوله را انتخاب کنید."})
+    if len(ids) > BULK_POSTAL_LIMIT:
+        raise BusinessRuleError({"ids": f"در هر بار حداکثر {BULK_POSTAL_LIMIT} مرسوله را می‌توان تغییر داد."})
+    to_status = _clean_required_text(to_status, field="to_status", limit=80)
+    if len(reason) > 500:
+        raise BusinessRuleError({"reason": "این فیلد نباید بیش از ۵۰۰ نویسه داشته باشد."})
+    visible = set(documents.filter(pk__in=ids).values_list("pk", flat=True))
+    locked_rows = {row.pk: row for row in SalesDocument.objects.select_for_update().filter(pk__in=visible).order_by("pk")}
+    changed, skipped = [], []
+    for pk in ids:
+        locked = locked_rows.get(pk)
+        if locked is None:
+            skipped.append({"id": pk, "reason": "not_found"})
+        elif not locked.is_active:
+            skipped.append({"id": pk, "reason": "inactive"})
+        elif locked.postal_status == to_status:
+            skipped.append({"id": pk, "reason": "same_status"})
+        else:
+            _record_postal_transition(actor=actor, locked=locked, to_status=to_status, reason=reason)
+            changed.append(pk)
+    return {"changed": changed, "skipped": skipped}
+
+
+def _record_postal_transition(*, actor, locked, to_status, reason):
     previous = locked.postal_status
     locked.postal_status = to_status
     locked.save(update_fields=["postal_status", "updated_at"])

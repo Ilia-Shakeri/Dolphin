@@ -8,6 +8,7 @@ import {INSTALLMENT_DISPLAY_ACCENT, documentLineEditor} from "dolphin/features/b
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {setupInvoiceCampaign} from "dolphin/ui/invoice-campaign.js";
 import {setupInvoiceFulfillment} from "dolphin/ui/invoice-fulfillment.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
 
@@ -76,9 +77,12 @@ export async function setupInvoiceDetail() {
     let allocationsController = null;
 
     let current = null;
+    // Live (2.40.41): the invoice redraws in place when it changes elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: (invoice) => apply(invoice)});
 
     function apply(invoice, installments = null) {
         current = invoice;
+        settle(invoice);
         document.getElementById("invoice-number").value = invoice.number;
         document.getElementById("invoice-customer").value = invoice.customer_name;
         if (statusSelect) {

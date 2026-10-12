@@ -1,14 +1,15 @@
 import {apiRequest} from "dolphin/core/api.js";
 import {displayDate} from "dolphin/core/jalali.js";
 import {showError} from "dolphin/core/messages.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {directionText} from "dolphin/ui/table.js";
 
 export async function setupInteractionDetail() {
     const interactionId = document.body.dataset.interactionId;
     const loading = document.getElementById("interaction-detail-loading");
     const content = document.getElementById("interaction-detail-content");
-    try {
-        const interaction = await apiRequest(`/api/v1/interactions/${interactionId}/`);
+    const endpoint = `/api/v1/interactions/${interactionId}/`;
+    const fill = (interaction) => {
         document.getElementById("interaction-lead").value = interaction.lead;
         document.getElementById("interaction-customer").value = interaction.customer_name || interaction.customer;
         document.getElementById("interaction-agent").value = interaction.agent_display || interaction.agent;
@@ -18,6 +19,13 @@ export async function setupInteractionDetail() {
         document.getElementById("interaction-occurred").value = displayDate(interaction.occurred_at);
         document.getElementById("interaction-follow-up").value = displayDate(interaction.next_follow_up_at);
         document.getElementById("interaction-notes").value = interaction.notes || "";
+    };
+    // Live (2.40.41): the record redraws in place when it changes elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: fill});
+    try {
+        const interaction = await apiRequest(endpoint);
+        fill(interaction);
+        settle(interaction);
         loading.hidden = true; content.hidden = false;
     } catch (error) { loading.hidden = true; showError(error); }
 }

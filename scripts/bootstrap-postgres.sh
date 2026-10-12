@@ -656,6 +656,10 @@ FROM (
         ('sales_postalstatushistory', 'SELECT, INSERT'),
         ('sales_postalshipment', 'SELECT, INSERT, UPDATE'),
         ('sales_ebazarproductlink', 'SELECT, INSERT, UPDATE'),
+        -- Monthly sales targets (2.40.41): set and corrected in place by a
+        -- manager; clearing a month's target removes its row (the activity
+        -- log keeps who did it).
+        ('sales_salestarget', 'SELECT, INSERT, UPDATE, DELETE'),
         -- Post-carrier API connection settings, singleton row — same grant
         -- as its SMS counterpart just above.
         ('sales_postprovidersettings', 'SELECT, INSERT, UPDATE'),

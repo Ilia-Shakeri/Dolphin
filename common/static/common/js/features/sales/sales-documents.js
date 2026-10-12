@@ -1,9 +1,11 @@
 import {apiRequest} from "dolphin/core/api.js";
-import {clearMessages, formPayload, showError, withSubmit} from "dolphin/core/messages.js";
+import {toPersianDigits} from "dolphin/core/digits.js";
+import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {setupPostalPane} from "dolphin/features/sales/postal-pane.js";
 import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
 import {onRealtime} from "dolphin/ui/realtime.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
+import {guardDirtyDialog} from "dolphin/ui/dialogs.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
 
@@ -101,6 +103,60 @@ function salesDocumentRow(item) {
     return row;
 }
 
+/** Why a parcel was left out of a bulk change, in the reader's words. */
+const SKIP_REASONS = {
+    same_status: "همین حالا در این وضعیت بود",
+    inactive: "غیرفعال است",
+    not_found: "در دسترس شما نیست",
+};
+
+/**
+ * «تغییر وضعیت گروهی» (2.40.41, roadmap «اولویت ۱.۵»): the chosen parcels
+ * move to one postal status together. The server applies the single-change
+ * rule to each and reports the ones it left out; this only asks and tells.
+ */
+async function setupBulkPostalStatus(controller, refreshPane) {
+    const button = document.getElementById("sales-documents-bulk-status");
+    const dialog = document.getElementById("bulk-postal-status-dialog");
+    if (!button || !dialog || !controller) return;
+    const form = document.getElementById("bulk-postal-status-form");
+    const select = document.getElementById("bulk-postal-status-select");
+    guardDirtyDialog(dialog, form);
+    dialog.querySelectorAll("[data-close-dialog]").forEach((close) => close.addEventListener("click", () => dialog.close()));
+    try {
+        await fillPostalStates(select, {emptyLabel: "یک وضعیت انتخاب کنید"});
+    } catch (error) { showError(error); }
+    button.addEventListener("click", () => {
+        const ids = controller.selection.selectedIds();
+        if (!ids.length) return;
+        form.reset();
+        clearMessages(form);
+        document.getElementById("bulk-postal-status-count").textContent = toPersianDigits(String(ids.length));
+        dialog.showModal();
+    });
+    form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        withSubmit(form, async () => {
+            const result = await apiRequest("/api/v1/sales-documents/bulk-transition-postal-status/", {
+                method: "POST",
+                body: {...formPayload(form, ["to_status", "reason"]), ids: controller.selection.selectedIds()},
+            });
+            dialog.close();
+            controller.selection.resetSelection();
+            await controller.load(controller.page, {quiet: true});
+            refreshPane();
+            const parts = [];
+            if (result.changed.length) parts.push(`${toPersianDigits(String(result.changed.length))} مرسوله به وضعیت تازه رفت`);
+            const reasons = {};
+            result.skipped.forEach((skip) => { reasons[skip.reason] = (reasons[skip.reason] || 0) + 1; });
+            Object.entries(reasons).forEach(([reason, count]) => {
+                parts.push(`${toPersianDigits(String(count))} مرسوله ${SKIP_REASONS[reason] || "کنار گذاشته شد"}`);
+            });
+            globalMessage(parts.join(" — ") || "مرسوله‌ای تغییر نکرد.", result.changed.length > 0 && result.skipped.length === 0);
+        });
+    });
+}
+
 export async function setupSalesDocuments() {
     const form = document.getElementById("sales-document-search-form");
     setupListFilter("sales-document");
@@ -155,6 +211,7 @@ export async function setupSalesDocuments() {
     onRealtime(["sales_document"], (detail) => {
         if (pane?.shownId && (detail.kind === "resync" || String(detail.id) === pane.shownId)) pane.refresh();
     });
+    await setupBulkPostalStatus(controller, () => pane?.shownId && pane.refresh());
     const dialog = document.getElementById("create-sales-document-dialog");
     if (!dialog) return;
     const createForm = document.getElementById("create-sales-document-form");

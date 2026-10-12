@@ -444,6 +444,22 @@ Rules:
   average), customers created, interactions logged, work leads assigned/completed in the window and
   the completion rate; competition ranking by `ordering`, `previous_rank` over the equal window
   before (null when they did nothing then), share of the period's sales amount.
+  Since 2.40.41 `GET exports/marketers.xlsx` (same parameters, same view subclassed — gate,
+  capability and builder are one code path) returns it as a workbook: sheet `marketers` (one row per
+  marketer in rank order, machine column names) and `summary` (window, ordering, totals).
+- **Monthly sales targets (2.40.41).** `sales.SalesTarget` — one row per (marketer, Jalali year,
+  Jalali month), `amount > 0`, `set_by`; no commission, bonus or accounting meaning.
+  `GET reports/marketers/targets/?year&month` (this month in Tehran when omitted; `reports.company`,
+  feature `reports`): every marketer the ranking lists, their target (or null), what they sold (the
+  ranking's own «مبلغ فروش» — issued invoices they created — from the first moment of that month to the
+  first of the next, Tehran time, `reports.targets.month_window`) and the percentage; those with a
+  target first, furthest along first. `PUT` the same path with `{year, month, targets: [{user_id,
+  amount}]}` sets the month in one transaction (`sales.targets.set_monthly_targets`): an empty or zero
+  amount clears that marketer's target (the row is removed), a user who is not an active marketer is
+  a 400, and the write needs the capability `sales_targets.manage` — a Sales Manager and the Platform
+  Admin by default, grantable per user on the permission matrix (module «تعیین هدف ماهانهٔ فروش»).
+  Each change writes `sales_target.set` / `sales_target.cleared` to the activity log and announces the
+  live kind `sales_target` (to `reports.company` holders, without an id).
 - **New leads shared out among a campaign's responsibles (2.40.33).** `create_lead(assignee=AUTO_ASSIGN)`,
   the default (API: `assign_to` absent or null): the lead goes to the responsible of its campaign
   (its parent's when it names none) holding the fewest leads of that campaign, ties broken at
@@ -501,6 +517,12 @@ slot is freed even if the client leaves before the first byte (2.39.15). A brows
 that cannot connect backs off with jitter and then retries every five minutes; an
 event that arrives while the tab is hidden or a dialog is open is postponed, not
 dropped.
+
+Detail pages (2.40.41) register how they read and draw their record
+(`ui/live-record.js`); on any event of their kinds they read the record again and
+redraw only when it changed — no reload. Because most kinds carry no id, the check
+is one read per event and draws nothing when the record did not move. Unsaved edits
+in a form on the page are never overwritten: a notice offers the new version instead.
 
 *Decision record:* the Phase-0 plan proposed Django Channels + Redis (D9). That would
 have added eight hashed dependencies to the lock, a Redis service and an ASGI server
@@ -1158,6 +1180,7 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - Registration requires Customer, unique bounded single-line internal document number, and bounded single-line initial postal status; Sale is optional and must belong to Customer. Province, city, postal code, address, registration actor/time, and active state are server-owned snapshots/state.
 - List filters: exact `postal_status`, `province`, `city`, `is_active`; plus search, ordering, and pagination.
 - `POST sales-documents/{id}/transition-postal-status/`: elevated roles only. Requires a different nonblank status, appends history, updates current status, and writes safe audit atomically. No unapproved fixed status vocabulary or transition graph is claimed.
+- `POST sales-documents/bulk-transition-postal-status/` (2.40.41): `{ids: [≤ 200], to_status, reason?}`, `sales_documents.manage`. Each document goes through the single-change rule in one transaction with its row locked; one already in that status, inactive, or outside the caller's scope is skipped (`skipped: [{id, reason: same_status | inactive | not_found}]`) while the rest move (`changed: [ids]`). Each moved document gets its own history row and audit entry.
 - `GET sales-documents/{id}/postal-history/`: paginated append-only history after the same document scope. `POST sales-documents/{id}/deactivate/` is elevated-only and preserves all rows.
 - `GET reports/sales-documents/`: required half-open registration period plus optional exact province/city/current-postal-status/active filters. Returns total, counts by snapshotted province/city, and counts by current postal status. Deactivated rows remain included unless `is_active` is supplied. Scope matches document API. No XLSX was approved.
 

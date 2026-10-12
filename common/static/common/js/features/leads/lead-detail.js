@@ -3,6 +3,7 @@ import {toPersianDigits} from "dolphin/core/digits.js";
 import {apiDateTime, displayDate, localDateTimeValue} from "dolphin/core/jalali.js";
 import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {fillSelect, loadAllPages} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {appendCell, pageRangeLabel} from "dolphin/ui/table.js";
 
 export async function setupLeadDetail() {
@@ -15,7 +16,12 @@ export async function setupLeadDetail() {
     let historyPage = 1;
     let targetAudiencePage = 1;
 
+    // Live (2.40.41): the lead and its history redraw in place when it
+    // changes elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: async (value) => { lead = value; fillLead(value); await loadHistory(historyPage); }});
+
     function fillLead(value) {
+        settle(value);
         // Customer, server status, creator and interested product are no
         // longer on this form: a campaign is worked from its target
         // audience rather than from a single customer.

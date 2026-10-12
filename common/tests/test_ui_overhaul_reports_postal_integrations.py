@@ -387,8 +387,9 @@ class PostalStepperUITests(SimpleTestCase):
         self.assertEqual(SCRIPT.count("function fillPostalStates("), 1)
         # The definition, then: create form, change-status form, the sales
         # document report's filter, the tracking list's filter (2.40.26) and
-        # the two-pane page's own status form (2.40.34).
-        self.assertEqual(SCRIPT.count("fillPostalStates("), 6)
+        # the two-pane page's own status form (2.40.34) and the bulk status
+        # change on the tracking list (2.40.41).
+        self.assertEqual(SCRIPT.count("fillPostalStates("), 7)
 
     def test_the_vocabulary_is_fetched_once_per_page(self):
         """Three surfaces want it and three requests for a four-row constant

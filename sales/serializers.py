@@ -702,6 +702,21 @@ class PostalStatusTransitionSerializer(RejectServerFieldsMixin, serializers.Seri
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
+class BulkPostalStatusTransitionSerializer(PostalStatusTransitionSerializer):
+    ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False, max_length=200)
+
+
+class BulkPostalSkipSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    #: `not_found` (not visible to the caller), `inactive`, or `same_status`.
+    reason = serializers.CharField()
+
+
+class BulkPostalStatusResultSerializer(serializers.Serializer):
+    changed = serializers.ListField(child=serializers.IntegerField())
+    skipped = BulkPostalSkipSerializer(many=True)
+
+
 class PostalStatusHistorySerializer(serializers.ModelSerializer):
     changed_by_display = serializers.SerializerMethodField()
     #: The same labelling every other surface uses, so one page cannot show

@@ -105,6 +105,8 @@ ROLE_CAPABILITIES = {
         "payments.manage",
         "ledger.company",
         "reports.company",
+        # Monthly sales targets (2.40.41): a store manager sets them.
+        "sales_targets.manage",
         "sms.company",
         "tasks.company",
         "tasks.manage",
@@ -200,6 +202,7 @@ ROLE_CAPABILITIES = {
         "payments.manage",
         "ledger.company",
         "reports.company",
+        "sales_targets.manage",
         "sms.company",
         "users.manage_all",
         "audit.all",

@@ -3,6 +3,7 @@ import {apiDateTime, displayDate} from "dolphin/core/jalali.js";
 import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {fillSelect, loadAllPages} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {appendCell} from "dolphin/ui/table.js";
 
 function fillAfterSales(item) {
@@ -39,9 +40,11 @@ async function loadAfterSalesHistory(id) {
 export async function setupAfterSalesDetail() {
     const id = document.body.dataset.afterSalesId, endpoint = `/api/v1/after-sales/${id}/`;
     let item;
-    try { [item] = await Promise.all([apiRequest(endpoint), loadAfterSalesHistory(id)]); fillAfterSales(item); document.getElementById("after-sales-detail-loading").hidden = true; document.getElementById("after-sales-detail-content").hidden = false; } catch (error) { document.getElementById("after-sales-detail-loading").hidden = true; showError(error); return; }
+    // Live (2.40.41): the case and its history redraw in place when it changes elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: async (value) => { item = value; fillAfterSales(value); await loadAfterSalesHistory(id); }});
+    try { [item] = await Promise.all([apiRequest(endpoint), loadAfterSalesHistory(id)]); fillAfterSales(item); settle(item); document.getElementById("after-sales-detail-loading").hidden = true; document.getElementById("after-sales-detail-content").hidden = false; } catch (error) { document.getElementById("after-sales-detail-loading").hidden = true; showError(error); return; }
     const statusForm = document.getElementById("after-sales-status-form");
-    statusForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(statusForm, async () => { item = await apiRequest(statusForm.action, {method: "POST", body: formPayload(statusForm, ["to_status", "reason"])}); fillAfterSales(item); statusForm.reset(); await loadAfterSalesHistory(id); globalMessage("وضعیت پرونده ثبت شد.", true); }); });
+    statusForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(statusForm, async () => { item = await apiRequest(statusForm.action, {method: "POST", body: formPayload(statusForm, ["to_status", "reason"])}); fillAfterSales(item); settle(item); statusForm.reset(); await loadAfterSalesHistory(id); globalMessage("وضعیت پرونده ثبت شد.", true); }); });
     const appointmentForm = document.getElementById("after-sales-appointment-form");
     appointmentForm.addEventListener("submit", (event) => {
         event.preventDefault();
@@ -53,6 +56,7 @@ export async function setupAfterSalesDetail() {
             };
             item = await apiRequest(appointmentForm.action, {method: "POST", body});
             fillAfterSales(item);
+            settle(item);
             await loadAfterSalesHistory(id);
             globalMessage(body.appointment_at ? "قرار زمان‌بندی شد." : "قرار لغو شد.", true);
         });
@@ -60,7 +64,7 @@ export async function setupAfterSalesDetail() {
     const assignForm = document.getElementById("after-sales-assign-form");
     if (assignForm) {
         try { fillSelect(document.getElementById("after-sales-to-user"), await loadAllPages("/api/v1/after-sales/assignees/"), (user) => user.display, "مسئول را انتخاب کنید"); } catch (error) { showError(error); }
-        assignForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(assignForm, async () => { item = await apiRequest(assignForm.action, {method: "POST", body: formPayload(assignForm, ["to_user", "reason"])}); fillAfterSales(item); assignForm.reset(); await loadAfterSalesHistory(id); globalMessage("پرونده تخصیص یافت.", true); }); });
-        document.getElementById("close-after-sales").addEventListener("click", async () => { if (!await confirmDialog("پرونده بسته شود؟ بازگشایی هنوز تصویب نشده.")) return; try { item = await apiRequest(`${endpoint}close/`, {method: "POST", body: {}}); fillAfterSales(item); await loadAfterSalesHistory(id); globalMessage("پرونده بسته شد.", true); } catch (error) { showError(error); } });
+        assignForm.addEventListener("submit", (event) => { event.preventDefault(); withSubmit(assignForm, async () => { item = await apiRequest(assignForm.action, {method: "POST", body: formPayload(assignForm, ["to_user", "reason"])}); fillAfterSales(item); settle(item); assignForm.reset(); await loadAfterSalesHistory(id); globalMessage("پرونده تخصیص یافت.", true); }); });
+        document.getElementById("close-after-sales").addEventListener("click", async () => { if (!await confirmDialog("پرونده بسته شود؟ بازگشایی هنوز تصویب نشده.")) return; try { item = await apiRequest(`${endpoint}close/`, {method: "POST", body: {}}); fillAfterSales(item); settle(item); await loadAfterSalesHistory(id); globalMessage("پرونده بسته شد.", true); } catch (error) { showError(error); } });
     }
 }

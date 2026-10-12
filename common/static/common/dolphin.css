@@ -5863,6 +5863,56 @@ tr.is-leaving > td {
 }
 .marketer-share > span:last-child { position: relative; }
 
+/* Monthly sales targets (2.40.41): one row per marketer — who, the figures,
+   a progress bar in the state colour (met / close / still far) and the
+   percentage; the bar stacks under the name on a phone. */
+.marketer-targets-month { display: inline-flex; align-items: center; gap: 0.5rem; }
+.marketer-targets-month-label { min-width: 7.5rem; text-align: center; font-weight: 700; color: var(--bs-gray-900); }
+.marketer-targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.marketer-target {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1.2fr) minmax(9rem, 1fr) minmax(8rem, 2fr) 3.5rem;
+    align-items: center;
+    gap: 1rem;
+    padding-block: 0.6rem;
+    border-bottom: 1px dashed var(--bs-gray-200);
+}
+.marketer-target:last-child { border-bottom: 0; }
+.marketer-target-who { display: inline-flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.marketer-target-figures { color: var(--bs-gray-700); font-size: 0.9rem; }
+.marketer-target-bar {
+    --tone: var(--bs-gray-400);
+    position: relative;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--bs-gray-200);
+    overflow: hidden;
+}
+.marketer-target-bar::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--progress, 0%);
+    border-radius: inherit;
+    background: var(--tone);
+    transition: width var(--dolphin-dur) var(--dolphin-ease);
+}
+.marketer-target-bar[data-tone="success"] { --tone: var(--bs-success); }
+.marketer-target-bar[data-tone="primary"] { --tone: var(--bs-primary); }
+.marketer-target-bar[data-tone="warning"] { --tone: var(--bs-warning); }
+.marketer-target-percent { font-weight: 700; color: var(--bs-gray-900); text-align: end; }
+@media (max-width: 767.98px) {
+    .marketer-target { grid-template-columns: 1fr auto; row-gap: 0.4rem; }
+    .marketer-target-figures { grid-column: 1 / -1; order: 3; }
+    .marketer-target-bar { grid-column: 1 / -1; order: 4; }
+}
+.marketer-targets-fields { display: grid; gap: 0.75rem; max-height: min(60vh, 32rem); overflow-y: auto; padding-inline-end: 0.25rem; }
+.marketer-targets-field { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.4fr); align-items: center; gap: 1rem; }
+@media (max-width: 575.98px) {
+    .marketer-targets-field { grid-template-columns: 1fr; gap: 0.35rem; }
+}
+
 /* Postal tracking in two panes (2.40.34, like the chat page). The list is a
    column of cards that scrolls on its own beside the shipment on screen; the
    chosen card carries the accent on its leading edge. On a phone one pane at a
@@ -6542,3 +6592,28 @@ tr.is-row-link:hover .btn.row-detail-link,
     select.form-select:not([multiple]):not([size]) option:disabled { opacity: 0.45; cursor: default; }
     select.form-select:not([multiple]):not([size]) optgroup { padding: 0.25rem 0; color: var(--bs-gray-600); font-size: 0.9rem; font-weight: 600; }
 }
+
+/* -- A record changed elsewhere (2.40.41) ------------------------------------------
+   Shown instead of redrawing over the reader's unsaved edits
+   (`shell/live-page.js`): bottom centre, above the content, out of the way. */
+.live-record-notice {
+    position: fixed;
+    inset-block-end: 1.25rem;
+    inset-inline-start: 50%;
+    translate: -50% 0;
+    z-index: 1060;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem 0.6rem 1rem;
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-body-bg);
+    color: var(--bs-gray-900);
+    box-shadow: 0 8px 28px rgb(0 0 0 / 14%);
+    font-weight: 600;
+}
+[dir="rtl"] .live-record-notice { translate: 50% 0; }
+@media (prefers-reduced-motion: no-preference) {
+    .live-record-notice { animation: dolphin-notice-in var(--dolphin-dur) var(--dolphin-ease); }
+}
+@keyframes dolphin-notice-in { from { opacity: 0; margin-block-end: -0.5rem; } }

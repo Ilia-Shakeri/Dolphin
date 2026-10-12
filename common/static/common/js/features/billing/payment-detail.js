@@ -7,6 +7,7 @@ import {CHEQUE_REGISTRATION_TEXT, CHEQUE_STATUS_TEXT, PAYMENT_METHOD_TEXT, loadC
 import {previewAllocation, renderAllocationPreview} from "dolphin/ui/allocation-preview.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {fillSelect, loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
+import {liveRecord} from "dolphin/ui/live-record.js";
 import {setupSearchableSelects} from "dolphin/ui/searchable-select.js";
 import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
 import {removeWithMotion, trashButton} from "dolphin/ui/trash.js";
@@ -27,8 +28,13 @@ export async function setupPaymentDetail() {
     // What the invoice picker says when there is nothing to pick (2.25.1).
     let allocatableEmptyText = "";
 
+    // Live (2.40.41): the payment and its allocations redraw in place when
+    // they change elsewhere.
+    const settle = liveRecord({read: () => apiRequest(endpoint), draw: (value) => { apply(value); allocationsController?.load(allocationsController.page, {quiet: true}); }});
+
     function apply(value) {
         payment = value;
+        settle(value);
         document.getElementById("payment-number").value = payment.number;
         document.getElementById("payment-method").value = labelled(PAYMENT_METHOD_TEXT, payment.method);
         document.getElementById("payment-received-by").value = payment.received_by_display || payment.received_by;

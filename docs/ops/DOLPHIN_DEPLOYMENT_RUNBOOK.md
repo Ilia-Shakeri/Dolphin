@@ -1182,6 +1182,11 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.41 — `sales/0034_sales_target`** creates one new table, `sales_salestarget` (monthly sales
+  targets); it moves no data. The application role needs its grant (`SELECT, INSERT, UPDATE, DELETE`,
+  in `scripts/bootstrap-postgres.sh`), which `deploy.sh` applies right after the migration
+  (`db-finalize`). Rolling back to 2.40.40 keeping the data: `migrate sales 0033` **with the 2.40.41 image**
+  (drops the targets table — export the targets first if they matter), then switch images.
 
 ### Rollback triggers
 

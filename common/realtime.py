@@ -38,7 +38,7 @@ CHANNEL = "dolphin_events"
 MAX_PAYLOAD_BYTES = 6000
 #: Kinds whose id is never sent to anyone: they name a person's record, and the
 #: page re-reads the list itself.
-KINDS_WITHOUT_ID = frozenset({"customer", "payment", "lead", "interaction", "invoice", "order", "campaign", "sale", "after_sales"})
+KINDS_WITHOUT_ID = frozenset({"customer", "payment", "lead", "interaction", "invoice", "order", "campaign", "sale", "after_sales", "sales_target"})
 
 
 #: Who may hear that a kind of record changed (2.39.23): the read capabilities of
@@ -55,6 +55,7 @@ KIND_CAPABILITIES = {
     "payment": {"payments.company"},
     "after_sales": {"after_sales.company", "after_sales.assigned"},
     "inventory": {"inventory.read", "inventory.manage"},
+    "sales_target": {"reports.company"},
 }
 
 

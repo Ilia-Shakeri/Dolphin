@@ -805,3 +805,31 @@ class PostalShipment(TimeStampedModel):
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["document", "-created_at"])]
+
+
+class SalesTarget(TimeStampedModel):
+    """One marketer's sales target for one Jalali month (2.40.41).
+
+    Product owner (roadmap «اولویت ۱.۵»): «هدف ماهانهٔ فروش برای هر بازاریاب».
+    A target is a number a manager sets, nothing more: what counts towards it
+    is the marketer ranking's own «مبلغ فروش» (issued invoices the marketer
+    made, `reports.marketers`), measured over the same Jalali month in Tehran
+    time. No commission, bonus or accounting meaning is attached to it.
+
+    Clearing a month's target removes its row; the change is in the activity
+    log (`sales_target.set` / `sales_target.cleared`).
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="sales_targets")
+    year = models.PositiveSmallIntegerField()
+    month = models.PositiveSmallIntegerField()
+    amount = models.DecimalField(max_digits=20, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    set_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+
+    class Meta:
+        ordering = ["-year", "-month", "user_id"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "year", "month"], name="uniq_sales_target_user_month"),
+            models.CheckConstraint(condition=Q(month__gte=1, month__lte=12), name="sales_target_month_range"),
+            models.CheckConstraint(condition=Q(amount__gt=0), name="sales_target_amount_positive"),
+        ]
