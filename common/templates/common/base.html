@@ -177,6 +177,20 @@
          (telephony, 2.23.0): their pages poll for the incoming-call popup. {% endcomment %}
       {% if call_popup %}data-call-popup="1"{% endif %}
       data-page="{% block page_id %}shell{% endblock %}"{% block body_data %}{% endblock %}>
+{% comment %} The sidebar follows the colour theme (2.40.38): the UI kit's own
+   `light-sidebar` layout on a light page, `dark-sidebar` on a dark one —
+   including when the theme changes while the page is open. Here, before the
+   sidebar is drawn, so it never shows the other colour first. {% endcomment %}
+<script>
+    (function () {
+        var root = document.documentElement;
+        function sync() {
+            document.body.setAttribute("data-dolphin-app-layout", root.getAttribute("data-bs-theme") === "dark" ? "dark-sidebar" : "light-sidebar");
+        }
+        sync();
+        new MutationObserver(sync).observe(root, {attributes: true, attributeFilter: ["data-bs-theme"]});
+    })();
+</script>
 {% if request.user.is_authenticated %}
 <div class="d-flex flex-column flex-root app-root" id="dolphin_app_root">
     <div class="app-page flex-column flex-column-fluid" id="dolphin_app_page">
@@ -193,12 +207,16 @@
                         {% if brand_is_custom %}
                         <img class="brand-mark brand-mark-mobile" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" onerror="this.hidden=true">
                         {% else %}
-                        <picture>
+                        <picture class="brand-on-dark">
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-mobile" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="">
                         </picture>
+                        <picture class="brand-on-light">
+                                <source type="image/webp" srcset="{% static 'common/brand/Logo-light.webp' %}">
+                                <img class="brand-mark brand-mark-mobile" src="{% static 'common/brand/Logo-light.png' %}" width="716" height="716" alt="">
+                            </picture>
                         {% endif %}
-                        <span class="text-white fw-bold fs-4">{{ brand_name }}</span>
+                        <span class="text-gray-900 fw-bold fs-4">{{ brand_name }}</span>
                     </a>
                 </div>
                 <div class="d-flex align-items-stretch justify-content-end flex-lg-grow-1">
@@ -474,9 +492,13 @@
                             <img class="brand-mark brand-mark-sidebar" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="" onerror="this.hidden=true">
                             <span>{{ brand_name }}</span>
                             {% else %}
-                            <picture>
+                            <picture class="brand-on-dark">
                                 <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                                 <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="">
+                            </picture>
+                            <picture class="brand-on-light">
+                                <source type="image/webp" srcset="{% static 'common/brand/Logo-light.webp' %}">
+                                <img class="brand-mark brand-mark-sidebar" src="{% static 'common/brand/Logo-light.png' %}" width="716" height="716" alt="">
                             </picture>
                             <span>{{ brand_name }}<span class="d-block fs-7 fw-semibold brand-subtitle">{{ brand_subtitle }}</span></span>
                             {% endif %}
@@ -495,10 +517,14 @@
                         {% if brand_is_custom %}
                         <img class="brand-mark brand-mark-minimize" src="{% url 'branding-logo' %}?v={{ brand_logo_updated_at|date:'U' }}" alt="{{ brand_name }}" onerror="this.hidden=true">
                         {% else %}
-                        <picture>
+                        <picture class="brand-on-dark">
                             <source type="image/webp" srcset="{% static 'common/brand/Logo.webp' %}">
                             <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo.png' %}" width="799" height="666" alt="{{ brand_name }}">
                         </picture>
+                        <picture class="brand-on-light">
+                                <source type="image/webp" srcset="{% static 'common/brand/Logo-light.webp' %}">
+                                <img class="brand-mark brand-mark-minimize" src="{% static 'common/brand/Logo-light.png' %}" width="716" height="716" alt="">
+                            </picture>
                         {% endif %}
                     </a>
 {% comment %} The theme's own toggle, class for class, with one change: it is a

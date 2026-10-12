@@ -178,6 +178,44 @@ const FIRST_FIELD = 'input:not([type="hidden"]):not([type="checkbox"]):not([type
  * confirmation, a list) keeps the browser's choice, and an element marked
  * `autofocus` keeps its own. Not on a touch screen (see below).
  */
+/**
+ * A dialog on a phone is a sheet (2.40.38, dolphin.css): it rises from the
+ * bottom with a grabber, and pulling it down past a third of its height — or
+ * flicking it down — closes it the same way its × does, so an unsaved form
+ * still asks first (`guardDirtyDialog`). Anywhere else, or on a desktop, the
+ * dialog does not move.
+ */
+export function setupSheetDrag() {
+    const phone = window.matchMedia("(max-width: 575.98px)");
+    let drag = null;
+    document.addEventListener("pointerdown", (event) => {
+        const dialog = event.target.closest?.("dialog[open]");
+        if (!phone.matches || !dialog || event.pointerType === "mouse") return;
+        if (event.clientY - dialog.getBoundingClientRect().top > 40 || dialog.scrollTop > 0) return;
+        drag = {dialog, startY: event.clientY, startTime: event.timeStamp, dy: 0};
+        dialog.style.transition = "none";
+    });
+    document.addEventListener("pointermove", (event) => {
+        if (!drag) return;
+        drag.dy = Math.max(0, event.clientY - drag.startY);
+        drag.dialog.style.translate = `0 ${drag.dy}px`;
+    });
+    const release = (event) => {
+        if (!drag) return;
+        const {dialog, dy, startTime} = drag;
+        drag = null;
+        dialog.style.transition = "";
+        dialog.style.translate = "";
+        const fast = dy / Math.max(1, event.timeStamp - startTime) > 0.6;
+        if (dy > dialog.offsetHeight / 3 || (fast && dy > 40)) {
+            const close = dialog.querySelector("[data-close-dialog]");
+            if (close) close.click(); else dialog.close();
+        }
+    };
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", release);
+}
+
 export function setupDialogFocus() {
     // On a touch screen focusing a field opens the keyboard over the dialog
     // the reader has not looked at yet; there the browser's choice stands.

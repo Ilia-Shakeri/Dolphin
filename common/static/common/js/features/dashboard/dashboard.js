@@ -205,7 +205,7 @@ async function setupDashboardInsights() {
             height: kpi.height,
             height_chosen: kpi.height_chosen,
             position: kpi.position,
-            mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: kpi.accent}); },
+            mount: () => { if (spark && kpi.spark) renderSparkline(spark, kpi.spark, {accent: "primary"}); },
         });
     });
 
@@ -490,6 +490,10 @@ async function refreshInsights() {
     const swap = (key, column, payload) => {
         const current = liveWidgets.get(key);
         if (!current) return false;
+        // A figure that changed eases in (2.40.38); one that did not stays still.
+        const before = current.column.querySelector(".dashboard-kpi-value")?.textContent;
+        const after = column.querySelector(".dashboard-kpi-value");
+        if (after && before !== undefined && before !== after.textContent) after.classList.add("is-updated");
         current.column.replaceChildren(...column.children);
         current.data = payload;
         return true;
@@ -497,7 +501,7 @@ async function refreshInsights() {
     data.kpis.forEach((kpi) => {
         const built = kpiCard(kpi);
         if (swap(kpi.key, built.column, kpi) && built.spark && kpi.spark) {
-            renderSparkline(built.spark, kpi.spark, {accent: kpi.accent});
+            renderSparkline(built.spark, kpi.spark, {accent: "primary"});
         }
     });
     (data.gauges || []).forEach((gauge) => {
@@ -553,7 +557,12 @@ async function refreshTiles() {
     tiles.forEach((tile) => {
         const source = fresh.querySelector(`[data-widget-key="${CSS.escape(tile.dataset.widgetKey)}"] .dashboard-kpi-value`);
         const target = tile.querySelector(".dashboard-kpi-value");
-        if (source && target && target.textContent !== source.textContent) target.textContent = source.textContent;
+        if (source && target && target.textContent !== source.textContent) {
+            target.textContent = source.textContent;
+            target.classList.remove("is-updated");
+            void target.offsetWidth;
+            target.classList.add("is-updated");
+        }
     });
 }
 
@@ -2258,8 +2267,11 @@ function kpiCard(kpi) {
     // A line only when there is a history to draw (2.40.36): a series that is
     // zero until its last point drew a cliff from nothing — a jump the figure
     // and its caption («در ماه گذشته چیزی ثبت نشده بود») already say plainly.
+    // And only beside a comparison (2.40.38): with no earlier period to compare
+    // (`delta` absent) the caption says there was nothing before, and a line
+    // with a peak in it contradicted it.
     const history = Array.isArray(kpi.spark) ? kpi.spark.slice(0, -1) : [];
-    if (Array.isArray(kpi.spark) && kpi.spark.length >= 3 && history.some((value) => Number(value) !== 0)) {
+    if (Array.isArray(kpi.spark) && kpi.spark.length >= 3 && kpi.delta && history.some((value) => Number(value) !== 0)) {
         spark = document.createElement("div");
         spark.className = "kpi-sparkline";
         spark.setAttribute("role", "img");

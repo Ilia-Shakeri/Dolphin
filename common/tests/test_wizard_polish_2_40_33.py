@@ -40,9 +40,12 @@ class WizardChromeTests(SimpleTestCase):
         self.assertIn('label.classList.toggle("required", control.required || control.hasAttribute("aria-required"))', module)
         self.assertIn("setupRequiredLabels();", (JS / "main.js").read_text(encoding="utf-8"))
 
-    def test_the_close_button_has_its_halo_over_the_kits_hover(self):
+    def test_the_close_button_wins_over_the_kits_hover(self):
+        # A grey circle since 2.40.38 (the red halo of 2.40.33 was replaced
+        # after the design review); it still has to beat the kit's own
+        # `!important` hover background.
         self.assertIn("dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover", CSS)
-        self.assertIn("background-color: var(--bs-danger) !important;", CSS)
+        self.assertIn("background-color: color-mix(in srgb, var(--bs-gray-500) 30%, transparent) !important;", CSS)
 
 
 class TrashTests(SimpleTestCase):

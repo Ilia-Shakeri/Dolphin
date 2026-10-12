@@ -97,7 +97,8 @@ class ComponentTests(SimpleTestCase):
 
     def test_no_line_under_three_points(self):
         # …and since 2.40.36 none without a history before the last point.
-        self.assertIn("if (Array.isArray(kpi.spark) && kpi.spark.length >= 3 && history.some((value) => Number(value) !== 0)) {", SCRIPT)
+        # …and since 2.40.38 only beside a comparison (`delta`).
+        self.assertIn("if (Array.isArray(kpi.spark) && kpi.spark.length >= 3 && kpi.delta && history.some((value) => Number(value) !== 0)) {", SCRIPT)
         self.assertIn("if (!el || !Array.isArray(values) || values.length < 3) return;", SCRIPT)
 
     def test_the_sparkline_has_a_text_alternative_and_a_last_point(self):

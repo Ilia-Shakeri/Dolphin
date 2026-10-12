@@ -1,11 +1,18 @@
-/* Motion tokens -------------------------------------------------------------
+/* Design tokens (motion 2.x; shape and size 2.40.38) --------------------------
    One duration pair and one curve for the panel's own transitions, so hover,
    focus, open and close all feel like the same hand. Fast for small state
-   changes (colour, fill), regular for things that move or resize. */
+   changes (colour, fill), regular for things that move or resize. Since
+   2.40.38 the curve is a spring-like ease-out — quick to start, long to settle
+   — the feel of the platform motion the product owner asked the panel to have
+   («حس و حال اپل»), and the shape tokens below give every control, card and
+   pill one radius each, concentric from the card inward. */
 :root {
     --dolphin-dur-fast: 150ms;
-    --dolphin-dur: 220ms;
-    --dolphin-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --dolphin-dur: 250ms;
+    --dolphin-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --dolphin-radius-control: 10px;
+    --dolphin-radius-control-sm: 8px;
+    --dolphin-radius-card: 16px;
 }
 
 /* Dolphin overrides on top of the purchased theme.
@@ -37,14 +44,18 @@ dialog {
     overflow: auto;
     padding: 1.75rem;
     border: 0;
-    border-radius: 0.625rem;
+    border-radius: var(--dolphin-radius-card);
     background: var(--bs-body-bg);
     color: var(--bs-body-color);
-    box-shadow: 0 0.5rem 3rem 0.5rem rgb(0 0 0 / 8%);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 24px 64px -12px rgb(0 0 0 / 28%);
 }
 
+/* The scrim dims and blurs what is behind (2.40.38): the dialog reads as a
+   layer above the page, not a page of its own. */
 dialog::backdrop {
-    background: rgb(15 31 46 / 55%);
+    background: rgb(10 14 22 / 38%);
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
 }
 
 /* The header is `position: fixed` with a transparent base background (the
@@ -54,10 +65,10 @@ dialog::backdrop {
    the theme's own fixed-header layout, colors, or the sticky/minimize
    variants it already supports. */
 [data-bs-theme=light] {
-    --bs-app-header-base-bg-color: rgb(252 252 252 / 78%);
+    --bs-app-header-base-bg-color: rgb(242 242 247 / 78%);
 }
 [data-bs-theme=dark] {
-    --bs-app-header-base-bg-color: rgb(13 14 18 / 78%);
+    --bs-app-header-base-bg-color: rgb(9 9 11 / 78%);
 }
 #dolphin_app_header.app-header {
     backdrop-filter: blur(14px) saturate(150%);
@@ -142,7 +153,7 @@ dialog::backdrop {
 }
 
 .brand-mark-mobile {
-    width: 2rem;
+    width: 2.25rem;
 }
 
 .brand-mark-minimize {
@@ -333,13 +344,18 @@ dialog::backdrop {
 #reminder-bell-toggle .reminder-bell-badge,
 #dolphin_drawer_chat_toggle .reminder-bell-badge {
     position: absolute;
-    top: 0.15rem;
-    inset-inline-end: 0.15rem;
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding-inline: 0.25rem;
-    font-size: 0.65rem;
+    top: -0.1rem;
+    inset-inline-end: -0.1rem;
+    min-width: 18px;
+    height: 18px;
+    padding-inline: 5px;
+    border-radius: 999px;
+    /* 11px, not 8.5px (2.40.38): the figure is the whole point of the badge. A
+       ring in the header's own colour keeps it off the icon it sits on. */
+    font-size: 11px;
+    font-weight: 700;
     line-height: 1;
+    box-shadow: 0 0 0 2px var(--bs-app-bg-color, var(--bs-body-bg));
 }
 
 /* The chat drawer's internal scrolling. The theme's own `.drawer` rule
@@ -5570,33 +5586,32 @@ body[data-page$="-detail"] #page-stage form .d-flex.justify-content-end:has(> .b
     border-top: 1px solid var(--bs-gray-200);
 }
 
-/* A dialog's close (×) button (2.40.33, product owner: «دکمه بستن (X) باید یک هالهٔ
-   قرمز و زیبا داشته باشد که با هاور پررنگ‌تر شود»). Every wizard and dialog
-   carries the same icon button with `data-close-dialog`; it gets a soft red
-   tint at rest, and on hover or keyboard focus a stronger tint with a red
-   halo around it. Colour and shadow only — nothing moves. */
-/* `!important` and the longer selector: the kit's own `.btn.btn-light:hover` /
-   `:focus` rule sets the background with `!important` (0,4,0), which turned the
-   button grey on hover. */
+/* A dialog's close (×) button (2.40.38, product owner: «همه رو انجام بده»
+   after the design review). A small grey circle, the way a sheet's close
+   control reads on the platform: red is kept for what destroys something, and
+   closing a dialog destroys nothing (an unsaved form still asks first,
+   `guardDirtyDialog`). It darkens on hover and shows the focus ring on
+   keyboard focus. Until 2.40.37 it was a red-haloed tile (2.40.33).
+   `!important`: the kit's own `.btn.btn-light:hover` / `:focus` rule sets the
+   background with `!important` (0,4,0). */
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) {
-    color: var(--bs-danger);
+    width: 30px !important;
+    height: 30px !important;
+    color: var(--bs-gray-700);
     border-color: transparent;
-    background-color: rgb(248 40 90 / 10%) !important;
-    border-radius: 0.75rem;
-    font-size: 1.35rem;
+    background-color: color-mix(in srgb, var(--bs-gray-500) 18%, transparent) !important;
+    border-radius: 999px;
+    font-size: 1rem;
     line-height: 1;
-    box-shadow: 0 0 0 0 rgb(248 40 90 / 0%);
-    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
 }
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) i { font-size: 1.15rem !important; }
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover,
 dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):focus-visible {
-    color: #fff;
-    background-color: var(--bs-danger) !important;
-    box-shadow: 0 0 0 0.3rem rgb(248 40 90 / 22%), 0 0.4rem 1rem -0.2rem rgb(248 40 90 / 45%);
+    color: var(--bs-gray-900);
+    background-color: color-mix(in srgb, var(--bs-gray-500) 30%, transparent) !important;
 }
-dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):active {
-    box-shadow: 0 0 0 0.2rem rgb(248 40 90 / 30%);
-}
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):active { scale: 0.92; }
 
 /* Delete is a red trash icon (2.40.33, `ui/trash.js`). At rest a soft red tile;
    on hover or keyboard focus a solid red tile with a halo, and the can tilts
@@ -5947,4 +5962,356 @@ tr.is-leaving > td {
     .postal-workspace .postal-detail-pane { display: none; }
     .postal-workspace.is-viewing .postal-list-pane { display: none; }
     .postal-workspace.is-viewing .postal-detail-pane { display: block; }
+}
+
+
+/* =============================================================================
+   The platform layer (2.40.38)
+   =============================================================================
+   Product owner, after a page-by-page design review: «همه رو انجام بده» — give
+   the panel the feel of an Apple app. What that means here, measured on the
+   rendered pages before this layer: one page used 12–14 font sizes, 12 corner
+   radii, 7 button heights and 5 motion timings. The rules below bring each to
+   one short scale, separate the surfaces by layering instead of borders, and
+   give every state change a motion. They sit on the UI kit's own components
+   and tokens (cards, buttons, fields, tables, the light-sidebar layout) — no
+   new component is drawn here. The login page keeps its own design. */
+
+/* -- Surfaces: a grouped background with cards floating on it ---------------- */
+[data-bs-theme=light] {
+    --bs-app-bg-color: #f2f2f7;
+    --bs-app-blank-bg-color: #f2f2f7;
+    --bs-root-card-border-color: transparent;
+    --bs-root-card-box-shadow: 0 1px 2px rgb(16 24 40 / 4%), 0 6px 20px -8px rgb(16 24 40 / 8%);
+    --bs-app-sidebar-light-bg-color: rgb(246 246 249 / 86%);
+}
+[data-bs-theme=dark] {
+    --bs-app-bg-color: #09090b;
+    --bs-app-blank-bg-color: #09090b;
+    --bs-root-card-border-color: rgb(255 255 255 / 6%);
+    --bs-root-card-box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+}
+body:not([data-page="login"]) {
+    background-color: var(--bs-app-bg-color);
+}
+body:not([data-page="login"]) .card {
+    --bs-card-border-radius: var(--dolphin-radius-card);
+    --bs-card-inner-border-radius: calc(var(--dolphin-radius-card) - 1px);
+}
+body:not([data-page="login"]) .card > .card-body { padding: 1.54rem; }
+body:not([data-page="login"]) .card > .card-header { padding-inline: 1.54rem; }
+[data-dashboard-grid] > .dashboard-widget > .card,
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card {
+    border-radius: var(--dolphin-radius-card);
+}
+[data-dashboard-grid] > .dashboard-widget > .card > .card-body { padding: 1.54rem; }
+
+/* -- Light sidebar in light mode (the kit's own `light-sidebar` layout) -------
+   `data-dolphin-app-layout` follows the colour theme (base.html): a dark rail
+   beside a light page was the loudest thing on every screen. Translucent, with
+   the blur showing through when it slides over the page on a phone. */
+[data-dolphin-app-layout=light-sidebar] .app-sidebar {
+    background-color: var(--bs-app-sidebar-light-bg-color);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-left: 1px solid rgb(0 0 0 / 6%);
+}
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .app-sidebar-logo { border-bottom: 1px solid rgb(0 0 0 / 5%); }
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .app-sidebar-logo .brand { color: var(--bs-gray-900) !important; }
+/* The current page: a tint of the accent, in either sidebar. */
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active {
+    background-color: rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: var(--dolphin-radius-control);
+}
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-title,
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-icon i,
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-bullet .bullet {
+    color: var(--bs-primary) !important;
+}
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .menu .menu-item .menu-link.active .menu-bullet .bullet { background-color: var(--bs-primary); }
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar .menu .menu-item .menu-link.active { background-color: rgba(var(--bs-primary-rgb), 0.2); }
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar .menu .menu-item .menu-link.active .menu-title { color: #fff !important; }
+.app-sidebar .menu .menu-link {
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.app-sidebar .menu .menu-link .menu-arrow { transition: rotate var(--dolphin-dur) var(--dolphin-ease); }
+@media (prefers-reduced-transparency: reduce) {
+    [data-dolphin-app-layout=light-sidebar] .app-sidebar { background-color: #f6f6f9; backdrop-filter: none; }
+    #dolphin_app_header.app-header { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    dialog::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgb(10 14 22 / 50%); }
+}
+
+/* The brand mark in the colour of its ground: the light-blue mark on the dark
+   sidebar and header, the deep-blue one (`Logo-light`, the error page's) on a
+   light ground. Both are in the page; the theme picks one. */
+[data-bs-theme=light] .brand-on-dark,
+[data-bs-theme=dark] .brand-on-light { display: none; }
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .brand-subtitle { color: var(--bs-primary) !important; }
+
+/* -- A shorter header, a large title -------------------------------------------- */
+@media (min-width: 992px) {
+    :root,
+    [data-dolphin-app-header-sticky=on] {
+        --bs-app-header-height: 60px;
+        --bs-app-header-height-actual: 60px;
+    }
+}
+#dolphin_app_toolbar.app-toolbar { padding-block: 0.5rem 0.75rem !important; }
+#dolphin_app_toolbar .page-heading {
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+#dolphin_app_toolbar .page-heading .page-heading-icon { display: none; }
+/* The section name above the title says where the page is; the trail
+   «خانه - صفحه» under it only repeated the title. */
+#dolphin_app_toolbar .breadcrumb { display: none; }
+/* The title moves into the header once it scrolls under it
+   (`shell/header-title.js`), the platform's large-title pattern. */
+#dolphin_app_header .app-container { position: relative; }
+.header-compact-title {
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    width: max-content;
+    max-width: 40%;
+    margin-inline: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--bs-gray-900);
+    pointer-events: none;
+    opacity: 0;
+    translate: 0 calc(-50% + 6px);
+    transition: opacity var(--dolphin-dur) var(--dolphin-ease), translate var(--dolphin-dur) var(--dolphin-ease);
+}
+body.is-title-collapsed .header-compact-title { opacity: 1; translate: 0 -50%; }
+@media (max-width: 991.98px) { .header-compact-title { display: none; } }
+
+/* -- One type scale ------------------------------------------------------------
+   The kit's size utilities folded onto six steps: 20 / 17 / 14 / 12.5 / 11.5 px
+   at the panel's 13px root (and in proportion at a reader's own scale), with
+   the large title above them. `!important` because the kit's are. */
+body:not([data-page="login"]) .fs-3,
+body:not([data-page="login"]) .fs-4 { font-size: 1.31rem !important; }
+body:not([data-page="login"]) .fs-5,
+body:not([data-page="login"]) .fs-6 { font-size: 1.077rem !important; }
+body:not([data-page="login"]) .fs-7 { font-size: 0.96rem !important; }
+body:not([data-page="login"]) .fs-8,
+body:not([data-page="login"]) .fs-9 { font-size: 0.885rem !important; }
+.kpi-card-title { font-size: 1rem !important; }
+.kpi-card-caption { font-size: 0.885rem; }
+/* Column headings: the secondary label colour, no band and no capitals. */
+body:not([data-page="login"]) .table > thead > tr,
+body:not([data-page="login"]) .table > thead > tr > th {
+    text-transform: none !important;
+    background-color: transparent !important;
+}
+body:not([data-page="login"]) .table > thead > tr > th {
+    color: var(--bs-gray-600) !important;
+    font-size: 0.96rem !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid var(--bs-gray-200) !important;
+}
+body:not([data-page="login"]) .table.table-row-dashed > tbody > tr { border-bottom-style: solid; border-bottom-color: var(--bs-gray-200); }
+
+/* -- One control size, one radius -----------------------------------------------
+   Regular 38px, small 30px; 44px on a touch screen, the comfortable target. */
+body:not([data-page="login"]) .btn {
+    --bs-btn-padding-y: 0.6rem;
+    --bs-btn-padding-x: 1.15rem;
+    --bs-btn-border-radius: var(--dolphin-radius-control);
+    border-radius: var(--dolphin-radius-control);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+body:not([data-page="login"]) .btn.btn-sm {
+    --bs-btn-padding-y: 0.36rem;
+    --bs-btn-padding-x: 0.85rem;
+    --bs-btn-border-radius: var(--dolphin-radius-control-sm);
+    border-radius: var(--dolphin-radius-control-sm);
+}
+body:not([data-page="login"]) .btn.btn-icon { border-radius: var(--dolphin-radius-control); }
+body:not([data-page="login"]) .form-control:not(textarea),
+body:not([data-page="login"]) .form-select {
+    padding-block: 0.6rem;
+    border-radius: var(--dolphin-radius-control);
+}
+body:not([data-page="login"]) textarea.form-control { border-radius: var(--dolphin-radius-control); }
+body:not([data-page="login"]) .badge { border-radius: 999px; }
+@media (pointer: coarse), (max-width: 767.98px) {
+    body:not([data-page="login"]) .btn:not(.btn-icon) { --bs-btn-padding-y: 0.85rem; }
+    body:not([data-page="login"]) .btn.btn-sm:not(.btn-icon) { --bs-btn-padding-y: 0.6rem; }
+    body:not([data-page="login"]) .form-control:not(textarea),
+    body:not([data-page="login"]) .form-select { padding-block: 0.85rem; }
+}
+
+/* -- Press, hover and focus ------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+    body:not([data-page="login"]) .btn:active:not(:disabled):not(.disabled) { transform: none; scale: 0.97; }
+    a.card:active,
+    .app-sidebar .menu .menu-link:active,
+    .table > tbody > tr.is-row-link:active { scale: 0.99; }
+    a.card { transition: box-shadow var(--dolphin-dur) var(--dolphin-ease), translate var(--dolphin-dur) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease); }
+    a.card:hover { translate: 0 -2px; box-shadow: 0 2px 4px rgb(16 24 40 / 6%), 0 12px 28px -10px rgb(16 24 40 / 16%); }
+}
+
+/* -- A whole row opens its record ---------------------------------------------------
+   `ui/table.js`: the row's own «جزئیات» link becomes a disclosure chevron and
+   a click anywhere on the row follows it. */
+.table > tbody > tr.is-row-link { cursor: pointer; transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease); }
+.table > tbody > tr.is-row-link:hover { background-color: rgba(var(--bs-primary-rgb), 0.04) !important; }
+.btn.row-detail-link {
+    width: 30px;
+    height: 30px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-gray-500);
+    background: transparent !important;
+    border-radius: 999px;
+}
+.btn.row-detail-link i { font-size: 1.15rem; color: inherit; }
+tr.is-row-link:hover .btn.row-detail-link,
+.btn.row-detail-link:focus-visible { color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), 0.1) !important; }
+
+/* -- Restrained colour on the dashboard ----------------------------------------------
+   One accent for the figures' icons; colour is kept for what it means (a
+   chip's direction, a gauge's rate, a board column's state). */
+[data-dashboard-grid] > .dashboard-widget { --dashboard-accent: var(--bs-primary); }
+
+/* -- Sliding tab indicator (`ui/tab-indicator.js`) ----------------------------------- */
+.nav-line-tabs.has-indicator { position: relative; }
+.nav-line-tabs.has-indicator .nav-link,
+.nav-line-tabs.has-indicator .nav-link.active,
+.nav-line-tabs.has-indicator .nav-link:hover { border-bottom-color: transparent !important; }
+.nav-line-indicator {
+    position: absolute;
+    bottom: 0;
+    inset-inline-start: 0;
+    height: 2px;
+    width: 0;
+    border-radius: 2px;
+    background: var(--bs-primary);
+    pointer-events: none;
+    list-style: none;
+}
+.nav-line-indicator.is-ready { transition: transform var(--dolphin-dur) var(--dolphin-ease), width var(--dolphin-dur) var(--dolphin-ease); }
+
+/* -- A figure that changed live eases in (dashboard) ---------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+    .is-updated { animation: dolphin-value-in var(--dolphin-dur) var(--dolphin-ease) backwards; }
+}
+@keyframes dolphin-value-in {
+    from { opacity: 0; translate: 0 6px; }
+}
+
+/* -- Dialogs come and go (2.40.38) --------------------------------------------------
+   They opened with a motion and vanished at once; now the close plays the open
+   backwards, and the scrim fades with it. `@starting-style` and the discrete
+   transitions of `display`/`overlay` keep the dialog in the top layer for the
+   length of the exit. Browsers without them close at once, as before. */
+@media (prefers-reduced-motion: no-preference) {
+    dialog {
+        transition: opacity 180ms var(--dolphin-ease), scale 180ms var(--dolphin-ease), translate 260ms var(--dolphin-ease), display 260ms allow-discrete, overlay 260ms allow-discrete;
+    }
+    dialog:not([open]) { opacity: 0; scale: 0.97; }
+    dialog[open] { opacity: 1; scale: 1; animation: none; }
+    @starting-style {
+        dialog[open] { opacity: 0; scale: 0.97; }
+    }
+    dialog::backdrop { transition: opacity 260ms var(--dolphin-ease), display 260ms allow-discrete, overlay 260ms allow-discrete; opacity: 0; }
+    dialog[open]::backdrop { opacity: 1; }
+    @starting-style {
+        dialog[open]::backdrop { opacity: 0; }
+    }
+}
+
+/* -- Menus open from their button ----------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+    .menu-sub-dropdown { transition: opacity 150ms var(--dolphin-ease), scale 150ms var(--dolphin-ease); transform-origin: top; }
+    .menu-sub-dropdown.show { opacity: 1; scale: 1; }
+    @starting-style {
+        .menu-sub-dropdown.show { opacity: 0; scale: 0.96; }
+    }
+}
+
+/* -- Phone: dialogs are sheets, navigation is a tab bar --------------------------------- */
+@media (max-width: 575.98px) {
+    dialog {
+        width: 100%;
+        max-width: 100%;
+        margin: auto 0 0;
+        border-radius: 18px 18px 0 0;
+        padding-top: 1.6rem;
+        max-height: calc(100dvh - 2.5rem);
+    }
+    /* The grabber: the handle a sheet is pulled down by (`setupSheetDrag`). */
+    dialog::before {
+        content: "";
+        position: absolute;
+        top: 0.5rem;
+        inset-inline: 0;
+        width: 36px;
+        height: 5px;
+        margin-inline: auto;
+        border-radius: 999px;
+        background: var(--bs-gray-300);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        dialog:not([open]) { opacity: 1; scale: 1; translate: 0 100%; }
+        dialog[open] { translate: 0 0; }
+        @starting-style {
+            dialog[open] { opacity: 1; scale: 1; translate: 0 100%; }
+        }
+    }
+}
+.dolphin-tab-bar { display: none; }
+@media (max-width: 767.98px) {
+    body.has-tab-bar { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+    body.has-tab-bar #nav-toggle { display: none !important; }
+    body.has-tab-bar .chat-toasts { bottom: calc(76px + env(safe-area-inset-bottom)); }
+    .dolphin-tab-bar {
+        position: fixed;
+        inset-inline: 0;
+        bottom: 0;
+        z-index: 104;
+        display: flex;
+        justify-content: space-around;
+        align-items: stretch;
+        height: calc(56px + env(safe-area-inset-bottom));
+        padding-bottom: env(safe-area-inset-bottom);
+        background: color-mix(in srgb, var(--bs-app-bg-color) 82%, transparent);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border-top: 1px solid color-mix(in srgb, var(--bs-gray-500) 22%, transparent);
+    }
+    .dolphin-tab-bar a,
+    .dolphin-tab-bar button {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        min-width: 44px;
+        border: 0;
+        background: none;
+        color: var(--bs-gray-600);
+        font-size: 10.5px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+    }
+    .dolphin-tab-bar i { font-size: 1.45rem; color: inherit; }
+    .dolphin-tab-bar i [class^="path"] { color: inherit; }
+    .dolphin-tab-bar [aria-current="page"] { color: var(--bs-primary); }
+    .dolphin-tab-bar a:active,
+    .dolphin-tab-bar button:active { scale: 0.92; }
+}
+@media (prefers-reduced-transparency: reduce) {
+    .dolphin-tab-bar { background: var(--bs-app-bg-color); backdrop-filter: none; }
 }

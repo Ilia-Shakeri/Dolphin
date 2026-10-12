@@ -9,14 +9,47 @@ export function appendCell(row, value) {
     return cell;
 }
 
+/**
+ * The row's way into its record (2.40.38): a disclosure chevron at the row's
+ * end, and the whole row clicks through to it (`setupRowLinks`). Its name is
+ * still «جزئیات» for a screen reader and a keyboard.
+ */
 export function appendDetailLink(row, href) {
     const cell = document.createElement("td");
+    cell.className = "text-end";
     const link = document.createElement("a");
-    link.className = "btn btn-sm btn-light";
+    link.className = "btn btn-icon row-detail-link";
     link.href = href;
-    link.textContent = "جزئیات";
+    link.setAttribute("aria-label", "جزئیات");
+    link.title = "جزئیات";
+    // `di-right` draws pointing left in the RTL icon sheet: forward, here.
+    const icon = document.createElement("i");
+    icon.className = "di-outline di-right";
+    icon.setAttribute("aria-hidden", "true");
+    link.appendChild(icon);
     cell.appendChild(link);
     row.appendChild(cell);
+    row.classList.add("is-row-link");
+}
+
+const INTERACTIVE = "a, button, input, select, textarea, label, summary, [role=button], .form-check, .dropdown-menu";
+
+/**
+ * A click anywhere on a row with a record link opens that record (2.40.38) —
+ * not on the row's own controls, not while text is being selected, and in a
+ * new tab with Ctrl/⌘ or the middle button, as a link would.
+ */
+export function setupRowLinks() {
+    const open = (event) => {
+        const row = event.target.closest?.("tbody > tr.is-row-link");
+        if (!row || event.target.closest(INTERACTIVE)) return;
+        const link = row.querySelector("a.row-detail-link");
+        if (!link || window.getSelection()?.toString()) return;
+        if (event.ctrlKey || event.metaKey || event.button === 1) window.open(link.href, "_blank", "noopener");
+        else link.click();
+    };
+    document.addEventListener("click", open);
+    document.addEventListener("auxclick", (event) => { if (event.button === 1) open(event); });
 }
 
 export function statusText(active) {

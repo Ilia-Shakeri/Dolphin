@@ -6,10 +6,14 @@ import {setupChartThemeRedraw, setupNav, setupPageTabs, setupSidebarAccordionScr
 import {setupChat, setupChatUnreadPoll} from "dolphin/shell/chat.js";
 import {setupChatToasts} from "dolphin/shell/chat-toast.js";
 import {setupDecimalInputs} from "dolphin/core/decimal.js";
-import {setupDialogBackdropClose, setupDialogFocus} from "dolphin/ui/dialogs.js";
+import {setupDialogBackdropClose, setupDialogFocus, setupSheetDrag} from "dolphin/ui/dialogs.js";
 import {setupFileInputs} from "dolphin/ui/file-inputs.js";
 import {setupSegmentedControls} from "dolphin/ui/segmented.js";
 import {setupStackedTables} from "dolphin/ui/stack-tables.js";
+import {setupRowLinks} from "dolphin/ui/table.js";
+import {setupTabIndicators} from "dolphin/ui/tab-indicator.js";
+import {setupTabBar} from "dolphin/shell/tab-bar.js";
+import {setupHeaderTitle} from "dolphin/shell/header-title.js";
 import {setupGlobalSearch} from "dolphin/shell/search.js";
 import {setupGoToAccounting} from "dolphin/shell/accounting-link.js";
 import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
@@ -37,9 +41,14 @@ function boot() {
     setupSessionsDialog();
     setupDialogBackdropClose();
     setupDialogFocus();
+    setupSheetDrag();
+    setupTabBar();
+    setupHeaderTitle();
     setupRequiredLabels();
     setupFileInputs();
     setupStackedTables();
+    setupRowLinks();
+    setupTabIndicators();
     setupLivePage();
 
     // A denied page is served with the error card in place of its content, so
