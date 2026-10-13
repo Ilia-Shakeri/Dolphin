@@ -10,9 +10,18 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from accounts.models import User
+from common.tests.browser_support import BrowserFlowMixin
+from sales.campaigns import create_campaign
 from sales.models import Customer, Product
 from sales.models import Lead
-from sales.services import add_target_audience_member, create_customer_with_phone, create_lead, create_product, mark_sale
+from sales.services import (
+    add_target_audience_member,
+    create_customer_category,
+    create_customer_with_phone,
+    create_lead,
+    create_product,
+    mark_sale,
+)
 
 
 SELENIUM_AVAILABLE = importlib.util.find_spec("selenium") is not None
@@ -26,7 +35,7 @@ if SELENIUM_AVAILABLE:
 
 
 @unittest.skipUnless(SELENIUM_AVAILABLE, "Selenium is not installed.")
-class SalesShellRealBrowserTests(StaticLiveServerTestCase):
+class SalesShellRealBrowserTests(BrowserFlowMixin, StaticLiveServerTestCase):
     password = "Strong-pass-983!"
 
     @classmethod
@@ -180,17 +189,18 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
     def open_filters(self, form_id):
         """Open a list page's filter popover, so its fields can be used.
 
-        `setupListFilterPopovers()` collapses every `.list-filters` form
-        behind a header button; a field or the submit button inside one is
-        neither visible nor interactable to Selenium until that button has
-        been clicked open.
+        A list's filters sit in a popover (`.list-filter-panel`) behind the
+        funnel button beside its search (2.40.x, `setupListFilter`); a field
+        inside is neither visible nor interactable until that button opens it.
+        A form outside any popover (a report's own filter card) is already open.
         """
-        toggle = self.wait.until(
-            expected_conditions.element_to_be_clickable(
-                (By.CSS_SELECTOR, f'[data-filter-toggle-for="{form_id}"]')
-            )
+        self.wait.until(expected_conditions.presence_of_element_located((By.ID, form_id)))
+        toggle = self.browser.execute_script(
+            "return document.getElementById(arguments[0]).closest('.list-filter')?.querySelector('.list-filter-toggle') || null",
+            form_id,
         )
-        toggle.click()
+        if toggle is not None:
+            self.wait.until(expected_conditions.element_to_be_clickable(toggle)).click()
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, form_id)))
 
     def submit_performance_filter(self, prefix="report"):
@@ -202,8 +212,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         """
         content = (By.ID, f"{prefix}-performance-content")
         self.wait.until(expected_conditions.visibility_of_element_located(content))
+        # The submit button sits in the card header, outside the form it
+        # submits (`form=` attribute).
         self.browser.find_element(
-            By.CSS_SELECTOR, f"#{prefix}-performance-filter-form button[type='submit']"
+            By.CSS_SELECTOR, f"button[type='submit'][form='{prefix}-performance-filter-form']"
         ).click()
         self.wait.until(expected_conditions.visibility_of_element_located(content))
 
@@ -211,13 +223,17 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(1440, 1000)
         self.login()
 
+        # Categories are managed records (2.35.0) and the form is a wizard.
+        create_customer_category(actor=self.platform, name="ویژه")
+        create_campaign(actor=self.platform, name="کمپین مرورگر")
         self.browser.get(f"{self.live_server_url}/customers/")
         self.open_create_dialog("open-create-customer", "create-customer-dialog")
-        self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مرورگر")
-        self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121110000")
-        self.browser.find_element(By.ID, "create-customer-postal-code").send_keys("کد ۱۲۳")
-        self.browser.find_element(By.ID, "create-customer-category").send_keys("ویژه")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-customer-form button[type='submit']").click()
+        self.fill_wizard("create-customer-dialog", [
+            ("create-customer-name", "مشتری مرورگر"),
+            ("create-customer-category", "ویژه"),
+            ("create-customer-postal-code", "کد ۱۲۳"),
+            ("create-customer-phone", "09121110000"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "customer-detail-content")))
         self.assertEqual(self.browser.find_element(By.TAG_NAME, "h1").text, "پروفایل مشتری")
@@ -228,7 +244,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "edit-customer-name"), "مشتری مرورگر"))
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-name").get_attribute("value"), "مشتری مرورگر")
         self.assertEqual(self.browser.find_element(By.ID, "edit-customer-postal-code").get_attribute("value"), "کد ۱۲۳")
-        self.assertEqual(self.browser.find_element(By.ID, "edit-customer-category").get_attribute("value"), "ویژه")
+        self.assertEqual(Select(self.browser.find_element(By.ID, "edit-customer-category")).first_selected_option.text.strip(), "ویژه")
 
         self.browser.find_element(By.ID, "open-create-phone").click()
         self.browser.find_element(By.ID, "phone-raw").send_keys("۰۹۱۲۹۹۹۰۰۰۰")
@@ -239,12 +255,14 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/leads/")
         # A campaign names no customer: it is worked from its target audience.
         self.open_create_dialog("open-create-lead", "create-lead-dialog")
-        self.browser.find_element(By.ID, "create-lead-source").send_keys("ثبت دستی مرورگر")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-lead-form button[type='submit']").click()
+        self.fill_wizard("create-lead-dialog", [
+            ("create-lead-source", "ثبت دستی مرورگر"),
+            ("create-lead-campaign", "کمپین مرورگر"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/leads/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "lead-detail-content")))
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "reassign-to-user")).options) > 1)
-        Select(self.browser.find_element(By.ID, "reassign-to-user")).select_by_visible_text("کارشناس مرورگر")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "reassign-to-user")))
+        self.set_field(self.browser.find_element(By.ID, "reassign-to-user"), "کارشناس مرورگر")
         self.browser.find_element(By.ID, "reassign-reason").send_keys("تخصیص دستی")
         self.browser.find_element(By.CSS_SELECTOR, "#reassign-lead-form button[type='submit']").click()
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "lead-assigned-to"), "کارشناس مرورگر"))
@@ -267,9 +285,10 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             ) > 0
         )
         member_box.send_keys("هویت مرورگر — 09121110000")
-        self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121110000")
-        self.browser.find_element(By.ID, "create-interaction-outcome").send_keys("پاسخ دستی")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-interaction-form button[type='submit']").click()
+        self.fill_wizard("create-interaction-dialog", [
+            ("create-interaction-phone", "09121110000"),
+            ("create-interaction-outcome", "پاسخ دستی"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/interactions/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "interaction-detail-content")))
         self.assertEqual(self.browser.find_element(By.ID, "interaction-agent").get_attribute("value"), self.platform.username)
@@ -303,12 +322,11 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         # Admin action; this browser is signed in as one.
         status = Select(self.browser.find_element(By.ID, "customer-active-select"))
         status.select_by_value("false")
-        self.wait.until(expected_conditions.alert_is_present()).accept()
-        self.wait.until(
-            lambda driver: Select(
-                driver.find_element(By.ID, "customer-active-select")
-            ).first_selected_option.get_attribute("value") == "false"
-        )
+        self.confirm()
+        # The server's answer, not the value the select was just given.
+        self.wait.until(expected_conditions.text_to_be_present_in_element(
+            (By.ID, "global-message"), "مشتری بدون حذف سابقه غیرفعال شد"
+        ))
         self.assert_browser_clean()
 
     def test_product_sale_report_export_and_activity_log_flow(self):
@@ -337,10 +355,11 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             )
         )
         self.open_create_dialog("open-create-product", "create-product-dialog")
-        self.browser.find_element(By.ID, "create-product-sku").send_keys("WEB-1")
-        self.browser.find_element(By.ID, "create-product-name").send_keys("محصول مرورگر")
-        self.browser.find_element(By.ID, "create-product-price").send_keys("12.50")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
+        self.fill_wizard("create-product-dialog", [
+            ("create-product-sku", "WEB-1"),
+            ("create-product-name", "محصول مرورگر"),
+            ("create-product-price", "12.50"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "product-detail-content")))
         price = self.browser.find_element(By.ID, "edit-product-price")
@@ -382,7 +401,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         # The activity table reads in Persian since the product owner asked for
         # it («رویداد های سامانه باید فارسی باشند»). The stored operation is
         # still `sale.cancelled`; this asserts what a reader actually sees.
-        self.assertIn("ابطال فروش", self.browser.find_element(By.ID, "activity-logs-table-body").text)
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "activity-logs-table-body"), "ابطال فروش"))
         self.browser.find_element(By.CSS_SELECTOR, "#activity-logs-table-body a").click()
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "activity-log-detail-content")))
         self.assert_browser_clean()
@@ -397,14 +416,11 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
                 (By.ID, "open-create-product-category")
             )
         ).click()
-        self.browser.find_element(By.ID, "create-product-category-code").send_keys("browser-goods")
-        self.browser.find_element(By.ID, "create-product-category-name").send_keys("کالای مرورگر")
-        order = self.browser.find_element(By.ID, "create-product-category-order")
-        order.clear()
-        order.send_keys("3")
-        self.browser.find_element(
-            By.CSS_SELECTOR, "#create-product-category-form button[type='submit']"
-        ).click()
+        self.fill_wizard("create-product-category-dialog", [
+            ("create-product-category-code", "browser-goods"),
+            ("create-product-category-name", "کالای مرورگر"),
+            ("create-product-category-order", "3"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/product-categories/\d+/$"))
         category_url = self.browser.current_url
         self.wait.until(
@@ -417,18 +433,18 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             "browser-goods",
         )
         self.browser.find_element(By.ID, "toggle-product-category").click()
-        self.wait.until(expected_conditions.alert_is_present()).accept()
+        self.confirm()
         self.wait.until(
             expected_conditions.text_to_be_present_in_element_value(
                 (By.ID, "product-category-status"), "غیرفعال"
             )
         )
         self.browser.find_element(By.ID, "toggle-product-category").click()
-        self.wait.until(expected_conditions.alert_is_present()).accept()
+        self.confirm()
+        # Exactly «فعال»: «غیرفعال» contains it, and a substring wait would let
+        # the page move on while the reactivation is still in flight.
         self.wait.until(
-            expected_conditions.text_to_be_present_in_element_value(
-                (By.ID, "product-category-status"), "فعال"
-            )
+            lambda driver: driver.find_element(By.ID, "product-category-status").get_attribute("value") == "فعال"
         )
 
         self.browser.get(f"{self.live_server_url}/products/")
@@ -436,13 +452,14 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             lambda driver: len(Select(driver.find_element(By.ID, "product-category-filter")).options) > 1
         )
         self.open_create_dialog("open-create-product", "create-product-dialog")
-        self.browser.find_element(By.ID, "create-product-sku").send_keys("CAT-WEB-1")
-        self.browser.find_element(By.ID, "create-product-name").send_keys("محصول دسته‌دار مرورگر")
-        Select(self.browser.find_element(By.ID, "create-product-category")).select_by_visible_text("کالای مرورگر")
-        self.browser.find_element(By.ID, "create-product-brand").send_keys("برند مرورگر")
-        Select(self.browser.find_element(By.ID, "create-product-unit")).select_by_value("carton")
-        self.browser.find_element(By.ID, "create-product-price").send_keys("18.50")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
+        self.fill_wizard("create-product-dialog", [
+            ("create-product-sku", "CAT-WEB-1"),
+            ("create-product-name", "محصول دسته‌دار مرورگر"),
+            ("create-product-category", "کالای مرورگر"),
+            ("create-product-brand", "برند مرورگر"),
+            ("create-product-unit", "carton"),
+            ("create-product-price", "18.50"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
         product_url = self.browser.current_url
         self.wait.until(
@@ -463,7 +480,8 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.get(f"{self.live_server_url}/product-categories/")
         self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "product-categories-loading")))
         self.assertFalse(self.browser.find_elements(By.ID, "open-create-product-category"))
-        self.assertIn("کالای مرورگر", self.browser.find_element(By.ID, "product-categories-table-body").text)
+        # The loading line is drawn as a skeleton since 2.40.36; wait for the row itself.
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "product-categories-table-body"), "کالای مرورگر"))
         self.browser.get(category_url)
         self.wait.until(
             expected_conditions.visibility_of_element_located(
@@ -501,31 +519,38 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
 
         self.browser.get(f"{self.live_server_url}/products/")
         self.open_create_dialog("open-create-product", "create-product-dialog")
-        self.browser.find_element(By.ID, "create-product-sku").send_keys("DAILY-1")
-        self.browser.find_element(By.ID, "create-product-name").send_keys("محصول روزانه")
-        self.browser.find_element(By.ID, "create-product-price").send_keys("20.00")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-product-form button[type='submit']").click()
+        self.fill_wizard("create-product-dialog", [
+            ("create-product-sku", "DAILY-1"),
+            ("create-product-name", "محصول روزانه"),
+            ("create-product-price", "20.00"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/products/\d+/$"))
 
         self.browser.get(f"{self.live_server_url}/customers/")
         self.open_create_dialog("open-create-customer", "create-customer-dialog")
-        self.browser.find_element(By.ID, "create-customer-name").send_keys("مشتری مسیر روزانه")
-        self.browser.find_element(By.ID, "create-customer-phone").send_keys("09121230001")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-customer-form button[type='submit']").click()
+        self.fill_wizard("create-customer-dialog", [
+            ("create-customer-name", "مشتری مسیر روزانه"),
+            ("create-customer-phone", "09121230001"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/customers/\d+/$"))
 
+        # A lead belongs to a campaign (2.39.x).
+        create_campaign(actor=self.manager, name="کمپین روزانه")
         self.browser.get(f"{self.live_server_url}/leads/")
         self.open_create_dialog("open-create-lead", "create-lead-dialog")
-        self.browser.find_element(By.ID, "create-lead-source").send_keys("صف روزانه")
+        self.fill_wizard("create-lead-dialog", [
+            ("create-lead-source", "صف روزانه"),
+            ("create-lead-campaign", "کمپین روزانه"),
+        ], submit=False)
         self.browser.execute_script(
             "const e=document.getElementById('create-lead-follow-up'); e.value='1405/05/22 10:30'; e.dispatchEvent(new Event('change',{bubbles:true}));"
         )
-        self.browser.find_element(By.CSS_SELECTOR, "#create-lead-form button[type='submit']").click()
+        self.fill_wizard("create-lead-dialog", [])
         self.wait.until(expected_conditions.url_matches(r"/leads/\d+/$"))
         lead_url = self.browser.current_url
         lead_id = lead_url.rstrip("/").rsplit("/", 1)[1]
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "reassign-to-user")).options) > 1)
-        Select(self.browser.find_element(By.ID, "reassign-to-user")).select_by_visible_text("بازاریاب روزانه")
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "reassign-to-user")))
+        self.set_field(self.browser.find_element(By.ID, "reassign-to-user"), "بازاریاب روزانه")
         self.browser.find_element(By.ID, "reassign-reason").send_keys("صف کار روزانه")
         self.browser.find_element(By.CSS_SELECTOR, "#reassign-lead-form button[type='submit']").click()
         self.wait.until(expected_conditions.text_to_be_present_in_element_value((By.ID, "lead-assigned-to"), "بازاریاب روزانه"))
@@ -566,16 +591,16 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
                 driver.find_elements(By.CSS_SELECTOR, "#target-member-options option")
             ) > 0
         )
-        self.browser.find_element(By.ID, "create-interaction-member").send_keys(
-            "هویت روزانه — 09121239999"
-        )
-        self.browser.find_element(By.ID, "create-interaction-phone").send_keys("09121239999")
-        Select(self.browser.find_element(By.ID, "create-interaction-direction")).select_by_value("outbound")
-        self.browser.find_element(By.ID, "create-interaction-outcome").send_keys("نیاز به پیگیری")
+        self.fill_wizard("create-interaction-dialog", [
+            ("create-interaction-member", "هویت روزانه — 09121239999"),
+            ("create-interaction-phone", "09121239999"),
+            ("create-interaction-direction", "outbound"),
+            ("create-interaction-outcome", "نیاز به پیگیری"),
+        ], submit=False)
         self.browser.execute_script(
             "const e=document.getElementById('create-interaction-follow-up'); e.value='1405/05/23 11:00'; e.dispatchEvent(new Event('change',{bubbles:true}));"
         )
-        self.browser.find_element(By.CSS_SELECTOR, "#create-interaction-form button[type='submit']").click()
+        self.fill_wizard("create-interaction-dialog", [])
         self.wait.until(expected_conditions.url_matches(r"/interactions/\d+/$"))
 
         # A campaign result names a customer, so the converted identity becomes
@@ -649,29 +674,36 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
             self.login(self.manager)
             self.browser.get(f"{self.live_server_url}/sales-documents/")
         self.open_create_dialog("open-create-sales-document", "create-sales-document-dialog")
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sales-document-customer")).options) > 1)
-        customer_select = Select(self.browser.find_element(By.ID, "create-sales-document-customer"))
-        customer_select.select_by_visible_text("مشتری سند مرورگر")
-        self.wait.until(lambda driver: len(Select(driver.find_element(By.ID, "create-sales-document-sale")).options) > 1)
-        Select(self.browser.find_element(By.ID, "create-sales-document-sale")).select_by_value(str(sale.pk))
-        self.browser.find_element(By.ID, "create-sales-document-number").send_keys("DOC-WEB-100")
-        self.browser.find_element(By.ID, "create-sales-document-status").send_keys("ثبت اولیه")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-sales-document-form button[type='submit']").click()
+        # The postal status is chosen from the panel's vocabulary (`sales.postal`).
+        self.fill_wizard("create-sales-document-dialog", [
+            ("create-sales-document-customer", "مشتری سند مرورگر"),
+            ("create-sales-document-sale", str(sale.pk)),
+            ("create-sales-document-number", "DOC-WEB-100"),
+            ("create-sales-document-status", "in_store"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/sales-documents/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-detail-content")))
         self.assertEqual(self.browser.find_element(By.ID, "sales-document-address").get_attribute("value"), "نشانی ثابت مرورگر")
-        self.browser.find_element(By.ID, "postal-to-status").send_keys("تحویل پست")
+        self.set_field(self.browser.find_element(By.ID, "postal-to-status"), "handed_to_post")
         self.browser.find_element(By.ID, "postal-reason").send_keys("تحویل دستی")
         self.browser.find_element(By.CSS_SELECTOR, "#postal-transition-form button[type='submit']").click()
-        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "postal-history-table-body"), "تحویل پست"))
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "postal-history-table-body"), "ارسال به پست"))
 
+        # The report is a four-step wizard (range, filters, what to show,
+        # result); the defaults cover the document registered above.
         self.browser.get(f"{self.live_server_url}/reports/sales-documents/")
-        self.open_filters("sales-document-report-form")
-        self.browser.find_element(By.CSS_SELECTOR, "#sales-document-report-form button[type='submit']").click()
+        wizard = self.wait.until(expected_conditions.presence_of_element_located((By.ID, "sales-document-report-wizard")))
+        # The page's module wires the wizard once it has loaded.
+        self.wait.until(expected_conditions.element_to_be_clickable(
+            (By.CSS_SELECTOR, "#sales-document-report-wizard [data-dolphin-stepper-action='next']")
+        ))
+        while self._next_step(wizard):
+            pass
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "sales-document-report-content")))
-        self.assertEqual(self.browser.find_element(By.ID, "sales-document-report-total").text, "1")
+        # Counts read in Persian digits, like every figure in the panel.
+        self.assertEqual(self.browser.find_element(By.ID, "sales-document-report-total").text, "۱")
         self.assertIn("تهران", self.browser.find_element(By.ID, "sales-document-geography-body").text)
-        self.assertIn("تحویل پست", self.browser.find_element(By.ID, "sales-document-status-body").text)
+        self.assertIn("ارسال به پست", self.browser.find_element(By.ID, "sales-document-status-body").text)
 
         self.assert_browser_clean()
 
@@ -718,7 +750,7 @@ class SalesShellRealBrowserTests(StaticLiveServerTestCase):
         # maxlength bounds typing, not programmatic assignment, so the server
         # rule stays reachable and must surface in the intended element.
         self.browser.execute_script("arguments[0].value = 'x'.repeat(501);", reason)
-        self.browser.find_element(By.ID, "postal-to-status").send_keys("تحویل پست")
+        self.set_field(self.browser.find_element(By.ID, "postal-to-status"), "handed_to_post")
         self.browser.find_element(
             By.CSS_SELECTOR, "#postal-transition-form button[type='submit']"
         ).click()

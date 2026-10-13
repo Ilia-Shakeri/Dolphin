@@ -1,4 +1,4 @@
-{% load static %}
+{% load static ui_modules %}
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -19,7 +19,7 @@
    Dolphin-specific overrides. {% endcomment %}
     <link rel="stylesheet" href="{% static 'common/ui/css/dolphin-plugins.rtl.css' %}?v={{ dolphin_version }}">
     <link rel="stylesheet" href="{% static 'common/ui/css/dolphin-theme.rtl.css' %}?v={{ dolphin_version }}">
-    <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
+    {% dolphin_stylesheets %}
 </head>
 <body>
 <div class="d-flex flex-column flex-center flex-column-fluid p-10" style="min-height:100vh">

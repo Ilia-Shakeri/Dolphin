@@ -9,7 +9,7 @@ customer host ever reachable from here.
 There is still no "brand colour" field, even though the §6 sketch names one:
 no setting in this codebase reads a per-deployment brand colour (see
 `CLAUDE.md`'s Branding section — the fixed Dolphin / دلفین identifiers that
-rule covers are the *engineering* names, e.g. `dolphin.css`, never the
+rule covers are the *engineering* names, e.g. `dolphin-theme.js`, never the
 *rendered* name/logo, which is exactly what `custom_branding` now controls).
 A customer's own name and logo (2026-09-03, `common.branding`) is instead a
 feature like any other: this form's checklist toggles `custom_branding` on

@@ -7,7 +7,7 @@
  * by `label` for assistive tech and as its tooltip. `removeWithMotion(node)`
  * plays the leaving of whatever was deleted — the row, the card, the line —
  * before it goes, and resolves when it has (at once under reduced motion).
- * Styles: `.btn-trash` and `.is-leaving` in dolphin.css.
+ * Styles: `.btn-trash` and `.is-leaving` in the panel stylesheet.
  */
 const TRASH_PATHS = 5;
 

@@ -1,0 +1,251 @@
+/* Loading placeholders ------------------------------------------------------
+   Every list and card shows a `*-loading` node while its request is in flight.
+   Instead of a line of grey text they now read as the shape of what is coming:
+   three soft bars with a light sweep. The text stays in the DOM (font-size 0,
+   still announced to screen readers) so nothing about the markup changed. */
+[id$="-loading"]:not([hidden]) {
+    position: relative;
+    overflow: hidden;
+    min-height: 6.5rem;
+    padding: 0 !important;
+    font-size: 0;
+    color: transparent;
+    border-radius: 0.5rem;
+    background:
+        linear-gradient(var(--bs-gray-200), var(--bs-gray-200)) right 0 top 0.5rem / 100% 1rem no-repeat,
+        linear-gradient(var(--bs-gray-200), var(--bs-gray-200)) right 0 top 2.25rem / 82% 1rem no-repeat,
+        linear-gradient(var(--bs-gray-200), var(--bs-gray-200)) right 0 top 4rem / 64% 1rem no-repeat;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    [id$="-loading"]:not([hidden])::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--bs-body-bg) 60%, transparent), transparent);
+        transform: translateX(-100%);
+        animation: dolphin-shimmer 1.4s ease-in-out infinite;
+    }
+
+    @keyframes dolphin-shimmer {
+        to {
+            transform: translateX(100%);
+        }
+    }
+}
+
+/* A button that is working ---------------------------------------------------
+   The spinner sits inside the button's own padding (absolutely placed), so the
+   button never changes width, and it fades in after 250ms so a fast request
+   never flashes one. Icon-only buttons have no room and keep just the dimming. */
+.btn[aria-busy="true"]:not(.btn-icon) {
+    position: relative;
+}
+
+.btn[aria-busy="true"]:not(.btn-icon)::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0.7rem;
+    top: 50%;
+    width: 0.95em;
+    height: 0.95em;
+    margin-top: -0.475em;
+    border: 2px solid currentColor;
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: dolphin-spin 0.8s linear infinite, dolphin-spin-in 120ms ease-out 250ms backwards;
+}
+
+@keyframes dolphin-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes dolphin-spin-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn[aria-busy="true"]:not(.btn-icon)::after {
+        animation-duration: 2.4s, 1ms;
+    }
+}
+
+/* A pressed button gives a little (2%) — the thing you touched moves under your
+   finger. The transition list restates the theme's own four properties and adds
+   transform, since a `transition` declaration replaces rather than extends. */
+body .btn {
+    transition: color var(--dolphin-dur) var(--dolphin-ease), background-color var(--dolphin-dur) var(--dolphin-ease),
+        border-color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease),
+        transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+.btn:active:not(:disabled):not(.disabled) {
+    transform: scale(0.98);
+}
+
+/* A new page's content eases in instead of appearing whole. Opacity plus a few
+   pixels of rise, 180ms, run once at load; `backwards` fill means no transform
+   is left behind afterwards (a lingering one would trap fixed descendants). */
+@supports not (view-transition-name: none) {
+  @media (prefers-reduced-motion: no-preference) {
+    #dolphin_app_content_container {
+        animation: dolphin-page-in 180ms var(--dolphin-ease) backwards;
+    }
+  }
+}
+
+/* Where the browser supports cross-document view transitions (Chromium,
+   Safari 18.2+) a link click keeps the old page on screen until the new one is
+   ready to paint and then cross-fades — no white flash, no half-loaded frame —
+   while the sidebar and header, which are the same on every page, stay put
+   instead of fading with the content. Other browsers ignore all of this and
+   use the entry animation above. */
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+        navigation: auto;
+    }
+
+    #app-sidebar {
+        view-transition-name: dolphin-sidebar;
+    }
+
+    #dolphin_app_header {
+        view-transition-name: dolphin-header;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation-duration: var(--dolphin-dur);
+        animation-timing-function: var(--dolphin-ease);
+    }
+
+    @keyframes dolphin-page-in {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn:active:not(:disabled):not(.disabled) {
+        transform: none;
+    }
+}
+
+/* --- segmented toggle (2.34.6) ---------------------------------------------
+   Two or three exclusive options side by side — «نقد / اقساط» on the invoice
+   wizard. The selected option is filled, so the choice reads at a glance, and the
+   control keeps a 44px touch height. Behaviour: `ui/segmented.js`. */
+.dolphin-segmented {
+    display: inline-flex;
+    padding: 4px;
+    gap: 4px;
+    border-radius: 0.75rem;
+    background: var(--bs-gray-100);
+    border: 1px solid var(--bs-gray-200);
+}
+
+.dolphin-segmented-option {
+    min-height: 40px;
+    min-width: 7rem;
+    padding: 0 1.25rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--bs-gray-700);
+    font-weight: 600;
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease),
+        box-shadow var(--dolphin-dur) var(--dolphin-ease);
+}
+
+.dolphin-segmented-option:hover:not(.is-selected) {
+    color: var(--bs-gray-900);
+}
+
+.dolphin-segmented-option.is-selected {
+    background: var(--bs-primary);
+    color: var(--bs-primary-inverse, #fff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.dolphin-segmented-option:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* The larger toggle (2.40.5): a choice that is the whole of its step. */
+.dolphin-segmented-lg .dolphin-segmented-option {
+    min-height: 48px;
+    min-width: 9rem;
+    padding: 0 1.75rem;
+    font-size: 1rem;
+}
+@media (max-width: 575.98px) {
+    .dolphin-segmented-lg {
+        display: flex;
+        width: 100%;
+    }
+    .dolphin-segmented-lg .dolphin-segmented-option {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+/* --- smooth reveal (2.34.6) -------------------------------------------------
+   Content that appears under a choice. A grid row animates from 0fr to 1fr, so
+   the height needs no measuring; `inert` (set by the script) keeps the collapsed
+   fields out of the tab order and away from screen readers. */
+.dolphin-reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows var(--dolphin-dur) var(--dolphin-ease), opacity var(--dolphin-dur) var(--dolphin-ease);
+}
+
+.dolphin-reveal.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+}
+
+.dolphin-reveal-inner {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.dolphin-reveal.is-open .dolphin-reveal-inner {
+    overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dolphin-reveal,
+    .dolphin-segmented-option {
+        transition: none;
+    }
+}
+
+/* A row deleted from a list slides out before the list reloads (ui/lists.js). */
+tr.is-removing > td {
+    opacity: 0;
+    transform: translateX(-24px);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+    tr.is-removing > td { transition: none; transform: none; }
+}
+
+/* «انتقال به تاریخ…» control inside a calendar event chip (ui/calendar.js). */
+.calendar-event-move {
+    margin-inline-start: 0.4rem;
+    cursor: pointer;
+    opacity: 0.75;
+}
+.calendar-event-move:hover,
+.calendar-event-move:focus-visible { opacity: 1; }
+
+/* The customer-category manager lists name, count, state and actions in a row. */
+#customer-categories-dialog { width: min(900px, 94vw); max-width: none; }

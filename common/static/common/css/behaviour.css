@@ -1,0 +1,83 @@
+/* 1. Behaviour ------------------------------------------------------------ */
+
+/* The application toggles panels with the `hidden` attribute, but Bootstrap's
+   display utilities (`d-flex`, `d-block`, `table-responsive`) set `display` on
+   the same elements and win on specificity — which showed an empty red alert
+   at the top of every page. Honour `hidden` everywhere. */
+[hidden] {
+    display: none !important;
+}
+
+/* Native <dialog> is used for create/edit modals: it is real, focusable, and
+   needs no JavaScript library. The theme styles `.modal`, not `dialog`, so
+   these few rules give the element the theme's own card surface. */
+dialog {
+    width: min(calc(100% - 2rem), 44rem);
+    /* The scrollbar's room is kept from the start (2.40.40): a wizard step that
+       grows past the dialog's height no longer narrows every field when its
+       scrollbar appears. */
+    scrollbar-gutter: stable;
+    max-height: calc(100vh - 2rem);
+    overflow: auto;
+    padding: 1.75rem;
+    border: 0;
+    border-radius: var(--dolphin-radius-card);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 6%), 0 24px 64px -12px rgb(0 0 0 / 28%);
+}
+
+/* The scrim dims and blurs what is behind (2.40.38): the dialog reads as a
+   layer above the page, not a page of its own. */
+dialog::backdrop {
+    background: rgb(10 14 22 / 38%);
+    backdrop-filter: blur(6px) saturate(120%);
+    -webkit-backdrop-filter: blur(6px) saturate(120%);
+}
+
+/* The header is `position: fixed` with a transparent base background (the
+   theme's own `--bs-app-header-base-bg-color`), so scrolled content passes
+   directly underneath it with nothing to mark the boundary. A translucent
+   background plus a blur gives the header a visible presence without losing
+   the theme's own fixed-header layout, colors, or the sticky/minimize
+   variants it already supports. */
+[data-bs-theme=light] {
+    --bs-app-header-base-bg-color: rgb(242 242 247 / 78%);
+}
+[data-bs-theme=dark] {
+    --bs-app-header-base-bg-color: rgb(9 9 11 / 78%);
+}
+#dolphin_app_header.app-header {
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+/* The blur makes the header a stacking context. Below the `lg` breakpoint the
+   theme leaves the header in the flow (not fixed, no z-index), so that context
+   was painted under the page's cards — and with it every panel that hangs off
+   the header: the search results and the reminder list opened *behind* the
+   first card on a phone (seen at 375px, 2.40.1). Lifting the header above the
+   content is the cause fixed, not each panel. */
+@media (max-width: 991.98px) {
+    #dolphin_app_header.app-header {
+        position: relative;
+        z-index: 105;
+    }
+}
+
+/* The small spreadsheet icon on every Excel export/import button
+   (`common/includes/excel_icon.inc`) — an inline SVG, not a font ligature, so
+   it needs its own baseline nudge to sit where the font icon it replaced did. */
+.excel-icon {
+    vertical-align: -0.2rem;
+}
+
+/* Visually hidden label, used where the control's purpose is already obvious
+   from its placeholder. The theme has no equivalent utility. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}

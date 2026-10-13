@@ -9,6 +9,7 @@ from django.test import Client, SimpleTestCase, TestCase, override_settings
 from accounts.models import User
 from accounts.access import ROLE_CAPABILITIES
 from common.ui_views import ROLE_LABELS
+from common.stylesheets import stylesheet_text
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -100,7 +101,7 @@ class AuthShellUnitTests(SimpleTestCase):
         test is the one worth keeping, and a number that only ever goes up
         measures the project's growth rather than its discipline.
         """
-        stylesheet = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+        stylesheet = stylesheet_text()
         self.assertNotIn("grid-template-columns: 17rem", stylesheet)
         # A *bare* component selector is what is forbidden — a rule that owns
         # `.btn`, `.card` or `.table` outright. A descendant rule like
@@ -190,7 +191,7 @@ class AuthShellUnitTests(SimpleTestCase):
         sheet. On paper the table must go back to visible — a clipped line item
         is a missing line item.
         """
-        stylesheet = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+        stylesheet = stylesheet_text()
         self.assertIn(".print-page { box-sizing: border-box;", stylesheet)
         self.assertIn(".print-page .table-wrap { overflow-x: auto; }", stylesheet)
         self.assertIn(".print-page .table-wrap { overflow-x: visible; }", stylesheet)

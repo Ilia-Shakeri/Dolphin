@@ -38,15 +38,14 @@ from django.test import Client, SimpleTestCase, TestCase
 from accounts.models import User
 from common.deployment.profile import DeploymentProfile, override_active_profile
 from common.deployment.registry import ALL_FEATURES, DEFAULT_OFF_FEATURES, FEATURE_DEPENDENCIES
+from common.stylesheets import stylesheet_text
 
 PASSWORD = "Strong-pass-604!"
 
 SCRIPT = (
     PANEL_SCRIPT
 ).read_text(encoding="utf-8")
-CSS = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-).read_text(encoding="utf-8")
+CSS = stylesheet_text()
 
 
 def _function_body(name, end_marker=None):
@@ -217,7 +216,7 @@ class ScriptTests(SimpleTestCase):
 
 class StylingTests(SimpleTestCase):
     def test_order_board_shares_the_lead_boards_rtl_and_theme_rules(self):
-        """One generalised CSS section (dolphin.css §7), not a duplicated
+        """One generalised CSS section (the panel stylesheet §7), not a duplicated
         block — `#order-board` rides the same selectors `#lead-board` does."""
         self.assertIn("#lead-board .kanban-container,\n#order-board .kanban-container {", CSS)
         self.assertIn("#lead-board .kanban-board,\n#order-board .kanban-board {", CSS)

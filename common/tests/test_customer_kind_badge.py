@@ -12,9 +12,10 @@ from pathlib import Path
 
 from django.template import Context, Template
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 WORDS = ("حقیقی", "حقوقی")
 #: Not a customer's kind: the official invoice's field names a party
 #: «شخص حقیقی/حقوقی», and two sentences use «حقوقی» as "legal" (a legal

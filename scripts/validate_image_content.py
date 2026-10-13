@@ -74,7 +74,12 @@ EXPECT_PRESENT: list[str] = [
     "sales/models.py",
     "common/ui_urls.py",
     "common/static/common/js/main.js",
-    "common/static/common/dolphin.css",
+    # The panel's own stylesheet, one file per layer since 2.40.42
+    # (`common/stylesheets.py` lists them); the first and the last layer prove
+    # the folder ships.
+    "common/stylesheets.py",
+    "common/static/common/css/tokens.css",
+    "common/static/common/css/drawers-files.css",
     "common/static/common/brand/favicon.ico",
     "common/templates/common/base.html",
     # The purchased theme's runtime. Without these the image builds and starts,

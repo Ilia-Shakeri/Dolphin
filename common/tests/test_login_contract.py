@@ -4,6 +4,11 @@ Client-1 policy names several things that must **not** be on this page. A
 missing feature is invisible, so it is the kind of requirement that silently
 regresses the first time someone copies a login template from elsewhere. This
 module pins it against the rendered page rather than the source.
+
+Since 2.40.42 a deployment may run two-factor sign-in (feature `two_factor`,
+off by default); the page is pinned here as a deployment without it renders
+it. With it, the page gains exactly one code step
+(`common/tests/test_release_2_40_42.py`).
 """
 
 import re
@@ -11,13 +16,22 @@ from pathlib import Path
 
 from django.test import TestCase
 
+from common.deployment.profile import DeploymentProfile, override_active_profile
+from common.deployment.registry import ALL_FEATURES
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class LoginPageContractTests(TestCase):
     def setUp(self):
-        self.content = self.client.get("/login/").content.decode("utf-8")
+        client_one = DeploymentProfile(
+            profile_id="client-1",
+            features=frozenset(ALL_FEATURES) - frozenset({"two_factor"}),
+            source="signed-manifest",
+        )
+        with override_active_profile(client_one):
+            self.content = self.client.get("/login/").content.decode("utf-8")
 
     def test_the_page_renders_in_persian_rtl(self):
         self.assertIn('<html lang="fa" dir="rtl">', self.content)

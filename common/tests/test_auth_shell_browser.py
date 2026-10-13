@@ -8,6 +8,7 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.utils import timezone
 
 from accounts.models import User
+from common.tests.browser_support import BrowserFlowMixin
 from sales.models import Customer, Lead, Product, Sale
 
 
@@ -23,7 +24,7 @@ if SELENIUM_AVAILABLE:
 
 
 @unittest.skipUnless(SELENIUM_AVAILABLE, "Selenium is not installed.")
-class AuthShellRealBrowserTests(StaticLiveServerTestCase):
+class AuthShellRealBrowserTests(BrowserFlowMixin, StaticLiveServerTestCase):
     password = "Strong-pass-937!"
 
     @classmethod
@@ -102,7 +103,9 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         user = user or self.platform
         self.browser.get(f"{self.live_server_url}/login/")
         login_mark = self.browser.find_element(By.CSS_SELECTOR, ".brand-mark-login")
-        self.assertTrue(login_mark.is_displayed())
+        # The lockup fades in (`.login-enter`, 2.40.4): it is displayed once
+        # the entrance has run, not at the instant the page loads.
+        self.wait.until(expected_conditions.visibility_of(login_mark))
         self.assertGreater(self.browser.execute_script("return arguments[0].naturalWidth", login_mark), 0)
         self.browser.find_element(By.ID, "login-username").send_keys(user.username)
         self.browser.find_element(By.ID, "login-password").send_keys(self.password)
@@ -184,12 +187,17 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
         self.browser.set_window_size(390, 844)
         self.login()
 
-        toggle = self.browser.find_element(By.ID, "nav-toggle")
-        self.assertTrue(toggle.is_displayed())
-        mobile_mark = self.browser.find_element(By.CSS_SELECTOR, ".brand-mark-mobile")
-        self.assertTrue(mobile_mark.is_displayed())
-        self.assertGreater(self.browser.execute_script("return arguments[0].naturalWidth", mobile_mark), 0)
-        toggle.click()
+        # On a phone the menu opens from the tab bar's «بیشتر» (2.40.38), which
+        # presses the header's own drawer toggle for it.
+        more = self.wait.until(expected_conditions.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".dolphin-tab-bar button[aria-controls='app-sidebar']")
+        ))
+        # Two marks, one per theme (`brand-on-dark` / `brand-on-light`); the
+        # one for the current theme is the one shown.
+        mobile_marks = [mark for mark in self.browser.find_elements(By.CSS_SELECTOR, ".brand-mark-mobile") if mark.is_displayed()]
+        self.assertEqual(len(mobile_marks), 1)
+        self.assertGreater(self.browser.execute_script("return arguments[0].naturalWidth", mobile_marks[0]), 0)
+        more.click()
         # The sidebar is the theme's own drawer now, so its open state is the
         # `drawer-on` class the theme sets — not a second class of our own.
         self.wait.until(
@@ -200,8 +208,8 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
             self.browser.find_element(By.ID, "nav-toggle").get_attribute("aria-expanded"), "true"
         )
         self.browser.get(f"{self.live_server_url}/users/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "users-loading")))
-        self.assertIn(self.platform.username, self.browser.find_element(By.ID, "users-table-body").text)
+        # The loading line is drawn as a skeleton since 2.40.36; wait for the row itself.
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "users-table-body"), self.platform.username))
         self.assert_browser_clean()
 
     def test_role_aware_landing_and_menus_for_three_experiences(self):
@@ -236,10 +244,10 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
                     toggle = self.browser.find_element(By.ID, "toggle-user-active")
                     self.assertEqual(toggle.text, "غیرفعال کردن کاربر")
                     toggle.click()
-                    self.wait.until(expected_conditions.alert_is_present()).accept()
+                    self.confirm()
                     self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "فعال کردن دوباره کاربر"))
                     self.browser.find_element(By.ID, "toggle-user-active").click()
-                    self.wait.until(expected_conditions.alert_is_present()).accept()
+                    self.confirm()
                     self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "toggle-user-active"), "غیرفعال کردن کاربر"))
                 self.assert_browser_clean()
 
@@ -267,6 +275,12 @@ class AuthShellRealBrowserTests(StaticLiveServerTestCase):
 
     def test_manager_and_agent_dashboard_data_stay_role_scoped(self):
         self.browser.set_window_size(1440, 1000)
+        # The operational-performance widget is opt-in since 2.40.35: each
+        # reader adds it to their own dashboard first.
+        from common.dashboard_layout import update_user_dashboard_layout
+
+        for user in (self.manager, self.agent):
+            update_user_dashboard_layout(actor=user, shown_widgets=["performance"])
 
         self.login(self.manager)
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "dashboard-performance-content")))

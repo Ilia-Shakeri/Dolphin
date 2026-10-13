@@ -1,0 +1,378 @@
+/* 9. Dashboard widget grid and its in-place editor ---------------------------
+
+   The dashboard is one Bootstrap row whose children are ordinary grid
+   columns; the widths are the theme's own `col-*` classes, resolved on the
+   server from `WIDGET_SIZES` (common/dashboard_layout.py). Nothing here
+   redefines a card, a column or a button — the editor adds an overlay of
+   controls and two drag affordances on top of the grid the theme already
+   draws, and takes them away again the moment editing ends.
+
+   Everything below is scoped to `.dashboard-widget`, which only exists on
+   the dashboard, so no rule here can reach another page. */
+
+.dashboard-widget {
+    position: relative;
+}
+
+/* Only while editing. A reader who never presses the pencil gets exactly
+   the dashboard they had before this existed: no outline, no cursor change,
+   no reserved space.
+
+   `touch-action: none` (2026-09-21, with the move to Pointer Events below):
+   without it, the first few pixels of a touch-drag are ambiguous between
+   "rearranging a widget" and "scrolling the page", and the browser can
+   start its own scroll gesture before this code's own 4px threshold ever
+   decides which one it is. Telling the browser up front that this element
+   is not a scroll surface removes the race rather than trying to win it. */
+.dashboard-widget.editing {
+    cursor: grab;
+    touch-action: none;
+    /* A drag that starts over a label must move the box, not select the
+       label's text (2.18.1). `-webkit-user-drag` is the WebKit/Blink half of
+       the `draggable="false"` the editor puts on every link in a box — see
+       `suppressNativeDrag` in the panel script for why the tile row needs it. */
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.dashboard-widget.editing a {
+    -webkit-user-drag: none;
+}
+
+/* Edit mode has to *look* like edit mode (product owner, 2026-09-27: «وقتی
+   حالت ویرایش فعال است ویجت‌ها باید کادر نقطه‌چین داشته باشند و حس و حال
+   صفحه حالت ویرایش باشد»). Until 2.18.3 the only cue was a 1px outline in
+   the border colour — on a dark card, nearly invisible. Now, together:
+
+   * every box carries a dotted outline in the accent colour;
+   * the grid behind the boxes becomes a dotted canvas, the surface a box is
+     being arranged *on*;
+   * each box sways very slightly — the home-screen convention for "these
+     can be moved now" that the earlier drag rewrite already set out to
+     match («مثل ویجت‌های apple و اندروید») — stopping while a box is
+     hovered, dragged or resized, and never at all under reduced motion;
+   * the rest of the page (performance panel, work queue) steps back.
+
+   `--bs-primary-rgb` rather than a literal, so a deployment's own accent
+   (`common.color.accent_theme_css`, which sets both) recolours this too. */
+.dashboard-widget.editing > .card {
+    outline: 2px dotted rgba(var(--bs-primary-rgb), 0.65);
+    outline-offset: 3px;
+    animation: dashboard-edit-sway 0.9s ease-in-out infinite alternate;
+    transform-origin: 50% 50%;
+}
+
+.dashboard-widget.editing:nth-child(2n) > .card {
+    animation-delay: -0.45s;
+    animation-direction: alternate-reverse;
+}
+
+.dashboard-widget.editing:hover > .card,
+.dashboard-widget.editing:focus-within > .card,
+.dashboard-widget.dragging > .card,
+.dashboard-widget.resizing > .card {
+    animation: none;
+}
+
+.dashboard-widget.editing:hover > .card {
+    outline-color: var(--bs-primary);
+}
+
+@keyframes dashboard-edit-sway {
+    from { transform: rotate(-0.3deg); }
+    to { transform: rotate(0.3deg); }
+}
+
+[data-dashboard-grid].dashboard-widgets-editing {
+    border-radius: 0.75rem;
+    background-image: radial-gradient(rgba(var(--bs-primary-rgb), 0.22) 1px, transparent 1.5px);
+    background-size: 18px 18px;
+}
+
+body.dashboard-editing [data-performance-panel],
+body.dashboard-editing #agent-work-queue {
+    opacity: 0.45;
+    transition: opacity var(--dolphin-dur) var(--dolphin-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-widget.editing > .card {
+        animation: none;
+    }
+}
+
+/* The lifted look while a widget is actively being dragged — replacing the
+   `opacity: 0.45` this used to be, which read as "disabled", not "picked
+   up". A real position transform on `.dashboard-widget` itself now tracks
+   the pointer (`bindGridDrag`, the panel script); the scale and shadow here
+   are purely the "this one is off the surface" cue, applied to the `.card`
+   one level in so the transform driving position and the transform giving
+   the lift never fight over the same property on the same element. */
+.dashboard-widget.dragging {
+    cursor: grabbing;
+    z-index: 10;
+}
+
+.dashboard-widget.dragging > .card {
+    box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 25%);
+    transform: scale(1.03);
+    transition: transform var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+/* The per-widget controls sit in the card's inline-*end* corner — which in
+   this RTL panel is its top left, the same corner the kanban cards already
+   put their own three-dot menu in (§7, `.kanban-card-more`) and the corner
+   the product owner asked for. Logical rather than `left`, so one rule
+   stays correct if a deployment ever renders LTR. */
+.dashboard-widget-controls {
+    position: absolute;
+    top: 0.75rem;
+    inset-inline-end: 0.75rem;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem;
+    border-radius: 0.475rem;
+    background: var(--bs-body-bg);
+    box-shadow: var(--bs-box-shadow-sm);
+}
+
+/* The hide control. Solid danger rather than the light tint it used to
+   carry, an outline icon-font glyph rather than a bare `×`, and — the part the
+   product owner actually asked for («دکمهٔ حذف فاصلهٔ بیشتری از لبه‌ها
+   داشته باشد و ظاهر بهتری بگیرد», 2026-09-20) — held well clear of the
+   corner by the `0.75rem` inset on `.dashboard-widget-controls` above plus
+   the card's own outline offset. The vendor's `.btn.btn-icon` sizing is two
+   classes deep, so the size is restated at the same specificity to beat it
+   rather than with `!important`. */
+.dashboard-widget .btn.dashboard-widget-hide {
+    width: 1.75rem;
+    height: 1.75rem;
+    line-height: 1;
+    box-shadow: var(--bs-box-shadow-sm);
+}
+
+/* A box is resized by its own border (2.18.4 — product owner: «این دکمه حذف
+   شود و کاربر با گرفتن لبه‌ها اندازه را تغییر دهد»; until then one corner
+   button did it, and only for width). Eight invisible strips along the card's
+   edges and corners (`resizeHandles`, the panel script), each showing a short
+   accent bar where the hand is.
+
+   Laid over the *card's* edges, not the column's: a column is padded by half
+   the row's gutter on each inline side, so its own edge sits outside the card
+   the reader is looking at. Vertically the two coincide — the card is `h-100`
+   and a row's gutter is margin, not padding. Logical properties throughout,
+   so each strip lands on the right physical side in RTL and LTR alike.
+
+   `touch-action: none` for the same reason `.dashboard-widget.editing` has it:
+   the strips are dragged with pointer events on a phone too. */
+.dashboard-widget {
+    --dashboard-edge-inset: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+}
+
+.dashboard-widget > .card {
+    /* The box is a grid cell: the card fills it, and what does not fit scrolls
+       inside the card rather than stretching the row (2.38.1). */
+    height: 100%;
+    min-height: 0;
+}
+
+.dashboard-resize-handle {
+    position: absolute;
+    z-index: 4;
+    touch-action: none;
+}
+
+.dashboard-resize-handle[data-edge="inline-start"],
+.dashboard-resize-handle[data-edge="inline-end"] {
+    inset-block: 1rem;
+    width: 12px;
+    cursor: ew-resize;
+}
+
+.dashboard-resize-handle[data-edge="inline-start"] {
+    inset-inline-start: calc(var(--dashboard-edge-inset) - 6px);
+}
+
+.dashboard-resize-handle[data-edge="inline-end"] {
+    inset-inline-end: calc(var(--dashboard-edge-inset) - 6px);
+}
+
+.dashboard-resize-handle[data-edge="block-start"],
+.dashboard-resize-handle[data-edge="block-end"] {
+    inset-inline: calc(var(--dashboard-edge-inset) + 1rem);
+    height: 12px;
+    cursor: ns-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start"] {
+    inset-block-start: -6px;
+}
+
+.dashboard-resize-handle[data-edge="block-end"] {
+    inset-block-end: -6px;
+}
+
+.dashboard-resize-handle[data-edge~="block-start"][data-edge~="inline-start"],
+.dashboard-resize-handle[data-edge~="block-start"][data-edge~="inline-end"],
+.dashboard-resize-handle[data-edge~="block-end"][data-edge~="inline-start"],
+.dashboard-resize-handle[data-edge~="block-end"][data-edge~="inline-end"] {
+    width: 18px;
+    height: 18px;
+}
+
+.dashboard-resize-handle[data-edge~="block-start"][data-edge*=" inline-"] { inset-block-start: -8px; }
+.dashboard-resize-handle[data-edge~="block-end"][data-edge*=" inline-"] { inset-block-end: -8px; }
+.dashboard-resize-handle[data-edge$=" inline-start"] { inset-inline-start: calc(var(--dashboard-edge-inset) - 8px); }
+.dashboard-resize-handle[data-edge$=" inline-end"] { inset-inline-end: calc(var(--dashboard-edge-inset) - 8px); }
+
+/* Corner cursors are the one place the physical direction has to be named:
+   in RTL the inline-start corner is on the right. `nwse` points top-left to
+   bottom-right, `nesw` the other diagonal. */
+.dashboard-resize-handle[data-edge="block-start inline-start"],
+.dashboard-resize-handle[data-edge="block-end inline-end"] {
+    cursor: nesw-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start inline-end"],
+.dashboard-resize-handle[data-edge="block-end inline-start"] {
+    cursor: nwse-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start inline-start"]:dir(ltr),
+.dashboard-resize-handle[data-edge="block-end inline-end"]:dir(ltr) {
+    cursor: nwse-resize;
+}
+
+.dashboard-resize-handle[data-edge="block-start inline-end"]:dir(ltr),
+.dashboard-resize-handle[data-edge="block-end inline-start"]:dir(ltr) {
+    cursor: nesw-resize;
+}
+
+/* The bar that shows where the hand is: along an edge, a short pill; at a
+   corner, a dot. Hidden until hovered or dragged. */
+.dashboard-resize-handle::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 999px;
+    background: var(--bs-primary);
+    opacity: 0;
+    transition: opacity var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+.dashboard-resize-handle[data-edge="inline-start"]::after,
+.dashboard-resize-handle[data-edge="inline-end"]::after {
+    width: 4px;
+    height: min(2.5rem, 40%);
+}
+
+.dashboard-resize-handle[data-edge="block-start"]::after,
+.dashboard-resize-handle[data-edge="block-end"]::after {
+    width: min(2.5rem, 40%);
+    height: 4px;
+}
+
+.dashboard-resize-handle[data-edge*=" "]::after {
+    width: 10px;
+    height: 10px;
+}
+
+.dashboard-resize-handle:hover::after,
+.dashboard-resize-handle.active::after {
+    opacity: 1;
+}
+
+/* Widths only apply from the theme's `xl` breakpoint up (every box is full or
+   half width below it), so the side strips are not offered where dragging
+   them could not show anything. Heights work at every width. */
+@media (max-width: 1199.98px) {
+    .dashboard-resize-handle[data-edge="inline-start"],
+    .dashboard-resize-handle[data-edge="inline-end"] {
+        display: none;
+    }
+}
+
+/* The box itself takes focus while editing — the keyboard's way to the same
+   sizes (arrow keys, see `onBoxKeydown`). */
+.dashboard-widget.editing:focus-visible {
+    outline: none;
+}
+
+.dashboard-widget.editing:focus-visible > .card {
+    outline: 2px solid var(--bs-primary);
+    animation: none;
+}
+
+/* While a box is being resized its own outline becomes the feedback — the
+   grip is under the pointer and the card edge is what the reader is
+   watching. */
+.dashboard-widget.resizing > .card {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+
+/* The capability row is capped to two rows and scrolls (see home.html), which
+   is right for reading and wrong for arranging: a tile dragged towards a
+   position scrolled out of view cannot be dropped there. Editing lifts the
+   cap for as long as it lasts. */
+.dashboard-capability-grid.dashboard-widgets-editing {
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+/* "افزودن ویجت" — every widget this reader can have, in two groups
+   (addable, and already on the dashboard), each with a preview of its own
+   real figure (the panel script, `renderWidgetPreview`). The dialog itself only
+   needs a width wide enough for the card grid below; everything else
+   (backdrop, open animation, safe-area padding) comes from the app-wide
+   `dialog` rules already in section 2. Wider since 2.18.2, when it began
+   listing every widget rather than only the hidden ones. */
+#dashboard-add-widget-dialog {
+    width: min(calc(100% - 2rem), 64rem);
+}
+
+.dashboard-add-widget-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: 1rem;
+}
+
+/* A card is no longer itself the click target (it carries one explicit
+   add/remove button since 2.18.2), so it is a surface, not a control: no
+   pointer cursor, no hover lift. */
+.dashboard-add-widget-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-body-bg);
+    text-align: start;
+}
+
+/* One preview area, two shapes: a figure (KPI or tile — its icon and its
+   real number) or a real small Apex instance sized to fit the card. */
+.dashboard-add-widget-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 6rem;
+    min-width: 0;
+}
+
+.dashboard-add-widget-chart {
+    width: 100%;
+}
+
+/* The twelve-week trend is the one preview that needs width to read at all —
+   an axis of amounts and a legend beside a 13rem plot left the line itself
+   a sliver. Two tracks wherever the dialog has two to give. */
+@media (min-width: 576px) {
+    .dashboard-add-widget-card[data-add-widget-family="trend"] {
+        grid-column: span 2;
+    }
+}

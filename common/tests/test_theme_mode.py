@@ -17,6 +17,7 @@ import re
 from django.test import Client, SimpleTestCase, TestCase
 
 from accounts.models import User
+from common.stylesheets import stylesheet_text
 
 
 PASSWORD = "Strong-pass-937!"
@@ -107,18 +108,14 @@ class ThemeModeMarkupTests(TestCase):
         """It carries the theme's `.menu-sub`, which is `display: none` until
         DolphinMenu adds `.show`. Nothing adds `.show` here — this project's script
         opens it — so without an explicit display it stayed 0x0 forever."""
-        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_text()
         self.assertIn(".theme-mode-popup { display: block; }", css)
         self.assertIn(".theme-mode-popup[hidden] { display: none; }", css)
 
     def test_the_popup_can_flip_to_whichever_side_has_room(self):
         """The user menu sits against one edge, so the preferred side is not
         always the one with space."""
-        css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(
-            encoding="utf-8"
-        )
+        css = stylesheet_text()
         self.assertIn(".theme-mode-popup.is-flipped", css)
 
     def test_the_button_reports_the_current_theme(self):

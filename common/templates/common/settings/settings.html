@@ -156,6 +156,104 @@
 {% endif %}
 </div>
 
+{% comment %} «امنیت» (2.40.42, roadmap item 13 — the account settings page the UI kit
+   carries): the reader's own two-factor sign-in, where the deployment runs it,
+   and their active sessions. Every action is the reader's own account and is
+   re-checked by its endpoint (`accounts/two_factor_views.py`). {% endcomment %}
+<div id="settings-pane-security" role="tabpanel" aria-labelledby="settings-tab-security" data-settings-pane="security"{% if active_tab != "security" %} hidden{% endif %}>
+{% if two_factor_available %}
+<section class="card mb-5 mb-xl-8" id="two-factor-card">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>ورود دومرحله‌ای</h2>
+            <span class="text-muted fs-7 mt-1">پس از گذرواژه، کد شش‌رقمی برنامهٔ احراز هویت گوشی‌تان (مثل Google Authenticator یا Microsoft Authenticator) هم خواسته می‌شود؛ گذرواژهٔ لورفته به‌تنهایی کسی را وارد حساب نمی‌کند. برای مدیران توصیه می‌شود.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="two-factor-loading" class="text-center text-gray-700 py-6">در حال دریافت وضعیت…</div>
+        <div id="two-factor-state" hidden>
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-5">
+                <span class="badge fs-7" id="two-factor-badge"></span>
+                <span class="text-gray-700" id="two-factor-summary"></span>
+            </div>
+            <p class="text-warning-emphasis fs-7" id="two-factor-unavailable" hidden>این استقرار کلید نگه‌داری رازها را ندارد؛ تا مدیر فنی آن را تنظیم نکند، ورود دومرحله‌ای روشن نمی‌شود.</p>
+            <div class="d-flex flex-wrap gap-3">
+                <button class="btn btn-primary" type="button" id="two-factor-enable" hidden>روشن کردن</button>
+                <button class="btn btn-light-primary" type="button" id="two-factor-codes" hidden>کدهای بازیابی تازه</button>
+                <button class="btn btn-light-danger" type="button" id="two-factor-disable" hidden>خاموش کردن</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<dialog id="two-factor-dialog" aria-labelledby="two-factor-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-4"><h2 id="two-factor-dialog-title">روشن کردن ورود دومرحله‌ای</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="two-factor-start-form" data-two-factor-pane="password" novalidate>
+        <p class="text-gray-700">برای شروع، گذرواژهٔ حساب خود را وارد کنید.</p>
+        <label class="form-label fw-semibold" for="two-factor-start-password">گذرواژه</label>
+        <input class="form-control form-control-solid" id="two-factor-start-password" name="password" type="password" autocomplete="current-password" required>
+        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="password"></p>
+        <div class="d-flex justify-content-end pt-6"><button class="btn btn-primary" type="submit">ادامه</button></div>
+    </form>
+    <form id="two-factor-confirm-form" data-two-factor-pane="scan" novalidate hidden>
+        <ol class="two-factor-steps text-gray-700">
+            <li>برنامهٔ احراز هویت را روی گوشی باز کنید و «افزودن حساب» را بزنید.</li>
+            <li>این کد QR را اسکن کنید؛ یا کلید زیر را دستی وارد کنید.</li>
+            <li>کد شش‌رقمی‌ای را که برنامه نشان می‌دهد این‌جا بنویسید.</li>
+        </ol>
+        <div class="two-factor-scan">
+            <img id="two-factor-qr" class="two-factor-qr" alt="کد QR ورود دومرحله‌ای" width="220" height="220">
+            <div class="two-factor-key">
+                <span class="text-muted fs-8 d-block mb-1">کلید برای ورود دستی</span>
+                <code id="two-factor-secret" dir="ltr"></code>
+                <a class="btn btn-sm btn-light-primary mt-3" id="two-factor-open-app" href="#">باز کردن در برنامهٔ گوشی</a>
+            </div>
+        </div>
+        <label class="form-label fw-semibold mt-5" for="two-factor-confirm-code">کد شش‌رقمی</label>
+        <input class="form-control form-control-solid two-factor-code" id="two-factor-confirm-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="16" dir="ltr" required>
+        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="code"></p>
+        <div class="d-flex justify-content-end pt-6"><button class="btn btn-primary" type="submit">تأیید و روشن کردن</button></div>
+    </form>
+    <div data-two-factor-pane="codes" hidden>
+        <div class="alert alert-warning d-flex align-items-start gap-3 mb-5" role="status">
+            <i class="di-duotone di-information-5 fs-2 text-warning" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+            <span>این کدها فقط همین یک بار نشان داده می‌شوند. هرکدام یک بار و بدون گوشی وارد می‌کند؛ جایی امن نگهشان دارید.</span>
+        </div>
+        <ol class="two-factor-codes" id="two-factor-codes-list" dir="ltr"></ol>
+        <div class="d-flex flex-wrap justify-content-end gap-3 pt-6">
+            <button class="btn btn-light-primary" type="button" id="two-factor-codes-copy">کپی</button>
+            <button class="btn btn-light-primary" type="button" id="two-factor-codes-download">دریافت فایل</button>
+            <button class="btn btn-primary" type="button" id="two-factor-done">ذخیره کردم</button>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="two-factor-check-dialog" aria-labelledby="two-factor-check-title">
+    <div class="d-flex flex-stack align-items-center mb-4"><h2 id="two-factor-check-title">تأیید</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="two-factor-check-form" novalidate>
+        <p class="text-gray-700" id="two-factor-check-text"></p>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold" for="two-factor-check-password">گذرواژه</label><input class="form-control form-control-solid" id="two-factor-check-password" name="password" type="password" autocomplete="current-password" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="password"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="two-factor-check-code">کد برنامه یا کد بازیابی</label><input class="form-control form-control-solid two-factor-code" id="two-factor-check-code" name="code" type="text" autocomplete="one-time-code" maxlength="16" dir="ltr" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="code"></p></div>
+        </div>
+        <div class="d-flex justify-content-end pt-6"><button class="btn btn-primary" type="submit" id="two-factor-check-submit">تأیید</button></div>
+    </form>
+</dialog>
+{% endif %}
+
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>نشست‌های فعال</h2>
+            <span class="text-muted fs-7 mt-1">هر نشست یک ورود فعال به حساب شماست. اگر ورودی را نمی‌شناسید، همان‌جا پایانش دهید.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <button class="btn btn-light-primary" type="button" data-open-sessions>دیدن نشست‌ها</button>
+    </div>
+</section>
+</div>
+
 {% if can_manage_scoring %}
 {% comment %} وزن عامل‌های امتیاز اشخاص (۲.۲۰.۰). فقط «چقدر حساب شود» تنظیم‌شدنی است؛
    اینکه هر عامل چگونه سنجیده می‌شود در کد (`scoring/strategies.py`) ثابت است. {% endcomment %}

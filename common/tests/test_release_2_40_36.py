@@ -16,11 +16,13 @@ from accounts.models import User
 from auditlog.labels import object_type_label
 from common.color import PANEL_LIGHT_ACCENT, _hex_to_rgb, _relative_luminance
 from common.models import DEFAULT_PANEL_FONT_FAMILY, PANEL_FONT_FAMILY_STACKS
+from common.stylesheets import stylesheet_text
+from common.tests.panel_js import feature_source
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = ROOT / "common" / "static" / "common"
 JS = STATIC / "js"
-CSS = (STATIC / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 BASE = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
 PASSWORD = "Strong-pass-736!"
 
@@ -121,7 +123,7 @@ class PhoneAndPolishTests(SimpleTestCase):
     def test_the_trend_axis_reads_compact_amounts(self):
         charts = (JS / "ui" / "charts.js").read_text(encoding="utf-8")
         self.assertIn('[[1e9, "میلیارد"], [1e6, "میلیون"], [1e3, "هزار"]]', charts)
-        self.assertIn("formatter: compactAmount,", (JS / "features" / "dashboard" / "dashboard.js").read_text(encoding="utf-8"))
+        self.assertIn("formatter: compactAmount,", feature_source("features/dashboard"))
 
     def test_a_locked_field_on_a_detail_page_reads_as_a_value(self):
         self.assertIn('body[data-page$="-detail"] #page-stage select.form-select.form-select-solid:disabled:not(dialog *)', CSS)

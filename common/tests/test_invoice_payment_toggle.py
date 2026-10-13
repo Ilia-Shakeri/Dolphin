@@ -9,12 +9,13 @@ switches them off, and the arrow keys move the way the options read.
 from pathlib import Path
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = (ROOT / "common" / "templates" / "common" / "invoices" / "list.html").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "common" / "static" / "common" / "js" / "features" / "billing" / "invoices.js").read_text(encoding="utf-8")
 SEGMENTED = (ROOT / "common" / "static" / "common" / "js" / "ui" / "segmented.js").read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 
 
 def _payment_step():

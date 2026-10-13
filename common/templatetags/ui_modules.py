@@ -1,4 +1,4 @@
-"""The panel's JavaScript modules, addressed by name and cached by release.
+"""The panel's JavaScript modules and stylesheet layers, cached by release.
 
 The application script is a tree of ES modules under `common/static/common/js/`
 (`core/`, `ui/`, `shell/`, `features/`). A module imports another by a bare
@@ -16,7 +16,10 @@ from pathlib import Path
 from django import template
 from django.conf import settings
 from django.templatetags.static import static
+from django.utils.html import format_html_join
 from django.utils.safestring import mark_safe
+
+from common.stylesheets import STYLESHEETS
 
 register = template.Library()
 
@@ -47,3 +50,13 @@ def dolphin_import_map():
 @register.simple_tag
 def dolphin_entry_url():
     return f"{static(f'{STATIC_ROOT_NAME}/main.js')}?v={settings.DOLPHIN_VERSION}"
+
+
+@register.simple_tag
+def dolphin_stylesheets():
+    """The panel's own stylesheet layers, in cascade order (`common.stylesheets`)."""
+    return format_html_join(
+        "\n    ",
+        '<link rel="stylesheet" href="{}?v={}">',
+        ((static(name), settings.DOLPHIN_VERSION) for name in STYLESHEETS),
+    )

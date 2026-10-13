@@ -13,6 +13,15 @@ class ActivityLogSerializer(serializers.ModelSerializer):
     #: The same for the record kind (2.40.36): «سند فروش», not `sales.salesdocument`.
     object_type_display = serializers.SerializerMethodField()
 
+    #: Who did it, as a person reads it (2.40.42, the activity drawer).
+    actor_display = serializers.SerializerMethodField()
+
+    def get_actor_display(self, instance) -> str:
+        actor = instance.actor
+        if actor is None:
+            return "سامانه"
+        return actor.get_full_name() or actor.username
+
     def get_operation_display(self, instance) -> str:
         return operation_label(instance.operation)
 
@@ -24,6 +33,7 @@ class ActivityLogSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "actor",
+            "actor_display",
             "actor_role_snapshot",
             "operation",
             "operation_display",

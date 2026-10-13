@@ -1,0 +1,429 @@
+/* 5. Data-table and dialog detail ----------------------------------------- */
+
+/* Row actions are built in JavaScript by appending buttons straight into a
+   cell, so no whitespace text node separates them and adjacent targets touch
+   at 0px. On a phone that is two 44px targets with no gap between them, which
+   is how a person taps "ویرایش" and gets "غیرفعال‌سازی".
+
+   Targeted on the buttons rather than on `.row-actions`, because only three of
+   the ten action cells in the application carry that class and the rest are
+   bare `<td>`. `margin-inline-start` rather than `margin-left`: the panel is
+   RTL and the logical property is the one that follows the text direction.
+
+   A flat `8px` instead of `0.5rem`: the theme's own root font-size is `13px`
+   (`0.5rem` measured `6.5px` on a real page — under the 8px minimum this rule
+   exists to guarantee, on any screen, regardless of what the root happens to
+   be). */
+.table td .btn:not(:first-child) {
+    margin-inline-start: 8px;
+}
+
+/* `.row-actions` cells that carry several buttons at once (the cheques
+   page's own four-button وضعیت column, and its two-button عملیات ثبت
+   toggle) wrapped edge-to-edge with no consistent gap on a narrow column,
+   and a disabled button sitting flush against an enabled one read as one
+   crowded block rather than a deliberate row of choices (product-owner
+   request 2026-09-12). `gap` replaces the single-file `margin-inline-start`
+   rule above for exactly these cells — real gaps between every button,
+   including the first, and a clean wrap to a second line rather than an
+   overflow when the column is narrower than four buttons need. */
+/* Action buttons inside a table cell.
+
+   This deliberately does **not** set `display` on the cell (product-owner
+   report 2026-09-20: «دکمه‌های عملیات ثبت باید در زیر ستون خودش باشد»).
+   It used to be `display: flex`, and a `<td>` with a flex or grid display is
+   no longer a table cell — it leaves the table's column model, so it stops
+   participating in column sizing. Measured on the cheques page: nine columns
+   matched their headers exactly while the last sat 79px off, and the row's
+   cells summed to 1251px against 1099px of headers. Every `.row-actions`
+   table in the panel had the same latent drift; it was only visible here
+   because this page has two action columns side by side.
+
+   Inline layout keeps the cell a cell. The buttons still sit in a centred
+   row with the same spacing, via margins rather than `gap`, and still wrap
+   when the column is narrow. */
+.row-actions {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.row-actions > * {
+    vertical-align: middle;
+}
+
+.row-actions > * + * {
+    margin-inline-start: 0.5rem;
+}
+
+.row-actions .btn {
+    margin-inline-start: 0;
+}
+
+/* A fixed two-per-row action group (product-owner request 2026-09-20, for the
+   cheques page's four وضعیت buttons).
+
+   `.row-actions` above is `flex-wrap`, which is right for the one or two
+   buttons most rows carry but wrong for a fixed set of four: where they broke
+   depended on how wide that column happened to be for the current page of
+   data, so the same table wrapped four-across on one render and three-and-one
+   on the next — and the column beside it moved with it. A grid fixes the
+   shape: two columns, equal tracks, the buttons in their declared order.
+
+   Applied to a `<div>` *inside* the cell, never to the cell itself — see
+   `.row-actions` above for why a `<td>` must keep its table display. */
+.row-actions-2x2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    align-items: start;
+    justify-items: stretch;
+}
+
+/* The grid owns its own spacing, so the inline margin rule above must not
+   also apply to its children. */
+.row-actions-2x2 > * + * {
+    margin-inline-start: 0;
+}
+
+/* The same 13px-root shortfall, closed at its actual source instead of one
+   template at a time.
+
+   Bootstrap's `.gap-2` promises `0.5rem`, which is 8px at the 16px root the
+   utility was designed against. On this theme's 13px root that is 6.5px —
+   under the touch-spacing minimum on every button row, badge row, and filter
+   row that uses it, not only the handful this project had already found and
+   patched one template at a time (`1.7.2`, `1.7.3`). Fixed here, once, for
+   the class itself, so no future `gap-2` anywhere in the app can reintroduce
+   the same shortfall.
+
+   `!important`: measured first — every one of the theme's own spacing
+   utilities, `.gap-2` included, is `!important` in the compiled bundle
+   (`dolphin-theme.rtl.css`). A plain declaration here, loaded
+   after that bundle, still loses to it; only `!important` actually wins.
+
+   `gap-3` and up are already `0.75rem` (9.75px at this root) in the theme's
+   own bundle — already past the 8px minimum this rule exists to guarantee —
+   so they are left untouched. */
+.gap-2 {
+    gap: 8px !important;
+}
+
+/* Identifier and amount columns are set `dir="ltr"` by the renderers — prices,
+   invoice numbers, phone numbers, references, IP addresses. They are read down
+   the column rather than across the row, and proportional digits make that
+   harder than it needs to be: `1` is narrower than `8`, so a column of prices
+   arrives with its digits misaligned and the eye cannot compare magnitudes at a
+   glance. Tabular figures give every digit the same advance width, which is
+   what the numerals were designed for. */
+.table td[dir="ltr"],
+.table th[dir="ltr"] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+}
+
+/* Every list/table reads more evenly with its text and numbers centred in
+   the column rather than pinned to the row's start — product-owner decision
+   2026-09-08. Every header row in the app carries Bootstrap's own
+   `.text-start` (`text-align: right !important` in this RTL build), so the
+   override needs both `!important` and one more selector's worth of
+   specificity to win; source order alone would not, since that utility is
+   itself `!important`. */
+.table th,
+.table td {
+    text-align: center !important;
+}
+
+/* A row highlight on hover. These tables are wide — a customer row runs to nine
+   columns — and the whole difficulty of reading one is keeping your eye on a
+   single row while crossing it. The theme ships `.table-hover` for this and no
+   template uses it, so this is the theme's own intent applied where it was
+   meant to go. Kept to the palette's lightest step: it has to be a hint, not a
+   selection. */
+.table tbody tr {
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+.table tbody tr:hover {
+    background-color: var(--bs-gray-100);
+}
+
+/* Hover is a pointer idea. On touch there is no hover state to enter, and
+   mobile browsers emulate one that then sticks to the last row tapped. */
+@media (hover: none) {
+    .table tbody tr:hover {
+        background-color: transparent;
+    }
+}
+
+/* A form control has to be as tappable as the buttons beside it. The theme's
+   controls are close to 44px already; this guarantees it on coarse pointers
+   without touching the desktop density the tables depend on. */
+@media (hover: none) and (pointer: coarse) {
+    .form-control,
+    .form-select {
+        min-height: 2.75rem;
+    }
+}
+
+/* `100vh` on a mobile browser is the viewport with the toolbars *retracted*, so
+   a dialog sized against it is taller than the screen actually showing it and
+   its footer — the buttons — sits below the fold. `dvh` is the viewport as it
+   currently is. The `vh` line stays first as the fallback for anything that
+   does not know `dvh`. */
+dialog {
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+}
+
+/* Phones: reclaim the padding for content, and keep the dialog clear of the
+   home indicator and the notch. `env()` resolves to zero where there is no
+   inset, so this costs nothing on a device without one. */
+@media (max-width: 575.98px) {
+    dialog {
+        width: calc(100% - 1rem);
+        padding: 1.25rem;
+        padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+}
+
+/* A dialog that appears instantly reads as a page replacement; one that grows
+   a little from where it opened reads as something on top of what you were
+   doing. Small and quick — 160ms, and no movement, only scale and opacity, so
+   nothing reflows. */
+@media (prefers-reduced-motion: no-preference) {
+    dialog[open] {
+        animation: dolphin-dialog-in 160ms ease-out;
+    }
+
+    @keyframes dolphin-dialog-in {
+        from {
+            opacity: 0;
+            transform: scale(0.98);
+        }
+    }
+}
+
+/* `.sr-only` was missing the padding and border resets, so a themed border or
+   padding landed on the 1px box and could paint a stray mark. */
+.sr-only {
+    padding: 0;
+    margin: -1px;
+    border: 0;
+}
+
+/* Every list card's own search box, in `card-title` — the exact UI kit
+   reference pattern (`apps/customers/list.html` in the purchased template):
+   a magnifier icon absolute-positioned inside a solid input, not a separate
+   label/button. Lives live (see `bindLiveSearch` in the panel script) — no
+   submit button of its own, so nothing here is a `<form>`. */
+.list-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.list-search .list-search-icon {
+    position: absolute;
+    inset-inline-start: 1rem;
+    color: var(--bs-gray-500);
+    pointer-events: none;
+}
+
+.list-search input {
+    padding-inline-start: 2.75rem;
+    width: 100%;
+    min-width: 220px;
+    /* `type="search"` specifically — plain text inputs elsewhere in the panel
+       never needed this. WebKit/Blink give a search field its own native
+       `-webkit-appearance: searchfield` chrome, which keeps its placeholder
+       and typed text left-aligned regardless of the page's own `dir="rtl"`
+       until that native appearance is reset. Measured live: every other
+       `.form-control` on this panel sat right-aligned already; only these
+       ran left-aligned text out from behind the icon reserved on the right
+       (design review, 2026-09-12). */
+    appearance: none;
+    -webkit-appearance: none;
+    direction: rtl;
+    text-align: right;
+}
+
+@media (max-width: 575.98px) {
+    .list-search input {
+        min-width: 0;
+    }
+}
+
+/* The list card's own "فیلتر" control, in `card-toolbar` — a small icon
+   button, not the old always-open row of selects, opening a panel anchored
+   under it. Positioned by hand rather than through DolphinMenu/Popper, the same
+   reason `#user-menu`/`#reminder-bell-menu` above are: Popper lives in the
+   plugins bundle this deployment does not load (see this file's own "2.
+   Brand" section for the fuller version of that reasoning). `setupListFilter`
+   in the panel script toggles `[hidden]` and closes on an outside click/Escape,
+   mirroring `setupUserMenu`'s own toggle exactly. */
+.list-filter {
+    position: relative;
+}
+
+.list-filter-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-start: 0;
+    z-index: 105;
+    width: 300px;
+    max-width: calc(100vw - 1.5rem);
+    background-color: var(--bs-body-bg);
+    border-radius: 0.75rem;
+    box-shadow: var(--bs-dropdown-box-shadow, 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15));
+    padding: 1.25rem;
+}
+
+/* A button that opens a panel needs to look pressed while it is open — the
+   theme's own `.active`/`.show` treatment for `.btn-light-primary`, applied
+   by hand since this toggle is not DolphinMenu's. */
+.list-filter-toggle[aria-expanded="true"] {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+
+/* A filter panel field takes the same solid control as everywhere else, one
+   per row rather than the cramped multi-column grid `.list-filters` used —
+   the panel is narrow by design, so its own fields stack. */
+.list-filter-panel .form-label {
+    font-size: 0.8rem;
+}
+
+/* The page's own top toolbar — its title, its own "ساخت" button on a detail
+   page, its export/report actions elsewhere — is larger and bolder than the
+   theme's own default, so it reads as the one heading on the screen rather
+   than blending into the card titles below it. Product-owner decision
+   2026-09-09: readable at a glance, not just present. */
+.page-heading {
+    font-size: 1.65rem !important;
+}
+
+.page-heading .page-heading-icon {
+    font-size: 1.5rem;
+}
+
+/* A KPI tile's own trend strip (`renderSparkline`, the panel script,
+   2026-09-11) — fixed to the height the sparkline is drawn at so the tile
+   does not jump between "before the chart mounts" and "after". */
+.kpi-sparkline {
+    height: 36px;
+}
+
+/* 5b. Wizard review step ----------------------------------------------------
+   The last step of every create wizard ("بازبینی و ثبت"), filled by
+   `renderWizardReview()` in the panel script.
+
+   It used to be a two-column `row g-3` of `col-md-6` cells, each stacking its
+   own label above its own value. Reading six fields meant finding four
+   different left edges, and one long Persian value pushed its neighbour's
+   baseline out of line with it — "زشت و درهم" was the product owner's own
+   description, 2026-09-19. One field per line fixes both: every label shares
+   one edge, every value shares the other, and a hairline rule between them
+   lets the eye travel across without a box around anything.
+
+   This is the purchased theme's own summary shape (`d-flex flex-stack` over
+   `separator separator-dashed`, used by its invoice and checkout blocks), not
+   a layout invented here — expressed as one class because fifteen wizards
+   share it. */
+.wizard-review {
+    display: flex;
+    flex-direction: column;
+}
+
+.wizard-review-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding-block: 0.7rem;
+    border-block-end: 1px dashed var(--bs-gray-300);
+}
+
+/* No rule under the last line: a separator's job is to divide two things, and
+   under the final row there is nothing to divide it from. */
+.wizard-review-row:last-child {
+    border-block-end: 0;
+}
+
+.wizard-review-label {
+    color: var(--bs-gray-600);
+    font-size: 0.9rem;
+    /* Never squeezed to nothing by a long value beside it, and never the
+       thing that wraps first — a label is two or three words and should read
+       as one line. */
+    flex: 0 0 auto;
+}
+
+.wizard-review-value {
+    color: var(--bs-gray-900);
+    font-weight: 600;
+    text-align: end;
+    /* A long address or note wraps inside its own half of the line instead of
+       widening the row and pushing the label off the card. `min-width: 0` is
+       what lets a flex item actually shrink below its content width. */
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* The panel `createWizardErrorSummary()` prepends to that same last step.
+
+   Why it exists: submitting from the review step sends the whole form, and a
+   field the server rejects lives on step 1 or 2 — hidden behind the step the
+   reader is standing on. The reason was being written into a paragraph nobody
+   could see, and all that showed was the generic red banner (product-owner
+   request 2026-09-19: "باید توضیح بدهد کجایش مشکل دارد"). So the same
+   reasons are repeated here, each naming its field, and each offering the way
+   back to the step that field is on. */
+.wizard-review-errors {
+    margin-block-end: 1.25rem;
+    padding: 1rem 1.15rem;
+    border-radius: 0.65rem;
+    background-color: var(--bs-danger-light);
+    border-inline-start: 3px solid var(--bs-danger);
+}
+
+.wizard-review-errors-title {
+    margin-block-end: 0.65rem;
+    color: var(--bs-danger);
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.wizard-review-errors-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.wizard-review-errors-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.wizard-review-errors-field {
+    color: var(--bs-gray-900);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.wizard-review-errors-reason {
+    color: var(--bs-gray-700);
+    font-size: 0.875rem;
+}
+
+/* Pushed to the far edge so every row's jump button lines up under the next,
+   however long the reason before it happens to be. */
+.wizard-review-errors-jump {
+    margin-inline-start: auto;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.8rem;
+}

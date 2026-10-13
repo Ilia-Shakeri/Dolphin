@@ -13,11 +13,12 @@ in question, which cannot drift.
 from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 import re
+from common.stylesheets import stylesheet_text
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 TEMPLATES = ROOT / "common" / "templates" / "common"
 
 #: The stylesheet with its explanations removed. Needed wherever a test

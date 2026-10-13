@@ -108,7 +108,7 @@ export function setupCheques() {
             // cell: a `<td>` carrying a grid or flex display stops being a
             // table cell and drops out of the table's column model, which
             // is exactly what pulled «عملیات ثبت» out from under its own
-            // header (see `.row-actions` in dolphin.css).
+            // header (see `.row-actions` in the panel stylesheet).
             const actions = document.createElement("td");
             actions.className = "row-actions";
             const actionGrid = document.createElement("div");

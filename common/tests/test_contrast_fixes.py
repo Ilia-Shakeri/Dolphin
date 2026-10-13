@@ -2,7 +2,7 @@
 (2026-09-05) that confirmed the rest of the panel already matches the UI kit.
 
 Both are the same shape of bug the codebase already fixed once for
-`.text-muted` (see the comment above `.text-muted` in `dolphin.css`): a
+`.text-muted` (see the comment above `.text-muted` in the panel stylesheet): a
 theme-supplied gray reads fine on the reference demo's own background, but
 falls short of WCAG AA's 4.5:1 for normal text once measured against where
 this panel actually puts it.
@@ -25,10 +25,9 @@ this panel actually puts it.
 import pathlib
 
 from django.test import Client, SimpleTestCase, TestCase
+from common.stylesheets import stylesheet_text
 
-CSS = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-).read_text(encoding="utf-8")
+CSS = stylesheet_text()
 
 
 def _rule(css, selector):

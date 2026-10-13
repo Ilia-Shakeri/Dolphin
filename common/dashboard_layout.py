@@ -144,7 +144,7 @@ WIDGET_SIZES = {
 #: missing from a reader's map takes its content's own height, which is what
 #: every box did before this existed.
 #: The dashboard is a grid of **cells** (2.38.1): a fixed row unit
-#: (`--dashboard-row`, 0.5rem, in dolphin.css) and twelve columns, the way a phone
+#: (`--dashboard-row`, 0.5rem, in the panel stylesheet) and twelve columns, the way a phone
 #: home screen is built from one cell size. A widget occupies a whole number of
 #: columns (`WIDGET_SIZES`) and rows (below), widgets of different sizes pack
 #: side by side, and a box is dragged or resized to the nearest cell. The row

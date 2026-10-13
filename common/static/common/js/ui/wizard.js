@@ -1,4 +1,5 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
+import {validityText} from "dolphin/core/messages.js";
 import {guardDirtyDialog} from "dolphin/ui/dialogs.js";
 import {wizardsByForm} from "dolphin/core/form-errors.js";
 
@@ -69,9 +70,7 @@ export function setupWizard(dialog, {onReachLastStep, validateStep} = {}) {
             // used to be missing, so a person who looked away came back
             // to a step that refused to advance and said nothing about
             // why (product-owner request 2026-09-19).
-            writeNativeValidationMessage(invalid);
-            invalid.reportValidity();
-            invalid.focus?.();
+            showValidity(invalid);
             return;
         }
         // Everything the markup itself cannot say: a product chosen on
@@ -103,18 +102,31 @@ export function setupWizard(dialog, {onReachLastStep, validateStep} = {}) {
 }
 
 /**
- * Put the browser's own validation sentence into the field's own error
- * slot, so it survives the bubble.
+ * Say why a field refuses the step: in its own error slot, which stays on
+ * screen after the browser's bubble fades, and in the bubble itself.
  *
- * `validationMessage` is the browser's localised text, not one written
- * here — which is the point: it already says *which* constraint failed
- * ("لطفاً این فیلد را پر کنید", "مقدار باید بزرگ‌تر از ۰ باشد"), and
- * re-wording it here would be a second, drifting copy of a rule the
- * browser already enforces from the markup.
+ * Both in Persian (2.40.42, `validityText`): the browser's own sentence is
+ * in the browser's language, which on most readers' Chrome is English. The
+ * sentence is set as the field's custom validity only while it is wrong and
+ * cleared at the next edit, so the browser keeps judging the constraint the
+ * markup declares.
  */
-function writeNativeValidationMessage(field) {
+function showValidity(field) {
+    const text = validityText(field);
     const slot = field.form?.querySelector(`[data-error-for="${field.name}"]`);
-    if (slot && field.validationMessage) slot.textContent = field.validationMessage;
+    if (slot && text) slot.textContent = text;
+    if (!field.validity.customError && text) {
+        field.setCustomValidity(text);
+        const clear = () => {
+            field.setCustomValidity("");
+            field.removeEventListener("input", clear);
+            field.removeEventListener("change", clear);
+        };
+        field.addEventListener("input", clear);
+        field.addEventListener("change", clear);
+    }
+    field.reportValidity();
+    field.focus?.();
 }
 
 /**
@@ -193,9 +205,19 @@ function createWizardErrorSummary(root, contents, stepTitle, goToStep) {
 }
 
 /** A field's chosen option text for a review step, or an em dash for one
- * nothing has been picked for yet. */
-export function selectedOptionText(select) {
-    return select?.selectedOptions[0]?.textContent || "—";
+ * nothing has been picked for yet.
+ *
+ * A segmented toggle (`ui/segmented.js`) keeps its value in a hidden input
+ * beside the buttons (`data-segmented-for`), and has no `selectedOptions`:
+ * reading one as a `<select>` threw, and the invoice wizard's review step
+ * — whose «نوع پرداخت» became such a toggle — was left half drawn (2.40.42).
+ * Its chosen button's own words are what the reader picked. */
+export function selectedOptionText(field) {
+    if (!field) return "—";
+    if (field.selectedOptions) return field.selectedOptions[0]?.textContent || "—";
+    const group = field.id ? document.querySelector(`[data-segmented-for="${field.id}"]`) : null;
+    const chosen = group ? [...group.querySelectorAll("[data-value]")].find((option) => option.dataset.value === field.value) : null;
+    return chosen?.textContent.trim() || field.value || "—";
 }
 
 /**

@@ -153,3 +153,49 @@ class UserAvatar(models.Model):
             ),
         ]
 
+
+
+class TwoFactorDevice(models.Model):
+    """One person's authenticator app (TOTP, RFC 6238) — 2.40.42, feature `two_factor`.
+
+    The shared key is never stored in the clear: `secret_token` is a
+    `common.crypto` token under `DOLPHIN_SECRETS_KEY`, so a copy of the database
+    alone cannot produce codes. A row with no `confirmed_at` is an enrolment
+    that has not yet proved the reader's app produces the right code, and asks
+    nothing at sign-in. `last_used_step` is the 30-second window of the last
+    accepted code: a code is accepted once, never replayed.
+
+    `CASCADE` like the avatar: the key of a deleted account is not a record
+    anybody needs kept.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="two_factor"
+    )
+    secret_token = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    last_used_step = models.BigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "two-factor device"
+        verbose_name_plural = "two-factor devices"
+
+
+class TwoFactorRecoveryCode(models.Model):
+    """A one-time code that signs in without the authenticator (2.40.42).
+
+    Ten are issued when two-factor sign-in is turned on and shown once; only a
+    salted PBKDF2 hash is kept. `used_at` marks one spent.
+    """
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="two_factor_recovery_codes")
+    code_hash = models.CharField(max_length=128)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "two-factor recovery code"
+        verbose_name_plural = "two-factor recovery codes"
+        indexes = [models.Index(fields=["user", "used_at"])]

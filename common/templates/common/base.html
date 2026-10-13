@@ -1,4 +1,4 @@
-{% load static navigation_tags %}
+{% load static navigation_tags ui_modules %}
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -28,20 +28,21 @@
     <link rel="stylesheet" href="{% static 'common/ui/css/dolphin-plugins.rtl.css' %}?v={{ dolphin_version }}">
     <link rel="stylesheet" href="{% static 'common/ui/css/dolphin-theme.rtl.css' %}?v={{ dolphin_version }}">
 {% comment %} The version is appended so a release actually reaches a returning
-   reader. These two files are the ones this project changes; without a query
+   reader. The panel's own stylesheet layers (`common/stylesheets.py`) and script
+   are the files this project changes; without a query
    that moves, a browser holding yesterday's copy keeps using it after a deploy,
    and the panel runs new markup against old CSS and old script. Since 2.18.9
    the vendor bundles carry it too: nginx now lets the browser keep any URL
    with a `?v=` for a year (nginx/default.conf), which is only safe when every
    release changes the URL — so a release re-downloads them once, and every
    page load after that asks for none of them. {% endcomment %}
-    <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
+    {% dolphin_stylesheets %}
 {% comment %} This deployment's own accent colour (`custom_branding`, `/branding/`),
    pre-rendered by `common.color.accent_theme_css` — see that function's own
    docstring for why one colour becomes several CSS custom properties per
    theme mode. Absent (`None`) for every deployment that never set one, which
    is most of them, so the vendor's own blue keeps winning with no extra
-   markup on the page. Loaded last, after `dolphin.css`, so equal-specificity
+   markup on the page. Loaded last, after the panel stylesheet, so equal-specificity
    selectors win by source order with no `!important` needed. {% endcomment %}
     {% if brand_accent_css %}<style>{{ brand_accent_css|safe }}</style>{% endif %}
 {% comment %} This reader's own typeface and scale («تنظیمات», /settings/),
@@ -49,7 +50,7 @@
    everyone who kept both defaults, which is most people, so the theme's own
    type keeps winning with no extra markup on the page.
 
-   It is inline here rather than a rule in `dolphin.css` for the reason that
+   It is inline here rather than a rule in the panel stylesheet for the reason that
    sheet's own guard test states: typography belongs to the purchased theme,
    and the sheet may not choose a face for the panel. This does not take that
    decision away from the theme — it carries one reader's override, per
@@ -301,6 +302,28 @@
    drawer itself sits right before `</body>`, at the theme's own placement
    for drawers — see the comment there for why it cannot live inside the
    header alongside this toggle. {% endcomment %}
+{% comment %} The UI kit's activity and help drawers (2.40.42, roadmap item 13), each the
+   theme's own `data-dolphin-drawer` like the chat drawer below. Activity: the
+   latest events of the system log, for whoever may read that log. Help: what
+   the section in view is for, and the keys that work everywhere. {% endcomment %}
+                        {% if can_view_audit %}
+                        <div class="app-navbar-item ms-1 ms-md-3 position-relative">
+                            <button id="dolphin_drawer_activity_toggle" type="button"
+                                    class="btn btn-icon btn-flex bg-hover-light-primary w-40px h-40px"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="dolphin_drawer_activity"
+                                    aria-label="آخرین رویدادهای سامانه">
+                                <i class="di-duotone di-time fs-2 text-gray-600" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>
+                            </button>
+                        </div>
+                        {% endif %}
+                        <div class="app-navbar-item ms-1 ms-md-3 position-relative">
+                            <button id="dolphin_drawer_help_toggle" type="button"
+                                    class="btn btn-icon btn-flex bg-hover-light-primary w-40px h-40px"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="dolphin_drawer_help"
+                                    aria-label="راهنما">
+                                <i class="di-duotone di-question-2 fs-2 text-gray-600" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+                            </button>
+                        </div>
                         {% if "internal_chat" in features %}
                         <div class="app-navbar-item ms-1 ms-md-3 position-relative">
                             <button id="dolphin_drawer_chat_toggle" type="button"
@@ -316,7 +339,7 @@
                            this application rather than by DolphinMenu: DolphinMenu places a dropdown with
                            Popper, which lives in the 3.5 MB plugins bundle this deployment does
                            not load. The theme's own `.show` rule already supplies the whole panel;
-                           only the anchoring is ours, in dolphin.css. Same trade as the native
+                           only the anchoring is ours, in the panel stylesheet. Same trade as the native
                            dialog elements used instead of Bootstrap modals.
 
                            Everything the account owner may do lives here, which is why the sidebar
@@ -485,7 +508,7 @@
    the wide brand while collapsed with a plain `display: none`, and Bootstrap's
    `d-flex` is `!important` — so with the utility on the link itself the theme
    lost, the wide block stayed in the DOM, and its content propped the rail open.
-   That is what the `!important` overrides in dolphin.css existed to beat.
+   That is what the `!important` overrides in the panel stylesheet existed to beat.
    Moving the utility inward lets the theme's own rule win unaided. {% endcomment %}
                         <span class="d-flex align-items-center gap-3">
                             {% if brand_is_custom %}
@@ -817,6 +840,54 @@
    sidebar drawer already proves that nested placement works, and staying
    inside the `is_authenticated` block keeps this from ever rendering for a
    signed-out visitor without a second condition. {% endcomment %}
+{% if can_view_audit %}
+<div id="dolphin_drawer_activity" class="bg-body" data-dolphin-drawer="true" data-dolphin-drawer-name="activity"
+     data-dolphin-drawer-activate="true" data-dolphin-drawer-overlay="true"
+     data-dolphin-drawer-width="{default:'300px', 'md': '420px'}" data-dolphin-drawer-direction="end"
+     data-dolphin-drawer-toggle="#dolphin_drawer_activity_toggle" data-dolphin-drawer-close="#dolphin_drawer_activity_close">
+    <div class="card w-100 border-0 rounded-0 d-flex flex-column h-100">
+        <div class="card-header align-items-center">
+            <div class="card-title mb-0"><h2 class="mb-0 fs-4">آخرین رویدادها</h2></div>
+            <div class="card-toolbar"><button id="dolphin_drawer_activity_close" class="btn btn-icon btn-sm btn-light" type="button" aria-label="بستن">×</button></div>
+        </div>
+        <div class="card-body overflow-auto flex-grow-1">
+            <div id="activity-drawer-loading" class="text-center text-gray-700 py-10">در حال دریافت رویدادها…</div>
+            <p id="activity-drawer-empty" class="text-center text-gray-700 py-10" hidden>رویدادی ثبت نشده است.</p>
+            <div id="activity-drawer-error" class="state state-error" role="alert" hidden></div>
+            <ol class="activity-drawer-list" id="activity-drawer-list" hidden></ol>
+        </div>
+        <div class="card-footer py-4">
+            <a class="btn btn-light-primary w-100" href="{% url 'common_ui:activity-logs' %}">همهٔ رویدادهای سامانه</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+<div id="dolphin_drawer_help" class="bg-body" data-dolphin-drawer="true" data-dolphin-drawer-name="help"
+     data-dolphin-drawer-activate="true" data-dolphin-drawer-overlay="true"
+     data-dolphin-drawer-width="{default:'300px', 'md': '420px'}" data-dolphin-drawer-direction="end"
+     data-dolphin-drawer-toggle="#dolphin_drawer_help_toggle" data-dolphin-drawer-close="#dolphin_drawer_help_close">
+    <div class="card w-100 border-0 rounded-0 d-flex flex-column h-100">
+        <div class="card-header align-items-center">
+            <div class="card-title mb-0"><h2 class="mb-0 fs-4">راهنما</h2></div>
+            <div class="card-toolbar"><button id="dolphin_drawer_help_close" class="btn btn-icon btn-sm btn-light" type="button" aria-label="بستن">×</button></div>
+        </div>
+        <div class="card-body overflow-auto flex-grow-1">
+            {% help_topics as topics %}
+            {% for topic in topics %}
+            <section class="help-topic" data-help-topic="{{ topic.key }}"{% if not forloop.first %} hidden{% endif %}>
+                <h3 class="fs-5 fw-bold text-gray-900 mb-2">{{ topic.title }}</h3>
+                <p class="text-gray-700 mb-4">{{ topic.summary }}</p>
+                {% if topic.points %}<ul class="help-points">{% for point in topic.points %}<li>{{ point }}</li>{% endfor %}</ul>{% endif %}
+            </section>
+            {% endfor %}
+            <h3 class="fs-6 fw-bold text-gray-800 mt-8 mb-3">بخش‌های دیگر</h3>
+            <div class="help-topic-links">{% for topic in topics %}<button type="button" class="btn btn-sm btn-light" data-help-show="{{ topic.key }}">{{ topic.title }}</button>{% endfor %}</div>
+            <h3 class="fs-6 fw-bold text-gray-800 mt-8 mb-3">میان‌برهای صفحه‌کلید</h3>
+            {% help_shortcuts as shortcuts %}
+            <dl class="help-shortcuts">{% for keys, meaning in shortcuts %}<dt><kbd dir="ltr">{{ keys }}</kbd></dt><dd>{{ meaning }}</dd>{% endfor %}</dl>
+        </div>
+    </div>
+</div>
 {% if "internal_chat" in features %}
 <div id="dolphin_drawer_chat" class="bg-body" data-dolphin-drawer="true" data-dolphin-drawer-name="chat"
      data-dolphin-drawer-activate="true" data-dolphin-drawer-overlay="true"

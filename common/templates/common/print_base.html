@@ -1,4 +1,4 @@
-{% load static %}
+{% load static ui_modules %}
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
@@ -23,7 +23,7 @@
    that moves, a browser holding yesterday's copy keeps using it after a deploy,
    and the panel runs new markup against old CSS and old script. The vendor
    bundles are left alone — they are replaced wholesale and rarely. {% endcomment %}
-    <link rel="stylesheet" href="{% static 'common/dolphin.css' %}?v={{ dolphin_version }}">
+    {% dolphin_stylesheets %}
     {% include "common/includes/app_script.inc" %}
 {% endif %}
 </head>

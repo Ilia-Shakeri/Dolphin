@@ -367,6 +367,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # The row is replaced wholesale on a new upload
             # (`update_or_create`) and removed when the picture is cleared.
             "accounts_useravatar": "SELECT, INSERT, UPDATE, DELETE",
+            # Two-factor sign-in (2.40.42): replaced, rewritten and removed.
+            "accounts_twofactordevice": "SELECT, INSERT, UPDATE, DELETE",
+            "accounts_twofactorrecoverycode": "SELECT, INSERT, UPDATE, DELETE",
             # General ledger (accounting/, phase 1 — DOLPHIN_ACCOUNTING_PLAN.md).
             "accounting_account": "SELECT, INSERT, UPDATE",
             "accounting_journalentry": "SELECT, INSERT",

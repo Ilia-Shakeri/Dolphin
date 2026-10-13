@@ -1,0 +1,51 @@
+/* -- Activity and help drawers (2.40.42) --------------------------------------------
+   The header's two kit drawers: the newest system events as a quiet list, each
+   a link to its record; the help of the section in view, the others as small
+   buttons, and the keys that work everywhere. */
+.activity-drawer-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.activity-drawer-item + .activity-drawer-item { border-top: 1px dashed var(--bs-gray-200); }
+.activity-drawer-link {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.7rem 0.25rem;
+    color: var(--bs-gray-900);
+    border-radius: var(--bs-border-radius);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.activity-drawer-link:hover,
+.activity-drawer-link:focus-visible { background: var(--bs-gray-100); color: var(--bs-gray-900); }
+.activity-drawer-what { font-weight: 600; }
+.activity-drawer-meta { color: var(--bs-gray-600); font-size: 0.85rem; }
+.help-points { padding-inline-start: 1.1rem; margin: 0; display: grid; gap: 0.6rem; color: var(--bs-gray-800); line-height: 1.8; }
+.help-topic-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.help-topic-links .btn.active { background: rgba(var(--bs-primary-rgb), 0.12); color: var(--bs-primary); }
+.help-shortcuts { display: grid; grid-template-columns: auto 1fr; gap: 0.6rem 1rem; align-items: center; margin: 0; }
+.help-shortcuts dt { margin: 0; }
+.help-shortcuts dd { margin: 0; color: var(--bs-gray-700); }
+.help-shortcuts kbd {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    background: var(--bs-gray-100);
+    color: var(--bs-gray-900);
+    border: 1px solid var(--bs-gray-300);
+    font-size: 0.85rem;
+    box-shadow: none;
+}
+
+/* -- File manager (2.40.42) -----------------------------------------------------------
+   «اسناد و پیوست‌ها»: each file a tinted square by kind — PDFs warm, images cool —
+   beside its name and size, the way the UI kit's own file manager reads. */
+.file-library-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--bs-border-radius);
+}
+.file-library-icon.is-pdf { background: rgba(var(--bs-danger-rgb), 0.1); color: var(--bs-danger); }
+.file-library-icon.is-image { background: rgba(var(--bs-primary-rgb), 0.1); color: var(--bs-primary); }
+.file-library-icon i { color: inherit; }
+.file-library td .min-w-0 { min-width: 0; max-width: 22rem; }

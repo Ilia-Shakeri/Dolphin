@@ -15,9 +15,10 @@ from django.test import SimpleTestCase
 
 from common.dashboard import _count_chip, _compared_caption, _kpi
 from common.tests.panel_js import PANEL_SCRIPT
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 THEME = (ROOT / "common" / "static" / "common" / "ui" / "css" / "dolphin-theme.rtl.css").read_text(encoding="utf-8")
 HOME = (ROOT / "common" / "templates" / "common" / "home.html").read_text(encoding="utf-8")
 SCRIPT = PANEL_SCRIPT.read_text(encoding="utf-8")

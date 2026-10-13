@@ -14,18 +14,48 @@ const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)");
 export function setupLogin() {
     const form = document.getElementById("login-form");
     const card = document.getElementById("login-card");
-    const submit = form.querySelector("button[type='submit']");
+    const passwordStep = document.getElementById("login-password-step");
+    const codeStep = document.getElementById("login-code-step");
+    const code = document.getElementById("login-code");
     setupPasswordToggle();
     setupCapsLockHint();
 
+    /** The password step or, after a right password on an account with an
+     * authenticator (2.40.42), the code step — one form, one at a time. */
+    function showCodeStep(show) {
+        if (!codeStep) return;
+        passwordStep.hidden = show;
+        codeStep.hidden = !show;
+        code.disabled = !show;
+        passwordStep.querySelectorAll("input").forEach((input) => { input.disabled = show; });
+        if (show) {
+            code.value = "";
+            code.focus();
+        } else {
+            document.getElementById("login-password").focus();
+        }
+    }
+    document.getElementById("login-code-back")?.addEventListener("click", () => showCodeStep(false));
+
     form.addEventListener("submit", (event) => {
         event.preventDefault();
+        const onCodeStep = Boolean(codeStep && !codeStep.hidden);
+        const submit = (onCodeStep ? codeStep : passwordStep).querySelector("button[type='submit']");
         submit.setAttribute("aria-busy", "true");
         let signedIn = false;
+        let needsCode = false;
         withSubmit(form, async () => {
-            await apiRequest(form.action, {method: "POST", body: formPayload(form, ["username", "password"])});
-            signedIn = true;
+            const answer = onCodeStep
+                ? await apiRequest("/api/v1/auth/login/two-factor/", {method: "POST", body: {code: code.value}})
+                : await apiRequest(form.action, {method: "POST", body: formPayload(form, ["username", "password"])});
+            if (answer?.two_factor_required) needsCode = true;
+            else signedIn = true;
         }).finally(() => {
+            if (needsCode) {
+                submit.removeAttribute("aria-busy");
+                showCodeStep(true);
+                return;
+            }
             if (signedIn) {
                 // Leave the button busy: the panel is on its way.
                 card.classList.add("login-success");

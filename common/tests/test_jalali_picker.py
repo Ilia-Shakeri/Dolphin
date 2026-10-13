@@ -36,10 +36,11 @@ from common.tests.panel_js import PANEL_SCRIPT
 import pathlib
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 TEMPLATES = ROOT / "common" / "templates" / "common"
 
 #: Every template known to carry a Jalali field, so the picker's reach can

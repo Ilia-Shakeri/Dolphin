@@ -23,6 +23,7 @@ from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
+from common.stylesheets import STYLESHEETS
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,7 +38,7 @@ REQUIRED = (
     # it. Excluded from the image until 1.3.12, when the charts moved onto the
     # theme's own library.
     "common/ui/js/dolphin-plugins.js",
-    "common/dolphin.css",
+    *STYLESHEETS,
     "common/js/main.js",
     "common/brand/Logo.webp",
     "common/brand/Logo.png",

@@ -60,7 +60,7 @@ class FirstRowEditableTests(SimpleTestCase):
         self.assertIn("return pageState ? {grid, widgets, layout, hiddenAvailable} : null;", insights)
         self.assertIn("return emptyEditorState();", insights)
         dashboard = function_body("setupDashboard")
-        self.assertIn("setupDashboardEditor(grid)", dashboard)
+        self.assertIn("setupDashboardEditor(grid, {refresh: refreshDashboard})", dashboard)
 
     def test_the_editor_state_is_rendered_into_the_page(self):
         self.assertIn('dashboard_layout_state|json_script:"dashboard-layout-state"', HOME)

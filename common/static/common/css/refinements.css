@@ -1,0 +1,726 @@
+/* --- The collapsed sidebar: a square halo around each icon (2.38.2) ------------
+
+   With the titles hidden, a menu link is still the full width of the rail, so its
+   hover and active highlight read as a long pill with an icon in the middle. In
+   the collapsed rail a link is a square of its own, centred, with softly rounded
+   corners — the highlight hugs the icon.
+
+   Centred in the 75px rail, not in its row (2.40.29): the theme keeps the menu
+   wrapper at the open width and lets the rail clip it (section 2b), so
+   `margin-inline: auto` centred the square 130px into the 265px row — outside
+   the rail, and every icon vanished. The square sits a fixed distance from the
+   rail's leading edge instead: half the rail minus half the square, less what
+   already precedes the row there (the scroll area's `mx-3`, 0.75rem, and the
+   theme's 0.115rem on each top-level `.menu-item`). */
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link {
+    width: 2.9rem;
+    height: 2.9rem;
+    margin-inline: calc((75px - 2.9rem) / 2 - 0.75rem - 0.115rem) 0;
+    padding: 0;
+    justify-content: center;
+    border-radius: 0.8rem;
+}
+
+/* The section the current page is in wears the same halo as an active entry
+   (2.40.39, product owner: «در سایدبار حالت بسته، آیکن قسمتی که داخلش هستیم
+   باید دورش یک هاله باشد، مثل آیکن داشبورد»). Open, the entry itself is lit;
+   collapsed, only the section's icon is in view, so the section carries it. */
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item.here > .menu-link,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item.here > .menu-link {
+    background-color: rgba(var(--bs-primary-rgb), 0.14);
+    box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.08);
+}
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item.here > .menu-link .menu-icon i,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item.here > .menu-link .menu-icon i {
+    color: var(--bs-primary) !important;
+}
+
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link .menu-icon,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-icon {
+    margin: 0;
+    width: auto;
+}
+
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link .menu-arrow,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-arrow {
+    display: none;
+}
+
+/* The title takes no room in the rail (2.40.30). The theme only fades it
+   (`opacity: 0`), so it kept its 40-50px inside the square and pushed the icon
+   to the square's edge and out of the rail. Zero width rather than
+   `display: none`, so the theme's fade still plays when the rail opens. */
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-menu .menu > .menu-item > .menu-link .menu-title,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-menu .menu > .menu-item > .menu-link .menu-title {
+    flex: 0 0 0;
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* «حقیقی» / «حقوقی» with their icon (2.40.8, `{% customer_kind %}` and
+   `ui/customer-kind.js`): the icon is exactly one em and takes the text's own
+   colour, so it matches whatever size and colour the word is set in. */
+.customer-kind {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+}
+.customer-kind-icon {
+    width: 1em;
+    height: 1em;
+    font-size: 1em;
+    line-height: 1;
+    vertical-align: -0.125em;
+    color: currentColor;
+}
+.customer-kind-icon [class^="path"]::before {
+    color: currentColor;
+}
+
+/* The checklist for a `<select multiple>` (`ui/checklist-select.js`, 2.40.9):
+   the search box takes the room the row has rather than a fixed 200px, the
+   list scrolls inside its own box, and on a phone the counter drops to its
+   own line instead of squeezing the buttons. */
+.dolphin-checklist-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.dolphin-checklist-search {
+    flex: 1 1 12rem;
+    min-width: 0;
+    max-width: 22rem;
+}
+.dolphin-checklist-counter {
+    margin-inline-start: auto;
+}
+.dolphin-checklist-list {
+    max-height: 13rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+@media (max-width: 575.98px) {
+    .dolphin-checklist-search {
+        flex-basis: 100%;
+        max-width: none;
+    }
+    .dolphin-checklist-counter {
+        flex-basis: 100%;
+        margin-inline-start: 0;
+    }
+}
+
+/* Campaign analysis is a report wizard whose result is charts side by side
+   (2.40.23); the reports' 60rem column would squeeze them. */
+.report-wizard-card.campaign-analytics-card {
+    max-width: 90rem;
+}
+
+/* Page tab bars (`{% page_tabs %}`, 2.40.0). The UI kit's `nav-pills-custom`
+   clears the active pill's background while Bootstrap's pill rule keeps its
+   text white, so the current tab was white on white — invisible (found
+   2.40.24). The current tab reads as the kit's own selected card: a solid
+   primary edge, a light primary fill and primary text. */
+.dolphin-page-tabs.nav-pills-custom .nav-link {
+    color: var(--bs-gray-700);
+}
+.dolphin-page-tabs.nav-pills-custom .nav-link:hover {
+    color: var(--bs-primary);
+}
+.dolphin-page-tabs.nav-pills-custom .nav-link.active {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+    border-style: solid;
+    border-color: var(--bs-primary);
+}
+
+/* A postal status with its own icon (2.40.26, `postalBadge`): Iran Post's
+   word on the parcel beside the four-stage stepper. */
+.postal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* The chat drawer's way to the full chats page (2.40.29): a small arrow beside
+   the title, not a toolbar button, in the accent colour so it reads as a way
+   somewhere rather than as decoration. */
+.chat-page-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.chat-page-link .di-arrow-up-left [class^="path"]::before { color: var(--bs-primary); }
+.chat-page-link .di-arrow-up-left .path1::before { opacity: 0.45; }
+
+/* Light-theme contrast (2.40.31). The UI kit's light badges put the full
+   tone on its own pale tint — «فعال» measured 2.1:1, «صادرشده» the same — and
+   its inactive line tabs are gray-500 (2.6:1). The badge ink is the tone
+   darkened, the way the KPI chip's is, and the tabs take gray-700; the dark
+   theme keeps the kit's values, which already read. */
+[data-bs-theme=light] .badge-light-success { color: color-mix(in srgb, var(--bs-success) 50%, #000); }
+[data-bs-theme=light] .badge-light-primary { color: color-mix(in srgb, var(--bs-primary) 70%, #000); }
+[data-bs-theme=light] .badge-light-info { color: color-mix(in srgb, var(--bs-info) 65%, #000); }
+[data-bs-theme=light] .badge-light-warning { color: color-mix(in srgb, var(--bs-warning) 45%, #000); }
+[data-bs-theme=light] .badge-light-danger { color: color-mix(in srgb, var(--bs-danger) 70%, #000); }
+[data-bs-theme=light] .nav-line-tabs .nav-item .nav-link:not(.active) { color: var(--bs-gray-700); }
+
+/* Brand colours that lived in inline `style` attributes (2.40.31). */
+:root { --dolphin-brand-dark: #1e1e2d; --dolphin-brand-tint: #9de1d8; }
+.brand-subtitle { color: var(--dolphin-brand-tint); }
+.branding-logo-preview {
+    max-width: 64px;
+    max-height: 64px;
+    border-radius: 0.5rem;
+    background: var(--dolphin-brand-dark);
+    padding: 0.4rem;
+}
+
+/* Tables on a phone (2.40.31). A list table squeezed into 390px wrapped each
+   cell word by word — the users list's «نقش» ran to six lines a row. Every
+   list table already sits in `.table-responsive`; on a phone the table keeps
+   a readable minimum width and that wrapper scrolls it sideways instead. */
+@media (max-width: 575.98px) {
+    .table-responsive > .table { min-width: 40rem; }
+    .table-responsive { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+}
+
+/* …and since 2.40.36 a list table is a list of cards on a phone instead
+   (`ui/stack-tables.js`): each row a card, each cell a «label: value» line,
+   nothing to scroll sideways. A table with fewer than three columns keeps the
+   rule above. */
+@media (max-width: 575.98px) {
+    .table-responsive > .table.dolphin-stack { min-width: 0; }
+    .table.dolphin-stack > thead { display: none; }
+    .table.dolphin-stack,
+    .table.dolphin-stack > tbody { display: block; width: 100%; }
+    .table.dolphin-stack > tbody > tr {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+        margin-block-end: 0.75rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid var(--bs-gray-200) !important;
+        border-radius: 0.85rem;
+        background: var(--bs-body-bg);
+    }
+    .table.dolphin-stack > tbody > tr > td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        min-width: 0;
+        padding: 0.15rem 0 !important;
+        border: 0 !important;
+        text-align: start !important;
+        white-space: normal;
+    }
+    .table.dolphin-stack > tbody > tr > td[dir="ltr"] { direction: ltr; flex-direction: row-reverse; white-space: nowrap; }
+    .table.dolphin-stack > tbody > tr > td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        color: var(--bs-gray-600);
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    /* No header text (a selection box, the actions): the content alone. */
+    .table.dolphin-stack > tbody > tr > td[data-label=""]::before,
+    .table.dolphin-stack > tbody > tr > td[data-stack-full]::before { content: none; }
+    .table.dolphin-stack > tbody > tr > td[data-label=""] { justify-content: flex-end; }
+    .table.dolphin-stack > tbody > tr > td[data-stack-full] { justify-content: center; }
+    /* The first named field is the card's title. */
+    .table.dolphin-stack > tbody > tr > td:not([data-label=""]):first-of-type,
+    .table.dolphin-stack > tbody > tr > td[data-label=""] + td:not([data-label=""]) {
+        font-weight: 700;
+        color: var(--bs-gray-900);
+    }
+    .table.dolphin-stack .form-check-input { width: 1.85rem; height: 1.85rem; }
+}
+
+/* Read-only facts on detail pages (2.40.31). A detail page shows its facts in
+   disabled inputs — a grey box per value that reads as a form you cannot
+   use. A disabled input with no `name` is never submitted and never
+   re-enabled (the editable ones carry a name: order-detail.js re-enables
+   `input[name]`), so it is drawn as what it is: a value under its label. */
+input.form-control.form-control-solid[disabled]:not([name]),
+/* Since 2.40.36 also an editable field that is locked on a detail page (an
+   issued invoice's type and date, a lead a reader may not edit): it is a value
+   now, not a grey box that looks like it should open. A dialog keeps its own
+   fields as they are. */
+body[data-page$="-detail"] #page-stage :is(input.form-control.form-control-solid, textarea.form-control.form-control-solid):disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled :is(input.form-control.form-control-solid, textarea.form-control.form-control-solid):not(dialog *),
+body[data-page$="-detail"] #page-stage select.form-select.form-select-solid:disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled select.form-select.form-select-solid:not(dialog *) {
+    background-color: transparent;
+    border-color: transparent;
+    border-bottom: 1px dashed var(--bs-gray-300);
+    border-radius: 0;
+    padding-inline: 0;
+    padding-block: 0.35rem 0.55rem;
+    min-height: 0;
+    color: var(--bs-gray-900);
+    font-weight: 600;
+    opacity: 1;
+    cursor: default;
+}
+body[data-page$="-detail"] #page-stage select.form-select.form-select-solid:disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled select.form-select.form-select-solid:not(dialog *) {
+    background-image: none;
+    appearance: none;
+}
+body[data-page$="-detail"] #page-stage textarea.form-control.form-control-solid:disabled:not(dialog *),
+body[data-page$="-detail"] #page-stage fieldset:disabled textarea.form-control.form-control-solid:not(dialog *) {
+    resize: none;
+    font-weight: 400;
+}
+
+/* A detail page's «ذخیره» row stays in reach (2.40.36): it sticks to the bottom
+   of the window while its form scrolls, instead of waiting below a long form. */
+body[data-page$="-detail"] #page-stage form .d-flex.justify-content-end:has(> .btn-primary[type="submit"]):not(dialog *) {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    margin-block-end: -0.5rem;
+    padding-block: 0.85rem;
+    background: var(--bs-card-bg, var(--bs-body-bg));
+    border-top: 1px solid var(--bs-gray-200);
+}
+
+/* A dialog's close (×) button (2.40.38, product owner: «همه رو انجام بده»
+   after the design review). A small grey circle, the way a sheet's close
+   control reads on the platform: red is kept for what destroys something, and
+   closing a dialog destroys nothing (an unsaved form still asks first,
+   `guardDirtyDialog`). It darkens on hover and shows the focus ring on
+   keyboard focus. Until 2.40.37 it was a red-haloed tile (2.40.33).
+   `!important`: the kit's own `.btn.btn-light:hover` / `:focus` rule sets the
+   background with `!important` (0,4,0). */
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) {
+    width: 30px !important;
+    height: 30px !important;
+    color: color-mix(in srgb, var(--bs-danger) 70%, var(--bs-gray-700));
+    border-color: transparent;
+    /* A faint red halo (2.40.39, product owner: «دکمهٔ بستن ویزاردها باید یک هالهٔ
+       خیلی کم از قرمز داشته باشد»): a tint and a soft ring, red only in hue. */
+    background-color: rgb(248 40 90 / 8%) !important;
+    box-shadow: 0 0 0 3px rgb(248 40 90 / 6%);
+    border-radius: 999px;
+    font-size: 1rem;
+    line-height: 1;
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) i { font-size: 1.15rem !important; }
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover,
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):focus-visible {
+    color: var(--bs-danger);
+    background-color: rgb(248 40 90 / 14%) !important;
+    box-shadow: 0 0 0 4px rgb(248 40 90 / 10%);
+}
+dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):active { scale: 0.92; }
+
+/* Delete is a red trash icon (2.40.33, `ui/trash.js`). At rest a soft red tile;
+   on hover or keyboard focus a solid red tile with a halo, and the can tilts
+   as if its lid were lifted; pressed, it settles. What was deleted leaves
+   (`.is-leaving`): it fades and slides out, then the list closes over it. */
+.btn.btn-icon.btn-trash {
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.7rem;
+    color: var(--bs-danger);
+    background-color: rgb(248 40 90 / 10%);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.btn.btn-icon.btn-trash i,
+.btn.btn-icon.btn-trash i [class^="path"]::before { color: currentColor; }
+.btn.btn-icon.btn-trash i { display: inline-block; transform-origin: 50% 85%; }
+.btn.btn-icon.btn-trash:hover,
+.btn.btn-icon.btn-trash:focus-visible {
+    color: #fff;
+    background-color: var(--bs-danger);
+    box-shadow: 0 0 0 0.28rem rgb(248 40 90 / 20%), 0 0.4rem 1rem -0.3rem rgb(248 40 90 / 50%);
+}
+.btn.btn-icon.btn-trash:active { transform: scale(0.94); }
+.btn.btn-icon.btn-trash[disabled] { opacity: 0.55; box-shadow: none; }
+.btn-trash.btn-sm { width: 2rem; height: 2rem; border-radius: 0.6rem; }
+@media (prefers-reduced-motion: no-preference) {
+    .btn.btn-icon.btn-trash:hover i,
+    .btn.btn-icon.btn-trash:focus-visible i { animation: trash-tilt 480ms var(--dolphin-ease) 1; }
+}
+@keyframes trash-tilt {
+    0% { transform: rotate(0); }
+    30% { transform: rotate(-14deg); }
+    60% { transform: rotate(9deg); }
+    100% { transform: rotate(0); }
+}
+.is-leaving {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+tr.is-leaving > td {
+    opacity: 0;
+    transform: translateX(-1.5rem);
+    transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+/* New-message cards, bottom-left (2.40.34, `shell/chat-toast.js`). Physical
+   left on purpose: the product owner placed them «پایین سمت چپ», which in this
+   RTL panel is the end side, clear of the sidebar. They slide in from the
+   edge, rest on a card surface with a soft shadow, and leave the same way. */
+.chat-toasts {
+    position: fixed;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: min(22rem, calc(100vw - 2rem));
+    pointer-events: none;
+}
+.chat-toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: 1rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-align: start;
+    box-shadow: 0 1.25rem 2.5rem -1rem rgb(7 20 55 / 35%);
+    cursor: pointer;
+    animation: chat-toast-in 320ms var(--dolphin-ease) both;
+    transition: opacity 240ms ease, transform 240ms var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+[data-bs-theme=dark] .chat-toast {
+    border-color: var(--bs-border-color);
+    box-shadow: 0 1.25rem 2.5rem -1rem rgb(0 0 0 / 70%);
+}
+.chat-toast:hover { box-shadow: 0 1.5rem 2.75rem -1rem rgb(27 132 255 / 35%); }
+.chat-toast:focus-visible { outline: 3px solid rgb(27 132 255 / 40%); outline-offset: 2px; }
+.chat-toast.is-leaving { opacity: 0; transform: translateX(-1.5rem); }
+.chat-toast-avatar {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-weight: 700;
+}
+.chat-toast-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; flex: 1 1 auto; }
+.chat-toast-name { font-weight: 700; color: var(--bs-gray-900); }
+.chat-toast-body {
+    color: var(--bs-gray-700);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+.chat-toast-close { flex: 0 0 auto; color: var(--bs-gray-500); font-size: 1.2rem; line-height: 1; padding-inline: 0.15rem; }
+.chat-toast-close:hover { color: var(--bs-danger); }
+@keyframes chat-toast-in {
+    from { opacity: 0; transform: translateX(-1.5rem) scale(0.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .chat-toast { animation: none; transition: none; }
+}
+
+/* Marketer ranking (2.40.34, `features/reports/marketer-ranking.js`). The three
+   in front stand on a podium of cards — gold, silver, bronze on the medal only,
+   so the colour marks the place and not the whole card; the table repeats the
+   medal colours on its rank badges and draws each one's share of sales as a
+   thin bar behind the figure. Rank movement is an arrow and a number, never
+   colour alone. */
+.marketer-podium {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+@media (max-width: 767.98px) { .marketer-podium { grid-template-columns: minmax(0, 1fr); } }
+.marketer-podium-card {
+    --medal: #c69214;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1.4rem 1.5rem 1.25rem;
+    border-radius: 1rem;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-200);
+    box-shadow: 0 1rem 2rem -1.5rem rgb(7 20 55 / 30%);
+}
+[data-bs-theme=dark] .marketer-podium-card { border-color: var(--bs-border-color); }
+.marketer-podium-card[data-place="1"] { --medal: #c69214; border-top: 3px solid var(--medal); }
+.marketer-podium-card[data-place="2"] { --medal: #7c8698; border-top: 3px solid var(--medal); }
+.marketer-podium-card[data-place="3"] { --medal: #b0683a; border-top: 3px solid var(--medal); }
+.marketer-medal {
+    position: absolute;
+    inset-inline-end: 1.25rem;
+    top: 1.1rem;
+    display: inline-grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--medal) 16%, transparent);
+    color: var(--medal);
+    font-weight: 800;
+}
+.marketer-podium-figure {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--bs-gray-900);
+    font-variant-numeric: tabular-nums;
+}
+.marketer-avatar {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-weight: 700;
+}
+.marketer-move {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--bs-gray-700);
+    background: var(--bs-gray-100);
+}
+.marketer-move[data-move="up"] { color: color-mix(in srgb, var(--bs-success) 55%, #000); background: color-mix(in srgb, var(--bs-success) 14%, transparent); }
+.marketer-move[data-move="down"] { color: color-mix(in srgb, var(--bs-danger) 70%, #000); background: color-mix(in srgb, var(--bs-danger) 12%, transparent); }
+[data-bs-theme=dark] .marketer-move[data-move="up"] { color: color-mix(in srgb, var(--bs-success) 55%, #fff); }
+[data-bs-theme=dark] .marketer-move[data-move="down"] { color: color-mix(in srgb, var(--bs-danger) 50%, #fff); }
+.marketer-move[data-move="new"] { color: var(--bs-primary); background: var(--bs-primary-light); }
+.marketer-rank {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.9rem;
+    height: 1.9rem;
+    padding-inline: 0.35rem;
+    border-radius: 0.6rem;
+    font-weight: 800;
+    background: var(--bs-gray-100);
+    color: var(--bs-gray-800);
+}
+.marketer-rank[data-place="1"] { background: color-mix(in srgb, #c69214 18%, transparent); color: #8a6200; }
+.marketer-rank[data-place="2"] { background: color-mix(in srgb, #7c8698 20%, transparent); color: #4b5466; }
+.marketer-rank[data-place="3"] { background: color-mix(in srgb, #b0683a 18%, transparent); color: #7d4320; }
+[data-bs-theme=dark] .marketer-rank[data-place="1"] { color: #f2c54b; }
+[data-bs-theme=dark] .marketer-rank[data-place="2"] { color: #c3c9d4; }
+[data-bs-theme=dark] .marketer-rank[data-place="3"] { color: #e3a07a; }
+.marketer-share {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-width: 6rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.4rem;
+    overflow: hidden;
+    font-variant-numeric: tabular-nums;
+}
+.marketer-share-bar {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--share);
+    background: color-mix(in srgb, var(--bs-primary) 16%, transparent);
+}
+.marketer-share > span:last-child { position: relative; }
+
+/* Monthly sales targets (2.40.41): one row per marketer — who, the figures,
+   a progress bar in the state colour (met / close / still far) and the
+   percentage; the bar stacks under the name on a phone. */
+.marketer-targets-month { display: inline-flex; align-items: center; gap: 0.5rem; }
+.marketer-targets-month-label { min-width: 7.5rem; text-align: center; font-weight: 700; color: var(--bs-gray-900); }
+.marketer-targets { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.marketer-target {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1.2fr) minmax(9rem, 1fr) minmax(8rem, 2fr) 3.5rem;
+    align-items: center;
+    gap: 1rem;
+    padding-block: 0.6rem;
+    border-bottom: 1px dashed var(--bs-gray-200);
+}
+.marketer-target:last-child { border-bottom: 0; }
+.marketer-target-who { display: inline-flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.marketer-target-figures { color: var(--bs-gray-700); font-size: 0.9rem; }
+.marketer-target-bar {
+    --tone: var(--bs-gray-400);
+    position: relative;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--bs-gray-200);
+    overflow: hidden;
+}
+.marketer-target-bar::after {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: var(--progress, 0%);
+    border-radius: inherit;
+    background: var(--tone);
+    transition: width var(--dolphin-dur) var(--dolphin-ease);
+}
+.marketer-target-bar[data-tone="success"] { --tone: var(--bs-success); }
+.marketer-target-bar[data-tone="primary"] { --tone: var(--bs-primary); }
+.marketer-target-bar[data-tone="warning"] { --tone: var(--bs-warning); }
+.marketer-target-percent { font-weight: 700; color: var(--bs-gray-900); text-align: end; }
+@media (max-width: 767.98px) {
+    .marketer-target { grid-template-columns: 1fr auto; row-gap: 0.4rem; }
+    .marketer-target-figures { grid-column: 1 / -1; order: 3; }
+    .marketer-target-bar { grid-column: 1 / -1; order: 4; }
+}
+.marketer-targets-fields { display: grid; gap: 0.75rem; max-height: min(60vh, 32rem); overflow-y: auto; padding-inline-end: 0.25rem; }
+.marketer-targets-field { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1.4fr); align-items: center; gap: 1rem; }
+@media (max-width: 575.98px) {
+    .marketer-targets-field { grid-template-columns: 1fr; gap: 0.35rem; }
+}
+
+/* Postal tracking in two panes (2.40.34, like the chat page). The list is a
+   column of cards that scrolls on its own beside the shipment on screen; the
+   chosen card carries the accent on its leading edge. On a phone one pane at a
+   time: the list, and the shipment once one is opened (`.is-viewing`). */
+.postal-list-card { height: 100%; }
+@media (min-width: 992px) {
+    .postal-list-scroll { max-height: calc(100vh - 21rem); overflow-y: auto; margin-inline: -0.5rem; padding-inline: 0.5rem; }
+    .postal-detail-card { position: sticky; top: calc(var(--bs-app-header-height, 70px) + 1rem); }
+}
+.postal-list-table { border-collapse: separate; border-spacing: 0 0.5rem; }
+.postal-list-table > tbody > tr > td { padding: 0; border: 0; vertical-align: top; }
+.postal-list-table > tbody > tr > td:first-child:not(:last-child) { padding-top: 1rem; padding-inline-end: 0.6rem; width: 1.6rem; }
+.postal-list-row { cursor: pointer; }
+.postal-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--bs-gray-200);
+    border-inline-start: 3px solid transparent;
+    border-radius: 0.85rem;
+    background: var(--bs-body-bg);
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease), transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+[data-bs-theme=dark] .postal-list-item { border-color: var(--bs-border-color); border-inline-start-color: transparent; }
+.postal-list-row:hover .postal-list-item { box-shadow: 0 0.6rem 1.4rem -1rem rgb(7 20 55 / 35%); transform: translateY(-1px); }
+.postal-list-row.is-selected .postal-list-item { border-inline-start-color: var(--bs-primary); background: color-mix(in srgb, var(--bs-primary) 6%, var(--bs-body-bg)); }
+.postal-list-row.is-inactive .postal-list-item { opacity: 0.65; }
+.postal-list-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.postal-list-number { font-weight: 800; color: var(--bs-gray-900); font-variant-numeric: tabular-nums; }
+.postal-list-number:hover { color: var(--bs-primary); }
+.postal-list-customer { font-weight: 600; color: var(--bs-gray-800); }
+.postal-list-place { font-size: 0.8rem; color: var(--bs-gray-700); }
+.postal-list-status { margin-top: 0.15rem; }
+
+.postal-detail-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 22rem;
+    text-align: center;
+}
+.postal-placeholder-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1.25rem;
+    margin-bottom: 0.5rem;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+    font-size: 2.25rem;
+}
+.postal-placeholder-icon i [class^="path"]::before { color: var(--bs-primary); }
+#postal-detail-body { padding: 1.5rem 1.75rem; display: flex; flex-direction: column; gap: 1.25rem; }
+.postal-pane-head { display: flex; align-items: center; flex-wrap: wrap; gap: 0.9rem; }
+.postal-pane-number { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.postal-pane-section { padding: 1.1rem 1.25rem; border-radius: 0.9rem; background: var(--bs-gray-100); }
+.postal-pane-stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.25rem; }
+.postal-pane-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.45rem; text-align: center; }
+.postal-pane-step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 1.35rem;
+    inset-inline-start: calc(50% + 1.6rem);
+    inset-inline-end: calc(-50% + 1.6rem);
+    height: 2px;
+    background: var(--bs-gray-300);
+}
+.postal-pane-step-done:not(:last-child)::after { background: var(--bs-primary); }
+.postal-pane-step-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 2.7rem;
+    height: 2.7rem;
+    border-radius: 50%;
+    background: var(--bs-body-bg);
+    border: 2px solid var(--bs-gray-300);
+    color: var(--bs-gray-600);
+}
+.postal-pane-step-mark i [class^="path"]::before { color: currentColor; }
+.postal-pane-step-done .postal-pane-step-mark { border-color: var(--bs-primary); color: var(--bs-primary); }
+.postal-pane-step-current .postal-pane-step-mark { border-color: var(--bs-primary); background: var(--bs-primary); color: #fff; box-shadow: 0 0 0 0.3rem rgb(27 132 255 / 20%); }
+.postal-pane-step-label { font-size: 0.8rem; font-weight: 600; color: var(--bs-gray-700); }
+.postal-pane-step-current .postal-pane-step-label { color: var(--bs-gray-900); font-weight: 800; }
+.postal-pane-move-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 0.6rem; }
+@media (max-width: 575.98px) { .postal-pane-move-row { grid-template-columns: minmax(0, 1fr); } }
+.postal-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
+@media (max-width: 575.98px) { .postal-facts { grid-template-columns: minmax(0, 1fr); } }
+.postal-fact { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.postal-fact-label { font-size: 0.75rem; color: var(--bs-gray-700); }
+.postal-fact-value { font-weight: 600; color: var(--bs-gray-900); overflow-wrap: anywhere; }
+.postal-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+.postal-timeline-item { position: relative; display: flex; gap: 0.85rem; }
+.postal-timeline-item:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    inset-inline-start: 1rem;
+    top: 2.2rem;
+    bottom: -0.9rem;
+    width: 2px;
+    background: var(--bs-gray-300);
+}
+.postal-timeline-dot {
+    flex: 0 0 auto;
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--bs-primary-light);
+    color: var(--bs-primary);
+}
+.postal-timeline-dot i [class^="path"]::before { color: currentColor; }
+.postal-timeline-body { display: flex; flex-direction: column; gap: 0.1rem; padding-top: 0.2rem; }
+@media (max-width: 991.98px) {
+    .postal-workspace .postal-detail-pane { display: none; }
+    .postal-workspace.is-viewing .postal-list-pane { display: none; }
+    .postal-workspace.is-viewing .postal-detail-pane { display: block; }
+}

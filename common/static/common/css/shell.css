@@ -1,0 +1,548 @@
+/* 2. Brand ---------------------------------------------------------------- */
+
+/* The theme's own `.app-sidebar-logo` is `justify-content: space-between`,
+   built for a layout with two flex participants — the brand and a header
+   action beside it. This one has only ever had one: the toggle button sits
+   over it at `position: absolute` (the theme's own placement, kept as-is —
+   see the markup comment in base.html), so it is not a flex participant and
+   `space-between` had nothing to space the single remaining item against.
+   The visible effect was the wordmark pinned to the header's own edge
+   instead of centred in it. Safe to override because of exactly that: the
+   toggle's positioning does not come from flow, so centring what does has
+   nothing to collide with. */
+.app-sidebar-logo {
+    justify-content: center;
+}
+
+.app-sidebar-logo .brand {
+    line-height: 1.2;
+}
+
+.brand-mark {
+    display: block;
+    width: auto;
+    /* The markup carries `width="1278" height="1230"` so the browser can reserve
+       the right box before the file arrives. Setting only a CSS width leaves the
+       height attribute in force, and the mark renders as a 1230px-tall sliver —
+       which is what «لوگوی ریز نشان داده نمی‌شود» actually was: it was being
+       drawn, one column of pixels wide and taller than the screen. */
+    height: auto;
+    object-fit: contain;
+}
+
+/* The full name lockup (fin + "Dolphin" + "دلفین"), not the bare icon — this is
+   the one place the brand is allowed to be large. It is a wide mark (≈1.3:1),
+   so it is sized by width; `vh` still caps it on a short laptop screen so a
+   tall window can't push it past the fold the way the old height-only rule
+   once did for the square icon this replaced. */
+.brand-mark-login {
+    width: min(34rem, 88%);
+    max-height: 56vh;
+    margin-inline: auto;
+}
+
+.brand-mark-sidebar {
+    width: 3.25rem;
+}
+
+.brand-mark-mobile {
+    width: 2.25rem;
+}
+
+.brand-mark-minimize {
+    width: 2rem;
+}
+
+/* The collapsed rail renders this mark at ~29px. Checked directly — the
+   computed `box-shadow`/`filter`/`background` are `none` on the image and on
+   every ancestor up to the page root — so the soft "glow" reported at that
+   size is not a stray CSS rule: it is this mark's own glossy, softly-shaded
+   artwork (right for the large lockup on the login page) losing definition
+   once shrunk this far, with nothing behind it to give its blurred edge a
+   boundary. A flat, high-contrast icon-only asset would be the complete fix
+   and does not exist yet; this gives the existing mark's soft edge somewhere
+   to stop instead — the same tinted-square treatment behind a small mark
+   this theme's own demo uses elsewhere. */
+/* Matches the theme's own two conditions for actually showing this element,
+   selector for selector — including the `.app-sidebar-logo` ancestor class
+   the theme's own rule carries and a shorter version here first did not —
+   rather than a bare `.app-sidebar-logo-minimize`, on purpose: this project
+   always sets `data-dolphin-app-sidebar-hoverable="true"` (base.html), so
+   collapsed-and-hovering peeks the full sidebar back open and the theme's
+   own rule reverts this element to `display: none`. Missing that one class
+   made this rule *less* specific than the theme's, not more — so `display:
+   flex` lost outright, silently, to the theme's own `display: none` base
+   rule, and only `width`/`height`/`background-color` (nothing else here
+   sets those) ever visibly applied. Caught by re-deriving the computed
+   `display` after publishing, not by assuming the rule that compiled was
+   the rule that won. */
+[data-dolphin-app-sidebar-minimize="on"]:not([data-dolphin-app-sidebar-hoverable="true"]) .app-sidebar .app-sidebar-logo .app-sidebar-logo-minimize,
+[data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:not(:hover) .app-sidebar-logo .app-sidebar-logo-minimize {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background-color: rgba(var(--bs-primary-rgb), 0.14);
+}
+
+/* 2b. Collapsed sidebar ---------------------------------------------------
+   Deliberately almost empty, and that took three releases to arrive at.
+
+   The theme collapses `.app-sidebar` on its own: it swaps the two logos, fades
+   the menu titles, and drives the width from `--bs-app-sidebar-width`, which its
+   own `[data-dolphin-app-sidebar-minimize=on]` rule sets to 75px. With
+   `data-dolphin-app-sidebar-hoverable="true"` on the body it also does hover-to-peek,
+   entirely in CSS. Verified against the vendor's own demo served locally: it
+   collapses to exactly 75px with `transition-property: width`, keeps the menu
+   wrapper at 265px, and lets the rail clip it.
+
+   1.3.11 and 1.3.13 both wrote rules here to force what the theme already does,
+   because the sidebar refused to narrow. The cause was never the theme: the
+   brand link carried Bootstrap's `d-flex`, which is `!important` and beat the
+   theme's `display: none`, so the wide block stayed in the flow and — a flex
+   item being `min-width: auto` — held the sidebar open at its own content
+   width. Everything built on top of that (a hardcoded rail width, per-state
+   width declarations, `min-width: 0`, `overflow-x`, re-centred icons, a
+   floating label for every title) was treating the symptom.
+
+   The fix is in the markup instead: `d-flex` moved to a span inside the link,
+   so the theme's own rule wins unaided. What was written here is gone with it.
+
+   One rule does have to stay, and it is not a workaround for our own markup —
+   it is a defect in the theme, reproduced in the vendor's own demo.
+
+   The theme drives the width from a single declaration,
+   `.app-sidebar { width: var(--bs-app-sidebar-width) }`, and collapses by
+   changing that variable. Collapsing works. **Expanding does not**: the
+   variable goes back to 265px and the used width stays at 75px, so a collapsed
+   sidebar can never be reopened. Measured in the vendor demo served locally,
+   with no Dolphin code involved at all — after its own toggle,
+   `--bs-app-sidebar-width` read 265px while the computed width read 75px.
+
+   The fix is to give each state its own `width` declaration, so what changes
+   between them is the matched rule and not the value inside one. That animates
+   in both directions. `--bs-app-sidebar-width-actual` is the theme's constant
+   for the open width and never moves. */
+@media (min-width: 992px) {
+    .app-sidebar {
+        width: var(--bs-app-sidebar-width-actual);
+    }
+
+    /* The rail width, and the one theme number copied into this sheet.
+       `test_the_rail_width_matches_the_theme` reads it back out of the theme's
+       own stylesheet and fails if the two ever diverge. It is a literal rather
+       than `var(--bs-app-sidebar-width)` because that variable is the one being
+       mutated, which is the dependency this rule exists to remove.
+
+       Hover-to-peek still works over the top of this: the theme's peek rule
+       carries two attributes, a class and `:hover`, so it outranks this one. */
+    [data-dolphin-app-sidebar-minimize="on"] .app-sidebar {
+        width: 75px;
+    }
+
+    /* Hover-to-peek (the rule above, from the theme itself) grows the
+       sidebar element's own `width`, but never taught the content area about
+       it: `.app-main`'s push margin comes from `.app-wrapper`'s
+       `margin-right`, driven by `--bs-app-sidebar-width` — and that variable
+       holds the *collapsed* value (75px) the whole time hovering, because
+       only the sidebar's own `width` changes on `:hover`, via a hardcoded
+       selector, not the variable. So a hovered-open sidebar always sat *on
+       top of* the panel instead of pushing it aside — confirmed still true
+       in the vendor's own demo, so this is the theme's intended default, not
+       a Dolphin regression of something the theme already handled.
+
+       Product-owner decision: the panel should shift with it instead, with a
+       smooth animation. `.app-main` already carries
+       `transition: margin 0.3s ease` unconditionally at this breakpoint
+       (dolphin-theme.rtl.css), so adding the missing margin here is enough —
+       that existing transition animates both directions, in step with the
+       sidebar's own `width 0.3s ease`, without a transition declared here.
+
+       The value is the *difference* between the two widths, not the open
+       width itself: `.app-wrapper`'s own `margin-right` (the theme's rule,
+       still driven by the same stuck 75px variable) stays in effect
+       underneath this one and already accounts for the rail's 75px: this
+       rule only has to add the remaining 190px on `.app-main`, the sibling
+       `.app-sidebar` actually pushes against. Selector mirrors the theme's
+       own hover-peek rule exactly (`hoverable=true`, `minimize=on`, `:hover`,
+       `:not(.animating)` — that last guard is the theme's own means of not
+       re-triggering a hover mid-transition) plus the general-sibling
+       combinator, since `#app-sidebar` and `#dolphin_app_main` are direct
+       siblings inside `#dolphin_app_wrapper` (base.html) in exactly that order. */
+    [data-dolphin-app-sidebar-minimize="on"][data-dolphin-app-sidebar-hoverable="true"] .app-sidebar:hover:not(.animating) ~ .app-main {
+        margin-right: calc(var(--bs-app-sidebar-width-actual) - var(--bs-app-sidebar-width));
+    }
+}
+
+/* Below the breakpoint the sidebar is a drawer that slides over the page, so
+   collapsing it to a rail means nothing — the toggle would do something the
+   reader cannot see. It is hidden rather than left to confuse.
+
+   Selected as `.app-sidebar .app-sidebar-toggle` for weight, not for reach:
+   the theme's own `.btn.btn-icon` is two classes and outranks a single one, so
+   a plain `.app-sidebar-toggle` here loses and the button stays on screen. */
+@media (max-width: 991.98px) {
+    .app-sidebar .app-sidebar-toggle { display: none; }
+}
+
+.brand-mark-error {
+    width: 5rem;
+    margin-inline: auto;
+}
+
+
+/* The header user menu. The theme styles the panel completely — surface,
+   spacing, hover states, the `.show` rule that reveals it — and normally lets
+   Popper place it. Popper ships in the plugins bundle this deployment does not
+   load, so the anchoring, and only the anchoring, is set here. */
+#user-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+}
+
+/* The reminder bell, anchored the same way and for the same reason. The panel
+   itself is the theme's; only its placement, its badge and a scroll ceiling on
+   the list are set here — a user with forty overdue instalments must not get a
+   dropdown taller than the window with no way back to the page. */
+#reminder-bell-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    max-width: calc(100vw - 1.5rem);
+}
+
+.reminder-bell-body {
+    max-height: min(60vh, 26rem);
+    overflow-y: auto;
+}
+
+/* Anchored to the icon's corner rather than laid out in flow, so the count
+   never changes the button's own size as it grows from one digit to three.
+
+   Selected through the button's id deliberately. The theme ships
+   `.btn .badge { position: relative; top: -1px; }` (dolphin-theme.rtl.css), which
+   outranks a single class here — a plain `.reminder-bell-badge` rule lost,
+   the badge stayed in flow, and it rendered *beside* the bell inside the
+   40px button instead of over its corner, squeezing the icon. Found in the
+   live browser, not by any test. An id beats the theme's two classes
+   without reaching for `!important`.
+
+   `#dolphin_drawer_chat_toggle` joined this rule in 1.9.0 when the chat unread
+   badge moved off the sidebar and onto its own header icon, the same shape
+   as the bell it sits beside — reusing the class rather than writing the
+   fix a second time. */
+#reminder-bell-toggle .reminder-bell-badge,
+#dolphin_drawer_chat_toggle .reminder-bell-badge {
+    position: absolute;
+    top: -0.1rem;
+    inset-inline-end: -0.1rem;
+    min-width: 18px;
+    height: 18px;
+    padding-inline: 5px;
+    border-radius: 999px;
+    /* 11px, not 8.5px (2.40.38): the figure is the whole point of the badge. A
+       ring in the header's own colour keeps it off the icon it sits on. */
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 0 0 2px var(--bs-app-bg-color, var(--bs-body-bg));
+}
+
+/* The chat drawer's internal scrolling. The theme's own `.drawer` rule
+   (`dolphin-theme.rtl.css`) gives `#dolphin_drawer_chat` a real height —
+   `position: fixed; top: 0; bottom: 0` — so `.h-100` on the card inside it
+   resolves to an actual pixel height, not an auto one. What Bootstrap's
+   utilities do not supply is `min-height: 0` on the flex chain between that
+   card and the scrollable message list: a flex item defaults to
+   `min-height: auto`, which refuses to shrink below its content's own
+   height, so without this the message list would grow the whole card past
+   the drawer's height instead of scrolling inside it — the drawer itself
+   would scroll as one long page, header and footer included, exactly the
+   `overflow: auto` its own CSS rule already carries as a fallback for
+   content that does not manage its own internal scrolling. */
+#dolphin_drawer_chat_messenger,
+#dolphin_drawer_chat_messenger .card-body,
+#chat-drawer-list-panel,
+#chat-drawer-conversation-panel {
+    min-height: 0;
+}
+
+/* The `/chat/` page (2.25.0) — the same engine as the drawer above, laid
+   out as the UI kit's own two-pane `the reference two-pane chat page` instead of one
+   narrow card. Below `lg` it behaves exactly like the drawer: one pane at a
+   time, `setupChat`'s own `showList`/`showConversation` toggling `.d-none`.
+   At `lg` and up there is room for both — the contacts list should stay on
+   screen once a conversation opens instead of vanishing with it, which is
+   the one thing `showConversation()` does that only makes sense for a
+   single-pane surface. This is the one line that says so; everything else
+   about which pane shows what is still the shared script's decision. */
+@media (min-width: 992px) {
+    /* Bootstrap's `.d-none` itself carries `!important`; overriding it
+       needs the same weight, not a specificity trick. */
+    #chat-page-list-panel.d-none {
+        display: block !important;
+    }
+}
+
+#chat-page-messenger .card-body,
+#chat-page-conversation-panel {
+    min-height: 0;
+}
+
+/* The customer page's 360° history strip.
+
+   The theme has no timeline component (`widgets/feeds.html` is a feed of
+   cards, not a dated rail), so the rail itself is here: a marker column and
+   a continuous line drawn between the markers with a pseudo-element rather
+   than a border on the row, so it stops cleanly at the last entry instead of
+   trailing past it. Everything inside a row — the badge, the type colours,
+   the text sizes — is the theme's. */
+.customer-timeline-entry {
+    position: relative;
+    display: flex;
+    gap: 1rem;
+    padding-bottom: 1.5rem;
+}
+
+.customer-timeline-entry:last-child {
+    padding-bottom: 0;
+}
+
+/* The line. Drawn from the marker down to the next one, and omitted on the
+   last entry so the rail ends with the story rather than after it. */
+.customer-timeline-entry:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 2.5rem;
+    bottom: 0.25rem;
+    inset-inline-start: 1.2rem;
+    width: 1px;
+    background: var(--bs-gray-300);
+}
+
+.customer-timeline-marker {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+}
+
+.customer-timeline-body {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+/* A person profile's «بیشتر» menu (2.19.0) — the theme's dropdown from
+   pages/user-profile/overview.html, anchored under its button the same way
+   and for the same reason as `#user-menu` above. */
+#profile-more-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    z-index: 105;
+    max-width: calc(100vw - 1.5rem);
+}
+
+/* Global search (2.40.1): the magnifier becomes the field, with the motion of
+   a board column's own search (`#order-board .board-search`): the *box*
+   animates its width between two explicit values, the field fills whatever
+   the box currently is, and the height never changes — so the header does
+   not move and its neighbours are pushed along, never covered. The closed
+   width is the toggle's own `w-40px`/`h-40px` square, named once here. */
+.topbar-search {
+    --topbar-search-closed: 40px;
+    --topbar-search-open: 22.5rem;
+    display: flex;
+    align-items: center;
+    min-width: var(--topbar-search-closed);
+    width: var(--topbar-search-closed);
+    border-radius: var(--bs-border-radius);
+    overflow: hidden;
+    transition: min-width var(--dolphin-dur) var(--dolphin-ease), width var(--dolphin-dur) var(--dolphin-ease),
+        background-color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease);
+}
+.topbar-search-open {
+    min-width: var(--topbar-search-open);
+    width: var(--topbar-search-open);
+    background-color: var(--bs-gray-100);
+    box-shadow: inset 0 0 0 1px var(--bs-gray-300);
+}
+/* No blue ring on the box or the field (product owner, 2026-10-06: «تمیز و
+   بدون خط آبی»): the open box itself is the sign of where typing goes. */
+/* Open, the magnifier is the field's glyph, not a button to hover: the
+   theme's hover tint (`bg-hover-light-primary`, itself `!important`) read as
+   a selected blue square inside the field. */
+.topbar-search-open #global-search-toggle,
+.topbar-search-open #global-search-toggle:hover,
+.topbar-search-open #global-search-toggle:focus {
+    background-color: transparent !important;
+}
+.topbar-search > .btn {
+    flex: 0 0 auto;
+}
+.topbar-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--bs-gray-900);
+    font-family: inherit;
+    font-size: 1rem;
+}
+/* An id, not the class: the panel's own keyboard ring
+   (`[tabindex]:focus-visible`) has the class's specificity and comes later,
+   so it drew a blue box inside the open field (2.40.18). */
+#global-search-input:focus,
+#global-search-input:focus-visible {
+    outline: none;
+    box-shadow: none;
+}
+.topbar-search-input::placeholder {
+    color: var(--bs-gray-500);
+}
+/* The box has its own close glyph; the browser's second one would sit beside it. */
+.topbar-search-input::-webkit-search-cancel-button {
+    display: none;
+}
+.topbar-search-close {
+    color: var(--bs-gray-500);
+    opacity: 0;
+    transition: opacity var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.topbar-search-open .topbar-search-close {
+    opacity: 1;
+}
+.topbar-search-close:hover,
+.topbar-search-close:focus-visible {
+    color: var(--bs-gray-800);
+}
+@media (max-width: 991.98px) {
+    .topbar-search {
+        --topbar-search-open: 17rem;
+    }
+}
+
+/* Results hang under the field and are exactly as wide as it — the wrap is
+   the box's own width — scroll-capped like the bell above. Out of sight
+   until there is something to show (`data-idle`), so an empty field is
+   just a field. */
+#global-search-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    width: 100%;
+    max-width: calc(100vw - 1.5rem);
+}
+#global-search-menu[data-idle] {
+    display: none;
+}
+#global-search-menu .topbar-list-item.active {
+    background-color: var(--bs-gray-100);
+}
+@media (prefers-reduced-motion: reduce) {
+    .topbar-search,
+    .topbar-search-close {
+        transition: none;
+    }
+}
+
+.global-search-body {
+    max-height: min(55vh, 24rem);
+    overflow-y: auto;
+}
+
+/* On a phone both panels have to stop following their own button.
+   Anchored to the button (`inset-inline-end: 0` on an absolutely positioned
+   panel), each one starts wherever its icon sits in the header and runs
+   300px from there — which put the search panel's far edge 38px past a
+   375px viewport and clipped it, and left the bell only just fitting, so a
+   320px phone would have clipped that too. Seen in the live browser at
+   375px; no test could have seen it.
+
+   Below the `sm` breakpoint they are pinned to the viewport instead: fixed
+   position, their inline-start edge a gutter in from the screen's own edge,
+   and the top taken from the theme's own `--bs-app-header-height` so a
+   panel always opens just under the header rather than at a number guessed
+   here. The width stays the theme's `w-300px` — that utility is
+   `!important` and not worth an escalation, and 300px inside a 375px phone
+   reads well. Only one inline edge is set, deliberately: setting both while
+   a fixed width is in force is over-constrained, and which edge the browser
+   then drops is not a thing to build a layout on. */
+@media (max-width: 575.98px) {
+    #global-search-menu,
+    #reminder-bell-menu {
+        position: fixed;
+        top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
+        inset-inline-start: 0.75rem;
+        inset-inline-end: auto;
+    }
+    /* On a phone there is no room to push anything along: the open field
+       lies over the header's whole width, centred on the header's own
+       height, and its results take the same width under it. */
+    .topbar-search-open {
+        position: fixed;
+        z-index: 106;
+        top: calc((var(--bs-app-header-height, 60px) - var(--topbar-search-closed)) / 2);
+        inset-inline-start: 0.75rem;
+        width: calc(100vw - 1.5rem);
+        min-width: 0;
+        background-color: var(--bs-body-bg);
+    }
+    #global-search-menu {
+        width: calc(100vw - 1.5rem);
+    }
+}
+
+/* The incoming-call popup (telephony, 2.23.0): the theme's own toast stack,
+   opened just under the header — from the same `--bs-app-header-height` as
+   the panels above — rather than over the header's bell and user menu. */
+#call-popups {
+    top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
+}
+
+.topbar-list-group + .topbar-list-group {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--bs-gray-200);
+}
+
+.topbar-list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.475rem;
+    text-decoration: none;
+}
+
+.topbar-list-item:hover {
+    background: var(--bs-gray-100);
+}
+
+/* The trailing column of a row — a due date in the bell, nothing in search.
+   Overdue is carried by a text colour here, not by a coloured row: a list
+   where every second row is red stops reading as a warning. */
+.topbar-list-meta {
+    white-space: nowrap;
+}
+
+/* 2c. Page header icon ----------------------------------------------------
+   Optional, and additive: `{% block page_icon %}` in base.html is empty by
+   default, so a page that fills nothing here looks exactly as it did before.
+   Where a page names one, this is the one place its size and colour are set,
+   so "consistent size across pages" is one rule rather than something copied
+   into every template. */
+.page-heading-icon {
+    font-size: 1.35rem;
+    line-height: 1;
+    color: var(--bs-primary);
+}

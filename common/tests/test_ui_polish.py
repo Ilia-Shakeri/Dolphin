@@ -1,10 +1,10 @@
 ﻿from pathlib import Path
 from common.tests.panel_js import PANEL_SCRIPT
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_JS = PANEL_SCRIPT
-APP_CSS = ROOT / "static" / "common" / "dolphin.css"
 
 
 class UiPolishTests(SimpleTestCase):
@@ -13,14 +13,14 @@ class UiPolishTests(SimpleTestCase):
         self.assertNotIn("window.confirm(", source)
         self.assertIn("function confirmDialog(", source)
     def test_loading_placeholders_and_busy_buttons(self):
-        css = APP_CSS.read_text(encoding="utf-8")
+        css = stylesheet_text()
         self.assertIn('[id$="-loading"]:not([hidden])', css)
         self.assertIn('.btn[aria-busy="true"]', css)
         self.assertIn("function setupBusyButtons(", APP_JS.read_text(encoding="utf-8"))
 
 
     def test_motion_tokens_and_reduced_motion(self):
-        css = APP_CSS.read_text(encoding="utf-8")
+        css = stylesheet_text()
         for token in ("--dolphin-dur-fast:", "--dolphin-dur:", "--dolphin-ease:"):
             self.assertIn(token, css)
         source = APP_JS.read_text(encoding="utf-8")

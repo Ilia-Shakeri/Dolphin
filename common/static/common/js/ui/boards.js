@@ -13,7 +13,7 @@ import {bindLiveSearch} from "dolphin/ui/lists.js";
  * per-board colour list is declared, so a status added to that table is
  * coloured on the boards too without touching this function.
  *
- * The attribute carries the accent *name*; `dolphin.css` §7 turns it into
+ * The attribute carries the accent *name*; the panel stylesheet §7 turns it into
  * the theme's own `--bs-<accent>` tokens, which are redefined in dark
  * mode — so the halo follows the theme rather than being a fixed colour
  * written into JavaScript.

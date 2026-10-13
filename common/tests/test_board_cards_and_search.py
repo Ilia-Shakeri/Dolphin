@@ -31,11 +31,12 @@ import pathlib
 import re
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 
 
 def _function_body(name):

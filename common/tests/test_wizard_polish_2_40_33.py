@@ -16,10 +16,11 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from sales.campaigns import add_campaign_member, create_campaign
 from sales.models import TargetAudienceMember
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
 JS = ROOT / "common" / "static" / "common" / "js"
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 TEMPLATES = [path for base in ("common/templates", "profiles/templates") for path in (ROOT / base).rglob("*.html")]
 
 
@@ -58,7 +59,7 @@ class TrashTests(SimpleTestCase):
                     self.assertIn('aria-label="', button)
 
     def test_single_deletes_use_the_shared_button_and_motion(self):
-        for name in ("ui/attachments.js", "features/customers/person-profile.js", "features/billing/shared.js"):
+        for name in ("ui/attachments.js", "features/customers/profile-work.js", "features/billing/shared.js"):
             with self.subTest(module=name):
                 text = (JS / name).read_text(encoding="utf-8")
                 self.assertIn("trashButton(", text)

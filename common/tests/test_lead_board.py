@@ -32,15 +32,14 @@ from django.test import Client, SimpleTestCase, TestCase
 from accounts.models import User
 from common.deployment.profile import DeploymentProfile, override_active_profile
 from common.deployment.registry import ALL_FEATURES, DEFAULT_OFF_FEATURES, FEATURE_DEPENDENCIES
+from common.stylesheets import stylesheet_text
 
 PASSWORD = "Strong-pass-604!"
 
 SCRIPT = (
     PANEL_SCRIPT
 ).read_text(encoding="utf-8")
-CSS = (
-    pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-).read_text(encoding="utf-8")
+CSS = stylesheet_text()
 DOCKERIGNORE = (
     pathlib.Path(__file__).resolve().parents[2] / ".dockerignore"
 ).read_text(encoding="utf-8")

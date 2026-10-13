@@ -103,7 +103,7 @@ function renderPerformanceReport(prefix, report) {
         const actions = document.createElement("td");
         // Three buttons in one narrow column, unlike every other
         // `row-actions` cell in the app (one or two, which the
-        // `margin-inline-start` rule in dolphin.css handles fine) —
+        // `margin-inline-start` rule in the panel stylesheet handles fine) —
         // narrow enough that they wrapped onto their own lines with no
         // gap between them. `flex-wrap` first tried here fixed the gap
         // but not the wrapping itself: three stacked lines multiplied

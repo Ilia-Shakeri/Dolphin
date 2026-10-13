@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = ROOT / "common" / "templates" / "common"
@@ -34,7 +35,7 @@ class ChecklistPolishTests(SimpleTestCase):
 
     script = (SCRIPTS / "ui" / "checklist-select.js").read_text(encoding="utf-8")
     wizard = (SCRIPTS / "ui" / "wizard.js").read_text(encoding="utf-8")
-    css = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+    css = stylesheet_text()
 
     def test_a_search_with_no_match_says_so(self):
         self.assertIn('noMatch.textContent = "گزینه‌ای با این جست‌وجو نیست.";', self.script)

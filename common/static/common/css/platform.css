@@ -1,0 +1,555 @@
+/* =============================================================================
+   The platform layer (2.40.38)
+   =============================================================================
+   Product owner, after a page-by-page design review: «همه رو انجام بده» — give
+   the panel the feel of an Apple app. What that means here, measured on the
+   rendered pages before this layer: one page used 12–14 font sizes, 12 corner
+   radii, 7 button heights and 5 motion timings. The rules below bring each to
+   one short scale, separate the surfaces by layering instead of borders, and
+   give every state change a motion. They sit on the UI kit's own components
+   and tokens (cards, buttons, fields, tables, the light-sidebar layout) — no
+   new component is drawn here. The login page keeps its own design. */
+
+/* -- Surfaces: a grouped background with cards floating on it ---------------- */
+[data-bs-theme=light] {
+    --bs-app-bg-color: #f2f2f7;
+    --bs-app-blank-bg-color: #f2f2f7;
+    --bs-root-card-border-color: transparent;
+    --bs-root-card-box-shadow: 0 1px 2px rgb(16 24 40 / 4%), 0 6px 20px -8px rgb(16 24 40 / 8%);
+    --bs-app-sidebar-light-bg-color: rgb(246 246 249 / 86%);
+}
+[data-bs-theme=dark] {
+    --bs-app-bg-color: #09090b;
+    --bs-app-blank-bg-color: #09090b;
+    --bs-root-card-border-color: rgb(255 255 255 / 6%);
+    --bs-root-card-box-shadow: 0 1px 2px rgb(0 0 0 / 40%);
+}
+body:not([data-page="login"]) {
+    background-color: var(--bs-app-bg-color);
+}
+body:not([data-page="login"]) .card {
+    --bs-card-border-radius: var(--dolphin-radius-card);
+    --bs-card-inner-border-radius: calc(var(--dolphin-radius-card) - 1px);
+}
+body:not([data-page="login"]) .card > .card-body { padding: 1.54rem; }
+body:not([data-page="login"]) .card > .card-header { padding-inline: 1.54rem; }
+[data-dashboard-grid] > .dashboard-widget > .card,
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card {
+    border-radius: var(--dolphin-radius-card);
+}
+[data-dashboard-grid] > .dashboard-widget > .card > .card-body { padding: 1.54rem; }
+
+/* -- Light sidebar in light mode (the kit's own `light-sidebar` layout) -------
+   `data-dolphin-app-layout` follows the colour theme (base.html): a dark rail
+   beside a light page was the loudest thing on every screen. Translucent, with
+   the blur showing through when it slides over the page on a phone. */
+[data-dolphin-app-layout=light-sidebar] .app-sidebar {
+    background-color: var(--bs-app-sidebar-light-bg-color);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-left: 1px solid rgb(0 0 0 / 6%);
+}
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .app-sidebar-logo { border-bottom: 1px solid rgb(0 0 0 / 5%); }
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .app-sidebar-logo .brand { color: var(--bs-gray-900) !important; }
+/* The current page: a tint of the accent, in either sidebar. */
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active {
+    background-color: rgba(var(--bs-primary-rgb), 0.12);
+    border-radius: var(--dolphin-radius-control);
+}
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-title,
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-icon i,
+[data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-bullet .bullet {
+    color: var(--bs-primary) !important;
+}
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .menu .menu-item .menu-link.active .menu-bullet .bullet { background-color: var(--bs-primary); }
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar .menu .menu-item .menu-link.active { background-color: rgba(var(--bs-primary-rgb), 0.2); }
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar .menu .menu-item .menu-link.active .menu-title { color: #fff !important; }
+.app-sidebar .menu .menu-link {
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.app-sidebar .menu .menu-link .menu-arrow { transition: rotate var(--dolphin-dur) var(--dolphin-ease); }
+@media (prefers-reduced-transparency: reduce) {
+    [data-dolphin-app-layout=light-sidebar] .app-sidebar { background-color: #f6f6f9; backdrop-filter: none; }
+    #dolphin_app_header.app-header { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    dialog::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgb(10 14 22 / 50%); }
+}
+
+/* The brand mark in the colour of its ground: the light-blue mark on the dark
+   sidebar and header, the deep-blue one (`Logo-light`, the error page's) on a
+   light ground. Both are in the page; the theme picks one. */
+[data-bs-theme=light] .brand-on-dark,
+[data-bs-theme=dark] .brand-on-light { display: none; }
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .brand-subtitle { color: var(--bs-primary) !important; }
+
+/* -- A shorter header, a large title -------------------------------------------- */
+@media (min-width: 992px) {
+    :root,
+    [data-dolphin-app-header-sticky=on] {
+        --bs-app-header-height: 60px;
+        --bs-app-header-height-actual: 60px;
+    }
+}
+#dolphin_app_toolbar.app-toolbar { padding-block: 0.5rem 0.75rem !important; }
+#dolphin_app_toolbar .page-heading {
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+#dolphin_app_toolbar .page-heading .page-heading-icon { display: none; }
+/* The section name above the title says where the page is; the trail
+   «خانه - صفحه» under it only repeated the title. */
+#dolphin_app_toolbar .breadcrumb { display: none; }
+/* The title moves into the header once it scrolls under it
+   (`shell/header-title.js`), the platform's large-title pattern. */
+#dolphin_app_header .app-container { position: relative; }
+.header-compact-title {
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    width: max-content;
+    max-width: 40%;
+    margin-inline: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--bs-gray-900);
+    pointer-events: none;
+    opacity: 0;
+    translate: 0 calc(-50% + 6px);
+    transition: opacity var(--dolphin-dur) var(--dolphin-ease), translate var(--dolphin-dur) var(--dolphin-ease);
+}
+body.is-title-collapsed .header-compact-title { opacity: 1; translate: 0 -50%; }
+@media (max-width: 991.98px) { .header-compact-title { display: none; } }
+
+/* -- One type scale ------------------------------------------------------------
+   The kit's size utilities folded onto six steps: 20 / 17 / 14 / 12.5 / 11.5 px
+   at the panel's 13px root (and in proportion at a reader's own scale), with
+   the large title above them. `!important` because the kit's are. */
+body:not([data-page="login"]) .fs-3,
+body:not([data-page="login"]) .fs-4 { font-size: 1.31rem !important; }
+body:not([data-page="login"]) .fs-5,
+body:not([data-page="login"]) .fs-6 { font-size: 1.077rem !important; }
+body:not([data-page="login"]) .fs-7 { font-size: 0.96rem !important; }
+body:not([data-page="login"]) .fs-8,
+body:not([data-page="login"]) .fs-9 { font-size: 0.885rem !important; }
+.kpi-card-title { font-size: 1rem !important; }
+.kpi-card-caption { font-size: 0.885rem; }
+/* Column headings: the secondary label colour, no band and no capitals. */
+body:not([data-page="login"]) .table > thead > tr,
+body:not([data-page="login"]) .table > thead > tr > th {
+    text-transform: none !important;
+    background-color: transparent !important;
+}
+body:not([data-page="login"]) .table > thead > tr > th {
+    color: var(--bs-gray-600) !important;
+    font-size: 0.96rem !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid var(--bs-gray-200) !important;
+}
+body:not([data-page="login"]) .table.table-row-dashed > tbody > tr { border-bottom-style: solid; border-bottom-color: var(--bs-gray-200); }
+
+/* -- One control size, one radius -----------------------------------------------
+   Regular 38px, small 30px; 44px on a touch screen, the comfortable target. */
+body:not([data-page="login"]) .btn {
+    --bs-btn-padding-y: 0.6rem;
+    --bs-btn-padding-x: 1.15rem;
+    --bs-btn-border-radius: var(--dolphin-radius-control);
+    border-radius: var(--dolphin-radius-control);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+body:not([data-page="login"]) .btn.btn-sm {
+    --bs-btn-padding-y: 0.36rem;
+    --bs-btn-padding-x: 0.85rem;
+    --bs-btn-border-radius: var(--dolphin-radius-control-sm);
+    border-radius: var(--dolphin-radius-control-sm);
+}
+body:not([data-page="login"]) .btn.btn-icon { border-radius: var(--dolphin-radius-control); }
+body:not([data-page="login"]) .form-control:not(textarea),
+body:not([data-page="login"]) .form-select {
+    padding-block: 0.6rem;
+    border-radius: var(--dolphin-radius-control);
+}
+body:not([data-page="login"]) textarea.form-control { border-radius: var(--dolphin-radius-control); }
+body:not([data-page="login"]) .badge { border-radius: 999px; }
+@media (pointer: coarse), (max-width: 767.98px) {
+    body:not([data-page="login"]) .btn:not(.btn-icon) { --bs-btn-padding-y: 0.85rem; }
+    body:not([data-page="login"]) .btn.btn-sm:not(.btn-icon) { --bs-btn-padding-y: 0.6rem; }
+    body:not([data-page="login"]) .form-control:not(textarea),
+    body:not([data-page="login"]) .form-select { padding-block: 0.85rem; }
+}
+
+/* -- Press, hover and focus ------------------------------------------------------ */
+@media (prefers-reduced-motion: no-preference) {
+    body:not([data-page="login"]) .btn:active:not(:disabled):not(.disabled) { transform: none; scale: 0.97; }
+    a.card:active,
+    .app-sidebar .menu .menu-link:active,
+    .table > tbody > tr.is-row-link:active { scale: 0.99; }
+    a.card { transition: box-shadow var(--dolphin-dur) var(--dolphin-ease), translate var(--dolphin-dur) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease); }
+    a.card:hover { translate: 0 -2px; box-shadow: 0 2px 4px rgb(16 24 40 / 6%), 0 12px 28px -10px rgb(16 24 40 / 16%); }
+}
+
+/* -- A whole row opens its record ---------------------------------------------------
+   `ui/table.js`: the row's own «جزئیات» link becomes a disclosure chevron and
+   a click anywhere on the row follows it. */
+.table > tbody > tr.is-row-link { cursor: pointer; transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease); }
+.table > tbody > tr.is-row-link:hover { background-color: rgba(var(--bs-primary-rgb), 0.04) !important; }
+.btn.row-detail-link {
+    width: 30px;
+    height: 30px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-gray-500);
+    background: transparent !important;
+    border-radius: 999px;
+}
+.btn.row-detail-link i { font-size: 1.15rem; color: inherit; }
+tr.is-row-link:hover .btn.row-detail-link,
+.btn.row-detail-link:focus-visible { color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), 0.1) !important; }
+
+
+/* -- Sliding tab indicator (`ui/tab-indicator.js`) ----------------------------------- */
+.nav-line-tabs.has-indicator { position: relative; }
+.nav-line-tabs.has-indicator .nav-link,
+.nav-line-tabs.has-indicator .nav-link.active,
+.nav-line-tabs.has-indicator .nav-link:hover { border-bottom-color: transparent !important; }
+.nav-line-indicator {
+    position: absolute;
+    bottom: 0;
+    inset-inline-start: 0;
+    height: 2px;
+    width: 0;
+    border-radius: 2px;
+    background: var(--bs-primary);
+    pointer-events: none;
+    list-style: none;
+}
+.nav-line-indicator.is-ready { transition: transform var(--dolphin-dur) var(--dolphin-ease), width var(--dolphin-dur) var(--dolphin-ease); }
+
+/* -- A figure that changed live eases in (dashboard) ---------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+    .is-updated { animation: dolphin-value-in var(--dolphin-dur) var(--dolphin-ease) backwards; }
+}
+@keyframes dolphin-value-in {
+    from { opacity: 0; translate: 0 6px; }
+}
+
+/* -- Dialogs come and go (2.40.38) --------------------------------------------------
+   They opened with a motion and vanished at once; now the close plays the open
+   backwards, and the scrim fades with it. `@starting-style` and the discrete
+   transitions of `display`/`overlay` keep the dialog in the top layer for the
+   length of the exit. Browsers without them close at once, as before. */
+@media (prefers-reduced-motion: no-preference) {
+    dialog {
+        transition: opacity 180ms var(--dolphin-ease), scale 180ms var(--dolphin-ease), translate 260ms var(--dolphin-ease), display 260ms allow-discrete, overlay 260ms allow-discrete;
+    }
+    dialog:not([open]) { opacity: 0; scale: 0.97; }
+    /* `none`, not `1` (2.40.40): any `scale` or `translate` other than none makes
+       the dialog the box a `position: fixed` child is placed in, and the date
+       picker a wizard opens inside its dialog appeared shifted by the dialog's
+       own offset. At rest the dialog carries no transform at all. */
+    dialog[open] { opacity: 1; scale: none; translate: none; animation: none; }
+    @starting-style {
+        dialog[open] { opacity: 0; scale: 0.97; }
+    }
+    dialog::backdrop { transition: opacity 260ms var(--dolphin-ease), display 260ms allow-discrete, overlay 260ms allow-discrete; opacity: 0; }
+    dialog[open]::backdrop { opacity: 1; }
+    @starting-style {
+        dialog[open]::backdrop { opacity: 0; }
+    }
+}
+
+/* -- Menus open from their button ----------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+    .menu-sub-dropdown { transition: opacity 150ms var(--dolphin-ease), scale 150ms var(--dolphin-ease); transform-origin: top; }
+    .menu-sub-dropdown.show { opacity: 1; scale: none; }
+    @starting-style {
+        .menu-sub-dropdown.show { opacity: 0; scale: 0.96; }
+    }
+}
+
+/* -- Phone: dialogs are sheets, navigation is a tab bar --------------------------------- */
+@media (max-width: 575.98px) {
+    dialog {
+        width: 100%;
+        max-width: 100%;
+        margin: auto 0 0;
+        border-radius: 18px 18px 0 0;
+        padding-top: 1.6rem;
+        max-height: calc(100dvh - 2.5rem);
+    }
+    /* The grabber: the handle a sheet is pulled down by (`setupSheetDrag`). */
+    dialog::before {
+        content: "";
+        position: absolute;
+        top: 0.5rem;
+        inset-inline: 0;
+        width: 36px;
+        height: 5px;
+        margin-inline: auto;
+        border-radius: 999px;
+        background: var(--bs-gray-300);
+    }
+    @media (prefers-reduced-motion: no-preference) {
+        dialog:not([open]) { opacity: 1; scale: 1; translate: 0 100%; }
+        dialog[open] { translate: none; }
+        @starting-style {
+            dialog[open] { opacity: 1; scale: 1; translate: 0 100%; }
+        }
+    }
+}
+.dolphin-tab-bar { display: none; }
+@media (max-width: 767.98px) {
+    body.has-tab-bar { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+    body.has-tab-bar #nav-toggle { display: none !important; }
+    body.has-tab-bar .chat-toasts { bottom: calc(76px + env(safe-area-inset-bottom)); }
+    .dolphin-tab-bar {
+        position: fixed;
+        inset-inline: 0;
+        bottom: 0;
+        z-index: 104;
+        display: flex;
+        justify-content: space-around;
+        align-items: stretch;
+        height: calc(56px + env(safe-area-inset-bottom));
+        padding-bottom: env(safe-area-inset-bottom);
+        background: color-mix(in srgb, var(--bs-app-bg-color) 82%, transparent);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border-top: 1px solid color-mix(in srgb, var(--bs-gray-500) 22%, transparent);
+    }
+    .dolphin-tab-bar a,
+    .dolphin-tab-bar button {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        min-width: 44px;
+        border: 0;
+        background: none;
+        color: var(--bs-gray-600);
+        font-size: 10.5px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+    }
+    .dolphin-tab-bar i { font-size: 1.45rem; color: inherit; }
+    .dolphin-tab-bar i [class^="path"] { color: inherit; }
+    .dolphin-tab-bar [aria-current="page"] { color: var(--bs-primary); }
+    .dolphin-tab-bar a:active,
+    .dolphin-tab-bar button:active { scale: 0.92; }
+}
+@media (prefers-reduced-transparency: reduce) {
+    .dolphin-tab-bar { background: var(--bs-app-bg-color); backdrop-filter: none; }
+}
+
+/* -- Toggles that move when they change (2.40.39) ------------------------------------
+   Product owner: «دکمه‌های toggle باید یک انیمیشن روان و کوچک داشته باشند موقع
+   عوض شدن». A segmented option, a button-style radio and a switch each ease
+   their colour and give a small settle when they become the chosen one; a
+   checkbox or radio fills with the same curve. */
+.dolphin-segmented-option,
+.btn-check + .btn,
+.form-check-input {
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), border-color var(--dolphin-dur) var(--dolphin-ease),
+        color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease),
+        background-position var(--dolphin-dur) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .dolphin-segmented-option.is-selected,
+    .btn-check:checked + .btn,
+    .form-check-input:checked { animation: dolphin-toggle-settle 300ms var(--dolphin-ease); }
+    .dolphin-segmented-option:active,
+    .btn-check + .btn:active,
+    .form-check-input:active { scale: 0.94; }
+}
+@keyframes dolphin-toggle-settle {
+    0% { scale: 0.9; }
+    60% { scale: 1.04; }
+    100% { scale: 1; }
+}
+
+/* -- The conversation (2.40.40) -------------------------------------------------------
+   Product owner: «در صفحهٔ گفتگوها باید قسمت ارسال پیام یوزرها را بهتر نمایش
+   دهد و ساعت و تاریخ پیام را فقط هنگام هاور یا کلیک روی آن نشان دهد». A
+   message is a rounded bubble — the reader's own in the accent colour, the
+   other person's on a quiet grey — and its time slides out beneath it on
+   hover, tap or focus. The composer is one rounded field with the send
+   button inside it, growing with the text. */
+.chat-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: min(78%, 34rem);
+    margin-bottom: 0.4rem;
+    outline: none;
+    cursor: default;
+}
+.chat-msg.is-mine { margin-inline-start: auto; align-items: flex-end; }
+.chat-msg.is-theirs { margin-inline-end: auto; align-items: flex-start; }
+.chat-msg-bubble {
+    padding: 0.6rem 0.95rem;
+    border-radius: 18px;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    transition: filter var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.chat-msg.is-mine .chat-msg-bubble {
+    background: var(--bs-primary);
+    color: #fff;
+    border-end-end-radius: 6px;
+}
+.chat-msg.is-theirs .chat-msg-bubble {
+    background: var(--bs-gray-200);
+    color: var(--bs-gray-900);
+    border-end-start-radius: 6px;
+}
+.chat-msg.is-pending .chat-msg-bubble { opacity: 0.6; }
+.chat-msg-time {
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding-inline: 0.35rem;
+    color: var(--bs-gray-600);
+    font-size: 0.85rem;
+    transition: max-height var(--dolphin-dur) var(--dolphin-ease), opacity var(--dolphin-dur) var(--dolphin-ease), margin var(--dolphin-dur) var(--dolphin-ease);
+}
+.chat-msg:hover .chat-msg-time,
+.chat-msg:focus-visible .chat-msg-time,
+.chat-msg.show-time .chat-msg-time,
+.chat-msg.is-pending .chat-msg-time {
+    max-height: 1.6rem;
+    opacity: 1;
+    margin-top: 0.2rem;
+}
+.chat-msg:focus-visible .chat-msg-bubble { box-shadow: 0 0 0 3px rgba(var(--bs-primary-rgb), 0.3); }
+@media (hover: hover) {
+    .chat-msg:hover .chat-msg-bubble { filter: brightness(0.97); }
+}
+
+.chat-composer-field {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    padding: 0.35rem;
+    padding-inline-start: 1rem;
+    border: 1px solid var(--bs-gray-300);
+    border-radius: 22px;
+    background: var(--bs-body-bg);
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.chat-composer-field:focus-within {
+    border-color: rgba(var(--bs-primary-rgb), 0.55);
+    box-shadow: 0 0 0 4px rgba(var(--bs-primary-rgb), 0.12);
+}
+.chat-composer-input {
+    flex: 1 1 auto;
+    min-height: 2.4rem;
+    max-height: 160px;
+    padding: 0.55rem 0;
+    border: 0;
+    outline: none;
+    resize: none;
+    background: transparent;
+    color: var(--bs-gray-900);
+    font-size: 1.05rem;
+    line-height: 1.5;
+}
+/* The field around it already rings on focus; the panel's textarea ring would
+   draw a second box inside it. */
+.chat-composer-input:focus-visible { box-shadow: none; }
+.chat-composer-send.btn.btn-icon {
+    flex: 0 0 auto;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    opacity: 0.45;
+    transition: opacity var(--dolphin-dur-fast) var(--dolphin-ease), scale var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+.chat-composer.has-text .chat-composer-send.btn.btn-icon { opacity: 1; }
+.chat-composer-send i,
+.chat-composer-send i [class^="path"] { color: #fff; }
+.chat-composer-hint {
+    margin: 0.4rem 0.75rem 0;
+    color: var(--bs-gray-500);
+    font-size: 0.8rem;
+}
+@media (pointer: coarse) {
+    .chat-composer-hint { display: none; }
+}
+
+/* -- Dropdown lists in the panel's own style (2.40.40) ------------------------------------
+   Product owner: «تمامی اینپوت‌هایی که دراپ‌داون دارند، منوی دراپ‌داون باید شبیه به
+   تم پنل باشد». A `<select>` opened the operating system's own list — grey,
+   square and in the system font. Where the browser lets a page style that
+   list (`appearance: base-select`), it is the panel's: a rounded card with a
+   soft shadow, the panel's face, roomy rows, the chosen row in the accent
+   tint, opening with the same short motion as the panel's menus. The field
+   itself keeps the UI kit's look and chevron. Browsers without the feature
+   keep their own list, as before. */
+@supports (appearance: base-select) {
+    select.form-select:not([multiple]):not([size]),
+    select.form-select:not([multiple]):not([size])::picker(select) {
+        appearance: base-select;
+    }
+    select.form-select:not([multiple]):not([size]) {
+        display: flex;
+        align-items: center;
+    }
+    select.form-select:not([multiple]):not([size])::picker-icon { display: none; }
+    select.form-select:not([multiple]):not([size])::picker(select) {
+        margin-block: 6px;
+        padding: 6px;
+        max-height: min(22rem, 60vh);
+        border: 1px solid color-mix(in srgb, var(--bs-gray-500) 18%, transparent);
+        border-radius: 14px;
+        background: var(--bs-body-bg);
+        color: var(--bs-gray-900);
+        font-family: inherit;
+        box-shadow: 0 2px 6px rgb(0 0 0 / 6%), 0 18px 40px -12px rgb(0 0 0 / 22%);
+        transition: opacity 150ms var(--dolphin-ease), scale 150ms var(--dolphin-ease), display 150ms allow-discrete, overlay 150ms allow-discrete;
+        transform-origin: top;
+    }
+    select.form-select:not([multiple]):not([size]):not(:open)::picker(select) { opacity: 0; scale: 0.97; }
+    select.form-select:not([multiple]):not([size]):open::picker(select) { opacity: 1; scale: none; }
+    @starting-style {
+        select.form-select:not([multiple]):not([size]):open::picker(select) { opacity: 0; scale: 0.97; }
+    }
+    select.form-select:not([multiple]):not([size]) option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.5rem;
+        padding: 0.45rem 0.75rem;
+        border-radius: 9px;
+        font-size: 1rem;
+        color: var(--bs-gray-800);
+        cursor: pointer;
+        transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+    }
+    select.form-select:not([multiple]):not([size]) option:hover,
+    select.form-select:not([multiple]):not([size]) option:focus-visible {
+        background-color: color-mix(in srgb, var(--bs-gray-500) 12%, transparent);
+        outline: none;
+    }
+    select.form-select:not([multiple]):not([size]) option:checked {
+        background-color: rgba(var(--bs-primary-rgb), 0.12);
+        color: var(--bs-primary);
+        font-weight: 600;
+    }
+    select.form-select:not([multiple]):not([size]) option::checkmark {
+        order: 1;
+        margin-inline-start: auto;
+        color: var(--bs-primary);
+    }
+    select.form-select:not([multiple]):not([size]) option:disabled { opacity: 0.45; cursor: default; }
+    select.form-select:not([multiple]):not([size]) optgroup { padding: 0.25rem 0; color: var(--bs-gray-600); font-size: 0.9rem; font-weight: 600; }
+}

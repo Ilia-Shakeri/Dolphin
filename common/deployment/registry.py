@@ -204,6 +204,13 @@ FEATURE_DEPENDENCIES = {
     # unlike lead_kanban/order_kanban, which group rows a parent module owns,
     # this module owns its own rows outright.
     "accounting_ledger": frozenset(),
+
+    # Two-factor sign-in (2.40.42, roadmap item 12): a user may add a TOTP
+    # authenticator to their account, and from then on signing in asks for its
+    # six-digit code after the password. Optional per user; it reads and
+    # writes only the user's own two-factor rows, so it depends on nothing.
+    # Its key is stored under `DOLPHIN_SECRETS_KEY` (`common.crypto`).
+    "two_factor": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -279,6 +286,9 @@ DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "person_scoring", "tasks", "person_notes",
     "integrations", "outbound_webhooks", "public_api", "telephony",
     "campaigns", "realtime",
+    # 2.40.42: Client-1's original login policy named no multi-factor step, so
+    # a deployment gets it by asking, through its manifest.
+    "two_factor",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

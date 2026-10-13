@@ -11,11 +11,12 @@ notification badge.
 from pathlib import Path
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = ROOT / "common" / "static" / "common"
 JS = STATIC / "js"
-CSS = (STATIC / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 BASE = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
 MAIN = (JS / "main.js").read_text(encoding="utf-8")
 

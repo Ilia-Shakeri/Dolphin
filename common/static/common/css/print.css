@@ -1,0 +1,77 @@
+/* 3. Print ---------------------------------------------------------------- */
+
+/* The printed invoice and quotation deliberately do not use the theme: paper
+   has no dark sidebar, no cards and no hover states, and the printed document
+   must look identical whatever the theme is doing on screen. */
+/* The print sheet loads no theme bundle, so its own toolbar buttons are styled
+   here. Kept deliberately plain: they never appear on paper. */
+.print-page .button { display: inline-flex; min-height: 2.7rem; align-items: center; justify-content: center; padding: .65rem 1rem; border: 1px solid #087f73; border-radius: .55rem; color: #fff; background: #087f73; font-weight: 700; text-decoration: none; cursor: pointer; }
+.print-page .button:hover { background: #06665d; }
+.print-page .button-muted { border-color: #c8d5de; color: #254057; background: #edf3f6; }
+
+/* border-box because the print page loads no theme bundle and therefore has no
+   framework reset: without it the padding is added to the 100% width and the
+   document scrolls sideways on screen. */
+.print-page { box-sizing: border-box; width: min(100%, 60rem); margin: 0 auto; padding: clamp(1rem, 4vw, 2.5rem); }
+.print-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-bottom: 1rem; }
+.print-sheet { padding: 2rem; border: 1px solid #d8e4eb; border-radius: .5rem; background: #fff; }
+.print-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding-bottom: 1rem; border-bottom: .15rem solid #087f73; }
+.print-head h1 { margin-bottom: .2rem; font-size: 1.6rem; }
+.print-brand { color: #087f73; font-size: 1.3rem; font-weight: 800; }
+.print-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem 1.5rem; margin: 1.25rem 0; }
+.print-meta div { display: flex; gap: .5rem; }
+.print-meta span:first-child { color: #60758a; font-weight: 700; }
+/* The seven-column line-item table is wider than a phone. It scrolls inside its
+   own container so the document itself never scrolls sideways; on paper the
+   media query below returns it to visible, because a clipped invoice line is a
+   missing invoice line. */
+.print-page .table-wrap { overflow-x: auto; }
+.print-sheet table { width: 100%; margin-top: .5rem; border-collapse: collapse; }
+.print-sheet th, .print-sheet td { padding: .85rem .7rem; border-bottom: 1px solid #d8e4eb; text-align: right; white-space: normal; }
+/* Bounded rather than sized to its content: a fixed 12rem label column plus an
+   eight-digit rial total is wider than a phone, and the amounts were being cut
+   off at the edge of the sheet. */
+.print-totals { display: grid; justify-content: flex-start; gap: .35rem; margin-top: 1.25rem; width: min(100%, 26rem); }
+.print-totals div { display: grid; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: 1rem; }
+.print-totals .print-grand { padding-top: .35rem; border-top: .1rem solid #087f73; font-size: 1.1rem; font-weight: 800; }
+/* بند ۲ و ۹ — the two identity blocks the official invoice sets side by side.
+   They stay side by side on paper and stack only on a narrow screen, because
+   the printed sheet is always A4 and the reader compares them across. */
+.print-parties { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+.print-party { padding: .75rem 1rem; border: 1px solid #d8e4eb; border-radius: .5rem; }
+.print-party h2 { margin: 0 0 .5rem; padding-bottom: .35rem; border-bottom: 1px solid #d8e4eb; color: #087f73; font-size: .95rem; font-weight: 800; }
+.print-party div { display: grid; grid-template-columns: minmax(0, 9rem) minmax(0, 1fr); gap: .5rem; padding: .15rem 0; font-size: .82rem; }
+.print-party span:first-child { color: #60758a; font-weight: 700; }
+@media (max-width: 40rem) { .print-parties { grid-template-columns: minmax(0, 1fr); } }
+
+/* The eleven-column line table only fits by shrinking; it is the shape the
+   sample invoice uses and the reader expects it column for column. */
+.print-lines { font-size: .74rem; }
+.print-lines th, .print-lines td { padding: .3rem .35rem; }
+.print-lines tfoot th { border-top: .1rem solid #087f73; font-weight: 800; }
+
+/* بند ۹.۲ — the amount in words, given its own band so it cannot be mistaken
+   for a line of the table above it. */
+.print-in-words { display: flex; gap: .5rem; align-items: baseline; margin-top: 1rem; padding: .6rem .9rem; border: 1px solid #d8e4eb; border-radius: .5rem; background: #f7fafc; }
+.print-in-words span { color: #60758a; font-weight: 700; }
+
+/* بند ۹.۴ — space for a stamp and a signature. Nothing is drawn inside: the
+   box is the space, and it has to survive being printed in black and white. */
+.print-signatures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+.print-signature { min-height: 5.5rem; padding: .5rem .75rem; border: 1px dashed #a1b3c4; border-radius: .5rem; }
+.print-signature span { color: #60758a; font-size: .82rem; font-weight: 700; }
+
+.print-notes { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #d8e4eb; white-space: pre-wrap; }
+.print-footer { margin-top: 2rem; color: #60758a; font-size: .82rem; }
+.print-cancelled { margin-bottom: 1rem; padding: .6rem 1rem; border: .15rem solid #b42318; border-radius: .5rem; color: #b42318; font-weight: 800; text-align: center; }
+
+@media print {
+    body { background: #fff; }
+    .print-toolbar, .app-header, .app-sidebar, .app-footer { display: none !important; }
+    .print-page { width: 100%; padding: 0; }
+    .print-page .table-wrap { overflow-x: visible; }
+    .print-sheet { padding: 0; border: 0; border-radius: 0; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+}

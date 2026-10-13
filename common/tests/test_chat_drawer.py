@@ -29,6 +29,7 @@ from django.test import Client, SimpleTestCase, TestCase
 from accounts.models import User
 from common.deployment.profile import DeploymentProfile, override_active_profile
 from common.deployment.registry import ALL_FEATURES
+from common.stylesheets import stylesheet_text
 
 PASSWORD = "Strong-pass-274!"
 
@@ -219,9 +220,7 @@ class LiveChatTests(SimpleTestCase):
 class LayoutRegressionTests(SimpleTestCase):
     """The flex-scroll pitfall this drawer's own CSS was written to avoid."""
 
-    css = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-    ).read_text(encoding="utf-8")
+    css = stylesheet_text()
 
     def test_the_flex_chain_gets_a_real_min_height(self):
         self.assertIn("#dolphin_drawer_chat_messenger,", self.css)

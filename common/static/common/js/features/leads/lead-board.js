@@ -244,7 +244,7 @@ export async function setupLeadBoard() {
             // `margin-right` stayed a nonzero percentage no matter what
             // `gutter` was set to). Narrow-viewport stacking is handled
             // in CSS instead: `#lead-board .kanban-board`'s own
-            // `max-width: 767.98px` rule in dolphin.css forces full width
+            // `max-width: 767.98px` rule in the panel stylesheet forces full width
             // with `!important`, the only way to beat this inline style.
             dragBoards: false,
             dragItems: canManage,
@@ -294,7 +294,7 @@ export async function setupLeadBoard() {
         STATUSES.forEach((status) => {
             // A fixed number of cards shows before a column scrolls
             // internally instead of stretching the whole board — see the
-            // `.kanban-drag` max-height rule in dolphin.css. The class is
+            // `.kanban-drag` max-height rule in the panel stylesheet. The class is
             // the theme's own overlay scrollbar (vendor `_scroll.scss`),
             // the same one the app sidebar itself scrolls with, not a
             // hand-rolled one — it stays invisible until hovered, so a

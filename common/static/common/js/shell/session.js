@@ -93,10 +93,13 @@ export function setupSessionsDialog() {
         }
     });
 
-    open.addEventListener("click", () => {
+    const show = () => {
         dialog.showModal();
         load();
-    });
+    };
+    open.addEventListener("click", show);
+    // The «امنیت» settings tab opens the same dialog (2.40.42).
+    document.querySelectorAll("[data-open-sessions]").forEach((button) => button.addEventListener("click", show));
     close.addEventListener("click", () => dialog.close());
 }
 

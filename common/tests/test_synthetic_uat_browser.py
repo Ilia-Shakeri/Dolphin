@@ -157,8 +157,8 @@ class SyntheticUatRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "dashboard-title"), "میز کار بازاریاب"))
         self.assertTrue({"customers", "leads", "interactions", "products", "sales", "performance"}.issubset(self.modules()))
         self.assertTrue({"after-sales", "users", "audit"}.isdisjoint(self.modules()))
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "agent-work-queue-loading")))
-        self.assertIn("مشتری ساختگی آزمون پذیرش", self.browser.find_element(By.ID, "agent-work-queue-body").text)
+        # The loading line is drawn as a skeleton since 2.40.36; wait for the row itself.
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "agent-work-queue-body"), "مشتری ساختگی آزمون پذیرش"))
         self.assert_browser_clean()
 
     def test_after_sales_operator_persona(self):
@@ -170,6 +170,5 @@ class SyntheticUatRealBrowserTests(StaticLiveServerTestCase):
             {"customers", "leads", "interactions", "products", "sales", "performance", "users", "audit"}.isdisjoint(self.modules())
         )
         self.browser.get(f"{self.live_server_url}/after-sales/")
-        self.wait.until(expected_conditions.invisibility_of_element_located((By.ID, "after-sales-loading")))
-        self.assertIn("پرونده ساختگی خدمات پس از فروش", self.browser.find_element(By.ID, "after-sales-table-body").text)
+        self.wait.until(expected_conditions.text_to_be_present_in_element((By.ID, "after-sales-table-body"), "پرونده ساختگی خدمات پس از فروش"))
         self.assert_browser_clean()

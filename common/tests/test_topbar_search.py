@@ -20,12 +20,13 @@ from django.test import SimpleTestCase
 
 from common import search
 from common.tests.test_global_search import SearchFixtures
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
 JS_ROOT = ROOT / "common" / "static" / "common" / "js"
 SCRIPT = (JS_ROOT / "shell" / "search.js").read_text(encoding="utf-8")
 POPOVER = (JS_ROOT / "ui" / "popover.js").read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 BASE = (ROOT / "common" / "templates" / "common" / "base.html").read_text(encoding="utf-8")
 NODE = shutil.which("node")
 

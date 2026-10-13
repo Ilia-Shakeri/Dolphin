@@ -34,11 +34,12 @@ import pathlib
 import re
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = (PANEL_SCRIPT).read_text(encoding="utf-8")
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 TEMPLATES = ROOT / "common" / "templates" / "common"
 
 #: Every wizard in the product, found rather than listed: a wizard added later
@@ -220,13 +221,24 @@ class StepGateTests(SimpleTestCase):
         """The browser's bubble fades; the sentence in the field's own error
         slot does not. Both, because the bubble lands where the cursor is and
         the slot is what a reader who looked away comes back to."""
-        body = _function_body("setupWizard")
-        self.assertIn("writeNativeValidationMessage(invalid)", body)
-        self.assertIn("invalid.reportValidity()", body)
+        self.assertIn("showValidity(invalid)", _function_body("setupWizard"))
+        body = _function_body("showValidity")
+        self.assertIn("slot.textContent = text", body)
+        self.assertIn("field.reportValidity()", body)
 
-    def test_the_sentence_is_the_browsers_own_not_one_rewritten_here(self):
-        body = _function_body("writeNativeValidationMessage")
-        self.assertIn("field.validationMessage", body)
+    def test_the_sentence_is_persian_whatever_the_browsers_language(self):
+        """Until 2.40.42 the slot took the browser's own `validationMessage`,
+        so as not to keep a second copy of the constraint's wording. On most
+        readers' Chrome that sentence is English, in a Persian panel whose
+        errors are Persian and plain (product owner, 2.40.40). The constraint
+        is still the markup's; only its sentence is the panel's
+        (`validityText`), set as the field's custom validity while it is wrong
+        and cleared at the next edit so the browser keeps judging it."""
+        body = _function_body("showValidity")
+        self.assertIn("validityText(field)", body)
+        self.assertIn("field.setCustomValidity(text)", body)
+        self.assertIn('field.setCustomValidity("")', body)
+        self.assertNotIn("validationMessage", body)
 
     def test_every_wizard_still_has_one_nav_per_step(self):
         """A nav without its content (or the reverse) makes `stepOf` name the

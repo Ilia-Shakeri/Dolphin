@@ -36,6 +36,15 @@ def module_source(relative):
     return (MODULE_ROOT / relative).read_text(encoding="utf-8").replace("\r\n", "\n")
 
 
+def feature_source(folder):
+    """Every module of one folder (`features/dashboard`), joined — for tests
+    that pinned a page's code when the page was a single module."""
+    return "\n\n".join(
+        module_source(path.relative_to(MODULE_ROOT).as_posix())
+        for path in sorted((MODULE_ROOT / folder).glob("*.js"))
+    )
+
+
 def _legacy_shape(relative, text):
     text = _IMPORT_LINE.sub("", text)
     text = _EXPORT_PREFIX.sub("", text)

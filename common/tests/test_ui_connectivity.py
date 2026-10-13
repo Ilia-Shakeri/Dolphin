@@ -333,7 +333,9 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # (`DEFAULT_OFF_FEATURES` omits it), absent here only because
         # Client-1's frozen day-one manifest predates the split.
         # `campaigns` (2.36.0) is off by default everywhere: it needs
-        # `migrate_campaigns` and is switched on per manifest.
+        # `migrate_campaigns` and is switched on per manifest. `two_factor`
+        # (2.40.42) is off by default everywhere too, and Client-1's own login
+        # policy names no second step (`test_login_contract`).
         self.assertEqual(
             withheld,
             frozenset({
@@ -341,6 +343,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
                 "accounting_ledger", "panel_backup", "cheques", "campaigns", "realtime",
+                "two_factor",
             }),
         )
 

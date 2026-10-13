@@ -527,6 +527,11 @@ FROM (
         -- The row is replaced wholesale when someone uploads a new picture
         -- (`update_or_create`) and removed when they clear it, so all four.
         ('accounts_useravatar', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Two-factor sign-in (2.40.42): the key is replaced on a new enrolment,
+        -- its last used step rewritten on every sign-in, and both it and the
+        -- recovery codes removed when the user (or an admin reset) turns it off.
+        ('accounts_twofactordevice', 'SELECT, INSERT, UPDATE, DELETE'),
+        ('accounts_twofactorrecoverycode', 'SELECT, INSERT, UPDATE, DELETE'),
         -- General ledger (accounting/, phase 1 — DOLPHIN_ACCOUNTING_PLAN.md).
         ('accounting_account', 'SELECT, INSERT, UPDATE'),
         ('accounting_journalentry', 'SELECT, INSERT'),

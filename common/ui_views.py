@@ -106,6 +106,14 @@ ROLE_LABELS = {
 class DolphinLoginView(TemplateView):
     template_name = "common/login.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # The code step is in the page only where the deployment runs
+        # two-factor sign-in (2.40.42); elsewhere the page is username and
+        # password, nothing more.
+        context["two_factor_available"] = feature_enabled("two_factor")
+        return context
+
     def dispatch(self, request, *args, **kwargs):
         if is_crm_identity(request.user):
             return redirect("common_ui:home")
@@ -1501,7 +1509,9 @@ class DolphinSettingsView(ActiveCrmView):
         # One tab per group that has anything to show this reader. A tab's
         # content is rendered whether or not it is the active one (the page
         # switches without a reload); `?tab=` makes any tab linkable.
-        tabs = [("display", "نمایش پنل")]
+        tabs = [("display", "نمایش پنل"), ("security", "امنیت")]
+        # Two-factor sign-in on the reader's own account (2.40.42).
+        context["two_factor_available"] = feature_enabled("two_factor")
         if context["can_manage_scoring"]:
             tabs.append(("scoring", "امتیازدهی"))
         if context["can_manage_backups"]:
@@ -1512,6 +1522,15 @@ class DolphinSettingsView(ActiveCrmView):
         context["settings_tabs"] = tabs
         context["active_tab"] = requested if requested in {key for key, _ in tabs} else "display"
         return context
+
+
+class DolphinAttachmentLibraryView(ActiveCrmView):
+    """`/files/` — every attachment the reader may see (2.40.42, roadmap item
+    13: the UI kit's file manager). Feature `attachments`; the list's own
+    scope is the records the reader may see (`attachments/library.py`)."""
+
+    required_feature = "attachments"
+    template_name = "common/attachments/library.html"
 
 
 class DolphinChatView(ActiveCrmView):

@@ -1,0 +1,96 @@
+/* --- Dashboard widgets that follow their box (2.31.0) ---------------------
+
+   A widget is a size container: everything inside reads its own width, so a
+   tile dragged from a quarter to full width gets a bigger figure and a tile
+   squeezed narrow gets a smaller one, instead of one fixed type size in every
+   box. Charts follow the box's height through `fitWidgetChart` in
+   the panel script. Container units (`cqi`) rather than viewport units, so the
+   result depends on the box and not on the screen. */
+.dashboard-widget > .card {
+    container-type: inline-size;
+}
+
+.dashboard-kpi-value {
+    /* Smaller than before (2.38.1): a tile shows a figure, not a headline, and
+       an amount up to about a billion should sit on one line. */
+    font-size: clamp(1.1rem, 8.5cqi, 1.8rem);
+    overflow-wrap: anywhere;
+    letter-spacing: -0.01em;
+}
+
+.dashboard-kpi-label {
+    font-size: clamp(0.8rem, 4.2cqi, 1.1rem);
+}
+
+.dashboard-panel-title {
+    font-size: clamp(0.95rem, 5cqi, 1.25rem);
+}
+
+.dashboard-panel > .card-body {
+    min-height: 0;
+}
+
+.dashboard-panel-list {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    justify-content: space-between;
+}
+
+.dashboard-panel-row {
+    padding-block: clamp(0.4rem, 2cqi, 0.9rem);
+    border-block-end: 1px dashed var(--bs-gray-300);
+    font-size: clamp(0.85rem, 4cqi, 1.05rem);
+}
+
+.dashboard-panel-row:last-child {
+    border-block-end: 0;
+}
+
+.dashboard-agenda-day {
+    font-size: clamp(1.75rem, 16cqi, 3.25rem);
+}
+
+.dashboard-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: clamp(0.15rem, 1cqi, 0.4rem);
+    text-align: center;
+    font-size: clamp(0.75rem, 4cqi, 1rem);
+}
+
+.dashboard-calendar-weekday {
+    padding-block: 0.25rem;
+}
+
+.dashboard-calendar-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    position: relative;
+    color: var(--bs-gray-800);
+}
+
+.dashboard-calendar-day.has-task::after {
+    content: "";
+    position: absolute;
+    inset-block-end: 12%;
+    width: 0.3rem;
+    height: 0.3rem;
+    border-radius: 50%;
+    background: var(--bs-warning);
+}
+
+.dashboard-calendar-day.is-today {
+    background: var(--bs-primary);
+    color: var(--bs-white);
+    font-weight: 700;
+}
+
+/* The shared confirmation dialog (`confirmDialog` in the panel script): narrower
+   than a form dialog, since it holds one sentence and two buttons. */
+dialog.dolphin-confirm {
+    width: min(calc(100% - 2rem), 26rem);
+}

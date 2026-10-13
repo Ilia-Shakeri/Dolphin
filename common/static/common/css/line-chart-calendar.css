@@ -1,0 +1,200 @@
+/* 6. Line chart ----------------------------------------------------------- */
+
+/* The SVG scales with its container rather than being measured at runtime, so
+   the chart is readable on a phone without a resize listener. */
+.line-chart-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+/* Low contrast on purpose: guides orient the eye without competing with the
+   data drawn over them. */
+.line-chart-grid {
+    stroke: var(--bs-gray-200);
+    stroke-width: 1;
+}
+
+.line-chart-axis {
+    fill: var(--bs-gray-700);
+    font-size: 11px;
+}
+
+.line-chart-line {
+    fill: none;
+    stroke: var(--bs-primary);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.line-chart-dot {
+    fill: var(--bs-primary);
+    stroke: var(--bs-body-bg);
+    stroke-width: 1.5;
+}
+
+/* A point is a hover target, and on touch a tap target. Growing it on hover
+   costs no layout because a circle's radius is not part of the flow. */
+.line-chart-dot:hover {
+    r: 5.5;
+}
+
+/* The lead follow-up calendar's status legend — three dots, matching the
+   colours `setupLeadCalendar()` gives the FullCalendar events themselves. */
+.calendar-legend-dot {
+    display: inline-block;
+    width: .65rem;
+    height: .65rem;
+    border-radius: 50%;
+}
+.calendar-legend-dot[data-status="pending"] { background-color: var(--bs-primary); }
+.calendar-legend-dot[data-status="completed"] { background-color: var(--bs-success); }
+.calendar-legend-dot[data-status="cancelled"] { background-color: var(--bs-danger); }
+.calendar-legend-dot[data-status="member"] { background-color: var(--bs-info); }
+/* A ring, not a fill: "overdue" is a second, independent fact about a
+   pending follow-up (its own dot above already carries the real status
+   colour), not a fourth status — so this reads as an overlay, not a peer. */
+.calendar-legend-dot[data-status="overdue"] {
+    background-color: transparent;
+    border: 2px dashed var(--bs-danger);
+    width: .55rem;
+    height: .55rem;
+}
+
+/* A still-pending follow-up whose date has already passed — status colour
+   stays (the dot above is still the source of truth for status), but the
+   dashed border says "this one needs attention now" without adding a
+   fourth colour to learn. */
+.fc-event-overdue {
+    border-style: dashed !important;
+    border-width: 2px !important;
+}
+
+/* FullCalendar's own bundle ships fixed colours, not the theme's variables —
+   it was never built with this theme's dark mode in mind. These are FullCalendar's
+   own documented CSS custom properties (https://fullcalendar.io/docs/css-customization),
+   repointed at the same tokens every other chart on this page already reads,
+   so a reader who switches to dark mode does not land on a bright white grid.
+   Shared by both calendars this product has (lead follow-up and after-sales) —
+   the after-sales one previously carried none of this at all and rendered on
+   FullCalendar's raw, un-themed defaults. */
+#lead-calendar,
+#after-sales-calendar {
+    --fc-border-color: var(--bs-gray-300);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: var(--bs-gray-100);
+    --fc-list-event-hover-bg-color: var(--bs-gray-100);
+    color: var(--bs-gray-800);
+}
+#lead-calendar .fc-toolbar-title,
+#lead-calendar .fc-col-header-cell-cushion,
+#lead-calendar .fc-daygrid-day-number,
+#after-sales-calendar .fc-toolbar-title,
+#after-sales-calendar .fc-col-header-cell-cushion,
+#after-sales-calendar .fc-daygrid-day-number {
+    color: var(--bs-gray-800);
+}
+/* The toolbar buttons (prev/next, "امروز", the month/week/day switcher) are
+   all `.fc-button-primary` regardless of which is the active view — FullCalendar
+   does not give the inactive ones a lighter variant of their own. Colouring the
+   background here without also setting the text left it on this theme's default
+   button text colour, a muted grey meant for a dark, low-emphasis surface
+   (`.btn-light`'s own colour on this theme) — unreadable against a bright
+   primary-blue fill. `.btn-primary` elsewhere on this same blue already answers
+   the question correctly: white text, `font-weight: 500`. */
+#lead-calendar .fc-button-primary,
+#after-sales-calendar .fc-button-primary {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: var(--bs-white);
+    font-weight: 500;
+}
+
+/* The hover preview `setupLeadCalendar()` builds per event — wider than
+   Bootstrap's popover default so the notes preview does not wrap into an
+   unreadably narrow column. */
+.lead-calendar-popover {
+    max-width: 20rem;
+}
+
+/* The week and day views (product-owner request 2026-09-19: the month grid
+   was fine, these two were not). `CALENDAR_TIME_GRID_OPTIONS` in
+   the panel script already settled the behaviour — whole-hour slots, a now
+   line, rows that fill the card; what is left is what the grid looks like,
+   and FullCalendar's raw defaults were not built against this theme.
+
+   The single biggest change is what is *not* here: with `slotDuration` at one
+   hour there is no `.fc-timegrid-slot-minor` at all, so the second, unlabelled
+   rule that used to run through every hour is gone rather than being hidden
+   with a rule of its own. The rest is spacing and weight: an hour needs room
+   to be clicked into, and an hour label should read as an axis, not as
+   content. */
+#lead-calendar .fc-timegrid-slot,
+#after-sales-calendar .fc-timegrid-slot {
+    height: 3rem;
+}
+#lead-calendar .fc-timegrid-slot-label,
+#after-sales-calendar .fc-timegrid-slot-label {
+    /* The axis, not a heading: lighter and smaller than the grid it labels,
+       and vertically centred against its own hour line rather than sitting on
+       top of it. */
+    color: var(--bs-gray-600);
+    font-size: 0.8rem;
+    vertical-align: middle;
+    border: 0;
+}
+/* Both calendars start the week on Saturday and show seven columns; a day
+   column's own header carries the weekday name over a large Jalali day number
+   (`dayHeaderContent`). Making it sticky means the date stays readable while
+   the hour grid under it is scrolled. */
+#lead-calendar .fc-timegrid .fc-col-header,
+#after-sales-calendar .fc-timegrid .fc-col-header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: var(--bs-body-bg);
+}
+#lead-calendar .fc-timegrid-col-frame,
+#after-sales-calendar .fc-timegrid-col-frame {
+    /* A little breathing room on both inline edges so an event chip does not
+       sit flush against the hour line beside it. */
+    padding-inline: 2px;
+}
+#lead-calendar .fc-timegrid-event,
+#after-sales-calendar .fc-timegrid-event {
+    border-radius: 0.4rem;
+    padding: 0.15rem 0.35rem;
+    box-shadow: none;
+}
+/* The current-time line. FullCalendar draws its own arrow marker at the axis
+   end; both halves are repointed at the theme's danger token so the line
+   reads as "now" in either theme rather than as a fixed red from the bundle. */
+#lead-calendar .fc-timegrid-now-indicator-line,
+#after-sales-calendar .fc-timegrid-now-indicator-line {
+    border-color: var(--bs-danger);
+    border-block-start-width: 2px;
+}
+#lead-calendar .fc-timegrid-now-indicator-arrow,
+#after-sales-calendar .fc-timegrid-now-indicator-arrow {
+    border-color: var(--bs-danger);
+    color: var(--bs-danger);
+}
+/* Today's own column: the faintest possible wash, enough to find it in a week
+   of seven without turning it into a highlighted block. FullCalendar's own
+   default here is a hard-coded yellow that belongs to no theme. */
+#lead-calendar .fc-timegrid-col.fc-day-today,
+#lead-calendar .fc-daygrid-day.fc-day-today,
+#after-sales-calendar .fc-timegrid-col.fc-day-today,
+#after-sales-calendar .fc-daygrid-day.fc-day-today {
+    background-color: rgba(var(--bs-primary-rgb), 0.06);
+}
+/* The all-day strip above the hour grid — where a follow-up with no clock of
+   its own lands. Named and separated from the grid below it, rather than
+   reading as an eighth, unlabelled hour. */
+#lead-calendar .fc-timegrid-axis,
+#after-sales-calendar .fc-timegrid-axis {
+    color: var(--bs-gray-600);
+    font-size: 0.8rem;
+}

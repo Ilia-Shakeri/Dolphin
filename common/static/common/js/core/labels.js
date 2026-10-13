@@ -1,5 +1,3 @@
-const CALL_DIRECTION_ICON = {inbound: "di-entrance-left", outbound: "di-exit-right", internal: "di-arrow-right-left"};
-
 /** The three states a campaign is tracked in, as the theme's badges. */
 export const LEAD_STATUS_LABELS = {
     pending: ["در انتظار تکمیل", "badge-light-warning"],
@@ -25,16 +23,6 @@ export const SETTLEMENT_TEXT = Object.freeze({
     unpaid: "تسویه‌نشده",
     partially_paid: "تسویه جزئی",
     paid: "تسویه کامل",
-});
-const PAYMENT_DIRECTION_TEXT = Object.freeze({
-    receipt: "دریافتی",
-    disbursement: "پرداختی",
-});
-const INSTALLMENT_STATUS_TEXT = Object.freeze({
-    pending: "پرداخت‌نشده",
-    partially_paid: "پرداخت جزئی",
-    paid: "پرداخت‌شده",
-    cancelled: "لغوشده",
 });
 
 /**

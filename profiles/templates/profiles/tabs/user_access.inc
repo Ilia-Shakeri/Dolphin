@@ -63,6 +63,14 @@
     <div id="user-sessions-empty" class="text-center text-gray-700 py-10" hidden>نشست فعالی برای این کاربر ثبت نشده است.</div>
     <div id="user-sessions-table-wrap" class="table-responsive" hidden><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>شناسه نشست</th><th>انقضا</th></tr></thead><tbody id="user-sessions-table-body"></tbody></table></div>
 </dialog>{% endif %}
+{% if profile_can_reset_two_factor %}{% comment %} Shown by the script only when this account has
+   two-factor sign-in on (`two_factor_enabled` on the user). {% endcomment %}
+<section class="card mb-5 mb-xl-8" id="user-two-factor-card" hidden><div class="card-body">
+    <h2 class="fs-3 fw-bold text-gray-900 mb-3">ورود دومرحله‌ای</h2>
+    <p class="text-muted mb-5">این کاربر هنگام ورود، کد برنامهٔ احراز هویت را هم وارد می‌کند. اگر گوشی‌اش در دسترس نیست و کد بازیابی هم ندارد، ورود دومرحله‌ای را بازنشانی کنید تا با گذرواژه وارد شود و دوباره روشنش کند.</p>
+    <button id="reset-user-two-factor" class="btn btn-light-danger" type="button">بازنشانی ورود دومرحله‌ای</button>
+</div></section>
+{% endif %}
 <section class="card mb-5 mb-xl-8 border border-danger border-dashed"><div class="card-body">
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">وضعیت دسترسی</h2>
     <p>کاربر غیرفعال اجازه ورود ندارد و بعدا می‌تواند در همین صفحه دوباره فعال شود. آخرین مدیر فعال پلتفرم قابل غیرفعال‌سازی نیست.</p>

@@ -52,14 +52,17 @@ export const PAGES = {
     "receivables-report": async () => (await import("dolphin/features/billing/receivables-report.js")).setupReceivablesReport(),
     "profit-report": async () => (await import("dolphin/features/billing/profit-report.js")).setupProfitReport(),
     "stock-valuation-report": async () => (await import("dolphin/features/billing/stock-valuation-report.js")).setupStockValuationReport(),
+    "attachment-library": async () => (await import("dolphin/features/attachments/library.js")).setupAttachmentLibrary(),
     "branding-settings": async () => (await import("dolphin/features/settings/branding-settings.js")).setupBrandingSettings(),
     "settings": async () => {
         const module0 = await import("dolphin/features/settings/settings-page.js");
         const module1 = await import("dolphin/features/settings/backup-section.js");
         const module2 = await import("dolphin/features/settings/scoring-section.js");
+        const module3 = await import("dolphin/features/settings/security-section.js");
         module0.setupSettingsPage();
         module1.setupBackupSection();
         module2.setupScoringSection();
+        module3.setupSecuritySection();
     },
     "sms-provider-settings": async () => (await import("dolphin/features/settings/sms-provider-settings.js")).setupSmsProviderSettings(),
     "post-provider-settings": async () => (await import("dolphin/features/settings/post-provider-settings.js")).setupPostProviderSettings(),

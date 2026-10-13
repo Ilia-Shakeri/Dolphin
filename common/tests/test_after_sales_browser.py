@@ -7,6 +7,7 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.core.cache import cache
 
 from accounts.models import User
+from common.tests.browser_support import BrowserFlowMixin
 from sales.services import create_customer_with_phone
 
 
@@ -21,7 +22,7 @@ if SELENIUM_AVAILABLE:
 
 
 @unittest.skipUnless(SELENIUM_AVAILABLE, "Selenium is not installed.")
-class AfterSalesRealBrowserTests(StaticLiveServerTestCase):
+class AfterSalesRealBrowserTests(BrowserFlowMixin, StaticLiveServerTestCase):
     password = "Strong-pass-983!"
 
     @classmethod
@@ -135,16 +136,14 @@ class AfterSalesRealBrowserTests(StaticLiveServerTestCase):
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "create-after-sales-customer")))
         # The dialog now opens as soon as the page renders rather than only
         # after its lookup loads resolve, so wait for the options themselves.
-        for select_id in ("create-after-sales-customer", "create-after-sales-assigned"):
-            self.wait.until(
-                lambda driver, node=select_id: len(Select(driver.find_element(By.ID, node)).options) > 1
-            )
-        Select(self.browser.find_element(By.ID, "create-after-sales-customer")).select_by_visible_text("مشتری مرورگر خدمات")
-        Select(self.browser.find_element(By.ID, "create-after-sales-assigned")).select_by_visible_text("اپراتور خدمات")
-        self.browser.find_element(By.ID, "create-after-sales-subject").send_keys("پیگیری مرورگر")
-        self.browser.find_element(By.ID, "create-after-sales-status").send_keys("جدید")
-        self.browser.find_element(By.ID, "create-after-sales-description").send_keys("شرح ثبت واقعی پرونده")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-after-sales-form button[type='submit']").click()
+        # A step wizard: the case's facts, then a review step that submits.
+        self.fill_wizard("create-after-sales-dialog", [
+            ("create-after-sales-customer", "مشتری مرورگر خدمات"),
+            ("create-after-sales-assigned", "اپراتور خدمات"),
+            ("create-after-sales-subject", "پیگیری مرورگر"),
+            ("create-after-sales-status", "جدید"),
+            ("create-after-sales-description", "شرح ثبت واقعی پرونده"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/after-sales/\d+/$"))
         case_url = self.browser.current_url
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "after-sales-detail-content")))

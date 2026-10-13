@@ -150,6 +150,7 @@ FEATURE_META = {
     "custom_branding": ("platform", "برند اختصاصی", "Custom branding", "نام و لوگوی خود مشتری در پنل.", "The customer own name and logo in the panel."),
     "panel_backup": ("platform", "پشتیبان‌گیری از پنل", "Panel backup", "پشتیبان‌گیری و بازگردانی از داخل پنل.", "Backing up and restoring from inside the panel."),
     "internal_it_role": ("platform", "نقش مدیر فنی مشتری", "Customer IT role", "نقشی جدا برای مدیر فنی سمت مشتری.", "A separate role for the customer own technical admin."),
+    "two_factor": ("platform", "ورود دومرحله‌ای", "Two-factor sign-in", "کد شش‌رقمی برنامهٔ احراز هویت هنگام ورود، اختیاری برای هر کاربر.", "A six-digit authenticator code at sign-in, optional per user."),
 }
 
 STRINGS.update({

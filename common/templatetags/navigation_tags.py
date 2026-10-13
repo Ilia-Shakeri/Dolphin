@@ -63,6 +63,26 @@ def page_tabs(context, key, current):
     )
 
 
+@register.simple_tag(takes_context=True)
+def help_topics(context):
+    """The «راهنما» drawer's topics for the sections this reader's menu shows
+    (2.40.42, `common.help`)."""
+    from common.help import topics_for
+
+    return topics_for(
+        sidebar_navigation(context),
+        features=context.get("features") or (),
+        capabilities=context.get("capabilities") or (),
+    )
+
+
+@register.simple_tag(takes_context=True)
+def help_shortcuts(context):
+    from common.help import shortcuts_for
+
+    return shortcuts_for(context.get("features") or ())
+
+
 @register.simple_tag
 def nav_label(url_name):
     """The menu label of a page, so its title and breadcrumb read the same."""

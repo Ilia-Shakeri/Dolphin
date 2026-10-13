@@ -2,6 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDate} from "dolphin/core/jalali.js";
 import {formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
+import {setupPostalShipment} from "dolphin/features/sales/postal-shipment.js";
 import {fillPostalStates, postalBadge} from "dolphin/features/sales/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {loadAllPages} from "dolphin/ui/lists.js";
@@ -145,6 +146,8 @@ export async function setupSalesDocumentDetail() {
     const endpoint = `/api/v1/sales-documents/${id}/`;
     const loading = document.getElementById("sales-document-detail-loading");
     const content = document.getElementById("sales-document-detail-content");
+    // The Iran Post card runs on its own requests, whatever the document read does.
+    setupPostalShipment();
     let item;
     // Live (2.40.41): the parcel and its history redraw in place when it
     // changes elsewhere — a carrier update, a bulk status change.

@@ -110,7 +110,7 @@ class ScriptBehaviourTests(SimpleTestCase):
     def test_next_is_gated_on_the_current_steps_own_required_fields(self):
         body = _function_body("setupWizard", "\n    /**\n     * One dynamic")
         self.assertIn('querySelector(":invalid")', body)
-        self.assertIn("invalid.reportValidity()", body)
+        self.assertIn("showValidity(invalid)", body)
         self.assertIn("stepper.goNext()", body)
 
     def test_reaching_the_last_step_is_reported_back_to_the_caller(self):

@@ -140,6 +140,11 @@ OPERATION_LABELS = {
     "user.permissions_reset": "بازنشانی مجوزهای کاربر به پیش‌فرض نقش",
     "user.sessions_revoked": "ابطال نشست‌های کاربر",
     "user.password_set": "تغییر گذرواژهٔ کاربر",
+    "two_factor.enabled": "روشن کردن ورود دومرحله‌ای",
+    "two_factor.disabled": "خاموش کردن ورود دومرحله‌ای",
+    "two_factor.reset": "بازنشانی ورود دومرحله‌ای",
+    "two_factor.recovery_codes_renewed": "صدور کدهای بازیابی تازه",
+    "two_factor.recovery_code_used": "ورود با کد بازیابی",
     "user.platform_admin_bootstrapped": "ایجاد مدیر پلتفرم",
     "user.uat_seeded": "ایجاد داده آزمایشی",
     # --- پروفایل: یادداشت، وظیفه، امتیاز (۲.۲۰.۰) ------------------------------

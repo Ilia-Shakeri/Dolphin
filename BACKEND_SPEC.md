@@ -1134,7 +1134,9 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 ### Authentication
 
-- `POST auth/login/`: username and password; creates session. Inactive/invalid credentials and any server identity with staff/superuser/group/direct-permission state are rejected without exposing which identity rule failed. Application and Nginx rate limits protect repeated attempts.
+- `POST auth/login/`: username and password; creates session. Inactive/invalid credentials and any server identity with staff/superuser/group/direct-permission state are rejected without exposing which identity rule failed («نام کاربری یا رمز عبور اشتباه می‌باشد.»). Application and Nginx rate limits protect repeated attempts.
+- **Two-factor sign-in (2.40.42, feature `two_factor`, off by default).** On an account with a confirmed authenticator, a right password signs nothing in: `auth/login/` answers `{"two_factor_required": true}` and the session only remembers the pending user (with the password hash it was checked against) for five minutes and five tries. `POST auth/login/two-factor/` `{code}` then takes the authenticator's six-digit code (TOTP, RFC 6238: HMAC-SHA1, 30-second steps, one step of drift; a code is accepted once — the step is remembered) or one unused recovery code, and signs in. Both are under the `login` throttle. Without the feature an account's authenticator is kept but not asked for.
+- `GET auth/me/two-factor/` (`available` — a usable `DOLPHIN_SECRETS_KEY` exists —, `enabled`, `enabled_at`, `recovery_codes_left`); `POST auth/me/two-factor/setup/` `{password}` → `{secret, otpauth_uri, qr}` (a new key, not in force; 409 when already on or when no secrets key exists); `POST …/confirm/` `{code}` → `{recovery_codes}` (ten, shown once, stored as salted PBKDF2 hashes); `POST …/disable/` and `POST …/recovery-codes/` `{password, code}` (code may be a recovery code). The key is a `common.crypto` token; a copy of the database alone cannot produce codes. Models `accounts.TwoFactorDevice` (one per user) and `accounts.TwoFactorRecoveryCode` (`accounts.0009`). Every change is in the activity log (`two_factor.*`).
 - `POST auth/logout/`: authenticated; clears session.
 - `GET/PATCH auth/me/`: current safe profile. Patch permits first name, last name, phone, email, `job_title` and `province` only (the last two since 2.19.0; `province` must be one of the 31 names in `common/provinces.py` or blank); it locks and safely audits changed field names. The response also carries read-only `normalized_phone` and `last_seen_at`.
 - `GET auth/me/sessions/`: the caller's own active sessions. Each row carries an opaque `reference`, `expires_at`, `is_current`, and the device facts recorded at login (`user_agent`, `ip_address`, `started_at`). **A session key is never returned**: it is the bearer credential, and the reference is a keyed digest that cannot be reversed into one.
@@ -1142,7 +1144,8 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 
 ### Users
 
-- `GET/POST users/`, `GET/PATCH users/{id}/`: Sales Manager lists and manages Sales Agent accounts only; Company IT manages clean non-platform accounts; Platform Admin manages every clean CRM identity. Inactive rows remain visible to their approved administrator for reactivation; staff/superuser/group/direct-permission identities remain hidden. A password is set once at creation and passes Django's validators; **it cannot be changed through this API** and no interface offers to, for any role — a forgotten password is recovered on the host with `manage.py changepassword`. Sending `password` to `PATCH users/{id}/` returns HTTP 400. `workstream` is exactly `sales` or `after_sales`, is allowed as `after_sales` only for Sales Agent, and resets to `sales` on promotion.
+- `GET/POST users/`, `GET/PATCH users/{id}/`: Sales Manager lists and manages Sales Agent accounts only; Company IT manages clean non-platform accounts; Platform Admin manages every clean CRM identity. Inactive rows remain visible to their approved administrator for reactivation; staff/superuser/group/direct-permission identities remain hidden. A password is set at creation and passes Django's validators; sending `password` to `PATCH users/{id}/` returns HTTP 400. Since 2.40.32 the Platform Admin sets another account's password with `POST users/{id}/set-password/` (which ends that account's sessions); a user does not change their own here, and a forgotten Platform Admin password is recovered on the host with `manage.py changepassword`. Rows carry read-only `two_factor_enabled` (2.40.42).
+- `POST users/{id}/reset-two-factor/` (2.40.42, feature `two_factor`): the Platform Admin takes two-factor sign-in off another account — a lost phone; never their own (HTTP 400), which is `manage.py reset_two_factor --username …` on the host. `workstream` is exactly `sales` or `after_sales`, is allowed as `after_sales` only for Sales Agent, and resets to `sales` on promotion.
 - Since 2.19.0 `users/` rows also carry `job_title` and `province` (writable, same rules as `auth/me/`) and read-only `normalized_phone` (E.164 or blank) and `last_seen_at`.
 - `POST users/{id}/change-role/`: Company IT can grant through `company_it`; Platform Admin can grant any fixed CRM role. Staff/superuser/groups/permissions are never writable. Demoting the last active Platform Admin CRM identity returns HTTP 409 `conflict`.
 - `GET users/{id}/sessions/`, `POST users/{id}/revoke-sessions/`: Platform Admin only, same shape as the self-service endpoints above and with the same rule that no session key is ever returned. Revocation accepts an optional `reference` to end one session.
@@ -1193,6 +1196,11 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - `POST after-sales/{id}/transition-status/` is allowed to elevated roles and the currently assigned after-sales operator. It rejects closed/same/blank/multiline status and appends history/audit atomically. Exact status vocabulary and graph remain unresolved; no enum is claimed.
 - `POST after-sales/{id}/close/` is elevated-only and final because reopen semantics were not supplied. `GET after-sales/{id}/history/` reuses the case selector and is append-only.
 - After-sales operators get no Customer, Lead, Interaction, Product, Sale, sales-document, performance, or postal-report API scope. The case response embeds only the bounded relation labels needed by its panel.
+
+### Files and help (2.40.42)
+
+- `GET attachments/library/?search&parent&kind&page` (feature `attachments`): every attachment the caller may see — exactly the scope download and delete already use (a file is visible when its record is) — newest first, paged. `parent` is one of `customer`, `lead`, `invoice`, `sales_document`, `after_sales_request`; `kind` is `image` or `pdf`. Rows add `parent_type_display`, `parent_name`, `parent_url` and `can_delete` (the Platform Admin, or the parent module's `<module>.delete`) to the attachment fields. Page `/files/` («اسناد و پیوست‌ها»); the menu lists it under «مشتریان» for whoever reads customers — the page itself only needs the feature, since the API decides every row.
+- Activity log rows carry `actor_display` (2.40.42); the header's activity drawer lists the newest thirty for whoever may read the log. The help drawer's text is `common/help.py`, one topic per menu group the reader is shown: a section is summed up by the pages of it the reader's menu holds, and each tip and shortcut names the page, feature or capability it needs and is left out without it.
 
 ### Person profile (2.19.0)
 
@@ -3091,7 +3099,7 @@ And one line chart, through `renderLineChart`:
 |---|---|---|
 | customer growth | customers list | cumulative total per week or month |
 
-Styling is `.performance-chart*` in `common/static/common/dolphin.css`. Every
+Styling is `.performance-chart*` in the panel stylesheet (`common/static/common/css/`). Every
 chart carries an `aria-label`, because bars announce nothing on their own, and
 every one of these pages has an XLSX export that is the real accessible
 alternative.
@@ -3249,14 +3257,13 @@ Loaded assets, and only these, because they are what the served pages request:
 | `common/ui/js/dolphin-theme.js` | `DolphinUtil`, `DolphinMenu`, `DolphinDrawer`, `DolphinScroll` |
 | `common/ui/fonts/dolphin-icons/*` | the icon font the sidebar uses |
 | `common/ui/fonts/IRANSansWeb*` | Persian typography |
-| `common/dolphin.css` | Dolphin-only: behaviour, brand, print |
+| `common/css/*.css` | Dolphin-only: behaviour, brand, print and the panel's own components — one file per layer, linked in the cascade order `common/stylesheets.py` lists (`{% dolphin_stylesheets %}`; until 2.40.42 one file, `common/dolphin.css`) |
+| `common/ui/js/dolphin-plugins.js` | ApexCharts and the few vendor plugins the panel draws with (cut from 3.6 to 0.9 MB in 2.40.36) |
 | `common/js/main.js` and `common/js/**` | the application: ES modules, one entry per `data-page` in `pages.js` |
 
-**`dolphin-plugins.js` (3.5 MB) is deliberately not loaded.** The pages need
-`DolphinMenu` and `DolphinDrawer`, which live in `scripts.bundle.js`; they do not use
-Bootstrap's JavaScript, because the modals are native `<dialog>`. Nothing on a
-served page depends on it, and a served page has zero severe console errors
-without it.
+The theme stylesheet keeps only the rules a first-party template, script or
+Python module can produce a class for (1.45 → 0.43 MB in 2.40.42); the
+reference template's layout-builder demo is gone from `dolphin-theme.js`.
 
 ### Status vocabulary
 
@@ -3310,18 +3317,18 @@ Each of these is a deliberate choice, not an omission.
    behaves like every other UI-kit menu. `DolphinMenu` is not used to open it:
    it positions a dropdown with Popper, which ships only in the plugins bundle
    above. Toggling the class is eight lines in the panel script and the anchoring
-   is three in `dolphin.css` — the same trade as the native dialogs, for the same
+   is three in the panel stylesheet — the same trade as the native dialogs, for the same
    reason. The sidebar accordion still uses `DolphinMenu`, which needs no Popper.
 
 2. **Modals are native `<dialog>`, not `.modal`.** The theme's modal needs
    Bootstrap's JavaScript, which would mean shipping the 3.5 MB plugins bundle
    for one component. `<dialog>` is real, focusable, closes on Escape, and needs
-   no library. `dolphin.css` gives it the theme's card surface — about ten lines,
+   no library. The panel stylesheet gives it the theme's card surface — about ten lines,
    the only place a theme component is re-created.
 3. **The print and PDF pages load no theme bundle at all.** Paper has no dark
    sidebar, no cards and no hover states, and a printed invoice must look the
    same whatever the theme is doing on screen. Their stylesheet is
-   self-contained in `dolphin.css`.
+   self-contained in the panel stylesheet (`css/print.css`).
 4. **No theme-mode switcher, no language selector, no social sign-in, no
    sign-up, no password-reset link, no notification or avatar drawer.** All
    exist in the theme; all are absent by Client-1 policy, and a control may

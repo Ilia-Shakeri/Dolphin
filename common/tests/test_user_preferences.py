@@ -49,6 +49,7 @@ from common.models import (
     UserPreference,
 )
 from common.templatetags.money_tags import money as template_money
+from common.stylesheets import stylesheet_text
 
 PASSWORD = "Strong-pass-882!"
 
@@ -216,14 +217,11 @@ class GeneratedCssTests(PreferenceFixtures):
         self.assertIsNone(css)
 
     def test_the_stylesheet_itself_still_chooses_no_typeface(self):
-        """`dolphin.css` is forbidden from owning the panel's type
+        """The panel stylesheet is forbidden from owning the panel's type
         (`test_the_override_sheet_does_not_rebuild_the_themes_components`).
         This feature does not change that — it renders per request, inline,
         the way the brand accent colour already does."""
-        stylesheet = (
-            pathlib.Path(__file__).resolve().parents[2]
-            / "common" / "static" / "common" / "dolphin.css"
-        ).read_text(encoding="utf-8")
+        stylesheet = stylesheet_text()
         self.assertNotIn("--bs-font-sans-serif", stylesheet)
 
 

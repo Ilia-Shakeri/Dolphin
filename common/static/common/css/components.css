@@ -1,0 +1,910 @@
+/* 10. The shared hover scrollbar -------------------------------------------
+
+   One component, used by every panel that scrolls its own content inside a
+   card: the kanban columns and the dashboard's capability grid today, and
+   whatever comes next. Product-owner request 2026-09-20: «چون سایت راست‌چین
+   است باید سمت راست باشد، به‌صورت پیش‌فرض پنهان و با هاور روی ستون نمایش
+   داده شود».
+
+   Three things it has to get right, and each needs its own mechanism:
+
+   * **Side.** A `direction: rtl` element puts its scrollbar on the *left*,
+     which is where this panel's columns had it. The scroll container is
+     flipped to `ltr` to move the bar to the right and the direct children
+     are flipped back to `rtl`, so the text still reads correctly. This is
+     the only way to move a scrollbar: no property positions it directly.
+   * **Hidden until hover.** Firefox and WebKit have nothing in common here.
+     Firefox has `scrollbar-color`, which animates, so the thumb fades in.
+     WebKit has `::-webkit-scrollbar-thumb`, whose `background-color`
+     animates the same way. Both are declared; each browser ignores the
+     other's.
+   * **Touch.** A touch screen never hovers, so `@media (hover: none)` shows
+     the thumb permanently. Without that the bar would be permanently
+     invisible on a phone — worse than the default it replaced, not better.
+
+   `scrollbar-gutter: stable` keeps the track's width reserved whether the
+   thumb is showing or not, so content does not shift by the bar's width on
+   the first hover.
+
+   This replaces the UI kit's own `hover-scroll-overlay-y` in these places.
+   That class is still fine where the vendor uses it; it simply puts the bar
+   on the wrong side for an RTL panel and has no touch fallback. */
+.dolphin-hover-scroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    direction: ltr;
+    scrollbar-gutter: stable;
+    /* Firefox. Both track and thumb transparent is "no visible scrollbar"
+       while the space stays reserved. */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color var(--dolphin-dur) var(--dolphin-ease);
+}
+
+/* Only the direct children flip back: anything deeper inherits `rtl` from
+   them, and flipping every descendant would fight a nested `dir` attribute
+   that meant it. */
+.dolphin-hover-scroll > * {
+    direction: rtl;
+}
+
+.dolphin-hover-scroll:hover,
+.dolphin-hover-scroll:focus-within {
+    scrollbar-color: var(--bs-gray-400) transparent;
+}
+
+.dolphin-hover-scroll::-webkit-scrollbar {
+    width: 0.5rem;
+}
+
+.dolphin-hover-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.dolphin-hover-scroll::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 1rem;
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease);
+}
+
+.dolphin-hover-scroll:hover::-webkit-scrollbar-thumb,
+.dolphin-hover-scroll:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--bs-gray-400);
+}
+
+.dolphin-hover-scroll:hover::-webkit-scrollbar-thumb:hover {
+    background-color: var(--bs-gray-500);
+}
+
+/* A touch screen has no hover to reveal it with. */
+@media (hover: none) {
+    .dolphin-hover-scroll {
+        scrollbar-color: var(--bs-gray-400) transparent;
+    }
+
+    .dolphin-hover-scroll::-webkit-scrollbar-thumb {
+        background-color: var(--bs-gray-400);
+    }
+}
+
+/* Somebody who has asked for less motion still gets the scrollbar; it just
+   appears rather than fading. */
+@media (prefers-reduced-motion: reduce) {
+    .dolphin-hover-scroll,
+    .dolphin-hover-scroll::-webkit-scrollbar-thumb {
+        transition: none;
+    }
+}
+
+/* 11. Calendar cells: separation, and room that grows with the events -------
+
+   Product owner, 2026-09-20: «جداسازی بصری خانه‌ها بهتر شود؛ خانه‌ها با پر
+   شدن از رویداد کشسان و منعطف باشند و ارتفاعشان با انیمیشن نرم تغییر کند».
+
+   FullCalendar's own grid draws a one-pixel line between cells and nothing
+   else, which at this theme's light grey is almost invisible — a month of
+   events reads as one field of colour rather than as thirty-one days. What
+   follows gives each day a surface of its own and lets that surface grow.
+
+   Height is deliberately *not* animated with a transition on `height`: the
+   grid's rows are laid out by FullCalendar in JavaScript and a transition
+   there fights it every time it recalculates. `min-height` is what changes
+   when a cell fills up, and that is what carries the easing — the cell
+   settles into its new size rather than snapping, and FullCalendar's own
+   measurement is untouched. */
+
+#lead-calendar .fc-daygrid-day-frame,
+#after-sales-calendar .fc-daygrid-day-frame {
+    /* Four whole-height event chips plus the day number, which is the point
+       at which a cell has enough in it to be worth growing for. */
+    min-height: 5.5rem;
+    padding: 0.25rem;
+    border-radius: 0.475rem;
+    background-color: var(--bs-body-bg);
+    transition: min-height var(--dolphin-dur) var(--dolphin-ease), background-color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+/* A cell with something in it sits slightly proud of the empty ones, so the
+   busy part of a month is visible before any of the text is read. */
+#lead-calendar .fc-daygrid-day-frame:has(.fc-daygrid-event),
+#after-sales-calendar .fc-daygrid-day-frame:has(.fc-daygrid-event) {
+    min-height: 7rem;
+    background-color: var(--bs-gray-100);
+    box-shadow: inset 0 0 0 1px var(--bs-gray-300);
+}
+
+#lead-calendar .fc-daygrid-day:hover .fc-daygrid-day-frame,
+#after-sales-calendar .fc-daygrid-day:hover .fc-daygrid-day-frame {
+    background-color: var(--bs-primary-light);
+}
+
+/* Today is the one cell that should be findable without reading. */
+#lead-calendar .fc-day-today .fc-daygrid-day-frame,
+#after-sales-calendar .fc-day-today .fc-daygrid-day-frame {
+    box-shadow: inset 0 0 0 2px var(--bs-primary);
+}
+
+/* FullCalendar paints `--fc-today-bg-color` across the whole cell, which
+   fights the surface above and, in dark mode, is a bright yellow wash. The
+   ring is the marker instead. */
+#lead-calendar .fc-day-today,
+#after-sales-calendar .fc-day-today {
+    background-color: transparent !important;
+}
+
+/* The gap between the day surfaces comes from the table cells, not from a
+   margin on the frames — a margin inside a table cell collapses oddly and
+   FullCalendar measures the cell, not the frame. */
+#lead-calendar .fc-daygrid-day,
+#after-sales-calendar .fc-daygrid-day {
+    padding: 2px;
+}
+
+#lead-calendar .fc-daygrid-day-number,
+#after-sales-calendar .fc-daygrid-day-number {
+    font-weight: 600;
+    padding: 0.1rem 0.3rem;
+}
+
+/* The weekday header row is the only label the week and day views now have
+   for their dates (the numbers inside the cells are gone), so it carries a
+   little more weight than FullCalendar gives it. */
+#lead-calendar .fc-col-header-cell,
+#after-sales-calendar .fc-col-header-cell {
+    background-color: var(--bs-gray-100);
+    border-radius: 0.475rem 0.475rem 0 0;
+    padding-block: 0.35rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #lead-calendar .fc-daygrid-day-frame,
+    #after-sales-calendar .fc-daygrid-day-frame {
+        transition: none;
+    }
+}
+
+/* 12. The shared chart controls ---------------------------------------------
+
+   Product owner, 2026-09-20: «یک فیلتر زمانی جذاب و یکدست». One rule set for
+   the range buttons, the custom-range fields, the per-chart selectors and the
+   way back from a zoom, because `setupChartRange` builds all four and mounts
+   them in twelve places.
+
+   Almost everything here is layout. The buttons are the theme's own
+   `btn-group btn-sm`, the selectors its `form-select-sm form-select-solid`,
+   and the reset its `btn-icon btn-light` — this only arranges them and gives
+   the two things the UI kit has no utility for: a row that wraps without
+   collapsing its gaps, and fields narrow enough that two dates and a button
+   still fit beside a heading. */
+
+.dolphin-chart-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* A wrapped `btn-group` loses its own joined corners, so the group is kept
+   unwrapped and the row above it wraps instead. Six short labels fit in
+   ~19rem, which is narrower than the narrowest card this sits in. */
+.dolphin-chart-range {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+}
+
+.dolphin-chart-range-custom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Wide enough for «۱۴۰۵/۰۵/۲۵» at this theme's 13px root and no wider — two
+   of these plus «اعمال» are what appears when «بازه دلخواه» is chosen, and a
+   default-width input would push the row onto its own line. */
+.dolphin-chart-range-custom input {
+    inline-size: 8.5rem;
+}
+
+/* The same for the per-chart selectors: long enough for a username or a
+   status word, short enough that three of them sit beside a heading. */
+.dolphin-chart-filter {
+    inline-size: auto;
+    min-inline-size: 9rem;
+    max-inline-size: 14rem;
+}
+
+/* Only visible once there is a zoom to undo — see `chartResetEvents`. It is
+   the theme's own icon button; what is set here is the gap that stops it
+   reading as the last item of the range group. */
+.dolphin-chart-reset {
+    flex: 0 0 auto;
+    margin-inline-start: 0.25rem;
+}
+
+@media (max-width: 575.98px) {
+    /* On a phone the group is the whole row and each button takes an equal
+       share of it, rather than six buttons squeezing to their text. */
+    .dolphin-chart-range {
+        flex: 1 1 100%;
+    }
+    .dolphin-chart-range .btn {
+        flex: 1 1 0;
+        padding-inline: 0.35rem;
+    }
+    .dolphin-chart-filter {
+        flex: 1 1 100%;
+        max-inline-size: none;
+    }
+}
+
+/* 13. The postal stepper ----------------------------------------------------
+
+   The four stops a parcel travels, side by side, with the current one lit —
+   product owner, 2026-09-20: «همهٔ حالت‌ها کنار هم به شکل stepper نمایش داده
+   شوند و حالت فعلی برجسته باشد». The states themselves, their order, their
+   icons and their labels all come from `sales/postal.py`; nothing here knows
+   how many there are or what they are called.
+
+   Built on the theme's own colour tokens rather than a palette invented
+   here: a completed stop is `--bs-success`, the current one `--bs-primary`,
+   and one still ahead is the same muted grey every "not yet" state in this
+   panel uses.
+
+   The rail between stops is two pseudo-elements per item rather than one
+   reaching into its neighbour. An item that drew the whole gap to the stop
+   before it would have to extend past its own edge, and the last one then
+   pushes the page sideways — measured, 55px of horizontal scroll. Instead
+   each stop draws its own half on each side and the halves meet exactly at
+   the boundary, so nothing ever leaves the grid:
+
+     `::before`  from this item's inline-end edge to its own mark   (the half
+                 shared with the previous stop)
+     `::after`   from this item's inline-start edge to its own mark (the half
+                 shared with the next stop)
+
+   Which half is filled follows from this stop alone, so no rule has to know
+   anything about a neighbour: the half towards the previous stop is filled
+   once the parcel has reached here (done *or* current), and the half towards
+   the next stop only once it has left (done). */
+
+.postal-stepper {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* No gap: the two halves of a rail have to meet, and a gap is a break in
+       the line. The breathing room is the items' own padding. */
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.postal-step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.25rem 0.5rem;
+    text-align: center;
+}
+
+.postal-step::before,
+.postal-step::after {
+    position: absolute;
+    inset-block-start: 1.85rem;
+    height: 2px;
+    background-color: var(--bs-gray-300);
+}
+
+/* Nothing to the right of the first stop, nothing to the left of the last. */
+.postal-step:not(:first-child)::before {
+    content: "";
+    inset-inline-end: 0;
+    /* Stops short of the mark by half its width plus a little air. */
+    inset-inline-start: calc(50% + 1.9rem);
+}
+
+.postal-step:not(:last-child)::after {
+    content: "";
+    inset-inline-start: 0;
+    inset-inline-end: calc(50% + 1.9rem);
+}
+
+/* The rail fills up behind the parcel as it moves. Both selectors carry the
+   `:not()` the grey ones do, so they match its specificity and win on order
+   — without it `.postal-step-done::after` is (0,1,1) against the grey rule's
+   (0,2,1) and the rail stays grey however far along the parcel is. */
+.postal-step-done:not(:first-child)::before,
+.postal-step-current:not(:first-child)::before,
+.postal-step-done:not(:last-child)::after {
+    background-color: var(--bs-success);
+}
+
+.postal-step-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 50%;
+    background-color: var(--bs-gray-200);
+    color: var(--bs-gray-600);
+    transition: background-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease);
+}
+
+.postal-step-done .postal-step-mark {
+    background-color: var(--bs-success-light);
+    color: var(--bs-success);
+}
+
+/* The current stop is the one thing on this card a reader is looking for,
+   so it is the only one with a ring. */
+.postal-step-current .postal-step-mark {
+    background-color: var(--bs-primary);
+    color: var(--bs-light);
+    box-shadow: 0 0 0 0.35rem var(--bs-primary-clarity);
+}
+
+.postal-step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.postal-step-label {
+    font-weight: 600;
+    color: var(--bs-gray-700);
+    overflow-wrap: anywhere;
+}
+
+.postal-step-current .postal-step-label {
+    color: var(--bs-gray-900);
+}
+
+.postal-step-done .postal-step-label {
+    color: var(--bs-gray-800);
+}
+
+/* The one-line description is context, not the label — it stays quiet, and
+   on the stop nobody is at it stays quieter still. */
+.postal-step-note {
+    font-size: 0.85rem;
+    color: var(--bs-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.postal-step-upcoming .postal-step-note {
+    opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .postal-step-mark {
+        transition: none;
+    }
+}
+
+/* Four stops of Persian text do not fit across a phone. The stepper becomes
+   a vertical list with the rail running down the marks instead of across
+   them, which is the same information in the shape that fits. */
+@media (max-width: 767.98px) {
+    .postal-stepper {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .postal-step {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 1rem;
+        padding-block: 0.75rem;
+        text-align: start;
+    }
+
+    /* The rail turns vertical and runs down the centre of the marks. The
+       same two halves, now above and below each mark. */
+    .postal-step::before,
+    .postal-step::after {
+        inset-block-start: auto;
+        inset-inline-start: auto;
+        inset-inline-end: calc(1.6rem - 1px);
+        width: 2px;
+        height: auto;
+    }
+
+    .postal-step:not(:first-child)::before {
+        inset-block-start: 0;
+        inset-block-end: calc(100% - 1.6rem);
+    }
+
+    .postal-step:not(:last-child)::after {
+        inset-block-start: 1.6rem;
+        inset-block-end: 0;
+    }
+
+    .postal-step-body {
+        padding-block-start: 0.35rem;
+    }
+}
+
+/* 13b. The postal mini-stepper — «رهگیری پستی» (sales_documents/list.html)
+   -----------------------------------------------------------------------
+
+   The same four stops as `.postal-stepper` above, compact enough for a
+   table cell: icons only, no label or description, the current one's ring
+   the only thing marking it (product owner, 2026-09-21: «۴ تا ایکون پست
+   سرهم به هم متصل باشد و ... این ایکون روشن باشد»). Each icon's own
+   `title` and the list's `aria-label` carry the text a full-size stop would
+   have shown beside its mark.
+
+   The rail is one continuous line behind the icons rather than
+   `.postal-step`'s per-item half-rail: a table row has no risk of the last
+   stop pushing the page sideways the way a full-bleed card did, so the
+   simpler shared-line construction is enough here. */
+.postal-mini-stepper {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.postal-mini-step {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 50%;
+    background-color: var(--bs-gray-200);
+    color: var(--bs-gray-600);
+    flex: 0 0 auto;
+}
+
+/* The rail: one line behind every mark but the first, filled in success
+   green up to and including the current stop. `z-index` keeps it under the
+   round marks, which already have an opaque background to sit on it. */
+.postal-mini-step:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    inset-inline-end: 50%;
+    width: 1.6rem;
+    height: 2px;
+    background-color: var(--bs-gray-300);
+    z-index: 0;
+}
+
+.postal-mini-step-done:not(:first-child)::before,
+.postal-mini-step-current:not(:first-child)::before {
+    background-color: var(--bs-success);
+}
+
+.postal-mini-step i {
+    position: relative;
+    z-index: 1;
+}
+
+.postal-mini-step-done {
+    background-color: var(--bs-success-light);
+    color: var(--bs-success);
+}
+
+.postal-mini-step-current {
+    background-color: var(--bs-primary);
+    color: var(--bs-light);
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+/* 14. The integrations page -------------------------------------------------
+
+   One card per outside service (`common/integrations.py`). Almost all of it
+   is the theme's own card, symbol, badge and alert; what is here is the
+   definition list of facts under each one, which the theme has no component
+   for, and a monospace treatment for the masked key so its dots and digits
+   line up instead of drifting. */
+
+.integration-details {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.35rem 1rem;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.integration-details dt {
+    color: var(--bs-text-muted);
+    font-weight: 500;
+}
+
+.integration-details dd {
+    margin: 0;
+    color: var(--bs-gray-800);
+    overflow-wrap: anywhere;
+}
+
+/* A connection's inbound webhook URL has no spaces; `text-break` still
+   counts its full length as the column's minimum width, so the connections
+   table would scroll sideways for one long URL. `anywhere` lets it wrap. */
+.integration-webhook-path {
+    overflow-wrap: anywhere;
+}
+
+/* A key hint is a string of identical dots and a few characters; a
+   proportional face makes the dots crowd and the digits sit unevenly. */
+.integration-secret {
+    font-family: var(--bs-font-monospace);
+    letter-spacing: 0.08em;
+}
+
+@media (max-width: 575.98px) {
+    /* At phone width the two columns leave nothing for the value, so each
+       fact becomes a label above its own line. */
+    .integration-details {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.1rem;
+    }
+
+    .integration-details dd:not(:last-child) {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* The "راهنمای اتصال" disclosure on the SMS/post provider settings pages —
+   a native `<details>`/`<summary>` (this app's own `<dialog>` philosophy:
+   reach for the platform element before a vendor JS component), styled to
+   read as one more card header rather than a bare browser triangle. */
+details > summary.card-header {
+    cursor: pointer;
+    list-style: none;
+}
+
+details > summary.card-header::-webkit-details-marker {
+    display: none;
+}
+
+details > summary.card-header::after {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    margin-inline-start: auto;
+    border-inline-end: 2px solid var(--bs-gray-500);
+    border-bottom: 2px solid var(--bs-gray-500);
+    transform: rotate(45deg);
+    transition: transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+details[open] > summary.card-header::after {
+    transform: rotate(225deg);
+}
+
+/* 15. The report wizards ----------------------------------------------------
+
+   Both rebuilt reports (3.0.0) are one card holding the theme's own
+   `stepper stepper-links`. Almost nothing is needed on top of that: the
+   steps are the theme's, the nav is the theme's, the tables are the panel's
+   own. What is here is the two things the theme has no component for — a
+   step that lays its children out down the page rather than across it, and
+   the "what do you want to see" checklist. */
+
+/* Centred and capped, not full-bleed (product owner, 2026-09-21: «ویزارد
+   مرحله‌ای ... باید وسط‌چین باشد»). Unlike the create-document wizards,
+   these two live directly in the page — no `dialog` already bounds their
+   width — so on a wide screen the stepper nav, a three-line step and a
+   two-column results table all stretched edge to edge of the content area.
+   60rem is generous enough for the results step's tables (three or fewer
+   columns each) while still reading as one centred column on the steps
+   that are just a heading, a line of text and a form row. Bootstrap's own
+   `col-xl-4` etc. inside the results step key off the *viewport*, not this
+   card's width, so capping it narrower does not change how those columns
+   respond — it only narrows them, which a two-or-three-column summary row
+   has room for. */
+.report-wizard-card {
+    max-width: 60rem;
+    margin-inline: auto;
+}
+
+/* The same fix `.wizard-lines-step` needs, and for the same reason: the
+   theme makes a stepper's current content a flex *row*, which squeezes a
+   step made of a heading, a paragraph and a block of controls into three
+   narrow columns. */
+.report-step {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Room to breathe between the nav and the step, and between the step and
+   the buttons — a wizard whose four steps are each three lines tall reads
+   as a form that lost its layout. */
+.report-wizard-card .stepper-nav {
+    margin-bottom: 1rem;
+}
+
+.report-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem;
+}
+
+/* A whole tickable card rather than a checkbox with a label beside it: the
+   target is the card, which is both easier to hit and what the choice
+   actually is. */
+.report-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid var(--bs-gray-300);
+    border-radius: 0.625rem;
+    cursor: pointer;
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+.report-section:hover {
+    border-color: var(--bs-primary);
+}
+
+/* The ticked state is on the card, not only on the box inside it. */
+.report-section:has(input:checked) {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+
+.report-section:focus-within {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+.report-section-title {
+    display: block;
+    font-weight: 600;
+    color: var(--bs-gray-900);
+}
+
+.report-section-note {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.85rem;
+    color: var(--bs-text-muted);
+}
+
+/* 16. The profile picture ---------------------------------------------------
+
+   The purchased theme's own `image-input` pattern: a round preview with a
+   small pencil button sitting on its edge. The theme's component needs a
+   background-image swap and a hidden-input dance its own JS drives; this is
+   the same picture in half the markup, built from an `<img>` the script can
+   simply point at a new URL. */
+
+.avatar-input-frame {
+    position: relative;
+    flex: 0 0 auto;
+    width: 6.5rem;
+    height: 6.5rem;
+}
+
+.avatar-input-image {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--bs-gray-200);
+    box-shadow: 0 0 0 1px var(--bs-gray-300);
+}
+
+/* Bottom-inline-start, which in this RTL panel is the bottom left — the
+   corner the theme's own image-input puts it in, mirrored.
+
+   A `<button>`, not the `<label>` this used to be (2026-09-21): it now opens
+   the picker dialog instead of the file input directly, so there is no
+   input left for a `<label for>` to point at. `:focus-visible` replaces the
+   old `.avatar-input-frame:focus-within`, which relied on that same hidden
+   input catching focus and no longer applies to anything. */
+.avatar-input-pick {
+    position: absolute;
+    inset-block-end: 0;
+    inset-inline-end: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--bs-gray-700);
+    background-color: var(--bs-body-bg);
+    box-shadow: var(--bs-box-shadow-sm);
+    cursor: pointer;
+    transition: color var(--dolphin-dur-fast) var(--dolphin-ease), background-color var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+.avatar-input-pick:hover,
+.avatar-input-pick:focus-visible {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+
+.avatar-input-pick:focus-visible {
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+/* The same round picture wherever else it appears — the header, the account
+   menu, a row in the user list. Shape only: the *size* comes from the
+   theme's own `.symbol.symbol-35px > img` and friends, which is why this
+   carries no width. Measured with `w-100 h-100` on it instead: the utility
+   (100% !important) beat the theme's fixed 35px, the symbol had no width of
+   its own to be 100% of, and the header avatar rendered at 300px. */
+.dolphin-avatar {
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: var(--bs-gray-200);
+}
+
+/* 17. The default-avatar picker gallery -------------------------------------
+
+   `avatar-picker-dialog` (base.html) — the gallery of shipped cartoons a
+   person can pick instead of the hash-derived one, filled in by
+   `setupAvatarInput`'s `loadGrid`. Product-owner request 2026-09-21:
+   «کاربران باید بتوانند بین عکس‌های پیش‌فرض انتخاب کنند». A responsive grid
+   of round tiles rather than a fixed column count: the set is 52 pictures
+   and the dialog's own width already comes from the theme's dialog sizing,
+   so `auto-fill` fits however many actually reach the row instead of either
+   number being decided twice. */
+.avatar-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(3.25rem, 1fr));
+    gap: 0.6rem;
+    max-height: 15rem;
+    overflow-y: auto;
+    padding: 0.25rem;
+}
+
+.avatar-picker-tile {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 50%;
+    background: var(--bs-gray-100);
+    cursor: pointer;
+    transition: border-color var(--dolphin-dur-fast) var(--dolphin-ease), transform var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+
+.avatar-picker-tile img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatar-picker-tile:hover {
+    transform: scale(1.06);
+}
+
+.avatar-picker-tile:focus-visible {
+    outline: none;
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+/* The one currently in use — a ring the hover scale above does not fight,
+   since it is a border rather than a second transform. */
+.avatar-picker-tile.is-selected {
+    border-color: var(--bs-primary);
+}
+
+.avatar-picker-tile:disabled {
+    opacity: 0.6;
+    cursor: default;
+    transform: none;
+}
+
+/* 18. The settings page's type controls -------------------------------------
+
+   «اندازهٔ قلم» as three glyphs of one letter at three sizes (2.18.6, product
+   owner: «یک آیکون کوچک، یک متوسط و یک بزرگ از یک قلم»). The card itself is
+   the theme's own dashed option (`btn-outline-dashed btn-active-light-primary`
+   around a `btn-check` radio); only the glyph is sized here. Pixels, not rem,
+   on purpose: the three icons stand for three sizes and must keep their
+   proportions while the page itself previews the one being chosen. */
+.font-scale-option {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 5.75rem;
+    padding: 0.85rem 1.25rem;
+}
+
+.font-scale-glyph {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: 36px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.font-scale-glyph[data-font-scale-glyph="sm"] { font-size: 16px; }
+.font-scale-glyph[data-font-scale-glyph="md"] { font-size: 24px; }
+.font-scale-glyph[data-font-scale-glyph="lg"] { font-size: 34px; }
+
+/* The radio inside is visually hidden by `.btn-check`, so its keyboard focus
+   is shown on the card that stands for it. */
+.font-scale-option:has(.btn-check:focus-visible) {
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+
+/* «قلم پنل» — a compact dropdown since 2.23.2 (it was a grid of eleven
+   cards). The toggle is the theme's own `.form-select`; the list is the
+   theme's `.menu-sub-dropdown`, opened by `registerPopover` and anchored
+   under the toggle at its width, each choice still drawn in its own face. */
+.font-family-toggle {
+    min-height: 2.75rem;
+}
+
+.font-family-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    inset-inline-start: 0;
+    z-index: 105;
+    width: 100%;
+    max-height: 20rem;
+    overflow-y: auto;
+}
+
+.font-family-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.font-family-option.active {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+
+.font-family-sample {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.font-family-option:has(.btn-check:focus-visible) {
+    box-shadow: inset 0 0 0 0.15rem var(--bs-primary-clarity);
+}
+
+/* «پشتیبان‌گیری و بازگردانی» (2.23.2): one dialog, three sections — wider
+   than the default dialog because the history is a five-column table. */
+.backup-dialog {
+    width: min(calc(100% - 2rem), 60rem);
+}
+
+.backup-tile {
+    white-space: normal;
+}

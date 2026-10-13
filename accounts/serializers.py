@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from accounts.access import capabilities_for, is_crm_identity
-from accounts.models import User
+from accounts.models import TwoFactorDevice, User
 from accounts.services import (
     change_user_role,
     create_crm_user,
@@ -63,10 +63,12 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False, min_length=8)
     role = serializers.ChoiceField(choices=User.Role.choices)
     has_custom_permissions = serializers.SerializerMethodField()
+    #: Whether signing in asks this account for an authenticator code (2.40.42).
+    two_factor_enabled = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "password", "first_name", "last_name", "email", "phone", "normalized_phone", "job_title", "province", "role", "workstream", "is_active", "has_custom_permissions", "last_login", "last_seen_at", "created_at", "updated_at"]
+        fields = ["id", "username", "password", "first_name", "last_name", "email", "phone", "normalized_phone", "job_title", "province", "role", "workstream", "is_active", "has_custom_permissions", "two_factor_enabled", "last_login", "last_seen_at", "created_at", "updated_at"]
         read_only_fields = ["id", "normalized_phone", "last_login", "last_seen_at", "created_at", "updated_at"]
 
     def get_has_custom_permissions(self, obj) -> bool:
@@ -80,6 +82,15 @@ class UserSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
         if obj.pk is None:
             return False
         return obj.capability_overrides.exists()
+
+    def get_two_factor_enabled(self, obj) -> bool:
+        # Annotated like the overrides above (`UserViewSet.get_queryset`).
+        annotated = getattr(obj, "_two_factor_enabled", None)
+        if annotated is not None:
+            return annotated
+        if obj.pk is None:
+            return False
+        return TwoFactorDevice.objects.filter(user=obj, confirmed_at__isnull=False).exists()
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

@@ -137,7 +137,7 @@ def preference_css(preferences):
     scale — `None` when they kept both defaults, so `base.html` can write
     `{% if panel_preference_css %}` with no second check.
 
-    An inline style rather than a rule in `dolphin.css`, and that is the
+    An inline style rather than a rule in the panel stylesheet, and that is the
     point, not a shortcut: that sheet is forbidden from choosing the panel's
     typeface (`test_the_override_sheet_does_not_rebuild_the_themes_
     components`) because the purchased theme owns typography. This does not
@@ -167,7 +167,7 @@ def preference_css(preferences):
             declarations.append("html,body{font-family:" + stack + ";}")
             # ApexCharts' own text is the one place the vendor hardcodes a
             # family with `!important` (see the note beside the matching rule
-            # in dolphin.css), so a reader's choice has to be restated there
+            # in the panel stylesheet), so a reader's choice has to be restated there
             # or every chart label stays on the default face while the card
             # around it moves.
             declarations.append(

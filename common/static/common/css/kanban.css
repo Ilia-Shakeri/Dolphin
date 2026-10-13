@@ -1,0 +1,476 @@
+/* 7. Kanban boards (lead + order) -------------------------------------------- */
+
+/* jKanban's own bundle ships flat hard-coded colours (`#e2e4e6`, `#fff`) and
+   physical `float: left` — built with neither this theme's dark mode nor RTL
+   in mind, the same situation FullCalendar was in above. Repointed at the
+   same tokens every other surface already reads, and `float` replaced with a
+   flex row so a Persian reader's first, most-urgent column ("در انتظار
+   تکمیل" for leads, "Draft" for orders) lands on the right, where every
+   list/table in this panel already starts reading from.
+
+   Plain `row`, not `row-reverse`: this container inherits `direction: rtl`
+   from `<html>`, and flexbox's own main-start for `row` is already the
+   inline-start edge — the *right* edge in RTL — so the first DOM board
+   already lands there with no reverse needed. Checked by rendering both:
+   `row-reverse` measured with the first board on the *left* instead, because
+   it swaps main-start to the inline-*end* on top of a start RTL had already
+   moved once.
+
+   Shared between `#lead-board` (three columns) and `#order-board` (four
+   columns) — one setupOrderBoard() below mirrors setupLeadBoard() exactly,
+   so the same rules apply unchanged rather than duplicating the block. */
+#lead-board .kanban-container,
+#order-board .kanban-container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    /* Centred rather than packed against the inline-start edge (product-owner
+       decision 2026-09-09). Three 300px columns leave real slack inside a wide
+       card, and pinning them to one side reads as a board that failed to fill
+       its container; centred, the same columns read as a deliberate layout.
+       `justify-content` only moves the free space, so nothing about the column
+       widths, the gutter, or the narrow-screen stacking rule below changes. */
+    justify-content: center;
+    /* The gutter, owned here rather than by jKanban (product-owner request
+       2026-09-20: «فاصله بین ستون‌ها باید یکسان باشه»). `jkanban.bundle.js`
+       sets a per-board inline `margin-left`/`margin-right` at `init()` from
+       its own `gutter` option and splits it between the two sides, so the
+       space *between* two columns came out as the sum of two margins while
+       the space at each end of the row came out as one — three columns, four
+       different gaps. `gap` on the flex row is one value between every pair
+       and nothing at the ends; the inline margins are zeroed just below,
+       which needs `!important` because they are inline styles. */
+    gap: 1.25rem;
+}
+#lead-board .kanban-board,
+#order-board .kanban-board {
+    float: none;
+    background-color: var(--bs-gray-100);
+    border-radius: 0.75rem;
+    /* See the `gap` above: jKanban's own inline margins, overridden so the
+       gutter has exactly one source. */
+    margin-inline: 0 !important;
+}
+
+/* Each column carries its own status colour (product-owner request
+   2026-09-19: «هاله رنگی شبیه به وضعیتش»). `paintBoardColumns()`
+   (the panel script) stamps `data-accent` from `STATUS_ACCENTS` — the same table
+   the badge in every document list reads — so the column a cancelled lead
+   sits in is the exact red its own row would be, and a status added to that
+   table needs nothing here.
+
+   Three tokens per accent rather than one colour: the solid line that names
+   the column, the tint behind its header, and the rgb triplet the two
+   translucent layers below mix from. All three are the theme's own
+   `--bs-<accent>*` variables, which are redefined for dark mode — so the
+   halo follows the theme instead of being a colour frozen into this file.
+
+   The edge is a 1px ring drawn as a shadow, not a border: a border would
+   have moved every column by a pixel and fought the vendor's own box model;
+   a shadow paints outside the box and changes no geometry at all. The soft
+   coloured glow that used to sit beneath it was removed in 2.40.3 — the
+   panel draws no coloured halos (the dashboard dropped its own in 2.39). */
+#lead-board .kanban-board[data-accent="primary"],
+#order-board .kanban-board[data-accent="primary"] {
+    --dolphin-board-accent: var(--bs-primary);
+    --dolphin-board-accent-soft: var(--bs-primary-light);
+    --dolphin-board-accent-rgb: var(--bs-primary-rgb);
+}
+#lead-board .kanban-board[data-accent="success"],
+#order-board .kanban-board[data-accent="success"] {
+    --dolphin-board-accent: var(--bs-success);
+    --dolphin-board-accent-soft: var(--bs-success-light);
+    --dolphin-board-accent-rgb: var(--bs-success-rgb);
+}
+#lead-board .kanban-board[data-accent="warning"],
+#order-board .kanban-board[data-accent="warning"] {
+    --dolphin-board-accent: var(--bs-warning);
+    --dolphin-board-accent-soft: var(--bs-warning-light);
+    --dolphin-board-accent-rgb: var(--bs-warning-rgb);
+}
+#lead-board .kanban-board[data-accent="danger"],
+#order-board .kanban-board[data-accent="danger"] {
+    --dolphin-board-accent: var(--bs-danger);
+    --dolphin-board-accent-soft: var(--bs-danger-light);
+    --dolphin-board-accent-rgb: var(--bs-danger-rgb);
+}
+#lead-board .kanban-board[data-accent="info"],
+#order-board .kanban-board[data-accent="info"] {
+    --dolphin-board-accent: var(--bs-info);
+    --dolphin-board-accent-soft: var(--bs-info-light);
+    --dolphin-board-accent-rgb: var(--bs-info-rgb);
+}
+#lead-board .kanban-board[data-accent="secondary"],
+#order-board .kanban-board[data-accent="secondary"] {
+    --dolphin-board-accent: var(--bs-gray-500);
+    --dolphin-board-accent-soft: var(--bs-secondary-light);
+    --dolphin-board-accent-rgb: var(--bs-gray-500-rgb);
+}
+#lead-board .kanban-board[data-accent],
+#order-board .kanban-board[data-accent] {
+    box-shadow:
+        0 0 0 1px rgba(var(--dolphin-board-accent-rgb), 0.22);
+}
+/* The tinted header rounds its own top corners to match the board's, rather
+   than the board clipping it with `overflow: hidden` — a clipping container
+   here would also have to be trusted not to cut a card mid-drag, and there is
+   no reason to take that on for two corners. */
+#lead-board .kanban-board[data-accent] header,
+#order-board .kanban-board[data-accent] header {
+    position: relative;
+    background-color: var(--dolphin-board-accent-soft);
+    border-bottom-color: rgba(var(--dolphin-board-accent-rgb), 0.28);
+    border-start-start-radius: 0.75rem;
+    border-start-end-radius: 0.75rem;
+}
+/* The line that names the column. A pseudo-element rather than a
+   `border-top`, for the same reason the halo is a shadow: it adds no height
+   and cannot shift the columns relative to one another. */
+#lead-board .kanban-board[data-accent] header::before,
+#order-board .kanban-board[data-accent] header::before {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    height: 3px;
+    background-color: var(--dolphin-board-accent);
+    border-start-start-radius: 0.75rem;
+    border-start-end-radius: 0.75rem;
+}
+/* The count badge picks the accent up too, so the header reads as one object
+   instead of a tinted strip with a grey chip sitting on it. */
+#lead-board .kanban-board[data-accent] header .kanban-title-board .badge,
+#order-board .kanban-board[data-accent] header .kanban-title-board .badge {
+    background-color: rgba(var(--dolphin-board-accent-rgb), 0.16);
+    /* The figure in a deeper shade of the accent (2.40.36): the accent itself
+       on its own 16% tint read at 2.3:1 for the yellow column. */
+    color: color-mix(in srgb, var(--dolphin-board-accent) 55%, #000);
+}
+[data-bs-theme=dark] #lead-board .kanban-board[data-accent] header .kanban-title-board .badge,
+[data-bs-theme=dark] #order-board .kanban-board[data-accent] header .kanban-title-board .badge {
+    color: color-mix(in srgb, var(--dolphin-board-accent) 70%, #fff);
+}
+/* jKanban's own inline `width`/`margin-left`/`margin-right` (set once, at
+   `init()`, from `widthBoard`/`gutter` — see the comment beside `new
+   jKanban(...)` in the panel script) can only be beaten by `!important` here.
+   Full width and no side margin: several side-by-side 300px boards do not
+   fit a phone, so each becomes its own full-width stacked section instead —
+   simpler than a horizontal-scrolling board for a handful of fixed
+   columns. */
+@media (max-width: 767.98px) {
+    #lead-board .kanban-board,
+    #order-board .kanban-board {
+        width: 100% !important;
+        margin-inline: 0 !important;
+    }
+}
+#lead-board .kanban-board header,
+#order-board .kanban-board header {
+    border-bottom: 1px solid var(--bs-gray-300);
+}
+#lead-board .kanban-board header .kanban-title-board,
+#order-board .kanban-board header .kanban-title-board {
+    color: var(--bs-gray-900);
+    font-size: 1.05rem;
+}
+/* The count badge `boardTitle()` (the panel script) builds beside each column's
+   label. `gap-2` on that wrapper already keeps it off the text, but a plain
+   `badge-light-secondary` sits flush with its own digits at the theme's
+   default badge padding — read on screen as crowding the label rather than a
+   separate, countable figure. A little more distance from the label and a
+   little more room around the digits reads it as its own small box instead. */
+#lead-board .kanban-board header .kanban-title-board,
+#order-board .kanban-board header .kanban-title-board {
+    gap: 0.6rem;
+}
+#lead-board .kanban-board header .kanban-title-board .badge,
+#order-board .kanban-board header .kanban-title-board .badge {
+    min-width: 1.85rem;
+    padding: 0.45em 0.65em;
+    border-radius: 0.55rem;
+    font-weight: 600;
+}
+#lead-board .kanban-item,
+#order-board .kanban-item {
+    background-color: var(--bs-body-bg);
+    border-radius: 0.6rem;
+    box-shadow: var(--bs-card-box-shadow, 0 0.1rem 0.5rem rgba(0, 0, 0, 0.05));
+}
+/* A column shows a fixed number of cards before it scrolls internally rather
+   than growing the whole board — `jKanban`'s own `.kanban-drag` is the
+   per-column card list `boardElement()` (the panel script) returns and adds
+   `.hover-scroll-overlay-y` to (the UI kit's own overlay scrollbar, the UI kit script
+   loads it already — see that class's own rule in `assets/css/style.bundle.
+   css` for the transparent-until-hover thumb this reuses rather than a
+   hand-rolled one).
+
+   The height is four whole cards **plus a slice of the fifth** (product-owner
+   request 2026-09-20: «حداقل ۴ کارت و ذره‌ای از کارت بعدی»). The slice is the
+   point: a column cut cleanly after the fourth card looks like a column that
+   holds exactly four, and nobody scrolls a list that appears to have ended.
+   Half a card showing at the fold is the standard way a scrollable list says
+   "there is more" without a label or an arrow.
+
+   The number is measured, not guessed — see the comment on the custom
+   property below. */
+#lead-board .kanban-drag,
+#order-board .kanban-drag {
+    /* One lead/order card at this board's padding and line-height, measured in
+       a browser after the card lost its «مشاهدهٔ جزئیات» footer line
+       (2026-09-20): 8.6rem including the 0.75rem gap under it. Four of those
+       plus 55% of a fifth is what `max-height` below works out to. Declared as
+       a property so the intent survives: change the card and this one number
+       moves, not four hand-multiplied ones. */
+    --dolphin-board-card: 8.6rem;
+    max-height: calc(var(--dolphin-board-card) * 4.55);
+    /* A physical `right`, not `padding-inline-end`. `.dolphin-hover-scroll`
+       flips this element to `direction: ltr` to move the scrollbar to the
+       right (see §10), which flips what "inline-end" means — the logical
+       property would now put the gap on the *left*, away from the bar it is
+       there to clear. This is one of the few places in this sheet where the
+       physical property is the correct one. */
+    padding-right: 0.35rem;
+}
+/* The one card-shaped exception: the "load more" control `setupLeadBoard()`/
+   `setupOrderBoard()` append past jKanban's own item list is a real
+   `<button>` built directly, not one of jKanban's items, so it gets its own
+   look instead of the white card surface above. Both functions reuse the
+   same `.lead-board-load-more`/`.lead-board-empty` class names — display-only
+   markers, not a lead-specific vocabulary — rather than each inventing a
+   parallel pair. */
+#lead-board .lead-board-load-more,
+#order-board .lead-board-load-more {
+    margin-top: 0.5rem;
+}
+/* jKanban's `not-draggable` class only stops *dragula* from picking the node
+   up (`jkanban.bundle.js` cancels the drag itself on that class) — the CSS
+   above still gives it `cursor: move` through `.kanban-item:hover`. This
+   control is neither an item nor draggable, so it should not look like one. */
+#lead-board .kanban-item.not-draggable:hover,
+#order-board .kanban-item.not-draggable:hover {
+    cursor: default;
+}
+#lead-board .lead-board-empty,
+#order-board .lead-board-empty {
+    color: var(--bs-gray-600);
+}
+
+/* The dashboard's own capability-tile grid (`home.html`) — capped to roughly
+   two rows so a platform admin's dozen-plus tiles do not push the rest of
+   the dashboard (insights, performance panel, work queue) far down the page
+   (product-owner request 2026-09-12). The rest scroll into view inside the
+   grid itself, the same "fixed count visible, the rest scrolls in place"
+   rule the kanban columns above already use — `hover-scroll-overlay-y` is
+   the same UI kit overlay-scrollbar class those columns carry. Height is
+   two tile rows (card content + row gap) at this breakpoint's own card
+   height, not a guess: a role with eight or fewer tiles never shows a
+   scrollbar at all, since the container is simply taller than its content. */
+.dashboard-capability-grid {
+    /* No cap, no scroll (2.38.2): the tiles are boxes on the cell grid like every other. */
+    padding-inline-end: 0;
+}
+
+/* The performance panel's own "جزئیات همان محدوده مجاز" table
+   (`performance_panel.inc`, shared by the dashboard and the standalone
+   عملکرد report) — capped to roughly five rows and scrollable for the rest,
+   the same treatment already given the capability-tile grid above and the
+   kanban columns (product-owner request 2026-09-12): a company-wide scope
+   can list every user in the deployment, and the table used to push
+   everything below it — the rest of the dashboard, or the rest of the report
+   page — down by however many rows that scope happened to have. */
+.performance-scope-table-wrap {
+    max-height: 21rem;
+    overflow-y: auto;
+}
+
+/* Each column's own search (product-owner decision 2026-09-09): a small icon
+   button in the column header that reveals one input, live-filtering that
+   column alone through the same `search=` the list page's own box already
+   uses. Collapsed by default so a board of three or four columns is not three
+   or four permanently-open search boxes — the header stays a label and a
+   count until someone actually wants to search. */
+/* jKanban writes the string `boardTitle()` returns straight into its own
+   `.kanban-title-board` div (`jkanban.bundle.js`), so the label, the count
+   badge and this button are that div's own children — there is no wrapper of
+   ours to lay them out. Declaring the row here is what makes both the
+   `gap` rule above and the button's `margin-inline-start: auto` below work. */
+#lead-board .kanban-title-board,
+#order-board .kanban-title-board {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+/* The icon *becomes* the field (product-owner request 2026-09-20). It used to
+   open a second row under the header, which pushed every card in that column
+   down by the height of an input — on a board whose whole point is how many
+   cards you can see at once.
+
+   The animation is on `width` alone, from the square the button occupies to
+   the width of the header. Height never changes, so nothing below the header
+   moves at any point in the transition; and because the field is a sibling of
+   the button inside one `inline-flex` box, the button stays put while the
+   field grows out from under it.
+
+   `margin-inline-start: auto` rather than a wrapper: the title element is
+   jKanban's own, built from the HTML string `boardTitle()` returns, so this
+   has to push itself to the far edge from inside that flex row. */
+#lead-board .board-search,
+#order-board .board-search {
+    display: flex;
+    align-items: center;
+    margin-inline-start: auto;
+    border-radius: 2rem;
+    /* The *container* is what animates, and it carries an explicit width at
+       both ends.
+
+       Sizing the field itself was tried first and does not work here: the
+       field is a flex item, the container is sized by its contents, and the
+       container is itself a flex item of the column header — so the field's
+       size depended on a box whose size depended on the field. Measured, the
+       field laid out at 0px even with `width: 8.5rem !important` on it,
+       because the container never grew to offer the room. Two explicit widths
+       on the container break that circle, and `overflow: hidden` is what
+       hides the field while it is closed.
+
+       `min-width` alongside `width`: this is a flex item, so its used main
+       size comes from its flex basis and is then clamped by `min-width`.
+       Setting only `width` leaves the clamp behind at the closed size, which
+       is the one value guaranteed to win. Both are declared so the box is
+       correct in either role, and `min-width` is what the transition
+       interpolates. Verified by toggling the class with transitions
+       suppressed: 24px closed, 137px open, and back. */
+    min-width: 1.85rem;
+    width: 1.85rem;
+    flex: 0 0 auto;
+    overflow: hidden;
+    transition: min-width var(--dolphin-dur) var(--dolphin-ease), width var(--dolphin-dur) var(--dolphin-ease), background-color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease);
+}
+#lead-board .board-search-open,
+#order-board .board-search-open {
+    min-width: 10.5rem;
+    width: 10.5rem;
+    background-color: var(--bs-gray-200);
+    box-shadow: inset 0 0 0 1px var(--bs-gray-300);
+}
+#lead-board .board-search-toggle,
+#order-board .board-search-toggle {
+    width: 1.85rem;
+    height: 1.85rem;
+    flex: 0 0 auto;
+}
+#lead-board .board-search-input,
+#order-board .board-search-input {
+    /* Fills whatever the container currently is, and shrinks to nothing while
+       it is closed — the container above owns the width and the animation. */
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 0.6rem;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--bs-gray-800);
+    /* Smaller than a page-level search box on purpose: it filters one column,
+       not the screen, and it sits inside a 300px card. */
+    font-size: 0.85rem;
+    font-family: inherit;
+}
+/* The column label yields the space the open field needs rather than pushing
+   it out of the header. */
+#lead-board .kanban-title-board > span:first-child,
+#order-board .kanban-title-board > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#lead-board .board-search-input::placeholder,
+#order-board .board-search-input::placeholder {
+    color: var(--bs-gray-500);
+}
+/* Someone who asked not to be animated gets the same control, instantly. */
+@media (prefers-reduced-motion: reduce) {
+    #lead-board .board-search,
+    #order-board .board-search,
+    #lead-board .board-search-input,
+    #order-board .board-search-input {
+        transition: none;
+    }
+}
+
+/* A card's own top line: its name, and the one glyph that says the card opens
+   something. The dots sit on the inline-end edge — the *left* in this RTL
+   panel, which is the corner the request named — and stay quiet until the
+   pointer is on the card. */
+#lead-board .kanban-card-head,
+#order-board .kanban-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-block-end: 0.5rem;
+}
+#lead-board .kanban-card-title,
+#order-board .kanban-card-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--bs-gray-900);
+    overflow-wrap: anywhere;
+}
+#lead-board .kanban-card-more,
+#order-board .kanban-card-more {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 2.5rem is 32.5px at this theme's 13px root — the minimum comfortable
+       touch target, and the size the product owner asked for outright
+       («تارگت کلیک حداقل ۳۲×۳۲», 2026-09-20). It is also now the *only*
+       way into the card's detail page, which is the other half of why it
+       had to grow: a control nobody can hit is a page nobody can open. */
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-block-start: -0.35rem;
+    margin-inline-end: -0.35rem;
+    border-radius: 0.475rem;
+    /* Fully drawn, not ghosted. It used to sit at 0.55 opacity because the
+       whole card was clickable and this was a shortcut; now that the card
+       body does nothing, a faint glyph would be the only door to the detail
+       page and would not look like one. It also rests on the theme's light
+       button fill, so it reads as a button before anyone hovers it
+       (product owner, 2026-09-28: «بولد و واضح‌تر»). */
+    color: var(--bs-gray-800);
+    background-color: var(--bs-gray-200);
+    transition: background-color var(--dolphin-dur-fast) var(--dolphin-ease), color var(--dolphin-dur-fast) var(--dolphin-ease), box-shadow var(--dolphin-dur-fast) var(--dolphin-ease);
+}
+#lead-board .kanban-item:hover .kanban-card-more,
+#order-board .kanban-item:hover .kanban-card-more,
+#lead-board .kanban-card-more:hover,
+#order-board .kanban-card-more:hover {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+}
+/* Keyboard focus gets a ring of its own rather than only the hover colour,
+   which a sighted keyboard user cannot distinguish from a hovered one. */
+#lead-board .kanban-card-more:focus-visible,
+#order-board .kanban-card-more:focus-visible {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-light);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem var(--bs-primary-clarity);
+}
+/* The card no longer reacts to a click, so it must stop advertising that it
+   does. `jKanban`'s own stylesheet sets `cursor: move` on every item; that
+   stays right while dragging is allowed and is wrong when it is not. */
+#lead-board .kanban-item,
+#order-board .kanban-item {
+    cursor: default;
+}
+#lead-board[data-can-drag="true"] .kanban-item,
+#order-board[data-can-drag="true"] .kanban-item {
+    cursor: grab;
+}
+#lead-board[data-can-drag="true"] .kanban-item:active,
+#order-board[data-can-drag="true"] .kanban-item:active {
+    cursor: grabbing;
+}

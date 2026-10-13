@@ -23,7 +23,7 @@ let openJalaliPickerField = null; // which field it belongs to
  * .menu-sub-dropdown`, exactly what `#user-menu` and
  * `setupListFilterPopovers()` use, so it inherits the light/dark
  * background, shadow, radius and fade-in for free. Only the grids
- * themselves are custom CSS (`.jalali-picker-*` in dolphin.css), because
+ * themselves are custom CSS (`.jalali-picker-*` in the panel stylesheet), because
  * the purchased theme has no Jalali calendar to adapt.
  *
  * Three views, not one (product owner, 2026-09-20): days, then the
@@ -499,7 +499,7 @@ function openJalaliPicker(field) {
     // dialog's backdrop and be unreachable. Appending inside the dialog
     // keeps it in that same promoted stacking context. Neither this nor
     // <body> is `position: relative`, which is fine — the panel is
-    // `position: fixed` (dolphin.css) and positioned in viewport
+    // `position: fixed` (the panel stylesheet) and positioned in viewport
     // coordinates below, not relative to its parent.
     (field.closest("dialog") || document.body).appendChild(panel);
     setView("days");

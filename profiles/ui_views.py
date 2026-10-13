@@ -181,6 +181,12 @@ class UserProfileView(PersonProfileView):
         # Setting another account's password (2.40.32): Platform Admin only,
         # the same gate `set_user_password` enforces.
         context["profile_can_set_password"] = manages and viewer.role == User.Role.PLATFORM_ADMIN
+        # Taking two-factor sign-in off someone else's account — a lost phone
+        # (2.40.42): the same gate `reset_two_factor` enforces, and only where
+        # the deployment runs it. Never on one's own profile.
+        context["profile_can_reset_two_factor"] = (
+            context["profile_can_set_password"] and feature_enabled("two_factor") and person.pk != viewer.pk
+        )
         context["workstream_labels"] = WORKSTREAM_LABELS
         context["target_username"] = person.username
         return context

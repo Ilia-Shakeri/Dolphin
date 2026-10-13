@@ -28,9 +28,11 @@ from common.dashboard_layout import (
     widget_minimums,
 )
 from common.models import UserDashboardLayout
+from common.stylesheets import stylesheet_text
+from common.tests.panel_js import feature_source
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = (ROOT / "common" / "static" / "common" / "js" / "features" / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
+SCRIPT = feature_source("features/dashboard")
 HOME = (ROOT / "common" / "templates" / "common" / "home.html").read_text(encoding="utf-8")
 
 
@@ -135,7 +137,7 @@ class TrendStaysLargeTests(SimpleTestCase):
     """2.40.20: the twelve-week trend is never squeezed."""
 
     def test_full_row_below_the_wide_grid(self):
-        css = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+        css = stylesheet_text()
         block = css.split('[data-dashboard-grid] > .dashboard-widget[data-widget-key="trend"] {')[1].split("}")[0]
         self.assertIn("grid-column: 1 / -1;", block)
 

@@ -18,11 +18,11 @@ from django.test import Client, SimpleTestCase, TestCase
 
 from accounts.models import User
 from common.context_processors import SIDEBAR_MINIMIZE_COOKIE
+from common.stylesheets import stylesheet_text
 
 
 PASSWORD = "Strong-pass-937!"
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
-PANEL_CSS = REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css"
 
 
 class SidebarCollapseRenderingTests(TestCase):
@@ -98,7 +98,7 @@ class SidebarCollapseStyleTests(SimpleTestCase):
     """The few rules that must outrank the theme's own utilities."""
 
     def setUp(self):
-        self.css = PANEL_CSS.read_text(encoding="utf-8")
+        self.css = stylesheet_text()
 
     def test_the_override_sheet_leaves_the_collapsed_sidebar_to_the_theme(self):
         """Three releases of rules used to live here. None of them do now.
@@ -273,7 +273,7 @@ class CollapsedSidebarMarkupTests(TestCase):
         """The floating toggle was hidden while collapsed in 1.3.11, because the
         mark had taken over that job. With the mark inert again it has to be
         reachable, or a collapsed sidebar has no way back."""
-        css = PANEL_CSS.read_text(encoding="utf-8")
+        css = stylesheet_text()
         self.assertNotRegex(
             css,
             r'\[data-dolphin-app-sidebar-minimize="on"\] \.app-sidebar \.app-sidebar-toggle \{'
@@ -290,7 +290,7 @@ class SelectStyleTests(SimpleTestCase):
     """Dropdowns stay native `<select>` elements and are styled as such."""
 
     def setUp(self):
-        self.css = PANEL_CSS.read_text(encoding="utf-8")
+        self.css = stylesheet_text()
 
     def test_the_native_popup_is_told_which_palette_to_use(self):
         """`color-scheme` is the only handle a page has on the list the browser
@@ -312,7 +312,7 @@ class RailIconCentringTests(SimpleTestCase):
     the faded title still took 40-50px inside the square, pushing the icon to
     its edge. Measured after both: square and icon centres 0px from the rail's."""
 
-    css = (REPOSITORY_ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+    css = stylesheet_text()
 
     def test_the_square_is_placed_from_the_rails_edge_not_centred_in_the_row(self):
         self.assertIn("margin-inline: calc((75px - 2.9rem) / 2 - 0.75rem - 0.115rem) 0;", self.css)

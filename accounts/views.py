@@ -2,17 +2,18 @@ from django.contrib.auth import login, logout
 from django.db.models import Exists, OuterRef
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, PolymorphicProxySerializer, extend_schema
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from accounts.access import crm_identities
-from accounts.models import User, UserCapabilityOverride
+from accounts.models import TwoFactorDevice, User, UserCapabilityOverride
 from accounts.permissions import IsUserReader
 from accounts.sessions import active_sessions_for, record_session_device, revoke_sessions
 from accounts.serializers import (
@@ -28,6 +29,8 @@ from accounts.serializers import (
     UserSerializer,
 )
 from accounts.services import reset_user_permissions, set_user_password, set_user_permission_overrides, user_permissions_for
+from accounts.two_factor import reset_two_factor
+from accounts.two_factor_views import needs_second_step, start_pending_sign_in
 from common.openapi import (
     ACCESS_DENIED_RESPONSE,
     CONFLICT_RESPONSE,
@@ -36,9 +39,14 @@ from common.openapi import (
     THROTTLED_RESPONSE,
     VALIDATION_ERROR_RESPONSE,
 )
+from common.deployment.profile import feature_enabled
 from common.permissions import IsActiveAuthenticated
 from common.throttles import SensitiveActionThrottleMixin, SensitiveRateThrottle
 from common.viewsets import AdminHardDeleteModelViewSet
+
+
+class TwoFactorRequiredSerializer(serializers.Serializer):
+    two_factor_required = serializers.BooleanField()
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -51,7 +59,11 @@ class LoginView(APIView):
     @extend_schema(
         request=LoginSerializer,
         responses={
-            200: MeSerializer,
+            200: PolymorphicProxySerializer(
+                component_name="LoginResult",
+                serializers=[MeSerializer, TwoFactorRequiredSerializer],
+                resource_type_field_name=None,
+            ),
             400: VALIDATION_ERROR_RESPONSE,
             403: CSRF_OR_ACCESS_DENIED_RESPONSE,
             429: THROTTLED_RESPONSE,
@@ -67,7 +79,14 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        login(request, serializer.validated_data["user"])
+        user = serializer.validated_data["user"]
+        # Two-factor sign-in (2.40.42): a right password on an account with an
+        # authenticator signs nothing in yet — the code comes next
+        # (`auth/login/two-factor/`).
+        if needs_second_step(user):
+            start_pending_sign_in(request, user)
+            return Response(TwoFactorRequiredSerializer({"two_factor_required": True}).data)
+        login(request, user)
         record_session_device(request)
         return Response(MeSerializer(serializer.validated_data["user"]).data)
 
@@ -165,7 +184,7 @@ class UserViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     queryset = User.objects.none()
     serializer_class = UserSerializer
     permission_classes = [IsUserReader]
-    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions", "set_password"})
+    sensitive_actions = frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions", "set_password", "reset_two_factor"})
     search_fields = ["username", "first_name", "last_name", "email", "phone"]
     ordering_fields = ["username", "role", "workstream", "is_active", "created_at"]
 
@@ -182,7 +201,10 @@ class UserViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
         queryset = queryset.annotate(
             _has_capability_overrides=Exists(
                 UserCapabilityOverride.objects.filter(user_id=OuterRef("pk"))
-            )
+            ),
+            _two_factor_enabled=Exists(
+                TwoFactorDevice.objects.filter(user_id=OuterRef("pk"), confirmed_at__isnull=False)
+            ),
         )
         return queryset
 
@@ -229,6 +251,21 @@ class UserViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
             "own when they set their own."
         ),
     )
+    @extend_schema(
+        request=None,
+        responses={204: None, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE, 409: CONFLICT_RESPONSE, 429: THROTTLED_RESPONSE},
+        description=(
+            "Takes two-factor sign-in off this account — a lost phone (2.40.42, feature `two_factor`). "
+            "Platform Admin only, never for their own account (that is `manage.py reset_two_factor`)."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="reset-two-factor")
+    def reset_two_factor(self, request, pk=None):
+        if not feature_enabled("two_factor"):
+            raise NotFound()
+        reset_two_factor(actor=request.user, target=self.get_object())
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=["post"], url_path="set-password")
     def set_password(self, request, pk=None):
         target = self.get_object()

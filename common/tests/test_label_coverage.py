@@ -86,12 +86,6 @@ class LabelMapCoverageTests(SimpleTestCase):
     def test_payment_statuses(self):
         self.assert_covers("PAYMENT_STATUS_TEXT", Payment.Status.values)
 
-    def test_payment_directions(self):
-        self.assert_covers("PAYMENT_DIRECTION_TEXT", Payment.Direction.values)
-
-    def test_installment_statuses(self):
-        self.assert_covers("INSTALLMENT_STATUS_TEXT", Installment.Status.values)
-
     def test_stock_movement_types(self):
         self.assert_covers("MOVEMENT_TEXT", StockMovement.MovementType.values)
 
@@ -113,8 +107,7 @@ class LabelMapCoverageTests(SimpleTestCase):
         source = APP_JS.read_text(encoding="utf-8")
         for name in (
             "LEDGER_ENTRY_TEXT", "CHEQUE_STATUS_TEXT", "PAYMENT_METHOD_TEXT",
-            "PAYMENT_STATUS_TEXT", "PAYMENT_DIRECTION_TEXT",
-            "INSTALLMENT_STATUS_TEXT", "MOVEMENT_TEXT",
+            "PAYMENT_STATUS_TEXT", "MOVEMENT_TEXT",
             "SETTLEMENT_TEXT", "DOCUMENT_STATUS_TEXT",
         ):
             match = re.search(rf"const {name} = Object\.freeze\(\{{(.*?)\}}\);", source, re.S)

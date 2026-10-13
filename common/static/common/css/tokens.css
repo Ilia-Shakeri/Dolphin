@@ -1,0 +1,26 @@
+/* Design tokens (motion 2.x; shape and size 2.40.38) --------------------------
+   One duration pair and one curve for the panel's own transitions, so hover,
+   focus, open and close all feel like the same hand. Fast for small state
+   changes (colour, fill), regular for things that move or resize. Since
+   2.40.38 the curve is a spring-like ease-out — quick to start, long to settle
+   — the feel of the platform motion the product owner asked the panel to have
+   («حس و حال اپل»), and the shape tokens below give every control, card and
+   pill one radius each, concentric from the card inward. */
+:root {
+    --dolphin-dur-fast: 150ms;
+    --dolphin-dur: 250ms;
+    --dolphin-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --dolphin-radius-control: 10px;
+    --dolphin-radius-control-sm: 8px;
+    --dolphin-radius-card: 16px;
+}
+
+/* Dolphin overrides on top of the purchased theme.
+ *
+ * The theme bundle is the design system: cards, tables, forms, buttons,
+ * badges, spacing, typography and the RTL grid all come from it. Nothing here
+ * may recreate any of that. What belongs here is only:
+ *   1. behaviour the theme does not cover but this application relies on,
+ *   2. the brand mark,
+ *   3. the print sheet, which is deliberately independent of the theme.
+ */

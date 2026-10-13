@@ -82,6 +82,11 @@ GROUPS = (
     )),
     Group("customers", "مشتریان", "di-profile-user", 4, (
         Item("customers", "مشتریان", "common_ui:customers", _feature_and("customers", "customers.scoped", "customers.company")),
+        # Every file the reader may see, beside the records they hang on (2.40.42).
+        # Listed with the customers it sits under: a reader without them (an
+        # after-sales operator) keeps each file on its own record's page.
+        Item("attachment-library", "اسناد و پیوست‌ها", "common_ui:attachment-library",
+             lambda ctx: "attachments" in ctx["features"] and _feature_and("customers", "customers.scoped", "customers.company")(ctx)),
     )),
     Group("sales", "فروش", "di-document", 2, (
         Item("invoices", "فاکتورها", "common_ui:invoices", _feature_and("invoices", "invoices.scoped", "invoices.company")),

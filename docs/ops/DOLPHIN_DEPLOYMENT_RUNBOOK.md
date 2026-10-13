@@ -298,7 +298,8 @@ for path in \
   /static/common/ui/css/dolphin-theme.rtl.css \
   /static/common/ui/css/dolphin-plugins.rtl.css \
   /static/common/ui/js/dolphin-theme.js \
-  /static/common/dolphin.css \
+  /static/common/css/tokens.css \
+  /static/common/css/drawers-files.css \
   /static/common/js/main.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
@@ -1182,6 +1183,14 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.42 — `accounts/0009_two_factor`** creates two tables (`accounts_twofactordevice`,
+  `accounts_twofactorrecoverycode`), both granted `SELECT, INSERT, UPDATE, DELETE` by
+  `db-finalize`; it moves no data. A new direct dependency, `segno==1.6.6` (pure Python, no
+  dependencies, draws the enrolment QR code), is in the hashed lock. The `two_factor` feature is
+  off by default; turning it on needs `DOLPHIN_SECRETS_KEY` (the same key integrations use) —
+  without one the panel says so and nobody can enrol. Rolling back to 2.40.41 keeping the data:
+  `migrate accounts 0008` **with the 2.40.42 image** (drops every enrolled authenticator — the
+  accounts then sign in with the password alone), then switch images.
 * **2.40.41 — `sales/0034_sales_target`** creates one new table, `sales_salestarget` (monthly sales
   targets); it moves no data. The application role needs its grant (`SELECT, INSERT, UPDATE, DELETE`,
   in `scripts/bootstrap-postgres.sh`), which `deploy.sh` applies right after the migration
@@ -1351,6 +1360,30 @@ docker compose --env-file secrets/.env -f compose.restore-verify.yml --profile r
 The script checks the sentinel, the exact archive name shape and the SHA-256
 before restoring, then runs the schema verification in
 `scripts/verify-postgres-schema.sql`.
+
+Since 2.40.42 that file is generated from the code (`python
+scripts/generate_schema_proof.py`): every table of a first-party model, every
+migration the release ships, every named constraint and every partial unique
+index. Before, it still asked for the 1.x migration counts and failed on every
+2.x backup. It proves the archive holds **at least** the schema of the release
+that verifies it — so verify an archive with the release that made it, or a
+newer one after `migrate`. `common/tests/test_schema_proof.py` fails the suite
+when a migration ships without regenerating it.
+
+### 4.5a Two-factor sign-in: a lost phone (2.40.42)
+
+When the `two_factor` feature is on, a user who has lost their phone signs in
+with one of their recovery codes. When those are gone too, the Platform Admin
+resets the account from its profile («دسترسی‌ها» → «بازنشانی ورود دومرحله‌ای»).
+The Platform Admin's own account is reset only on the host:
+
+```bash
+docker exec dolphin-web-1 python manage.py reset_two_factor --username <username>
+```
+
+Both are in the activity log (`two_factor.reset`). The account then signs in
+with its password alone and can turn two-factor sign-in on again from
+«تنظیمات» → «امنیت».
 
 ### 4.6 Disaster restore
 
@@ -1790,8 +1823,9 @@ docker compose --env-file secrets/.env up -d --force-recreate nginx
 ```
 
 Then hard-refresh the browser (`Ctrl+F5`). The application's own CSS and JS were
-renamed to `dolphin.css` / the module tree under `js/`; a cache holding the old names
-renders the page unstyled even when the server is correct.
+renamed to `dolphin.css` / the module tree under `js/`, and since 2.40.42 the CSS is
+the ordered layers under `css/` (`common/stylesheets.py`); a cache holding the old
+names renders the page unstyled even when the server is correct.
 
 ### 8.2 `collectstatic` fails or collects almost nothing
 
@@ -2654,7 +2688,8 @@ for path in \
   /static/common/ui/css/dolphin-theme.rtl.css \
   /static/common/ui/css/dolphin-plugins.rtl.css \
   /static/common/ui/js/dolphin-theme.js \
-  /static/common/dolphin.css \
+  /static/common/css/tokens.css \
+  /static/common/css/drawers-files.css \
   /static/common/js/main.js \
   /static/common/brand/favicon.ico \
   /static/common/brand/Logo.png \
@@ -3075,6 +3110,7 @@ Source tests prove the intended Compose secret scope, transaction boundary, tabl
 - The lock contains reviewed CPython 3.13 Linux-amd64 hashes. The three platform wheels also contain Windows-amd64 hashes so the guarded local setup remains usable.
 - `pip download --require-hashes --only-binary=:all:` passed for both `manylinux_2_17_x86_64/cp313` and `win_amd64/cp313` on 2026-08-10. This proves lock resolution and hashes, not a container build.
 - 2026-09-27 (2.21.0): `cryptography==49.0.0` added as a direct package (integration secrets at rest), with `cffi==2.1.1` and `pycparser==3.0`, resolved in the reviewed `python@sha256:b6d2e2b3…` 3.13.15 image; `pip download --require-hashes --only-binary=:all:` passed for the full lock in that image (Linux) and for `win_amd64/cp313`.
+- 2026-10-13 (2.40.42): `segno==1.6.6` added as a direct package (the two-factor enrolment QR code; pure Python, a single `py3-none-any` wheel, no dependencies on Python 3.13). Its SHA-256 was checked against PyPI's published digest before it entered the lock; the image build installs it with `--require-hashes`.
 - 2026-09-28 (2.22.0): `PyMySQL==1.1.3` added as a direct package (reading the PBX's CDR table; pure Python, no dependencies); `pip download --require-hashes --only-binary=:all:` passed for the full lock inside the reviewed `python@sha256:b6d2e2b3…` image (23 wheels) and for `win_amd64/cp313` (24 wheels, `tzdata` included by its marker).
 
 ### Safe update flow
@@ -4088,7 +4124,7 @@ curl -fsS http://127.0.0.1/health/live/ && echo
 curl -fsS "https://<public-host>/api/v1/health/ready/" && echo
 
 # Static assets are served by Nginx from the shared volume.
-curl -fsS -o /dev/null -w '%{http_code}\n' "https://<public-host>/static/common/dolphin.css"
+curl -fsS -o /dev/null -w '%{http_code}\n' "https://<public-host>/static/common/css/tokens.css"
 ```
 
 Prove nothing sensitive is published:

@@ -11,17 +11,19 @@ import re
 from pathlib import Path
 
 from django.test import SimpleTestCase
+from common.stylesheets import stylesheet_text
+from common.tests.panel_js import feature_source
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = ROOT / "common" / "static" / "common"
 JS = STATIC / "js"
-CSS = (STATIC / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 
 
 class ColourTests(SimpleTestCase):
     def test_the_widgets_wear_their_own_colours_again(self):
         self.assertNotIn("[data-dashboard-grid] > .dashboard-widget { --dashboard-accent: var(--bs-primary); }", CSS)
-        dashboard = (JS / "features" / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
+        dashboard = feature_source("features/dashboard")
         self.assertEqual(dashboard.count('{accent: "primary"}'), 0)
         self.assertIn("renderSparkline(spark, kpi.spark, {accent: kpi.accent})", dashboard)
 

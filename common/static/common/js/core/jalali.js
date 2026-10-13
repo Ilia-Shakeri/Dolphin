@@ -144,13 +144,6 @@ export function localDateTimeValue(value) {
     return shown === "—" ? "" : shown;
 }
 
-/** The same, for a `data-jalali="date"` input: the day without the time. */
-function localDateValue(value) {
-    const shown = localDateTimeValue(value);
-    // `displayDate` renders "۱۴۰۵/۰۵/۲۷ ۰۱:۰۳"; a date input wants the day.
-    return shown ? shown.split(" ")[0] : "";
-}
-
 /**
  * Read a typed Jalali value.
  *

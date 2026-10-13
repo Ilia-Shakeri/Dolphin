@@ -81,11 +81,6 @@ function bindUnloadGuard() {
     });
 }
 
-/** Whether the reader changed something in this open dialog. */
-export function isDialogDirty(dialog) {
-    return dirtyDialogs.has(dialog);
-}
-
 /**
  * The shared rules for closing a dialog that holds a form, applied once per
  * dialog:
@@ -179,7 +174,7 @@ const FIRST_FIELD = 'input:not([type="hidden"]):not([type="checkbox"]):not([type
  * `autofocus` keeps its own. Not on a touch screen (see below).
  */
 /**
- * A dialog on a phone is a sheet (2.40.38, dolphin.css): it rises from the
+ * A dialog on a phone is a sheet (2.40.38, the panel stylesheet): it rises from the
  * bottom with a grabber, and pulling it down past a third of its height — or
  * flicking it down — closes it the same way its × does, so an unsaved form
  * still asks first (`guardDirtyDialog`). Anywhere else, or on a desktop, the

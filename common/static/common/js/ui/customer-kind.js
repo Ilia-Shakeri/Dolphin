@@ -2,18 +2,13 @@
  * «حقیقی» / «حقوقی» with their icon (2.40.8) — the JavaScript twin of the
  * `{% customer_kind %}` template tag (`common/templatetags/customer_kind_tags.py`),
  * and the one label table on this side. The icon is `1em` in `currentColor`
- * (`.customer-kind` in dolphin.css) and decorative: the word is beside it.
+ * (`.customer-kind` in the panel stylesheet) and decorative: the word is beside it.
  */
 
 const KINDS = {
     individual: {label: "حقیقی", icon: "di-profile-circle", paths: 3},
     legal: {label: "حقوقی", icon: "di-bank", paths: 2},
 };
-
-/** The plain word, for a place an icon cannot go. */
-export function customerKindLabel(kind) {
-    return KINDS[kind]?.label || "";
-}
 
 /** The icon and the word, as one inline element; `null` for an unknown kind. */
 export function customerKindBadge(kind) {

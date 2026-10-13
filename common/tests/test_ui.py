@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.staticfiles import finders
 from django.test import SimpleTestCase, TestCase
+from common.stylesheets import STYLESHEETS
 
 
 class DolphinHomeTests(TestCase):
@@ -27,7 +28,8 @@ class DolphinHomeTests(TestCase):
         self.assertNotIn('href="http', content)
 
     def test_home_stylesheet_is_first_party_static(self):
-        self.assertIsNotNone(finders.find("common/dolphin.css"))
+        for name in STYLESHEETS:
+            self.assertIsNotNone(finders.find(name), name)
         favicon = settings.BASE_DIR / "common" / "static" / "common" / "brand" / "favicon.ico"
         self.assertTrue(favicon.is_file())
         response = self.client.get("/")

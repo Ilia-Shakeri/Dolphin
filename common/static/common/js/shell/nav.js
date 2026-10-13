@@ -59,7 +59,7 @@ export function setupSidebarAccordionScroll() {
  * normally toggle that class and position the panel with Popper, which
  * lives in the plugins bundle this deployment does not load. Toggling the
  * class is the whole of what was missing — placement is two CSS lines in
- * dolphin.css — and `registerPopover` above is what does it now, for this
+ * the panel stylesheet — and `registerPopover` above is what does it now, for this
  * menu and for every other panel in the shell.
  */
 export function setupUserMenu() {

@@ -26,10 +26,12 @@ from common.exceptions import BusinessRuleError
 from common.persian_errors import http_answer, needs_persian, network_reason, persianise
 from sales.campaigns import create_campaign
 from sales.services import create_lead
+from common.stylesheets import stylesheet_text
+from common.tests.panel_js import feature_source
 
 ROOT = Path(__file__).resolve().parents[2]
 JS = ROOT / "common" / "static" / "common" / "js"
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 PASSWORD = "Strong-pass-735!"
 
 
@@ -108,7 +110,7 @@ class PerformanceWidgetTests(TestCase):
 
 
 class DashboardScriptTests(SimpleTestCase):
-    SCRIPT = (JS / "features" / "dashboard" / "dashboard.js").read_text(encoding="utf-8")
+    SCRIPT = feature_source("features/dashboard")
 
     def test_every_box_is_revealed_at_once(self):
         self.assertIn("revealDashboard();", self.SCRIPT)

@@ -13,6 +13,8 @@ from django.test import SimpleTestCase, TestCase
 
 from accounts.models import User
 from common import realtime_signals
+from common.stylesheets import stylesheet_text
+from common.tests.panel_js import feature_source
 
 ROOT = Path(__file__).resolve().parents[2]
 JS = ROOT / "common" / "static" / "common" / "js"
@@ -40,7 +42,7 @@ class PageTests(SimpleTestCase):
         return (JS / name).read_text(encoding="utf-8")
 
     def test_the_dashboard_redraws_in_place(self):
-        dashboard = self.read("features/dashboard/dashboard.js")
+        dashboard = feature_source("features/dashboard")
         self.assertIn("onRealtime(ALL_BUSINESS_KINDS, refreshDashboard", dashboard)
         self.assertIn("current.column.replaceChildren(...column.children)", dashboard)
         self.assertIn('document.body.classList.contains("dashboard-editing")', dashboard)
@@ -70,7 +72,7 @@ class PageTests(SimpleTestCase):
         self.assertIn('onRealtime(["chat"], read', toast)
         self.assertIn("dolphin:chat-open-thread", toast)
         self.assertIn("document.body.dataset.chatOpenThread", toast)
-        css = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+        css = stylesheet_text()
         block = css[css.index(".chat-toasts {"):]
         self.assertIn("left: 1.25rem;", block[:200])
         self.assertIn("bottom: 1.25rem;", block[:200])

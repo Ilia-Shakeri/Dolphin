@@ -1,5 +1,6 @@
 import {ApiError, GENERIC_MESSAGE, STATUS_MESSAGES} from "dolphin/core/api.js";
 import {reportWizardErrors, wizardsByForm} from "dolphin/core/form-errors.js";
+import {toPersianDigits} from "dolphin/core/digits.js";
 
 export function globalMessage(message, success = false) {
     const node = document.getElementById("global-message");
@@ -75,6 +76,11 @@ function serverReasons(error) {
         .join(" ");
 }
 
+/** The server's own reason for a refusal (400/409), else the plain message for its status. */
+export function errorReason(error) {
+    return serverReasons(error) || errorText(error);
+}
+
 export function showError(error, form = null) {
     if (error instanceof ApiError && error.payload?.error?.code === "authentication_failed") {
         window.location.assign("/login/");
@@ -107,4 +113,29 @@ export async function withSubmit(form, task) {
     const button = form.querySelector("button[type='submit']");
     button.disabled = true;
     try { await task(); } catch (error) { showError(error, form); } finally { button.disabled = false; }
+}
+
+/**
+ * Why a field the browser refuses is refused, in plain Persian (2.40.42).
+ *
+ * The browser's own `validationMessage` is in the language of the browser,
+ * not the panel: on the English Chrome most readers run, a wizard said
+ * «Please fill out this field.» under a Persian label. Product owner,
+ * 2.40.40: «ارورهای پنل باید فارسی و ساده باشند». A message a script set on
+ * purpose (`setCustomValidity`) is kept as it is.
+ */
+export function validityText(field) {
+    const validity = field?.validity;
+    if (!validity || validity.valid) return "";
+    const choice = field.tagName === "SELECT" || ["radio", "checkbox"].includes(field.type);
+    if (validity.customError) return field.validationMessage;
+    if (validity.valueMissing) return choice ? "یک گزینه را انتخاب کنید." : "این فیلد را پر کنید.";
+    if (validity.typeMismatch) return field.type === "email" ? "نشانی ایمیل درست نیست." : "مقدار واردشده درست نیست.";
+    if (validity.patternMismatch) return "شکل مقدار واردشده درست نیست.";
+    if (validity.tooLong) return `حداکثر ${toPersianDigits(String(field.maxLength))} نویسه.`;
+    if (validity.tooShort) return `دست‌کم ${toPersianDigits(String(field.minLength))} نویسه.`;
+    if (validity.rangeUnderflow) return `مقدار باید دست‌کم ${toPersianDigits(String(field.min))} باشد.`;
+    if (validity.rangeOverflow) return `مقدار باید حداکثر ${toPersianDigits(String(field.max))} باشد.`;
+    if (validity.badInput) return "عدد واردشده درست نیست.";
+    return "مقدار واردشده درست نیست.";
 }

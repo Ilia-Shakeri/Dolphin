@@ -10,9 +10,10 @@ import re
 from pathlib import Path
 
 from django.test import SimpleTestCase, TestCase
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 SCRIPT = (ROOT / "common" / "static" / "common" / "js" / "features" / "login" / "login.js").read_text(encoding="utf-8")
 
 

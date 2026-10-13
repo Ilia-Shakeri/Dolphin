@@ -34,6 +34,8 @@ export const LIVE_KINDS = {
     users: ["user"],
     "outbound-sms": ["sms"],
     "inbound-sms": ["sms"],
+    // 2.40.42: the file manager.
+    "attachment-library": ["attachment"],
 };
 
 /** Every kind a business record announces — what the dashboard, which counts

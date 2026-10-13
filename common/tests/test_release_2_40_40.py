@@ -16,11 +16,12 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from common.persian_errors import persianise
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = ROOT / "common" / "static" / "common"
 JS = STATIC / "js"
-CSS = (STATIC / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 PASSWORD = "Strong-pass-740!"
 
 

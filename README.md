@@ -45,8 +45,9 @@ system layered on top of role-based defaults, and a panel that updates live.
 | Audit | `auditlog` | Append-only activity log, Persian-labeled |
 | Shell | `common` | The served UI, permissions plumbing, deployment profile, panel backups, live updates (SSE), navigation registry, static assets |
 
-The panel itself lives in `common/templates/common/**` +
-`common/static/common/dolphin.css` + the panel script, routed through
+The panel itself lives in `common/templates/common/**` + the stylesheet
+layers in `common/static/common/css/` (ordered by `common/stylesheets.py`) +
+the panel script, routed through
 `common/ui_urls.py`/`common/ui_views.py`. The reference template folder at the repository root is visual reference
 only — never served, never a source of business rules, and nothing in the
 panel depends on it.
@@ -91,11 +92,13 @@ documentation map below.
 python manage.py test --settings=config.test_settings
 ```
 
-Runs the suite (about 3,440 non-browser tests as of 2.40.40) against an
+Runs the suite (about 3,510 non-browser tests as of 2.40.42) against an
 isolated SQLite database — no external services required. Run it serially
 (`--parallel` does not work with the temporary SQLite database on Windows). The
-`*_browser` Selenium tests need a real browser stack and are not part of the
-routine run. A database-role or grant change is not proven by SQLite: run the
+23 `*_browser` Selenium tests (seven files) drive a headless Chrome against a
+live test server; they are kept out of the routine run for time, not because
+they fail — run them before a release (`common/tests/browser_support.py` holds
+their shared wizard and dialog helpers). A database-role or grant change is not proven by SQLite: run the
 suite against PostgreSQL 16 too (`config._pg_tmp_settings`, or the isolated
 PostgreSQL proof suite in the "Isolated PostgreSQL testing" section of
 [`BACKEND_SPEC.md`](BACKEND_SPEC.md)).

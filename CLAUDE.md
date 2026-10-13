@@ -71,7 +71,8 @@ The maintained served Dolphin UI is:
 • common/templates/common/**
 • profiles/templates/profiles/** (the shared customer/user profile page)
 • common/static/common/js/main.js
-• common/static/common/dolphin.css
+• common/static/common/css/** (the panel stylesheet's layers, in the cascade order
+  common/stylesheets.py lists — the only place they are listed)
 • common/ui_urls.py
 • common/ui_views.py
 

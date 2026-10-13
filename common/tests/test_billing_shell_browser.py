@@ -21,6 +21,7 @@ from django.core.cache import cache
 from accounts.models import User
 from billing.models import Cheque, Invoice, Payment
 from billing.payments import register_payment
+from common.tests.browser_support import BrowserFlowMixin
 from inventory.models import StockItem
 from sales.services import create_customer_with_phone, create_product, create_product_category
 
@@ -36,7 +37,7 @@ if SELENIUM_AVAILABLE:
 
 
 @unittest.skipUnless(SELENIUM_AVAILABLE, "Selenium is not installed.")
-class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
+class CommercialChainRealBrowserTests(BrowserFlowMixin, StaticLiveServerTestCase):
     password = "Strong-pass-983!"
 
     @classmethod
@@ -255,10 +256,11 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # 1. Create a warehouse.
         self.browser.get(f"{self.live_server_url}/warehouses/")
         self.open_create_dialog("open-create-warehouse", "create-warehouse-dialog")
-        self.browser.find_element(By.ID, "create-warehouse-code").send_keys("browserwh")
-        self.browser.find_element(By.ID, "create-warehouse-name").send_keys("انبار مرورگر")
-        Select(self.browser.find_element(By.ID, "create-warehouse-default")).select_by_value("true")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-warehouse-form button[type='submit']").click()
+        self.fill_wizard("create-warehouse-dialog", [
+            ("create-warehouse-code", "browserwh"),
+            ("create-warehouse-name", "انبار مرورگر"),
+            ("create-warehouse-default", "true"),
+        ])
         self.wait.until(expected_conditions.url_matches(r"/warehouses/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "warehouse-detail-content")))
         self.assertEqual(self.value_of("edit-warehouse-code"), "browserwh")
@@ -267,14 +269,14 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         # 2. Receipt opening stock, and see the level the server computed.
         self.browser.get(f"{self.live_server_url}/stock/")
         self.open_create_dialog("open-create-movement", "create-movement-dialog")
-        self.select_when_populated("create-movement-warehouse", warehouse_id)
-        self.select_when_populated("create-movement-product", self.product.pk)
-        Select(self.browser.find_element(By.ID, "create-movement-type")).select_by_value("opening")
-        quantity = self.browser.find_element(By.ID, "create-movement-quantity")
-        quantity.clear()
-        quantity.send_keys("40")
-        self.browser.find_element(By.ID, "create-movement-cost").send_keys("120")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-movement-form button[type='submit']").click()
+        # A step wizard: each field is filled on the step that holds it.
+        self.fill_wizard("create-movement-dialog", [
+            ("create-movement-warehouse", str(warehouse_id)),
+            ("create-movement-product", str(self.product.pk)),
+            ("create-movement-type", "opening"),
+            ("create-movement-quantity", "40"),
+            ("create-movement-cost", "120"),
+        ])
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "stock-items-table-wrap")))
         first_row = self.browser.find_element(By.CSS_SELECTOR, "#stock-items-table-body tr")
         self.assertIn("انبار مرورگر", first_row.text)
@@ -315,12 +317,12 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         order_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
         # Approving the warehouse-backed order moves stock once.
         Select(self.browser.find_element(By.ID, "order-status-select")).select_by_value("confirmed")
-        self.browser.switch_to.alert.accept()
-        self.wait.until(
-            lambda driver: Select(
-                driver.find_element(By.ID, "order-status-select")
-            ).first_selected_option.get_attribute("value") == "confirmed"
-        )
+        self.confirm()
+        # The select already reads «confirmed» the moment it is chosen; the
+        # server's answer is the message the page shows once it has saved.
+        self.wait.until(expected_conditions.text_to_be_present_in_element(
+            (By.ID, "global-message"), "وضعیت درخواست تأمین ثبت شد"
+        ))
 
         # 5. Raise an invoice on its own — Client-1 invoices first — then issue
         # it and attach it to the order afterwards.
@@ -342,19 +344,19 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         quantity = line.find_element(By.CSS_SELECTOR, "[data-line-quantity]")
         quantity.clear()
         quantity.send_keys("3")
-        self.advance_wizard("create-invoice-dialog")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-invoice-form button[type='submit']").click()
+        # The payment-type step (2.32.0) sits between the lines and the
+        # review; cash is the default, so the rest of the wizard is walked
+        # through and submitted as it stands.
+        self.fill_wizard("create-invoice-dialog", [])
         self.wait.until(expected_conditions.url_matches(r"/invoices/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-detail-content")))
         invoice_id = int(self.browser.current_url.rstrip("/").rsplit("/", 1)[-1])
         # Issuing runs from the status select; the issue/cancel box is gone.
         Select(self.browser.find_element(By.ID, "invoice-status-select")).select_by_value("issued")
-        self.browser.switch_to.alert.accept()
-        self.wait.until(
-            lambda driver: Select(
-                driver.find_element(By.ID, "invoice-status-select")
-            ).first_selected_option.get_attribute("value") == "issued"
-        )
+        self.confirm()
+        # Issued is what the server answered, not what the select was set to:
+        # the page shows the issued note only once it has the issued invoice.
+        self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "invoice-issued-note")))
 
         # Issuing moved no stock: the order owns the inventory lifecycle, and
         # deducting here as well would take the same goods out twice.
@@ -433,8 +435,7 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
         back_to_method_step()
         choose_method("cash")
         self.browser.find_element(By.ID, "create-payment-amount").send_keys("250")
-        self.advance_wizard("create-payment-dialog")
-        self.browser.find_element(By.CSS_SELECTOR, "#create-payment-form button[type='submit']").click()
+        self.fill_wizard("create-payment-dialog", [])
         self.wait.until(expected_conditions.url_matches(r"/payments/\d+/$"))
         self.wait.until(expected_conditions.visibility_of_element_located((By.ID, "payment-detail-content")))
         # The status is a two-value select since 1.3.7, so its `value` is the
@@ -552,10 +553,13 @@ class CommercialChainRealBrowserTests(StaticLiveServerTestCase):
     def test_agent_sees_documents_and_no_money_navigation_at_all(self):
         self.browser.set_window_size(1440, 1000)
         self.login(self.agent)
+        # The menu's groups since 2.40.0 (`common/navigation.py`): documents
+        # under «فروش», stock under «انبار و کالا», money under «مالی».
         sidebar = self.browser.find_element(By.ID, "app-sidebar").text
-        self.assertIn("فروش و تأمین", sidebar)
-        self.assertIn("انبار و موجودی", sidebar)
-        self.assertNotIn("مالی", sidebar.replace("فروش و تأمین", ""))
+        groups = {line.strip() for line in sidebar.splitlines()}
+        self.assertIn("فروش", groups)
+        self.assertIn("انبار و کالا", groups)
+        self.assertNotIn("مالی", groups)
         self.assertNotIn("پیش‌فاکتور", sidebar)
 
         for path in (

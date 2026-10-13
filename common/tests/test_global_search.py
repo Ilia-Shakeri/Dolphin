@@ -37,6 +37,7 @@ from sales.services import (
     create_lead,
     create_product,
 )
+from common.stylesheets import stylesheet_text
 
 PASSWORD = "Strong-pass-661!"
 
@@ -333,9 +334,7 @@ class PanelMarkupTests(SimpleTestCase):
     script = (
         PANEL_SCRIPT
     ).read_text(encoding="utf-8")
-    css = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-    ).read_text(encoding="utf-8")
+    css = stylesheet_text()
 
     def test_both_panels_build_the_same_row_class(self):
         self.assertEqual(self.script.count('"topbar-list-item"'), 2)
@@ -362,9 +361,7 @@ class NarrowScreenPanelTests(SimpleTestCase):
     pinning both to the viewport below the `sm` breakpoint.
     """
 
-    css = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-    ).read_text(encoding="utf-8")
+    css = stylesheet_text()
 
     def rule(self):
         block = self.css.split("@media (max-width: 575.98px) {")[1]

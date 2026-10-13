@@ -19,9 +19,10 @@ from reports.list_charts import _postal_label, _text_options
 from sales import postal
 from sales.models import SalesDocument
 from sales.services import create_customer_with_phone, register_sales_document
+from common.stylesheets import stylesheet_text
 
 ROOT = Path(__file__).resolve().parents[2]
-CSS = (ROOT / "common" / "static" / "common" / "dolphin.css").read_text(encoding="utf-8")
+CSS = stylesheet_text()
 
 
 class PostalWordsTests(TestCase):

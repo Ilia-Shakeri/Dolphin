@@ -1,0 +1,531 @@
+/* --- The dashboard as a free grid of cells (2.38.2) ---------------------------
+
+   Built like a phone home screen: twelve columns, rows of half a rem, no grid
+   gap — each box keeps its own margin, so two boxes are a rem apart and a box
+   is as tall as its content to within half a rem (the page measures it,
+   `fitDashboardRows`). A box takes a whole number of columns and rows
+   (`common/dashboard_layout.py`) and, once placed by hand, sits at its own
+   column and row — anywhere, with empty cells around it if the reader wants
+   them. Boxes nobody placed pack together with `dense`, so the default
+   dashboard has no holes. The row unit must stay equal to `ROW_REM` there.
+
+   Twelve columns from `xl`, six on a tablet, two on a phone (small tiles two to
+   a row, as on a phone's home screen); hand-placed positions apply from `xl`
+   up only. */
+:root {
+    --dashboard-row: 0.5rem;
+    --dashboard-gutter: 0.5rem;
+}
+
+[data-dashboard-grid] {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: var(--dashboard-row);
+    grid-auto-flow: row dense;
+    gap: 0;
+    margin-inline: calc(var(--dashboard-gutter) * -1) !important;
+    margin-block: calc(var(--dashboard-gutter) * -1) !important;
+    margin-block-end: calc(1.5rem - var(--dashboard-gutter)) !important;
+}
+
+/* The width comes from the box's own `.dashboard-span-*` class. The default is
+   a `var()` fallback, not a `--dashboard-span: 3` here (2.40.29): this rule
+   outranks the one-class span rules below, so a default declared here made
+   every box three columns wide — the twelve-week trend among them. */
+[data-dashboard-grid] > .dashboard-widget {
+    grid-column: span var(--dashboard-span, 3);
+    grid-row: span var(--dashboard-rows, 22);
+    width: auto;
+    max-width: none;
+    margin: var(--dashboard-gutter) !important;
+    padding: 0 !important;
+    min-width: 0;
+    min-height: 0;
+}
+
+.dashboard-span-3 { --dashboard-span: 3; }
+.dashboard-span-4 { --dashboard-span: 4; }
+.dashboard-span-6 { --dashboard-span: 6; }
+.dashboard-span-8 { --dashboard-span: 8; }
+.dashboard-span-9 { --dashboard-span: 9; }
+.dashboard-span-12 { --dashboard-span: 12; }
+
+@media (min-width: 1200px) {
+    [data-dashboard-grid] > .dashboard-widget[style*="--dashboard-x"] {
+        grid-column: var(--dashboard-x) / span var(--dashboard-span, 3);
+        grid-row: var(--dashboard-y) / span var(--dashboard-rows, 22);
+    }
+}
+
+@media (max-width: 1199.98px) {
+    [data-dashboard-grid] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .dashboard-span-3, .dashboard-span-4 { --dashboard-span: 3; }
+    .dashboard-span-6 { --dashboard-span: 3; }
+    .dashboard-span-8, .dashboard-span-9, .dashboard-span-12 { --dashboard-span: 6; }
+}
+
+@media (max-width: 575.98px) {
+    [data-dashboard-grid] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-span-3, .dashboard-span-4 { --dashboard-span: 1; }
+    .dashboard-span-6, .dashboard-span-8, .dashboard-span-9, .dashboard-span-12 { --dashboard-span: 2; }
+}
+
+/* The twelve-week trend is never squeezed (2.40.20, product owner: «باید بزرگ
+   بماند و کوچک نشود»). Below the wide grid it takes the whole row: at half of
+   a narrower grid its twelve weekly columns drew as hairlines and the chart
+   read as empty. On the wide grid its minimum is two thirds
+   (`WIDGET_MIN_SIZES`). */
+@media (max-width: 1199.98px) {
+    [data-dashboard-grid] > .dashboard-widget[data-widget-key="trend"] {
+        grid-column: 1 / -1;
+    }
+}
+
+/* While the page measures a box it is let take its own height. */
+/* `!important`: the tiles carry Bootstrap's own `h-100`, which is one. */
+[data-dashboard-grid] > .dashboard-widget.is-measuring > .card { height: auto !important; }
+
+/* The page stage (2.40.36): a page's content appears once, with its first data
+   in place, instead of a «در حال دریافت…» line that is then replaced and pushes
+   everything under it down (measured CLS up to 0.9). Until `revealPage`
+   (main.js) the content is invisible — `visibility`, so charts still measure
+   their real width — and a skeleton card stands in for it. The stylesheet shows
+   the page by itself after four seconds should the script never get there. */
+/* File fields in Persian (2.40.36, `ui/file-inputs.js`): the UI kit's field
+   with a «انتخاب فایل» button and the chosen name, instead of the browser's
+   own «Choose File / No file chosen». */
+.dolphin-file {
+    position: relative;
+    display: flex !important;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    min-width: 0;
+}
+.dolphin-file:focus-within { box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--bs-primary) 25%, transparent); }
+.dolphin-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+.dolphin-file-button { flex: 0 0 auto; pointer-events: none; }
+.dolphin-file-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--bs-gray-600);
+}
+.dolphin-file.has-file .dolphin-file-name { color: var(--bs-gray-900); }
+
+/* A checkbox's or radio's label reads at 4.5:1 or better (2.40.36): the UI
+   kit draws it in gray-500, 2.6:1 on a white card. A checked one is the
+   strongest line of its group. */
+.form-check-label { color: var(--bs-gray-700); }
+.form-check-input:checked ~ .form-check-label { color: var(--bs-gray-900); }
+
+/* The page heading sits closer to the content (2.40.36): the toolbar's own
+   padding was the larger part of the 200px before a page's first card. */
+@media (min-width: 992px) {
+    #dolphin_app_toolbar.app-toolbar { padding-block: 0.75rem 1rem !important; }
+}
+
+/* A page's actions on a phone (2.40.36): one row of compact buttons that
+   scrolls sideways, rather than three tall tiles each breaking its label over
+   two lines and taking the screen's first row. */
+@media (max-width: 575.98px) {
+    #dolphin_app_toolbar_container > .d-flex:last-child {
+        width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-block-end: 0.15rem;
+    }
+    #dolphin_app_toolbar_container > .d-flex:last-child::-webkit-scrollbar { display: none; }
+    #dolphin_app_toolbar_container > .d-flex:last-child .btn {
+        flex: 0 0 auto;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.9rem;
+        white-space: nowrap;
+    }
+}
+
+/* Profile header actions (2.40.36): one icon size, centred on the label, in
+   the accent colour on the light buttons — not a small grey glyph sitting low. */
+[data-profile-actions] .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+[data-profile-actions] .btn > i {
+    margin: 0 !important;
+    font-size: 1.15rem !important;
+    line-height: 1;
+}
+[data-profile-actions] .btn.btn-light > i,
+[data-profile-actions] .btn.btn-light > i [class^="path"] { color: var(--bs-primary); }
+
+/* Status colours as text, readable in light mode (2.40.36). The UI kit's
+   success, warning, info and danger are fill colours: as text on white they
+   read at 2.3:1 (green «آنلاین»), 1.9:1 (amber) and 3.6:1 (red) — under the
+   4.5:1 small text needs. As text, a badge's figure or an alert's message they
+   take a deeper shade of the same hue; fills, borders and icons keep the
+   kit's own. Dark mode keeps the kit's colours, which read well on dark. */
+[data-bs-theme=light] {
+    --dolphin-ink-success: color-mix(in srgb, var(--bs-success) 62%, #000);
+    --dolphin-ink-warning: color-mix(in srgb, var(--bs-warning) 50%, #000);
+    --dolphin-ink-info: color-mix(in srgb, var(--bs-info) 72%, #000);
+    --dolphin-ink-danger: color-mix(in srgb, var(--bs-danger) 82%, #000);
+}
+[data-bs-theme=light] .text-success:not(i):not(svg),
+[data-bs-theme=light] .badge-light-success,
+[data-bs-theme=light] .alert-success { color: var(--dolphin-ink-success) !important; }
+[data-bs-theme=light] .text-warning:not(i):not(svg),
+[data-bs-theme=light] .badge-light-warning,
+[data-bs-theme=light] .alert-warning { color: var(--dolphin-ink-warning) !important; }
+[data-bs-theme=light] .text-info:not(i):not(svg),
+[data-bs-theme=light] .badge-light-info,
+[data-bs-theme=light] .alert-info { color: var(--dolphin-ink-info) !important; }
+[data-bs-theme=light] .text-danger:not(i):not(svg),
+[data-bs-theme=light] .badge-light-danger,
+[data-bs-theme=light] .alert-danger { color: var(--dolphin-ink-danger) !important; }
+
+/* A number, a phone or a code in a table (2.40.36): written left to right so
+   «+۹۸۹۱۲…» keeps its plus sign in front, but aligned with its column's
+   right-to-left header, and never broken across lines («INV-» / «۰۰۰۰۰۵»). */
+.table td[dir="ltr"] { white-space: nowrap; }
+.table td[dir="ltr"]:not(.text-center):not(.text-start):not(.text-end) { text-align: right; }
+
+/* The page's own scrollbar keeps its room from the first frame (2.40.36). A
+   page opens shorter than the window, its data arrives, it grows past the
+   bottom and the scrollbar appears — and every element on the page moved
+   sideways by the bar's width at once. Measured: CLS 0.93 on «رویدادهای
+   سامانه», 0.3 on the lists; 0.06 with the room reserved. */
+html { scrollbar-gutter: stable; }
+/* The footer under a loading page would ride down as the content arrives. */
+body:has(.page-stage[data-booting], .dashboard-stage[data-booting]) #dolphin_app_footer { visibility: hidden; }
+
+.page-stage { position: relative; }
+.page-stage[data-booting] { min-height: 18rem; }
+.page-stage[data-booting] > * {
+    visibility: hidden;
+    animation: dashboard-stage-failsafe 0s linear 4s forwards;
+}
+/* A dialog the page opens at once (a deep link) is never held back. */
+.page-stage[data-booting] dialog[open] { visibility: visible; }
+.page-stage[data-booting]::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 16rem;
+    border-radius: 0.95rem;
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 45%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, transparent 0 2.25rem, var(--bs-gray-200) 2.25rem 3.1rem, transparent 3.1rem 3.6rem) 1.75rem 0.5rem / calc(100% - 3.5rem) calc(100% - 2rem) no-repeat,
+        var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-200);
+    animation: dolphin-skeleton-sweep 1.2s ease-in-out infinite, dashboard-loader-failsafe 0s linear 4s forwards;
+}
+[data-bs-theme=dark] .page-stage[data-booting]::before {
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 6%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, transparent 0 2.25rem, var(--bs-gray-200) 2.25rem 3.1rem, transparent 3.1rem 3.6rem) 1.75rem 0.5rem / calc(100% - 3.5rem) calc(100% - 2rem) no-repeat,
+        var(--bs-body-bg);
+}
+.page-stage.is-revealed > * {
+    /* `backwards`, not `both`: nothing stays filled once it has played, so no
+       transform lingers on the page's blocks (a fixed-position menu inside one
+       would otherwise be placed against it). */
+    animation: dashboard-stage-in 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+@keyframes dolphin-skeleton-sweep {
+    from { background-position: -60% 0, 1.75rem 0.5rem, 0 0; }
+    to { background-position: 160% 0, 1.75rem 0.5rem, 0 0; }
+}
+
+/* Loading lines as skeleton rows (2.40.36): every «در حال دریافت…» block
+   (`[id$="-loading"]`) keeps its words for a screen reader but draws three
+   shimmering bars, so a part that loads later fills the shape it held. */
+.text-center.text-gray-700[id$="-loading"]:not([hidden]) {
+    position: relative;
+    min-height: 7.5rem;
+    color: transparent !important;
+    user-select: none;
+}
+.text-center.text-gray-700[id$="-loading"]:not([hidden])::before {
+    content: "";
+    position: absolute;
+    inset: 1rem 0;
+    border-radius: 0.5rem;
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 45%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, var(--bs-gray-200) 0 0.85rem, transparent 0.85rem 1.85rem);
+    animation: dolphin-skeleton-sweep 1.2s ease-in-out infinite;
+}
+[data-bs-theme=dark] .text-center.text-gray-700[id$="-loading"]:not([hidden])::before {
+    background:
+        linear-gradient(90deg, transparent 0, rgb(255 255 255 / 6%) 50%, transparent 100%) 0 0 / 40% 100% no-repeat,
+        repeating-linear-gradient(to bottom, var(--bs-gray-200) 0 0.85rem, transparent 0.85rem 1.85rem);
+}
+@media (prefers-reduced-motion: reduce) {
+    .page-stage.is-revealed > * { animation: none; }
+    .page-stage[data-booting]::before { animation: dashboard-loader-failsafe 0s linear 4s forwards; }
+    .text-center.text-gray-700[id$="-loading"]:not([hidden])::before { animation: none; }
+}
+
+/* The dashboard stage (2.40.35): every box appears at once. Until the script
+   has placed the boxes, drawn the charts and fitted the heights, the stage is
+   invisible — `visibility`, so a chart still measures its real width — and one
+   loader stands in for it. Should the script never get there, the stage shows
+   itself after eight seconds anyway. */
+.dashboard-stage { position: relative; }
+.dashboard-stage-loader { display: none; }
+.dashboard-stage[data-booting] { min-height: 18rem; }
+.dashboard-stage[data-booting] > :not(.dashboard-stage-loader) {
+    visibility: hidden;
+    animation: dashboard-stage-failsafe 0s linear 8s forwards;
+}
+.dashboard-stage[data-booting] > .dashboard-stage-loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 7rem;
+    animation: dashboard-loader-failsafe 0s linear 8s forwards;
+}
+@keyframes dashboard-stage-failsafe { to { visibility: visible; } }
+@keyframes dashboard-loader-failsafe { to { visibility: hidden; } }
+.dashboard-stage.is-revealed > :not(.dashboard-stage-loader) {
+    animation: dashboard-stage-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+@keyframes dashboard-stage-in {
+    from { opacity: 0; transform: translateY(0.5rem); }
+    to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-stage.is-revealed > :not(.dashboard-stage-loader) { animation: none; }
+}
+
+/* Where a dragged box would land. */
+.dashboard-drop-hint {
+    margin: var(--dashboard-gutter);
+    border: 2px dashed var(--bs-primary);
+    border-radius: 1.15rem;
+    background: color-mix(in srgb, var(--bs-primary) 10%, transparent);
+    pointer-events: none;
+    z-index: 1;
+}
+/* A drop on other boxes is allowed (they move down, 2.40.2): the outline
+   says so in the warning hue rather than refusing in red. */
+.dashboard-drop-hint.will-push {
+    border-color: var(--bs-warning);
+    background: color-mix(in srgb, var(--bs-warning) 10%, transparent);
+}
+/* As small as this widget goes (`WIDGET_MIN_SIZES`): one short pulse of its
+   outline, and the edit notice says it in words. */
+.dashboard-widget.at-minimum > .card {
+    animation: dashboard-at-minimum var(--dolphin-dur) var(--dolphin-ease) 2;
+}
+@keyframes dashboard-at-minimum {
+    50% { box-shadow: 0 0 0 2px var(--bs-warning); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-widget.at-minimum > .card {
+        animation: none;
+        box-shadow: 0 0 0 2px var(--bs-warning);
+    }
+}
+
+/* --- The widget card (2.38.2) -------------------------------------------------
+
+   One surface for every box: a soft tint of the box's own accent fading into the
+   card colour, a hairline edge, a deep shadow and a thin accent line across the
+   top. Content sits close to the edge, so a box carries no empty band; nothing in
+   it scrolls. The accent is the one the box's icon wears (`data-accent`). */
+/* Elevation tokens: a hairline plus a very soft neutral shadow — no coloured halo. */
+:root { --dolphin-elev-0: none; --dolphin-elev-1: 0 1px 2px rgba(0, 0, 0, 0.06); --dolphin-elev-2: 0 2px 8px rgba(0, 0, 0, 0.1); }
+.dashboard-widget { --dashboard-accent: var(--bs-primary); }
+.dashboard-widget[data-accent="success"] { --dashboard-accent: var(--bs-success); }
+.dashboard-widget[data-accent="info"] { --dashboard-accent: var(--bs-info); }
+.dashboard-widget[data-accent="warning"] { --dashboard-accent: var(--bs-warning); }
+.dashboard-widget[data-accent="danger"] { --dashboard-accent: var(--bs-danger); }
+.dashboard-widget[data-accent="dark"] { --dashboard-accent: var(--bs-gray-700); }
+
+[data-dashboard-grid] > .dashboard-widget > .card {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.25));
+    border-radius: 1.15rem;
+    background: var(--bs-card-bg, var(--bs-body-bg));
+    box-shadow: var(--dolphin-elev-1);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+[data-dashboard-grid] > .dashboard-widget > .card::before {
+    content: "";
+    position: absolute;
+    inset-inline: 1.1rem;
+    top: 0;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: var(--dashboard-accent);
+}
+/* Hover changes the edge colour only (2.40.3): no lift and no deeper shadow,
+   so a pointer crossing the grid never makes the boxes jump. */
+body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.card:hover,
+body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:hover {
+    border-color: var(--bs-gray-400);
+}
+body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-card:hover,
+body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > a.kpi-card:focus-visible {
+    border-color: var(--dashboard-accent);
+}
+
+/* --- The KPI card (2.40.3) ------------------------------------------------------
+
+   One component for every figure on the dashboard — the capability tiles and
+   the insight KPIs (`kpiCard`, dashboard.js). Inline start: the icon in a
+   tinted rounded tile and the title. Inline end: a chip with the change (arrow
+   and sign, not colour alone) and a sparkline in the icon's hue. Below: the
+   figure, tabular, then one muted caption. The tone is the widget's accent
+   (`data-accent` → `--dashboard-accent`); the chip's ink is that tone darkened
+   (light) or lightened (dark) far enough for 4.5:1 on its tint
+   (`test_kpi_card.ContrastTests`). */
+.kpi-card { --kpi-chip-tone: var(--bs-primary); }
+.kpi-card .kpi-chip[data-tone="success"] { --kpi-chip-tone: var(--bs-success); }
+.kpi-card .kpi-chip[data-tone="warning"] { --kpi-chip-tone: var(--bs-warning); }
+.kpi-card .kpi-chip[data-tone="info"] { --kpi-chip-tone: var(--bs-info); }
+.kpi-card .kpi-chip[data-tone="danger"] { --kpi-chip-tone: var(--bs-danger); }
+.kpi-card .kpi-chip { --kpi-chip-ink: color-mix(in srgb, var(--kpi-chip-tone) 55%, #000); }
+[data-bs-theme=dark] .kpi-card .kpi-chip { --kpi-chip-ink: color-mix(in srgb, var(--kpi-chip-tone) 45%, #fff); }
+
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card {
+    border-radius: 1rem;
+}
+/* The accent line across the top belongs to the chart cards; a KPI card's
+   colour is its icon tile. */
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card::before {
+    content: none;
+}
+[data-dashboard-grid] > .dashboard-widget > .card.kpi-card > .kpi-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+/* Wraps (2.40.31): on a narrow card — two to a row on a phone — the chip and
+   the sparkline drop under the title instead of being drawn over it. The
+   title keeps at least 9rem; below that the trailing block takes its own line. */
+.kpi-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.kpi-card-title-row {
+    display: flex;
+    flex: 1 1 9rem;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+.kpi-card-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--dashboard-accent) 14%, transparent);
+    color: var(--dashboard-accent);
+    font-size: 1.5rem;
+}
+.kpi-card-icon i,
+.kpi-card-icon i [class^="path"] {
+    color: var(--dashboard-accent);
+}
+.kpi-card-title {
+    color: var(--bs-gray-800);
+    font-weight: 600;
+    font-size: clamp(0.85rem, 4.2cqi, 1rem);
+    line-height: 1.4;
+}
+.kpi-card-trailing {
+    display: flex;
+    flex: 0 0 auto;
+    max-width: 100%;
+    margin-inline-start: auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.4rem;
+}
+.kpi-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--kpi-chip-tone) 14%, transparent);
+    color: var(--kpi-chip-ink);
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-chip i,
+.kpi-chip i [class^="path"] {
+    color: var(--kpi-chip-ink);
+    font-size: 0.85rem;
+}
+.kpi-card .kpi-sparkline {
+    width: 5.5rem;
+    max-width: 100%;
+    height: 36px;
+    overflow: hidden;
+}
+/* Centred in the room between the head and the caption (2.40.35, product
+   owner: «اعداد داخل ویجت‌های تک‌عددی باید تقریباً وسط‌چین باشند»). */
+[data-dashboard-grid] .dashboard-widget .kpi-card .dashboard-kpi-value {
+    margin-block: auto;
+    align-self: center;
+    text-align: center;
+    font-size: clamp(1.4rem, 9cqi, 2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-card-caption {
+    /* gray-700, not 600: 600 is 3.6:1 on a white card, under AA for small text. */
+    color: var(--bs-gray-700);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+[data-dashboard-grid] > .dashboard-widget > .card > .card-body {
+    min-height: 0;
+    overflow: visible;
+    padding: 1.1rem 1.25rem 1rem;
+}
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label {
+    border-radius: 0.9rem;
+    background: var(--bs-gray-100) !important;
+}
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label i,
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label .path1,
+[data-dashboard-grid] .dashboard-widget .symbol .symbol-label .path2 { color: var(--dashboard-accent); }
+[data-dashboard-grid] .dashboard-widget .symbol.symbol-50px { width: 2.9rem; height: 2.9rem; }
+[data-dashboard-grid] .dashboard-widget .dashboard-kpi-label { color: var(--bs-gray-700); }
+[data-dashboard-grid] .dashboard-widget .dashboard-kpi-value {
+    display: block;
+    /* Air between the icon row and the figure: the figure never touches the icon. */
+    margin-top: 1rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--bs-gray-900);
+}
+@media (prefers-reduced-motion: reduce) {
+    [data-dashboard-grid] > .dashboard-widget > .card { transition: none; }
+    body:not(.dashboard-editing) [data-dashboard-grid] > .dashboard-widget > .card:hover { transform: none; }
+}

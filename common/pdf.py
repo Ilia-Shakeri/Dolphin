@@ -35,6 +35,8 @@ from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.cache import cache
 
+from common.stylesheets import STYLESHEETS
+
 
 class PdfRendererUnavailable(RuntimeError):
     """No usable renderer, or the renderer failed to produce a PDF."""
@@ -94,12 +96,17 @@ _STYLESHEET_CACHE = {}
 def inline_stylesheet():
     """The application stylesheet as text, for embedding in a print page.
 
-    Read through the staticfiles finders so it works the same whether static
-    files are collected or served from the app directory.
+    Every layer of it (`common.stylesheets`), in cascade order, read through the
+    staticfiles finders so it works the same whether static files are collected
+    or served from the app directory.
     """
     if "css" not in _STYLESHEET_CACHE:
-        path = finders.find("common/dolphin.css")
-        _STYLESHEET_CACHE["css"] = Path(path).read_text(encoding="utf-8") if path else ""
+        texts = []
+        for name in STYLESHEETS:
+            path = finders.find(name)
+            if path:
+                texts.append(Path(path).read_text(encoding="utf-8"))
+        _STYLESHEET_CACHE["css"] = "".join(texts)
     return _STYLESHEET_CACHE["css"]
 
 

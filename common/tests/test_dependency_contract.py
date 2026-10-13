@@ -18,10 +18,12 @@ DIRECT_PRODUCTION_PACKAGES = {
     "gunicorn",
     "openpyxl",
     "psycopg",
-    # 2.21.0: encrypts integration secrets at rest (integrations/crypto.py).
+    # 2.21.0: encrypts integration secrets at rest (common/crypto.py).
     "cryptography",
     # 2.22.0: reads the PBX's CDR table (telephony/cdr.py).
     "pymysql",
+    # 2.40.42: draws the two-factor enrolment QR code (accounts/two_factor.py).
+    "segno",
 }
 
 

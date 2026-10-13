@@ -125,7 +125,7 @@ export function setupPopoverDismissal() {
  * `useHidden` mode: this one is plain markup toggled with the `hidden`
  * attribute rather than one of the theme's `.show`-styled dropdowns.
  * `toggle` carries `aria-expanded`, and
- * `.list-filter-toggle[aria-expanded="true"]` in dolphin.css gives it the
+ * `.list-filter-toggle[aria-expanded="true"]` in the panel stylesheet gives it the
  * pressed look DolphinMenu's own `.show` would have.
  *
  * The panel's own form still submits normally (`setupPagedList`'s own

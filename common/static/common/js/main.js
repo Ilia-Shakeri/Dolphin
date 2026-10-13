@@ -5,6 +5,7 @@ import {setupCallPopup, setupClickToCall} from "dolphin/shell/telephony.js";
 import {setupChartThemeRedraw, setupNav, setupPageTabs, setupSidebarAccordionScroll, setupSidebarPeekGuard, setupThemeModePopup, setupUserMenu} from "dolphin/shell/nav.js";
 import {setupChat, setupChatUnreadPoll} from "dolphin/shell/chat.js";
 import {setupChatToasts} from "dolphin/shell/chat-toast.js";
+import {setupActivityDrawer, setupHelpDrawer} from "dolphin/shell/drawers.js";
 import {setupDecimalInputs} from "dolphin/core/decimal.js";
 import {setupDialogBackdropClose, setupDialogFocus, setupSheetDrag} from "dolphin/ui/dialogs.js";
 import {setupFileInputs} from "dolphin/ui/file-inputs.js";
@@ -39,6 +40,8 @@ function boot() {
     setupLogout();
     setupUserMenu();
     setupSessionsDialog();
+    setupActivityDrawer();
+    setupHelpDrawer();
     setupDialogBackdropClose();
     setupDialogFocus();
     setupSheetDrag();

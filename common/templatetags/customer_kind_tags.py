@@ -2,7 +2,7 @@
 
 The labels are `sales.models.Customer.Kind`'s own; the icons are the UI kit's:
 a person for an individual, a building for a legal entity. The icon is `1em`
-in `currentColor` (`.customer-kind` in dolphin.css), so it always matches the
+in `currentColor` (`.customer-kind` in the panel stylesheet), so it always matches the
 text beside it, and it is `aria-hidden` — the word is already there. The
 JavaScript twin is `ui/customer-kind.js`; Excel exports keep plain words.
 """

@@ -35,6 +35,7 @@ from common.deployment.registry import ALL_FEATURES
 from inventory.services import create_warehouse, record_stock_movement
 from inventory.models import StockMovement
 from sales.services import assign_lead, create_customer_with_phone, create_lead, create_product
+from common.stylesheets import stylesheet_text
 
 PASSWORD = "Strong-pass-771!"
 
@@ -461,9 +462,7 @@ class BadgeStyleTests(SimpleTestCase):
     the button's id, which beats two classes without `!important`.
     """
 
-    css = (
-        pathlib.Path(__file__).resolve().parents[2] / "common" / "static" / "common" / "dolphin.css"
-    ).read_text(encoding="utf-8")
+    css = stylesheet_text()
 
     def test_the_badge_rule_is_selected_through_the_button_id(self):
         self.assertIn("#reminder-bell-toggle .reminder-bell-badge,", self.css)

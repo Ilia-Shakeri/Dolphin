@@ -1,0 +1,414 @@
+/* 4. Theme repairs and product polish ------------------------------------- */
+
+/* The UI kit's theme bundle was compiled with nine declarations of the form
+   `box-shadow: false, 0 0 0 0.25rem …`. `false` is not a valid shadow, so the
+   browser discarded each whole declaration and the focus ring never appeared
+   — on `.form-control`, `.form-select`, and every validation state. Those
+   dead declarations were deleted from `dolphin-theme.rtl.css` in 2.40.3
+   (deleting them changes no rendering).
+
+   This draws the ring the theme meant to draw rather than inventing a new
+   one, and uses `:focus-visible` so it appears for keyboard users without
+   ringing every mouse click. */
+.form-control:focus-visible,
+.form-select:focus-visible,
+.form-check-input:focus-visible,
+textarea:focus-visible,
+[data-jalali]:focus-visible {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgb(27 132 255 / 25%);
+    outline: none;
+}
+
+/* Select controls -----------------------------------------------------------
+   Every choice in this panel is a real `<select>`, and it stays one. The list
+   is populated from the API by `fillSelect`, read back by `.value` in dozens of
+   places, and asserted on by the test suite — replacing it with a scripted
+   listbox would mean keeping a copy of the value in sync with the original,
+   and a copy that drifts shows the operator a label that is not what will be
+   submitted. So the native control is styled instead of being hidden behind
+   one.
+
+   Two halves. The closed box is entirely ours. The open list is drawn by the
+   browser, and the only things it takes from the page are `color-scheme` and
+   the `option` colours below — which is enough to keep it from opening as a
+   bare white OS list against a dark panel. */
+
+.form-select {
+    /* Tells the browser which palette to paint its own popup with, so the open
+       list follows the panel into dark mode instead of staying white. */
+    color-scheme: light dark;
+    cursor: pointer;
+}
+
+.form-select:hover:not(:disabled) {
+    border-color: var(--bs-gray-400);
+}
+
+.form-select-solid:hover:not(:disabled) {
+    background-color: var(--bs-gray-200);
+    border-color: var(--bs-gray-200);
+}
+
+/* The chevron is a background image, so it cannot be recoloured by `color`.
+   Restating it is the only way to tint it, and it is worth doing: an open
+   select that looks identical to a closed one gives the reader nothing. */
+.form-select:focus,
+.form-select:focus-visible {
+    --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%231B84FF' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* The popup. Chromium honours these; where a browser does not, `color-scheme`
+   above still keeps the list readable, so this degrades to the platform list
+   rather than to an unreadable one. */
+.form-select option,
+.form-select optgroup {
+    color: var(--bs-gray-800);
+    background-color: var(--bs-body-bg);
+}
+
+/* The placeholder row — `fillSelect` writes it with an empty value — reads as
+   an instruction, not as one of the choices. */
+.form-select option[value=""] {
+    color: var(--bs-gray-500);
+}
+
+/* List filters ---------------------------------------------------------------
+   The filter row spans the card and its controls share the width evenly,
+   instead of collapsing toward the middle and leaving the card's two edges
+   empty. `flex-wrap` with `w-auto` did the latter: each control took only its
+   content's width, so three short selects huddled together under a wide card.
+
+   A grid rather than flex, because the point is equal shares. The submit button
+   sizes to its own text — stretching «اعمال» across a third of the row would
+   look like a fourth filter. */
+/* `.form-grid` shares this layout for a form that is not a filter — the
+   outbound-SMS compose form's fields, one grid item apiece — without
+   qualifying for `setupListFilterPopovers()`'s `form.list-filters` selector,
+   which would otherwise hide it behind a "فیلتر" toggle button. Composing a
+   message is the page's primary action, not a filter on it. */
+.list-filters, .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+    /* The theme's own `.card-title` is `display: flex`, and every filter form
+       lives inside one. Without a width, a flex item sizes to its own content
+       on the main axis — a grid computing `auto-fit` against an undefined
+       width falls back to as few columns as it can, so every control stacked
+       one per row instead of sitting side by side. Measured: a four-control
+       form 1040px wide reporting `gridTemplateColumns: 217.2px`, one column,
+       on every page that used this class. `min-width: 0` is the matching half:
+       a flex item's default `min-width: auto` refuses to shrink below its
+       content, which for a grid can mean far more than the flex parent has to
+       give it. */
+    width: 100%;
+    min-width: 0;
+}
+
+.list-filters > .list-filters-submit {
+    justify-self: end;
+    min-width: 7rem;
+}
+
+/* One column on a narrow screen, where side-by-side filters are unreadable. */
+@media (max-width: 575.98px) {
+    .list-filters { grid-template-columns: 1fr; }
+    .list-filters > .list-filters-submit { justify-self: stretch; }
+}
+
+/* The filter popover `setupListFilterPopovers()` builds around every one of
+   the twenty-five `.list-filters` forms above. Anchored and scroll-capped
+   the same way the reminder bell and the search box already are — same
+   `top`/`inset-inline-end` offset, so every dropdown in the header row and
+   every one of these opens to the same place relative to its own button —
+   and the same narrow-screen pin those two use, for the same reason: a
+   fixed-width panel anchored to a button near the page's own edge runs off
+   a 375px screen otherwise. */
+.list-filters-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    inset-inline-end: 0;
+    z-index: 105;
+    max-width: calc(100vw - 1.5rem);
+}
+
+/* Inside a ~300px popover, `.list-filters`'s own `auto-fit` grid already
+   collapses to one column on its own — no override needed — since two
+   11rem tracks plus their gap do not fit a track this narrow. What the grid
+   does not know on its own is that it is no longer sitting in a wide card
+   header: this removes the bottom margin meant for a filter row with page
+   content following it, now that the form is the popover's entire body. */
+.list-filters-panel .list-filters {
+    margin-bottom: 0;
+}
+
+@media (max-width: 575.98px) {
+    /* The width stays the theme's own `w-300px !important` — not worth an
+       escalation, and 300px inside a 375px phone reads well; only one inline
+       edge is pinned, the same choice made for the reminder bell and search
+       box's own narrow-screen rule and for the same reason: pinning both
+       edges while a fixed `!important` width is also in force is
+       over-constrained, and which one a browser then drops is not a thing
+       to build a layout on. */
+    .list-filters-panel {
+        position: fixed;
+        top: calc(var(--bs-app-header-height, 60px) + 0.5rem);
+        inset-inline-start: 0.75rem;
+        inset-inline-end: auto;
+    }
+}
+
+/* Values sit at the reading edge, whichever direction the value itself runs.
+
+   A money field or a document number carries `dir="ltr"` so its digits are not
+   reordered — but `dir` also decides where the text sits, so those fields alone
+   were left-aligned while every Persian field beside them was right-aligned, in
+   the same column of the same form. `text-align` is the half that can be set
+   independently: the digits keep their own order and the value starts at the
+   same edge as everything else on the card. */
+.payment-detail-form .form-control[dir="ltr"],
+#edit-invoice-form .form-control[dir="ltr"] {
+    text-align: right;
+}
+
+/* Searchable select ----------------------------------------------------------
+   A native `<select>` stops being usable somewhere in the low hundreds, and the
+   customer book is expected to pass that. This is a text box that filters a
+   list, over the real `<select>` — which stays in the DOM, keeps the value, and
+   is what submits. Nothing downstream needs to know the search box exists, and
+   if the script fails the select is still there to use.
+
+   The list is positioned rather than inline so it overlays what follows instead
+   of pushing the form around as it filters. */
+.searchable-select { position: relative; }
+
+.searchable-select-options {
+    position: absolute;
+    z-index: 20;
+    inset-inline: 0;
+    top: calc(100% + 0.25rem);
+    max-height: 15rem;
+    overflow-y: auto;
+    padding: 0.25rem;
+    list-style: none;
+    background-color: var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-300);
+    border-radius: 0.475rem;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+.searchable-select-options li {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+}
+
+.searchable-select-options li[aria-selected="true"],
+.searchable-select-options li:hover {
+    background-color: var(--bs-primary);
+    color: #ffffff;
+}
+
+.searchable-select-empty {
+    padding: 0.5rem 0.75rem;
+    color: var(--bs-gray-500);
+}
+
+/* Theme popup -----------------------------------------------------------------
+   One row in the user menu that opens the three choices beside it. Positioned
+   here rather than by DolphinMenu, whose submenu placement needs Popper — and Popper
+   is in the plugins bundle this deployment does not load.
+
+   It opens to the inline-start edge of the row, which under RTL puts it to the
+   left of the menu, away from the screen edge the user menu is already against. */
+.theme-mode-item { position: relative; }
+
+/* `display` is stated here because the popup carries the theme's `.menu-sub`,
+   which is `display: none` until DolphinMenu adds `.show`. Nothing adds `.show`
+   here — the popup is opened by this project's own script — so without these
+   two rules it stayed 0x0 no matter what the script did. The `[hidden]` pair
+   keeps the attribute meaningful now that `display` is set explicitly. */
+.theme-mode-popup { display: block; }
+.theme-mode-popup[hidden] { display: none; }
+
+.theme-mode-popup {
+    position: absolute;
+    z-index: 110;
+    top: -0.5rem;
+    /* `inset-inline-start`, not `-end`. Under RTL the inline start is the right
+       edge, so insetting the start by the full width pushes the popup out to
+       the left of the menu — which is the side with room, the user menu itself
+       being against the right edge of the window. Using `-end` put it on the
+       right, on top of the page. */
+    inset-inline-start: 100%;
+    width: 11rem;
+    background-color: var(--bs-body-bg);
+    border: 1px solid var(--bs-gray-200);
+    border-radius: 0.475rem;
+    box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.18);
+}
+
+/* The gap between the row and the popup would otherwise end the hover and close
+   it before the pointer arrived. */
+/* The other side, when the first one runs off the window. Which side has room
+   depends on where the user menu sits and how wide the window is, so it is
+   measured once on open rather than assumed. */
+.theme-mode-popup.is-flipped {
+    inset-inline-start: auto;
+    inset-inline-end: 100%;
+}
+
+.theme-mode-popup .menu-link.active {
+    background-color: var(--bs-primary);
+    color: #ffffff;
+}
+
+/* Below the breakpoint the user menu is already narrow and near the edge, so
+   the popup drops underneath the row instead of beside it. */
+@media (max-width: 575.98px) {
+    .theme-mode-popup {
+        position: static;
+        inset-inline-start: auto;
+        width: auto;
+        margin-top: 0.35rem;
+        box-shadow: none;
+    }
+}
+
+/* Charts -----------------------------------------------------------------
+   Drawn by ApexCharts, which is the purchased theme's own chart library and
+   the one every chart in its demos uses. It ships only inside
+   `plugins/global/dolphin-plugins.js`, so that whole bundle is loaded and the
+   panel's asset weight went from roughly 576 KB to about 4.2 MB. That was the
+   product owner's explicit call: the theme's charts, at the theme's cost.
+
+   Apex renders its own SVG and takes colours from the options object rather
+   than from CSS, so almost nothing is styled here — the light/dark following
+   happens in `chartPalette()` and `apexBase()` in the panel script, which read
+   the theme's custom properties at draw time. What is left is the part Apex
+   cannot know: the container's size, and undoing the drop shadow it puts under
+   data labels, which on a light bar renders as grey mud.
+
+   The typeface is deliberately NOT set here. Apex applies `chart.fontFamily`
+   from its options to the text it draws, and typography belongs to the theme —
+   a `font-family` in this sheet is the exact thing
+   `test_the_override_sheet_does_not_rebuild_the_themes_components` refuses. */
+/* Apex measures its container on render. Inside a `display: none` card it
+   measures zero and draws a 0-height chart that never recovers, so a chart in a
+   hidden panel must be rendered after the panel is shown, not before. This is
+   a note, not a rule — there is nothing CSS can do about it. */
+
+/* The one typeface declaration in this sheet, and the reason it is allowed.
+
+   The theme's own `dolphin-plugins.rtl.css` carries
+   `.apexcharts-text, .apexcharts-title-text, .apexcharts-legend-text
+   { font-family: Inter, ... !important }`. Apex sets IRANSansWeb inline from
+   `chart.fontFamily`, and the vendor's `!important` beats it — so every axis
+   and legend label came out in Inter while the panel around it was IRANSansWeb.
+   Inter carries no Persian glyphs at all, so those labels fell through to
+   whatever the OS happened to substitute, and the chart's type stopped matching
+   the card it sits in.
+
+   This is not a type scale: no size, weight or ramp is set here. It restores
+   the one the theme already chose for this deployment, on the one family of
+   nodes where the vendor hardcoded a Latin face. `!important` is required to
+   beat the vendor's own.
+
+   Through the theme's own body-font token since 2.18.7, not a literal
+   IRANSans: a reader who picks another face (`common.preferences`) moves that
+   token, and the chart labels now move with the rest of the panel. */
+.apexcharts-text,
+.apexcharts-title-text,
+.apexcharts-legend-text {
+    font-family: var(--bs-body-font-family) !important;
+}
+
+/* Apex draws data labels with a shadow filter that is tuned for a dark plot
+   area. On this panel's cards it reads as a smudge behind every number. */
+.apexcharts-datalabels .apexcharts-text {
+    filter: none;
+}
+
+/* The tooltip is built outside the card, so the theme's surface variables are
+   the only thing keeping it legible in dark mode. */
+.apexcharts-tooltip {
+    background: var(--bs-body-bg) !important;
+    border-color: var(--bs-border-color) !important;
+    color: var(--bs-gray-800) !important;
+    box-shadow: var(--bs-box-shadow-sm);
+}
+
+/* The marker and its label, which measured with a real 0px gap between
+   them — the marker's own edge landed exactly on the label's edge, not merely
+   close to it. Apex sets the marker's colour and size inline in JS and gives
+   the whole legend item a margin against its *neighbours*, but nothing
+   between the marker and the label inside one item; `itemMargin` in
+   the panel script covers the neighbour spacing, this covers the inner gap.
+   `!important` is required to beat the inline style Apex sets on the same
+   element. Logical rather than physical: this panel is always RTL, so
+   `margin-inline-end` is the side that measured touching. */
+.apexcharts-legend-marker {
+    margin-inline-end: 0.5rem !important;
+}
+
+.apexcharts-tooltip-title {
+    background: var(--bs-gray-100) !important;
+    border-color: var(--bs-border-color) !important;
+}
+
+
+/* Anything else focusable — links, buttons, menu entries, table row actions —
+   gets a real outline. Without it a keyboard user cannot see where they are. */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.menu-link:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+    border-radius: 0.35rem;
+}
+
+/* The sidebar is dark, so the primary ring disappears against it. */
+.app-sidebar a:focus-visible,
+.app-sidebar button:focus-visible,
+.app-sidebar .menu-link:focus-visible {
+    outline-color: #9de1d8;
+}
+
+/* The UI kit's `.text-muted` is #99A1B7 — 2.58:1 on a white card, below the 4.5:1
+   AA needs for body text, and it carries the KPI labels and every empty state.
+   `--bs-gray-700` is the theme's own next step up and reads at 5.9:1, so this
+   stays inside the palette instead of introducing a colour.
+
+   `.text-gray-500` is the same token under a different utility name — Bootstrap's
+   own `--bs-text-gray-500` mirrors `--bs-gray-500` exactly in both themes — and
+   measured the same way it comes out just as low: 3.14:1 on a dark card, still
+   short of 4.5:1. It carries real sentences here (the login page's instruction
+   line, a profile's KPI labels), not only a decorative icon, so it gets the
+   identical one-step fix. */
+.text-muted,
+.text-gray-500 {
+    color: var(--bs-gray-700) !important;
+}
+
+/* Column priority for narrow screens. A CRM table is wide by nature; hiding the
+   lowest-value columns on a phone keeps the row readable, and every hidden
+   value is still on the record's own page. */
+@media (max-width: 767.98px) {
+    .table .priority-low {
+        display: none;
+    }
+}
+
+/* Row actions keep a comfortable target on touch without growing the desktop
+   table: 44px is the size a finger actually hits. */
+@media (hover: none) and (pointer: coarse) {
+    .table .btn-sm {
+        min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+    }
+}

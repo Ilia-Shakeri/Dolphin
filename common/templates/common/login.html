@@ -12,7 +12,7 @@
    aside — with motion that only ever moves `transform` and `opacity`: the
    aside's light drifts slowly behind the mark, and the mark, the title, the two
    fields and the button arrive one after another. `prefers-reduced-motion`
-   turns all of it off (dolphin.css, "Login page"). Nothing here is fetched
+   turns all of it off (the panel stylesheet, "Login page"). Nothing here is fetched
    from anywhere else, and the form's contract — its one action, its two
    field names, CSRF, the autocomplete hints a password manager reads — is
    exactly what it was. {% endcomment %}
@@ -28,6 +28,7 @@
                             <div class="text-gray-600 fw-semibold fs-6">نام کاربری و گذرواژه سازمانی خود را وارد کنید.</div>
                         </div>
                         <div id="global-message" class="alert alert-danger d-flex align-items-center p-5 mb-6" role="alert" hidden></div>
+                        <div id="login-password-step">
                         <div class="fv-row mb-7 login-enter" style="--login-step: 2">
                             <div class="form-floating">
                                 <input class="form-control" id="login-username" name="username" type="text" placeholder=" " autocomplete="username" required maxlength="150" autofocus>
@@ -50,6 +51,34 @@
                         <div class="d-grid login-enter" style="--login-step: 4">
                             <button class="btn btn-primary login-submit" type="submit">ورود</button>
                         </div>
+                        </div>
+                        {% if two_factor_available %}
+                        {% comment %} The second step of signing in (2.40.42), in the same form:
+                           after a right password on an account that has an
+                           authenticator, the password step is put away and this one
+                           asks for the app's six-digit code, or a recovery code. The
+                           server decides whether it is needed — this only appears when
+                           it said so. {% endcomment %}
+                        <div id="login-code-step" class="login-code-step" hidden>
+                            <div class="text-center mb-7">
+                                <span class="login-code-icon" aria-hidden="true"><i class="di-duotone di-shield-tick"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span>
+                                <h2 class="fs-3 fw-bold text-gray-900 mt-4 mb-2">کد برنامهٔ احراز هویت</h2>
+                                <p class="text-gray-600 fs-6 mb-0">کد شش‌رقمی‌ای را که برنامهٔ احراز هویت گوشی‌تان نشان می‌دهد وارد کنید.</p>
+                            </div>
+                            <div class="fv-row mb-4">
+                                <div class="form-floating">
+                                    <input class="form-control login-code-input" id="login-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="16" dir="ltr" placeholder=" " disabled>
+                                    <label for="login-code">کد شش‌رقمی</label>
+                                </div>
+                                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="code"></p>
+                            </div>
+                            <p class="text-gray-600 fs-7 mb-7">گوشی در دسترس نیست؟ یکی از کدهای بازیابی را به‌جای آن وارد کنید.</p>
+                            <div class="d-grid gap-3">
+                                <button class="btn btn-primary login-submit" type="submit">تأیید و ورود</button>
+                                <button class="btn btn-light" type="button" id="login-code-back">بازگشت</button>
+                            </div>
+                        </div>
+                        {% endif %}
                     </form>
                 </div>
             </div>
@@ -80,7 +109,7 @@
                 {% comment %} Not `.text-gray-400`: that colour flips with the reader's
                    own light/dark choice, but this aside's background never does
                    (`.login-aside`'s fixed `--login-aside-bg`) — see `.login-aside-subtitle`
-                   in dolphin.css for the measured reason. {% endcomment %}
+                   in the panel stylesheet for the measured reason. {% endcomment %}
                 <div class="login-aside-subtitle fs-base text-center">سامانه مدیریت ارتباط با مشتری</div>
             </div>
         </div>

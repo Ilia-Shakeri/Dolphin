@@ -15,10 +15,10 @@ import {appendCell, appendMoneyCell, labelled} from "dolphin/ui/table.js";
 /**
  * A stored calendar day, for a `data-jalali="date"` input.
  *
- * `localDateValue` below reads an instant and drops its clock. This reads a
- * day that never had one — `document_date` is a `DateField` and arrives as a
- * bare `YYYY-MM-DD`. Putting that through the instant path would send it
- * through a time zone and could land on the day before.
+ * This reads a day that never had a clock — `document_date` is a `DateField`
+ * and arrives as a bare `YYYY-MM-DD`. Putting that through the instant path
+ * (`localDateTimeValue`) would send it through a time zone and could land on
+ * the day before.
  */
 function localDayValue(value) {
     const shown = displayDay(value);

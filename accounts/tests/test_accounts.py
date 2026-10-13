@@ -722,7 +722,7 @@ class AccountSecurityTests(TestCase):
         cache.clear()
         self.assertEqual(
             UserViewSet.sensitive_actions,
-            frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions", "set_password"}),
+            frozenset({"create", "update", "partial_update", "change_role", "permissions", "reset_permissions", "set_password", "reset_two_factor"}),
         )
         client = APIClient()
         client.force_authenticate(self.platform)
