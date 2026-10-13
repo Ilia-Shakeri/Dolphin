@@ -314,20 +314,30 @@ class UpcomingService:
     """A kind of connection this build cannot make yet — shown in the
     «افزودن اتصال» catalog as «به‌زودی», never as a control. Each needs a
     real provider and its official documentation first
-    (`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §8)."""
+    (`DOLPHIN_FEATURE_MAP_AND_ROADMAP.md` §8). `needs` says, in the reader's
+    words, what has to arrive before it can be connected; the provider it
+    will be implements the contract of the same key in
+    `integrations/contracts.py` (2.40.45)."""
 
     key: str
     label: str
     description: str
     icon: str
     icon_paths: int = 2
+    needs: str = ""
 
 
 UPCOMING_SERVICES = (
-    UpcomingService("payment_gateway", "درگاه پرداخت", "دریافت آنلاین مبلغ فاکتور و ثبت خودکار دریافت.", "di-credit-cart", 2),
-    UpcomingService("tax_system", "سامانهٔ مؤدیان", "ارسال فاکتور رسمی به سامانهٔ مالیاتی.", "di-bank", 2),
-    UpcomingService("email", "ایمیل", "ارسال فاکتور و اعلان‌ها با ایمیل.", "di-sms", 2),
-    UpcomingService("messengers", "پیام‌رسان‌ها", "ربات بله، تلگرام و واتس‌اپ با ارائه‌دهندهٔ اختصاصی (امروز: وب‌هوک ورودی عمومی).", "di-message-text-2", 3),
+    UpcomingService("payment_gateway", "درگاه پرداخت", "دریافت آنلاین مبلغ فاکتور و ثبت خودکار دریافت.", "di-credit-cart", 2,
+                    needs="قرارداد با یک درگاه و مستند رسمی وب‌سرویس آن."),
+    UpcomingService("tax_system", "سامانهٔ مؤدیان", "ارسال فاکتور رسمی به سامانهٔ مالیاتی.", "di-bank", 2,
+                    needs="مستند رسمی سامانه، کلید مودی، و تصمیم حقوقی دربارهٔ ارسال، ابطال و اصلاح فاکتور."),
+    UpcomingService("email", "ایمیل", "ارسال فاکتور و اعلان‌ها با ایمیل.", "di-sms", 2,
+                    needs="سرویس ایمیل شرکت (SMTP یا سرویس ارسال) و نشانی فرستنده."),
+    UpcomingService("messengers", "پیام‌رسان‌ها", "ربات بله، تلگرام و واتس‌اپ با ارائه‌دهندهٔ اختصاصی (امروز: وب‌هوک ورودی عمومی).", "di-message-text-2", 3,
+                    needs="ربات یا حساب تجاری در هر پیام‌رسان و مستند رسمی API آن."),
+    UpcomingService("site_chat", "گفت‌وگوی زندهٔ سایت", "جعبهٔ گفت‌وگو روی سایت شرکت که گفت‌وگوهایش در پنل می‌آید.", "di-messages", 5,
+                    needs="انتخاب سرویس گفت‌وگو (یا ویجت خود دلفین) و تصمیم دربارهٔ تبدیل گفت‌وگو به مشتری یا سرنخ."),
 )
 
 

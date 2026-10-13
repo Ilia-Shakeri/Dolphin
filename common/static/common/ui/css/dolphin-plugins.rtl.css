@@ -2387,7 +2387,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-duotone";
-  src: url("../fonts/dolphin-icons/dolphin-icons-duotone.woff") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-duotone.woff?v=6440ded83323") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -3659,6 +3659,35 @@ button.toastr-close-button {
   left: 0;
 }
 
+.di-messages .path1:before {
+  content: "\ed30";
+}
+
+.di-messages .path2:before {
+  content: "\ed31";
+  position: absolute;
+  left: 0;
+  opacity: 0.3;
+}
+
+.di-messages .path3:before {
+  content: "\ed32";
+  position: absolute;
+  left: 0;
+}
+
+.di-messages .path4:before {
+  content: "\ed33";
+  position: absolute;
+  left: 0;
+}
+
+.di-messages .path5:before {
+  content: "\ed34";
+  position: absolute;
+  left: 0;
+}
+
 .di-minus:before {
   content: "\ed42";
 }
@@ -4378,7 +4407,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-outline";
-  src: url("../fonts/dolphin-icons/dolphin-icons-outline.woff") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-outline.woff?v=bad4ec1c102b") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -4721,6 +4750,10 @@ button.toastr-close-button {
   content: "\ea71";
 }
 
+.di-messages.di-outline:before {
+  content: "\ea72";
+}
+
 .di-minus.di-outline:before {
   content: "\ea78";
 }
@@ -4883,7 +4916,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-solid";
-  src: url("../fonts/dolphin-icons/dolphin-icons-solid.woff") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-solid.woff?v=a4072cf40682") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -5224,6 +5257,10 @@ button.toastr-close-button {
 
 .di-message-text.di-solid:before {
   content: "\ea71";
+}
+
+.di-messages.di-solid:before {
+  content: "\ea72";
 }
 
 .di-minus.di-solid:before {

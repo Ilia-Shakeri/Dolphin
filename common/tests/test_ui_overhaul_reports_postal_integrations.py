@@ -482,7 +482,7 @@ class IntegrationRegistryTests(SimpleTestCase):
         upcoming service is a label, a description and an icon — no URL,
         no gate, no status."""
         keys = [service.key for service in integrations.UPCOMING_SERVICES]
-        self.assertEqual(keys, ["payment_gateway", "tax_system", "email", "messengers"])
+        self.assertEqual(keys, ["payment_gateway", "tax_system", "email", "messengers", "site_chat"])
         for service in integrations.UPCOMING_SERVICES:
             with self.subTest(service=service.key):
                 self.assertTrue(service.label and service.description and service.icon)

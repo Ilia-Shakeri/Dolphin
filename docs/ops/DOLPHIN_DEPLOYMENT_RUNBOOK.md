@@ -1184,6 +1184,9 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.45** adds no migration. The icon fonts are now addressed by their content
+  (`dolphin-icons-*.woff?v=<hash>`), so nginx keeps each for a year and a release that adds an
+  icon reaches every browser at once (`collectstatic` in `deploy.sh` handles it).
 * **2.40.44 — `common/0013_print_settings`** creates one table, `common_printsettings`, granted
   `SELECT, INSERT, UPDATE` by `db-finalize` (one row; an image is cleared by writing NULL, never by
   deleting); it moves no data. The `print_customization` feature is off by default — a company gets

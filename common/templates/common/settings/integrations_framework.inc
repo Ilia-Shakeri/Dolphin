@@ -126,7 +126,7 @@
         {% for service in upcoming_services %}
         <li class="col-md-6"><div class="d-flex align-items-start gap-4 p-5 h-100 rounded border border-dashed border-gray-300" data-upcoming="{{ service.key }}">
             <span class="symbol symbol-40px flex-shrink-0"><span class="symbol-label bg-light"><i class="di-duotone {{ service.icon }} fs-2 text-gray-500" aria-hidden="true">{% for path in ""|ljust:service.icon_paths %}<span class="path{{ forloop.counter }}"></span>{% endfor %}</i></span></span>
-            <span class="min-w-0 flex-grow-1"><span class="d-flex align-items-center gap-2 fw-bold text-gray-700">{{ service.label }} <span class="badge badge-light fs-9">به‌زودی</span></span><span class="d-block text-muted fs-8">{{ service.description }}</span></span>
+            <span class="min-w-0 flex-grow-1"><span class="d-flex align-items-center gap-2 fw-bold text-gray-700">{{ service.label }} <span class="badge badge-light fs-9">به‌زودی</span></span><span class="d-block text-muted fs-8">{{ service.description }}</span>{% if service.needs %}<span class="d-block text-gray-600 fs-8 mt-2">برای فعال شدن: {{ service.needs }}</span>{% endif %}</span>
         </div></li>
         {% endfor %}
     </ul>

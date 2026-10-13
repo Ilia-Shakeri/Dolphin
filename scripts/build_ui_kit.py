@@ -281,6 +281,24 @@ def font_cmap(path):
 
 # --- run ------------------------------------------------------------------------
 
+_FONT_URL = re.compile(r'url\("\.\./fonts/dolphin-icons/dolphin-icons-(\w+)\.woff(?:\?v=([0-9a-f]+))?"\)')
+
+
+def font_version(content):
+    """A font's address carries its content (2.40.45): nginx keeps a `?v=` URL
+    for a year, and a new glyph set must be a new address, or a returning
+    browser draws the new icons from last month's font."""
+    import hashlib
+
+    return hashlib.sha256(content).hexdigest()[:12]
+
+
+def _versioned(css, versions):
+    return _FONT_URL.sub(
+        lambda m: f'url("../fonts/dolphin-icons/dolphin-icons-{m.group(1)}.woff?v={versions[m.group(1)]}")', css,
+    )
+
+
 def check(*, fonts=True):
     """What the served files lack, as sentences; empty when they are current.
     `fonts=False` leaves out the icon fonts, the one part that needs fontTools."""
@@ -303,6 +321,10 @@ def check(*, fonts=True):
     missing = wanted - style_rules(served_plugins)
     if missing:
         problems.append(f"dolphin-plugins.rtl.css lacks {len(missing)} icon rule(s), e.g. {sorted(missing)[0][1][:80]}")
+    for family, version in _FONT_URL.findall(served_plugins):
+        served_font = SERVED / "fonts" / "dolphin-icons" / f"dolphin-icons-{family}.woff"
+        if version != font_version(served_font.read_bytes()):
+            problems.append(f"dolphin-plugins.rtl.css names dolphin-icons-{family}.woff by a version that is not its content")
     if not fonts:
         return problems
     try:
@@ -323,12 +345,15 @@ def build():
         written.append(name)
     (SERVED / "css" / "dolphin-theme.rtl.css").write_text(theme_css(tokens, prefixes), encoding="utf-8", newline="\n")
     plugins = plugins_css(tokens, prefixes)
-    (SERVED / "css" / "dolphin-plugins.rtl.css").write_text(plugins, encoding="utf-8", newline="\n")
-    written += ["css/dolphin-theme.rtl.css", "css/dolphin-plugins.rtl.css"]
     fonts = SERVED / "fonts" / "dolphin-icons"
+    versions = {}
     for family, points in icon_codepoints(plugins).items():
-        (fonts / f"dolphin-icons-{family}.woff").write_bytes(subset_font(family, points))
+        content = subset_font(family, points)
+        (fonts / f"dolphin-icons-{family}.woff").write_bytes(content)
+        versions[family] = font_version(content)
         written.append(f"fonts/dolphin-icons/dolphin-icons-{family}.woff ({len(points)} glyphs)")
+    (SERVED / "css" / "dolphin-plugins.rtl.css").write_text(_versioned(plugins, versions), encoding="utf-8", newline="\n")
+    written += ["css/dolphin-theme.rtl.css", "css/dolphin-plugins.rtl.css"]
     for stale in fonts.glob("*.ttf"):
         stale.unlink()
     return written

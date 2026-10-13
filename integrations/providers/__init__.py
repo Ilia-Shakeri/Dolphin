@@ -21,6 +21,9 @@ CAPABILITY_LABELS = {
     "accounting": "حسابداری",
     "webhook": "وب‌هوک",
     "shipping": "ارسال پستی",
+    # Kinds no provider declares yet (2.40.45, `integrations/contracts.py`).
+    "tax": "سامانهٔ مؤدیان",
+    "site_chat": "گفت‌وگوی سایت",
 }
 
 

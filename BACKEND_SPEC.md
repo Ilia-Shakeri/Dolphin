@@ -1197,6 +1197,25 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - `POST after-sales/{id}/close/` is elevated-only and final because reopen semantics were not supplied. `GET after-sales/{id}/history/` reuses the case selector and is append-only.
 - After-sales operators get no Customer, Lead, Interaction, Product, Sale, sales-document, performance, or postal-report API scope. The case response embeds only the bounded relation labels needed by its panel.
 
+### Integrations waiting for a provider (2.40.45)
+
+Roadmap priority 4 — a payment gateway, the tax system (سامانهٔ مؤدیان), email, the messengers (Bale, Telegram,
+WhatsApp) and a chat box on the company's own website — is laid down but not connected; each waits for a real
+provider's official documentation, and the tax system also for a legal decision. What exists:
+
+- `integrations/contracts.py`: one abstract contract per kind — `PaymentGateway` (`start`, `verify`: a payment is
+  recorded only on the gateway's own server-to-server answer, never on the payer's browser returning, and never
+  twice for one reference), `TaxSystemClient` (`submit`, `status`), `EmailSender` (`send`), `MessengerChannel`
+  (`send`, `parse_inbound`), `SiteChatChannel` (`widget_snippet`, `parse_inbound`, `reply`) — with the result
+  shapes they return. Nothing in the running panel calls them, no provider implements them, and no feature names
+  them (`test_release_2_40_45`).
+- `common.integrations.UPCOMING_SERVICES`: the «افزودن اتصال» catalog lists each as «به‌زودی» with what it needs to
+  be connected (`needs`), and offers nothing to press.
+- Connecting one is: a provider under `integrations/providers/` implementing its contract, `register(...)`; a feature
+  in `common/deployment/registry.py`, off by default, the provider names as `required_feature`; the calling code
+  behind that feature; and its row leaving `UPCOMING_SERVICES`. No page, table or API of the integrations framework
+  changes.
+
 ### Printed documents and each company's layout (2.40.44)
 
 - The printed invoice (`/invoices/<id>/print/`, `print.pdf`) prints every part the official invoice sets out — the
