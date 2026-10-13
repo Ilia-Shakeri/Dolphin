@@ -89,6 +89,13 @@ holding the untouched reference template may exist at the repository root until 
 owner deletes it by hand. Nothing served, built, tested or documented may depend on that
 folder; common/tests/test_ui_independence.py enforces this.
 
+The kit's full sources — the whole theme stylesheet, the whole icon set and the vendor
+libraries — live in ui_kit/ (never shipped). The served theme and icon stylesheets, icon fonts
+and vendor bundles are built from them by scripts/build_ui_kit.py, keeping only what the code
+uses; never edit those served files by hand. After using a theme class or an icon for the first
+time, or upgrading a vendor library, run `python scripts/build_ui_kit.py`;
+common/tests/test_ui_kit_build.py fails until the served files cover the code.
+
 Do not assume a file is relevant merely from its filename. Search, open, and inspect the actual
 implementation before modifying behavior.
 
@@ -407,7 +414,7 @@ This distinction is mandatory.
 
 11. Frontend Source of Truth
 
-The Dolphin UI kit (common/static/common/ui/) is the canonical visual and component source for Dolphin.
+The Dolphin UI kit (common/static/common/ui/, built from ui_kit/) is the canonical visual and component source for Dolphin.
 
 This is a hard frontend rule.
 
@@ -468,7 +475,8 @@ Understand the actual defect or requirement before editing.
 
 Step 2 — Search the UI kit
 
-Search the UI kit (common/static/common/ui/) and existing Dolphin templates for the closest matching component.
+Search the UI kit (the full sources in ui_kit/ — the served copy keeps only what is already used) and existing
+Dolphin templates for the closest matching component.
 
 Search by:
 

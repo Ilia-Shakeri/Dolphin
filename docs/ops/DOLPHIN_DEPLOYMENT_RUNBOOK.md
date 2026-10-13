@@ -298,6 +298,7 @@ for path in \
   /static/common/ui/css/dolphin-theme.rtl.css \
   /static/common/ui/css/dolphin-plugins.rtl.css \
   /static/common/ui/js/dolphin-theme.js \
+  /static/common/ui/js/dolphin-charts.js \
   /static/common/css/tokens.css \
   /static/common/css/drawers-files.css \
   /static/common/js/main.js \
@@ -1183,6 +1184,10 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.43** adds no migration. Static files only change shape: `common/ui/js/dolphin-charts.js`
+  is new (ApexCharts, fetched by pages that draw a chart), `dolphin-plugins.js` is smaller, and the
+  icon fonts are `.woff` only (the `.ttf` copies are gone). `collectstatic` in `deploy.sh` handles
+  all of it; every URL carries the release, so no browser keeps a stale copy.
 * **2.40.42 — `accounts/0009_two_factor`** creates two tables (`accounts_twofactordevice`,
   `accounts_twofactorrecoverycode`), both granted `SELECT, INSERT, UPDATE, DELETE` by
   `db-finalize`; it moves no data. A new direct dependency, `segno==1.6.6` (pure Python, no
@@ -2688,6 +2693,7 @@ for path in \
   /static/common/ui/css/dolphin-theme.rtl.css \
   /static/common/ui/css/dolphin-plugins.rtl.css \
   /static/common/ui/js/dolphin-theme.js \
+  /static/common/ui/js/dolphin-charts.js \
   /static/common/css/tokens.css \
   /static/common/css/drawers-files.css \
   /static/common/js/main.js \

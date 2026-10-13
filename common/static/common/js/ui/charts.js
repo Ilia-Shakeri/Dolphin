@@ -6,10 +6,9 @@ import {setupJalaliInputs} from "dolphin/ui/jalali-picker.js";
 /**
  * One horizontal bar per item, drawn from `div`s.
  *
- * The panel deliberately ships no charting library: the theme's ApexCharts
- * lives inside a 3.5 MB bundle that `collectstatic` excludes, and every
- * chart here is a comparison across a handful of rows, which a bar answers
- * without one. See docs/frontend/CHARTS_GROUNDWORK.md.
+ * Drawn without a charting library: every chart of this kind is a comparison
+ * across a handful of rows, which a bar answers on its own, and it needs no
+ * ApexCharts download (`apexReady` below).
  *
  * `items` is `[{label, value, display}]` — `value` sizes the bar, `display`
  * is what the reader sees, already formatted by the caller. Keeping those
@@ -190,20 +189,68 @@ export function chartFontFamily() {
     return getComputedStyle(document.body).fontFamily || "IRANSansWeb, Helvetica, sans-serif";
 }
 
-export function mountApex(chart, empty, options, ariaLabel) {
-    const existing = liveCharts.get(chart);
+//: ApexCharts is its own file since 2.40.43 (`dolphin-charts.js`, half a
+//: megabyte of script): most pages draw no chart, so the library is fetched
+//: the first time one is drawn rather than parsed on every page. Every page
+//: prefetches it while the browser is idle (`<link rel="prefetch">`,
+//: base.html), so that first time is usually a cache hit; its address is the
+//: `dolphin-charts` meta tag, so it carries the release like every asset.
+let apexLoading = null;
+
+export function apexReady() {
+    if (window.ApexCharts) return Promise.resolve(window.ApexCharts);
+    if (!apexLoading) {
+        apexLoading = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = document.querySelector('meta[name="dolphin-charts"]')?.content || "";
+            script.onload = () => resolve(window.ApexCharts);
+            script.onerror = () => {
+                apexLoading = null;
+                reject(new Error("The chart library could not be loaded."));
+            };
+            document.head.append(script);
+        });
+    }
+    return apexLoading;
+}
+
+//: Draws asked for before the library arrived, by container: only the latest
+//: one per chart is drawn, so a redraw requested meanwhile wins.
+const waitingDraws = new Map();
+
+/**
+ * Draw one Apex chart into `host`, replacing the chart already there. Waits
+ * for the library the first time; a chart emptied meanwhile
+ * (`showEmptyChart`) is not drawn.
+ */
+export function drawApex(host, options) {
+    if (!window.ApexCharts) {
+        const draw = {options};
+        waitingDraws.set(host, draw);
+        apexReady().then(() => {
+            if (waitingDraws.get(host) !== draw) return;
+            waitingDraws.delete(host);
+            drawApex(host, options);
+        }, () => waitingDraws.delete(host));
+        return;
+    }
+    waitingDraws.delete(host);
+    const existing = liveCharts.get(host);
     if (existing) {
         existing.destroy();
-        liveCharts.delete(chart);
+        liveCharts.delete(host);
     }
-    chart.replaceChildren();
+    host.replaceChildren();
+    const instance = new ApexCharts(host, options);
+    instance.render();
+    liveCharts.set(host, instance);
+}
+
+export function mountApex(chart, empty, options, ariaLabel) {
     chart.hidden = false;
     empty.hidden = true;
-    const instance = new ApexCharts(chart, options);
-    instance.render();
-    liveCharts.set(chart, instance);
     if (ariaLabel) chart.setAttribute("aria-label", ariaLabel);
-    return instance;
+    drawApex(chart, options);
 }
 
 /* --- the shared chart controls ------------------------------------------
@@ -451,6 +498,7 @@ export function renderChartFilters(host, filters, chosen, onChange) {
 }
 
 export function showEmptyChart(chart, empty) {
+    waitingDraws.delete(chart);
     const existing = liveCharts.get(chart);
     if (existing) {
         existing.destroy();

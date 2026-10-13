@@ -172,8 +172,8 @@ export function setupCheques() {
             const registration = document.createElement("td");
             registration.className = "row-actions";
             [
-                [true, "check", 1, "ثبت‌شده علامت بزن", "success"],
-                [false, "cross", 2, "ثبت‌نشده علامت بزن", "danger"],
+                [true, "di-check", 1, "ثبت‌شده علامت بزن", "success"],
+                [false, "di-cross", 2, "ثبت‌نشده علامت بزن", "danger"],
             ].forEach(([target, icon, iconPaths, label, accent]) => {
                 const button = document.createElement("button");
                 button.type = "button";
@@ -182,7 +182,7 @@ export function setupCheques() {
                 button.setAttribute("aria-label", label);
                 button.title = label;
                 const glyph = document.createElement("i");
-                glyph.className = `di-duotone di-${icon} fs-3`;
+                glyph.className = `di-duotone ${icon} fs-3`;
                 for (let index = 1; index <= iconPaths; index += 1) {
                     const path = document.createElement("span");
                     path.className = `path${index}`;

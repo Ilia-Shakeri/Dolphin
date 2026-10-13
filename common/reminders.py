@@ -70,7 +70,7 @@ OPEN_INSTALMENT_STATUSES = ("pending", "partially_paid")
 OPEN_LEAD_STATUSES = (Lead.Status.PENDING, "")
 
 
-def _lead_reminders(user, *, now):
+def _lead_reminders(user, *, now, count_only=False):
     """Follow-ups that are due — overdue, or falling today."""
     end_of_today = _end_of_today(now)
     leads = (
@@ -93,6 +93,8 @@ def _lead_reminders(user, *, now):
         .order_by("next_follow_up_at", "id")
     )
     total = leads.count() + people.count()
+    if count_only:
+        return total
     items = [
         {
             "id": lead.pk,
@@ -120,7 +122,7 @@ def _lead_reminders(user, *, now):
     return _group("lead_follow_up", "پیگیری سرنخ", "di-call", "primary", total, items)
 
 
-def _appointment_reminders(user, *, now):
+def _appointment_reminders(user, *, now, count_only=False):
     """After-sales appointments that are due — overdue, or falling today."""
     end_of_today = _end_of_today(now)
     requests = (
@@ -131,6 +133,8 @@ def _appointment_reminders(user, *, now):
         .order_by("next_appointment_at", "id")
     )
     total = requests.count()
+    if count_only:
+        return total
     items = [
         {
             "id": request.pk,
@@ -146,7 +150,7 @@ def _appointment_reminders(user, *, now):
     return _group("after_sales_appointment", "قرار پس از فروش", "di-calendar-tick", "info", total, items)
 
 
-def _task_reminders(user, *, now):
+def _task_reminders(user, *, now, count_only=False):
     """The reader's own open tasks that are due — overdue, or falling today.
 
     Only tasks *assigned to* the reader, even for someone who can see every
@@ -163,6 +167,8 @@ def _task_reminders(user, *, now):
         .order_by("due_at", "id")
     )
     total = tasks.count()
+    if count_only:
+        return total
     items = [
         {
             "id": task.pk,
@@ -187,7 +193,7 @@ def _task_url(task):
     return f"/users/{task.assignee_id}/?tab=tasks"
 
 
-def _cheque_reminders(user, *, now):
+def _cheque_reminders(user, *, now, count_only=False):
     """Cheques whose due date has passed or arrives within the lead time."""
     today = timezone.localdate(now)
     horizon = today + timedelta(days=MONEY_LEAD_TIME_DAYS)
@@ -198,6 +204,8 @@ def _cheque_reminders(user, *, now):
         .order_by("due_date", "id")
     )
     total = cheques.count()
+    if count_only:
+        return total
     items = [
         {
             "id": cheque.pk,
@@ -213,7 +221,7 @@ def _cheque_reminders(user, *, now):
     return _group("cheque_due", "سررسید چک", "di-bank", "warning", total, items)
 
 
-def _instalment_reminders(user, *, now):
+def _instalment_reminders(user, *, now, count_only=False):
     """Instalments whose due date has passed or arrives within the lead time."""
     today = timezone.localdate(now)
     horizon = today + timedelta(days=MONEY_LEAD_TIME_DAYS)
@@ -224,6 +232,8 @@ def _instalment_reminders(user, *, now):
         .order_by("due_date", "id")
     )
     total = instalments.count()
+    if count_only:
+        return total
     items = [
         {
             "id": instalment.pk,
@@ -280,13 +290,19 @@ def reminders_for(user, *, now=None):
 
 
 def reminder_count_for(user, *, now=None):
-    """Just the badge number — the polled call, with no rows built."""
+    """Just the badge number — the polled call, with no rows built.
+
+    Each source stops at its own `COUNT` (`count_only`): until 2.40.43 this
+    built every group in full — fetched its first rows with their joins and
+    composed their titles — only to read `count`, on the endpoint every open
+    page polls.
+    """
     now = now or timezone.now()
     total = 0
     for feature, source in SOURCES:
         if not feature_enabled(feature):
             continue
-        total += source(user, now=now)["count"]
+        total += source(user, now=now, count_only=True)
     return total
 
 

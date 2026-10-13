@@ -26,7 +26,7 @@ assembled from what that reader may see, never filtered afterwards.
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Count, Sum
+from django.db.models import Count, DecimalField, F, Q, Sum
 from django.utils import timezone
 
 from accounts.access import has_any_capability
@@ -210,12 +210,20 @@ class _SalesSource:
 def _sales_kpis(user, *, now, unit, trend=None):
     source = _SalesSource(user)
     start, previous_start, previous_end = _month_bounds(now)
-    this_month = source.since(start)
-    last_month = source.since(previous_start, previous_end)
-    amount = this_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
-    previous = last_month.aggregate(total=Sum("total_amount"))["total"] or Decimal("0")
-    count = this_month.count()
-    previous_count = last_month.count()
+    # Both months in one query (2.40.43): four round trips on the page every
+    # reader lands on became one. The windows are exactly `since(start)` and
+    # `since(previous_start, previous_end)`, which may overlap at a month's end.
+    this_month = Q(**{f"{source.when}__gte": start})
+    last_month = Q(**{f"{source.when}__gte": previous_start, f"{source.when}__lt": previous_end})
+    figures = source.since(min(start, previous_start)).aggregate(
+        amount=Sum("total_amount", filter=this_month),
+        previous=Sum("total_amount", filter=last_month),
+        count=Count("pk", filter=this_month),
+        previous_count=Count("pk", filter=last_month),
+    )
+    amount = figures["amount"] or Decimal("0")
+    previous = figures["previous"] or Decimal("0")
+    count, previous_count = figures["count"], figures["previous_count"]
     # The tile's own spark rides on the trend this same call already computed
     # (`dashboard_for` builds it first) rather than a second query — the last
     # SPARK_WEEKS points of the same twelve-week series, oldest first, same
@@ -250,14 +258,18 @@ def _sales_kpis(user, *, now, unit, trend=None):
 def _receivables_kpi(user, *, now, unit):
     """What is still owed, across every issued invoice this reader may see.
 
-    Summed in Python rather than in SQL because `balance_due` is a property
-    that honours `is_manually_settled` — a manually settled invoice owes
-    nothing even though its stored columns still show a figure. A `Sum()`
-    over the columns would quietly disagree with every other page.
+    `balance_due` honours `is_manually_settled` — a manually settled invoice
+    owes nothing even though its stored columns still show a figure — so the
+    sum leaves those invoices out rather than summing the columns blindly.
+    Until 2.40.43 this loaded every issued invoice into Python to add up the
+    property; it is the same arithmetic as one query, whatever the count.
     """
-    invoices = invoices_for(user).filter(status="issued")
-    outstanding = sum((invoice.balance_due for invoice in invoices), Decimal("0"))
-    unpaid = sum(1 for invoice in invoices if invoice.balance_due > 0)
+    figures = invoices_for(user).filter(status="issued", manual_settled_at__isnull=True).aggregate(
+        outstanding=Sum(F("total_amount") - F("paid_amount"), output_field=DecimalField(max_digits=18, decimal_places=2)),
+        unpaid=Count("pk", filter=Q(total_amount__gt=F("paid_amount"))),
+    )
+    outstanding = figures["outstanding"] or Decimal("0")
+    unpaid = figures["unpaid"]
     return [
         _kpi(
             "outstanding", "مطالبات باز",
@@ -274,20 +286,24 @@ def _receivables_kpi(user, *, now, unit):
 def _call_kpi(user, *, now):
     week_start = timezone.localtime(now) - timedelta(days=7)
     previous_start = week_start - timedelta(days=7)
-    scope = interactions_for(user)
-    this_week = scope.filter(occurred_at__gte=week_start).count()
-    last_week = scope.filter(occurred_at__gte=previous_start, occurred_at__lt=week_start).count()
-
     # This tile's own spark: SPARK_WEEKS buckets ending today, bucketed in
     # Python over one ordered query — the same reasoning `_sales_trend`
     # documents (PostgreSQL/SQLite disagree on week-truncation functions, and
     # a handful of buckets over one indexed range scan is not worth a
-    # dialect-specific query).
-    spark_start = week_start - timedelta(weeks=SPARK_WEEKS - 1)
-    rows = scope.filter(occurred_at__gte=spark_start).values_list("occurred_at", flat=True)
+    # dialect-specific query). The same rows hold both weeks the figure
+    # compares, so they are counted here too rather than asked for twice
+    # more (2.40.43).
+    spark_start = min(week_start - timedelta(weeks=SPARK_WEEKS - 1), previous_start)
+    rows = interactions_for(user).filter(occurred_at__gte=spark_start).values_list("occurred_at", flat=True)
     buckets = [0] * SPARK_WEEKS
+    this_week = last_week = 0
+    bucket_start = week_start - timedelta(weeks=SPARK_WEEKS - 1)
     for occurred_at in rows:
-        index = (timezone.localtime(occurred_at) - spark_start).days // 7
+        if occurred_at >= week_start:
+            this_week += 1
+        elif occurred_at >= previous_start:
+            last_week += 1
+        index = (timezone.localtime(occurred_at) - bucket_start).days // 7
         if 0 <= index < SPARK_WEEKS:
             buckets[index] += 1
 
@@ -306,14 +322,17 @@ def _call_kpi(user, *, now):
 
 
 def _after_sales_kpis(user, *, now):
-    scope = after_sales_requests_for(user)
-    open_cases = scope.filter(closed_at__isnull=True)
-    with_appointment = open_cases.filter(next_appointment_at__isnull=False).count()
     start, _previous_start, _previous_end = _month_bounds(now)
+    counts = after_sales_requests_for(user).aggregate(
+        open=Count("pk", filter=Q(closed_at__isnull=True)),
+        with_appointment=Count("pk", filter=Q(closed_at__isnull=True, next_appointment_at__isnull=False)),
+        closed=Count("pk", filter=Q(closed_at__gte=start)),
+    )
+    with_appointment = counts["with_appointment"]
     return [
         _kpi(
             "after_sales_open", "پرونده‌های باز",
-            display=formatting.persian_digits(open_cases.count()),
+            display=formatting.persian_digits(counts["open"]),
             hint=f"{formatting.persian_digits(with_appointment)} مورد با قرار ثبت‌شده",
             delta=_count_chip(with_appointment, "با قرار", "info"),
             caption="پرونده‌های بسته‌نشده",
@@ -321,7 +340,7 @@ def _after_sales_kpis(user, *, now):
         ),
         _kpi(
             "after_sales_closed_this_month", "بسته‌شده در این ماه",
-            display=formatting.persian_digits(scope.filter(closed_at__gte=start).count()),
+            display=formatting.persian_digits(counts["closed"]),
             hint="از ابتدای ماه جاری",
             icon="di-check-circle", icon_paths=2, accent="success", url="/after-sales/",
         ),

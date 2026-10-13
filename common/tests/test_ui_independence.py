@@ -72,7 +72,7 @@ class ReferenceFolderIndependenceTests(SimpleTestCase):
         kit = ROOT / "common" / "static" / "common" / "ui"
         for relative in (
             "css/dolphin-theme.rtl.css", "css/dolphin-plugins.rtl.css",
-            "js/dolphin-theme.js", "js/dolphin-plugins.js",
+            "js/dolphin-theme.js", "js/dolphin-plugins.js", "js/dolphin-charts.js",
             "fonts/IRANSansWeb.woff", "fonts/dolphin-icons/dolphin-icons-duotone.woff",
         ):
             with self.subTest(file=relative):

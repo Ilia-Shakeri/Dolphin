@@ -7,6 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow,noarchive" />
     {% if realtime_url %}<meta name="dolphin-realtime" content="{{ realtime_url }}">{% endif %}
+    <meta name="dolphin-charts" content="{% static 'common/ui/js/dolphin-charts.js' %}?v={{ dolphin_version }}">
+    <link rel="prefetch" href="{% static 'common/ui/js/dolphin-charts.js' %}?v={{ dolphin_version }}" as="script">
     <title>{% block title %}خانه{% endblock %} | {{ brand_name }}</title>
     <link rel="icon" href="{% static 'common/brand/favicon.ico' %}" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="{% static 'common/brand/favicon-32x32.png' %}">
@@ -972,15 +974,18 @@
    and each module would then initialise before the one it depends on had been
    assigned further down the same file. A body-end script still sees
    readyState "loading", so every module registers a real listener instead. {% endcomment %}
-{% comment %} The UI kit's vendor bundle: jQuery, Popper, Bootstrap and ApexCharts —
-   what the theme script and the panel's charts need, and nothing else. Until
-   2.40.36 it was the reference template's whole global bundle (3.6 MB: Select2,
-   Dropzone, Quill, Tempus Dominus, FormValidation, Chart.js and more, none of
-   which this panel used); it is now 0.9 MB. FullCalendar and jKanban are loaded
-   only by the pages that draw them (`extra_scripts`).
+{% comment %} The UI kit's vendor bundle: Popper and Bootstrap — what the theme script
+   needs on every page, and nothing else (built by `scripts/build_ui_kit.py` from
+   `ui_kit/vendor/`). Until 2.40.36 it was the reference template's whole global
+   bundle (3.6 MB); 2.40.36 cut it to jQuery, Popper, Bootstrap and ApexCharts
+   (0.9 MB); since 2.40.43 jQuery is gone (the theme only reached for it behind
+   guards for plugins long removed) and ApexCharts is its own file, fetched the
+   first time a chart is drawn (`ui/charts.js`, `apexReady`; the `dolphin-charts`
+   meta tag and the idle prefetch in the head). FullCalendar and jKanban are
+   loaded only by the pages that draw them (`extra_scripts`).
 
    Vendor load order — plugins before scripts — because `dolphin-theme.js`
-   expects Popper and jQuery to already exist. {% endcomment %}
+   expects Popper and Bootstrap to already exist. {% endcomment %}
 <script src="{% static 'common/ui/js/dolphin-plugins.js' %}?v={{ dolphin_version }}"></script>
 <script src="{% static 'common/ui/js/dolphin-theme.js' %}?v={{ dolphin_version }}"></script>
 {% include "common/includes/app_script.inc" %}

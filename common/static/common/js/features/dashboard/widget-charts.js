@@ -1,5 +1,5 @@
 import {toPersianDigits} from "dolphin/core/digits.js";
-import {apexBase, chartFontFamily, chartInk, chartPalette, chartRedraws, chartResetEvents, compactAmount, liveCharts, mountApex, showEmptyChart, thinningFormatter} from "dolphin/ui/charts.js";
+import {apexBase, chartFontFamily, chartInk, chartPalette, chartRedraws, chartResetEvents, compactAmount, drawApex, liveCharts, mountApex, showEmptyChart, thinningFormatter} from "dolphin/ui/charts.js";
 
 /**
  * Make a widget's chart use the room its box has been given.
@@ -284,16 +284,10 @@ export function renderSparkline(el, values, options = {}) {
     const {accent = "primary"} = options;
     const color = getComputedStyle(document.documentElement).getPropertyValue(`--bs-${accent}`).trim()
         || chartPalette()[0];
-    const existing = liveCharts.get(el);
-    if (existing) {
-        existing.destroy();
-        liveCharts.delete(el);
-    }
-    el.replaceChildren();
     // One smooth stroke over a very soft fill of the same hue, no axes, no
     // shadow, and a dot on the latest point — the figure below is that
     // point (2.40.3). Not animated: a tile redraws on every theme switch.
-    const instance = new ApexCharts(el, {
+    drawApex(el, {
         chart: {height: 36, type: "area", sparkline: {enabled: true}, animations: {enabled: false}, dropShadow: {enabled: false}},
         series: [{data: values}],
         colors: [color],
@@ -305,8 +299,6 @@ export function renderSparkline(el, values, options = {}) {
         },
         tooltip: {enabled: false},
     });
-    instance.render();
-    liveCharts.set(el, instance);
 }
 
 /**

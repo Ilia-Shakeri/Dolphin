@@ -49,6 +49,9 @@ secrets
 # common/static/common/ui/ and ships with the application. The reference
 # template tree at the repository root is not part of the product.
 metronic
+# The UI kit's full sources: what scripts/build_ui_kit.py builds the served kit
+# files from (2.40.43). Never read at run time.
+ui_kit
 code_dumper*.py
 
 # --- P0R.4 build-context hardening ---

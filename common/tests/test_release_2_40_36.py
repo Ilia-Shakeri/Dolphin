@@ -51,11 +51,16 @@ class NoJumpTests(SimpleTestCase):
 
 class LighterVendorTests(SimpleTestCase):
     def test_the_vendor_bundle_carries_only_what_the_panel_uses(self):
+        """Since 2.40.43 jQuery is gone and ApexCharts is its own file, fetched
+        the first time a chart is drawn (`ui/charts.js`, `apexReady`)."""
         bundle = (STATIC / "ui" / "js" / "dolphin-plugins.js").read_text(encoding="utf-8")
-        self.assertLess(len(bundle), 1_100_000)
-        for kept in ("jQuery JavaScript Library v3.7.1", "@popperjs/core v2.11.8", "Bootstrap v5.3.3", "ApexCharts v3.48.0"):
+        charts = (STATIC / "ui" / "js" / "dolphin-charts.js").read_text(encoding="utf-8")
+        self.assertLess(len(bundle), 200_000)
+        for kept in ("@popperjs/core v2.11.8", "Bootstrap v5.3.3"):
             self.assertIn(kept, bundle)
-        for dropped in ("Quill Editor", "Select2 4.1.0", "Tempus Dominus", "Chart.js v4.4.2", "FormValidation", "jQuery.fn.dropzone"):
+        self.assertIn("ApexCharts v3.48.0", charts)
+        for dropped in ("jQuery JavaScript Library", "ApexCharts v3", "Quill Editor", "Select2 4.1.0", "Tempus Dominus",
+                        "Chart.js v4.4.2", "FormValidation", "jQuery.fn.dropzone"):
             self.assertNotIn(dropped, bundle)
 
     def test_the_vendor_styles_drop_the_unused_icon_fonts(self):

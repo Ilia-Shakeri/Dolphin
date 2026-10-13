@@ -34,10 +34,11 @@ REQUIRED = (
     "common/ui/css/dolphin-theme.rtl.css",
     "common/ui/css/dolphin-plugins.rtl.css",
     "common/ui/js/dolphin-theme.js",
-    # ApexCharts lives only in here, and every chart in the panel is drawn with
-    # it. Excluded from the image until 1.3.12, when the charts moved onto the
-    # theme's own library.
+    # Popper and Bootstrap, which the theme script needs on every page.
     "common/ui/js/dolphin-plugins.js",
+    # ApexCharts, which every chart in the panel is drawn with: its own file
+    # since 2.40.43, fetched the first time a chart is drawn (`ui/charts.js`).
+    "common/ui/js/dolphin-charts.js",
     *STYLESHEETS,
     "common/js/main.js",
     "common/brand/Logo.webp",
@@ -240,14 +241,19 @@ class ChartLibraryTests(SimpleTestCase):
     SHELL = TEMPLATES / "base.html"
     SCRIPT = PANEL_SCRIPT
 
-    def test_the_shell_loads_the_bundle_that_carries_apexcharts(self):
-        """ApexCharts ships only inside `dolphin-plugins.js`; the theme has no
-        standalone build of it. Dropping this tag leaves every chart container
-        empty with a `ReferenceError` and nothing else to show for it."""
-        self.assertIn("common/ui/js/dolphin-plugins.js", self.SHELL.read_text(encoding="utf-8"))
+    def test_the_shell_names_the_charts_bundle(self):
+        """ApexCharts is `dolphin-charts.js` (2.40.43): the shell gives its
+        versioned address to `ui/charts.js` (the `dolphin-charts` meta tag) and
+        prefetches it while idle. Without the address every chart container
+        stays empty."""
+        shell = self.SHELL.read_text(encoding="utf-8")
+        address = "{% static 'common/ui/js/dolphin-charts.js' %}?v={{ dolphin_version }}"
+        self.assertIn(f'<meta name="dolphin-charts" content="{address}">', shell)
+        self.assertIn(f'<link rel="prefetch" href="{address}" as="script">', shell)
+        self.assertIn("common/ui/js/dolphin-plugins.js", shell)
 
     def test_the_plugins_bundle_loads_before_the_theme_script(self):
-        """`dolphin-theme.js` expects Popper and jQuery to already exist, and
+        """`dolphin-theme.js` expects Popper and Bootstrap to already exist, and
         both arrive in the plugins bundle. Loading them the other way round
         breaks the theme's own components rather than the charts, which makes
         it an easy mistake to file under the wrong cause."""

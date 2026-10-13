@@ -3252,18 +3252,23 @@ Loaded assets, and only these, because they are what the served pages request:
 
 | Asset | Why |
 |---|---|
-| `common/ui/css/dolphin-plugins.rtl.css` | Bootstrap RTL base + icon font-face |
+| `common/ui/css/dolphin-plugins.rtl.css` | Bootstrap RTL base + the icon rules of the icons the panel uses |
 | `common/ui/css/dolphin-theme.rtl.css` | the theme itself; also resolves the Persian IRANSans face |
 | `common/ui/js/dolphin-theme.js` | `DolphinUtil`, `DolphinMenu`, `DolphinDrawer`, `DolphinScroll` |
-| `common/ui/fonts/dolphin-icons/*` | the icon font the sidebar uses |
+| `common/ui/fonts/dolphin-icons/*.woff` | the icon fonts, cut to the glyphs those rules draw (2.40.43: the duotone set 187 → 20 KB) |
 | `common/ui/fonts/IRANSansWeb*` | Persian typography |
 | `common/css/*.css` | Dolphin-only: behaviour, brand, print and the panel's own components — one file per layer, linked in the cascade order `common/stylesheets.py` lists (`{% dolphin_stylesheets %}`; until 2.40.42 one file, `common/dolphin.css`) |
-| `common/ui/js/dolphin-plugins.js` | ApexCharts and the few vendor plugins the panel draws with (cut from 3.6 to 0.9 MB in 2.40.36) |
+| `common/ui/js/dolphin-plugins.js` | Popper and Bootstrap, which the theme script needs on every page (3.6 MB until 2.40.36, 0.9 MB until 2.40.43, now 124 KB: jQuery left, ApexCharts moved out) |
+| `common/ui/js/dolphin-charts.js` | ApexCharts, fetched by `ui/charts.js` (`apexReady`) the first time a chart is drawn; the page names it in a `dolphin-charts` meta tag and prefetches it while idle |
 | `common/js/main.js` and `common/js/**` | the application: ES modules, one entry per `data-page` in `pages.js` |
 
 The theme stylesheet keeps only the rules a first-party template, script or
 Python module can produce a class for (1.45 → 0.43 MB in 2.40.42); the
 reference template's layout-builder demo is gone from `dolphin-theme.js`.
+Since 2.40.43 every file of the kit above except `dolphin-theme.js` and the
+IRANSans fonts is built by `scripts/build_ui_kit.py` from the kit's full sources
+in `ui_kit/` (which never ships), and `common/tests/test_ui_kit_build.py` fails
+when a class or an icon the code uses is missing from what is served.
 
 ### Status vocabulary
 

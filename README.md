@@ -57,9 +57,12 @@ panel depends on it.
 - **Backend:** Django 5.2 + Django REST Framework, Python 3.13 (pinned base image; no new runtime dependency is added casually)
 - **Database:** PostgreSQL (SQLite for the default local/test run)
 - **Frontend:** Server-rendered Django templates, RTL, Persian (`fa`) —
-  Dolphin UI kit (`common/static/common/ui/`) + a first-party layer of ES modules
-  (`common/static/common/js/`, loaded per page through an import map) and one
-  stylesheet, no build step
+  Dolphin UI kit (`common/static/common/ui/`, built from its full sources in
+  `ui_kit/` by `python scripts/build_ui_kit.py`, keeping only the classes and
+  icons the code uses) + a first-party layer of ES modules
+  (`common/static/common/js/`, loaded per page through an import map) and the
+  panel's own stylesheet layers (`common/static/common/css/`); no build step at
+  deploy time — the built kit files are committed
 - **Auth:** Session-based, role defaults + per-user capability overrides
 - **Deployment:** Docker Compose, nginx edge, signed feature-manifest per
   customer

@@ -61,6 +61,9 @@ DENY_PATTERNS: list[tuple[str, str]] = [
     # The reference template tree lives in one folder at the repository root
     # and is not part of the product.
     ("reference template tree", "metronic"),
+    # The UI kit's full sources: the build input of the served kit files,
+    # never read at run time (2.40.43).
+    ("UI kit sources", "ui_kit"),
 ]
 
 # Paths the runtime genuinely needs. Guards against over-exclusion.
@@ -88,10 +91,11 @@ EXPECT_PRESENT: list[str] = [
     "common/static/common/ui/css/dolphin-theme.rtl.css",
     "common/static/common/ui/css/dolphin-plugins.rtl.css",
     "common/static/common/ui/js/dolphin-theme.js",
-    # ApexCharts, which every chart in the panel is drawn with. It exists only
-    # inside this bundle — the theme ships no standalone build — so the whole
-    # 3.6 MB of it is a runtime file, not demo material.
+    # Popper and Bootstrap (every page) and ApexCharts (its own file since
+    # 2.40.43, fetched the first time a chart is drawn) — built from ui_kit/
+    # by scripts/build_ui_kit.py; all of it is runtime, not demo material.
     "common/static/common/ui/js/dolphin-plugins.js",
+    "common/static/common/ui/js/dolphin-charts.js",
     # The lead follow-up calendar's bundle (1.7.1) — the theme has no
     # standalone build of it either, so all of it is runtime, not demo
     # material. See the 1.7.5 comment on DENY_PATTERNS above.
