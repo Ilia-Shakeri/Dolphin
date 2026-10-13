@@ -1197,6 +1197,28 @@ Base path: `/api/v1/`. Authentication: Django session cookie plus CSRF. Unsafe r
 - `POST after-sales/{id}/close/` is elevated-only and final because reopen semantics were not supplied. `GET after-sales/{id}/history/` reuses the case selector and is append-only.
 - After-sales operators get no Customer, Lead, Interaction, Product, Sale, sales-document, performance, or postal-report API scope. The case response embeds only the bounded relation labels needed by its panel.
 
+### Printed documents and each company's layout (2.40.44)
+
+- The printed invoice (`/invoices/<id>/print/`, `print.pdf`) prints every part the official invoice sets out — the
+  title, the seller and buyer blocks, the eleven line columns, the amount in words and both stamp boxes — whatever
+  is stored below. Its head carries the company's brand name when `custom_branding` gives one, else the seller's
+  legal name (`SELLER_*`), else the panel's.
+- Feature `print_customization` (off by default, needs `invoices`) and capability `print_settings.manage` (Platform
+  Admin by default, grantable in the permission matrix as «قالب چاپ اسناد») let a company set, in
+  `common.models.PrintSettings` (one row, `common.0013`): its document logo and its seller stamp-and-signature image
+  (jpeg/png/webp, at most 2 MB, sniffed by content), an accent colour, a line under its name (120), a footer such
+  as bank accounts or terms (600, line breaks kept), the paper size (A4/A5), and whether three parts that are not the
+  invoice's print: the warehouse, the payment summary (settlement status, paid, remaining) and the issuer line.
+  `common.print_settings.effective_print_settings` is what a document reads: without the feature it is the standard
+  layout (the panel's own custom logo and accent still apply) and the stored row is kept untouched.
+- `GET/POST /api/v1/print-settings/` (multipart; a field not sent stays as it is; `remove_logo`/`remove_stamp`
+  clear an image) and `GET /api/v1/print-settings/<logo|stamp>/`; 404 without the feature, 403 without the
+  capability; every change is in the activity log (`print_settings.updated`). Images travel inside the document as
+  data URIs, so the PDF renderer still fetches nothing.
+- Settings → «قالب چاپ» edits them, with a live preview: `/invoices/print/sample/`, the same print template drawn
+  from made-up data under a «نمونه» banner (`common.print_sample`; no row read or written). It is the one page that
+  may be framed, and only by this same site (`X-Frame-Options: SAMEORIGIN`); every other page keeps `DENY`.
+
 ### Files and help (2.40.42)
 
 - `GET attachments/library/?search&parent&kind&page` (feature `attachments`): every attachment the caller may see — exactly the scope download and delete already use (a file is visible when its record is) — newest first, paged. `parent` is one of `customer`, `lead`, `invoice`, `sales_document`, `after_sales_request`; `kind` is `image` or `pdf`. Rows add `parent_type_display`, `parent_name`, `parent_url` and `can_delete` (the Platform Admin, or the parent module's `<module>.delete`) to the attachment fields. Page `/files/` («اسناد و پیوست‌ها»); the menu lists it under «مشتریان» for whoever reads customers — the page itself only needs the feature, since the API decides every row.

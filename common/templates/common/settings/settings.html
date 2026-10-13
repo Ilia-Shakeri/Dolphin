@@ -257,6 +257,112 @@
 {% if can_manage_scoring %}
 {% comment %} وزن عامل‌های امتیاز اشخاص (۲.۲۰.۰). فقط «چقدر حساب شود» تنظیم‌شدنی است؛
    اینکه هر عامل چگونه سنجیده می‌شود در کد (`scoring/strategies.py`) ثابت است. {% endcomment %}
+{% if can_manage_print %}
+{% comment %} The printed invoice's look (2.40.44, feature `print_customization`, capability
+   `print_settings.manage`; `common.print_settings`). Presentation only: the parts the
+   official invoice sets out always print. The preview is the real print template
+   drawn from sample data (`/invoices/print/sample/`), reloaded after each save. {% endcomment %}
+<div id="settings-pane-print" role="tabpanel" aria-labelledby="settings-tab-print" data-settings-pane="print"{% if active_tab != "print" %} hidden{% endif %}>
+<section class="card mb-5 mb-xl-8" id="print-settings-card">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>قالب چاپ فاکتور</h2>
+            <span class="text-muted fs-7 mt-1">ظاهر فاکتور چاپی و PDF شرکت شما. اجزای رسمی فاکتور — مشخصات فروشنده و خریدار، ستون‌ها، مبلغ به حروف و جای مهر و امضا — همیشه چاپ می‌شوند.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="print-settings-loading" class="text-center text-gray-700 py-6">در حال دریافت قالب…</div>
+        <form id="print-settings-form" novalidate hidden>
+            <div class="row g-6">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="print-logo-file">لوگوی روی اسناد</label>
+                    <div class="d-flex align-items-center gap-4 mb-2">
+                        <img id="print-logo-preview" src="" alt="" class="d-none print-settings-image">
+                        <span id="print-logo-empty" class="text-muted fs-7">تنظیم نشده — اگر برند اختصاصی پنل لوگو داشته باشد همان چاپ می‌شود.</span>
+                    </div>
+                    <input class="form-control form-control-solid" id="print-logo-file" name="logo" type="file" accept="image/jpeg,image/png,image/webp">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="logo"></p>
+                    <div class="form-check form-check-custom form-check-solid mt-3" id="print-remove-logo-row" hidden>
+                        <input class="form-check-input" type="checkbox" id="print-remove-logo" name="remove_logo">
+                        <label class="form-check-label" for="print-remove-logo">حذف لوگوی فعلی</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="print-stamp-file">مهر و امضای فروشنده</label>
+                    <div class="d-flex align-items-center gap-4 mb-2">
+                        <img id="print-stamp-preview" src="" alt="" class="d-none print-settings-image">
+                        <span id="print-stamp-empty" class="text-muted fs-7">تنظیم نشده — کادر مهر و امضا خالی چاپ می‌شود.</span>
+                    </div>
+                    <input class="form-control form-control-solid" id="print-stamp-file" name="stamp" type="file" accept="image/jpeg,image/png,image/webp">
+                    <p class="text-muted fs-7 mt-1 mb-0">تصویر با پس‌زمینهٔ شفاف (png) بهتر می‌نشیند — jpeg، png یا webp، حداکثر ۲ مگابایت.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="stamp"></p>
+                    <div class="form-check form-check-custom form-check-solid mt-3" id="print-remove-stamp-row" hidden>
+                        <input class="form-check-input" type="checkbox" id="print-remove-stamp" name="remove_stamp">
+                        <label class="form-check-label" for="print-remove-stamp">حذف مهر فعلی</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold" for="print-accent-color">رنگ اسناد</label>
+                    <div class="d-flex align-items-center gap-3">
+                        <input class="form-control form-control-solid form-control-color" id="print-accent-color" type="color" value="#087f73" title="انتخاب رنگ">
+                        <input class="form-control form-control-solid print-settings-hex" id="print-accent-color-hex" name="accent_color" aria-label="کد رنگ (هگز)" type="text" dir="ltr" maxlength="7" placeholder="#087f73">
+                        <button class="btn btn-sm btn-light" type="button" id="print-accent-color-reset">رنگ پیش‌فرض</button>
+                    </div>
+                    <p class="text-muted fs-7 mt-1 mb-0">عنوان، خطوط و سرستون‌های جدول. خالی یعنی رنگ برند پنل یا رنگ پیش‌فرض اسناد.</p>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="accent_color"></p>
+                </div>
+                <div class="col-md-6">
+                    <span class="form-label fw-semibold d-block mb-3" id="print-paper-label">اندازهٔ کاغذ</span>
+                    <input type="hidden" id="print-paper-size" name="paper_size" value="a4">
+                    <div class="dolphin-segmented" role="radiogroup" aria-labelledby="print-paper-label" data-segmented-for="print-paper-size">
+                        <button type="button" role="radio" class="dolphin-segmented-option is-selected" aria-checked="true" data-value="a4">A4</button>
+                        <button type="button" role="radio" class="dolphin-segmented-option" aria-checked="false" data-value="a5">A5</button>
+                    </div>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="paper_size"></p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold" for="print-tagline">خط زیر نام شرکت</label>
+                    <input class="form-control form-control-solid" id="print-tagline" name="tagline" maxlength="120" placeholder="مثلاً: واردکننده و توزیع‌کنندهٔ قطعات صنعتی">
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="tagline"></p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold" for="print-footer-text">پانویس سند</label>
+                    <textarea class="form-control form-control-solid" id="print-footer-text" name="footer_text" rows="3" maxlength="600" placeholder="مثلاً شمارهٔ حساب و شبا، شرایط مرجوعی یا گارانتی"></textarea>
+                    <p class="text-danger fs-8 mt-1 mb-0" data-error-for="footer_text"></p>
+                </div>
+                <div class="col-12">
+                    <span class="form-label fw-semibold d-block mb-3">بخش‌های اختیاری</span>
+                    <div class="d-flex flex-wrap gap-8">
+                        <div class="form-check form-check-custom form-check-solid form-switch">
+                            <input class="form-check-input" type="checkbox" id="print-show-warehouse" name="show_warehouse">
+                            <label class="form-check-label" for="print-show-warehouse">انبار</label>
+                        </div>
+                        <div class="form-check form-check-custom form-check-solid form-switch">
+                            <input class="form-check-input" type="checkbox" id="print-show-payment-summary" name="show_payment_summary">
+                            <label class="form-check-label" for="print-show-payment-summary">وضعیت تسویه، پرداخت‌شده و مانده</label>
+                        </div>
+                        <div class="form-check form-check-custom form-check-solid form-switch">
+                            <input class="form-check-input" type="checkbox" id="print-show-issuer" name="show_issuer">
+                            <label class="form-check-label" for="print-show-issuer">نام صادرکننده</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap justify-content-end gap-3 pt-8">
+                <a class="btn btn-light" href="{% url 'common_ui:invoice-print-sample' %}" target="_blank" rel="noopener">پیش‌نمایش در صفحهٔ جدید</a>
+                <button class="btn btn-primary" type="submit">ذخیره</button>
+            </div>
+        </form>
+    </div>
+</section>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6"><div class="card-title"><h2>پیش‌نمایش</h2></div></div>
+    <div class="card-body pt-2">
+        <iframe class="print-preview-frame" id="print-preview-frame" title="پیش‌نمایش فاکتور با دادهٔ نمونه" src="{% url 'common_ui:invoice-print-sample' %}" loading="lazy"></iframe>
+    </div>
+</section>
+</div>
+{% endif %}
 <div id="settings-pane-scoring" role="tabpanel" aria-labelledby="settings-tab-scoring" data-settings-pane="scoring"{% if active_tab != "scoring" %} hidden{% endif %}>
 <section class="card mb-5 mb-xl-8" id="panel-scoring">
     <div class="card-header border-0 pt-6">

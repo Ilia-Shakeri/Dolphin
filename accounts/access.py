@@ -203,6 +203,8 @@ ROLE_CAPABILITIES = {
         "ledger.company",
         "reports.company",
         "sales_targets.manage",
+        # How printed documents look (2.40.44, feature `print_customization`).
+        "print_settings.manage",
         "sms.company",
         "users.manage_all",
         "audit.all",

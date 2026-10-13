@@ -121,6 +121,7 @@ OPERATION_LABELS = {
     "attachment.uploaded": "افزودن پیوست",
     "attachment.deleted": "حذف پیوست",
     "brand_settings.updated": "تغییر برند پنل",
+    "print_settings.updated": "تغییر قالب چاپ اسناد",
     "dashboard_settings.updated": "تغییر چیدمان داشبورد",
     # پشتیبان‌گیری (common/backups.py). هر سه رویداد عمداً ثبت
     # می‌شوند: دانلود یک نسخه یعنی کل پایگاه داده از سرور خارج شده،
@@ -199,6 +200,7 @@ OBJECT_TYPE_LABELS = {
     "accounts.usercapabilityoverride": "مجوز اختصاصی کاربر",
     "accounts.useravatar": "تصویر پروفایل",
     "common.brandsettings": "شخصی‌سازی پنل",
+    "common.printsettings": "قالب چاپ اسناد",
     "common.dashboardsettings": "چیدمان پیش‌فرض داشبورد",
     "common.userpreference": "تنظیمات کاربر",
     "common.userdashboardlayout": "چیدمان داشبورد کاربر",

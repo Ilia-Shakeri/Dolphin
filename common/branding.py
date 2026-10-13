@@ -110,9 +110,9 @@ def _clean_accent_color(value):
     return normalize_hex_color(cleaned)
 
 
-def _sniff_logo_content_type(content):
+def sniff_image_type(content):
     """The same magic-byte sniff `attachments.services` uses, image types
-    only — a logo is never a PDF.
+    only — a logo (or a printed stamp, `common.print_settings`) is never a PDF.
     """
     if content.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
@@ -167,7 +167,7 @@ def update_brand_settings(
                 raise BusinessRuleError({"logo": "فایل خالی است."})
             if len(logo_bytes) > MAX_LOGO_BYTES:
                 raise BusinessRuleError({"logo": f"حجم لوگو نباید بیش از {MAX_LOGO_BYTES // (1024 * 1024)} مگابایت باشد."})
-            content_type = _sniff_logo_content_type(bytes(logo_bytes[:32]))
+            content_type = sniff_image_type(bytes(logo_bytes[:32]))
             if content_type not in ALLOWED_LOGO_CONTENT_TYPES:
                 raise BusinessRuleError({"logo": "فقط تصویر jpeg، png یا webp مجاز است."})
             row.logo_content = bytes(logo_bytes)

@@ -26,6 +26,7 @@
     {% dolphin_stylesheets %}
     {% include "common/includes/app_script.inc" %}
 {% endif %}
+{% block page_style %}{% endblock %}
 </head>
 {% comment %} The printable document has no navigation and no controls beyond printing.
    Everything on it is rendered server-side from the stored snapshot, so a

@@ -594,6 +594,9 @@ FROM (
         -- logo is cleared by writing NULL back into it, never by deleting
         -- the row, so no DELETE.
         ('common_brandsettings', 'SELECT, INSERT, UPDATE'),
+        -- One singleton row for how printed documents look
+        -- (common.print_settings, 2.40.44) — same shape, no DELETE.
+        ('common_printsettings', 'SELECT, INSERT, UPDATE'),
         -- One singleton row for the whole deployment's dashboard widget
         -- layout (common.dashboard_layout) — same shape as
         -- common_brandsettings above, no DELETE.

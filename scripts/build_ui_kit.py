@@ -260,7 +260,10 @@ def subset_font(family, codepoints):
     options.layout_features = []
     options.name_IDs = ["*"]
     options.notdef_outline = True
-    font = TTFont(KIT / "fonts" / f"dolphin-icons-{family}.woff")
+    # The source font's own timestamp, not the time of the build: the same
+    # glyphs give the same bytes, so a rebuild changes a font only when its
+    # glyphs change.
+    font = TTFont(KIT / "fonts" / f"dolphin-icons-{family}.woff", recalcTimestamp=False)
     subsetter = subset.Subsetter(options)
     subsetter.populate(unicodes=sorted(codepoints))
     subsetter.subset(font)

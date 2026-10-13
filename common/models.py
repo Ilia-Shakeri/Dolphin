@@ -120,6 +120,95 @@ class BrandSettings(TimeStampedModel):
         return self.display_name or "(پیش‌فرض دلفین)"
 
 
+class PrintSettings(TimeStampedModel):
+    """How this company's printed documents look (2.40.44).
+
+    Presentation only: the company's logo, its seller stamp and signature, an
+    accent colour, a line under its name, a footer (bank accounts, terms) and
+    the paper size, plus three optional parts it may leave off — the
+    warehouse, the payment summary and the issuer line. Nothing here can
+    remove or rename what the official invoice sets out (the two identity
+    blocks, the line columns, the amount in words, the stamp boxes): those
+    stay in the template whatever is stored.
+
+    Gated by the `print_customization` feature and the `print_settings.manage`
+    capability; read through `common.print_settings.effective_print_settings`,
+    which folds the feature gate in — turning the feature off prints the
+    standard document again and keeps this row. Singleton, and images in
+    `bytea`, for the same reasons as `BrandSettings` above.
+    """
+
+    SINGLETON = 1
+
+    class PaperSize(models.TextChoices):
+        A4 = "a4", "A4"
+        A5 = "a5", "A5"
+
+    singleton = models.PositiveSmallIntegerField(primary_key=True, default=SINGLETON)
+    accent_color = models.CharField(max_length=7, blank=True)
+    tagline = models.CharField(max_length=120, blank=True)
+    footer_text = models.TextField(max_length=600, blank=True)
+    paper_size = models.CharField(max_length=2, choices=PaperSize.choices, default=PaperSize.A4)
+    show_warehouse = models.BooleanField(default=True)
+    show_payment_summary = models.BooleanField(default=True)
+    show_issuer = models.BooleanField(default=True)
+    logo_content = models.BinaryField(null=True, blank=True)
+    logo_content_type = models.CharField(max_length=32, blank=True)
+    logo_size_bytes = models.PositiveIntegerField(null=True, blank=True)
+    stamp_content = models.BinaryField(null=True, blank=True)
+    stamp_content_type = models.CharField(max_length=32, blank=True)
+    stamp_size_bytes = models.PositiveIntegerField(null=True, blank=True)
+    updated_by = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.PROTECT, related_name="+",
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(singleton=1), name="common_printsettings_is_singleton"),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(logo_content__isnull=True, logo_content_type="", logo_size_bytes__isnull=True)
+                    | models.Q(
+                        logo_content__isnull=False,
+                        logo_content_type__in=ALLOWED_LOGO_CONTENT_TYPES,
+                        logo_size_bytes__isnull=False,
+                    )
+                ),
+                name="common_printsettings_logo_all_or_nothing",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(stamp_content__isnull=True, stamp_content_type="", stamp_size_bytes__isnull=True)
+                    | models.Q(
+                        stamp_content__isnull=False,
+                        stamp_content_type__in=ALLOWED_LOGO_CONTENT_TYPES,
+                        stamp_size_bytes__isnull=False,
+                    )
+                ),
+                name="common_printsettings_stamp_all_or_nothing",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(accent_color="") | models.Q(accent_color__regex=r"\A#[0-9a-f]{6}\Z"),
+                name="common_printsettings_accent_color_shape",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(paper_size__in=["a4", "a5"]),
+                name="common_printsettings_paper_size_known",
+            ),
+        ]
+
+    @property
+    def has_logo(self):
+        return self.logo_content is not None
+
+    @property
+    def has_stamp(self):
+        return self.stamp_content is not None
+
+    def __str__(self):
+        return "قالب چاپ اسناد"
+
+
 class DashboardSettings(TimeStampedModel):
     """One deployment's own choice of which home-page widgets show, and in
     what order — gated by the same `dashboard_insights` feature that already

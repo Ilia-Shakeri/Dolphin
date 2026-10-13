@@ -43,6 +43,7 @@ PAGE_TITLES = {
     "common_ui:installments": "اقساط",
     "common_ui:invoice-print": "چاپ فاکتور",
     "common_ui:invoice-pdf": "پی‌دی‌اف فاکتور",
+    "common_ui:invoice-print-sample": "پیش‌نمایش قالب چاپ",
     "common_ui:user-detail": "پروفایل کاربر",
     "common_ui:user-profile": "عملکرد کاربر",
     "common_ui:activity-log-detail": "جزئیات رویداد",

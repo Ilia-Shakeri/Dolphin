@@ -38,6 +38,7 @@ SELECT (
     AND to_regclass('public.common_brandsettings') IS NOT NULL
     AND to_regclass('public.common_dashboardsettings') IS NOT NULL
     AND to_regclass('public.common_deploymentprofilecache') IS NOT NULL
+    AND to_regclass('public.common_printsettings') IS NOT NULL
     AND to_regclass('public.common_userdashboardlayout') IS NOT NULL
     AND to_regclass('public.common_userpreference') IS NOT NULL
     AND to_regclass('public.communications_inboundsms') IS NOT NULL
@@ -88,7 +89,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (114), recorded.
+    -- Every migration this release ships (115), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -158,6 +159,7 @@ SELECT (
                 ('common', '0010_dashboard_widget_positions'),
                 ('common', '0011_user_dashboard_shown_widgets'),
                 ('common', '0012_vazirmatn_default_font'),
+                ('common', '0013_print_settings'),
                 ('communications', '0001_initial'),
                 ('communications', '0002_outboundsms'),
                 ('communications', '0003_smsprovidersettings'),
@@ -215,7 +217,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (219).
+    -- Every named check and unique constraint (224).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -339,6 +341,11 @@ SELECT (
                 ('common_brandsettings', 'common_brandsettings_logo_all_or_nothing'),
                 ('common_dashboardsettings', 'common_dashboardsettings_is_singleton'),
                 ('common_deploymentprofilecache', 'common_deploymentprofilecache_is_singleton'),
+                ('common_printsettings', 'common_printsettings_accent_color_shape'),
+                ('common_printsettings', 'common_printsettings_is_singleton'),
+                ('common_printsettings', 'common_printsettings_logo_all_or_nothing'),
+                ('common_printsettings', 'common_printsettings_paper_size_known'),
+                ('common_printsettings', 'common_printsettings_stamp_all_or_nothing'),
                 ('communications_inboundsms', 'inbound_sms_body_not_retained'),
                 ('communications_inboundsms', 'inbound_sms_direction_only'),
                 ('communications_inboundsms', 'inbound_sms_external_id_nonblank'),

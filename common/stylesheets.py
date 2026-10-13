@@ -37,6 +37,7 @@ STYLESHEETS = (
     "common/css/platform.css",  # the platform layer (2.40.38) and what followed it
     "common/css/live-record.css",
     "common/css/two-factor.css",
+    "common/css/print-settings.css",  # the «قالب چاپ» settings tab (2.40.44)
     "common/css/drawers-files.css",  # activity and help drawers, the file manager
 )
 

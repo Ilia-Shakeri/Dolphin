@@ -1,22 +1,40 @@
 {% extends "common/print_base.html" %}
 {% load jalali_tags money_tags %}
-{% block title %}فاکتور {{ document.number }}{% endblock %}
+{% block title %}{% if sample %}پیش‌نمایش قالب چاپ{% else %}فاکتور {{ document.number }}{% endif %}{% endblock %}
 {% block page_id %}invoice-print{% endblock %}
-{% block back_url %}{% url 'common_ui:invoice-detail' invoice_id %}{% endblock %}
-{% block pdf_url %}{% url 'common_ui:invoice-pdf' invoice_id %}{% endblock %}
+{% block back_url %}{% if sample %}{% url 'common_ui:settings' %}?tab=print{% else %}{% url 'common_ui:invoice-detail' invoice_id %}{% endif %}{% endblock %}
+{% block pdf_url %}{% if not sample %}{% url 'common_ui:invoice-pdf' invoice_id %}{% endif %}{% endblock %}
+{% block page_style %}{% if print_layout.paper_size == "a5" %}<style>@page { size: A5; margin: 8mm; }</style>{% endif %}{% endblock %}
 {% block document %}
+{% comment %} The printed invoice (2.40.44). Every part the official invoice sets out — the
+   title, the two identity blocks, the eleven line columns, the amount in words,
+   the stamp boxes — is drawn whatever the company's print settings say
+   (`common.print_settings`); those only add its logo, line, colour, footer,
+   stamp image and paper size, and may leave off the three parts that are not
+   the invoice's: the warehouse, the payment summary and the issuer line. {% endcomment %}
+<div class="print-doc print-{{ print_layout.paper_size }}" style="--print-accent: {{ print_layout.accent_color }};">
+{% if sample %}<p class="print-sample">پیش‌نمایش با دادهٔ نمونه — این سند واقعی نیست.</p>{% endif %}
 {% if document.status == "cancelled" %}<p class="print-cancelled">این فاکتور ابطال شده است</p>{% endif %}
 {% if document.status == "draft" %}<p class="print-cancelled">پیش‌نویس — هنوز صادر نشده است</p>{% endif %}
 
 <header class="print-head">
-    <div>
-        <p class="print-brand">{{ brand_name }}{% if brand_subtitle %} | {{ brand_subtitle }}{% endif %}</p>
-        <h1>{% if document.invoice_type == "official" %}صورتحساب فروش کالا و خدمات{% else %}فاکتور فروش{% endif %}</h1>
+    <div class="print-issuer">
+        {% if print_layout.logo %}<img class="print-logo" src="{{ print_layout.logo }}" alt="">{% endif %}
+        <div>
+{% comment %} The company's own brand name when it has one (`custom_branding`), else its
+   legal name, else the panel's — written as tests rather than a `default:` filter, whose
+   argument must resolve and would fail a render that carries no brand. {% endcomment %}
+            <p class="print-brand">{% if brand_is_custom %}{{ brand_name }}{% elif seller.name %}{{ seller.name }}{% else %}{{ brand_name }}{% endif %}</p>
+            {% if print_layout.tagline %}<p class="print-tagline">{{ print_layout.tagline }}</p>{% endif %}
+        </div>
     </div>
-    <div>
-        {% if document.official_number %}<p><strong>شماره سریال:</strong> <span dir="ltr">{{ document.official_number }}</span></p>{% endif %}
-        <p><strong>شماره:</strong> <span dir="ltr">{{ document.number }}</span></p>
-        <p><strong>تاریخ:</strong> {{ document.issued_at|jalali_datetime|default:"—" }}</p>
+    <div class="print-title-block">
+        <h1>{% if document.invoice_type == "official" %}صورتحساب فروش کالا و خدمات{% else %}فاکتور فروش{% endif %}</h1>
+        <dl class="print-ids">
+            {% if document.official_number %}<div><dt>شماره سریال</dt><dd dir="ltr">{{ document.official_number }}</dd></div>{% endif %}
+            <div><dt>شماره</dt><dd dir="ltr">{{ document.number }}</dd></div>
+            <div><dt>تاریخ</dt><dd>{{ document.issued_at|jalali_datetime|default:"—" }}</dd></div>
+        </dl>
     </div>
 </header>
 
@@ -46,8 +64,8 @@
 
 <div class="print-meta">
     <div><span>سررسید:</span><span>{{ document.due_at|jalali|default:"هنگام صدور" }}</span></div>
-    <div><span>وضعیت تسویه:</span><span>{{ settlement_label }}</span></div>
-    <div><span>انبار:</span><span>{{ document.warehouse.name|default:"—" }}</span></div>
+    {% if print_layout.show_payment_summary %}<div><span>وضعیت تسویه:</span><span>{{ settlement_label }}</span></div>{% endif %}
+    {% if print_layout.show_warehouse %}<div><span>انبار:</span><span>{{ document.warehouse.name|default:"—" }}</span></div>{% endif %}
 </div>
 
 <div class="table-wrap"><table class="print-lines">
@@ -102,26 +120,33 @@
     </tfoot>
 </table></div>
 
-{# بند ۹.۲ — the amount a second time, so a digit cannot be added after signing. #}
-<div class="print-in-words"><span>مبلغ به حروف:</span><strong>{{ total_in_words }}</strong></div>
-
-<div class="print-totals">
-    <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount|money:panel_currency_unit }}</span></div>
-    <div><span>مالیات و عوارض ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money:panel_currency_unit }}</span></div>
-    <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount|money:panel_currency_unit }}</span></div>
-    <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount|money:panel_currency_unit }}</span></div>
-    <div><span>مانده</span><span dir="ltr">{{ document.balance_due|money:panel_currency_unit }}</span></div>
+<div class="print-summary">
+    {# بند ۹.۲ — the amount a second time, so a digit cannot be added after signing. #}
+    <div class="print-in-words"><span>مبلغ به حروف:</span><strong>{{ total_in_words }}</strong></div>
+    <div class="print-totals">
+        <div><span>مبلغ مشمول</span><span dir="ltr">{{ taxable_amount|money:panel_currency_unit }}</span></div>
+        <div><span>مالیات و عوارض ({{ document.tax_rate }}٪)</span><span dir="ltr">{{ document.tax_amount|money:panel_currency_unit }}</span></div>
+        <div class="print-grand"><span>مبلغ نهایی</span><span dir="ltr">{{ document.total_amount|money:panel_currency_unit }}</span></div>
+        {% if print_layout.show_payment_summary %}
+        <div><span>پرداخت‌شده</span><span dir="ltr">{{ document.paid_amount|money:panel_currency_unit }}</span></div>
+        <div><span>مانده</span><span dir="ltr">{{ document.balance_due|money:panel_currency_unit }}</span></div>
+        {% endif %}
+    </div>
 </div>
 
 {% if document.notes %}<div class="print-notes">{{ document.notes }}</div>{% endif %}
 
-{# بند ۹.۴ — space for a stamp and a signature, and nothing else. No barcode #}
-{# and no QR: the product owner said the document does not carry one. #}
+{# بند ۹.۴ — space for a stamp and a signature. No barcode and no QR: the #}
+{# product owner said the document does not carry one. The seller's box holds #}
+{# the company's own stamp image when it has set one. #}
 <div class="print-signatures">
-    <div class="print-signature"><span>مهر و امضای فروشنده</span></div>
+    <div class="print-signature"><span>مهر و امضای فروشنده</span>{% if print_layout.stamp %}<img class="print-stamp" src="{{ print_layout.stamp }}" alt="مهر و امضای فروشنده">{% endif %}</div>
     <div class="print-signature"><span>مهر و امضای خریدار</span></div>
 </div>
 
+{% if print_layout.footer_text %}<div class="print-footer-text">{{ print_layout.footer_text }}</div>{% endif %}
+
 {% if not identity_is_snapshot and document.status == "issued" %}<p class="print-footer">این سند پیش از افزوده‌شدن قفل هویت صادر شده است؛ مشخصات طرفین از پرونده جاری خوانده شده‌اند.</p>{% endif %}
-<p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه {{ brand_name }} صادر شده است.</p>
+{% if print_layout.show_issuer %}<p class="print-footer">صادرکننده: {{ document.created_by.get_full_name|default:document.created_by.username }} — این سند از سامانه {{ brand_name }} صادر شده است.</p>{% endif %}
+</div>
 {% endblock %}

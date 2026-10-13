@@ -4,6 +4,7 @@ from common.models import (
     PANEL_FONT_FAMILIES,
     PANEL_FONT_SCALES,
     BrandSettings,
+    PrintSettings,
     UserDashboardLayout,
     UserPreference,
 )
@@ -61,6 +62,40 @@ class BrandSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Seriali
         if attrs.get("remove_logo") and attrs.get("logo") is not None:
             raise serializers.ValidationError({"logo": "حذف و جایگزینی لوگو هم‌زمان ممکن نیست."})
         return attrs
+
+
+class PrintSettingsSerializer(serializers.ModelSerializer):
+    """Read shape of `common.models.PrintSettings` — whether each image exists,
+    never its bytes (`/api/v1/print-settings/<image>/` serves those)."""
+
+    has_logo = serializers.BooleanField(read_only=True)
+    has_stamp = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = PrintSettings
+        fields = (
+            "accent_color", "tagline", "footer_text", "paper_size", "show_warehouse", "show_payment_summary",
+            "show_issuer", "has_logo", "has_stamp", "updated_at",
+        )
+        read_only_fields = fields
+
+
+class PrintSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """Multipart input, every field optional and independent — see
+    `common.print_settings.update_print_settings`. Lengths and shapes are
+    checked again there; images are sniffed there, not here (no Pillow)."""
+
+    accent_color = serializers.CharField(required=False, allow_blank=True, max_length=7)
+    tagline = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    footer_text = serializers.CharField(required=False, allow_blank=True, max_length=1000, trim_whitespace=False)
+    paper_size = serializers.ChoiceField(required=False, choices=PrintSettings.PaperSize.choices)
+    show_warehouse = serializers.BooleanField(required=False)
+    show_payment_summary = serializers.BooleanField(required=False)
+    show_issuer = serializers.BooleanField(required=False)
+    logo = serializers.FileField(required=False)
+    stamp = serializers.FileField(required=False)
+    remove_logo = serializers.BooleanField(required=False, default=False)
+    remove_stamp = serializers.BooleanField(required=False, default=False)
 
 
 class UserDashboardLayoutSerializer(serializers.ModelSerializer):

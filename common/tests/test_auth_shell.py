@@ -195,7 +195,10 @@ class AuthShellUnitTests(SimpleTestCase):
         self.assertIn(".print-page { box-sizing: border-box;", stylesheet)
         self.assertIn(".print-page .table-wrap { overflow-x: auto; }", stylesheet)
         self.assertIn(".print-page .table-wrap { overflow-x: visible; }", stylesheet)
-        self.assertIn("width: min(100%, 26rem)", stylesheet)
+        # Since 2.40.44 the totals sit beside the amount in words, in a grid
+        # column bounded the same way, and the two stack on a narrow screen.
+        self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(0, 26rem)", stylesheet)
+        self.assertIn("@media (max-width: 40rem) { .print-summary { grid-template-columns: minmax(0, 1fr); }", stylesheet)
         self.assertIn("grid-template-columns: minmax(0, 12rem) minmax(0, 1fr)", stylesheet)
 
 

@@ -23,6 +23,7 @@ from common.ui_views import (
     DolphinInvoiceDetailView,
     DolphinInvoiceListView,
     DolphinInvoicePdfView,
+    DolphinInvoicePrintSampleView,
     DolphinInvoicePrintView,
     DolphinLeadBoardView,
     DolphinLeadCalendarView,
@@ -110,6 +111,8 @@ urlpatterns = [
     path("invoices/<int:invoice_id>/", DolphinInvoiceDetailView.as_view(), name="invoice-detail"),
     path("invoices/<int:invoice_id>/print/", DolphinInvoicePrintView.as_view(), name="invoice-print"),
     path("invoices/<int:invoice_id>/print.pdf", DolphinInvoicePdfView.as_view(), name="invoice-pdf"),
+    # The print layout's preview, from made-up data (2.40.44, `print_customization`).
+    path("invoices/print/sample/", DolphinInvoicePrintSampleView.as_view(), name="invoice-print-sample"),
     path("payments/", DolphinPaymentListView.as_view(), name="payments"),
     path("disbursements/", DolphinDisbursementListView.as_view(), name="disbursements"),
     path("payments/<int:payment_id>/", DolphinPaymentDetailView.as_view(), name="payment-detail"),

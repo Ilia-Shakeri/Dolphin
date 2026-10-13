@@ -211,6 +211,13 @@ FEATURE_DEPENDENCIES = {
     # writes only the user's own two-factor rows, so it depends on nothing.
     # Its key is stored under `DOLPHIN_SECRETS_KEY` (`common.crypto`).
     "two_factor": frozenset(),
+
+    # How the company's printed documents look (2.40.44): its own logo, stamp,
+    # accent, footer and paper size on the printed invoice
+    # (`common.print_settings`). Presentation only — the official invoice's
+    # parts stay whatever is stored. Needs `invoices`: today the invoice is the
+    # one printed document, and a customisation of nothing is not this feature.
+    "print_customization": frozenset({"invoices"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -289,6 +296,8 @@ DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     # 2.40.42: Client-1's original login policy named no multi-factor step, so
     # a deployment gets it by asking, through its manifest.
     "two_factor",
+    # 2.40.44: a licensed customisation, like `custom_branding`.
+    "print_customization",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

@@ -19,7 +19,9 @@ from accounts.access import (
 from accounts.avatars import default_avatar_url, has_avatar
 from accounts.models import User
 from attachments.selectors import PARENT_DELETE_CAPABILITY
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from common import labels
+from common.print_settings import effective_print_settings
 from common.dashboard_layout import (
     arrange_capability_tiles,
     capability_tile_catalog,
@@ -1160,6 +1162,10 @@ class PrintableDocumentView(ScopedDetailView):
         printing_for = effective_preferences(self.request.user)
         context.setdefault("panel_currency_unit", printing_for["currency_unit"])
         context.setdefault("panel_currency_label", currency_label(printing_for["currency_unit"]))
+        # How this company's documents look (2.40.44): logo, stamp, accent,
+        # footer, paper size and the optional parts — the standard document
+        # without the `print_customization` feature (`common.print_settings`).
+        context.setdefault("print_layout", effective_print_settings())
         return context
 
 
@@ -1284,6 +1290,45 @@ class DolphinInvoicePrintView(PrintableDocumentView):
 
 class DolphinInvoicePdfView(DocumentPdfView, DolphinInvoicePrintView):
     pdf_name_prefix = "invoice"
+
+
+class DolphinInvoicePrintSampleView(ActiveCrmView):
+    """`/invoices/print/sample/` — the printed invoice drawn from made-up data
+    with the company's current print settings (2.40.44), the settings page's
+    preview. No row is read or written and the page says it is a sample
+    (`common.print_sample`). Feature `print_customization`, capability
+    `print_settings.manage`."""
+
+    required_feature = "print_customization"
+    template_name = "common/invoices/print.html"
+
+    # The one page that may be framed, and only by this same site: the settings
+    # tab shows it inline. Every other page keeps `X_FRAME_OPTIONS = "DENY"`;
+    # this one holds no real record and offers no action to trick a click into.
+    @method_decorator(xframe_options_sameorigin)
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        if not has_any_capability(request.user, "print_settings.manage"):
+            return self.render_to_response(self.get_context_data(
+                error_status=403, error_title="دسترسی مجاز نیست",
+                error_message="شما اجازهٔ تغییر قالب چاپ اسناد را ندارید.",
+            ), status=403)
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        from common.preferences import currency_label, effective_preferences
+        from common.print_sample import sample_invoice_context
+
+        context = super().get_context_data(**kwargs)
+        if context.get("error_status"):
+            return context
+        context.update(sample_invoice_context(self.request.user))
+        unit = effective_preferences(self.request.user)["currency_unit"]
+        context.update(panel_currency_unit=unit, panel_currency_label=currency_label(unit))
+        context["print_layout"] = effective_print_settings()
+        return context
 
 
 # --- Money pages -------------------------------------------------------------
@@ -1516,6 +1561,13 @@ class DolphinSettingsView(ActiveCrmView):
             tabs.append(("scoring", "امتیازدهی"))
         if context["can_manage_backups"]:
             tabs.append(("backups", "پشتیبان‌گیری"))
+        # How printed documents look (2.40.44): the feature and the capability,
+        # both checked again by `/api/v1/print-settings/`.
+        from common import print_settings
+
+        context["can_manage_print"] = print_settings.can_manage(self.request.user)
+        if context["can_manage_print"]:
+            tabs.append(("print", "قالب چاپ"))
         if context["can_manage_branding"] or context["can_manage_integrations"]:
             tabs.append(("deployment", "استقرار"))
         requested = self.request.GET.get("tab", "")

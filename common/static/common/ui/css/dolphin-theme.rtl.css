@@ -4127,6 +4127,10 @@ textarea.form-control-lg {
   gap: 1.5rem !important;
 }
 
+.gap-8 {
+  gap: 2rem !important;
+}
+
 .font-monospace {
   font-family: var(--bs-font-monospace) !important;
 }
@@ -13877,6 +13881,33 @@ code:not([class*=language-]) {
   --bs-blockui-overlay-bg: rgba(255, 255, 255, 0.05);
   --bs-blockui-message-bg: #26272F;
   --bs-blockui-message-box-shadow: 0px 0px 30px rgba(0, 0, 0, 0.15);
+}
+
+@media print {
+  .print-content-only {
+    padding: 0 !important;
+    background: none !important;
+  }
+  .print-content-only .wrapper,
+  .print-content-only .page,
+  .print-content-only .page-title .content,
+  .print-content-only .container,
+  .print-content-only .container-xxl,
+  .print-content-only .container-fluid{
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .print-content-only .aside,
+  .print-content-only .sidebar,
+  .print-content-only .scrolltop,
+  .print-content-only .header,
+  .print-content-only .footer,
+  .print-content-only .toolbar,
+  .print-content-only .drawer,
+  .print-content-only .btn {
+    display: none !important;
+  }
 }
 
 .bg-body {

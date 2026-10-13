@@ -2,6 +2,7 @@ from django.urls import path, re_path
 
 from common.backup_views import BackupDownloadView, BackupListView, BackupRestoreView
 from common.branding_views import BrandLogoView, BrandSettingsView
+from common.print_settings_views import PrintSettingsImageView, PrintSettingsView
 from common.dashboard_layout_views import DashboardLayoutView
 from common.dashboard_views import DashboardView
 from common.preferences_views import UserPreferenceView
@@ -24,6 +25,8 @@ urlpatterns = [
     path("backups/restore/", BackupRestoreView.as_view(), name="backup-restore-api"),
     path("branding/", BrandSettingsView.as_view(), name="branding-settings-api"),
     path("branding/logo/", BrandLogoView.as_view(), name="branding-logo"),
+    path("print-settings/", PrintSettingsView.as_view(), name="print-settings-api"),
+    path("print-settings/<str:image>/", PrintSettingsImageView.as_view(), name="print-settings-image"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("dashboard-layout/", DashboardLayoutView.as_view(), name="dashboard-layout-api"),
     path("preferences/", UserPreferenceView.as_view(), name="user-preferences-api"),

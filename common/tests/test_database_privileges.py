@@ -426,6 +426,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # (common.branding). A logo is cleared by writing NULL back into
             # this same row, never by deleting it — no DELETE.
             "common_brandsettings": "SELECT, INSERT, UPDATE",
+            # How printed documents look (common.print_settings, 2.40.44):
+            # one singleton row, images cleared by writing NULL — no DELETE.
+            "common_printsettings": "SELECT, INSERT, UPDATE",
             # One singleton row for the whole deployment's dashboard widget
             # layout (common.dashboard_layout) — same shape as
             # common_brandsettings above, no DELETE.

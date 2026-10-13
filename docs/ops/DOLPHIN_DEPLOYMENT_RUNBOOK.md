@@ -1184,6 +1184,12 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.44 — `common/0013_print_settings`** creates one table, `common_printsettings`, granted
+  `SELECT, INSERT, UPDATE` by `db-finalize` (one row; an image is cleared by writing NULL, never by
+  deleting); it moves no data. The `print_customization` feature is off by default — a company gets
+  its own print layout by having it signed into its manifest. Rolling back to 2.40.43 keeping the
+  data: `migrate common 0012` **with the 2.40.44 image** (drops the stored layout; documents then print
+  the standard way), then switch images.
 * **2.40.43** adds no migration. Static files only change shape: `common/ui/js/dolphin-charts.js`
   is new (ApexCharts, fetched by pages that draw a chart), `dolphin-plugins.js` is smaller, and the
   icon fonts are `.woff` only (the `.ttf` copies are gone). `collectstatic` in `deploy.sh` handles

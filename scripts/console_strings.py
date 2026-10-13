@@ -151,6 +151,7 @@ FEATURE_META = {
     "panel_backup": ("platform", "پشتیبان‌گیری از پنل", "Panel backup", "پشتیبان‌گیری و بازگردانی از داخل پنل.", "Backing up and restoring from inside the panel."),
     "internal_it_role": ("platform", "نقش مدیر فنی مشتری", "Customer IT role", "نقشی جدا برای مدیر فنی سمت مشتری.", "A separate role for the customer own technical admin."),
     "two_factor": ("platform", "ورود دومرحله‌ای", "Two-factor sign-in", "کد شش‌رقمی برنامهٔ احراز هویت هنگام ورود، اختیاری برای هر کاربر.", "A six-digit authenticator code at sign-in, optional per user."),
+    "print_customization": ("platform", "قالب چاپ اختصاصی", "Custom print layout", "لوگو، مهر، رنگ، پانویس و اندازهٔ کاغذ خود شرکت روی فاکتور چاپی.", "The company's own logo, stamp, colour, footer and paper size on the printed invoice."),
 }
 
 STRINGS.update({
