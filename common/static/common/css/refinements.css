@@ -130,10 +130,10 @@
     color: var(--bs-gray-700);
 }
 .dolphin-page-tabs.nav-pills-custom .nav-link:hover {
-    color: var(--bs-primary);
+    color: var(--bs-text-primary);
 }
 .dolphin-page-tabs.nav-pills-custom .nav-link.active {
-    color: var(--bs-primary);
+    color: var(--bs-text-primary);
     background-color: var(--bs-primary-light);
     border-style: solid;
     border-color: var(--bs-primary);
@@ -163,14 +163,27 @@
 /* Light-theme contrast (2.40.31). The UI kit's light badges put the full
    tone on its own pale tint — «فعال» measured 2.1:1, «صادرشده» the same — and
    its inactive line tabs are gray-500 (2.6:1). The badge ink is the tone
-   darkened, the way the KPI chip's is, and the tabs take gray-700; the dark
-   theme keeps the kit's values, which already read. */
+   darkened, the way the KPI chip's is, and the tabs take gray-700.
+   The dark theme was left to the kit as "already reading"; measured in 2.40.46
+   it does not — inactive tabs 3.1:1, the info badge 3.1:1, primary 3.2:1,
+   danger 3.5:1 — so it gets the same repair the other way: the tone
+   lightened, and the tabs gray-700 in both themes. */
 [data-bs-theme=light] .badge-light-success { color: color-mix(in srgb, var(--bs-success) 50%, #000); }
 [data-bs-theme=light] .badge-light-primary { color: color-mix(in srgb, var(--bs-primary) 70%, #000); }
 [data-bs-theme=light] .badge-light-info { color: color-mix(in srgb, var(--bs-info) 65%, #000); }
 [data-bs-theme=light] .badge-light-warning { color: color-mix(in srgb, var(--bs-warning) 45%, #000); }
 [data-bs-theme=light] .badge-light-danger { color: color-mix(in srgb, var(--bs-danger) 70%, #000); }
-[data-bs-theme=light] .nav-line-tabs .nav-item .nav-link:not(.active) { color: var(--bs-gray-700); }
+[data-bs-theme=dark] .badge-light-success { color: color-mix(in srgb, var(--bs-success) 70%, #fff); }
+[data-bs-theme=dark] .badge-light-primary { color: color-mix(in srgb, var(--bs-primary) 65%, #fff); }
+[data-bs-theme=dark] .badge-light-info { color: color-mix(in srgb, var(--bs-info) 65%, #fff); }
+[data-bs-theme=dark] .badge-light-warning { color: color-mix(in srgb, var(--bs-warning) 80%, #fff); }
+[data-bs-theme=dark] .badge-light-danger { color: color-mix(in srgb, var(--bs-danger) 70%, #fff); }
+.nav-line-tabs .nav-item .nav-link:not(.active) { color: var(--bs-gray-700); }
+/* The same lightened ink for a light-danger button at rest (its hover is solid
+   red with white text) and for an avatar's initial on its tinted disc. */
+[data-bs-theme=dark] .btn.btn-light-danger { color: color-mix(in srgb, var(--bs-danger) 70%, #fff); }
+[data-bs-theme=dark] .symbol-label.text-info { color: color-mix(in srgb, var(--bs-info) 65%, #fff) !important; }
+[data-bs-theme=dark] .symbol-label.text-danger { color: color-mix(in srgb, var(--bs-danger) 70%, #fff) !important; }
 
 /* Brand colours that lived in inline `style` attributes (2.40.31). */
 :root { --dolphin-brand-dark: #1e1e2d; --dolphin-brand-tint: #9de1d8; }
@@ -481,6 +494,9 @@ tr.is-leaving > td {
     color: var(--medal);
     font-weight: 800;
 }
+/* The medal's own tone is a fill; as the number on a white card the gold read
+   at 2.8:1 (2.40.46). Light mode inks it darker, as the badges above. */
+[data-bs-theme=light] .marketer-medal { color: color-mix(in srgb, var(--medal) 60%, #000); }
 .marketer-podium-figure {
     font-size: 1.6rem;
     font-weight: 800;
@@ -515,7 +531,7 @@ tr.is-leaving > td {
 .marketer-move[data-move="down"] { color: color-mix(in srgb, var(--bs-danger) 70%, #000); background: color-mix(in srgb, var(--bs-danger) 12%, transparent); }
 [data-bs-theme=dark] .marketer-move[data-move="up"] { color: color-mix(in srgb, var(--bs-success) 55%, #fff); }
 [data-bs-theme=dark] .marketer-move[data-move="down"] { color: color-mix(in srgb, var(--bs-danger) 50%, #fff); }
-.marketer-move[data-move="new"] { color: var(--bs-primary); background: var(--bs-primary-light); }
+.marketer-move[data-move="new"] { color: var(--bs-text-primary); background: var(--bs-primary-light); }
 .marketer-rank {
     display: inline-grid;
     place-items: center;

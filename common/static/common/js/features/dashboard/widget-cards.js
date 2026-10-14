@@ -69,7 +69,7 @@ export function panelCard(panel) {
     }
     if (panel.url && panel.kind !== "calendar") {
         const more = document.createElement("a");
-        more.className = "text-primary fw-semibold fs-8 text-decoration-none mt-auto pt-3";
+        more.className = "dashboard-card-all text-primary fw-semibold fs-8 text-decoration-none mt-auto pt-3";
         more.href = panel.url;
         more.textContent = "همه";
         body.appendChild(more);

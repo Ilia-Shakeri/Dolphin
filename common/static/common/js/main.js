@@ -1,4 +1,6 @@
 import {PAGES} from "dolphin/pages.js";
+import {ApiError} from "dolphin/core/api.js";
+import {globalMessage, showError} from "dolphin/core/messages.js";
 import {setupAttachmentsPanel} from "dolphin/ui/attachments.js";
 import {setupBusyButtons} from "dolphin/shell/busy.js";
 import {setupCallPopup, setupClickToCall} from "dolphin/shell/telephony.js";
@@ -112,8 +114,26 @@ function boot() {
     // is shown once its first load is done (or after `REVEAL_DEADLINE_MS`),
     // all at once rather than piece by piece (2.40.36, `#page-stage`).
     const loadPage = PAGES[page];
-    const loaded = loadPage ? Promise.resolve().then(loadPage).catch(() => {}) : Promise.resolve();
+    const loaded = loadPage ? Promise.resolve().then(loadPage).catch(pageFailed) : Promise.resolve();
     Promise.race([loaded, new Promise((resolve) => { setTimeout(resolve, REVEAL_DEADLINE_MS); })]).then(revealPage);
+}
+
+/**
+ * A page whose own module could not be fetched or could not start (2.40.46).
+ *
+ * The failure used to be swallowed: the page was revealed with its lists
+ * still empty, nothing told the reader, and nothing reached the console
+ * either. A refused request reads as the server's own reason; anything else —
+ * the module not arriving after a release, a script error — says the page did
+ * not load and what to do.
+ */
+function pageFailed(error) {
+    console.error(error);
+    if (error instanceof ApiError) {
+        showError(error);
+        return;
+    }
+    globalMessage("این صفحه کامل بارگذاری نشد. صفحه را دوباره باز کنید؛ اگر باز هم چنین شد، به پشتیبانی خبر دهید.");
 }
 
 /** How long a page waits for its first load before showing what it has. */

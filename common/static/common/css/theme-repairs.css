@@ -371,11 +371,32 @@ summary:focus-visible,
     border-radius: 0.35rem;
 }
 
-/* The sidebar is dark, so the primary ring disappears against it. */
-.app-sidebar a:focus-visible,
-.app-sidebar button:focus-visible,
-.app-sidebar .menu-link:focus-visible {
-    outline-color: #9de1d8;
+/* The kit's `.btn` and `.menu-item .menu-link` carry `outline: none !important`,
+   which beat the ring above on every button and every sidebar entry: tabbing
+   through a page showed nothing at all on them (2.40.46, measured with the
+   real Tab key on every page). Only those two get `!important` back, so a
+   control that draws its own ring and turns the outline off keeps doing so. */
+.btn:focus-visible,
+.menu-item .menu-link:focus-visible {
+    outline: 2px solid var(--bs-primary) !important;
+    outline-offset: 2px;
+}
+
+/* The dark sidebar (dark theme) loses the primary ring against itself. */
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar a:focus-visible,
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar button:focus-visible,
+[data-dolphin-app-layout=dark-sidebar] .app-sidebar .menu-item .menu-link:focus-visible {
+    outline-color: #9de1d8 !important;
+}
+
+/* A closed drawer (activity, help, chat; the sidebar on a phone) is only slid
+   out of view, so Tab walked through its controls — about ten invisible stops
+   on every page before the page itself. Hidden once its slide-out has
+   finished; shown at once when it opens (the kit's own transition on
+   `.drawer-on` animates `transform` only, so `visibility` flips immediately). */
+.drawer:not(.drawer-on) {
+    visibility: hidden;
+    transition: transform 0.3s ease-in-out, visibility 0s linear 0.3s !important;
 }
 
 /* The UI kit's `.text-muted` is #99A1B7 — 2.58:1 on a white card, below the 4.5:1
@@ -394,6 +415,62 @@ summary:focus-visible,
     color: var(--bs-gray-700) !important;
 }
 
+/* The same repair one level down, on the token itself (2.40.46): the panel's
+   own rules that read `var(--bs-text-muted)` directly — an integration's
+   detail labels, a postal step's note, the date picker's weekday names — never
+   went through the utility above and still drew #99A1B7 (2.6:1) in light mode
+   and #636674 (3.1:1) in dark. */
+:root,
+[data-bs-theme=light],
+[data-bs-theme=dark] {
+    --bs-text-muted: var(--bs-gray-700);
+}
+
+/* Primary as *text* reads `--bs-text-primary` (2.40.46). `common.color` derives
+   it per theme from the accent so it reaches 4.5:1 wherever words are drawn;
+   the kit's components below put the accent itself on words — a fill colour,
+   3.2–3.6:1 as text in dark mode. Their hover and pressed states (solid
+   accent, white text) are untouched. A wizard's finished steps read the muted
+   token rather than gray-500 (2.6:1). */
+.btn.btn-light-primary,
+.btn-check:checked + .btn.btn-active-light-primary,
+.btn.btn-active-light-primary:hover:not(.btn-active),
+.btn.btn-active-light-primary:focus:not(.btn-active),
+.btn.btn-active-light-primary.active,
+.btn.btn-active-light-primary.show {
+    color: var(--bs-text-primary);
+}
+.stepper.stepper-links .stepper-nav .stepper-item.current .stepper-title {
+    color: var(--bs-text-primary);
+}
+.stepper.stepper-links .stepper-nav .stepper-item.completed .stepper-title {
+    color: var(--bs-text-muted);
+}
+.accordion {
+    --bs-accordion-active-color: var(--bs-text-primary);
+}
+
+/* Inline `code` (the SMS page's {نام}, a provider's field names): the kit's one
+   pink, #b93993, on the dark code background read at 2.7:1. Dark mode lightens
+   it (5.8:1); light mode keeps it. */
+[data-bs-theme=dark] {
+    --bs-code-color: color-mix(in srgb, #b93993 55%, #fff);
+}
+
+/* Two layout utilities the panel uses and the kit does not have (2.40.46).
+   `min-w-0` lets a flex item shrink below its content, which is what makes
+   `text-truncate` inside it work — without it a long name pushed the row out
+   of its card (the dashboard's chat panel on a phone). `text-break` is
+   Bootstrap's own, dropped from the kit: a long unbroken word (an address, an
+   error, a URL) wraps instead of overflowing. */
+.min-w-0 {
+    min-width: 0 !important;
+}
+.text-break {
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+}
+
 /* Column priority for narrow screens. A CRM table is wide by nature; hiding the
    lowest-value columns on a phone keeps the row readable, and every hidden
    value is still on the record's own page. */
@@ -408,6 +485,17 @@ summary:focus-visible,
 @media (hover: none) and (pointer: coarse) {
     .table .btn-sm {
         min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+    }
+    /* The other small stand-alone controls a phone measured under the 24px a
+       finger needs (2.40.46): the dashboard cards' «همه» links (18px) and the
+       chat drawer's way to the chat page (a board column's search button is in
+       the board's own layer). The box grows; the text does not. */
+    .dashboard-card-all,
+    .chat-page-link {
+        min-width: 2rem;
+        min-height: 2rem;
         display: inline-flex;
         align-items: center;
     }

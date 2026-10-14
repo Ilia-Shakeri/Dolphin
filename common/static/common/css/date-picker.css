@@ -167,7 +167,7 @@
 .jalali-picker .jalali-picker-scope:hover,
 .jalali-picker .jalali-picker-scope[aria-expanded="true"] {
     background: var(--bs-primary-light);
-    color: var(--bs-primary);
+    color: var(--bs-text-primary);
 }
 
 .jalali-picker-time {

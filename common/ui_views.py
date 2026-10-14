@@ -57,7 +57,6 @@ from inventory.selectors import stock_items_for, stock_movements_for, warehouses
 from sales.selectors import (
     customers_for,
     interactions_for,
-    leads_for,
     product_categories_for,
     products_for,
     sales_documents_for,
@@ -637,7 +636,11 @@ class DolphinLeadDetailView(ScopedDetailView):
     not_found_message = "سرنخ در محدوده دسترسی شما وجود ندارد."
 
     def scoped_queryset(self):
-        return leads_for(self.request.user)
+        # The leads its own API serves (`work_leads_for`), not every lead in
+        # scope: a campaign's hidden container is not a lead anyone opens, and
+        # its page opened with «پیدا نشد.» from the API and an attachments box
+        # for a record that could not be shown (2.40.46).
+        return work_leads_for(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

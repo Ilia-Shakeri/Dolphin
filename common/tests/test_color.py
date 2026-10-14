@@ -24,6 +24,7 @@ from common.color import (
     accent_theme_variables,
     is_valid_hex_color,
     normalize_hex_color,
+    text_shade,
 )
 
 
@@ -86,9 +87,13 @@ class DerivationTests(SimpleTestCase):
         variables = accent_theme_variables("#0a0a2a")
         self.assertEqual(variables["bs-primary-inverse"], "#ffffff")
 
-    def test_links_are_routed_through_the_same_accent(self):
+    def test_links_are_routed_through_the_accents_text_shade(self):
+        """Links read the accent as text (2.40.46): the same colour, deepened in
+        light mode only as far as 4.5:1 needs — `#1b84ff` is 3.6:1 on white."""
         variables = accent_theme_variables("#1b84ff")
-        self.assertEqual(variables["bs-link-color"], "#1b84ff")
+        self.assertEqual(variables["bs-link-color"], text_shade("#1b84ff", "light"))
+        self.assertEqual(variables["bs-link-color"], variables["bs-text-primary"])
+        self.assertNotEqual(variables["bs-link-color"], "#1b84ff")
 
     def test_no_color_produces_no_css(self):
         self.assertIsNone(accent_theme_css(""))

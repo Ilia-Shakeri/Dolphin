@@ -59,7 +59,7 @@ body:not([data-page="login"]) .card > .card-header { padding-inline: 1.54rem; }
 [data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-title,
 [data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-icon i,
 [data-dolphin-app-layout] .app-sidebar .menu .menu-item .menu-link.active .menu-bullet .bullet {
-    color: var(--bs-primary) !important;
+    color: var(--bs-text-primary) !important;
 }
 [data-dolphin-app-layout=light-sidebar] .app-sidebar .menu .menu-item .menu-link.active .menu-bullet .bullet { background-color: var(--bs-primary); }
 [data-dolphin-app-layout=dark-sidebar] .app-sidebar .menu .menu-item .menu-link.active { background-color: rgba(var(--bs-primary-rgb), 0.2); }
@@ -79,7 +79,7 @@ body:not([data-page="login"]) .card > .card-header { padding-inline: 1.54rem; }
    light ground. Both are in the page; the theme picks one. */
 [data-bs-theme=light] .brand-on-dark,
 [data-bs-theme=dark] .brand-on-light { display: none; }
-[data-dolphin-app-layout=light-sidebar] .app-sidebar .brand-subtitle { color: var(--bs-primary) !important; }
+[data-dolphin-app-layout=light-sidebar] .app-sidebar .brand-subtitle { color: var(--bs-text-primary) !important; }
 
 /* -- A shorter header, a large title -------------------------------------------- */
 @media (min-width: 992px) {
@@ -341,7 +341,7 @@ tr.is-row-link:hover .btn.row-detail-link,
     }
     .dolphin-tab-bar i { font-size: 1.45rem; color: inherit; }
     .dolphin-tab-bar i [class^="path"] { color: inherit; }
-    .dolphin-tab-bar [aria-current="page"] { color: var(--bs-primary); }
+    .dolphin-tab-bar [aria-current="page"] { color: var(--bs-text-primary); }
     .dolphin-tab-bar a:active,
     .dolphin-tab-bar button:active { scale: 0.92; }
 }
@@ -542,7 +542,7 @@ tr.is-row-link:hover .btn.row-detail-link,
     }
     select.form-select:not([multiple]):not([size]) option:checked {
         background-color: rgba(var(--bs-primary-rgb), 0.12);
-        color: var(--bs-primary);
+        color: var(--bs-text-primary);
         font-weight: 600;
     }
     select.form-select:not([multiple]):not([size]) option::checkmark {

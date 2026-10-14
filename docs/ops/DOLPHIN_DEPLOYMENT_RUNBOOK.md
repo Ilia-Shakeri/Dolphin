@@ -1184,6 +1184,8 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.46** adds no migration and no variable: the UI/UX audit's fixes are stylesheets, scripts and
+  templates (`collectstatic` in `deploy.sh`), and the lead page's scope.
 * **2.40.45** adds no migration. The icon fonts are now addressed by their content
   (`dolphin-icons-*.woff?v=<hash>`), so nginx keeps each for a year and a release that adds an
   icon reaches every browser at once (`collectstatic` in `deploy.sh` handles it).

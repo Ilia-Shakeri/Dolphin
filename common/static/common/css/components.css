@@ -166,6 +166,13 @@
     padding: 0.1rem 0.3rem;
 }
 
+/* An event's name in a phone's narrow day cell was cut mid-letter (2.40.46);
+   it ends in an ellipsis instead, and the whole name is in its popover. */
+#lead-calendar .fc-event-title,
+#after-sales-calendar .fc-event-title {
+    text-overflow: ellipsis;
+}
+
 /* The weekday header row is the only label the week and day views now have
    for their dates (the numbers inside the cells are gone), so it carries a
    little more weight than FullCalendar gives it. */
@@ -885,7 +892,7 @@ details[open] > summary.card-header::after {
 }
 
 .font-family-option.active {
-    color: var(--bs-primary);
+    color: var(--bs-text-primary);
     background-color: var(--bs-primary-light);
 }
 

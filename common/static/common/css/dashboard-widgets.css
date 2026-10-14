@@ -26,6 +26,19 @@
     font-size: clamp(0.95rem, 5cqi, 1.25rem);
 }
 
+/* A narrow box — a phone's two columns — wraps the title onto a second line
+   rather than cutting a short word to «تقوی…» beside its count (2.40.46: once
+   the header's `min-w-0` existed, the title gave way instead of pushing the
+   count off the card). Two lines at most. */
+@container (max-width: 16rem) {
+    .dashboard-panel-title.text-truncate {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        white-space: normal;
+    }
+}
+
 .dashboard-panel > .card-body {
     min-height: 0;
 }

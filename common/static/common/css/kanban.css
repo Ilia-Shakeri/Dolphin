@@ -396,6 +396,19 @@
         transition: none;
     }
 }
+/* On a touch screen the closed search measured 22px — under the 24px a finger
+   needs (2.40.46). The closed box and its button grow together; the open
+   width is unchanged. */
+@media (hover: none) and (pointer: coarse) {
+    #lead-board .board-search:not(.board-search-open),
+    #order-board .board-search:not(.board-search-open),
+    #lead-board .board-search-toggle,
+    #order-board .board-search-toggle {
+        min-width: 2.4rem;
+        width: 2.4rem;
+        height: 2.4rem;
+    }
+}
 
 /* A card's own top line: its name, and the one glyph that says the card opens
    something. The dots sit on the inline-end edge — the *left* in this RTL

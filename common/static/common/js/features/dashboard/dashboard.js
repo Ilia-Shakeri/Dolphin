@@ -317,7 +317,7 @@ async function setupDashboardInsights() {
         const slot = document.getElementById("dashboard-agent-share-link-slot");
         slot.replaceChildren();
         const link = document.createElement("a");
-        link.className = "text-primary fw-semibold fs-8 text-decoration-none";
+        link.className = "dashboard-card-all text-primary fw-semibold fs-8 text-decoration-none";
         link.id = "dashboard-agent-share-link";
         link.href = data.agent_share.url;
         link.textContent = "همه";
@@ -348,7 +348,7 @@ async function setupDashboardInsights() {
         const slot = document.getElementById("dashboard-breakdown-link-slot");
         slot.replaceChildren();
         const link = document.createElement("a");
-        link.className = "text-primary fw-semibold fs-8 text-decoration-none";
+        link.className = "dashboard-card-all text-primary fw-semibold fs-8 text-decoration-none";
         link.id = "dashboard-breakdown-link";
         link.href = data.breakdown.url;
         link.textContent = "همه";
