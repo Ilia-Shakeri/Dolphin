@@ -93,6 +93,8 @@ WIDGET_STYLE = {
     # tile earns a colour a reader can actually see.
     "users": {"icon": "di-people", "accent": "primary", "icon_paths": 5},
     "audit": {"icon": "di-shield-search", "accent": "danger", "icon_paths": 4},
+    "backup": {"icon": "di-shield-tick", "accent": "success", "icon_paths": 2},
+    "backup_problem": {"icon": "di-shield-cross", "accent": "danger", "icon_paths": 3},
 }
 
 ROLE_LABELS = {
@@ -259,6 +261,10 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
         context["can_view_audit"] = feature_enabled("audit_log") and bool(
             set(AUDIT_READ_CAPABILITIES).intersection(capabilities)
         )
+        # The scheduled backup's health (2.40.50): the platform's own roles.
+        from common.backup_health import can_see_backup_health
+
+        context["can_see_backup_health"] = can_see_backup_health(self.request.user)
         context["is_platform_navigation"] = "dashboard.platform" in capabilities
         # Real, irreversible row deletion — single or bulk, on every list
         # page. The Platform Admin always; since 2.18.8 anyone else too when
@@ -407,6 +413,17 @@ class DolphinHomeView(ActiveCrmView):
                 "value": activity_logs_for(self.request.user).count(),
                 "url_name": "common_ui:activity-logs",
                 **WIDGET_STYLE["audit"],
+            })
+        if context["can_see_backup_health"]:
+            from common.backup_health import backup_health
+
+            health = backup_health()
+            widgets.append({
+                "capability": "backup.health",
+                "label": "سلامت پشتیبان‌گیری",
+                "value": "سالم" if health["healthy"] else f"{len(health['problems'])} هشدار",
+                "url_name": "common_ui:backup-health",
+                **WIDGET_STYLE["backup" if health["healthy"] else "backup_problem"],
             })
         context["dashboard_title"], context["dashboard_summary"] = dashboard
         context["dashboard_capability"] = next(item for item in capabilities if item.startswith("dashboard."))
@@ -1005,6 +1022,49 @@ class AuditReaderView(ActiveCrmView):
                 status=403,
             )
         return super().dispatch(request, *args, **kwargs)
+
+
+class DolphinBackupHealthView(ActiveCrmView):
+    """`/settings/backup-health/` (2.40.50, BIZ-009): what the scheduled backup
+    recorded, and whether the data is safe — the Platform Admin and the company's
+    IT role only. Read-only: nothing here runs or changes a backup."""
+
+    template_name = "common/settings/backup_health.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        from common.backup_health import can_see_backup_health
+
+        if is_crm_identity(request.user) and not can_see_backup_health(request.user):
+            return self.render_to_response(
+                self.get_context_data(
+                    error_status=403,
+                    error_title="دسترسی مجاز نیست",
+                    error_message="وضعیت پشتیبان‌گیری را فقط مدیر پلتفرم و مدیر فنی می‌بینند.",
+                ),
+                status=403,
+            )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        from common.backup_health import backup_health
+        from common.models import BackupRun
+
+        context = super().get_context_data(**kwargs)
+        health = backup_health()
+        context["health"] = health
+        context["summary"] = [
+            ("آخرین پشتیبان روی سرور", health["backup"] and _backup_run_view(health["backup"])),
+            ("آخرین نسخهٔ بیرون از سرور", health["offsite"] and _backup_run_view(health["offsite"])),
+            ("آخرین آزمون بازگردانی", health["drill"] and _backup_run_view(health["drill"])),
+        ]
+        context["runs"] = list(BackupRun.objects.order_by("-finished_at", "-id")[:20])
+        return context
+
+
+def _backup_run_view(run):
+    from django.utils.dateparse import parse_datetime
+
+    return {**run, "finished_at": parse_datetime(run["finished_at"])}
 
 
 class DolphinActivityLogListView(AuditReaderView):

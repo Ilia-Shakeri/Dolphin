@@ -11,6 +11,7 @@ FLAGS = (
     "can_handle_payments", "can_read_inventory", "can_manage_inventory", "can_send_sms",
     "can_view_company_reports", "can_view_ledger", "can_view_sms_report", "can_view_audit",
     "can_manage_users", "can_manage_integrations", "is_platform_navigation", "user_admin_label",
+    "can_see_backup_health",
 )
 
 

@@ -137,6 +137,7 @@ GROUPS = (
     )),
     Group("administration", "مدیریت", "di-setting-2", 2, (
         Item("audit", "رویدادهای سامانه", "common_ui:activity-logs", _flag("can_view_audit")),
+        Item("backup-health", "سلامت پشتیبان‌گیری", "common_ui:backup-health", _flag("can_see_backup_health")),
         Item("users", "کاربران", "common_ui:users", _flag("can_manage_users")),
         Item("integrations", "یکپارچه‌سازی‌ها", "common_ui:integrations", _flag("can_manage_integrations")),
     ), label_for=_admin_caption),

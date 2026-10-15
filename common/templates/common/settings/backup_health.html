@@ -1,0 +1,91 @@
+{% extends "common/base.html" %}
+{% load jalali_tags attachment_tags %}
+{% block title %}سلامت پشتیبان‌گیری{% endblock %}
+{% block page_id %}shell{% endblock %}
+{% block page_eyebrow %}<span class="text-primary fw-bold fs-7 mb-1">مدیریت</span>{% endblock %}
+{% block page_icon %}<i class="di-duotone di-shield-tick page-heading-icon"><span class="path1"></span><span class="path2"></span></i>{% endblock %}
+{% block page_title %}سلامت پشتیبان‌گیری{% endblock %}
+{% block breadcrumb_current %}سلامت پشتیبان‌گیری{% endblock %}
+{% block content %}
+{% comment %} What the scheduled backup recorded (2.40.50, BIZ-009) — `common.backup_health`
+   decides the verdict, `common.BackupRun` is the record. Server-rendered and
+   read-only: the panel cannot run, change or remove a backup from here. {% endcomment %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-body d-flex flex-wrap align-items-center gap-5">
+        {% if health.healthy %}
+        <span class="symbol symbol-50px flex-shrink-0"><span class="symbol-label bg-light-success"><i class="di-duotone di-shield-tick fs-2x text-success" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i></span></span>
+        <div class="flex-grow-1 min-w-0">
+            <h2 class="fs-3 fw-bold text-gray-900 mb-1">پشتیبان‌ها سالم‌اند</h2>
+            <p class="text-gray-700 mb-0">نسخهٔ روی سرور و نسخهٔ رمزگذاری‌شدهٔ بیرون از سرور تازه‌اند و آخرین آزمون بازگردانی موفق بوده است.</p>
+        </div>
+        {% else %}
+        <span class="symbol symbol-50px flex-shrink-0"><span class="symbol-label bg-light-danger"><i class="di-duotone di-shield-cross fs-2x text-danger" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i></span></span>
+        <div class="flex-grow-1 min-w-0">
+            <h2 class="fs-3 fw-bold text-gray-900 mb-2">پشتیبان‌گیری توجه می‌خواهد</h2>
+            <ul class="text-gray-800 mb-0 ps-5">
+                {% for problem in health.problems %}<li>{{ problem }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<div class="row g-5 mb-5">
+    {% for label, run in summary %}
+    <div class="col-md-4">
+        <section class="card h-100">
+            <div class="card-body">
+                <span class="d-block text-gray-700 fw-semibold mb-2">{{ label }}</span>
+                {% if run %}
+                <span class="d-block fs-4 fw-bold text-gray-900">{% panel_date run.finished_at "datetime" %}</span>
+                {% if run.size_bytes %}<span class="d-block text-gray-700 fs-7 mt-1">{{ run.size_bytes|file_size }}</span>{% endif %}
+                {% comment %} A file name, so Latin digits: the panel face draws digits in Persian. {% endcomment %}
+                {% if run.archive %}<span dir="ltr" class="d-block text-gray-700 font-monospace fs-8 mt-2 text-break text-start">{{ run.archive }}</span>{% endif %}
+                {% else %}
+                <span class="d-block fs-5 fw-bold text-gray-700">هنوز انجام نشده</span>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+    {% endfor %}
+</div>
+
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>سازوکار</h2></div></div>
+    <div class="card-body pt-2 text-gray-800">
+        <ul class="mb-0 ps-5 d-grid gap-2">
+            <li><strong>قاعدهٔ ۳-۲-۱:</strong> پایگاه داده، پشتیبان روی سرور، و نسخهٔ رمزگذاری‌شده (AES-256) بیرون از سرور.</li>
+            <li><strong>زمان‌بندی:</strong> هر چند ساعت یک بار (پیش‌فرض ۶ ساعت)، پس حداکثر داده‌ای که در بدترین حالت از دست می‌رود به اندازهٔ همین فاصله است.</li>
+            <li><strong>نگهداری:</strong> به‌طور پیش‌فرض همهٔ نسخه‌های ۲۴ ساعت اخیر، و یک نسخه از هر روز تا ۷ روز، از هر هفته تا ۴ هفته، و از هر ماه تا ۱۲ ماه؛ روی سرور و بیرون از آن.</li>
+            <li><strong>آزمون بازگردانی:</strong> هر هفته آخرین پشتیبان در یک پایگاه دادهٔ جدا و موقت بازگردانده و ساختارش بررسی می‌شود.</li>
+            <li><strong>پیوست‌ها و منیفست:</strong> پیوست‌ها داخل پایگاه داده‌اند و با همان پشتیبان می‌روند؛ منیفست امضاشدهٔ استقرار هم رمزگذاری‌شده کنار نسخه‌های بیرون از سرور نگه داشته می‌شود.</li>
+            <li><strong>هشدار:</strong> اگر ۲۶ ساعت پشتیبان موفق یا نسخهٔ بیرون از سرور ساخته نشود، یا آزمون بازگردانی شکست بخورد، همین‌جا و در زنگ یادآورها دیده می‌شود.</li>
+            <li><strong>مسئولیت:</strong> نگهداری رمز نسخه‌های بیرون از سرور و محل آن‌ها با IT شرکت است؛ بدون آن رمز، آن نسخه‌ها خواندنی نیستند.</li>
+        </ul>
+    </div>
+</section>
+
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>اجراهای اخیر</h2></div></div>
+    <div class="card-body pt-2">
+        {% if runs %}
+        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0">
+            <thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>کار</th><th>نتیجه</th><th>زمان</th><th>حجم</th><th>توضیح</th></tr></thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.get_kind_display }}</td>
+                    <td>{% if run.status == "ok" %}<span class="badge badge-light-success">موفق</span>{% else %}<span class="badge badge-light-danger">ناموفق</span>{% endif %}</td>
+                    <td>{% panel_date run.finished_at "datetime" %}</td>
+                    <td>{% if run.size_bytes %}{{ run.size_bytes|file_size }}{% else %}—{% endif %}</td>
+                    <td>{% if run.detail %}<span dir="ltr" class="d-inline-block text-gray-700 font-monospace fs-8 text-break">{{ run.detail }}</span>{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+        {% else %}
+        <p class="text-gray-700 mb-0">پشتیبان‌گیری زمان‌بندی‌شده هنوز روی این سرور اجرا نشده است. راه‌اندازی آن در راهنمای استقرار، بخش «Scheduled backups»، آمده است.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

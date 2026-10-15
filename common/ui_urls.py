@@ -51,6 +51,7 @@ from common.ui_views import (
     DolphinSalesDocumentListView,
     DolphinSalesDocumentReportView,
     DolphinPostProviderSettingsView,
+    DolphinBackupHealthView,
     DolphinSettingsView,
     DolphinSmsProviderSettingsView,
     IntegrationsView,
@@ -141,4 +142,5 @@ urlpatterns = [
     path("activity-logs/<int:activity_log_id>/", DolphinActivityLogDetailView.as_view(), name="activity-log-detail"),
     path("branding/", DolphinBrandingSettingsView.as_view(), name="branding-settings"),
     path("settings/", DolphinSettingsView.as_view(), name="settings"),
+    path("settings/backup-health/", DolphinBackupHealthView.as_view(), name="backup-health"),
 ]

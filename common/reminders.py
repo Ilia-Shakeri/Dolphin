@@ -152,6 +152,31 @@ def _returned_work_reminders(user, *, now, count_only=False):
     return _group("returned_work", "کارهای برگشتی", "di-arrows-circle", "warning", len(summary), items)
 
 
+def _backup_reminders(user, *, now, count_only=False):
+    """What is wrong with this deployment's backups (2.40.50, BIZ-009) — for the
+    Platform Admin and the IT role. It clears when the next run succeeds."""
+    from common.backup_health import backup_health, can_see_backup_health
+
+    if not can_see_backup_health(user):
+        return 0 if count_only else _group("backup_health", "پشتیبان‌گیری", "di-shield-cross", "danger", 0, [])
+    problems = backup_health(now=now)["problems"]
+    if count_only:
+        return len(problems)
+    items = [
+        {
+            "id": f"b{index}",
+            "title": problem,
+            "subtitle": "سلامت پشتیبان‌گیری",
+            "due_at": now.isoformat(),
+            "due_kind": "datetime",
+            "overdue": True,
+            "url": "/settings/backup-health/",
+        }
+        for index, problem in enumerate(problems)
+    ]
+    return _group("backup_health", "پشتیبان‌گیری", "di-shield-cross", "danger", len(problems), items)
+
+
 def _appointment_reminders(user, *, now, count_only=False):
     """After-sales appointments that are due — overdue, or falling today."""
     end_of_today = _end_of_today(now)
@@ -286,6 +311,7 @@ def _instalment_reminders(user, *, now, count_only=False):
 #: own day's work first, then the two about money. Each entry pairs the feature
 #: that must be enabled with the function that reads it.
 SOURCES = (
+    (None, _backup_reminders),
     ("leads", _returned_work_reminders),
     ("leads", _lead_reminders),
     ("tasks", _task_reminders),
@@ -306,7 +332,7 @@ def reminders_for(user, *, now=None):
     now = now or timezone.now()
     groups = []
     for feature, source in SOURCES:
-        if not feature_enabled(feature):
+        if feature and not feature_enabled(feature):
             continue
         group = source(user, now=now)
         if group["count"]:
@@ -331,7 +357,7 @@ def reminder_count_for(user, *, now=None):
     now = now or timezone.now()
     total = 0
     for feature, source in SOURCES:
-        if not feature_enabled(feature):
+        if feature and not feature_enabled(feature):
             continue
         total += source(user, now=now, count_only=True)
     return total
@@ -347,6 +373,7 @@ ICON_PATHS = {
     "di-calendar-tick": 6,
     "di-bank": 2,
     "di-wallet": 4,
+    "di-shield-cross": 3,
 }
 
 

@@ -25,7 +25,7 @@ v2, PostgreSQL and nginx in containers, and a Django/Gunicorn application image
 | [1. First install on a fresh server](#1-first-install-on-a-fresh-server) | Once, on a clean machine |
 | [2. Start after a reboot](#2-start-after-a-reboot) | Every restart |
 | [3. Application update](#3-application-update) | What a release does, and the same steps by hand |
-| [4. Backup and restore](#4-backup-and-restore) | Routine, disaster, and the opt-in panel feature (4.7) |
+| [4. Backup and restore](#4-backup-and-restore) | Routine, disaster, the opt-in panel feature (4.7), and scheduled backups — the standard (4.8) |
 | [5. Rollback](#5-rollback) | A release went wrong |
 | [6. Domain deployment](#6-domain-deployment) | Recommended production |
 | [6a. Internal hostname with a private CA](#6a-internal-only-hostname-with-a-private-ca) | Internal-only, real hostname, no public CA |
@@ -400,6 +400,14 @@ not:
 sudo systemctl enable --now systemd-timesyncd
 timedatectl timesync-status
 ```
+
+**Size the server for this customer.** Dolphin has no product-wide capacity: no cap on users,
+records or campaigns, and none is to be added (owner decision 2026-10-14, BIZ-010) — every company
+differs. Size each deployment in its own infrastructure review from the customer's expected users,
+people and documents, leave room for the backup volume (about two weeks of archives at the default
+retention, plus one database's worth of scratch for the weekly drill), and before a large
+customer measure the real server with [the readiness load check](#read-only-readiness-load-check)
+and `scripts/request_timings.py` on its own logs.
 
 ### 1.2 Docker Engine and Compose v2
 
@@ -1184,6 +1192,11 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.50 — `common/0015_backup_runs`** creates `common_backuprun`, the record of scheduled backups.
+  `db-finalize` grants the application `SELECT` and the backup role its one write, `INSERT` (plus
+  `USAGE` on the id sequence). No data moves; reversible with `migrate common 0014`. The new
+  `backup-scheduler` service starts only when asked ([4.8](#48-scheduled-backups-24050)); new optional
+  variables `DOLPHIN_BACKUP_*` and `DOLPHIN_RESTORE_DRILL_WEEKDAY` (`.env.example`).
 * **2.40.49 — `common/0014_user_calendar_display`** adds one column with a default (`jalali`) to the
   personal preferences table. No data moves; reversible with `migrate common 0013`.
 * **2.40.48 — `accounts/0010_role_permission_profiles` and `sales/0035_returned_work`** create two tables
@@ -1285,6 +1298,11 @@ docker compose --env-file secrets/.env --profile backup run --rm --no-deps \
 ```
 
 ### 4.4 Schedule it
+
+**Since 2.40.50 the standard is the scheduled backup of [4.8](#48-scheduled-backups-24050)** —
+encrypted off-host copies, retention by day, week and month, a weekly restore drill, and alerts in
+the panel. Use the cron line below only where that service does not run, never beside it. The
+other maintenance jobs in this section stay on cron either way.
 
 As the deployment user, `crontab -e`:
 
@@ -1586,6 +1604,126 @@ After any successful restore, re-apply the database grants:
 ```bash
 docker compose --env-file secrets/.env run --rm db-finalize
 ```
+
+### 4.8 Scheduled backups (2.40.50)
+
+**This is the standard way to back a deployment up** (owner decision 2026-10-14, BIZ-009: the
+team picks the mechanism). One long-running service, `backup-scheduler` (Compose profile
+`backup-schedule`), follows the 3-2-1 rule — the live database, the archive on the backup
+volume, and an encrypted copy somewhere else — and records every run in `common_backuprun`,
+which the panel shows and alerts on.
+
+| Every slot (default every 6 hours from 02:00, Tehran time) | |
+|---|---|
+| Backup | the same job as [4.2](#42-take-a-backup): `pg_dump`, `pg_restore --list`, SHA-256 sidecar |
+| Off-host copy | GnuPG, AES-256, a passphrase only the deployment's owner holds; decrypted again and compared with the checksum before it counts |
+| Manifest | an encrypted copy of the signed deployment manifest beside the archives, refreshed when it changes |
+| Retention | everything from the last 24 hours, then the newest of each day for 7 days, of each ISO week for 4 weeks and of each month for 12 months — on the volume and off the host alike; the newest archive is never removed |
+| Restore drill | once a week (default Friday, `DOLPHIN_RESTORE_DRILL_WEEKDAY=5` — ISO, Monday is 1 — and `0` turns it off) the newest archive is restored into a throwaway cluster and the schema contract is checked — [4.5](#45-verify-a-restore--into-a-disposable-database), unattended |
+
+Attachments, logos and stamps are stored in the database, so the archive already holds them.
+
+**Recovery point and time.** The most a deployment can lose is one interval
+(`DOLPHIN_BACKUP_EVERY_HOURS`, 1 to 24). Point-in-time recovery from a continuous WAL archive is
+deliberately not part of this: it needs either the database server to write its WAL out
+(`archive_command`) or a role with `REPLICATION`, and Dolphin's roles are `NOREPLICATION` by design
+([PostgreSQL role split](#postgresql-role-split)). A deployment that needs a shorter window lowers
+the interval. The time a restore takes is measured every week: each drill row has its start and
+finish.
+
+#### Set it up (once)
+
+1. **The off-host directory.** A second disk, a network mount, or a folder the host syncs to
+   object storage — not a folder on the same disk as the database. Owned by uid 999 (the
+   `postgres` user of the image), mode `0700`, with its sentinel:
+
+   ```bash
+   sudo mkdir -p /mnt/backup-disk/dolphin-client-1
+   echo DOLPHIN_OFFSITE_ROOT_V1 | sudo tee /mnt/backup-disk/dolphin-client-1/.dolphin-offsite-root >/dev/null
+   sudo chown -R 999:999 /mnt/backup-disk/dolphin-client-1
+   sudo chmod 0700 /mnt/backup-disk/dolphin-client-1
+   ```
+
+   Without the sentinel nothing is written there, every run records «off-host directory not
+   configured», and the panel says the backups exist on this server only.
+
+2. **`secrets/.env`:**
+
+   ```
+   DOLPHIN_BACKUP_OFFSITE_DIR=/mnt/backup-disk/dolphin-client-1
+   DOLPHIN_BACKUP_PASSPHRASE=<at least 24 characters; openssl rand -base64 33>
+   ```
+
+   The interval, first slot, retention counts and drill day have defaults in `.env.example`.
+
+3. **The passphrase leaves the server.** Keep it where the deployment's owner keeps the other
+   recovery secrets (a password manager or a sealed envelope), **not only in `secrets/.env`**: a
+   lost server takes `.env` with it, and without the passphrase the off-host copies cannot be
+   read. Changing it later affects new copies only; keep the old one for as long as copies made
+   with it are retained (12 months by default).
+
+4. **Turn off the cron backup** of [4.4](#44-schedule-it) if it is set up. Running both writes two
+   archives a slot, and the cron job's own day-based retention fights this one.
+
+5. **Start it:**
+
+   ```bash
+   docker compose --env-file secrets/.env --profile backup-schedule up -d backup-scheduler
+   docker compose --env-file secrets/.env logs --tail 20 backup-scheduler
+   ```
+
+   It backs up at once when the newest archive is older than one interval, then waits for each
+   slot. `deploy.sh` recreates it on every release when it is running; a deployment that does not
+   start it keeps working exactly as before.
+
+#### Watch it
+
+*Settings → Backup health* (`/settings/backup-health/`), for the Platform Admin and the company's
+IT role only, shows the newest good backup, off-host copy and drill, the last 20 runs, and a plain
+verdict. The dashboard has a tile, and the reminders bell names each problem:
+
+- no successful backup — or no verified off-host copy — in 26 hours (a day and one missed slot);
+- the newest backup, off-host copy or retention pass failed;
+- the off-host directory is not configured;
+- the newest drill failed, or none succeeded in 8 days;
+- no runs at all: the scheduler is not running on this server.
+
+The page is read-only; nothing in the panel starts, changes or removes a backup. The company's IT
+looks at it; the Dolphin team reviews it monthly.
+
+#### Copy to object storage (optional)
+
+The off-host copies are already encrypted, so a host cron job can mirror the folder anywhere —
+for example with rclone, configured on the host by its administrator:
+
+```
+40 */6 * * * rclone sync /mnt/backup-disk/dolphin-client-1 remote:dolphin-client-1 >> /var/log/dolphin-offsite-sync.log 2>&1
+```
+
+`sync` mirrors the retention as well. Turn on versioning or object lock on the bucket so a
+compromised server cannot delete the remote copies too.
+
+#### Restore from the off-host copy
+
+When the backup volume is lost as well, bring the off-host folder to a server with the same
+`DOLPHIN_BACKUP_OFFSITE_DIR` and passphrase, and the backup volume prepared ([4.1](#41-prepare-the-backup-volume-once)).
+Decrypt one archive onto the backup volume; GnuPG refuses a copy that has been changed, and the
+sidecar it gets is what [4.5](#45-verify-a-restore--into-a-disposable-database) checks:
+
+```bash
+docker compose --env-file secrets/.env --profile backup-schedule run --rm --no-deps \
+  --entrypoint sh backup-scheduler -c '
+    set -eu
+    name=dolphin-pg-<UTC timestamp>-<32 hex>.dump
+    export GNUPGHOME=/tmp/restore-gnupg; mkdir -p -m 0700 "$GNUPGHOME"
+    printf %s "$DOLPHIN_BACKUP_PASSPHRASE" | gpg --batch --quiet --pinentry-mode loopback \
+      --passphrase-fd 0 --decrypt --output "/backups/$name" "/offsite/$name.gpg"
+    cd /backups && sha256sum "$name" > "$name.sha256"'
+```
+
+Then follow [4.5](#45-verify-a-restore--into-a-disposable-database) and [4.6](#46-disaster-restore).
+`deployment-manifest.json.gpg` decrypts the same way, to wherever
+`DOLPHIN_DEPLOYMENT_MANIFEST_PATH` points.
 
 ---
 

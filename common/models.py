@@ -499,3 +499,54 @@ class BackupJob(TimeStampedModel):
 
     def __str__(self):
         return f"{self.get_kind_display()} — {self.get_status_display()}"
+
+
+class BackupRun(models.Model):
+    """One run of the scheduled backup (2.40.50, owner decision 2026-10-14, BIZ-009).
+
+    Written by `scripts/backup-scheduler.sh` — through `psql`, as the backup
+    role, which may `INSERT` here and nowhere else — and read by the panel:
+    the dashboard's backup card and the reminder bell (`common.backup_health`).
+    The scheduler has no Django and the panel has no way to run a backup, so
+    this table is the whole channel between them, and it only ever grows: a run
+    is recorded once, when it has finished.
+
+    `kind`: the local dump (`backup`), its encrypted off-host copy (`offsite`),
+    the weekly restore into a throwaway database (`drill`), or the retention
+    pass (`prune`). `detail` is a short machine message (an exit reason), never
+    a secret or a path outside the backup volumes.
+    """
+
+    class Kind(models.TextChoices):
+        BACKUP = "backup", "پشتیبان روی سرور"
+        OFFSITE = "offsite", "نسخهٔ رمزگذاری‌شدهٔ بیرون از سرور"
+        DRILL = "drill", "آزمون بازگردانی"
+        PRUNE = "prune", "پاک‌سازی نسخه‌های قدیمی"
+
+    class Status(models.TextChoices):
+        OK = "ok", "موفق"
+        FAILED = "failed", "ناموفق"
+
+    kind = models.CharField(max_length=8, choices=Kind.choices)
+    status = models.CharField(max_length=8, choices=Status.choices)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField()
+    archive = models.CharField(max_length=96, blank=True)
+    size_bytes = models.BigIntegerField(null=True, blank=True)
+    detail = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-finished_at", "-id")
+        indexes = [models.Index(fields=["kind", "-finished_at"], name="backuprun_kind_finished_idx")]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=["backup", "offsite", "drill", "prune"]),
+                name="common_backuprun_kind_valid",
+            ),
+            models.CheckConstraint(condition=models.Q(status__in=["ok", "failed"]), name="common_backuprun_status_valid"),
+            models.CheckConstraint(condition=models.Q(finished_at__gte=models.F("started_at")), name="common_backuprun_time_order"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.get_status_display()}"

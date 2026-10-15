@@ -470,6 +470,13 @@ reload_nginx_upstream() {
         || fail "nginx did not reload. The application may be healthy but unreachable: $COMPOSE restart nginx"
 }
 
+# The scheduled backup (2.40.50) sits behind its own profile too: when it is
+# running, it is recreated so it runs this release's scripts.
+if $COMPOSE --profile backup-schedule ps --services --status running 2>/dev/null | grep -qx backup-scheduler; then
+    note "recreating backup-scheduler on this release's scripts"
+    $COMPOSE --profile backup-schedule up -d --no-deps --force-recreate backup-scheduler
+fi
+
 # The integrations worker (2.21.0) sits behind its own Compose profile, which
 # a plain `up -d` neither starts nor recreates — so without this a running
 # worker would keep executing the previous release's code against the new

@@ -37,6 +37,7 @@ SELECT (
     AND to_regclass('public.chat_chatparticipant') IS NOT NULL
     AND to_regclass('public.chat_chatthread') IS NOT NULL
     AND to_regclass('public.common_backupjob') IS NOT NULL
+    AND to_regclass('public.common_backuprun') IS NOT NULL
     AND to_regclass('public.common_brandsettings') IS NOT NULL
     AND to_regclass('public.common_dashboardsettings') IS NOT NULL
     AND to_regclass('public.common_deploymentprofilecache') IS NOT NULL
@@ -91,7 +92,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (119), recorded.
+    -- Every migration this release ships (120), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -165,6 +166,7 @@ SELECT (
                 ('common', '0012_vazirmatn_default_font'),
                 ('common', '0013_print_settings'),
                 ('common', '0014_user_calendar_display'),
+                ('common', '0015_backup_runs'),
                 ('communications', '0001_initial'),
                 ('communications', '0002_outboundsms'),
                 ('communications', '0003_smsprovidersettings'),
@@ -223,7 +225,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (226).
+    -- Every named check and unique constraint (229).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -344,6 +346,9 @@ SELECT (
                 ('billing_quotationitem', 'uniq_quotation_item_line_number'),
                 ('chat_chatmessage', 'chat_message_body_nonblank'),
                 ('chat_chatparticipant', 'chat_participant_unique_per_thread'),
+                ('common_backuprun', 'common_backuprun_kind_valid'),
+                ('common_backuprun', 'common_backuprun_status_valid'),
+                ('common_backuprun', 'common_backuprun_time_order'),
                 ('common_brandsettings', 'common_brandsettings_accent_color_shape'),
                 ('common_brandsettings', 'common_brandsettings_is_singleton'),
                 ('common_brandsettings', 'common_brandsettings_logo_all_or_nothing'),

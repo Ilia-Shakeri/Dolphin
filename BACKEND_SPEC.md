@@ -1050,7 +1050,21 @@ Required before responsible handover:
 - recovery runbook;
 - log rotation.
 
-Backup destination and retention duration remain **UNRESOLVED** and require deployment-owner input, but scripts/configuration/runbook work should continue.
+**Resolved 2026-10-14 (BIZ-009: the team chooses the standard).** Shipped in 2.40.50 as the
+`backup-scheduler` service (runbook 4.8): a backup every `DOLPHIN_BACKUP_EVERY_HOURS` (default 6,
+so that is the recovery point), an AES-256 GnuPG copy off the host that is decrypted and checked
+before it counts, the signed manifest copied beside it, grandfather-father-son retention (24 hours
+whole, then 7 daily, 4 weekly, 12 monthly) in both places, and a weekly unattended restore drill.
+No point-in-time recovery: continuous WAL archiving needs `archive_command` on the database server
+or a `REPLICATION` role, against the role split. Each run is a `common.BackupRun` row (kind
+`backup`/`offsite`/`drill`/`prune`, status `ok`/`failed`, start and finish with finish ≥ start,
+archive, size, a short detail), written only by the backup role — its one `INSERT` — and read by
+`common.backup_health`, which the page `/settings/backup-health/`, a dashboard tile and the
+reminders bell (kind `backup_health`, every deployment) show to the Platform Admin and Company IT
+only. Problems: no good backup or no verified off-host copy in 26 hours, the newest backup, off-host copy or retention pass failed,
+the off-host directory not configured, the newest drill failed or none succeeded in 8 days, or no
+rows at all (the scheduler is not running). Read-only: the panel cannot start or remove a backup.
+Capacity (BIZ-010): no product-wide limit; each deployment is sized in its own review.
 
 ### 12.2 TLS
 

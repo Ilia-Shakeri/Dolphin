@@ -75,3 +75,18 @@ def attachment_types_label():
         for content_type, extensions in sorted(ALLOWED_CONTENT_TYPES.items())
     ]
     return "، ".join(names)
+
+
+@register.filter(name="file_size")
+def file_size(value):
+    """A size in bytes as a reader says it — «۸۶٫۴ مگابایت» (2.40.50)."""
+    try:
+        size = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    for unit, scale in (("گیگابایت", 1024 ** 3), ("مگابایت", 1024 ** 2), ("کیلوبایت", 1024)):
+        if size >= scale:
+            amount = round(size / scale, 1)
+            text = str(int(amount)) if amount == int(amount) else str(amount).replace(".", "٫")
+            return to_persian_digits(f"{text} {unit}")
+    return to_persian_digits(f"{int(size)} بایت")

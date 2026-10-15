@@ -115,6 +115,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
                 "db-bootstrap",
                 "db-finalize",
                 "backup",
+                # The same job on a timer (2.40.50), with the same role.
+                "backup-scheduler",
             },
         }
         for password_name, expected_services in password_scope.items():
@@ -192,10 +194,13 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
         #
         # Anything else mounting it is a mistake.
         self.assertIn("backup_data:/backups", self.services["backup-agent"]["volumes"])
+        # `backup-scheduler` (2.40.50) writes it too: the scheduled job, run on a
+        # timer instead of by hand.
+        self.assertIn("backup_data:/backups", self.services["backup-scheduler"]["volumes"])
         self.assertIn("backup_data:/backups:ro", self.services["web"]["volumes"])
         self.assertNotIn("backup_data:/backups", self.services["web"]["volumes"])
         for service_name, service in self.services.items():
-            if service_name in {"backup", "backup-agent", "web"}:
+            if service_name in {"backup", "backup-agent", "backup-scheduler", "web"}:
                 continue
             self.assertFalse(
                 any("backup_data" in str(volume) for volume in service.get("volumes", [])),
@@ -284,6 +289,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
                 "GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO %I",
                 "ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT ON TABLES TO %I",
                 "ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT ON SEQUENCES TO %I",
+                # The one write (2.40.50): the scheduled backup records its runs.
+                "GRANT INSERT ON TABLE public.common_backuprun TO %I",
+                "GRANT USAGE ON SEQUENCE public.common_backuprun_id_seq TO %I",
             },
         )
 
@@ -452,6 +460,8 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             # agent's result), so UPDATE is real. No DELETE: this is the
             # record of who asked for the database to be replaced.
             "common_backupjob": "SELECT, INSERT, UPDATE",
+            # Written by the backup role, read by the panel (2.40.50).
+            "common_backuprun": "SELECT",
             # Internal chat (chat/). A thread's `last_message_at` and a
             # participant's own `last_read_at` are both rewritten in place by
             # the service layer; a message, once sent, is never edited or

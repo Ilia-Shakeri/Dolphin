@@ -625,6 +625,9 @@ FROM (
         -- exactly the kind of row nobody should be able to remove from the
         -- application.
         ('common_backupjob', 'SELECT, INSERT, UPDATE'),
+        -- The scheduled backup's own record (2.40.50): written by the backup
+        -- role (granted below), only ever read by the panel.
+        ('common_backuprun', 'SELECT'),
         -- Internal chat (chat/). A thread's last_message_at and a
         -- participant's own last_read_at are rewritten in place; a message,
         -- once sent, is never edited or deleted.
@@ -721,6 +724,15 @@ SELECT format(
     'GRANT SELECT ON ALL TABLES IN SCHEMA public TO %I',
     :'backup_user'
 ) \gexec
+-- The backup role's one write (2.40.50): `scripts/backup-scheduler.sh`
+-- records each run it finishes, for the panel to show. INSERT only — it can
+-- neither change nor remove a record, and touches no other table.
+SELECT format(
+    'GRANT INSERT ON TABLE public.common_backuprun TO %I',
+    :'backup_user'
+)
+WHERE to_regclass('public.common_backuprun') IS NOT NULL
+\gexec
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
 SELECT format('REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM %I', :'app_user') \gexec
 SELECT format(
@@ -753,6 +765,12 @@ SELECT format(
     'GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO %I',
     :'backup_user'
 ) \gexec
+SELECT format(
+    'GRANT USAGE ON SEQUENCE public.common_backuprun_id_seq TO %I',
+    :'backup_user'
+)
+WHERE to_regclass('public.common_backuprun_id_seq') IS NOT NULL
+\gexec
 REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM PUBLIC;
 SELECT format(
     'REVOKE EXECUTE ON ALL ROUTINES IN SCHEMA public FROM %I',

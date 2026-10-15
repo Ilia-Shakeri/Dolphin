@@ -206,6 +206,68 @@ services:
     networks:
       - backend
 
+  # The scheduled backup (2.40.50, BIZ-009): backs up every
+  # DOLPHIN_BACKUP_EVERY_HOURS, keeps a grandfather-father-son history, writes
+  # an AES-256 (GnuPG) copy to the off-host directory and verifies it, and
+  # restores the newest archive into a throwaway cluster once a week. Behind
+  # its own profile; `scripts/backup-scheduler.sh` explains each step, and
+  # each run is recorded in `common_backuprun` for the panel. The off-host
+  # directory is a host path (a second disk, a network mount, or a folder the
+  # host syncs to object storage) holding `.dolphin-offsite-root`; without
+  # that sentinel the copy is reported as not configured, never faked.
+  backup-scheduler:
+    image: ${DOLPHIN_POSTGRES_IMAGE:?DOLPHIN_POSTGRES_IMAGE must be one reviewed repository@sha256:digest reference}
+    profiles: ["backup-schedule"]
+    restart: unless-stopped
+    user: postgres
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      TZ: Asia/Tehran
+      HOME: /tmp
+      TMPDIR: /tmp
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+      POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
+      POSTGRES_BACKUP_ROOT: /backups
+      POSTGRES_BACKUP_RETENTION_DAYS: "0"
+      DOLPHIN_BACKUP_EVERY_HOURS: ${DOLPHIN_BACKUP_EVERY_HOURS:-6}
+      DOLPHIN_BACKUP_FIRST_AT: ${DOLPHIN_BACKUP_FIRST_AT:-02:00}
+      DOLPHIN_BACKUP_KEEP_RECENT_HOURS: ${DOLPHIN_BACKUP_KEEP_RECENT_HOURS:-24}
+      DOLPHIN_BACKUP_KEEP_DAILY: ${DOLPHIN_BACKUP_KEEP_DAILY:-7}
+      DOLPHIN_BACKUP_KEEP_WEEKLY: ${DOLPHIN_BACKUP_KEEP_WEEKLY:-4}
+      DOLPHIN_BACKUP_KEEP_MONTHLY: ${DOLPHIN_BACKUP_KEEP_MONTHLY:-12}
+      DOLPHIN_RESTORE_DRILL_WEEKDAY: ${DOLPHIN_RESTORE_DRILL_WEEKDAY:-5}
+      DOLPHIN_BACKUP_PASSPHRASE: ${DOLPHIN_BACKUP_PASSPHRASE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["sh", "/ops/backup-scheduler.sh"]
+    volumes:
+      - ./scripts/backup-scheduler.sh:/ops/backup-scheduler.sh:ro
+      - ./scripts/backup-postgres.sh:/ops/backup-postgres.sh:ro
+      - ./scripts/backup-gfs-prune.sh:/ops/backup-gfs-prune.sh:ro
+      - ./scripts/verify-postgres-restore.sh:/ops/verify-postgres-restore.sh:ro
+      - ./scripts/verify-postgres-schema.sql:/ops/verify-postgres-schema.sql:ro
+      - ${DOLPHIN_DEPLOYMENT_MANIFEST_PATH:?DOLPHIN_DEPLOYMENT_MANIFEST_PATH must point at the signed deployment manifest}:/profile/manifest.json:ro
+      - backup_data:/backups
+      - ${DOLPHIN_BACKUP_OFFSITE_DIR:-backup_offsite}:/offsite
+      # Disk, not tmpfs: the weekly restore drill builds a whole throwaway
+      # cluster here.
+      - backup_scratch:/tmp
+    networks:
+      - backend
+
   # Expired session rows are not removed by Django on their own: the store only
   # ignores them, so `django_session` grows for the life of the deployment and
   # keeps expired session data at rest indefinitely. Behind a profile so it
@@ -595,6 +657,11 @@ volumes:
   # published backup.
   restore_spool:
   static_data:
+  # The scheduled backup (2.40.50): `backup_offsite` stands in when no off-host
+  # directory is set (it holds no sentinel, so the copy reports itself not
+  # configured); `backup_scratch` is the restore drill's working disk.
+  backup_offsite:
+  backup_scratch:
 
 networks:
   backend:
