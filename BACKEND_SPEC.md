@@ -1789,6 +1789,38 @@ days left, unpaid), else `pending`; `?status=` accepts these keys.
 creation, regardless of how or when each installment is later paid. That
 remains a legal and commercial decision, same as before.
 
+**Advanced instalments (owner decision 2026-10-14, Q15).** Each is its own manifest
+feature, off by default, configured per company in Settings → اقساط
+(`billing.InstallmentSettings`, one row, capability `installments.configure` —
+Platform Admin by default, one row in the permission matrix). Turning a feature off
+keeps its settings and its history.
+
+* `installment_reschedule` (2.40.51) — `POST /api/v1/invoices/{id}/reschedule-installments/`
+  (`installment_count` 1–120, `first_due` not before today, `interval_days` 1–365, a
+  `reason`; `preview: true` writes nothing and returns the new rows). An issued invoice,
+  an active plan, a payments manager (`ELEVATED_OPERATORS`). A paid row is untouched; a
+  part-paid row keeps what was paid and is closed at that amount (`paid`); an unpaid row
+  is closed (`cancelled`, hidden from lists like any superseded row). What was still owed
+  is spread over new rows numbered after every existing one, in whole rials with the
+  remainder on the first, so the plan still sums to the invoice total and nothing is
+  re-applied. Each change is an append-only `InstallmentReschedule` (`before`/`after`
+  rows, reason, actor; `SELECT, INSERT` only) shown as the plan's history on the
+  invoice; audit `installment_plan.rescheduled`. A rescheduled plan can no longer be
+  rewritten from the invoice's terms (`set-installments/` refuses it).
+* `installment_reminders` (2.40.51) — an SMS to the customer's active primary phone for
+  a live unpaid row: once while it falls due within `remind_days_before` days (0–30, 0
+  = none), on the due date (`remind_on_due`), and once from `remind_days_after` days
+  after it (0–60) for a week. Three editable texts with the tokens `{نام}`, `{مبلغ}`
+  (what is left on the row, in rials), `{تاریخ}` (Jalali), `{فاکتور}`, `{قسط}`; any
+  other brace is refused. Sent only between `remind_send_hour` (7–20) and 21:00 Tehran
+  time, by `manage.py send_installment_reminders` from cron. Each send is claimed first
+  by a unique `InstallmentReminder` (row, kind, due date), so no reminder goes twice and
+  a rescheduled row is reminded for its new date; no active phone is recorded as
+  `skipped`. It sends through the deployment's SMS provider
+  (`communications.services.send_system_sms`: an `OutboundSMS` with no sender and a
+  `system` audit row) and sends nothing until one is configured; the settings card says
+  so.
+
 ### The customer ledger
 
 Append-only. Debit increases what the customer owes; credit reduces it. Every

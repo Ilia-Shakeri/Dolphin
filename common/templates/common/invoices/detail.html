@@ -75,7 +75,47 @@
         <div class="col-md-4 d-flex align-items-end gap-3 flex-wrap"><button class="btn btn-light" type="submit">اعمال</button><p class="text-muted fs-8 mb-0" id="invoice-installments-hint">با تغییر پیش‌پرداخت یا تعداد، مبلغ همهٔ اقساط دوباره محاسبه می‌شود.</p></div>
     </form>
     <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>ردیف</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>مانده</th><th>وضعیت</th></tr></thead><tbody id="invoice-installments-body"></tbody></table></div>
+    {% if can_reschedule_installments %}
+    {% comment %} Changing or extending what is left of the plan (2.40.51, feature
+       `installment_reschedule`): paid rows stay, the unpaid amount is spread over
+       new rows, and every change is kept below. `billing.installments.reschedule_plan`. {% endcomment %}
+    <div class="d-flex flex-wrap align-items-center gap-3 mt-6" id="invoice-installments-reschedule-bar" hidden>
+        <button class="btn btn-light-primary" type="button" id="invoice-installments-reschedule">تغییر یا تمدید برنامه</button>
+        <span class="text-gray-700 fs-7">قسط‌های پرداخت‌شده دست نمی‌خورند؛ ماندهٔ اقساط در برنامهٔ تازه تقسیم می‌شود.</span>
+    </div>
+    {% endif %}
+    <div class="mt-8" id="invoice-installments-history" hidden>
+        <h3 class="fs-5 fw-bold text-gray-900 mb-4">تاریخچهٔ تغییر برنامه</h3>
+        <ol class="list-unstyled d-grid gap-4 mb-0" id="invoice-installments-history-list"></ol>
+    </div>
 </div></section>
+{% if can_reschedule_installments %}
+<dialog id="installments-reschedule-dialog" aria-labelledby="installments-reschedule-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="installments-reschedule-title" class="mb-0">تغییر یا تمدید برنامهٔ اقساط</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="installments-reschedule-form" novalidate>
+        <p class="text-gray-700 mb-5" id="installments-reschedule-summary"></p>
+        <div class="row g-5 mb-5">
+            <div class="col-md-4"><label class="form-label fw-semibold required" for="installments-reschedule-count">تعداد اقساط تازه</label><input class="form-control form-control-solid" id="installments-reschedule-count" name="installment_count" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" data-decimal-max="120" dir="ltr" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_count"></p></div>
+            <div class="col-md-4"><label class="form-label fw-semibold required" for="installments-reschedule-first-due">سررسید نخستین قسط</label><input class="form-control form-control-solid" id="installments-reschedule-first-due" name="first_due" type="text" data-jalali="date" autocomplete="off" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="first_due"></p></div>
+            <div class="col-md-4"><label class="form-label fw-semibold required" for="installments-reschedule-interval">فاصلهٔ اقساط (روز)</label><input class="form-control form-control-solid" id="installments-reschedule-interval" name="interval_days" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" data-decimal-max="365" dir="ltr" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="interval_days"></p></div>
+        </div>
+        <div class="mb-5">
+            <label class="form-label fw-semibold required" for="installments-reschedule-reason">دلیل تغییر</label>
+            <textarea class="form-control form-control-solid" id="installments-reschedule-reason" name="reason" rows="2" maxlength="500" required></textarea>
+            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p>
+        </div>
+        <div class="mb-5" id="installments-reschedule-preview" hidden>
+            <h3 class="fs-6 fw-bold text-gray-900 mb-3">برنامهٔ تازه</h3>
+            <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>ردیف</th><th>سررسید</th><th>مبلغ</th></tr></thead><tbody id="installments-reschedule-preview-body"></tbody></table></div>
+        </div>
+        <p class="text-danger fs-7 mb-4" data-error-for="invoice"></p>
+        <div class="d-flex justify-content-end gap-3">
+            <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+            <button class="btn btn-primary" type="submit">ثبت برنامهٔ تازه</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
 {% if can_handle_payments %}
 <section id="invoice-allocations" class="card mb-5 mb-xl-8" hidden><div class="card-body">
     <h2 class="fs-3 fw-bold text-gray-900 mb-5">دریافت‌های تخصیص‌یافته</h2>

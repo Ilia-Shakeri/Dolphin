@@ -378,6 +378,90 @@
 </section>
 </div>
 {% endif %}
+{% if can_configure_installments %}
+{% comment %} This company's instalment rules (2.40.51; `billing.installment_settings`).
+   Each advanced instalment capability is its own manifest feature; a card shows only
+   for one this deployment runs, and the API checks the feature and the
+   `installments.configure` capability again. {% endcomment %}
+<div id="settings-pane-installments" role="tabpanel" aria-labelledby="settings-tab-installments" data-settings-pane="installments"{% if active_tab != "installments" %} hidden{% endif %}>
+<div id="installment-settings-loading" class="text-center text-gray-700 py-6">در حال دریافت تنظیمات اقساط…</div>
+<form id="installment-settings-form" novalidate hidden>
+{% if "installment_reminders" in installment_features %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>یادآور پیامکی اقساط</h2>
+            <span class="text-muted fs-7 mt-1">برای هر قسط پرداخت‌نشده یک پیامک پیش از سررسید، یکی در روز سررسید و یکی پس از گذشتن آن به شمارهٔ اصلی مشتری فرستاده می‌شود.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div class="notice d-flex align-items-center gap-3 bg-light-warning rounded border-warning border border-dashed p-4 mb-6" id="installment-sms-provider-missing" hidden>
+            <i class="di-duotone di-information-5 fs-2x text-warning flex-shrink-0" aria-hidden="true"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+            <span class="text-gray-800">هنوز سرویس ارسال پیامک برای این استقرار تنظیم نشده است؛ تا تنظیم نشود، یادآوری فرستاده نمی‌شود.</span>
+        </div>
+        <div class="row g-5">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" for="installment-remind-days-before">چند روز پیش از سررسید</label>
+                <input class="form-control form-control-solid" id="installment-remind-days-before" name="remind_days_before" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="0" data-decimal-max="30" dir="ltr">
+                <p class="text-muted fs-8 mt-1 mb-0">صفر یعنی پیامک پیش از سررسید فرستاده نشود.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="remind_days_before"></p>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" for="installment-remind-days-after">چند روز پس از سررسید</label>
+                <input class="form-control form-control-solid" id="installment-remind-days-after" name="remind_days_after" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="0" data-decimal-max="60" dir="ltr">
+                <p class="text-muted fs-8 mt-1 mb-0">صفر یعنی پیامک دیرکرد فرستاده نشود.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="remind_days_after"></p>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold" for="installment-remind-send-hour">از ساعت</label>
+                <input class="form-control form-control-solid" id="installment-remind-send-hour" name="remind_send_hour" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="7" data-decimal-max="20" dir="ltr">
+                <p class="text-muted fs-8 mt-1 mb-0">پیامک‌ها از این ساعت تا ۲۱ به وقت تهران فرستاده می‌شوند.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="remind_send_hour"></p>
+            </div>
+            <div class="col-12">
+                <div class="form-check form-check-custom form-check-solid form-switch">
+                    <input class="form-check-input" type="checkbox" id="installment-remind-on-due" name="remind_on_due">
+                    <label class="form-check-label" for="installment-remind-on-due">پیامک روز سررسید</label>
+                </div>
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-semibold" for="installment-template-before">متن پیامک پیش از سررسید</label>
+                <textarea class="form-control form-control-solid" id="installment-template-before" name="template_before" rows="2" maxlength="500"></textarea>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="template_before"></p>
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-semibold" for="installment-template-due">متن پیامک روز سررسید</label>
+                <textarea class="form-control form-control-solid" id="installment-template-due" name="template_due" rows="2" maxlength="500"></textarea>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="template_due"></p>
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-semibold" for="installment-template-overdue">متن پیامک پس از سررسید</label>
+                <textarea class="form-control form-control-solid" id="installment-template-overdue" name="template_overdue" rows="2" maxlength="500"></textarea>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="template_overdue"></p>
+            </div>
+            <div class="col-12">
+                <p class="text-gray-700 fs-7 mb-0">واژه‌هایی که در متن جایگزین می‌شوند: <span id="installment-template-tokens"></span></p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% if "installment_reschedule" in installment_features %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>تغییر و تمدید برنامهٔ اقساط</h2></div></div>
+    <div class="card-body pt-2 text-gray-800">
+        <p class="mb-0">فعال است. در صفحهٔ هر فاکتور اقساطی صادرشده، مدیر پرداخت‌ها با «تغییر یا تمدید برنامه» ماندهٔ اقساط را در برنامهٔ تازه‌ای تقسیم می‌کند. قسط‌های پرداخت‌شده دست نمی‌خورند، هیچ ردیفی حذف نمی‌شود و هر تغییر با دلیلش در تاریخچهٔ همان فاکتور می‌ماند. تنظیم جداگانه‌ای لازم ندارد.</p>
+    </div>
+</section>
+{% endif %}
+{% if "installment_reminders" in installment_features %}
+<div class="d-flex justify-content-end gap-3 mb-8">
+    <button class="btn btn-primary" type="submit">ذخیره</button>
+</div>
+{% endif %}
+</form>
+</div>
+{% endif %}
 <div id="settings-pane-scoring" role="tabpanel" aria-labelledby="settings-tab-scoring" data-settings-pane="scoring"{% if active_tab != "scoring" %} hidden{% endif %}>
 <section class="card mb-5 mb-xl-8" id="panel-scoring">
     <div class="card-header border-0 pt-6">

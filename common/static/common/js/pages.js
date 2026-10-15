@@ -60,11 +60,13 @@ export const PAGES = {
         const module2 = await import("dolphin/features/settings/scoring-section.js");
         const module3 = await import("dolphin/features/settings/security-section.js");
         const module4 = await import("dolphin/features/settings/print-section.js");
+        const module5 = await import("dolphin/features/settings/installments-section.js");
         module0.setupSettingsPage();
         module1.setupBackupSection();
         module2.setupScoringSection();
         module3.setupSecuritySection();
         module4.setupPrintSection();
+        module5.setupInstallmentsSection();
     },
     "sms-provider-settings": async () => (await import("dolphin/features/settings/sms-provider-settings.js")).setupSmsProviderSettings(),
     "post-provider-settings": async () => (await import("dolphin/features/settings/post-provider-settings.js")).setupPostProviderSettings(),

@@ -218,6 +218,16 @@ FEATURE_DEPENDENCIES = {
     # parts stay whatever is stored. Needs `invoices`: today the invoice is the
     # one printed document, and a customisation of nothing is not this feature.
     "print_customization": frozenset({"invoices"}),
+
+    # Advanced instalments (2.40.51, owner decision 2026-10-14, Q15): each its
+    # own feature, off by default, set per company in Settings → اقساط
+    # (`billing.installment_settings`). Changing or extending a plan is the
+    # payments manager's work on an instalment invoice. A reminder is an SMS
+    # through the deployment's provider; it sends nothing until one is set up
+    # (`communications.sms.provider_is_available`, and the settings card says
+    # so), rather than making the outbound-SMS page a hard dependency.
+    "installment_reschedule": frozenset({"payments"}),
+    "installment_reminders": frozenset({"payments"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -298,6 +308,8 @@ DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "two_factor",
     # 2.40.44: a licensed customisation, like `custom_branding`.
     "print_customization",
+    # 2.40.51: advanced instalments — «اگر مشتری بخواهد باید فعال شود».
+    "installment_reschedule", "installment_reminders",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

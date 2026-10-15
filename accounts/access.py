@@ -205,6 +205,9 @@ ROLE_CAPABILITIES = {
         "sales_targets.manage",
         # How printed documents look (2.40.44, feature `print_customization`).
         "print_settings.manage",
+        # This company's instalment rules (2.40.51, the advanced instalment
+        # features; `billing.installment_settings`).
+        "installments.configure",
         "sms.company",
         "users.manage_all",
         "audit.all",

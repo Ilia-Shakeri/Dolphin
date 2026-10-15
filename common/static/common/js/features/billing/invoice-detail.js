@@ -4,6 +4,7 @@ import {apiDate, displayDate, displayDay} from "dolphin/core/jalali.js";
 import {DOCUMENT_STATUS_TEXT, SETTLEMENT_TEXT} from "dolphin/core/labels.js";
 import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {money, moneyToStorage} from "dolphin/core/money.js";
+import {setupInstallmentReschedule} from "dolphin/features/billing/installment-reschedule.js";
 import {INSTALLMENT_DISPLAY_ACCENT, documentLineEditor} from "dolphin/features/billing/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
 import {setupInvoiceCampaign} from "dolphin/ui/invoice-campaign.js";
@@ -133,6 +134,13 @@ export async function setupInvoiceDetail() {
     const installmentsCount = document.getElementById("invoice-installments-count");
     const canEditIssuedInstallments = installmentsSection?.dataset.canPayments === "1";
     let installmentsSummary = null;
+    const reschedule = setupInstallmentReschedule({
+        endpoint,
+        onChanged: async (updated) => {
+            current = await apiRequest(endpoint);
+            apply(current, updated);
+        },
+    });
 
     // A draft has no rows yet: they are worked out here from the same rule
     // the server applies at issue (down payment first, the remainder in
@@ -190,9 +198,18 @@ export async function setupInvoiceDetail() {
             badge.className = `badge badge-light-${INSTALLMENT_DISPLAY_ACCENT[item.status] || "secondary"}`;
             badge.textContent = item.status_display;
             cell.append(badge);
+            // The last reminder SMS for this row (2.40.51, `installment_reminders`).
+            const reminder = item.reminders?.at(-1);
+            if (reminder) {
+                const note = document.createElement("span");
+                note.className = "d-block text-gray-700 fs-8 mt-1";
+                note.textContent = `پیامک ${reminder.kind_display}: ${reminder.status_display}`;
+                cell.append(note);
+            }
             row.append(cell);
             return row;
         }));
+        reschedule.update(summary);
     }
 
     async function loadInstallments() {

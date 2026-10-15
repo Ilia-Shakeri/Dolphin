@@ -9,7 +9,7 @@ from rest_framework.response import Response
 
 from accounts.access import has_any_capability
 from accounts.models import User
-from billing.installments import DISPLAY_LABELS, display_status_q, set_invoice_installments
+from billing.installments import DISPLAY_LABELS, display_status_q, reschedule_plan, set_invoice_installments
 from billing.installments import invoice_summary as invoice_installment_summary
 from billing.ledger import current_balance
 from billing.models import (
@@ -49,6 +49,7 @@ from billing.selectors import (
 )
 from billing.serializers import (
     InvoiceInstallmentsEditSerializer,
+    InvoiceInstallmentsRescheduleSerializer,
     InvoiceOrderLinkSerializer,
     ManualPaidEntrySerializer,
     AllocatePaymentAcrossSerializer,
@@ -310,7 +311,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     status_enum = Invoice.Status
     sensitive_actions = frozenset({
         "create", "update", "partial_update", "items", "issue", "cancel",
-        "reissue", "manual_paid", "link_order", "set_installments",
+        "reissue", "manual_paid", "link_order", "set_installments", "reschedule_installments",
     })
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "issued_at", "due_at", "total_amount", "number"]
@@ -477,6 +478,34 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             installment_count=serializer.validated_data.get("installment_count"),
             down_payment=serializer.validated_data.get("down_payment"),
         )
+        return Response(invoice_installment_summary(Invoice.objects.get(pk=invoice.pk)))
+
+    @extend_schema(
+        request=InvoiceInstallmentsRescheduleSerializer,
+        responses={200: OpenApiTypes.OBJECT, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE,
+                   409: VALIDATION_ERROR_RESPONSE},
+        description=(
+            "Change or extend the remaining schedule of an issued invoice's active plan (feature "
+            "`installment_reschedule`, a payments manager). Paid rows stay as they are; what is unpaid is spread "
+            "over new rows. `preview` returns the new rows without saving; otherwise `reason` is required."
+        ),
+    )
+    @action(detail=True, methods=["post"], url_path="reschedule-installments")
+    def reschedule_installments(self, request, pk=None):
+        invoice = self.get_object()
+        serializer = InvoiceInstallmentsRescheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        result = reschedule_plan(
+            actor=request.user, invoice=invoice, installment_count=data["installment_count"],
+            first_due=data["first_due"], interval_days=data["interval_days"], reason=data.get("reason", ""),
+            preview=data["preview"],
+        )
+        if data["preview"]:
+            return Response({
+                "remaining_amount": result["remaining_amount"],
+                "rows": [{"sequence": sequence, "due_date": due, "amount": amount} for sequence, due, amount in result["rows"]],
+            })
         return Response(invoice_installment_summary(Invoice.objects.get(pk=invoice.pk)))
 
     @extend_schema(responses={200: PaymentAllocationSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})

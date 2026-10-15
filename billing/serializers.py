@@ -878,6 +878,28 @@ class InvoiceInstallmentsEditSerializer(RejectServerFieldsMixin, serializers.Ser
     down_payment = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False)
 
 
+class InvoiceInstallmentsRescheduleSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """`POST invoices/{id}/reschedule-installments/` (2.40.51)."""
+
+    installment_count = serializers.IntegerField(min_value=1, max_value=120)
+    first_due = serializers.DateField()
+    interval_days = serializers.IntegerField(min_value=1, max_value=365)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True, trim_whitespace=True)
+    preview = serializers.BooleanField(required=False, default=False)
+
+
+class InstallmentSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """`PATCH installment-settings/` (2.40.51): any of the fields."""
+
+    remind_days_before = serializers.IntegerField(required=False)
+    remind_on_due = serializers.BooleanField(required=False)
+    remind_days_after = serializers.IntegerField(required=False)
+    remind_send_hour = serializers.IntegerField(required=False)
+    template_before = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+    template_due = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+    template_overdue = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+
+
 class InstallmentPlanSerializer(serializers.ModelSerializer):
     invoice_number = serializers.CharField(source="invoice.number", read_only=True)
     customer = serializers.IntegerField(source="invoice.customer_id", read_only=True)

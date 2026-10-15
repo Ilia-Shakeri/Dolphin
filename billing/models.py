@@ -1332,3 +1332,131 @@ class CustomerLedgerEntry(TimeStampedModel):
             models.Index(fields=["customer", "-occurred_at", "-id"]),
             models.Index(fields=["reference_kind", "reference_id"]),
         ]
+
+
+#: What a reminder SMS may say (2.40.51): the instalment's own facts, each one
+#: token, nothing that reaches outside the row.
+INSTALLMENT_TEMPLATE_TOKENS = ("{نام}", "{مبلغ}", "{تاریخ}", "{فاکتور}", "{قسط}")
+INSTALLMENT_TEMPLATE_MAX_LENGTH = 500
+DEFAULT_REMINDER_BEFORE = "{نام} گرامی، {قسط} فاکتور {فاکتور} به مبلغ {مبلغ} در تاریخ {تاریخ} سررسید می‌شود."
+DEFAULT_REMINDER_DUE = "{نام} گرامی، امروز {تاریخ} سررسید {قسط} فاکتور {فاکتور} به مبلغ {مبلغ} است."
+DEFAULT_REMINDER_OVERDUE = (
+    "{نام} گرامی، {قسط} فاکتور {فاکتور} به مبلغ {مبلغ} که در تاریخ {تاریخ} سررسید شده بود، هنوز پرداخت نشده است."
+)
+
+
+class InstallmentSettings(models.Model):
+    """This company's instalment rules (2.40.51, owner decision 2026-10-14).
+
+    One row. Each advanced instalment capability is its own manifest feature,
+    off by default; this row holds what each does once it is on, and keeps it
+    when a feature is turned off again. Read and written through
+    `billing.installment_settings`, by the `installments.configure` capability.
+    """
+
+    SINGLETON = 1
+
+    singleton = models.PositiveSmallIntegerField(primary_key=True, default=SINGLETON)
+    #: `installment_reminders`: days before the due date for the early SMS
+    #: (0 sends none), whether one goes on the day, and days after it for the
+    #: overdue one (0 sends none). Nothing is sent before `remind_send_hour`.
+    remind_days_before = models.PositiveSmallIntegerField(default=3)
+    remind_on_due = models.BooleanField(default=True)
+    remind_days_after = models.PositiveSmallIntegerField(default=3)
+    remind_send_hour = models.PositiveSmallIntegerField(default=10)
+    template_before = models.CharField(max_length=INSTALLMENT_TEMPLATE_MAX_LENGTH, default=DEFAULT_REMINDER_BEFORE)
+    template_due = models.CharField(max_length=INSTALLMENT_TEMPLATE_MAX_LENGTH, default=DEFAULT_REMINDER_DUE)
+    template_overdue = models.CharField(max_length=INSTALLMENT_TEMPLATE_MAX_LENGTH, default=DEFAULT_REMINDER_OVERDUE)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(singleton=1), name="installment_settings_is_singleton"),
+            models.CheckConstraint(condition=Q(remind_days_before__lte=30), name="installment_settings_before_bounded"),
+            models.CheckConstraint(condition=Q(remind_days_after__lte=60), name="installment_settings_after_bounded"),
+            models.CheckConstraint(
+                condition=Q(remind_send_hour__gte=7) & Q(remind_send_hour__lte=20),
+                name="installment_settings_send_hour_bounded",
+            ),
+        ]
+
+
+class InstallmentReschedule(TimeStampedModel):
+    """One change to an active plan's remaining schedule (2.40.51, feature
+    `installment_reschedule`).
+
+    What was paid stays exactly as it was; the unpaid rows are closed (never
+    deleted) and the unpaid amount is spread over new rows after them. `before`
+    and `after` are the rows as they stood on each side, so the plan's whole
+    history reads back. Append-only: the runtime role holds `SELECT, INSERT`.
+    """
+
+    plan = models.ForeignKey(InstallmentPlan, on_delete=models.PROTECT, related_name="reschedules")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    reason = models.CharField(max_length=500)
+    remaining_amount = models.DecimalField(max_digits=18, decimal_places=2)
+    installment_count = models.PositiveSmallIntegerField()
+    first_due = models.DateField()
+    interval_days = models.PositiveSmallIntegerField()
+    before = models.JSONField()
+    after = models.JSONField()
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(remaining_amount__gt=0), name="installment_reschedule_amount_positive"),
+            models.CheckConstraint(
+                condition=Q(installment_count__gte=1) & Q(installment_count__lte=120),
+                name="installment_reschedule_count_bounded",
+            ),
+            models.CheckConstraint(
+                condition=Q(interval_days__gte=1) & Q(interval_days__lte=365),
+                name="installment_reschedule_interval_bounded",
+            ),
+            models.CheckConstraint(condition=Q(reason__regex=r"\S"), name="installment_reschedule_reason_nonblank"),
+        ]
+
+
+class InstallmentReminder(TimeStampedModel):
+    """One reminder SMS for one instalment and one due date (2.40.51, feature
+    `installment_reminders`).
+
+    Unique per row, kind and due date, and written *before* the provider is
+    called, so two dispatchers can never send the same reminder twice — and a
+    rescheduled row, whose due date moved, is reminded again for the new date.
+    """
+
+    class Kind(models.TextChoices):
+        BEFORE = "before", "پیش از سررسید"
+        DUE = "due", "روز سررسید"
+        OVERDUE = "overdue", "پس از سررسید"
+
+    class Status(models.TextChoices):
+        SENDING = "sending", "در حال ارسال"
+        SENT = "sent", "ارسال شد"
+        FAILED = "failed", "ناموفق"
+        SKIPPED = "skipped", "ارسال نشد"
+
+    installment = models.ForeignKey(Installment, on_delete=models.PROTECT, related_name="reminders")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    due_date = models.DateField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.SENDING)
+    detail = models.CharField(max_length=255, blank=True)
+    #: `communications.OutboundSMS` id of the send, when one was made. A plain
+    #: id, not a foreign key: billing takes no schema dependency on the SMS
+    #: module for one back-reference.
+    message_id = models.PositiveBigIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["installment", "kind", "due_date"], name="uniq_installment_reminder"),
+            models.CheckConstraint(condition=Q(kind__in=["before", "due", "overdue"]), name="installment_reminder_kind_valid"),
+            models.CheckConstraint(
+                condition=Q(status__in=["sending", "sent", "failed", "skipped"]),
+                name="installment_reminder_status_valid",
+            ),
+        ]

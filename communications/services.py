@@ -282,6 +282,40 @@ def send_outbound_sms(*, actor, body, customer=None, lead=None, phone=""):
     return message
 
 
+def send_system_sms(*, body, customer):
+    """An SMS the deployment sends on its own, with no person behind it
+    (2.40.51: instalment reminders).
+
+    The same records as `send_outbound_sms`: one `OutboundSMS` row for the
+    attempt — `sent_by` empty — and an audit row, which records the `system`
+    role. What can be checked first (an empty body, no active phone, no
+    provider) raises `BusinessRuleError` and writes nothing; once the provider
+    is called, its outcome is recorded and returned, never raised.
+    """
+    cleaned_body = _clean_body(body)
+    recipient = _resolve_recipient(customer=customer, phone="")
+    if not sms.provider_is_available():
+        raise BusinessRuleError({"provider": "سرویس ارسال پیامک برای این استقرار تنظیم نشده است."})
+    result = sms.send_via_configured_provider(to=recipient, body=cleaned_body)
+    with transaction.atomic():
+        message = OutboundSMS.objects.create(
+            provider_code=result.provider_code,
+            recipient_normalized=recipient,
+            body_text=cleaned_body,
+            status=OutboundSMS.Status.SENT if result.success else OutboundSMS.Status.FAILED,
+            status_detail=result.status_detail[:255],
+            customer=customer,
+            sent_by=None,
+        )
+        log_activity(
+            actor=None,
+            operation="outbound_sms.sent" if result.success else "outbound_sms.failed",
+            instance=message,
+            changes={"fields": ["recipient_normalized", "status", "customer"]},
+        )
+    return message
+
+
 # A group send is bounded so one mistaken selection cannot queue the entire
 # customer book. Not a carrier limit — a deliberate blast radius, the same
 # reasoning behind every other cap in this module.

@@ -12,15 +12,16 @@ allocation, or an invoice cancellation.
 
 import datetime
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
 from auditlog.services import log_activity
-from billing.models import Installment, InstallmentPlan, Invoice
+from billing.models import Installment, InstallmentPlan, InstallmentReschedule, Invoice
 from billing.money import clean_money, quantize_money
+from common.deployment.profile import feature_enabled
 from common.exceptions import BusinessConflictError, BusinessRuleError
 
 #: Days before the due date at which an unpaid row is flagged «نزدیک سررسید».
@@ -160,11 +161,14 @@ def cancel_plan_with_invoice(invoice):
 
 
 def _is_editable_plan(plan, invoice):
+    # A rescheduled plan is no longer the invoice's terms split evenly, so
+    # editing those terms would throw the agreed schedule away (2.40.51).
     return (
         plan.status != InstallmentPlan.Status.CANCELLED
         and plan.interest_amount == 0
         and plan.extra_discount_percent == 0
         and plan.total_amount == invoice.total_amount
+        and not plan.reschedules.exists()
     )
 
 
@@ -217,6 +221,138 @@ def set_invoice_installments(*, actor, invoice, installment_count=None, down_pay
     return locked_invoice
 
 
+RESCHEDULE_FEATURE = "installment_reschedule"
+RESCHEDULE_REASON_MAX_LENGTH = 500
+
+
+def _row_state(row):
+    return {
+        "sequence": row.sequence, "due_date": row.due_date.isoformat(), "amount": str(row.amount),
+        "paid_amount": str(row.paid_amount), "status": row.status,
+    }
+
+
+def _open_amount(rows):
+    return quantize_money(sum((row.amount - row.paid_amount for row in rows), Decimal("0.00")))
+
+
+def reschedule_preview_rows(*, remaining, installment_count, first_due, interval_days, first_sequence):
+    """The new rows: the unpaid amount in equal parts of whole rials, the
+    remainder on the first (owner decision 2026-10-14: amounts the advanced
+    instalment features make are whole rials)."""
+    base = (remaining / installment_count).quantize(Decimal("1"), rounding=ROUND_DOWN)
+    first = quantize_money(remaining - base * (installment_count - 1))
+    return [
+        (first_sequence + index, first_due + timedelta(days=interval_days * index), first if index == 0 else base)
+        for index in range(installment_count)
+    ]
+
+
+def _clean_reschedule_terms(*, remaining, installment_count, first_due, interval_days, reason, today):
+    if isinstance(installment_count, bool) or not isinstance(installment_count, int) or not 1 <= installment_count <= 120:
+        raise BusinessRuleError({"installment_count": "تعداد اقساط باید بین ۱ تا ۱۲۰ باشد."})
+    if isinstance(interval_days, bool) or not isinstance(interval_days, int) or not 1 <= interval_days <= 365:
+        raise BusinessRuleError({"interval_days": "فاصلهٔ اقساط باید بین ۱ تا ۳۶۵ روز باشد."})
+    if not isinstance(first_due, datetime.date):
+        raise BusinessRuleError({"first_due": "تاریخ نخستین قسط را وارد کنید."})
+    if first_due < today:
+        raise BusinessRuleError({"first_due": "نخستین قسط برنامهٔ تازه نمی‌تواند پیش از امروز باشد."})
+    if remaining / installment_count < 1:
+        raise BusinessRuleError({"installment_count": "تعداد اقساط برای این مبلغ زیاد است؛ هر قسط باید دست‌کم یک ریال باشد."})
+    reason = " ".join(str(reason or "").split())
+    if not reason:
+        raise BusinessRuleError({"reason": "دلیل تغییر برنامه را بنویسید."})
+    if len(reason) > RESCHEDULE_REASON_MAX_LENGTH:
+        raise BusinessRuleError({"reason": f"دلیل نباید بیش از {RESCHEDULE_REASON_MAX_LENGTH} نویسه باشد."})
+    return reason
+
+
+@transaction.atomic
+def reschedule_plan(*, actor, invoice, installment_count, first_due, interval_days, reason="", preview=False):
+    """Change or extend what is left of an active plan (2.40.51, feature
+    `installment_reschedule`, owner decision 2026-10-14).
+
+    «قسط‌های پرداخت‌شده دست نمی‌خورند، هیچ ردیفی حذف نمی‌شود و تاریخچه کامل
+    می‌ماند»: a paid row is left exactly as it is; a part-paid row keeps what
+    was paid and is closed at that amount; an unpaid row is closed (`cancelled`,
+    which lists already leave out for an active plan). What was still owed is
+    spread over `installment_count` new rows from `first_due`, `interval_days`
+    apart, numbered after every existing row — so the plan still sums to the
+    invoice total and the allocation waterfall, which fills rows by sequence,
+    needs nothing re-applied. Both sides are kept in an `InstallmentReschedule`.
+
+    With `preview=True` nothing is written and the new rows come back.
+    """
+    from billing.payments import _lock_payment_manager
+
+    if not feature_enabled(RESCHEDULE_FEATURE):
+        raise BusinessConflictError({"invoice": "تغییر برنامهٔ اقساط در این استقرار فعال نیست."})
+    actor = _lock_payment_manager(actor)
+    locked_invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if locked_invoice.status != Invoice.Status.ISSUED:
+        raise BusinessConflictError({"invoice": "فقط برنامهٔ اقساط فاکتور صادرشده قابل تغییر است."})
+    plan = InstallmentPlan.objects.select_for_update().filter(invoice=locked_invoice).first()
+    if plan is None or plan.status != InstallmentPlan.Status.ACTIVE:
+        raise BusinessConflictError({"invoice": "این فاکتور برنامهٔ اقساط فعالی ندارد."})
+    live = list(plan.installments.select_for_update().exclude(status=Installment.Status.CANCELLED).order_by("sequence"))
+    open_rows = [row for row in live if row.paid_amount < row.amount]
+    remaining = _open_amount(open_rows)
+    if remaining <= 0:
+        raise BusinessConflictError({"invoice": "همهٔ اقساط این برنامه پرداخت شده است."})
+    reason = _clean_reschedule_terms(
+        remaining=remaining, installment_count=installment_count, first_due=first_due,
+        interval_days=interval_days, reason=reason if not preview else (reason or "پیش‌نمایش"),
+        today=timezone.localdate(),
+    )
+    first_sequence = max(row.sequence for row in plan.installments.all()) + 1
+    new_rows = reschedule_preview_rows(
+        remaining=remaining, installment_count=installment_count, first_due=first_due,
+        interval_days=interval_days, first_sequence=first_sequence,
+    )
+    if preview:
+        return {"remaining_amount": remaining, "rows": new_rows}
+
+    before = [_row_state(row) for row in live]
+    for row in open_rows:
+        if row.paid_amount > 0:
+            row.amount = row.paid_amount
+            row.status = Installment.Status.PAID
+        else:
+            row.status = Installment.Status.CANCELLED
+        row.save(update_fields=["amount", "status", "updated_at"])
+    Installment.objects.bulk_create([
+        Installment(plan=plan, sequence=sequence, due_date=due, amount=amount) for sequence, due, amount in new_rows
+    ])
+    after = [
+        _row_state(row)
+        for row in plan.installments.exclude(status=Installment.Status.CANCELLED).order_by("sequence")
+    ]
+    InstallmentReschedule.objects.create(
+        plan=plan, actor=actor, reason=reason, remaining_amount=remaining, installment_count=installment_count,
+        first_due=first_due, interval_days=interval_days, before=before, after=after,
+    )
+    log_activity(
+        actor=actor, operation="installment_plan.rescheduled", instance=plan,
+        changes={
+            "invoice": locked_invoice.pk, "installment_count": installment_count, "amount": str(remaining),
+            "reason_provided": True, "fields": ["first_due", "interval_days"],
+        },
+    )
+    return {"remaining_amount": remaining, "rows": new_rows}
+
+
+def reschedule_history(plan):
+    return [
+        {
+            "id": item.pk, "at": item.created_at, "actor_display": item.actor.get_full_name() or item.actor.username,
+            "reason": item.reason, "remaining_amount": item.remaining_amount,
+            "installment_count": item.installment_count, "first_due": item.first_due,
+            "interval_days": item.interval_days,
+        }
+        for item in plan.reschedules.select_related("actor").order_by("-created_at", "-id")
+    ]
+
+
 def display_status(*, invoice_status, status, due_date, paid_amount, today=None):
     """The status the Instalments list shows, worked out from the row itself."""
     today = today or timezone.localdate()
@@ -241,8 +377,22 @@ def invoice_summary(invoice):
     plan = InstallmentPlan.objects.filter(invoice=invoice).first()
     rows = []
     editable = invoice.status == Invoice.Status.DRAFT
+    reschedulable = False
+    history = []
+    reminders = {}
+    if plan is not None and feature_enabled("installment_reminders"):
+        from billing.installment_reminders import reminders_for_rows
+
+        reminders = reminders_for_rows(plan.installments.values_list("pk", flat=True))
     if plan is not None:
         editable = invoice.status == Invoice.Status.ISSUED and _is_editable_plan(plan, invoice)
+        reschedulable = (
+            feature_enabled(RESCHEDULE_FEATURE)
+            and invoice.status == Invoice.Status.ISSUED
+            and plan.status == InstallmentPlan.Status.ACTIVE
+        )
+        if feature_enabled(RESCHEDULE_FEATURE):
+            history = reschedule_history(plan)
         for row in visible_installments(plan.installments.all()).order_by("sequence"):
             key = display_status(
                 invoice_status=invoice.status, status=row.status, due_date=row.due_date,
@@ -252,6 +402,8 @@ def invoice_summary(invoice):
                 "id": row.pk, "sequence": row.sequence, "is_down_payment": row.sequence == 0,
                 "due_date": row.due_date, "amount": row.amount, "paid_amount": row.paid_amount,
                 "balance_due": row.balance_due, "status": key, "status_display": DISPLAY_LABELS[key],
+                # The reminder SMS sent for this row (2.40.51), oldest first.
+                "reminders": reminders.get(row.pk, []),
             })
     return {
         "payment_type": invoice.payment_type,
@@ -261,6 +413,12 @@ def invoice_summary(invoice):
         "interval_days": invoice.installment_interval_days,
         "editable": editable and invoice.payment_type == Invoice.PaymentType.INSTALLMENT,
         "rows": rows,
+        # 2.40.51: whether the remaining schedule may be changed or extended
+        # (the feature, an issued invoice, an active plan; the payments-manager
+        # check is the service's), and every earlier change.
+        "reschedulable": reschedulable and any(row["balance_due"] > 0 for row in rows),
+        "interval_days_current": plan.interval_days if plan is not None else None,
+        "reschedules": history,
     }
 
 

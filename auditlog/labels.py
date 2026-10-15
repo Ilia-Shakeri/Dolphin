@@ -97,6 +97,8 @@ OPERATION_LABELS = {
     "cheque.registration_changed": "تغییر حالت ثبت چک",
     "installment_plan.created": "ثبت طرح اقساط",
     "installment_plan.cancelled": "لغو طرح اقساط",
+    "installment_plan.rescheduled": "تغییر برنامهٔ اقساط",
+    "installment_settings.updated": "تغییر تنظیمات اقساط",
     # --- خدمات پس از فروش ---------------------------------------------------
     "after_sales.created": "ثبت درخواست پس از فروش",
     "after_sales.assigned": "واگذاری درخواست پس از فروش",
@@ -254,6 +256,7 @@ OBJECT_TYPE_LABELS = {
     "billing.cheque": "چک",
     "billing.installmentplan": "طرح اقساط",
     "billing.installment": "قسط",
+    "billing.installmentsettings": "تنظیمات اقساط",
     "billing.customerledgerentry": "ردیف دفتر مشتری",
     "attachments.attachment": "پیوست",
     "chat.chatthread": "گفت‌وگو",

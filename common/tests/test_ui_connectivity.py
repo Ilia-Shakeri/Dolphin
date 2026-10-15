@@ -337,7 +337,8 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
         # (2.40.42) is off by default everywhere too, and Client-1's own login
         # policy names no second step (`test_login_contract`).
         # `print_customization` (2.40.44) is off by default everywhere, a
-        # licensed customisation like `custom_branding`.
+        # licensed customisation like `custom_branding`. So are the advanced
+        # instalment features (2.40.51): «اگر مشتری بخواهد باید فعال شود».
         self.assertEqual(
             withheld,
             frozenset({
@@ -345,7 +346,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "custom_branding", "internal_chat", "reminders", "global_search",
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
                 "accounting_ledger", "panel_backup", "cheques", "campaigns", "realtime",
-                "two_factor", "print_customization",
+                "two_factor", "print_customization", "installment_reschedule", "installment_reminders",
             }),
         )
 

@@ -25,6 +25,9 @@ SELECT (
     AND to_regclass('public.billing_documentsequence') IS NOT NULL
     AND to_regclass('public.billing_installment') IS NOT NULL
     AND to_regclass('public.billing_installmentplan') IS NOT NULL
+    AND to_regclass('public.billing_installmentreminder') IS NOT NULL
+    AND to_regclass('public.billing_installmentreschedule') IS NOT NULL
+    AND to_regclass('public.billing_installmentsettings') IS NOT NULL
     AND to_regclass('public.billing_invoice') IS NOT NULL
     AND to_regclass('public.billing_invoiceitem') IS NOT NULL
     AND to_regclass('public.billing_order') IS NOT NULL
@@ -92,7 +95,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (120), recorded.
+    -- Every migration this release ships (121), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -151,6 +154,7 @@ SELECT (
                 ('billing', '0020_allocation_release_reason_request_key'),
                 ('billing', '0021_invoice_campaign'),
                 ('billing', '0022_allocation_request_key_unique'),
+                ('billing', '0023_installment_reschedule_reminders'),
                 ('chat', '0001_initial'),
                 ('common', '0001_initial'),
                 ('common', '0002_brandsettings'),
@@ -225,7 +229,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (229).
+    -- Every named check and unique constraint (240).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -275,6 +279,17 @@ SELECT (
                 ('billing_installmentplan', 'installment_plan_status_valid'),
                 ('billing_installmentplan', 'installment_plan_total_equals_principal_plus_interest'),
                 ('billing_installmentplan', 'installment_plan_total_positive'),
+                ('billing_installmentreminder', 'installment_reminder_kind_valid'),
+                ('billing_installmentreminder', 'installment_reminder_status_valid'),
+                ('billing_installmentreminder', 'uniq_installment_reminder'),
+                ('billing_installmentreschedule', 'installment_reschedule_amount_positive'),
+                ('billing_installmentreschedule', 'installment_reschedule_count_bounded'),
+                ('billing_installmentreschedule', 'installment_reschedule_interval_bounded'),
+                ('billing_installmentreschedule', 'installment_reschedule_reason_nonblank'),
+                ('billing_installmentsettings', 'installment_settings_after_bounded'),
+                ('billing_installmentsettings', 'installment_settings_before_bounded'),
+                ('billing_installmentsettings', 'installment_settings_is_singleton'),
+                ('billing_installmentsettings', 'installment_settings_send_hour_bounded'),
                 ('billing_invoice', 'invoice_discount_non_negative'),
                 ('billing_invoice', 'invoice_discount_percent_bounded'),
                 ('billing_invoice', 'invoice_discount_within_subtotal'),

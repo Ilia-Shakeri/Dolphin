@@ -1184,6 +1184,15 @@ class DolphinInvoiceDetailView(ScopedDetailView):
         context["can_request_fulfillment"] = feature_enabled("orders") and (
             "orders.manage" in context["capabilities"]
         )
+        # Changing or extending the rest of an instalment plan (2.40.51): the
+        # feature and a payments manager; `reschedule_plan` re-checks both.
+        from billing.payments import ELEVATED_OPERATORS as PAYMENT_MANAGERS
+
+        context["can_reschedule_installments"] = (
+            feature_enabled("installment_reschedule")
+            and "payments.company" in context["capabilities"]
+            and self.request.user.role in PAYMENT_MANAGERS
+        )
         return context
 
 
@@ -1636,6 +1645,15 @@ class DolphinSettingsView(ActiveCrmView):
         context["can_manage_print"] = print_settings.can_manage(self.request.user)
         if context["can_manage_print"]:
             tabs.append(("print", "قالب چاپ"))
+        # This company's instalment rules (2.40.51): one of the advanced
+        # instalment features and `installments.configure`, both checked again
+        # by `/api/v1/installment-settings/`.
+        from billing import installment_settings
+
+        context["can_configure_installments"] = installment_settings.can_configure(self.request.user)
+        context["installment_features"] = installment_settings.enabled_features()
+        if context["can_configure_installments"]:
+            tabs.append(("installments", "اقساط"))
         if context["can_manage_branding"] or context["can_manage_integrations"]:
             tabs.append(("deployment", "استقرار"))
         requested = self.request.GET.get("tab", "")

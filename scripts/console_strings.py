@@ -126,6 +126,8 @@ FEATURE_META = {
     "invoices": ("billing", "فاکتورها", "Invoices", "فاکتور رسمی و غیررسمی، اقساط و چاپ.", "Official and unofficial invoices, instalments and printing."),
     "payments": ("billing", "دریافت‌ها و پرداخت‌ها", "Payments", "دریافت، تخصیص به فاکتور و اقساط.", "Receipts, allocation to invoices and instalments."),
     "cheques": ("billing", "چک", "Cheques", "ثبت و پیگیری وضعیت چک‌ها.", "Registering and tracking cheques."),
+    "installment_reschedule": ("billing", "تغییر و تمدید اقساط", "Instalment rescheduling", "تغییر یا تمدید برنامهٔ باقی‌ماندهٔ اقساط، با تاریخچه و بی حذف ردیف.", "Changing or extending the rest of an instalment plan, with history and no deleted rows."),
+    "installment_reminders": ("billing", "یادآور پیامکی اقساط", "Instalment SMS reminders", "پیامک پیش از سررسید، روز سررسید و پس از آن، با متن قابل ویرایش.", "SMS before, on and after the due date, with editable texts."),
     "sales_documents": ("billing", "اسناد فروش و رهگیری پستی", "Sales documents & postal tracking", "سند فروش داخلی، مرسولهٔ پستی و وضعیت آن.", "Internal sales documents, postal shipments and their status."),
     "accounting_ledger": ("billing", "دفتر حسابداری", "Accounting ledger", "ثبت دوطرفهٔ اسناد در دفتر کل.", "Double-entry posting of documents to the general ledger."),
     "products": ("stock", "کاتالوگ محصولات", "Product catalogue", "کالاها، دسته‌بندی‌ها و قیمت‌ها.", "Products, categories and prices."),

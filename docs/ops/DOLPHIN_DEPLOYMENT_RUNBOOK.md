@@ -1192,6 +1192,12 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.51 — `billing/0023_installment_reschedule_reminders`** creates three tables for the advanced
+  instalment features: `billing_installmentsettings` (`SELECT, INSERT, UPDATE`),
+  `billing_installmentreschedule` (`SELECT, INSERT` — append-only history) and
+  `billing_installmentreminder` (`SELECT, INSERT, UPDATE`), all granted by `db-finalize`. No data
+  moves; reversible with `migrate billing 0022`. Both features are off by default; the reminders need
+  the cron line in [4.4](#44-schedule-it) and an SMS provider.
 * **2.40.50 — `common/0015_backup_runs`** creates `common_backuprun`, the record of scheduled backups.
   `db-finalize` grants the application `SELECT` and the backup role its one write, `INSERT` (plus
   `USAGE` on the id sequence). No data moves; reversible with `migrate common 0014`. The new
@@ -1328,6 +1334,16 @@ missed night costs nothing but freshness:
 
 ```
 45 2 * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm score-recalculation >> /var/log/dolphin-score-recalculation.log 2>&1
+```
+
+Where the manifest enables `installment_reminders` (2.40.51), send the instalment
+reminder SMS once an hour. Each reminder goes once per instalment and due date, and
+nothing is sent before the company's own send hour (Settings → اقساط) or after 21:00;
+on a deployment without the feature the run does nothing. It reuses the
+`scheduled-sms` service with another command:
+
+```
+5 * * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm scheduled-sms python manage.py send_installment_reminders >> /var/log/dolphin-installment-reminders.log 2>&1
 ```
 
 Where the manifest enables `integrations` (2.21.0), trim the integrations log
