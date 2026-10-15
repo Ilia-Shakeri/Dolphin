@@ -1511,6 +1511,11 @@ def issue_invoice(*, actor, invoice):
         reference_id=locked.pk,
         reference_number=locked.number,
     )
+    # Instalment interest (2.40.52, feature `installment_interest`): a debit of
+    # its own after the invoice's, never part of the invoice.
+    from billing.installment_charges import charge_interest_at_issue
+
+    charge_interest_at_issue(actor=actor, invoice=locked, occurred_at=issued_at)
     log_activity(
         actor=actor,
         operation="invoice.issued",
@@ -1571,6 +1576,12 @@ def cancel_invoice(*, actor, invoice, reason=""):
         })
     cancelled_at = timezone.now()
     was_issued = locked.status == Invoice.Status.ISSUED
+    if was_issued:
+        # Interest and late fees still open are cancelled with one credit;
+        # refused while a receipt settles any of them (2.40.52).
+        from billing.installment_charges import cancel_charges_with_invoice
+
+        cancel_charges_with_invoice(actor=actor, invoice=locked, occurred_at=cancelled_at)
 
     if locked.stock_applied:
         for item in locked.items.select_related("product").order_by("line_number"):

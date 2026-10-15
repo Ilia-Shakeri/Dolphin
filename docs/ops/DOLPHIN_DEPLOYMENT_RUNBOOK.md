@@ -1192,6 +1192,14 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.52 — `billing/0024_installment_charges`** creates `billing_installmentcharge` and
+  `billing_chargesettlement` (both `SELECT, INSERT, UPDATE`, granted by `db-finalize`), adds the
+  interest and late-fee rules to `billing_installmentsettings` and a nullable
+  `installment_profit_rate` to invoices, makes `billing_customerledgerentry.created_by` nullable (a
+  late fee is posted by the deployment, not a person) and widens the ledger's entry-type check by four
+  types. No data moves and no row is rewritten; the ledger stays append-only. Reversible with
+  `migrate billing 0023` only while no charge and no system-posted ledger entry exists. Both features
+  are off by default; late fees need the cron line in [4.4](#44-schedule-it).
 * **2.40.51 — `billing/0023_installment_reschedule_reminders`** creates three tables for the advanced
   instalment features: `billing_installmentsettings` (`SELECT, INSERT, UPDATE`),
   `billing_installmentreschedule` (`SELECT, INSERT` — append-only history) and
@@ -1344,6 +1352,14 @@ on a deployment without the feature the run does nothing. It reuses the
 
 ```
 5 * * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm scheduled-sms python manage.py send_installment_reminders >> /var/log/dolphin-installment-reminders.log 2>&1
+```
+
+Where the manifest enables `installment_late_fees` (2.40.52), post the day's late fees once,
+early in the morning. Each instalment is charged once; a row due before the fee was first set
+is never charged; without the feature or a fee value the run does nothing:
+
+```
+15 1 * * * cd /srv/dolphin/client-1 && docker compose --env-file secrets/.env --profile maintenance run --rm scheduled-sms python manage.py post_installment_late_fees >> /var/log/dolphin-installment-late-fees.log 2>&1
 ```
 
 Where the manifest enables `integrations` (2.21.0), trim the integrations log

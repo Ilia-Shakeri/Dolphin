@@ -127,6 +127,8 @@ FEATURE_META = {
     "payments": ("billing", "دریافت‌ها و پرداخت‌ها", "Payments", "دریافت، تخصیص به فاکتور و اقساط.", "Receipts, allocation to invoices and instalments."),
     "cheques": ("billing", "چک", "Cheques", "ثبت و پیگیری وضعیت چک‌ها.", "Registering and tracking cheques."),
     "installment_reschedule": ("billing", "تغییر و تمدید اقساط", "Instalment rescheduling", "تغییر یا تمدید برنامهٔ باقی‌ماندهٔ اقساط، با تاریخچه و بی حذف ردیف.", "Changing or extending the rest of an instalment plan, with history and no deleted rows."),
+    "installment_interest": ("billing", "سود اقساط", "Instalment interest", "سود ساده یا کاهنده با نرخ پیش‌فرض شرکت، جدا از فاکتور در حساب مشتری.", "Simple or reducing interest at the company's default rate, posted apart from the invoice."),
+    "installment_late_fees": ("billing", "جریمهٔ دیرکرد اقساط", "Instalment late fees", "پس از مهلت، درصدی از مانده یا مبلغ ثابت با سقف، جدا در حساب مشتری.", "After a grace period, a percent of what is left or a fixed amount, capped, posted to the customer account."),
     "installment_reminders": ("billing", "یادآور پیامکی اقساط", "Instalment SMS reminders", "پیامک پیش از سررسید، روز سررسید و پس از آن، با متن قابل ویرایش.", "SMS before, on and after the due date, with editable texts."),
     "sales_documents": ("billing", "اسناد فروش و رهگیری پستی", "Sales documents & postal tracking", "سند فروش داخلی، مرسولهٔ پستی و وضعیت آن.", "Internal sales documents, postal shipments and their status."),
     "accounting_ledger": ("billing", "دفتر حسابداری", "Accounting ledger", "ثبت دوطرفهٔ اسناد در دفتر کل.", "Double-entry posting of documents to the general ledger."),

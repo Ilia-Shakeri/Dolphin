@@ -1193,6 +1193,11 @@ class DolphinInvoiceDetailView(ScopedDetailView):
             and "payments.company" in context["capabilities"]
             and self.request.user.role in PAYMENT_MANAGERS
         )
+        # Forgiving a late fee (2.40.52): a payments manager; `waive_charge`
+        # re-checks. Shown wherever a charge may exist, feature on or not.
+        context["can_waive_charges"] = (
+            "payments.company" in context["capabilities"] and self.request.user.role in PAYMENT_MANAGERS
+        )
         return context
 
 
@@ -1482,6 +1487,16 @@ class DolphinPaymentDetailView(PaymentDeskView, ScopedDetailView):
             .filter(pk=self.kwargs[self.object_id_kwarg])
             .values_list("direction", flat=True)
             .first()
+        )
+        # Instalment interest and late fees (2.40.52): where either runs, a
+        # receipt can settle them; a payments manager does it, and the service
+        # checks again.
+        from billing.installment_charges import INTEREST, LATE_FEES
+        from billing.payments import ELEVATED_OPERATORS as PAYMENT_MANAGERS
+
+        context["show_installment_charges"] = feature_enabled(INTEREST) or feature_enabled(LATE_FEES)
+        context["can_settle_charges"] = (
+            "payments.manage" in context["capabilities"] and self.request.user.role in PAYMENT_MANAGERS
         )
         return context
 

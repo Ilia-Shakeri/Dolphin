@@ -228,6 +228,10 @@ FEATURE_DEPENDENCIES = {
     # so), rather than making the outbound-SMS page a hard dependency.
     "installment_reschedule": frozenset({"payments"}),
     "installment_reminders": frozenset({"payments"}),
+    # 2.40.52: interest and a late fee are each a debit of their own in the
+    # customer ledger (owner decision 2026-10-14), so both need the ledger.
+    "installment_interest": frozenset({"payments", "customer_ledger"}),
+    "installment_late_fees": frozenset({"payments", "customer_ledger"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -309,7 +313,7 @@ DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     # 2.40.44: a licensed customisation, like `custom_branding`.
     "print_customization",
     # 2.40.51: advanced instalments — «اگر مشتری بخواهد باید فعال شود».
-    "installment_reschedule", "installment_reminders",
+    "installment_reschedule", "installment_reminders", "installment_interest", "installment_late_fees",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

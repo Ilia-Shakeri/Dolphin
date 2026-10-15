@@ -15,6 +15,11 @@ const LEDGER_ENTRY_TEXT = Object.freeze({
     payment_cancelled: "ابطال دریافت",
     adjustment_debit: "اصلاح بدهکار",
     adjustment_credit: "اصلاح بستانکار",
+    // 2.40.52: instalment charges, each a movement of its own.
+    installment_interest: "سود اقساط",
+    late_fee: "جریمهٔ دیرکرد",
+    charge_waived: "بخشودگی جریمه",
+    charge_cancelled: "لغو سود و جریمه",
 });
 
 // --- Customer ledger -----------------------------------------------------
@@ -80,7 +85,7 @@ export async function setupCustomerLedger() {
             appendMoneyCell(row, Number(entry.debit) > 0 ? entry.debit : "");
             appendMoneyCell(row, Number(entry.credit) > 0 ? entry.credit : "");
             appendMoneyCell(row, entry.balance_after);
-            appendCell(row, entry.created_by_display || entry.created_by);
+            appendCell(row, entry.created_by_display || entry.created_by || "سامانه");
             return row;
         },
     });

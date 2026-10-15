@@ -17,7 +17,7 @@ from django.core.management.base import BaseCommand
 from django.db import models
 from django.db.models import Sum
 
-from billing.models import Invoice, Payment, PaymentAllocation
+from billing.models import ChargeSettlement, InstallmentCharge, Invoice, Payment, PaymentAllocation
 
 
 class Command(BaseCommand):
@@ -29,8 +29,11 @@ class Command(BaseCommand):
         problems = []
 
         by_payment = {row["payment"]: row["total"] for row in active.values("payment").annotate(total=Sum("amount"))}
+        # 2.40.52: what a receipt settled of instalment interest and late fees.
+        settled = ChargeSettlement.objects.filter(is_reversed=False)
+        by_payment_charges = {row["payment"]: row["total"] for row in settled.values("payment").annotate(total=Sum("amount"))}
         for payment in Payment.objects.filter(direction=Payment.Direction.RECEIPT):
-            expected = by_payment.get(payment.pk, zero)
+            expected = by_payment.get(payment.pk, zero) + by_payment_charges.get(payment.pk, zero)
             if payment.allocated_amount != expected:
                 problems.append(f"receipt {payment.number}: allocated_amount {payment.allocated_amount} but allocations sum to {expected}")
             if payment.allocated_amount > payment.amount:
@@ -62,6 +65,12 @@ class Command(BaseCommand):
                 problems.append(
                     f"invoice {plan.invoice.number}: instalments record {plan.paid} paid, more than the invoice's {plan.invoice.paid_amount}"
                 )
+
+        by_charge = {row["charge"]: row["total"] for row in settled.values("charge").annotate(total=Sum("amount"))}
+        for charge in InstallmentCharge.objects.all():
+            expected = by_charge.get(charge.pk, zero)
+            if charge.paid_amount != expected:
+                problems.append(f"charge {charge.pk}: paid_amount {charge.paid_amount} but settlements sum to {expected}")
 
         for problem in problems:
             self.stdout.write(problem)

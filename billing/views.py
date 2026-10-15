@@ -50,6 +50,9 @@ from billing.selectors import (
 from billing.serializers import (
     InvoiceInstallmentsEditSerializer,
     InvoiceInstallmentsRescheduleSerializer,
+    ReleaseChargeSettlementSerializer,
+    SettleChargesSerializer,
+    WaiveChargeSerializer,
     InvoiceOrderLinkSerializer,
     ManualPaidEntrySerializer,
     AllocatePaymentAcrossSerializer,
@@ -311,7 +314,7 @@ class InvoiceViewSet(CommercialDocumentViewSet):
     status_enum = Invoice.Status
     sensitive_actions = frozenset({
         "create", "update", "partial_update", "items", "issue", "cancel",
-        "reissue", "manual_paid", "link_order", "set_installments", "reschedule_installments",
+        "reissue", "manual_paid", "link_order", "set_installments", "reschedule_installments", "waive_charge",
     })
     search_fields = ["number", "customer__full_name", "notes", "items__product_name_snapshot"]
     ordering_fields = ["created_at", "issued_at", "due_at", "total_amount", "number"]
@@ -473,10 +476,14 @@ class InvoiceViewSet(CommercialDocumentViewSet):
         invoice = self.get_object()
         serializer = InvoiceInstallmentsEditSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        extra = {}
+        if "profit_rate" in serializer.validated_data:
+            extra["profit_rate"] = serializer.validated_data["profit_rate"]
         set_invoice_installments(
             actor=request.user, invoice=invoice,
             installment_count=serializer.validated_data.get("installment_count"),
             down_payment=serializer.validated_data.get("down_payment"),
+            **extra,
         )
         return Response(invoice_installment_summary(Invoice.objects.get(pk=invoice.pk)))
 
@@ -508,6 +515,28 @@ class InvoiceViewSet(CommercialDocumentViewSet):
             })
         return Response(invoice_installment_summary(Invoice.objects.get(pk=invoice.pk)))
 
+    @extend_schema(
+        request=WaiveChargeSerializer,
+        responses={200: OpenApiTypes.OBJECT, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE,
+                   409: VALIDATION_ERROR_RESPONSE},
+        description="Forgive what is left of one of this invoice's late fees, with a reason (a ledger credit).",
+    )
+    @action(detail=True, methods=["post"], url_path="waive-charge")
+    def waive_charge(self, request, pk=None):
+        from billing.installment_charges import waive_charge
+        from billing.models import InstallmentCharge
+
+        invoice = self.get_object()
+        serializer = WaiveChargeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        charge = InstallmentCharge.objects.filter(
+            pk=serializer.validated_data["charge"], plan__invoice=invoice
+        ).first()
+        if charge is None:
+            raise ValidationError({"charge": "این جریمه متعلق به این فاکتور نیست."})
+        waive_charge(actor=request.user, charge=charge, reason=serializer.validated_data["reason"])
+        return Response(invoice_installment_summary(Invoice.objects.get(pk=invoice.pk)))
+
     @extend_schema(responses={200: PaymentAllocationSerializer(many=True), 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE})
     @action(detail=True, methods=["get"])
     def allocations(self, request, pk=None):
@@ -530,6 +559,7 @@ class PaymentViewSet(SensitiveActionThrottleMixin, HardDeleteMixin, StrictQueryP
     serializer_class = PaymentSerializer
     sensitive_actions = frozenset({
         "create", "allocate", "allocate_across", "cancel", "release", "correct",
+        "settle_charges", "release_charge_settlement",
     })
     search_fields = ["number", "customer__full_name", "reference", "notes"]
     ordering_fields = ["received_at", "amount", "created_at", "number"]
@@ -618,6 +648,65 @@ class PaymentViewSet(SensitiveActionThrottleMixin, HardDeleteMixin, StrictQueryP
         else:
             allocation = allocate_payment(actor=request.user, payment=self.get_object(), **data)
         return Response(PaymentAllocationSerializer(allocation).data, status=201)
+
+    @extend_schema(
+        responses={200: OpenApiTypes.OBJECT, 403: ACCESS_DENIED_RESPONSE, 404: NOT_FOUND_RESPONSE},
+        description=(
+            "Instalment interest and late fees (2.40.52): this receipt's customer's open charges, and what this "
+            "receipt has settled of them."
+        ),
+    )
+    @action(detail=True, methods=["get"], url_path="charges")
+    def charges(self, request, pk=None):
+        from billing.installment_charges import customer_open_charges, payment_settlements
+
+        payment = self.get_object()
+        return Response({
+            "open": customer_open_charges(payment.customer_id) if payment.customer_id else [],
+            "settlements": payment_settlements(payment),
+        })
+
+    @extend_schema(
+        request=SettleChargesSerializer,
+        responses={201: OpenApiTypes.OBJECT, **WRITE_RESPONSES},
+        description="Apply this receipt to instalment interest and late fees of the same customer.",
+    )
+    @action(detail=True, methods=["post"], url_path="settle-charges")
+    def settle_charges(self, request, pk=None):
+        from billing.installment_charges import payment_settlements, settle_charges
+        from billing.models import InstallmentCharge
+
+        payment = self.get_object()
+        serializer = SettleChargesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        items = None
+        if serializer.validated_data.get("charges"):
+            asked = serializer.validated_data["charges"]
+            found = {charge.pk: charge for charge in InstallmentCharge.objects.filter(pk__in=[item["charge"] for item in asked])}
+            if len(found) != len({item["charge"] for item in asked}):
+                raise ValidationError({"charges": "سود یا جریمه پیدا نشد."})
+            items = [{"charge": found[item["charge"]], "amount": item.get("amount")} for item in asked]
+        settle_charges(actor=request.user, payment=payment, items=items)
+        return Response({"settlements": payment_settlements(Payment.objects.get(pk=payment.pk))}, status=201)
+
+    @extend_schema(
+        request=ReleaseChargeSettlementSerializer,
+        responses={200: OpenApiTypes.OBJECT, **WRITE_RESPONSES},
+        description="Take back one settlement of this receipt: the money is the receipt's again and the charge is owed again.",
+    )
+    @action(detail=True, methods=["post"], url_path="release-charge-settlement")
+    def release_charge_settlement(self, request, pk=None):
+        from billing.installment_charges import payment_settlements, release_settlement
+        from billing.models import ChargeSettlement
+
+        payment = self.get_object()
+        serializer = ReleaseChargeSettlementSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        settlement = ChargeSettlement.objects.filter(pk=serializer.validated_data["settlement"], payment=payment).first()
+        if settlement is None:
+            raise ValidationError({"settlement": "این تسویه متعلق به این دریافت نیست."})
+        release_settlement(actor=request.user, settlement=settlement, reason=serializer.validated_data.get("reason", ""))
+        return Response({"settlements": payment_settlements(Payment.objects.get(pk=payment.pk))})
 
     @extend_schema(
         request=AllocatePaymentAcrossSerializer,

@@ -73,8 +73,17 @@
         <div class="col-md-4"><label class="form-label fw-semibold" for="invoice-installments-down">پیش‌پرداخت</label><input class="form-control form-control-solid" id="invoice-installments-down" type="text" inputmode="numeric" data-money-input dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="down_payment"></p></div>
         <div class="col-md-4"><label class="form-label fw-semibold" for="invoice-installments-count">تعداد اقساط</label><input class="form-control form-control-solid" id="invoice-installments-count" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="1" data-decimal-max="120" dir="ltr"><p class="text-danger fs-8 mt-1 mb-0" data-error-for="installment_count"></p></div>
         <div class="col-md-4 d-flex align-items-end gap-3 flex-wrap"><button class="btn btn-light" type="submit">اعمال</button><p class="text-muted fs-8 mb-0" id="invoice-installments-hint">با تغییر پیش‌پرداخت یا تعداد، مبلغ همهٔ اقساط دوباره محاسبه می‌شود.</p></div>
+        <div class="col-md-4" id="invoice-installments-rate-field" hidden><label class="form-label fw-semibold" for="invoice-installments-rate">نرخ سالانهٔ سود (درصد)</label><input class="form-control form-control-solid" id="invoice-installments-rate" type="text" inputmode="decimal" data-decimal-input data-decimal-places="2" data-decimal-min="0" data-decimal-max="100" dir="ltr"><p class="text-muted fs-8 mt-1 mb-0" id="invoice-installments-rate-hint"></p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="profit_rate"></p></div>
     </form>
-    <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>ردیف</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>مانده</th><th>وضعیت</th></tr></thead><tbody id="invoice-installments-body"></tbody></table></div>
+    <p class="text-gray-700 fs-7 mb-5" id="invoice-installments-interest-note" hidden></p>
+    <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0"><th>ردیف</th><th>سررسید</th><th>مبلغ</th><th id="invoice-installments-interest-head" hidden>سود</th><th>پرداخت‌شده</th><th>مانده</th><th>وضعیت</th></tr></thead><tbody id="invoice-installments-body"></tbody></table></div>
+    {% comment %} Interest and late fees (2.40.52): each a debit of its own in the customer
+       ledger, settled from a receipt; `billing.installment_charges`. {% endcomment %}
+    <div class="mt-8" id="invoice-installment-charges" data-can-waive="{{ can_waive_charges|yesno:'1,0' }}" hidden>
+        <h3 class="fs-5 fw-bold text-gray-900 mb-2">سود و جریمهٔ دیرکرد</h3>
+        <p class="text-gray-700 fs-7 mb-4">هر کدام جدا از فاکتور در حساب مشتری ثبت شده و از صفحهٔ دریافت تسویه می‌شود.</p>
+        <div class="table-responsive"><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نوع</th><th>قسط</th><th>سررسید</th><th>مبلغ</th><th>پرداخت‌شده</th><th>مانده</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="invoice-installment-charges-body"></tbody></table></div>
+    </div>
     {% if can_reschedule_installments %}
     {% comment %} Changing or extending what is left of the plan (2.40.51, feature
        `installment_reschedule`): paid rows stay, the unpaid amount is spread over
@@ -89,6 +98,22 @@
         <ol class="list-unstyled d-grid gap-4 mb-0" id="invoice-installments-history-list"></ol>
     </div>
 </div></section>
+{% if can_waive_charges %}
+<dialog id="installment-charge-waive-dialog" aria-labelledby="installment-charge-waive-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="installment-charge-waive-title" class="mb-0">بخشیدن جریمهٔ دیرکرد</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="installment-charge-waive-form" novalidate>
+        <p class="text-gray-700 mb-5" id="installment-charge-waive-summary"></p>
+        <label class="form-label fw-semibold required" for="installment-charge-waive-reason">دلیل</label>
+        <textarea class="form-control form-control-solid" id="installment-charge-waive-reason" name="reason" rows="2" maxlength="500" required></textarea>
+        <p class="text-danger fs-8 mt-1 mb-0" data-error-for="reason"></p>
+        <p class="text-danger fs-7 mt-2 mb-0" data-error-for="charge"></p>
+        <div class="d-flex justify-content-end gap-3 mt-6">
+            <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+            <button class="btn btn-danger" type="submit">بخشیدن جریمه</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
 {% if can_reschedule_installments %}
 <dialog id="installments-reschedule-dialog" aria-labelledby="installments-reschedule-title">
     <div class="d-flex flex-stack align-items-center mb-5"><h2 id="installments-reschedule-title" class="mb-0">تغییر یا تمدید برنامهٔ اقساط</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>

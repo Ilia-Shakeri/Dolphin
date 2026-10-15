@@ -446,6 +446,77 @@
     </div>
 </section>
 {% endif %}
+{% if "installment_interest" in installment_features %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>سود اقساط</h2>
+            <span class="text-muted fs-7 mt-1">هنگام صدور فاکتور اقساطی یک بار حساب می‌شود و جدا از فاکتور، بدهکارِ حساب مشتری می‌شود. هر فاکتور پیش‌نویس می‌تواند نرخ خودش را داشته باشد.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div class="row g-5">
+            <div class="col-md-6">
+                <span class="form-label fw-semibold d-block mb-3" id="installment-interest-method-label">روش محاسبه</span>
+                <input type="hidden" id="installment-interest-method" name="interest_method" value="reducing">
+                <div class="dolphin-segmented" role="radiogroup" aria-labelledby="installment-interest-method-label" data-segmented-for="installment-interest-method">
+                    <button type="button" role="radio" class="dolphin-segmented-option is-selected" aria-checked="true" data-value="reducing">کاهنده</button>
+                    <button type="button" role="radio" class="dolphin-segmented-option" aria-checked="false" data-value="simple">ساده</button>
+                </div>
+                <p class="text-muted fs-8 mt-2 mb-0">کاهنده: سود هر قسط روی ماندهٔ اصل پیش از آن، پس اقساط بعدی کوچک‌ترند. ساده: سود روی کل اصل برای کل مدت، به‌طور مساوی میان اقساط.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="interest_method"></p>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" for="installment-interest-default-rate">نرخ سالانهٔ پیش‌فرض (درصد)</label>
+                <input class="form-control form-control-solid" id="installment-interest-default-rate" name="interest_default_rate" type="text" inputmode="decimal" data-decimal-input data-decimal-places="2" data-decimal-min="0" data-decimal-max="100" dir="ltr">
+                <p class="text-muted fs-8 mt-1 mb-0">صفر یعنی بی‌سود، مگر فاکتوری نرخ خودش را داشته باشد.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="interest_default_rate"></p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% if "installment_late_fees" in installment_features %}
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6">
+        <div class="card-title flex-column">
+            <h2>جریمهٔ دیرکرد</h2>
+            <span class="text-muted fs-7 mt-1">اگر قسطی پس از مهلت هنوز پرداخت نشده باشد، یک بار جریمه می‌گیرد که جدا از فاکتور بدهکارِ حساب مشتری می‌شود. مدیر پرداخت‌ها می‌تواند با ذکر دلیل آن را ببخشد.</span>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div class="row g-5">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" for="installment-late-fee-grace-days">مهلت پس از سررسید (روز)</label>
+                <input class="form-control form-control-solid" id="installment-late-fee-grace-days" name="late_fee_grace_days" type="text" inputmode="numeric" data-decimal-input data-decimal-places="0" data-decimal-min="0" data-decimal-max="90" dir="ltr">
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="late_fee_grace_days"></p>
+            </div>
+            <div class="col-md-6">
+                <span class="form-label fw-semibold d-block mb-3" id="installment-late-fee-mode-label">نوع جریمه</span>
+                <input type="hidden" id="installment-late-fee-mode" name="late_fee_mode" value="percent">
+                <div class="dolphin-segmented" role="radiogroup" aria-labelledby="installment-late-fee-mode-label" data-segmented-for="installment-late-fee-mode">
+                    <button type="button" role="radio" class="dolphin-segmented-option is-selected" aria-checked="true" data-value="percent">درصد ماندهٔ قسط</button>
+                    <button type="button" role="radio" class="dolphin-segmented-option" aria-checked="false" data-value="fixed">مبلغ ثابت</button>
+                </div>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="late_fee_mode"></p>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" for="installment-late-fee-value" id="installment-late-fee-value-label">مقدار جریمه</label>
+                <input class="form-control form-control-solid" id="installment-late-fee-value" name="late_fee_value" type="text" inputmode="decimal" dir="ltr">
+                <p class="text-muted fs-8 mt-1 mb-0">صفر یعنی بی‌جریمه.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="late_fee_value"></p>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" for="installment-late-fee-cap">سقف جریمهٔ هر قسط (ریال)</label>
+                <input class="form-control form-control-solid" id="installment-late-fee-cap" name="late_fee_cap" type="text" inputmode="numeric" data-money-input dir="ltr">
+                <p class="text-muted fs-8 mt-1 mb-0">صفر یعنی بی‌سقف.</p>
+                <p class="text-danger fs-8 mt-1 mb-0" data-error-for="late_fee_cap"></p>
+            </div>
+            <div class="col-12"><p class="text-gray-700 fs-7 mb-0" id="installment-late-fee-since" hidden></p></div>
+        </div>
+    </div>
+</section>
+{% endif %}
 {% if "installment_reschedule" in installment_features %}
 <section class="card mb-5 mb-xl-8">
     <div class="card-header border-0 pt-6"><div class="card-title flex-column"><h2>تغییر و تمدید برنامهٔ اقساط</h2></div></div>
@@ -454,7 +525,7 @@
     </div>
 </section>
 {% endif %}
-{% if "installment_reminders" in installment_features %}
+{% if "installment_reminders" in installment_features or "installment_interest" in installment_features or "installment_late_fees" in installment_features %}
 <div class="d-flex justify-content-end gap-3 mb-8">
     <button class="btn btn-primary" type="submit">ذخیره</button>
 </div>

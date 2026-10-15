@@ -90,6 +90,11 @@ def customer_outstanding(customer):
         ).aggregate(due=Sum(F("total_amount") - F("paid_amount")))["due"]
         or Decimal("0.00")
     )
+    # Instalment interest and late fees are debts too (2.40.52): a receipt
+    # that pays them is not an overpayment.
+    from billing.installment_charges import open_charges_total
+
+    total += open_charges_total(customer)
     return quantize_money(max(total, Decimal("0.00")))
 
 
@@ -950,6 +955,11 @@ def cancel_payment(*, actor, payment, reason=""):
     _lock_allocations_then_invoices(locked)
     for allocation in locked.allocations.filter(is_reversed=False).order_by("id"):
         release_allocation(actor=actor, allocation=allocation, reason=reason)
+    # What it settled of instalment interest and late fees (2.40.52).
+    from billing.installment_charges import release_settlement
+
+    for settlement in locked.charge_settlements.filter(is_reversed=False).order_by("id"):
+        release_settlement(actor=actor, settlement=settlement, reason=reason)
 
     locked.refresh_from_db()
     locked.status = Payment.Status.CANCELLED

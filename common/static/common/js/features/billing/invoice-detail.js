@@ -4,6 +4,7 @@ import {apiDate, displayDate, displayDay} from "dolphin/core/jalali.js";
 import {DOCUMENT_STATUS_TEXT, SETTLEMENT_TEXT} from "dolphin/core/labels.js";
 import {clearMessages, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
 import {money, moneyToStorage} from "dolphin/core/money.js";
+import {interestBySequence, setupInstallmentCharges} from "dolphin/features/billing/installment-charges.js";
 import {setupInstallmentReschedule} from "dolphin/features/billing/installment-reschedule.js";
 import {INSTALLMENT_DISPLAY_ACCENT, documentLineEditor} from "dolphin/features/billing/shared.js";
 import {confirmDialog} from "dolphin/ui/dialogs.js";
@@ -134,13 +135,15 @@ export async function setupInvoiceDetail() {
     const installmentsCount = document.getElementById("invoice-installments-count");
     const canEditIssuedInstallments = installmentsSection?.dataset.canPayments === "1";
     let installmentsSummary = null;
-    const reschedule = setupInstallmentReschedule({
-        endpoint,
-        onChanged: async (updated) => {
-            current = await apiRequest(endpoint);
-            apply(current, updated);
-        },
-    });
+    const refreshWith = async (updated) => {
+        current = await apiRequest(endpoint);
+        apply(current, updated);
+    };
+    const reschedule = setupInstallmentReschedule({endpoint, onChanged: refreshWith});
+    const charges = setupInstallmentCharges({endpoint, onChanged: refreshWith});
+    const rateField = document.getElementById("invoice-installments-rate-field");
+    const rateInput = document.getElementById("invoice-installments-rate");
+    const interestHead = document.getElementById("invoice-installments-interest-head");
 
     // A draft has no rows yet: they are worked out here from the same rule
     // the server applies at issue (down payment first, the remainder in
@@ -185,12 +188,30 @@ export async function setupInvoiceDetail() {
             installmentsCount.value = summary.installment_count ?? "";
             installmentsCount.disabled = !canEdit;
         }
+        // The draft's own interest rate (2.40.52, `installment_interest`).
+        if (rateField) {
+            rateField.hidden = !summary.can_set_profit_rate;
+            if (summary.can_set_profit_rate) {
+                rateInput.value = summary.profit_rate == null ? "" : String(Number(summary.profit_rate));
+                const fallback = summary.interest_preview?.default_rate;
+                document.getElementById("invoice-installments-rate-hint").textContent = fallback == null
+                    ? ""
+                    : `خالی یعنی نرخ پیش‌فرض شرکت (${toPersianDigits(String(Number(fallback)))} درصد).`;
+            }
+        }
+        const interest = interestBySequence(summary);
+        const showInterest = Object.values(interest).some((value) => value > 0);
+        if (interestHead) interestHead.hidden = !showInterest;
         const rows = summary.rows.length ? summary.rows : draftInstallmentRows(summary);
         installmentsBody.replaceChildren(...rows.map((item) => {
             const row = document.createElement("tr");
             appendCell(row, item.is_down_payment ? "پیش‌پرداخت" : `قسط ${toPersianDigits(item.sequence)}`);
             appendCell(row, item.due_date ? displayDay(item.due_date) : "—");
             appendMoneyCell(row, item.amount);
+            if (showInterest) {
+                if (interest[item.sequence]) appendMoneyCell(row, String(interest[item.sequence]));
+                else appendCell(row, "—");
+            }
             appendMoneyCell(row, item.paid_amount);
             appendMoneyCell(row, item.balance_due);
             const cell = document.createElement("td");
@@ -210,6 +231,7 @@ export async function setupInvoiceDetail() {
             return row;
         }));
         reschedule.update(summary);
+        charges.update(summary);
     }
 
     async function loadInstallments() {
@@ -230,9 +252,13 @@ export async function setupInvoiceDetail() {
         const count = Number(installmentsCount.value);
         const down = moneyToStorage(installmentsDown.value) || "0";
         if (!Number.isInteger(count) || count < 1) return;
+        const body = {installment_count: count, down_payment: down};
+        if (installmentsSummary.can_set_profit_rate && rateInput) {
+            body.profit_rate = rateInput.value.trim() === "" ? null : rateInput.value.trim();
+        }
         withSubmit(document.getElementById("invoice-installments-form"), async () => {
             const updated = await apiRequest(`${endpoint}set-installments/`, {
-                method: "POST", body: {installment_count: count, down_payment: down},
+                method: "POST", body,
             });
             globalMessage("اقساط دوباره محاسبه شد.", true);
             current = await apiRequest(endpoint);
@@ -245,7 +271,7 @@ export async function setupInvoiceDetail() {
         event.preventDefault();
         saveInstallmentTerms();
     });
-    [installmentsDown, installmentsCount].forEach((field) =>
+    [installmentsDown, installmentsCount, document.getElementById("invoice-installments-rate")].forEach((field) =>
         field?.addEventListener("change", () => installmentsForm.requestSubmit())
     );
 

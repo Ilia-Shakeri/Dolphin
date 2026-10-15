@@ -48,13 +48,24 @@ def _amount_text(value):
     return to_persian_digits(f"{whole:,}".replace(",", "٬")) + " ریال"
 
 
+def _open_interest(row):
+    """The row's own interest still open (2.40.52): the instalment the customer
+    pays is its principal and its interest together."""
+    from billing.models import InstallmentCharge
+
+    total = Decimal("0")
+    for charge in row.charges.filter(kind=InstallmentCharge.Kind.INTEREST, status=InstallmentCharge.Status.OPEN):
+        total += charge.open_amount
+    return total
+
+
 def render(template, row):
     """The template with the row's own facts; every token has a value."""
     invoice = row.plan.invoice
     label = "پیش‌پرداخت" if row.sequence == 0 else f"قسط {to_persian_digits(str(row.sequence))}"
     values = {
         "{نام}": (invoice.customer.full_name or "").strip() or "مشتری",
-        "{مبلغ}": _amount_text(row.amount - row.paid_amount),
+        "{مبلغ}": _amount_text(row.amount - row.paid_amount + _open_interest(row)),
         "{تاریخ}": format_date(row.due_date),
         "{فاکتور}": to_persian_digits(invoice.number),
         "{قسط}": label,

@@ -876,6 +876,10 @@ class InstallmentSerializer(serializers.ModelSerializer):
 class InvoiceInstallmentsEditSerializer(RejectServerFieldsMixin, serializers.Serializer):
     installment_count = serializers.IntegerField(min_value=1, max_value=120, required=False)
     down_payment = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False)
+    #: A draft's own annual interest rate (2.40.52); null takes the company default.
+    profit_rate = serializers.DecimalField(
+        max_digits=6, decimal_places=2, min_value=0, max_value=100, required=False, allow_null=True
+    )
 
 
 class InvoiceInstallmentsRescheduleSerializer(RejectServerFieldsMixin, serializers.Serializer):
@@ -888,6 +892,28 @@ class InvoiceInstallmentsRescheduleSerializer(RejectServerFieldsMixin, serialize
     preview = serializers.BooleanField(required=False, default=False)
 
 
+class ChargeSettleItemSerializer(serializers.Serializer):
+    charge = serializers.IntegerField(min_value=1)
+    amount = serializers.DecimalField(max_digits=18, decimal_places=2, min_value=0, required=False, allow_null=True)
+
+
+class SettleChargesSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    """`POST payments/{id}/settle-charges/` (2.40.52): named charges, or none
+    for every open charge of the customer, earliest due first."""
+
+    charges = ChargeSettleItemSerializer(many=True, required=False)
+
+
+class ReleaseChargeSettlementSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    settlement = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(max_length=500, required=False, allow_blank=True)
+
+
+class WaiveChargeSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    charge = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(max_length=500, allow_blank=True)
+
+
 class InstallmentSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.Serializer):
     """`PATCH installment-settings/` (2.40.51): any of the fields."""
 
@@ -898,6 +924,12 @@ class InstallmentSettingsUpdateSerializer(RejectServerFieldsMixin, serializers.S
     template_before = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
     template_due = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
     template_overdue = serializers.CharField(required=False, allow_blank=True, trim_whitespace=False)
+    interest_method = serializers.CharField(required=False)
+    interest_default_rate = serializers.DecimalField(max_digits=18, decimal_places=2, required=False)
+    late_fee_grace_days = serializers.IntegerField(required=False)
+    late_fee_mode = serializers.CharField(required=False)
+    late_fee_value = serializers.DecimalField(max_digits=18, decimal_places=2, required=False)
+    late_fee_cap = serializers.DecimalField(max_digits=18, decimal_places=2, required=False)
 
 
 class InstallmentPlanSerializer(serializers.ModelSerializer):

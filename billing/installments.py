@@ -162,19 +162,40 @@ def cancel_plan_with_invoice(invoice):
 
 def _is_editable_plan(plan, invoice):
     # A rescheduled plan is no longer the invoice's terms split evenly, so
-    # editing those terms would throw the agreed schedule away (2.40.51).
+    # editing those terms would throw the agreed schedule away (2.40.51); a
+    # plan with charges keeps the rows they were worked out on (2.40.52).
     return (
         plan.status != InstallmentPlan.Status.CANCELLED
         and plan.interest_amount == 0
         and plan.extra_discount_percent == 0
         and plan.total_amount == invoice.total_amount
         and not plan.reschedules.exists()
+        and not plan.charges.exists()
     )
 
 
+_UNSET = object()
+
+
+def _clean_profit_rate(value):
+    """An invoice's own annual interest rate (2.40.52): `None` takes the
+    company's default; otherwise 0–100 with two decimals."""
+    if value is None:
+        return None
+    try:
+        rate = Decimal(str(value))
+    except (ArithmeticError, ValueError):
+        raise BusinessRuleError({"profit_rate": "نرخ سود را به‌صورت عدد وارد کنید."}) from None
+    if not rate.is_finite() or rate < 0 or rate > 100:
+        raise BusinessRuleError({"profit_rate": "نرخ سالانهٔ سود باید بین ۰ تا ۱۰۰ درصد باشد."})
+    return rate.quantize(Decimal("0.01"))
+
+
 @transaction.atomic
-def set_invoice_installments(*, actor, invoice, installment_count=None, down_payment=None):
-    """Change the count and/or the down payment; every amount is recomputed."""
+def set_invoice_installments(*, actor, invoice, installment_count=None, down_payment=None, profit_rate=_UNSET):
+    """Change the count and/or the down payment; every amount is recomputed.
+    A draft may also take its own annual interest rate (2.40.52, feature
+    `installment_interest`); an issued invoice's interest was fixed at issue."""
     from billing.payments import _apply_to_installments, _lock_payment_manager
     from billing.services import _lock_document_writer
 
@@ -202,7 +223,15 @@ def set_invoice_installments(*, actor, invoice, installment_count=None, down_pay
     )
     locked_invoice.installment_down_payment = down
     locked_invoice.installment_count = count
-    locked_invoice.save(update_fields=["installment_down_payment", "installment_count", "updated_at"])
+    fields = ["installment_down_payment", "installment_count", "updated_at"]
+    if profit_rate is not _UNSET:
+        if not feature_enabled("installment_interest"):
+            raise BusinessConflictError({"profit_rate": "سود اقساط در این استقرار فعال نیست."})
+        if locked_invoice.status != Invoice.Status.DRAFT:
+            raise BusinessConflictError({"profit_rate": "سود فاکتور صادرشده هنگام صدور تعیین شده و تغییر نمی‌کند."})
+        locked_invoice.installment_profit_rate = _clean_profit_rate(profit_rate)
+        fields.append("installment_profit_rate")
+    locked_invoice.save(update_fields=fields)
     if plan is not None:
         down_row = plan.installments.filter(sequence=0).first()
         down_due = down_row.due_date if down_row else timezone.localdate(locked_invoice.issued_at)
@@ -323,6 +352,12 @@ def reschedule_plan(*, actor, invoice, installment_count, first_due, interval_da
     Installment.objects.bulk_create([
         Installment(plan=plan, sequence=sequence, due_date=due, amount=amount) for sequence, due, amount in new_rows
     ])
+    # Interest still open on the closed rows moves to the new ones; no new
+    # interest is charged for the change (2.40.52).
+    from billing.installment_charges import move_open_interest
+
+    created = list(plan.installments.filter(sequence__gte=first_sequence).order_by("sequence"))
+    move_open_interest(closed_rows=open_rows, new_rows=created)
     after = [
         _row_state(row)
         for row in plan.installments.exclude(status=Installment.Status.CANCELLED).order_by("sequence")
@@ -379,6 +414,27 @@ def invoice_summary(invoice):
     editable = invoice.status == Invoice.Status.DRAFT
     reschedulable = False
     history = []
+    from billing.installment_charges import INTEREST, LATE_FEES, interest_preview, plan_charges
+
+    charges = []
+    if plan is not None and (feature_enabled(INTEREST) or feature_enabled(LATE_FEES) or plan.charges.exists()):
+        charges = plan_charges(plan)
+    preview = None
+    if (
+        plan is None
+        and invoice.status == Invoice.Status.DRAFT
+        and invoice.payment_type == Invoice.PaymentType.INSTALLMENT
+        and invoice.installment_count
+        and invoice.total_amount > 0
+        and invoice.installment_down_payment < invoice.total_amount
+    ):
+        draft_rows = schedule_rows(
+            total_amount=invoice.total_amount, down_payment=invoice.installment_down_payment,
+            installment_count=invoice.installment_count,
+            first_due=invoice.installment_first_due or timezone.localdate(),
+            interval_days=invoice.installment_interval_days or 30, down_due=timezone.localdate(),
+        )
+        preview = interest_preview(invoice, [(sequence, amount) for sequence, _, amount in draft_rows])
     reminders = {}
     if plan is not None and feature_enabled("installment_reminders"):
         from billing.installment_reminders import reminders_for_rows
@@ -419,6 +475,12 @@ def invoice_summary(invoice):
         "reschedulable": reschedulable and any(row["balance_due"] > 0 for row in rows),
         "interval_days_current": plan.interval_days if plan is not None else None,
         "reschedules": history,
+        # 2.40.52: interest and late fees, each its own debit; and for a draft,
+        # the interest issuing it will charge (`None` without the feature).
+        "charges": charges,
+        "can_set_profit_rate": feature_enabled(INTEREST) and invoice.status == Invoice.Status.DRAFT,
+        "profit_rate": invoice.installment_profit_rate,
+        "interest_preview": preview,
     }
 
 

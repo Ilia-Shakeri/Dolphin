@@ -196,7 +196,8 @@ class SettingsTests(Base):
         manager = APIClient()
         manager.force_authenticate(self.manager)
         self.assertEqual(manager.get("/api/v1/installment-settings/").status_code, 403)
-        with override_active_profile(without("installment_reschedule", "installment_reminders")):
+        # With none of the advanced instalment features (four since 2.40.52).
+        with override_active_profile(without("installment_reschedule", "installment_reminders", "installment_interest", "installment_late_fees")):
             self.assertEqual(client.get("/api/v1/installment-settings/").status_code, 404)
         self.client.force_login(self.admin)
         page = self.client.get("/settings/?tab=installments")

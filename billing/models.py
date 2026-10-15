@@ -498,6 +498,10 @@ class Invoice(CancelledInvoiceGuard, CommercialDocument):
     installment_count = models.PositiveSmallIntegerField(null=True, blank=True)
     installment_first_due = models.DateField(null=True, blank=True)
     installment_interval_days = models.PositiveSmallIntegerField(null=True, blank=True)
+    #: Annual interest rate for this sale (2.40.52, feature `installment_interest`),
+    #: set while a draft; empty takes the company's default
+    #: (`InstallmentSettings.interest_default_rate`). Applied once, at issue.
+    installment_profit_rate = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     #: The number in the official series, taken at issue and never afterwards.
     #:
     #: Separate from `number`, which every document receives at creation. The
@@ -1275,6 +1279,13 @@ class CustomerLedgerEntry(TimeStampedModel):
         PAYMENT_CANCELLED = "payment_cancelled", "Payment cancelled"
         ADJUSTMENT_DEBIT = "adjustment_debit", "Adjustment (debit)"
         ADJUSTMENT_CREDIT = "adjustment_credit", "Adjustment (credit)"
+        #: The advanced instalment charges (2.40.52, owner decision 2026-10-14):
+        #: interest and a late fee are each a debit of their own, never added to
+        #: the invoice; waiving or cancelling what is still open is a credit.
+        INSTALLMENT_INTEREST = "installment_interest", "Instalment interest"
+        LATE_FEE = "late_fee", "Late fee"
+        CHARGE_WAIVED = "charge_waived", "Charge waived"
+        CHARGE_CANCELLED = "charge_cancelled", "Charge cancelled"
 
     class ReferenceKind(models.TextChoices):
         NONE = "none", "None"
@@ -1294,8 +1305,10 @@ class CustomerLedgerEntry(TimeStampedModel):
     reference_id = models.PositiveBigIntegerField(null=True, blank=True)
     reference_number = models.CharField(max_length=DOCUMENT_NUMBER_MAX_LENGTH, blank=True)
     occurred_at = models.DateTimeField(db_index=True)
+    #: Empty for what the deployment posted on its own (2.40.52: the nightly
+    #: late fee), the way an audit row records the `system` role.
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_ledger_entries"
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="created_ledger_entries"
     )
     notes = models.CharField(max_length=FREE_TEXT_MAX_LENGTH, blank=True)
 
@@ -1316,6 +1329,7 @@ class CustomerLedgerEntry(TimeStampedModel):
                         "opening_balance", "invoice_issued", "invoice_cancelled",
                         "payment_received", "payment_made", "payment_cancelled",
                         "adjustment_debit", "adjustment_credit",
+                        "installment_interest", "late_fee", "charge_waived", "charge_cancelled",
                     ]
                 ),
                 name="ledger_entry_type_valid",
@@ -1367,6 +1381,29 @@ class InstallmentSettings(models.Model):
     template_before = models.CharField(max_length=INSTALLMENT_TEMPLATE_MAX_LENGTH, default=DEFAULT_REMINDER_BEFORE)
     template_due = models.CharField(max_length=INSTALLMENT_TEMPLATE_MAX_LENGTH, default=DEFAULT_REMINDER_DUE)
     template_overdue = models.CharField(max_length=INSTALLMENT_TEMPLATE_MAX_LENGTH, default=DEFAULT_REMINDER_OVERDUE)
+
+    class InterestMethod(models.TextChoices):
+        SIMPLE = "simple", "ساده"
+        REDUCING = "reducing", "کاهنده"
+
+    class LateFeeMode(models.TextChoices):
+        PERCENT = "percent", "درصد ماندهٔ قسط"
+        FIXED = "fixed", "مبلغ ثابت"
+
+    #: `installment_interest` (2.40.52): how interest is worked out, and the
+    #: annual rate an invoice takes when it names none of its own (0 = none).
+    interest_method = models.CharField(max_length=10, choices=InterestMethod.choices, default=InterestMethod.REDUCING)
+    interest_default_rate = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal("0.00"))
+    #: `installment_late_fees` (2.40.52): once a row is this many days past its
+    #: due date and still unpaid, one fee — a percent of what is left on it, or
+    #: a fixed amount — at most `late_fee_cap` (0 = no cap). 0 value = no fee.
+    late_fee_grace_days = models.PositiveSmallIntegerField(default=5)
+    late_fee_mode = models.CharField(max_length=10, choices=LateFeeMode.choices, default=LateFeeMode.PERCENT)
+    late_fee_value = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    late_fee_cap = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    #: No fee reaches back: only a row due on or after this day is charged. Set
+    #: to the day a fee was first configured (`billing.installment_settings`).
+    late_fee_since = models.DateField(null=True, blank=True)
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
@@ -1381,6 +1418,20 @@ class InstallmentSettings(models.Model):
                 condition=Q(remind_send_hour__gte=7) & Q(remind_send_hour__lte=20),
                 name="installment_settings_send_hour_bounded",
             ),
+            models.CheckConstraint(
+                condition=Q(interest_method__in=["simple", "reducing"]), name="installment_settings_interest_method_valid"
+            ),
+            models.CheckConstraint(
+                condition=Q(interest_default_rate__gte=0) & Q(interest_default_rate__lte=100),
+                name="installment_settings_interest_rate_bounded",
+            ),
+            models.CheckConstraint(condition=Q(late_fee_grace_days__lte=90), name="installment_settings_grace_bounded"),
+            models.CheckConstraint(condition=Q(late_fee_mode__in=["percent", "fixed"]), name="installment_settings_fee_mode_valid"),
+            models.CheckConstraint(
+                condition=Q(late_fee_value__gte=0) & (Q(late_fee_mode="fixed") | Q(late_fee_value__lte=100)),
+                name="installment_settings_fee_value_bounded",
+            ),
+            models.CheckConstraint(condition=Q(late_fee_cap__gte=0), name="installment_settings_fee_cap_non_negative"),
         ]
 
 
@@ -1460,3 +1511,93 @@ class InstallmentReminder(TimeStampedModel):
                 name="installment_reminder_status_valid",
             ),
         ]
+
+
+class InstallmentCharge(TimeStampedModel):
+    """What a customer owes on an instalment beyond its share of the invoice
+    (2.40.52, owner decision 2026-10-14, Q15): its interest (`installment_interest`)
+    or a late fee (`installment_late_fees`).
+
+    Never added to the invoice: each is posted as a debit of its own in the
+    customer ledger (`ledger_entry_id`; one entry for a plan's whole interest),
+    in whole rials, and settled from a receipt through `ChargeSettlement`. What
+    stops being owed without being paid is `released_amount`: waived (a late
+    fee), cancelled with its invoice, or — for interest — moved to the new rows
+    when the plan is rescheduled. `open = amount - paid_amount - released_amount`.
+    """
+
+    class Kind(models.TextChoices):
+        INTEREST = "interest", "سود اقساط"
+        LATE_FEE = "late_fee", "جریمهٔ دیرکرد"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "باز"
+        PAID = "paid", "پرداخت شده"
+        WAIVED = "waived", "بخشیده شد"
+        CANCELLED = "cancelled", "لغو شده"
+        MOVED = "moved", "منتقل به برنامهٔ تازه"
+
+    plan = models.ForeignKey(InstallmentPlan, on_delete=models.PROTECT, related_name="charges")
+    installment = models.ForeignKey(Installment, on_delete=models.PROTECT, related_name="charges")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    paid_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    released_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal("0.00"))
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN, db_index=True)
+    #: When it falls due: the row's due date for interest, the day it was
+    #: charged for a late fee.
+    due_date = models.DateField(db_index=True)
+    ledger_entry_id = models.PositiveBigIntegerField(null=True, blank=True)
+    #: Who released it and why (a waiver); empty otherwise.
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    release_reason = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["due_date", "id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(kind__in=["interest", "late_fee"]), name="installment_charge_kind_valid"),
+            models.CheckConstraint(
+                condition=Q(status__in=["open", "paid", "waived", "cancelled", "moved"]),
+                name="installment_charge_status_valid",
+            ),
+            models.CheckConstraint(condition=Q(amount__gt=0), name="installment_charge_amount_positive"),
+            models.CheckConstraint(condition=Q(paid_amount__gte=0), name="installment_charge_paid_non_negative"),
+            models.CheckConstraint(condition=Q(released_amount__gte=0), name="installment_charge_released_non_negative"),
+            models.CheckConstraint(
+                condition=Q(paid_amount__lte=F("amount") - F("released_amount")),
+                name="installment_charge_settled_within_amount",
+            ),
+            # One late fee per row; a row's interest is one charge too.
+            models.UniqueConstraint(fields=["installment", "kind"], name="uniq_installment_charge_kind"),
+        ]
+        indexes = [models.Index(fields=["status", "due_date"])]
+
+    @property
+    def open_amount(self):
+        return self.amount - self.paid_amount - self.released_amount
+
+
+class ChargeSettlement(TimeStampedModel):
+    """Part of a confirmed receipt applied to one charge (2.40.52) — the
+    counterpart of `PaymentAllocation`, which applies a receipt to an invoice.
+
+    It counts in the receipt's `allocated_amount` like an allocation does, so
+    a receipt is never spent twice. A release is a flag and a reason, never a
+    deleted row.
+    """
+
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name="charge_settlements")
+    charge = models.ForeignKey(InstallmentCharge, on_delete=models.PROTECT, related_name="settlements")
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    is_reversed = models.BooleanField(default=False)
+    release_reason = models.CharField(max_length=500, blank=True, default="")
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(amount__gt=0), name="charge_settlement_amount_positive"),
+        ]
+        indexes = [models.Index(fields=["payment", "-created_at"]), models.Index(fields=["charge", "-created_at"])]

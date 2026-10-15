@@ -19,11 +19,13 @@ SELECT (
     AND to_regclass('public.aftersales_aftersalesrequest') IS NOT NULL
     AND to_regclass('public.attachments_attachment') IS NOT NULL
     AND to_regclass('public.auditlog_activitylog') IS NOT NULL
+    AND to_regclass('public.billing_chargesettlement') IS NOT NULL
     AND to_regclass('public.billing_cheque') IS NOT NULL
     AND to_regclass('public.billing_chequestatushistory') IS NOT NULL
     AND to_regclass('public.billing_customerledgerentry') IS NOT NULL
     AND to_regclass('public.billing_documentsequence') IS NOT NULL
     AND to_regclass('public.billing_installment') IS NOT NULL
+    AND to_regclass('public.billing_installmentcharge') IS NOT NULL
     AND to_regclass('public.billing_installmentplan') IS NOT NULL
     AND to_regclass('public.billing_installmentreminder') IS NOT NULL
     AND to_regclass('public.billing_installmentreschedule') IS NOT NULL
@@ -95,7 +97,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (121), recorded.
+    -- Every migration this release ships (122), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -155,6 +157,7 @@ SELECT (
                 ('billing', '0021_invoice_campaign'),
                 ('billing', '0022_allocation_request_key_unique'),
                 ('billing', '0023_installment_reschedule_reminders'),
+                ('billing', '0024_installment_charges'),
                 ('chat', '0001_initial'),
                 ('common', '0001_initial'),
                 ('common', '0002_brandsettings'),
@@ -229,7 +232,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (240).
+    -- Every named check and unique constraint (254).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -252,6 +255,7 @@ SELECT (
                 ('attachments_attachment', 'attachment_exactly_one_parent'),
                 ('attachments_attachment', 'attachment_filename_nonblank'),
                 ('attachments_attachment', 'attachment_size_within_default_limit'),
+                ('billing_chargesettlement', 'charge_settlement_amount_positive'),
                 ('billing_cheque', 'cheque_amount_positive'),
                 ('billing_cheque', 'cheque_bank_nonblank'),
                 ('billing_cheque', 'cheque_serial_nonblank'),
@@ -267,6 +271,13 @@ SELECT (
                 ('billing_installment', 'installment_paid_within_amount'),
                 ('billing_installment', 'installment_status_valid'),
                 ('billing_installment', 'uniq_installment_plan_sequence'),
+                ('billing_installmentcharge', 'installment_charge_amount_positive'),
+                ('billing_installmentcharge', 'installment_charge_kind_valid'),
+                ('billing_installmentcharge', 'installment_charge_paid_non_negative'),
+                ('billing_installmentcharge', 'installment_charge_released_non_negative'),
+                ('billing_installmentcharge', 'installment_charge_settled_within_amount'),
+                ('billing_installmentcharge', 'installment_charge_status_valid'),
+                ('billing_installmentcharge', 'uniq_installment_charge_kind'),
                 ('billing_installmentplan', 'installment_plan_count_bounded'),
                 ('billing_installmentplan', 'installment_plan_discount_percent_bounded'),
                 ('billing_installmentplan', 'installment_plan_down_payment_amount_non_negative'),
@@ -288,6 +299,12 @@ SELECT (
                 ('billing_installmentreschedule', 'installment_reschedule_reason_nonblank'),
                 ('billing_installmentsettings', 'installment_settings_after_bounded'),
                 ('billing_installmentsettings', 'installment_settings_before_bounded'),
+                ('billing_installmentsettings', 'installment_settings_fee_cap_non_negative'),
+                ('billing_installmentsettings', 'installment_settings_fee_mode_valid'),
+                ('billing_installmentsettings', 'installment_settings_fee_value_bounded'),
+                ('billing_installmentsettings', 'installment_settings_grace_bounded'),
+                ('billing_installmentsettings', 'installment_settings_interest_method_valid'),
+                ('billing_installmentsettings', 'installment_settings_interest_rate_bounded'),
                 ('billing_installmentsettings', 'installment_settings_is_singleton'),
                 ('billing_installmentsettings', 'installment_settings_send_hour_bounded'),
                 ('billing_invoice', 'invoice_discount_non_negative'),

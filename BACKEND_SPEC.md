@@ -1784,10 +1784,9 @@ and shows a *display status* worked out from the row: `cancelled`, `paid`,
 `partially_paid`, `overdue` (past due, unpaid), `due_today`, `near_due` (1–2
 days left, unpaid), else `pending`; `?status=` accepts these keys.
 
-**Still not implemented:** a penalty or additional interest for a payment made
-*after* its installment's due date — the rate above applies once, at plan
-creation, regardless of how or when each installment is later paid. That
-remains a legal and commercial decision, same as before.
+**Late payment (since 2.40.52):** the plan API's rate above still applies once, at plan
+creation, regardless of how or when each installment is later paid. A fee for paying
+late is the opt-in `installment_late_fees` feature below; nothing else charges one.
 
 **Advanced instalments (owner decision 2026-10-14, Q15).** Each is its own manifest
 feature, off by default, configured per company in Settings → اقساط
@@ -1819,7 +1818,47 @@ keeps its settings and its history.
   `skipped`. It sends through the deployment's SMS provider
   (`communications.services.send_system_sms`: an `OutboundSMS` with no sender and a
   `system` audit row) and sends nothing until one is configured; the settings card says
-  so.
+  so. Since 2.40.52 `{مبلغ}` includes the row's open interest.
+* **Charges (2.40.52)** — interest and late fees are `billing.InstallmentCharge` rows, one per
+  row and kind. Owner defaults confirmed 2026-10-14: each is a **debit of its own in the
+  customer ledger, never added to the invoice or the instalment**, and every amount is
+  **whole rials** (half up). `open = amount − paid_amount − released_amount`; status
+  `open`/`paid`/`waived`/`cancelled`/`moved`. A receipt settles them through
+  `ChargeSettlement` (`POST payments/{id}/settle-charges/` — named charges, or all open ones
+  of the customer earliest due first; `release-charge-settlement/` takes one back;
+  `GET payments/{id}/charges/`), counted in the receipt's `allocated_amount` like an
+  allocation, released by `cancel_payment`, and checked by `check_allocation_integrity`.
+  `customer_outstanding` includes open charges, so a receipt that pays them is not an
+  overpayment. Cancelling the invoice is refused while a charge is settled, and otherwise
+  cancels what is open with one `charge_cancelled` credit. Ledger entry types added:
+  `installment_interest`, `late_fee` (debits), `charge_waived`, `charge_cancelled`
+  (credits); `CustomerLedgerEntry.created_by` is empty for what the deployment posted on its
+  own (the nightly late fee).
+* `installment_interest` (2.40.52) — at issue, after the invoice's own debit, at the
+  invoice's `installment_profit_rate` (set on a draft through `set-installments/`
+  `profit_rate`, 0–100, null = company default) or `interest_default_rate`; one
+  `installment_interest` debit for the total, one charge per row (`sequence ≥ 1`; the down
+  payment carries none). **Reducing** (default): each row's interest is the period's rate
+  (annual × `interval_days`/360) on the principal still owed before it — rows keep their
+  equal principal, so instalments fall; its total is the `P × r × (n + 1) / 2400` the older
+  plan API charges for monthly rows (1,000,000 at 15% over 12 months ⇒ 81,250). **Simple**:
+  the whole principal for the whole term, `P × r × months / 1200`, spread evenly, the
+  remainder on the first. A draft's instalment box previews it. A plan with charges is no
+  longer rewritten from the invoice's terms; a reschedule moves the interest still open to
+  the new rows unchanged in total (`moved`), charging none for the change. Interest is not
+  waivable and is not reduced by paying early.
+* `installment_late_fees` (2.40.52) — `manage.py post_installment_late_fees` (daily): a live
+  row more than `late_fee_grace_days` (0–90) past due with principal unpaid gets **one**
+  fee: `late_fee_value` percent (≤ 100) of what is left on it (principal and open interest)
+  or a fixed whole-rial amount, at most `late_fee_cap` (0 = none); a `late_fee` debit
+  posted with no user. Never for a row due before `late_fee_since` — the day a fee was first
+  configured. `POST invoices/{id}/waive-charge/` (a payments manager, a reason) forgives
+  what is left of a late fee with a `charge_waived` credit.
+
+**Readings the owner has not yet confirmed (2.40.52)** — chosen as the least surprising, each
+one place to change: a late fee is charged once per instalment, not per day or month; a
+reschedule adds no interest; paying early does not reduce interest already charged; no tax is
+applied to interest or fees (Dolphin's tax applies to the invoice only).
 
 ### The customer ledger
 
