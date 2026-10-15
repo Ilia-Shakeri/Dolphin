@@ -1,4 +1,5 @@
 import {apiRequest} from "dolphin/core/api.js";
+import {setupProfileAssistant} from "dolphin/features/customers/profile-assistant.js";
 import {setupProfileCards} from "dolphin/features/customers/profile-cards.js";
 import {customerProfileLoaders} from "dolphin/features/customers/profile-customer.js";
 import {setupUserSessions, userProfileLoaders} from "dolphin/features/customers/profile-user.js";
@@ -37,6 +38,8 @@ export function setupPersonProfile() {
         : userProfileLoaders(personId);
     setupProfileTabs(loaders);
     if (personType !== "customer") setupUserSessions(personId);
+    // The internal AI assistant (2.40.55): only on a customer, only where it runs.
+    if (personType === "customer") setupProfileAssistant(personId);
     const cards = setupProfileCards(personType, personId);
     setupTaskDialog(personType, personId);
     // Live (2.40.41): the stat cards and, on a customer, the record itself

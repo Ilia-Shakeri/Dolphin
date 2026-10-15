@@ -102,7 +102,7 @@ function attach(panel, form, page) {
     const select = document.createElement("select");
     select.className = "form-select form-select-solid form-select-sm";
     select.id = `${form.id}-saved-view`;
-    label.htmlFor = select.id;
+    label.setAttribute("for", select.id);
     const actions = document.createElement("div");
     actions.className = "d-flex flex-wrap gap-2 mt-3";
     const save = document.createElement("button");

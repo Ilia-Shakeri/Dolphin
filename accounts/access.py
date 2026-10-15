@@ -66,6 +66,8 @@ ROLE_CAPABILITIES = {
         # agent's by default.
         "calls.own",
         "calls.originate",
+        # The internal AI assistant (2.40.55, feature `ai_assistant`).
+        "ai.use",
     }),
     User.Role.SALES_MANAGER: frozenset({
         "dashboard.store",
@@ -109,6 +111,7 @@ ROLE_CAPABILITIES = {
         "sales_targets.manage",
         # Sharing a saved list view with the team (2.40.54, `customization`).
         "views.share",
+        "ai.use",
         "sms.company",
         "tasks.company",
         "tasks.manage",
@@ -207,6 +210,7 @@ ROLE_CAPABILITIES = {
         "sales_targets.manage",
         # Sharing a saved list view with the team (2.40.54, `customization`).
         "views.share",
+        "ai.use",
         # How printed documents look (2.40.44, feature `print_customization`).
         "print_settings.manage",
         # This company's instalment rules (2.40.51, the advanced instalment

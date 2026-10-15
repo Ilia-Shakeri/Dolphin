@@ -82,6 +82,9 @@ class PersonProfileView(ActiveCrmView):
         keys = [tab.key for tab in tabs]
         actions = adapter.quick_actions(viewer, person)
         custom_definitions, custom_facts = [], []
+        from assistant.services import can_use as can_use_assistant
+
+        assistant_allowed = can_use_assistant(viewer)
         if adapter.key == "customer":
             from customization.services import definitions_for, page_definitions
 
@@ -109,6 +112,8 @@ class PersonProfileView(ActiveCrmView):
             # The company's own fields on a customer (2.40.53, `customization`).
             custom_field_definitions=custom_definitions,
             custom_facts=custom_facts,
+            # The internal AI assistant on a customer (2.40.55).
+            can_use_assistant=adapter.key == "customer" and assistant_allowed,
             card_periods=PERIODS,
             default_card_period=DEFAULT_PERIOD,
             completion=completion_for(adapter.key, person, can_edit="info" in keys),

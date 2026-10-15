@@ -1,4 +1,38 @@
 {% load jalali_tags customer_kind_tags %}
+{% if can_use_assistant %}
+{% comment %} The internal AI assistant (2.40.55, feature `ai_assistant`): it reads this
+   customer as far as the reader may, and only suggests — nothing here changes the
+   record or sends anything. `assistant.services`. {% endcomment %}
+<section class="card mb-5 mb-xl-8" id="profile-assistant">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column">
+            <h2 class="d-flex align-items-center gap-2"><i class="di-duotone di-technology-2 fs-2 text-primary" aria-hidden="true"><span class="path1"></span><span class="path2"></span></i>دستیار هوش مصنوعی</h2>
+            <span class="text-muted fs-7 mt-1">روی سرور خود شرکت اجرا می‌شود و فقط پیشنهاد می‌دهد؛ چیزی را تغییر نمی‌دهد و نمی‌فرستد.</span>
+        </div>
+        <div class="card-toolbar d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-light-primary" type="button" data-assistant-kind="summary">خلاصهٔ پرونده</button>
+            <button class="btn btn-sm btn-light-primary" type="button" data-assistant-kind="next_action">اقدام بعدی</button>
+            <button class="btn btn-sm btn-light-primary" type="button" data-assistant-kind="sms_draft">پیش‌نویس پیامک</button>
+        </div>
+    </div>
+    <div class="card-body pt-2">
+        <div class="mb-4" id="profile-assistant-goal-field">
+            <label class="form-label fs-7" for="profile-assistant-goal">هدف پیامک (اختیاری)</label>
+            <input class="form-control form-control-solid form-control-sm" id="profile-assistant-goal" maxlength="200" placeholder="مثلاً یادآوری قسط یا دعوت به جشنواره">
+        </div>
+        <div id="profile-assistant-loading" class="text-gray-700 py-4" hidden>دستیار در حال آماده کردن پیشنهاد است…</div>
+        <div id="profile-assistant-result" hidden>
+            <h3 class="fs-6 fw-bold text-gray-900 mb-2" id="profile-assistant-title"></h3>
+            <div class="bg-light rounded p-4 text-gray-800 text-break assistant-answer" id="profile-assistant-text"></div>
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                <button class="btn btn-sm btn-light" type="button" id="profile-assistant-copy">کپی متن</button>
+                <span class="text-muted fs-8" id="profile-assistant-meta"></span>
+            </div>
+        </div>
+        <p class="text-danger fs-7 mb-0" data-error-for="assistant"></p>
+    </div>
+</section>
+{% endif %}
 <div class="row g-5 g-xl-8">
     <div class="col-xl-5">
         <section class="card h-100"><div class="card-body">

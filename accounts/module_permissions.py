@@ -101,6 +101,8 @@ MODULES = (
     Module("customization", "شخصی‌سازی و فیلدهای سفارشی", ("customization.manage",)),
     # One checkbox (2.40.54): who may share a saved list view with the team.
     Module("saved_views_share", "اشتراک نمای ذخیره‌شده با تیم", ("views.share",)),
+    # One checkbox (2.40.55): who may ask the internal AI assistant.
+    Module("ai_assistant", "دستیار هوش مصنوعی", ("ai.use",)),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
     # Person profile (2.20.0). Tasks: `tasks.own` is one's own list,
     # `tasks.company` everyone's; notes are read and written on the profiles

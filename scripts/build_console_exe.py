@@ -85,6 +85,7 @@ COLLECT = (
     "telephony",
     "accounting",
     "customization",
+    "assistant",
     "integration",
 )
 

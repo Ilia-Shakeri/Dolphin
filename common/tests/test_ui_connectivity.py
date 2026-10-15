@@ -347,7 +347,7 @@ class ClientOneDayOneProfileTests(SimpleTestCase):
                 "customer_timeline", "dashboard_insights", "lead_kanban", "order_kanban",
                 "accounting_ledger", "panel_backup", "cheques", "campaigns", "realtime",
                 "two_factor", "print_customization", "installment_reschedule", "installment_reminders",
-                "installment_interest", "installment_late_fees", "customization",
+                "installment_interest", "installment_late_fees", "customization", "ai_assistant",
             }),
         )
 

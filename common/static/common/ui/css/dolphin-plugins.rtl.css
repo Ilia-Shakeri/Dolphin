@@ -2387,7 +2387,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-duotone";
-  src: url("../fonts/dolphin-icons/dolphin-icons-duotone.woff?v=6440ded83323") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-duotone.woff?v=d97f9b281033") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -4258,6 +4258,17 @@ button.toastr-close-button {
   left: 0;
 }
 
+.di-technology-2 .path1:before {
+  content: "\eee1";
+  opacity: 0.3;
+}
+
+.di-technology-2 .path2:before {
+  content: "\eee2";
+  position: absolute;
+  left: 0;
+}
+
 .di-time .path1:before {
   content: "\ef2c";
   opacity: 0.3;
@@ -4407,7 +4418,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-outline";
-  src: url("../fonts/dolphin-icons/dolphin-icons-outline.woff?v=bad4ec1c102b") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-outline.woff?v=3e1271ccee77") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -4882,6 +4893,10 @@ button.toastr-close-button {
   content: "\eadb";
 }
 
+.di-technology-2.di-outline:before {
+  content: "\eafa";
+}
+
 .di-time.di-outline:before {
   content: "\eb0e";
 }
@@ -4916,7 +4931,7 @@ button.toastr-close-button {
 
 @font-face {
   font-family: "dolphin-icons-solid";
-  src: url("../fonts/dolphin-icons/dolphin-icons-solid.woff?v=a4072cf40682") format("woff");
+  src: url("../fonts/dolphin-icons/dolphin-icons-solid.woff?v=6cd80854db48") format("woff");
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -5389,6 +5404,10 @@ button.toastr-close-button {
 
 .di-sms.di-solid:before {
   content: "\eadb";
+}
+
+.di-technology-2.di-solid:before {
+  content: "\eafa";
 }
 
 .di-time.di-solid:before {

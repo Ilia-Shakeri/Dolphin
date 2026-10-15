@@ -1,0 +1,52 @@
+# The internal AI assistant's model (2.40.55, feature `ai_assistant`; owner
+# decision 2026-10-14: «باید داخلی باشد»). Used only beside compose.yml:
+#
+#   docker compose --env-file secrets/.env -f compose.yml -f compose.ai.yml up -d ai
+#
+# llama.cpp's server (OpenAI-compatible chat API) with an open-weights model in
+# GGUF form that the operator puts in DOLPHIN_AI_MODELS_DIR offline — nothing
+# is downloaded at run time. Only on the internal `backend` network, so it
+# cannot reach the internet and nothing outside reaches it; the panel calls it
+# at DOLPHIN_AI_URL (http://ai:8080). Needs an NVIDIA GPU with the container
+# toolkit on the host (runbook, «Internal AI assistant»).
+services:
+  ai:
+    image: ${DOLPHIN_AI_IMAGE:?DOLPHIN_AI_IMAGE must be one reviewed llama.cpp server repository@sha256:digest reference}
+    restart: unless-stopped
+    user: "65534:65534"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    command:
+      - --model
+      - /models/${DOLPHIN_AI_MODEL_FILE:?DOLPHIN_AI_MODEL_FILE must name the GGUF file inside DOLPHIN_AI_MODELS_DIR}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --ctx-size
+      - ${DOLPHIN_AI_CONTEXT_SIZE:-8192}
+      - --n-gpu-layers
+      - ${DOLPHIN_AI_GPU_LAYERS:-999}
+      - --threads
+      - ${DOLPHIN_AI_THREADS:-8}
+    volumes:
+      - ${DOLPHIN_AI_MODELS_DIR:?DOLPHIN_AI_MODELS_DIR must be the host folder holding the model}:/models:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - backend

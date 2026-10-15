@@ -237,6 +237,11 @@ FEATURE_DEPENDENCIES = {
     # own fields on its records (`customization`). It adapts to whichever
     # entities the deployment runs, so it requires none of them.
     "customization": frozenset(),
+
+    # The internal AI assistant (2.40.55, owner decision 2026-10-14, Q19): the
+    # deployment's own open-weights model, on its own server, with no way out
+    # (`compose.ai.yml`). Phase 1 reads a customer's case, so it needs them.
+    "ai_assistant": frozenset({"customers"}),
 }
 
 #: Features this release ships but does not serve by default.
@@ -321,6 +326,8 @@ DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "installment_reschedule", "installment_reminders", "installment_interest", "installment_late_fees",
     # 2.40.53: «شخصی‌سازی هم فیچر است و باید فعال شود».
     "customization",
+    # 2.40.55: «این هم فیچر اضافه هستش و باید دستی فعال بشه».
+    "ai_assistant",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

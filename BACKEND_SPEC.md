@@ -118,6 +118,18 @@ What that authorised, and what it did **not**:
   or a shared one by whoever may share). Sharing needs `views.share` (store manager and Platform Admin by
   default; one row in the permission matrix); a shared view's changes are audited. At most 30 per person
   per page. A person's own setting, so it may be deleted: `SELECT, INSERT, UPDATE, DELETE`.
+- **Internal AI assistant (2.40.55, feature `ai_assistant`, phase 1; owner decision 2026-10-14, Q19)** — the
+  deployment's own open-weights model (`compose.ai.yml`, llama.cpp's OpenAI-compatible server on the
+  internal network; `DOLPHIN_AI_URL`), never a public provider. `POST /api/v1/assistant/suggest/`
+  (`kind` = `summary` | `next_action` | `sms_draft`, `customer`, optional `instruction` ≤ 200 for a draft)
+  returns `{title, text, model, seconds, generated_at}`; `GET /api/v1/assistant/status/` (Platform Admin,
+  Company IT) whether the model answers. Gated by the feature (404), `ai.use` (sales roles and Platform
+  Admin by default; a matrix row) and the customer's scope; throttled as a sensitive action. What the model
+  reads is built only through the owning modules' scoped selectors (`assistant.context`: the customer and
+  its custom fields, its leads and last calls, issued invoices and what is owed, after-sales cases), at most
+  6000 characters, marked as data and not instructions. It changes nothing; each request is audited
+  (`assistant.suggested`, `action` = the kind). A model that does not answer is a 409 with a plain message.
+  Phases 2–4 (Persian search and Q&A, call transcription, insights and duplicates) are not built yet.
 - **SMS templates (2.40.54)** — `communications.services.render_sms_template` fills `{نام}` always and, with
   `customization`, `{تلفن}`, `{شهر}`, `{استان}`, `{دسته‌بندی}`, `{امروز}` (Jalali) and every active
   customer custom field as `{its label}`; the SMS page lists them (`sms_template_tokens`). A single send

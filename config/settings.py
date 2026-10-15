@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "chat",
     "accounting",
     "customization",
+    "assistant",
     "integration",  # PRELIMINARY, UNCOMMITTED — see integration/apps.py
 ]
 
@@ -412,6 +413,13 @@ REALTIME_STREAM_SECONDS = int(os.environ.get("DOLPHIN_REALTIME_STREAM_SECONDS", 
 # Streams one user may hold at once (2.40.0, was a fixed 3); a newer tab ends
 # the oldest with a terminal `bye`.
 REALTIME_MAX_PER_USER = int(os.environ.get("DOLPHIN_REALTIME_MAX_PER_USER", "3"))
+
+# The internal AI assistant (2.40.55, feature `ai_assistant`): the deployment's
+# own model service (`compose.ai.yml`, on the internal network). Empty means
+# no model; the feature then answers that the assistant is not available.
+DOLPHIN_AI_URL = os.environ.get("DOLPHIN_AI_URL", "")
+DOLPHIN_AI_MODEL_LABEL = os.environ.get("DOLPHIN_AI_MODEL_LABEL", "")
+DOLPHIN_AI_TIMEOUT_SECONDS = int(os.environ.get("DOLPHIN_AI_TIMEOUT_SECONDS", "90"))
 
 # When a cheque payment credits the customer account: on clearing (default) or
 # at registration. Clearing is the safe default because an uncleared cheque is

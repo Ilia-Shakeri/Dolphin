@@ -26,10 +26,10 @@ export function activityRoleLabel(code, inferred = false) {
  * every page showed before the preference existed — so a page rendered
  * by anything that does not set the attribute behaves exactly as it did.
  */
-export const CURRENCY_UNIT = document.body?.dataset.currencyUnit === "toman" ? "toman" : "rial";
+export const CURRENCY_UNIT = globalThis.document?.body?.dataset.currencyUnit === "toman" ? "toman" : "rial";
 /**
  * Whether this reader also sees each date's Gregorian equivalent (2.40.49,
  * «تنظیمات ← نمایش پنل ← تاریخ»). Every date stays Jalali; this only adds.
  */
-export const SHOWS_GREGORIAN = document.body?.dataset.calendar === "jalali_gregorian";
+export const SHOWS_GREGORIAN = globalThis.document?.body?.dataset.calendar === "jalali_gregorian";
 export const CURRENCY_LABEL = CURRENCY_UNIT === "toman" ? "تومان" : "ریال";

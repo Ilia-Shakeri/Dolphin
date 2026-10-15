@@ -123,13 +123,23 @@ class RequestMemoTests(TestCase):
             reset_request_memo(token)
 
     def test_a_list_page_runs_a_handful_of_queries(self):
-        """24 before 2.18.9, 16 of them repeats of the same two lookups."""
+        """24 before 2.18.9, 16 of them repeats of the same two lookups.
+
+        Two single lookups joined since, neither a repeat: the role's own
+        configured permissions (2.40.48, `configured_role_capabilities`, once
+        per request) and, where `customization` runs — as every feature does
+        here — the customer page's own fields (2.40.53, `page_definitions`).
+        """
         self.client.force_login(self.manager)
         self.client.get("/customers/")
         with CaptureQueriesContext(connection) as page:
             response = self.client.get("/customers/")
         self.assertEqual(response.status_code, 200)
-        self.assertLessEqual(len(page.captured_queries), 10)
+        self.assertLessEqual(len(page.captured_queries), 12)
+        # No lookup is repeated, but the signed-in user and the owner list.
+        tables = [query["sql"].split(" FROM ", 1)[-1].split()[0] for query in page.captured_queries]
+        repeated = {table for table in tables if tables.count(table) > 1}
+        self.assertLessEqual(repeated, {'"accounts_user"'}, tables)
 
     def test_the_permission_screen_answers_with_what_it_just_saved(self):
         """The one path that changes permissions and reads them back inside a

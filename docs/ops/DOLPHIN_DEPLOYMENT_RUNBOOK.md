@@ -25,7 +25,7 @@ v2, PostgreSQL and nginx in containers, and a Django/Gunicorn application image
 | [1. First install on a fresh server](#1-first-install-on-a-fresh-server) | Once, on a clean machine |
 | [2. Start after a reboot](#2-start-after-a-reboot) | Every restart |
 | [3. Application update](#3-application-update) | What a release does, and the same steps by hand |
-| [4. Backup and restore](#4-backup-and-restore) | Routine, disaster, the opt-in panel feature (4.7), and scheduled backups — the standard (4.8) |
+| [4. Backup and restore](#4-backup-and-restore) | Routine, disaster, the opt-in panel feature (4.7), scheduled backups — the standard (4.8), and the internal AI assistant (4.9) |
 | [5. Rollback](#5-rollback) | A release went wrong |
 | [6. Domain deployment](#6-domain-deployment) | Recommended production |
 | [6a. Internal hostname with a private CA](#6a-internal-only-hostname-with-a-private-ca) | Internal-only, real hostname, no public CA |
@@ -1192,6 +1192,9 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.55 — no migration.** New optional `compose.ai.yml` (the internal AI model, used only with
+  `-f compose.yml -f compose.ai.yml`) and variables `DOLPHIN_AI_*` (`.env.example`); with
+  `DOLPHIN_AI_URL` empty nothing changes. See [4.9](#49-internal-ai-assistant-24055).
 * **2.40.54 — `customization/0002_saved_views`** creates `customization_savedview` (`SELECT, INSERT,
   UPDATE, DELETE` — a person's own saved filters). No data moves; reversible with
   `migrate customization 0001`.
@@ -1763,6 +1766,53 @@ docker compose --env-file secrets/.env --profile backup-schedule run --rm --no-d
 Then follow [4.5](#45-verify-a-restore--into-a-disposable-database) and [4.6](#46-disaster-restore).
 `deployment-manifest.json.gpg` decrypts the same way, to wherever
 `DOLPHIN_DEPLOYMENT_MANIFEST_PATH` points.
+
+### 4.9 Internal AI assistant (2.40.55)
+
+Feature `ai_assistant` — off by default and **turned on by hand** in the deployment's manifest (owner
+decision 2026-10-14, Q19: «باید داخلی باشد … باید دستی فعال بشه»). The model runs **on this server**: an
+open-weights model served by llama.cpp's server in the `ai` service of `compose.ai.yml`, on the internal
+`backend` network only — it cannot reach the internet, nothing outside can reach it, and no customer data
+leaves the server. Phase 1 offers, on a customer's profile, a case summary, a next action and an SMS draft.
+It only suggests: nothing it says changes a record or sends anything.
+
+**Host.** An NVIDIA GPU with its driver and the NVIDIA Container Toolkit (`nvidia-smi` works on the host,
+and `docker run --rm --gpus all <image> nvidia-smi` works). A 7–8B instruct model in 4-bit GGUF needs
+roughly 6–8 GB of GPU memory; plan disk for the model file (4–10 GB).
+
+**Model and image, offline.** On a machine with internet:
+
+1. Choose an instruct model that writes Persian well and whose licence allows commercial use on the
+   customer's premises (for example a Qwen2.5-7B-Instruct GGUF, Apache-2.0). Download one `.gguf` file,
+   record its SHA-256, and copy it to the server, e.g. `/srv/dolphin/ai-models/`. Check the SHA-256 again
+   there.
+2. Pull llama.cpp's CUDA server image, record its digest (`repository@sha256:…`), `docker save` it, copy it
+   over and `docker load` it. The digest is what `DOLPHIN_AI_IMAGE` names.
+
+**`secrets/.env`:**
+
+```
+DOLPHIN_AI_IMAGE=<registry>/llama.cpp@sha256:<64 hex>
+DOLPHIN_AI_MODELS_DIR=/srv/dolphin/ai-models
+DOLPHIN_AI_MODEL_FILE=<the .gguf file name>
+DOLPHIN_AI_URL=http://ai:8080
+DOLPHIN_AI_MODEL_LABEL=<a short name shown to admins>
+```
+
+The model folder must be readable by uid 65534 (the service runs as `nobody`, read-only).
+
+**Start it** beside the stack, then restart `web` so it reads `DOLPHIN_AI_URL`:
+
+```bash
+docker compose --env-file secrets/.env -f compose.yml -f compose.ai.yml up -d ai
+docker compose --env-file secrets/.env up -d --no-deps web
+```
+
+`GET /api/v1/assistant/status/` (Platform Admin or Company IT) reports whether the model answers. Then
+enable `ai_assistant` in the manifest. `ai.use` decides who may ask (the sales roles and the Platform Admin
+by default; one row in the permission matrix). Every request is audited (`assistant.suggested`, with what
+was asked, not the answer). Without a running model the profile card says the assistant is not available
+and nothing else is affected.
 
 ---
 

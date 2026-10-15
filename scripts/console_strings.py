@@ -155,6 +155,7 @@ FEATURE_META = {
     "panel_backup": ("platform", "پشتیبان‌گیری از پنل", "Panel backup", "پشتیبان‌گیری و بازگردانی از داخل پنل.", "Backing up and restoring from inside the panel."),
     "internal_it_role": ("platform", "نقش مدیر فنی مشتری", "Customer IT role", "نقشی جدا برای مدیر فنی سمت مشتری.", "A separate role for the customer own technical admin."),
     "two_factor": ("platform", "ورود دومرحله‌ای", "Two-factor sign-in", "کد شش‌رقمی برنامهٔ احراز هویت هنگام ورود، اختیاری برای هر کاربر.", "A six-digit authenticator code at sign-in, optional per user."),
+    "ai_assistant": ("platform", "دستیار هوش مصنوعی داخلی", "Internal AI assistant", "مدل متن‌باز روی سرور خود مشتری: خلاصهٔ پرونده، اقدام بعدی و پیش‌نویس پیامک. فقط پیشنهاد می‌دهد.", "An open-weights model on the customer's own server: case summary, next action and SMS draft. It only suggests."),
     "customization": ("platform", "شخصی‌سازی", "Personalization", "فیلدهای سفارشی خود شرکت روی مشتریان: در فرم، پروفایل، ستون فهرست، فیلتر، جست‌وجو و اکسل.", "The company's own fields on customers: in the form, profile, list column, filter, search and spreadsheet."),
     "print_customization": ("platform", "قالب چاپ اختصاصی", "Custom print layout", "لوگو، مهر، رنگ، پانویس و اندازهٔ کاغذ خود شرکت روی فاکتور چاپی.", "The company's own logo, stamp, colour, footer and paper size on the printed invoice."),
 }

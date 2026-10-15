@@ -104,6 +104,7 @@ OPERATION_LABELS = {
     "saved_view.created": "اشتراک نمای ذخیره‌شده",
     "saved_view.updated": "تغییر نمای مشترک",
     "saved_view.deleted": "حذف نمای مشترک",
+    "assistant.suggested": "پیشنهاد دستیار هوش مصنوعی",
     "installment_plan.interest_charged": "ثبت سود اقساط",
     "installment_charge.late_fee_charged": "ثبت جریمهٔ دیرکرد",
     "installment_charge.waived": "بخشودگی جریمهٔ دیرکرد",

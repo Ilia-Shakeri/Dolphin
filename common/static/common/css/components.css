@@ -915,3 +915,9 @@ details[open] > summary.card-header::after {
 .backup-tile {
     white-space: normal;
 }
+
+/* The internal AI assistant's answer (2.40.55): its own line breaks are kept,
+   since a list of next steps arrives one per line. */
+.assistant-answer {
+    white-space: pre-line;
+}

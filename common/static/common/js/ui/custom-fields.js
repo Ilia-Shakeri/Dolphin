@@ -87,7 +87,7 @@ export function renderCustomFieldInputs(container, definitions, values = {}, {pr
         const id = `${prefix}-${definition.key}`;
         const label = document.createElement("label");
         label.className = `form-label fw-semibold${definition.required ? " required" : ""}`;
-        label.htmlFor = id;
+        label.setAttribute("for", id);
         label.textContent = definition.label;
         column.append(label, inputFor(definition, id, values?.[definition.key]));
         return column;

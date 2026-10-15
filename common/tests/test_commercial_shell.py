@@ -81,6 +81,11 @@ def browser_delete_targets():
 #: extension-to-user mapping — configuration, the Platform Admin's alone and
 #: audited. A call keeps its own extension number and user, so no call
 #: history changes.
+#:
+#: `/api/v1/saved-views/${view.id}/` (2.40.54) removes one saved list view —
+#: a person's own filters under a name, like the dashboard layout: not a
+#: record and not history. Only its owner, or for a shared one whoever may
+#: share (`customization.saved_views.delete_view`), and a shared one is audited.
 ALLOWED_BROWSER_DELETE_TARGETS = {
     "/api/v1/dashboard-layout/",
     "endpoint",
@@ -88,6 +93,7 @@ ALLOWED_BROWSER_DELETE_TARGETS = {
     "/api/v1/integrations/${integration.id}/",
     "/api/v1/webhook-subscriptions/${subscription.id}/",
     "/api/v1/telephony/extensions/${extension.id}/",
+    "/api/v1/saved-views/${view.id}/",
 }
 
 
