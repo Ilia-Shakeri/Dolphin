@@ -22,7 +22,17 @@ export function leadRow(lead) {
     badge.textContent = label;
     statusCell.append(badge);
     row.append(statusCell);
-    appendCell(row, lead.assigned_to_display || lead.assigned_to);
+    if (!lead.assigned_to && lead.returned_from) {
+        // Back from a deactivated account, waiting for a manager (2.40.48).
+        const cell = document.createElement("td");
+        const waiting = document.createElement("span");
+        waiting.className = "badge badge-light-warning";
+        waiting.textContent = "برگشتی — منتظر تصمیم";
+        cell.append(waiting);
+        row.append(cell);
+    } else {
+        appendCell(row, lead.assigned_to_display || lead.assigned_to);
+    }
     // Follow-up and registration are both days; the time of day was never
     // acted on and only made the column harder to scan.
     appendCell(row, displayDay(lead.next_follow_up_at));

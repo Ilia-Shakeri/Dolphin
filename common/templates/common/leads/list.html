@@ -9,6 +9,16 @@
 {% block breadcrumb_current %}سرنخ‌ها{% endblock %}
 {% block page_actions %}{% endblock %}
 {% block content %}
+{% if can_decide_returned_work %}
+{% comment %} Work back from a deactivated account, waiting for a manager's
+   decision (2.40.48, BIZ-013) — one notice per person, filled by
+   `features/leads/returned-work.js` from `/api/v1/returned-work/`. {% endcomment %}
+<div id="returned-work" class="d-grid gap-3 mb-5" aria-live="polite" hidden></div>
+<div id="returned-work-filter" class="d-flex align-items-center flex-wrap gap-3 mb-5" hidden>
+    <span class="badge badge-light-warning fs-7 py-2 px-3" id="returned-work-filter-label"></span>
+    <a class="btn btn-sm btn-light" href="{% url 'common_ui:leads' %}">همهٔ سرنخ‌ها</a>
+</div>
+{% endif %}
 <section class="card mb-5 mb-xl-8"><div class="card-header border-0 pt-6 flex-wrap gap-3">
     <div class="card-title mb-0 flex-wrap gap-2">
         <div class="list-search">
@@ -107,4 +117,46 @@
         </form>
     </div>
 </dialog>
+{% if can_decide_returned_work %}
+<dialog id="returned-work-dialog" aria-labelledby="returned-work-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="returned-work-title" class="mb-0">تصمیم دربارهٔ کارهای برگشتی</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="returned-work-form" novalidate>
+        <p class="text-gray-700 mb-5" id="returned-work-summary"></p>
+        <fieldset class="mb-5">
+            <legend class="form-label fw-semibold">چه شود؟</legend>
+            <div class="d-grid gap-3">
+                <label class="form-check form-check-custom form-check-solid align-items-start">
+                    <input class="form-check-input mt-1" type="radio" name="action" value="split" checked>
+                    <span class="form-check-label"><span class="d-block fw-semibold text-gray-900">تقسیم برابر میان مسئولان دیگر کمپین</span><span class="d-block text-muted fs-7">هر مورد به یکی از مسئولان فعال همان کمپین می‌رسد، به‌طوری که سهم‌ها برابر بماند.</span></span>
+                </label>
+                <label class="form-check form-check-custom form-check-solid align-items-start">
+                    <input class="form-check-input mt-1" type="radio" name="action" value="assign">
+                    <span class="form-check-label"><span class="d-block fw-semibold text-gray-900">واگذاری همه به یک نفر</span><span class="d-block text-muted fs-7">مخاطبان کمپین فقط به بازاریاب داده می‌شوند.</span></span>
+                </label>
+            </div>
+        </fieldset>
+        <div class="mb-5" data-returned-field="fallback">
+            <label class="form-label fw-semibold" for="returned-work-fallback">برای مواردی که کمپین یا مسئول فعال دیگری ندارند</label>
+            <select class="form-select form-select-solid" id="returned-work-fallback" name="fallback_users" multiple>
+                {% for pk, name in lead_assignee_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}
+            </select>
+            <p class="text-muted fs-8 mt-1 mb-0">اگر همهٔ موارد کمپینی با مسئول فعال دارند، لازم نیست کسی را انتخاب کنید.</p>
+            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="fallback_users"></p>
+        </div>
+        <div class="mb-5" data-returned-field="assign" hidden>
+            <label class="form-label fw-semibold" for="returned-work-to-user">به چه کسی؟</label>
+            <select class="form-select form-select-solid" id="returned-work-to-user" name="to_user">
+                <option value="">انتخاب کنید</option>
+                {% for pk, name in lead_assignee_choices %}<option value="{{ pk }}">{{ name }}</option>{% endfor %}
+            </select>
+            <p class="text-danger fs-8 mt-1 mb-0" data-error-for="to_user"></p>
+        </div>
+        <p class="text-danger fs-8 mb-4" data-error-for="from_user"></p>
+        <div class="d-flex justify-content-end gap-3">
+            <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+            <button class="btn btn-primary" type="submit">ثبت تصمیم</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
 {% endblock %}

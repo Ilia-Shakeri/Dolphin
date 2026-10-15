@@ -5,7 +5,8 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from accounts.access import (
-    PROTECTED_CAPABILITY_PREFIXES,
+    GRANTABLE_ONLY_TO,
+    _is_protected_capability,
     assignable_roles,
     crm_identities,
     is_crm_account,
@@ -227,6 +228,10 @@ def update_crm_user(*, actor, target, **changes):
             instance=target,
             changes={"fields": sorted(field for field in changed_fields if field != "password"), "password_changed": "password" in changed_fields},
         )
+        if "is_active" in changed_fields and not target.is_active:
+            from accounts.signals import user_deactivated
+
+            user_deactivated.send(sender=User, actor=actor, user=target)
     return target
 
 
@@ -352,13 +357,17 @@ def set_user_permission_overrides(*, actor, target, matrix):
         raise BusinessRuleError({"matrix": str(exc)}) from exc
     needed = overrides_needed_for_matrix(normalised, role=target.role, workstream=target.workstream)
     if not set(needed).issubset(governed_capabilities()) or any(
-        capability.startswith(PROTECTED_CAPABILITY_PREFIXES) for capability in needed
+        _is_protected_capability(capability) for capability in needed
     ):
         # Unreachable through `accounts.module_permissions.MODULES` as written
         # — kept as a hard stop rather than a comment, so a future module
         # naming a `users.*`/`audit.*` capability fails loudly here instead of
         # quietly granting it.
         raise BusinessPermissionDenied("این مجوز از این صفحه قابل تغییر نیست.")
+    for capability, granted in needed.items():
+        allowed_roles = GRANTABLE_ONLY_TO.get(capability)
+        if granted and allowed_roles is not None and target.role not in allowed_roles:
+            raise BusinessRuleError({"matrix": "دیدن رویدادهای تیم فروش فقط به مدیر فروشگاه داده می‌شود."})
 
     existing = {
         row.capability: row

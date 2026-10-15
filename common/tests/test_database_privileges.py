@@ -364,6 +364,9 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "accounts_user_groups": "SELECT, INSERT, DELETE",
             "accounts_user_user_permissions": "SELECT, INSERT, DELETE",
             "accounts_usercapabilityoverride": "SELECT, INSERT, UPDATE, DELETE",
+            # Role-level permission defaults (2.40.48).
+            "accounts_rolepermissionprofile": "SELECT, INSERT, UPDATE",
+            "accounts_rolecapabilityoverride": "SELECT, INSERT, UPDATE, DELETE",
             # The row is replaced wholesale on a new upload
             # (`update_or_create`) and removed when the picture is cleared.
             "accounts_useravatar": "SELECT, INSERT, UPDATE, DELETE",

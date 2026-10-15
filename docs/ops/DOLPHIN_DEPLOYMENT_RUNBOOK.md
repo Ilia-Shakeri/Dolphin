@@ -1184,6 +1184,10 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.48 — `accounts/0010_role_permission_profiles` and `sales/0035_returned_work`** create two tables
+  (`accounts_rolepermissionprofile`: `SELECT, INSERT, UPDATE`; `accounts_rolecapabilityoverride`:
+  `SELECT, INSERT, UPDATE, DELETE`, both granted by `db-finalize`) and add two nullable columns to leads and
+  to campaign people. No data moves. Reversible: `migrate sales 0034` and `migrate accounts 0009`.
 * **2.40.47 — `auditlog/0003_activitylog_actor_role_inferred`** adds one boolean column and fills the role
   of activity rows written before roles were recorded (the actor's current role, or `system` with no
   actor), marking them inferred. It is an `UPDATE` on the audit table, run by `migrate` as the schema

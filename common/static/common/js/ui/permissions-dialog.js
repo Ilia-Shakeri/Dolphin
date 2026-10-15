@@ -15,6 +15,11 @@ import {confirmDialog} from "dolphin/ui/dialogs.js";
  * پنل باید بتواند هر چیزی را که می‌خواهد حذف کند، ولی کاربران دیگر باید
  * مجوز بگیرند»). A Platform Admin's own row shows it ticked and locked:
  * that role deletes regardless (`accounts.access.can_delete`).
+ *
+ * Since 2.40.48 the same dialog edits a whole role's defaults
+ * (`openRolePermissionsDialog`, `/api/v1/role-permissions/<key>/`): the
+ * matrix, the rules and the buttons are the same; what it is about, the
+ * endpoints and the wording change.
  */
 export function setupPermissionsDialog() {
     const dialog = document.getElementById("permissions-dialog");
@@ -37,8 +42,13 @@ export function setupPermissionsDialog() {
     const saveButton = document.getElementById("permissions-save");
     const cancelEditButton = document.getElementById("permissions-cancel-edit");
     const resetButton = document.getElementById("permissions-reset");
+    const subjectLabel = document.getElementById("permissions-subject-label");
+    const roleLine = document.getElementById("permissions-role-line");
+    const roleNote = document.getElementById("permissions-role-note");
+    const title = document.getElementById("permissions-title");
 
-    let userId = null;
+    // What the dialog is about: one user, or one role's defaults.
+    let target = {kind: "user", endpoint: "", saveMethod: "PATCH"};
     let current = null; // last server-confirmed {role, matrix, has_custom_permissions}
     let editing = false;
 
@@ -112,8 +122,17 @@ export function setupPermissionsDialog() {
     }
 
     function render() {
+        const isRole = target.kind === "role";
+        title.textContent = isRole ? "مجوزهای پیش‌فرض نقش" : "مجوزهای کاربر";
+        subjectLabel.textContent = isRole ? "نقش:" : "کاربر:";
         nameField.textContent = dialog.dataset.userName || "";
+        roleLine.hidden = isRole;
+        roleNote.hidden = !isRole;
         roleField.textContent = ROLE_LABELS[current.role] || current.role;
+        customNote.textContent = isRole
+            ? "ردیف‌های ستاره‌دار با پیش‌فرض نسخه فرق دارند."
+            : "ردیف‌های ستاره‌دار با پیش‌فرض این نقش فرق دارند.";
+        resetButton.textContent = isRole ? "بازگرداندن به پیش‌فرض نسخه" : "بازنشانی به پیش‌فرض نقش";
         customNote.hidden = !current.has_custom_permissions;
         editButton.hidden = editing;
         saveButton.hidden = !editing;
@@ -168,7 +187,7 @@ export function setupPermissionsDialog() {
         const timeout = new AbortController();
         const timer = setTimeout(() => timeout.abort(), 20000);
         try {
-            current = await apiRequest(`/api/v1/users/${userId}/permissions/`, {signal: timeout.signal});
+            current = await apiRequest(target.endpoint, {signal: timeout.signal});
             loading.hidden = true;
             body.hidden = false;
             render();
@@ -196,13 +215,14 @@ export function setupPermissionsDialog() {
         errorBox.hidden = true;
         saveButton.disabled = true;
         try {
-            current = await apiRequest(`/api/v1/users/${userId}/permissions/`, {
-                method: "PATCH",
+            current = await apiRequest(target.endpoint, {
+                method: target.saveMethod,
                 body: {matrix: collectMatrix()},
             });
             editing = false;
             render();
-            globalMessage("مجوزهای کاربر ذخیره شد.", true);
+            globalMessage(target.kind === "role" ? "مجوزهای نقش ذخیره شد." : "مجوزهای کاربر ذخیره شد.", true);
+            target.onChange?.();
         } catch (error) {
             showError(errorText(error));
         } finally {
@@ -211,13 +231,17 @@ export function setupPermissionsDialog() {
     });
 
     resetButton.addEventListener("click", async () => {
-        if (!await confirmDialog("مجوزهای اختصاصی این کاربر حذف و به پیش‌فرض نقشش بازگردانده شود؟")) return;
+        const isRole = target.kind === "role";
+        if (!await confirmDialog(isRole
+            ? "تغییرهای این نقش حذف و مجوزهایش به پیش‌فرض نسخه برگردد؟"
+            : "مجوزهای اختصاصی این کاربر حذف و به پیش‌فرض نقشش بازگردانده شود؟")) return;
         resetButton.disabled = true;
         try {
-            current = await apiRequest(`/api/v1/users/${userId}/permissions/reset/`, {method: "POST", body: {}});
+            current = await apiRequest(`${target.endpoint}reset/`, {method: "POST", body: {}});
             editing = false;
             render();
-            globalMessage("مجوزهای کاربر به پیش‌فرض نقش بازنشانی شد.", true);
+            globalMessage(isRole ? "مجوزهای نقش به پیش‌فرض نسخه برگشت." : "مجوزهای کاربر به پیش‌فرض نقش بازنشانی شد.", true);
+            target.onChange?.();
         } catch (error) {
             showError(errorText(error));
         } finally {
@@ -226,15 +250,27 @@ export function setupPermissionsDialog() {
     });
 
     permissionsDialogOpener = (id, name) => {
-        userId = id;
+        target = {kind: "user", endpoint: `/api/v1/users/${id}/permissions/`, saveMethod: "PATCH"};
         dialog.dataset.userName = name;
+        dialog.showModal();
+        load();
+    };
+    rolePermissionsDialogOpener = (key, label, onChange) => {
+        target = {kind: "role", endpoint: `/api/v1/role-permissions/${key}/`, saveMethod: "PUT", onChange};
+        dialog.dataset.userName = label;
         dialog.showModal();
         load();
     };
 }
 
 let permissionsDialogOpener = null;
+let rolePermissionsDialogOpener = null;
 
 export function openPermissionsDialog(id, name) {
     if (permissionsDialogOpener) permissionsDialogOpener(id, name);
+}
+
+/** One role's defaults, for everyone holding it (2.40.48). */
+export function openRolePermissionsDialog(key, label, onChange) {
+    if (rolePermissionsDialogOpener) rolePermissionsDialogOpener(key, label, onChange);
 }

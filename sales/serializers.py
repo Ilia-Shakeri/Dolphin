@@ -254,7 +254,7 @@ class ProductSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
 
 class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
-    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
+    server_fields = {"customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "returned_from", "closed_at", "created_by", "source_payload", "created_at", "updated_at"}
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -273,8 +273,8 @@ class LeadSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Lead
-        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "campaign_display", "created_at", "updated_at"]
-        read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
+        fields = ["id", "customer", "customer_name", "source", "campaign_or_batch", "interested_product", "status", "assigned_to", "assigned_to_display", "assign_to", "assigned_by", "assigned_at", "returned_from", "next_follow_up_at", "closed_at", "created_by", "notes", "source_payload", "campaign_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "customer_name", "assigned_to", "assigned_to_display", "campaign_display", "assigned_by", "assigned_at", "returned_from", "closed_at", "created_by", "source_payload", "created_at", "updated_at"]
 
     def get_campaign_display(self, instance) -> str:
         campaign = instance.campaign

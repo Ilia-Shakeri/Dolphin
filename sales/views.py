@@ -360,7 +360,7 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
     #: registration-date filter where a person types a bare day.
     #: `assigned_to` is a user profile's «مشتریان و سرنخ‌ها» tab (2.19.0) —
     #: a narrowing of the caller's own `leads_for` scope, never a widening.
-    list_query_parameters = {"status", "follow_up_from", "follow_up_to", "assigned_to"}
+    list_query_parameters = {"status", "follow_up_from", "follow_up_to", "assigned_to", "returned_from"}
     action_query_parameters = {
         "assignees": {"page"},
         "assignment_history": {"page"},
@@ -388,6 +388,12 @@ class LeadViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet):
             if not assigned_to.isdigit():
                 raise ValidationError({"assigned_to": "شناسهٔ کاربر معتبر نیست."})
             queryset = queryset.filter(assigned_to_id=int(assigned_to))
+        # Work back from a deactivated account, waiting for a decision (2.40.48).
+        returned_from = self.request.query_params.get("returned_from")
+        if returned_from:
+            if not returned_from.isdigit():
+                raise ValidationError({"returned_from": "شناسهٔ کاربر معتبر نیست."})
+            queryset = queryset.filter(returned_from_id=int(returned_from), assigned_to__isnull=True)
         return self._filter_by_follow_up(queryset)
 
     def _filter_by_follow_up(self, queryset):

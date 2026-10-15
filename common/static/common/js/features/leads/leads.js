@@ -6,11 +6,16 @@ import {loadAllPages, setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {leadRow} from "dolphin/ui/rows.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
+import {setupReturnedWork} from "dolphin/features/leads/returned-work.js";
 
 export async function setupLeads() {
     const form = document.getElementById("lead-search-form");
     setupListFilter("lead");
-    const controller = setupPagedList({
+    // Work back from a deactivated account (2.40.48): `?returned_from=` narrows
+    // the list to it, and a decision reloads the list.
+    let controller = null;
+    const {returnedFrom} = setupReturnedWork({onResolved: () => controller?.load()});
+    controller = setupPagedList({
         key: "leads", form,
         search: document.getElementById("lead-search"),
         endpoint(page) {
@@ -19,6 +24,7 @@ export async function setupLeads() {
             const status = document.getElementById("lead-status-filter").value.trim();
             if (search) query.set("search", search);
             if (status) query.set("status", status);
+            if (returnedFrom) query.set("returned_from", returnedFrom);
             return `/api/v1/leads/?${query}`;
         }, renderRow: leadRow,
     });

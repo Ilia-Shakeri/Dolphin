@@ -404,6 +404,13 @@ class Lead(TimeStampedModel):
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="assigned_leads")
     assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="lead_assignments_made")
     assigned_at = models.DateTimeField(null=True, blank=True)
+    #: Set when the person this was assigned to was deactivated and it came
+    #: back to the managers to decide (2.40.48, BIZ-013); cleared by the next
+    #: assignment. `sales.returned_work`.
+    returned_from = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="returned_leads"
+    )
+    returned_at = models.DateTimeField(null=True, blank=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True, db_index=True)
     closed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="created_leads")
@@ -484,6 +491,11 @@ class TargetAudienceMember(TimeStampedModel):
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
     assigned_at = models.DateTimeField(null=True, blank=True)
+    #: As on `Lead` (2.40.48): back with the managers after a deactivation.
+    returned_from = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="returned_campaign_members"
+    )
+    returned_at = models.DateTimeField(null=True, blank=True)
     stage = models.CharField(max_length=12, choices=Stage.choices, default=Stage.NEW, db_index=True)
     lost_reason = models.CharField(max_length=300, blank=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True, db_index=True)

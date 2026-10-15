@@ -139,6 +139,10 @@ OPERATION_LABELS = {
     "user.role_changed": "تغییر نقش کاربر",
     "user.permissions_overridden": "تغییر مجوزهای اختصاصی کاربر",
     "user.permissions_reset": "بازنشانی مجوزهای کاربر به پیش‌فرض نقش",
+    "role.permissions_overridden": "تغییر مجوزهای پیش‌فرض نقش",
+    "role.permissions_reset": "بازگرداندن مجوزهای نقش به پیش‌فرض نسخه",
+    "user.work_returned": "برگشت کارهای کاربر غیرفعال‌شده به مدیران",
+    "user.returned_work_resolved": "تصمیم دربارهٔ کارهای برگشتی",
     "user.sessions_revoked": "ابطال نشست‌های کاربر",
     "user.password_set": "تغییر گذرواژهٔ کاربر",
     "two_factor.enabled": "روشن کردن ورود دومرحله‌ای",
@@ -198,6 +202,7 @@ def operation_label(operation):
 OBJECT_TYPE_LABELS = {
     "accounts.user": "کاربر",
     "accounts.usercapabilityoverride": "مجوز اختصاصی کاربر",
+    "accounts.rolepermissionprofile": "مجوزهای پیش‌فرض نقش",
     "accounts.useravatar": "تصویر پروفایل",
     "common.brandsettings": "شخصی‌سازی پنل",
     "common.printsettings": "قالب چاپ اسناد",

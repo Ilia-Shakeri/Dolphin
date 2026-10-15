@@ -7,6 +7,7 @@ from accounts.avatar_views import (
     UserAvatarImageView,
     UserAvatarView,
 )
+from accounts.role_permission_views import RolePermissionsResetView, RolePermissionsView, RoleProfileListView
 from accounts.views import UserViewSet
 
 
@@ -35,5 +36,9 @@ urlpatterns = [
         UserAvatarImageView.as_view(),
         name="user-avatar-image",
     ),
+    # Role-level permission defaults (2.40.48), Platform Admin only.
+    path("role-permissions/", RoleProfileListView.as_view(), name="role-permissions"),
+    path("role-permissions/<str:key>/", RolePermissionsView.as_view(), name="role-permissions-detail"),
+    path("role-permissions/<str:key>/reset/", RolePermissionsResetView.as_view(), name="role-permissions-reset"),
     *router.urls,
 ]

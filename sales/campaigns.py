@@ -388,8 +388,9 @@ def assign_campaign_member(*, actor, member, to_user, reason=""):
         raise BusinessConflictError({"to_user": "این مخاطب قبلاً به این کاربر واگذار شده است."})
     previous = locked.assigned_to_id
     locked.assigned_to, locked.assigned_by, locked.assigned_at = target, actor, timezone.now()
+    locked.returned_from, locked.returned_at = None, None
     locked.updated_by = actor
-    locked.save(update_fields=["assigned_to", "assigned_by", "assigned_at", "updated_by", "updated_at"])
+    locked.save(update_fields=["assigned_to", "assigned_by", "assigned_at", "returned_from", "returned_at", "updated_by", "updated_at"])
     log_activity(
         actor=actor, operation="campaign_member.assigned", instance=locked,
         changes={"from_user": previous, "to_user": target.pk, "reason_provided": bool(reason)},

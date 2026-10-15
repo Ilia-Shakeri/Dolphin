@@ -41,7 +41,7 @@ from common.pdf import (
     renderer_is_available,
 )
 from common.permissions import FeatureGatedViewMixin
-from auditlog.selectors import activity_logs_for
+from auditlog.selectors import AUDIT_READ_CAPABILITIES, activity_logs_for
 from communications import sms
 from aftersales.selectors import after_sales_requests_for
 from billing.money import printed_line_breakdown
@@ -257,7 +257,7 @@ class ActiveCrmView(FeatureGatedViewMixin, TemplateView):
             {"reports.own", "reports.company"}.intersection(capabilities)
         )
         context["can_view_audit"] = feature_enabled("audit_log") and bool(
-            {"audit.non_platform", "audit.all"}.intersection(capabilities)
+            set(AUDIT_READ_CAPABILITIES).intersection(capabilities)
         )
         context["is_platform_navigation"] = "dashboard.platform" in capabilities
         # Real, irreversible row deletion — single or bulk, on every list
@@ -402,7 +402,7 @@ class DolphinHomeView(ActiveCrmView):
             })
         if context["can_view_audit"]:
             widgets.append({
-                "capability": "audit.all" if "audit.all" in capabilities else "audit.non_platform",
+                "capability": next(item for item in ("audit.all", "audit.non_platform", "audit.team") if item in capabilities),
                 "label": "رویدادهای قابل مشاهده",
                 "value": activity_logs_for(self.request.user).count(),
                 "url_name": "common_ui:activity-logs",
@@ -464,6 +464,8 @@ class DolphinUserListView(UserAdminView):
         # accept from this same admin — one list, so the two screens can
         # never disagree about what is on offer.
         context["assignable_roles"] = assignable_roles(self.request.user)
+        # Role-level permission defaults (2.40.48): the Platform Admin only.
+        context["can_edit_role_permissions"] = self.request.user.role == User.Role.PLATFORM_ADMIN
         return context
 
 
@@ -589,6 +591,9 @@ class DolphinLeadListView(ActiveCrmView):
         context["lead_assignee_choices"] = (
             customer_owner_choices() if user.role in ELEVATED_OPERATORS else [(user.pk, "خودم")]
         )
+        from sales.returned_work import can_decide_returned_work
+
+        context["can_decide_returned_work"] = can_decide_returned_work(user)
         return context
 
 
@@ -990,7 +995,7 @@ class AuditReaderView(ActiveCrmView):
     def dispatch(self, request, *args, **kwargs):
         if not is_crm_identity(request.user):
             return super().dispatch(request, *args, **kwargs)
-        if not has_any_capability(request.user, "audit.non_platform", "audit.all"):
+        if not has_any_capability(request.user, *AUDIT_READ_CAPABILITIES):
             return self.render_to_response(
                 self.get_context_data(
                     error_status=403,

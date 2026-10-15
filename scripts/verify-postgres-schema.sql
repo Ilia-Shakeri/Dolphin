@@ -6,6 +6,8 @@ SELECT (
     to_regclass('public.accounting_account') IS NOT NULL
     AND to_regclass('public.accounting_journalentry') IS NOT NULL
     AND to_regclass('public.accounting_journalline') IS NOT NULL
+    AND to_regclass('public.accounts_rolecapabilityoverride') IS NOT NULL
+    AND to_regclass('public.accounts_rolepermissionprofile') IS NOT NULL
     AND to_regclass('public.accounts_twofactordevice') IS NOT NULL
     AND to_regclass('public.accounts_twofactorrecoverycode') IS NOT NULL
     AND to_regclass('public.accounts_user') IS NOT NULL
@@ -89,7 +91,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (116), recorded.
+    -- Every migration this release ships (118), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -104,6 +106,7 @@ SELECT (
                 ('accounts', '0007_person_profile_fields'),
                 ('accounts', '0008_backfill_user_normalized_phone'),
                 ('accounts', '0009_two_factor'),
+                ('accounts', '0010_role_permission_profiles'),
                 ('admin', '0001_initial'),
                 ('admin', '0002_logentry_remove_auto_add'),
                 ('admin', '0003_logentry_add_action_flag_choices'),
@@ -204,6 +207,7 @@ SELECT (
                 ('sales', '0032_member_entry_unknown'),
                 ('sales', '0033_campaign_other_channels'),
                 ('sales', '0034_sales_target'),
+                ('sales', '0035_returned_work'),
                 ('scoring', '0001_initial'),
                 ('sessions', '0001_initial'),
                 ('tasks', '0001_initial'),
@@ -218,13 +222,15 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (224).
+    -- Every named check and unique constraint (226).
     AND NOT EXISTS (
         SELECT 1
         FROM (
             VALUES
                 ('accounting_account', 'account_code_nonblank'),
                 ('accounting_journalline', 'journal_line_exactly_one_side'),
+                ('accounts_rolecapabilityoverride', 'accounts_role_override_unique'),
+                ('accounts_rolepermissionprofile', 'accounts_role_profile_key_valid'),
                 ('accounts_user', 'accounts_user_elevated_workstream_sales'),
                 ('accounts_user', 'accounts_user_role_valid'),
                 ('accounts_user', 'accounts_user_workstream_valid'),

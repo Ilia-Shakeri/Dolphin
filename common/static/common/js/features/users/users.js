@@ -2,7 +2,7 @@ import {apiRequest} from "dolphin/core/api.js";
 import {ROLE_LABELS} from "dolphin/core/config.js";
 import {clearMessages, formPayload, showError, withSubmit} from "dolphin/core/messages.js";
 import {bindLiveSearch, setupRowSelection} from "dolphin/ui/lists.js";
-import {openPermissionsDialog, setupPermissionsDialog} from "dolphin/ui/permissions-dialog.js";
+import {openPermissionsDialog, openRolePermissionsDialog, setupPermissionsDialog} from "dolphin/ui/permissions-dialog.js";
 import {appendStatusCell, pageRangeLabel} from "dolphin/ui/table.js";
 import {renderWizardReview, selectedOptionText, setupWizard} from "dolphin/ui/wizard.js";
 
@@ -137,6 +137,7 @@ export function setupUsers() {
     });
 
     setupPermissionsDialog();
+    setupRolePermissions();
     tableBody.addEventListener("click", (event) => {
         const button = event.target.closest("[data-permissions-button]");
         if (!button) return;
@@ -144,4 +145,61 @@ export function setupUsers() {
     });
 
     loadUsers();
+}
+
+/**
+ * «مجوزهای نقش‌ها» (2.40.48): the configurable roles, each opening the shared
+ * permissions dialog in role mode. Platform Admin only — the button is not
+ * rendered for anyone else, and the API refuses them regardless.
+ */
+function setupRolePermissions() {
+    const button = document.getElementById("open-role-permissions");
+    const dialog = document.getElementById("role-permissions-dialog");
+    if (!button || !dialog) return;
+    const list = document.getElementById("role-permissions-list");
+    const loading = document.getElementById("role-permissions-loading");
+    dialog.querySelectorAll("[data-close-dialog]").forEach((close) => close.addEventListener("click", () => dialog.close()));
+
+    async function load() {
+        loading.hidden = false;
+        list.hidden = true;
+        try {
+            const roles = await apiRequest("/api/v1/role-permissions/");
+            list.replaceChildren(...roles.map((role) => {
+                const item = document.createElement("li");
+                item.className = "d-flex align-items-center justify-content-between gap-3 border rounded px-4 py-3";
+                const name = document.createElement("span");
+                name.className = "fw-semibold text-gray-900";
+                name.textContent = role.label;
+                const side = document.createElement("span");
+                side.className = "d-flex align-items-center gap-3";
+                if (role.has_custom_permissions) {
+                    const badge = document.createElement("span");
+                    badge.className = "badge badge-light-primary";
+                    badge.textContent = "تغییر داده شده";
+                    side.append(badge);
+                }
+                const open = document.createElement("button");
+                open.type = "button";
+                open.className = "btn btn-sm btn-light-primary";
+                open.textContent = "مجوزها";
+                open.addEventListener("click", () => {
+                    dialog.close();
+                    openRolePermissionsDialog(role.key, role.label, load);
+                });
+                side.append(open);
+                item.append(name, side);
+                return item;
+            }));
+            list.hidden = false;
+        } catch (error) {
+            showError(error);
+        } finally {
+            loading.hidden = true;
+        }
+    }
+    button.addEventListener("click", () => {
+        dialog.showModal();
+        load();
+    });
 }

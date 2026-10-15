@@ -16,6 +16,7 @@
         </div>
     </div>
     <div class="card-toolbar flex-wrap gap-2 gap-lg-3">
+        {% if can_edit_role_permissions %}<button id="open-role-permissions" class="btn btn-light" type="button">مجوزهای نقش‌ها</button>{% endif %}
         <button id="open-create-user" class="btn btn-primary" type="button">کاربر جدید</button>
     </div>
 </div><div class="card-body pt-2">
@@ -78,4 +79,17 @@
     </div>
 </dialog>
 {% include "common/includes/permissions_dialog.inc" %}
+{% if can_edit_role_permissions %}
+{% comment %} Role-level defaults (2.40.48): pick a role, then the same
+   permissions dialog edits it for everyone who holds it. {% endcomment %}
+<dialog id="role-permissions-dialog" aria-labelledby="role-permissions-title">
+    <div class="d-flex flex-stack align-items-center mb-3">
+        <h2 id="role-permissions-title" class="mb-0">مجوزهای پیش‌فرض نقش‌ها</h2>
+        <button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button>
+    </div>
+    <p class="text-gray-700 fs-7 mb-5">دسترسی هر نقش را برای همهٔ کاربرانش یک‌جا محدودتر یا بیشتر کنید. مدیریت کاربران و رویدادهای سامانه از این‌جا داده نمی‌شوند، و نقش مدیر پلتفرم تغییر نمی‌کند.</p>
+    <div id="role-permissions-loading" class="text-center text-gray-700 py-6">در حال دریافت نقش‌ها…</div>
+    <ul id="role-permissions-list" class="list-unstyled d-grid gap-2 mb-0" hidden></ul>
+</dialog>
+{% endif %}
 {% endblock %}

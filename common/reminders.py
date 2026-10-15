@@ -122,6 +122,36 @@ def _lead_reminders(user, *, now, count_only=False):
     return _group("lead_follow_up", "پیگیری سرنخ", "di-call", "primary", total, items)
 
 
+def _returned_work_reminders(user, *, now, count_only=False):
+    """Work back from a deactivated account, waiting for a manager's decision
+    (2.40.48, BIZ-013). One entry per person; it clears once the work has a
+    new owner, like every other reminder here."""
+    from sales.returned_work import can_decide_returned_work, returned_work_summary
+
+    if not can_decide_returned_work(user):
+        return 0 if count_only else _group("returned_work", "کارهای برگشتی", "di-arrows-circle", "warning", 0, [])
+    summary = returned_work_summary(user)
+    if count_only:
+        return len(summary)
+    items = []
+    for row in summary[:GROUP_ITEM_LIMIT]:
+        parts = []
+        if row["lead_count"]:
+            parts.append(f"{to_persian_digits(str(row['lead_count']))} سرنخ")
+        if row["member_count"]:
+            parts.append(f"{to_persian_digits(str(row['member_count']))} مخاطب کمپین")
+        items.append({
+            "id": f"r{row['from_user']}",
+            "title": f"کارهای {row['from_user_display']}",
+            "subtitle": f"{' و '.join(parts)} برگشت؛ تصمیم بگیرید.",
+            "due_at": row["returned_at"].isoformat(),
+            "due_kind": "datetime",
+            "overdue": True,
+            "url": f"/leads/?returned_from={row['from_user']}",
+        })
+    return _group("returned_work", "کارهای برگشتی", "di-arrows-circle", "warning", len(summary), items)
+
+
 def _appointment_reminders(user, *, now, count_only=False):
     """After-sales appointments that are due — overdue, or falling today."""
     end_of_today = _end_of_today(now)
@@ -256,6 +286,7 @@ def _instalment_reminders(user, *, now, count_only=False):
 #: own day's work first, then the two about money. Each entry pairs the feature
 #: that must be enabled with the function that reads it.
 SOURCES = (
+    ("leads", _returned_work_reminders),
     ("leads", _lead_reminders),
     ("tasks", _task_reminders),
     ("after_sales", _appointment_reminders),

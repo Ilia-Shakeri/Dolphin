@@ -306,9 +306,77 @@ def is_crm_identity(user):
 #: a row existed anyway (a manual DB edit, a future bug elsewhere).
 PROTECTED_CAPABILITY_PREFIXES = ("users.", "audit.")
 
+#: The one exception inside those prefixes (owner decision 2026-10-14, BIZ-011):
+#: «ادمین باید بتواند به آن‌ها دسترسی بدهد». `audit.team` shows a store
+#: manager what the sales team did to business records
+#: (`auditlog.selectors.TEAM_AUDIT_OBJECT_TYPES`) — never user administration,
+#: permissions, platform settings or IT work. Only the Platform Admin edits the
+#: matrix (`accounts.services.USER_ADMINS`), and only a store manager may hold
+#: it (`GRANTABLE_ONLY_TO`).
+GRANTABLE_PROTECTED_CAPABILITIES = frozenset({"audit.team"})
+GRANTABLE_ONLY_TO = {"audit.team": frozenset({User.Role.SALES_MANAGER})}
+
 
 def _is_protected_capability(capability):
-    return capability.startswith(PROTECTED_CAPABILITY_PREFIXES)
+    return capability.startswith(PROTECTED_CAPABILITY_PREFIXES) and capability not in GRANTABLE_PROTECTED_CAPABILITIES
+
+
+def role_profile_key(role, workstream=None):
+    """Which configurable role profile a role belongs to (2.40.48), or `None`
+    for the Platform Admin, whose role is never narrowed from a screen."""
+    if role == User.Role.SALES_AGENT:
+        return "after_sales_agent" if workstream == User.Workstream.AFTER_SALES else "sales_agent"
+    if role in (User.Role.SALES_MANAGER, User.Role.COMPANY_IT):
+        return role
+    return None
+
+
+def base_role_capabilities(role, workstream=None):
+    """The role's set as the code defines it — `ROLE_CAPABILITIES` — before an
+    admin's role-level changes. The fixed baseline a role profile is diffed
+    against, and what decides a module's scope tier (see
+    `accounts.module_permissions.capabilities_for_matrix`)."""
+    if role == User.Role.SALES_AGENT and workstream == User.Workstream.AFTER_SALES:
+        return AFTER_SALES_AGENT_CAPABILITIES
+    return ROLE_CAPABILITIES.get(role, frozenset())
+
+
+def configured_role_capabilities(role, workstream=None):
+    """The role's set with the Platform Admin's role-level changes applied
+    (`RoleCapabilityOverride`, 2.40.48). Protected capabilities are skipped
+    exactly as on a person. Answered once per request."""
+    base = base_role_capabilities(role, workstream)
+    key = role_profile_key(role, workstream)
+    if key is None:
+        return base
+    memo = request_memo()
+    memo_key = ("role_profile", key)
+    if memo is not None and memo_key in memo:
+        overrides = memo[memo_key]
+    else:
+        from accounts.models import RoleCapabilityOverride
+
+        overrides = list(RoleCapabilityOverride.objects.filter(profile__key=key).values_list("capability", "granted"))
+        if memo is not None:
+            memo[memo_key] = overrides
+    if not overrides:
+        return base
+    result = set(base)
+    for capability, granted in overrides:
+        if _is_protected_capability(capability):
+            continue
+        if granted and not _grantable_to_role(capability, role):
+            continue
+        if granted:
+            result.add(capability)
+        else:
+            result.discard(capability)
+    return frozenset(result)
+
+
+def _grantable_to_role(capability, role):
+    allowed = GRANTABLE_ONLY_TO.get(capability)
+    return allowed is None or role in allowed
 
 
 def role_default_capabilities(user):
@@ -318,12 +386,11 @@ def role_default_capabilities(user):
     before per-user overrides existed, kept under its own name so the override
     layer below has something stable to diff against — the permissions screen
     shows an admin exactly which rows on a user's matrix differ from this.
+    Since 2.40.48 it includes the role's configured profile.
     """
     if not is_crm_identity(user):
         return frozenset()
-    if user.role == User.Role.SALES_AGENT and user.workstream == User.Workstream.AFTER_SALES:
-        return AFTER_SALES_AGENT_CAPABILITIES
-    return ROLE_CAPABILITIES.get(user.role, frozenset())
+    return configured_role_capabilities(user.role, user.workstream)
 
 
 def capabilities_for(user):
@@ -362,6 +429,8 @@ def _capabilities_for(user):
     result = set(base)
     for capability, granted in overrides:
         if _is_protected_capability(capability):
+            continue
+        if granted and not _grantable_to_role(capability, user.role):
             continue
         if granted:
             result.add(capability)

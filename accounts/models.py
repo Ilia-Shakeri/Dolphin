@@ -104,6 +104,64 @@ class UserCapabilityOverride(models.Model):
         ]
 
 
+class RolePermissionProfile(models.Model):
+    """One role's configured permission defaults (2.40.48).
+
+    Owner decision 2026-10-14 (BIZ-005): «مدیر فروش هم دسترسی‌هاش باید از ادمین
+    محدودتر باشه». The code's own role sets (`accounts.access.ROLE_CAPABILITIES`)
+    already keep a store manager below the Platform Admin; this lets the
+    Platform Admin narrow — or widen — what a role grants for everyone holding
+    it at once, rather than one account at a time. Per-user overrides still
+    apply on top of it. The Platform Admin's own role is not configurable.
+
+    A row exists once someone has edited that role; its overrides live in
+    `RoleCapabilityOverride`. The row is also what the activity log names.
+    """
+
+    class Key(models.TextChoices):
+        SALES_AGENT = "sales_agent", "بازاریاب (فروش)"
+        AFTER_SALES_AGENT = "after_sales_agent", "کارشناس پس از فروش"
+        SALES_MANAGER = "sales_manager", "مدیر فروشگاه"
+        COMPANY_IT = "company_it", "مدیر فنی مشتری"
+
+    key = models.CharField(max_length=32, choices=Key.choices, unique=True)
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.PROTECT, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "role permission profile"
+        verbose_name_plural = "role permission profiles"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(key__in=["sales_agent", "after_sales_agent", "sales_manager", "company_it"]),
+                name="accounts_role_profile_key_valid",
+            ),
+        ]
+
+
+class RoleCapabilityOverride(models.Model):
+    """One capability granted or withdrawn for every holder of a role.
+
+    Read by `accounts.access.configured_role_capabilities`, which applies it to
+    the code's role set exactly as `UserCapabilityOverride` is applied to a
+    person — and refuses the same protected capabilities.
+    """
+
+    profile = models.ForeignKey(RolePermissionProfile, on_delete=models.CASCADE, related_name="overrides")
+    capability = models.CharField(max_length=64)
+    granted = models.BooleanField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "role capability override"
+        verbose_name_plural = "role capability overrides"
+        constraints = [
+            models.UniqueConstraint(fields=["profile", "capability"], name="accounts_role_override_unique"),
+        ]
+
+
 class UserAvatar(models.Model):
     """One person's own profile picture.
 

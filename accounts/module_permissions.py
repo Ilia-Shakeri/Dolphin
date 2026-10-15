@@ -59,6 +59,11 @@ class Module:
     #: The capability that lets someone permanently delete this module's
     #: records (2.18.8). Empty for a module with nothing to delete.
     delete: tuple = ()
+    #: The roles this row is offered to; empty means every role (2.40.48).
+    roles: tuple = ()
+
+    def applies_to(self, role):
+        return not self.roles or role in self.roles
 
 
 MODULES = (
@@ -101,22 +106,29 @@ MODULES = (
     # part of a call that is someone's voice.
     Module("calls", "تماس‌های تلفنی", ("calls.own", "calls.company"), ("calls.originate",)),
     Module("call_recordings", "ضبط مکالمه", ("calls.recordings",)),
+    # The sales team's activity on business records (2.40.48, BIZ-011): the one
+    # audit row this screen governs, offered for a store manager only.
+    Module("audit_team", "رویدادهای سامانهٔ تیم فروش", ("audit.team",), roles=("sales_manager",)),
 )
 
 MODULES_BY_KEY = {module.key: module for module in MODULES}
 
 
 def role_held_capabilities(role, workstream=None):
-    """The raw capability set `accounts.access.ROLE_CAPABILITIES` gives this
-    role, ignoring any per-user override — the "role alone" baseline every
-    other function in this module diffs or reconciles against.
+    """What this role grants today, ignoring any per-user override — the role's
+    code-defined set with the Platform Admin's role-level changes applied
+    (2.40.48). The "role alone" baseline a person's matrix is diffed against.
     """
-    from accounts.access import AFTER_SALES_AGENT_CAPABILITIES, ROLE_CAPABILITIES
-    from accounts.models import User
+    from accounts.access import configured_role_capabilities
 
-    if role == User.Role.SALES_AGENT and workstream == User.Workstream.AFTER_SALES:
-        return AFTER_SALES_AGENT_CAPABILITIES
-    return ROLE_CAPABILITIES.get(role, frozenset())
+    return configured_role_capabilities(role, workstream)
+
+
+def role_base_capabilities(role, workstream=None):
+    """The role's set as the code defines it, before any role-level change."""
+    from accounts.access import base_role_capabilities
+
+    return base_role_capabilities(role, workstream)
 
 
 def default_matrix_for_role(role, workstream=None):
@@ -134,6 +146,7 @@ def default_matrix_for_role(role, workstream=None):
             "delete": any(capability in held for capability in module.delete) if module.delete else False,
         }
         for module in MODULES
+        if module.applies_to(role)
     }
 
 
@@ -145,30 +158,10 @@ def effective_matrix_for_user(user):
     a customised row without recomputing the diff itself.
     """
     from accounts.access import capabilities_for
-    from accounts.models import User
 
-    held = capabilities_for(user)
-    defaults = default_matrix_for_role(user.role, user.workstream)
-    # A Platform Admin deletes anything regardless (`can_delete`); their own
-    # delete column says so and is not offered for editing.
-    delete_locked = user.role == User.Role.PLATFORM_ADMIN
-    matrix = {}
-    for module in MODULES:
-        read = any(capability in held for capability in module.read)
-        write = any(capability in held for capability in module.write) if module.write else False
-        delete = bool(module.delete) and (delete_locked or any(capability in held for capability in module.delete))
-        default = defaults[module.key]
-        matrix[module.key] = {
-            "label": module.label,
-            "supports_write": bool(module.write),
-            "supports_delete": bool(module.delete),
-            "delete_locked": delete_locked and bool(module.delete),
-            "read": read,
-            "write": write,
-            "delete": delete,
-            "is_custom": read != default["read"] or write != default["write"] or delete != default["delete"],
-        }
-    return matrix
+    return matrix_for_capabilities(
+        capabilities_for(user), role=user.role, baseline=role_held_capabilities(user.role, user.workstream)
+    )
 
 
 def validate_matrix(matrix):
@@ -223,7 +216,7 @@ def capabilities_for_matrix(matrix, *, role, workstream=None):
     governs for this role, meant to be reconciled against a user's current
     capabilities by `set_user_permission_overrides`.
     """
-    role_held = role_held_capabilities(role, workstream)
+    role_held = role_base_capabilities(role, workstream)
 
     result = {}
     for key, module in MODULES_BY_KEY.items():
@@ -280,7 +273,7 @@ def governed_capabilities():
     return result
 
 
-def overrides_needed_for_matrix(matrix, *, role, workstream=None):
+def overrides_needed_for_matrix(matrix, *, role, workstream=None, baseline=None):
     """Which `{capability: granted}` rows must exist for `matrix` to hold.
 
     Only a capability that actually *disagrees* with what the role would give
@@ -289,10 +282,40 @@ def overrides_needed_for_matrix(matrix, *, role, workstream=None):
     empty as it was. This is the one place that decides "is this an
     override", so `set_user_permission_overrides` never has to.
     """
-    role_held = role_held_capabilities(role, workstream)
+    role_held = role_held_capabilities(role, workstream) if baseline is None else baseline
     desired = capabilities_for_matrix(matrix, role=role, workstream=workstream)
     return {
         capability: granted
         for capability, granted in desired.items()
         if granted != (capability in role_held)
     }
+
+
+def matrix_for_capabilities(held, *, role, baseline):
+    """The matrix a set of capabilities amounts to, with each row marked custom
+    where it differs from `baseline` — shared by a person's matrix and a role
+    profile's (2.40.48)."""
+    from accounts.models import User
+
+    delete_locked = role == User.Role.PLATFORM_ADMIN
+    matrix = {}
+    for module in MODULES:
+        if not module.applies_to(role):
+            continue
+        read = any(capability in held for capability in module.read)
+        write = any(capability in held for capability in module.write) if module.write else False
+        delete = bool(module.delete) and (delete_locked or any(capability in held for capability in module.delete))
+        default_read = any(capability in baseline for capability in module.read)
+        default_write = any(capability in baseline for capability in module.write) if module.write else False
+        default_delete = bool(module.delete) and (delete_locked or any(capability in baseline for capability in module.delete))
+        matrix[module.key] = {
+            "label": module.label,
+            "supports_write": bool(module.write),
+            "supports_delete": bool(module.delete),
+            "delete_locked": delete_locked and bool(module.delete),
+            "read": read,
+            "write": write,
+            "delete": delete,
+            "is_custom": read != default_read or write != default_write or delete != default_delete,
+        }
+    return matrix

@@ -524,6 +524,11 @@ FROM (
         -- (reset to role defaults) by the permissions screen, never merely
         -- appended.
         ('accounts_usercapabilityoverride', 'SELECT, INSERT, UPDATE, DELETE'),
+        -- Role-level permission defaults (2.40.48): a profile row per edited
+        -- role is kept; its overrides are set, changed and cleared like a
+        -- person's.
+        ('accounts_rolepermissionprofile', 'SELECT, INSERT, UPDATE'),
+        ('accounts_rolecapabilityoverride', 'SELECT, INSERT, UPDATE, DELETE'),
         -- The row is replaced wholesale when someone uploads a new picture
         -- (`update_or_create`) and removed when they clear it, so all four.
         ('accounts_useravatar', 'SELECT, INSERT, UPDATE, DELETE'),

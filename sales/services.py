@@ -802,7 +802,10 @@ def reassign_lead(*, actor, lead, to_user, reason=""):
     locked.assigned_to = target
     locked.assigned_by = actor
     locked.assigned_at = timezone.now()
-    locked.save(update_fields=["assigned_to", "assigned_by", "assigned_at", "updated_at"])
+    # A lead that came back from a deactivated account is decided (2.40.48).
+    locked.returned_from = None
+    locked.returned_at = None
+    locked.save(update_fields=["assigned_to", "assigned_by", "assigned_at", "returned_from", "returned_at", "updated_at"])
     LeadAssignmentHistory.objects.create(lead=locked, from_user=previous, to_user=target, changed_by=actor, reason=reason)
     log_activity(
         actor=actor,
