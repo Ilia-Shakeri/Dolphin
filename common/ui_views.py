@@ -498,6 +498,14 @@ class DolphinCustomerListView(ActiveCrmView):
         context = super().get_context_data(**kwargs)
         if context.get("can_assign_customer_owner"):
             context["customer_owner_choices"] = customer_owner_choices()
+        # The company's own fields (2.40.53, feature `customization`): the
+        # list's columns and filters, and the definitions the forms draw.
+        from customization.services import page_definitions
+
+        fields = page_definitions("customer")
+        context["custom_field_definitions"] = fields
+        context["custom_list_fields"] = [field for field in fields if field["show_in_list"]]
+        context["custom_filter_fields"] = [field for field in fields if field["filterable"]]
         return context
 
 
@@ -1669,6 +1677,13 @@ class DolphinSettingsView(ActiveCrmView):
         context["installment_features"] = installment_settings.enabled_features()
         if context["can_configure_installments"]:
             tabs.append(("installments", "اقساط"))
+        # The company's own fields (2.40.53): the feature and
+        # `customization.manage`, both checked again by `/api/v1/custom-fields/`.
+        from customization.services import can_manage as can_manage_customization
+
+        context["can_manage_customization"] = can_manage_customization(self.request.user)
+        if context["can_manage_customization"]:
+            tabs.append(("customization", "شخصی‌سازی"))
         if context["can_manage_branding"] or context["can_manage_integrations"]:
             tabs.append(("deployment", "استقرار"))
         requested = self.request.GET.get("tab", "")

@@ -142,7 +142,9 @@ class CustomerDirectoryExportView(FeatureGatedAPIMixin, DirectoryExportView):
             if kind not in Customer.Kind.values:
                 raise ValidationError({"kind": "نوع مشتری را از فهرست انتخاب کنید."})
             customers = customers.filter(kind=kind)
-        return build_customer_directory_workbook(customers)
+        from customization.services import definitions_for
+
+        return build_customer_directory_workbook(customers, definitions_for("customer"))
 
 
 class ProductCatalogueExportView(FeatureGatedAPIMixin, DirectoryExportView):

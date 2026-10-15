@@ -81,6 +81,16 @@ class PersonProfileView(ActiveCrmView):
         requested = self.request.GET.get("tab", "")
         keys = [tab.key for tab in tabs]
         actions = adapter.quick_actions(viewer, person)
+        custom_definitions, custom_facts = [], []
+        if adapter.key == "customer":
+            from customization.services import definitions_for, page_definitions
+
+            custom_definitions = page_definitions("customer")
+            custom_facts = [
+                {"key": item.key, "label": item.label, "field_type": item.field_type,
+                 "value": (person.custom_fields or {}).get(item.key, "")}
+                for item in definitions_for("customer")
+            ]
         context.update(
             person=adapter.header(viewer, person),
             person_object=person,
@@ -96,6 +106,9 @@ class PersonProfileView(ActiveCrmView):
             # Only the cards this reader may see get a shell; their values
             # arrive from `/api/v1/profiles/<type>/<id>/cards/` (2.20.0).
             stat_cards=cards_for(viewer, adapter.key, person),
+            # The company's own fields on a customer (2.40.53, `customization`).
+            custom_field_definitions=custom_definitions,
+            custom_facts=custom_facts,
             card_periods=PERIODS,
             default_card_period=DEFAULT_PERIOD,
             completion=completion_for(adapter.key, person, can_edit="info" in keys),

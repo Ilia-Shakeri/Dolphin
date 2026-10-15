@@ -378,6 +378,50 @@
 </section>
 </div>
 {% endif %}
+{% if can_manage_customization %}
+{% comment %} The company's own fields (2.40.53, feature `customization`, capability
+   `customization.manage`; `customization.services`). A field is never deleted: turning
+   it off hides it and keeps every value. {% endcomment %}
+<div id="settings-pane-customization" role="tabpanel" aria-labelledby="settings-tab-customization" data-settings-pane="customization"{% if active_tab != "customization" %} hidden{% endif %}>
+<section class="card mb-5 mb-xl-8">
+    <div class="card-header border-0 pt-6 flex-wrap gap-3">
+        <div class="card-title flex-column">
+            <h2>فیلدهای اختصاصی مشتری</h2>
+            <span class="text-muted fs-7 mt-1">فیلدهایی که شرکت شما لازم دارد، در فرم مشتری، پروفایل، ستون فهرست، فیلتر، جست‌وجو و فایل اکسل.</span>
+        </div>
+        <div class="card-toolbar"><button class="btn btn-primary" type="button" id="custom-field-add">فیلد تازه</button></div>
+    </div>
+    <div class="card-body pt-2">
+        <div id="custom-fields-loading" class="text-center text-gray-700 py-6">در حال دریافت فیلدها…</div>
+        <div id="custom-fields-empty" class="text-center text-gray-700 py-6" hidden>هنوز فیلدی ساخته نشده است.</div>
+        <div class="table-responsive" id="custom-fields-table-wrap" hidden><table class="table align-middle table-row-dashed fs-6 gy-3 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 gs-0"><th>نام</th><th>نوع</th><th>کجا</th><th>وضعیت</th><th><span class="visually-hidden">عملیات</span></th></tr></thead><tbody id="custom-fields-body"></tbody></table></div>
+    </div>
+</section>
+</div>
+<dialog id="custom-field-dialog" aria-labelledby="custom-field-dialog-title">
+    <div class="d-flex flex-stack align-items-center mb-5"><h2 id="custom-field-dialog-title" class="mb-0">فیلد اختصاصی</h2><button class="btn btn-icon btn-light" type="button" data-close-dialog aria-label="بستن">×</button></div>
+    <form id="custom-field-form" novalidate>
+        <div class="row g-5">
+            <div class="col-md-6"><label class="form-label fw-semibold required" for="custom-field-label">نام فیلد</label><input class="form-control form-control-solid" id="custom-field-label" name="label" maxlength="80" required><p class="text-danger fs-8 mt-1 mb-0" data-error-for="label"></p></div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="custom-field-type">نوع</label><select class="form-select form-select-solid" id="custom-field-type" name="field_type"></select><p class="text-muted fs-8 mt-1 mb-0" id="custom-field-type-note" hidden>نوع فیلد پس از ساخت تغییر نمی‌کند.</p><p class="text-danger fs-8 mt-1 mb-0" data-error-for="field_type"></p></div>
+            <div class="col-12" id="custom-field-choices-field" hidden><label class="form-label fw-semibold" for="custom-field-choices">گزینه‌ها (هر کدام در یک سطر)</label><textarea class="form-control form-control-solid" id="custom-field-choices" name="choices" rows="4"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="choices"></p></div>
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-8">
+                    <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="custom-field-required" name="required"><label class="form-check-label" for="custom-field-required">اجباری در فرم</label></div>
+                    <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="custom-field-show-in-list" name="show_in_list"><label class="form-check-label" for="custom-field-show-in-list">ستون فهرست</label></div>
+                    <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="custom-field-filterable" name="filterable"><label class="form-check-label" for="custom-field-filterable">فیلتر</label></div>
+                    <div class="form-check form-check-custom form-check-solid form-switch"><input class="form-check-input" type="checkbox" id="custom-field-searchable" name="searchable"><label class="form-check-label" for="custom-field-searchable">جست‌وجو</label></div>
+                    <div class="form-check form-check-custom form-check-solid form-switch" id="custom-field-active-wrap" hidden><input class="form-check-input" type="checkbox" id="custom-field-active" name="is_active"><label class="form-check-label" for="custom-field-active">فعال</label></div>
+                </div>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end gap-3 mt-6">
+            <button class="btn btn-light" type="button" data-close-dialog>انصراف</button>
+            <button class="btn btn-primary" type="submit">ذخیره</button>
+        </div>
+    </form>
+</dialog>
+{% endif %}
 {% if can_configure_installments %}
 {% comment %} This company's instalment rules (2.40.51; `billing.installment_settings`).
    Each advanced instalment capability is its own manifest feature; a card shows only

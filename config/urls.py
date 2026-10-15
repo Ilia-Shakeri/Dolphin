@@ -29,6 +29,7 @@ def build_urlpatterns():
         path("api/v1/", include("billing.urls")),
         path("api/v1/", include("attachments.urls")),
         path("api/v1/", include("chat.urls")),
+        path("api/v1/", include("customization.urls")),
         path("api/v1/", include("common.urls")),
         # PRELIMINARY, UNCOMMITTED — see integration/apps.py
         path("api/v1/", include("integration.urls")),

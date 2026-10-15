@@ -271,10 +271,14 @@ CUSTOMER_DIRECTORY_HEADERS = (
 )
 
 
-def build_customer_directory_workbook(customers):
-    """The customer directory in the caller's scope (requirement 2.6)."""
+def build_customer_directory_workbook(customers, custom_definitions=()):
+    """The customer directory in the caller's scope (requirement 2.6). The
+    company's own fields (2.40.53) follow, one column each, headed by their
+    label — the same header the importer reads back."""
+    from customization.services import display_value
+
     workbook, sheet = _new_workbook("customers")
-    sheet.append(CUSTOMER_DIRECTORY_HEADERS)
+    sheet.append((*CUSTOMER_DIRECTORY_HEADERS, *(definition.label for definition in custom_definitions)))
     for customer in customers:
         primary = next(
             (phone for phone in customer.phones.all() if phone.is_primary and phone.is_active),
@@ -295,6 +299,10 @@ def build_customer_directory_workbook(customers):
             "yes" if customer.is_active else "no",
             safe_spreadsheet_text(customer.created_by.username if customer.created_by else ""),
             spreadsheet_datetime(customer.created_at),
+            *(
+                safe_spreadsheet_text(display_value(definition, (customer.custom_fields or {}).get(definition.key, "")))
+                for definition in custom_definitions
+            ),
         ))
     return _finish(workbook, sheet)
 

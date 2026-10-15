@@ -48,6 +48,16 @@
                         <label class="form-label" for="customer-category-filter">دسته‌بندی</label>
                         <input class="form-control form-control-solid" id="customer-category-filter" name="category" type="search" maxlength="100" placeholder="بخشی از نام دسته‌بندی">
                     </div>
+                    {% for field in custom_filter_fields %}
+                    {% comment %} The company's own filterable fields (2.40.53). {% endcomment %}
+                    <div class="mb-4">
+                        <label class="form-label" for="customer-custom-filter-{{ field.key }}">{{ field.label }}</label>
+                        {% if field.field_type == "choice" %}<select class="form-select form-select-solid" id="customer-custom-filter-{{ field.key }}" data-custom-filter="{{ field.key }}"><option value="">همه</option>{% for choice in field.choices %}<option value="{{ choice }}">{{ choice }}</option>{% endfor %}</select>
+                        {% elif field.field_type == "boolean" %}<select class="form-select form-select-solid" id="customer-custom-filter-{{ field.key }}" data-custom-filter="{{ field.key }}"><option value="">همه</option><option value="true">بله</option><option value="false">خیر</option></select>
+                        {% elif field.field_type == "date" %}<input class="form-control form-control-solid" id="customer-custom-filter-{{ field.key }}" type="text" data-jalali="date" data-custom-filter="{{ field.key }}">
+                        {% else %}<input class="form-control form-control-solid" id="customer-custom-filter-{{ field.key }}" type="search" maxlength="100" data-custom-filter="{{ field.key }}"{% if field.field_type == "number" %} dir="ltr" inputmode="decimal"{% endif %}>{% endif %}
+                    </div>
+                    {% endfor %}
                     <div class="mb-4">
                         <label class="form-label" for="customer-active-filter">وضعیت</label>
                         <select class="form-select form-select-solid" id="customer-active-filter" name="is_active">
@@ -102,7 +112,7 @@
     <div id="customers-loading" class="text-center text-gray-700 py-10">در حال دریافت مشتریان…</div>
     <div id="customers-empty" class="text-center text-gray-700 py-10" hidden>مشتری پیدا نشد.</div>
     <div class="table-responsive" id="customers-table-wrap" hidden>
-        <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">{% if can_hard_delete %}<th class="w-25px"><input class="form-check-input" type="checkbox" data-customers-select="all" aria-label="انتخاب همه"></th>{% endif %}<th>نام</th><th>تلفن اصلی</th><th>دسته‌بندی</th><th>کد پستی</th><th>شهر</th><th>وضعیت</th><th>ثبت‌کننده</th><th>تاریخ ثبت</th><th>عملیات</th></tr></thead><tbody id="customers-table-body"></tbody></table>
+        <table class="table align-middle table-row-dashed fs-6 gy-4 mb-0"><thead><tr class="text-start text-gray-700 fw-bold fs-7 text-uppercase gs-0">{% if can_hard_delete %}<th class="w-25px"><input class="form-check-input" type="checkbox" data-customers-select="all" aria-label="انتخاب همه"></th>{% endif %}<th>نام</th><th>تلفن اصلی</th><th>دسته‌بندی</th><th>کد پستی</th><th>شهر</th>{% for field in custom_list_fields %}<th>{{ field.label }}</th>{% endfor %}<th>وضعیت</th><th>ثبت‌کننده</th><th>تاریخ ثبت</th><th>عملیات</th></tr></thead><tbody id="customers-table-body"></tbody></table>
     </div>
     <nav id="customers-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-3 mt-6 pt-4 border-top border-gray-200" aria-label="صفحه‌بندی" hidden>
         <button id="customers-prev" class="btn btn-light" type="button">قبلی</button><span id="customers-page-label"></span><button id="customers-next" class="btn btn-light" type="button">بعدی</button>
@@ -189,6 +199,11 @@
                 <div class="col-12 d-flex align-items-center gap-3"><input class="form-check-input" id="create-customer-phone-primary" name="phone_primary" type="checkbox" checked><label class="form-label fw-semibold" for="create-customer-phone-primary">شماره اصلی</label></div>
                 <div class="col-12"><label class="form-label fw-semibold" for="create-customer-address">نشانی</label><textarea class="form-control form-control-solid" id="create-customer-address" name="address" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="address"></p></div>
                 <div class="col-12"><label class="form-label fw-semibold" for="create-customer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="create-customer-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+                {% if custom_field_definitions %}
+                {% comment %} The company's own fields (2.40.53), drawn by `ui/custom-fields.js`. {% endcomment %}
+                <div class="col-12"><h3 class="fs-6 fw-bold text-gray-900 mt-4 mb-0">فیلدهای اختصاصی</h3></div>
+                <div class="col-12"><div class="row g-5" id="create-customer-custom-fields"></div><p class="text-danger fs-8 mt-2 mb-0" data-error-for="custom_fields"></p></div>
+                {% endif %}
             </div>
         </div>
         <div data-dolphin-stepper-element="content">
@@ -241,4 +256,5 @@
     <div class="d-flex justify-content-end gap-3 mt-6"><button id="upload-customers" class="btn btn-primary" type="button">بارگذاری</button></div>
 </dialog>
 {% endif %}
+{% if custom_field_definitions %}{{ custom_field_definitions|json_script:"custom-field-definitions" }}{% endif %}
 {% endblock %}

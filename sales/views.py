@@ -78,7 +78,19 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
     list_query_parameters = {
         "created_from", "created_to", "kind",
         "province", "city", "category", "is_active",
+        # The company's own filterable fields (2.40.53): one JSON object,
+        # `{key: value}`, since every parameter may appear only once.
+        "custom_fields",
     }
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        # The company's own searchable fields join the search (2.40.53).
+        from customization.services import definitions_for
+
+        extra = [f"custom_fields__{item.key}" for item in definitions_for("customer") if item.searchable]
+        if extra:
+            self.search_fields = [*type(self).search_fields, *extra]
     action_query_parameters = {
         "leads": {"page"},
         "interactions": {"page"},
@@ -131,6 +143,40 @@ class CustomerViewSet(SensitiveActionThrottleMixin, AdminHardDeleteModelViewSet)
             if is_active not in ("true", "false"):
                 raise ValidationError({"is_active": "وضعیت را از فهرست انتخاب کنید."})
             queryset = queryset.filter(is_active=(is_active == "true"))
+        return self._narrow_custom(queryset, params.get("custom_fields"))
+
+    def _narrow_custom(self, queryset, raw):
+        """The company's own filterable fields (2.40.53): text matches a
+        fragment, every other type its exact stored value."""
+        if not raw:
+            return queryset
+        import json
+
+        from common.exceptions import BusinessRuleError
+        from customization.models import CustomFieldDefinition
+        from customization.services import clean_value, definitions_for
+
+        try:
+            wanted = json.loads(raw)
+        except ValueError:
+            wanted = None
+        if not isinstance(wanted, dict):
+            raise ValidationError({"custom_fields": "فیلتر فیلدهای سفارشی نامعتبر است."})
+        filterable = {item.key: item for item in definitions_for("customer") if item.filterable}
+        for key, value in wanted.items():
+            definition = filterable.get(key)
+            if definition is None:
+                raise ValidationError({"custom_fields": "این فیلد سفارشی فیلترشدنی نیست."})
+            try:
+                cleaned = clean_value(definition, value)
+            except BusinessRuleError as error:
+                raise ValidationError(error.detail) from error
+            if not cleaned:
+                continue
+            if definition.field_type in (CustomFieldDefinition.FieldType.TEXT, CustomFieldDefinition.FieldType.LONG_TEXT):
+                queryset = queryset.filter(**{f"custom_fields__{key}__icontains": cleaned})
+            else:
+                queryset = queryset.filter(**{f"custom_fields__{key}": cleaned})
         return queryset
 
     def _filter_by_registration_date(self, queryset):

@@ -208,6 +208,8 @@ ROLE_CAPABILITIES = {
         # This company's instalment rules (2.40.51, the advanced instalment
         # features; `billing.installment_settings`).
         "installments.configure",
+        # The company's own fields on its records (2.40.53, `customization`).
+        "customization.manage",
         "sms.company",
         "users.manage_all",
         "audit.all",

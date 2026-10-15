@@ -3,6 +3,7 @@ import {toPersianDigits} from "dolphin/core/digits.js";
 import {displayDay} from "dolphin/core/jalali.js";
 import {DOCUMENT_STATUS_TEXT, SETTLEMENT_TEXT} from "dolphin/core/labels.js";
 import {clearMessages, formPayload, globalMessage, showError, withSubmit} from "dolphin/core/messages.js";
+import {customFieldDefinitions, formatCustomValue, readCustomFieldInputs, renderCustomFieldInputs} from "dolphin/ui/custom-fields.js";
 import {loadRecentActivity} from "dolphin/features/customers/profile-activity.js";
 import {setOverviewFact, setProfileBadge, setProfileBreadcrumb, setProfileHeaderField, setProfileHeaderPhone, setProfileHeaderText} from "dolphin/features/customers/profile-header.js";
 import {setupNotesTab, setupTasksTab} from "dolphin/features/customers/profile-work.js";
@@ -53,6 +54,11 @@ export function customerProfileLoaders(customerId) {
     let customer = null;
 
     function fillCustomer(value) {
+        // The company's own fields (2.40.53).
+        renderCustomFieldInputs(
+            document.getElementById("edit-customer-custom-fields"), customFieldDefinitions(), value.custom_fields || {},
+            {prefix: "edit-customer-custom"},
+        );
         ["full_name", "job_title", "national_id", "economic_code", "email", "city", "postal_code", "address", "notes"].forEach((name) => {
             const input = document.getElementById(`edit-customer-${name.replaceAll("_", "-").replace("full-name", "name")}`);
             if (input) input.value = value[name] || "";
@@ -96,6 +102,10 @@ export function customerProfileLoaders(customerId) {
             notes: value.notes,
         };
         Object.entries(facts).forEach(([name, text]) => setOverviewFact(name, text));
+        customFieldDefinitions().forEach((field) => {
+            const shown = formatCustomValue(field, value.custom_fields?.[field.key]);
+            setOverviewFact(field.key, shown === "—" ? "" : shown);
+        });
     }
 
     // Live (2.40.41): a change made elsewhere reaches the header, the
@@ -122,6 +132,8 @@ export function customerProfileLoaders(customerId) {
                 const body = formPayload(editForm, ["full_name", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "address", "notes"]);
                 const ownerField = document.getElementById("edit-customer-owner");
                 if (ownerField?.value) body.owner = Number(ownerField.value);
+                const customContainer = document.getElementById("edit-customer-custom-fields");
+                if (customContainer) body.custom_fields = readCustomFieldInputs(customContainer);
                 customer = await apiRequest(endpoint, {method: "PATCH", body});
                 fillCustomer(customer);
                 reflectCustomer(customer);

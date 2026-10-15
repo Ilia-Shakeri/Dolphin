@@ -58,15 +58,20 @@ class CustomerImportResult:
             self.errors.append({"row": row_number, "detail": message})
 
 
-def _header_index(sheet):
+def _header_index(sheet, custom_labels=None):
     header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), None)
     if header_row is None:
         raise BusinessRuleError({"file": "فایل اکسل خالی است."})
     index = {}
+    custom_labels = custom_labels or {}
     for position, value in enumerate(header_row):
         name = str(value or "").strip().lower()
         if name in CUSTOMER_DIRECTORY_HEADERS:
             index[name] = position
+        # The company's own fields (2.40.53), matched by their label.
+        label = " ".join(str(value or "").split())
+        if label in custom_labels:
+            index[custom_labels[label]] = position
     missing = [name for name in REQUIRED_COLUMNS if name not in index]
     if missing:
         raise BusinessRuleError({
@@ -115,7 +120,10 @@ def import_customers_from_workbook(*, actor, stream, kind):
         raise BusinessRuleError({"file": "فایل به‌عنوان اکسل قابل خواندن نبود."}) from exc
 
     sheet = workbook.active
-    index = _header_index(sheet)
+    from customization.services import definitions_for
+
+    custom = {definition.label: f"custom:{definition.key}" for definition in definitions_for("customer")}
+    index = _header_index(sheet, custom)
     result = CustomerImportResult()
 
     # Read the existing identities once. Phones are compared in their normalized
@@ -164,13 +172,18 @@ def import_customers_from_workbook(*, actor, stream, kind):
         values = {"full_name": full_name, "kind": kind}
         for column in TEXT_COLUMNS:
             values[column] = _cell(row, index, column)
+        custom_values = {
+            column.split(":", 1)[1]: _cell(row, index, column) for column in custom.values() if column in index
+        }
 
         phone = None
         if raw_phone:
             phone = {"raw_phone": raw_phone, "label": "", "is_primary": True}
 
         try:
-            create_customer_with_phone(actor=actor, phone=phone, **values)
+            create_customer_with_phone(
+                actor=actor, phone=phone, custom_fields=custom_values, enforce_custom_required=True, **values
+            )
         except BusinessRuleError as exc:
             result.note_error(row_number, str(exc.detail))
             continue

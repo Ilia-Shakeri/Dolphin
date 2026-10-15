@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "attachments",
     "chat",
     "accounting",
+    "customization",
     "integration",  # PRELIMINARY, UNCOMMITTED — see integration/apps.py
 ]
 

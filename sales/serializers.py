@@ -55,10 +55,13 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
     category_ref = serializers.PrimaryKeyRelatedField(
         queryset=CustomerCategory.objects.all(), required=False, allow_null=True
     )
+    #: The company's own fields (2.40.53): `{key: text}`; only with the
+    #: `customization` feature, which `customization.services` checks.
+    custom_fields = serializers.JSONField(required=False)
 
     class Meta:
         model = Customer
-        fields = ["id", "full_name", "kind", "kind_display", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "category_ref", "address", "notes", "owner", "owner_display", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "created_at", "updated_at"]
+        fields = ["id", "full_name", "kind", "kind_display", "job_title", "national_id", "economic_code", "email", "province", "city", "postal_code", "category", "category_ref", "address", "notes", "owner", "owner_display", "created_by", "created_by_display", "is_active", "primary_phone", "phone", "custom_fields", "created_at", "updated_at"]
         read_only_fields = ["id", "created_by", "created_by_display", "is_active", "primary_phone", "kind_display", "created_at", "updated_at"]
 
     def get_created_by_display(self, instance) -> str:
@@ -87,14 +90,27 @@ class CustomerSerializer(RejectServerFieldsMixin, serializers.ModelSerializer):
             "label": phone.label,
         }
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        from customization.services import enabled
+
+        if not enabled():
+            data.pop("custom_fields", None)
+        return data
+
     def create(self, validated_data):
         phone = validated_data.pop("phone", None)
         try:
-            return create_customer_with_phone(actor=self.context["request"].user, phone=phone, **validated_data)
+            # A person's form is held to the required custom fields.
+            return create_customer_with_phone(
+                actor=self.context["request"].user, phone=phone, enforce_custom_required=True, **validated_data
+            )
         except IntegrityError as exc:
             raise serializers.ValidationError({"phone": "این تلفن فعال با تلفن دیگری برای همین مشتری تداخل دارد."}) from exc
 
     def update(self, instance, validated_data):
+        if "custom_fields" in validated_data:
+            validated_data["enforce_custom_required"] = True
         return update_customer(actor=self.context["request"].user, customer=instance, **validated_data)
 
     def validate(self, attrs):

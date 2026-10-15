@@ -232,6 +232,11 @@ FEATURE_DEPENDENCIES = {
     # customer ledger (owner decision 2026-10-14), so both need the ledger.
     "installment_interest": frozenset({"payments", "customer_ledger"}),
     "installment_late_fees": frozenset({"payments", "customer_ledger"}),
+
+    # Personalization (2.40.53, owner decision 2026-10-14, Q18): the company's
+    # own fields on its records (`customization`). It adapts to whichever
+    # entities the deployment runs, so it requires none of them.
+    "customization": frozenset(),
 }
 
 #: Features this release ships but does not serve by default.
@@ -314,6 +319,8 @@ DEFAULT_OFF_FEATURES = DEFAULT_OFF_FEATURES | frozenset({
     "print_customization",
     # 2.40.51: advanced instalments — «اگر مشتری بخواهد باید فعال شود».
     "installment_reschedule", "installment_reminders", "installment_interest", "installment_late_fees",
+    # 2.40.53: «شخصی‌سازی هم فیچر است و باید فعال شود».
+    "customization",
 })
 
 # Every feature the current code actually ships. A deployment may enable a

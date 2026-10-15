@@ -97,6 +97,8 @@ MODULES = (
     Module("print_settings", "قالب چاپ اسناد", ("print_settings.manage",)),
     # One checkbox (2.40.51): who may set this company's instalment rules.
     Module("installment_settings", "تنظیمات اقساط", ("installments.configure",)),
+    # One checkbox (2.40.53): who may define the company's own fields.
+    Module("customization", "شخصی‌سازی و فیلدهای سفارشی", ("customization.manage",)),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
     # Person profile (2.20.0). Tasks: `tasks.own` is one's own list,
     # `tasks.company` everyone's; notes are read and written on the profiles

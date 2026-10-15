@@ -25,7 +25,13 @@
         {% endif %}
         <div class="col-12"><label class="form-label fw-semibold" for="edit-customer-address">نشانی</label><textarea class="form-control form-control-solid" id="edit-customer-address" name="address" maxlength="2000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="address"></p></div>
         <div class="col-12"><label class="form-label fw-semibold" for="edit-customer-notes">یادداشت</label><textarea class="form-control form-control-solid" id="edit-customer-notes" name="notes" maxlength="4000"></textarea><p class="text-danger fs-8 mt-1 mb-0" data-error-for="notes"></p></div>
+        {% if custom_field_definitions %}
+        {% comment %} The company's own fields (2.40.53), drawn by `ui/custom-fields.js`. {% endcomment %}
+        <div class="col-12"><h3 class="fs-6 fw-bold text-gray-900 mt-4 mb-0">فیلدهای اختصاصی</h3></div>
+        <div class="col-12"><div class="row g-5" id="edit-customer-custom-fields"></div><p class="text-danger fs-8 mt-2 mb-0" data-error-for="custom_fields"></p></div>
+        {% endif %}
     </div>
+    {% if custom_field_definitions %}{{ custom_field_definitions|json_script:"custom-field-definitions" }}{% endif %}
     <div class="d-flex justify-content-end gap-3 mt-6"><button class="btn btn-primary" type="submit">ذخیره تغییرات</button></div>
 </div></form>
 <section class="card mb-5 mb-xl-8"><div class="card-body">

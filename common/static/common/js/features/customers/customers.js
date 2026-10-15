@@ -7,10 +7,16 @@ import {renderAreaChart, renderBarChart, renderDonutChart, setupChartRange} from
 import {fillCustomerCategorySelect, setupCategoryManager} from "dolphin/ui/customer-categories.js";
 import {customerKindBadge} from "dolphin/ui/customer-kind.js";
 import {fillProvinceSelect, loadIranMap} from "dolphin/ui/iran-map.js";
+import {customFieldDefinitions, customFieldReview, formatCustomValue, readCustomFieldInputs, renderCustomFieldInputs} from "dolphin/ui/custom-fields.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
 import {appendCell, appendDetailLink, appendStatusCell} from "dolphin/ui/table.js";
 import {renderWizardReview, setupWizard} from "dolphin/ui/wizard.js";
+
+//: The company's own fields (2.40.53): the page's definitions, and the ones
+//: shown as list columns, in their order.
+let customFields = [];
+let customListFields = [];
 
 function customerRow(customer) {
     const row = document.createElement("tr");
@@ -19,6 +25,7 @@ function customerRow(customer) {
     appendCell(row, customer.category);
     appendCell(row, customer.postal_code);
     appendCell(row, customer.city);
+    customListFields.forEach((field) => appendCell(row, formatCustomValue(field, customer.custom_fields?.[field.key])));
     appendStatusCell(row, (customer.is_active));
     appendCell(row, customer.created_by_display || customer.created_by);
     appendCell(row, displayDay(customer.created_at));
@@ -27,6 +34,8 @@ function customerRow(customer) {
 }
 
 export function setupCustomers() {
+    customFields = customFieldDefinitions();
+    customListFields = customFields.filter((field) => field.show_in_list);
     const form = document.getElementById("customer-search-form");
     setupListFilter("customer");
     // Which of the two books is on screen. A marketer never sees the
@@ -69,6 +78,14 @@ export function setupCustomers() {
                 const value = document.getElementById(id)?.value.trim();
                 if (value) query.set(name, value);
             });
+            // The company's own filterable fields (2.40.53), as one object.
+            const custom = {};
+            document.querySelectorAll("[data-custom-filter]").forEach((field) => {
+                const raw = field.value.trim();
+                if (!raw) return;
+                custom[field.dataset.customFilter] = field.dataset.jalali === "date" ? (apiDate(raw) || raw) : raw;
+            });
+            if (Object.keys(custom).length) query.set("custom_fields", JSON.stringify(custom));
             return `/api/v1/customers/?${query}`;
         },
         renderRow: customerRow,
@@ -122,6 +139,7 @@ export function setupCustomers() {
     setupCategoryManager({onChange: loadCategories});
     const kindInput = document.getElementById("create-customer-kind");
     const economicReveal = document.getElementById("create-customer-economic-reveal");
+    const customContainer = document.getElementById("create-customer-custom-fields");
     // The economic code belongs to a legal customer only: for an individual
     // the field is hidden and switched off, so nothing typed there is sent.
     const syncKind = () => {
@@ -150,6 +168,7 @@ export function setupCustomers() {
             ["شماره اصلی", document.getElementById("create-customer-phone-primary").checked ? "بله" : "خیر"],
             ["نشانی", createForm.address.value || "—"],
             ["یادداشت", createForm.notes.value || "—"],
+            ...customFieldReview(customFields, readCustomFieldInputs(customContainer)),
         ]);
     }
     const wizard = setupWizard(dialog, {onReachLastStep: renderCustomerReview});
@@ -169,6 +188,7 @@ export function setupCustomers() {
         // browser-remembered default the way a text field's own empty
         // string already was.
         document.getElementById("create-customer-province").value = "";
+        renderCustomFieldInputs(customContainer, customFields, {}, {prefix: "create-customer-custom"});
         wizard?.goFirst();
         dialog.showModal();
     });
@@ -195,6 +215,7 @@ export function setupCustomers() {
                 label: String(new FormData(createForm).get("phone_label") || ""),
                 is_primary: document.getElementById("create-customer-phone-primary").checked,
             };
+            if (customFields.length) payload.custom_fields = readCustomFieldInputs(customContainer);
             const customer = await apiRequest(createForm.action, {method: "POST", body: payload});
             dialog.close();
             controller.load(1);

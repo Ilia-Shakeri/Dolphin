@@ -241,10 +241,23 @@ def _resolve_owner_and_category(actor, data, *, creating):
         data["category_ref"] = None
 
 
+def _custom_values(incoming, *, existing=None, enforce_required=False):
+    """The customer's own fields (2.40.53), checked by the module that defines
+    them; `None` when nothing was sent and nothing is required."""
+    from customization.services import clean_values
+
+    if incoming is None and not enforce_required:
+        return None
+    return clean_values("customer", incoming, existing=existing, enforce_required=enforce_required)
+
+
 @transaction.atomic
-def create_customer_with_phone(*, actor, phone=None, **data):
+def create_customer_with_phone(*, actor, phone=None, custom_fields=None, enforce_custom_required=False, **data):
     actor = _lock_operational_actor(actor)
-    unknown = set(data) - CUSTOMER_MUTABLE_FIELDS
+    custom = _custom_values(custom_fields, enforce_required=enforce_custom_required)
+    if custom:
+        data["custom_fields"] = custom
+    unknown = set(data) - CUSTOMER_MUTABLE_FIELDS - {"custom_fields"}
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تنظیم نیست." for field in sorted(unknown)})
     _validate_text_lengths(data, CUSTOMER_TEXT_LIMITS)
@@ -269,7 +282,12 @@ def update_customer(*, actor, customer, **changes):
     locked = Customer.objects.select_for_update().get(pk=customer.pk)
     if not customers_for(actor).filter(pk=locked.pk).exists():
         raise BusinessPermissionDenied("این مشتری خارج از دسترسی شماست.")
-    unknown = set(changes) - CUSTOMER_MUTABLE_FIELDS
+    if "custom_fields" in changes:
+        changes["custom_fields"] = _custom_values(
+            changes["custom_fields"], existing=locked.custom_fields, enforce_required=changes.pop("enforce_custom_required", False)
+        )
+    changes.pop("enforce_custom_required", None)
+    unknown = set(changes) - CUSTOMER_MUTABLE_FIELDS - {"custom_fields"}
     if unknown:
         raise BusinessRuleError({field: "این فیلد قابل تغییر نیست." for field in sorted(unknown)})
     _validate_text_lengths(changes, CUSTOMER_TEXT_LIMITS)

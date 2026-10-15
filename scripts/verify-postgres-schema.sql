@@ -55,6 +55,7 @@ SELECT (
     AND to_regclass('public.communications_smscampaignrecipient') IS NOT NULL
     AND to_regclass('public.communications_smsprovidersettings') IS NOT NULL
     AND to_regclass('public.communications_smstemplate') IS NOT NULL
+    AND to_regclass('public.customization_customfielddefinition') IS NOT NULL
     AND to_regclass('public.integration_outboundevent') IS NOT NULL
     AND to_regclass('public.integration_pairingsettings') IS NOT NULL
     AND to_regclass('public.integrations_apitoken') IS NOT NULL
@@ -97,7 +98,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (122), recorded.
+    -- Every migration this release ships (124), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -180,6 +181,7 @@ SELECT (
                 ('communications', '0004_smscampaign_smscampaignrecipient_smstemplate_and_more'),
                 ('contenttypes', '0001_initial'),
                 ('contenttypes', '0002_remove_content_type_name'),
+                ('customization', '0001_custom_fields'),
                 ('integration', '0001_initial'),
                 ('integrations', '0001_initial'),
                 ('inventory', '0001_initial'),
@@ -218,6 +220,7 @@ SELECT (
                 ('sales', '0033_campaign_other_channels'),
                 ('sales', '0034_sales_target'),
                 ('sales', '0035_returned_work'),
+                ('sales', '0036_custom_fields'),
                 ('scoring', '0001_initial'),
                 ('sessions', '0001_initial'),
                 ('tasks', '0001_initial'),
@@ -232,7 +235,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (254).
+    -- Every named check and unique constraint (259).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -416,6 +419,11 @@ SELECT (
                 ('communications_smstemplate', 'sms_template_body_nonblank'),
                 ('communications_smstemplate', 'sms_template_title_nonblank'),
                 ('communications_smstemplate', 'sms_template_title_unique'),
+                ('customization_customfielddefinition', 'custom_field_entity_valid'),
+                ('customization_customfielddefinition', 'custom_field_key_shape'),
+                ('customization_customfielddefinition', 'custom_field_label_nonblank'),
+                ('customization_customfielddefinition', 'custom_field_type_valid'),
+                ('customization_customfielddefinition', 'uniq_custom_field_key'),
                 ('integrations_apitoken', 'api_token_name_nonblank'),
                 ('integrations_domainevent', 'domain_event_status_valid'),
                 ('integrations_inboundwebhookreceipt', 'inbound_webhook_receipt_unique'),

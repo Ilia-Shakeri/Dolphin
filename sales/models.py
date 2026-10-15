@@ -98,6 +98,10 @@ class Customer(TimeStampedModel):
     #: The managed category; `category` above mirrors its name for old readers.
     category_ref = models.ForeignKey(CustomerCategory, on_delete=models.PROTECT, null=True, blank=True, related_name="customers")
     is_active = models.BooleanField(default=True, db_index=True)
+    #: The company's own fields (2.40.53, feature `customization`): `{key: text}`
+    #: for `customization.CustomFieldDefinition`s of the `customer` entity. Kept
+    #: whatever happens to the feature or a definition.
+    custom_fields = models.JSONField(default=dict, blank=True)
 
     def save(self, *args, **kwargs):
         # No customer is ever left without someone who works it: a path that
