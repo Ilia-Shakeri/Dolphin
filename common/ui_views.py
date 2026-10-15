@@ -840,6 +840,10 @@ class DolphinOutboundSMSView(ActiveCrmView):
         config = sms.resolve_config()
         context["sms_provider_configured"] = config is not None
         context["sms_provider_label"] = config.label if config else ""
+        # Every token a template may use (2.40.54: more with `customization`).
+        from communications.services import sms_template_tokens
+
+        context["sms_template_tokens"] = sms_template_tokens()
         return context
 
 

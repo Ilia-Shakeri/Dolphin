@@ -99,7 +99,7 @@
                         {% comment %} شمارندهٔ نویسه/بخش — استاندارد هر پنل پیامکی.
                            محاسبه در `updateSmsCounter` (the panel script). {% endcomment %}
                         <p class="text-muted fs-8 mb-0" id="sms-body-counter" aria-live="polite"></p>
-                        <p class="text-muted fs-8 mb-0">در قالب‌ها می‌توانید <code>{نام}</code> بنویسید تا نام گیرنده جای آن بنشیند.</p>
+                        <p class="text-muted fs-8 mb-0" id="sms-template-tokens">در متن می‌توانید این واژه‌ها را بنویسید تا اطلاعات هر گیرنده جای آن بنشیند: {% for token, meaning in sms_template_tokens %}<span class="badge badge-light fw-semibold me-1 mb-1" title="{{ meaning }}">{{ token }}</span>{% endfor %}</p>
                     </div>
                     <p class="text-danger fs-8 mt-1 mb-0" data-error-for="body"></p>
                 </div>

@@ -147,6 +147,7 @@
    build one. {% endcomment %}
 <body id="dolphin_app_body" class="app-default"
       data-iran-map-url="{% static 'common/iran-provinces.json' %}"
+      {% if "customization" in features %}data-saved-views="1"{% endif %}
       data-dolphin-app-layout="dark-sidebar"
       data-dolphin-app-header-fixed="true"
       data-dolphin-app-sidebar-enabled="true"

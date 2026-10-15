@@ -99,6 +99,8 @@ MODULES = (
     Module("installment_settings", "تنظیمات اقساط", ("installments.configure",)),
     # One checkbox (2.40.53): who may define the company's own fields.
     Module("customization", "شخصی‌سازی و فیلدهای سفارشی", ("customization.manage",)),
+    # One checkbox (2.40.54): who may share a saved list view with the team.
+    Module("saved_views_share", "اشتراک نمای ذخیره‌شده با تیم", ("views.share",)),
     Module("communications", "گزارش پیامک ورودی", ("sms.company",)),
     # Person profile (2.20.0). Tasks: `tasks.own` is one's own list,
     # `tasks.company` everyone's; notes are read and written on the profiles

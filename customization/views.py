@@ -7,6 +7,7 @@ the panel — every form that offers them needs them — but the pages embed the
 already, so this is mostly the settings tab's own list.
 """
 
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
@@ -112,3 +113,53 @@ class CustomFieldMoveView(OneDefinitionMixin, APIView):
         serializer.is_valid(raise_exception=True)
         services.move_definition(actor=request.user, definition=self._definition(pk), direction=serializer.validated_data["direction"])
         return Response(_listing())
+
+
+# --- saved list views (2.40.54) -----------------------------------------------------
+
+class SavedViewWriteSerializer(RejectServerFieldsMixin, serializers.Serializer):
+    page = serializers.CharField(max_length=110)
+    name = serializers.CharField(max_length=200, allow_blank=True)
+    state = serializers.JSONField()
+    shared = serializers.BooleanField(required=False, default=False)
+
+
+class SavedViewAccessMixin(FeatureGatedAPIMixin):
+    """Any active panel user, on their own views; the feature first."""
+
+    required_feature = services.FEATURE
+    permission_classes = [IsActiveAuthenticated]
+
+
+class SavedViewListView(SavedViewAccessMixin, APIView):
+    @extend_schema(responses={200: dict}, description="`?page=<page>:<form>` — the reader's own views, then shared ones.")
+    def get(self, request):
+        from customization import saved_views
+
+        page = request.query_params.get("page", "")
+        return Response({
+            "can_share": saved_views.can_share(request.user),
+            "views": [saved_views.serialize(view, request.user) for view in saved_views.views_for(request.user, page)],
+        })
+
+    @extend_schema(request=SavedViewWriteSerializer, responses={201: dict, 400: VALIDATION_ERROR_RESPONSE, 403: ACCESS_DENIED_RESPONSE})
+    def post(self, request):
+        from customization import saved_views
+
+        serializer = SavedViewWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        view = saved_views.save_view(actor=request.user, **serializer.validated_data)
+        return Response(saved_views.serialize(view, request.user), status=201)
+
+
+class SavedViewDetailView(SavedViewAccessMixin, APIView):
+    @extend_schema(responses={204: None, 403: ACCESS_DENIED_RESPONSE, 404: None})
+    def delete(self, request, pk):
+        from customization import saved_views
+        from customization.models import SavedView
+
+        view = SavedView.objects.filter(pk=pk).filter(Q(owner=request.user) | Q(shared=True)).first()
+        if view is None:
+            raise NotFound()
+        saved_views.delete_view(actor=request.user, view=view)
+        return Response(status=204)

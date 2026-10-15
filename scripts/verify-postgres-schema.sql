@@ -56,6 +56,7 @@ SELECT (
     AND to_regclass('public.communications_smsprovidersettings') IS NOT NULL
     AND to_regclass('public.communications_smstemplate') IS NOT NULL
     AND to_regclass('public.customization_customfielddefinition') IS NOT NULL
+    AND to_regclass('public.customization_savedview') IS NOT NULL
     AND to_regclass('public.integration_outboundevent') IS NOT NULL
     AND to_regclass('public.integration_pairingsettings') IS NOT NULL
     AND to_regclass('public.integrations_apitoken') IS NOT NULL
@@ -98,7 +99,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (124), recorded.
+    -- Every migration this release ships (125), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -182,6 +183,7 @@ SELECT (
                 ('contenttypes', '0001_initial'),
                 ('contenttypes', '0002_remove_content_type_name'),
                 ('customization', '0001_custom_fields'),
+                ('customization', '0002_saved_views'),
                 ('integration', '0001_initial'),
                 ('integrations', '0001_initial'),
                 ('inventory', '0001_initial'),
@@ -235,7 +237,7 @@ SELECT (
               AND django_migrations.name = required_migration.name
         )
     )
-    -- Every named check and unique constraint (259).
+    -- Every named check and unique constraint (262).
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -424,6 +426,9 @@ SELECT (
                 ('customization_customfielddefinition', 'custom_field_label_nonblank'),
                 ('customization_customfielddefinition', 'custom_field_type_valid'),
                 ('customization_customfielddefinition', 'uniq_custom_field_key'),
+                ('customization_savedview', 'saved_view_name_nonblank'),
+                ('customization_savedview', 'saved_view_page_shape'),
+                ('customization_savedview', 'uniq_saved_view_name'),
                 ('integrations_apitoken', 'api_token_name_nonblank'),
                 ('integrations_domainevent', 'domain_event_status_valid'),
                 ('integrations_inboundwebhookreceipt', 'inbound_webhook_receipt_unique'),

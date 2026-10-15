@@ -110,6 +110,18 @@ What that authorised, and what it did **not**:
   active field headed by its label, which the importer matches. Without the feature nothing is shown,
   offered, filtered or accepted, and every stored value stays. Grants: `customization_customfielddefinition`
   `SELECT, INSERT, UPDATE`.
+- **Saved list views (2.40.54, `customization`)** — `customization.SavedView` (`page` = `<data-page>:<filter
+  form id>`, a name, `state` = the filter form's fields by id as text, `shared`). Every list page's filter
+  panel offers «نماهای ذخیره‌شده» (`shell/saved-views.js`): choosing one refills that page's own form and
+  applies it, so the list is still whatever the page's own scope allows. `/api/v1/saved-views/?page=`
+  (`GET` own then shared; `POST` saves or overwrites one's own of the same name; `DELETE <id>/` one's own,
+  or a shared one by whoever may share). Sharing needs `views.share` (store manager and Platform Admin by
+  default; one row in the permission matrix); a shared view's changes are audited. At most 30 per person
+  per page. A person's own setting, so it may be deleted: `SELECT, INSERT, UPDATE, DELETE`.
+- **SMS templates (2.40.54)** — `communications.services.render_sms_template` fills `{نام}` always and, with
+  `customization`, `{تلفن}`, `{شهر}`, `{استان}`, `{دسته‌بندی}`, `{امروز}` (Jalali) and every active
+  customer custom field as `{its label}`; the SMS page lists them (`sms_template_tokens`). A single send
+  to a known customer is now filled the same way a group send is.
 - **Personal settings and dashboard personalization** — `common.models.UserPreference` (font/size/currency-unit/color-mode, and since 2.40.49 `calendar_display`: `jalali` or `jalali_gregorian` — every date is Jalali, and the second adds each date's Gregorian day beside it, written with its month's name; display only, so entry, storage, exports and printed documents stay Jalali; owner decision 2026-10-14, BIZ-007) and `UserDashboardLayout` (per-user drag/resize/hide overlay on the deployment default), `/settings/`, `/api/v1/preferences/`, `/api/v1/dashboard-layout/`. Shipped and confirmed. Since 2.40.35 some widgets are opt-in (`OPT_IN_WIDGETS`: the operational-performance report, gated on `reports.own`/`reports.company`): hidden until the reader's own `shown_widgets` names them; `hidden_widgets` in the API response is the effective hidden set and so includes them. The default panel face is Vazirmatn (its Farsi-digit build, `"Vazirmatn FD"`) since 2.40.36 — `common.0012` changes only the field default, so a row that stored `iransans` keeps it; without a deployment accent the light theme uses `PANEL_LIGHT_ACCENT` (`#0071E3`, `common.color`). Since 2.40.46 the accent as *text* has its own token per theme, `--bs-text-primary` (links too): `common.color.text_shade` moves the accent toward black (light) or white (dark) only as far as 4.5:1 on every surface text sits on needs, while fills keep the accent itself; dark mode without a deployment accent keeps the kit's fill (`#006AE6`) and gets only its text shade. Activity-log rows carry `object_type_display` beside `object_type` (`auditlog.labels.OBJECT_TYPE_LABELS`).
 
 `FINAL_WAVE_LOW` (used in older prose/Git history for the Tier-B financial/inventory/file families) meant "required but last in implementation order," not optional. It is superseded by Tier B above; do not reintroduce it as a separate label.

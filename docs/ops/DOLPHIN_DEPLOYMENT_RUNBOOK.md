@@ -1192,6 +1192,9 @@ Use this when the script cannot run, or to understand what it does.
   — rolling back while keeping the data means reversing them **with the newer image**
   first: `migrate common 0010` (to a release before 2.40.35; `0011` for 2.40.35) and, for a
   release before 2.40.22, `migrate sales 0032`. Then switch images.
+* **2.40.54 — `customization/0002_saved_views`** creates `customization_savedview` (`SELECT, INSERT,
+  UPDATE, DELETE` — a person's own saved filters). No data moves; reversible with
+  `migrate customization 0001`.
 * **2.40.53 — `customization/0001_custom_fields` and `sales/0036_custom_fields`** create the new
   `customization` app's `customization_customfielddefinition` (`SELECT, INSERT, UPDATE`, granted by
   `db-finalize`) and add `custom_fields` (JSON, default `{}`) to customers. No data moves; reversible with

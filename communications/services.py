@@ -256,6 +256,10 @@ def send_outbound_sms(*, actor, body, customer=None, lead=None, phone=""):
         customer = lead.customer
     if lead is not None and customer is not None and lead.customer_id != customer.pk:
         raise BusinessRuleError({"lead": "سرنخ متعلق به این مشتری نیست."})
+    # A single send to a known person fills a template the way a group send
+    # does (2.40.54).
+    if customer is not None:
+        cleaned_body = _clean_body(render_sms_template(cleaned_body, customer=customer, lead=lead))
     recipient = _resolve_recipient(customer=customer, phone=phone)
 
     if not sms.provider_is_available():
@@ -333,19 +337,69 @@ SMS_CAMPAIGN_REQUEST_FLUSH_BATCH = 5
 TEMPLATE_NAME_TOKEN = "{نام}"
 
 
+def sms_template_tokens():
+    """Every token a template may use, as `[(token, what it becomes)]`.
+
+    `{نام}` always; with the `customization` feature (2.40.54, owner decision
+    2026-10-14: «قالب پیامک پیشرفته») also the recipient's phone, city,
+    province and category, today's date, and every active custom field of the
+    customer, as `{its label}`.
+    """
+    tokens = [(TEMPLATE_NAME_TOKEN, "نام گیرنده")]
+    from customization.services import definitions_for, enabled
+
+    if enabled():
+        tokens += [
+            ("{تلفن}", "تلفن اصلی"), ("{شهر}", "شهر"), ("{استان}", "استان"),
+            ("{دسته‌بندی}", "دسته‌بندی مشتری"), ("{امروز}", "تاریخ امروز"),
+        ]
+        fixed = {token for token, _ in tokens}
+        tokens += [
+            ("{" + item.label + "}", "فیلد اختصاصی")
+            for item in definitions_for("customer") if "{" + item.label + "}" not in fixed
+        ]
+    return tokens
+
+
 def render_sms_template(body, *, customer=None, lead=None):
-    """Substitute the recipient's own name into a template body.
+    """Substitute the recipient's own facts into a template body.
 
     Falls back to an empty string rather than leaving the token visible: a
     message reading "سلام {نام}" delivered verbatim is worse than one reading
     "سلام" — the reader sees a broken system either way, but only the first
     tells them so in the message itself.
     """
-    if TEMPLATE_NAME_TOKEN not in body:
+    if "{" not in body:
         return body
     holder = customer or (lead.customer if lead is not None else None)
-    name = (getattr(holder, "full_name", "") or "").strip()
-    return body.replace(TEMPLATE_NAME_TOKEN, name).strip()
+    values = {TEMPLATE_NAME_TOKEN: (getattr(holder, "full_name", "") or "").strip()}
+    from customization.services import definitions_for, display_value, enabled
+
+    if enabled():
+        from django.utils import timezone
+
+        from common.jalali import format_date
+
+        primary = None
+        if holder is not None:
+            primary = next((phone for phone in holder.phones.all() if phone.is_active and phone.is_primary), None)
+        values.update({
+            "{تلفن}": primary.raw_phone if primary else "",
+            "{شهر}": getattr(holder, "city", "") or "",
+            "{استان}": getattr(holder, "province", "") or "",
+            "{دسته‌بندی}": getattr(holder, "category", "") or "",
+            "{امروز}": format_date(timezone.localdate()),
+        })
+        stored = getattr(holder, "custom_fields", None) or {}
+        for item in definitions_for("customer"):
+            token = "{" + item.label + "}"
+            if token in values:
+                continue
+            raw = stored.get(item.key, "")
+            values[token] = format_date(raw) if item.field_type == "date" and raw else display_value(item, raw)
+    for token, value in values.items():
+        body = body.replace(token, value)
+    return body.strip()
 
 
 def create_sms_template(*, actor, title, body):

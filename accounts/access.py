@@ -107,6 +107,8 @@ ROLE_CAPABILITIES = {
         "reports.company",
         # Monthly sales targets (2.40.41): a store manager sets them.
         "sales_targets.manage",
+        # Sharing a saved list view with the team (2.40.54, `customization`).
+        "views.share",
         "sms.company",
         "tasks.company",
         "tasks.manage",
@@ -203,6 +205,8 @@ ROLE_CAPABILITIES = {
         "ledger.company",
         "reports.company",
         "sales_targets.manage",
+        # Sharing a saved list view with the team (2.40.54, `customization`).
+        "views.share",
         # How printed documents look (2.40.44, feature `print_customization`).
         "print_settings.manage",
         # This company's instalment rules (2.40.51, the advanced instalment

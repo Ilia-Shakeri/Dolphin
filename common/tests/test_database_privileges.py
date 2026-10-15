@@ -403,6 +403,7 @@ class DatabasePrivilegeContractTests(SimpleTestCase):
             "billing_installmentcharge": "SELECT, INSERT, UPDATE",
             "billing_chargesettlement": "SELECT, INSERT, UPDATE",
             "customization_customfielddefinition": "SELECT, INSERT, UPDATE",
+            "customization_savedview": "SELECT, INSERT, UPDATE, DELETE",
             "billing_invoice": "SELECT, INSERT, UPDATE",
             "billing_invoiceitem": "SELECT, INSERT, UPDATE, DELETE",
             "billing_order": "SELECT, INSERT, UPDATE",

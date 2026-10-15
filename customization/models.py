@@ -62,3 +62,37 @@ class CustomFieldDefinition(TimeStampedModel):
             models.CheckConstraint(condition=Q(key__regex=r"\Acf_[0-9]{1,6}\Z"), name="custom_field_key_shape"),
             models.CheckConstraint(condition=Q(label__regex=r"\S"), name="custom_field_label_nonblank"),
         ]
+
+
+#: A saved list view (2.40.54): which page, and the filter form as it stood.
+VIEW_NAME_MAX_LENGTH = 60
+MAX_VIEWS_PER_PAGE = 30
+
+
+class SavedView(TimeStampedModel):
+    """A list page's filters, saved under a name (2.40.54, feature
+    `customization`, owner decision 2026-10-14: «نماهای ذخیره‌شدهٔ جدول، شخصی
+    یا تیمی»).
+
+    `page` names the list (`<data-page>:<filter form id>`); `state` is the
+    filter form's fields by id, as text, applied back as they were. Personal
+    by default; `shared` shows it to everyone who opens that page, which needs
+    `views.share`. A person's own setting: it may be deleted.
+    """
+
+    page = models.CharField(max_length=110)
+    name = models.CharField(max_length=VIEW_NAME_MAX_LENGTH)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="saved_views")
+    shared = models.BooleanField(default=False)
+    state = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["page", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "page", "name"], name="uniq_saved_view_name"),
+            models.CheckConstraint(condition=Q(name__regex=r"\S"), name="saved_view_name_nonblank"),
+            models.CheckConstraint(
+                condition=Q(page__regex=r"\A[a-z0-9-]{1,40}:[a-z0-9-]{1,60}\Z"), name="saved_view_page_shape"
+            ),
+        ]
+        indexes = [models.Index(fields=["page", "shared"])]

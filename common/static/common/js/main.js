@@ -11,6 +11,7 @@ import {setupActivityDrawer, setupHelpDrawer} from "dolphin/shell/drawers.js";
 import {setupDecimalInputs} from "dolphin/core/decimal.js";
 import {setupDialogBackdropClose, setupDialogFocus, setupSheetDrag} from "dolphin/ui/dialogs.js";
 import {setupFileInputs} from "dolphin/ui/file-inputs.js";
+import {setupSavedViews} from "dolphin/shell/saved-views.js";
 import {setupSegmentedControls} from "dolphin/ui/segmented.js";
 import {setupStackedTables} from "dolphin/ui/stack-tables.js";
 import {setupRowLinks} from "dolphin/ui/table.js";
@@ -115,6 +116,8 @@ function boot() {
     // all at once rather than piece by piece (2.40.36, `#page-stage`).
     const loadPage = PAGES[page];
     const loaded = loadPage ? Promise.resolve().then(loadPage).catch(pageFailed) : Promise.resolve();
+    // Saved list views, once the page's own filters exist (2.40.54).
+    loaded.then(() => setupSavedViews(page));
     Promise.race([loaded, new Promise((resolve) => { setTimeout(resolve, REVEAL_DEADLINE_MS); })]).then(revealPage);
 }
 
