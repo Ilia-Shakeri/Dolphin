@@ -350,7 +350,7 @@ dialog {
 }
 
 .wizard-review-label {
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     font-size: 0.9rem;
     /* Never squeezed to nothing by a long value beside it, and never the
        thing that wraps first — a label is two or three words and should read

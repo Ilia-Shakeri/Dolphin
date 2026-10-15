@@ -117,7 +117,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
 }
 .dolphin-file.has-file .dolphin-file-name { color: var(--bs-gray-900); }
 

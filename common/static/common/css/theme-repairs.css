@@ -426,6 +426,50 @@ summary:focus-visible,
     --bs-text-muted: var(--bs-gray-700);
 }
 
+/* The kit's red, #F8285A, carried white text at 3.9:1 — the count on the
+   notification bell, a solid delete button — and was 3.9:1 as an error under a
+   field (owner decision 2026-10-14: «قرمز یک درجه تیره‌تر»). The same treatment
+   2.40.36 gave the blue: in light mode one red a step deeper (5.0:1 under white
+   and on a white card); in dark mode the fill a hair deeper for white text
+   (4.8:1) and a lighter red for words on the dark card (5.2:1), since one red
+   cannot do both there. Tints, hover and the focus ring follow from these. */
+:root,
+[data-bs-theme=light] {
+    --bs-danger: #D5224D;
+    --bs-danger-rgb: 213, 34, 77;
+    --bs-danger-active: #B51D41;
+    --bs-danger-clarity: rgba(213, 34, 77, 0.2);
+    --bs-text-danger: #D5224D;
+    --bs-form-invalid-color: var(--bs-text-danger);
+    --bs-form-invalid-border-color: var(--bs-danger);
+}
+[data-bs-theme=dark] {
+    --bs-danger: #DB2652;
+    --bs-danger-rgb: 219, 38, 82;
+    --bs-danger-active: #BA2046;
+    --bs-danger-clarity: rgba(219, 38, 82, 0.2);
+    --bs-text-danger: #EA577A;
+    --bs-form-invalid-color: var(--bs-text-danger);
+    --bs-form-invalid-border-color: var(--bs-danger);
+}
+
+/* Secondary words — a description under a title, a table's column headings, an
+   empty list's line — are gray-600 in the kit: 3.8:1 on a white card. Light
+   mode takes them one step darker (owner decision 2026-10-14), the step the
+   muted repair above already took; the dark theme's gray-600 reads at 4.7:1
+   on its card and keeps it. The panel's own rules read
+   `--dolphin-text-secondary` instead of the bare gray. */
+:root,
+[data-bs-theme=light] {
+    --bs-text-gray-600: var(--bs-gray-700);
+    --dolphin-text-secondary: var(--bs-gray-700);
+}
+/* `:root` above matches the dark page too, so dark mode states its own values. */
+[data-bs-theme=dark] {
+    --bs-text-gray-600: var(--bs-gray-600);
+    --dolphin-text-secondary: var(--bs-gray-600);
+}
+
 /* Primary as *text* reads `--bs-text-primary` (2.40.46). `common.color` derives
    it per theme from the accent so it reaches 4.5:1 wherever words are drawn;
    the kit's components below put the accent itself on words — a fill colour,

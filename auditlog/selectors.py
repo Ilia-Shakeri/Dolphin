@@ -17,7 +17,7 @@ def activity_logs_for(user):
             User.Role.SALES_MANAGER,
             User.Role.COMPANY_IT,
         }
-        actor_is_visible = Q(actor__isnull=True, actor_role_snapshot="") | Q(
+        actor_is_visible = Q(actor__isnull=True, actor_role_snapshot__in=("", "system")) | Q(
             actor__isnull=False,
             actor_role_snapshot__in=visible_roles,
         )

@@ -356,7 +356,7 @@
     height: 3.2rem;
     border-radius: 50%;
     background-color: var(--bs-gray-200);
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     transition: background-color var(--dolphin-dur) var(--dolphin-ease), color var(--dolphin-dur) var(--dolphin-ease), box-shadow var(--dolphin-dur) var(--dolphin-ease);
 }
 
@@ -486,7 +486,7 @@
     height: 1.85rem;
     border-radius: 50%;
     background-color: var(--bs-gray-200);
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     flex: 0 0 auto;
 }
 

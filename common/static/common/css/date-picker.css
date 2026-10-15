@@ -205,7 +205,7 @@
 .jalali-picker-time-separator {
     align-self: center;
     font-weight: 700;
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
 }
 
 /* «امروز» and «پاک‌کردن» are peers — two shortcuts, neither destructive — so

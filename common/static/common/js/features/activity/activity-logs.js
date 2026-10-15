@@ -1,4 +1,4 @@
-import {ROLE_LABELS} from "dolphin/core/config.js";
+import {activityRoleLabel} from "dolphin/core/config.js";
 import {apiDate, displayDate} from "dolphin/core/jalali.js";
 import {setupPagedList} from "dolphin/ui/lists.js";
 import {setupListFilter} from "dolphin/ui/popover.js";
@@ -9,7 +9,7 @@ function activityLogRow(item) {
     appendCell(row, item.operation_display || item.operation);
     appendCell(row, item.object_type_display || item.object_type);
     appendCell(row, item.object_id);
-    appendCell(row, ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot);
+    appendCell(row, activityRoleLabel(item.actor_role_snapshot, item.actor_role_inferred));
     appendCell(row, displayDate(item.created_at));
     appendDetailLink(row, `/activity-logs/${item.id}/`);
     return row;

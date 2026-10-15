@@ -15,7 +15,7 @@
 .activity-drawer-link:hover,
 .activity-drawer-link:focus-visible { background: var(--bs-gray-100); color: var(--bs-gray-900); }
 .activity-drawer-what { font-weight: 600; }
-.activity-drawer-meta { color: var(--bs-gray-600); font-size: 0.85rem; }
+.activity-drawer-meta { color: var(--dolphin-text-secondary); font-size: 0.85rem; }
 .help-points { padding-inline-start: 1.1rem; margin: 0; display: grid; gap: 0.6rem; color: var(--bs-gray-800); line-height: 1.8; }
 .help-topic-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .help-topic-links .btn.active { background: rgba(var(--bs-primary-rgb), 0.12); color: var(--bs-primary); }

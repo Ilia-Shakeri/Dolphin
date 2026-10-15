@@ -1,5 +1,5 @@
 import {apiRequest} from "dolphin/core/api.js";
-import {ROLE_LABELS} from "dolphin/core/config.js";
+import {ROLE_LABELS, activityRoleLabel} from "dolphin/core/config.js";
 import {displayDate} from "dolphin/core/jalali.js";
 import {showError} from "dolphin/core/messages.js";
 
@@ -13,7 +13,7 @@ export async function setupActivityLogDetail() {
         document.getElementById("activity-object-type").value = item.object_type_display || item.object_type;
         document.getElementById("activity-object-id").value = item.object_id || "";
         document.getElementById("activity-actor").value = item.actor || "";
-        document.getElementById("activity-actor-role").value = ROLE_LABELS[item.actor_role_snapshot] || item.actor_role_snapshot;
+        document.getElementById("activity-actor-role").value = activityRoleLabel(item.actor_role_snapshot, item.actor_role_inferred);
         document.getElementById("activity-object-role").value = ROLE_LABELS[item.object_role_snapshot] || item.object_role_snapshot;
         document.getElementById("activity-request-id").value = item.request_id || "";
         document.getElementById("activity-ip").value = item.ip_address || "";

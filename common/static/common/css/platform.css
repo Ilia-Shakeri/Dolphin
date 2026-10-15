@@ -144,7 +144,7 @@ body:not([data-page="login"]) .table > thead > tr > th {
     background-color: transparent !important;
 }
 body:not([data-page="login"]) .table > thead > tr > th {
-    color: var(--bs-gray-600) !important;
+    color: var(--dolphin-text-secondary) !important;
     font-size: 0.96rem !important;
     font-weight: 600 !important;
     border-bottom: 1px solid var(--bs-gray-200) !important;
@@ -333,7 +333,7 @@ tr.is-row-link:hover .btn.row-detail-link,
         min-width: 44px;
         border: 0;
         background: none;
-        color: var(--bs-gray-600);
+        color: var(--dolphin-text-secondary);
         font-size: 10.5px;
         font-weight: 600;
         text-decoration: none;
@@ -418,7 +418,7 @@ tr.is-row-link:hover .btn.row-detail-link,
     opacity: 0;
     overflow: hidden;
     padding-inline: 0.35rem;
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     font-size: 0.85rem;
     transition: max-height var(--dolphin-dur) var(--dolphin-ease), opacity var(--dolphin-dur) var(--dolphin-ease), margin var(--dolphin-dur) var(--dolphin-ease);
 }
@@ -551,5 +551,5 @@ tr.is-row-link:hover .btn.row-detail-link,
         color: var(--bs-primary);
     }
     select.form-select:not([multiple]):not([size]) option:disabled { opacity: 0.45; cursor: default; }
-    select.form-select:not([multiple]):not([size]) optgroup { padding: 0.25rem 0; color: var(--bs-gray-600); font-size: 0.9rem; font-weight: 600; }
+    select.form-select:not([multiple]):not([size]) optgroup { padding: 0.25rem 0; color: var(--dolphin-text-secondary); font-size: 0.9rem; font-weight: 600; }
 }

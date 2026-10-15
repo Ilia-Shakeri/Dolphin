@@ -5,6 +5,10 @@ from django.db import models
 class ActivityLog(models.Model):
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT, related_name="activity_logs")
     actor_role_snapshot = models.CharField(max_length=32, blank=True, db_index=True)
+    # True only on rows written before roles were recorded, whose role was
+    # filled in afterwards from the actor's role at that time of filling
+    # (`auditlog.0003`, 2.40.47) rather than captured when it happened.
+    actor_role_inferred = models.BooleanField(default=False)
     operation = models.CharField(max_length=80, db_index=True)
     object_type = models.CharField(max_length=100, db_index=True)
     object_id = models.CharField(max_length=64, db_index=True)

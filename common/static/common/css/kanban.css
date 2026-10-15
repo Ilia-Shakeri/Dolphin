@@ -252,7 +252,7 @@
 }
 #lead-board .lead-board-empty,
 #order-board .lead-board-empty {
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
 }
 
 /* The dashboard's own capability-tile grid (`home.html`) — capped to roughly

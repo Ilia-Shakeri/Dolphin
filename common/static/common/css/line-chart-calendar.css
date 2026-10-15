@@ -140,7 +140,7 @@
     /* The axis, not a heading: lighter and smaller than the grid it labels,
        and vertically centred against its own hour line rather than sitting on
        top of it. */
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     font-size: 0.8rem;
     vertical-align: middle;
     border: 0;
@@ -195,6 +195,6 @@
    reading as an eighth, unlabelled hour. */
 #lead-calendar .fc-timegrid-axis,
 #after-sales-calendar .fc-timegrid-axis {
-    color: var(--bs-gray-600);
+    color: var(--dolphin-text-secondary);
     font-size: 0.8rem;
 }

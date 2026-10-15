@@ -6,7 +6,10 @@ from common.request_context import clean_ip_address, clean_request_id, current_r
 
 _FIELD_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _MONEY = re.compile(r"^\d{1,16}(?:\.\d{1,2})?$")
-_ROLE_CODES = {"sales_agent", "sales_manager", "company_it", "platform_admin"}
+#: A role is always recorded (owner decision 2026-10-14, BIZ-012): a person's
+#: role, or `system` for what a command or a scheduled job did with no actor.
+SYSTEM_ROLE = "system"
+_ROLE_CODES = {"sales_agent", "sales_manager", "company_it", "platform_admin", SYSTEM_ROLE}
 _POSTAL_STATUS = re.compile(r"^\S(?:.{0,78}\S)?$")
 _CASE_STATUS = re.compile(r"^\S(?:.{0,78}\S)?$")
 _UNSET = object()
@@ -115,7 +118,7 @@ def log_activity(
     if ip_address is _UNSET:
         ip_address = context.ip_address
     if actor_role_snapshot is _UNSET:
-        actor_role_snapshot = getattr(actor, "role", "") if actor is not None else ""
+        actor_role_snapshot = getattr(actor, "role", "") if actor is not None else SYSTEM_ROLE
     if object_role_snapshot is _UNSET:
         object_role_snapshot = getattr(instance, "role", "") if instance._meta.label_lower == "accounts.user" else ""
     return ActivityLog.objects.create(

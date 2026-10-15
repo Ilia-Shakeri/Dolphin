@@ -89,7 +89,7 @@ SELECT (
     AND to_regclass('public.telephony_originaterequest') IS NOT NULL
     AND to_regclass('public.timeline_personnote') IS NOT NULL
     AND to_regclass('public.timeline_timelineentry') IS NOT NULL
-    -- Every migration this release ships (115), recorded.
+    -- Every migration this release ships (116), recorded.
     AND NOT EXISTS (
         SELECT 1
         FROM (
@@ -112,6 +112,7 @@ SELECT (
                 ('attachments', '0001_initial'),
                 ('auditlog', '0001_initial'),
                 ('auditlog', '0002_activitylog_role_snapshots'),
+                ('auditlog', '0003_activitylog_actor_role_inferred'),
                 ('auth', '0001_initial'),
                 ('auth', '0002_alter_permission_name_max_length'),
                 ('auth', '0003_alter_user_email_max_length'),

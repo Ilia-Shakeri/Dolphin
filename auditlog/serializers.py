@@ -35,6 +35,7 @@ class ActivityLogSerializer(serializers.ModelSerializer):
             "actor",
             "actor_display",
             "actor_role_snapshot",
+            "actor_role_inferred",
             "operation",
             "operation_display",
             "object_type",
