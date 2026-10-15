@@ -240,7 +240,7 @@ class ContextProcessorTests(PreferenceFixtures):
 
     def test_the_shell_stamps_the_unit_where_the_script_reads_it(self):
         self.assertIn('data-currency-unit="{{ panel_currency_unit', BASE_TEMPLATE)
-        self.assertIn('document.body?.dataset.currencyUnit', SCRIPT)
+        self.assertIn('document?.body?.dataset.currencyUnit', SCRIPT)
 
     def test_the_saved_theme_is_applied_before_any_stylesheet_paints(self):
         """Not after load: a dark-mode reader who has already been shown a

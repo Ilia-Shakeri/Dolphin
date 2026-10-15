@@ -63,7 +63,7 @@ class FormattingTests(SimpleTestCase):
         self.assertIn("export function displayDate(value, {gregorian = SHOWS_GREGORIAN} = {})", source)
         self.assertIn('"اکتبر"', source)
         config = (JS / "core" / "config.js").read_text(encoding="utf-8")
-        self.assertIn('document.body?.dataset.calendar === "jalali_gregorian"', config)
+        self.assertIn('document?.body?.dataset.calendar === "jalali_gregorian"', config)
         # Text that fills a field someone may edit and save stays plain Jalali.
         for path in JS.rglob("*.js"):
             text = path.read_text(encoding="utf-8")

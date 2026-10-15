@@ -166,6 +166,7 @@ def charge_interest_at_issue(*, actor, invoice, occurred_at):
     return charges
 
 
+@transaction.atomic
 def move_open_interest(*, closed_rows, new_rows):
     """A reschedule (`billing.installments.reschedule_plan`) closed `closed_rows`;
     the interest still open on them moves, unchanged in total, to `new_rows`
@@ -314,6 +315,7 @@ def waive_charge(*, actor, charge, reason=""):
     return locked
 
 
+@transaction.atomic
 def cancel_charges_with_invoice(*, actor, invoice, occurred_at):
     """Called by `cancel_invoice` before the invoice is closed. Refused while a
     receipt still settles one of its charges — the same rule as the invoice's

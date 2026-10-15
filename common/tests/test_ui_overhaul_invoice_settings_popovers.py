@@ -314,7 +314,7 @@ class BrandingPlacementTests(SimpleTestCase):
 
         administration = next(group for group in GROUPS if group.key == "administration")
         # The group is drawn only when one of its links is; branding opens none.
-        self.assertEqual([item.module for item in administration.items], ["audit", "users", "integrations"])
+        self.assertEqual([item.module for item in administration.items], ["audit", "backup-health", "users", "integrations"])
         hidden = administration.items[0].visible({"features": set(), "capabilities": set(), "can_manage_branding": True})
         self.assertFalse(hidden)
 

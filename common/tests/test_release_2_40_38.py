@@ -52,7 +52,8 @@ class DialogTests(SimpleTestCase):
         # Grey in 2.40.38; a faint red halo since 2.40.39 (product owner).
         block = CSS.split("dialog .btn.btn-icon[data-close-dialog]:not(.btn-active) {")[1].split("}")[0]
         self.assertIn("border-radius: 999px;", block)
-        self.assertIn("background-color: rgb(248 40 90 / 8%) !important;", block)
+        # From the danger token since 2.40.47 (owner decision Q21: a darker red).
+        self.assertIn("background-color: rgba(var(--bs-danger-rgb), 0.08) !important;", block)
 
     def test_a_dialog_closes_with_a_motion(self):
         self.assertIn("display 260ms allow-discrete, overlay 260ms allow-discrete", CSS)

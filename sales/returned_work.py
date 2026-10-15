@@ -44,6 +44,7 @@ CLOSED_MEMBER_STAGES = (TargetAudienceMember.Stage.CONVERTED, TargetAudienceMemb
 RESOLVE_ACTIONS = ("split", "assign")
 
 
+@transaction.atomic
 def return_work_of(*, actor, user):
     """Take `user`'s open work back to the managers. Called inside the
     transaction that deactivates them; returns `(lead_count, member_count)`."""

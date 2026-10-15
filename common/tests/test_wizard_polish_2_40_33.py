@@ -47,7 +47,7 @@ class WizardChromeTests(SimpleTestCase):
         # after the design review); it still has to beat the kit's own
         # `!important` hover background.
         self.assertIn("dialog .btn.btn-icon[data-close-dialog]:not(.btn-active):hover", CSS)
-        self.assertIn("background-color: rgb(248 40 90 / 14%) !important;", CSS)
+        self.assertIn("background-color: rgba(var(--bs-danger-rgb), 0.14) !important;", CSS)
 
 
 class TrashTests(SimpleTestCase):
